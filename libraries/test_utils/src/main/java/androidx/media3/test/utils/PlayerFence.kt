@@ -78,6 +78,41 @@ suspend fun Player.awaitPlaybackState(
 }
 
 /**
+ * Suspends until [Player.Listener.onRenderedFirstFrame] is invoked.
+ *
+ * This should be called before the callback has been invoked (e.g. before calling
+ * [Player.prepare]), otherwise it risks awaiting forever.
+ *
+ * Must be called on the player's application looper thread.
+ */
+@UnstableApi
+suspend fun Player.awaitFirstFrameRendered(failOnNonFatalErrors: Boolean = true) {
+  check(Looper.myLooper() == applicationLooper) {
+    "awaitFirstFrameRendered must be called on the player's application looper thread"
+  }
+  playerError?.let { throw it }
+
+  val renderedFirstFrame = CompletableDeferred<Unit>()
+  val playerListener =
+    object : ErrorFailingPlayerListener(renderedFirstFrame) {
+      override fun onRenderedFirstFrame() {
+        renderedFirstFrame.complete(Unit)
+      }
+    }
+  addListener(playerListener)
+  val analyticsListener =
+    maybeAddAnalyticsListener(failOnNonFatalErrors) {
+      NonFatalFailingAnalyticsListener(renderedFirstFrame)
+    }
+  try {
+    renderedFirstFrame.await()
+  } finally {
+    removeListener(playerListener)
+    maybeRemoveAnalyticsListener(analyticsListener)
+  }
+}
+
+/**
  * A Java-compatible fluent API for waiting for certain [Player] conditions.
  *
  * Kotlin users should strongly prefer directly calling the suspending [Player] extension functions
@@ -107,6 +142,15 @@ private constructor(private val player: Player, private val failOnNonFatalErrors
    */
   fun entersPlaybackState(targetState: @Player.State Int): ListenableFuture<Void?> = createFuture {
     player.awaitPlaybackState(targetState, failOnNonFatalErrors)
+  }
+
+  /**
+   * Returns a future that completes when [Player.Listener.onRenderedFirstFrame] is invoked.
+   *
+   * Must be called on the player's application looper thread.
+   */
+  fun rendersFirstFrame(): ListenableFuture<Void?> = createFuture {
+    player.awaitFirstFrameRendered(failOnNonFatalErrors)
   }
 
   private fun createFuture(block: suspend () -> Unit): ListenableFuture<Void?> {

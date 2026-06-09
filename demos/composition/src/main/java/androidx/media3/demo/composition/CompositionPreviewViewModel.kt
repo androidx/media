@@ -21,6 +21,7 @@ import android.os.Build.VERSION.SDK_INT
 import android.os.SystemClock
 import android.provider.OpenableColumns
 import android.view.SurfaceView
+import androidx.annotation.GuardedBy
 import androidx.annotation.OptIn
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -116,6 +117,9 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   private var outputFile: File? = null
   private var preparedComposition: Composition? = null
   private var playerPrepared: Boolean = false
+  private val fpsLock = Any()
+  @GuardedBy("fpsLock")
+  private val frameRateCalculator = FrameRateCalculator(windowDurationMs = FPS_TRACKING_DURATION_MS)
   private var exportStopwatch: Stopwatch =
     Stopwatch.createUnstarted(
       object : Ticker() {
@@ -713,6 +717,15 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     Log.i(TAG, "Export started")
   }
 
+  /** Cancels any ongoing export operation, and deletes output file contents. */
+  fun cancelExport() {
+    transformer?.cancel()
+    transformer = null
+    outputFile?.delete()
+    outputFile = null
+    _uiState.update { it.copy(exportState = ExportState()) }
+  }
+
   private fun prepareComposition(): Composition {
     val settings = uiState.value.outputSettingsState
     var compositionHasVideo = false
@@ -916,8 +929,32 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
           }
           Log.e(TAG, "Preview error", error)
         }
+
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+          if (!isPlaying) {
+            _uiState.update { it.copy(currentFps = null) }
+          }
+          synchronized(fpsLock) { frameRateCalculator.reset() }
+        }
+
+        override fun onPositionDiscontinuity(
+          oldPosition: Player.PositionInfo,
+          newPosition: Player.PositionInfo,
+          reason: Int,
+        ) {
+          if (reason == Player.DISCONTINUITY_REASON_SEEK) {
+            _uiState.update { it.copy(currentFps = null) }
+            synchronized(fpsLock) { frameRateCalculator.reset() }
+          }
+        }
       }
     )
+    player.setVideoFrameMetadataListener { presentationTimeUs, releaseTimeNs, format, mediaFormat ->
+      val fps = synchronized(fpsLock) { frameRateCalculator.registerFrameAndGetFps() }
+      if (fps != null) {
+        _uiState.update { it.copy(currentFps = fps) }
+      }
+    }
     return player
   }
 
@@ -926,15 +963,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     compositionPlayer.release()
     compositionPlayer = createCompositionPlayer()
     playerPrepared = false
-  }
-
-  /** Cancels any ongoing export operation, and deletes output file contents. */
-  private fun cancelExport() {
-    transformer?.apply { cancel() }
-    transformer = null
-    outputFile?.apply { delete() }
-    outputFile = null
-    _uiState.update { it.copy(exportState = ExportState()) }
   }
 
   /**
@@ -960,6 +988,9 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     private const val TAG = "CompPreviewVM"
     private const val AUDIO_URI = "https://storage.googleapis.com/exoplayer-test-media-0/play.mp3"
     private const val DEFAULT_FRAME_RATE_FPS = 30
+    // A 3-second moving average window (rather than 1s) is used to smooth out micro-stutters
+    // and provide a stable, readable real-time playback FPS value in the UI.
+    private const val FPS_TRACKING_DURATION_MS = 3000L
     private const val DEFAULT_IMAGE_DURATION_US = 1_000_000L
     val MEDIA_TYPES = arrayOf("video/*", "image/*", "audio/*")
     val HDR_MODE_DESCRIPTIONS =

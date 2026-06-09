@@ -296,6 +296,7 @@ public final class Mp3Extractor implements Extractor {
     }
     if (seeker == null) {
       seeker = computeSeeker(input);
+      realTrackOutput.durationUs(seeker.getDurationUs());
       extractorOutput.seekMap(seeker);
       Metadata metadata;
       if (id3Metadata != null && (flags & FLAG_DISABLE_ID3_METADATA) == 0) {
@@ -486,7 +487,6 @@ public final class Mp3Extractor implements Extractor {
     }
   }
 
-  @RequiresNonNull("realTrackOutput")
   private Seeker computeSeeker(ExtractorInput input) throws IOException {
     // Read past any seek frame and set the seeker based on metadata or a seek frame. Metadata
     // takes priority as it can provide greater precision.
@@ -497,76 +497,65 @@ public final class Mp3Extractor implements Extractor {
       return new UnseekableSeeker();
     }
 
-    @Nullable Seeker resultSeeker = null;
+    Seeker resultSeeker;
     if (metadataSeeker != null) {
       resultSeeker = metadataSeeker;
     } else if (seekFrameSeeker != null) {
       resultSeeker = seekFrameSeeker;
-    }
-
-    if (resultSeeker == null) {
-      // We must assume the file is CBR as we found no seek or VBR info.
-      resultSeeker =
-          getConstantBitrateSeeker(
-              input, (flags & FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS) != 0);
+    } else {
+      resultSeeker = getConstantBitrateSeeker(input);
     }
 
     if ((flags & FLAG_ENABLE_INDEX_SEEKING) != 0 && !resultSeeker.isSeekable()) {
-      resultSeeker =
-          new IndexSeeker(
-              resultSeeker.getDurationUs(),
-              /* dataStartPosition= */ input.getPosition(),
-              resultSeeker.getDataEndPosition());
+      return new IndexSeeker(
+          resultSeeker.getDurationUs(),
+          /* dataStartPosition= */ input.getPosition(),
+          resultSeeker.getDataEndPosition());
     }
 
-    if (shouldFallbackToConstantBitrateSeeking(resultSeeker)
-        && resultSeeker.getDurationUs() != C.TIME_UNSET
-        && (resultSeeker.getDataEndPosition() != C.INDEX_UNSET
-            || input.getLength() != C.LENGTH_UNSET)) {
-      // resultSeeker does not allow seeking, but does provide a duration and constant bitrate
-      // seeking has been requested, so we can do 'enhanced' CBR seeking using this duration info.
-      long dataStart =
-          resultSeeker.getDataStartPosition() != C.INDEX_UNSET
-              ? resultSeeker.getDataStartPosition()
-              : 0;
-      long inputLength =
-          resultSeeker.getDataEndPosition() != C.INDEX_UNSET
-              ? resultSeeker.getDataEndPosition()
-              : input.getLength();
-      long audioLength = inputLength - dataStart;
-      int bitrate =
-          Ints.saturatedCast(
-              Util.scaleLargeValue(
-                  audioLength,
-                  Byte.SIZE * C.MICROS_PER_SECOND,
-                  resultSeeker.getDurationUs(),
-                  RoundingMode.HALF_UP));
-      // inputLength will never be LENGTH_UNSET because of the outer if-condition, so we can pass
-      // (vacuously) false here for allowSeeksIfLengthUnknown.
-      resultSeeker =
-          new ConstantBitrateSeeker(
-              inputLength,
-              dataStart,
-              bitrate,
-              C.LENGTH_UNSET,
-              /* allowSeeksIfLengthUnknown= */ false);
-    } else if (shouldFallbackToConstantBitrateSeeking(resultSeeker)) {
-      // Either we found no seek or VBR info, so we must assume the file is CBR (even without the
-      // flag(s) being set), or an 'enable CBR seeking flag' is set and we found some seek info, but
-      // not enough to do 'enhanced' CBR seeking with. In either case, we fall back to CBR seeking
-      // without any additional info from the file.
-      resultSeeker =
-          getConstantBitrateSeeker(
-              input, (flags & FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS) != 0);
+    if (resultSeeker instanceof ConstantBitrateSeeker) {
+      return resultSeeker;
     }
-    realTrackOutput.durationUs(resultSeeker.getDurationUs());
-    return resultSeeker;
+
+    if (!shouldFallbackToConstantBitrateSeeking(resultSeeker)) {
+      return resultSeeker;
+    }
+
+    long inputLength =
+        resultSeeker.getDataEndPosition() != C.INDEX_UNSET
+            ? resultSeeker.getDataEndPosition()
+            : input.getLength();
+    if (resultSeeker.getDurationUs() == C.TIME_UNSET || inputLength == C.LENGTH_UNSET) {
+      // resultSeeker doesn't provide enough info to do 'enhanced' CBR seeking, so we just do
+      // normal CBR seeking without any additional info from the file.
+      return getConstantBitrateSeeker(input);
+    }
+    // resultSeeker provides a duration and we know the input length, and CBR seeking has been
+    // requested, so we can do 'enhanced' CBR seeking using this info.
+    long dataStart =
+        resultSeeker.getDataStartPosition() != C.INDEX_UNSET
+            ? resultSeeker.getDataStartPosition()
+            : 0;
+    long audioLength = inputLength - dataStart;
+    int bitrate =
+        Ints.saturatedCast(
+            Util.scaleLargeValue(
+                audioLength,
+                Byte.SIZE * C.MICROS_PER_SECOND,
+                resultSeeker.getDurationUs(),
+                RoundingMode.HALF_UP));
+    // inputLength will never be LENGTH_UNSET because of the if-condition above, so we can
+    // pass (vacuously) false here for allowSeeksIfLengthUnknown.
+    return new ConstantBitrateSeeker(
+        inputLength,
+        dataStart,
+        bitrate,
+        /* frameSize= */ C.LENGTH_UNSET,
+        /* allowSeeksIfLengthUnknown= */ false);
   }
 
   private boolean shouldFallbackToConstantBitrateSeeking(Seeker seeker) {
-    return !seeker.isSeekable()
-        && !(seeker instanceof ConstantBitrateSeeker)
-        && (flags & FLAG_ENABLE_CONSTANT_BITRATE_SEEKING) != 0;
+    return !seeker.isSeekable() && (flags & FLAG_ENABLE_CONSTANT_BITRATE_SEEKING) != 0;
   }
 
   /**
@@ -627,13 +616,16 @@ public final class Mp3Extractor implements Extractor {
   }
 
   /** Peeks the next frame and returns a {@link ConstantBitrateSeeker} based on its bitrate. */
-  private Seeker getConstantBitrateSeeker(ExtractorInput input, boolean allowSeeksIfLengthUnknown)
-      throws IOException {
+  private Seeker getConstantBitrateSeeker(ExtractorInput input) throws IOException {
     input.peekFully(scratch.getData(), 0, 4);
     scratch.setPosition(0);
     synchronizedHeader.setForHeaderData(scratch.readInt());
     return new ConstantBitrateSeeker(
-        input.getLength(), input.getPosition(), synchronizedHeader, allowSeeksIfLengthUnknown);
+        input.getLength(),
+        input.getPosition(),
+        synchronizedHeader,
+        /* allowSeeksIfLengthUnknown= */ (flags & FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS)
+            != 0);
   }
 
   /**

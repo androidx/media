@@ -22,10 +22,12 @@ import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterrup
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.assertThrows;
 
+import android.graphics.SurfaceTexture;
 import android.os.ConditionVariable;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
+import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
@@ -48,6 +50,7 @@ public final class PlayerFenceJavaTest {
 
   private static final MediaItem SHORT_MP3_ITEM =
       MediaItem.fromUri("asset:///media/mp3/play-trimmed.mp3");
+  private static final MediaItem MP4_ITEM = MediaItem.fromUri("asset:///media/mp4/sample.mp4");
 
   @Nullable private Player player;
 
@@ -157,7 +160,37 @@ public final class PlayerFenceJavaTest {
     assertThrows(
         IllegalStateException.class,
         () -> futureWhen(player).entersPlaybackState(Player.STATE_READY));
+  }
 
-    getInstrumentation().runOnMainSync(() -> {});
+  @Test
+  public void rendersFirstFrame() throws Exception {
+    AtomicReference<Surface> surface = new AtomicReference<>();
+    AtomicReference<SurfaceTexture> surfaceTexture = new AtomicReference<>();
+    SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player =
+                  new ExoPlayer.Builder(getInstrumentation().getContext().getApplicationContext())
+                      .build();
+              firstFrameRenderedFuture.setFuture(futureWhen(player).rendersFirstFrame());
+
+              surfaceTexture.set(new SurfaceTexture(10));
+              surface.set(new Surface(surfaceTexture.get()));
+              player.setVideoSurface(surface.get());
+              player.setMediaItem(MP4_ITEM);
+              player.prepare();
+              player.play();
+            });
+
+    firstFrameRenderedFuture.get();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.clearVideoSurface();
+              surface.get().release();
+              surfaceTexture.get().release();
+            });
   }
 }

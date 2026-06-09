@@ -225,6 +225,13 @@ import java.util.List;
   }
 
   @Override
+  public void setUsesStreamPrerollFlags() {
+    for (MediaPeriod period : periods) {
+      period.setUsesStreamPrerollFlags();
+    }
+  }
+
+  @Override
   public long readDiscontinuity() {
     long discontinuityUs = C.TIME_UNSET;
     for (MediaPeriod period : enabledPeriods) {

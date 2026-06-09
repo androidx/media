@@ -1322,14 +1322,20 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
       @State int state = getState();
       @Nullable MediaCodecAdapter codec = getCodec();
-      if (codec != null && videoSink == null) {
-        MediaCodecInfo codecInfo = checkNotNull(getCodecInfo());
-        boolean canUpdateSurface = hasSurfaceForCodec(codecInfo);
-        if (canUpdateSurface && !codecNeedsSetOutputSurfaceWorkaround) {
-          setOutputSurface(codec, getSurfaceForCodec(codecInfo));
+      boolean surfaceReplacedSeamlessly = false;
+      if (codec != null) {
+        if (videoSink == null) {
+          MediaCodecInfo codecInfo = checkNotNull(getCodecInfo());
+          boolean canUpdateSurface = hasSurfaceForCodec(codecInfo);
+          if (canUpdateSurface && !codecNeedsSetOutputSurfaceWorkaround) {
+            setOutputSurface(codec, getSurfaceForCodec(codecInfo));
+            surfaceReplacedSeamlessly = true;
+          } else {
+            releaseCodec();
+            maybeInitCodecOrBypass();
+          }
         } else {
-          releaseCodec();
-          maybeInitCodecOrBypass();
+          surfaceReplacedSeamlessly = true;
         }
       }
       if (displaySurface != null) {
@@ -1344,13 +1350,14 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       }
       if (state == STATE_STARTED) {
         // We want to "join" playback to prevent an intermediate buffering state in the player
-        // before we rendered the new first frame. Since there is no reason to believe the next
-        // frame is delayed and the renderer needs to catch up, we still request to render the
-        // next frame as soon as possible.
+        // before we rendered the new first frame. If the surface was replaced seamlessly,
+        // there is no reason to believe the next frame is delayed and the renderer needs to
+        // catch up, so we still request to render the next frame as soon as possible.
+        boolean renderNextFrameImmediately = surfaceReplacedSeamlessly;
         if (videoSink != null) {
-          videoSink.join(/* renderNextFrameImmediately= */ true);
+          videoSink.join(renderNextFrameImmediately);
         } else {
-          videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ true);
+          videoFrameReleaseControl.join(renderNextFrameImmediately);
         }
       }
       maybeSetupTunnelingForFirstFrame();
@@ -1801,14 +1808,14 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       // Make sure to decode and render the last frame.
       return false;
     }
-    boolean shouldSkipDecoderInputBuffer = isBufferBeforeStartTime(buffer);
+    boolean isBufferBeforeStartTime = isBufferBeforeStartTime(buffer);
     boolean shouldDropDecoderInputBuffer = false;
     if (videoFrameReleaseEarlyTimeForecaster != null) {
       long predictedEarlyUs = videoFrameReleaseEarlyTimeForecaster.predictEarlyUs(buffer.timeUs);
       shouldDropDecoderInputBuffer =
           predictedEarlyUs != C.TIME_UNSET && predictedEarlyUs < minEarlyUsToDropDecoderInput;
     }
-    if (!shouldSkipDecoderInputBuffer && !shouldDropDecoderInputBuffer) {
+    if (!isBufferBeforeStartTime && !shouldDropDecoderInputBuffer) {
       return false;
     }
     if (buffer.hasSupplementalData()) {
@@ -1822,7 +1829,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         && checkNotNull(getCodecInfo()).mimeType.equals(MimeTypes.VIDEO_AV1)
         && buffer.data != null) {
       boolean skipFrameHeaders =
-          shouldSkipDecoderInputBuffer
+          isBufferBeforeStartTime
               || consecutiveDroppedInputBufferCount
                   <= MAX_CONSECUTIVE_DROPPED_INPUT_BUFFERS_COUNT_TO_DISCARD_HEADER;
       ByteBuffer readOnlySample = buffer.data.asReadOnlyBuffer();
@@ -1845,9 +1852,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       }
     }
     if (bufferDiscarded) {
-      if (shouldSkipDecoderInputBuffer) {
-        decoderCounters.skippedInputBufferCount += 1;
-      } else {
+      if (!isBufferBeforeStartTime) {
         consecutiveDroppedInputBufferCount += 1;
       }
       discardedDecoderInputBufferTimestamps.add(buffer.timeUs);
@@ -2288,20 +2293,27 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       Log.d(DEBUG_LOG_TAG, "video, discard input to keyframe, count=" + droppedSourceBufferCount);
     }
     int droppedInQueue = 0;
+    int skippedInQueue = 0;
+    boolean isJoining = videoFrameReleaseControl.isJoining();
     for (long timeUs : discardedDecoderInputBufferTimestamps) {
-      if (timeUs >= getLastResetPositionUs()) {
+      if (timeUs >= getLastResetPositionUs() && !isJoining) {
         droppedInQueue++;
+      } else {
+        skippedInQueue++;
       }
     }
+    discardedDecoderInputBufferTimestamps.clear();
     if (treatDroppedBuffersAsSkipped) {
       decoderCounters.skippedInputBufferCount += droppedSourceBufferCount;
       decoderCounters.skippedOutputBufferCount += buffersInCodecCount;
       decoderCounters.skippedInputBufferCount += droppedInQueue;
+      decoderCounters.skippedInputBufferCount += skippedInQueue;
     } else {
       decoderCounters.droppedToKeyframeCount++;
       updateDroppedBufferCounters(
           /* droppedInputBufferCount= */ droppedSourceBufferCount + droppedInQueue,
           /* droppedDecoderBufferCount= */ buffersInCodecCount);
+      decoderCounters.skippedInputBufferCount += skippedInQueue;
     }
     flushOrReinitializeCodec();
     if (videoSink != null) {
@@ -2340,16 +2352,21 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    */
   private void updateDiscardedBufferCountersWithInputBuffers(long bufferPresentationTimeUs) {
     int droppedInputBufferCount = 0;
+    int skippedInputBufferCount = 0;
     Long minDiscardedDecoderBufferTimeUs;
+    boolean isJoining = videoFrameReleaseControl.isJoining();
     while ((minDiscardedDecoderBufferTimeUs = discardedDecoderInputBufferTimestamps.peek()) != null
         && minDiscardedDecoderBufferTimeUs < bufferPresentationTimeUs) {
       discardedDecoderInputBufferTimestamps.poll();
       frameRateEstimator.onNextFrame(minDiscardedDecoderBufferTimeUs * 1000);
-      if (minDiscardedDecoderBufferTimeUs >= getLastResetPositionUs()) {
+      if (minDiscardedDecoderBufferTimeUs >= getLastResetPositionUs() && !isJoining) {
         droppedInputBufferCount++;
+      } else {
+        skippedInputBufferCount++;
       }
     }
     updateDroppedBufferCounters(droppedInputBufferCount, /* droppedDecoderBufferCount= */ 0);
+    decoderCounters.skippedInputBufferCount += skippedInputBufferCount;
   }
 
   /**

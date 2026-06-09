@@ -121,6 +121,7 @@ import java.util.regex.Pattern;
   private int periodIndex;
   private List<EventStream> eventStreams;
   private boolean canReportInitialDiscontinuity;
+  private boolean usesStreamPrerollFlags;
   private long initialStartTimeUs;
   private long endPositionUs;
   private boolean readingSuppressedWaitingForInitialDiscontinuity;
@@ -305,6 +306,9 @@ import java.util.regex.Pattern;
         @SuppressWarnings("unchecked")
         ChunkSampleStream<DashChunkSource> stream =
             (ChunkSampleStream<DashChunkSource>) sampleStream;
+        if (usesStreamPrerollFlags) {
+          stream.setUsesStreamPrerollFlags();
+        }
         sampleStreamList.add(stream);
       } else if (sampleStream instanceof EventSampleStream) {
         eventSampleStreamList.add((EventSampleStream) sampleStream);
@@ -322,7 +326,7 @@ import java.util.regex.Pattern;
     if (canReportInitialDiscontinuity) {
       canReportInitialDiscontinuity = false;
       initialStartTimeUs = positionUs;
-      if (mayHaveAnyStreamWithPendingInitialDiscontinuity()) {
+      if (!usesStreamPrerollFlags && mayHaveAnyStreamWithPendingInitialDiscontinuity()) {
         setSuppressReadOnAllStreams(true);
       }
     }
@@ -360,6 +364,11 @@ import java.util.regex.Pattern;
   @Override
   public long getNextLoadPositionUs() {
     return compositeSequenceableLoader.getNextLoadPositionUs();
+  }
+
+  @Override
+  public void setUsesStreamPrerollFlags() {
+    this.usesStreamPrerollFlags = true;
   }
 
   @Override

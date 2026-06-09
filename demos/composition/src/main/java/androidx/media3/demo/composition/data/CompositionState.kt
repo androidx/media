@@ -28,6 +28,7 @@ import androidx.media3.common.util.UnstableApi
  * @param sequenceTrackTypes The list of track types for each sequence.
  * @param snackbarMessage A message to be shown in the snackbar.
  * @param isDebugTracingEnabled Whether debug tracing for media transformations is enabled.
+ * @param currentFps The current playing FPS, or null if it shouldn't be displayed.
  * @param mediaState The state for media items and their effects.
  * @param outputSettingsState The state for all output settings.
  * @param exportState The state for the current export process.
@@ -40,6 +41,7 @@ data class CompositionPreviewState(
   val sequenceTrackTypes: List<Set<Int>> = emptyList(),
   val snackbarMessage: String? = null,
   val isDebugTracingEnabled: Boolean = false,
+  val currentFps: Float? = null,
   val mediaState: MediaState,
   val outputSettingsState: OutputSettingsState,
   val exportState: ExportState,

@@ -15,29 +15,21 @@
  */
 package androidx.media3.transformer;
 
-import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Util.isRunningOnEmulator;
-import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmapUnpremultipliedAlpha;
+import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
 import static androidx.media3.test.utils.VideoFrameProcessorTestRunner.VIDEO_FRAME_PROCESSING_WAIT_MS;
 import static androidx.media3.test.utils.VideoFrameProcessorTestRunner.createTimestampIterator;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 import static java.lang.Math.max;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Typeface;
-import android.text.Spannable;
-import android.text.SpannableString;
-import android.text.style.AbsoluteSizeSpan;
-import android.text.style.BackgroundColorSpan;
-import android.text.style.ForegroundColorSpan;
-import android.text.style.StyleSpan;
-import android.text.style.TypefaceSpan;
+import android.graphics.Paint;
+import android.graphics.PorterDuff;
 import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -52,6 +44,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.AlphaScale;
+import androidx.media3.effect.CanvasOverlay;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoCompositor;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
@@ -60,7 +53,6 @@ import androidx.media3.effect.Presentation;
 import androidx.media3.effect.RgbFilter;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.StaticOverlaySettings;
-import androidx.media3.effect.TextOverlay;
 import androidx.media3.effect.VideoCompositor;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.media3.test.utils.TextureBitmapReader;
@@ -89,16 +81,14 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public final class DefaultVideoCompositorPixelTest {
 
-  // Golden images were generated on an API 33 emulator. API 26 emulators have a different text
-  // rendering implementation that leads to a larger pixel difference.
-  public static final float MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_WITH_TEXT_OVERLAY =
-      isRunningOnEmulator() && SDK_INT <= 26 ? 2.5f : MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE;
-
   @Rule public final TestName testName = new TestName();
 
   private static final String TAG = "DVCompositorPixelTest";
   private static final String ORIGINAL_PNG_ASSET_PATH = "media/png/media3test_srgb.png";
   private static final String TEST_DIRECTORY = "test-generated-goldens/CompositorTestTimestamps/";
+  private static final double PSNR_THRESHOLD_LOCAL = 32.0;
+  private static final float INPUT_ID_BAR_HEIGHT_FRACTION = 0.1f;
+  private static final float TIMESTAMP_BAR_TOP_FRACTION = 0.9f;
   private static final ImmutableList<ImmutableList<Effect>> TWO_INPUT_COMPOSITOR_EFFECT_LISTS =
       ImmutableList.of(
           ImmutableList.of(RgbFilter.createGrayscaleFilter(), new AlphaScale(0.7f)),
@@ -638,7 +628,7 @@ public final class DefaultVideoCompositorPixelTest {
      * @param inputEffectLists {@link Effect}s to apply for {@link VideoCompositor} input sources.
      *     The size of this outer {@link List} is the amount of inputs. One inner list of {@link
      *     Effect}s is used for each input. For each input, the frame timestamp and {@code inputId}
-     *     are overlaid via {@link TextOverlay} prior to its effects being applied.
+     *     are overlaid via {@link CanvasOverlay} prior to its effects being applied.
      */
     public VideoCompositorTestRunner(
         String testId, ImmutableList<ImmutableList<Effect>> inputEffectLists)
@@ -653,7 +643,7 @@ public final class DefaultVideoCompositorPixelTest {
      * @param inputEffectLists {@link Effect}s to apply for {@link VideoCompositor} input sources.
      *     The size of this outer {@link List} is the amount of inputs. One inner list of {@link
      *     Effect}s is used for each input. For each input, the frame timestamp and {@code inputId}
-     *     are overlaid via {@link TextOverlay} prior to its effects being applied.
+     *     are overlaid via {@link CanvasOverlay} prior to its effects being applied.
      * @param videoCompositorSettings The {@link VideoCompositorSettings}.
      */
     public VideoCompositorTestRunner(
@@ -869,61 +859,53 @@ public final class DefaultVideoCompositorPixelTest {
   private static OverlayEffect createTimestampOverlayEffect(int inputId) {
     return new OverlayEffect(
         ImmutableList.of(
-            new TextOverlay() {
-              @Override
-              public SpannableString getText(long presentationTimeUs) {
-                assertThat(presentationTimeUs % C.MICROS_PER_SECOND).isEqualTo(0);
-                String secondsString = String.valueOf(presentationTimeUs / C.MICROS_PER_SECOND);
-                String timeString = secondsString + "s";
-                SpannableString text = new SpannableString("In " + inputId + ", " + timeString);
+            new CanvasOverlay(/* useInputFrameSize= */ true) {
+              private final Paint inputPaint;
+              private final Paint timePaint;
 
-                // Following font styles are applied for consistent text rendering between devices.
-                text.setSpan(
-                    new ForegroundColorSpan(Color.BLACK),
-                    /* start= */ 0,
-                    text.length(),
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                text.setSpan(
-                    new AbsoluteSizeSpan(/* size= */ 20),
-                    /* start= */ 0,
-                    text.length(),
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                text.setSpan(
-                    new TypefaceSpan(/* family= */ "sans-serif"),
-                    /* start= */ 0,
-                    text.length(),
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-
-                // Following font styles increase pixel difference for the text it's applied on when
-                // this text changes, but also may be implemented differently on different devices
-                // or emulators, providing extraneous pixel differences. Only apply these styles to
-                // the values we expect to change in the event of a failing test. Namely, only apply
-                // these styles to the timestamp.
-                int timestampStart = text.length() - timeString.length();
-                int timestampEnd = timestampStart + secondsString.length();
-                text.setSpan(
-                    new BackgroundColorSpan(Color.WHITE),
-                    timestampStart,
-                    timestampEnd,
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                text.setSpan(
-                    new StyleSpan(Typeface.BOLD),
-                    timestampStart,
-                    timestampEnd,
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                text.setSpan(
-                    new AbsoluteSizeSpan(/* size= */ 42),
-                    timestampStart,
-                    timestampEnd,
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                return text;
+              {
+                inputPaint = new Paint();
+                inputPaint.setStyle(Paint.Style.FILL);
+                switch (inputId) {
+                  case 0:
+                    inputPaint.setColor(Color.RED);
+                    break;
+                  case 1:
+                    inputPaint.setColor(Color.GREEN);
+                    break;
+                  case 2:
+                    inputPaint.setColor(Color.BLUE);
+                    break;
+                  default:
+                    inputPaint.setColor(Color.YELLOW);
+                    break;
+                }
+                timePaint = new Paint();
+                timePaint.setStyle(Paint.Style.FILL);
+                timePaint.setColor(Color.WHITE);
               }
 
               @Override
-              public OverlaySettings getOverlaySettings(long presentationTimeUs) {
-                return new StaticOverlaySettings.Builder()
-                    .setBackgroundFrameAnchor(/* x= */ 0f, /* y= */ 0.5f)
-                    .build();
+              public void onDraw(Canvas canvas, long presentationTimeUs) {
+                canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+
+                int width = canvas.getWidth();
+                int height = canvas.getHeight();
+
+                // Draw Input ID indicator: A colored rectangle at the top.
+                canvas.drawRect(0, 0, width, height * INPUT_ID_BAR_HEIGHT_FRACTION, inputPaint);
+
+                // Draw Timestamp indicator: A white bar at the bottom whose width increases with
+                // time.
+                long seconds = presentationTimeUs / C.MICROS_PER_SECOND;
+
+                // Max 10 seconds for progress bar
+                float progress = (seconds % 10) / 10f;
+                if (progress == 0 && seconds > 0) {
+                  progress = 1.0f;
+                }
+                canvas.drawRect(
+                    0, height * TIMESTAMP_BAR_TOP_FRACTION, width * progress, height, timePaint);
               }
             }));
   }
@@ -932,11 +914,7 @@ public final class DefaultVideoCompositorPixelTest {
       String testId, Bitmap actualBitmap, String actualBitmapLabel, String expectedBitmapAssetPath)
       throws IOException {
     maybeSaveTestBitmap(testId, actualBitmapLabel, actualBitmap, /* path= */ null);
-    float averagePixelAbsoluteDifference =
-        BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
-            readBitmapUnpremultipliedAlpha(expectedBitmapAssetPath), actualBitmap, testId);
-    assertWithMessage("Pixel difference for bitmapLabel = " + actualBitmapLabel)
-        .that(averagePixelAbsoluteDifference)
-        .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_WITH_TEXT_OVERLAY);
+    Bitmap expectedBitmap = readBitmapUnpremultipliedAlpha(expectedBitmapAssetPath);
+    assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD_LOCAL);
   }
 }

@@ -62,6 +62,7 @@ public class TestExoPlayerBuilder {
   private boolean suppressPlaybackWhenUnsuitableOutput;
   @Nullable private ExoPlayer.PreloadConfiguration preloadConfiguration;
   private boolean dynamicSchedulingEnabled;
+  private boolean perStreamMediaProgressionEnabled;
   private int stuckPlayingDetectionTimeoutMs;
   private int stuckSuppressedDetectionTimeoutMs;
   private boolean enforceAdPlaybackOnTimelineRefresh;
@@ -431,6 +432,19 @@ public class TestExoPlayerBuilder {
     return this;
   }
 
+  /**
+   * See {@link ExoPlayer.Builder#enablePerStreamMediaProgression} for details.
+   *
+   * @param perStreamMediaProgressionEnabled Whether to enable per stream media period progression.
+   * @return This builder.
+   */
+  @CanIgnoreReturnValue // TODO: b/510217604 - Remove this method.
+  public TestExoPlayerBuilder setPerStreamMediaProgressionEnabled(
+      boolean perStreamMediaProgressionEnabled) {
+    this.perStreamMediaProgressionEnabled = perStreamMediaProgressionEnabled;
+    return this;
+  }
+
   /** Builds an {@link ExoPlayer} using the provided values or their defaults. */
   public ExoPlayer build() {
     checkNotNull(
@@ -473,7 +487,8 @@ public class TestExoPlayerBuilder {
             .experimentalSetDynamicSchedulingEnabled(dynamicSchedulingEnabled)
             .setStuckPlayingDetectionTimeoutMs(stuckPlayingDetectionTimeoutMs)
             .setStuckSuppressedDetectionTimeoutMs(stuckSuppressedDetectionTimeoutMs)
-            .setEnforceAdPlaybackOnTimelineRefresh(enforceAdPlaybackOnTimelineRefresh);
+            .setEnforceAdPlaybackOnTimelineRefresh(enforceAdPlaybackOnTimelineRefresh)
+            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled);
     if (suitableOutputChecker != null) {
       builder.setSuitableOutputChecker(suitableOutputChecker);
     }

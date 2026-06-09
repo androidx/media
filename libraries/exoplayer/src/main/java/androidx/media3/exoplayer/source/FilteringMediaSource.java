@@ -133,6 +133,11 @@ public class FilteringMediaSource extends WrappingMediaSource {
     }
 
     @Override
+    public void setUsesStreamPrerollFlags() {
+      mediaPeriod.setUsesStreamPrerollFlags();
+    }
+
+    @Override
     public long readDiscontinuity() {
       return mediaPeriod.readDiscontinuity();
     }

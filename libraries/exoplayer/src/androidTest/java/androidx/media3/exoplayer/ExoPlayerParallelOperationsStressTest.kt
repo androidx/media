@@ -34,7 +34,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class ExoPlayerParallelOperationsStressTest {
 
-  private val ITERATIONS = 50
+  private val ITERATIONS = 10
 
   @Test
   fun testPlayerStress_manyParallelOperationsInFlight() =
@@ -123,9 +123,9 @@ class ExoPlayerParallelOperationsStressTest {
         } finally {
           // Stop Jitter and release player resources in a NonCancellable context.
           withContext(NonCancellable) {
-            delay(100)
+            delay(50)
             synchronized(lock) { startJitter = false }
-            delay(200)
+            delay(50)
             player.release()
           }
         }

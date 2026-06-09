@@ -88,7 +88,6 @@ import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.RobolectricUtil;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
@@ -100,11 +99,20 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.robolectric.ParameterizedRobolectricTestRunner;
 import org.robolectric.annotation.Config;
 
 /** Unit test for {@link ServerSideAdInsertionMediaSource}. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(ParameterizedRobolectricTestRunner.class) // TODO: b/510217604 - Remove parameterization.
 public final class ServerSideAdInsertionMediaSourceTest {
+
+  @ParameterizedRobolectricTestRunner.Parameters(name = "perStream={0}")
+  public static ImmutableList<Boolean> params() {
+    return ImmutableList.of(Boolean.FALSE, Boolean.TRUE);
+  }
+
+  @ParameterizedRobolectricTestRunner.Parameter(0)
+  public Boolean perStreamMediaProgressionEnabled;
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
@@ -411,7 +419,11 @@ public final class ServerSideAdInsertionMediaSourceTest {
     Context context = ApplicationProvider.getApplicationContext();
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory renderersFactory = new CapturingRenderersFactory(context, clock);
-    ExoPlayer player = new ExoPlayer.Builder(context, renderersFactory).setClock(clock).build();
+    ExoPlayer player =
+        new ExoPlayer.Builder(context, renderersFactory)
+            .setClock(clock)
+            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
+            .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, renderersFactory);
@@ -486,7 +498,11 @@ public final class ServerSideAdInsertionMediaSourceTest {
     CapturingRenderersFactory renderersFactory =
         new CapturingRenderersFactory(
             context, clock, DiscontinuitySkippingCapturingAudioSink.create());
-    ExoPlayer player = new ExoPlayer.Builder(context, renderersFactory).setClock(clock).build();
+    ExoPlayer player =
+        new ExoPlayer.Builder(context, renderersFactory)
+            .setClock(clock)
+            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
+            .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, renderersFactory);
@@ -567,7 +583,11 @@ public final class ServerSideAdInsertionMediaSourceTest {
     CapturingRenderersFactory renderersFactory =
         new CapturingRenderersFactory(
             context, clock, DiscontinuitySkippingCapturingAudioSink.create());
-    ExoPlayer player = new ExoPlayer.Builder(context, renderersFactory).setClock(clock).build();
+    ExoPlayer player =
+        new ExoPlayer.Builder(context, renderersFactory)
+            .setClock(clock)
+            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
+            .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, renderersFactory);
@@ -643,7 +663,10 @@ public final class ServerSideAdInsertionMediaSourceTest {
   public void playbackWithSeek_isHandledCorrectly() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     ExoPlayer player =
-        new ExoPlayer.Builder(context).setClock(new FakeClock(/* isAutoAdvancing= */ true)).build();
+        new ExoPlayer.Builder(context)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
+            .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
 

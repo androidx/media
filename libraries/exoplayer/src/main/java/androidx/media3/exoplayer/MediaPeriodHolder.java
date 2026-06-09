@@ -68,7 +68,7 @@ import java.io.IOException;
   public MediaPeriodInfo info;
 
   /**
-   * Whether all renderers are in the correct state for this {@link #mediaPeriod}.
+   * List of whether renderers are in the correct state for this {@link #mediaPeriod}.
    *
    * <p>Renderers that are needed must have been enabled with the {@link #sampleStreams} for this
    * {@link #mediaPeriod}. This means either {@link Renderer#enable(RendererConfiguration, Format[],
@@ -77,7 +77,7 @@ import java.io.IOException;
    *
    * <p>Renderers that are not needed must have been {@link Renderer#disable() disabled}.
    */
-  public boolean allRenderersInCorrectState;
+  private final boolean[] renderersInCorrectState;
 
   private final boolean[] mayRetainStreamFlags;
   private final RendererCapabilities[] rendererCapabilities;
@@ -109,7 +109,8 @@ import java.io.IOException;
       MediaSourceList mediaSourceList,
       MediaPeriodInfo info,
       TrackSelectorResult emptyTrackSelectorResult,
-      long targetPreloadBufferDurationUs) {
+      long targetPreloadBufferDurationUs,
+      boolean usesStreamPrerollFlags) {
     this.rendererCapabilities = rendererCapabilities;
     this.rendererPositionOffsetUs = rendererPositionOffsetUs;
     this.trackSelector = trackSelector;
@@ -120,8 +121,12 @@ import java.io.IOException;
     this.trackGroups = TrackGroupArray.EMPTY;
     this.trackSelectorResult = emptyTrackSelectorResult;
     sampleStreams = new SampleStream[rendererCapabilities.length];
+    renderersInCorrectState = new boolean[rendererCapabilities.length];
     mayRetainStreamFlags = new boolean[rendererCapabilities.length];
     mediaPeriod = mediaSourceList.createPeriod(info.id, allocator, info.startPositionUs);
+    if (usesStreamPrerollFlags) {
+      mediaPeriod.setUsesStreamPrerollFlags();
+    }
   }
 
   /**
@@ -490,6 +495,14 @@ import java.io.IOException;
   public void prepare(MediaPeriod.Callback callback, long startPositionUs) {
     prepareCalled = true;
     mediaPeriod.prepare(callback, startPositionUs);
+  }
+
+  public void setRendererToCorrectState(int index) {
+    renderersInCorrectState[index] = true;
+  }
+
+  public boolean isRendererInCorrectState(int index) {
+    return renderersInCorrectState[index];
   }
 
   /* package */ interface Factory {

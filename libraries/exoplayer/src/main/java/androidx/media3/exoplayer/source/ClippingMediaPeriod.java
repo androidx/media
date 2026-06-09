@@ -53,6 +53,8 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
   @Nullable private MediaPeriod.Callback callback;
   private @NullableType ClippingSampleStream[] sampleStreams;
   private long pendingInitialDiscontinuityPositionUs;
+  private boolean hasProcessedInitialDiscontinuity;
+  private boolean usesStreamPrerollFlags;
   private long lastReportedDiscontinuityUs;
   /* package */ long startUs;
   /* package */ long endUs;
@@ -187,19 +189,26 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
             selections, mayRetainStreamFlags, childStreams, streamResetFlags, positionUs);
     long correctedEnablePositionUs =
         enforceClippingRange(realEnablePositionUs, /* minPositionUs= */ positionUs, endUs);
-    pendingInitialDiscontinuityPositionUs =
-        isPendingInitialDiscontinuity()
-                && shouldKeepInitialDiscontinuity(realEnablePositionUs, positionUs, selections)
-            ? correctedEnablePositionUs
-            : C.TIME_UNSET;
+
+    boolean anyTrackHasPreroll = false;
     for (int i = 0; i < streams.length; i++) {
       if (childStreams[i] == null) {
         sampleStreams[i] = null;
       } else if (sampleStreams[i] == null || sampleStreams[i].childStream != childStreams[i]) {
-        sampleStreams[i] = new ClippingSampleStream(childStreams[i]);
+        boolean hasPreroll =
+            isPendingInitialDiscontinuity()
+                && shouldKeepInitialDiscontinuity(realEnablePositionUs, positionUs, selections, i);
+        sampleStreams[i] = new ClippingSampleStream(checkNotNull(childStreams[i]), hasPreroll);
+        anyTrackHasPreroll |= hasPreroll;
       }
       streams[i] = sampleStreams[i];
     }
+    pendingInitialDiscontinuityPositionUs =
+        anyTrackHasPreroll ? correctedEnablePositionUs : C.TIME_UNSET;
+    if (usesStreamPrerollFlags) {
+      hasProcessedInitialDiscontinuity = true;
+    }
+
     return correctedEnablePositionUs;
   }
 
@@ -214,8 +223,15 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
   }
 
   @Override
+  public void setUsesStreamPrerollFlags() {
+    this.usesStreamPrerollFlags = true;
+    mediaPeriod.setUsesStreamPrerollFlags();
+  }
+
+  @Override
   public long readDiscontinuity() {
     if (isPendingInitialDiscontinuity()) {
+      hasProcessedInitialDiscontinuity = true;
       long initialDiscontinuityUs = pendingInitialDiscontinuityPositionUs;
       pendingInitialDiscontinuityPositionUs = C.TIME_UNSET;
       lastReportedDiscontinuityUs = initialDiscontinuityUs;
@@ -313,7 +329,8 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
   }
 
   /* package */ boolean isPendingInitialDiscontinuity() {
-    return pendingInitialDiscontinuityPositionUs != C.TIME_UNSET;
+    return pendingInitialDiscontinuityPositionUs != C.TIME_UNSET
+        && !hasProcessedInitialDiscontinuity;
   }
 
   private SeekParameters clipSeekParameters(long positionUs, SeekParameters seekParameters) {
@@ -334,7 +351,10 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
   }
 
   private static boolean shouldKeepInitialDiscontinuity(
-      long startUs, long requestedPositionUs, @NullableType ExoTrackSelection[] selections) {
+      long startUs,
+      long requestedPositionUs,
+      @NullableType ExoTrackSelection[] selections,
+      int streamIndex) {
     // If the source adjusted the start position to be before the requested position, we need to
     // report a discontinuity to ensure renderers decode-only the samples before the requested start
     // position.
@@ -351,14 +371,10 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
     // However, for tracks where all samples are sync samples, we assume they have random access
     // seek behaviour and do not need an initial discontinuity to reset the renderer.
     if (startUs != 0) {
-      for (ExoTrackSelection trackSelection : selections) {
-        if (trackSelection != null) {
-          Format selectedFormat = trackSelection.getSelectedFormat();
-          if (!MimeTypes.allSamplesAreSyncSamples(
-              selectedFormat.sampleMimeType, selectedFormat.codecs)) {
-            return true;
-          }
-        }
+      if (selections[streamIndex] != null) {
+        Format selectedFormat = selections[streamIndex].getSelectedFormat();
+        return !MimeTypes.allSamplesAreSyncSamples(
+            selectedFormat.sampleMimeType, selectedFormat.codecs);
       }
     }
     return false;
@@ -375,13 +391,13 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
 
   /** Wraps a {@link SampleStream} and clips its samples. */
   private final class ClippingSampleStream implements SampleStream {
-
     public final SampleStream childStream;
-
+    private final boolean hasPreroll;
     private boolean sentEos;
 
-    public ClippingSampleStream(SampleStream childStream) {
+    private ClippingSampleStream(SampleStream childStream, boolean hasPreroll) {
       this.childStream = childStream;
+      this.hasPreroll = hasPreroll;
     }
 
     public void clearSentEos() {
@@ -453,6 +469,10 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
       int flags = childStream.getFlags();
       if (endUs != C.TIME_END_OF_SOURCE) {
         flags |= FLAG_STRICT_DURATION;
+      }
+      if (hasPreroll) {
+        flags &= ~FLAG_MAYBE_HAS_PREROLL;
+        flags |= FLAG_HAS_PREROLL;
       }
       return flags;
     }

@@ -59,14 +59,15 @@ public final class MergingPlaylistPlaybackTest {
   private static final String TEST_MP4_URI = "asset:///media/mp4/sample.mp4";
 
   @ParameterizedRobolectricTestRunner.Parameters(
-      name = "videoPrimary({0}), first({1}_{2}), second({3}_{4})")
+      name = "videoPrimary({0}), first({1}_{2}), second({3}_{4}), perStream({5})")
   public static List<Boolean[]> configs() {
     return Sets.cartesianProduct(
             /* videoIsPrimaryMergedSource */ ImmutableSet.of(true, false),
             /* firstItemVideoClipped */ ImmutableSet.of(true, false),
             /* firstItemAudioClipped */ ImmutableSet.of(true, false),
             /* secondItemVideoClipped */ ImmutableSet.of(true, false),
-            /* secondItemAudioClipped */ ImmutableSet.of(true, false))
+            /* secondItemAudioClipped */ ImmutableSet.of(true, false),
+            /* perStreamMediaProgressionEnabled */ ImmutableSet.of(true, false))
         .stream()
         .map(s -> s.toArray(new Boolean[0]))
         .collect(Collectors.toList());
@@ -87,6 +88,10 @@ public final class MergingPlaylistPlaybackTest {
   @ParameterizedRobolectricTestRunner.Parameter(4)
   public Boolean secondItemAudioClipped;
 
+  // TODO: b/510217604 - Remove parameterization.
+  @ParameterizedRobolectricTestRunner.Parameter(5)
+  public Boolean perStreamMediaProgressionEnabled;
+
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
       ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
@@ -100,6 +105,7 @@ public final class MergingPlaylistPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
+            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Player.Listener listener = mock(Player.Listener.class);
     player.addListener(listener);
@@ -133,6 +139,7 @@ public final class MergingPlaylistPlaybackTest {
             + secondItemVideoClipped
             + "_"
             + secondItemAudioClipped
+            + (perStreamMediaProgressionEnabled ? "_perStreamProgression" : "")
             + ".dump");
     verify(listener, never()).onIsLoadingChanged(true);
   }
@@ -146,6 +153,7 @@ public final class MergingPlaylistPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
+            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Player.Listener listener = mock(Player.Listener.class);
     player.addListener(listener);
@@ -176,6 +184,7 @@ public final class MergingPlaylistPlaybackTest {
             + firstItemVideoClipped
             + "_"
             + firstItemAudioClipped
+            + (perStreamMediaProgressionEnabled ? "_perStreamProgression" : "")
             + ".dump");
     verify(listener, never()).onIsLoadingChanged(true);
   }

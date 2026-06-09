@@ -59,6 +59,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -468,7 +469,10 @@ public class CompositionPlaybackTest {
                     VIDEO_TIMESTAMPS_US, timestampUs -> (2 * VIDEO_DURATION_US + timestampUs)))
             .build();
 
-    runCompositionPlayer(composition, /* videoPrewarmingEnabled= */ false);
+    runCompositionPlayer(
+        composition,
+        /* videoPrewarmingEnabled= */ false,
+        /* perStreamMediaProgressionEnabled= */ false);
 
     assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
         .isEqualTo(expectedTimestampsUs);
@@ -723,12 +727,50 @@ public class CompositionPlaybackTest {
         .isEqualTo(expectedTimestampsUs);
   }
 
-  private void runCompositionPlayer(Composition composition)
-      throws PlaybackException, TimeoutException {
-    runCompositionPlayer(composition, /* videoPrewarmingEnabled= */ true);
+  @Ignore("TODO: b/521754606 - Fix flakiness and re-enable")
+  @Test
+  public void playback_withVeryShortItems_succeeds() throws Exception {
+    // Use items with duration of 33ms to showcase the stuck playback issue (b/475201870).
+    String uri = "asset:///media/mp4/h264_4k_30fps_10sec.mp4";
+    ImmutableList.Builder<EditedMediaItem> editedMediaItems = new ImmutableList.Builder<>();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder()
+                    .setUri(uri)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionMs(0)
+                            .setEndPositionMs(33L)
+                            .build())
+                    .build())
+            .setDurationUs(10_000_000)
+            .build();
+    for (int i = 0; i < 3; i++) {
+      editedMediaItems.add(editedMediaItem);
+    }
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(editedMediaItems.build()))
+            .build();
+
+    runCompositionPlayer(
+        composition,
+        /* videoPrewarmingEnabled= */ true,
+        /* perStreamMediaProgressionEnabled= */ true);
   }
 
-  private void runCompositionPlayer(Composition composition, boolean videoPrewarmingEnabled)
+  private void runCompositionPlayer(Composition composition)
+      throws PlaybackException, TimeoutException {
+    runCompositionPlayer(
+        composition,
+        /* videoPrewarmingEnabled= */ true,
+        /* perStreamMediaProgressionEnabled= */ false);
+  }
+
+  private void runCompositionPlayer(
+      Composition composition,
+      boolean videoPrewarmingEnabled,
+      boolean perStreamMediaProgressionEnabled)
       throws PlaybackException, TimeoutException {
     getInstrumentation()
         .runOnMainSync(
@@ -737,6 +779,7 @@ public class CompositionPlaybackTest {
                   new CompositionPlayer.Builder(context)
                       .setVideoPrewarmingEnabled(videoPrewarmingEnabled)
                       .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+                      .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
                       .build();
               player.addListener(playerTestListener);
               player.addAnalyticsListener(playerTestListener);

@@ -393,6 +393,7 @@ import java.util.function.IntConsumer;
               builder.releaseTimeoutMs,
               pauseAtEndOfMediaItems,
               builder.dynamicSchedulingEnabled,
+              builder.perStreamMediaProgressionEnabled,
               applicationLooper,
               clock,
               playbackInfoUpdateListener,

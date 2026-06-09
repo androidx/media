@@ -90,6 +90,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Map<Frame, HardwareBufferFrame> inFlightFrames;
   private boolean hasPendingEos;
   private int outputRotationDegrees;
+  private volatile boolean released;
 
   /**
    * The timestamp of the last buffer processed before {@linkplain
@@ -215,6 +216,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           (frame) ->
               handlerWrapper.post(
                   () -> {
+                    // Frames may be produced by the underlying players after Transformer has been
+                    // canceled. Immediately release these frames.
+                    if (released) {
+                      if (frame != HardwareBufferFrame.END_OF_STREAM_FRAME) {
+                        frame.release(/* releaseFence= */ null);
+                      }
+                      return;
+                    }
                     if (frame == HardwareBufferFrame.END_OF_STREAM_FRAME) {
                       checkNotNull(frameAggregator).queueEndOfStream(sequenceIndex);
                     } else if (hardwareBufferPostProcessor != null) {
@@ -292,6 +301,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public void release() {
+    if (released) {
+      return;
+    }
+    released = true;
     releasePendingQueueCalls();
     for (int i = 0; i < sampleConsumers.size(); i++) {
       sampleConsumers.get(i).release();
@@ -299,6 +312,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (hardwareBufferPostProcessor != null) {
       hardwareBufferPostProcessor.close();
     }
+    frameAggregator.close();
     try {
       frameProcessor.close();
       frameWriter.close();

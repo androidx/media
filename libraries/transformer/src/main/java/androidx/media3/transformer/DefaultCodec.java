@@ -257,7 +257,9 @@ public final class DefaultCodec implements Codec {
       // devices, sometimes, the frame gets lost and an empty output is produced. Waiting before
       // signaling end of stream seems to resolve this issue. See b/301603935.
       try {
-        Thread.sleep(30);
+        // TODO: b/519512426 - Check if this delay can be reduced or eliminated when using other
+        //  MediaCodec APIs.
+        Thread.sleep(100);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
       }

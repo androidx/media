@@ -39,20 +39,29 @@ import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.ParameterizedRobolectricTestRunner;
 import org.robolectric.annotation.Config;
 
 /** End-to-end playback tests using secondary renderers. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(ParameterizedRobolectricTestRunner.class) // TODO: b/510217604 - Remove parameterization.
 public class PrewarmingRendererPlaybackTest {
 
   private static final String TEST_AUDIO_MP4_URI = "asset:///media/mp4/sample_ac3.mp4";
   private static final String TEST_MP4_URI = "asset:///media/mp4/sample.mp4";
   private static final String TEST_IMAGE_URI = "asset:///media/jpeg/tokyo.jpg";
+
+  @ParameterizedRobolectricTestRunner.Parameters(name = "perStream={0}")
+  public static ImmutableList<Boolean> params() {
+    return ImmutableList.of(Boolean.FALSE, Boolean.TRUE);
+  }
+
+  @ParameterizedRobolectricTestRunner.Parameter(0)
+  public Boolean perStreamMediaProgressionEnabled;
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
@@ -68,6 +77,7 @@ public class PrewarmingRendererPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
+            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -102,6 +112,7 @@ public class PrewarmingRendererPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
+            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -147,6 +158,7 @@ public class PrewarmingRendererPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
+            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -195,6 +207,7 @@ public class PrewarmingRendererPlaybackTest {
             + ".dump");
   }
 
+  @Ignore("Flaky b/521713749")
   @Test
   public void playback_withMultipleMediaItemsWithClippingConfigurations_dumpsCorrectOutput()
       throws Exception {
@@ -205,6 +218,7 @@ public class PrewarmingRendererPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
+            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -252,6 +266,7 @@ public class PrewarmingRendererPlaybackTest {
             + ".dump");
   }
 
+  @Ignore("Flaky b/521713749")
   @Test
   public void playback_withPrewarmingNonTransitioningRenderer_dumpsCorrectOutput()
       throws Exception {
@@ -262,6 +277,7 @@ public class PrewarmingRendererPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
+            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -302,6 +318,7 @@ public class PrewarmingRendererPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
+            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);

@@ -68,6 +68,11 @@
         ([#3207](https://github.com/androidx/media/issues/3207)).
     *   Fix codec issue on some devices where the codec was swallowing all
         samples if previously flushed before receiving input buffers.
+    *   Add experimental `ExoPlayer.Builder.enablePerStreamMediaProgression()`
+        to allow advancing media processing on a per-stream basis. This reduces
+        startup latency between playlist items and avoids playback becoming
+        "stuck" with very short content
+        ([#3122](https://github.com/androidx/media/issues/3122)).
 *   CompositionPlayer:
     *   Fix an issue where `TrackSelector` instances were not being released.
 *   Transformer:
@@ -149,6 +154,10 @@
         ([#418](https://github.com/androidx/media/issues/418)).
     *   Add support for big endian 32-bit and 64-bit floating point PCM.
 *   Video:
+    *   Fix video joining logic to count dropped buffers during joining as
+        skipped instead of dropped.
+    *   Fix immediate rendering decision when setting new surface to avoid frame
+        drops on devices that don't support placeholder surfaces.
     *   Fix frame rate estimation in `MediaCodecVideoRenderer` to be more
         accurate by accounting for dropped or skipped frames.
     *   Allow configuration of the threshold used to schedule frames early. The

@@ -456,10 +456,13 @@ public class TestUtil {
     for (int i = 0; i < firstBitmap.getWidth(); i++) {
       for (int j = 0; j < firstBitmap.getHeight(); j++) {
         int firstColorInt = firstBitmap.getPixel(i, j);
+        int secondColorInt = secondBitmap.getPixel(i, j);
+        if (Color.alpha(firstColorInt) == 0 && Color.alpha(secondColorInt) == 0) {
+          continue;
+        }
         int firstRed = Color.red(firstColorInt);
         int firstGreen = Color.green(firstColorInt);
         int firstBlue = Color.blue(firstColorInt);
-        int secondColorInt = secondBitmap.getPixel(i, j);
         int secondRed = Color.red(secondColorInt);
         int secondGreen = Color.green(secondColorInt);
         int secondBlue = Color.blue(secondColorInt);

@@ -572,17 +572,19 @@ public class MediaBrowserListenerTest extends MediaControllerListenerTest {
   public void onChildrenChanged_notCalledWhenNotSubscribed() throws Exception {
     String mediaId1 = SUBSCRIBE_PARENT_ID_1;
     String mediaId2 = SUBSCRIBE_PARENT_ID_2;
-    List<String> notifiedParentIds = new ArrayList<>();
-    List<Integer> notifiedItemCounts = new ArrayList<>();
+    List<String> browser1ParentIds = new ArrayList<>();
+    List<Integer> browser1ItemCounts = new ArrayList<>();
+    List<String> browser2ParentIds = new ArrayList<>();
+    List<Integer> browser2ItemCounts = new ArrayList<>();
     CountDownLatch childrenChangedLatch = new CountDownLatch(4);
     CountDownLatch disconnectLatch = new CountDownLatch(2);
-    MediaBrowser.Listener browserListener =
+    MediaBrowser.Listener browserListener1 =
         new MediaBrowser.Listener() {
           @Override
           public void onChildrenChanged(
               MediaBrowser browser, String parentId, int itemCount, LibraryParams params) {
-            notifiedParentIds.add(parentId);
-            notifiedItemCounts.add(itemCount);
+            browser1ParentIds.add(parentId);
+            browser1ItemCounts.add(itemCount);
             childrenChangedLatch.countDown();
           }
 
@@ -591,8 +593,23 @@ public class MediaBrowserListenerTest extends MediaControllerListenerTest {
             disconnectLatch.countDown();
           }
         };
-    MediaBrowser browser1 = createBrowser(/* connectionHints= */ null, browserListener);
-    MediaBrowser browser2 = createBrowser(/* connectionHints= */ null, browserListener);
+    MediaBrowser.Listener browserListener2 =
+        new MediaBrowser.Listener() {
+          @Override
+          public void onChildrenChanged(
+              MediaBrowser browser, String parentId, int itemCount, LibraryParams params) {
+            browser2ParentIds.add(parentId);
+            browser2ItemCounts.add(itemCount);
+            childrenChangedLatch.countDown();
+          }
+
+          @Override
+          public void onDisconnected(MediaController controller) {
+            disconnectLatch.countDown();
+          }
+        };
+    MediaBrowser browser1 = createBrowser(/* connectionHints= */ null, browserListener1);
+    MediaBrowser browser2 = createBrowser(/* connectionHints= */ null, browserListener2);
     // Subscribe both browsers each to a different media IDs and request a second update after a
     // delay.
     LibraryResult<Void> subscriptionResult1 =
@@ -631,16 +648,10 @@ public class MediaBrowserListenerTest extends MediaControllerListenerTest {
     assertThat(result2.resultCode).isEqualTo(RESULT_SUCCESS);
 
     assertThat(childrenChangedLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(notifiedParentIds)
-        .containsExactly(
-            mediaId1, // callback when subscribing browser1
-            mediaId2, // callback when subscribing browser2
-            mediaId1, // callback on first delayed notification
-            mediaId2) // callback on second delayed notification
-        .inOrder();
-    assertThat(notifiedItemCounts)
-        .containsExactly(Integer.MAX_VALUE, Integer.MAX_VALUE, 123, 567)
-        .inOrder();
+    assertThat(browser1ParentIds).containsExactly(mediaId1, mediaId1).inOrder();
+    assertThat(browser1ItemCounts).containsExactly(Integer.MAX_VALUE, 123).inOrder();
+    assertThat(browser2ParentIds).containsExactly(mediaId2, mediaId2).inOrder();
+    assertThat(browser2ItemCounts).containsExactly(Integer.MAX_VALUE, 567).inOrder();
     threadTestRule
         .getHandler()
         .postAndSync(

@@ -153,7 +153,10 @@ private fun CompositionDemoMainScreen(
           onMuxerOptionChanged = viewModel::onMuxerOptionChanged,
           onDebugTracingChanged = viewModel::enableDebugTracing,
           onExport = viewModel::exportComposition,
-          onCancel = onHideSheet,
+          onCancel = {
+            viewModel.cancelExport()
+            onHideSheet()
+          },
         )
       }
     }

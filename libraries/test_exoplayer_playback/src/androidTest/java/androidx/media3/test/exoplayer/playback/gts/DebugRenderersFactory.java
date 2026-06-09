@@ -19,10 +19,8 @@ import static android.os.Build.VERSION.SDK_INT;
 import static java.lang.Math.max;
 
 import android.content.Context;
-import android.media.MediaCrypto;
 import android.os.Handler;
 import androidx.annotation.Nullable;
-import androidx.media3.common.Format;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
@@ -31,17 +29,14 @@ import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.mediacodec.DefaultMediaCodecAdapterFactory;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
-import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
 /**
  * A debug extension of {@link DefaultRenderersFactory}. Provides a video renderer that performs
- * video buffer timestamp assertions, and modifies the default value for {@link
- * #setAllowedVideoJoiningTimeMs(long)} to be {@code 0}.
+ * video buffer timestamp assertions.
  */
 // TODO: Move this class to `testutils` and add basic tests.
 /* package */ final class DebugRenderersFactory extends DefaultRenderersFactory {
@@ -50,7 +45,6 @@ import java.util.ArrayList;
 
   public DebugRenderersFactory(Context context) {
     super(context);
-    setAllowedVideoJoiningTimeMs(0);
     codecAdapterFactory = new DefaultMediaCodecAdapterFactory(context);
     if (SDK_INT == 36) {
       // Flag disabled for the test due to b/482020055. The impact on playback is minor and can
@@ -96,8 +90,6 @@ import java.util.ArrayList;
 
     private final long[] timestampsList;
 
-    private boolean skipToPositionBeforeRenderingFirstFrame;
-
     private int startIndex;
     private int queueSize;
     private int bufferCount;
@@ -128,37 +120,9 @@ import java.util.ArrayList;
     }
 
     @Override
-    protected MediaCodecAdapter.Configuration getMediaCodecConfiguration(
-        MediaCodecInfo codecInfo, Format format, MediaCrypto crypto, float operatingRate) {
-      return super.getMediaCodecConfiguration(codecInfo, format, crypto, operatingRate);
-    }
-
-    @Override
     protected void resetCodecStateForFlush() {
       super.resetCodecStateForFlush();
       clearTimestamps();
-    }
-
-    @Override
-    protected void onCodecInitialized(
-        String name,
-        MediaCodecAdapter.Configuration configuration,
-        long initializedTimestampMs,
-        long initializationDurationMs) {
-      // If the codec was initialized whilst the renderer is started, default behavior is to
-      // render the first frame (i.e. the keyframe before the current position), then drop frames up
-      // to the current playback position. For test runs that place a maximum limit on the number of
-      // dropped frames allowed, this is not desired behavior. Hence we skip (rather than drop)
-      // frames up to the current playback position [Internal: b/66494991].
-      skipToPositionBeforeRenderingFirstFrame = getState() == Renderer.STATE_STARTED;
-      super.onCodecInitialized(
-          name, configuration, initializedTimestampMs, initializationDurationMs);
-    }
-
-    @Override
-    protected void resetCodecStateForRelease() {
-      super.resetCodecStateForRelease();
-      skipToPositionBeforeRenderingFirstFrame = false;
     }
 
     @Override
@@ -177,53 +141,6 @@ import java.util.ArrayList;
       super.onQueueInputBuffer(buffer);
       insertTimestamp(buffer.timeUs);
       maybeShiftTimestampsList();
-    }
-
-    @Override
-    protected boolean processOutputBuffer(
-        long positionUs,
-        long elapsedRealtimeUs,
-        @Nullable MediaCodecAdapter codec,
-        ByteBuffer buffer,
-        int bufferIndex,
-        int bufferFlags,
-        int sampleCount,
-        long bufferPresentationTimeUs,
-        boolean isDecodeOnlyBuffer,
-        boolean isLastBuffer,
-        Format format)
-        throws ExoPlaybackException {
-      if (skipToPositionBeforeRenderingFirstFrame && bufferPresentationTimeUs < positionUs) {
-        // After the codec has been initialized, don't render the first frame until we've caught up
-        // to the playback position. Else test runs on devices that do not support dummy surface
-        // will drop frames between rendering the first one and catching up [Internal: b/66494991].
-        isDecodeOnlyBuffer = true;
-      }
-      return super.processOutputBuffer(
-          positionUs,
-          elapsedRealtimeUs,
-          codec,
-          buffer,
-          bufferIndex,
-          bufferFlags,
-          sampleCount,
-          bufferPresentationTimeUs,
-          isDecodeOnlyBuffer,
-          isLastBuffer,
-          format);
-    }
-
-    @Override
-    protected void renderOutputBuffer(MediaCodecAdapter codec, int index, long presentationTimeUs) {
-      skipToPositionBeforeRenderingFirstFrame = false;
-      super.renderOutputBuffer(codec, index, presentationTimeUs);
-    }
-
-    @Override
-    protected void renderOutputBufferV21(
-        MediaCodecAdapter codec, int index, long presentationTimeUs, long releaseTimeNs) {
-      skipToPositionBeforeRenderingFirstFrame = false;
-      super.renderOutputBufferV21(codec, index, presentationTimeUs, releaseTimeNs);
     }
 
     @Override

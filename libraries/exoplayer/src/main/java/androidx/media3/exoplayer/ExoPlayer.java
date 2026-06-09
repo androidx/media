@@ -304,6 +304,7 @@ public interface ExoPlayer extends Player {
     /* package */ boolean dynamicSchedulingEnabled;
     /* package */ SuitableOutputChecker suitableOutputChecker;
     /* package */ boolean enforceAdPlaybackOnTimelineRefresh;
+    /* package */ boolean perStreamMediaProgressionEnabled;
 
     /**
      * Creates a builder.
@@ -576,6 +577,28 @@ public interface ExoPlayer extends Player {
     public Builder experimentalSetDynamicSchedulingEnabled(boolean dynamicSchedulingEnabled) {
       checkState(!buildCalled);
       this.dynamicSchedulingEnabled = dynamicSchedulingEnabled;
+      return this;
+    }
+
+    /**
+     * Sets whether ExoPlayer can advance its media processing on a per-stream basis.
+     *
+     * <p>The default is {@code false}.
+     *
+     * <p>If {@code false} then ExoPlayer will not start processing the next item in the playlist
+     * until it has finished with the current item. If {@code true} then ExoPlayer may enable
+     * renderers on subsequent playlist items as each finishes processing media. Enabling this
+     * feature can reduce startup latency between media items.
+     *
+     * <p>This method is experimental, and will be renamed or removed in a future release.
+     *
+     * @param perStreamMediaProgressionEnabled Whether to enable media progression per stream.
+     */
+    @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/510217604 - Remove this method.
+    public Builder enablePerStreamMediaProgression(boolean perStreamMediaProgressionEnabled) {
+      checkState(!buildCalled);
+      this.perStreamMediaProgressionEnabled = perStreamMediaProgressionEnabled;
       return this;
     }
 

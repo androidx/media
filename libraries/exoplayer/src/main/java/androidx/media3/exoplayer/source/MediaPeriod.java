@@ -19,6 +19,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -173,6 +174,17 @@ public interface MediaPeriod extends SequenceableLoader {
    *     if there is no discontinuity.
    */
   long readDiscontinuity();
+
+  /**
+   * Notifies the media period that the player will use {@link SampleStream#getFlags()} to check if
+   * streams contain initial discontinuities at the start of the period rather than using {@link
+   * #readDiscontinuity()}.
+   *
+   * <p>If invoked then {@link #readDiscontinuity()} should only report discontinuities that occur
+   * during playback, not any initial discontinuities at the start of the period.
+   */
+  @ExperimentalApi // TODO: b/510217604 - Remove this method.
+  default void setUsesStreamPrerollFlags() {}
 
   /**
    * Attempts to seek to the specified position in microseconds.

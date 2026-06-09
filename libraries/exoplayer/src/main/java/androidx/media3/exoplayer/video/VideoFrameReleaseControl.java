@@ -358,6 +358,11 @@ public final class VideoFrameReleaseControl {
         allowedJoiningTimeMs > 0 ? (clock.elapsedRealtime() + allowedJoiningTimeMs) : C.TIME_UNSET;
   }
 
+  /** Returns whether the release control is currently joining. */
+  public boolean isJoining() {
+    return joiningDeadlineMs != C.TIME_UNSET;
+  }
+
   /**
    * Returns a {@link FrameReleaseAction} for a video frame which instructs the caller what to do
    * with the frame.
