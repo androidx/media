@@ -293,6 +293,19 @@ public final class FragmentedMp4ExtractorParameterizedTest {
             .build());
   }
 
+  @Test
+  public void sampleWithVariableLengthSgpdInMoof() throws Exception {
+    assertExtractorBehavior(
+        /* closedCaptionFormats= */ ImmutableList.of(),
+        "media/mp4/sample_fragmented_variable_length_sgpd.mp4",
+        /* peekLimit= */ 894,
+        new ExtractorAsserts.AssertionConfig.Builder()
+            // The sgpd box is in the moof box in this sample (rather than the moov box), which
+            // means a second Format gets emitted when parsing the moof box.
+            .setDeduplicateConsecutiveFormats(true)
+            .build());
+  }
+
   private void assertExtractorBehavior(
       List<Format> closedCaptionFormats, String file, int peekLimit) throws IOException {
     assertExtractorBehavior(

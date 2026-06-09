@@ -1538,7 +1538,7 @@ public class FragmentedMp4Extractor implements Extractor {
     sgpd.setPosition(Mp4Box.HEADER_SIZE);
     int sgpdVersion = BoxParser.parseFullBoxVersion(sgpd.readInt());
     sgpd.skipBytes(4); // grouping_type == seig.
-    long default_length = sgpdVersion >= 1 ? sgpd.readUnsignedInt() : 0;
+    long defaultLength = sgpdVersion >= 1 ? sgpd.readUnsignedInt() : 0;
     if (sgpdVersion >= 2) {
       sgpd.skipBytes(4); // default_sample_description_index.
     }
@@ -1546,7 +1546,7 @@ public class FragmentedMp4Extractor implements Extractor {
       throw ParserException.createForUnsupportedContainerFeature(
           "Entry count in sgpd != 1 (unsupported).");
     }
-    if (sgpdVersion >= 1 && default_length == 0) {
+    if (sgpdVersion >= 1 && defaultLength == 0) {
       sgpd.skipBytes(4); // description_length.
     }
 
