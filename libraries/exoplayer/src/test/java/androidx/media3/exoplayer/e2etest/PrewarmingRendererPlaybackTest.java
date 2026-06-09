@@ -40,6 +40,7 @@ import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -206,6 +207,7 @@ public class PrewarmingRendererPlaybackTest {
             + ".dump");
   }
 
+  @Ignore("Flaky b/521713749")
   @Test
   public void playback_withMultipleMediaItemsWithClippingConfigurations_dumpsCorrectOutput()
       throws Exception {
