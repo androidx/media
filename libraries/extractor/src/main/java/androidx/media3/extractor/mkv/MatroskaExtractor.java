@@ -2593,6 +2593,10 @@ public class MatroskaExtractor implements Extractor {
         case CODEC_ID_FLAC:
           mimeType = MimeTypes.AUDIO_FLAC;
           initializationData = Collections.singletonList(getCodecPrivate(codecId));
+          pcmEncoding = Util.getPcmEncoding(audioBitDepth);
+          if (pcmEncoding == C.ENCODING_INVALID) {
+            pcmEncoding = Format.NO_VALUE;
+          }
           break;
         case CODEC_ID_ACM:
           mimeType = MimeTypes.AUDIO_RAW;
