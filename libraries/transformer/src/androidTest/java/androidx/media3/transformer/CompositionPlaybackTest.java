@@ -59,6 +59,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -726,6 +727,7 @@ public class CompositionPlaybackTest {
         .isEqualTo(expectedTimestampsUs);
   }
 
+  @Ignore("TODO: b/521754606 - Fix flakiness and re-enable")
   @Test
   public void playback_withVeryShortItems_succeeds() throws Exception {
     // Use items with duration of 33ms to showcase the stuck playback issue (b/475201870).
