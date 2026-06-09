@@ -145,6 +145,7 @@ public class MediaSessionProviderService extends Service {
 
   public static final String KEY_ENABLE_FAKE_MEDIA_NOTIFICATION_MANAGER_CONTROLLER =
       "key_enable_fake_media_notification_manager_controller";
+  public static final String KEY_ENABLE_LIVE_MEDIA_POSITION = "key_enable_live_media_position";
   private static final String TAG = "MSProviderService";
 
   private Map<String, MediaSession> sessionMap = new HashMap<>();
@@ -202,10 +203,16 @@ public class MediaSessionProviderService extends Service {
       boolean useFakeMediaNotificationManagerController =
           tokenExtras.getBoolean(
               KEY_ENABLE_FAKE_MEDIA_NOTIFICATION_MANAGER_CONTROLLER, /* defaultValue= */ false);
+
+      boolean usePositionForLiveContent = tokenExtras.getBoolean(
+          KEY_ENABLE_LIVE_MEDIA_POSITION, false
+      );
       MockPlayer mockPlayer =
           new MockPlayer.Builder().setApplicationLooper(handler.getLooper()).build();
       MediaSession.Builder builder =
-          new MediaSession.Builder(MediaSessionProviderService.this, mockPlayer).setId(sessionId);
+          new MediaSession.Builder(MediaSessionProviderService.this, mockPlayer)
+              .setShowPlaybackPositionForLiveStreams(usePositionForLiveContent)
+              .setId(sessionId);
 
       builder.setExtras(tokenExtras);
       switch (sessionId) {
