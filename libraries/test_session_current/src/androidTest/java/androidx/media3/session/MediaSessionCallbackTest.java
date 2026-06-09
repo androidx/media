@@ -1651,8 +1651,11 @@ public class MediaSessionCallbackTest {
           @Override
           public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
             currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem());
-            passiveControllerEvents.add("player.onMediaItemTransition");
-            activeControllerEvents.add("player.onMediaItemTransition");
+            postToController(
+                () -> {
+                  passiveControllerEvents.add("player.onMediaItemTransition");
+                  activeControllerEvents.add("player.onMediaItemTransition");
+                });
           }
 
           @Override
@@ -1660,9 +1663,12 @@ public class MediaSessionCallbackTest {
             if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
               // Player still has the first item. Command has not yet arrived at the session.
               currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem());
-              passiveControllerEvents.add("player.onEvents");
-              activeControllerEvents.add("player.onEvents");
-              latch.countDown();
+              postToController(
+                  () -> {
+                    passiveControllerEvents.add("player.onEvents");
+                    activeControllerEvents.add("player.onEvents");
+                    latch.countDown();
+                  });
             }
           }
         });
@@ -1698,8 +1704,7 @@ public class MediaSessionCallbackTest {
               @Override
               public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
                 activeControllerEvents.add("controller.onMediaItemTransition");
-                postToPlayerAndSync(
-                    () -> currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem()));
+                postToPlayer(() -> currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem()));
               }
 
               @Override
@@ -1708,9 +1713,11 @@ public class MediaSessionCallbackTest {
                   // Triggered by masking in the same looper iteration as where
                   // controller.seekToNextMediaItem() is called.
                   activeControllerEvents.add("controller.onEvents");
-                  postToPlayerAndSync(
-                      () -> currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem()));
-                  latch.countDown();
+                  postToPlayer(
+                      () -> {
+                        currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem());
+                        latch.countDown();
+                      });
                 }
               }
             });
@@ -1840,9 +1847,12 @@ public class MediaSessionCallbackTest {
           @Override
           public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
             currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem());
-            activeControllerEvents.add("player.onMediaItemTransition");
-            passiveControllerEvents.add("player.onMediaItemTransition");
-            latch.countDown();
+            postToController(
+                () -> {
+                  activeControllerEvents.add("player.onMediaItemTransition");
+                  passiveControllerEvents.add("player.onMediaItemTransition");
+                  latch.countDown();
+                });
           }
 
           @Override
@@ -1850,9 +1860,12 @@ public class MediaSessionCallbackTest {
             if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
               // Player still has the first item. Command has not yet arrived at the session.
               currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem());
-              activeControllerEvents.add("player.onEvents");
-              passiveControllerEvents.add("player.onEvents");
-              latch.countDown();
+              postToController(
+                  () -> {
+                    activeControllerEvents.add("player.onEvents");
+                    passiveControllerEvents.add("player.onEvents");
+                    latch.countDown();
+                  });
             }
           }
         });
@@ -1888,8 +1901,7 @@ public class MediaSessionCallbackTest {
               @Override
               public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
                 activeControllerEvents.add("controller.onMediaItemTransition");
-                postToPlayerAndSync(
-                    () -> currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem()));
+                postToPlayer(() -> currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem()));
               }
 
               @Override
@@ -1898,9 +1910,11 @@ public class MediaSessionCallbackTest {
                   // Triggered by masking in the same looper iteration as where
                   // controller.seekToNextMediaItem() is called.
                   activeControllerEvents.add("controller.onEvents");
-                  postToPlayerAndSync(
-                      () -> currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem()));
-                  latch.countDown();
+                  postToPlayer(
+                      () -> {
+                        currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem());
+                        latch.countDown();
+                      });
                 }
               }
             });
@@ -2041,6 +2055,14 @@ public class MediaSessionCallbackTest {
     assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_PLAY)).isTrue();
     assertThat(onPlayerInteractionFinishedCommands.get())
         .isEqualTo(new Player.Commands.Builder().add(COMMAND_PLAY_PAUSE).build());
+  }
+
+  private void postToPlayer(Runnable r) {
+    playerThreadTestRule.getHandler().post(r);
+  }
+
+  private void postToController(Runnable r) {
+    controllerThreadTestRule.getHandler().post(r);
   }
 
   private void postToPlayerAndSync(TestHandler.TestRunnable r) {
