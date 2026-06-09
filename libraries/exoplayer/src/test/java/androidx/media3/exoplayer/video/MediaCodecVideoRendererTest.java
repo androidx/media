@@ -7325,6 +7325,73 @@ public class MediaCodecVideoRendererTest {
     newSurface.release();
   }
 
+  @Test
+  public void joining_veryLateFrames_countedAsSkipped() throws Exception {
+    MediaCodecAdapter.Factory customCodecAdapterFactory =
+        configuration -> {
+          MediaCodecAdapter adapter = codecAdapterFactory.createAdapter(configuration);
+          return new CapacityLimitingMediaCodecAdapter(adapter, /* capacity= */ 1);
+        };
+
+    MediaCodecVideoRenderer renderer =
+        new MediaCodecVideoRenderer(
+            new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
+                .setCodecAdapterFactory(customCodecAdapterFactory)
+                .setMediaCodecSelector(mediaCodecSelector)
+                .setAllowedJoiningTimeMs(5000)
+                .setEnableDecoderFallback(false)
+                .setEventHandler(new Handler(testMainLooper))
+                .setEventListener(eventListener)
+                .setMaxDroppedFramesToNotify(1)
+                .setAssumedMinimumCodecOperatingRate(30)) {
+          @Override
+          protected @Capabilities int supportsFormat(
+              MediaCodecSelector mediaCodecSelector, Format format) {
+            return RendererCapabilities.create(C.FORMAT_HANDLED);
+          }
+        };
+    FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 0);
+    renderer.init(/* index= */ 0, PlayerId.UNSET, fakeClock);
+    renderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
+
+    // Stream: 0 (Key) -> 100ms -> 200ms -> 300ms (Key) -> 400ms -> EOS
+    FakeSampleStream fakeSampleStream =
+        createFakeSampleStream(
+            VIDEO_H264_30FPS,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 100_000),
+                oneByteSample(/* timeUs= */ 200_000),
+                oneByteSample(/* timeUs= */ 300_000, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 400_000)));
+
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {VIDEO_H264_30FPS},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ true,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.start();
+    ShadowLooper.idleMainLooper();
+
+    ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
+        ArgumentCaptor.forClass(DecoderCounters.class);
+    verify(eventListener).onVideoEnabled(argumentDecoderCounters.capture());
+    DecoderCounters decoderCounters = argumentDecoderCounters.getValue();
+
+    long positionUs = 1_000_000;
+    renderAndAdvance(
+        renderer, fakeClock, positionUs, () -> renderer.isEnded(), /* maxIterations= */ 100);
+
+    assertThat(decoderCounters.skippedInputBufferCount).isEqualTo(2); // 100, 200
+    assertThat(decoderCounters.skippedOutputBufferCount).isEqualTo(3); // 0, 300, 400
+    assertThat(decoderCounters.droppedBufferCount).isEqualTo(0);
+  }
+
   @CanIgnoreReturnValue
   private long waitUntilHasReadStreamToEnd(long startPositionUs) throws Exception {
     long positionUs = startPositionUs;
@@ -7443,6 +7510,49 @@ public class MediaCodecVideoRendererTest {
       renderCount++;
       codecAdapterFactory.idleQueueingAndCallbackThreads();
       ShadowLooper.idleMainLooper();
+    }
+  }
+
+  private static final class CapacityLimitingMediaCodecAdapter extends ForwardingMediaCodecAdapter {
+    private final int capacity;
+    private int pendingBufferCount;
+
+    CapacityLimitingMediaCodecAdapter(MediaCodecAdapter delegate, int capacity) {
+      super(delegate);
+      this.capacity = capacity;
+    }
+
+    @Override
+    public int dequeueInputBufferIndex() {
+      if (pendingBufferCount >= capacity) {
+        return MediaCodec.INFO_TRY_AGAIN_LATER;
+      }
+      return super.dequeueInputBufferIndex();
+    }
+
+    @Override
+    public void queueInputBuffer(
+        int index, int offset, int size, long presentationTimeUs, int flags) {
+      super.queueInputBuffer(index, offset, size, presentationTimeUs, flags);
+      pendingBufferCount++;
+    }
+
+    @Override
+    public void releaseOutputBuffer(int index, boolean render) {
+      super.releaseOutputBuffer(index, render);
+      pendingBufferCount--;
+    }
+
+    @Override
+    public void releaseOutputBuffer(int index, long renderTimestampNs) {
+      super.releaseOutputBuffer(index, renderTimestampNs);
+      pendingBufferCount--;
+    }
+
+    @Override
+    public void flush() {
+      super.flush();
+      pendingBufferCount = 0;
     }
   }
 }
