@@ -717,6 +717,15 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     Log.i(TAG, "Export started")
   }
 
+  /** Cancels any ongoing export operation, and deletes output file contents. */
+  fun cancelExport() {
+    transformer?.cancel()
+    transformer = null
+    outputFile?.delete()
+    outputFile = null
+    _uiState.update { it.copy(exportState = ExportState()) }
+  }
+
   private fun prepareComposition(): Composition {
     val settings = uiState.value.outputSettingsState
     var compositionHasVideo = false
@@ -954,15 +963,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     compositionPlayer.release()
     compositionPlayer = createCompositionPlayer()
     playerPrepared = false
-  }
-
-  /** Cancels any ongoing export operation, and deletes output file contents. */
-  private fun cancelExport() {
-    transformer?.apply { cancel() }
-    transformer = null
-    outputFile?.apply { delete() }
-    outputFile = null
-    _uiState.update { it.copy(exportState = ExportState()) }
   }
 
   /**
