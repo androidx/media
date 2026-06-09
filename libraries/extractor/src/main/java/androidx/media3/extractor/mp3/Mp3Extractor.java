@@ -266,7 +266,7 @@ public final class Mp3Extractor implements Extractor {
     if (readResult == RESULT_END_OF_INPUT && seeker instanceof IndexSeeker) {
       // Duration is exact when index seeker is used.
       long finalSampleIndex = samplesRead - 1;
-      long durationUs = finalSampleIndex >= 0 ? computeTimeUs(finalSampleIndex) : C.TIME_UNSET;
+      long durationUs = finalSampleIndex >= 0 ? computeFinalIndexSeekerDurationUs(finalSampleIndex) : C.TIME_UNSET;
       if (seeker.getDurationUs() != durationUs) {
         ((IndexSeeker) seeker).setDurationUs(durationUs);
         extractorOutput.seekMap(seeker);
@@ -399,19 +399,12 @@ public final class Mp3Extractor implements Extractor {
    * is present, this trims the encoder delay and padding so EOF finalization does not replace an
    * initially gapless Xing/Info duration with the longer encoded duration.
    */
-  private long computeFinalIndexSeekerDurationUs(long samplesRead) {
-    long durationUs = computeTimeUs(samplesRead);
-    if (!gaplessInfoHolder.hasGaplessInfo()) {
-      return durationUs;
-    }
+  private long computeFinalIndexSeekerDurationUs(long finalSampleIndex) {
     long finalGaplessSampleIndex =
-        Util.durationUsToSampleCount(durationUs, synchronizedHeader.sampleRate)
-            - gaplessInfoHolder.encoderDelay
-            - gaplessInfoHolder.encoderPadding
-            - 1;
-    return finalGaplessSampleIndex >= 0
-        ? Util.sampleCountToDurationUs(finalGaplessSampleIndex, synchronizedHeader.sampleRate)
-        : C.TIME_UNSET;
+        gaplessInfoHolder.hasGaplessInfo()
+            ? finalSampleIndex - gaplessInfoHolder.encoderDelay - gaplessInfoHolder.encoderPadding
+            : finalSampleIndex;
+    return finalGaplessSampleIndex >= 0 ? computeTimeUs(finalGaplessSampleIndex) : C.TIME_UNSET;
   }
 
   private boolean synchronize(ExtractorInput input, boolean sniffing) throws IOException {
