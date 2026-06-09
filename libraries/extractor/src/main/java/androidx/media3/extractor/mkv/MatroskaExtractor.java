@@ -171,6 +171,7 @@ public class MatroskaExtractor implements Extractor {
   private static final String CODEC_ID_DTS_EXPRESS = "A_DTS/EXPRESS";
   private static final String CODEC_ID_DTS_LOSSLESS = "A_DTS/LOSSLESS";
   private static final String CODEC_ID_FLAC = "A_FLAC";
+  private static final String CODEC_ID_ALAC = "A_ALAC";
   private static final String CODEC_ID_ACM = "A_MS/ACM";
   private static final String CODEC_ID_PCM_INT_LIT = "A_PCM/INT/LIT";
   private static final String CODEC_ID_PCM_INT_BIG = "A_PCM/INT/BIG";
@@ -2250,6 +2251,7 @@ public class MatroskaExtractor implements Extractor {
       case CODEC_ID_DTS_EXPRESS:
       case CODEC_ID_DTS_LOSSLESS:
       case CODEC_ID_FLAC:
+      case CODEC_ID_ALAC:
       case CODEC_ID_ACM:
       case CODEC_ID_PCM_INT_LIT:
       case CODEC_ID_PCM_INT_BIG:
@@ -2592,6 +2594,14 @@ public class MatroskaExtractor implements Extractor {
           break;
         case CODEC_ID_FLAC:
           mimeType = MimeTypes.AUDIO_FLAC;
+          initializationData = Collections.singletonList(getCodecPrivate(codecId));
+          pcmEncoding = Util.getPcmEncoding(audioBitDepth);
+          if (pcmEncoding == C.ENCODING_INVALID) {
+            pcmEncoding = Format.NO_VALUE;
+          }
+          break;
+        case CODEC_ID_ALAC:
+          mimeType = MimeTypes.AUDIO_ALAC;
           initializationData = Collections.singletonList(getCodecPrivate(codecId));
           pcmEncoding = Util.getPcmEncoding(audioBitDepth);
           if (pcmEncoding == C.ENCODING_INVALID) {
