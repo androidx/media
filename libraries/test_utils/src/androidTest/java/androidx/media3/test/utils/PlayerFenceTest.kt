@@ -16,8 +16,10 @@
 package androidx.media3.test.utils
 
 import android.content.Context
+import android.graphics.SurfaceTexture
 import android.os.Handler
 import android.os.HandlerThread
+import android.view.Surface
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -38,6 +40,7 @@ import com.google.common.truth.Truth.assertWithMessage
 import java.util.ArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.test.assertFailsWith
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -45,6 +48,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.android.HandlerDispatcher
 import kotlinx.coroutines.android.asCoroutineDispatcher
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
@@ -218,6 +222,97 @@ class PlayerFenceTest {
     backgroundThread.quit()
   }
 
+  @Test
+  fun awaitFirstFrameRendered() =
+    runBlocking(Dispatchers.Main) {
+      player = ExoPlayer.Builder(getInstrumentation().context.applicationContext).build()
+      val surfaceTexture = SurfaceTexture(10)
+      val surface = Surface(surfaceTexture)
+      player.setVideoSurface(surface)
+      player.setMediaItem(MP4_ITEM)
+
+      val firstFrameRendered = async { player.awaitFirstFrameRendered() }
+      delay(500.milliseconds)
+      assertThat(firstFrameRendered.isCompleted).isFalse()
+
+      player.prepare()
+      player.play()
+      firstFrameRendered.await()
+
+      player.clearVideoSurface()
+      surface.release()
+      surfaceTexture.release()
+    }
+
+  @Test
+  fun awaitFirstFrameRendered_consumesEvent() =
+    runBlocking(Dispatchers.Main) {
+      player = ExoPlayer.Builder(getInstrumentation().context.applicationContext).build()
+      val surfaceTexture = SurfaceTexture(10)
+      val surface = Surface(surfaceTexture)
+      player.setVideoSurface(surface)
+      player.setMediaItem(MP4_ITEM)
+      player.prepare()
+      player.play()
+
+      player.awaitFirstFrameRendered()
+
+      val firstFrameRenderedAgain = async { player.awaitFirstFrameRendered() }
+      delay(500.milliseconds)
+      assertThat(firstFrameRenderedAgain.isCompleted).isFalse()
+
+      player.seekTo(0)
+      firstFrameRenderedAgain.await()
+
+      player.clearVideoSurface()
+      surface.release()
+      surfaceTexture.release()
+    }
+
+  @Test
+  fun awaitFirstFrameRendered_nonFatalError_propagatesByDefault() =
+    runBlocking(Dispatchers.Main) {
+      player =
+        ExoPlayer.Builder(getInstrumentation().context.applicationContext)
+          .setRenderersFactory(FailingAudioRenderer.Factory())
+          .build()
+      val surfaceTexture = SurfaceTexture(10)
+      val surface = Surface(surfaceTexture)
+      player.setVideoSurface(surface)
+      player.setMediaItem(MP4_ITEM)
+      player.prepare()
+      player.play()
+
+      val exception =
+        assertFailsWith(IllegalStateException::class) { player.awaitFirstFrameRendered() }
+      assertThat(exception).hasMessageThat().contains("FailingAudioRenderer")
+
+      player.clearVideoSurface()
+      surface.release()
+      surfaceTexture.release()
+    }
+
+  @Test
+  fun awaitFirstFrameRendered_nonFatalError_doesntPropagateIfDisabled() =
+    runBlocking(Dispatchers.Main) {
+      player =
+        ExoPlayer.Builder(getInstrumentation().context.applicationContext)
+          .setRenderersFactory(FailingAudioRenderer.Factory())
+          .build()
+      val surfaceTexture = SurfaceTexture(10)
+      val surface = Surface(surfaceTexture)
+      player.setVideoSurface(surface)
+      player.setMediaItem(MP4_ITEM)
+      player.prepare()
+      player.play()
+
+      player.awaitFirstFrameRendered(failOnNonFatalErrors = false)
+
+      player.clearVideoSurface()
+      surface.release()
+      surfaceTexture.release()
+    }
+
   private fun CoroutineScope.assertDoesntSuspend(block: suspend () -> Unit) {
     var didSuspend = true
     // Use UNDISPATCHED so that control-flow returns to the outer scope immediately if `block()`
@@ -272,5 +367,6 @@ class PlayerFenceTest {
 
   companion object {
     val SHORT_MP3_ITEM = MediaItem.fromUri("asset:///media/mp3/play-trimmed.mp3")
+    val MP4_ITEM = MediaItem.fromUri("asset:///media/mp4/sample.mp4")
   }
 }
