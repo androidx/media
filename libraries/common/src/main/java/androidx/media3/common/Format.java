@@ -1904,8 +1904,7 @@ public final class Format {
         .setLanguage(defaultIfNull(bundle.getString(FIELD_LANGUAGE), DEFAULT.language))
         .setSelectionFlags(bundle.getInt(FIELD_SELECTION_FLAGS, DEFAULT.selectionFlags))
         .setRoleFlags(bundle.getInt(FIELD_ROLE_FLAGS, DEFAULT.roleFlags))
-        .setSelectionPriority(
-            bundle.getFloat(FIELD_SELECTION_PRIORITY, DEFAULT.selectionPriority))
+        .setSelectionPriority(bundle.getFloat(FIELD_SELECTION_PRIORITY, DEFAULT.selectionPriority))
         .setAuxiliaryTrackType(
             bundle.getInt(FIELD_AUXILIARY_TRACK_TYPE, DEFAULT.auxiliaryTrackType))
         .setAverageBitrate(bundle.getInt(FIELD_AVERAGE_BITRATE, DEFAULT.averageBitrate))
