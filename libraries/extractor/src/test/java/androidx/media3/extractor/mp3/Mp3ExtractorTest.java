@@ -15,14 +15,15 @@
  */
 package androidx.media3.extractor.mp3;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeFalse;
 
 import androidx.annotation.Nullable;
-import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.util.Util;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.MpegAudioUtil;
 import androidx.media3.extractor.PositionHolder;
@@ -37,8 +38,10 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Bytes;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
+import java.nio.ByteBuffer;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestParameterInjector;
@@ -129,14 +132,13 @@ public final class Mp3ExtractorTest {
     byte[] fileBytes =
         TestUtil.getByteArray(
             ApplicationProvider.getApplicationContext(), "media/mp3/test-cbr-info-header.mp3");
-    int infoTagOffset = indexOf(fileBytes, new byte[] {'I', 'n', 'f', 'o'});
-    assertThat(infoTagOffset).isAtLeast(0);
-    int infoFramePosition = findMpegFramePositionBeforeTag(fileBytes, infoTagOffset);
-    assertThat(infoFramePosition).isNotEqualTo(C.INDEX_UNSET);
+    int infoTagOffset = Bytes.indexOf(fileBytes, new byte[] {'I', 'n', 'f', 'o'});
+    checkState(infoTagOffset >= 0);
+    ByteBuffer fileBytesBuffer = ByteBuffer.wrap(fileBytes);
+    int infoFramePosition = findMpegFramePositionBeforeTag(fileBytesBuffer, infoTagOffset);
     MpegAudioUtil.Header infoFrameHeader = new MpegAudioUtil.Header();
-    assertThat(infoFrameHeader.setForHeaderData(readBigEndianInt(fileBytes, infoFramePosition)))
-        .isTrue();
-    writeBigEndianInt(fileBytes, infoTagOffset + 12, infoFrameHeader.frameSize);
+    checkState(infoFrameHeader.setForHeaderData(fileBytesBuffer.getInt(infoFramePosition)));
+    fileBytesBuffer.putInt(infoTagOffset + 12, infoFrameHeader.frameSize);
 
     FakeExtractorOutput output =
         extractUntilSeekMap(new Mp3Extractor(), fileBytes, /* simulateUnknownLength= */ false);
@@ -458,42 +460,15 @@ public final class Mp3ExtractorTest {
     return output;
   }
 
-  private static int findMpegFramePositionBeforeTag(byte[] data, int tagOffset) {
+  private static int findMpegFramePositionBeforeTag(ByteBuffer data, int tagOffset) {
     for (int tagOffsetFromFrameStart : new int[] {13, 21, 36}) {
       int framePosition = tagOffset - tagOffsetFromFrameStart;
       if (framePosition >= 0
-          && framePosition + 4 <= data.length
-          && new MpegAudioUtil.Header().setForHeaderData(readBigEndianInt(data, framePosition))) {
+          && framePosition + 4 <= data.remaining()
+          && new MpegAudioUtil.Header().setForHeaderData(data.getInt(framePosition))) {
         return framePosition;
       }
     }
-    return C.INDEX_UNSET;
-  }
-
-  private static int indexOf(byte[] data, byte[] target) {
-    for (int i = 0; i <= data.length - target.length; i++) {
-      boolean matches = true;
-      for (int j = 0; j < target.length; j++) {
-        matches &= data[i + j] == target[j];
-      }
-      if (matches) {
-        return i;
-      }
-    }
-    return C.INDEX_UNSET;
-  }
-
-  private static int readBigEndianInt(byte[] data, int offset) {
-    return ((data[offset] & 0xFF) << 24)
-        | ((data[offset + 1] & 0xFF) << 16)
-        | ((data[offset + 2] & 0xFF) << 8)
-        | (data[offset + 3] & 0xFF);
-  }
-
-  private static void writeBigEndianInt(byte[] data, int offset, int value) {
-    data[offset] = (byte) (value >> 24);
-    data[offset + 1] = (byte) (value >> 16);
-    data[offset + 2] = (byte) (value >> 8);
-    data[offset + 3] = (byte) value;
+    throw new IllegalArgumentException("No tag found in " + Util.toHexString(data.array()));
   }
 }
