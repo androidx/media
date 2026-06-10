@@ -53,8 +53,9 @@ public abstract class SimpleDecoder<
   private int skippedOutputBufferCount;
   private long outputStartTimeUs;
 
-  @Nullable private Callback callback;
   @Nullable private Executor executor;
+  @Nullable private Runnable onOutputBufferAvailableRunnable;
+  @Nullable private Runnable onInputBufferAvailableRunnable;
 
   /**
    * @param inputBuffers An array of nulls that will be used to store references to input buffers.
@@ -128,8 +129,11 @@ public abstract class SimpleDecoder<
   @Override
   public final void setCallback(Callback callback, Executor executor) {
     synchronized (lock) {
-      this.callback = callback;
       this.executor = executor;
+      this.onOutputBufferAvailableRunnable =
+          callback != null ? callback::onOutputBufferAvailable : null;
+      this.onInputBufferAvailableRunnable =
+          callback != null ? callback::onInputBufferAvailable : null;
     }
   }
 
@@ -310,10 +314,10 @@ public abstract class SimpleDecoder<
         outputBuffer.skippedOutputBufferCount = skippedOutputBufferCount;
         skippedOutputBufferCount = 0;
         queuedOutputBuffers.addLast(outputBuffer);
-        Decoder.Callback currentCallback = this.callback;
+        Runnable currentOnOutputBufferAvailableRunnable = this.onOutputBufferAvailableRunnable;
         Executor currentExecutor = this.executor;
-        if (currentCallback != null && currentExecutor != null) {
-          currentExecutor.execute(currentCallback::onOutputBufferAvailable);
+        if (currentOnOutputBufferAvailableRunnable != null && currentExecutor != null) {
+          currentExecutor.execute(currentOnOutputBufferAvailableRunnable);
         }
       }
       // Make the input buffer available again.
@@ -330,10 +334,12 @@ public abstract class SimpleDecoder<
   private void releaseInputBufferInternal(I inputBuffer, boolean notifyCallback) {
     inputBuffer.clear();
     availableInputBuffers[availableInputBufferCount++] = inputBuffer;
-    Decoder.Callback currentCallback = this.callback;
+    Runnable currentOnInputBufferAvailableRunnable = this.onInputBufferAvailableRunnable;
     Executor currentExecutor = this.executor;
-    if (notifyCallback && currentCallback != null && currentExecutor != null) {
-      currentExecutor.execute(currentCallback::onInputBufferAvailable);
+    if (notifyCallback
+        && currentOnInputBufferAvailableRunnable != null
+        && currentExecutor != null) {
+      currentExecutor.execute(currentOnInputBufferAvailableRunnable);
     }
   }
 
