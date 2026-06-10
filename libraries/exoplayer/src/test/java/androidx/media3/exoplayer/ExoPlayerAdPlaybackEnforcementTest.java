@@ -237,9 +237,7 @@ public final class ExoPlayerAdPlaybackEnforcementTest {
     advance(player).untilTimelineChanges();
     AdPlaybackState updatedAdPlaybackState =
         emptyAdPlaybackState
-            .withNewAdGroup(
-                /* adGroupIndex= */ 0,
-                /* adGroupTimeUs= */ DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US)
+            .withNewAdGroup(/* adGroupIndex= */ 0, /* adGroupTimeUs= */ 0)
             .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
             .withAvailableAdMediaItem(
                 /* adGroupIndex= */ 0,
@@ -381,7 +379,7 @@ public final class ExoPlayerAdPlaybackEnforcementTest {
     TestExoPlayerBuilder playerBuilder =
         new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext());
     ExoPlayer player = playerBuilder.setEnforceAdPlaybackOnTimelineRefresh(false).build();
-    long firstSampleTimeUs = DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US;
+    long firstSampleTimeUs = 0;
     AdPlaybackState initialAdPlaybackState =
         new AdPlaybackState("adsId", firstSampleTimeUs)
             .withAvailableAdMediaItem(
@@ -465,7 +463,7 @@ public final class ExoPlayerAdPlaybackEnforcementTest {
     TestExoPlayerBuilder playerBuilder =
         new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext());
     ExoPlayer player = playerBuilder.setEnforceAdPlaybackOnTimelineRefresh(false).build();
-    long firstSampleTimeUs = DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US;
+    long firstSampleTimeUs = 0;
     AdPlaybackState initialAdPlaybackState =
         new AdPlaybackState("adsId", firstSampleTimeUs + 1_000_000L)
             .withAvailableAdMediaItem(
@@ -636,7 +634,7 @@ public final class ExoPlayerAdPlaybackEnforcementTest {
     TestExoPlayerBuilder playerBuilder =
         new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext());
     ExoPlayer player = playerBuilder.setEnforceAdPlaybackOnTimelineRefresh(false).build();
-    long firstSampleTimeUs = DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US;
+    long firstSampleTimeUs = 0;
     AdPlaybackState initialAdPlaybackState =
         new AdPlaybackState("adsId", firstSampleTimeUs)
             .withAvailableAdMediaItem(

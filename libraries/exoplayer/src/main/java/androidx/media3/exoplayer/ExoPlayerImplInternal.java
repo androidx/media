@@ -4032,10 +4032,13 @@ import java.util.Objects;
             contentPositionForAdResolutionUs,
             enforceAdPlaybackOnTimelineRefresh,
             /* transitionsFromPlaceholderPeriod= */ isUsingPlaceholderPeriod);
-    boolean earliestCuePointIsUnchangedOrLater =
+    boolean earliestAdGroupIsUnchangedOrLater =
         periodIdWithAds.nextAdGroupIndex == C.INDEX_UNSET
             || (oldPeriodId.nextAdGroupIndex != C.INDEX_UNSET
                 && periodIdWithAds.nextAdGroupIndex >= oldPeriodId.nextAdGroupIndex);
+    boolean isOldAdGroupWithinNewPeriod =
+        isOldAdGroupWithinNewPeriod(
+            timeline.getPeriodByUid(newPeriodUid, period), oldPeriodId.nextAdGroupIndex);
     // Drop update if we keep playing the same content (MediaPeriod.periodUid are identical) and
     // the only change is that MediaPeriodId.nextAdGroupIndex increased. This postpones a potential
     // discontinuity until we reach the former next ad group position.
@@ -4044,7 +4047,8 @@ import java.util.Objects;
         sameOldAndNewPeriodUid
             && !oldPeriodId.isAd()
             && !periodIdWithAds.isAd()
-            && earliestCuePointIsUnchangedOrLater;
+            && isOldAdGroupWithinNewPeriod
+            && earliestAdGroupIsUnchangedOrLater;
     // Drop update if the change is from/to server-side inserted ads at the same content position to
     // avoid any unintentional renderer reset.
     boolean isInStreamAdChange =
@@ -4156,6 +4160,22 @@ import java.util.Objects;
     MediaPeriodId periodId = playbackInfo.periodId;
     Timeline timeline = playbackInfo.timeline;
     return timeline.isEmpty() || timeline.getPeriodByUid(periodId.periodUid, period).isPlaceholder;
+  }
+
+  private static boolean isOldAdGroupWithinNewPeriod(
+      Timeline.Period newPeriod, int oldNextAdGroupIndex) {
+    if (oldNextAdGroupIndex == C.INDEX_UNSET) {
+      return true;
+    }
+    if (oldNextAdGroupIndex >= newPeriod.adPlaybackState.adGroupCount) {
+      return false;
+    }
+    AdGroup newAdGroupAtOldIndex = newPeriod.adPlaybackState.getAdGroup(oldNextAdGroupIndex);
+    if (newAdGroupAtOldIndex.timeUs == C.TIME_END_OF_SOURCE) {
+      return true;
+    }
+    return newAdGroupAtOldIndex.timeUs <= newPeriod.durationUs
+        || newPeriod.durationUs == C.TIME_UNSET;
   }
 
   /**
