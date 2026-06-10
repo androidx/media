@@ -145,28 +145,17 @@ import androidx.media3.extractor.MpegAudioUtil;
    * delay and padding are subtracted if present.
    */
   public long computeDurationUs() {
-    long sampleCount = getSampleCount();
-    if (sampleCount == C.LENGTH_UNSET) {
-      return C.TIME_UNSET;
+    if (frameCount == C.LENGTH_UNSET || frameCount == 0) {
+      // If the frame count is missing/invalid, the header can't be used to determine the duration.
+      return C.LENGTH_UNSET;
     }
+    long sampleCount = frameCount * header.samplesPerFrame;
     if (encoderDelay != C.LENGTH_UNSET && encoderPadding != C.LENGTH_UNSET) {
       sampleCount -= encoderDelay + encoderPadding;
     }
     if (sampleCount <= 0) {
       return C.TIME_UNSET;
     }
-    return computeDurationUs(sampleCount);
-  }
-
-  private long getSampleCount() {
-    if (frameCount == C.LENGTH_UNSET || frameCount == 0) {
-      // If the frame count is missing/invalid, the header can't be used to determine the duration.
-      return C.LENGTH_UNSET;
-    }
-    return frameCount * header.samplesPerFrame;
-  }
-
-  private long computeDurationUs(long sampleCount) {
     // Audio requires both a start and end PCM sample, so subtract one from the sample count before
     // calculating the duration.
     return Util.sampleCountToDurationUs(sampleCount - 1, header.sampleRate);

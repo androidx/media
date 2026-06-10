@@ -37,7 +37,8 @@ import androidx.media3.extractor.SeekPoint;
    * Constructs an instance.
    *
    * <p>The duration exposed from {@link #getDurationUs()} is computed from {@code inputLength} and
-   * the frame bitrate, or is {@link C#TIME_UNSET} if {@code inputLength} is unknown.
+   * the bitrate of {@code mpegAudioHeader}, or is {@link C#TIME_UNSET} if {@code inputLength} is
+   * unknown.
    *
    * @param inputLength The length of the stream in bytes, or {@link C#LENGTH_UNSET} if unknown.
    * @param firstFramePosition The position of the first frame in the stream.

@@ -554,7 +554,7 @@ public final class Mp3Extractor implements Extractor {
             : 0;
     int averageBitrate = computeAverageBitrate(inputLength - dataStart, durationUs);
     if (averageBitrate == C.RATE_UNSET_INT) {
-      // Bitrate couldn't be determined (dataStart > inputLength?)
+      // Bitrate couldn't be determined (dataStart >= inputLength?) so we just do normal CBR seeking
       return getConstantBitrateSeeker(input);
     }
 
