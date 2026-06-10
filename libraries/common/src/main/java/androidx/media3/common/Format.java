@@ -1005,12 +1005,16 @@ public final class Format {
   public final @C.RoleFlags int roleFlags;
 
   /**
-   * A relative preference among formats in the same {@link TrackGroup}. A higher value indicates a
-   * more preferred format, or {@link #NO_VALUE} if unset.
+   * A relative preference among formats in the same {@link TrackGroup}, or {@link #NO_VALUE} if
+   * unset. A higher value indicates a more preferred format. The way in which this field is
+   * populated depends on the type of media to which the format corresponds:
    *
-   * <p>Populated from the HLS {@code SCORE} attribute on {@code EXT-X-STREAM-INF} and {@code
-   * EXT-X-I-FRAME-STREAM-INF}, and from the DASH {@code @selectionPriority} attribute on {@code
-   * Representation} and {@code AdaptationSet}.
+   * <ul>
+   *   <li>HLS variants: The {@code SCORE} attribute defined on the corresponding {@code
+   *        EXT-X-STREAM-INF} and {@code EXT-X-I-FRAME-STREAM-INF} tags in the multivariant
+   *        playlist, or {@link #NO_VALUE} if not present.
+   *   <li>All the other types of media: Always {@link #NO_VALUE}.
+   * </ul>
    */
   @UnstableApi public final float selectionPriority;
 
