@@ -1011,8 +1011,8 @@ public final class Format {
    *
    * <ul>
    *   <li>HLS variants: The {@code SCORE} attribute defined on the corresponding {@code
-   *        EXT-X-STREAM-INF} and {@code EXT-X-I-FRAME-STREAM-INF} tags in the multivariant
-   *        playlist, or {@link #NO_VALUE} if not present.
+   *       EXT-X-STREAM-INF} and {@code EXT-X-I-FRAME-STREAM-INF} tags in the multivariant playlist,
+   *       or {@link #NO_VALUE} if not present.
    *   <li>All the other types of media: Always {@link #NO_VALUE}.
    * </ul>
    */
