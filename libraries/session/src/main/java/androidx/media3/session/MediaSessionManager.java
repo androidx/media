@@ -26,6 +26,8 @@ import android.content.pm.PackageManager;
 import android.media.session.MediaController;
 import android.media.session.MediaSession;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.Log;
@@ -293,7 +295,8 @@ public final class MediaSessionManager {
 
       listenersMap.put(listener, new ListenerWrapper(platformListener, isPackageSpecific));
       if (!isPackageSpecific) {
-        platformManager.addOnActiveSessionsChangedListener(platformListener, notificationListener);
+        platformManager.addOnActiveSessionsChangedListener(
+            platformListener, notificationListener, new Handler(Looper.getMainLooper()));
       }
     }
   }
