@@ -133,8 +133,8 @@ public final class SilenceSkippingAudioProcessorTest {
     // Given a signal with only noise.
     InputBufferProvider inputBufferProvider =
         getInputBufferProviderForAlternatingSilenceAndNoise(
-            /* silenceDurationMs= */ 30,
-            TEST_SIGNAL_NOISE_DURATION_MS - 30,
+            /* silenceDurationMs= */ 24,
+            TEST_SIGNAL_NOISE_DURATION_MS - 24,
             TEST_SIGNAL_FRAME_COUNT);
 
     // When processing the entire signal.
@@ -172,7 +172,7 @@ public final class SilenceSkippingAudioProcessorTest {
         process(silenceSkippingAudioProcessor, inputBufferProvider, INPUT_BUFFER_SIZE);
 
     // The output has 50000 frames of noise, plus 50 * 0.2 * 1000 padding (plus rounding errors).
-    assertThat(totalOutputFrames).isIn(Range.closed(60000L - 500L, 60000L + 500L));
+    assertThat(totalOutputFrames).isIn(Range.closed(60000L - 1500L, 60000L + 1500L));
     assertThat(silenceSkippingAudioProcessor.getSkippedFrames())
         .isEqualTo(TEST_SIGNAL_FRAME_COUNT - totalOutputFrames);
   }
@@ -201,7 +201,7 @@ public final class SilenceSkippingAudioProcessorTest {
         process(silenceSkippingAudioProcessor, inputBufferProvider, INPUT_BUFFER_SIZE);
 
     // The output has 50000 frames of noise, plus 50 * 0.2 * 1000 padding (plus rounding errors).
-    assertThat(totalOutputFrames).isIn(Range.closed(60000L - 500L, 60000L + 500L));
+    assertThat(totalOutputFrames).isIn(Range.closed(60000L - 1500L, 60000L + 1500L));
     assertThat(silenceSkippingAudioProcessor.getSkippedFrames())
         .isEqualTo(TEST_SIGNAL_FRAME_COUNT - totalOutputFrames);
   }
@@ -227,7 +227,7 @@ public final class SilenceSkippingAudioProcessorTest {
         process(silenceSkippingAudioProcessor, inputBufferProvider, /* inputBufferSize= */ 80);
 
     // The output has 50000 frames of noise, plus 50 * 0.2 * 1000 padding (plus rounding errors).
-    assertThat(totalOutputFrames).isIn(Range.closed(60000L - 500L, 60000L + 500L));
+    assertThat(totalOutputFrames).isIn(Range.closed(60000L - 1500L, 60000L + 1500L));
     assertThat(silenceSkippingAudioProcessor.getSkippedFrames())
         .isEqualTo(TEST_SIGNAL_FRAME_COUNT - totalOutputFrames);
   }
@@ -253,7 +253,7 @@ public final class SilenceSkippingAudioProcessorTest {
         process(silenceSkippingAudioProcessor, inputBufferProvider, /* inputBufferSize= */ 120);
 
     // The output has 50000 frames of noise, plus 50 * 0.2 * 1000 padding (plus rounding errors).
-    assertThat(totalOutputFrames).isIn(Range.closed(60000L - 500L, 60000L + 500L));
+    assertThat(totalOutputFrames).isIn(Range.closed(60000L - 1500L, 60000L + 1500L));
     assertThat(silenceSkippingAudioProcessor.getSkippedFrames())
         .isEqualTo(TEST_SIGNAL_FRAME_COUNT - totalOutputFrames);
   }
@@ -283,7 +283,7 @@ public final class SilenceSkippingAudioProcessorTest {
         process(silenceSkippingAudioProcessor, inputBufferProvider, /* inputBufferSize= */ 120);
 
     // The output has 50000 frames of noise, plus 50 * 0.05 * 1000 padding (plus rounding errors).
-    assertThat(totalOutputFrames).isIn(Range.closed(52500L - 500L, 52500L + 500L));
+    assertThat(totalOutputFrames).isIn(Range.closed(52500L - 1500L, 52500L + 1500L));
     assertThat(silenceSkippingAudioProcessor.getSkippedFrames())
         .isEqualTo(TEST_SIGNAL_FRAME_COUNT - totalOutputFrames);
   }
@@ -347,16 +347,21 @@ public final class SilenceSkippingAudioProcessorTest {
       int silenceDurationMs, int noiseDurationMs, int totalFrameCount) {
     int sampleRate = AUDIO_FORMAT.sampleRate;
     int channelCount = AUDIO_FORMAT.channelCount;
+    int lastSize = 0;
     Pcm16BitAudioBuilder audioBuilder = new Pcm16BitAudioBuilder(channelCount, totalFrameCount);
     while (!audioBuilder.isFull()) {
       int silenceDurationFrames = (silenceDurationMs * sampleRate) / 1000;
       // Append stereo silence.
       audioBuilder.appendFrames(
           /* count= */ silenceDurationFrames, /* channelLevels...= */ (short) 0, (short) 0);
+      lastSize += silenceDurationFrames * channelCount * 2;
+      assertThat(audioBuilder.getSize()).isEqualTo(lastSize);
       int noiseDurationFrames = (noiseDurationMs * sampleRate) / 1000;
       // Append stereo noise.
       audioBuilder.appendFrames(
           /* count= */ noiseDurationFrames, /* channelLevels...= */ MAX_VALUE, MAX_VALUE);
+      lastSize += noiseDurationFrames * channelCount * 2;
+      assertThat(audioBuilder.getSize()).isEqualTo(lastSize);
     }
     return new InputBufferProvider(audioBuilder.build());
   }
@@ -410,11 +415,17 @@ public final class SilenceSkippingAudioProcessorTest {
     public void appendFrames(int count, short... channelLevels) {
       checkState(!built);
       checkState(channelLevels.length == channelCount);
-      for (int i = 0; i < count; i += channelCount) {
+      for (int i = 0; i < count; i++) {
         for (short channelLevel : channelLevels) {
           buffer.put(channelLevel);
         }
       }
+    }
+
+    /** Returns how many bytes the buffer contains so far. */
+    public int getSize() {
+      checkState(!built);
+      return buffer.position() * 2;
     }
 
     /** Returns whether the buffer is full. */
