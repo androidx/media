@@ -130,6 +130,8 @@
         ([#3250](https://github.com/androidx/media/issues/3250)).
     *   Matroska: Add support for ALAC
         ([#3268](https://github.com/androidx/media/pull/3268)).
+    *   MP4: Allow variable length `sgpd` boxes in fragmented MP4 files
+        ([#3243](https://github.com/androidx/media/pull/3243)).
 *   Inspector:
 *   Audio:
     *   Add a 100ms grace period in ExoPlayer's audio renderers when
