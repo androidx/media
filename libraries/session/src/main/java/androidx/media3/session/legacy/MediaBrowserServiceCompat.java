@@ -1396,76 +1396,80 @@ public abstract class MediaBrowserServiceCompat extends Service {
   @SuppressLint("RestrictedApi")
   void handleMessageInternal(Message msg) {
     Bundle data = msg.getData();
-    switch (msg.what) {
-      case CLIENT_MSG_ADD_SUBSCRIPTION:
-        {
-          Bundle options = convertToNullIfInvalid(data.getBundle(DATA_OPTIONS));
+    try {
+      switch (msg.what) {
+        case CLIENT_MSG_ADD_SUBSCRIPTION:
+          {
+            Bundle options = convertToNullIfInvalid(data.getBundle(DATA_OPTIONS));
 
-          serviceBinderImpl.addSubscription(
+            serviceBinderImpl.addSubscription(
+                data.getString(DATA_MEDIA_ITEM_ID),
+                data.getBinder(DATA_CALLBACK_TOKEN),
+                options,
+                new ServiceCallbacksCompat(msg.replyTo));
+            break;
+          }
+        case CLIENT_MSG_REMOVE_SUBSCRIPTION:
+          serviceBinderImpl.removeSubscription(
               data.getString(DATA_MEDIA_ITEM_ID),
               data.getBinder(DATA_CALLBACK_TOKEN),
-              options,
               new ServiceCallbacksCompat(msg.replyTo));
           break;
-        }
-      case CLIENT_MSG_REMOVE_SUBSCRIPTION:
-        serviceBinderImpl.removeSubscription(
-            data.getString(DATA_MEDIA_ITEM_ID),
-            data.getBinder(DATA_CALLBACK_TOKEN),
-            new ServiceCallbacksCompat(msg.replyTo));
-        break;
-      case CLIENT_MSG_GET_MEDIA_ITEM:
-        serviceBinderImpl.getMediaItem(
-            data.getString(DATA_MEDIA_ITEM_ID),
-            data.getParcelable(DATA_RESULT_RECEIVER),
-            new ServiceCallbacksCompat(msg.replyTo));
-        break;
-      case CLIENT_MSG_REGISTER_CALLBACK_MESSENGER:
-        {
-          @Nullable Bundle rootHints = convertToNullIfInvalid(data.getBundle(DATA_ROOT_HINTS));
-          serviceBinderImpl.registerCallbacks(
-              new ServiceCallbacksCompat(msg.replyTo),
-              data.getString(DATA_PACKAGE_NAME),
-              data.getInt(DATA_CALLING_PID),
-              data.getInt(DATA_CALLING_UID),
-              rootHints);
-          break;
-        }
-      case CLIENT_MSG_UNREGISTER_CALLBACK_MESSENGER:
-        serviceBinderImpl.unregisterCallbacks(new ServiceCallbacksCompat(msg.replyTo));
-        break;
-      case CLIENT_MSG_SEARCH:
-        {
-          @Nullable
-          Bundle searchExtras = convertToNullIfInvalid(data.getBundle(DATA_SEARCH_EXTRAS));
-          serviceBinderImpl.search(
-              data.getString(DATA_SEARCH_QUERY),
-              searchExtras,
+        case CLIENT_MSG_GET_MEDIA_ITEM:
+          serviceBinderImpl.getMediaItem(
+              data.getString(DATA_MEDIA_ITEM_ID),
               data.getParcelable(DATA_RESULT_RECEIVER),
               new ServiceCallbacksCompat(msg.replyTo));
           break;
-        }
-      case CLIENT_MSG_SEND_CUSTOM_ACTION:
-        {
-          @Nullable
-          Bundle customActionExtras =
-              convertToNullIfInvalid(data.getBundle(DATA_CUSTOM_ACTION_EXTRAS));
-          serviceBinderImpl.sendCustomAction(
-              data.getString(DATA_CUSTOM_ACTION),
-              customActionExtras,
-              data.getParcelable(DATA_RESULT_RECEIVER),
-              new ServiceCallbacksCompat(msg.replyTo));
+        case CLIENT_MSG_REGISTER_CALLBACK_MESSENGER:
+          {
+            @Nullable Bundle rootHints = convertToNullIfInvalid(data.getBundle(DATA_ROOT_HINTS));
+            serviceBinderImpl.registerCallbacks(
+                new ServiceCallbacksCompat(msg.replyTo),
+                data.getString(DATA_PACKAGE_NAME),
+                data.getInt(DATA_CALLING_PID),
+                data.getInt(DATA_CALLING_UID),
+                rootHints);
+            break;
+          }
+        case CLIENT_MSG_UNREGISTER_CALLBACK_MESSENGER:
+          serviceBinderImpl.unregisterCallbacks(new ServiceCallbacksCompat(msg.replyTo));
           break;
-        }
-      default:
-        Log.w(
-            TAG,
-            "Unhandled message: "
-                + msg
-                + "\n  Service version: "
-                + SERVICE_VERSION_CURRENT
-                + "\n  Client version: "
-                + msg.arg1);
+        case CLIENT_MSG_SEARCH:
+          {
+            @Nullable
+            Bundle searchExtras = convertToNullIfInvalid(data.getBundle(DATA_SEARCH_EXTRAS));
+            serviceBinderImpl.search(
+                data.getString(DATA_SEARCH_QUERY),
+                searchExtras,
+                data.getParcelable(DATA_RESULT_RECEIVER),
+                new ServiceCallbacksCompat(msg.replyTo));
+            break;
+          }
+        case CLIENT_MSG_SEND_CUSTOM_ACTION:
+          {
+            @Nullable
+            Bundle customActionExtras =
+                convertToNullIfInvalid(data.getBundle(DATA_CUSTOM_ACTION_EXTRAS));
+            serviceBinderImpl.sendCustomAction(
+                data.getString(DATA_CUSTOM_ACTION),
+                customActionExtras,
+                data.getParcelable(DATA_RESULT_RECEIVER),
+                new ServiceCallbacksCompat(msg.replyTo));
+            break;
+          }
+        default:
+          Log.w(
+              TAG,
+              "Unhandled message: "
+                  + msg
+                  + "\n  Service version: "
+                  + SERVICE_VERSION_CURRENT
+                  + "\n  Client version: "
+                  + msg.arg1);
+      }
+    } catch (RuntimeException e) {
+      Log.w(TAG, "Failed to handle message due to malformed Bundle", e);
     }
   }
 

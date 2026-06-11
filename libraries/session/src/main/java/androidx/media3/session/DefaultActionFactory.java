@@ -30,9 +30,12 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.core.graphics.drawable.IconCompat;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.Log;
 
 /** The default {@link MediaNotification.ActionFactory}. */
 /* package */ final class DefaultActionFactory implements MediaNotification.ActionFactory {
+
+  private static final String TAG = "DefaultActionFactory";
 
   /**
    * Returns the {@link KeyEvent} that was included in the media action, or {@code null} if no
@@ -41,8 +44,15 @@ import androidx.media3.common.Player;
   @Nullable
   public static KeyEvent getKeyEvent(Intent intent) {
     @Nullable Bundle extras = intent.getExtras();
-    if (extras != null && extras.containsKey(Intent.EXTRA_KEY_EVENT)) {
-      return extras.getParcelable(Intent.EXTRA_KEY_EVENT);
+    if (extras != null) {
+      try {
+        if (extras.containsKey(Intent.EXTRA_KEY_EVENT)) {
+          return extras.getParcelable(Intent.EXTRA_KEY_EVENT);
+        }
+      } catch (RuntimeException e) {
+        Log.w(TAG, "Failed to get parcelable key event", e);
+        return null;
+      }
     }
     return null;
   }

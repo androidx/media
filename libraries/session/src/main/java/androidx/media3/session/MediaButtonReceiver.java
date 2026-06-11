@@ -16,7 +16,6 @@
 package androidx.media3.session;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.app.ForegroundServiceStartNotAllowedException;
 import android.app.Service;
@@ -137,15 +136,12 @@ public class MediaButtonReceiver extends BroadcastReceiver {
   @UnstableApi
   protected final void handleIntentAndMaybeStartTheService(
       Context context, @Nullable Intent intent) {
-    if (intent == null
-        || !Objects.equals(intent.getAction(), Intent.ACTION_MEDIA_BUTTON)
-        || !intent.hasExtra(Intent.EXTRA_KEY_EVENT)) {
+    if (intent == null || !Objects.equals(intent.getAction(), Intent.ACTION_MEDIA_BUTTON)) {
       Log.d(TAG, "Ignore unsupported intent: " + intent);
       return;
     }
 
-    @Nullable
-    KeyEvent keyEvent = checkNotNull(intent.getExtras()).getParcelable(Intent.EXTRA_KEY_EVENT);
+    @Nullable KeyEvent keyEvent = DefaultActionFactory.getKeyEvent(intent);
     if (keyEvent == null
         || keyEvent.getAction() != KeyEvent.ACTION_DOWN
         || keyEvent.getRepeatCount() != 0) {
