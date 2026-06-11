@@ -62,7 +62,7 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
    * Default minimum duration of audio that must be below {@code silenceThresholdLevel} before
    * silence starts being trimmed. Specified in microseconds.
    */
-  public static final long DEFAULT_MINIMUM_SILENCE_DURATION_US = 100_000;
+  public static final long DEFAULT_MINIMUM_SILENCE_DURATION_US = 25_000;
 
   /**
    * Default maximum silence to keep in microseconds. This maximum is applied after {@code
@@ -309,7 +309,9 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
       bytesPerFrame = inputAudioFormat.channelCount * 2;
       // Divide by 2 to allow the buffer to be split into two bytesPerFrame aligned parts.
       int maybeSilenceBufferSize =
-          alignToBytePerFrameBoundary(durationUsToFrames(minimumSilenceDurationUs) / 2) * 2;
+          alignToBytePerFrameBoundary(
+                  durationUsToFrames(minimumSilenceDurationUs) * bytesPerFrame / 2)
+              * 2;
       if (maybeSilenceBuffer.length != maybeSilenceBufferSize) {
         maybeSilenceBuffer = new byte[maybeSilenceBufferSize];
         contiguousOutputBuffer = new byte[maybeSilenceBufferSize];
@@ -647,6 +649,7 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
       return;
     }
 
+    int lastFrameIdx = (size / bytesPerFrame) - 1;
     for (int idx = 0; idx < size; idx += 2) {
       byte mostSignificantByte = sampleBuffer[idx + 1];
       byte leastSignificantByte = sampleBuffer[idx];
@@ -655,10 +658,10 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
       int volumeModificationPercentage;
       if (volumeChangeType == FADE_OUT) {
         volumeModificationPercentage =
-            calculateFadeOutPercentage(/* value= */ idx, /* max= */ size - 1);
+            calculateFadeOutPercentage(/* value= */ idx / bytesPerFrame, /* max= */ lastFrameIdx);
       } else if (volumeChangeType == FADE_IN) {
         volumeModificationPercentage =
-            calculateFadeInPercentage(/* value= */ idx, /* max= */ size - 1);
+            calculateFadeInPercentage(/* value= */ idx / bytesPerFrame, /* max= */ lastFrameIdx);
       } else {
         volumeModificationPercentage = minVolumeToKeepPercentageWhenMuting;
       }
@@ -669,12 +672,18 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
   }
 
   private int calculateFadeOutPercentage(int value, int max) {
+    if (max == 0) {
+      return 0;
+    }
     return ((minVolumeToKeepPercentageWhenMuting - 100) * ((AVOID_TRUNCATION_FACTOR * value) / max))
             / AVOID_TRUNCATION_FACTOR
         + 100;
   }
 
   private int calculateFadeInPercentage(int value, int max) {
+    if (max == 0) {
+      return 0;
+    }
     return (minVolumeToKeepPercentageWhenMuting
         + ((100 - minVolumeToKeepPercentageWhenMuting) * (AVOID_TRUNCATION_FACTOR * value) / max)
             / AVOID_TRUNCATION_FACTOR);
