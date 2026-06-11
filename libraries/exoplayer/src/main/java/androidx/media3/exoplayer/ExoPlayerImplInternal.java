@@ -553,8 +553,16 @@ import java.util.Objects;
     handler.obtainMessage(MSG_SET_VOLUME, volume).sendToTarget();
   }
 
-  public void setAudioSessionId(int audioSessionId) {
-    handler.obtainMessage(MSG_SET_AUDIO_SESSION_ID, audioSessionId, 0).sendToTarget();
+  public void setAudioSessionId(int audioSessionId, boolean isInitialAudioSessionId) {
+    HandlerWrapper.Message message =
+        handler.obtainMessage(MSG_SET_AUDIO_SESSION_ID, audioSessionId, 0);
+    if (isInitialAudioSessionId) {
+      // The auto-generated audio session id must be processed prior to any potential manually-set
+      // audio session ids to ensure correct assignment.
+      handler.sendMessageAtFrontOfQueue(message);
+    } else {
+      message.sendToTarget();
+    }
   }
 
   private void handleAudioFocusPlayerCommandInternal(

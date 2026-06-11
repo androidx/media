@@ -95,6 +95,7 @@ import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.Looper;
 import android.util.Pair;
 import android.view.Surface;
@@ -14054,6 +14055,51 @@ public final class ExoPlayerTest {
 
     assertThat(audioSessionId).isNotEqualTo(initialAudioSessionId);
     verify(listener).onAudioSessionIdChanged(audioSessionId);
+  }
+
+  @Test
+  public void audioSessionId_manuallySet_isNotOverwrittenByBackgroundGeneration() throws Exception {
+    int manualId = 1234;
+    // Create a custom renderer to capture all session ID updates sent to the playback thread.
+    final List<Integer> receivedIds = Collections.synchronizedList(new ArrayList<>());
+    FakeRenderer audioRenderer =
+        new FakeRenderer(C.TRACK_TYPE_AUDIO) {
+          @Override
+          public void handleMessage(int messageType, @Nullable Object message)
+              throws ExoPlaybackException {
+            if (messageType == Renderer.MSG_SET_AUDIO_SESSION_ID) {
+              receivedIds.add((Integer) message);
+            }
+            super.handleMessage(messageType, message);
+          }
+        };
+
+    // Setup a paused playback looper to force the race condition.
+    HandlerThread playbackThread = new HandlerThread("ExoPlayer:Playback");
+    playbackThread.start();
+    Looper playbackLooper = playbackThread.getLooper();
+    shadowOf(playbackLooper).pause();
+    ExoPlayer player =
+        new ExoPlayer.Builder(
+                context, (handler, video, audio, text, metadata) -> new Renderer[] {audioRenderer})
+            .setPlaybackLooper(playbackLooper)
+            .build();
+
+    try {
+      // Manually set the audio session ID.
+      player.setAudioSessionId(manualId);
+
+      // Unpause the looper to process both the auto-generation task and the manual update.
+      shadowOf(playbackLooper).unPause();
+      advance(player).untilPendingCommandsAreFullyHandled();
+
+      assertThat(receivedIds).hasSize(2);
+      assertThat(receivedIds.get(1)).isEqualTo(manualId);
+      assertThat(player.getAudioSessionId()).isEqualTo(manualId);
+    } finally {
+      player.release();
+      playbackThread.quit();
+    }
   }
 
   @Test
