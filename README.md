@@ -116,6 +116,8 @@ Next, add the following to your project's `settings.gradle.kts` file, replacing
 `path/to/media` with the path to your local copy:
 
 ```kotlin
+import androidx.media3.buildlogic.includeMedia3
+
 pluginManagement {
   includeBuild("path/to/media/build-logic-settings")
   // your other plugins

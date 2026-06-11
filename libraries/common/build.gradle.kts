@@ -27,7 +27,9 @@ dependencies {
     // resolved to the same version.
     Media3Modules.EXTERNAL_MODULES.forEach { (gradleName, moduleInfo) ->
       if (moduleInfo.artifactId?.startsWith("media3-") == true) {
-        implementation(project(":$gradleName"))
+        if (project.findProject(":$gradleName") != null) {
+          implementation(project(":$gradleName"))
+        }
       }
     }
   }
