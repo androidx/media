@@ -48,6 +48,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public final class PlayerFenceJavaTest {
 
+  private static final MediaItem MP3_ITEM = MediaItem.fromUri("asset:///media/mp3/bear-id3.mp3");
   private static final MediaItem SHORT_MP3_ITEM =
       MediaItem.fromUri("asset:///media/mp3/play-trimmed.mp3");
   private static final MediaItem MP4_ITEM = MediaItem.fromUri("asset:///media/mp4/sample.mp4");
@@ -191,6 +192,34 @@ public final class PlayerFenceJavaTest {
               player.clearVideoSurface();
               surface.get().release();
               surfaceTexture.get().release();
+            });
+  }
+
+  @Test
+  public void passesContentPosition() throws Exception {
+    AtomicReference<Player> player = new AtomicReference<>();
+    SettableFuture<Void> contentPositionFuture = SettableFuture.create();
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              ExoPlayer exoPlayer =
+                  new ExoPlayer.Builder(getInstrumentation().getContext().getApplicationContext())
+                      .build();
+              player.set(exoPlayer);
+              contentPositionFuture.setFuture(futureWhen(exoPlayer).passesContentPosition(1000L));
+
+              exoPlayer.setMediaItem(MP3_ITEM);
+              exoPlayer.prepare();
+              exoPlayer.play();
+            });
+
+    contentPositionFuture.get();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              assertThat(player.get().getContentPosition()).isAtLeast(1000L);
+              player.get().release();
             });
   }
 }

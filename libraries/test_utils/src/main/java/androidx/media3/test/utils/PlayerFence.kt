@@ -17,7 +17,9 @@ package androidx.media3.test.utils
 
 import android.os.Handler
 import android.os.Looper
+import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
@@ -28,10 +30,21 @@ import androidx.media3.transformer.CompositionPlayer
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.errorprone.annotations.CanIgnoreReturnValue
 import java.io.IOException
+import kotlin.math.max
+import kotlin.math.roundToLong
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.android.asCoroutineDispatcher
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.guava.future
+import kotlinx.coroutines.launch
 
 /**
  * Suspends until the player enters the provided [targetState].
@@ -58,7 +71,7 @@ suspend fun Player.awaitPlaybackState(
 
   val stateSeen = CompletableDeferred<Unit>()
   val playerListener =
-    object : ErrorFailingPlayerListener(stateSeen) {
+    object : ErrorFailingPlayerListener(stateSeen::completeExceptionally) {
       override fun onPlaybackStateChanged(playbackState: @Player.State Int) {
         if (targetState == playbackState) {
           stateSeen.complete(Unit)
@@ -68,7 +81,9 @@ suspend fun Player.awaitPlaybackState(
 
   addListener(playerListener)
   val analyticsListener =
-    maybeAddAnalyticsListener(failOnNonFatalErrors) { NonFatalFailingAnalyticsListener(stateSeen) }
+    maybeAddAnalyticsListener(failOnNonFatalErrors) {
+      NonFatalFailingAnalyticsListener(stateSeen::completeExceptionally)
+    }
   try {
     stateSeen.await()
   } finally {
@@ -94,7 +109,7 @@ suspend fun Player.awaitFirstFrameRendered(failOnNonFatalErrors: Boolean = true)
 
   val renderedFirstFrame = CompletableDeferred<Unit>()
   val playerListener =
-    object : ErrorFailingPlayerListener(renderedFirstFrame) {
+    object : ErrorFailingPlayerListener(renderedFirstFrame::completeExceptionally) {
       override fun onRenderedFirstFrame() {
         renderedFirstFrame.complete(Unit)
       }
@@ -102,7 +117,7 @@ suspend fun Player.awaitFirstFrameRendered(failOnNonFatalErrors: Boolean = true)
   addListener(playerListener)
   val analyticsListener =
     maybeAddAnalyticsListener(failOnNonFatalErrors) {
-      NonFatalFailingAnalyticsListener(renderedFirstFrame)
+      NonFatalFailingAnalyticsListener(renderedFirstFrame::completeExceptionally)
     }
   try {
     renderedFirstFrame.await()
@@ -110,6 +125,120 @@ suspend fun Player.awaitFirstFrameRendered(failOnNonFatalErrors: Boolean = true)
     removeListener(playerListener)
     maybeRemoveAnalyticsListener(analyticsListener)
   }
+}
+
+/**
+ * Suspends until the content position reaches (or passes) [targetPositionMs] in the current media
+ * item.
+ *
+ * This makes some assumptions:
+ * 1. The condition completes immediately if [Player.getContentPosition] is already at least
+ *    [targetPositionMs].
+ * 2. Seeking past the target position satisfies the condition.
+ * 3. If playback ends, or the media item changes, before the target position is reached, an
+ *    exception is thrown.
+ *
+ * Must be called on the player's application looper thread.
+ */
+@UnstableApi
+suspend fun Player.awaitContentPositionAtLeast(
+  targetPositionMs: Long,
+  failOnNonFatalErrors: Boolean = true,
+) {
+  require(targetPositionMs != C.TIME_UNSET)
+  check(Looper.myLooper() == applicationLooper) {
+    "awaitContentPositionAtLeast must be called on the player's application looper thread"
+  }
+  playerError?.let { throw it }
+
+  if (contentPosition >= targetPositionMs) {
+    return
+  }
+  if (playbackState == Player.STATE_ENDED) {
+    throw IllegalStateException(
+      "Playback already ended at position ${contentPosition}ms, before target of ${targetPositionMs}ms"
+    )
+  }
+  val currentMediaItemIndex = currentMediaItemIndex
+
+  val speedChanges: Flow<Float?> = callbackFlow {
+    val listener =
+      object : ErrorFailingPlayerListener(::close) {
+        override fun onPlaybackStateChanged(playbackState: @Player.State Int) {
+          if (playbackState == Player.STATE_ENDED) {
+            val contentPositionMs = contentPosition
+            if (contentPositionMs >= targetPositionMs) {
+              trySend(null).getOrThrow()
+            } else {
+              close(
+                IllegalStateException(
+                  "Playback ended at position " +
+                    "${contentPositionMs}ms, before target of ${targetPositionMs}ms"
+                )
+              )
+            }
+          }
+        }
+
+        override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
+          trySend(playbackParameters.speed).getOrThrow()
+        }
+
+        override fun onPositionDiscontinuity(
+          oldPosition: Player.PositionInfo,
+          newPosition: Player.PositionInfo,
+          reason: @Player.DiscontinuityReason Int,
+        ) {
+          if (newPosition.mediaItemIndex != currentMediaItemIndex) {
+            close(
+              IllegalStateException(
+                "Playback left item $currentMediaItemIndex " +
+                  "before reaching position ${targetPositionMs}ms"
+              )
+            )
+          }
+          if (
+            newPosition.positionMs >= targetPositionMs ||
+              (oldPosition.mediaItemIndex == currentMediaItemIndex &&
+                oldPosition.positionMs >= targetPositionMs)
+          ) {
+            trySend(null).getOrThrow()
+          }
+        }
+      }
+    addListener(listener)
+
+    val analyticsListener =
+      maybeAddAnalyticsListener(failOnNonFatalErrors) { NonFatalFailingAnalyticsListener(::close) }
+
+    send(playbackParameters.speed)
+
+    awaitClose {
+      removeListener(listener)
+      maybeRemoveAnalyticsListener(analyticsListener)
+    }
+  }
+
+  val targetReachedEvents: Flow<Unit> = channelFlow {
+    var delayJob: Job? = null
+    speedChanges.collect { speed ->
+      delayJob?.cancel()
+      if (speed == null) {
+        send(Unit)
+        return@collect
+      }
+      delayJob = launch {
+        while (contentPosition < targetPositionMs) {
+          val wallTimeUntilPosition =
+            max(10f, (targetPositionMs - contentPosition) / speed).roundToLong().milliseconds
+          delay(wallTimeUntilPosition)
+        }
+        send(Unit)
+      }
+    }
+  }
+
+  targetReachedEvents.first()
 }
 
 /**
@@ -153,6 +282,18 @@ private constructor(private val player: Player, private val failOnNonFatalErrors
     player.awaitFirstFrameRendered(failOnNonFatalErrors)
   }
 
+  /**
+   * Returns a future that completes when the content position reaches (or passes)
+   * [targetPositionMs] in the current media item.
+   *
+   * See [Player.awaitContentPositionAtLeast] for assumptions made by this condition.
+   *
+   * Must be called on the player's application looper thread.
+   */
+  fun passesContentPosition(targetPositionMs: Long): ListenableFuture<Void?> = createFuture {
+    player.awaitContentPositionAtLeast(targetPositionMs, failOnNonFatalErrors)
+  }
+
   private fun createFuture(block: suspend () -> Unit): ListenableFuture<Void?> {
     val looper = Looper.myLooper() ?: error("Must be called on a Looper thread")
     val dispatcher = Handler(looper).asCoroutineDispatcher("JavaFenceDispatcher")
@@ -192,14 +333,14 @@ private fun Player.maybeRemoveAnalyticsListener(analyticsListener: AnalyticsList
   }
 }
 
-private open class ErrorFailingPlayerListener(private val completable: CompletableDeferred<Unit>) :
+private open class ErrorFailingPlayerListener(private val exceptionConsumer: (Exception) -> Unit) :
   Player.Listener {
   override fun onPlayerError(error: PlaybackException) {
-    completable.completeExceptionally(error)
+    exceptionConsumer(error)
   }
 }
 
-private class NonFatalFailingAnalyticsListener(private val completable: CompletableDeferred<*>) :
+private class NonFatalFailingAnalyticsListener(private val exceptionConsumer: (Exception) -> Unit) :
   AnalyticsListener {
   override fun onLoadError(
     eventTime: AnalyticsListener.EventTime,
@@ -208,28 +349,28 @@ private class NonFatalFailingAnalyticsListener(private val completable: Completa
     error: IOException,
     wasCanceled: Boolean,
   ) {
-    completable.completeExceptionally(error)
+    exceptionConsumer(error)
   }
 
   override fun onAudioSinkError(eventTime: AnalyticsListener.EventTime, audioSinkError: Exception) {
-    completable.completeExceptionally(audioSinkError)
+    exceptionConsumer(audioSinkError)
   }
 
   override fun onAudioCodecError(
     eventTime: AnalyticsListener.EventTime,
     audioCodecError: Exception,
   ) {
-    completable.completeExceptionally(audioCodecError)
+    exceptionConsumer(audioCodecError)
   }
 
   override fun onVideoCodecError(
     eventTime: AnalyticsListener.EventTime,
     videoCodecError: Exception,
   ) {
-    completable.completeExceptionally(videoCodecError)
+    exceptionConsumer(videoCodecError)
   }
 
   override fun onDrmSessionManagerError(eventTime: AnalyticsListener.EventTime, error: Exception) {
-    completable.completeExceptionally(error)
+    exceptionConsumer(error)
   }
 }
