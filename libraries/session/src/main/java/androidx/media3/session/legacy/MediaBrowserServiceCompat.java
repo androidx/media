@@ -249,6 +249,9 @@ public abstract class MediaBrowserServiceCompat extends Service {
         String clientPackageName, int clientUid, @Nullable Bundle rootHints) {
       Bundle rootExtras = null;
       int clientPid = UNKNOWN_PID;
+      if (Build.VERSION.SDK_INT >= 28) {
+        clientPid = checkNotNull(serviceFwk).getCurrentBrowserInfo().getPid();
+      }
       if (rootHints != null && rootHints.getInt(EXTRA_CLIENT_VERSION, 0) != 0) {
         rootHints.remove(EXTRA_CLIENT_VERSION);
         messenger = new Messenger(handler);
@@ -262,7 +265,6 @@ public abstract class MediaBrowserServiceCompat extends Service {
         } else {
           rootExtrasList.add(rootExtras);
         }
-        clientPid = rootHints.getInt(EXTRA_CALLING_PID, UNKNOWN_PID);
         rootHints.remove(EXTRA_CALLING_PID);
       }
       ConnectionRecord connection =
@@ -594,13 +596,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
       Bundle data = msg.getData();
       data.setClassLoader(checkNotNull(MediaBrowserCompat.class.getClassLoader()));
       data.putInt(DATA_CALLING_UID, Binder.getCallingUid());
-      int pid = Binder.getCallingPid();
-      if (pid > 0) {
-        data.putInt(DATA_CALLING_PID, pid);
-      } else if (!data.containsKey(DATA_CALLING_PID)) {
-        // If the MediaBrowserCompat didn't send its PID, then put UNKNOWN_PID.
-        data.putInt(DATA_CALLING_PID, UNKNOWN_PID);
-      }
+      data.putInt(DATA_CALLING_PID, Binder.getCallingPid());
       return super.sendMessageAtTime(msg, uptimeMillis);
     }
 
