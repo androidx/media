@@ -71,6 +71,7 @@ import androidx.media3.common.audio.ChannelMixingMatrix;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.ElapsedRealtimeTicker;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
@@ -120,7 +121,6 @@ import androidx.window.layout.WindowMetricsCalculator;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
 import com.google.common.base.Stopwatch;
-import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -196,14 +196,7 @@ public final class TransformerActivity extends AppCompatActivity {
     displayInputButton = findViewById(R.id.display_input_button);
     displayInputButton.setOnClickListener(view -> toggleInputVideoDisplay());
 
-    exportStopwatch =
-        Stopwatch.createUnstarted(
-            new Ticker() {
-              @Override
-              public long read() {
-                return android.os.SystemClock.elapsedRealtimeNanos();
-              }
-            });
+    exportStopwatch = Stopwatch.createUnstarted(new ElapsedRealtimeTicker());
   }
 
   @Override
