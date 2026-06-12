@@ -184,7 +184,7 @@ public class ReplayCacheTest {
         "The MediaCodec decoder's output surface is sometimes dropping frames on emulator despite"
             + " using MediaFormat.KEY_ALLOW_FRAME_DROP.",
         !Util.isRunningOnEmulator());
-    PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS * 1000);
+    PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
     InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
         new InputTimestampRecordingShaderProgram();
 
