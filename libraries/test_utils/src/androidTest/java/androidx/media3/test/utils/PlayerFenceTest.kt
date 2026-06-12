@@ -80,10 +80,11 @@ class PlayerFenceTest {
     runBlocking(Dispatchers.Main) {
       player = ExoPlayer.Builder(getInstrumentation().context.applicationContext).build()
       player.setMediaItem(SHORT_MP3_ITEM)
-
       player.prepare()
 
       player.awaitPlaybackState(Player.STATE_READY)
+
+      assertThat(player.playbackState).isEqualTo(Player.STATE_READY)
     }
 
   @Test
@@ -105,6 +106,8 @@ class PlayerFenceTest {
       playerReady.await()
 
       assertDoesntSuspend { player.awaitPlaybackState(Player.STATE_READY) }
+
+      assertThat(player.playbackState).isEqualTo(Player.STATE_READY)
     }
 
   @Test
@@ -121,6 +124,7 @@ class PlayerFenceTest {
       yield()
       try {
         playerReady.await()
+        assertThat(player.playbackState).isEqualTo(Player.STATE_READY)
       } finally {
         player.release()
       }
@@ -134,7 +138,6 @@ class PlayerFenceTest {
           .setRenderersFactory(FailingAudioRenderer.Factory())
           .build()
       player.setMediaItem(SHORT_MP3_ITEM)
-
       player.prepare()
 
       val throwable =
@@ -154,6 +157,8 @@ class PlayerFenceTest {
       player.prepare()
 
       player.awaitPlaybackState(Player.STATE_READY, failOnNonFatalErrors = false)
+
+      assertThat(player.playbackState).isEqualTo(Player.STATE_READY)
     }
 
   @Test
@@ -232,12 +237,14 @@ class PlayerFenceTest {
           }
         }
       )
-
       player.setMediaItem(SHORT_MP3_ITEM)
       player.prepare()
       player.play()
+
       player.awaitPlaybackState(Player.STATE_ENDED)
+
       assertThat(playbackEndedFromListener.get()).isTrue()
+      assertThat(player.playbackState).isEqualTo(Player.STATE_ENDED)
     }
 
   @Test
@@ -247,12 +254,13 @@ class PlayerFenceTest {
       Handler(backgroundThread.looper).asCoroutineDispatcher(name = "NonMainThreadDispatcher")
     runBlocking(customDispatcher) {
       val player = ExoPlayer.Builder(getInstrumentation().context.applicationContext).build()
-
       player.setMediaItem(SHORT_MP3_ITEM)
       player.prepare()
       player.play()
       try {
         player.awaitPlaybackState(Player.STATE_READY)
+
+        assertThat(player.playbackState).isEqualTo(Player.STATE_READY)
       } finally {
         player.release()
       }
@@ -500,6 +508,8 @@ class PlayerFenceTest {
       player.play()
 
       player.awaitContentPositionAtLeast(targetPositionMs = 500, failOnNonFatalErrors = false)
+
+      assertThat(player.contentPosition).isAtLeast(500)
     }
 
   private fun CoroutineScope.assertDoesntSuspend(block: suspend () -> Unit) {
