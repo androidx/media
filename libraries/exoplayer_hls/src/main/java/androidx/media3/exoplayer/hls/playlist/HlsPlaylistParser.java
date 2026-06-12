@@ -164,6 +164,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
       Pattern.compile("SUPPLEMENTAL-CODECS=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_RESOLUTION = Pattern.compile("RESOLUTION=(\\d+x\\d+)");
   private static final Pattern REGEX_FRAME_RATE = Pattern.compile("FRAME-RATE=([\\d\\.]+)\\b");
+  private static final Pattern REGEX_SCORE = Pattern.compile("SCORE=([\\d\\.]+)\\b");
   private static final Pattern REGEX_SERVER_URI =
       Pattern.compile("SERVER-URI=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_PATHWAY_ID =
@@ -571,6 +572,12 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
         if (frameRateString != null) {
           frameRate = Float.parseFloat(frameRateString);
         }
+        float selectionPriority = Format.NO_VALUE;
+        String selectionPriorityString =
+            parseOptionalStringAttr(line, REGEX_SCORE, variableDefinitions, matcherCache);
+        if (selectionPriorityString != null) {
+          selectionPriority = Float.parseFloat(selectionPriorityString);
+        }
         @Nullable
         String pathwayId =
             parseOptionalStringAttr(line, REGEX_PATHWAY_ID, variableDefinitions, matcherCache);
@@ -610,6 +617,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
                 .setWidth(width)
                 .setHeight(height)
                 .setFrameRate(frameRate)
+                .setSelectionPriority(selectionPriority)
                 .setRoleFlags(roleFlags)
                 .setColorInfo(colorInfo)
                 .build();

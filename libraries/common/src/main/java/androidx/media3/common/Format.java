@@ -62,6 +62,7 @@ import java.util.UUID;
  *   <li>{@link #language}
  *   <li>{@link #selectionFlags}
  *   <li>{@link #roleFlags}
+ *   <li>{@link #selectionPriority}
  *   <li>{@link #averageBitrate}
  *   <li>{@link #peakBitrate}
  *   <li>{@link #codecs}
@@ -155,6 +156,7 @@ public final class Format {
     @Nullable private String language;
     private @C.SelectionFlags int selectionFlags;
     private @C.RoleFlags int roleFlags;
+    private float selectionPriority;
     private @C.AuxiliaryTrackType int auxiliaryTrackType;
     private int averageBitrate;
     private int peakBitrate;
@@ -219,6 +221,7 @@ public final class Format {
     /** Creates a new instance with default values. */
     public Builder() {
       labels = ImmutableList.of();
+      selectionPriority = NO_VALUE;
       averageBitrate = NO_VALUE;
       peakBitrate = NO_VALUE;
       // Sample specific.
@@ -263,6 +266,7 @@ public final class Format {
       this.language = format.language;
       this.selectionFlags = format.selectionFlags;
       this.roleFlags = format.roleFlags;
+      this.selectionPriority = format.selectionPriority;
       this.averageBitrate = format.averageBitrate;
       this.peakBitrate = format.peakBitrate;
       this.codecs = format.codecs;
@@ -401,6 +405,18 @@ public final class Format {
     @CanIgnoreReturnValue
     public Builder setRoleFlags(@C.RoleFlags int roleFlags) {
       this.roleFlags = roleFlags;
+      return this;
+    }
+
+    /**
+     * Sets {@link Format#selectionPriority}. The default value is {@link Format#NO_VALUE}.
+     *
+     * @param selectionPriority The {@link Format#selectionPriority}.
+     * @return The builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setSelectionPriority(float selectionPriority) {
+      this.selectionPriority = selectionPriority;
       return this;
     }
 
@@ -988,6 +1004,20 @@ public final class Format {
   /** Track role flags. */
   public final @C.RoleFlags int roleFlags;
 
+  /**
+   * A relative preference among formats in the same {@link TrackGroup}, or {@link #NO_VALUE} if
+   * unset. A higher value indicates a more preferred format. The way in which this field is
+   * populated depends on the type of media to which the format corresponds:
+   *
+   * <ul>
+   *   <li>HLS variants: The {@code SCORE} attribute defined on the corresponding {@code
+   *       EXT-X-STREAM-INF} and {@code EXT-X-I-FRAME-STREAM-INF} tags in the multivariant playlist,
+   *       or {@link #NO_VALUE} if not present.
+   *   <li>All the other types of media: Always {@link #NO_VALUE}.
+   * </ul>
+   */
+  @UnstableApi public final float selectionPriority;
+
   /** The auxiliary track type. */
   @UnstableApi public final @C.AuxiliaryTrackType int auxiliaryTrackType;
 
@@ -1291,6 +1321,7 @@ public final class Format {
         "Auxiliary track type must only be set to a value other than AUXILIARY_TRACK_TYPE_UNDEFINED"
             + " only when ROLE_FLAG_AUXILIARY is set");
     roleFlags = builder.roleFlags;
+    selectionPriority = builder.selectionPriority;
     auxiliaryTrackType = builder.auxiliaryTrackType;
     averageBitrate = builder.averageBitrate;
     peakBitrate = builder.peakBitrate;
@@ -1372,6 +1403,7 @@ public final class Format {
 
     // Use manifest value only.
     @Nullable String id = manifestFormat.id;
+    float selectionPriority = manifestFormat.selectionPriority;
     int tileCountHorizontal = manifestFormat.tileCountHorizontal;
     int tileCountVertical = manifestFormat.tileCountVertical;
 
@@ -1428,6 +1460,7 @@ public final class Format {
         .setLanguage(language)
         .setSelectionFlags(selectionFlags)
         .setRoleFlags(roleFlags)
+        .setSelectionPriority(selectionPriority)
         .setAverageBitrate(averageBitrate)
         .setPeakBitrate(peakBitrate)
         .setCodecs(codecs)
@@ -1500,6 +1533,7 @@ public final class Format {
       result = 31 * result + (language == null ? 0 : language.hashCode());
       result = 31 * result + selectionFlags;
       result = 31 * result + roleFlags;
+      result = 31 * result + Float.floatToIntBits(selectionPriority);
       result = 31 * result + auxiliaryTrackType;
       result = 31 * result + averageBitrate;
       result = 31 * result + peakBitrate;
@@ -1588,6 +1622,7 @@ public final class Format {
         && tileCountVertical == other.tileCountVertical
         && cryptoType == other.cryptoType
         && Float.compare(frameRate, other.frameRate) == 0
+        && Float.compare(selectionPriority, other.selectionPriority) == 0
         && Float.compare(pixelWidthHeightRatio, other.pixelWidthHeightRatio) == 0
         && Objects.equals(id, other.id)
         && Objects.equals(label, other.label)
@@ -1645,6 +1680,9 @@ public final class Format {
     }
     if (format.bitrate != NO_VALUE) {
       builder.append(", bitrate=").append(format.bitrate);
+    }
+    if (format.selectionPriority != NO_VALUE) {
+      builder.append(", selectionPriority=").append(format.selectionPriority);
     }
     if (format.codecs != null) {
       builder.append(", codecs=").append(format.codecs);
@@ -1783,6 +1821,7 @@ public final class Format {
   private static final String FIELD_CHANNEL_MASK = Util.intToStringMaxRadix(38);
   private static final String FIELD_MIRROR_HORIZONTAL = Util.intToStringMaxRadix(39);
   private static final String FIELD_PIXEL_FORMAT = Util.intToStringMaxRadix(40);
+  private static final String FIELD_SELECTION_PRIORITY = Util.intToStringMaxRadix(41);
 
   /** Returns a {@link Bundle} representing the information stored in this object. */
   @UnstableApi
@@ -1795,6 +1834,7 @@ public final class Format {
     bundle.putString(FIELD_LANGUAGE, language);
     bundle.putInt(FIELD_SELECTION_FLAGS, selectionFlags);
     bundle.putInt(FIELD_ROLE_FLAGS, roleFlags);
+    bundle.putFloat(FIELD_SELECTION_PRIORITY, selectionPriority);
     if (auxiliaryTrackType != DEFAULT.auxiliaryTrackType) {
       bundle.putInt(FIELD_AUXILIARY_TRACK_TYPE, auxiliaryTrackType);
     }
@@ -1868,6 +1908,7 @@ public final class Format {
         .setLanguage(defaultIfNull(bundle.getString(FIELD_LANGUAGE), DEFAULT.language))
         .setSelectionFlags(bundle.getInt(FIELD_SELECTION_FLAGS, DEFAULT.selectionFlags))
         .setRoleFlags(bundle.getInt(FIELD_ROLE_FLAGS, DEFAULT.roleFlags))
+        .setSelectionPriority(bundle.getFloat(FIELD_SELECTION_PRIORITY, DEFAULT.selectionPriority))
         .setAuxiliaryTrackType(
             bundle.getInt(FIELD_AUXILIARY_TRACK_TYPE, DEFAULT.auxiliaryTrackType))
         .setAverageBitrate(bundle.getInt(FIELD_AVERAGE_BITRATE, DEFAULT.averageBitrate))

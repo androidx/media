@@ -76,6 +76,15 @@ public class HlsMultivariantPlaylistParserTest {
           + "CODECS=\"mp4a.40.2 , avc1.66.30 \"\n"
           + "http://example.com/spaces_in_codecs.m3u8\n";
 
+  private static final String PLAYLIST_WITH_SCORE =
+      " #EXTM3U \n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,CODECS=\"avc1.66.30\","
+          + "RESOLUTION=304x128,SCORE=1.5\n"
+          + "http://example.com/low.m3u8\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=8940000,CODECS=\"avc1.66.30\","
+          + "RESOLUTION=1920x1080,SCORE=2.0\n"
+          + "http://example.com/high.m3u8\n";
+
   private static final String PLAYLIST_WITH_DOLBY_VISION =
       " #EXTM3U \n"
           + "\n"
@@ -381,6 +390,15 @@ public class HlsMultivariantPlaylistParserTest {
           + "8940000/index.m3u8\n"
           + "#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=1313400,RESOLUTION=1920x1080,CODECS=\"avc1.640028\",URI=\"iframe_1313400/index.m3u8\"\n";
 
+  private static final String PLAYLIST_WITH_IFRAME_VARIANT_SCORE =
+      "#EXTM3U\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=8940000,RESOLUTION=1920x1080,"
+          + "CODECS=\"avc1.640028\"\n"
+          + "8940000/index.m3u8\n"
+          + "#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=1313400,SCORE=4.5,"
+          + "RESOLUTION=1920x1080,CODECS=\"avc1.640028\","
+          + "URI=\"iframe_1313400/index.m3u8\"\n";
+
   @Test
   public void parseMultivariantPlaylist_withSimple_success() throws IOException {
     HlsMultivariantPlaylist multivariantPlaylist =
@@ -436,6 +454,17 @@ public class HlsMultivariantPlaylistParserTest {
   }
 
   @Test
+  public void parseMultivariantPlaylist_withoutScore_setsSelectionPriorityToNoValue()
+      throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_SIMPLE);
+
+    for (HlsMultivariantPlaylist.Variant variant : multivariantPlaylist.variants) {
+      assertThat(variant.format.selectionPriority).isEqualTo((float) Format.NO_VALUE);
+    }
+  }
+
+  @Test
   public void parseMultivariantPlaylist_withAverageBandwidth_success() throws IOException {
     HlsMultivariantPlaylist multivariantPlaylist =
         parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_WITH_AVG_BANDWIDTH);
@@ -444,6 +473,16 @@ public class HlsMultivariantPlaylistParserTest {
 
     assertThat(variants.get(0).format.bitrate).isEqualTo(1280000);
     assertThat(variants.get(1).format.bitrate).isEqualTo(1280000);
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_withScore_success() throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_WITH_SCORE);
+
+    List<HlsMultivariantPlaylist.Variant> variants = multivariantPlaylist.variants;
+    assertThat(variants.get(0).format.selectionPriority).isEqualTo(1.5f);
+    assertThat(variants.get(1).format.selectionPriority).isEqualTo(2.0f);
   }
 
   @Test
@@ -890,6 +929,17 @@ public class HlsMultivariantPlaylistParserTest {
     assertThat(iFramesOnlyVariant.format.bitrate).isEqualTo(1313400);
     assertThat(iFramesOnlyVariant.format.roleFlags & C.ROLE_FLAG_TRICK_PLAY)
         .isEqualTo(C.ROLE_FLAG_TRICK_PLAY);
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_withIFrameStreamInfScore_success() throws IOException {
+    HlsMultivariantPlaylist playlist =
+        parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_WITH_IFRAME_VARIANT_SCORE);
+
+    assertThat(playlist.variants).hasSize(2);
+    assertThat(playlist.variants.get(0).format.selectionPriority)
+        .isEqualTo((float) Format.NO_VALUE);
+    assertThat(playlist.variants.get(1).format.selectionPriority).isEqualTo(4.5f);
   }
 
   private static Metadata createExtXStreamInfMetadata(HlsTrackMetadataEntry.VariantInfo... infos) {
