@@ -497,6 +497,23 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
   }
 
   /**
+   * Sets whether to enable experimental HAGC (ST 2094-50) metadata playback support. When enabled,
+   * the player will automatically merge HAGC metadata tracks with the associated video track and
+   * deliver the metadata out-of-band to the decoder on API 37+.
+   *
+   * <p>The default value is {@code true}.
+   *
+   * @param enableHagcPlayback Whether experimental HAGC metadata playback is enabled.
+   * @return This factory, for convenience.
+   */
+  @CanIgnoreReturnValue
+  @UnstableApi
+  public DefaultMediaSourceFactory setExperimentalEnableHagcPlayback(boolean enableHagcPlayback) {
+    delegateFactoryLoader.setExperimentalEnableHagcPlayback(enableHagcPlayback);
+    return this;
+  }
+
+  /**
    * Sets whether an experimental setting to delegate end position clipping to a wrapped {@link
    * MediaPeriod} is enabled.
    *
@@ -706,6 +723,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     private SubtitleParser.Factory subtitleParserFactory;
     private @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies;
     private boolean loadOnlySelectedTracks;
+    private boolean experimentalEnableHagcPlayback;
     @Nullable private CmcdConfiguration.Factory cmcdConfigurationFactory;
     @Nullable private DrmSessionManagerProvider drmSessionManagerProvider;
     @Nullable private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
@@ -718,6 +736,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
       mediaSourceFactorySuppliers = new HashMap<>();
       mediaSourceFactories = new HashMap<>();
       parseSubtitlesDuringExtraction = true;
+      experimentalEnableHagcPlayback = true;
       codecsToParseWithinGopSampleDependencies = C.VIDEO_CODEC_FLAG_H264 | C.VIDEO_CODEC_FLAG_H265;
     }
 
@@ -821,6 +840,10 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
       this.loadOnlySelectedTracks = loadOnlySelectedTracks;
     }
 
+    private void setExperimentalEnableHagcPlayback(boolean experimentalEnableHagcPlayback) {
+      this.experimentalEnableHagcPlayback = experimentalEnableHagcPlayback;
+    }
+
     private void setHeifExtractorFlags(@HeifExtractor.Flags int flags) {
       if (this.extractorsFactory instanceof DefaultExtractorsFactory) {
         ((DefaultExtractorsFactory) this.extractorsFactory).setHeifExtractorFlags(flags);
@@ -894,7 +917,8 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
           mediaSourceFactorySupplier =
               () ->
                   new ProgressiveMediaSource.Factory(dataSourceFactory, extractorsFactory)
-                      .setLoadOnlySelectedTracks(loadOnlySelectedTracks);
+                      .setLoadOnlySelectedTracks(loadOnlySelectedTracks)
+                      .setExperimentalEnableHagcPlayback(experimentalEnableHagcPlayback);
           break;
         default:
           throw new IllegalArgumentException("Unrecognized contentType: " + contentType);

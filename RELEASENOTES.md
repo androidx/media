@@ -82,6 +82,12 @@
     *   Add `Format.selectionPriority` representing the relative preference of
         the `Format` in track selection
         ([#3236](https://github.com/androidx/media/pull/3236)).
+    *   Add experimental HAGC (ST 2094-50) timed metadata playback support for
+        progressive media (e.g. MP4, Matroska). The player automatically merges
+        HAGC metadata tracks with the associated video track and delivers the
+        metadata out-of-band to the decoder on API 37+ devices. This behavior
+        can be disabled via
+        `DefaultMediaSourceFactory.setExperimentalEnableHagcPlayback(false)`.
 *   CompositionPlayer:
     *   Fix an issue where `TrackSelector` instances were not being released.
 *   Transformer:

@@ -15,8 +15,10 @@
  */
 package androidx.media3.exoplayer.source;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assume.assumeTrue;
 
 import android.net.Uri;
 import androidx.annotation.Nullable;
@@ -305,6 +307,29 @@ public final class ProgressiveMediaPeriodTest {
     mediaPeriod.release();
   }
 
+  @Test
+  public void selectTracks_withHagcTrack_createsMergingMetadataSampleStream() throws Exception {
+    assumeTrue("Skipping HAGC test on SDK < 37", SDK_INT >= 37);
+    ProgressiveMediaPeriod mediaPeriod =
+        createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample_with_it35_track.mp4"));
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    SampleStream[] streams = new SampleStream[trackGroups.length];
+    // Select the video track (which is track 0 in sample_with_it35_track.mp4)
+    selections[0] = new FakeTrackSelection(trackGroups.get(0), 0);
+
+    long unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            new boolean[trackGroups.length],
+            /* positionUs= */ 0);
+
+    assertThat(streams[0]).isInstanceOf(MergingMetadataSampleStream.class);
+    mediaPeriod.release();
+  }
+
   private static @SampleStream.ReadDataResult int readProgressiveStream(
       ProgressiveMediaPeriod mediaPeriod, int trackIndex, DecoderInputBuffer buffer) {
     return mediaPeriod.readData(trackIndex, new FormatHolder(), buffer, /* readFlags= */ 0);
@@ -360,6 +385,7 @@ public final class ProgressiveMediaPeriodTest {
             /* customCacheKey= */ null,
             ProgressiveMediaSource.DEFAULT_LOADING_CHECK_INTERVAL_BYTES,
             /* loadOnlySelectedTracks= */ true,
+            /* experimentalEnableHagcPlayback= */ true,
             /* singleTrackId= */ 0,
             /* singleTrackFormat= */ null,
             imageDurationUs,

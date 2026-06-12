@@ -21,6 +21,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import android.net.Uri;
+import android.os.Build;
 import android.os.Handler;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -72,11 +73,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HttpHeaders;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -127,6 +130,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Nullable private final String customCacheKey;
   private final long continueLoadingCheckIntervalBytes;
   private final boolean loadOnlySelectedTracks;
+  private final boolean experimentalEnableHagcPlayback;
   private final int singleTrackId;
   @Nullable private final Format singleTrackFormat;
   private final long singleSampleDurationUs;
@@ -161,6 +165,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private boolean pendingInitialDiscontinuity;
   private boolean usesStreamPrerollFlags;
   private int enabledTrackCount;
+  private final List<MergingMetadataSampleStream> mergingSampleStreams;
   private boolean isLengthKnown;
 
   private long lastSeekPositionUs;
@@ -212,6 +217,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       @Nullable String customCacheKey,
       int continueLoadingCheckIntervalBytes,
       boolean loadOnlySelectedTracks,
+      boolean experimentalEnableHagcPlayback,
       int singleTrackId,
       @Nullable Format singleTrackFormat,
       long singleSampleDurationUs,
@@ -227,6 +233,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.customCacheKey = customCacheKey;
     this.continueLoadingCheckIntervalBytes = continueLoadingCheckIntervalBytes;
     this.loadOnlySelectedTracks = loadOnlySelectedTracks;
+    this.experimentalEnableHagcPlayback = experimentalEnableHagcPlayback;
     this.singleTrackId = singleTrackId;
     this.singleTrackFormat = singleTrackFormat;
     this.endPositionUs = C.TIME_END_OF_SOURCE;
@@ -248,6 +255,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     sampleQueueTrackIds = new TrackId[0];
     sampleQueues = new SampleQueue[0];
     controlledTrackOutputs = new ControlledTrackOutput[0];
+    mergingSampleStreams = new ArrayList<>();
     pendingResetPositionUs = C.TIME_UNSET;
     dataType = C.DATA_TYPE_MEDIA;
   }
@@ -322,14 +330,48 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     TrackGroupArray tracks = trackState.tracks;
     boolean[] trackEnabledStates = trackState.trackEnabledStates;
     int oldEnabledTrackCount = enabledTrackCount;
+
+    boolean isT35TrackExplicitlySelected = false;
+    for (int i = 0; i < selections.length; i++) {
+      if (selections[i] != null) {
+        int track = tracks.indexOf(selections[i].getTrackGroup());
+        if (Objects.equals(
+            tracks.get(track).getFormat(0).sampleMimeType, MimeTypes.APPLICATION_ITUT_T35)) {
+          isT35TrackExplicitlySelected = true;
+          break;
+        }
+      }
+    }
+
     // Deselect old tracks.
     for (int i = 0; i < selections.length; i++) {
-      if (streams[i] != null && (selections[i] == null || !mayRetainStreamFlags[i])) {
-        int track = ((SampleStreamImpl) streams[i]).track;
-        checkState(trackEnabledStates[track]);
-        enabledTrackCount--;
-        trackEnabledStates[track] = false;
-        streams[i] = null;
+      if (streams[i] != null) {
+        boolean shouldDeselect =
+            selections[i] == null
+                || !mayRetainStreamFlags[i]
+                || (isT35TrackExplicitlySelected
+                    && streams[i] instanceof MergingMetadataSampleStream);
+        if (shouldDeselect) {
+          if (streams[i] instanceof MergingMetadataSampleStream) {
+            MergingMetadataSampleStream mergingStream = (MergingMetadataSampleStream) streams[i];
+            mergingSampleStreams.remove(mergingStream);
+            int primaryTrack = ((SampleStreamImpl) mergingStream.getPrimaryStream()).track;
+            checkState(trackEnabledStates[primaryTrack]);
+            enabledTrackCount--;
+            trackEnabledStates[primaryTrack] = false;
+
+            int metadataTrack = ((SampleStreamImpl) mergingStream.getMetadataStream()).track;
+            checkState(trackEnabledStates[metadataTrack]);
+            enabledTrackCount--;
+            trackEnabledStates[metadataTrack] = false;
+          } else {
+            int track = ((SampleStreamImpl) streams[i]).track;
+            checkState(trackEnabledStates[track]);
+            enabledTrackCount--;
+            trackEnabledStates[track] = false;
+          }
+          streams[i] = null;
+        }
       }
     }
     // We'll always need to seek if this is a first selection to a non-zero position (except for
@@ -349,7 +391,51 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         enabledTrackCount++;
         trackEnabledStates[track] = true;
         hasPreroll |= selection.getSelectedFormat().hasPrerollSamples;
-        streams[i] = new SampleStreamImpl(track, selection.getSelectedFormat().hasPrerollSamples);
+        SampleStream stream =
+            new SampleStreamImpl(track, selection.getSelectedFormat().hasPrerollSamples);
+        if (experimentalEnableHagcPlayback
+            && Build.VERSION.SDK_INT >= 37
+            && !isT35TrackExplicitlySelected
+            && MimeTypes.isVideo(selection.getSelectedFormat().sampleMimeType)) {
+          // TODO: b/388762778 - The MP4 container has extra information (e.g. cdsc box) specifying
+          // which HAGC track describes which video track. We should use this information to create
+          // the correct mergingSampleStreams when multiple video/HAGC tracks exist.
+          for (int j = 0; j < tracks.length; j++) {
+            Format format = tracks.get(j).getFormat(0);
+            if (Objects.equals(format.sampleMimeType, MimeTypes.APPLICATION_ITUT_T35)) {
+              boolean isHagc = false;
+              if (!format.initializationData.isEmpty()) {
+                byte[] initData = format.initializationData.get(0);
+                if (initData.length >= 5
+                    && initData[0] == (byte) 0xB5
+                    && initData[1] == (byte) 0x00
+                    && initData[2] == (byte) 0x90
+                    && initData[3] == (byte) 0x00
+                    && initData[4] == (byte) 0x01) {
+                  isHagc = true;
+                }
+              }
+              if (isHagc) {
+                checkState(!trackEnabledStates[j]);
+                enabledTrackCount++;
+                trackEnabledStates[j] = true;
+                if (loadOnlySelectedTracks) {
+                  controlledTrackOutputs[j].updateSelectionState(true);
+                }
+                // HAGC it35 metadata samples are standalone and do not depend on
+                // previous samples, hence hasPreroll is not relevant and always false.
+                stream =
+                    new MergingMetadataSampleStream(
+                        stream,
+                        new SampleStreamImpl(j, /* hasPreroll= */ false),
+                        selection.getSelectedFormat());
+                mergingSampleStreams.add((MergingMetadataSampleStream) stream);
+                break;
+              }
+            }
+          }
+        }
+        streams[i] = stream;
         streamResetFlags[i] = true;
 
         if (loadOnlySelectedTracks) {
@@ -403,6 +489,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       for (int i = 0; i < streams.length; i++) {
         if (streams[i] != null) {
           streamResetFlags[i] = true;
+          if (streams[i] instanceof MergingMetadataSampleStream) {
+            ((MergingMetadataSampleStream) streams[i]).reset();
+          }
         }
       }
     }
@@ -512,6 +601,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public long seekToUs(long positionUs) {
+    for (MergingMetadataSampleStream stream : mergingSampleStreams) {
+      stream.reset();
+    }
     assertPrepared();
     boolean[] trackIsAudioVideoFlags = trackState.trackIsAudioVideoFlags;
     // Treat all seeks into non-seekable media as being to t=0.

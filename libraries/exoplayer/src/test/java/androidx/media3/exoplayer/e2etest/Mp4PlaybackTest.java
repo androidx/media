@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.e2etest;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
@@ -79,7 +80,8 @@ public class Mp4PlaybackTest {
         Sample.forFile("testvid_1022ms.mp4"),
         Sample.forFile("sample_edit_list.mp4"),
         Sample.forFile("sample_edit_list_no_sync_frame_before_edit.mp4"),
-        Sample.forFile("h265_4k_bframes_emulation_prevention.mp4"));
+        Sample.forFile("h265_4k_bframes_emulation_prevention.mp4"),
+        Sample.forFile("sample_with_it35_track.mp4"));
   }
 
   @Parameter public Sample sample;
@@ -108,6 +110,10 @@ public class Mp4PlaybackTest {
     player.setVideoSurface(surface);
 
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, renderersFactory);
+
+    if (sample.filename.equals("sample_with_it35_track.mp4")) {
+      assumeTrue("Skipping HAGC test on SDK < 37", SDK_INT >= 37);
+    }
 
     player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/" + sample.filename));
     player.prepare();
