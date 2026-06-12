@@ -27,6 +27,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
 import androidx.media3.common.util.Clock
+import androidx.media3.common.util.ElapsedRealtimeTicker
 import androidx.media3.exoplayer.DecoderReuseEvaluation
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
@@ -40,9 +41,10 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry.getInstrumentation
+import com.google.common.base.Stopwatch
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
-import java.util.ArrayList
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.test.assertFailsWith
 import kotlin.time.Duration.Companion.milliseconds
@@ -50,6 +52,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.android.HandlerDispatcher
 import kotlinx.coroutines.android.asCoroutineDispatcher
 import kotlinx.coroutines.async
@@ -151,6 +154,36 @@ class PlayerFenceTest {
       player.prepare()
 
       player.awaitPlaybackState(Player.STATE_READY, failOnNonFatalErrors = false)
+    }
+
+  @Test
+  fun awaitPlaybackState_defaultTimeout_timesOutAfter10s() =
+    runBlocking(Dispatchers.Main) {
+      val player = FakePlayer(playlist = listOf(SimpleBasePlayer.MediaItemData.Builder(0).build()))
+
+      // Don't prepare the player, so it will never become ready.
+
+      val stopwatch = Stopwatch.createStarted(ElapsedRealtimeTicker())
+      assertFailsWith<TimeoutCancellationException> {
+        player.awaitPlaybackState(Player.STATE_READY)
+      }
+      assertThat(stopwatch.elapsed(TimeUnit.MILLISECONDS)).isGreaterThan(9_000)
+      player.release()
+    }
+
+  @Test
+  fun awaitPlaybackState_customTimeout_timesOutAfterCustomTime() =
+    runBlocking(Dispatchers.Main) {
+      val player = FakePlayer(playlist = listOf(SimpleBasePlayer.MediaItemData.Builder(0).build()))
+
+      // Don't prepare the player, so it will never become ready.
+
+      val stopwatch = Stopwatch.createStarted(ElapsedRealtimeTicker())
+      assertFailsWith<TimeoutCancellationException> {
+        player.awaitPlaybackState(Player.STATE_READY, timeout = 100.milliseconds)
+      }
+      assertThat(stopwatch.elapsed(TimeUnit.MILLISECONDS)).isLessThan(200)
+      player.release()
     }
 
   /**

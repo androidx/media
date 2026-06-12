@@ -32,7 +32,9 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue
 import java.io.IOException
 import kotlin.math.max
 import kotlin.math.roundToLong
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -45,6 +47,7 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.guava.future
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 
 /**
  * Suspends until the player enters the provided [targetState].
@@ -53,12 +56,17 @@ import kotlinx.coroutines.launch
  *
  * Must be called on the player's application looper thread.
  *
+ * @param targetState The playback [Player.State] to await.
+ * @param failOnNonFatalErrors Whether non-fatal errors (such as those from
+ *   [AnalyticsListener.onAudioCodecError]) cause an exception to be thrown immediately.
+ * @param timeout The max time to wait for, or `null` to use a default timeout of 10 seconds.
  * @throws IllegalStateException if not called on the player's application looper thread.
  */
 @UnstableApi
 suspend fun Player.awaitPlaybackState(
   targetState: @Player.State Int,
   failOnNonFatalErrors: Boolean = true,
+  timeout: Duration? = null,
 ) {
   check(Looper.myLooper() == applicationLooper) {
     "awaitPlaybackState must be called on the player's application looper thread"
@@ -85,7 +93,7 @@ suspend fun Player.awaitPlaybackState(
       NonFatalFailingAnalyticsListener(stateSeen::completeExceptionally)
     }
   try {
-    stateSeen.await()
+    withTimeout(timeout) { stateSeen.await() }
   } finally {
     removeListener(playerListener)
     maybeRemoveAnalyticsListener(analyticsListener)
@@ -99,9 +107,17 @@ suspend fun Player.awaitPlaybackState(
  * [Player.prepare]), otherwise it risks awaiting forever.
  *
  * Must be called on the player's application looper thread.
+ *
+ * @param failOnNonFatalErrors Whether non-fatal errors (such as those from
+ *   [AnalyticsListener.onAudioCodecError]) cause an exception to be thrown immediately.
+ * @param timeout The max time to wait for, or `null` to use a default timeout of 10 seconds.
+ * @throws IllegalStateException if not called on the player's application looper thread.
  */
 @UnstableApi
-suspend fun Player.awaitFirstFrameRendered(failOnNonFatalErrors: Boolean = true) {
+suspend fun Player.awaitFirstFrameRendered(
+  failOnNonFatalErrors: Boolean = true,
+  timeout: Duration? = null,
+) {
   check(Looper.myLooper() == applicationLooper) {
     "awaitFirstFrameRendered must be called on the player's application looper thread"
   }
@@ -120,7 +136,7 @@ suspend fun Player.awaitFirstFrameRendered(failOnNonFatalErrors: Boolean = true)
       NonFatalFailingAnalyticsListener(renderedFirstFrame::completeExceptionally)
     }
   try {
-    renderedFirstFrame.await()
+    withTimeout(timeout) { renderedFirstFrame.await() }
   } finally {
     removeListener(playerListener)
     maybeRemoveAnalyticsListener(analyticsListener)
@@ -139,11 +155,18 @@ suspend fun Player.awaitFirstFrameRendered(failOnNonFatalErrors: Boolean = true)
  *    exception is thrown.
  *
  * Must be called on the player's application looper thread.
+ *
+ * @param targetPositionMs The [Player.getContentPosition] to wait for.
+ * @param failOnNonFatalErrors Whether non-fatal errors (such as those from
+ *   [AnalyticsListener.onAudioCodecError]) cause an exception to be thrown immediately.
+ * @param timeout The max time to wait for, or `null` to use a default timeout of 10 seconds.
+ * @throws IllegalStateException if not called on the player's application looper thread.
  */
 @UnstableApi
 suspend fun Player.awaitContentPositionAtLeast(
   targetPositionMs: Long,
   failOnNonFatalErrors: Boolean = true,
+  timeout: Duration? = null,
 ) {
   require(targetPositionMs != C.TIME_UNSET)
   check(Looper.myLooper() == applicationLooper) {
@@ -238,7 +261,7 @@ suspend fun Player.awaitContentPositionAtLeast(
     }
   }
 
-  targetReachedEvents.first()
+  withTimeout(timeout) { targetReachedEvents.first() }
 }
 
 /**
@@ -251,14 +274,26 @@ suspend fun Player.awaitContentPositionAtLeast(
  */
 @UnstableApi
 class PlayerFence
-private constructor(private val player: Player, private val failOnNonFatalErrors: Boolean = true) {
+private constructor(
+  private val player: Player,
+  private val failOnNonFatalErrors: Boolean = true,
+  private val timeout: Duration? = null,
+) {
 
   /**
    * Returns a new instance that will not fail the future on non-fatal errors.
    *
    * By default, futures will fail if a non-fatal error (e.g. loading error) occurs while waiting.
    */
-  fun ignoringNonFatalErrors(): PlayerFence = PlayerFence(player, failOnNonFatalErrors = false)
+  fun ignoringNonFatalErrors(): PlayerFence =
+    PlayerFence(player, failOnNonFatalErrors = false, timeout)
+
+  /**
+   * Returns a new instance that will fail the future if the condition is not met within the
+   * specified timeout.
+   */
+  fun withTimeoutMs(timeoutMs: Long): PlayerFence =
+    PlayerFence(player, failOnNonFatalErrors, timeout = timeoutMs.milliseconds)
 
   /**
    * Returns a future that completes when the player enters the provided [targetState].
@@ -270,7 +305,7 @@ private constructor(private val player: Player, private val failOnNonFatalErrors
    * @throws IllegalStateException if not called on the player's application looper thread.
    */
   fun entersPlaybackState(targetState: @Player.State Int): ListenableFuture<Void?> = createFuture {
-    player.awaitPlaybackState(targetState, failOnNonFatalErrors)
+    player.awaitPlaybackState(targetState, failOnNonFatalErrors, timeout)
   }
 
   /**
@@ -279,7 +314,7 @@ private constructor(private val player: Player, private val failOnNonFatalErrors
    * Must be called on the player's application looper thread.
    */
   fun rendersFirstFrame(): ListenableFuture<Void?> = createFuture {
-    player.awaitFirstFrameRendered(failOnNonFatalErrors)
+    player.awaitFirstFrameRendered(failOnNonFatalErrors, timeout)
   }
 
   /**
@@ -291,7 +326,7 @@ private constructor(private val player: Player, private val failOnNonFatalErrors
    * Must be called on the player's application looper thread.
    */
   fun passesContentPosition(targetPositionMs: Long): ListenableFuture<Void?> = createFuture {
-    player.awaitContentPositionAtLeast(targetPositionMs, failOnNonFatalErrors)
+    player.awaitContentPositionAtLeast(targetPositionMs, failOnNonFatalErrors, timeout)
   }
 
   private fun createFuture(block: suspend () -> Unit): ListenableFuture<Void?> {
@@ -305,7 +340,15 @@ private constructor(private val player: Player, private val failOnNonFatalErrors
   }
 
   companion object {
-    /** Entry point for Java callers to get a [ListenableFuture] for a [Player] condition. */
+    /**
+     * Entry point for Java callers to get a [ListenableFuture] for a [Player] condition.
+     *
+     * * Futures returned from the returned `PlayerFence` will fail after a default 10 second
+     *   timeout. This can be customized using [PlayerFence.withTimeoutMs].
+     * * Futures returned from the returned `PlayerFence` will fail immediately when the [Player]
+     *   encounters a non-fatal error (such as [AnalyticsListener.onAudioCodecError]). This can be
+     *   customized using [PlayerFence.ignoringNonFatalErrors].
+     */
     @JvmStatic fun futureWhen(player: Player): PlayerFence = PlayerFence(player)
   }
 }
@@ -332,6 +375,9 @@ private fun Player.maybeRemoveAnalyticsListener(analyticsListener: AnalyticsList
     }
   }
 }
+
+private suspend fun <T> withTimeout(duration: Duration?, block: suspend CoroutineScope.() -> T): T =
+  withTimeout(duration ?: 10.seconds, block)
 
 private open class ErrorFailingPlayerListener(private val exceptionConsumer: (Exception) -> Unit) :
   Player.Listener {

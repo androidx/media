@@ -31,9 +31,12 @@ import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.ElapsedRealtimeTicker;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.SettableFuture;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Test;
@@ -86,6 +89,27 @@ public final class PlayerFenceJavaTest {
 
     getInstrumentation()
         .runOnMainSync(() -> assertThat(player.getPlaybackState()).isEqualTo(Player.STATE_READY));
+  }
+
+  @Test
+  public void entersPlaybackState_timeout_cancelsFuture() throws Exception {
+    SettableFuture<Void> playerReadyFuture = SettableFuture.create();
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player =
+                  new ExoPlayer.Builder(getInstrumentation().getContext().getApplicationContext())
+                      .build();
+              playerReadyFuture.setFuture(
+                  futureWhen(player).withTimeoutMs(100).entersPlaybackState(Player.STATE_READY));
+
+              player.setMediaItem(SHORT_MP3_ITEM);
+              // Don't prepare the player, so it will never become ready.
+            });
+
+    Stopwatch stopwatch = Stopwatch.createStarted(new ElapsedRealtimeTicker());
+    assertThrows(CancellationException.class, playerReadyFuture::get);
+    assertThat(stopwatch.elapsed(MILLISECONDS)).isLessThan(200);
   }
 
   @Test
