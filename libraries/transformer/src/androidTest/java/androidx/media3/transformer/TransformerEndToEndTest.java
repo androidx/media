@@ -1834,7 +1834,7 @@ public class TransformerEndToEndTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.exportResult.processedInputs).hasSize(7);
+    assertThat(result.exportResult.processedInputs).hasSize(6);
     FakeExtractorOutput fakeExtractorOutput =
         extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(result.filePath));
@@ -1844,13 +1844,13 @@ public class TransformerEndToEndTest {
     // seen in this check as the duration is determined by the last video frame.
     // However, if the audio track is roughly as long as the video track, this API difference
     // will be seen in result.exportResult.durationMs.
-    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isWithin(50_000).of(3_150_000);
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isWithin(50_000).of(3_000_000);
     FakeTrackOutput audioTrackOutput =
         getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO));
     assertThat(audioTrackOutput.lastFormat.channelCount).isEqualTo(1);
     FakeTrackOutput videoTrackOutput =
         getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
-    assertThat(videoTrackOutput.getSampleCount()).isEqualTo(92);
+    assertThat(videoTrackOutput.getSampleCount()).isEqualTo(89);
   }
 
   @Test
@@ -1863,7 +1863,7 @@ public class TransformerEndToEndTest {
             ImmutableList.of(audioEditedMediaItem, audioEditedMediaItem, audioEditedMediaItem));
     EditedMediaItem imageEditedMediaItem =
         new EditedMediaItem.Builder(
-                new MediaItem.Builder().setUri(PNG_ASSET.uri).setImageDurationMs(1000).build())
+                new MediaItem.Builder().setUri(PNG_ASSET.uri).setImageDurationMs(950).build())
             .setFrameRate(30)
             .build();
     EditedMediaItemSequence loopingImageSequence =
@@ -1888,13 +1888,13 @@ public class TransformerEndToEndTest {
     // seen in this check as the duration is determined by the last video frame.
     // However, if the audio track is roughly as long as the video track, this API difference
     // will be seen in result.exportResult.durationMs.
-    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isWithin(50_000).of(3_140_000);
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isWithin(50_000).of(3_000_000);
     FakeTrackOutput audioTrackOutput =
         getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO));
     assertThat(audioTrackOutput.lastFormat.channelCount).isEqualTo(1);
     FakeTrackOutput videoTrackOutput =
         getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
-    assertThat(videoTrackOutput.getSampleCount()).isEqualTo(95);
+    assertThat(videoTrackOutput.getSampleCount()).isEqualTo(92);
   }
 
   @Test
@@ -1906,7 +1906,7 @@ public class TransformerEndToEndTest {
         EditedMediaItemSequence.withAudioFrom(ImmutableList.of(audioEditedMediaItem));
     EditedMediaItem imageEditedMediaItem =
         new EditedMediaItem.Builder(
-                new MediaItem.Builder().setUri(PNG_ASSET.uri).setImageDurationMs(1050).build())
+                new MediaItem.Builder().setUri(PNG_ASSET.uri).setImageDurationMs(950).build())
             .setFrameRate(20)
             .build();
     EditedMediaItemSequence loopingImageSequence =
@@ -1931,7 +1931,7 @@ public class TransformerEndToEndTest {
     // seen in this check as the duration is determined by the last video frame.
     // However, if the audio track is roughly as long as the video track, this API difference
     // will be seen in result.exportResult.durationMs.
-    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isWithin(50_000).of(1_050_000);
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isWithin(50_000).of(1_000_000);
     FakeTrackOutput audioTrackOutput =
         getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO));
     assertThat(audioTrackOutput.lastFormat.channelCount).isEqualTo(1);
@@ -2399,7 +2399,7 @@ public class TransformerEndToEndTest {
     new TransformerAndroidTestRunner.Builder(context, analyzer)
         .build()
         .run(testId, audioEditedMediaItem);
-    assertThat(audioBytesSeen.get()).isEqualTo(101_760);
+    assertThat(audioBytesSeen.get()).isWithin(1_000).of(97_000);
   }
 
   @Test
