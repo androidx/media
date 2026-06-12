@@ -27,6 +27,7 @@ import static android.media.MediaCodecInfo.CodecProfileLevel.HEVCHighTierLevel51
 import static android.media.MediaCodecInfo.CodecProfileLevel.HEVCMainTierLevel41;
 import static android.media.MediaCodecInfo.CodecProfileLevel.HEVCProfileMain;
 import static android.media.MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10;
+import static android.os.Build.VERSION.SDK_INT;
 import static android.view.Display.DEFAULT_DISPLAY;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.exoplayer.Renderer.STATE_STARTED;
@@ -39,6 +40,7 @@ import static androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition.D
 import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -112,8 +114,10 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Bytes;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -6660,6 +6664,52 @@ public class MediaCodecVideoRendererTest {
 
     shadowOf(testMainLooper).idle();
     assertThat(durationToProgressUs).isEqualTo(10_000L);
+  }
+
+  @Test
+  public void handlesHagcSupplementalData() throws Exception {
+    assumeTrue("Skipping HAGC test on SDK < 37", SDK_INT >= 37);
+    Bundle[] capturedParameters = new Bundle[1];
+    MediaCodecAdapter.Factory customAdapterFactory =
+        configuration -> {
+          MediaCodecAdapter adapter = codecAdapterFactory.createAdapter(configuration);
+          return new ForwardingMediaCodecAdapter(adapter) {
+            @Override
+            public void setParameters(Bundle params) {
+              capturedParameters[0] = params;
+              super.setParameters(params);
+            }
+          };
+        };
+    MediaCodecVideoRenderer renderer =
+        new MediaCodecVideoRenderer(
+            new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
+                .setCodecAdapterFactory(customAdapterFactory)
+                .setMediaCodecSelector(mediaCodecSelector));
+    FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 0);
+    renderer.init(/* index= */ 0, PlayerId.UNSET, fakeClock);
+    Surface surface = new Surface(new SurfaceTexture(0));
+    renderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
+    FakeSampleStream fakeSampleStream =
+        createFakeSampleStream(
+            VIDEO_H264, ImmutableList.of(oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME)));
+    enableAndStartRenderer(renderer, VIDEO_H264, fakeSampleStream);
+    renderAndAdvance(
+        renderer,
+        fakeClock,
+        /* startPositionUs= */ 0,
+        /* stopCondition= */ () -> renderer.hasReadStreamToEnd(),
+        /* maxIterations= */ 100);
+    DecoderInputBuffer buffer =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
+    byte[] hagcMagic = createByteArray(0xB5, 0x00, 0x90, 0x00, 0x01);
+    byte[] payload = createByteArray(0x0A, 0x0B, 0x0C);
+    buffer.supplementalData = ByteBuffer.wrap(Bytes.concat(hagcMagic, payload));
+    renderer.handleInputBufferSupplementalData(buffer);
+
+    assertThat(capturedParameters[0]).isNotNull();
+    assertThat(capturedParameters[0].getByteArray("hdr-st2094-50-info"))
+        .isEqualTo(new byte[] {0x0A, 0x0B, 0x0C});
   }
 
   private static MediaCodecInfo createMediaCodecInfo(String mimeType) {
