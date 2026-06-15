@@ -48,6 +48,8 @@ dependencies {
   testImplementation(project(":test-utils"))
   testImplementation(libs.robolectric)
   androidTestImplementation(project(":test-utils"))
+  androidTestImplementation(libs.androidx.core.ktx)
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(libs.androidx.test.ext.junit)
+  androidTestImplementation(libs.kotlinx.coroutines.android)
 }
