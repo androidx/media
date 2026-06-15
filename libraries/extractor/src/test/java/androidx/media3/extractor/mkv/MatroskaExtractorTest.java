@@ -315,6 +315,14 @@ public final class MatroskaExtractorTest {
   }
 
   @Test
+  public void mkaSample_withAlac() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/mka/bear-alac.mka",
+        simulationConfig);
+  }
+
+  @Test
   public void mkvSample_withAv1() throws Exception {
     ExtractorAsserts.assertBehavior(
         getExtractorFactory(subtitlesParsedDuringExtraction),

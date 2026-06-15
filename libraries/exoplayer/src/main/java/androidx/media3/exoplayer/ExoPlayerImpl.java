@@ -438,7 +438,8 @@ import java.util.function.IntConsumer;
               audioSessionIdState.setStateInBackground(newAudioSessionId);
               // Provide the audio session ID to the renderers on playback thread to prevent race
               // condition with player preparation.
-              internalPlayer.setAudioSessionId(newAudioSessionId);
+              internalPlayer.setAudioSessionId(
+                  newAudioSessionId, /* isInitialAudioSessionId= */ true);
             }
           });
       audioBecomingNoisyManager =
@@ -3237,7 +3238,7 @@ import java.util.function.IntConsumer;
 
   private void onAudioSessionIdChanged(int oldAudioSessionId, int newAudioSessionId) {
     verifyApplicationThread();
-    internalPlayer.setAudioSessionId(newAudioSessionId);
+    internalPlayer.setAudioSessionId(newAudioSessionId, /* isInitialAudioSessionId= */ false);
     listeners.sendEvent(
         EVENT_AUDIO_SESSION_ID, listener -> listener.onAudioSessionIdChanged(newAudioSessionId));
   }

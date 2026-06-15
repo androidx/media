@@ -16,7 +16,6 @@
 <resources>
   <string-array name="video_effects_names">
     <item>Dizzy crop</item>
-    <item>Edge detector (Media Pipe)</item>
     <item>Color filters</item>
     <item>Map White to Green Color Lookup Table</item>
     <item>RGB Adjustments</item>

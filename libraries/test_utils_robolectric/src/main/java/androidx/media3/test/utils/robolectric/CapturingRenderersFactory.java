@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import android.media.MediaCodec;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.SparseArray;
@@ -326,6 +327,7 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
 
     private static final String INPUT_BUFFER_INTERACTION_TYPE = "inputBuffers";
     private static final String OUTPUT_BUFFER_INTERACTION_TYPE = "outputBuffers";
+    private static final String SET_PARAMETERS_INTERACTION_TYPE = "setParameters";
 
     // TODO(internal b/175710547): Consider using MediaCodecInfo, but currently Robolectric (v4.5)
     // doesn't correctly implement MediaCodec#getCodecInfo() (getName() works).
@@ -433,6 +435,18 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
     }
 
     @Override
+    public void setParameters(Bundle bundle) {
+      Bundle filteredBundle = new Bundle(bundle);
+      // TODO: b/388762778 - Update the goldens to include operating-rate and remove this filter.
+      filteredBundle.remove("operating-rate");
+      if (!filteredBundle.isEmpty()) {
+        capturedInteractions.put(
+            SET_PARAMETERS_INTERACTION_TYPE, new CapturedSetParameters(filteredBundle));
+      }
+      super.setParameters(bundle);
+    }
+
+    @Override
     public boolean needsReconfiguration() {
       return false;
     }
@@ -528,6 +542,35 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
         }
         dumper.add("size", bufferSize);
         dumper.add("rendered", rendered);
+        dumper.endBlock();
+      }
+    }
+
+    /** Records the data passed to {@link CapturingMediaCodecAdapter#setParameters(Bundle)}. */
+    private static class CapturedSetParameters implements CapturedInteraction {
+      private final Bundle bundle;
+
+      private CapturedSetParameters(Bundle bundle) {
+        this.bundle = new Bundle(bundle);
+      }
+
+      @Override
+      public void dump(Dumper dumper) {
+        dumper.startBlock("set parameters");
+        ImmutableList<String> sortedKeys = ImmutableList.sortedCopyOf(bundle.keySet());
+        for (int i = 0; i < sortedKeys.size(); i++) {
+          String key = sortedKeys.get(i);
+          Object value = bundle.get(key);
+          if (value instanceof byte[]) {
+            dumper.add(key, (byte[]) value);
+          } else if (value instanceof Integer) {
+            dumper.add(key, value);
+          } else if (value instanceof Long) {
+            dumper.add(key, value);
+          } else {
+            dumper.add(key, String.valueOf(value));
+          }
+        }
         dumper.endBlock();
       }
     }

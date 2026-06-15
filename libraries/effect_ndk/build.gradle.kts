@@ -12,10 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-plugins {
-  id("media3.android-library")
-  id("media3.publish")
-}
+plugins { id("media3.android-library") }
 
 android {
   namespace = "androidx.media3.effect.ndk"

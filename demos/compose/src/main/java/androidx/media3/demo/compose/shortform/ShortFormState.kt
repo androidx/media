@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.PlayerPool
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.cache.Cache
 import androidx.media3.datasource.cache.NoOpCacheEvictor
@@ -105,6 +106,7 @@ internal class ShortFormState(
         preloadManagerBuilder.buildExoPlayer().apply {
           playerCounter++
           addAnalyticsListener(EventLogger("player-${playerCounter}-of-$playerPoolCapacity"))
+          setForegroundMode(true)
           repeatMode = Player.REPEAT_MODE_ONE
         }
       }
@@ -145,7 +147,7 @@ internal class ShortFormState(
   fun release() {
     if (!isReady) return
     if (::preloadManager.isInitialized) preloadManager.release()
-    if (::playerPool.isInitialized) playerPool.destroyPlayers()
+    if (::playerPool.isInitialized) playerPool.release()
     isReady = false
   }
 }

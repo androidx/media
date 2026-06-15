@@ -27,11 +27,12 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.ExperimentalApi
-import androidx.media3.demo.compose.shortform.rememberPooledPlayer
 import androidx.media3.demo.compose.shortform.rememberShortFormState
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.compose.lifecycle.rememberPooledPlayer
 import androidx.media3.ui.compose.material3.Player
 import androidx.media3.ui.compose.state.SlidingWindowEffect
 import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
@@ -71,6 +72,7 @@ internal fun ShortFormPlayerScreen(
 
   VerticalPager(state = pagerState, modifier = modifier.fillMaxSize()) { page ->
     val mediaItem = state.getMediaItem(page)
+    val isActive = page == pagerState.settledPage
     val player =
       rememberPooledPlayer(
         mediaItem = mediaItem,
@@ -85,8 +87,15 @@ internal fun ShortFormPlayerScreen(
           p.setMediaSource(mediaSource)
           p.prepare()
         },
-        isActive = page == pagerState.settledPage,
       )
+
+    // Handle playback exclusivity:
+    // LifecycleStartEffect handles both OS lifecycle events (e.g. the app going to the background)
+    // and key changes (like isActive toggling during a swipe)
+    LifecycleStartEffect(isActive, player) {
+      if (isActive) player?.play()
+      onStopOrDispose { player?.pause() }
+    }
 
     val playPauseButtonState = rememberPlayPauseButtonState(player)
 

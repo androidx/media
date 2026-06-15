@@ -26,11 +26,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runComposeUiTest
+import androidx.media3.common.C
+import androidx.media3.common.Format
+import androidx.media3.common.ForwardingPlayer
+import androidx.media3.common.MediaLibraryInfo
+import androidx.media3.common.MimeTypes.VIDEO_VP9
 import androidx.media3.common.Player
+import androidx.media3.common.SimpleBasePlayer.MediaItemData
+import androidx.media3.common.Timeline
+import androidx.media3.common.TrackGroup
+import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.test.utils.FakePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -273,4 +283,51 @@ class PresentationStateTest {
     assertThat(state.keepContentOnReset).isFalse()
     assertThat(state.coverSurface).isTrue()
   }
+
+  @Test
+  fun tracksChanged_withTimelineWithoutUidLookupSupport_throwsUnsupportedOperationException() =
+    runComposeUiTest {
+      val group =
+        Tracks.Group(
+          /* mediaTrackGroup = */ TrackGroup(Format.Builder().setSampleMimeType(VIDEO_VP9).build()),
+          /* adaptiveSupported = */ true,
+          /* trackSupport = */ intArrayOf(C.FORMAT_HANDLED),
+          /* trackSelected = */ booleanArrayOf(true),
+        )
+      val validTracks = Tracks(listOf(group))
+      val player =
+        FakePlayer(
+          playlist =
+            listOf(
+              MediaItemData.Builder("uid1").setTracks(Tracks.EMPTY).build(),
+              MediaItemData.Builder("uid2").setTracks(validTracks).build(),
+            )
+        )
+      var remotableTimeline: Timeline? = null
+      val presentationPlayer =
+        object : ForwardingPlayer(player) {
+          override fun getCurrentTimeline() = remotableTimeline ?: super.getCurrentTimeline()
+        }
+      lateinit var state: PresentationState
+      setContent { state = rememberPresentationState(presentationPlayer) }
+      waitForIdle()
+      assertThat(state.coverSurface).isTrue()
+
+      player.seekToNext()
+      player.renderFirstFrame(true)
+      waitForIdle()
+      assertThat(state.coverSurface).isFalse()
+
+      // Enable remotable timeline, strips period and window UIDs
+      remotableTimeline =
+        Timeline.fromBundle(
+          player.currentTimeline.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+          MediaLibraryInfo.INTERFACE_VERSION,
+        )
+
+      // Seek back to 0 (no tracks, different media item) -> should cover surface
+      // BUG: throws UnsupportedOperationException
+      player.seekToPrevious()
+      assertThrows(UnsupportedOperationException::class.java) { waitForIdle() }
+    }
 }

@@ -32,6 +32,7 @@ import androidx.annotation.RequiresApi;
 import androidx.annotation.RequiresPermission;
 import androidx.core.app.NotificationBuilderWithBuilderAccessor;
 import androidx.core.graphics.drawable.IconCompat;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -43,6 +44,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  */
 @UnstableApi
 public class MediaStyleNotificationHelper {
+
+  private static final String TAG = "MediaStyleNotifHelper";
 
   public static final String EXTRA_MEDIA3_SESSION = "androidx.media3.session";
 
@@ -100,8 +103,16 @@ public class MediaStyleNotificationHelper {
       if (extras == null) {
         return null;
       }
-      Bundle sessionTokenBundle = extras.getBundle(EXTRA_MEDIA3_SESSION);
-      return sessionTokenBundle == null ? null : SessionToken.fromBundle(sessionTokenBundle);
+      try {
+        Bundle sessionTokenBundle = extras.getBundle(EXTRA_MEDIA3_SESSION);
+        if (sessionTokenBundle == null) {
+          return null;
+        }
+        return SessionToken.fromBundle(sessionTokenBundle);
+      } catch (RuntimeException e) {
+        Log.w(TAG, "Failed to restore SessionToken from notification", e);
+        return null;
+      }
     }
 
     private static final int MAX_MEDIA_BUTTONS_IN_COMPACT = 3;

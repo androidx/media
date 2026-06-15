@@ -118,6 +118,16 @@ public final class FormatTest {
     assertThrows(IllegalStateException.class, () -> builder.build());
   }
 
+  @Test
+  public void withManifestFormatInfo_preservesManifestSelectionPriority() {
+    Format manifestFormat = new Format.Builder().setSelectionPriority(3f).build();
+    Format sampleFormat = new Format.Builder().setSelectionPriority(Format.NO_VALUE).build();
+
+    Format format = sampleFormat.withManifestFormatInfo(manifestFormat);
+
+    assertThat(format.selectionPriority).isEqualTo(3f);
+  }
+
   private static Format createTestFormat() {
     byte[] initData1 = new byte[] {1, 2, 3};
     byte[] initData2 = new byte[] {4, 5, 6};
@@ -151,6 +161,7 @@ public final class FormatTest {
         .setLanguage("language")
         .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
         .setRoleFlags(C.ROLE_FLAG_MAIN)
+        .setSelectionPriority(2f)
         .setAverageBitrate(1024)
         .setPeakBitrate(2048)
         .setCodecs("codec")

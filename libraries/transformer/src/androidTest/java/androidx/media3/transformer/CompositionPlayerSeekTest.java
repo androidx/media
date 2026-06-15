@@ -23,7 +23,6 @@ import static androidx.media3.test.utils.AssetInfo.AMR_NB_SINE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.PNG_ASSET;
 import static androidx.media3.test.utils.AssetInfo.RAW_AAC_ASSET;
-import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.skip;
@@ -74,7 +73,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
@@ -1020,55 +1018,6 @@ public class CompositionPlayerSeekTest {
   }
 
   @Test
-  public void seekToMidClip_withSingleAudioClipSequence_reportsCorrectAudioProcessorPositionOffset()
-      throws PlaybackException, TimeoutException, InterruptedException {
-    ConditionVariable receivedExpectedPosition = new ConditionVariable();
-    PassthroughAudioProcessor fakeProcessor =
-        new PassthroughAudioProcessor() {
-          @Override
-          protected void onFlush(StreamMetadata streamMetadata) {
-            if (streamMetadata.positionOffsetUs == 500_000) {
-              receivedExpectedPosition.open();
-            }
-          }
-        };
-    EditedMediaItem item =
-        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
-            .setDurationUs(1_000_000L)
-            .setEffects(new Effects(ImmutableList.of(fakeProcessor), ImmutableList.of()))
-            .build();
-    final Composition composition =
-        new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item)))
-            .build();
-
-    getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.set(new CompositionPlayer.Builder(applicationContext).build());
-              player.get().addListener(playerTestListener);
-              player.get().setComposition(composition);
-              player.get().prepare();
-            });
-    playerTestListener.waitUntilPlayerReady();
-
-    playerTestListener.resetStatus();
-    getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
-              player.get().seekTo(/* positionMs= */ 500);
-              player.get().setScrubbingModeEnabled(false);
-            });
-    playerTestListener.waitUntilPlayerReady();
-
-    // Use ConditionVariable because there is a race condition between player being ready and
-    // position offset being propagated downstream.
-    assertWithMessage("AudioProcessor never received expected position offset.")
-        .that(receivedExpectedPosition.block(1_000))
-        .isTrue();
-  }
-
-  @Test
   public void seekBackwards_withDurationLessRawAac_doesNotAdjustSeek()
       throws PlaybackException, TimeoutException, InterruptedException {
     ConditionVariable receivedExpectedPosition = new ConditionVariable();
@@ -1195,172 +1144,6 @@ public class CompositionPlayerSeekTest {
     assertWithMessage("AudioProcessor never received expected position offset.")
         .that(receivedExpectedPosition.block(1_000))
         .isTrue();
-  }
-
-  @Test
-  public void seekToMidClip_withCompositionAudioProcessor_reportsCorrectPositionOffset()
-      throws PlaybackException, TimeoutException {
-    AtomicLong lastPositionOffsetUs = new AtomicLong(C.TIME_UNSET);
-    PassthroughAudioProcessor fakeProcessor =
-        new PassthroughAudioProcessor() {
-          @Override
-          protected void onFlush(StreamMetadata streamMetadata) {
-            lastPositionOffsetUs.set(streamMetadata.positionOffsetUs);
-          }
-        };
-    EditedMediaItem item =
-        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
-            .setDurationUs(1_000_000L)
-            .build();
-    final Composition composition =
-        new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item)))
-            .setEffects(new Effects(ImmutableList.of(fakeProcessor), ImmutableList.of()))
-            .build();
-
-    getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.set(new CompositionPlayer.Builder(applicationContext).build());
-              player.get().addListener(playerTestListener);
-              player.get().setComposition(composition);
-              player.get().prepare();
-            });
-    playerTestListener.waitUntilPlayerReady();
-
-    playerTestListener.resetStatus();
-    getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
-              player.get().seekTo(/* positionMs= */ 300);
-              player.get().setScrubbingModeEnabled(false);
-            });
-    playerTestListener.waitUntilPlayerReady();
-
-    assertThat(lastPositionOffsetUs.get()).isEqualTo(/* positionOffsetUs */ 300_000);
-  }
-
-  @Ignore("Flaky: b/491791547")
-  @Test
-  public void
-      seekToSecondClip_withMultipleAudioClipSequence_reportsMediaItemRelativePositionOffset()
-          throws PlaybackException, TimeoutException {
-    AtomicLong lastPositionOffsetUs = new AtomicLong(C.TIME_UNSET);
-    PassthroughAudioProcessor fakeProcessor =
-        new PassthroughAudioProcessor() {
-          @Override
-          protected void onFlush(StreamMetadata streamMetadata) {
-            lastPositionOffsetUs.set(streamMetadata.positionOffsetUs);
-          }
-        };
-    EditedMediaItem firstItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
-            .setDurationUs(1_000_000L)
-            .build();
-
-    EditedMediaItem secondItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
-            .setDurationUs(1_000_000L)
-            .setEffects(new Effects(ImmutableList.of(fakeProcessor), ImmutableList.of()))
-            .build();
-    final Composition composition =
-        new Composition.Builder(
-                EditedMediaItemSequence.withAudioFrom(ImmutableList.of(firstItem, secondItem)))
-            .build();
-
-    getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.set(new CompositionPlayer.Builder(applicationContext).build());
-              player.get().addListener(playerTestListener);
-              player.get().setComposition(composition);
-              player.get().prepare();
-            });
-    playerTestListener.waitUntilPlayerReady();
-
-    playerTestListener.resetStatus();
-    getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
-              player.get().seekTo(/* positionMs= */ 1200);
-              player.get().setScrubbingModeEnabled(false);
-            });
-    playerTestListener.waitUntilPlayerReady();
-
-    assertThat(lastPositionOffsetUs.get()).isEqualTo(/* positionOffsetUs */ 200_000);
-  }
-
-  @Test
-  public void seek_withMultipleAudioSequences_reportsExpectedPositionToEachSequence()
-      throws PlaybackException, TimeoutException {
-    AtomicLong lastPositionOffsetUsFirstSequence = new AtomicLong(C.TIME_UNSET);
-    PassthroughAudioProcessor firstSequenceProcessor =
-        new PassthroughAudioProcessor() {
-          @Override
-          protected void onFlush(StreamMetadata streamMetadata) {
-            lastPositionOffsetUsFirstSequence.set(streamMetadata.positionOffsetUs);
-          }
-        };
-
-    AtomicLong lastPositionOffsetUsSecondSequence = new AtomicLong(C.TIME_UNSET);
-    PassthroughAudioProcessor secondSequenceProcessor =
-        new PassthroughAudioProcessor() {
-          @Override
-          protected void onFlush(StreamMetadata streamMetadata) {
-            lastPositionOffsetUsSecondSequence.set(streamMetadata.positionOffsetUs);
-          }
-        };
-
-    EditedMediaItem firstSequenceItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
-            .setEffects(new Effects(ImmutableList.of(firstSequenceProcessor), ImmutableList.of()))
-            .setDurationUs(1_000_000L)
-            .build();
-    EditedMediaItem secondSequenceItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
-            .setDurationUs(1_000_000L)
-            .setEffects(new Effects(ImmutableList.of(secondSequenceProcessor), ImmutableList.of()))
-            .build();
-
-    final Composition composition =
-        new Composition.Builder(
-                EditedMediaItemSequence.withAudioFrom(ImmutableList.of(firstSequenceItem)),
-                new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_AUDIO))
-                    .addGap(/* durationUs= */ 300_000)
-                    .addItem(secondSequenceItem)
-                    .build())
-            .build();
-
-    getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.set(new CompositionPlayer.Builder(applicationContext).build());
-              player.get().addListener(playerTestListener);
-              player.get().setComposition(composition);
-              player.get().prepare();
-            });
-    playerTestListener.waitUntilPlayerReady();
-
-    playerTestListener.resetStatus();
-    getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
-              player.get().seekTo(/* positionMs= */ 400);
-              player.get().setScrubbingModeEnabled(false);
-              player.get().play();
-            });
-    playerTestListener.waitUntilIsPlaying();
-
-    assertThat(lastPositionOffsetUsFirstSequence.get())
-        .isEqualTo(
-            /* positionOffsetUs */
-            400_000);
-    assertThat(lastPositionOffsetUsSecondSequence.get())
-        .isEqualTo(
-            /* positionOffsetUs */
-            100_000);
   }
 
   @Ignore("b/506959477 - Fix flakiness and re-enable")

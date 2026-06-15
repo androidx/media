@@ -108,19 +108,18 @@ public final class ConfigurationActivity extends AppCompatActivity {
 
   // Video effect selections.
   public static final int DIZZY_CROP_INDEX = 0;
-  public static final int EDGE_DETECTOR_INDEX = 1;
-  public static final int COLOR_FILTERS_INDEX = 2;
-  public static final int MAP_WHITE_TO_GREEN_LUT_INDEX = 3;
-  public static final int RGB_ADJUSTMENTS_INDEX = 4;
-  public static final int HSL_ADJUSTMENT_INDEX = 5;
-  public static final int CONTRAST_INDEX = 6;
-  public static final int PERIODIC_VIGNETTE_INDEX = 7;
-  public static final int SPIN_3D_INDEX = 8;
-  public static final int ZOOM_IN_INDEX = 9;
-  public static final int OVERLAY_LOGO_AND_TIMER_INDEX = 10;
-  public static final int BITMAP_OVERLAY_INDEX = 11;
-  public static final int TEXT_OVERLAY_INDEX = 12;
-  public static final int ANIMATING_LOGO_OVERLAY = 13;
+  public static final int COLOR_FILTERS_INDEX = 1;
+  public static final int MAP_WHITE_TO_GREEN_LUT_INDEX = 2;
+  public static final int RGB_ADJUSTMENTS_INDEX = 3;
+  public static final int HSL_ADJUSTMENT_INDEX = 4;
+  public static final int CONTRAST_INDEX = 5;
+  public static final int PERIODIC_VIGNETTE_INDEX = 6;
+  public static final int SPIN_3D_INDEX = 7;
+  public static final int ZOOM_IN_INDEX = 8;
+  public static final int OVERLAY_LOGO_AND_TIMER_INDEX = 9;
+  public static final int BITMAP_OVERLAY_INDEX = 10;
+  public static final int TEXT_OVERLAY_INDEX = 11;
+  public static final int ANIMATING_LOGO_OVERLAY = 12;
 
   // Audio effect selections.
   public static final int HIGH_PITCHED_INDEX = 0;

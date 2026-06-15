@@ -280,15 +280,53 @@ public final class FragmentedMp4ExtractorParameterizedTest {
         /* peekLimit= */ 9276);
   }
 
+  @Test
+  public void sampleWithSgpdV2() throws Exception {
+    assertExtractorBehavior(
+        /* closedCaptionFormats= */ ImmutableList.of(),
+        "media/mp4/sample_fragmented_sgpd_v2.mp4",
+        /* peekLimit= */ 894,
+        new ExtractorAsserts.AssertionConfig.Builder()
+            // The sgpd box is in the moof box in this sample (rather than the moov box), which
+            // means a second Format gets emitted when parsing the moof box.
+            .setDeduplicateConsecutiveFormats(true)
+            .build());
+  }
+
+  @Test
+  public void sampleWithVariableLengthSgpdInMoof() throws Exception {
+    assertExtractorBehavior(
+        /* closedCaptionFormats= */ ImmutableList.of(),
+        "media/mp4/sample_fragmented_variable_length_sgpd.mp4",
+        /* peekLimit= */ 894,
+        new ExtractorAsserts.AssertionConfig.Builder()
+            // The sgpd box is in the moof box in this sample (rather than the moov box), which
+            // means a second Format gets emitted when parsing the moof box.
+            .setDeduplicateConsecutiveFormats(true)
+            .build());
+  }
+
   private void assertExtractorBehavior(
       List<Format> closedCaptionFormats, String file, int peekLimit) throws IOException {
-    ExtractorAsserts.AssertionConfig.Builder assertionConfigBuilder =
-        new ExtractorAsserts.AssertionConfig.Builder();
+    assertExtractorBehavior(
+        closedCaptionFormats,
+        file,
+        peekLimit,
+        new ExtractorAsserts.AssertionConfig.Builder().build());
+  }
+
+  private void assertExtractorBehavior(
+      List<Format> closedCaptionFormats,
+      String file,
+      int peekLimit,
+      ExtractorAsserts.AssertionConfig assertionConfig)
+      throws IOException {
+    ;
     ExtractorAsserts.assertBehavior(
         getExtractorFactory(closedCaptionFormats, subtitlesParsedDuringExtraction),
         file,
         peekLimit,
-        assertionConfigBuilder.build(),
+        assertionConfig,
         simulationConfig);
   }
 

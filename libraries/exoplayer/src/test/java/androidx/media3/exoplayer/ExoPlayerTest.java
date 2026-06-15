@@ -95,6 +95,7 @@ import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.Looper;
 import android.util.Pair;
 import android.view.Surface;
@@ -161,6 +162,7 @@ import androidx.media3.exoplayer.source.ShuffleOrder;
 import androidx.media3.exoplayer.source.SinglePeriodTimeline;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.source.WrappingMediaSource;
+import androidx.media3.exoplayer.source.ads.AdTimeline;
 import androidx.media3.exoplayer.text.TextOutput;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
@@ -3727,6 +3729,66 @@ public final class ExoPlayerTest {
     assertThat(mediaSource.getCreatedMediaPeriods().get(1).nextAdGroupIndex).isEqualTo(0);
     assertThat(mediaSource.getCreatedMediaPeriods().get(2).adGroupIndex).isEqualTo(0);
     assertThat(mediaSource.getCreatedMediaPeriods().get(3).adGroupIndex).isEqualTo(C.INDEX_UNSET);
+  }
+
+  @Test
+  public void timelineUpdateWithPostroll_transitionToMultiPeriod_doesNotGetStuck()
+      throws Exception {
+    Object windowId = new Object();
+    AdPlaybackState adPlaybackState =
+        new AdPlaybackState(
+                /* adsId= */ new Object(), /* adGroupTimesUs...= */ C.TIME_END_OF_SOURCE)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 0,
+                MediaItem.fromUri("https://google.com/ad"))
+            .withAdDurationsUs(
+                /* adGroupIndex= */ 0, /* adDurationsUs...= */ 5 * C.MICROS_PER_SECOND)
+            .withAdResumePositionUs(/* adResumePositionUs= */ 0);
+
+    Timeline contentTimeline1 =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition.Builder()
+                .setPeriodCount(1)
+                .setUid(windowId)
+                .setSeekable(true)
+                .setDurationUs(C.TIME_UNSET)
+                .setPlaceholder(true)
+                .build());
+    Timeline timeline1 = new AdTimeline(contentTimeline1, adPlaybackState);
+
+    Timeline contentTimeline2 =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition.Builder()
+                .setPeriodCount(2)
+                .setUid(windowId)
+                .setSeekable(true)
+                .setDurationUs(10 * C.MICROS_PER_SECOND)
+                .build());
+    Timeline timeline2 = new AdTimeline(contentTimeline2, adPlaybackState);
+
+    FakeMediaSource mediaSource = new FakeMediaSource(timeline1, ExoPlayerTestRunner.VIDEO_FORMAT);
+    ActionSchedule actionSchedule =
+        new ActionSchedule.Builder(TAG)
+            .pause()
+            .waitForPlaybackState(Player.STATE_READY)
+            .executeRunnable(() -> mediaSource.setNewSourceInfo(timeline2))
+            .waitForTimelineChanged(
+                timeline2, /* expectedReason= */ Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE)
+            .play()
+            .build();
+
+    ExoPlayerTestRunner testRunner =
+        parameterizeExoPlayerTestRunnerBuilder(
+                new ExoPlayerTestRunner.Builder(context)
+                    .setMediaSources(mediaSource)
+                    .setActionSchedule(actionSchedule))
+            .build()
+            .start();
+
+    testRunner.blockUntilEnded(TIMEOUT_MS);
+    testRunner.assertPlayedPeriodIndices(0, 1);
   }
 
   @Test
@@ -13993,6 +14055,51 @@ public final class ExoPlayerTest {
 
     assertThat(audioSessionId).isNotEqualTo(initialAudioSessionId);
     verify(listener).onAudioSessionIdChanged(audioSessionId);
+  }
+
+  @Test
+  public void audioSessionId_manuallySet_isNotOverwrittenByBackgroundGeneration() throws Exception {
+    int manualId = 1234;
+    // Create a custom renderer to capture all session ID updates sent to the playback thread.
+    final List<Integer> receivedIds = Collections.synchronizedList(new ArrayList<>());
+    FakeRenderer audioRenderer =
+        new FakeRenderer(C.TRACK_TYPE_AUDIO) {
+          @Override
+          public void handleMessage(int messageType, @Nullable Object message)
+              throws ExoPlaybackException {
+            if (messageType == Renderer.MSG_SET_AUDIO_SESSION_ID) {
+              receivedIds.add((Integer) message);
+            }
+            super.handleMessage(messageType, message);
+          }
+        };
+
+    // Setup a paused playback looper to force the race condition.
+    HandlerThread playbackThread = new HandlerThread("ExoPlayer:Playback");
+    playbackThread.start();
+    Looper playbackLooper = playbackThread.getLooper();
+    shadowOf(playbackLooper).pause();
+    ExoPlayer player =
+        new ExoPlayer.Builder(
+                context, (handler, video, audio, text, metadata) -> new Renderer[] {audioRenderer})
+            .setPlaybackLooper(playbackLooper)
+            .build();
+
+    try {
+      // Manually set the audio session ID.
+      player.setAudioSessionId(manualId);
+
+      // Unpause the looper to process both the auto-generation task and the manual update.
+      shadowOf(playbackLooper).unPause();
+      advance(player).untilPendingCommandsAreFullyHandled();
+
+      assertThat(receivedIds).hasSize(2);
+      assertThat(receivedIds.get(1)).isEqualTo(manualId);
+      assertThat(player.getAudioSessionId()).isEqualTo(manualId);
+    } finally {
+      player.release();
+      playbackThread.quit();
+    }
   }
 
   @Test

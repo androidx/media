@@ -22,9 +22,12 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Parcel;
+import android.view.KeyEvent;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.media3.common.Player;
+import androidx.media3.test.utils.MalformedParcelable;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -195,6 +198,49 @@ public class DefaultActionFactoryTest {
         () ->
             actionFactory.createCustomActionFromCustomCommandButton(
                 mediaSession, customSessionCommand));
+  }
+
+  @Test
+  public void getKeyEvent_validIntent_returnsKeyEvent() {
+    Intent intent = new Intent();
+    KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY);
+    intent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
+
+    assertThat(DefaultActionFactory.getKeyEvent(intent)).isEqualTo(keyEvent);
+  }
+
+  @Test
+  public void getKeyEvent_noExtras_returnsNull() {
+    Intent intent = new Intent();
+    assertThat(DefaultActionFactory.getKeyEvent(intent)).isNull();
+  }
+
+  @Test
+  public void getKeyEvent_noKeyEventInExtras_returnsNull() {
+    Intent intent = new Intent();
+    intent.putExtra("other_extra", "value");
+    assertThat(DefaultActionFactory.getKeyEvent(intent)).isNull();
+  }
+
+  @Test
+  public void getKeyEvent_malformedParcelable_returnsNull() {
+    Intent intent = new Intent();
+    Bundle bundle = new Bundle();
+    bundle.putParcelable(Intent.EXTRA_KEY_EVENT, new MalformedParcelable());
+    intent.replaceExtras(cloneBundle(bundle));
+
+    assertThat(DefaultActionFactory.getKeyEvent(intent)).isNull();
+  }
+
+  private static Bundle cloneBundle(Bundle bundle) {
+    Parcel parcel = Parcel.obtain();
+    try {
+      bundle.writeToParcel(parcel, 0);
+      parcel.setDataPosition(0);
+      return parcel.readBundle(DefaultActionFactoryTest.class.getClassLoader());
+    } finally {
+      parcel.recycle();
+    }
   }
 
   /** A test service for unit tests. */

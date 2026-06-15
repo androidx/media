@@ -1510,16 +1510,25 @@ public final class MediaBrowserCompat {
     @Override
     protected void onReceiveResult(int resultCode, @Nullable Bundle resultData) {
       resultData = convertToNullIfInvalid(resultData);
-      if (resultCode != MediaBrowserServiceCompat.RESULT_OK
-          || resultData == null
-          || !resultData.containsKey(MediaBrowserServiceCompat.KEY_MEDIA_ITEM)) {
+      if (resultCode != MediaBrowserServiceCompat.RESULT_OK || resultData == null) {
         callback.onError(mediaId);
         return;
       }
-      MediaItem item =
-          LegacyParcelableUtil.convert(
-              resultData.getParcelable(MediaBrowserServiceCompat.KEY_MEDIA_ITEM),
-              MediaItem.CREATOR);
+      MediaItem item;
+      try {
+        if (!resultData.containsKey(MediaBrowserServiceCompat.KEY_MEDIA_ITEM)) {
+          callback.onError(mediaId);
+          return;
+        }
+        item =
+            LegacyParcelableUtil.convert(
+                resultData.getParcelable(MediaBrowserServiceCompat.KEY_MEDIA_ITEM),
+                MediaItem.CREATOR);
+      } catch (RuntimeException e) {
+        Log.w(TAG, "Failed to retrieve media item from parcelable", e);
+        callback.onError(mediaId);
+        return;
+      }
       callback.onItemLoaded(item);
     }
   }
@@ -1541,14 +1550,22 @@ public final class MediaBrowserCompat {
     @Override
     protected void onReceiveResult(int resultCode, @Nullable Bundle resultData) {
       resultData = convertToNullIfInvalid(resultData);
-      if (resultCode != MediaBrowserServiceCompat.RESULT_OK
-          || resultData == null
-          || !resultData.containsKey(MediaBrowserServiceCompat.KEY_SEARCH_RESULTS)) {
+      if (resultCode != MediaBrowserServiceCompat.RESULT_OK || resultData == null) {
         callback.onError(query, extras);
         return;
       }
-      Parcelable[] items =
-          resultData.getParcelableArray(MediaBrowserServiceCompat.KEY_SEARCH_RESULTS);
+      Parcelable[] items;
+      try {
+        if (!resultData.containsKey(MediaBrowserServiceCompat.KEY_SEARCH_RESULTS)) {
+          callback.onError(query, extras);
+          return;
+        }
+        items = resultData.getParcelableArray(MediaBrowserServiceCompat.KEY_SEARCH_RESULTS);
+      } catch (RuntimeException e) {
+        Log.w(TAG, "Failed to retrieve search results from parcelable", e);
+        callback.onError(query, extras);
+        return;
+      }
       if (items != null) {
         List<MediaItem> results = new ArrayList<>(items.length);
         for (Parcelable item : items) {

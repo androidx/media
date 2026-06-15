@@ -265,19 +265,9 @@ public final class MediaSessionManager {
       }
       return remoteUserUid == Process.SYSTEM_UID
           || remoteUserUid == Process.myUid()
-          || hasMediaControlPermission(userInfo)
           || isPermissionGranted(userInfo, PERMISSION_STATUS_BAR_SERVICE)
           || isPermissionGranted(userInfo, PERMISSION_MEDIA_CONTENT_CONTROL)
           || isEnabledNotificationListener(userInfo);
-    }
-
-    /** Checks the caller has android.Manifest.permission.MEDIA_CONTENT_CONTROL permission. */
-    private boolean hasMediaControlPermission(MediaSessionManager.RemoteUserInfoImpl userInfo) {
-      return context.checkPermission(
-              android.Manifest.permission.MEDIA_CONTENT_CONTROL,
-              userInfo.getPid(),
-              userInfo.getUid())
-          == PackageManager.PERMISSION_GRANTED;
     }
 
     private boolean isPermissionGranted(

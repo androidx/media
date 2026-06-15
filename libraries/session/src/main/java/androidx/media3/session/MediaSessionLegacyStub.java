@@ -2227,7 +2227,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       if (!Objects.equals(intent.getAction(), Intent.ACTION_MEDIA_BUTTON)) {
         return;
       }
-      KeyEvent keyEvent = intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
+      KeyEvent keyEvent = DefaultActionFactory.getKeyEvent(intent);
       if (keyEvent == null) {
         return;
       }

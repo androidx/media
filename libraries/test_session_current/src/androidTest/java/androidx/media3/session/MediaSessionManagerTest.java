@@ -52,6 +52,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.io.FileInputStream;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -583,6 +584,44 @@ public class MediaSessionManagerTest {
         session2[0].release();
       }
     }
+  }
+
+  // Shell manifest didn't include MEDIA_CONTENT_CONTROL before API 31, which is required to request
+  // sessions for all packages (packageName=null).
+  @Test
+  @SdkSuppress(minSdkVersion = 31)
+  public void addOnActiveSessionsChangedListener_onNonLooperThread_doesNotCrash() throws Exception {
+    adoptMediaContentControlPermission();
+    CountDownLatch latch = new CountDownLatch(1);
+    MediaSessionManager.OnActiveSessionsChangedListener listener = activeSessions -> {};
+    AtomicReference<Throwable> thrown = new AtomicReference<>();
+
+    Thread thread =
+        new Thread(
+            () -> {
+              try {
+                MediaSessionManager.addOnActiveSessionsChangedListener(
+                    context,
+                    /* packageName= */ null,
+                    listener,
+                    ContextCompat.getMainExecutor(context),
+                    /* notificationListener= */ null);
+                latch.countDown();
+              } catch (Throwable t) {
+                thrown.set(t);
+                latch.countDown();
+              }
+            });
+    thread.start();
+
+    assertWithMessage("Thread timed out").that(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    if (thrown.get() != null) {
+      throw new AssertionError("Failed to add listener on non-looper thread", thrown.get());
+    }
+
+    // Clean up
+    handler.postAndSync(
+        () -> MediaSessionManager.removeOnActiveSessionsChangedListener(context, listener));
   }
 
   /** A test {@link NotificationListenerService}. */

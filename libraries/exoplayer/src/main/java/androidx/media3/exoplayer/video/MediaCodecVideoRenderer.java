@@ -158,6 +158,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private static final String KEY_CROP_BOTTOM = "crop-bottom";
   private static final String KEY_CROP_TOP = "crop-top";
 
+  // TODO: b/388762778 - Replace with MediaFormat.KEY_HDR_ST2094_50_INFO once compile SDK is 37.
+  private static final String KEY_HDR_ST2094_50_INFO = "hdr-st2094-50-info";
+
   // Long edge length in pixels for standard video formats, in decreasing in order.
   private static final int[] STANDARD_LONG_EDGE_VIDEO_PX =
       new int[] {1920, 1600, 1440, 1280, 960, 854, 640, 540, 480};
@@ -1199,7 +1202,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     maybeSetupTunnelingForFirstFrame();
     haveReportedFirstFrameRenderedForCurrentSurface = false;
     tunnelingOnFrameRenderedListener = null;
-    isFlushRequired = true;
+    isFlushRequired = shouldFlushCodec();
     nextOutputBufferToProcessPresentationTimeUs = C.TIME_UNSET;
     try {
       super.onDisabled();
@@ -1718,6 +1721,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   @Override
   protected final boolean shouldFlushCodec() {
+    if (!super.shouldFlushCodec()) {
+      return false;
+    }
     Format inputFormat = getCodecInputFormat();
     boolean skippingFlushMayCauseOverflow = true;
     long streamEndPositionUs = getStreamEndPositionUs();
@@ -1729,13 +1735,12 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
               > Long.MAX_VALUE - maxPotentialSampleTimestamp;
     }
     return scrubbingModeParameters == null
-        ? super.shouldFlushCodec()
-        : !scrubbingModeParameters.allowSkippingMediaCodecFlush
-            || isFlushRequired
-            || tunneling
-            || (inputFormat != null && inputFormat.maxNumReorderSamples > 0)
-            || skippingFlushMayCauseOverflow
-            || getLastBufferInStreamPresentationTimeUs() != C.TIME_UNSET;
+        || !scrubbingModeParameters.allowSkippingMediaCodecFlush
+        || isFlushRequired
+        || tunneling
+        || (inputFormat != null && inputFormat.maxNumReorderSamples > 0)
+        || skippingFlushMayCauseOverflow
+        || getLastBufferInStreamPresentationTimeUs() != C.TIME_UNSET;
   }
 
   @Override
@@ -1966,12 +1971,14 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Override
   protected void handleInputBufferSupplementalData(DecoderInputBuffer buffer)
       throws ExoPlaybackException {
-    if (!codecHandlesHdr10PlusOutOfBandMetadata) {
+    if (buffer.supplementalData == null) {
       return;
     }
-    ByteBuffer data = checkNotNull(buffer.supplementalData);
+    ByteBuffer data = buffer.supplementalData;
+
     if (data.remaining() >= 7) {
-      // Check for HDR10+ out-of-band metadata. See User_data_registered_itu_t_t35 in ST 2094-40.
+      // Check for HDR10+ or HAGC out-of-band metadata. See User_data_registered_itu_t_t35 in ST
+      // 2094-40 / ST 2094-50.
       byte ituTT35CountryCode = data.get();
       int ituTT35TerminalProviderCode = data.getShort();
       int ituTT35TerminalProviderOrientedCode = data.getShort();
@@ -1983,12 +1990,30 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           && ituTT35TerminalProviderOrientedCode == 0x0001
           && applicationIdentifier == 4
           && (applicationVersion == 0 || applicationVersion == 1)) {
-        // The metadata size may vary so allocate a new array every time. This is not too
-        // inefficient because the metadata is only a few tens of bytes.
-        byte[] hdr10PlusInfo = new byte[data.remaining()];
-        data.get(hdr10PlusInfo);
+        if (codecHandlesHdr10PlusOutOfBandMetadata) {
+          // The data is HDR10+ out-of-band metadata.
+          byte[] hdr10PlusInfo = new byte[data.remaining()];
+          data.get(hdr10PlusInfo);
+          data.position(0);
+          setHdr10PlusInfoV29(checkNotNull(getCodec()), hdr10PlusInfo);
+        }
+      } else if (SDK_INT >= 37
+          && ituTT35CountryCode == (byte) 0xB5
+          && ituTT35TerminalProviderCode == 0x0090
+          && ituTT35TerminalProviderOrientedCode == 0x0001) {
+        // HAGC (ST 2094-50) metadata from out-of-band track.
+        // Android's MediaCodec API for ST 2094-50 expects the payload without the 5-byte T.35
+        // header.
+        data.position(5);
+        byte[] hagcData = new byte[data.remaining()];
+        data.get(hagcData);
         data.position(0);
-        setHdr10PlusInfoV29(checkNotNull(getCodec()), hdr10PlusInfo);
+
+        if (hagcData.length > 0) {
+          Bundle codecParameters = new Bundle();
+          codecParameters.putByteArray(KEY_HDR_ST2094_50_INFO, hagcData);
+          checkNotNull(getCodec()).setParameters(codecParameters);
+        }
       }
     }
   }
