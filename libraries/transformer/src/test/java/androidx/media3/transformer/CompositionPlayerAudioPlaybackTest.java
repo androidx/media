@@ -34,6 +34,7 @@ import static androidx.media3.transformer.TestUtil.createSampleRateChangingAudio
 import static androidx.media3.transformer.TestUtil.createTestCompositionPlayer;
 import static androidx.media3.transformer.TestUtil.createVolumeScalingAudioProcessor;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
@@ -51,9 +52,10 @@ import androidx.media3.test.utils.PassthroughAudioProcessor;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.media3.transformer.TestUtil.FormatCapturingAudioProcessor;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.truth.Expect;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -62,16 +64,19 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestParameterInjector;
 
 /**
  * Audio playback unit tests for {@link CompositionPlayer}.
  *
  * <p>These tests focus on audio because the video pipeline doesn't work in Robolectric.
  */
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public final class CompositionPlayerAudioPlaybackTest {
+  @Rule public final Expect expect = Expect.create();
 
   private static final String PREVIEW_DUMP_FILE_EXTENSION = "audiosinkdumps/";
   private static final SpeedProvider SPEED_PROVIDER_2X =
@@ -1339,6 +1344,135 @@ public final class CompositionPlayerAudioPlaybackTest {
     advance(player).untilState(Player.STATE_ENDED);
     assertThat(capturingAudioSink.getCurrentPositionUs(true)).isAtLeast(1_000_000);
     assertThat(capturingAudioSink.isEnded()).isTrue();
+  }
+
+  @Test
+  public void seekToMidClip_withSingleAudioClipSequence_reportsCorrectAudioProcessorPositionOffset(
+      @TestParameter boolean isScrubbingModeEnabled) throws Exception {
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    PositionOffsetRecorder positionOffsetRecorder = new PositionOffsetRecorder();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(1_000_000L)
+            .setEffects(createAudioEffects(positionOffsetRecorder))
+            .build();
+    Composition composition =
+        new Composition.Builder(withAudioFrom(ImmutableList.of(item))).build();
+
+    player.setComposition(composition);
+    player.prepare();
+    advance(player).untilState(STATE_READY);
+
+    player.setScrubbingModeEnabled(isScrubbingModeEnabled);
+    player.seekTo(/* positionMs= */ 500);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    expect.that(getLast(positionOffsetRecorder.positionOffsetsUs)).isEqualTo(500_000L);
+
+    player.release();
+  }
+
+  @Test
+  public void seekToMidClip_withCompositionAudioProcessor_reportsCorrectPositionOffset(
+      @TestParameter boolean isScrubbingModeEnabled) throws Exception {
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    PositionOffsetRecorder positionOffsetRecorder = new PositionOffsetRecorder();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(1_000_000L)
+            .build();
+    Composition composition =
+        new Composition.Builder(withAudioFrom(ImmutableList.of(item)))
+            .setEffects(createAudioEffects(positionOffsetRecorder))
+            .build();
+
+    player.setComposition(composition);
+    player.prepare();
+    advance(player).untilState(STATE_READY);
+
+    player.setScrubbingModeEnabled(isScrubbingModeEnabled);
+    player.seekTo(/* positionMs= */ 300);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    expect.that(getLast(positionOffsetRecorder.positionOffsetsUs)).isEqualTo(300_000L);
+
+    player.release();
+  }
+
+  @Test
+  public void seekToSecondClip_withMultipleAudioClipSequence_reportsMediaItemRelativePositionOffset(
+      @TestParameter boolean isScrubbingModeEnabled) throws Exception {
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    PositionOffsetRecorder positionOffsetRecorder = new PositionOffsetRecorder();
+    EditedMediaItem firstItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItem secondItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(1_000_000L)
+            .setEffects(createAudioEffects(positionOffsetRecorder))
+            .build();
+    Composition composition =
+        new Composition.Builder(withAudioFrom(ImmutableList.of(firstItem, secondItem))).build();
+
+    player.setComposition(composition);
+    player.prepare();
+    advance(player).untilState(STATE_READY);
+
+    player.setScrubbingModeEnabled(isScrubbingModeEnabled);
+    player.seekTo(/* positionMs= */ 1200);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    expect.that(getLast(positionOffsetRecorder.positionOffsetsUs)).isEqualTo(200_000L);
+
+    player.release();
+  }
+
+  @Test
+  public void seek_withMultipleAudioSequences_reportsExpectedPositionToEachSequence(
+      @TestParameter boolean isScrubbingModeEnabled) throws Exception {
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    PositionOffsetRecorder firstSequenceRecorder = new PositionOffsetRecorder();
+    PositionOffsetRecorder secondSequenceRecorder = new PositionOffsetRecorder();
+
+    EditedMediaItem firstSequenceItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setEffects(createAudioEffects(firstSequenceRecorder))
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItem secondSequenceItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(1_000_000L)
+            .setEffects(createAudioEffects(secondSequenceRecorder))
+            .build();
+
+    Composition composition =
+        new Composition.Builder(
+                withAudioFrom(ImmutableList.of(firstSequenceItem)),
+                new EditedMediaItemSequence.Builder(ImmutableSet.of(TRACK_TYPE_AUDIO))
+                    .addGap(/* durationUs= */ 300_000)
+                    .addItem(secondSequenceItem)
+                    .build())
+            .build();
+
+    player.setComposition(composition);
+    player.prepare();
+    advance(player).untilState(STATE_READY);
+
+    player.setScrubbingModeEnabled(isScrubbingModeEnabled);
+    player.seekTo(/* positionMs= */ 400);
+    player.setScrubbingModeEnabled(false);
+    player.play();
+    advance(player).untilState(STATE_READY);
+
+    expect.that(getLast(firstSequenceRecorder.positionOffsetsUs)).isEqualTo(400_000L);
+    expect.that(getLast(secondSequenceRecorder.positionOffsetsUs)).isEqualTo(100_000L);
+
+    player.release();
   }
 
   private static class ForwardingAudioMixer implements AudioMixer {
