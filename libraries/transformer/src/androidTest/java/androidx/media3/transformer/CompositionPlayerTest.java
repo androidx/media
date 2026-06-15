@@ -933,7 +933,6 @@ public class CompositionPlayerTest {
     // Call play() again after the player has already ended.
     // This should not cause a timeout.
     instrumentation.runOnMainSync(() -> compositionPlayer.play());
-    listener.waitUntilPlayerEnded();
 
     // Verify the state is still ENDED
     instrumentation.runOnMainSync(
