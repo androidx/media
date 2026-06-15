@@ -1202,7 +1202,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     maybeSetupTunnelingForFirstFrame();
     haveReportedFirstFrameRenderedForCurrentSurface = false;
     tunnelingOnFrameRenderedListener = null;
-    isFlushRequired = true;
+    isFlushRequired = shouldFlushCodec();
     nextOutputBufferToProcessPresentationTimeUs = C.TIME_UNSET;
     try {
       super.onDisabled();
@@ -1721,6 +1721,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   @Override
   protected final boolean shouldFlushCodec() {
+    if (!super.shouldFlushCodec()) {
+      return false;
+    }
     Format inputFormat = getCodecInputFormat();
     boolean skippingFlushMayCauseOverflow = true;
     long streamEndPositionUs = getStreamEndPositionUs();
@@ -1732,13 +1735,12 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
               > Long.MAX_VALUE - maxPotentialSampleTimestamp;
     }
     return scrubbingModeParameters == null
-        ? super.shouldFlushCodec()
-        : !scrubbingModeParameters.allowSkippingMediaCodecFlush
-            || isFlushRequired
-            || tunneling
-            || (inputFormat != null && inputFormat.maxNumReorderSamples > 0)
-            || skippingFlushMayCauseOverflow
-            || getLastBufferInStreamPresentationTimeUs() != C.TIME_UNSET;
+        || !scrubbingModeParameters.allowSkippingMediaCodecFlush
+        || isFlushRequired
+        || tunneling
+        || (inputFormat != null && inputFormat.maxNumReorderSamples > 0)
+        || skippingFlushMayCauseOverflow
+        || getLastBufferInStreamPresentationTimeUs() != C.TIME_UNSET;
   }
 
   @Override

@@ -44,6 +44,7 @@ import static org.junit.Assume.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -5067,6 +5068,68 @@ public class MediaCodecVideoRendererTest {
     shadowLooper.idle();
     verify(eventListener, times(2))
         .onRenderedFirstFrame(eq(surface), /* renderTimeMs= */ anyLong());
+  }
+
+  @Test
+  public void resetPosition_beforeCodecReceivedInputBuffers_doesNotFlushCodec() throws Exception {
+    MediaCodecAdapter mockCodecAdapter = mock(MediaCodecAdapter.class);
+    when(mockCodecAdapter.dequeueInputBufferIndex()).thenReturn(INFO_TRY_AGAIN_LATER);
+    when(mockCodecAdapter.dequeueOutputBufferIndex(any())).thenReturn(INFO_TRY_AGAIN_LATER);
+    MediaCodecAdapter.Factory mockCodecAdapterFactory = mock(MediaCodecAdapter.Factory.class);
+    when(mockCodecAdapterFactory.createAdapter(any())).thenReturn(mockCodecAdapter);
+    MediaCodecVideoRenderer renderer =
+        new MediaCodecVideoRenderer(
+            new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
+                .setCodecAdapterFactory(mockCodecAdapterFactory)
+                .setMediaCodecSelector(mediaCodecSelector));
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    renderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
+    FakeTimeline fakeTimeline = new FakeTimeline();
+    renderer.setTimeline(fakeTimeline);
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ VIDEO_H264,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 100_000),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {VIDEO_H264},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(fakeTimeline.getUidOfPeriod(0)));
+    renderer.start();
+    // Render once to initialize the codec.
+    renderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+    verify(mockCodecAdapterFactory).createAdapter(any());
+
+    // Reset position with no input buffer queued.
+    renderer.resetPosition(/* positionUs= */ 0, /* sampleStreamIsResetToKeyFrame= */ true);
+    shadowOf(testMainLooper).idle();
+
+    // Verify flush was not called during position reset (because we had no buffers).
+    verify(mockCodecAdapter, never()).flush();
+    clearInvocations(mockCodecAdapter);
+
+    // Configure scrubbing mode and reset position.
+    ScrubbingModeParameters scrubbingModeParameters =
+        new ScrubbingModeParameters.Builder().setAllowSkippingMediaCodecFlush(false).build();
+    renderer.handleMessage(Renderer.MSG_SET_SCRUBBING_MODE, scrubbingModeParameters);
+    renderer.resetPosition(/* positionUs= */ 0, /* sampleStreamIsResetToKeyFrame= */ true);
+    shadowOf(testMainLooper).idle();
+
+    // Verify flush was not called.
+    verify(mockCodecAdapter, never()).flush();
   }
 
   @Test
