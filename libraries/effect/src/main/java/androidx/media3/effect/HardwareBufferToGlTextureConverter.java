@@ -15,12 +15,10 @@
  */
 package androidx.media3.effect;
 
-import static android.media.MediaFormat.COLOR_TRANSFER_SDR_VIDEO;
 import static androidx.media3.effect.FrameProcessorUtils.createAndBindEglImage;
 import static androidx.media3.effect.FrameProcessorUtils.generateSyncFences;
 import static androidx.media3.effect.FrameProcessorUtils.releaseEglImageTexture;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getFirst;
 
 import android.content.Context;
@@ -36,7 +34,6 @@ import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ExperimentalApi;
-import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Log;
@@ -44,7 +41,6 @@ import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.FrameProcessorUtils.EglImageTextureWrapper;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -61,7 +57,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Consumer<VideoFrameProcessingException> errorConsumer;
   private final HashMap<HardwareBufferFrame, EglImageTextureWrapper> activeEglImageTextureWrappers;
 
-  @Nullable private GlProgram externalCopyGlProgram;
+  @Nullable private GlTextureCopier glTextureCopier;
   private @MonotonicNonNull EGLDisplay eglDisplay;
 
   HardwareBufferToGlTextureConverter(
@@ -106,41 +102,20 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
       int internalTexId = C.INDEX_UNSET;
       if (isExternalTexture) {
-        if (externalCopyGlProgram == null) {
-          externalCopyGlProgram =
-              new GlProgram(
-                  context,
-                  R.raw.vertex_shader_transformation_es2,
-                  R.raw.fragment_shader_transformation_sdr_external_es2);
-          externalCopyGlProgram.setBufferAttribute(
-              "aFramePosition",
-              GlUtil.getNormalizedCoordinateBounds(),
-              GlUtil.HOMOGENEOUS_COORDINATE_VECTOR_SIZE);
-          externalCopyGlProgram.setFloatsUniform(
-              "uTransformationMatrix", GlUtil.create4x4IdentityMatrix());
-          externalCopyGlProgram.setFloatsUniform(
-              "uTexTransformationMatrix", GlUtil.create4x4IdentityMatrix());
-          externalCopyGlProgram.setFloatsUniform("uRgbMatrix", GlUtil.create4x4IdentityMatrix());
-          externalCopyGlProgram.setIntUniform("uOutputColorTransfer", COLOR_TRANSFER_SDR_VIDEO);
+        GlTextureCopier copier = glTextureCopier;
+        if (copier == null) {
+          copier = new GlTextureCopier(context);
+          glTextureCopier = copier;
         }
         internalTexId =
             GlUtil.createTexture(
                 outputWidth, outputHeight, /* useHighPrecisionColorComponents= */ false);
 
-        int internalFboId = GlUtil.createFboForTexture(internalTexId);
-        GlUtil.focusFramebufferUsingCurrentContext(internalFboId, outputWidth, outputHeight);
-
-        checkState(externalCopyGlProgram != null);
-        externalCopyGlProgram.use();
-        externalCopyGlProgram.setSamplerTexIdUniform("uTexSampler", texId, /* texUnitIndex= */ 0);
-        externalCopyGlProgram.bindAttributesAndUniforms();
-        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, /* first= */ 0, /* count= */ 4);
-        GlUtil.checkGlError();
-        GlUtil.deleteFbo(internalFboId);
+        copier.copyExternalTexture(texId, internalTexId, outputWidth, outputHeight);
       }
       outputTexId = isExternalTexture ? internalTexId : texId;
       eglImageTextureWrapper = eglImageTextureWrapper.withOutputTexId(outputTexId);
-    } catch (GlException | IOException e) {
+    } catch (GlException | VideoFrameProcessingException e) {
       if (eglImageTextureWrapper != null && isExternalTexture) {
         try {
           releaseEglImageTexture(eglImageTextureWrapper, hardwareBufferJniWrapper);
@@ -205,9 +180,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public void close() throws VideoFrameProcessingException {
     try {
-      if (externalCopyGlProgram != null) {
-        externalCopyGlProgram.delete();
-        externalCopyGlProgram = null;
+      if (glTextureCopier != null) {
+        glTextureCopier.release();
+        glTextureCopier = null;
       }
       for (EglImageTextureWrapper wrapper : activeEglImageTextureWrappers.values()) {
         releaseEglImageTexture(wrapper, hardwareBufferJniWrapper);
