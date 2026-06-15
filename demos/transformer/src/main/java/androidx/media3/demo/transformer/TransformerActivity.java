@@ -81,7 +81,6 @@ import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
 import androidx.media3.effect.DrawableOverlay;
 import androidx.media3.effect.GlEffect;
-import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HslAdjustment;
 import androidx.media3.effect.LanczosResample;
@@ -128,7 +127,6 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.lang.reflect.Constructor;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -566,38 +564,6 @@ public final class TransformerActivity extends AppCompatActivity {
     ImmutableList.Builder<Effect> effects = new ImmutableList.Builder<>();
     if (selectedEffects[ConfigurationActivity.DIZZY_CROP_INDEX]) {
       effects.add(MatrixTransformationFactory.createDizzyCropEffect());
-    }
-    if (selectedEffects[ConfigurationActivity.EDGE_DETECTOR_INDEX]) {
-      try {
-        Class<?> clazz = Class.forName("androidx.media3.demo.transformer.MediaPipeShaderProgram");
-        Constructor<?> constructor =
-            clazz.getConstructor(
-                Context.class,
-                boolean.class,
-                String.class,
-                boolean.class,
-                String.class,
-                String.class);
-        effects.add(
-            (GlEffect)
-                (Context context, boolean useHdr) -> {
-                  try {
-                    return (GlShaderProgram)
-                        constructor.newInstance(
-                            context,
-                            useHdr,
-                            /* graphName= */ "edge_detector_mediapipe_graph.binarypb",
-                            /* isSingleFrameGraph= */ true,
-                            /* inputStreamName= */ "input_video",
-                            /* outputStreamName= */ "output_video");
-                  } catch (Exception e) {
-                    runOnUiThread(() -> showToast(R.string.no_media_pipe_error));
-                    throw new RuntimeException("Failed to load MediaPipeShaderProgram", e);
-                  }
-                });
-      } catch (Exception e) {
-        showToast(R.string.no_media_pipe_error);
-      }
     }
     if (selectedEffects[ConfigurationActivity.COLOR_FILTERS_INDEX]) {
       switch (bundle.getInt(ConfigurationActivity.COLOR_FILTER_SELECTION)) {

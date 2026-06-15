@@ -30,24 +30,6 @@ android {
 
   // The demo module isn't indexed, and doesn't have translations.
   lint.disable += listOf("GoogleAppIndexingWarning", "MissingTranslation")
-
-  flavorDimensions.add("mediaPipe")
-
-  productFlavors {
-    create("noMediaPipe") { dimension = "mediaPipe" }
-    create("withMediaPipe") { dimension = "mediaPipe" }
-  }
-}
-
-androidComponents {
-  // Ignore the withMediaPipe variant if the MediaPipe AAR is not present.
-  if (!project.file("libs/edge_detector_mediapipe_aar.aar").exists()) {
-    beforeVariants { variantBuilder ->
-      if (variantBuilder.productFlavors.contains("mediaPipe" to "withMediaPipe")) {
-        variantBuilder.enable = false
-      }
-    }
-  }
 }
 
 dependencies {
@@ -64,11 +46,4 @@ dependencies {
   implementation(project(":lib-transformer"))
   implementation(project(":lib-muxer"))
   implementation(project(":lib-ui"))
-
-  // For MediaPipe and its dependencies:
-  "withMediaPipeImplementation"(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))
-  "withMediaPipeImplementation"("com.google.flogger:flogger:latest.release")
-  "withMediaPipeImplementation"("com.google.flogger:flogger-system-backend:latest.release")
-  "withMediaPipeImplementation"(libs.jsr305)
-  "withMediaPipeImplementation"("com.google.protobuf:protobuf-javalite:3.19.1")
 }
