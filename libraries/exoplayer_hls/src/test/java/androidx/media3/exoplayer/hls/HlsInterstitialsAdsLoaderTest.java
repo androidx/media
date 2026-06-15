@@ -67,10 +67,10 @@ import androidx.media3.datasource.DataSpec;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.PlayerMessage;
+import androidx.media3.exoplayer.hls.HlsInterstitialsAdsLoader.AdsMediaSourceSessionManager;
 import androidx.media3.exoplayer.hls.HlsInterstitialsAdsLoader.AdsResumptionState;
 import androidx.media3.exoplayer.hls.HlsInterstitialsAdsLoader.Asset;
 import androidx.media3.exoplayer.hls.HlsInterstitialsAdsLoader.AssetList;
-import androidx.media3.exoplayer.hls.HlsInterstitialsAdsLoader.ContentMediaSourceAdDataHolder;
 import androidx.media3.exoplayer.hls.HlsInterstitialsAdsLoader.Listener;
 import androidx.media3.exoplayer.hls.HlsInterstitialsAdsLoader.PendingSnapInResolution;
 import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist;
@@ -6509,49 +6509,55 @@ public class HlsInterstitialsAdsLoaderTest {
             /* skipControlOffsetUs= */ C.TIME_UNSET,
             /* skipControlDurationUs= */ C.TIME_UNSET,
             /* skipControlLabelId= */ null);
-    ContentMediaSourceAdDataHolder holder = new ContentMediaSourceAdDataHolder();
+    AdsMediaSourceSessionManager holder = new AdsMediaSourceSessionManager();
+    holder.startContentSource("adsId", MediaItem.fromUri("http://1"), mockEventListener);
+    holder.startContentSource("adsId_other", MediaItem.fromUri("http://1"), mockEventListener);
     for (int i = 0; i < 10; i++) {
-      holder.putPendingSnapInResolution(
-          "adsId",
-          new PendingSnapInResolution(
-              /* resumeTimeUs= */ i * 10_000L,
-              /* adGroupIndex= */ i,
-              /* interstitial= */ interstitial));
-      holder.putPendingSnapInResolution(
-          "adsId_other",
-          new PendingSnapInResolution(
-              /* resumeTimeUs= */ i * 10_000L,
-              /* adGroupIndex= */ i,
-              /* interstitial= */ interstitial));
+      holder
+          .getSession("adsId")
+          .pendingSnapInResolutions
+          .add(
+              new PendingSnapInResolution(
+                  /* resumeTimeUs= */ i * 10_000L,
+                  /* adGroupIndex= */ i,
+                  /* interstitial= */ interstitial));
+      holder
+          .getSession("adsId_other")
+          .pendingSnapInResolutions
+          .add(
+              new PendingSnapInResolution(
+                  /* resumeTimeUs= */ i * 10_000L,
+                  /* adGroupIndex= */ i,
+                  /* interstitial= */ interstitial));
     }
-    assertThat(holder.getPendingSnapInResolutions("adsId")).hasSize(10);
-    assertThat(holder.getPendingSnapInResolutions("adsId_other")).hasSize(10);
+    assertThat(holder.getSession("adsId").pendingSnapInResolutions).hasSize(10);
+    assertThat(holder.getSession("adsId_other").pendingSnapInResolutions).hasSize(10);
 
-    holder.removePendingSnapInResolutionUntilIndexInclusive("adsId", /* resolvedIndex= */ 4);
-    holder.removePendingSnapInResolutionUntilIndexInclusive("adsId_other", /* resolvedIndex= */ 4);
+    holder
+        .getSession("adsId")
+        .removePendingSnapInResolutionUntilIndexInclusive(/* resolvedIndex= */ 4);
+    holder
+        .getSession("adsId_other")
+        .removePendingSnapInResolutionUntilIndexInclusive(/* resolvedIndex= */ 4);
 
-    assertThat(holder.getPendingSnapInResolutions("adsId")).hasSize(5);
-    assertThat(holder.getPendingSnapInResolutions("adsId_other")).hasSize(5);
+    assertThat(holder.getSession("adsId").pendingSnapInResolutions).hasSize(5);
+    assertThat(holder.getSession("adsId_other").pendingSnapInResolutions).hasSize(5);
 
-    holder.removePendingSnapInResolutionUntilIndexInclusive("adsId", /* resolvedIndex= */ 4);
-    holder.removePendingSnapInResolutionUntilIndexInclusive(
-        "adsId_other", /* resolvedIndex= */ 1234);
+    holder
+        .getSession("adsId")
+        .removePendingSnapInResolutionUntilIndexInclusive(/* resolvedIndex= */ 4);
+    holder
+        .getSession("adsId_other")
+        .removePendingSnapInResolutionUntilIndexInclusive(/* resolvedIndex= */ 1234);
 
-    assertThat(holder.getPendingSnapInResolutions("adsId")).isEmpty();
-    assertThat(holder.getPendingSnapInResolutions("adsId_other")).isEmpty();
+    assertThat(holder.getSession("adsId").pendingSnapInResolutions).isEmpty();
+    assertThat(holder.getSession("adsId_other").pendingSnapInResolutions).isEmpty();
     assertThrows(
         IllegalArgumentException.class,
         () ->
-            holder.removePendingSnapInResolutionUntilIndexInclusive(
-                "adsId", /* resolvedIndex= */ -1));
-  }
-
-  @Test
-  public void removePendingSnapInResolutionUntilIncludingIndex_whenEmptyYieldsCorrectOperation() {
-    ContentMediaSourceAdDataHolder holder = new ContentMediaSourceAdDataHolder();
-
-    // Must not throw an exception because the empty list is immutable.
-    holder.removePendingSnapInResolutionUntilIndexInclusive("adsid", /* resolvedIndex= */ 2);
+            holder
+                .getSession("adsId")
+                .removePendingSnapInResolutionUntilIndexInclusive(/* resolvedIndex= */ -1));
   }
 
   @Test
@@ -6578,42 +6584,50 @@ public class HlsInterstitialsAdsLoaderTest {
             /* skipControlOffsetUs= */ C.TIME_UNSET,
             /* skipControlDurationUs= */ C.TIME_UNSET,
             /* skipControlLabelId= */ null);
-    ContentMediaSourceAdDataHolder holder = new ContentMediaSourceAdDataHolder();
+    AdsMediaSourceSessionManager sessionManager = new AdsMediaSourceSessionManager();
+    sessionManager.startContentSource("adsId", MediaItem.fromUri("http://1"), mockEventListener);
 
-    holder.putUnresolvedAssetListData(
-        /* adsId= */ "adsId",
-        /* adGroupIndex= */ 1,
-        /* adIndexInAdGroup= */ 0,
-        /* adGroupTimeUs= */ 10_000L,
-        MediaItem.fromUri("http://1"),
-        interstitial,
-        /* targetDurationUs= */ 2_000L);
-    holder.putUnresolvedAssetListData(
-        /* adsId= */ "adsId",
-        /* adGroupIndex= */ 12,
-        /* adIndexInAdGroup= */ 0,
-        /* adGroupTimeUs= */ 20_000L,
-        MediaItem.fromUri("http://2"),
-        interstitial,
-        /* targetDurationUs= */ 2_000L);
+    sessionManager
+        .getSession("adsId")
+        .unresolvedAssetLists
+        .put(
+            10_000L,
+            new HlsInterstitialsAdsLoader.AssetListData(
+                MediaItem.fromUri("http://1"),
+                /* adsId= */ "adsId",
+                interstitial,
+                /* adGroupIndex= */ 1,
+                /* adIndexInAdGroup= */ 0,
+                /* adGroupTimeUs= */ 10_000L,
+                /* targetDurationUs= */ 2_000L));
+    sessionManager
+        .getSession("adsId")
+        .unresolvedAssetLists
+        .put(
+            20_000L,
+            new HlsInterstitialsAdsLoader.AssetListData(
+                MediaItem.fromUri("http://2"),
+                /* adsId= */ "adsId",
+                interstitial,
+                /* adGroupIndex= */ 12,
+                /* adIndexInAdGroup= */ 0,
+                /* adGroupTimeUs= */ 20_000L,
+                /* targetDurationUs= */ 2_000L));
 
-    assertThat(holder.getUnresolvedAssetLists("adsId")).hasSize(2);
+    assertThat(sessionManager.getSession("adsId").unresolvedAssetLists).hasSize(2);
 
-    holder.removeUnresolvedAssetListData("adsId", /* adGroupTimeUs= */ 10_000L);
+    sessionManager.getSession("adsId").unresolvedAssetLists.remove(10_000L);
 
-    assertThat(holder.getUnresolvedAssetLists("adsId")).hasSize(1);
-    assertThat(holder.getUnresolvedAssetListCount("adsId")).isEqualTo(1);
+    assertThat(sessionManager.getSession("adsId").unresolvedAssetLists).hasSize(1);
 
     // Remove the same asset list data again.
-    holder.removeUnresolvedAssetListData("adsId", /* adGroupTimeUs= */ 10_000L);
+    sessionManager.getSession("adsId").unresolvedAssetLists.remove(10_000L);
 
-    assertThat(holder.getUnresolvedAssetLists("adsId")).hasSize(1);
-    assertThat(holder.getUnresolvedAssetListCount("adsId")).isEqualTo(1);
+    assertThat(sessionManager.getSession("adsId").unresolvedAssetLists).hasSize(1);
 
-    holder.removeUnresolvedAssetListData("adsId", /* adGroupTimeUs= */ 20_000L);
+    sessionManager.getSession("adsId").unresolvedAssetLists.remove(20_000L);
 
-    assertThat(holder.getUnresolvedAssetLists("adsId")).isEmpty();
-    assertThat(holder.getUnresolvedAssetListCount("adsId")).isEqualTo(0);
+    assertThat(sessionManager.getSession("adsId").unresolvedAssetLists).isEmpty();
   }
 
   @Test
@@ -6684,6 +6698,108 @@ public class HlsInterstitialsAdsLoaderTest {
                 /* adGroupIndex= */ C.INDEX_UNSET,
                 /* adIndexInAdGroup= */ C.INDEX_UNSET),
             new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 0L,
+                /* contentPositionMs= */ 0L,
+                /* adGroupIndex= */ C.INDEX_UNSET,
+                /* adIndexInAdGroup= */ C.INDEX_UNSET),
+            Player.DISCONTINUITY_REASON_SEEK);
+
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    ArgumentCaptor<AdPlaybackState> finalAdPlaybackCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(5)).onAdPlaybackState(finalAdPlaybackCaptor.capture());
+    // The reset state after calling `setWithAssetListReset`
+    AdPlaybackState resetState = finalAdPlaybackCaptor.getAllValues().get(3);
+    assertThat(resetState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(1);
+    assertThat(resetState.getAdGroup(/* adGroupIndex= */ 0).states[0])
+        .isEqualTo(AdPlaybackState.AD_STATE_UNAVAILABLE);
+    // The refreshed state after the asset list has resolved again.
+    AdPlaybackState refreshedState = finalAdPlaybackCaptor.getAllValues().get(4);
+    assertThat(refreshedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(3);
+    assertThat(refreshedState.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_AVAILABLE, AD_STATE_AVAILABLE, AD_STATE_AVAILABLE);
+    assertThat(
+            refreshedState.getAdGroup(/* adGroupIndex= */ 0).mediaItems[2].localConfiguration.uri)
+        .isEqualTo(Uri.parse("http://2"));
+    assertThat(refreshedState.getAdGroup(0).mediaItems[2].localConfiguration.mimeType)
+        .isEqualTo(MimeTypes.APPLICATION_M3U8);
+  }
+
+  @Test
+  public void
+      setWithAssetListResetWithInterstitialsId_resetsResolvedAssetListOfPostRoll_assetListResolvesAgain()
+          throws Exception {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:43.000Z\","
+            + "CUE=\"POST\"," // post roll
+            + "X-ASSET-LIST=\"http://three-assets\""
+            + "\n";
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
+    // Verify initial resolution of the asset list
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    AdPlaybackState resolvedState = adPlaybackStateCaptor.getAllValues().get(1);
+    assertThat(resolvedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(3);
+    assertThat(resolvedState.getAdGroup(/* adGroupIndex= */ 0).states[0])
+        .isEqualTo(AD_STATE_AVAILABLE);
+    assertThat(resolvedState.getAdGroup(/* adGroupIndex= */ 0).states[1])
+        .isEqualTo(AD_STATE_AVAILABLE);
+    assertThat(resolvedState.getAdGroup(/* adGroupIndex= */ 0).states[2])
+        .isEqualTo(AD_STATE_AVAILABLE);
+    when(mockPlayer.getContentPosition()).thenReturn(10_000L);
+    // Skip all ads to make the ad group eligible for reset.
+    adsLoader.setWithSkippedAdGroup(/* adGroupIndex= */ 0);
+
+    assertThat(
+            adsLoader.setWithAssetListReset(/* adsId= */ "adsId", /* interstitialsId= */ "ad0-0"))
+        .isTrue();
+
+    // Seek back before the ad group with the reset asset list that should start resolving again.
+    ArgumentCaptor<Player.Listener> playerListenerCaptor =
+        ArgumentCaptor.forClass(Player.Listener.class);
+    verify(mockPlayer).addListener(playerListenerCaptor.capture());
+    assetListLoadingListener.reset();
+    Object windowUid = new Object();
+    Object periodUid = new Object();
+    // Seek and notify ads loader of the seek to trigger the asset list resolution again.
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    playerListenerCaptor
+        .getValue()
+        .onPositionDiscontinuity(
+            /* oldPosition= */ new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 120_000L,
+                /* contentPositionMs= */ 120_0000L,
+                /* adGroupIndex= */ C.INDEX_UNSET,
+                /* adIndexInAdGroup= */ C.INDEX_UNSET),
+            /* newPosition= */ new Player.PositionInfo(
                 windowUid,
                 /* mediaItemIndex= */ 0,
                 contentMediaItem,
