@@ -16,7 +16,6 @@
 package androidx.media3.demo.compose.editing
 
 import android.graphics.Bitmap
-import androidx.annotation.FloatRange
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
@@ -166,9 +165,9 @@ fun ClippingSlider(
       )
     ImageRow(bitmaps, Modifier.fillMaxWidth().clip(shape))
     ClippedImagesFilter(
-      state.clippingRange,
-      Modifier.fillMaxSize().clip(shape),
+      clippingRangeProvider = { state.clippingRange },
       colors.clippedFilterColor,
+      Modifier.fillMaxSize().clip(shape),
     )
   }
 }
@@ -240,13 +239,26 @@ private fun ImageRow(bitmaps: ImmutableList<Bitmap>, modifier: Modifier = Modifi
   }
 }
 
+/**
+ * A composable that draws a visual filter (overlay) over the clipped (inactive) areas of the
+ * slider.
+ *
+ * This component dims the regions of the image row that fall outside the active clipping range (to
+ * the left of the start thumb and to the right of the end thumb).
+ *
+ * @param clippingRangeProvider A provider that returns the current active clipping range as a
+ *   fraction (0.0 to 1.0) of the total duration.
+ * @param clippedFilterColor The color (usually translucent) used to overlay the clipped areas.
+ * @param modifier The [Modifier] to be applied to this composable.
+ */
 @Composable
 private fun ClippedImagesFilter(
-  @FloatRange(from = 0.0, to = 1.0) clippingRange: ClosedFloatingPointRange<Float>,
-  modifier: Modifier = Modifier,
+  clippingRangeProvider: () -> ClosedFloatingPointRange<Float>,
   clippedFilterColor: Color,
+  modifier: Modifier = Modifier,
 ) {
   Canvas(modifier) {
+    val clippingRange = clippingRangeProvider()
     val width = size.width
     val height = size.height
     val positionSliderStart = logicalToVisualPositionSliderStart(clippingRange.start) * width
@@ -343,10 +355,15 @@ private fun ClippingThumb(
  * A composable that draws the horizontal track connecting the two clipping thumbs.
  *
  * This component draws the two horizontal bars of the clipping frame.
+ *
+ * @param clippingSliderRangeProvider A provider that returns the current clipping range as a
+ *   fraction (0.0 to 1.0) of the total duration.
+ * @param clippingFrameColor The color used to draw the horizontal bars of the track.
+ * @param modifier The [Modifier] to be applied to this composable.
  */
 @Composable
 private fun ClippingTrack(
-  @FloatRange(from = 0.0, to = 1.0) clippingSliderRange: ClosedFloatingPointRange<Float>,
+  clippingSliderRangeProvider: () -> ClosedFloatingPointRange<Float>,
   clippingFrameColor: Color,
   modifier: Modifier = Modifier,
 ) {
@@ -357,15 +374,16 @@ private fun ClippingTrack(
       val width = size.width
       val height = size.height
       val thumbWidthPx = CLIPPING_THUMB_WIDTH_RATIO / CLIPPING_TRACK_WIDTH_RATIO * width
-      // Shift the start and end by half a thumb so that the horizontal bars are strictly between
-      // the thumbs (instead of between the thumb centers). Shift again by 1 pixel to avoid holes
-      // between the bars and the thumbs due to rounding errors.
-      val clippingStartPx = clippingSliderRange.start * width + thumbWidthPx / 2f - 1f
-      val clippingEndPx = clippingSliderRange.endInclusive * width - thumbWidthPx / 2f + 1f
-      val frameWidth = clippingEndPx - clippingStartPx
       val frameThickness = CLIPPING_FRAME_THICKNESS_RATIO * height
-      val rectSize = Size(width = frameWidth, height = frameThickness)
       onDrawBehind {
+        val clippingSliderRange = clippingSliderRangeProvider()
+        // Shift the start and end by half a thumb so that the horizontal bars are strictly between
+        // the thumbs (instead of between the thumb centers). Shift again by 1 pixel to avoid holes
+        // between the bars and the thumbs due to rounding errors.
+        val clippingStartPx = clippingSliderRange.start * width + thumbWidthPx / 2f - 1f
+        val clippingEndPx = clippingSliderRange.endInclusive * width - thumbWidthPx / 2f + 1f
+        val frameWidth = clippingEndPx - clippingStartPx
+        val rectSize = Size(width = frameWidth, height = frameThickness)
         drawRect(clippingFrameColor, topLeft = Offset(x = clippingStartPx, y = 0f), size = rectSize)
         drawRect(
           clippingFrameColor,
