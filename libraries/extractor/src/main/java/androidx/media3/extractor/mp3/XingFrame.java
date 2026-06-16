@@ -147,7 +147,7 @@ import androidx.media3.extractor.MpegAudioUtil;
   public long computeDurationUs() {
     if (frameCount == C.LENGTH_UNSET || frameCount == 0) {
       // If the frame count is missing/invalid, the header can't be used to determine the duration.
-      return C.LENGTH_UNSET;
+      return C.TIME_UNSET;
     }
     long sampleCount = frameCount * header.samplesPerFrame;
     if (encoderDelay != C.LENGTH_UNSET && encoderPadding != C.LENGTH_UNSET) {

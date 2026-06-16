@@ -469,6 +469,7 @@ public final class Mp3ExtractorTest {
         return framePosition;
       }
     }
-    throw new IllegalArgumentException("No tag found in " + Util.toHexString(data.array()));
+    throw new IllegalArgumentException(
+        "No tag found in " + Util.toHexString(data.array(), data.arrayOffset(), data.limit()));
   }
 }
