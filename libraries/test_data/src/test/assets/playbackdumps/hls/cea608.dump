@@ -805,6 +805,10 @@ MediaCodecAdapter (media3.audio.aac):
       timeUs = 1000002410666
       size = 0
       rendered = false
+  setParameters:
+    count = 1
+    set parameters:
+      operating-rate = 48000.0
 MediaCodecAdapter (media3.video.avc):
   inputBuffers:
     count = 58
@@ -1213,6 +1217,10 @@ MediaCodecAdapter (media3.video.avc):
       timeUs = 1000002416666
       size = 1035
       rendered = true
+  setParameters:
+    count = 1
+    set parameters:
+      operating-rate = 24.0
 AudioSink:
   buffer count = 114
   config:

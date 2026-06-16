@@ -1073,6 +1073,10 @@ MediaCodecAdapter (media3.video.mpeg2):
       timeUs = 1000002583333
       size = 2970
       rendered = true
+  setParameters:
+    count = 1
+    set parameters:
+      operating-rate = 24.0
 AudioSink:
   buffer count = 93
   config:
