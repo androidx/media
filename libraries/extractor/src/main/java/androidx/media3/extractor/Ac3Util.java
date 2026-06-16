@@ -539,7 +539,17 @@ public final class Ac3Util {
     if (isEac3) {
       int fscod = (buffer.get(buffer.position() + 4) & 0xC0) >> 6;
       int numblkscod = fscod == 0x03 ? 3 : (buffer.get(buffer.position() + 4) & 0x30) >> 4;
-      return BLOCKS_PER_SYNCFRAME_BY_NUMBLKSCOD[numblkscod] * AUDIO_SAMPLES_PER_AUDIO_BLOCK;
+      int samplesPerFrame = BLOCKS_PER_SYNCFRAME_BY_NUMBLKSCOD[numblkscod] * AUDIO_SAMPLES_PER_AUDIO_BLOCK;
+      // frmsiz is an 11-bit field at bits [21:31] of the sync frame header (bytes 2-3).
+      // Frame size in bytes = (frmsiz + 1) * 2.
+      int firstFrameBytes =
+          (((buffer.get(buffer.position() + 2) & 0x07) << 8
+                  | (buffer.get(buffer.position() + 3) & 0xFF))
+                  + 1)
+              * 2;
+      // MP4 access units may group multiple sync frames (ETSI TS 102 366 Annex F.6).
+      int numFrames = firstFrameBytes > 0 ? buffer.remaining() / firstFrameBytes : 1;
+      return numFrames * samplesPerFrame;
     } else {
       return AC3_SYNCFRAME_AUDIO_SAMPLE_COUNT;
     }
