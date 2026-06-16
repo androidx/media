@@ -52,6 +52,93 @@ public final class ProjectionDecoderTest {
     testDecoding(Arrays.copyOfRange(PROJ_DATA, MSHP_OFFSET, PROJ_DATA.length));
   }
 
+  @Test
+  public void decodeInvalidCoordinateCount() {
+    // Modify PROJ_DATA to have a negative coordinate count (-1).
+    byte[] data = PROJ_DATA.clone();
+    data[39] = (byte) 0xFF; // Set coordinateCount to -1 (last byte of int at offset 36)
+    data[38] = (byte) 0xFF;
+    data[37] = (byte) 0xFF;
+    data[36] = (byte) 0xFF;
+
+    assertThat(ProjectionDecoder.decode(data, C.STEREO_MODE_MONO)).isNull();
+  }
+
+  @Test
+  public void decodeZeroCoordinateCount() {
+    byte[] data = PROJ_DATA.clone();
+    data[39] = 0;
+    data[38] = 0;
+    data[37] = 0;
+    data[36] = 0;
+
+    assertThat(ProjectionDecoder.decode(data, C.STEREO_MODE_MONO)).isNull();
+  }
+
+  @Test
+  public void decodeInvalidVertexCount() {
+    // Modify PROJ_DATA to have a negative vertex count (-1).
+    byte[] data = PROJ_DATA.clone();
+    data[67] = (byte) 0xFF; // Set vertexCount to -1 (at offset 64)
+    data[66] = (byte) 0xFF;
+    data[65] = (byte) 0xFF;
+    data[64] = (byte) 0xFF;
+
+    assertThat(ProjectionDecoder.decode(data, C.STEREO_MODE_MONO)).isNull();
+  }
+
+  @Test
+  public void decodeZeroSubMeshCount() {
+    byte[] data = PROJ_DATA.clone();
+    // subMeshCount is read as 32 bits from the bitstream after coordinate/vertex data.
+    // In PROJ_DATA, this occurs at approximately offset 108.
+    data[111] = 0;
+    data[110] = 0;
+    data[109] = 0;
+    data[108] = 0;
+
+    assertThat(ProjectionDecoder.decode(data, C.STEREO_MODE_MONO)).isNull();
+  }
+
+  @Test
+  public void decode_negativeSubMeshCount_returnsNull() {
+    byte[] data = PROJ_DATA.clone();
+    data[111] = (byte) 0xFF;
+    data[110] = (byte) 0xFF;
+    data[109] = (byte) 0xFF;
+    data[108] = (byte) 0xFF;
+
+    Projection projection = ProjectionDecoder.decode(data, C.STEREO_MODE_MONO);
+
+    assertThat(projection).isNull();
+  }
+
+  @Test
+  public void decode_zeroTriangleIndexCount_returnsNull() {
+    byte[] data = PROJ_DATA.clone();
+    data[117] = 0;
+    data[116] = 0;
+    data[115] = 0;
+    data[114] = 0;
+
+    Projection projection = ProjectionDecoder.decode(data, C.STEREO_MODE_MONO);
+
+    assertThat(projection).isNull();
+  }
+
+  @Test
+  public void decode_negativeTriangleIndexCount_returnsNull() {
+    byte[] data = PROJ_DATA.clone();
+    data[117] = (byte) 0xFF;
+    data[116] = (byte) 0xFF;
+    data[115] = (byte) 0xFF;
+    data[114] = (byte) 0xFF;
+
+    Projection projection = ProjectionDecoder.decode(data, C.STEREO_MODE_MONO);
+
+    assertThat(projection).isNull();
+  }
+
   private static void testDecoding(byte[] data) {
     Projection projection = ProjectionDecoder.decode(data, C.STEREO_MODE_MONO);
     assertThat(projection).isNotNull();
