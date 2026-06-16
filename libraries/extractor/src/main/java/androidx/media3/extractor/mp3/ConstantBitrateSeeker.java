@@ -26,10 +26,6 @@ import androidx.media3.extractor.SeekPoint;
  */
 /* package */ final class ConstantBitrateSeeker extends ConstantBitrateSeekMap implements Seeker {
 
-  private final long firstFramePosition;
-  private final int bitrate;
-  private final int frameSize;
-  private final boolean allowSeeksIfLengthUnknown;
   private final long durationUs;
   private final long dataEndPosition;
 
@@ -101,10 +97,6 @@ import androidx.media3.extractor.SeekPoint;
         frameSize,
         allowSeeksIfLengthUnknown,
         isEstimated);
-    this.firstFramePosition = firstFramePosition;
-    this.bitrate = bitrate;
-    this.frameSize = frameSize == C.LENGTH_UNSET ? 1 : frameSize;
-    this.allowSeeksIfLengthUnknown = allowSeeksIfLengthUnknown;
     this.durationUs = durationUs;
     dataEndPosition = inputLength != C.LENGTH_UNSET ? inputLength : C.INDEX_UNSET;
   }
@@ -117,8 +109,8 @@ import androidx.media3.extractor.SeekPoint;
   @Override
   public SeekPoints getSeekPoints(long timeUs) {
     if (durationUs != C.TIME_UNSET && timeUs >= durationUs && dataEndPosition != C.INDEX_UNSET) {
-      long finalFramePosition = Math.max(firstFramePosition, dataEndPosition - frameSize);
-      long frameDurationUs = getTimeUsAtPosition(firstFramePosition + frameSize);
+      long finalFramePosition = Math.max(getFirstFramePosition(), dataEndPosition - getFrameSize());
+      long frameDurationUs = getTimeUsAtPosition(getFirstFramePosition() + getFrameSize());
       return new SeekPoints(
           new SeekPoint(Math.max(0, durationUs - frameDurationUs), finalFramePosition));
     }
@@ -127,7 +119,7 @@ import androidx.media3.extractor.SeekPoint;
 
   @Override
   public long getDataStartPosition() {
-    return firstFramePosition;
+    return getFirstFramePosition();
   }
 
   @Override
@@ -142,16 +134,16 @@ import androidx.media3.extractor.SeekPoint;
 
   @Override
   public int getAverageBitrate() {
-    return bitrate;
+    return getBitrate();
   }
 
   public ConstantBitrateSeeker copyWithNewDataEndPosition(long dataEndPosition) {
     return new ConstantBitrateSeeker(
         /* inputLength= */ dataEndPosition,
-        firstFramePosition,
-        bitrate,
-        frameSize,
-        allowSeeksIfLengthUnknown,
+        getFirstFramePosition(),
+        getAverageBitrate(),
+        getFrameSize(),
+        shouldAllowSeeksIfLengthUnknown(),
         /* isEstimated= */ false,
         durationUs);
   }
