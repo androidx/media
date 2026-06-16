@@ -119,14 +119,17 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
       new CodecInfo(
           /* codecName= */ "media3.video.vp9",
           MimeTypes.VIDEO_VP9,
-          /* profileLevels= */ ImmutableList.of(),
+          /* profileLevels= */ ImmutableList.of(
+              createCodecProfileLevel(CodecProfileLevel.VP9Profile0, CodecProfileLevel.VP9Level51)),
           /* colorFormats= */ ImmutableList.of(
               MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible));
   public static final CodecInfo CODEC_INFO_AV1 =
       new CodecInfo(
           /* codecName= */ "media3.video.av1",
           MimeTypes.VIDEO_AV1,
-          /* profileLevels= */ ImmutableList.of(),
+          /* profileLevels= */ ImmutableList.of(
+              createCodecProfileLevel(
+                  CodecProfileLevel.AV1ProfileMain8, CodecProfileLevel.AV1Level51)),
           /* colorFormats= */ ImmutableList.of(
               MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible));
   public static final CodecInfo CODEC_INFO_AAC =
