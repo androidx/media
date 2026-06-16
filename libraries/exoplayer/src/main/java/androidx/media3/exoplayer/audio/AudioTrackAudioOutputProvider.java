@@ -51,6 +51,8 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink.AudioTrackBufferSizeProv
 import androidx.media3.exoplayer.audio.DefaultAudioSink.AudioTrackProvider;
 import androidx.media3.exoplayer.audio.DefaultAudioSink.OutputMode;
 import androidx.media3.extractor.DtsUtil;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
 import java.util.function.BiConsumer;
@@ -62,6 +64,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 public final class AudioTrackAudioOutputProvider implements AudioOutputProvider {
 
   private static final String TAG = "ATAudioOutputProvider";
+
+  private static final Supplier<Boolean> COMPRESSED_OFFLOAD_EXPLICIT_AAC_ENABLED =
+      Suppliers.memoize(AudioTrackAudioOutputProvider::isCompressedOffloadExplicitAacEnabled);
 
   /** A builder to create {@link AudioTrackAudioOutputProvider} instances. */
   public static final class Builder {
@@ -269,6 +274,15 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
         outputMode = OUTPUT_MODE_OFFLOAD;
         outputEncoding = MimeTypes.getEncoding(checkNotNull(format.sampleMimeType), format.codecs);
         outputChannelConfig = getAudioOutputChannelConfig(format);
+        if ((outputEncoding == C.ENCODING_AAC_HE_V1 || outputEncoding == C.ENCODING_AAC_HE_V2)
+            && outputSampleRate >= 16000
+            && !COMPRESSED_OFFLOAD_EXPLICIT_AAC_ENABLED.get()) {
+          if (outputEncoding == C.ENCODING_AAC_HE_V2 && format.channelCount == 2) {
+            outputChannelConfig = AudioFormat.CHANNEL_OUT_MONO;
+          }
+          outputEncoding = C.ENCODING_AAC_LC;
+          outputSampleRate /= 2;
+        }
         // Offload requires AudioTrack playback parameters to apply speed changes quickly.
         usePlaybackParameters = true;
         useOffloadGapless = audioOffloadSupport.isGaplessSupported;
@@ -567,5 +581,11 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
         audioCapabilitiesReceiver.setRoutedDevice(routedDevice);
       }
     }
+  }
+
+  private static boolean isCompressedOffloadExplicitAacEnabled() {
+    return SDK_INT > 37
+        && Objects.equals(
+            Util.getSystemProperty("persist.audio.compressed_offload_implicit_aac"), "false");
   }
 }

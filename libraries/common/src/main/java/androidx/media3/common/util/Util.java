@@ -4314,8 +4314,15 @@ public final class Util {
     }
   }
 
+  /**
+   * Returns the value of the given system property, or {@code null} if the property cannot be read
+   * or is not set.
+   *
+   * @param name The name of the system property.
+   */
   @Nullable
-  private static String getSystemProperty(String name) {
+  @UnstableApi
+  public static String getSystemProperty(String name) {
     try {
       @SuppressLint("PrivateApi")
       Class<?> systemProperties = Class.forName("android.os.SystemProperties");

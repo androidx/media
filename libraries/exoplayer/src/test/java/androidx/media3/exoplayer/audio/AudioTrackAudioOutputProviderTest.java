@@ -42,11 +42,13 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.AudioDeviceInfoBuilder;
 import org.robolectric.shadows.ShadowAudioTrack;
+import org.robolectric.shadows.ShadowSystemProperties;
 
 /** Unit tests for {@link AudioTrackAudioOutputProvider}. */
 @RunWith(AndroidJUnit4.class)
@@ -430,6 +432,117 @@ public class AudioTrackAudioOutputProviderTest {
       audioDeviceInfos.add(AudioDeviceInfoBuilder.newBuilder().setType(type).build());
     }
     shadowOf(audioManager).setOutputDevices(audioDeviceInfos.build());
+  }
+
+  @Test
+  @Config(minSdk = 29)
+  public void getOutputConfig_heAacOffloadAndExplicitAacDisabled_forcesImplicitSignaling()
+      throws Exception {
+    ShadowSystemProperties.override("persist.audio.compressed_offload_implicit_aac", "true");
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_AAC)
+            .setSampleRate(48000)
+            .setChannelCount(2)
+            .setCodecs("mp4a.40.5")
+            .build();
+    DefaultAudioSink.AudioOffloadSupportProvider offloadSupportProvider =
+        (f, attributes) ->
+            new AudioOffloadSupport.Builder()
+                .setIsFormatSupported(true)
+                .setIsGaplessSupported(false)
+                .setIsSpeedChangeSupported(false)
+                .build();
+    audioOutputProvider =
+        new AudioTrackAudioOutputProvider.Builder(context)
+            .setAudioOffloadSupportProvider(offloadSupportProvider)
+            .build();
+    FormatConfig config =
+        new FormatConfig.Builder(format)
+            .setAudioAttributes(TEST_ATTRIBUTES)
+            .setEnableOffload(true)
+            .build();
+
+    OutputConfig outputConfig = audioOutputProvider.getOutputConfig(config);
+
+    assertThat(outputConfig.isOffload).isTrue();
+    assertThat(outputConfig.encoding).isEqualTo(C.ENCODING_AAC_LC);
+    assertThat(outputConfig.sampleRate).isEqualTo(24000);
+    assertThat(outputConfig.channelMask).isEqualTo(CHANNEL_OUT_STEREO);
+  }
+
+  @Test
+  @Config(minSdk = 29)
+  public void getOutputConfig_heAacV2OffloadAndExplicitAacDisabled_forcesImplicitSignalingAndMono()
+      throws Exception {
+    ShadowSystemProperties.override("persist.audio.compressed_offload_implicit_aac", "true");
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_AAC)
+            .setSampleRate(48000)
+            .setChannelCount(2)
+            .setCodecs("mp4a.40.29")
+            .build();
+    DefaultAudioSink.AudioOffloadSupportProvider offloadSupportProvider =
+        (f, attributes) ->
+            new AudioOffloadSupport.Builder()
+                .setIsFormatSupported(true)
+                .setIsGaplessSupported(false)
+                .setIsSpeedChangeSupported(false)
+                .build();
+    audioOutputProvider =
+        new AudioTrackAudioOutputProvider.Builder(context)
+            .setAudioOffloadSupportProvider(offloadSupportProvider)
+            .build();
+    FormatConfig config =
+        new FormatConfig.Builder(format)
+            .setAudioAttributes(TEST_ATTRIBUTES)
+            .setEnableOffload(true)
+            .build();
+
+    OutputConfig outputConfig = audioOutputProvider.getOutputConfig(config);
+
+    assertThat(outputConfig.isOffload).isTrue();
+    assertThat(outputConfig.encoding).isEqualTo(C.ENCODING_AAC_LC);
+    assertThat(outputConfig.sampleRate).isEqualTo(24000);
+    assertThat(outputConfig.channelMask).isEqualTo(AudioFormat.CHANNEL_OUT_MONO);
+  }
+
+  @Ignore("TODO: b/519514605 - Enable when SDK 38 is supported by Robolectric")
+  @Test
+  @Config(minSdk = 38)
+  public void getOutputConfig_heAacOffloadAndExplicitAacEnabled_usesExplicitSignaling()
+      throws Exception {
+    ShadowSystemProperties.override("persist.audio.compressed_offload_implicit_aac", "false");
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_AAC)
+            .setSampleRate(48000)
+            .setChannelCount(2)
+            .setCodecs("mp4a.40.5")
+            .build();
+    DefaultAudioSink.AudioOffloadSupportProvider offloadSupportProvider =
+        (f, attributes) ->
+            new AudioOffloadSupport.Builder()
+                .setIsFormatSupported(true)
+                .setIsGaplessSupported(false)
+                .setIsSpeedChangeSupported(false)
+                .build();
+    audioOutputProvider =
+        new AudioTrackAudioOutputProvider.Builder(context)
+            .setAudioOffloadSupportProvider(offloadSupportProvider)
+            .build();
+    FormatConfig config =
+        new FormatConfig.Builder(format)
+            .setAudioAttributes(TEST_ATTRIBUTES)
+            .setEnableOffload(true)
+            .build();
+
+    OutputConfig outputConfig = audioOutputProvider.getOutputConfig(config);
+
+    assertThat(outputConfig.isOffload).isTrue();
+    assertThat(outputConfig.encoding).isEqualTo(C.ENCODING_AAC_HE_V1);
+    assertThat(outputConfig.sampleRate).isEqualTo(48000);
   }
 
   private static final class AudioCapabilitiesListener implements AudioOutputProvider.Listener {
