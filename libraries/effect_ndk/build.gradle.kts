@@ -39,7 +39,6 @@ dependencies {
   api(project(":lib-common"))
   api(project(":lib-effect"))
   api(project(":lib-transformer"))
-  implementation(libs.kotlinx.coroutines.guava)
   compileOnly(libs.errorprone.annotations)
   androidTestImplementation(libs.junit)
   androidTestImplementation(libs.androidx.test.runner)

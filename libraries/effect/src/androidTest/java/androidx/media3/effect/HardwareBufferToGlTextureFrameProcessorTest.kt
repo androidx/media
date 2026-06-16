@@ -77,7 +77,7 @@ class HardwareBufferToGlTextureFrameProcessorTest {
         context,
         glExecutorService,
         glObjectsProvider,
-        HardwareBufferJni,
+        HardwareBufferJni.INSTANCE,
         errorConsumer,
       )
   }

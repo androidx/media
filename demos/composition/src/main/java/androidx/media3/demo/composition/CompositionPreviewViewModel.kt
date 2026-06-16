@@ -619,7 +619,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
           .setHardwareBufferEffectsPipeline(
             DefaultHardwareBufferEffectsPipeline.create(
               getApplication(),
-              hardwareBufferJniWrapper = HardwareBufferJni,
+              hardwareBufferJniWrapper = HardwareBufferJni.INSTANCE,
               overlaySettingsProvider = CompositionPreviewViewModel::getOverlaySettings,
             )
           )
@@ -904,7 +904,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
       playerBuilder.setHardwareBufferEffectsPipeline(
         DefaultHardwareBufferEffectsPipeline.create(
           getApplication(),
-          hardwareBufferJniWrapper = HardwareBufferJni,
+          hardwareBufferJniWrapper = HardwareBufferJni.INSTANCE,
           overlaySettingsProvider = CompositionPreviewViewModel::getOverlaySettings,
         )
       )
