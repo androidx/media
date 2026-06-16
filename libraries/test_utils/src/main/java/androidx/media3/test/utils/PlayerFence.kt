@@ -22,6 +22,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.util.Util.isRunningOnEmulator
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.source.LoadEventInfo
@@ -48,6 +49,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.guava.future
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+
+private val DEFAULT_TIMEOUT = if (isRunningOnEmulator()) 30.seconds else 10.seconds
 
 /**
  * Suspends until the player enters the provided [targetState].
@@ -343,8 +346,9 @@ private constructor(
     /**
      * Entry point for Java callers to get a [ListenableFuture] for a [Player] condition.
      *
-     * * Futures returned from the returned `PlayerFence` will fail after a default 10 second
-     *   timeout. This can be customized using [PlayerFence.withTimeoutMs].
+     * * Futures returned from the returned `PlayerFence` will fail after a default timeout (10
+     *   seconds, or 30 seconds if running on an emulator). This can be customized using
+     *   [PlayerFence.withTimeoutMs].
      * * Futures returned from the returned `PlayerFence` will fail immediately when the [Player]
      *   encounters a non-fatal error (such as [AnalyticsListener.onAudioCodecError]). This can be
      *   customized using [PlayerFence.ignoringNonFatalErrors].
@@ -377,7 +381,7 @@ private fun Player.maybeRemoveAnalyticsListener(analyticsListener: AnalyticsList
 }
 
 private suspend fun <T> withTimeout(duration: Duration?, block: suspend CoroutineScope.() -> T): T =
-  withTimeout(duration ?: 10.seconds, block)
+  withTimeout(duration ?: DEFAULT_TIMEOUT, block)
 
 private open class ErrorFailingPlayerListener(private val exceptionConsumer: (Exception) -> Unit) :
   Player.Listener {

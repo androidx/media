@@ -19,6 +19,7 @@ package androidx.media3.transformer.mh;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.test.utils.AssetInfo.JPG_SINGLE_PIXEL_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
+import static androidx.media3.test.utils.PlayerFence.futureWhen;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.app.Instrumentation;
@@ -27,6 +28,7 @@ import android.view.SurfaceView;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.Player;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.Presentation;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -38,7 +40,6 @@ import androidx.media3.transformer.EditedMediaItemSequence;
 import androidx.media3.transformer.Effects;
 import androidx.media3.transformer.ExportTestResult;
 import androidx.media3.transformer.InputTimestampRecordingShaderProgram;
-import androidx.media3.transformer.PlayerTestListener;
 import androidx.media3.transformer.SurfaceTestActivity;
 import androidx.media3.transformer.Transformer;
 import androidx.media3.transformer.TransformerAndroidTestRunner;
@@ -47,6 +48,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.SettableFuture;
 import java.util.List;
 import org.junit.After;
 import org.junit.Before;
@@ -63,8 +65,6 @@ import org.junit.runner.RunWith;
 @Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(AndroidJUnit4.class)
 public class VideoTimestampConsistencyTest {
-
-  private static final long TEST_TIMEOUT_MS = 10_000;
 
   private static final ImmutableList<Long> IMAGE_TIMESTAMPS_US_500_MS_30_FPS =
       ImmutableList.of(
@@ -409,7 +409,7 @@ public class VideoTimestampConsistencyTest {
 
   private ImmutableList<Long> getTimestampsFromCompositionPlayer(
       List<EditedMediaItem> editedMediaItems) throws Exception {
-    PlayerTestListener compositionPlayerListener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     InputTimestampRecordingShaderProgram timestampRecordingShaderProgram =
         new InputTimestampRecordingShaderProgram();
     ImmutableList<EditedMediaItem> timestampRecordingEditedMediaItems =
@@ -427,7 +427,8 @@ public class VideoTimestampConsistencyTest {
           // Set a surface on the player even though there is no UI on this test. We need a surface
           // otherwise the player will skip/drop video frames.
           compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.addListener(compositionPlayerListener);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.setComposition(
               new Composition.Builder(
                       EditedMediaItemSequence.withAudioAndVideoFrom(
@@ -437,7 +438,7 @@ public class VideoTimestampConsistencyTest {
           compositionPlayer.play();
         });
 
-    compositionPlayerListener.waitUntilPlayerEnded();
+    endedFuture.get();
     instrumentation.runOnMainSync(() -> compositionPlayer.release());
 
     return timestampRecordingShaderProgram.getInputTimestampsUs();
@@ -445,7 +446,7 @@ public class VideoTimestampConsistencyTest {
 
   private ImmutableList<Long> getTimestampsFromExoPlayer(List<MediaItem> mediaItems)
       throws Exception {
-    PlayerTestListener playerListener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     InputTimestampRecordingShaderProgram timestampRecordingShaderProgram =
         new InputTimestampRecordingShaderProgram();
 
@@ -459,7 +460,7 @@ public class VideoTimestampConsistencyTest {
           // Set a surface on the player even though there is no UI on this test. We need a surface
           // otherwise the player will skip/drop video frames.
           exoplayer.setVideoSurfaceView(surfaceView);
-          exoplayer.addListener(playerListener);
+          endedFuture.setFuture(futureWhen(exoplayer).entersPlaybackState(Player.STATE_ENDED));
           exoplayer.setMediaItems(mediaItems);
           exoplayer.setVideoEffects(
               ImmutableList.of((GlEffect) (context, useHdr) -> timestampRecordingShaderProgram));
@@ -467,7 +468,7 @@ public class VideoTimestampConsistencyTest {
           exoplayer.play();
         });
 
-    playerListener.waitUntilPlayerEnded();
+    endedFuture.get();
     instrumentation.runOnMainSync(() -> exoplayer.release());
 
     return timestampRecordingShaderProgram.getInputTimestampsUs();

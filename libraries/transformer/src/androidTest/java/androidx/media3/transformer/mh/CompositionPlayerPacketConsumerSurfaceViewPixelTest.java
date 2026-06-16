@@ -21,6 +21,7 @@ import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIM
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
+import static androidx.media3.test.utils.PlayerFence.futureWhen;
 import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -57,7 +58,6 @@ import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.CompositionPlayer;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EditedMediaItemSequence;
-import androidx.media3.transformer.PlayerTestListener;
 import androidx.media3.transformer.SurfaceTestActivity;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
@@ -65,6 +65,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.SettableFuture;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -179,7 +180,7 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
   @Test
   public void compositionPlayer_withPacketConsumer_rendersFirstFrameAndReturnsBitmap()
       throws Exception {
-    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
 
     instrumentation.runOnMainSync(
         () -> {
@@ -190,7 +191,7 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
                   .setHardwareBufferEffectsPipeline(packetProcessor)
                   .build();
           compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.addListener(listener);
+          firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
           compositionPlayer.setComposition(
               new Composition.Builder(
                       EditedMediaItemSequence.withVideoFrom(
@@ -208,7 +209,7 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
           compositionPlayer.setPlayWhenReady(true);
         });
 
-    listener.waitUntilFirstFrameRendered();
+    firstFrameRenderedFuture.get();
 
     Bitmap bitmap = Bitmap.createBitmap(/* width= */ 240, /* height= */ 270, Config.ARGB_8888);
     ConditionVariable pixelCopyFinished = new ConditionVariable();
@@ -237,7 +238,7 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
 
   @Test
   public void compositionPlayer_withPacketConsumer_usesMetadataListener() throws Exception {
-    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     Queue<Long> videoTimestamps = new ConcurrentLinkedQueue<>();
     AtomicReference<Format> formatAtomicReference = new AtomicReference<>();
 
@@ -260,7 +261,8 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
                   formatAtomicReference.set(format);
                 }
               });
-          compositionPlayer.addListener(listener);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.setComposition(
               new Composition.Builder(
                       EditedMediaItemSequence.withVideoFrom(
@@ -282,7 +284,7 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
           compositionPlayer.prepare();
           compositionPlayer.play();
         });
-    listener.waitUntilPlayerEnded();
+    endedFuture.get();
 
     assertThat(videoTimestamps)
         .containsExactly(
@@ -308,7 +310,7 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
   @SdkSuppress(minSdkVersion = 33)
   public void compositionPlayer_withPacketConsumer_andSdrVideo_outputsCorrectDataSpace()
       throws Exception {
-    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
     surfaceHolder = new ImageReaderSurfaceHolder();
 
     instrumentation.runOnMainSync(
@@ -320,7 +322,7 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
                           context, HardwareBufferJni.INSTANCE))
                   .build();
           compositionPlayer.setVideoSurfaceHolder(surfaceHolder);
-          compositionPlayer.addListener(listener);
+          firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
           compositionPlayer.setComposition(
               new Composition.Builder(
                       EditedMediaItemSequence.withVideoFrom(
@@ -336,7 +338,7 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
           compositionPlayer.prepare();
           compositionPlayer.setPlayWhenReady(true);
         });
-    listener.waitUntilFirstFrameRendered();
+    firstFrameRenderedFuture.get();
 
     int actualDataSpace = surfaceHolder.getLatestDataSpace();
     assertThat(DataSpace.getStandard(actualDataSpace)).isEqualTo(DataSpace.STANDARD_BT601_625);
@@ -353,7 +355,7 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
         testId,
         /* inputFormat= */ MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat,
         /* outputFormat= */ null);
-    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
     surfaceHolder = new ImageReaderSurfaceHolder();
 
     instrumentation.runOnMainSync(
@@ -365,7 +367,7 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
                           context, HardwareBufferJni.INSTANCE))
                   .build();
           compositionPlayer.setVideoSurfaceHolder(surfaceHolder);
-          compositionPlayer.addListener(listener);
+          firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
           compositionPlayer.setComposition(
               new Composition.Builder(
                       EditedMediaItemSequence.withVideoFrom(
@@ -378,7 +380,7 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
           compositionPlayer.prepare();
           compositionPlayer.setPlayWhenReady(true);
         });
-    listener.waitUntilFirstFrameRendered();
+    firstFrameRenderedFuture.get();
 
     int actualDataSpace = surfaceHolder.getLatestDataSpace();
     assertThat(DataSpace.getStandard(actualDataSpace)).isEqualTo(DataSpace.STANDARD_BT2020);

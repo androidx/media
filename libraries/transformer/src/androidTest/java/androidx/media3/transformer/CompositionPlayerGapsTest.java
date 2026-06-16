@@ -15,9 +15,9 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
+import static androidx.media3.test.utils.PlayerFence.futureWhen;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeTrue;
 
@@ -26,12 +26,14 @@ import android.content.Context;
 import android.view.SurfaceView;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.Player;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.SettableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -47,7 +49,6 @@ import org.junit.runner.RunWith;
  */
 @RunWith(AndroidJUnit4.class)
 public final class CompositionPlayerGapsTest {
-  private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 30_000 : 10_000;
   private static final long AUDIO_VIDEO_MEDIA_ITEM_DURATION_US = MP4_SIMPLE_ASSET.videoDurationUs;
   private static final long AUDIO_ONLY_MEDIA_ITEM_DURATION_US = 1_000_000;
   private static final long GAP_DURATION_US = 1_000_000;
@@ -93,7 +94,7 @@ public final class CompositionPlayerGapsTest {
   public void
       playback_withTwoMediaItemsAndGapAtStart_inAudioVideoSequence_rendersOneByOneBlackFramesForGap()
           throws Exception {
-    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     long gapStartCompositionUs = 0;
     long gapEndCompositionUs = GAP_DURATION_US;
     Composition composition =
@@ -132,13 +133,14 @@ public final class CompositionPlayerGapsTest {
           // otherwise the player will skip/drop video frames.
           compositionPlayer.setVideoSurfaceView(surfaceView);
           compositionPlayer.setVideoFrameMetadataListener(videoFrameMetadataListener);
-          compositionPlayer.addListener(listener);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.setComposition(composition);
           compositionPlayer.prepare();
           compositionPlayer.play();
         });
 
-    listener.waitUntilPlayerEnded();
+    endedFuture.get();
 
     // If the device dropped so many frames that we couldn't even evaluate the gap,
     // skip the test rather than failing it.
@@ -154,7 +156,7 @@ public final class CompositionPlayerGapsTest {
   public void
       playback_withTwoMediaItemsAndGapInMiddle_inAudioVideoSequence_rendersOneByOneBlackFramesForGap()
           throws Exception {
-    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     long gapStartCompositionUs = AUDIO_VIDEO_MEDIA_ITEM_DURATION_US;
     long gapEndCompositionUs = gapStartCompositionUs + GAP_DURATION_US;
     Composition composition =
@@ -193,13 +195,14 @@ public final class CompositionPlayerGapsTest {
           // otherwise the player will skip/drop video frames.
           compositionPlayer.setVideoSurfaceView(surfaceView);
           compositionPlayer.setVideoFrameMetadataListener(videoFrameMetadataListener);
-          compositionPlayer.addListener(listener);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.setComposition(composition);
           compositionPlayer.prepare();
           compositionPlayer.play();
         });
 
-    listener.waitUntilPlayerEnded();
+    endedFuture.get();
 
     // If the device dropped so many frames that we couldn't even evaluate the gap,
     // skip the test rather than failing it.
@@ -215,7 +218,7 @@ public final class CompositionPlayerGapsTest {
   public void
       playback_withTwoMediaItemsAndGapAtTheEnd_inAudioVideoSequence_rendersOneByOneBlackFramesForGap()
           throws Exception {
-    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     long gapStartCompositionUs = 2 * AUDIO_VIDEO_MEDIA_ITEM_DURATION_US;
     long gapEndCompositionUs = gapStartCompositionUs + GAP_DURATION_US;
     Composition composition =
@@ -254,13 +257,14 @@ public final class CompositionPlayerGapsTest {
           // otherwise the player will skip/drop video frames.
           compositionPlayer.setVideoSurfaceView(surfaceView);
           compositionPlayer.setVideoFrameMetadataListener(videoFrameMetadataListener);
-          compositionPlayer.addListener(listener);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.setComposition(composition);
           compositionPlayer.prepare();
           compositionPlayer.play();
         });
 
-    listener.waitUntilPlayerEnded();
+    endedFuture.get();
 
     // If the device dropped so many frames that we couldn't even evaluate the gap,
     // skip the test rather than failing it.
@@ -276,7 +280,7 @@ public final class CompositionPlayerGapsTest {
   public void
       playback_withThreeMediaItemsAndFirstMediaItemHavingNoVideo_inAudioVideoSequence_rendersOneByOneBlackFramesForFirstMediaItem()
           throws Exception {
-    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     long audioOnlyItemStartCompositionUs = 0;
     long audioOnlyItemEndCompositionUs = AUDIO_ONLY_MEDIA_ITEM_DURATION_US;
     Composition composition =
@@ -315,13 +319,14 @@ public final class CompositionPlayerGapsTest {
           // otherwise the player will skip/drop video frames.
           compositionPlayer.setVideoSurfaceView(surfaceView);
           compositionPlayer.setVideoFrameMetadataListener(videoFrameMetadataListener);
-          compositionPlayer.addListener(listener);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.setComposition(composition);
           compositionPlayer.prepare();
           compositionPlayer.play();
         });
 
-    listener.waitUntilPlayerEnded();
+    endedFuture.get();
 
     // If the device dropped so many frames that we couldn't even evaluate the gap,
     // skip the test rather than failing it.
@@ -337,7 +342,7 @@ public final class CompositionPlayerGapsTest {
   public void
       playback_withThreeMediaItemsAndSecondMediaItemHavingNoVideo_inAudioVideoSequence_rendersOneByOneBlackFramesForSecondMediaItem()
           throws Exception {
-    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     long audioOnlyItemStartCompositionUs = AUDIO_VIDEO_MEDIA_ITEM_DURATION_US;
     long audioOnlyItemEndCompositionUs =
         audioOnlyItemStartCompositionUs + AUDIO_ONLY_MEDIA_ITEM_DURATION_US;
@@ -377,13 +382,14 @@ public final class CompositionPlayerGapsTest {
           // otherwise the player will skip/drop video frames.
           compositionPlayer.setVideoSurfaceView(surfaceView);
           compositionPlayer.setVideoFrameMetadataListener(videoFrameMetadataListener);
-          compositionPlayer.addListener(listener);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.setComposition(composition);
           compositionPlayer.prepare();
           compositionPlayer.play();
         });
 
-    listener.waitUntilPlayerEnded();
+    endedFuture.get();
 
     // If the device dropped so many frames that we couldn't even evaluate the gap,
     // skip the test rather than failing it.
@@ -399,7 +405,7 @@ public final class CompositionPlayerGapsTest {
   public void
       playback_withThreeMediaItemsAndLastMediaItemHavingNoVideo_inAudioVideoSequence_rendersOneByOneBlackFramesForLastMediaItem()
           throws Exception {
-    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     long audioOnlyItemStartCompositionUs = 2 * AUDIO_VIDEO_MEDIA_ITEM_DURATION_US;
     long audioOnlyItemEndCompositionUs =
         audioOnlyItemStartCompositionUs + AUDIO_ONLY_MEDIA_ITEM_DURATION_US;
@@ -439,13 +445,14 @@ public final class CompositionPlayerGapsTest {
           // otherwise the player will skip/drop video frames.
           compositionPlayer.setVideoSurfaceView(surfaceView);
           compositionPlayer.setVideoFrameMetadataListener(videoFrameMetadataListener);
-          compositionPlayer.addListener(listener);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.setComposition(composition);
           compositionPlayer.prepare();
           compositionPlayer.play();
         });
 
-    listener.waitUntilPlayerEnded();
+    endedFuture.get();
 
     // If the device dropped so many frames that we couldn't even evaluate the gap,
     // skip the test rather than failing it.
