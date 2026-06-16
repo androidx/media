@@ -53,7 +53,6 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
 import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.effect.ndk.HardwareBufferJni;
-import androidx.media3.effect.ndk.NdkCompositionPlayerBuilder;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.CompositionPlayer;
 import androidx.media3.transformer.EditedMediaItem;
@@ -141,7 +140,8 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
           DefaultHardwareBufferEffectsPipeline packetProcessor =
               DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE);
           compositionPlayer =
-              NdkCompositionPlayerBuilder.create(context)
+              new CompositionPlayer.Builder(context)
+                  .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
                   .setHardwareBufferEffectsPipeline(packetProcessor)
                   .build();
           compositionPlayer.setVideoSurfaceView(surfaceView);
@@ -187,7 +187,8 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
           DefaultHardwareBufferEffectsPipeline packetProcessor =
               DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE);
           compositionPlayer =
-              NdkCompositionPlayerBuilder.create(context)
+              new CompositionPlayer.Builder(context)
+                  .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
                   .setHardwareBufferEffectsPipeline(packetProcessor)
                   .build();
           compositionPlayer.setVideoSurfaceView(surfaceView);
@@ -247,7 +248,8 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
           DefaultHardwareBufferEffectsPipeline packetProcessor =
               DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE);
           compositionPlayer =
-              NdkCompositionPlayerBuilder.create(context)
+              new CompositionPlayer.Builder(context)
+                  .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
                   .setHardwareBufferEffectsPipeline(packetProcessor)
                   .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                   .build();
@@ -316,7 +318,8 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
     instrumentation.runOnMainSync(
         () -> {
           compositionPlayer =
-              NdkCompositionPlayerBuilder.create(context)
+              new CompositionPlayer.Builder(context)
+                  .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
                   .setHardwareBufferEffectsPipeline(
                       DefaultHardwareBufferEffectsPipeline.create(
                           context, HardwareBufferJni.INSTANCE))
@@ -361,7 +364,8 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
     instrumentation.runOnMainSync(
         () -> {
           compositionPlayer =
-              NdkCompositionPlayerBuilder.create(context)
+              new CompositionPlayer.Builder(context)
+                  .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
                   .setHardwareBufferEffectsPipeline(
                       DefaultHardwareBufferEffectsPipeline.create(
                           context, HardwareBufferJni.INSTANCE))

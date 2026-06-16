@@ -54,7 +54,6 @@ import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.ndk.HardwareBufferJni;
-import androidx.media3.effect.ndk.NdkCompositionPlayerBuilder;
 import androidx.media3.test.utils.PassthroughAudioProcessor;
 import androidx.media3.test.utils.RecordingHardwareBufferEffectsPipeline;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
@@ -1180,7 +1179,8 @@ public class CompositionPlayerSeekTest {
         .runOnMainSync(
             () -> {
               player.set(
-                  NdkCompositionPlayerBuilder.create(applicationContext)
+                  new CompositionPlayer.Builder(applicationContext)
+                      .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
                       .setHardwareBufferEffectsPipeline(pipeline)
                       .build());
               player.get().setVideoSurfaceView(surfaceView);
@@ -1283,7 +1283,8 @@ public class CompositionPlayerSeekTest {
         .runOnMainSync(
             () -> {
               player.set(
-                  NdkCompositionPlayerBuilder.create(applicationContext)
+                  new CompositionPlayer.Builder(applicationContext)
+                      .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
                       .setHardwareBufferEffectsPipeline(pipeline)
                       .build());
               player.get().setVideoSurfaceView(surfaceView);
@@ -1380,7 +1381,8 @@ public class CompositionPlayerSeekTest {
         .runOnMainSync(
             () -> {
               player.set(
-                  NdkCompositionPlayerBuilder.create(applicationContext)
+                  new CompositionPlayer.Builder(applicationContext)
+                      .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
                       .setHardwareBufferEffectsPipeline(pipeline)
                       .build());
               player.get().setVideoSurfaceView(surfaceView);
@@ -1454,7 +1456,8 @@ public class CompositionPlayerSeekTest {
         .runOnMainSync(
             () -> {
               player.set(
-                  NdkCompositionPlayerBuilder.create(applicationContext)
+                  new CompositionPlayer.Builder(applicationContext)
+                      .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
                       .setHardwareBufferEffectsPipeline(pipeline)
                       .build());
               player.get().setVideoSurfaceView(surfaceView);

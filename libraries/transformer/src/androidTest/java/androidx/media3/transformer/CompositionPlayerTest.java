@@ -73,7 +73,6 @@ import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.ndk.HardwareBufferJni;
-import androidx.media3.effect.ndk.NdkCompositionPlayerBuilder;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.ForwardingAudioSink;
@@ -874,7 +873,8 @@ public class CompositionPlayerTest {
               DefaultHardwareBufferEffectsPipeline.create(
                   applicationContext, HardwareBufferJni.INSTANCE);
           compositionPlayer =
-              NdkCompositionPlayerBuilder.create(applicationContext)
+              new CompositionPlayer.Builder(applicationContext)
+                  .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
                   .setHardwareBufferEffectsPipeline(packetProcessor)
                   .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                   .build();
@@ -931,7 +931,8 @@ public class CompositionPlayerTest {
               DefaultHardwareBufferEffectsPipeline.create(
                   applicationContext, HardwareBufferJni.INSTANCE);
           compositionPlayer =
-              NdkCompositionPlayerBuilder.create(applicationContext)
+              new CompositionPlayer.Builder(applicationContext)
+                  .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
                   .setHardwareBufferEffectsPipeline(packetProcessor)
                   .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                   .build();

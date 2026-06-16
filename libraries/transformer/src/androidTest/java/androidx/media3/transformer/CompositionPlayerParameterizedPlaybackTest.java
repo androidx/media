@@ -38,7 +38,6 @@ import androidx.media3.effect.MultipleInputVideoGraph;
 import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.ndk.HardwareBufferJni;
-import androidx.media3.effect.ndk.NdkCompositionPlayerBuilder;
 import androidx.media3.test.utils.CompositionAssetInfo;
 import androidx.media3.test.utils.PlayerFence;
 import androidx.media3.test.utils.RecordingHardwareBufferEffectsPipeline;
@@ -263,7 +262,8 @@ public class CompositionPlayerParameterizedPlaybackTest {
         .runOnMainSync(
             () -> {
               player =
-                  NdkCompositionPlayerBuilder.create(context)
+                  new CompositionPlayer.Builder(context)
+                      .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
                       .setHardwareBufferEffectsPipeline(hardwareBufferEffectsPipeline)
                       .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                       .build();

@@ -61,8 +61,6 @@ import androidx.media3.effect.Presentation
 import androidx.media3.effect.RgbFilter
 import androidx.media3.effect.StaticOverlaySettings
 import androidx.media3.effect.ndk.HardwareBufferJni
-import androidx.media3.effect.ndk.NdkCompositionPlayerBuilder
-import androidx.media3.effect.ndk.NdkTransformerBuilder
 import androidx.media3.inspector.MetadataRetriever
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.CompositionFrameMetadata
@@ -615,7 +613,8 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
           }
           return
         }
-        NdkTransformerBuilder.create(getApplication())
+        Transformer.Builder(getApplication())
+          .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
           .setHardwareBufferEffectsPipeline(
             DefaultHardwareBufferEffectsPipeline.create(
               getApplication(),
@@ -900,7 +899,9 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     val playerBuilder: CompositionPlayer.Builder
     frameConsumerEnabled = uiState.value.outputSettingsState.frameConsumerEnabled
     if (uiState.value.outputSettingsState.frameConsumerEnabled && SDK_INT >= 28) {
-      playerBuilder = NdkCompositionPlayerBuilder.create(getApplication())
+      playerBuilder =
+        CompositionPlayer.Builder(getApplication())
+          .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
       playerBuilder.setHardwareBufferEffectsPipeline(
         DefaultHardwareBufferEffectsPipeline.create(
           getApplication(),

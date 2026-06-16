@@ -120,7 +120,6 @@ import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.SpeedChangeEffect;
 import androidx.media3.effect.TimestampWrapper;
 import androidx.media3.effect.ndk.HardwareBufferJni;
-import androidx.media3.effect.ndk.NdkTransformerBuilder;
 import androidx.media3.exoplayer.audio.TeeAudioProcessor;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
@@ -2420,7 +2419,8 @@ public class TransformerEndToEndTest {
             .setFrameRate(30)
             .build();
     Transformer transformer =
-        NdkTransformerBuilder.create(context)
+        new Transformer.Builder(context)
+            .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
             .setHardwareBufferEffectsPipeline(
                 RecordingHardwareBufferEffectsPipeline.create(
                     context,
@@ -2482,7 +2482,8 @@ public class TransformerEndToEndTest {
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ADVANCED_ASSET.uri));
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
     Transformer transformer =
-        NdkTransformerBuilder.create(context)
+        new Transformer.Builder(context)
+            .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
             .setHardwareBufferEffectsPipeline(
                 DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE))
             .setVideoMimeType(MimeTypes.VIDEO_AV1)
@@ -2506,7 +2507,8 @@ public class TransformerEndToEndTest {
   @SdkSuppress(minSdkVersion = 33)
   public void export_withHardwareBufferEffectsPipeline_forcesVideoTranscoding() throws Exception {
     Transformer transformer =
-        NdkTransformerBuilder.create(context)
+        new Transformer.Builder(context)
+            .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
             .setHardwareBufferEffectsPipeline(
                 DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE))
             .build();

@@ -95,7 +95,6 @@ import androidx.media3.effect.StaticOverlaySettings;
 import androidx.media3.effect.TextOverlay;
 import androidx.media3.effect.TextureOverlay;
 import androidx.media3.effect.ndk.HardwareBufferJni;
-import androidx.media3.effect.ndk.NdkTransformerBuilder;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor;
 import androidx.media3.exoplayer.util.DebugTextViewHelper;
@@ -366,7 +365,9 @@ public final class TransformerActivity extends AppCompatActivity {
       if (SDK_INT < 28) {
         throw new IllegalStateException("API version 28+ required to export with PacketProcessor");
       }
-      transformerBuilder = NdkTransformerBuilder.create(/* context= */ this);
+      transformerBuilder =
+          new Transformer.Builder(/* context= */ this)
+              .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE);
       transformerBuilder.setHardwareBufferEffectsPipeline(
           DefaultHardwareBufferEffectsPipeline.create(
               /* context= */ this,
