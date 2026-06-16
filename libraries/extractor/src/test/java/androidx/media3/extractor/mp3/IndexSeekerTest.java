@@ -40,7 +40,7 @@ import org.junit.runner.RunWith;
 public class IndexSeekerTest {
 
   private static final String TEST_FILE_XING_NO_TOC = "media/mp3/bear-vbr-xing-header-no-toc.mp3";
-  private static final int TEST_FILE_XING_NO_TOC_DURATION = 2_808_000;
+  private static final int TEST_FILE_XING_NO_TOC_DURATION = 2_807_979;
 
   private Mp3Extractor extractor;
   private FakeExtractorOutput extractorOutput;

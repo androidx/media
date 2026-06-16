@@ -264,7 +264,8 @@ public final class Mp3Extractor implements Extractor {
     int readResult = readInternal(input);
     if (readResult == RESULT_END_OF_INPUT && seeker instanceof IndexSeeker) {
       // Duration is exact when index seeker is used.
-      long durationUs = computeTimeUs(samplesRead);
+      long finalSampleIndex = samplesRead - 1;
+      long durationUs = finalSampleIndex >= 0 ? computeTimeUs(finalSampleIndex) : C.TIME_UNSET;
       if (seeker.getDurationUs() != durationUs) {
         ((IndexSeeker) seeker).setDurationUs(durationUs);
         extractorOutput.seekMap(seeker);
