@@ -44,6 +44,7 @@ dependencies {
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(libs.androidx.test.uiautomator)
   androidTestImplementation(libs.androidx.window)
+  androidTestImplementation(libs.dexmaker.mockito)
   androidTestImplementation(libs.truth)
   androidTestImplementation(libs.test.parameter.injector)
   androidTestImplementation(project(":lib-inspector"))
