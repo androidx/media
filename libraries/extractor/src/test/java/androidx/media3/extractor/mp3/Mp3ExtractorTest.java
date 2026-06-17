@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.mp3;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeFalse;
@@ -22,7 +23,9 @@ import static org.junit.Assume.assumeFalse;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.util.Util;
 import androidx.media3.extractor.Extractor;
+import androidx.media3.extractor.MpegAudioUtil;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.metadata.id3.ApicFrame;
@@ -35,8 +38,10 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Bytes;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
+import java.nio.ByteBuffer;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestParameterInjector;
@@ -107,6 +112,38 @@ public final class Mp3ExtractorTest {
         "media/mp3/test-cbr-info-header.mp3",
         /* peekLimit= */ 1200,
         simulationConfig);
+  }
+
+  @Test
+  public void mp3SampleWithInfoHeader_usesGaplessDurationAndAverageBitrate() throws Exception {
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(
+            new Mp3Extractor(),
+            ApplicationProvider.getApplicationContext(),
+            "media/mp3/test-cbr-info-header.mp3");
+
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(999_977);
+    assertThat(output.trackOutputs.get(0).getDurationUs()).isEqualTo(999_977);
+    assertThat(output.trackOutputs.get(0).lastFormat.averageBitrate).isEqualTo(66_874);
+  }
+
+  @Test
+  public void mp3SampleWithInfoHeader_invalidDataSizeFallsBackToFrameBitrate() throws Exception {
+    byte[] fileBytes =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), "media/mp3/test-cbr-info-header.mp3");
+    int infoTagOffset = Bytes.indexOf(fileBytes, new byte[] {'I', 'n', 'f', 'o'});
+    checkState(infoTagOffset >= 0);
+    ByteBuffer fileBytesBuffer = ByteBuffer.wrap(fileBytes);
+    int infoFramePosition = findMpegFramePositionBeforeTag(fileBytesBuffer, infoTagOffset);
+    MpegAudioUtil.Header infoFrameHeader = new MpegAudioUtil.Header();
+    checkState(infoFrameHeader.setForHeaderData(fileBytesBuffer.getInt(infoFramePosition)));
+    fileBytesBuffer.putInt(infoTagOffset + 12, infoFrameHeader.frameSize);
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(new Mp3Extractor(), fileBytes, /* simulateUnknownLength= */ false);
+
+    assertThat(output.trackOutputs.get(0).lastFormat.averageBitrate).isEqualTo(64_000);
   }
 
   // https://github.com/androidx/media/issues/1376#issuecomment-2117393653
@@ -212,6 +249,24 @@ public final class Mp3ExtractorTest {
         "media/mp3/bear-vbr-no-seek-table.mp3",
         /* peekLimit= */ 1500,
         simulationConfig);
+  }
+
+  @Test
+  public void mp3CbrSampleWithIndexSeekingFlagAndUnknownLength_reportsUnsetAverageBitrate()
+      throws Exception {
+    byte[] fileBytes =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(),
+            "media/mp3/bear-cbr-variable-frame-size-no-seek-table.mp3");
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(
+            new Mp3Extractor(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING),
+            fileBytes,
+            /* simulateUnknownLength= */ true);
+
+    assertThat(output.seekMap).isInstanceOf(IndexSeeker.class);
+    assertThat(output.trackOutputs.get(0).lastFormat.averageBitrate).isEqualTo(Format.NO_VALUE);
   }
 
   // https://github.com/androidx/media/issues/1563
@@ -386,5 +441,35 @@ public final class Mp3ExtractorTest {
     }
     String suffix = "." + Ascii.toLowerCase(configName).replace('_', '-');
     return inputFilePath.replaceFirst("media", "extractordumps") + suffix;
+  }
+
+  private static FakeExtractorOutput extractUntilSeekMap(
+      Mp3Extractor extractor, byte[] fileBytes, boolean simulateUnknownLength) throws Exception {
+    FakeExtractorOutput output = new FakeExtractorOutput();
+    extractor.init(output);
+    FakeExtractorInput input =
+        new FakeExtractorInput.Builder()
+            .setData(fileBytes)
+            .setSimulateUnknownLength(simulateUnknownLength)
+            .build();
+    PositionHolder positionHolder = new PositionHolder();
+
+    while (output.seekMap == null) {
+      assertThat(extractor.read(input, positionHolder)).isNotEqualTo(Extractor.RESULT_END_OF_INPUT);
+    }
+    return output;
+  }
+
+  private static int findMpegFramePositionBeforeTag(ByteBuffer data, int tagOffset) {
+    for (int tagOffsetFromFrameStart : new int[] {13, 21, 36}) {
+      int framePosition = tagOffset - tagOffsetFromFrameStart;
+      if (framePosition >= 0
+          && framePosition + 4 <= data.remaining()
+          && new MpegAudioUtil.Header().setForHeaderData(data.getInt(framePosition))) {
+        return framePosition;
+      }
+    }
+    throw new IllegalArgumentException(
+        "No tag found in " + Util.toHexString(data.array(), data.arrayOffset(), data.limit()));
   }
 }

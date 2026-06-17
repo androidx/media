@@ -1067,6 +1067,13 @@ public class UtilTest {
   }
 
   @Test
+  public void toHexString_withOffsetAndLength_returnsHexString() {
+    byte[] bytes = createByteArray(0x12, 0xFC, 0x06, 0x2B);
+
+    assertThat(Util.toHexString(bytes, /* offset= */ 1, /* length= */ 2)).isEqualTo("fc06");
+  }
+
+  @Test
   public void getCodecsOfType_withNull_returnsNull() {
     assertThat(getCodecsOfType(null, C.TRACK_TYPE_VIDEO)).isNull();
   }
