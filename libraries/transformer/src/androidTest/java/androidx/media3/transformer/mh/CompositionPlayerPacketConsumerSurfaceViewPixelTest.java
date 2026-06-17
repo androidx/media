@@ -61,7 +61,6 @@ import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.CompositionPlayer;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EditedMediaItemSequence;
-import androidx.media3.transformer.PlayerTestListener;
 import androidx.media3.transformer.SurfaceTestActivity;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
@@ -247,7 +246,7 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
       throws Exception {
     // rule.getScenario().moveToState(RESUMED); hangs if the device setup is not completed.
     assumeTrue(isDeviceReady());
-    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
     ConditionVariable surfaceDestroyed = new ConditionVariable();
     ConditionVariable surfaceChanged = new ConditionVariable();
 
@@ -278,7 +277,7 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
                   .setHardwareBufferEffectsPipeline(packetProcessor)
                   .build();
           compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.addListener(listener);
+          firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
           compositionPlayer.setComposition(
               new Composition.Builder(
                       EditedMediaItemSequence.withVideoFrom(
@@ -295,7 +294,7 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
           compositionPlayer.setPlayWhenReady(false);
         });
 
-    listener.waitUntilFirstFrameRendered();
+    firstFrameRenderedFuture.get();
 
     // Move activity to stopped state (destroys surface, triggers backup).
     rule.getScenario().moveToState(CREATED);
