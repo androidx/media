@@ -55,6 +55,7 @@ import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.media3.test.utils.PassthroughAudioProcessor;
+import androidx.media3.test.utils.PlayerFence;
 import androidx.media3.test.utils.RecordingHardwareBufferEffectsPipeline;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.filters.SdkSuppress;
@@ -63,13 +64,13 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -115,12 +116,10 @@ public class CompositionPlayerSeekTest {
       getInstrumentation().getContext().getApplicationContext();
   private final AtomicReference<CompositionPlayer> player = new AtomicReference<>();
 
-  private PlayerTestListener playerTestListener;
   private SurfaceView surfaceView;
 
   @Before
   public void setUp() {
-    playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
     rule.getScenario().onActivity(activity -> surfaceView = activity.getSurfaceView());
   }
 
@@ -905,7 +904,6 @@ public class CompositionPlayerSeekTest {
               // Set a surface on the player even though there is no UI on this test. We need a
               // surface otherwise the player will skip/drop video frames.
               compositionPlayer.get().setVideoSurfaceView(surfaceView);
-              compositionPlayer.get().addListener(playerTestListener);
               compositionPlayer
                   .get()
                   .addListener(
@@ -962,6 +960,7 @@ public class CompositionPlayerSeekTest {
               compositionPlayer.get().setScrubbingModeEnabled(false);
             });
     Thread.sleep(/* millis= */ 50);
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
         .runOnMainSync(
             () -> {
@@ -971,8 +970,10 @@ public class CompositionPlayerSeekTest {
               compositionPlayer.get().seekTo(500);
               compositionPlayer.get().seekTo(499);
               compositionPlayer.get().setScrubbingModeEnabled(false);
+              endedFuture.setFuture(
+                  futureWhen(compositionPlayer.get()).entersPlaybackState(Player.STATE_ENDED));
             });
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture.get();
 
     assertThat(videoGraphEnded.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
 
@@ -1017,8 +1018,7 @@ public class CompositionPlayerSeekTest {
   }
 
   @Test
-  public void seekBackwards_withDurationLessRawAac_doesNotAdjustSeek()
-      throws PlaybackException, TimeoutException, InterruptedException {
+  public void seekBackwards_withDurationLessRawAac_doesNotAdjustSeek() throws Exception {
     ConditionVariable receivedExpectedPosition = new ConditionVariable();
     PassthroughAudioProcessor fakeProcessor =
         new PassthroughAudioProcessor() {
@@ -1042,7 +1042,6 @@ public class CompositionPlayerSeekTest {
         .runOnMainSync(
             () -> {
               player.set(new CompositionPlayer.Builder(applicationContext).build());
-              player.get().addListener(playerTestListener);
               player.get().setComposition(composition);
               player.get().prepare();
               player.get().play();
@@ -1064,6 +1063,7 @@ public class CompositionPlayerSeekTest {
                 () -> player.get().getCurrentPosition() >= 500))
         .isTrue();
 
+    SettableFuture<Void> readyFuture = SettableFuture.create();
     // Seek backwards to avoid any seeking optimization (e.g. decode forward).
     getInstrumentation()
         .runOnMainSync(
@@ -1071,8 +1071,10 @@ public class CompositionPlayerSeekTest {
               player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
               player.get().seekTo(/* positionMs= */ 100);
               player.get().setScrubbingModeEnabled(false);
+              readyFuture.setFuture(
+                  futureWhen(player.get()).entersPlaybackState(Player.STATE_READY));
             });
-    playerTestListener.waitUntilPlayerReady();
+    readyFuture.get();
 
     assertWithMessage("AudioProcessor never received expected position offset.")
         .that(receivedExpectedPosition.block(1_000))
@@ -1081,8 +1083,7 @@ public class CompositionPlayerSeekTest {
 
   @SdkSuppress(minSdkVersion = 29) // Devices on API 28- might experience MediaCodec native crashes.
   @Test
-  public void seekBackwards_withDurationLessAmr_doesNotAdjustSeek()
-      throws PlaybackException, TimeoutException, InterruptedException {
+  public void seekBackwards_withDurationLessAmr_doesNotAdjustSeek() throws Exception {
     ConditionVariable receivedExpectedPosition = new ConditionVariable();
     PassthroughAudioProcessor fakeProcessor =
         new PassthroughAudioProcessor() {
@@ -1106,7 +1107,6 @@ public class CompositionPlayerSeekTest {
         .runOnMainSync(
             () -> {
               player.set(new CompositionPlayer.Builder(applicationContext).build());
-              player.get().addListener(playerTestListener);
               player.get().setComposition(composition);
               player.get().prepare();
               player.get().play();
@@ -1128,6 +1128,7 @@ public class CompositionPlayerSeekTest {
                 () -> player.get().getCurrentPosition() >= 500))
         .isTrue();
 
+    SettableFuture<Void> readyFuture = SettableFuture.create();
     // Seek backwards to avoid any seeking optimization (e.g. decode forward).
     getInstrumentation()
         .runOnMainSync(
@@ -1135,8 +1136,10 @@ public class CompositionPlayerSeekTest {
               player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
               player.get().seekTo(/* positionMs= */ 100);
               player.get().setScrubbingModeEnabled(false);
+              readyFuture.setFuture(
+                  futureWhen(player.get()).entersPlaybackState(Player.STATE_READY));
             });
-    playerTestListener.waitUntilPlayerReady();
+    readyFuture.get();
 
     // Use ConditionVariable because there is a race condition between player being ready and
     // position offset being propagated downstream.
@@ -1150,7 +1153,7 @@ public class CompositionPlayerSeekTest {
   @SdkSuppress(minSdkVersion = 28)
   public void packetConsumer_oneVideoSequence_seekForwardsAndBackwards_outputsCorrectFrames()
       throws Exception {
-    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
     AtomicBoolean isPlaying = new AtomicBoolean();
     AtomicReference<HardwareBufferFrame> lastQueuedFrame = new AtomicReference<>();
     ConditionVariable packetQueued = new ConditionVariable();
@@ -1184,12 +1187,12 @@ public class CompositionPlayerSeekTest {
                       .setHardwareBufferEffectsPipeline(pipeline)
                       .build());
               player.get().setVideoSurfaceView(surfaceView);
-              player.get().addListener(listener);
+              firstFrameRenderedFuture.setFuture(futureWhen(player.get()).rendersFirstFrame());
               player.get().setComposition(composition);
               player.get().prepare();
             });
 
-    listener.waitUntilFirstFrameRendered();
+    firstFrameRenderedFuture.get();
     assertThat(packetQueued.isOpen()).isTrue();
     assertThat(queuedPackets.get()).isEqualTo(1);
     assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(0);
@@ -1249,7 +1252,7 @@ public class CompositionPlayerSeekTest {
   @SdkSuppress(minSdkVersion = 28)
   public void packetConsumer_twoVideoSequences_seekForwardsAndBackwards_outputsCorrectFrames()
       throws Exception {
-    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
     AtomicBoolean isPlaying = new AtomicBoolean();
     AtomicReference<HardwareBufferFrame> lastQueuedFrame = new AtomicReference<>();
     ConditionVariable packetQueued = new ConditionVariable();
@@ -1288,12 +1291,12 @@ public class CompositionPlayerSeekTest {
                       .setHardwareBufferEffectsPipeline(pipeline)
                       .build());
               player.get().setVideoSurfaceView(surfaceView);
-              player.get().addListener(listener);
+              firstFrameRenderedFuture.setFuture(futureWhen(player.get()).rendersFirstFrame());
               player.get().setComposition(composition);
               player.get().prepare();
             });
 
-    listener.waitUntilFirstFrameRendered();
+    firstFrameRenderedFuture.get();
     assertThat(packetQueued.isOpen()).isTrue();
     assertThat(queuedPackets.get()).isEqualTo(1);
     assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(0);
@@ -1352,7 +1355,7 @@ public class CompositionPlayerSeekTest {
   @Test
   @SdkSuppress(minSdkVersion = 28)
   public void packetConsumer_oneVideoSequence_seekThenPlay_outputsPacketAndEnds() throws Exception {
-    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
     AtomicBoolean isPlaying = new AtomicBoolean();
     AtomicReference<HardwareBufferFrame> lastQueuedFrame = new AtomicReference<>();
     ConditionVariable packetQueued = new ConditionVariable();
@@ -1386,12 +1389,12 @@ public class CompositionPlayerSeekTest {
                       .setHardwareBufferEffectsPipeline(pipeline)
                       .build());
               player.get().setVideoSurfaceView(surfaceView);
-              player.get().addListener(listener);
+              firstFrameRenderedFuture.setFuture(futureWhen(player.get()).rendersFirstFrame());
               player.get().setComposition(composition);
               player.get().prepare();
             });
 
-    listener.waitUntilFirstFrameRendered();
+    firstFrameRenderedFuture.get();
     assertThat(packetQueued.isOpen()).isTrue();
     assertThat(queuedPackets.get()).isEqualTo(1);
     assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(0);
@@ -1412,9 +1415,16 @@ public class CompositionPlayerSeekTest {
     getInstrumentation().runOnMainSync(() -> isPlaying.set(player.get().getPlayWhenReady()));
     assertThat(isPlaying.get()).isFalse();
 
-    getInstrumentation().runOnMainSync(() -> player.get().play());
+    SettableFuture<Void> endedFuture = SettableFuture.create();
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              endedFuture.setFuture(
+                  futureWhen(player.get()).entersPlaybackState(Player.STATE_ENDED));
+              player.get().play();
+            });
 
-    listener.waitUntilPlayerEnded();
+    endedFuture.get();
   }
 
   @Ignore("b/506959477 - Fix flakiness and re-enable")
@@ -1422,7 +1432,7 @@ public class CompositionPlayerSeekTest {
   @SdkSuppress(minSdkVersion = 28)
   public void packetConsumer_twoVideoSequences_seekThenPlay_outputsPacketAndEnds()
       throws Exception {
-    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
     AtomicBoolean isPlaying = new AtomicBoolean();
     AtomicReference<HardwareBufferFrame> lastQueuedFrame = new AtomicReference<>();
     ConditionVariable packetQueued = new ConditionVariable();
@@ -1461,12 +1471,12 @@ public class CompositionPlayerSeekTest {
                       .setHardwareBufferEffectsPipeline(pipeline)
                       .build());
               player.get().setVideoSurfaceView(surfaceView);
-              player.get().addListener(listener);
+              firstFrameRenderedFuture.setFuture(futureWhen(player.get()).rendersFirstFrame());
               player.get().setComposition(composition);
               player.get().prepare();
             });
 
-    listener.waitUntilFirstFrameRendered();
+    firstFrameRenderedFuture.get();
     assertThat(packetQueued.isOpen()).isTrue();
     assertThat(queuedPackets.get()).isEqualTo(1);
     assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(0);
@@ -1487,9 +1497,16 @@ public class CompositionPlayerSeekTest {
     getInstrumentation().runOnMainSync(() -> isPlaying.set(player.get().getPlayWhenReady()));
     assertThat(isPlaying.get()).isFalse();
 
-    getInstrumentation().runOnMainSync(() -> player.get().play());
+    SettableFuture<Void> endedFuture = SettableFuture.create();
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              endedFuture.setFuture(
+                  futureWhen(player.get()).entersPlaybackState(Player.STATE_ENDED));
+              player.get().play();
+            });
 
-    listener.waitUntilPlayerEnded();
+    endedFuture.get();
   }
 
   private static boolean pollingWaitUntilCondition(
@@ -1553,7 +1570,6 @@ public class CompositionPlayerSeekTest {
               // Set a surface on the player even though there is no UI on this test. We need a
               // surface otherwise the player will skip/drop video frames.
               compositionPlayer.get().setVideoSurfaceView(surfaceView);
-              compositionPlayer.get().addListener(playerTestListener);
               compositionPlayer
                   .get()
                   .addListener(
@@ -1581,14 +1597,17 @@ public class CompositionPlayerSeekTest {
     if (playbackException.get() != null) {
       throw playbackException.get();
     }
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
         .runOnMainSync(
             () -> {
               compositionPlayer.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
               compositionPlayer.get().seekTo(seekTimeMs);
               compositionPlayer.get().setScrubbingModeEnabled(false);
+              endedFuture.setFuture(
+                  futureWhen(compositionPlayer.get()).entersPlaybackState(Player.STATE_ENDED));
             });
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture.get();
 
     assertThat(videoGraphEnded.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
 
@@ -1618,8 +1637,7 @@ public class CompositionPlayerSeekTest {
    * frames, in microsecond.
    */
   private ImmutableList<Long> playSequenceUntilEndedAndSeekAndGetTimestampsUs(
-      List<MediaItemConfig> mediaItems, long seekTimeMs)
-      throws PlaybackException, TimeoutException {
+      List<MediaItemConfig> mediaItems, long seekTimeMs) throws Exception {
     InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
         new InputTimestampRecordingShaderProgram();
     CountDownLatch videoGraphEnded = new CountDownLatch(1);
@@ -1635,6 +1653,7 @@ public class CompositionPlayerSeekTest {
     }
 
     AtomicReference<CompositionPlayer> compositionPlayer = new AtomicReference<>();
+    SettableFuture<Void> endedFuture = SettableFuture.create();
 
     getInstrumentation()
         .runOnMainSync(
@@ -1647,7 +1666,8 @@ public class CompositionPlayerSeekTest {
               // Set a surface on the player even though there is no UI on this test. We need a
               // surface otherwise the player will skip/drop video frames.
               compositionPlayer.get().setVideoSurfaceView(surfaceView);
-              compositionPlayer.get().addListener(playerTestListener);
+              endedFuture.setFuture(
+                  futureWhen(compositionPlayer.get()).entersPlaybackState(Player.STATE_ENDED));
               compositionPlayer
                   .get()
                   .addListener(
@@ -1666,16 +1686,18 @@ public class CompositionPlayerSeekTest {
               compositionPlayer.get().prepare();
               compositionPlayer.get().play();
             });
-    playerTestListener.waitUntilPlayerEnded();
-    playerTestListener.resetStatus();
+    endedFuture.get();
+    SettableFuture<Void> endedFuture2 = SettableFuture.create();
     getInstrumentation()
         .runOnMainSync(
             () -> {
               compositionPlayer.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
               compositionPlayer.get().seekTo(seekTimeMs);
               compositionPlayer.get().setScrubbingModeEnabled(false);
+              endedFuture2.setFuture(
+                  futureWhen(compositionPlayer.get()).entersPlaybackState(Player.STATE_ENDED));
             });
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture2.get();
     getInstrumentation().runOnMainSync(() -> compositionPlayer.get().release());
     if (playbackException.get() != null
         && playbackException.get().errorCode != PlaybackException.ERROR_CODE_TIMEOUT) {
@@ -1836,5 +1858,9 @@ public class CompositionPlayerSeekTest {
     EditedMediaItem editedMediaItem() {
       return new EditedMediaItem.Builder(mediaItem).setDurationUs(durationUs).build();
     }
+  }
+
+  private static PlayerFence futureWhen(Player player) {
+    return PlayerFence.futureWhen(player).withTimeoutMs(TEST_TIMEOUT_MS);
   }
 }

@@ -104,6 +104,55 @@ suspend fun Player.awaitPlaybackState(
 }
 
 /**
+ * Suspends until the player's [Player.isPlaying] value matches [targetIsPlaying].
+ *
+ * If the player's [Player.isPlaying] value is already [targetIsPlaying] this returns immediately.
+ *
+ * Must be called on the player's application looper thread.
+ *
+ * @param targetIsPlaying The value of [Player.isPlaying] to wait for.
+ * @param failOnNonFatalErrors Whether non-fatal errors (such as those from
+ *   [AnalyticsListener.onAudioCodecError]) cause an exception to be thrown immediately.
+ * @param timeout The max time to wait for, or `null` to use a default timeout of 10 seconds.
+ * @throws IllegalStateException if not called on the player's application looper thread.
+ */
+@UnstableApi
+suspend fun Player.awaitIsPlaying(
+  targetIsPlaying: Boolean,
+  failOnNonFatalErrors: Boolean = true,
+  timeout: Duration? = null,
+) {
+  check(Looper.myLooper() == applicationLooper) {
+    "awaitIsPlaying must be called on the player's application looper thread"
+  }
+  playerError?.let { throw it }
+
+  if (isPlaying == targetIsPlaying) return
+
+  val conditionMet = CompletableDeferred<Unit>()
+  val playerListener =
+    object : ErrorFailingPlayerListener(conditionMet::completeExceptionally) {
+      override fun onIsPlayingChanged(isPlaying: Boolean) {
+        if (targetIsPlaying == isPlaying) {
+          conditionMet.complete(Unit)
+        }
+      }
+    }
+
+  addListener(playerListener)
+  val analyticsListener =
+    maybeAddAnalyticsListener(failOnNonFatalErrors) {
+      NonFatalFailingAnalyticsListener(conditionMet::completeExceptionally)
+    }
+  try {
+    withTimeout(timeout) { conditionMet.await() }
+  } finally {
+    removeListener(playerListener)
+    maybeRemoveAnalyticsListener(analyticsListener)
+  }
+}
+
+/**
  * Suspends until [Player.Listener.onRenderedFirstFrame] is invoked.
  *
  * This should be called before the callback has been invoked (e.g. before calling
@@ -309,6 +358,16 @@ private constructor(
    */
   fun entersPlaybackState(targetState: @Player.State Int): ListenableFuture<Void?> = createFuture {
     player.awaitPlaybackState(targetState, failOnNonFatalErrors, timeout)
+  }
+
+  /**
+   * Returns a future that completes when the player's [Player.isPlaying] value matches
+   * [targetIsPlaying].
+   *
+   * Must be called on the player's application looper thread.
+   */
+  fun isPlaying(targetIsPlaying: Boolean): ListenableFuture<Void?> = createFuture {
+    player.awaitIsPlaying(targetIsPlaying, failOnNonFatalErrors, timeout)
   }
 
   /**
