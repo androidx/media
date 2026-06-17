@@ -56,7 +56,7 @@ internal fun ShortFormPlayerScreen(
   val pagerState = rememberPagerState { mediaItems.size }
 
   SlidingWindowEffect(
-    itemCount = pagerState.pageCount,
+    itemCountProvider = { pagerState.pageCount },
     currentItemProvider = { pagerState.settledPage },
     maxLookbehind = 3,
     maxLookahead = 6,

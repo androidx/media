@@ -48,7 +48,7 @@ class SlidingWindowEffectTest {
       val pagerState = rememberPagerState { 100 }
       VerticalPager(state = pagerState) { Box(Modifier.fillMaxSize()) }
       SlidingWindowEffect(
-        itemCount = pagerState.pageCount,
+        itemCountProvider = { pagerState.pageCount },
         currentItemProvider = { pagerState.settledPage },
         maxLookbehind = 2,
         maxLookahead = 4,
@@ -79,7 +79,7 @@ class SlidingWindowEffectTest {
 
       VerticalPager(state = pagerState) { Box(Modifier.fillMaxSize()) }
       SlidingWindowEffect(
-        itemCount = pagerState.pageCount,
+        itemCountProvider = { pagerState.pageCount },
         currentItemProvider = { pagerState.settledPage },
         maxLookbehind = 2,
         maxLookahead = 4,
@@ -100,7 +100,7 @@ class SlidingWindowEffectTest {
 
     runOnIdle {
       // [!0] [1, 2] + [3] + [4, 5, 6, 7]
-      assertThat(enteredRanges).containsExactly(5 until 8)
+      assertThat(enteredRanges).containsExactly(5..7)
       assertThat(leftRanges).containsExactly(0..0)
     }
   }
@@ -117,7 +117,7 @@ class SlidingWindowEffectTest {
       scope = rememberCoroutineScope()
       VerticalPager(state = pagerState) { Box(Modifier.fillMaxSize()) }
       SlidingWindowEffect(
-        itemCount = pagerState.pageCount,
+        itemCountProvider = { pagerState.pageCount },
         currentItemProvider = { pagerState.settledPage },
         maxLookbehind = 2,
         maxLookahead = 4,
@@ -156,7 +156,7 @@ class SlidingWindowEffectTest {
       scope = rememberCoroutineScope()
       VerticalPager(state = pagerState) { Box(Modifier.fillMaxSize()) }
       SlidingWindowEffect(
-        itemCount = pagerState.pageCount,
+        itemCountProvider = { pagerState.pageCount },
         currentItemProvider = { pagerState.settledPage },
         maxLookbehind = 2,
         maxLookahead = 4,
@@ -181,16 +181,14 @@ class SlidingWindowEffectTest {
   }
 
   @Test
-  fun itemCountIncreasesFromZero_currentlyDoesNotInitialize() = runComposeUiTest {
-    // This test reproduces a bug where SlidingWindowEffect does not initialize when itemCount
-    // changes from 0 to a positive value.
+  fun itemCountIncreasesFromZero_initializesCorrectly() = runComposeUiTest {
     val enteredRanges = mutableListOf<IntRange>()
     val leftRanges = mutableListOf<IntRange>()
     var itemCount by mutableIntStateOf(0)
 
     setContent {
       SlidingWindowEffect(
-        itemCount = itemCount,
+        itemCountProvider = { itemCount },
         currentItemProvider = { 0 },
         maxLookbehind = 2,
         maxLookahead = 4,
@@ -209,15 +207,13 @@ class SlidingWindowEffectTest {
     itemCount = 10
 
     runOnIdle {
-      // BUG: The window should initialize to 0..4 when itemCount increases.
-      assertThat(enteredRanges).isEmpty()
+      assertThat(enteredRanges).containsExactly(0..4)
+      assertThat(leftRanges).isEmpty()
     }
   }
 
   @Test
-  fun itemCountShrinks_currentlyLeavesOrphanedIndices() = runComposeUiTest {
-    // This test reproduces a bug where SlidingWindowEffect does not evict items from the window
-    // when the itemCount shrinks, leading to orphaned indices.
+  fun itemCountShrinks_evictsOrphanedIndices() = runComposeUiTest {
     val enteredRanges = mutableListOf<IntRange>()
     val leftRanges = mutableListOf<IntRange>()
     var itemCount by mutableIntStateOf(100)
@@ -229,7 +225,7 @@ class SlidingWindowEffectTest {
       scope = rememberCoroutineScope()
       VerticalPager(state = pagerState) { Box(Modifier.fillMaxSize()) }
       SlidingWindowEffect(
-        itemCount = itemCount,
+        itemCountProvider = { itemCount },
         currentItemProvider = { pagerState.settledPage },
         maxLookbehind = 2,
         maxLookahead = 4,
@@ -250,16 +246,11 @@ class SlidingWindowEffectTest {
     // Shrink itemCount to 10
     itemCount = 10
 
-    runOnIdle {
-      // BUG: The orphaned indices (48..54) should be evicted.
-      assertThat(leftRanges).isEmpty()
-    }
+    runOnIdle { assertThat(leftRanges).containsExactly(48..54) }
   }
 
   @Test
-  fun largeJump_currentlyCausesInvertedWindow() = runComposeUiTest {
-    // This test reproduces a bug where a large jump in the current item causes an inverted
-    // window state in SlidingWindowEffect.
+  fun largeJump_resetsWindow() = runComposeUiTest {
     val enteredRanges = mutableListOf<IntRange>()
     val leftRanges = mutableListOf<IntRange>()
     lateinit var pagerState: PagerState
@@ -270,7 +261,7 @@ class SlidingWindowEffectTest {
       scope = rememberCoroutineScope()
       VerticalPager(state = pagerState) { Box(Modifier.fillMaxSize()) }
       SlidingWindowEffect(
-        itemCount = pagerState.pageCount,
+        itemCountProvider = { pagerState.pageCount },
         currentItemProvider = { pagerState.settledPage },
         maxLookbehind = 2,
         maxLookahead = 4,
@@ -289,13 +280,112 @@ class SlidingWindowEffectTest {
     scope.launch { pagerState.scrollToPage(50) }
 
     runOnIdle {
-      // BUG: The previous window of 0 + [1, 2, 3, 4] gets a forward shift
-      // The maths assumes a gentle scroll, not a big jump, so it loads [5, 6, 7] as a new batch
-      // It evicts everything from the old page [0] to the new [50-maxLookbehind] = [48]
-      // The window state internally becomes windowStart=48, windowEnd=8 (flipped!)
-      // Correct behavior should load 48..54 and evict 0..4.
-      assertThat(enteredRanges).containsExactly(5..7)
-      assertThat(leftRanges).containsExactly(0..47)
+      assertThat(leftRanges).containsExactly(0..4)
+      assertThat(enteredRanges).containsExactly(48..54)
+    }
+  }
+
+  @Test
+  fun itemCountShrinksToZero_evictsAllIndices() = runComposeUiTest {
+    val enteredRanges = mutableListOf<IntRange>()
+    val leftRanges = mutableListOf<IntRange>()
+    var itemCount by mutableIntStateOf(10)
+
+    setContent {
+      SlidingWindowEffect(
+        itemCountProvider = { itemCount },
+        currentItemProvider = { 0 },
+        maxLookbehind = 2,
+        maxLookahead = 4,
+        batchSize = 3,
+        prefetchDistance = 2,
+        onRangeEnterWindow = enteredRanges::add,
+        onRangeLeaveWindow = leftRanges::add,
+      )
+    }
+    runOnIdle {
+      enteredRanges.clear()
+      leftRanges.clear()
+    }
+
+    itemCount = 0
+
+    runOnIdle { assertThat(leftRanges).containsExactly(0..4) }
+  }
+
+  @Test
+  fun jumpWithPartialOverlapForward_evictsOldAndEntersNew() = runComposeUiTest {
+    val enteredRanges = mutableListOf<IntRange>()
+    val leftRanges = mutableListOf<IntRange>()
+    lateinit var pagerState: PagerState
+    lateinit var scope: CoroutineScope
+
+    setContent {
+      pagerState = rememberPagerState { 100 }
+      scope = rememberCoroutineScope()
+      VerticalPager(state = pagerState) { Box(Modifier.fillMaxSize()) }
+      SlidingWindowEffect(
+        itemCountProvider = { pagerState.pageCount },
+        currentItemProvider = { pagerState.settledPage },
+        maxLookbehind = 2,
+        maxLookahead = 2,
+        batchSize = 3,
+        prefetchDistance = 2,
+        onRangeEnterWindow = enteredRanges::add,
+        onRangeLeaveWindow = leftRanges::add,
+      )
+    }
+    scope.launch { pagerState.scrollToPage(10) }
+
+    runOnIdle {
+      enteredRanges.clear()
+      leftRanges.clear()
+    }
+
+    // Target window: 12..16. Old window: 8..12. Overlap is index 12.
+    scope.launch { pagerState.scrollToPage(14) }
+
+    runOnIdle {
+      assertThat(leftRanges).containsExactly(8..11)
+      assertThat(enteredRanges).containsExactly(13..16)
+    }
+  }
+
+  @Test
+  fun jumpWithPartialOverlapBackward_evictsOldAndEntersNew() = runComposeUiTest {
+    val enteredRanges = mutableListOf<IntRange>()
+    val leftRanges = mutableListOf<IntRange>()
+    lateinit var pagerState: PagerState
+    lateinit var scope: CoroutineScope
+
+    setContent {
+      pagerState = rememberPagerState { 100 }
+      scope = rememberCoroutineScope()
+      VerticalPager(state = pagerState) { Box(Modifier.fillMaxSize()) }
+      SlidingWindowEffect(
+        itemCountProvider = { pagerState.pageCount },
+        currentItemProvider = { pagerState.settledPage },
+        maxLookbehind = 2,
+        maxLookahead = 2,
+        batchSize = 3,
+        prefetchDistance = 2,
+        onRangeEnterWindow = enteredRanges::add,
+        onRangeLeaveWindow = leftRanges::add,
+      )
+    }
+    scope.launch { pagerState.scrollToPage(14) }
+
+    runOnIdle {
+      enteredRanges.clear()
+      leftRanges.clear()
+    }
+
+    // Jump backward to 10. Target window: 8..12. Old window: 12..16. Overlap is index 12.
+    scope.launch { pagerState.scrollToPage(10) }
+
+    runOnIdle {
+      assertThat(leftRanges).containsExactly(13..16)
+      assertThat(enteredRanges).containsExactly(8..11)
     }
   }
 }
