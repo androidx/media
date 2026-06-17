@@ -19,7 +19,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import android.graphics.PixelFormat;
 import android.hardware.HardwareBuffer;
+import android.media.Image;
 import android.os.Handler;
 import android.os.HandlerThread;
 import androidx.annotation.Nullable;
@@ -482,6 +484,67 @@ public final class SurfaceHolderFrameWriterAndroidTest {
     HardwareBufferFrame frame = (HardwareBufferFrame) asyncFrame.frame;
     assertThat(frame.getFormat().pixelFormat).isEqualTo(Format.NO_VALUE);
     assertThat(frame.getHardwareBuffer().getFormat()).isEqualTo(HardwareBuffer.RGBA_1010102);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 33)
+  public void surfaceChanged_afterQueueInputFrame_rendersLastFrame() throws Exception {
+    AtomicReference<AsyncFrame> asyncFrameRef = new AtomicReference<>();
+    CountDownLatch wakeupLatch = new CountDownLatch(1);
+    ConditionVariable allowSurfaceHolderExecution = new ConditionVariable();
+    Format format =
+        new Format.Builder()
+            .setWidth(WIDTH)
+            .setHeight(HEIGHT)
+            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+            .build();
+    Future<?> unused =
+        surfaceHolderExecutor.submit(() -> allowSurfaceHolderExecution.block(TEST_TIMEOUT_MS));
+    frameWriter.configure(format, /* usage= */ 0);
+
+    AsyncFrame asyncFrame =
+        frameWriter.dequeueInputFrame(
+            /* wakeupExecutor= */ directExecutor(),
+            /* wakeupListener= */ () -> {
+              asyncFrameRef.set(frameWriter.dequeueInputFrame(directExecutor(), () -> {}));
+              wakeupLatch.countDown();
+            });
+
+    assertThat(asyncFrame).isNull();
+
+    allowSurfaceHolderExecution.open();
+    assertThat(wakeupLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
+    frameWriter.queueInputFrame(asyncFrameRef.get().frame, /* writeCompleteFence= */ null);
+    waitHandlerIdle(callbackHandler);
+    waitExecutorIdle(surfaceHolderExecutor);
+
+    surfaceHolder.drainSurface();
+
+    frameWriter.surfaceDestroyed(surfaceHolder);
+
+    // Set listener to wait for restored frame
+    CountDownLatch imageLatch = new CountDownLatch(1);
+    surfaceHolder.imageReader.setOnImageAvailableListener(
+        reader -> imageLatch.countDown(), callbackHandler);
+
+    frameWriter.surfaceChanged(surfaceHolder, PixelFormat.RGBA_8888, WIDTH, HEIGHT);
+
+    assertThat(imageLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
+
+    try (Image image = surfaceHolder.imageReader.acquireNextImage()) {
+      assertThat(image).isNotNull();
+    }
+  }
+
+  private void waitHandlerIdle(Handler handler) throws InterruptedException {
+    CountDownLatch latch = new CountDownLatch(1);
+    handler.post(latch::countDown);
+    assertThat(latch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
+  }
+
+  private void waitExecutorIdle(ExecutorService executor) throws Exception {
+    Future<?> future = executor.submit(() -> {});
+    future.get(TEST_TIMEOUT_MS, MILLISECONDS);
   }
 
   private static class FakeListener implements SurfaceHolderFrameWriter.Listener {

@@ -20,6 +20,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
+import android.graphics.PixelFormat;
 import android.hardware.DataSpace;
 import android.hardware.HardwareBuffer;
 import android.media.Image;
@@ -36,6 +39,7 @@ import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.video.HardwareBufferPool.HardwareBufferWithFence;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.concurrent.Executor;
 
 /** A {@link FrameWriter} that outputs frames to a {@link SurfaceHolder}. */
@@ -98,6 +102,13 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
   @GuardedBy("lock")
   @Nullable
   private Runnable wakeupListener;
+
+  // The last displayed HardwareBuffer. Retained across surface changes to allow showing the last
+  // as soon as surfaceChanged is called.
+  // Retaining this buffer incurs extra memory cost.
+  @GuardedBy("lock")
+  @Nullable
+  private HardwareBuffer lastQueuedHardwareBuffer;
 
   private final Listener listener;
 
@@ -192,6 +203,10 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
         this.surfaceHolder.removeCallback(this);
       }
       this.surfaceHolder = surfaceHolder;
+      if (lastQueuedHardwareBuffer != null) {
+        lastQueuedHardwareBuffer.close();
+        lastQueuedHardwareBuffer = null;
+      }
       if (imageWriter != null) {
         imageWriter.close();
         imageWriter = null;
@@ -229,6 +244,10 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
       }
       currentFormat = format;
       currentUsageFlags = usage;
+      if (lastQueuedHardwareBuffer != null) {
+        lastQueuedHardwareBuffer.close();
+        lastQueuedHardwareBuffer = null;
+      }
       if (imageWriter != null) {
         imageWriter.close();
         imageWriter = null;
@@ -362,6 +381,11 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
         // needs to be closed separately.
         hardwareBufferFrame.getHardwareBuffer().close();
       }
+      if (lastQueuedHardwareBuffer != null) {
+        lastQueuedHardwareBuffer.close();
+        lastQueuedHardwareBuffer = null;
+      }
+      lastQueuedHardwareBuffer = checkNotNull(image.getHardwareBuffer());
 
       Object value = hardwareBufferFrame.getMetadata().get(Frame.KEY_DISPLAY_TIME_NS);
       if (value instanceof Number) {
@@ -402,6 +426,10 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
   @Override
   public void close() {
     synchronized (lock) {
+      if (lastQueuedHardwareBuffer != null) {
+        lastQueuedHardwareBuffer.close();
+        lastQueuedHardwareBuffer = null;
+      }
       if (imageWriter != null) {
         imageWriter.close();
         imageWriter = null;
@@ -450,10 +478,15 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
       }
 
       if (SDK_INT >= 33) {
+        // Set CPU READ and WRITE flags for lastQueuedHardwareBuffer content restoration.
+        long usage =
+            currentUsageFlags
+                | HardwareBuffer.USAGE_CPU_READ_OFTEN
+                | HardwareBuffer.USAGE_CPU_WRITE_OFTEN;
         imageWriter =
             new ImageWriter.Builder(holder.getSurface())
                 .setMaxImages(CAPACITY)
-                .setUsage(currentUsageFlags)
+                .setUsage(usage)
                 .setHardwareBufferFormat(expectedPixelFormat)
                 .setDataSpace(
                     DataSpace.pack(
@@ -467,6 +500,7 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
       }
       surface = holder.getSurface();
       isSurfaceChangeRequested = false;
+      maybeRestoreBackupFrame();
       Runnable wakeupListener = this.wakeupListener;
       this.wakeupListener = null;
       if (wakeupListener != null) {
@@ -484,6 +518,45 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
         this.imageWriter = null;
       }
     }
+  }
+
+  /**
+   * Attempt to write the contents of {@link #lastQueuedHardwareBuffer} via the {@link #imageWriter}
+   * surface. This is a best-effort attempt, which will be skipped if buffer dimensions do not
+   * match.
+   */
+  @GuardedBy("lock")
+  private void maybeRestoreBackupFrame() {
+    ImageWriter imageWriter = this.imageWriter;
+    if (imageWriter == null) {
+      return;
+    }
+    HardwareBuffer lastQueuedHardwareBuffer = this.lastQueuedHardwareBuffer;
+    if (lastQueuedHardwareBuffer == null || lastQueuedHardwareBuffer.isClosed()) {
+      return;
+    }
+    Image image = imageWriter.dequeueInputImage();
+    if (image.getWidth() != lastQueuedHardwareBuffer.getWidth()
+        || image.getHeight() != lastQueuedHardwareBuffer.getHeight()
+        || image.getFormat() != lastQueuedHardwareBuffer.getFormat()) {
+      image.close();
+      return;
+    }
+    if (hardwareBufferNativeHelpers != null) {
+      checkState(
+          hardwareBufferNativeHelpers.nativeCopyHardwareBufferToHardwareBuffer(
+              lastQueuedHardwareBuffer, checkNotNull(image.getHardwareBuffer())));
+    } else if (SDK_INT >= 29) {
+      Bitmap bitmap =
+          checkNotNull(Bitmap.wrapHardwareBuffer(lastQueuedHardwareBuffer, /* colorSpace= */ null))
+              .copy(getBitmapConfig(lastQueuedHardwareBuffer.getFormat()), /* isMutable= */ false);
+      if (bitmap != null) {
+        ByteBuffer planeBuffer = image.getPlanes()[0].getBuffer();
+        planeBuffer.rewind();
+        bitmap.copyPixelsToBuffer(planeBuffer);
+      }
+    }
+    imageWriter.queueInputImage(image);
   }
 
   @GuardedBy("lock")
@@ -556,5 +629,12 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
       default:
         return DataSpace.RANGE_UNSPECIFIED;
     }
+  }
+
+  private static Config getBitmapConfig(int imageFormat) {
+    checkArgument(imageFormat == PixelFormat.RGBA_1010102 || imageFormat == PixelFormat.RGBA_8888);
+    return imageFormat == PixelFormat.RGBA_1010102 && SDK_INT >= 33
+        ? Config.RGBA_1010102
+        : Config.ARGB_8888;
   }
 }
