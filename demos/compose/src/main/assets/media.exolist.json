@@ -163,10 +163,6 @@
         "uri": "https://storage.googleapis.com/exoplayer-test-media-1/hagc/rooftop_av1_t35track_everyframe_v0.mp4"
       },
       {
-        "name": "HEVC Rooftop (Everyframe T35)",
-        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/hagc/rooftop_hevc_t35track_everyframe_v0.mp4"
-      },
-      {
         "name": "HEVC Lights (SDR Base, Sparse T35)",
         "uri": "https://storage.googleapis.com/exoplayer-test-media-1/hagc/lights_hevc_sdrbase_t35track_v0.mp4"
       }
