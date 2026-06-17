@@ -52,4 +52,7 @@ dependencies {
   androidTestImplementation(project(":test-utils"))
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(libs.androidx.test.ext.junit)
+  androidTestImplementation(libs.androidx.core.ktx)
+  androidTestImplementation(libs.kotlinx.coroutines.android)
+  androidTestImplementation(libs.test.parameter.injector)
 }
