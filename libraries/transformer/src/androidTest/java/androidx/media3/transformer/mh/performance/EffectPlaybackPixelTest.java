@@ -16,13 +16,13 @@
 
 package androidx.media3.transformer.mh.performance;
 
-import static androidx.media3.common.Player.STATE_ENDED;
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromRgba8888Image;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromRgba8888ImageBuffer;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
+import static androidx.media3.test.utils.PlayerFence.futureWhen;
 import static androidx.media3.transformer.mh.performance.PlaybackTestUtil.createTimestampOverlay;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
@@ -65,6 +65,7 @@ import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.SettableFuture;
 import java.util.ArrayList;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -181,7 +182,7 @@ public class EffectPlaybackPixelTest {
 
     ArrayList<BitmapPixelTestUtil.ImageBuffer> readImageBuffers = new ArrayList<>();
     AtomicInteger renderedFramesCount = new AtomicInteger();
-    ConditionVariable playerEnded = new ConditionVariable();
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     ConditionVariable readAllOutputFrames = new ConditionVariable();
 
     instrumentation.runOnMainSync(
@@ -230,23 +231,12 @@ public class EffectPlaybackPixelTest {
 
           // Adding an EventLogger to use its log output in case the test fails.
           player.addAnalyticsListener(new EventLogger());
-          player.addListener(
-              new Player.Listener() {
-                @Override
-                public void onPlaybackStateChanged(@Player.State int playbackState) {
-                  if (playbackState == STATE_ENDED) {
-                    playerEnded.open();
-                  }
-                }
-              });
+          endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
           player.setMediaItem(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri));
           player.prepare();
         });
 
-    if (!playerEnded.block(TEST_TIMEOUT_MS)) {
-      throw new TimeoutException(
-          Util.formatInvariant("Playback not ended in %d ms.", TEST_TIMEOUT_MS));
-    }
+    endedFuture.get();
 
     if (!readAllOutputFrames.block(TEST_TIMEOUT_MS)) {
       throw new TimeoutException(
@@ -289,7 +279,7 @@ public class EffectPlaybackPixelTest {
     ArrayList<BitmapPixelTestUtil.ImageBuffer> readImageBuffers = new ArrayList<>();
     AtomicInteger renderedFramesCount = new AtomicInteger();
     AtomicInteger firstFrameRenderedCount = new AtomicInteger();
-    ConditionVariable playerEnded = new ConditionVariable();
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     ConditionVariable readAllOutputFrames = new ConditionVariable();
     Handler mainHandler = new Handler(instrumentation.getTargetContext().getMainLooper());
 
@@ -343,15 +333,7 @@ public class EffectPlaybackPixelTest {
 
           // Adding an EventLogger to use its log output in case the test fails.
           player.addAnalyticsListener(new EventLogger());
-          player.addListener(
-              new Player.Listener() {
-                @Override
-                public void onPlaybackStateChanged(@Player.State int playbackState) {
-                  if (playbackState == STATE_ENDED) {
-                    playerEnded.open();
-                  }
-                }
-              });
+          endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
           player.setVideoFrameMetadataListener(
               (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
                 if (presentationTimeUs != 0) {
@@ -382,10 +364,7 @@ public class EffectPlaybackPixelTest {
           player.prepare();
         });
 
-    if (!playerEnded.block(TEST_TIMEOUT_MS)) {
-      throw new TimeoutException(
-          Util.formatInvariant("Playback not ended in %d ms.", TEST_TIMEOUT_MS));
-    }
+    endedFuture.get();
 
     if (!readAllOutputFrames.block(TEST_TIMEOUT_MS)) {
       throw new TimeoutException(
@@ -429,7 +408,7 @@ public class EffectPlaybackPixelTest {
 
     ArrayList<BitmapPixelTestUtil.ImageBuffer> readImageBuffers = new ArrayList<>();
     AtomicInteger renderedFramesCount = new AtomicInteger();
-    ConditionVariable playerEnded = new ConditionVariable();
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     ConditionVariable readAllOutputFrames = new ConditionVariable();
     // Setting maxImages=10 ensures image reader gets all rendered frames from
     // VideoFrameProcessor. Using maxImages=10 runs successfully on a Pixel3.
@@ -489,23 +468,12 @@ public class EffectPlaybackPixelTest {
 
           // Adding an EventLogger to use its log output in case the test fails.
           player.addAnalyticsListener(new EventLogger());
-          player.addListener(
-              new Player.Listener() {
-                @Override
-                public void onPlaybackStateChanged(@Player.State int playbackState) {
-                  if (playbackState == STATE_ENDED) {
-                    playerEnded.open();
-                  }
-                }
-              });
+          endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
           player.setMediaItem(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri));
           player.prepare();
         });
 
-    if (!playerEnded.block(TEST_TIMEOUT_MS)) {
-      throw new TimeoutException(
-          Util.formatInvariant("Playback not ended in %d ms.", TEST_TIMEOUT_MS));
-    }
+    endedFuture.get();
 
     if (!readAllOutputFrames.block(TEST_TIMEOUT_MS)) {
       throw new TimeoutException(
