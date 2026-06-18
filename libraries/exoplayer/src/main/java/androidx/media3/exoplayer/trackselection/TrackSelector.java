@@ -89,9 +89,8 @@ import androidx.media3.exoplayer.upstream.BandwidthMeter;
  *
  * <h2>Threading model</h2>
  *
- * All calls made by the player into the track selector are on the player's internal playback
- * thread. The track selector may call {@link InvalidationListener#onTrackSelectionsInvalidated()}
- * from any thread.
+ * <p>All methods must be called on the same playback thread, except for those specifically
+ * documented to be called on a separate application thread.
  */
 @UnstableApi
 public abstract class TrackSelector {
@@ -111,7 +110,11 @@ public abstract class TrackSelector {
     TrackSelector createTrackSelector(Context context);
   }
 
-  /** Notified when selections previously made by a {@link TrackSelector} are no longer valid. */
+  /**
+   * Notified when selections previously made by a {@link TrackSelector} are no longer valid.
+   *
+   * <p>The track selector may call methods of this listener from any thread.
+   */
   public interface InvalidationListener {
 
     /**
@@ -122,8 +125,7 @@ public abstract class TrackSelector {
 
     /**
      * Called by a {@link TrackSelector} to indicate that selections it has previously made may no
-     * longer be valid due to the renderer capabilities change. This method is called from playback
-     * thread.
+     * longer be valid due to the renderer capabilities change.
      *
      * @param renderer The renderer whose capabilities changed.
      */
@@ -135,6 +137,8 @@ public abstract class TrackSelector {
 
   /**
    * Called by the player to initialize the selector.
+   *
+   * <p>This method must be called from the application thread.
    *
    * @param listener An invalidation listener that the selector can call to indicate that selections
    *     it has previously made are no longer valid.
@@ -183,7 +187,11 @@ public abstract class TrackSelector {
    */
   public abstract void onSelectionActivated(@Nullable Object info);
 
-  /** Returns the current parameters for track selection. */
+  /**
+   * Returns the current parameters for track selection.
+   *
+   * <p>This method must be called from the application thread.
+   */
   public TrackSelectionParameters getParameters() {
     return TrackSelectionParameters.DEFAULT;
   }
@@ -192,6 +200,8 @@ public abstract class TrackSelector {
    * Called by the player to provide parameters for track selection.
    *
    * <p>Only supported if {@link #isSetParametersSupported()} returns true.
+   *
+   * <p>This method must be called from the application thread.
    *
    * @param parameters The parameters for track selection.
    */
@@ -204,6 +214,8 @@ public abstract class TrackSelector {
    * #setParameters(TrackSelectionParameters)}.
    *
    * <p>The same value is always returned for a given {@code TrackSelector} instance.
+   *
+   * <p>This method must be called from the application thread.
    */
   public boolean isSetParametersSupported() {
     return false;
@@ -227,6 +239,8 @@ public abstract class TrackSelector {
   /**
    * Calls {@link InvalidationListener#onTrackSelectionsInvalidated()} to invalidate all previously
    * generated track selections.
+   *
+   * <p>This method can be called from both the application and the playback thread.
    */
   protected final void invalidate() {
     if (listener != null) {
