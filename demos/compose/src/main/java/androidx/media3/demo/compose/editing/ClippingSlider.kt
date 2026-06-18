@@ -37,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -98,6 +99,11 @@ private const val MIN_CLIPPING_DELTA_FOR_NO_OVERLAP =
     POSITION_SLIDER_MAX_LENGTH_RATIO
 
 /**
+ * A small epsilon value used to check if a progress value is close to the boundaries (0.0 or 1.0).
+ */
+private const val BOUNDARY_EPSILON = 1e-3f
+
+/**
  * A Material3 clipping slider that allows users to select a clipping range and track playback
  * position.
  *
@@ -115,7 +121,8 @@ private const val MIN_CLIPPING_DELTA_FOR_NO_OVERLAP =
  *   as the end time in the [LongRange].
  * @param onClippingRangeChange A callback that is invoked continuously as one of the clipping
  *   thumbs is being dragged. The [LongRange] represents the clipping start and end positions in
- *   milliseconds and should be used to update [clippingRangeMs].
+ *   milliseconds (or [C.TIME_END_OF_SOURCE] as the end position when the clip is untrimmed at the
+ *   end of the media) and should be used to update [clippingRangeMs].
  * @param bitmaps A list of [Bitmap] instances to display as a background preview for the slider.
  *   They should all have the same size. If this list is empty, the component will render an empty
  *   [Box] instead.
@@ -171,6 +178,16 @@ fun ClippingSlider(
   val state =
     rememberClippingSliderState(player, positionTickCount, clippingRangeMs, minClippedDurationMs)
   var isDraggingClippingThumb by remember { mutableStateOf(false) }
+  val currentOnClippingRangeChange by rememberUpdatedState(onClippingRangeChange)
+
+  LaunchedEffect(clippingRangeMs, minClippedDurationMs, state, state.durationMs) {
+    if (isDraggingClippingThumb) return@LaunchedEffect
+
+    val wasAdjusted = state.syncExternalRange(clippingRangeMs, minClippedDurationMs)
+    if (wasAdjusted) {
+      currentOnClippingRangeChange(state.clippingRangeMs)
+    }
+  }
 
   Box(
     modifier =
@@ -321,7 +338,7 @@ private fun ClippingRangeSlider(
   val isDraggingEndThumb by endThumbInteractionSource.collectIsDraggedAsState()
   val isDragging = isDraggingStartThumb || isDraggingEndThumb
   val clippingSliderRange = sliderRangeFromClippingRange(state.clippingRange)
-  val minProgressDelta = calculateMinProgressDelta(minClippedDurationMs, state.durationMs)
+  val minProgressDelta = state.calculateMinProgressDelta(minClippedDurationMs)
   LaunchedEffect(isDragging) {
     onDraggingChanged(isDragging)
     if (isDragging) {
@@ -344,11 +361,10 @@ private fun ClippingRangeSlider(
         }
       }
       state.clippingRange = constrainedStart..constrainedEnd
-      onClippingRangeChange(
-        state.progressToPosition(constrainedStart)..state.progressToPosition(constrainedEnd)
-      )
+      onClippingRangeChange(state.clippingRangeMs)
     },
     modifier = modifier,
+    enabled = state.durationMs > 0,
     onValueChangeFinished = {
       if (!isDragging) return@RangeSlider
       state.committedClippingRange = state.clippingRange
@@ -361,7 +377,7 @@ private fun ClippingRangeSlider(
     endInteractionSource = endThumbInteractionSource,
     startThumb = {
       val isStart = true
-      val isAtLimit = clippingSliderRange.start <= 0.001f
+      val isAtLimit = clippingSliderRange.start <= BOUNDARY_EPSILON
       ClippingThumb(
         isStart,
         colors,
@@ -372,7 +388,7 @@ private fun ClippingRangeSlider(
     },
     endThumb = {
       val isStart = false
-      val isAtLimit = clippingSliderRange.endInclusive >= 0.999f
+      val isAtLimit = clippingSliderRange.endInclusive >= 1f - BOUNDARY_EPSILON
       ClippingThumb(
         isStart,
         colors,
@@ -519,42 +535,17 @@ private fun rememberClippingSliderState(
 ): ClippingSliderState {
   val positionProgressState =
     rememberProgressStateWithTickCount(player, totalTickCount = positionTickCount)
-  val durationMs = positionProgressState.progressToPosition(1f).let { if (it == 0L) 1L else it }
-  val initialClippingRange =
-    calculateClippingRangeProgress(initialClippingRangeMs, durationMs, minClippedDurationMs)
   val clippingSliderState =
     remember(player, positionProgressState) {
-      ClippingSliderState(player, positionProgressState, initialClippingRange)
+      ClippingSliderState(
+        player,
+        positionProgressState,
+        initialClippingRangeMs,
+        minClippedDurationMs,
+      )
     }
   LaunchedEffect(clippingSliderState) { clippingSliderState.observe() }
   return clippingSliderState
-}
-
-/**
- * Calculates the minimum progress delta required to prevent the clipping thumbs from overlapping.
- */
-private fun calculateMinProgressDelta(minClippedDurationMs: Long, durationMs: Long): Float =
-  maxOf(minClippedDurationMs.toFloat() / durationMs, MIN_CLIPPING_DELTA_FOR_NO_OVERLAP)
-
-/**
- * Converts a clipping range in milliseconds to a progress-based range (0 to 1), enforcing the
- * minimum progress delta constraint.
- */
-private fun calculateClippingRangeProgress(
-  clippingRangeMs: LongRange,
-  durationMs: Long,
-  minClippedDurationMs: Long,
-): ClosedFloatingPointRange<Float> {
-  var start = (clippingRangeMs.first.toFloat() / durationMs).coerceIn(0f, 1f)
-  val originalEndMs =
-    if (clippingRangeMs.last == C.TIME_END_OF_SOURCE) durationMs else clippingRangeMs.last
-  var end = (originalEndMs.toFloat() / durationMs).coerceIn(0f, 1f)
-  val minProgressDelta = calculateMinProgressDelta(minClippedDurationMs, durationMs)
-  if (end - start < minProgressDelta) {
-    end = (start + minProgressDelta).coerceAtMost(1f)
-    start = (end - minProgressDelta).coerceAtLeast(0f)
-  }
-  return start..end
 }
 
 /**
@@ -650,25 +641,38 @@ private val defaultClippingThumbPainterIcon:
 private class ClippingSliderState(
   private val player: Player?,
   private val positionProgressState: ProgressStateWithTickCount,
-  initialClippingRange: ClosedFloatingPointRange<Float>,
+  initialClippingRangeMs: LongRange,
+  minClippedDurationMs: Long,
 ) {
   /** The current clipping range expressed as a fraction of the total duration (0 to 1). */
-  var clippingRange by mutableStateOf(initialClippingRange)
+  var clippingRange by mutableStateOf(0f..1f)
   /**
    * The clipping range that has been confirmed by the user. This is typically updated when a drag
    * operation on the clipping thumbs finishes.
    */
-  var committedClippingRange by mutableStateOf(initialClippingRange)
+  var committedClippingRange by mutableStateOf(0f..1f)
+
+  /**
+   * The current clipping range in milliseconds, preserving [C.TIME_END_OF_SOURCE] when the end
+   * boundary is reached.
+   */
+  val clippingRangeMs: LongRange
+    get() {
+      val startMs = progressToPosition(clippingRange.start)
+      val endMs =
+        if (clippingRange.endInclusive >= 1f - BOUNDARY_EPSILON) {
+          C.TIME_END_OF_SOURCE
+        } else {
+          progressToPosition(clippingRange.endInclusive)
+        }
+      return startMs..endMs
+    }
 
   /**
    * The current playback position as a fraction of the total duration (0 to 1), or null if unknown.
    */
   val playbackProgress: Float?
-    get() = if (isDurationKnown) positionProgressState.currentPositionProgress else null
-
-  /** The current playback position in milliseconds, or null if no player is set. */
-  val playbackPositionMs: Long?
-    get() = player?.currentPosition
+    get() = if (durationMs > 0) positionProgressState.currentPositionProgress else null
 
   /** Returns whether the playback position has reached the clipping end position. */
   val isPlaybackAtEnd: Boolean
@@ -677,17 +681,18 @@ private class ClippingSliderState(
       return progress >= committedClippingRange.endInclusive
     }
 
-  /** The total duration of the media in milliseconds, or 1L if unknown/empty. */
+  /** The total duration of the media in milliseconds, or [C.TIME_UNSET] if unknown/empty. */
   val durationMs: Long
-    get() = positionProgressState.progressToPosition(1f).let { if (it == 0L) 1L else it }
-
-  private val isDurationKnown: Boolean
-    get() = positionProgressState.progressToPosition(1f) > 0L
+    get() = positionProgressState.durationMs
 
   private var isPlaying by mutableStateOf(false)
 
   private val playerStateObserver: PlayerStateObserver? =
     player?.observeState(Player.EVENT_IS_PLAYING_CHANGED) { isPlaying = it.isPlaying }
+
+  init {
+    val unused = syncExternalRange(initialClippingRangeMs, minClippedDurationMs)
+  }
 
   fun pause() {
     player?.let { if (it.isCommandAvailable(Player.COMMAND_PLAY_PAUSE)) it.pause() }
@@ -700,8 +705,73 @@ private class ClippingSliderState(
   /** Converts a fraction (0 to 1) of the total duration into a position in milliseconds. */
   fun progressToPosition(progress: Float) = positionProgressState.progressToPosition(progress)
 
+  /**
+   * Syncs the state with an externally provided clipping range, enforcing constraints and seeking
+   * the player if necessary.
+   *
+   * @param clippingRangeMs The new desired clipping range in milliseconds.
+   * @param minClippedDurationMs The minimum permitted duration between clipping start and end in
+   *   milliseconds.
+   * @return Whether the requested range was adjusted to enforce constraints or match source bounds.
+   */
+  fun syncExternalRange(clippingRangeMs: LongRange, minClippedDurationMs: Long): Boolean {
+    val (newRange, wasAdjusted) =
+      calculateClippingRangeProgress(clippingRangeMs, minClippedDurationMs)
+    clippingRange = newRange
+    committedClippingRange = clippingRange
+    val currentProgress = playbackProgress
+    if (currentProgress != null) {
+      if (currentProgress < clippingRange.start) {
+        seekTo(clippingRange.start)
+      } else if (currentProgress > clippingRange.endInclusive) {
+        seekTo(clippingRange.endInclusive)
+      }
+    }
+    return wasAdjusted
+  }
+
+  /**
+   * Calculates the minimum progress delta required to prevent the clipping thumbs from overlapping.
+   */
+  fun calculateMinProgressDelta(minClippedDurationMs: Long): Float =
+    if (durationMs <= 0) {
+      MIN_CLIPPING_DELTA_FOR_NO_OVERLAP
+    } else {
+      maxOf(minClippedDurationMs.toFloat() / durationMs, MIN_CLIPPING_DELTA_FOR_NO_OVERLAP)
+        .coerceAtMost(1f)
+    }
+
   private fun play() {
     player?.let { if (it.isCommandAvailable(Player.COMMAND_PLAY_PAUSE)) it.play() }
+  }
+
+  /**
+   * Converts a clipping range in milliseconds to a progress-based range (0 to 1), enforcing the
+   * minimum progress delta constraint.
+   *
+   * @return A [Pair] containing the calculated progress range (0 to 1) and a boolean indicating
+   *   whether the requested range was adjusted to enforce constraints or match source bounds.
+   */
+  private fun calculateClippingRangeProgress(
+    clippingRangeMs: LongRange,
+    minClippedDurationMs: Long,
+  ): Pair<ClosedFloatingPointRange<Float>, Boolean> {
+    if (durationMs <= 0) {
+      return (0f..1f) to false
+    }
+    val rawStart = clippingRangeMs.first.toFloat() / durationMs
+    var start = rawStart.coerceIn(0f, 1f)
+    val originalEndMs =
+      if (clippingRangeMs.last == C.TIME_END_OF_SOURCE) durationMs else clippingRangeMs.last
+    val rawEnd = originalEndMs.toFloat() / durationMs
+    var end = rawEnd.coerceIn(0f, 1f)
+    val minProgressDelta = calculateMinProgressDelta(minClippedDurationMs)
+    if (end - start < minProgressDelta) {
+      end = (start + minProgressDelta).coerceAtMost(1f)
+      start = (end - minProgressDelta).coerceAtLeast(0f)
+    }
+    val wasAdjusted = rawStart != start || rawEnd != end
+    return (start..end) to wasAdjusted
   }
 
   suspend fun observe() {
