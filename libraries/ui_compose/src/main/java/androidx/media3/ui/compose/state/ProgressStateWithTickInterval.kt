@@ -24,6 +24,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.CoroutineScope
@@ -106,22 +107,22 @@ class ProgressStateWithTickInterval(
   var bufferedPositionMs by mutableLongStateOf(0L)
     private set
 
-  var durationMs by mutableLongStateOf(0L)
+  var durationMs by mutableLongStateOf(C.TIME_UNSET)
     private set
 
-  private val updateJob =
-    player?.let {
-      ProgressStateJob(
-        player = it,
-        scope = scope,
-        nextMediaTickMsSupplier = { nextMediaWakeUpPositionMs(player = it) },
-        shouldScheduleTask = { isReadyOrBuffering(player = it) },
-        scheduledTask = { updateProgress(player = it) },
-      )
-    }
+  private val updateJob = player?.let {
+    ProgressStateJob(
+      player = it,
+      scope = scope,
+      nextMediaTickMsSupplier = { nextMediaWakeUpPositionMs(player = it) },
+      shouldScheduleTask = { isReadyOrBuffering(player = it) },
+      scheduledTask = { updateProgress(player = it) },
+    )
+  }
 
   init {
     require(tickIntervalMs >= 0)
+    player?.let { updateProgress(it) }
   }
 
   /**
