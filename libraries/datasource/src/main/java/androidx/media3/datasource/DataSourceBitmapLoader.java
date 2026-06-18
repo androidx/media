@@ -116,6 +116,15 @@ public final class DataSourceBitmapLoader implements BitmapLoader {
     /**
      * Sets the maximum output dimension for decoded bitmaps.
      *
+     * <p>The decoder downscales the image using power-of-2 {@code inSampleSize} (subsampling) until
+     * the larger dimension is less than or equal to the maximum output dimension.
+     *
+     * <p>Note: Because only power-of-2 scaling is supported during decoding, the returned bitmap
+     * can be significantly smaller than the requested maximum output dimension if the original size
+     * is just above the limit (e.g. decoding a 1080px image with a 900px limit results in a 540px
+     * image). If you need the bitmap to be scaled closer to the limit, you may need to post-process
+     * the decoded bitmap or wrap this loader in a custom loader that performs precise scaling.
+     *
      * @param maximumOutputDimension The maximum output dimension in pixels.
      * @return This builder.
      */

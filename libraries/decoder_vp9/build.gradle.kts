@@ -29,7 +29,11 @@ dependencies {
   implementation(libs.androidx.annotation)
   testImplementation(project(":test-utils"))
   testImplementation(libs.robolectric)
+  androidTestImplementation(project(":test-utils"))
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(libs.androidx.test.ext.junit)
   androidTestImplementation(libs.truth)
+  androidTestImplementation(libs.androidx.core.ktx)
+  androidTestImplementation(libs.kotlinx.coroutines.android)
+  androidTestImplementation(libs.kotlin.test)
 }

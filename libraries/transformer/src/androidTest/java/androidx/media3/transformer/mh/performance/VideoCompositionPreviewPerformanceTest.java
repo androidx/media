@@ -17,6 +17,7 @@
 package androidx.media3.transformer.mh.performance;
 
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
+import static androidx.media3.test.utils.PlayerFence.futureWhen;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
@@ -26,7 +27,7 @@ import android.os.SystemClock;
 import android.view.SurfaceView;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.PlaybackException;
+import androidx.media3.common.Player;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.Contrast;
 import androidx.media3.transformer.Composition;
@@ -34,14 +35,13 @@ import androidx.media3.transformer.CompositionPlayer;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EditedMediaItemSequence;
 import androidx.media3.transformer.Effects;
-import androidx.media3.transformer.PlayerTestListener;
 import androidx.media3.transformer.SurfaceTestActivity;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
-import java.util.concurrent.TimeoutException;
+import com.google.common.util.concurrent.SettableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
@@ -56,7 +56,6 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class VideoCompositionPreviewPerformanceTest {
 
-  private static final long TEST_TIMEOUT_MS = 10_000;
   private static final long MEDIA_ITEM_CLIP_DURATION_MS = 500;
 
   @Rule
@@ -89,14 +88,14 @@ public class VideoCompositionPreviewPerformanceTest {
    */
   @Test
   @Ignore("TODO: b/375349144 - Fix this test and re-enable it")
-  public void compositionPlayerCompositionPreviewTest() throws PlaybackException, TimeoutException {
-    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+  public void compositionPlayerCompositionPreviewTest() throws Exception {
+    SettableFuture<Void> readyFuture = SettableFuture.create();
     instrumentation.runOnMainSync(
         () -> {
           player = new CompositionPlayer.Builder(getApplicationContext()).build();
           player.setVideoSurfaceView(surfaceView);
           player.setPlayWhenReady(false);
-          player.addListener(listener);
+          readyFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_READY));
           player.setComposition(
               new Composition.Builder(
                       EditedMediaItemSequence.withAudioAndVideoFrom(
@@ -108,16 +107,18 @@ public class VideoCompositionPreviewPerformanceTest {
           player.prepare();
         });
 
-    listener.waitUntilPlayerReady();
+    readyFuture.get();
 
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     AtomicLong playbackStartTimeMs = new AtomicLong();
     instrumentation.runOnMainSync(
         () -> {
           playbackStartTimeMs.set(SystemClock.elapsedRealtime());
+          endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
           checkNotNull(player).play();
         });
 
-    listener.waitUntilPlayerEnded();
+    endedFuture.get();
     long compositionDurationMs = MEDIA_ITEM_CLIP_DURATION_MS * 2;
     long playbackDurationMs = SystemClock.elapsedRealtime() - playbackStartTimeMs.get();
 

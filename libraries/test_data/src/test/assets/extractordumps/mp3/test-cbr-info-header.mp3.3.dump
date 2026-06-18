@@ -1,17 +1,17 @@
 seekMap:
   isSeekable = true
-  duration = 1044875
+  duration = 999977
   getPosition(0) = [[timeUs=0, position=227]]
-  getPosition(1) = [[timeUs=0, position=227], [timeUs=26125, position=436]]
-  getPosition(522437) = [[timeUs=496375, position=4198], [timeUs=522500, position=4407]]
-  getPosition(1044875) = [[timeUs=1018750, position=8377]]
+  getPosition(1) = [[timeUs=0, position=227], [timeUs=25002, position=436]]
+  getPosition(499988) = [[timeUs=475042, position=4198], [timeUs=500044, position=4407]]
+  getPosition(999977) = [[timeUs=974975, position=8377]]
 numberOfTracks = 1
 track 0:
   total output bytes = 209
   sample count = 1
-  track duration = 1044875
+  track duration = 999977
   format 0:
-    averageBitrate = 64000
+    averageBitrate = 66874
     containerMimeType = audio/mpeg
     sampleMimeType = audio/mpeg
     maxInputSize = 4096
@@ -21,7 +21,7 @@ track 0:
     encoderPadding = 1404
     metadata = entries=[TSSE: description=null: values=[Lavf58.45.100]]
   sample 0:
-    time = 1018750
+    time = 974967
     flags = 1
     data = length 209, hash C974F6FB
 tracksEnded = true

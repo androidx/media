@@ -70,7 +70,8 @@ internal fun SequencePane(
   onTrackTypeChanged: (Int, Set<Int>) -> Unit,
   onAddItem: (Int, Int) -> Unit,
   onRemoveItem: (Int, Int) -> Unit,
-  onUpdateEffects: (sequenceIndex: Int, itemIndex: Int, effects: Set<String>) -> Unit,
+  onUpdateMediaItem:
+    (sequenceIndex: Int, itemIndex: Int, effects: Set<String>, speed: Float) -> Unit,
   onAddLocalItem: (Int, Uri) -> Unit,
   onRemoveSequence: (Int) -> Unit,
   onAddGap: (Int, Long) -> Unit,
@@ -106,11 +107,14 @@ internal fun SequencePane(
   selectedMediaItemIndex?.let { itemIndex ->
     val item = selectedItems[itemIndex]
     if (item is Media) {
-      EffectSelectionDialog(
+      EditMediaItemDialog(
         onDismissRequest = { selectedMediaItemIndex = null },
         effectOptions = availableEffects,
-        currentSelections = item.selectedEffects,
-        onEffectsSelected = { newEffects -> onUpdateEffects(sequenceIndex, itemIndex, newEffects) },
+        currentEffects = item.selectedEffects,
+        currentSpeed = item.speed,
+        onSave = { newEffects, newSpeed ->
+          onUpdateMediaItem(sequenceIndex, itemIndex, newEffects, newSpeed)
+        },
       )
     } else {
       selectedMediaItemIndex = null
@@ -205,6 +209,12 @@ internal fun SequencePane(
                   item.selectedEffects.joinToString().ifEmpty { stringResource(R.string.none) }
                 Text(
                   text = stringResource(R.string.effect_label, effectsText),
+                  fontSize = 12.sp,
+                  fontStyle = FontStyle.Italic,
+                  color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
+                )
+                Text(
+                  text = stringResource(R.string.speed_label, item.speed),
                   fontSize = 12.sp,
                   fontStyle = FontStyle.Italic,
                   color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),

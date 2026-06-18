@@ -160,7 +160,7 @@ internal fun CompositionPreviewPane(
           onTrackTypeChanged = viewModel::onSequenceTrackTypeChanged,
           onAddItem = viewModel::addItem,
           onRemoveItem = viewModel::removeItem,
-          onUpdateEffects = viewModel::updateEffectsForItem,
+          onUpdateMediaItem = viewModel::updateMediaItem,
           onAddLocalItem = viewModel::addLocalItem,
           onRemoveSequence = viewModel::removeSequence,
           onAddGap = viewModel::addGap,

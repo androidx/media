@@ -79,4 +79,7 @@
   <string name="background_audio_track">Background audio track</string>
   <string name="preset_custom" translatable="false">Custom</string>
   <string name="playback_fps" translatable="false">Playback FPS: %1$.2f</string>
+  <string name="speed_label" translatable="false">Speed: %1$.2fx</string>
+  <string name="edit_media_item" translatable="false">Edit Media Item</string>
+  <string name="select_speed" translatable="false">Select Speed</string>
 </resources>

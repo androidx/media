@@ -1220,6 +1220,10 @@ MediaCodecAdapter (media3.video.avc):
       timeUs = 1000002458300
       size = 782
       rendered = true
+  setParameters:
+    count = 1
+    set parameters:
+      operating-rate = 24.0
 AudioSink:
   buffer count = 114
   config:

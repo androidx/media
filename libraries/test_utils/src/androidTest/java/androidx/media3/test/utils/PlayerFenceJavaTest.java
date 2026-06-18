@@ -188,6 +188,27 @@ public final class PlayerFenceJavaTest {
   }
 
   @Test
+  public void isPlaying() throws Exception {
+    SettableFuture<Void> isPlayingFuture = SettableFuture.create();
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player =
+                  new ExoPlayer.Builder(getInstrumentation().getContext().getApplicationContext())
+                      .build();
+              isPlayingFuture.setFuture(futureWhen(player).isPlaying(true));
+
+              player.setMediaItem(SHORT_MP3_ITEM);
+              player.prepare();
+              player.play();
+            });
+
+    isPlayingFuture.get();
+
+    getInstrumentation().runOnMainSync(() -> assertThat(player.isPlaying()).isTrue());
+  }
+
+  @Test
   public void rendersFirstFrame() throws Exception {
     AtomicReference<Surface> surface = new AtomicReference<>();
     AtomicReference<SurfaceTexture> surfaceTexture = new AtomicReference<>();

@@ -541,6 +541,10 @@ MediaCodecAdapter (media3.video.hevc):
       timeUs = 1000000967633
       size = 13141
       rendered = true
+  setParameters:
+    count = 1
+    set parameters:
+      operating-rate = 29.97
 AudioSink:
   buffer count = 45
   config:

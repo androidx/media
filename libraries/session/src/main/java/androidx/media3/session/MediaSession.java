@@ -2882,13 +2882,13 @@ public class MediaSession {
       if (bitmapLoader == null) {
         bitmapLoader =
             new DataSourceBitmapLoader.Builder(context)
-                .setMaximumOutputDimension(dimensionLimit)
-                .setMakeShared(true)
+                // Relax limit to allow power-of-2 decoder to select size close to target,
+                // which is then scaled down precisely by SizeLimitedBitmapLoader.
+                .setMaximumOutputDimension(dimensionLimit * 2 - 1)
                 .build();
-      } else {
-        bitmapLoader =
-            new SizeLimitedBitmapLoader(bitmapLoader, dimensionLimit, /* makeShared= */ true);
       }
+      bitmapLoader =
+          new SizeLimitedBitmapLoader(bitmapLoader, dimensionLimit, /* makeShared= */ true);
       if (SDK_INT == 29) {
         bitmapLoader =
             new SizeAvoidingBitmapLoader(bitmapLoader, getBitmapSizesToAvoidApi29(context));

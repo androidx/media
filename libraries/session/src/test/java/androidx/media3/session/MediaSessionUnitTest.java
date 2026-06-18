@@ -18,11 +18,15 @@ package androidx.media3.session;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 
+import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.os.Bundle;
 import androidx.media3.common.MediaLibraryInfo;
+import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.session.legacy.MediaSessionManager;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.io.ByteArrayOutputStream;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -237,6 +241,25 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
             /* isPackageNameVerified= */ true);
 
     assertThat(session.isMediaNotificationController(controllerInfo)).isFalse();
+  }
+
+  @Test
+  public void getBitmapLoader_defaultConfiguration_decodesToExactLimit() throws Exception {
+    int limit = MediaSession.getBitmapDimensionLimit(getApplicationContext());
+    // Create an image slightly larger than the limit, which would trigger the power-of-2
+    // under-shooting bug if not handled. See https://github.com/androidx/media/issues/3134.
+    int imageSize = limit + 20;
+    Bitmap originalBitmap = Bitmap.createBitmap(imageSize, imageSize, Bitmap.Config.ARGB_8888);
+    originalBitmap.eraseColor(Color.RED);
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    originalBitmap.compress(Bitmap.CompressFormat.PNG, /* quality= */ 100, outputStream);
+    byte[] imageData = outputStream.toByteArray();
+
+    BitmapLoader bitmapLoader = session.getBitmapLoader();
+    Bitmap decodedBitmap = bitmapLoader.decodeBitmap(imageData).get();
+
+    assertThat(decodedBitmap.getWidth()).isEqualTo(limit);
+    assertThat(decodedBitmap.getHeight()).isEqualTo(limit);
   }
 
   private static MediaSession.ControllerInfo createMinimalLegacyControllerInfo(

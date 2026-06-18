@@ -24,17 +24,18 @@ import android.graphics.SurfaceTexture;
 import android.os.SystemClock;
 import android.view.Surface;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.PlaybackException;
+import androidx.media3.common.Player;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.util.EventLogger;
-import androidx.media3.transformer.PlayerTestListener;
+import androidx.media3.test.utils.PlayerFence;
+import androidx.media3.transformer.DecoderCountersListener;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
-import java.util.concurrent.TimeoutException;
+import com.google.common.util.concurrent.SettableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
@@ -76,8 +77,9 @@ public class VideoEffectsPreviewPerformanceTest {
    * switches do not cause the player to either stall or drop frames.
    */
   @Test
-  public void exoplayerEffectsPreviewTest() throws PlaybackException, TimeoutException {
-    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+  public void exoplayerEffectsPreviewTest() throws Exception {
+    SettableFuture<Void> readyFuture = SettableFuture.create();
+    DecoderCountersListener decoderCountersListener = new DecoderCountersListener();
     instrumentation.runOnMainSync(
         () -> {
           player = new ExoPlayer.Builder(ApplicationProvider.getApplicationContext()).build();
@@ -88,8 +90,8 @@ public class VideoEffectsPreviewPerformanceTest {
           player.setVideoSurface(surface);
           player.setPlayWhenReady(false);
           player.setVideoEffects(ImmutableList.of());
-          player.addListener(listener);
-          player.addAnalyticsListener(listener);
+          readyFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_READY));
+          player.addAnalyticsListener(decoderCountersListener);
           // Adding an EventLogger to use its log output in case the test fails.
           player.addAnalyticsListener(new EventLogger());
           MediaItem mediaItem = getClippedMediaItem(MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS.uri);
@@ -99,22 +101,25 @@ public class VideoEffectsPreviewPerformanceTest {
           player.prepare();
         });
 
-    listener.waitUntilPlayerReady();
+    readyFuture.get();
 
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     AtomicLong playbackStartTimeMs = new AtomicLong();
     instrumentation.runOnMainSync(
         () -> {
           playbackStartTimeMs.set(SystemClock.elapsedRealtime());
+          endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
           checkNotNull(player).play();
         });
 
-    listener.waitUntilPlayerEnded();
+    endedFuture.get();
     long playbackDurationMs = SystemClock.elapsedRealtime() - playbackStartTimeMs.get();
     long expectedPlaybackDurationMs = 4 * MEDIA_ITEM_CLIP_DURATION_MS;
 
     assertThat(playbackDurationMs)
         .isIn(Range.closed(expectedPlaybackDurationMs, expectedPlaybackDurationMs + 60));
-    DecoderCounters decoderCounters = checkNotNull(listener.getVideoDecoderCounters());
+    DecoderCounters decoderCounters =
+        checkNotNull(decoderCountersListener.getVideoDecoderCounters());
     assertThat(decoderCounters.droppedBufferCount).isEqualTo(0);
     assertThat(decoderCounters.skippedInputBufferCount).isEqualTo(0);
     assertThat(decoderCounters.skippedOutputBufferCount).isEqualTo(0);
@@ -128,5 +133,9 @@ public class VideoEffectsPreviewPerformanceTest {
                 .setEndPositionMs(MEDIA_ITEM_CLIP_DURATION_MS)
                 .build())
         .build();
+  }
+
+  private static PlayerFence futureWhen(Player player) {
+    return PlayerFence.futureWhen(player).withTimeoutMs(TEST_TIMEOUT_MS);
   }
 }

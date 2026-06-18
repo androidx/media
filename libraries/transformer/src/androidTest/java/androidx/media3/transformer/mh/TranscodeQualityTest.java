@@ -43,7 +43,6 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
 import androidx.media3.effect.ndk.HardwareBufferJni;
-import androidx.media3.effect.ndk.NdkTransformerBuilder;
 import androidx.media3.inspector.frame.FrameExtractor;
 import androidx.media3.transformer.AndroidTestUtil.ForceEncodeEncoderFactory;
 import androidx.media3.transformer.EditedMediaItem;
@@ -239,13 +238,15 @@ public final class TranscodeQualityTest {
 
   private static Transformer.Builder createBuilder(Context context, String mode) {
     if (mode.equals(PACKET_CONSUMER_NDK)) {
-      return NdkTransformerBuilder.create(context)
+      return new Transformer.Builder(context)
+          .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
           .setHardwareBufferEffectsPipeline(
               DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE));
     } else if (mode.equals(FRAME_PROCESSOR_NDK)) {
       DefaultHardwareBufferEffectsPipeline pipeline =
           DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE);
-      return NdkTransformerBuilder.create(context)
+      return new Transformer.Builder(context)
+          .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
           .setFrameProcessorFactory(
               (output, listenerExecutor, listener) -> {
                 pipeline.setRenderOutput(new FrameWriterToHardwareBufferFrameQueueAdapter(output));

@@ -269,6 +269,102 @@ class PlayerFenceTest {
   }
 
   @Test
+  fun awaitIsPlaying() =
+    runBlocking(Dispatchers.Main) {
+      player = ExoPlayer.Builder(getInstrumentation().context.applicationContext).build()
+      player.setMediaItem(SHORT_MP3_ITEM)
+      player.prepare()
+
+      val isPlaying = async { player.awaitIsPlaying(true) }
+      // play() hasn't been called yet, so awaitIsPlaying() will suspend forever.
+      delay(500.milliseconds)
+      assertThat(isPlaying.isCompleted).isFalse()
+
+      player.play()
+      isPlaying.await()
+
+      assertThat(player.isPlaying).isTrue()
+    }
+
+  @Test
+  fun awaitIsPlaying_false() =
+    runBlocking(Dispatchers.Main) {
+      player = ExoPlayer.Builder(getInstrumentation().context.applicationContext).build()
+      player.setMediaItem(SHORT_MP3_ITEM)
+      player.prepare()
+      player.play()
+      // Make sure playback continues forever until it's paused.
+      player.repeatMode = Player.REPEAT_MODE_ALL
+      player.awaitIsPlaying(true)
+
+      val isNotPlaying = async { player.awaitIsPlaying(false) }
+      // pause() hasn't been called yet, so awaitIsPlaying() will suspend forever.
+      delay(500.milliseconds)
+      assertThat(isNotPlaying.isCompleted).isFalse()
+
+      player.pause()
+      isNotPlaying.await()
+
+      assertThat(player.isPlaying).isFalse()
+    }
+
+  @Test
+  fun awaitIsPlaying_alreadyInState_returnsImmediately() =
+    runBlocking(Dispatchers.Main) {
+      player = ExoPlayer.Builder(getInstrumentation().context.applicationContext).build()
+      player.setMediaItem(SHORT_MP3_ITEM)
+      player.prepare()
+      player.play()
+      val playerPlaying = CompletableDeferred<Unit>()
+      player.addListener(
+        object : Player.Listener {
+          override fun onIsPlayingChanged(isPlaying: Boolean) {
+            if (isPlaying) {
+              playerPlaying.complete(Unit)
+            }
+          }
+        }
+      )
+      playerPlaying.await()
+
+      assertDoesntSuspend { player.awaitIsPlaying(true) }
+
+      assertThat(player.isPlaying).isTrue()
+    }
+
+  @Test
+  fun awaitIsPlaying_nonFatalError_propagatesByDefault() =
+    runBlocking(Dispatchers.Main) {
+      player =
+        ExoPlayer.Builder(getInstrumentation().context.applicationContext)
+          .setRenderersFactory(FailingAudioRenderer.Factory())
+          .build()
+      player.setMediaItem(SHORT_MP3_ITEM)
+      player.prepare()
+      player.play()
+
+      val throwable = assertFailsWith<IllegalStateException> { player.awaitIsPlaying(true) }
+
+      assertThat(throwable).hasMessageThat().contains("FailingAudioRenderer")
+    }
+
+  @Test
+  fun awaitIsPlaying_nonFatalError_doesntPropagateIfDisabled() =
+    runBlocking(Dispatchers.Main) {
+      player =
+        ExoPlayer.Builder(getInstrumentation().context.applicationContext)
+          .setRenderersFactory(FailingAudioRenderer.Factory())
+          .build()
+      player.setMediaItem(SHORT_MP3_ITEM)
+      player.prepare()
+      player.play()
+
+      player.awaitIsPlaying(true, failOnNonFatalErrors = false)
+
+      assertThat(player.isPlaying).isTrue()
+    }
+
+  @Test
   fun awaitFirstFrameRendered() =
     runBlocking(Dispatchers.Main) {
       player = ExoPlayer.Builder(getInstrumentation().context.applicationContext).build()

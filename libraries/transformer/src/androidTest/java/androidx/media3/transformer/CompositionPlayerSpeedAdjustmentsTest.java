@@ -20,6 +20,7 @@ import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
+import static androidx.media3.test.utils.PlayerFence.futureWhen;
 import static androidx.media3.test.utils.TestUtil.createByteCountingAudioProcessor;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -30,6 +31,7 @@ import android.view.SurfaceView;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.Player;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.effect.GlEffect;
@@ -38,6 +40,7 @@ import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.SettableFuture;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
@@ -50,8 +53,6 @@ import org.junit.runner.RunWith;
 /** Instrumentation tests for {@link CompositionPlayer} with Speed Adjustments. */
 @RunWith(AndroidJUnit4.class)
 public class CompositionPlayerSpeedAdjustmentsTest {
-  // Emulators take considerably longer to run each test.
-  private static final long TEST_TIMEOUT_MS = 30_000;
 
   @Rule public final TestName testName = new TestName();
 
@@ -63,14 +64,12 @@ public class CompositionPlayerSpeedAdjustmentsTest {
   private final Context applicationContext = instrumentation.getContext().getApplicationContext();
 
   private CompositionPlayer compositionPlayer;
-  private PlayerTestListener playerListener;
   private SurfaceView surfaceView;
   private String testId;
 
   @Before
   public void setup() {
     testId = testName.getMethodName();
-    playerListener = new PlayerTestListener(TEST_TIMEOUT_MS);
     rule.getScenario().onActivity(activity -> surfaceView = activity.getSurfaceView());
   }
 
@@ -158,10 +157,12 @@ public class CompositionPlayerSpeedAdjustmentsTest {
             .setSpeed(provider)
             .build();
 
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     instrumentation.runOnMainSync(
         () -> {
           compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
-          compositionPlayer.addListener(playerListener);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.setComposition(
               new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item)))
                   .build());
@@ -169,7 +170,7 @@ public class CompositionPlayerSpeedAdjustmentsTest {
           compositionPlayer.play();
         });
 
-    playerListener.waitUntilPlayerEnded();
+    endedFuture.get();
 
     // 1250 ms @ mono 44.1 KHz = 55125 samples
     // Allow a tolerance equal to number of speed regions.
@@ -196,10 +197,12 @@ public class CompositionPlayerSpeedAdjustmentsTest {
     EditedMediaItemSequence secondarySequence =
         EditedMediaItemSequence.withAudioFrom(ImmutableList.of(secondaryItem));
 
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     instrumentation.runOnMainSync(
         () -> {
           compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
-          compositionPlayer.addListener(playerListener);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.setComposition(
               new Composition.Builder(primarySequence, secondarySequence)
                   .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
@@ -207,7 +210,7 @@ public class CompositionPlayerSpeedAdjustmentsTest {
           compositionPlayer.prepare();
           compositionPlayer.play();
         });
-    playerListener.waitUntilPlayerEnded();
+    endedFuture.get();
 
     // 1250 ms @ mono 44.1 KHz = 55125 samples
     // Allow a tolerance equal to number of speed regions.
@@ -413,6 +416,7 @@ public class CompositionPlayerSpeedAdjustmentsTest {
             /* effects= */ ImmutableList.of(
                 (GlEffect) (context, useHdr) -> timestampRecordingShaderProgram));
 
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     instrumentation.runOnMainSync(
         () -> {
           compositionPlayer =
@@ -422,7 +426,8 @@ public class CompositionPlayerSpeedAdjustmentsTest {
           // Set a surface on the player even though there is no UI on this test. We need a surface
           // otherwise the player will skip/drop video frames.
           compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.addListener(playerListener);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.setComposition(
               new Composition.Builder(
                       EditedMediaItemSequence.withAudioAndVideoFrom(
@@ -432,7 +437,7 @@ public class CompositionPlayerSpeedAdjustmentsTest {
           compositionPlayer.play();
         });
 
-    playerListener.waitUntilPlayerEnded();
+    endedFuture.get();
 
     return timestampRecordingShaderProgram.getInputTimestampsUs();
   }

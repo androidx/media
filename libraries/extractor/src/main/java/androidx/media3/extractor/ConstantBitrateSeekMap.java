@@ -166,6 +166,32 @@ public class ConstantBitrateSeekMap implements SeekMap {
     return getTimeUsAtPosition(position, firstFrameBytePosition, bitrate);
   }
 
+  /** Returns the byte position of the first frame in the stream (as passed to the constructor). */
+  protected final long getFirstFramePosition() {
+    return firstFrameBytePosition;
+  }
+
+  /**
+   * Returns the size of each frame in the stream in bytes, or {@code 1} if {@link C#LENGTH_UNSET}
+   * was passed to the constructor.
+   */
+  protected final int getFrameSize() {
+    return frameSize;
+  }
+
+  /** Returns the bitrate of the stream (as passed to the constructor). */
+  protected final int getBitrate() {
+    return bitrate;
+  }
+
+  /**
+   * Returns whether seeking is permitted if the stream length is unknown (as passed to the
+   * constructor).
+   */
+  protected final boolean shouldAllowSeeksIfLengthUnknown() {
+    return allowSeeksIfLengthUnknown;
+  }
+
   // Internal methods
 
   /**

@@ -29,7 +29,7 @@ import android.view.SurfaceView;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.PlaybackException;
+import androidx.media3.common.Player;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.HardwareBufferFrame;
@@ -38,18 +38,18 @@ import androidx.media3.effect.MultipleInputVideoGraph;
 import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.ndk.HardwareBufferJni;
-import androidx.media3.effect.ndk.NdkCompositionPlayerBuilder;
 import androidx.media3.test.utils.CompositionAssetInfo;
+import androidx.media3.test.utils.PlayerFence;
 import androidx.media3.test.utils.RecordingHardwareBufferEffectsPipeline;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.TimeoutException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
@@ -70,7 +70,6 @@ public class CompositionPlayerParameterizedPlaybackTest {
   private final Context context = getInstrumentation().getContext().getApplicationContext();
 
   private @MonotonicNonNull CompositionPlayer player;
-  private @MonotonicNonNull PlayerTestListener playerTestListener;
   private @MonotonicNonNull SurfaceView surfaceView;
 
   private static class SingleInputVideoGraphConfigsProvider extends TestParameterValuesProvider {
@@ -107,7 +106,6 @@ public class CompositionPlayerParameterizedPlaybackTest {
   @Before
   public void setup() {
     rule.getScenario().onActivity(activity -> surfaceView = activity.getSurfaceView());
-    playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
   }
 
   @After
@@ -232,7 +230,8 @@ public class CompositionPlayerParameterizedPlaybackTest {
   }
 
   private void runCompositionPlayer(Composition composition, VideoGraph.Factory videoGraphFactory)
-      throws PlaybackException, TimeoutException {
+      throws Exception {
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
         .runOnMainSync(
             () -> {
@@ -244,12 +243,12 @@ public class CompositionPlayerParameterizedPlaybackTest {
               // Set a surface on the player even though there is no UI on this test. We need a
               // surface otherwise the player will skip/drop video frames.
               player.setVideoSurfaceView(surfaceView);
-              player.addListener(playerTestListener);
+              endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
               player.setComposition(composition);
               player.prepare();
               player.play();
             });
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture.get();
   }
 
   @RequiresApi(28)
@@ -257,24 +256,26 @@ public class CompositionPlayerParameterizedPlaybackTest {
       Composition composition,
       RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
           hardwareBufferEffectsPipeline)
-      throws PlaybackException, TimeoutException {
+      throws Exception {
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
         .runOnMainSync(
             () -> {
               player =
-                  NdkCompositionPlayerBuilder.create(context)
+                  new CompositionPlayer.Builder(context)
+                      .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
                       .setHardwareBufferEffectsPipeline(hardwareBufferEffectsPipeline)
                       .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                       .build();
               // Set a surface on the player even though there is no UI on this test. We need a
               // surface otherwise the player will skip/drop video frames.
               player.setVideoSurfaceView(surfaceView);
-              player.addListener(playerTestListener);
+              endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
               player.setComposition(composition);
               player.prepare();
               player.play();
             });
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture.get();
   }
 
   private static MediaItem itemFromMetadata(CompositionFrameMetadata metadata) {
@@ -310,5 +311,9 @@ public class CompositionPlayerParameterizedPlaybackTest {
       }
     }
     return numVideoSequences;
+  }
+
+  private static PlayerFence futureWhen(Player player) {
+    return PlayerFence.futureWhen(player).withTimeoutMs(TEST_TIMEOUT_MS);
   }
 }

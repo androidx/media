@@ -32,9 +32,9 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.demo.compose.shortform.rememberShortFormState
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.compose.lifecycle.SlidingWindowEffect
 import androidx.media3.ui.compose.lifecycle.rememberPooledPlayer
 import androidx.media3.ui.compose.material3.Player
-import androidx.media3.ui.compose.state.SlidingWindowEffect
 import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
 
 @OptIn(ExperimentalApi::class)
@@ -56,7 +56,7 @@ internal fun ShortFormPlayerScreen(
   val pagerState = rememberPagerState { mediaItems.size }
 
   SlidingWindowEffect(
-    itemCount = pagerState.pageCount,
+    itemCountProvider = { pagerState.pageCount },
     currentItemProvider = { pagerState.settledPage },
     maxLookbehind = 3,
     maxLookahead = 6,

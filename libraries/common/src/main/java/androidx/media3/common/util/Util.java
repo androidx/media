@@ -2233,7 +2233,21 @@ public final class Util {
    */
   @UnstableApi
   public static String toHexString(byte[] bytes) {
-    return BaseEncoding.base16().lowerCase().encode(bytes);
+    return toHexString(bytes, 0, bytes.length);
+  }
+
+  /**
+   * Returns a string containing a lower-case hex representation of the bytes provided.
+   *
+   * @param bytes The byte data to convert to hex.
+   * @param offset The offset into data to read from.
+   * @param length The number of bytes to read from data.
+   * @return A String containing the hex representation of {@code bytes} (considering {@code offset}
+   *     and {@code length}).
+   */
+  @UnstableApi
+  public static String toHexString(byte[] bytes, int offset, int length) {
+    return BaseEncoding.base16().lowerCase().encode(bytes, offset, length);
   }
 
   @UnstableApi
@@ -4314,8 +4328,15 @@ public final class Util {
     }
   }
 
+  /**
+   * Returns the value of the given system property, or {@code null} if the property cannot be read
+   * or is not set.
+   *
+   * @param name The name of the system property.
+   */
   @Nullable
-  private static String getSystemProperty(String name) {
+  @UnstableApi
+  public static String getSystemProperty(String name) {
     try {
       @SuppressLint("PrivateApi")
       Class<?> systemProperties = Class.forName("android.os.SystemProperties");

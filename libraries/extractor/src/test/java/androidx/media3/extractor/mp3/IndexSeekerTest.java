@@ -40,7 +40,7 @@ import org.junit.runner.RunWith;
 public class IndexSeekerTest {
 
   private static final String TEST_FILE_XING_NO_TOC = "media/mp3/bear-vbr-xing-header-no-toc.mp3";
-  private static final int TEST_FILE_XING_NO_TOC_DURATION = 2_808_000;
+  private static final int TEST_FILE_XING_NO_TOC_GAPLESS_DURATION_US = 2_783_979;
 
   private Mp3Extractor extractor;
   private FakeExtractorOutput extractorOutput;
@@ -65,14 +65,14 @@ public class IndexSeekerTest {
   }
 
   @Test
-  public void mp3ExtractorReads_correctsInexactDuration() throws Exception {
+  public void mp3ExtractorReads_preservesGaplessDurationAfterEof() throws Exception {
     FakeExtractorOutput extractorOutput =
         TestUtil.extractAllSamplesFromFile(
             extractor, ApplicationProvider.getApplicationContext(), TEST_FILE_XING_NO_TOC);
 
     SeekMap seekMap = extractorOutput.seekMap;
 
-    assertThat(seekMap.getDurationUs()).isEqualTo(TEST_FILE_XING_NO_TOC_DURATION);
+    assertThat(seekMap.getDurationUs()).isEqualTo(TEST_FILE_XING_NO_TOC_GAPLESS_DURATION_US);
   }
 
   @Test
@@ -84,6 +84,17 @@ public class IndexSeekerTest {
     IndexSeeker seeker = new IndexSeeker(durationUs, dataStartPosition, dataEndPosition);
 
     assertThat(seeker.getAverageBitrate()).isEqualTo(8_000);
+  }
+
+  @Test
+  public void constructor_returnsUnsetAverageBitrateWhenAverageCannotBeCalculated() {
+    IndexSeeker seeker =
+        new IndexSeeker(
+            /* durationUs= */ C.TIME_UNSET,
+            /* dataStartPosition= */ 100,
+            /* dataEndPosition= */ C.INDEX_UNSET);
+
+    assertThat(seeker.getAverageBitrate()).isEqualTo(C.RATE_UNSET_INT);
   }
 
   @Test
@@ -111,7 +122,7 @@ public class IndexSeekerTest {
     SeekMap seekMap = TestUtil.extractSeekMap(extractor, extractorOutput, dataSource, fileUri);
     FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);
 
-    long targetSeekTimeUs = TEST_FILE_XING_NO_TOC_DURATION;
+    long targetSeekTimeUs = TEST_FILE_XING_NO_TOC_GAPLESS_DURATION_US;
     int extractedFrameIndex =
         TestUtil.seekToTimeUs(
             extractor, seekMap, targetSeekTimeUs, dataSource, trackOutput, fileUri);

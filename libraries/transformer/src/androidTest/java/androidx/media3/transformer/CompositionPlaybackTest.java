@@ -26,11 +26,13 @@ import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIM
 import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_80KHZ_MONO_20_REPEATING_1_SAMPLES_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
+import static androidx.media3.test.utils.PlayerFence.futureWhen;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
@@ -49,12 +51,14 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
 import java.nio.ShortBuffer;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -86,7 +90,6 @@ public class CompositionPlaybackTest {
       };
 
   private final Context context = getInstrumentation().getContext().getApplicationContext();
-  private final PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
 
   private @MonotonicNonNull CompositionPlayer player;
 
@@ -102,9 +105,8 @@ public class CompositionPlaybackTest {
   }
 
   @Test
-  public void seek_withScrubbingModeDuringPlayback_doesNotCrash()
-      throws PlaybackException, TimeoutException {
-    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+  public void seek_withScrubbingModeDuringPlayback_doesNotCrash() throws Exception {
+    SettableFuture<Void> readyFuture = SettableFuture.create();
     EditedMediaItem item =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
             .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
@@ -120,23 +122,24 @@ public class CompositionPlaybackTest {
                   new CompositionPlayer.Builder(context)
                       .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                       .build();
-              player.addListener(listener);
-              player.addAnalyticsListener(listener);
+              readyFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_READY));
               player.setComposition(composition);
               player.prepare();
               player.play();
             });
-    listener.waitUntilPlayerReady();
+    readyFuture.get();
 
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
         .runOnMainSync(
             () -> {
+              endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
               player.setScrubbingModeEnabled(true);
               player.seekTo(500);
               player.setScrubbingModeEnabled(false);
             });
 
-    listener.waitUntilPlayerEnded();
+    endedFuture.get();
   }
 
   @Test
@@ -240,17 +243,18 @@ public class CompositionPlaybackTest {
         new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item, item)))
             .build();
 
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
         .runOnMainSync(
             () -> {
               player = new CompositionPlayer.Builder(context).build();
-              player.addListener(playerTestListener);
+              endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
               player.setComposition(composition);
               player.prepare();
               player.seekTo(250);
               player.play();
             });
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture.get();
 
     // Next audio frame after seek of 250ms is 252.979ms (b/458654879).
     assertThat(processor.positionOffsetsUs).containsExactly(0L, 252_979L, 44000L).inOrder();
@@ -274,17 +278,18 @@ public class CompositionPlaybackTest {
         new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item, item)))
             .build();
 
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
         .runOnMainSync(
             () -> {
               player = new CompositionPlayer.Builder(context).build();
-              player.addListener(playerTestListener);
+              endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
               player.setComposition(composition);
               player.prepare();
               player.seekTo(250);
               player.play();
             });
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture.get();
 
     // Next audio frame after seek of 250ms and clip start of 500ms is 763.818ms.
     // Next audio frame after clip start of 500ms is 508.399ms (b/458654879).
@@ -305,17 +310,18 @@ public class CompositionPlaybackTest {
         new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item, item)))
             .build();
 
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
         .runOnMainSync(
             () -> {
               player = new CompositionPlayer.Builder(context).build();
-              player.addListener(playerTestListener);
+              endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
               player.setComposition(composition);
               player.prepare();
               player.seekTo(250);
               player.play();
             });
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture.get();
 
     // Seek at 250ms resolves to 500ms, and next audio frame is 508.399ms (b/458654879).
     // 250ms + (8.399ms / 2) gives us position offset.
@@ -372,17 +378,18 @@ public class CompositionPlaybackTest {
         new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item, item)))
             .build();
 
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
         .runOnMainSync(
             () -> {
               player = new CompositionPlayer.Builder(context).build();
-              player.addListener(playerTestListener);
+              endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
               player.setComposition(composition);
               player.prepare();
               player.seekTo(100);
               player.play();
             });
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture.get();
 
     // Seek at 100ms with clip start of 500ms resolves to 700ms (500ms + 100ms * 2x). Next audio
     // frame is 717.378ms. 100ms + ((717.378ms - 700ms) / 2) gives us position offset.
@@ -401,11 +408,12 @@ public class CompositionPlaybackTest {
     CountDownLatch repetitionEndedLatch = new CountDownLatch(2);
     AtomicReference<@NullableType PlaybackException> playbackException = new AtomicReference<>();
 
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
         .runOnMainSync(
             () -> {
               player = new CompositionPlayer.Builder(context).build();
-              player.addListener(playerTestListener);
+              endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
               player.addListener(
                   new Player.Listener() {
                     @Override
@@ -436,7 +444,7 @@ public class CompositionPlaybackTest {
     assertThat(playbackException.get()).isNull();
     assertThat(latchTimedOut).isFalse();
     getInstrumentation().runOnMainSync(() -> player.setRepeatMode(REPEAT_MODE_OFF));
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture.get();
   }
 
   @Test
@@ -479,8 +487,7 @@ public class CompositionPlaybackTest {
   }
 
   @Test
-  public void audioOnlySingleAsset_inAudioVideoSequence_doesNotOutputSilence()
-      throws PlaybackException, TimeoutException {
+  public void audioOnlySingleAsset_inAudioVideoSequence_doesNotOutputSilence() throws Exception {
     EditedMediaItem audioClip =
         new EditedMediaItem.Builder(
                 MediaItem.fromUri(WAV_80KHZ_MONO_20_REPEATING_1_SAMPLES_ASSET.uri))
@@ -510,22 +517,22 @@ public class CompositionPlaybackTest {
             .setEffects(new Effects(ImmutableList.of(teeAudioProcessor), ImmutableList.of()))
             .build();
 
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
         .runOnMainSync(
             () -> {
               player = new CompositionPlayer.Builder(context).build();
-              player.addListener(playerTestListener);
+              endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
               player.setComposition(composition);
               player.prepare();
               player.play();
             });
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture.get();
     assertThat(samplesProcessedCount.get()).isEqualTo(20);
   }
 
   @Test
-  public void playback_singleAssetAudioSequence_doesNotUnderrun()
-      throws PlaybackException, TimeoutException {
+  public void playback_singleAssetAudioSequence_doesNotUnderrun() throws Exception {
     EditedMediaItem clip =
         new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
             .setDurationUs(1_000_000L)
@@ -550,22 +557,22 @@ public class CompositionPlaybackTest {
     AudioSink sink = new DefaultAudioSink.Builder(context).build();
     sink.setListener(sinkListener);
 
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
         .runOnMainSync(
             () -> {
               player = new CompositionPlayer.Builder(context).setAudioSink(sink).build();
-              player.addListener(playerTestListener);
+              endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
               player.setComposition(composition);
               player.prepare();
               player.play();
             });
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture.get();
     assertThat(underrunCount.get()).isEqualTo(0);
   }
 
   @Test
-  public void playback_audioSequenceWithMiddleGap_doesNotCrash()
-      throws PlaybackException, TimeoutException {
+  public void playback_audioSequenceWithMiddleGap_doesNotCrash() throws Exception {
     EditedMediaItem clip =
         new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
             .setDurationUs(1_000_000L)
@@ -582,8 +589,7 @@ public class CompositionPlaybackTest {
   }
 
   @Test
-  public void playback_audioSequenceWithStartGap_doesNotCrash()
-      throws PlaybackException, TimeoutException {
+  public void playback_audioSequenceWithStartGap_doesNotCrash() throws Exception {
     EditedMediaItem clip =
         new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
             .setDurationUs(1_000_000L)
@@ -600,8 +606,7 @@ public class CompositionPlaybackTest {
   }
 
   @Test
-  public void playback_audioSequenceWithMiddleGapAndVideoSequence_doesNotCrash()
-      throws PlaybackException, TimeoutException {
+  public void playback_audioSequenceWithMiddleGapAndVideoSequence_doesNotCrash() throws Exception {
     EditedMediaItem audioClip =
         new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
             .setDurationUs(1_000_000L)
@@ -641,7 +646,7 @@ public class CompositionPlaybackTest {
                 EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(editedMediaItem)))
             .build();
 
-    runCompositionPlayer(composition);
+    DecoderCounters videoDecoderCounters = runCompositionPlayer(composition);
 
     // Input: 1 sec video at 60 fps; Output: 1 sec video at 30 fps = ~30 frames
     assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
@@ -651,7 +656,6 @@ public class CompositionPlaybackTest {
             566_666L, 600_000L, 633_333L, 666_666L, 700_000L, 733_333L, 766_666L, 800_000L,
             833_333L, 866_666L, 900_000L, 933_333L, 966_666L, 983_333L)
         .inOrder();
-    DecoderCounters videoDecoderCounters = playerTestListener.getVideoDecoderCounters();
     if (SDK_INT >= 34) {
       // Frames are dropped by MediaCodec internally.
       assertThat(videoDecoderCounters.skippedOutputBufferCount).isEqualTo(0);
@@ -681,7 +685,7 @@ public class CompositionPlaybackTest {
                 EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(editedMediaItem)))
             .build();
 
-    runCompositionPlayer(composition);
+    DecoderCounters videoDecoderCounters = runCompositionPlayer(composition);
 
     // Input: 1 sec video containing B-frames at 30 fps; Output: 1 sec video at 15 fps = ~15 frames
     assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
@@ -689,8 +693,6 @@ public class CompositionPlaybackTest {
             0L, 66_733L, 133_466L, 200_200L, 266_933L, 333_666L, 400_400L, 467_133L, 533_866L,
             600_600L, 667_333L, 734_066L, 800_800L, 867_533L, 934_266L, 967_633L)
         .inOrder();
-    ;
-    DecoderCounters videoDecoderCounters = playerTestListener.getVideoDecoderCounters();
     // For input containing B-frames, frames are always dropped after MediaCodec output.
     assertThat(videoDecoderCounters.skippedOutputBufferCount).isEqualTo(14);
   }
@@ -759,19 +761,31 @@ public class CompositionPlaybackTest {
         /* perStreamMediaProgressionEnabled= */ true);
   }
 
-  private void runCompositionPlayer(Composition composition)
-      throws PlaybackException, TimeoutException {
-    runCompositionPlayer(
+  /**
+   * Runs the composition and returns the video {@link DecoderCounters} (if any) from the player.
+   */
+  @Nullable
+  @CanIgnoreReturnValue
+  private DecoderCounters runCompositionPlayer(Composition composition)
+      throws InterruptedException, ExecutionException {
+    return runCompositionPlayer(
         composition,
         /* videoPrewarmingEnabled= */ true,
         /* perStreamMediaProgressionEnabled= */ false);
   }
 
-  private void runCompositionPlayer(
+  /**
+   * Runs the composition and returns the video {@link DecoderCounters} (if any) from the player.
+   */
+  @Nullable
+  @CanIgnoreReturnValue
+  private DecoderCounters runCompositionPlayer(
       Composition composition,
       boolean videoPrewarmingEnabled,
       boolean perStreamMediaProgressionEnabled)
-      throws PlaybackException, TimeoutException {
+      throws InterruptedException, ExecutionException {
+    SettableFuture<Void> endedFuture = SettableFuture.create();
+    DecoderCountersListener decoderCountersListener = new DecoderCountersListener();
     getInstrumentation()
         .runOnMainSync(
             () -> {
@@ -781,13 +795,14 @@ public class CompositionPlaybackTest {
                       .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                       .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
                       .build();
-              player.addListener(playerTestListener);
-              player.addAnalyticsListener(playerTestListener);
+              endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
+              player.addAnalyticsListener(decoderCountersListener);
               player.setComposition(composition);
               player.prepare();
               player.play();
             });
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture.get();
+    return decoderCountersListener.getVideoDecoderCounters();
   }
 
   private static class PositionOffsetRecorder extends PassthroughAudioProcessor {

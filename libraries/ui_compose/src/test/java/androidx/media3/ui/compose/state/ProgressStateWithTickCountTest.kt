@@ -51,6 +51,7 @@ class ProgressStateWithTickCountTest {
     assertThat(state.currentPositionProgress).isEqualTo(0f)
     assertThat(state.bufferedPositionProgress).isEqualTo(0f)
     assertThat(state.changingProgressEnabled).isFalse()
+    assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
   }
 
   @Test
@@ -153,6 +154,7 @@ class ProgressStateWithTickCountTest {
 
       assertThat(state.currentPositionProgress).isEqualTo(0f)
       assertThat(state.bufferedPositionProgress).isEqualTo(0f)
+      assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
     }
 
   @Test
@@ -168,6 +170,7 @@ class ProgressStateWithTickCountTest {
       lateinit var state: ProgressStateWithTickCount
       setContent { state = rememberProgressStateWithTickCount(player, totalTickCount = 10) }
       assertThat(state.currentPositionProgress).isEqualTo(0f)
+      assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
 
       mainClock.advancePrecisely(2345)
       assertThat(state.currentPositionProgress).isEqualTo(0f)
@@ -177,7 +180,10 @@ class ProgressStateWithTickCountTest {
       waitForIdle()
 
       assertThat(player.duration).isEqualTo(10_000)
-      assertThat(player.currentPosition).isEqualTo(4690)
+      assertThat(player.currentPosition)
+        .isWithin(17) // Allowing for ~1 frame of clock advancement during waitForIdle.
+        .of(4690)
+      assertThat(state.durationMs).isEqualTo(10_000)
       assertThat(state.currentPositionProgress).isEqualTo(0.5f)
     }
 
@@ -197,6 +203,7 @@ class ProgressStateWithTickCountTest {
     assertThat(state.bufferedPositionProgress).isEqualTo(0f)
     assertThat(state.changingProgressEnabled).isFalse()
     assertThat(player.duration).isEqualTo(C.TIME_UNSET)
+    assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
 
     mainClock.advancePrecisely(durationUnknownUpdate - 100)
 
@@ -301,6 +308,7 @@ class ProgressStateWithTickCountTest {
     setContent { state = rememberProgressStateWithTickCount(player, totalTickCount = 10) }
     assertThat(state.currentPositionProgress).isEqualTo(0f)
     assertThat(state.bufferedPositionProgress).isEqualTo(0f)
+    assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
 
     // Wait for any pending updates to verify the state stays the same and is not blocked on the
     // main thread.
@@ -308,6 +316,7 @@ class ProgressStateWithTickCountTest {
 
     assertThat(state.currentPositionProgress).isEqualTo(0f)
     assertThat(state.bufferedPositionProgress).isEqualTo(0f)
+    assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
   }
 
   @Test
@@ -322,18 +331,21 @@ class ProgressStateWithTickCountTest {
     // Check state before change to ENDED
     assertThat(state.currentPositionProgress).isEqualTo(1f)
     assertThat(state.bufferedPositionProgress).isEqualTo(1f)
+    assertThat(state.durationMs).isEqualTo(10_000)
 
     player.setPlaybackState(Player.STATE_ENDED)
 
     // Immediately after the change before running the playback state update
     assertThat(state.currentPositionProgress).isEqualTo(1f)
     assertThat(state.bufferedPositionProgress).isEqualTo(1f)
+    assertThat(state.durationMs).isEqualTo(10_000)
 
     waitForIdle()
 
     // After completing any pending updates to ensure the main thread is not blocked.
     assertThat(state.currentPositionProgress).isEqualTo(1f)
     assertThat(state.bufferedPositionProgress).isEqualTo(1f)
+    assertThat(state.durationMs).isEqualTo(10_000)
   }
 
   @Test

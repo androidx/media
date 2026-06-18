@@ -16,9 +16,9 @@
 
 package androidx.media3.transformer.mh;
 
-import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
+import static androidx.media3.test.utils.PlayerFence.futureWhen;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeTrue;
@@ -31,7 +31,6 @@ import android.view.SurfaceView;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Util;
@@ -51,15 +50,14 @@ import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EditedMediaItemSequence;
 import androidx.media3.transformer.Effects;
 import androidx.media3.transformer.InputTimestampRecordingShaderProgram;
-import androidx.media3.transformer.PlayerTestListener;
 import androidx.media3.transformer.SurfaceTestActivity;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.SettableFuture;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeoutException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -71,7 +69,6 @@ import org.junit.runner.RunWith;
 @Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(AndroidJUnit4.class)
 public class ReplayCacheTest {
-  private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 10_000;
 
   private static final MediaItem VIDEO_MEDIA_ITEM_1 = MediaItem.fromUri(MP4_ADVANCED_ASSET.uri);
   private static final long VIDEO_MEDIA_ITEM_1_DURATION_US = MP4_ADVANCED_ASSET.videoDurationUs;
@@ -113,13 +110,12 @@ public class ReplayCacheTest {
 
   @Test
   @Ignore("TODO: b/391109644 - Fix this test and re-enable it")
-  public void replayOnEveryFrame_withExoPlayer_succeeds()
-      throws PlaybackException, TimeoutException {
+  public void replayOnEveryFrame_withExoPlayer_succeeds() throws Exception {
     assumeTrue(
         "The MediaCodec decoder's output surface is sometimes dropping frames on emulator despite"
             + " using MediaFormat.KEY_ALLOW_FRAME_DROP.",
         !Util.isRunningOnEmulator());
-    PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     List<Long> playedFrameTimestampsUs = new ArrayList<>();
 
     instrumentation.runOnMainSync(
@@ -146,7 +142,7 @@ public class ReplayCacheTest {
           exoPlayer.setVideoSurfaceView(surfaceView);
           // Adding an EventLogger to use its log output in case the test fails.
           exoPlayer.addAnalyticsListener(new EventLogger());
-          exoPlayer.addListener(playerTestListener);
+          endedFuture.setFuture(futureWhen(exoPlayer).entersPlaybackState(Player.STATE_ENDED));
           exoPlayer.setVideoEffects(ImmutableList.of(new Contrast(0.5f)));
           exoPlayer.setVideoFrameMetadataListener(
               new VideoFrameMetadataListener() {
@@ -172,7 +168,7 @@ public class ReplayCacheTest {
           exoPlayer.play();
         });
 
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture.get();
     // VIDEO_1 has size 30, VIDEO_2 has size 30, every frame is replayed once, minus one frame that
     // we don't currently replay (the frame at media item transition).
     assertThat(playedFrameTimestampsUs).hasSize(119);
@@ -184,7 +180,7 @@ public class ReplayCacheTest {
         "The MediaCodec decoder's output surface is sometimes dropping frames on emulator despite"
             + " using MediaFormat.KEY_ALLOW_FRAME_DROP.",
         !Util.isRunningOnEmulator());
-    PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
         new InputTimestampRecordingShaderProgram();
 
@@ -195,7 +191,8 @@ public class ReplayCacheTest {
                   .experimentalSetEnableReplayableCache(true)
                   .build();
           compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.addListener(playerTestListener);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.addListener(
               new Player.Listener() {
                 @Override
@@ -225,7 +222,7 @@ public class ReplayCacheTest {
           compositionPlayer.prepare();
         });
 
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture.get();
 
     int countOfFirstFrameRendered = 0;
     for (long timestampUs : inputTimestampRecordingShaderProgram.getInputTimestampsUs()) {
@@ -243,7 +240,8 @@ public class ReplayCacheTest {
         "The MediaCodec decoder's output surface is sometimes dropping frames on emulator despite"
             + " using MediaFormat.KEY_ALLOW_FRAME_DROP.",
         !Util.isRunningOnEmulator());
-    PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    SettableFuture<Void> readyFuture = SettableFuture.create();
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     Handler mainHandler = new Handler(instrumentation.getTargetContext().getMainLooper());
 
     instrumentation.runOnMainSync(
@@ -253,7 +251,10 @@ public class ReplayCacheTest {
                   .experimentalSetEnableReplayableCache(true)
                   .build();
           compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.addListener(playerTestListener);
+          readyFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_READY));
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.setComposition(
               new Composition.Builder(
                       EditedMediaItemSequence.withAudioAndVideoFrom(
@@ -273,13 +274,13 @@ public class ReplayCacheTest {
           compositionPlayer.play();
         });
 
-    playerTestListener.waitUntilPlayerReady();
+    readyFuture.get();
     for (int i = 0; i < 180; i++) {
       // Replaying every 10 ms.
       mainHandler.postDelayed(
           compositionPlayer::experimentalRedrawLastFrame, /* delayMillis= */ 10 * i);
     }
 
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture.get();
   }
 }

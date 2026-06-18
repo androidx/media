@@ -47,6 +47,12 @@ import java.util.Objects;
 
   private static final Object FAKE_WINDOW_UID = new Object();
 
+  /**
+   * A queue ID used for the fake media item created when the legacy session has metadata but no
+   * queue.
+   */
+  public static final long FAKE_QUEUE_ID = -2L;
+
   private final ImmutableList<QueuedMediaItem> queuedMediaItems;
   @Nullable private final QueuedMediaItem fakeQueuedMediaItem;
 
@@ -75,16 +81,19 @@ import java.util.Objects;
   }
 
   /**
-   * Gets the queue ID of the media item at the given index or {@link QueueItem#UNKNOWN_ID} if not
-   * known.
+   * Gets the queue ID of the media item at the given index, {@link QueueItem#UNKNOWN_ID} if not
+   * known, or {@link #FAKE_QUEUE_ID} if it is a fake media item.
    *
    * @param mediaItemIndex The media item index.
-   * @return The corresponding queue ID or {@link QueueItem#UNKNOWN_ID} if not known.
+   * @return The corresponding queue ID, {@link QueueItem#UNKNOWN_ID} if not known, or {@link
+   *     #FAKE_QUEUE_ID} if it is a fake media item.
    */
   public long getQueueId(int mediaItemIndex) {
     return mediaItemIndex >= 0 && mediaItemIndex < queuedMediaItems.size()
         ? queuedMediaItems.get(mediaItemIndex).queueId
-        : QueueItem.UNKNOWN_ID;
+        : (mediaItemIndex == queuedMediaItems.size() && fakeQueuedMediaItem != null
+            ? FAKE_QUEUE_ID
+            : QueueItem.UNKNOWN_ID);
   }
 
   /**
@@ -97,7 +106,7 @@ import java.util.Objects;
    */
   public QueueTimeline copyWithFakeMediaItem(MediaItem fakeMediaItem, long durationMs) {
     return new QueueTimeline(
-        queuedMediaItems, new QueuedMediaItem(fakeMediaItem, QueueItem.UNKNOWN_ID, durationMs));
+        queuedMediaItems, new QueuedMediaItem(fakeMediaItem, FAKE_QUEUE_ID, durationMs));
   }
 
   /** Copies the timeline while clearing any previously set fake media item. */

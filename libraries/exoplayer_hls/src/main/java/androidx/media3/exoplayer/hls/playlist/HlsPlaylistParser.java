@@ -157,6 +157,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
   private static final Pattern REGEX_BANDWIDTH = Pattern.compile("[^-]BANDWIDTH=(\\d+)\\b");
   private static final Pattern REGEX_CHANNELS =
       Pattern.compile("CHANNELS=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
+  private static final Pattern REGEX_SAMPLE_RATE = Pattern.compile("SAMPLE-RATE=(\\d+)\\b");
   private static final Pattern REGEX_VIDEO_RANGE = Pattern.compile("VIDEO-RANGE=(SDR|PQ|HLG)");
   private static final Pattern REGEX_CODECS =
       Pattern.compile("CODECS=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
@@ -730,6 +731,11 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
               sampleMimeType = MimeTypes.AUDIO_E_AC3_JOC;
               formatBuilder.setCodecs(MimeTypes.CODEC_E_AC3_JOC);
             }
+          }
+          int sampleRate =
+              parseOptionalIntAttr(line, REGEX_SAMPLE_RATE, Format.NO_VALUE, matcherCache);
+          if (sampleRate != Format.NO_VALUE) {
+            formatBuilder.setSampleRate(sampleRate);
           }
           formatBuilder.setSampleMimeType(sampleMimeType);
           if (uri != null) {

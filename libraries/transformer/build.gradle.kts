@@ -40,6 +40,7 @@ dependencies {
   testImplementation(libs.robolectric)
   testImplementation(libs.test.parameter.injector)
   testImplementation(libs.truth)
+  androidTestRuntimeOnly(libs.dexmaker.mockito)
   androidTestImplementation(libs.junit)
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(libs.androidx.test.uiautomator)

@@ -2139,7 +2139,7 @@ public class MediaControllerWithMediaSessionCompatTest {
   }
 
   @Test
-  public void prepare_withMetadata_callsPrepareFromMediaId() throws Exception {
+  public void prepare_withMetadata_callsPrepare() throws Exception {
     session.setPlaybackState(
         new PlaybackStateCompat.Builder()
             .setState(PlaybackStateCompat.STATE_NONE, /* position= */ 0, /* playbackSpeed= */ 0.0f)
@@ -2178,13 +2178,12 @@ public class MediaControllerWithMediaSessionCompatTest {
     // Assert whether the correct preparation method has been called and received by the session.
     assertThat(countDownLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     int callbackMethodCount =
-        session.getCallbackMethodCount(
-            MediaSessionCompatProviderService.METHOD_ON_PREPARE_FROM_MEDIA_ID);
+        session.getCallbackMethodCount(MediaSessionCompatProviderService.METHOD_ON_PREPARE);
     assertThat(callbackMethodCount).isEqualTo(1);
   }
 
   @Test
-  public void prepare_withMetadataAndActiveQueueItemId_callsPrepareFromMediaId() throws Exception {
+  public void prepare_withMetadataAndActiveQueueItemId_callsPrepare() throws Exception {
     session.setPlaybackState(
         new PlaybackStateCompat.Builder()
             .setActiveQueueItemId(4)
@@ -2224,8 +2223,7 @@ public class MediaControllerWithMediaSessionCompatTest {
     // Assert whether the correct preparation method has been called and received by the session.
     assertThat(countDownLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     int callbackMethodCount =
-        session.getCallbackMethodCount(
-            MediaSessionCompatProviderService.METHOD_ON_PREPARE_FROM_MEDIA_ID);
+        session.getCallbackMethodCount(MediaSessionCompatProviderService.METHOD_ON_PREPARE);
     assertThat(callbackMethodCount).isEqualTo(1);
   }
 
@@ -2309,7 +2307,7 @@ public class MediaControllerWithMediaSessionCompatTest {
   }
 
   @Test
-  public void prepare_withQueueAndMetadata_callsPrepareFromMediaId() throws Exception {
+  public void prepare_withQueueAndMetadata_callsPrepare() throws Exception {
     List<MediaItem> testMediaItems =
         MediaTestUtils.createMediaItems(/* size= */ 10, /* buildWithUri= */ true);
     List<QueueItem> testQueue = MediaTestUtils.convertToQueueItemsWithoutBitmap(testMediaItems);
@@ -2352,8 +2350,7 @@ public class MediaControllerWithMediaSessionCompatTest {
     // Assert whether the correct preparation method has been called and received by the session.
     assertThat(countDownLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     int callbackMethodCount =
-        session.getCallbackMethodCount(
-            MediaSessionCompatProviderService.METHOD_ON_PREPARE_FROM_MEDIA_ID);
+        session.getCallbackMethodCount(MediaSessionCompatProviderService.METHOD_ON_PREPARE);
     assertThat(callbackMethodCount).isEqualTo(1);
   }
 
@@ -2444,6 +2441,42 @@ public class MediaControllerWithMediaSessionCompatTest {
     assertThat(threadTestRule.getHandler().postAndSync(controller::isPlayingAd)).isFalse();
     int callbackMethodCount =
         session.getCallbackMethodCount(MediaSessionCompatProviderService.METHOD_ON_STOP);
+    assertThat(callbackMethodCount).isEqualTo(1);
+  }
+
+  @Test
+  public void play_withLegacySessionMetadataAndNoMediaIdAndNoQueue_callsPlay() throws Exception {
+    MediaMetadataCompat metadata =
+        new MediaMetadataCompat.Builder()
+            .putString(MediaMetadataCompat.METADATA_KEY_TITLE, "title")
+            .build();
+    session.setMetadata(metadata);
+
+    PlaybackStateCompat playbackState =
+        new PlaybackStateCompat.Builder()
+            .setState(
+                PlaybackStateCompat.STATE_PAUSED, /* position= */ 0, /* playbackSpeed= */ 1.0f)
+            .setActions(PlaybackStateCompat.ACTION_PLAY)
+            .build();
+    session.setPlaybackState(playbackState);
+
+    MediaController controller = controllerTestRule.createController(session.getSessionToken());
+    CountDownLatch latch = new CountDownLatch(1);
+    controller.addListener(
+        new Player.Listener() {
+          @Override
+          public void onEvents(Player player, Player.Events events) {
+            if (events.contains(Player.EVENT_MEDIA_METADATA_CHANGED)) {
+              latch.countDown();
+            }
+          }
+        });
+
+    threadTestRule.getHandler().postAndSync(controller::play);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    int callbackMethodCount =
+        session.getCallbackMethodCount(MediaSessionCompatProviderService.METHOD_ON_PLAY);
     assertThat(callbackMethodCount).isEqualTo(1);
   }
 

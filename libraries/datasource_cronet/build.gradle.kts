@@ -24,9 +24,9 @@ dependencies {
   api(project(":lib-common"))
   api(project(":lib-datasource"))
   implementation(libs.androidx.annotation)
+  androidTestRuntimeOnly(libs.dexmaker.mockito)
   androidTestImplementation(libs.androidx.test.rules)
   androidTestImplementation(libs.androidx.test.runner)
-  androidTestImplementation(libs.dexmaker.mockito)
   // Instrumentation tests assume that an app-packaged version of cronet is available.
   androidTestImplementation(libs.cronet.embedded)
   androidTestImplementation(project(":test-utils"))

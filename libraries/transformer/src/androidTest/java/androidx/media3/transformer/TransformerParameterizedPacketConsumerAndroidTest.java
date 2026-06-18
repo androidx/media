@@ -26,7 +26,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
 import androidx.media3.effect.ndk.HardwareBufferJni;
-import androidx.media3.effect.ndk.NdkTransformerBuilder;
 import androidx.media3.test.utils.CompositionAssetInfo;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.SdkSuppress;
@@ -90,7 +89,8 @@ public final class TransformerParameterizedPacketConsumerAndroidTest {
         /* inputFormats= */ testConfig.getAllVideoFormats(),
         /* outputFormat= */ testConfig.getVideoEncoderInputFormat());
     Transformer transformer =
-        NdkTransformerBuilder.create(context)
+        new Transformer.Builder(context)
+            .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
             .setHardwareBufferEffectsPipeline(
                 DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE))
             .build();

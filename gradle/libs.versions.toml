@@ -129,7 +129,6 @@ checkerframework-qual = { group = "org.checkerframework", name = "checker-qual",
 cronet-api = { group = "org.chromium.net", name = "cronet-api", version.ref = "cronetVersion" }
 cronet-embedded = { group = "org.chromium.net", name = "cronet-embedded", version.ref = "cronetVersion" }
 desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugarJdkLibsVersion" }
-dexmaker = { group = "com.linkedin.dexmaker", name = "dexmaker", version.ref = "dexmakerVersion" }
 dexmaker-mockito = { group = "com.linkedin.dexmaker", name = "dexmaker-mockito", version.ref = "dexmakerVersion" }
 errorprone-annotations = { group = "com.google.errorprone", name = "error_prone_annotations", version.ref = "errorProneVersion" }
 glide = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glideVersion" }

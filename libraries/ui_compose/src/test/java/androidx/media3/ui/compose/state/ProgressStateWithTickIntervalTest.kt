@@ -41,6 +41,19 @@ import org.junit.runner.RunWith
 class ProgressStateWithTickIntervalTest {
 
   @Test
+  fun rememberProgressStateWithTickInterval_withNullPlayer_returnsDefaultValues() =
+    runComposeUiTest {
+      lateinit var state: ProgressStateWithTickInterval
+      setContent {
+        state = rememberProgressStateWithTickInterval(player = null, tickIntervalMs = 1000)
+      }
+
+      assertThat(state.currentPositionMs).isEqualTo(0L)
+      assertThat(state.bufferedPositionMs).isEqualTo(0L)
+      assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
+    }
+
+  @Test
   fun progressUpdatingOnTheSecondMark_positionChangesByOneSecond() = runComposeUiTest {
     val player = createReadyPlayerWithSingleItem()
     player.setPositionSupplierDrivenBy(mainClock.scheduler)

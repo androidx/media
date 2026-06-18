@@ -60,6 +60,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -436,12 +437,9 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
 
     @Override
     public void setParameters(Bundle bundle) {
-      Bundle filteredBundle = new Bundle(bundle);
-      // TODO: b/388762778 - Update the goldens to include operating-rate and remove this filter.
-      filteredBundle.remove("operating-rate");
-      if (!filteredBundle.isEmpty()) {
+      if (!bundle.isEmpty()) {
         capturedInteractions.put(
-            SET_PARAMETERS_INTERACTION_TYPE, new CapturedSetParameters(filteredBundle));
+            SET_PARAMETERS_INTERACTION_TYPE, new CapturedSetParameters(new Bundle(bundle)));
       }
       super.setParameters(bundle);
     }
@@ -563,6 +561,9 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
           Object value = bundle.get(key);
           if (value instanceof byte[]) {
             dumper.add(key, (byte[]) value);
+          } else if (value instanceof Float) {
+            float rounded = Float.parseFloat(String.format(Locale.US, "%.2f", (Float) value));
+            dumper.add(key, rounded);
           } else if (value instanceof Integer) {
             dumper.add(key, value);
           } else if (value instanceof Long) {

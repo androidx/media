@@ -25,6 +25,7 @@ import androidx.media3.extractor.SeekMap.SeekPoints;
 import androidx.media3.extractor.SeekPoint;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.math.RoundingMode;
+import java.nio.ByteBuffer;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -99,6 +100,42 @@ public final class XingSeekerTest {
 
     assertThat(seeker.getAverageBitrate()).isEqualTo(expectedAverageBitrate);
     assertThat(seeker.getAverageBitrate()).isNotEqualTo(XING_FRAME.header.bitrate);
+  }
+
+  @Test
+  public void getAverageBitrate_withEncoderDelayAndPadding_usesGaplessDuration() {
+    XingFrame frame =
+        createXingFrame(
+            XING_FRAME_HEADER_DATA,
+            /* frameCount= */ 40,
+            /* dataSize= */ 8_541,
+            /* encoderDelay= */ 576,
+            /* encoderPadding= */ 1_404);
+    XingSeeker seeker =
+        XingSeeker.create(
+            frame, XING_FRAME_POSITION, /* streamLength= */ XING_FRAME_POSITION + frame.dataSize);
+    long gaplessDurationUs = frame.computeDurationUs();
+    long encodedDurationUs =
+        Util.sampleCountToDurationUs(
+            frame.frameCount * frame.header.samplesPerFrame - 1, frame.header.sampleRate);
+    int expectedAverageBitrate =
+        (int)
+            Util.scaleLargeValue(
+                frame.dataSize - frame.header.frameSize,
+                C.BITS_PER_BYTE * C.MICROS_PER_SECOND,
+                gaplessDurationUs,
+                RoundingMode.HALF_UP);
+    int encodedDurationAverageBitrate =
+        (int)
+            Util.scaleLargeValue(
+                frame.dataSize - frame.header.frameSize,
+                C.BITS_PER_BYTE * C.MICROS_PER_SECOND,
+                encodedDurationUs,
+                RoundingMode.HALF_UP);
+
+    assertThat(seeker.getDurationUs()).isEqualTo(gaplessDurationUs);
+    assertThat(seeker.getAverageBitrate()).isEqualTo(expectedAverageBitrate);
+    assertThat(seeker.getAverageBitrate()).isNotEqualTo(encodedDurationAverageBitrate);
   }
 
   // https://github.com/androidx/media/issues/3117#issuecomment-4046538506
@@ -203,5 +240,19 @@ public final class XingSeekerTest {
     MpegAudioUtil.Header xingFrameHeader = new MpegAudioUtil.Header();
     xingFrameHeader.setForHeaderData(header);
     return XingFrame.parse(xingFrameHeader, new ParsableByteArray(payload));
+  }
+
+  private static XingFrame createXingFrame(
+      int headerData, int frameCount, int dataSize, int encoderDelay, int encoderPadding) {
+    int encoderDelayAndPadding = (encoderDelay << 12) | encoderPadding;
+    ByteBuffer payload = ByteBuffer.allocate(4 + 4 + 4 + 11 + 8 + 2 + 3);
+    payload.putInt(0x03);
+    payload.putInt(frameCount);
+    payload.putInt(dataSize);
+    payload.position(payload.position() + 11 + 8 + 2);
+    payload.put((byte) (encoderDelayAndPadding >> 16));
+    payload.put((byte) (encoderDelayAndPadding >> 8));
+    payload.put((byte) encoderDelayAndPadding);
+    return createXingFrame(headerData, payload.array());
   }
 }

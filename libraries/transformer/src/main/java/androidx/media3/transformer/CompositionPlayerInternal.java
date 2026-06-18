@@ -79,6 +79,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
   private static final int MSG_END_SEEK = 8;
   private static final int MSG_RELEASE = 9;
   private static final int MSG_SET_AUDIO_ATTRIBUTES = 10;
+  private static final int MSG_REDRAW = 11;
 
   private final Clock clock;
   private final HandlerWrapper handler;
@@ -96,6 +97,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
   private int droppedFrames;
   private long droppedFrameAccumulationStartTimeMs;
 
+  private boolean replayAllowed;
   private boolean released;
 
   /**
@@ -123,6 +125,8 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
     this.listener = listener;
     this.listenerHandler = listenerHandler;
     this.videoPacketReleaseControl = videoPacketReleaseControl;
+    // Allowing replay for the first frame.
+    replayAllowed = true;
   }
 
   // Public methods
@@ -193,6 +197,10 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
     handler.obtainMessage(MSG_SET_AUDIO_ATTRIBUTES, attributes).sendToTarget();
   }
 
+  public void redraw() {
+    handler.sendEmptyMessage(MSG_REDRAW);
+  }
+
   /**
    * Reports that an output frame was dropped from the video graph.
    *
@@ -225,9 +233,13 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
       switch (message.what) {
         case MSG_START_RENDERING:
           startRenderingInternal();
+          replayAllowed = false;
           break;
         case MSG_STOP_RENDERING:
           stopRenderingInternal();
+          // If seeked when paused, replay will still be allowed, but videoPacketReleaseControl
+          // ignores the replay.
+          replayAllowed = true;
           break;
         case MSG_SET_VOLUME:
           checkNotNull(playbackAudioGraphWrapper).setVolume(/* volume= */ (float) message.obj);
@@ -258,6 +270,11 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
           break;
         case MSG_SET_AUDIO_ATTRIBUTES:
           playbackAudioGraphWrapper.setAudioAttributes((AudioAttributes) message.obj);
+          break;
+        case MSG_REDRAW:
+          if (SDK_INT >= 26 && videoPacketReleaseControl != null && replayAllowed) {
+            videoPacketReleaseControl.redraw();
+          }
           break;
         default:
           maybeRaiseError(
@@ -294,6 +311,9 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
       playbackAudioGraphWrapper.release();
       playbackVideoGraphWrapper.clearOutputSurfaceInfo();
       playbackVideoGraphWrapper.release();
+      if (SDK_INT >= 26 && videoPacketReleaseControl != null) {
+        videoPacketReleaseControl.close();
+      }
     } catch (RuntimeException e) {
       Log.e(TAG, "error while releasing the player", e);
     } finally {

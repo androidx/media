@@ -985,16 +985,21 @@ public final class CompositionPlayer extends SimpleBasePlayer {
    * Forces the effect pipeline to redraw the effects immediately.
    *
    * <p>The player must be {@linkplain Builder#experimentalSetEnableReplayableCache built with
-   * replayable cache support}.
+   * replayable cache support}, unless using {@link Builder#setFrameProcessorFactory FrameProcessor}
+   * to apply effects.
    */
   @ExperimentalApi // TODO: b/470383420 - Remove or convert to non-experimental method.
   public void experimentalRedrawLastFrame() {
-    checkState(enableReplayableCache);
     if (playbackThreadHandler == null || playbackVideoGraphWrapper == null) {
       // Ignore replays before setting a composition.
       return;
     }
-    playbackThreadHandler.post(() -> checkNotNull(playbackVideoGraphWrapper).getSink(0).redraw());
+    if (videoPacketReleaseControl != null) {
+      checkNotNull(compositionPlayerInternal).redraw();
+    } else if (playbackVideoGraphWrapper != null) {
+      checkState(enableReplayableCache);
+      playbackThreadHandler.post(() -> checkNotNull(playbackVideoGraphWrapper).getSink(0).redraw());
+    }
   }
 
   /** Sets the {@link Surface} and {@link Size} to render to. */

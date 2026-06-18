@@ -22,6 +22,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.util.Util.isRunningOnEmulator
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.source.LoadEventInfo
@@ -48,6 +49,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.guava.future
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+
+private val DEFAULT_TIMEOUT = if (isRunningOnEmulator()) 30.seconds else 10.seconds
 
 /**
  * Suspends until the player enters the provided [targetState].
@@ -94,6 +97,55 @@ suspend fun Player.awaitPlaybackState(
     }
   try {
     withTimeout(timeout) { stateSeen.await() }
+  } finally {
+    removeListener(playerListener)
+    maybeRemoveAnalyticsListener(analyticsListener)
+  }
+}
+
+/**
+ * Suspends until the player's [Player.isPlaying] value matches [targetIsPlaying].
+ *
+ * If the player's [Player.isPlaying] value is already [targetIsPlaying] this returns immediately.
+ *
+ * Must be called on the player's application looper thread.
+ *
+ * @param targetIsPlaying The value of [Player.isPlaying] to wait for.
+ * @param failOnNonFatalErrors Whether non-fatal errors (such as those from
+ *   [AnalyticsListener.onAudioCodecError]) cause an exception to be thrown immediately.
+ * @param timeout The max time to wait for, or `null` to use a default timeout of 10 seconds.
+ * @throws IllegalStateException if not called on the player's application looper thread.
+ */
+@UnstableApi
+suspend fun Player.awaitIsPlaying(
+  targetIsPlaying: Boolean,
+  failOnNonFatalErrors: Boolean = true,
+  timeout: Duration? = null,
+) {
+  check(Looper.myLooper() == applicationLooper) {
+    "awaitIsPlaying must be called on the player's application looper thread"
+  }
+  playerError?.let { throw it }
+
+  if (isPlaying == targetIsPlaying) return
+
+  val conditionMet = CompletableDeferred<Unit>()
+  val playerListener =
+    object : ErrorFailingPlayerListener(conditionMet::completeExceptionally) {
+      override fun onIsPlayingChanged(isPlaying: Boolean) {
+        if (targetIsPlaying == isPlaying) {
+          conditionMet.complete(Unit)
+        }
+      }
+    }
+
+  addListener(playerListener)
+  val analyticsListener =
+    maybeAddAnalyticsListener(failOnNonFatalErrors) {
+      NonFatalFailingAnalyticsListener(conditionMet::completeExceptionally)
+    }
+  try {
+    withTimeout(timeout) { conditionMet.await() }
   } finally {
     removeListener(playerListener)
     maybeRemoveAnalyticsListener(analyticsListener)
@@ -309,6 +361,16 @@ private constructor(
   }
 
   /**
+   * Returns a future that completes when the player's [Player.isPlaying] value matches
+   * [targetIsPlaying].
+   *
+   * Must be called on the player's application looper thread.
+   */
+  fun isPlaying(targetIsPlaying: Boolean): ListenableFuture<Void?> = createFuture {
+    player.awaitIsPlaying(targetIsPlaying, failOnNonFatalErrors, timeout)
+  }
+
+  /**
    * Returns a future that completes when [Player.Listener.onRenderedFirstFrame] is invoked.
    *
    * Must be called on the player's application looper thread.
@@ -343,8 +405,9 @@ private constructor(
     /**
      * Entry point for Java callers to get a [ListenableFuture] for a [Player] condition.
      *
-     * * Futures returned from the returned `PlayerFence` will fail after a default 10 second
-     *   timeout. This can be customized using [PlayerFence.withTimeoutMs].
+     * * Futures returned from the returned `PlayerFence` will fail after a default timeout (10
+     *   seconds, or 30 seconds if running on an emulator). This can be customized using
+     *   [PlayerFence.withTimeoutMs].
      * * Futures returned from the returned `PlayerFence` will fail immediately when the [Player]
      *   encounters a non-fatal error (such as [AnalyticsListener.onAudioCodecError]). This can be
      *   customized using [PlayerFence.ignoringNonFatalErrors].
@@ -377,7 +440,7 @@ private fun Player.maybeRemoveAnalyticsListener(analyticsListener: AnalyticsList
 }
 
 private suspend fun <T> withTimeout(duration: Duration?, block: suspend CoroutineScope.() -> T): T =
-  withTimeout(duration ?: 10.seconds, block)
+  withTimeout(duration ?: DEFAULT_TIMEOUT, block)
 
 private open class ErrorFailingPlayerListener(private val exceptionConsumer: (Exception) -> Unit) :
   Player.Listener {
