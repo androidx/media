@@ -210,8 +210,6 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
                                   .build())))
                   .build());
           compositionPlayer.prepare();
-          // TODO: b/483974846 - Make sure the first frame is rendered with setPlayWhenReady(false).
-          compositionPlayer.setPlayWhenReady(true);
         });
 
     firstFrameRenderedFuture.get();
