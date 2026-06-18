@@ -220,6 +220,9 @@
         immediately on the second ad
         ([#3165](https://github.com/androidx/media/issues/3165)).
 *   Session:
+    *   Fix double-downscaling of artwork in `MediaSession` when the image size
+        is close to the platform limit, resolving blurriness in notifications
+        ([#3134](https://github.com/androidx/media/issues/3134)).
     *   Fix potential deadlocks and `IllegalStateException` crashes inside
         `MediaNotificationManager` when using a session with a background thread
         player looper.
