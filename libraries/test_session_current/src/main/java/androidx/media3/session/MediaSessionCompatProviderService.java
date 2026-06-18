@@ -53,6 +53,8 @@ public class MediaSessionCompatProviderService extends Service {
   public static final String METHOD_ON_PREPARE_FROM_MEDIA_ID = "onPrepareFromMediaId";
   public static final String METHOD_ON_PREPARE = "onPrepare";
   public static final String METHOD_ON_STOP = "onStop";
+  public static final String METHOD_ON_PLAY = "onPlay";
+  public static final String METHOD_ON_PLAY_FROM_MEDIA_ID = "onPlayFromMediaId";
 
   private static final String TAG = "MSCProviderService";
 
@@ -256,6 +258,41 @@ public class MediaSessionCompatProviderService extends Service {
     public CallCountingCallback(String sessionTag) {
       this.sessionTag = sessionTag;
       callbackCallCounters = new HashMap<>();
+    }
+
+    @Override
+    public void onPlay() {
+      countCallbackCall(METHOD_ON_PLAY);
+      sessionMap.get(sessionTag).setMetadata(new MediaMetadataCompat.Builder().build());
+      sessionMap
+          .get(sessionTag)
+          .setPlaybackState(
+              new PlaybackStateCompat.Builder()
+                  .setState(
+                      PlaybackStateCompat.STATE_PLAYING,
+                      /* position= */ 0,
+                      /* playbackSpeed= */ 1.0f)
+                  .build());
+    }
+
+    @Override
+    public void onPlayFromMediaId(String mediaId, Bundle extras) {
+      countCallbackCall(METHOD_ON_PLAY_FROM_MEDIA_ID);
+      sessionMap
+          .get(sessionTag)
+          .setMetadata(
+              new MediaMetadataCompat.Builder()
+                  .putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, mediaId)
+                  .build());
+      sessionMap
+          .get(sessionTag)
+          .setPlaybackState(
+              new PlaybackStateCompat.Builder()
+                  .setState(
+                      PlaybackStateCompat.STATE_PLAYING,
+                      /* position= */ 0,
+                      /* playbackSpeed= */ 1.0f)
+                  .build());
     }
 
     @Override

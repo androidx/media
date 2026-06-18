@@ -321,7 +321,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     if (mediaItemIndex != currentMediaItemIndex) {
       QueueTimeline queueTimeline = (QueueTimeline) controllerInfo.playerInfo.timeline;
       long queueId = queueTimeline.getQueueId(mediaItemIndex);
-      if (queueId != QueueItem.UNKNOWN_ID) {
+      if (queueId != QueueItem.UNKNOWN_ID && queueId != QueueTimeline.FAKE_QUEUE_ID) {
         controllerCompat.getTransportControls().skipToQueueItem(queueId);
         newMediaItemIndex = mediaItemIndex;
         mediaItemTransitionReason = Player.MEDIA_ITEM_TRANSITION_REASON_SEEK;
