@@ -49,7 +49,8 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 /** Computes the release time for each {@linkplain List<HardwareBufferFrame> packet}. */
 @RequiresApi(26)
 @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
-/* package */ class CompositionVideoPacketReleaseControl implements CompositionRendererListener {
+/* package */ class CompositionVideoPacketReleaseControl
+    implements CompositionRendererListener, AutoCloseable {
 
   private final VideoFrameReleaseControl videoFrameReleaseControl;
   private final FrameProcessor downstreamFrameProcessor;
@@ -61,6 +62,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
   // Accessed on the playback thread only.
   private int currentStreamDiscontinuityNumber;
   private final Map<Frame, HardwareBufferFrame> inFlightFrames;
+  @Nullable private ImmutableList<HardwareBufferFrame> lastQueuedPacket;
 
   /** Listener for {@link CompositionVideoPacketReleaseControl} events. */
   public interface Listener {
@@ -219,8 +221,60 @@ import java.util.concurrent.ConcurrentLinkedDeque;
     while ((packet = packetQueue.poll()) != null) {
       releasePacket(packet);
     }
+    releaseRetainedFrames();
     videoFrameReleaseControl.reset();
     isEnded = false;
+  }
+
+  /**
+   * Redraws the last released frame packet immediately, bypassing playback clock scheduling. Has no
+   * effect if no frame has been queued downstream yet.
+   *
+   * <p>This method must be called on the playback thread.
+   */
+  public void redraw() {
+    // TODO: b/517020679 - Add androidTest after integrating FrameProcessor.
+    if (lastQueuedPacket == null) {
+      return;
+    }
+    boolean unused =
+        setReleaseTimeAndQueueDownstream(
+            lastQueuedPacket, /* releaseTimeNs= */ SystemClock.DEFAULT.nanoTime());
+  }
+
+  @Override
+  public void close() {
+    releaseRetainedFrames();
+  }
+
+  /** Releases any resources held by this release control. */
+  private void releaseRetainedFrames() {
+    // TODO: b/524312636 - Clear and release inFlightFrames on flush.
+    releasePacket(lastQueuedPacket);
+    lastQueuedPacket = null;
+  }
+
+  private void updateLastQueuedPacket(ImmutableList<HardwareBufferFrame> newlyQueuedPacket) {
+    ImmutableList<HardwareBufferFrame> lastQueuedPacket = this.lastQueuedPacket;
+    // The newlyQueuedPacket is retained so that it's kept alive for replays.
+    this.lastQueuedPacket = retainFrames(newlyQueuedPacket);
+    // When replaying, the newly queued packet is the same as the last queued packet. When queueing
+    // the same packet again to the downstream, inflightFrames adds mappings that point to the same
+    // frames again. We thus need to skip releasing those frames, or the refCount of the frame would
+    // drop to zero and the frame resource is released.
+    if (newlyQueuedPacket != lastQueuedPacket) {
+      releasePacket(lastQueuedPacket);
+    }
+  }
+
+  private ImmutableList<HardwareBufferFrame> retainFrames(
+      ImmutableList<HardwareBufferFrame> newlyQueuedPacket) {
+    ImmutableList.Builder<HardwareBufferFrame> retainedFrames = new ImmutableList.Builder<>();
+    for (int i = 0; i < newlyQueuedPacket.size(); i++) {
+      HardwareBufferFrame hardwareBufferFrame = newlyQueuedPacket.get(i);
+      retainedFrames.add(hardwareBufferFrame.retain());
+    }
+    return retainedFrames.build();
   }
 
   /**
@@ -250,12 +304,6 @@ import java.util.concurrent.ConcurrentLinkedDeque;
             packet, /* releaseTimeNs= */ videoFrameReleaseInfo.getReleaseTimeNs());
       default:
         throw new IllegalStateException(String.valueOf(frameReleaseAction));
-    }
-  }
-
-  private void releasePacket(ImmutableList<HardwareBufferFrame> packet) {
-    for (int i = 0; i < packet.size(); i++) {
-      packet.get(i).release(/* releaseFence= */ null);
     }
   }
 
@@ -300,7 +348,17 @@ import java.util.concurrent.ConcurrentLinkedDeque;
     boolean queued = downstreamFrameProcessor.queue(asyncFrameListBuilder.build());
     if (queued) {
       inFlightFrames.putAll(pendingInFlightFrames);
+      updateLastQueuedPacket(packet);
     }
     return queued;
+  }
+
+  private static void releasePacket(@Nullable ImmutableList<HardwareBufferFrame> packet) {
+    if (packet == null) {
+      return;
+    }
+    for (int i = 0; i < packet.size(); i++) {
+      packet.get(i).release(/* releaseFence= */ null);
+    }
   }
 }

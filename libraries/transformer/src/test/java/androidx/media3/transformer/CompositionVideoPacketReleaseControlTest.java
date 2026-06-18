@@ -29,6 +29,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
 import androidx.media3.common.video.Frame;
+import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.HardwareBufferFrame;
@@ -583,6 +584,11 @@ public class CompositionVideoPacketReleaseControlTest {
     compositionVideoPacketReleaseControl.onFrameProcessed(
         asyncFrame.frame, /* releaseFence= */ null);
 
+    // With caching, the frame is still held in cache.
+    assertThat(releasedFrameTimestamps).isEmpty();
+
+    // Flushing clears the cache and releases the frame.
+    compositionVideoPacketReleaseControl.flush(/* sequenceIndex= */ 0);
     assertThat(releasedFrameTimestamps).containsExactly(100_000L);
   }
 
@@ -616,13 +622,19 @@ public class CompositionVideoPacketReleaseControlTest {
     compositionVideoPacketReleaseControl.onFrameProcessed(
         asyncFrame2.frame, /* releaseFence= */ null);
 
-    assertThat(releasedFrameTimestamps).containsExactly(200_000L);
+    // 200_000 is still in cache, so it is not released.
+    assertThat(releasedFrameTimestamps).isEmpty();
 
     AsyncFrame asyncFrame1 = ((FakeFrameProcessor.FramesEvent) events.get(0)).frames.get(0);
     compositionVideoPacketReleaseControl.onFrameProcessed(
         asyncFrame1.frame, /* releaseFence= */ null);
 
-    assertThat(releasedFrameTimestamps).containsExactly(200_000L, 100_000L);
+    // 100_000 is not in cache, so it is released.
+    assertThat(releasedFrameTimestamps).containsExactly(100_000L);
+
+    // Flushing clears cache and releases 200_000.
+    compositionVideoPacketReleaseControl.flush(/* sequenceIndex= */ 0);
+    assertThat(releasedFrameTimestamps).containsExactly(100_000L, 200_000L);
   }
 
   @Test
@@ -775,6 +787,266 @@ public class CompositionVideoPacketReleaseControlTest {
 
     @Override
     public void close() {}
+  }
+
+  @Test
+  public void redraw_withNoCachedFrame_doesNotQueueDownstream() {
+    compositionVideoPacketReleaseControl.redraw();
+
+    assertThat(frameProcessor.getQueuedEvents()).isEmpty();
+  }
+
+  @Test
+  public void redraw_afterFrameReleased_queuesFrameImmediately() throws ExoPlaybackException {
+    compositionVideoPacketReleaseControl.onStarted();
+    compositionVideoPacketReleaseControl.queue(firstPacket);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 0,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+
+    // Verify first packet is sent downstream.
+    assertThat(frameProcessor.getQueuedEvents()).hasSize(1);
+
+    compositionVideoPacketReleaseControl.redraw();
+
+    // Verify that the packet was queued again (size should be 2 now).
+    ImmutableList<FakeFrameProcessor.Event> events = frameProcessor.getQueuedEvents();
+    assertThat(events).hasSize(2);
+    AsyncFrame redrawnFrame = ((FakeFrameProcessor.FramesEvent) events.get(1)).frames.get(0);
+    assertFramesEqual(
+        (DefaultHardwareBufferFrame) redrawnFrame.frame,
+        (DefaultHardwareBufferFrame)
+            ((FakeFrameProcessor.FramesEvent) events.get(0)).frames.get(0).frame,
+        /* ignoreReleaseTime= */ true);
+  }
+
+  @Test
+  public void redraw_afterFlush_ignoresRedraw() throws ExoPlaybackException {
+    compositionVideoPacketReleaseControl.onStarted();
+    compositionVideoPacketReleaseControl.queue(firstPacket);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 0,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+
+    assertThat(frameProcessor.getQueuedEvents()).hasSize(1);
+
+    compositionVideoPacketReleaseControl.flush(/* sequenceIndex= */ 0);
+    compositionVideoPacketReleaseControl.redraw();
+
+    // Verify no new frame is sent downstream.
+    assertThat(frameProcessor.getQueuedEvents()).hasSize(1);
+  }
+
+  @Test
+  public void redraw_afterReset_ignoresRedraw() throws ExoPlaybackException {
+    compositionVideoPacketReleaseControl.onStarted();
+    compositionVideoPacketReleaseControl.queue(firstPacket);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 0,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+
+    assertThat(frameProcessor.getQueuedEvents()).hasSize(1);
+
+    compositionVideoPacketReleaseControl.flush(/* sequenceIndex= */ 0);
+    compositionVideoPacketReleaseControl.redraw();
+
+    // Verify no new frame is sent downstream.
+    assertThat(frameProcessor.getQueuedEvents()).hasSize(1);
+  }
+
+  @Test
+  public void onRender_normalPlaybackAndRedraw_managesRefCountsCorrectly() throws Exception {
+    compositionVideoPacketReleaseControl.onStarted();
+    ImmutableList<HardwareBufferFrame> packet0 =
+        createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
+    ImmutableList<HardwareBufferFrame> packet1 =
+        createPacket(/* presentationTimeUs= */ 200_000, /* sequencePresentationTimeUs= */ 200_000);
+
+    compositionVideoPacketReleaseControl.queue(packet0);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 100_000,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+    AsyncFrame asyncFrame0 = getFirstQueuedFrameInPacket(0);
+    compositionVideoPacketReleaseControl.onFrameProcessed(
+        asyncFrame0.frame, /* releaseFence= */ null);
+    // 100_000 still referenced by redraw frame, not released
+    assertThat(releasedFrameTimestamps).isEmpty();
+
+    compositionVideoPacketReleaseControl.redraw();
+    AsyncFrame redrawedAsyncFrame0 = getFirstQueuedFrameInPacket(1);
+    compositionVideoPacketReleaseControl.onFrameProcessed(
+        redrawedAsyncFrame0.frame, /* releaseFence= */ null);
+    // 100_000 replayed, but is still kept for redraw.
+    assertThat(releasedFrameTimestamps).isEmpty();
+
+    // queue packet1, it evicts packet0 from the cache
+    fakeClock.advanceTime(/* timeDiffMs= */ 100);
+    compositionVideoPacketReleaseControl.queue(packet1);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 200_000,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+
+    // Queueing frame1 should purge frame0 - thus releasing it.
+    assertThat(releasedFrameTimestamps).containsExactly(100_000L);
+
+    AsyncFrame asyncFrame1 = getFirstQueuedFrameInPacket(2);
+    compositionVideoPacketReleaseControl.onFrameProcessed(
+        asyncFrame1.frame, /* releaseFence= */ null);
+    // 200_000 is still in-cache for redraw, so not released
+    assertThat(releasedFrameTimestamps).containsExactly(100_000L);
+
+    // Flush clears the cache and releases the frame
+    compositionVideoPacketReleaseControl.flush(/* sequenceIndex= */ 0);
+    assertThat(releasedFrameTimestamps).containsExactly(100_000L, 200_000L);
+  }
+
+  @Test
+  public void onRender_multipleRedrawsWhilePaused_managesRefCountsCorrectly() throws Exception {
+    compositionVideoPacketReleaseControl.onStarted();
+    ImmutableList<HardwareBufferFrame> packet0 =
+        createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
+
+    // Initial render
+    compositionVideoPacketReleaseControl.queue(packet0);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 100_000,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+    compositionVideoPacketReleaseControl.onFrameProcessed(
+        getFirstQueuedFrameInPacket(0).frame, /* releaseFence= */ null);
+    assertThat(releasedFrameTimestamps).isEmpty();
+
+    // Multiple redraws while paused
+    // The frame should not be released because it'll be ready for redraw.
+    compositionVideoPacketReleaseControl.redraw();
+    compositionVideoPacketReleaseControl.onFrameProcessed(
+        getFirstQueuedFrameInPacket(1).frame, /* releaseFence= */ null);
+    assertThat(releasedFrameTimestamps).isEmpty();
+
+    compositionVideoPacketReleaseControl.redraw();
+    compositionVideoPacketReleaseControl.onFrameProcessed(
+        getFirstQueuedFrameInPacket(2).frame, /* releaseFence= */ null);
+    assertThat(releasedFrameTimestamps).isEmpty();
+
+    compositionVideoPacketReleaseControl.redraw();
+    compositionVideoPacketReleaseControl.onFrameProcessed(
+        getFirstQueuedFrameInPacket(3).frame, /* releaseFence= */ null);
+    assertThat(releasedFrameTimestamps).isEmpty();
+
+    // Queueing the next packet should evict the first.
+    ImmutableList<HardwareBufferFrame> packet1 =
+        createPacket(/* presentationTimeUs= */ 200_000, /* sequencePresentationTimeUs= */ 200_000);
+    compositionVideoPacketReleaseControl.queue(packet1);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 200_000,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+    assertThat(releasedFrameTimestamps).containsExactly(100_000L);
+  }
+
+  @Test
+  public void queue_downstreamFails_releasesRetainedFrames() throws Exception {
+    FrameProcessor rejectQueueingFrameProcessor =
+        new FrameProcessor() {
+          @Override
+          public boolean queue(List<AsyncFrame> frames) {
+            return false;
+          }
+
+          @Override
+          public void signalEndOfStream() {}
+
+          @Override
+          public void close() {}
+        };
+
+    CompositionVideoPacketReleaseControl releaseControl =
+        new CompositionVideoPacketReleaseControl(
+            videoFrameReleaseControl,
+            rejectQueueingFrameProcessor,
+            new Listener() {
+              @Override
+              public void onFrameProcessed() {}
+
+              @Override
+              public void onError(Exception e) {}
+            });
+
+    releaseControl.onStarted();
+
+    Set<Long> releasedTimestamps = new HashSet<>();
+    ImmutableList<HardwareBufferFrame> packet =
+        ImmutableList.of(
+            new HardwareBufferFrame.Builder(
+                    placeholderBuffer,
+                    directExecutor(),
+                    (releaseFence) -> releasedTimestamps.add(100_000L))
+                .setPresentationTimeUs(100_000L)
+                .setSequencePresentationTimeUs(100_000L)
+                .build());
+
+    releaseControl.queue(packet);
+
+    // The downstream rejects, so the frame has ref-count 1, waiting to be released.
+    releaseControl.onRender(
+        /* compositionTimePositionUs= */ 100_000,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+
+    assertThat(releasedTimestamps).isEmpty();
+
+    for (HardwareBufferFrame frame : packet) {
+      frame.release(/* releaseFence= */ null);
+    }
+
+    assertThat(releasedTimestamps).containsExactly(100_000L);
+  }
+
+  @Test
+  public void redraw_frameInFlightWhenNextPacketQueued_doesNotReleaseFrameUntilProcessed()
+      throws Exception {
+    compositionVideoPacketReleaseControl.onStarted();
+    ImmutableList<HardwareBufferFrame> packet0 =
+        createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
+    ImmutableList<HardwareBufferFrame> packet1 =
+        createPacket(/* presentationTimeUs= */ 200_000, /* sequencePresentationTimeUs= */ 200_000);
+
+    compositionVideoPacketReleaseControl.queue(packet0);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 100_000,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+    AsyncFrame asyncFrame0 = getFirstQueuedFrameInPacket(0);
+    compositionVideoPacketReleaseControl.onFrameProcessed(
+        asyncFrame0.frame, /* releaseFence= */ null);
+
+    compositionVideoPacketReleaseControl.redraw();
+    AsyncFrame replayedFrame0 = getFirstQueuedFrameInPacket(1);
+
+    // Queue and render packet1 to evict packet0 from the lastQueuedPacket cache
+    fakeClock.advanceTime(/* timeDiffMs= */ 100);
+    compositionVideoPacketReleaseControl.queue(packet1);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 200_000,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+
+    // Assert that frame0 is not released yet because replayedFrame0 is still in flight
+    assertThat(releasedFrameTimestamps).isEmpty();
+
+    compositionVideoPacketReleaseControl.onFrameProcessed(
+        replayedFrame0.frame, /* releaseFence= */ null);
+    assertThat(releasedFrameTimestamps).containsExactly(100_000L);
+  }
+
+  private AsyncFrame getFirstQueuedFrameInPacket(int index) {
+    return ((FakeFrameProcessor.FramesEvent) frameProcessor.getQueuedEvents().get(index))
+        .frames.get(0);
   }
 
   /**

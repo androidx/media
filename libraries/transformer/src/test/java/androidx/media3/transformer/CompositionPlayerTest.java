@@ -20,6 +20,7 @@ import static androidx.media3.common.Player.STATE_ENDED;
 import static androidx.media3.common.Player.STATE_IDLE;
 import static androidx.media3.common.Player.STATE_READY;
 import static androidx.media3.common.util.Util.usToMs;
+import static androidx.media3.test.utils.AssetInfo.JPG_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_12_5FPS;
 import static androidx.media3.test.utils.AssetInfo.MP4_15FPS;
 import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
@@ -41,6 +42,7 @@ import static androidx.media3.transformer.TestUtil.createTestCompositionPlayerBu
 import static androidx.media3.transformer.TestUtil.createTestHardwareBufferCompositionPlayerBuilder;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -2447,6 +2449,180 @@ public class CompositionPlayerTest {
     assertThat(closeCalls.get()).isGreaterThan(0);
     assertThat(onFrameProcessedCalls.get()).isGreaterThan(0);
     assertThat(verifyThreadCalls.get()).isGreaterThan(0);
+  }
+
+  @Test
+  public void experimentalRedrawLastFrame_onFirstFramePaused_queuesFrameAgain() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_000_000L)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    // First frame is rendered on prepare (playback is paused).
+    ImmutableList<ImmutableList<Long>> queuedContentTimes =
+        frameProcessor.getQueuedContentTimesUs();
+    assertThat(queuedContentTimes).hasSize(1);
+    long firstFrameTimeUs = queuedContentTimes.get(0).get(0);
+
+    player.experimentalRedrawLastFrame();
+    runMainLooperUntil(() -> frameProcessor.getQueuedContentTimesUs().size() > 1);
+
+    queuedContentTimes = frameProcessor.getQueuedContentTimesUs();
+    assertThat(queuedContentTimes).hasSize(2);
+    assertThat(queuedContentTimes.get(1).get(0)).isEqualTo(firstFrameTimeUs);
+  }
+
+  @Test
+  public void experimentalRedrawLastFrame_afterPlayEnds_queuesLastFrame() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_000_000L)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+    play(player).untilState(STATE_ENDED);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+
+    int videoFrameCount = MP4_SIMPLE_ASSET.videoFrameCount;
+    long lastFrameTimeUs = getLast(MP4_SIMPLE_ASSET.videoTimestampsUs);
+
+    player.experimentalRedrawLastFrame();
+    // FakeFrameProcessor counts EOS as one frame, so we'll end up having two more frames, one EOS
+    // and one redraw.
+    runMainLooperUntil(() -> frameProcessor.getQueuedContentTimesUs().size() > videoFrameCount + 1);
+
+    ImmutableList<ImmutableList<Long>> queuedContentTimes =
+        frameProcessor.getQueuedContentTimesUs();
+    assertThat(queuedContentTimes).hasSize(videoFrameCount + 2);
+    assertThat(getLast(queuedContentTimes).get(0)).isEqualTo(lastFrameTimeUs);
+  }
+
+  @Test
+  public void experimentalRedrawLastFrame_afterSeek_queuesLastFrame() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_000_000L)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    player.seekTo(500);
+    advance(player).untilState(STATE_READY);
+
+    ImmutableList<ImmutableList<Long>> queuedContentTimes =
+        frameProcessor.getQueuedContentTimesUs();
+    int initialQueuedCount = queuedContentTimes.size();
+    long lastFrameTimeUs = getLast(queuedContentTimes).get(0);
+
+    player.experimentalRedrawLastFrame();
+    runMainLooperUntil(() -> frameProcessor.getQueuedContentTimesUs().size() > initialQueuedCount);
+
+    queuedContentTimes = frameProcessor.getQueuedContentTimesUs();
+    assertThat(queuedContentTimes).hasSize(initialQueuedCount + 1);
+    assertThat(queuedContentTimes.get(initialQueuedCount).get(0)).isEqualTo(lastFrameTimeUs);
+  }
+
+  @Test
+  public void experimentalRedrawLastFrame_whenPlaying_isIgnored() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_000_000L)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+    advance(player).untilState(STATE_READY);
+    player.play();
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    runMainLooperUntil(() -> frameProcessor.getQueuedContentTimesUs().size() >= 3);
+    player.experimentalRedrawLastFrame();
+
+    play(player).untilState(STATE_ENDED);
+
+    ImmutableList<ImmutableList<Long>> queuedContentTimes =
+        frameProcessor.getQueuedContentTimesUs();
+    for (int i = 0; i < queuedContentTimes.size() - 1; i++) {
+      // Skip the last one timestamp that is TIME_UNSET, to signal EOS.
+      assertThat(queuedContentTimes.get(i).get(0))
+          .isEqualTo(MP4_SIMPLE_ASSET.videoTimestampsUs.get(i));
+    }
+  }
+
+  @Test
+  public void
+      experimentalRedrawLastFrame_withMultipleVideoImageSequences_queuesFramesFromAllSequences()
+          throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_000_000L)
+                            .build())),
+                EditedMediaItemSequence.withVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_15FPS.uri))
+                            .setDurationUs(1_000_000L)
+                            .build())),
+                EditedMediaItemSequence.withVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(JPG_ASSET.uri))
+                            .setDurationUs(1_000_000L)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    ImmutableList<ImmutableList<Long>> queuedContentTimes =
+        frameProcessor.getQueuedContentTimesUs();
+    assertThat(queuedContentTimes).hasSize(1);
+    assertThat(queuedContentTimes.get(0)).hasSize(3);
+    long firstFrameTimeSeq0 = queuedContentTimes.get(0).get(0);
+    long firstFrameTimeSeq1 = queuedContentTimes.get(0).get(1);
+    long firstFrameTimeSeq2 = queuedContentTimes.get(0).get(2);
+
+    player.experimentalRedrawLastFrame();
+    runMainLooperUntil(() -> frameProcessor.getQueuedContentTimesUs().size() > 1);
+
+    queuedContentTimes = frameProcessor.getQueuedContentTimesUs();
+    assertThat(queuedContentTimes).hasSize(2);
+    assertThat(queuedContentTimes.get(1))
+        .containsExactly(firstFrameTimeSeq0, firstFrameTimeSeq1, firstFrameTimeSeq2)
+        .inOrder();
+    assertThat(queuedContentTimes.get(1).get(0)).isEqualTo(firstFrameTimeSeq0);
+    assertThat(queuedContentTimes.get(1).get(1)).isEqualTo(firstFrameTimeSeq1);
+    assertThat(queuedContentTimes.get(1).get(2)).isEqualTo(firstFrameTimeSeq2);
   }
 
   private static EditedMediaItem getImageItem() {
