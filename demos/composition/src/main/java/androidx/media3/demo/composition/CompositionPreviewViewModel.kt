@@ -36,7 +36,9 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.OverlaySettings
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.SpeedParameters
 import androidx.media3.common.VideoCompositorSettings
+import androidx.media3.common.audio.SpeedProvider
 import androidx.media3.common.util.Clock
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.Log
@@ -535,7 +537,12 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     }
   }
 
-  fun updateEffectsForItem(sequenceIndex: Int, itemIndex: Int, newEffects: Set<String>) {
+  fun updateMediaItem(
+    sequenceIndex: Int,
+    itemIndex: Int,
+    newEffects: Set<String>,
+    newSpeed: Float,
+  ) {
     _uiState.update { currentState ->
       val currentItemsBySequence = currentState.mediaState.selectedItemsBySequence.toMutableList()
       if (sequenceIndex < currentItemsBySequence.size) {
@@ -543,7 +550,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
         if (itemIndex < updatedItems.size) {
           val item = updatedItems[itemIndex]
           if (item is Media) {
-            updatedItems[itemIndex] = item.copy(selectedEffects = newEffects)
+            updatedItems[itemIndex] = item.copy(selectedEffects = newEffects, speed = newSpeed)
             currentItemsBySequence[sequenceIndex] = updatedItems
           }
         }
@@ -770,16 +777,24 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
               effectOptions[effectName]?.let { effect -> effectsForItem.add(effect) }
             }
             val finalVideoEffects = globalVideoEffects + effectsForItem
+            val speedProvider =
+              object : SpeedProvider {
+                override fun getSpeed(timeUs: Long): Float = item.speed
+
+                override fun getNextSpeedChangeTimeUs(timeUs: Long): Long = C.TIME_UNSET
+              }
+            val speedParameters = SpeedParameters(speedProvider, /* shouldMaintainPitch= */ true)
+
             val itemBuilder =
               EditedMediaItem.Builder(mediaItem)
                 .setEffects(
                   Effects(/* audioProcessors= */ emptyList(), /* videoEffects= */ finalVideoEffects)
                 )
+                .setSpeed(speedParameters)
                 // Required for image inputs. For video inputs, it sets the target FPS.
                 .setFrameRate(DEFAULT_FRAME_RATE_FPS)
                 // Setting duration explicitly is only required for preview with CompositionPlayer,
-                // and
-                // is not needed for export with Transformer.
+                // and is not needed for export with Transformer.
                 .setDurationUs(item.durationUs)
             sequenceBuilder.addItem(itemBuilder.build())
           }

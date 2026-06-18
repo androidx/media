@@ -88,9 +88,16 @@ data class Media(
   val title: String,
   val uri: String,
   val selectedEffects: Set<String> = emptySet(),
+  val speed: Float = 1.0f,
 ) : Item {
   override fun copy(): Item =
-    copy(durationUs = durationUs, title = title, uri = uri, selectedEffects = selectedEffects)
+    copy(
+      durationUs = durationUs,
+      title = title,
+      uri = uri,
+      selectedEffects = selectedEffects,
+      speed = speed,
+    )
 }
 
 /**
