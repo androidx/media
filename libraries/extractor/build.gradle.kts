@@ -38,5 +38,4 @@ dependencies {
   testImplementation(libs.robolectric)
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(project(":test-utils"))
-  androidTestImplementation(libs.dexmaker)
 }
