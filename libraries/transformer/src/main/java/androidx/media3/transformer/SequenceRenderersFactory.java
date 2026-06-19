@@ -36,7 +36,6 @@ import android.media.MediaCodec;
 import android.media.MediaFormat;
 import android.os.Handler;
 import android.os.SystemClock;
-import androidx.annotation.CallSuper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -319,14 +318,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final class SequenceVideoRenderer extends MediaCodecVideoRenderer {
 
     private final BufferingVideoSink bufferingVideoSink;
+    private final TargetFrameRateHelper targetFrameRateHelper;
 
     private ImmutableList<Effect> pendingEffects;
     private long offsetToCompositionTimeUs;
     private boolean requestMediaCodecToneMapping;
-    private long nextDecoderInputExpectedTimestampUs;
-    private long nextDecoderOutputExpectedTimestampUs;
-    private long expectedTimestampDeltaUs;
-    private long decodeOnlyBufferTimestampUs;
 
     public SequenceVideoRenderer(
         Context context,
@@ -345,11 +341,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               .setAssumedMinimumCodecOperatingRate(DEFAULT_FRAME_RATE)
               .setVideoSink(bufferingVideoSink));
       this.bufferingVideoSink = bufferingVideoSink;
+      this.targetFrameRateHelper = new TargetFrameRateHelper();
       this.pendingEffects = ImmutableList.of();
-      nextDecoderInputExpectedTimestampUs = C.TIME_UNSET;
-      nextDecoderOutputExpectedTimestampUs = C.TIME_UNSET;
-      expectedTimestampDeltaUs = C.TIME_UNSET;
-      decodeOnlyBufferTimestampUs = C.TIME_UNSET;
     }
 
     public void setRequestMediaCodecToneMapping(boolean requestMediaCodecToneMapping) {
@@ -392,9 +385,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
         throws ExoPlaybackException {
       super.onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame);
-      nextDecoderInputExpectedTimestampUs = C.TIME_UNSET;
-      nextDecoderOutputExpectedTimestampUs = C.TIME_UNSET;
-      decodeOnlyBufferTimestampUs = C.TIME_UNSET;
+      targetFrameRateHelper.onPositionReset();
     }
 
     @Override
@@ -412,40 +403,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       offsetToCompositionTimeUs =
           getOffsetToCompositionTimeUs(getTimeline(), mediaPeriodId, offsetUs);
       pendingEffects = editedMediaItem.effects.videoEffects;
-      expectedTimestampDeltaUs =
-          editedMediaItem.frameRate == C.RATE_UNSET_INT
-              ? C.TIME_UNSET
-              : C.MICROS_PER_SECOND / editedMediaItem.frameRate;
+      targetFrameRateHelper.onStreamChanged(editedMediaItem);
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
     }
 
-    @CallSuper
     @Override
     protected void onQueueInputBuffer(DecoderInputBuffer buffer) throws ExoPlaybackException {
-      if (SDK_INT >= 34 && shouldMaintainTargetFrameRate()) {
-        if (shouldDropDecoderInputFrameToMaintainTargetFrameRate(
-                buffer.timeUs, nextDecoderInputExpectedTimestampUs)
-            && !buffer.isEndOfStream()
-            && !buffer.isLastSample()) {
-          // Mark this buffer DECODE_ONLY when #getCodecBufferFlags() is called.
-          decodeOnlyBufferTimestampUs = buffer.timeUs;
-        } else {
-          nextDecoderInputExpectedTimestampUs =
-              (nextDecoderInputExpectedTimestampUs == C.TIME_UNSET)
-                  ? (buffer.timeUs + expectedTimestampDeltaUs)
-                  : (nextDecoderInputExpectedTimestampUs + expectedTimestampDeltaUs);
-        }
-      }
+      targetFrameRateHelper.onQueueInputBuffer(buffer, getCodecInputFormat());
       super.onQueueInputBuffer(buffer);
     }
 
     @Override
     protected int getCodecBufferFlags(DecoderInputBuffer buffer) {
-      int flags = super.getCodecBufferFlags(buffer);
-      if (SDK_INT >= 34 && decodeOnlyBufferTimestampUs == buffer.timeUs) {
-        flags |= MediaCodec.BUFFER_FLAG_DECODE_ONLY;
-      }
-      return flags;
+      return super.getCodecBufferFlags(buffer) | targetFrameRateHelper.getCodecBufferFlags(buffer);
     }
 
     @Override
@@ -464,9 +434,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         throws ExoPlaybackException {
       long outputStreamOffsetUs = getOutputStreamOffsetUs();
       long presentationTimeUs = bufferPresentationTimeUs - outputStreamOffsetUs;
-      if (shouldDropFrameToMaintainTargetFrameRate(
-              presentationTimeUs, nextDecoderOutputExpectedTimestampUs)
-          && !isLastBuffer) {
+      if (targetFrameRateHelper.shouldDropOutputFrame(presentationTimeUs) && !isLastBuffer) {
         skipOutputBuffer(checkNotNull(codec), bufferIndex, presentationTimeUs);
         return true;
       }
@@ -482,12 +450,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           isDecodeOnlyBuffer,
           isLastBuffer,
           format)) {
-        if (shouldMaintainTargetFrameRate()) {
-          nextDecoderOutputExpectedTimestampUs =
-              (nextDecoderOutputExpectedTimestampUs == C.TIME_UNSET)
-                  ? (presentationTimeUs + expectedTimestampDeltaUs)
-                  : (nextDecoderOutputExpectedTimestampUs + expectedTimestampDeltaUs);
-        }
+        targetFrameRateHelper.onOutputFrameRendered(presentationTimeUs);
         return true;
       }
       return false;
@@ -563,33 +526,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           getOutputStreamStartPositionUs(),
           firstFrameReleaseInstruction,
           pendingEffects);
-    }
-
-    private boolean shouldMaintainTargetFrameRate() {
-      return expectedTimestampDeltaUs != C.TIME_UNSET;
-    }
-
-    private boolean shouldDropDecoderInputFrameToMaintainTargetFrameRate(
-        long presentationTimeUs, long nextExpectedPresentationTimeUs) {
-      boolean mediaItemContainsBFrames =
-          checkNotNull(getCodecInputFormat()).maxNumReorderSamples > 0;
-      return !mediaItemContainsBFrames
-          && shouldDropFrameToMaintainTargetFrameRate(
-              presentationTimeUs, nextExpectedPresentationTimeUs);
-    }
-
-    private boolean shouldDropFrameToMaintainTargetFrameRate(
-        long presentationTimeUs, long nextExpectedPresentationTimeUs) {
-      // This algorithm will always pick the first sample that is after desired timestamp and then
-      // it will start looking for the next desired timestamp.
-      // For example, for a 30 fps, the desired timestamps are 0, 33_333, 66_666....
-      // When seeking is performed, the desired timestamps are shifted accordingly.
-      // For example, when seeking to 1 sec, the desired timestamps are 1_000_000, 1_033_333,
-      // 1_066_666....
-      // This algorithm has no impact if the target frame rate is greater that input frame rate.
-      return shouldMaintainTargetFrameRate()
-          && nextExpectedPresentationTimeUs != C.TIME_UNSET
-          && presentationTimeUs < nextExpectedPresentationTimeUs;
     }
 
     private void activateBufferingVideoSink() {
@@ -1198,6 +1134,103 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           editedMediaItem.frameRate == C.RATE_UNSET_INT
               ? DEFAULT_FRAME_RATE
               : editedMediaItem.frameRate);
+    }
+  }
+
+  /** Helper class that encapsulates frame dropping logic for video renderers. */
+  private static final class TargetFrameRateHelper {
+
+    private long nextDecoderInputExpectedTimestampUs;
+    private long nextDecoderOutputExpectedTimestampUs;
+    private long expectedTimestampDeltaUs;
+    private long decodeOnlyBufferTimestampUs;
+
+    private TargetFrameRateHelper() {
+      nextDecoderInputExpectedTimestampUs = C.TIME_UNSET;
+      nextDecoderOutputExpectedTimestampUs = C.TIME_UNSET;
+      expectedTimestampDeltaUs = C.TIME_UNSET;
+      decodeOnlyBufferTimestampUs = C.TIME_UNSET;
+    }
+
+    private void onPositionReset() {
+      nextDecoderInputExpectedTimestampUs = C.TIME_UNSET;
+      nextDecoderOutputExpectedTimestampUs = C.TIME_UNSET;
+      decodeOnlyBufferTimestampUs = C.TIME_UNSET;
+    }
+
+    private void onStreamChanged(EditedMediaItem editedMediaItem) {
+      expectedTimestampDeltaUs =
+          editedMediaItem.frameRate == C.RATE_UNSET_INT
+              ? C.TIME_UNSET
+              : C.MICROS_PER_SECOND / editedMediaItem.frameRate;
+    }
+
+    private void onQueueInputBuffer(DecoderInputBuffer buffer, @Nullable Format codecInputFormat) {
+      if (SDK_INT >= 34 && shouldMaintainTargetFrameRate()) {
+        if (shouldDropDecoderInputFrameToMaintainTargetFrameRate(
+                buffer.timeUs, nextDecoderInputExpectedTimestampUs, codecInputFormat)
+            && !buffer.isEndOfStream()
+            && !buffer.isLastSample()) {
+          // Mark this buffer as DECODE_ONLY. The frame will be dropped by the renderer. We track
+          // the timestamp to later add the DECODE_ONLY flag in getCodecBufferFlags.
+          decodeOnlyBufferTimestampUs = buffer.timeUs;
+        } else {
+          nextDecoderInputExpectedTimestampUs =
+              (nextDecoderInputExpectedTimestampUs == C.TIME_UNSET)
+                  ? (buffer.timeUs + expectedTimestampDeltaUs)
+                  : (nextDecoderInputExpectedTimestampUs + expectedTimestampDeltaUs);
+        }
+      }
+    }
+
+    private int getCodecBufferFlags(DecoderInputBuffer buffer) {
+      if (SDK_INT >= 34 && decodeOnlyBufferTimestampUs == buffer.timeUs) {
+        return MediaCodec.BUFFER_FLAG_DECODE_ONLY;
+      }
+      return 0;
+    }
+
+    private boolean shouldDropOutputFrame(long presentationTimeUs) {
+      return shouldDropFrameToMaintainTargetFrameRate(
+          presentationTimeUs, nextDecoderOutputExpectedTimestampUs);
+    }
+
+    private void onOutputFrameRendered(long presentationTimeUs) {
+      if (shouldMaintainTargetFrameRate()) {
+        nextDecoderOutputExpectedTimestampUs =
+            (nextDecoderOutputExpectedTimestampUs == C.TIME_UNSET)
+                ? (presentationTimeUs + expectedTimestampDeltaUs)
+                : (nextDecoderOutputExpectedTimestampUs + expectedTimestampDeltaUs);
+      }
+    }
+
+    private boolean shouldMaintainTargetFrameRate() {
+      return expectedTimestampDeltaUs != C.TIME_UNSET;
+    }
+
+    private boolean shouldDropDecoderInputFrameToMaintainTargetFrameRate(
+        long presentationTimeUs,
+        long nextExpectedPresentationTimeUs,
+        @Nullable Format codecInputFormat) {
+      checkNotNull(codecInputFormat);
+      boolean mediaItemContainsBFrames = codecInputFormat.maxNumReorderSamples > 0;
+      return !mediaItemContainsBFrames
+          && shouldDropFrameToMaintainTargetFrameRate(
+              presentationTimeUs, nextExpectedPresentationTimeUs);
+    }
+
+    private boolean shouldDropFrameToMaintainTargetFrameRate(
+        long presentationTimeUs, long nextExpectedPresentationTimeUs) {
+      // This algorithm will always pick the first sample that is after desired timestamp and then
+      // it will start looking for the next desired timestamp.
+      // For example, for a 30 fps, the desired timestamps are 0, 33_333, 66_666....
+      // When seeking is performed, the desired timestamps are shifted accordingly.
+      // For example, when seeking to 1 sec, the desired timestamps are 1_000_000, 1_033_333,
+      // 1_066_666....
+      // This algorithm has no impact if the target frame rate is greater that input frame rate.
+      return shouldMaintainTargetFrameRate()
+          && nextExpectedPresentationTimeUs != C.TIME_UNSET
+          && presentationTimeUs < nextExpectedPresentationTimeUs;
     }
   }
 }
