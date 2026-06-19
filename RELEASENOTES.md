@@ -30,6 +30,10 @@
     *   Fix double-downscaling of artwork in `MediaSession` when the image size
         is close to the platform limit, resolving blurriness in notifications
         ([#3134](https://github.com/androidx/media/issues/3134)).
+    *   Fix `ForegroundServiceStartNotAllowedException` crash in
+        `MediaNotificationManager` when an asynchronous artwork bitmap load
+        callback attempts to start the foreground service while the app is in
+        the background ([#3270](https://github.com/androidx/media/issues/3270)).
 *   UI:
 *   Downloads:
 *   OkHttp extension:

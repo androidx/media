@@ -919,6 +919,17 @@ public abstract class MediaSessionService extends LifecycleService {
         ContextCompat.getMainExecutor(/* context= */ this));
   }
 
+  @RequiresApi(31)
+  /* package */ void onForegroundServiceStartNotAllowedException() {
+    mainHandler.post(
+        () -> {
+          @Nullable MediaSessionService.Listener serviceListener = getListener();
+          if (serviceListener != null) {
+            serviceListener.onForegroundServiceStartNotAllowedException();
+          }
+        });
+  }
+
   private MediaNotificationManager getMediaNotificationManager() {
     return getMediaNotificationManager(/* initialMediaNotificationProvider= */ null);
   }
@@ -952,17 +963,6 @@ public abstract class MediaSessionService extends LifecycleService {
     synchronized (lock) {
       return this.listener;
     }
-  }
-
-  @RequiresApi(31)
-  private void onForegroundServiceStartNotAllowedException() {
-    mainHandler.post(
-        () -> {
-          @Nullable MediaSessionService.Listener serviceListener = getListener();
-          if (serviceListener != null) {
-            serviceListener.onForegroundServiceStartNotAllowedException();
-          }
-        });
   }
 
   private boolean isAnySessionPlaying() {

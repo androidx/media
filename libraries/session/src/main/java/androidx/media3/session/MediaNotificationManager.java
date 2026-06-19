@@ -21,6 +21,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.annotation.SuppressLint;
+import android.app.ForegroundServiceStartNotAllowedException;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.content.Context;
@@ -319,7 +320,15 @@ import java.util.concurrent.TimeoutException;
     if (notificationSequence == totalNotificationCount) {
       boolean startInForegroundRequired =
           shouldRunInForeground(/* startInForegroundWhenPaused= */ false);
-      updateNotificationInternal(session, mediaNotification, startInForegroundRequired);
+      try {
+        updateNotificationInternal(session, mediaNotification, startInForegroundRequired);
+      } catch (IllegalStateException e) {
+        if (SDK_INT >= 31 && e instanceof ForegroundServiceStartNotAllowedException) {
+          mediaSessionService.onForegroundServiceStartNotAllowedException();
+        } else {
+          throw e;
+        }
+      }
     }
   }
 
