@@ -117,11 +117,11 @@ class ProgressStateWithTickCount(
 
   /**
    * Whether the user is allowed to change the progress of the player, for example by dragging or
-   * tapping a slider ob the UI side or programmatically calling [updateCurrentPositionProgress].
+   * tapping a slider on the UI side or programmatically calling [updateCurrentPositionProgress].
    *
    * This value is derived from the underlying [Player] state. It will be `true` only if
    * [Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM] is available and the duration of the current media
-   * item is known (i.e., not [C.TIME_UNSET]).
+   * item is known and strictly positive.
    */
   var changingProgressEnabled by mutableStateOf(false)
     private set
@@ -196,8 +196,7 @@ class ProgressStateWithTickCount(
     bufferedPositionProgress =
       positionToProgress(getBufferedPositionMsOrDefault(player), durationMs, totalTickCount)
     changingProgressEnabled =
-      player.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM) &&
-        durationMs != C.TIME_UNSET
+      player.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM) && durationMs > 0
   }
 
   private fun getPositionTick(position: Long, duration: Long, totalTickCount: Int): Int {

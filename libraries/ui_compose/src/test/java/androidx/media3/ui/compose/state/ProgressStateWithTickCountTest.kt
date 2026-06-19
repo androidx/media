@@ -220,6 +220,26 @@ class ProgressStateWithTickCountTest {
   }
 
   @Test
+  fun playerReadyAndPlaying_durationInvalid_changingProgressEnabledFalse() = runComposeUiTest {
+    val player =
+      FakePlayer(
+        playbackState = STATE_READY,
+        playWhenReady = true,
+        playlist = listOf(MediaItemData.Builder("SingleItem").build()),
+      )
+    lateinit var state: ProgressStateWithTickCount
+    setContent { state = rememberProgressStateWithTickCount(player, totalTickCount = 10) }
+
+    assertThat(player.duration).isEqualTo(C.TIME_UNSET)
+    assertThat(state.changingProgressEnabled).isFalse()
+
+    player.setDuration("SingleItem", 0L)
+    waitForIdle()
+    assertThat(player.duration).isEqualTo(0L)
+    assertThat(state.changingProgressEnabled).isFalse()
+  }
+
+  @Test
   fun playerReadyAndPaused_bufferedDurationKnownLater_updatePropagatesAtFallbackInterval() =
     runComposeUiTest {
       val player = createReadyPlayerWithSingleItem()
