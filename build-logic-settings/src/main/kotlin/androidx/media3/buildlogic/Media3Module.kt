@@ -21,4 +21,5 @@ data class Media3Module(
   val artifactId: String? = null,
   val name: String? = null,
   val includeInCompositeBuild: Boolean = true,
+  val allowKt: Boolean = true,
 )
