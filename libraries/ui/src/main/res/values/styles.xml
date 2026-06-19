@@ -27,6 +27,7 @@
   <style name="ExoStyledControls.Button.Center">
     <item name="android:layout_width">@dimen/exo_icon_size</item>
     <item name="android:layout_height">@dimen/exo_icon_size</item>
+    <item name="android:background">?android:attr/selectableItemBackgroundBorderless</item>
   </style>
 
   <style name="ExoStyledControls.Button.Center.Previous">
@@ -48,7 +49,8 @@
   </style>
 
   <style name="ExoStyledControls.Button.Center.FfwdWithAmount">
-    <item name="android:foreground">@drawable/exo_styled_controls_fastforward</item>
+    <item name="android:background">@drawable/exo_styled_controls_fastforward</item>
+    <item name="android:foreground">?android:attr/selectableItemBackgroundBorderless</item>
     <item name="android:gravity">center|bottom</item>
     <item name="android:paddingRight">0dp</item>
     <item name="android:paddingLeft">0dp</item>
@@ -62,7 +64,8 @@
   </style>
 
   <style name="ExoStyledControls.Button.Center.RewWithAmount">
-    <item name="android:foreground">@drawable/exo_styled_controls_rewind</item>
+    <item name="android:background">@drawable/exo_styled_controls_rewind</item>
+    <item name="android:foreground">?android:attr/selectableItemBackgroundBorderless</item>
     <item name="android:gravity">center|bottom</item>
     <item name="android:paddingRight">0dp</item>
     <item name="android:paddingLeft">0dp</item>
