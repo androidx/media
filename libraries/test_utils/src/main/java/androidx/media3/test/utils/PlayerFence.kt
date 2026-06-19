@@ -71,9 +71,6 @@ suspend fun Player.awaitPlaybackState(
   failOnNonFatalErrors: Boolean = true,
   timeout: Duration? = null,
 ) {
-  check(Looper.myLooper() == applicationLooper) {
-    "awaitPlaybackState must be called on the player's application looper thread"
-  }
   playerError?.let { throw it }
 
   if (playbackState == targetState) {
@@ -122,9 +119,6 @@ suspend fun Player.awaitIsPlaying(
   failOnNonFatalErrors: Boolean = true,
   timeout: Duration? = null,
 ) {
-  check(Looper.myLooper() == applicationLooper) {
-    "awaitIsPlaying must be called on the player's application looper thread"
-  }
   playerError?.let { throw it }
 
   if (isPlaying == targetIsPlaying) return
@@ -170,9 +164,6 @@ suspend fun Player.awaitFirstFrameRendered(
   failOnNonFatalErrors: Boolean = true,
   timeout: Duration? = null,
 ) {
-  check(Looper.myLooper() == applicationLooper) {
-    "awaitFirstFrameRendered must be called on the player's application looper thread"
-  }
   playerError?.let { throw it }
 
   val renderedFirstFrame = CompletableDeferred<Unit>()
@@ -221,9 +212,6 @@ suspend fun Player.awaitContentPositionAtLeast(
   timeout: Duration? = null,
 ) {
   require(targetPositionMs != C.TIME_UNSET)
-  check(Looper.myLooper() == applicationLooper) {
-    "awaitContentPositionAtLeast must be called on the player's application looper thread"
-  }
   playerError?.let { throw it }
 
   if (contentPosition >= targetPositionMs) {
