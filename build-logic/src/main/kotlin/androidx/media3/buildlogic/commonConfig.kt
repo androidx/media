@@ -90,4 +90,21 @@ fun Project.configureCommonConfig(android: CommonExtension, libs: VersionCatalog
       freeCompilerArgs.add("-Xwarning-level=OPT_IN_USAGE:error")
     }
   }
+
+  val media3Module = Media3Modules.EXTERNAL_MODULES[project.name]
+  if (media3Module?.allowKt == false) {
+    // Using afterEvaluate is required to ensure we run after the Kotlin Gradle plugin
+    // has attached its default kotlin-stdlib dependencies to the configurations.
+    project.afterEvaluate {
+      configurations.configureEach {
+        val configName = name
+        dependencies.removeIf {
+          !configName.contains("test", ignoreCase = true) &&
+            !configName.contains("androidTest", ignoreCase = true) &&
+            it.group == "org.jetbrains.kotlin" &&
+            it.name.startsWith("kotlin-stdlib")
+        }
+      }
+    }
+  }
 }

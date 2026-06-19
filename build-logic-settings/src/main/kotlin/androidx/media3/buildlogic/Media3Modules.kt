@@ -21,15 +21,31 @@ object Media3Modules {
     mapOf(
       // go/keep-sorted start
       "lib-cast" to Media3Module("libraries/cast", "media3-cast", "Media3 Cast module"),
-      "lib-common" to Media3Module("libraries/common", "media3-common", "Media3 common module"),
+      "lib-common" to
+        Media3Module("libraries/common", "media3-common", "Media3 common module", allowKt = false),
       "lib-common-ktx" to
         Media3Module("libraries/common_ktx", "media3-common-ktx", "Media3 common KTX module"),
       "lib-container" to
-        Media3Module("libraries/container", "media3-container", "Media3 Container module"),
+        Media3Module(
+          "libraries/container",
+          "media3-container",
+          "Media3 Container module",
+          allowKt = false,
+        ),
       "lib-database" to
-        Media3Module("libraries/database", "media3-database", "Media3 database module"),
+        Media3Module(
+          "libraries/database",
+          "media3-database",
+          "Media3 database module",
+          allowKt = false,
+        ),
       "lib-datasource" to
-        Media3Module("libraries/datasource", "media3-datasource", "Media3 DataSource module"),
+        Media3Module(
+          "libraries/datasource",
+          "media3-datasource",
+          "Media3 DataSource module",
+          allowKt = false,
+        ),
       "lib-datasource-cronet" to
         Media3Module(
           "libraries/datasource_cronet",
@@ -54,7 +70,13 @@ object Media3Modules {
           "media3-datasource-rtmp",
           "Media3 RTMP DataSource module",
         ),
-      "lib-decoder" to Media3Module("libraries/decoder", "media3-decoder", "Media3 decoder module"),
+      "lib-decoder" to
+        Media3Module(
+          "libraries/decoder",
+          "media3-decoder",
+          "Media3 decoder module",
+          allowKt = false,
+        ),
       "lib-decoder-av1" to
         Media3Module("libraries/decoder_av1", "media3-decoder-av1", "Media3 AV1 decoder module"),
       "lib-decoder-ffmpeg" to
@@ -94,18 +116,25 @@ object Media3Modules {
       "lib-effect-ndk" to
         Media3Module("libraries/effect_ndk", "media3-effect-ndk", "Media3 Effect NDK module"),
       "lib-exoplayer" to
-        Media3Module("libraries/exoplayer", "media3-exoplayer", "Media3 ExoPlayer module"),
+        Media3Module(
+          "libraries/exoplayer",
+          "media3-exoplayer",
+          "Media3 ExoPlayer module",
+          allowKt = false,
+        ),
       "lib-exoplayer-dash" to
         Media3Module(
           "libraries/exoplayer_dash",
           "media3-exoplayer-dash",
           "Media3 ExoPlayer DASH module",
+          allowKt = false,
         ),
       "lib-exoplayer-hls" to
         Media3Module(
           "libraries/exoplayer_hls",
           "media3-exoplayer-hls",
           "Media3 ExoPlayer HLS module",
+          allowKt = false,
         ),
       "lib-exoplayer-ima" to
         Media3Module(
@@ -118,12 +147,14 @@ object Media3Modules {
           "libraries/exoplayer_rtsp",
           "media3-exoplayer-rtsp",
           "Media3 ExoPlayer RTSP module",
+          allowKt = false,
         ),
       "lib-exoplayer-smoothstreaming" to
         Media3Module(
           "libraries/exoplayer_smoothstreaming",
           "media3-exoplayer-smoothstreaming",
           "Media3 ExoPlayer SmoothStreaming module",
+          allowKt = false,
         ),
       "lib-exoplayer-workmanager" to
         Media3Module(
@@ -132,19 +163,36 @@ object Media3Modules {
           "Media3 ExoPlayer WorkManager module",
         ),
       "lib-extractor" to
-        Media3Module("libraries/extractor", "media3-extractor", "Media3 Extractor module"),
+        Media3Module(
+          "libraries/extractor",
+          "media3-extractor",
+          "Media3 Extractor module",
+          allowKt = false,
+        ),
       "lib-inspector" to
-        Media3Module("libraries/inspector", "media3-inspector", "Media3 Inspector module"),
+        Media3Module(
+          "libraries/inspector",
+          "media3-inspector",
+          "Media3 Inspector module",
+          allowKt = false,
+        ),
       "lib-inspector-frame" to
         Media3Module(
           "libraries/inspector_frame",
           "media3-inspector-frame",
           "Media3 Inspector Frame module",
+          allowKt = false,
         ),
-      "lib-muxer" to Media3Module("libraries/muxer", "media3-muxer", "Media3 Muxer module"),
+      "lib-muxer" to
+        Media3Module("libraries/muxer", "media3-muxer", "Media3 Muxer module", allowKt = false),
       "lib-session" to Media3Module("libraries/session", "media3-session", "Media3 Session module"),
       "lib-transformer" to
-        Media3Module("libraries/transformer", "media3-transformer", "Media3 Transformer module"),
+        Media3Module(
+          "libraries/transformer",
+          "media3-transformer",
+          "Media3 Transformer module",
+          allowKt = false,
+        ),
       "lib-ui" to Media3Module("libraries/ui", "media3-ui", "Media3 UI module"),
       "lib-ui-compose" to
         Media3Module("libraries/ui_compose", "media3-ui-compose", "Media3 UI Compose module"),
