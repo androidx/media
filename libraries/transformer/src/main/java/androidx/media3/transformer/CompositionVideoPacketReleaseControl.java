@@ -21,9 +21,11 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.ExperimentalApi;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
@@ -38,11 +40,10 @@ import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import androidx.media3.transformer.SequenceRenderersFactory.CompositionRendererListener;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import java.util.Collections;
+import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentLinkedDeque;
 
 // TODO: b/449956936 - This is a placeholder implementation, revisit the threading logic to make it
 //  more robust.
@@ -52,16 +53,23 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 /* package */ class CompositionVideoPacketReleaseControl
     implements CompositionRendererListener, AutoCloseable {
 
+  private static final String TAG = "CompositionReleaseCtrl";
+
   private final VideoFrameReleaseControl videoFrameReleaseControl;
   private final FrameProcessor downstreamFrameProcessor;
-  private final ConcurrentLinkedDeque<ImmutableList<HardwareBufferFrame>> packetQueue;
+  // Accessed on the playback thread only.
+  private final ArrayDeque<ImmutableList<HardwareBufferFrame>> packetQueue;
   private final VideoFrameReleaseControl.FrameReleaseInfo videoFrameReleaseInfo;
   private final FixedFrameRateEstimator frameRateEstimator;
   private volatile boolean isEnded;
   private final Listener listener;
   // Accessed on the playback thread only.
   private int currentStreamDiscontinuityNumber;
+  private final Object lock;
+
+  @GuardedBy("lock")
   private final Map<Frame, HardwareBufferFrame> inFlightFrames;
+
   @Nullable private ImmutableList<HardwareBufferFrame> lastQueuedPacket;
 
   /** Listener for {@link CompositionVideoPacketReleaseControl} events. */
@@ -95,9 +103,10 @@ import java.util.concurrent.ConcurrentLinkedDeque;
             frameRate -> videoFrameReleaseControl.setSurfaceMediaFrameRate(frameRate));
     this.listener = listener;
     this.downstreamFrameProcessor = downstreamFrameProcessor;
-    packetQueue = new ConcurrentLinkedDeque<>();
+    packetQueue = new ArrayDeque<>();
     videoFrameReleaseInfo = new VideoFrameReleaseControl.FrameReleaseInfo();
-    inFlightFrames = Collections.synchronizedMap(new HashMap<>());
+    lock = new Object();
+    inFlightFrames = new HashMap<>();
     // Allow the first frame to be rendered before playback starts.
     videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
   }
@@ -209,7 +218,18 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 
   /** Called when a frame has been fully processed by the downstream {@link FrameProcessor}. */
   public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
-    checkNotNull(inFlightFrames.remove(frame)).release(releaseFence);
+    @Nullable HardwareBufferFrame hardwareBufferFrame;
+    synchronized (lock) {
+      hardwareBufferFrame = inFlightFrames.remove(frame);
+    }
+    if (hardwareBufferFrame != null) {
+      hardwareBufferFrame.release(releaseFence);
+    } else {
+      if (releaseFence != null) {
+        releaseFence.close();
+      }
+      Log.d(TAG, "onFrameProcessed: Frame not found: " + frame);
+    }
   }
 
   /**
@@ -249,7 +269,13 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 
   /** Releases any resources held by this release control. */
   private void releaseRetainedFrames() {
-    // TODO: b/524312636 - Clear and release inFlightFrames on flush.
+    ImmutableList<HardwareBufferFrame> framesToRelease;
+    synchronized (lock) {
+      // Copy frames to release them without holding the lock.
+      framesToRelease = ImmutableList.copyOf(inFlightFrames.values());
+      inFlightFrames.clear();
+    }
+    releasePacket(framesToRelease);
     releasePacket(lastQueuedPacket);
     lastQueuedPacket = null;
   }
@@ -347,7 +373,9 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 
     boolean queued = downstreamFrameProcessor.queue(asyncFrameListBuilder.build());
     if (queued) {
-      inFlightFrames.putAll(pendingInFlightFrames);
+      synchronized (lock) {
+        inFlightFrames.putAll(pendingInFlightFrames);
+      }
       updateLastQueuedPacket(packet);
     }
     return queued;

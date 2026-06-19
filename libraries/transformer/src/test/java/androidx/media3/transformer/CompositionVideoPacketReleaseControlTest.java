@@ -20,7 +20,6 @@ import static androidx.media3.effect.HardwareBufferFrame.END_OF_STREAM_FRAME;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
 import android.hardware.HardwareBuffer;
@@ -278,7 +277,7 @@ public class CompositionVideoPacketReleaseControlTest {
 
     assertOutputEvents(
         /* ignoreReleaseTime= */ true, toFramesEvent(packet1), toFramesEvent(packet2));
-    assertThat(releasedFrameTimestamps).isEmpty();
+    assertThat(releasedFrameTimestamps).containsExactly(100_000L);
   }
 
   @Test
@@ -392,7 +391,10 @@ public class CompositionVideoPacketReleaseControlTest {
 
     assertThat(videoFrameReleaseControl.isReady(/* otherwiseReady= */ true)).isFalse();
     assertThat(releasedFrameTimestamps)
-        .containsExactly(packet1.get(0).presentationTimeUs, packet2.get(0).presentationTimeUs);
+        .containsExactly(
+            firstPacket.get(0).presentationTimeUs,
+            packet1.get(0).presentationTimeUs,
+            packet2.get(0).presentationTimeUs);
   }
 
   @Test
@@ -638,7 +640,7 @@ public class CompositionVideoPacketReleaseControlTest {
   }
 
   @Test
-  public void onFrameProcessed_nonMatchingFrame_doesNotRelease() throws Exception {
+  public void onFrameProcessed_nonMatchingFrame_ignoresFrame() throws Exception {
     compositionVideoPacketReleaseControl.onStarted();
     ImmutableList<HardwareBufferFrame> packet =
         createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
@@ -654,11 +656,27 @@ public class CompositionVideoPacketReleaseControlTest {
             .setContentTimeUs(0)
             .build();
 
-    assertThrows(
-        NullPointerException.class,
-        () ->
-            compositionVideoPacketReleaseControl.onFrameProcessed(frame, /* releaseFence= */ null));
+    compositionVideoPacketReleaseControl.onFrameProcessed(frame, /* releaseFence= */ null);
     assertThat(releasedFrameTimestamps).isEmpty();
+  }
+
+  @Test
+  public void onFrameProcessed_afterFlushingTheSameFrame_ignoresFrame() throws Exception {
+    compositionVideoPacketReleaseControl.onStarted();
+    ImmutableList<HardwareBufferFrame> packet =
+        createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
+    compositionVideoPacketReleaseControl.queue(packet);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 100_000,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+
+    AsyncFrame asyncFrame = frameProcessor.lastFrames.get(0);
+    compositionVideoPacketReleaseControl.flush(/* sequenceIndex= */ 0);
+    assertThat(releasedFrameTimestamps).containsExactly(100_000L);
+    // Release the frame, which is already flushed
+    compositionVideoPacketReleaseControl.onFrameProcessed(
+        asyncFrame.frame, /* releaseFence= */ null);
   }
 
   private ImmutableList<HardwareBufferFrame> createPacket(
