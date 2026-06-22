@@ -23,7 +23,6 @@ import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.annotation.SuppressLint;
-import android.content.Context;
 import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioManager;
@@ -1855,18 +1854,6 @@ public final class C {
   @Deprecated
   public static long msToUs(long timeMs) {
     return Util.msToUs(timeMs);
-  }
-
-  /**
-   * @deprecated Use {@link Util#generateAudioSessionIdV21(Context)}.
-   */
-  @UnstableApi
-  @InlineMe(
-      replacement = "Util.generateAudioSessionIdV21(context)",
-      imports = {"androidx.media3.common.util.Util"})
-  @Deprecated
-  public static int generateAudioSessionIdV21(Context context) {
-    return Util.generateAudioSessionIdV21(context);
   }
 
   /**

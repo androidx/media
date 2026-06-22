@@ -53,6 +53,8 @@
 *   Cast extension:
 *   Test Utilities:
 *   Remove deprecated symbols:
+    *   Remove `androidx.media3.common.C.generateAudioSessionIdV21`. Use
+        `androidx.media3.common.util.Util.generateAudioSessionId` instead.
 
 ## 1.11
 
