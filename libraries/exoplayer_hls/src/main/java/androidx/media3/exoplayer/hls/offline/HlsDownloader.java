@@ -29,7 +29,6 @@ import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist;
 import androidx.media3.exoplayer.hls.playlist.HlsPlaylist;
 import androidx.media3.exoplayer.hls.playlist.HlsPlaylistParser;
 import androidx.media3.exoplayer.offline.SegmentDownloader;
-import androidx.media3.exoplayer.upstream.ParsingLoadable;
 import androidx.media3.exoplayer.upstream.ParsingLoadable.Parser;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
