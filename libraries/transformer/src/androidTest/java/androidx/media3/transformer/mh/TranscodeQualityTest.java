@@ -42,6 +42,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
+import androidx.media3.effect.SimpleGlFrameProcessor;
 import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.media3.inspector.frame.FrameExtractor;
 import androidx.media3.transformer.AndroidTestUtil.ForceEncodeEncoderFactory;
@@ -69,9 +70,9 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 /** Checks transcoding quality. */
-@SdkSuppress(minSdkVersion = 26)
 @Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(Parameterized.class)
+@SdkSuppress(minSdkVersion = 26)
 public final class TranscodeQualityTest {
   private static final String TAG = "TranscodeQualityTest";
 
@@ -82,14 +83,17 @@ public final class TranscodeQualityTest {
 
   private static final String LEGACY = "legacy";
   private static final String PACKET_CONSUMER_NDK = "packet_consumer_ndk";
+  private static final String FRAME_PROCESSOR_ADAPTER_NDK = "frame_processor_adapter_ndk";
   private static final String FRAME_PROCESSOR_NDK = "frame_processor_ndk";
+  private static final int FRAME_PROCESSOR_MIN_SDK = 28;
 
   @Rule public final TestName testName = new TestName();
 
   @Parameters(name = "{0}")
   public static ImmutableList<String> params() {
-    if (SDK_INT >= 28) {
-      return ImmutableList.of(LEGACY, PACKET_CONSUMER_NDK, FRAME_PROCESSOR_NDK);
+    if (SDK_INT >= FRAME_PROCESSOR_MIN_SDK) {
+      return ImmutableList.of(
+          LEGACY, PACKET_CONSUMER_NDK, FRAME_PROCESSOR_ADAPTER_NDK, FRAME_PROCESSOR_NDK);
     }
     return ImmutableList.of(LEGACY);
   }
@@ -168,7 +172,10 @@ public final class TranscodeQualityTest {
   public void transcode_hlg10_outputsHlg() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     // TODO: b/286211012 - Enable once DefaultHardwareBufferEffectsPipeline supports HDR.
-    assumeFalse(mode.equals(PACKET_CONSUMER_NDK) || mode.equals(FRAME_PROCESSOR_NDK));
+    assumeFalse(
+        mode.equals(PACKET_CONSUMER_NDK)
+            || mode.equals(FRAME_PROCESSOR_ADAPTER_NDK)
+            || mode.equals(FRAME_PROCESSOR_NDK));
     assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
     assumeFormatsSupported(
         context,
@@ -237,12 +244,15 @@ public final class TranscodeQualityTest {
   }
 
   private static Transformer.Builder createBuilder(Context context, String mode) {
+    if (SDK_INT < FRAME_PROCESSOR_MIN_SDK) {
+      return new Transformer.Builder(context);
+    }
     if (mode.equals(PACKET_CONSUMER_NDK)) {
       return new Transformer.Builder(context)
           .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
           .setHardwareBufferEffectsPipeline(
               DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE));
-    } else if (mode.equals(FRAME_PROCESSOR_NDK)) {
+    } else if (mode.equals(FRAME_PROCESSOR_ADAPTER_NDK)) {
       DefaultHardwareBufferEffectsPipeline pipeline =
           DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE);
       return new Transformer.Builder(context)
@@ -253,6 +263,11 @@ public final class TranscodeQualityTest {
                 return new PacketConsumerToFrameProcessorAdapter(
                     pipeline, listenerExecutor, listener);
               });
+    } else if (mode.equals(FRAME_PROCESSOR_NDK)) {
+      return new Transformer.Builder(context)
+          .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
+          .setFrameProcessorFactory(
+              new SimpleGlFrameProcessor.Factory(context, HardwareBufferJni.INSTANCE));
     }
     return new Transformer.Builder(context);
   }

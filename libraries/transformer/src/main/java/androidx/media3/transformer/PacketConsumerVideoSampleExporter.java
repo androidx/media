@@ -431,19 +431,29 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Override
     public Format onConfigure(Format requestedFormat) {
-      Format.Builder formatBuilder = requestedFormat.buildUpon();
-      // This matches the original behavior in Transformer where MimeType is set on Transformer.
-      formatBuilder.setSampleMimeType(
-          getRequestedOutputMimeType(firstInputFormat, transformationRequest));
+      // Create a new Format to control exactly which fields are passed into the encoder, which
+      // avoids encoder failures if an app sets an unsupported field on the format.
+      Format.Builder formatBuilder =
+          new Format.Builder()
+              .setWidth(requestedFormat.width)
+              .setHeight(requestedFormat.height)
+              .setFrameRate(requestedFormat.frameRate)
+              .setPixelFormat(requestedFormat.pixelFormat)
+              .setColorInfo(requestedFormat.colorInfo);
       // Rotation is handled by the muxer, update the encoder format so rotation is always 0.
+      formatBuilder.setRotationDegrees(0);
       if (requestedFormat.rotationDegrees != 0) {
         outputRotationDegrees = requestedFormat.rotationDegrees;
-        formatBuilder.setRotationDegrees(0);
       }
-      formatBuilder.setSampleMimeType(
+      // Use the MimeType set on Transformer to determine the supported output MimeType.
+      String sampleMimeType =
           findSupportedMimeTypeForEncoderAndMuxer(
-              formatBuilder.build(), muxerWrapper.getSupportedSampleMimeTypes(TRACK_TYPE_VIDEO)));
-      return formatBuilder.build();
+              formatBuilder
+                  .setSampleMimeType(
+                      getRequestedOutputMimeType(firstInputFormat, transformationRequest))
+                  .build(),
+              muxerWrapper.getSupportedSampleMimeTypes(TRACK_TYPE_VIDEO));
+      return formatBuilder.setSampleMimeType(sampleMimeType).build();
     }
 
     @Override

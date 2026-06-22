@@ -45,6 +45,7 @@ import androidx.media3.common.util.Log
 import androidx.media3.common.util.Size
 import androidx.media3.common.util.Util
 import androidx.media3.common.util.Util.usToMs
+import androidx.media3.common.video.HardwareBufferFrame
 import androidx.media3.demo.composition.MatrixTransformationFactory.createDizzyCropEffect
 import androidx.media3.demo.composition.data.CompositionPreviewState
 import androidx.media3.demo.composition.data.ExportState
@@ -55,12 +56,11 @@ import androidx.media3.demo.composition.data.MediaState
 import androidx.media3.demo.composition.data.OutputSettingsState
 import androidx.media3.demo.composition.data.Preset
 import androidx.media3.effect.DebugTraceUtil
-import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline
-import androidx.media3.effect.HardwareBufferFrame
 import androidx.media3.effect.LanczosResample
 import androidx.media3.effect.MultipleInputVideoGraph
 import androidx.media3.effect.Presentation
 import androidx.media3.effect.RgbFilter
+import androidx.media3.effect.SimpleGlFrameProcessor
 import androidx.media3.effect.StaticOverlaySettings
 import androidx.media3.effect.ndk.HardwareBufferJni
 import androidx.media3.inspector.MetadataRetriever
@@ -622,8 +622,8 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
         }
         Transformer.Builder(getApplication())
           .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
-          .setHardwareBufferEffectsPipeline(
-            DefaultHardwareBufferEffectsPipeline.create(
+          .setFrameProcessorFactory(
+            SimpleGlFrameProcessor.Factory(
               getApplication(),
               hardwareBufferJniWrapper = HardwareBufferJni.INSTANCE,
               overlaySettingsProvider = CompositionPreviewViewModel::getOverlaySettings,
@@ -917,13 +917,13 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
       playerBuilder =
         CompositionPlayer.Builder(getApplication())
           .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
-      playerBuilder.setHardwareBufferEffectsPipeline(
-        DefaultHardwareBufferEffectsPipeline.create(
-          getApplication(),
-          hardwareBufferJniWrapper = HardwareBufferJni.INSTANCE,
-          overlaySettingsProvider = CompositionPreviewViewModel::getOverlaySettings,
-        )
-      )
+          .setFrameProcessorFactory(
+            SimpleGlFrameProcessor.Factory(
+              getApplication(),
+              hardwareBufferJniWrapper = HardwareBufferJni.INSTANCE,
+              overlaySettingsProvider = CompositionPreviewViewModel::getOverlaySettings,
+            )
+          )
     } else {
       playerBuilder = CompositionPlayer.Builder(getApplication())
       if (uiState.value.sequenceTrackTypes.size > 1) {
@@ -1037,10 +1037,12 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     }
 
     fun getOverlaySettings(frame: HardwareBufferFrame): OverlaySettings {
-      val metadata = frame.metadata as CompositionFrameMetadata
+      val metadata =
+        frame.metadata[CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA]
+          as CompositionFrameMetadata
       return metadata.composition.videoCompositorSettings.getOverlaySettings(
         metadata.sequenceIndex,
-        frame.presentationTimeUs,
+        frame.contentTimeUs,
       )
     }
   }

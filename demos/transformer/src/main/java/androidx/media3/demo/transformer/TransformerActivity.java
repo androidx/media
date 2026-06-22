@@ -72,16 +72,16 @@ import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ElapsedRealtimeTicker;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
+import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.effect.BitmapOverlay;
 import androidx.media3.effect.Contrast;
 import androidx.media3.effect.DebugTraceUtil;
-import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
 import androidx.media3.effect.DrawableOverlay;
 import androidx.media3.effect.GlEffect;
-import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HslAdjustment;
 import androidx.media3.effect.LanczosResample;
 import androidx.media3.effect.OverlayEffect;
@@ -90,6 +90,7 @@ import androidx.media3.effect.RgbAdjustment;
 import androidx.media3.effect.RgbFilter;
 import androidx.media3.effect.RgbMatrix;
 import androidx.media3.effect.ScaleAndRotateTransformation;
+import androidx.media3.effect.SimpleGlFrameProcessor;
 import androidx.media3.effect.SingleColorLut;
 import androidx.media3.effect.StaticOverlaySettings;
 import androidx.media3.effect.TextOverlay;
@@ -367,12 +368,12 @@ public final class TransformerActivity extends AppCompatActivity {
       }
       transformerBuilder =
           new Transformer.Builder(/* context= */ this)
-              .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE);
-      transformerBuilder.setHardwareBufferEffectsPipeline(
-          DefaultHardwareBufferEffectsPipeline.create(
-              /* context= */ this,
-              HardwareBufferJni.INSTANCE,
-              /* overlaySettingsProvider= */ TransformerActivity::getOverlaySettings));
+              .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
+              .setFrameProcessorFactory(
+                  new SimpleGlFrameProcessor.Factory(
+                      /* context= */ this,
+                      HardwareBufferJni.INSTANCE,
+                      /* overlaySettingsProvider= */ TransformerActivity::getOverlaySettings));
     } else {
       transformerBuilder = new Transformer.Builder(/* context= */ this);
     }
@@ -930,12 +931,14 @@ public final class TransformerActivity extends AppCompatActivity {
     oldOutputFile = outputFile;
   }
 
-  @OptIn(markerClass = androidx.media3.common.util.ExperimentalApi.class)
+  @OptIn(markerClass = ExperimentalApi.class)
   private static OverlaySettings getOverlaySettings(HardwareBufferFrame frame) {
     CompositionFrameMetadata metadata =
-        checkNotNull((CompositionFrameMetadata) frame.getMetadata());
+        checkNotNull(
+            (CompositionFrameMetadata)
+                frame.getMetadata().get(CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA));
     return metadata.composition.videoCompositorSettings.getOverlaySettings(
-        metadata.sequenceIndex, frame.presentationTimeUs);
+        metadata.sequenceIndex, frame.getContentTimeUs());
   }
 
   private boolean isUsingMediaProjection() {
