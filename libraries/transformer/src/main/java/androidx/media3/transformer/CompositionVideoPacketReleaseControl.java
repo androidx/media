@@ -174,7 +174,6 @@ import java.util.Map;
         return;
       }
       listener.onFrameProcessed();
-      videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
     }
   }
 
@@ -315,19 +314,29 @@ import java.util.Map;
       @VideoFrameReleaseControl.FrameReleaseAction int frameReleaseAction,
       ImmutableList<HardwareBufferFrame> packet) {
     switch (frameReleaseAction) {
-      case VideoFrameReleaseControl.FRAME_RELEASE_SKIP:
       case VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER:
       case VideoFrameReleaseControl.FRAME_RELEASE_IGNORE:
         return false;
+      case VideoFrameReleaseControl.FRAME_RELEASE_SKIP:
       case VideoFrameReleaseControl.FRAME_RELEASE_DROP:
         releasePacket(packet);
         return true;
       case VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY:
-        return setReleaseTimeAndQueueDownstream(
-            packet, /* releaseTimeNs= */ SystemClock.DEFAULT.nanoTime());
+        boolean queuedImmediately =
+            setReleaseTimeAndQueueDownstream(
+                packet, /* releaseTimeNs= */ SystemClock.DEFAULT.nanoTime());
+        if (queuedImmediately) {
+          videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+        }
+        return queuedImmediately;
       case VideoFrameReleaseControl.FRAME_RELEASE_SCHEDULED:
-        return setReleaseTimeAndQueueDownstream(
-            packet, /* releaseTimeNs= */ videoFrameReleaseInfo.getReleaseTimeNs());
+        boolean queuedScheduled =
+            setReleaseTimeAndQueueDownstream(
+                packet, /* releaseTimeNs= */ videoFrameReleaseInfo.getReleaseTimeNs());
+        if (queuedScheduled) {
+          videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+        }
+        return queuedScheduled;
       default:
         throw new IllegalStateException(String.valueOf(frameReleaseAction));
     }

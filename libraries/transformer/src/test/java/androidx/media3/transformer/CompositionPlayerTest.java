@@ -1412,6 +1412,129 @@ public class CompositionPlayerTest {
   }
 
   @Test
+  public void frameProcessor_playbackAt5xSpeedAt30Fps_dropsFramesAtRegularIntervals()
+      throws PlaybackException, TimeoutException {
+    TestSpeedProvider speedProvider =
+        TestSpeedProvider.createWithStartTimes(new long[] {0}, new float[] {5.0f});
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_090_000L)
+                            .setSpeed(speedProvider)
+                            .setFrameRate(30)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+
+    player.setComposition(composition);
+    player.prepare();
+    player.play();
+    advance(player).untilState(STATE_ENDED);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+    // Output should be a 2s long, 30fps video, because the frameRate is set on the EditedMediaItem.
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(0L),
+            ImmutableList.of(33_367L),
+            ImmutableList.of(66_733L),
+            ImmutableList.of(100_100L),
+            ImmutableList.of(133_467L),
+            ImmutableList.of(166_833L),
+            ImmutableList.of(193_527L),
+            ImmutableList.of(C.TIME_UNSET))
+        .inOrder();
+  }
+
+  @Test
+  public void frameProcessor_playbackAt5xSpeedUnsetFrameRate_doesNotDropFrames()
+      throws PlaybackException, TimeoutException {
+    TestSpeedProvider speedProvider =
+        TestSpeedProvider.createWithStartTimes(new long[] {0}, new float[] {5.0f});
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_090_000L)
+                            .setSpeed(speedProvider)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+
+    player.setComposition(composition);
+    player.prepare();
+    player.play();
+    advance(player).untilState(STATE_ENDED);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+    // Output should be a 2s long, 30fps video, because the frameRate is set on the EditedMediaItem.
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(0L),
+            ImmutableList.of(6_673L),
+            ImmutableList.of(13_347L),
+            ImmutableList.of(20_020L),
+            ImmutableList.of(26_693L),
+            ImmutableList.of(33_367L),
+            ImmutableList.of(40_040L),
+            ImmutableList.of(46_713L),
+            ImmutableList.of(53_387L),
+            ImmutableList.of(60_060L),
+            ImmutableList.of(66_733L),
+            ImmutableList.of(73_407L),
+            ImmutableList.of(80_080L),
+            ImmutableList.of(86_753L),
+            ImmutableList.of(93_427L),
+            ImmutableList.of(100_100L),
+            ImmutableList.of(106_773L),
+            ImmutableList.of(113_447L),
+            ImmutableList.of(120_120L),
+            ImmutableList.of(126_793L),
+            ImmutableList.of(133_467L),
+            ImmutableList.of(140_140L),
+            ImmutableList.of(146_813L),
+            ImmutableList.of(153_487L),
+            ImmutableList.of(160_160L),
+            ImmutableList.of(166_833L),
+            ImmutableList.of(173_507L),
+            ImmutableList.of(180_180L),
+            ImmutableList.of(186_853L),
+            ImmutableList.of(193_527L),
+            ImmutableList.of(C.TIME_UNSET))
+        .inOrder();
+  }
+
+  @Test
+  public void frameProcessor_startPlaybackAfterZero_dropsFirstFrame() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    // Seek to 1ms (1000 us) before preparing. This should cause the frame at 0L to be dropped.
+    player.seekTo(/* positionMs= */ 1);
+    player.prepare();
+
+    play(player).untilState(STATE_ENDED);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+
+    // The frame at 0L should be dropped because the start position is 1000L.
+    assertThat(frameProcessor.getQueuedContentTimesUs().get(0)).containsExactly(33_366L);
+  }
+
+  @Test
   public void frameProcessor_setCompositionWithNewPosition_rendersFrameAtSeekPositionBeforeStarted()
       throws PlaybackException, TimeoutException {
     Composition composition1 =

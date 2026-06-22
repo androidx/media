@@ -17,6 +17,8 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.effect.HardwareBufferFrame.END_OF_STREAM_FRAME;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_STARTED;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -658,6 +660,78 @@ public class CompositionVideoPacketReleaseControlTest {
 
     compositionVideoPacketReleaseControl.onFrameProcessed(frame, /* releaseFence= */ null);
     assertThat(releasedFrameTimestamps).isEmpty();
+  }
+
+  @Test
+  public void onRender_whenTryAgainLater_doesNotCallOnFrameReleasedIsFirstFrame()
+      throws ExoPlaybackException {
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_WHEN_STARTED);
+    compositionVideoPacketReleaseControl.queue(
+        createPacket(/* presentationTimeUs= */ 1000, /* sequencePresentationTimeUs= */ 1000));
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 0,
+        /* elapsedRealtimeUs= */ 0,
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+
+    assertThat(videoFrameReleaseControl.onFrameReleasedIsFirstFrame()).isTrue();
+  }
+
+  @Test
+  public void onRender_whenReleasedImmediately_callsOnFrameReleasedIsFirstFrame()
+      throws ExoPlaybackException {
+    compositionVideoPacketReleaseControl.onStarted();
+    compositionVideoPacketReleaseControl.queue(
+        createPacket(/* presentationTimeUs= */ 2000, /* sequencePresentationTimeUs= */ 2000));
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 0,
+        /* elapsedRealtimeUs= */ 0,
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+
+    assertThat(videoFrameReleaseControl.onFrameReleasedIsFirstFrame()).isFalse();
+  }
+
+  @Test
+  public void onRender_whenReleasedScheduled_callsOnFrameReleasedIsFirstFrame()
+      throws ExoPlaybackException {
+    compositionVideoPacketReleaseControl.onStarted();
+    compositionVideoPacketReleaseControl.queue(firstPacket);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 0,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED);
+    fakeClock.advanceTime(/* timeDiffMs= */ 100);
+
+    compositionVideoPacketReleaseControl.queue(
+        createPacket(/* presentationTimeUs= */ 120_000, /* sequencePresentationTimeUs= */ 120_000));
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 100_000,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 200_000);
+
+    assertThat(videoFrameReleaseControl.onFrameReleasedIsFirstFrame()).isFalse();
+  }
+
+  @Test
+  public void onRender_whenDropped_doesNotCallOnFrameReleasedIsFirstFrame()
+      throws ExoPlaybackException {
+    compositionVideoPacketReleaseControl.onStarted();
+    compositionVideoPacketReleaseControl.queue(firstPacket);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 0,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED);
+    fakeClock.advanceTime(/* timeDiffMs= */ 100);
+
+    compositionVideoPacketReleaseControl.queue(
+        createPacket(/* presentationTimeUs= */ 49_999, /* sequencePresentationTimeUs= */ 49_999));
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 100_000,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 200_000);
+
+    assertThat(videoFrameReleaseControl.onFrameReleasedIsFirstFrame()).isTrue();
   }
 
   @Test

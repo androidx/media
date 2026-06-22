@@ -775,6 +775,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private final CompositionRendererListener compositionRendererListener;
     private @MonotonicNonNull HardwareBufferFrameReader hardwareBufferFrameReader;
     private final long lateThresholdToDropInputUs;
+    private final TargetFrameRateHelper targetFrameRateHelper;
 
     private final Supplier<@NullableType HardwareBufferFrameReader>
         hardwareBufferFrameReaderSupplier;
@@ -807,6 +808,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       this.compositionRendererListener = compositionRendererListener;
       this.hardwareBufferFrameReaderSupplier = hardwareBufferFrameReaderSupplier;
       this.lateThresholdToDropInputUs = lateThresholdToDropInputUs;
+      this.targetFrameRateHelper = new TargetFrameRateHelper();
     }
 
     @Override
@@ -839,6 +841,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     @Override
+    protected void onPositionReset(
+        long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+        throws ExoPlaybackException {
+      super.onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame);
+      targetFrameRateHelper.onPositionReset();
+    }
+
+    @Override
     protected void onStreamChanged(
         Format[] formats,
         long startPositionUs,
@@ -848,12 +858,25 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       checkState(getTimeline().getWindowCount() == 1);
       this.mediaPeriodId = mediaPeriodId;
       // The media item might have been repeated in the sequence.
+      EditedMediaItem editedMediaItem = getEditedMediaItem(getTimeline(), mediaPeriodId);
       // The renderer has started processing this item, VideoGraph might still be processing the
       // previous one.
       streamStartPositionUs = startPositionUs;
       offsetToCompositionTimeUs =
           getOffsetToCompositionTimeUs(getTimeline(), mediaPeriodId, offsetUs);
+      targetFrameRateHelper.onStreamChanged(editedMediaItem);
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
+    }
+
+    @Override
+    protected void onQueueInputBuffer(DecoderInputBuffer buffer) throws ExoPlaybackException {
+      targetFrameRateHelper.onQueueInputBuffer(buffer, getCodecInputFormat());
+      super.onQueueInputBuffer(buffer);
+    }
+
+    @Override
+    protected int getCodecBufferFlags(DecoderInputBuffer buffer) {
+      return super.getCodecBufferFlags(buffer) | targetFrameRateHelper.getCodecBufferFlags(buffer);
     }
 
     @Override
@@ -880,6 +903,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       nextFormat = format;
       long outputStreamOffsetUs = getOutputStreamOffsetUs();
       long presentationTimeUs = bufferPresentationTimeUs - outputStreamOffsetUs;
+      if (targetFrameRateHelper.shouldDropOutputFrame(presentationTimeUs) && !isLastBuffer) {
+        skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
+        return true;
+      }
       if (isDecodeOnlyBuffer && !isLastBuffer) {
         skipOutputBuffer(codec, bufferIndex, bufferPresentationTimeUs);
         return true;
@@ -897,6 +924,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       // frames for all sequences and avoids stalling the pipeline while waiting for frames that
       // have already been decoded.
       renderOutputBufferV21(codec, bufferIndex, presentationTimeUs, releaseTimeNs);
+      targetFrameRateHelper.onOutputFrameRendered(presentationTimeUs);
       return true;
     }
 
