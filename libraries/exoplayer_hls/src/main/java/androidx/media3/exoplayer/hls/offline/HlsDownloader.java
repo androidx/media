@@ -233,7 +233,7 @@ public final class HlsDownloader extends SegmentDownloader<HlsPlaylist> {
     // When the multivariant playlist defines variables, create a parser that propagates
     // them to child manifests for IMPORT resolution. Otherwise use the default path.
     boolean hasVariables = !multivariantPlaylist.variableDefinitions.isEmpty();
-    @Nullable HlsPlaylistParser childManifestParser = hasVariables
+    @Nullable HlsPlaylistParser mediaPlaylistParser = hasVariables
         ? new HlsPlaylistParser(multivariantPlaylist, /* previousMediaPlaylist= */ null)
         : null;
 
@@ -243,11 +243,9 @@ public final class HlsDownloader extends SegmentDownloader<HlsPlaylist> {
       segments.add(new Segment(/* startTimeUs= */ 0, mediaPlaylistDataSpec));
       HlsMediaPlaylist mediaPlaylist;
       try {
-        if (childManifestParser != null) {
-          mediaPlaylist =
-              (HlsMediaPlaylist)
-                  ParsingLoadable.load(
-                      dataSource, childManifestParser, mediaPlaylistDataSpec, C.DATA_TYPE_MANIFEST);
+        if (mediaPlaylistParser != null) {
+          mediaPlaylist = (HlsMediaPlaylist) getManifest(dataSource, mediaPlaylistDataSpec,
+              removing, mediaPlaylistParser);
         } else {
           mediaPlaylist = (HlsMediaPlaylist) getManifest(dataSource, mediaPlaylistDataSpec,
               removing);
