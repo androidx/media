@@ -519,7 +519,8 @@ public final class Util {
     return deviceName.contains("emulator")
         || deviceName.contains("emu64a")
         || deviceName.contains("emu64x")
-        || deviceName.contains("generic");
+        || deviceName.contains("generic")
+        || deviceName.contains("vsoc");
   }
 
   /**
