@@ -27,6 +27,7 @@ import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.util.concurrent.Executor;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -110,13 +111,13 @@ public final class FakeFrameProcessorTest {
             .create(frameWriter, Runnable::run, listener);
 
     // First queue call
-    AsyncFrame frame1 = new AsyncFrame(/* frame= */ null, /* acquireFence= */ null);
+    AsyncFrame frame1 = new AsyncFrame(createPlaceholderFrame(), /* acquireFence= */ null);
     ImmutableList<AsyncFrame> frames1 = ImmutableList.of(frame1);
 
     boolean queued1 = processor.queue(frames1);
 
     // Second queue call
-    AsyncFrame frame2 = new AsyncFrame(/* frame= */ null, /* acquireFence= */ null);
+    AsyncFrame frame2 = new AsyncFrame(createPlaceholderFrame(), /* acquireFence= */ null);
     ImmutableList<AsyncFrame> frames2 = ImmutableList.of(frame2);
 
     boolean queued2 = processor.queue(frames2);
@@ -151,7 +152,7 @@ public final class FakeFrameProcessorTest {
     FakeFrameProcessor processor =
         new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ true)
             .create(frameWriter, Runnable::run, listener);
-    AsyncFrame frame = new AsyncFrame(/* frame= */ null, /* acquireFence= */ null);
+    AsyncFrame frame = new AsyncFrame(createPlaceholderFrame(), /* acquireFence= */ null);
     ImmutableList<AsyncFrame> frames = ImmutableList.of(frame);
 
     boolean queued = processor.queue(frames);
@@ -187,6 +188,25 @@ public final class FakeFrameProcessorTest {
     assertThat(exceptionHolder[0]).isSameInstanceAs(exception);
   }
 
+  private static Frame createPlaceholderFrame() {
+    return new Frame() {
+      @Override
+      public Format getFormat() {
+        return new Format.Builder().build();
+      }
+
+      @Override
+      public ImmutableMap<String, Object> getMetadata() {
+        return ImmutableMap.of();
+      }
+
+      @Override
+      public long getContentTimeUs() {
+        return 0;
+      }
+    };
+  }
+
   /** A simple Fake {@link FrameWriter} for testing. */
   private static final class TestFrameWriter implements FrameWriter {
 
@@ -203,7 +223,7 @@ public final class FakeFrameProcessorTest {
     @Nullable
     @Override
     public AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener) {
-      throw new UnsupportedOperationException();
+      return null;
     }
 
     @Override

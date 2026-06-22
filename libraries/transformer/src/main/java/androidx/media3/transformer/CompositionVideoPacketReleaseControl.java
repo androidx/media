@@ -17,6 +17,7 @@ package androidx.media3.transformer;
 
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_FRAME_DISCONTINUITY_NUMBER;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
+import static androidx.media3.transformer.CompositionFrameMetadata.asFrameMetadata;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -352,6 +353,7 @@ import java.util.Map;
    * @param releaseTimeNs The time the packet should be rendered on screen.
    * @return Whether the frame was queued downstream.
    */
+  @SuppressWarnings("deprecation")
   private boolean setReleaseTimeAndQueueDownstream(
       ImmutableList<HardwareBufferFrame> packet, long releaseTimeNs) {
     ImmutableList.Builder<AsyncFrame> asyncFrameListBuilder = ImmutableList.builder();
@@ -363,9 +365,11 @@ import java.util.Map;
               .put(Frame.KEY_PRESENTATION_TIME_US, effectFrame.presentationTimeUs)
               .put(Frame.KEY_DISPLAY_TIME_NS, releaseTimeNs);
       if (effectFrame.getMetadata() instanceof CompositionFrameMetadata) {
-        CompositionFrameMetadata frameMetadata =
+        CompositionFrameMetadata compositionFrameMetadata =
             (CompositionFrameMetadata) effectFrame.getMetadata();
-        metadataBuilder.put(CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA, frameMetadata);
+        metadataBuilder
+            .put(CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA, compositionFrameMetadata)
+            .putAll(asFrameMetadata(compositionFrameMetadata));
       }
       metadataBuilder.put(KEY_FRAME_DISCONTINUITY_NUMBER, currentStreamDiscontinuityNumber);
       DefaultHardwareBufferFrame commonFrame =

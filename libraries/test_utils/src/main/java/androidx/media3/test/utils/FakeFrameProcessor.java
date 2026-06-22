@@ -16,6 +16,7 @@
 package androidx.media3.test.utils;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -109,6 +110,7 @@ public class FakeFrameProcessor implements FrameProcessor {
   private final boolean shouldCompleteIncomingFrames;
 
   @Nullable public List<AsyncFrame> lastFrames;
+  private boolean configured;
 
   private FakeFrameProcessor(
       FrameWriter output,
@@ -124,6 +126,17 @@ public class FakeFrameProcessor implements FrameProcessor {
 
   @Override
   public boolean queue(List<AsyncFrame> frames) {
+    if (!configured && !frames.isEmpty()) {
+      output.configure(frames.get(0).frame.getFormat(), /* usage= */ 0);
+      configured = true;
+      @Nullable
+      AsyncFrame placeholderFrame =
+          output.dequeueInputFrame(directExecutor(), /* wakeupListener= */ () -> {});
+      if (placeholderFrame != null) {
+        // This forces lazy configuration on some FrameWriter implementations.
+        output.queueInputFrame(placeholderFrame.frame, /* writeCompleteFence= */ null);
+      }
+    }
     queuedEvents.add(new FramesEvent(frames));
     this.lastFrames = frames;
     if (shouldCompleteIncomingFrames) {
@@ -166,7 +179,7 @@ public class FakeFrameProcessor implements FrameProcessor {
               if (event instanceof EosEvent) {
                 return ImmutableList.of(C.TIME_UNSET);
               }
-              FramesEvent framesEvent = (FramesEvent) event;
+              FramesEvent framesEvent = (FakeFrameProcessor.FramesEvent) event;
               return framesEvent.frames.stream()
                   .map(asyncFrame -> asyncFrame.frame.getContentTimeUs())
                   .collect(toImmutableList());

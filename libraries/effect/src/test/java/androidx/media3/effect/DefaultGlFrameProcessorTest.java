@@ -15,6 +15,10 @@
  */
 package androidx.media3.effect;
 
+import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITION_EFFECTS;
+import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITION_SEQUENCE_INDEX;
+import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITOR_SETTINGS;
+import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_ITEM_EFFECTS;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -27,6 +31,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
+import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Util;
 import androidx.media3.common.video.AsyncFrame;
@@ -113,7 +118,7 @@ public final class DefaultGlFrameProcessorTest {
   public void queue_hardwareBufferFrame_propagatesToAllPipelineComponents() throws Exception {
     Frame frame =
         new FakeHardwareBufferFrame(
-            ImmutableMap.of(DefaultGlFrameProcessor.KEY_EFFECTS, ImmutableList.of(fakeEffect)));
+            ImmutableMap.of(KEY_ITEM_EFFECTS, ImmutableList.of(fakeEffect)));
 
     boolean frameQueued =
         processor.queue(ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null)));
@@ -138,7 +143,7 @@ public final class DefaultGlFrameProcessorTest {
     // 1. First sends a frame with the FakeEffect, verify the frame reaches the end.
     Frame frameWithEffect1 =
         new FakeHardwareBufferFrame(
-            ImmutableMap.of(DefaultGlFrameProcessor.KEY_EFFECTS, ImmutableList.of(fakeEffect)));
+            ImmutableMap.of(KEY_ITEM_EFFECTS, ImmutableList.of(fakeEffect)));
 
     boolean frame1Queued =
         processor.queue(
@@ -166,7 +171,7 @@ public final class DefaultGlFrameProcessorTest {
     // 3. Send another frame with the fakeEffect, verify the frame reaches the end.
     Frame frameWithEffect2 =
         new FakeHardwareBufferFrame(
-            ImmutableMap.of(DefaultGlFrameProcessor.KEY_EFFECTS, ImmutableList.of(fakeEffect)));
+            ImmutableMap.of(KEY_ITEM_EFFECTS, ImmutableList.of(fakeEffect)));
 
     boolean frame3Queued =
         processor.queue(
@@ -187,12 +192,86 @@ public final class DefaultGlFrameProcessorTest {
   }
 
   @Test
+  public void queue_hardwareBufferFrameWithItemAndCompositionEffects_configuresAllEffectsChain()
+      throws Exception {
+    FakeGlShaderProgram fakeCompositionEffectShaderProgram = new FakeGlShaderProgram();
+    GlEffect fakeCompositionEffect = (context, useHdr) -> fakeCompositionEffectShaderProgram;
+
+    Frame frame =
+        new FakeHardwareBufferFrame(
+            ImmutableMap.of(
+                KEY_ITEM_EFFECTS,
+                ImmutableList.of(fakeEffect),
+                KEY_COMPOSITION_EFFECTS,
+                ImmutableList.of(fakeCompositionEffect)));
+
+    boolean frameQueued =
+        processor.queue(ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null)));
+
+    assertThat(frameQueued).isTrue();
+    assertThat(fakeHardwareBufferConverter.framesReceived).isEqualTo(1);
+    assertThat(fakeGlShaderProgram.framesReceived).isEqualTo(1); // Item effect executed
+    assertThat(fakeCompositionEffectShaderProgram.framesReceived)
+        .isEqualTo(1); // Composition effect executed
+    assertThat(fakeGlTextureFrameConsumer.framesReceived).isEqualTo(1);
+    assertThat(frameWriter.queuedFrames).isEqualTo(1);
+  }
+
+  @Test
+  public void queue_hardwareBufferFrameWithAllAdditionalMetadata_forwardsMetadata()
+      throws Exception {
+    FakeGlShaderProgram fakeCompositionEffectShaderProgram = new FakeGlShaderProgram();
+    GlEffect fakeCompositionEffect = (context, useHdr) -> fakeCompositionEffectShaderProgram;
+
+    ImmutableMap<String, Object> metadata =
+        ImmutableMap.of(
+            KEY_ITEM_EFFECTS,
+            ImmutableList.of(fakeEffect),
+            KEY_COMPOSITION_EFFECTS,
+            ImmutableList.of(fakeCompositionEffect),
+            KEY_COMPOSITOR_SETTINGS,
+            VideoCompositorSettings.DEFAULT,
+            KEY_COMPOSITION_SEQUENCE_INDEX,
+            1);
+    Frame frame = new FakeHardwareBufferFrame(metadata);
+
+    List<Frame> completedFrames = new ArrayList<>();
+    FrameProcessor.Listener listener =
+        new FrameProcessor.Listener() {
+          @Override
+          public void onWakeup() {}
+
+          @Override
+          public void onError(VideoFrameProcessingException exception) {}
+
+          @Override
+          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper onCompleteFence) {
+            completedFrames.add(frame);
+          }
+        };
+
+    boolean frameQueued;
+    try (DefaultGlFrameProcessor processor =
+        new DefaultGlFrameProcessor.Factory(
+                context, glExecutorService, fakeHardwareBufferConverter, fakeGlTextureFrameConsumer)
+            .create(frameWriter, testExecutor, listener)) {
+      frameQueued =
+          processor.queue(ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null)));
+      executeQueuedTasks(queuedFrameProcessedTasks, 1);
+    }
+
+    assertThat(frameQueued).isTrue();
+    assertThat(completedFrames).hasSize(1);
+    assertThat(completedFrames.get(0).getMetadata()).isEqualTo(metadata);
+  }
+
+  @Test
   public void queue_multipleInputFrames_processesFirstFrameAndInstantlyCompletesRemainingFrames()
       throws Exception {
     // TODO: b/505721737 - Remove when multi-sequence is supported.
     Frame frame0 =
         new FakeHardwareBufferFrame(
-            ImmutableMap.of(DefaultGlFrameProcessor.KEY_EFFECTS, ImmutableList.of(fakeEffect)));
+            ImmutableMap.of(KEY_ITEM_EFFECTS, ImmutableList.of(fakeEffect)));
     Frame frame1 = new FakeHardwareBufferFrame(ImmutableMap.of());
     Frame frame2 = new FakeHardwareBufferFrame(ImmutableMap.of());
 
@@ -249,7 +328,7 @@ public final class DefaultGlFrameProcessorTest {
       throws Exception {
     Frame frame =
         new FakeHardwareBufferFrame(
-            ImmutableMap.of(DefaultGlFrameProcessor.KEY_EFFECTS, ImmutableList.of(fakeEffect)));
+            ImmutableMap.of(KEY_ITEM_EFFECTS, ImmutableList.of(fakeEffect)));
 
     List<Frame> completedFrames = new ArrayList<>();
     FrameProcessor.Listener listener =
@@ -294,10 +373,10 @@ public final class DefaultGlFrameProcessorTest {
     fakeGlShaderProgram.delayReadyToAcceptInputFrame = true;
     Frame frame1 =
         new FakeHardwareBufferFrame(
-            ImmutableMap.of(DefaultGlFrameProcessor.KEY_EFFECTS, ImmutableList.of(fakeEffect)));
+            ImmutableMap.of(KEY_ITEM_EFFECTS, ImmutableList.of(fakeEffect)));
     Frame frame2 =
         new FakeHardwareBufferFrame(
-            ImmutableMap.of(DefaultGlFrameProcessor.KEY_EFFECTS, ImmutableList.of(fakeEffect)));
+            ImmutableMap.of(KEY_ITEM_EFFECTS, ImmutableList.of(fakeEffect)));
 
     ArrayList<Boolean> wakeupNotified = new ArrayList<>();
     FrameProcessor.Listener listener =

@@ -18,6 +18,7 @@ package androidx.media3.transformer;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
 import static androidx.media3.effect.HardwareBufferFrame.END_OF_STREAM_FRAME;
+import static androidx.media3.transformer.CompositionFrameMetadata.asFrameMetadata;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -252,6 +253,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     sampleConsumers = sampleConsumerBuilder.build();
   }
 
+  @SuppressWarnings("deprecation")
   private void queueAggregatedFrames(ImmutableList<HardwareBufferFrame> frames) {
     if (frames.get(0) == END_OF_STREAM_FRAME) {
       if (pendingQueueCalls.isEmpty()) {
@@ -273,8 +275,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           .put(Frame.KEY_PRESENTATION_TIME_US, effectFrame.presentationTimeUs)
           .put(Frame.KEY_DISPLAY_TIME_NS, effectFrame.releaseTimeNs);
       if (effectFrame.getMetadata() instanceof CompositionFrameMetadata) {
-        metadataBuilder.put(
-            CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA, effectFrame.getMetadata());
+        CompositionFrameMetadata compositionFrameMetadata =
+            (CompositionFrameMetadata) effectFrame.getMetadata();
+        metadataBuilder
+            .put(CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA, compositionFrameMetadata)
+            .putAll(asFrameMetadata(compositionFrameMetadata));
       }
 
       HardwareBuffer hardwareBuffer = checkNotNull(effectFrame.hardwareBuffer);

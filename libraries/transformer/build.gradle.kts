@@ -37,6 +37,7 @@ dependencies {
   testImplementation(project(":test-utils-robolectric"))
   testImplementation(project(":test-utils"))
   testImplementation(project(":test-data"))
+  testImplementation(libs.androidx.runner)
   testImplementation(libs.robolectric)
   testImplementation(libs.test.parameter.injector)
   testImplementation(libs.truth)

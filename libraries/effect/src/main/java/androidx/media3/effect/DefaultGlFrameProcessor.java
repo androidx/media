@@ -30,6 +30,7 @@ import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.Effect;
 import androidx.media3.common.GlObjectsProvider;
+import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ExperimentalApi;
@@ -165,10 +166,41 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   }
 
   /**
-   * Metadata key for storing the {@link List} of video {@linkplain Effect effects}, in {@linkplain
-   * Frame#getMetadata() frame metadata}
+   * Metadata key for storing the {@link List} of video {@linkplain Effect effects} to apply on a
+   * single media item, in {@linkplain Frame#getMetadata() frame metadata}.
+   *
+   * <p>The order of effect application is {@code KEY_ITEM_EFFECTS}, {@code KEY_COMPOSITOR_SETTINGS}
+   * and then {@code KEY_COMPOSITION_EFFECTS}.
    */
-  public static final String KEY_EFFECTS = "KEY_EFFECTS";
+  public static final String KEY_ITEM_EFFECTS = "KEY_ITEM_EFFECTS";
+
+  /**
+   * Metadata key for storing the {@link VideoCompositorSettings}, in {@linkplain
+   * Frame#getMetadata() frame metadata}.
+   *
+   * <p>When using {@code CompositionPlayer} or {@code Transformer}, the value is {@code
+   * Composition#videoCompositorSettings}.
+   *
+   * <p>The order of effect application is {@code KEY_ITEM_EFFECTS}, {@code KEY_COMPOSITOR_SETTINGS}
+   * and then {@code KEY_COMPOSITION_EFFECTS}.
+   */
+  public static final String KEY_COMPOSITOR_SETTINGS = "KEY_COMPOSITOR_SETTINGS";
+
+  /**
+   * Metadata key for storing the {@link List} of video {@linkplain Effect effects} to apply on the
+   * composited frames, in {@linkplain Frame#getMetadata() frame metadata}.
+   *
+   * <p>The order of effect application is {@code KEY_ITEM_EFFECTS}, {@code KEY_COMPOSITOR_SETTINGS}
+   * and then {@code KEY_COMPOSITION_EFFECTS}.
+   */
+  public static final String KEY_COMPOSITION_EFFECTS = "KEY_COMPOSITION_EFFECTS";
+
+  /**
+   * Metadata key for storing the integer index to identify the source sequence in a {@code
+   * Composition} from which an input frame comes, in {@linkplain Frame#getMetadata() frame
+   * metadata}.
+   */
+  public static final String KEY_COMPOSITION_SEQUENCE_INDEX = "KEY_COMPOSITION_SEQUENCE_INDEX";
 
   /**
    * Metadata key for storing the frame discontinuity number, in {@link Frame#getMetadata()} and
@@ -290,7 +322,11 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       GLES20.glFinish();
     }
 
-    configureEffectProcessors(extractEffects(frame));
+    configureEffectProcessors(
+        new ImmutableList.Builder<Effect>()
+            .addAll(extractEffects(frame, KEY_ITEM_EFFECTS))
+            .addAll(extractEffects(frame, KEY_COMPOSITION_EFFECTS))
+            .build());
 
     HardwareBufferFrame hardwareBufferFrame = (HardwareBufferFrame) frame;
     GlTextureFrame glTextureFrame =
@@ -356,12 +392,12 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     currentEffects.addAll(effects);
   }
 
-  private static ImmutableList<Effect> extractEffects(Frame frame) {
-    if (!frame.getMetadata().containsKey(KEY_EFFECTS)) {
+  private static ImmutableList<Effect> extractEffects(Frame frame, String effectKey) {
+    if (!frame.getMetadata().containsKey(effectKey)) {
       return ImmutableList.of();
     }
     @SuppressWarnings("unchecked") // Metadata values are Objects.
-    List<Effect> castEffects = checkNotNull((List<Effect>) frame.getMetadata().get(KEY_EFFECTS));
+    List<Effect> castEffects = checkNotNull((List<Effect>) frame.getMetadata().get(effectKey));
     return ImmutableList.copyOf(castEffects);
   }
 }

@@ -67,6 +67,7 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedChangingAudioProcessor;
@@ -81,6 +82,7 @@ import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.AlphaScale;
 import androidx.media3.effect.DebugTraceUtil;
+import androidx.media3.effect.DefaultGlFrameProcessor;
 import androidx.media3.effect.SpeedChangeEffect;
 import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.exoplayer.DefaultLoadControl;
@@ -93,8 +95,10 @@ import androidx.media3.test.utils.FakeFrameProcessor;
 import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
+import androidx.test.filters.SdkSuppress;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
@@ -1684,6 +1688,50 @@ public class CompositionPlayerTest {
     assertThat(frameProcessor.getQueuedContentTimesUs())
         .containsExactlyElementsIn(expectedTimestamps)
         .inOrder();
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 26)
+  public void frameProcessor_playback_populatesRequiredMetadataFields() throws Exception {
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(new AlphaScale(0.5f))))
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(editedMediaItem)))
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(new AlphaScale(0.8f))))
+            .setVideoCompositorSettings(VideoCompositorSettings.DEFAULT)
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+
+    player.setComposition(composition);
+    player.prepare();
+    play(player).untilState(STATE_ENDED);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    FakeFrameProcessor.FramesEvent framesEvent =
+        (FakeFrameProcessor.FramesEvent) frameProcessor.getQueuedEvents().get(0);
+    Frame frame = framesEvent.frames.get(0).frame;
+    ImmutableMap<String, Object> metadata = frame.getMetadata();
+
+    assertThat(metadata.get(Composition.KEY_COMPOSITION).toString())
+        .isEqualTo(composition.toString());
+    assertThat(metadata.get(DefaultGlFrameProcessor.KEY_COMPOSITION_SEQUENCE_INDEX)).isEqualTo(0);
+    assertThat(metadata.get(Composition.KEY_COMPOSITION_ITEM_INDEX)).isEqualTo(0);
+    assertThat(metadata.get(DefaultGlFrameProcessor.KEY_ITEM_EFFECTS))
+        .isEqualTo(editedMediaItem.effects.videoEffects);
+    assertThat(metadata.get(DefaultGlFrameProcessor.KEY_COMPOSITOR_SETTINGS))
+        .isEqualTo(composition.videoCompositorSettings);
+    assertThat(metadata.get(DefaultGlFrameProcessor.KEY_COMPOSITION_EFFECTS))
+        .isEqualTo(composition.effects.videoEffects);
   }
 
   @Test

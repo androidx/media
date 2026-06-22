@@ -15,18 +15,58 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITION_EFFECTS;
+import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITION_SEQUENCE_INDEX;
+import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITOR_SETTINGS;
+import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_ITEM_EFFECTS;
+import static androidx.media3.transformer.Composition.KEY_COMPOSITION;
+import static androidx.media3.transformer.Composition.KEY_COMPOSITION_ITEM_INDEX;
+
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.ExperimentalApi;
+import androidx.media3.common.video.Frame;
+import androidx.media3.effect.DefaultGlFrameProcessor;
 import androidx.media3.effect.HardwareBufferFrame;
+import com.google.common.collect.ImmutableMap;
 
 /**
  * Metadata included on {@link HardwareBufferFrame}s in {@link CompositionPlayer}.
  *
  * <p>Applications can extend this class to add custom metadata.
+ *
+ * @deprecated Use similar keys in {@link DefaultGlFrameProcessor} instead.
  */
 @ExperimentalApi // TODO: b/470355043 - Publish CompositionPlayer.
+@Deprecated // TODO: b/498547782 - Remove with effect.HardwareBufferFrame.
 public class CompositionFrameMetadata implements HardwareBufferFrame.Metadata {
 
-  /** Metadata key for storing the composition frame metadata. */
+  /** Converts the {@link CompositionFrameMetadata} to a map for {@link Frame#getMetadata()}. */
+  @RequiresApi(26)
+  public static ImmutableMap<String, Object> asFrameMetadata(
+      CompositionFrameMetadata compositionFrameMetadata) {
+    Composition composition = compositionFrameMetadata.composition;
+    int sequenceIndex = compositionFrameMetadata.sequenceIndex;
+    int itemIndex = compositionFrameMetadata.itemIndex;
+    EditedMediaItem editedMediaItem =
+        composition.sequences.get(sequenceIndex).editedMediaItems.get(itemIndex);
+    return new ImmutableMap.Builder<String, Object>()
+        .put(KEY_COMPOSITION, composition)
+        .put(KEY_COMPOSITION_SEQUENCE_INDEX, sequenceIndex)
+        .put(KEY_COMPOSITION_ITEM_INDEX, itemIndex)
+        .put(KEY_ITEM_EFFECTS, editedMediaItem.effects.videoEffects)
+        .put(KEY_COMPOSITOR_SETTINGS, composition.videoCompositorSettings)
+        .put(KEY_COMPOSITION_EFFECTS, composition.effects.videoEffects)
+        .buildOrThrow();
+  }
+
+  /**
+   * Metadata key for storing the composition frame metadata.
+   *
+   * @deprecated Use {@link Composition#KEY_COMPOSITION}, {@link
+   *     DefaultGlFrameProcessor#KEY_COMPOSITION_SEQUENCE_INDEX} and {@link
+   *     Composition#KEY_COMPOSITION_ITEM_INDEX} instead.
+   */
+  @Deprecated
   public static final String KEY_COMPOSITION_FRAME_METADATA = "KEY_COMPOSITION_FRAME_METADATA";
 
   /** The {@link Composition} that this frame belongs to. */
