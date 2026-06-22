@@ -1927,6 +1927,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     decodedVideoSize = new VideoSize(width, height, pixelWidthHeightRatio);
 
     if (videoSink != null && pendingVideoSinkInputStreamChange) {
+      if (width <= 0 || height <= 0) {
+        // Ignore transient invalid formats (e.g. 0x0) reported by some decoders (b/525733404).
+        return;
+      }
       changeVideoSinkInputStream(
           videoSink,
           /* inputType= */ VideoSink.INPUT_TYPE_SURFACE,
