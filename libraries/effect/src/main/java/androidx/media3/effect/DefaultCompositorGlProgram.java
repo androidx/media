@@ -19,9 +19,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.opengl.GLES20;
-import androidx.annotation.Nullable;
 import androidx.media3.common.GlTextureInfo;
-import androidx.media3.common.OverlaySettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
@@ -32,32 +30,13 @@ import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
- * A wrapper for a {@link GlProgram}, that draws multiple input {@link InputFrameInfo}s onto one
- * output {@link GlTextureInfo}.
+ * Wraps a {@link GlProgram} to draw multiple input {@link GlCompositionFrame}s onto one output
+ * {@link GlTextureInfo}.
  *
  * <p>All methods must be called on a GL thread, unless otherwise stated.
  */
-/* package */ final class DefaultCompositorGlProgram {
-
-  /** Holds required information to composite an input texture. */
-  /* package */ static final class InputFrameInfo {
-    public final GlTextureInfo glTextureInfo;
-    public final OverlaySettings overlaySettings;
-    @Nullable public final float[] transformationMatrix;
-
-    public InputFrameInfo(GlTextureInfo glTextureInfo, OverlaySettings overlaySettings) {
-      this(glTextureInfo, overlaySettings, /* transformationMatrix= */ null);
-    }
-
-    public InputFrameInfo(
-        GlTextureInfo glTextureInfo,
-        OverlaySettings overlaySettings,
-        @Nullable float[] transformationMatrix) {
-      this.glTextureInfo = glTextureInfo;
-      this.overlaySettings = overlaySettings;
-      this.transformationMatrix = transformationMatrix;
-    }
-  }
+/* package */ final class DefaultCompositorGlProgram
+    implements DefaultGlTextureFrameCompositingProcessor.CompositorGlProgram {
 
   private static final String TAG = "CompositorGlProgram";
 
@@ -76,12 +55,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   /**
-   * Draws the {@linkplain InputFrameInfo InputFrameInfos} onto the {@linkplain GlTextureInfo
-   * outputTexture}.
+   * Draws the {@linkplain GlCompositionFrame GlCompositionFrames} onto the {@linkplain
+   * GlTextureInfo outputTexture}.
    */
   // Enhanced for-loops are discouraged in media3.effect due to short-lived allocations.
   @SuppressWarnings("ListReverse")
-  public void drawFrame(List<InputFrameInfo> framesToComposite, GlTextureInfo outputTexture)
+  @Override
+  public void drawFrame(List<GlCompositionFrame> framesToComposite, GlTextureInfo outputTexture)
       throws GlUtil.GlException, VideoFrameProcessingException {
     ensureConfigured();
     GlUtil.focusFramebufferUsingCurrentContext(
@@ -113,6 +93,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     GlUtil.checkGlError();
   }
 
+  @Override
   public void release() {
     try {
       if (glProgram != null) {
@@ -143,7 +124,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
-  private void blendOntoFocusedTexture(InputFrameInfo inputFrameInfo) throws GlUtil.GlException {
+  private void blendOntoFocusedTexture(GlCompositionFrame inputFrameInfo)
+      throws GlUtil.GlException {
     GlProgram glProgram = checkNotNull(this.glProgram);
     GlTextureInfo inputTexture = inputFrameInfo.glTextureInfo;
     glProgram.setSamplerTexIdUniform("uTexSampler", inputTexture.texId, /* texUnitIndex= */ 0);

@@ -47,7 +47,6 @@ import androidx.media3.common.video.FrameProcessor
 import androidx.media3.common.video.FrameWriter
 import androidx.media3.common.video.HardwareBufferFrame
 import androidx.media3.common.video.SyncFenceWrapper
-import androidx.media3.effect.DefaultCompositorGlProgram.InputFrameInfo
 import androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_ORIGINAL
 import com.google.common.util.concurrent.FutureCallback
 import com.google.common.util.concurrent.Futures
@@ -311,7 +310,7 @@ private constructor(
     inputAsyncFrames: List<AsyncFrame>,
     outputAsyncFrame: AsyncFrame,
   ): ProcessedFrameResult {
-    val inputFrameInfos = mutableListOf<InputFrameInfo>()
+    val inputFrameInfos = mutableListOf<GlCompositionFrame>()
     val inputEglImages = mutableListOf<Long>()
     val inputTextures = mutableListOf<Int>()
     val intermediateFbos = mutableListOf<Int>()
@@ -436,7 +435,7 @@ private constructor(
           /* rhsOffset= */ 0,
         )
 
-        inputFrameInfos.add(InputFrameInfo(textureInfo, overlaySettings, combinedMatrix))
+        inputFrameInfos.add(GlCompositionFrame(textureInfo, overlaySettings, combinedMatrix))
       }
 
       // Wait on the output fence, to ensure it is ready to be written to.

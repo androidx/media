@@ -46,6 +46,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import java.time.Duration;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
 
 @ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.
 @RequiresApi(26)
@@ -106,8 +107,8 @@ import java.util.concurrent.Callable;
     glObjectsProvider.release(GlUtil.getDefaultEglDisplay());
   }
 
-  /** Shuts down the passed in {@link ListeningExecutorService} with a timeout. */
-  public static void shutdownGlExecutorService(ListeningExecutorService glExecutorService) {
+  /** Shuts down the passed in {@link ExecutorService} with a timeout. */
+  public static void shutdownGlExecutorService(ExecutorService glExecutorService) {
     glExecutorService.shutdown();
     try {
       if (!glExecutorService.awaitTermination(TIMEOUT_MS, MILLISECONDS)) {

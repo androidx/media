@@ -43,7 +43,6 @@ import androidx.media3.common.util.GlProgram
 import androidx.media3.common.util.GlUtil
 import androidx.media3.common.util.Size
 import androidx.media3.common.video.SyncFenceWrapper
-import androidx.media3.effect.DefaultCompositorGlProgram.InputFrameInfo
 import androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_ORIGINAL
 import androidx.media3.effect.PacketConsumer.Packet
 import com.google.common.collect.ImmutableList
@@ -199,7 +198,7 @@ private constructor(
     outputFrame: HardwareBufferFrame,
   ): ProcessedFrameResult =
     withContext(internalDispatcher) {
-      val inputFrameInfos = mutableListOf<InputFrameInfo>()
+      val inputFrameInfos = mutableListOf<GlCompositionFrame>()
       val inputEglImages = mutableListOf<Long>()
       val inputTextures = mutableListOf<Int>()
       val intermediateFbos = mutableListOf<Int>()
@@ -320,7 +319,7 @@ private constructor(
             /* rhsOffset= */ 0,
           )
 
-          inputFrameInfos.add(InputFrameInfo(textureInfo, overlaySettings, combinedMatrix))
+          inputFrameInfos.add(GlCompositionFrame(textureInfo, overlaySettings, combinedMatrix))
         }
 
         // Wait on the output fence, to ensure it is ready to be written to.

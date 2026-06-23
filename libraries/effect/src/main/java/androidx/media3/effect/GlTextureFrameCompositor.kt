@@ -21,7 +21,6 @@ import androidx.media3.common.GlObjectsProvider
 import androidx.media3.common.GlTextureInfo
 import androidx.media3.common.VideoCompositorSettings
 import androidx.media3.common.util.Size
-import androidx.media3.effect.DefaultCompositorGlProgram.InputFrameInfo
 import androidx.media3.effect.PacketConsumer.Packet
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
@@ -97,13 +96,13 @@ class GlTextureFrameCompositor(
     frameComposited: CompletableDeferred<Unit>,
   ): GlTextureFrame {
     val inputSizes = mutableListOf<Size>()
-    val framesToComposite = mutableListOf<InputFrameInfo>()
+    val framesToComposite = mutableListOf<GlCompositionFrame>()
 
     frames.forEachIndexed { i, frame ->
       val texture: GlTextureInfo = frame.glTextureInfo
       inputSizes.add(Size(texture.width, texture.height))
       framesToComposite.add(
-        InputFrameInfo(
+        GlCompositionFrame(
           texture,
           checkNotNull(videoCompositorSettings)
             .getOverlaySettings(/* inputId= */ i, frame.presentationTimeUs),

@@ -18,12 +18,17 @@ package androidx.media3.effect;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.hardware.HardwareBuffer;
+import android.opengl.EGL14;
+import android.opengl.EGLContext;
+import android.opengl.EGLDisplay;
+import android.opengl.EGLSurface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
+import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
@@ -31,6 +36,7 @@ import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.common.video.SyncFenceWrapper;
 import com.google.common.collect.ImmutableMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
 
@@ -79,10 +85,11 @@ public final class GlFrameProcessorTestUtil {
     public int framesReceived;
     public boolean signalEndOfStreamCalled;
     @Nullable public Runnable wakeupListener;
+    @Nullable public Executor listenerExecutor;
     @Nullable public GlTextureFrame lastReceivedFrame;
     @Nullable public FrameWriter frameWriter;
     @Nullable public VideoFrameProcessingException exceptionToThrowOnQueueing;
-    @Nullable public RuntimeException runtimeExceptionToThrow;
+    @Nullable public RuntimeException runtimeExceptionToThrowOnQueueing;
 
     public FakeGlTextureFrameConsumer(@Nullable FrameWriter frameWriter) {
       this.frameWriter = frameWriter;
@@ -95,10 +102,11 @@ public final class GlFrameProcessorTestUtil {
       if (exceptionToThrowOnQueueing != null) {
         throw exceptionToThrowOnQueueing;
       }
-      if (runtimeExceptionToThrow != null) {
-        throw runtimeExceptionToThrow;
+      if (runtimeExceptionToThrowOnQueueing != null) {
+        throw runtimeExceptionToThrowOnQueueing;
       }
       if (!shouldAcceptIncomingFrames) {
+        this.listenerExecutor = listenerExecutor;
         this.wakeupListener = wakeupListener;
         return false;
       }
@@ -109,6 +117,13 @@ public final class GlFrameProcessorTestUtil {
       }
       frame.release(/* releaseFence= */ null);
       return true;
+    }
+
+    public void triggerWakeup() {
+      if (listenerExecutor == null || wakeupListener == null) {
+        throw new IllegalStateException("No wakeup listener registered");
+      }
+      listenerExecutor.execute(wakeupListener);
     }
 
     @Override
@@ -270,5 +285,53 @@ public final class GlFrameProcessorTestUtil {
 
     @Override
     public void close() {}
+  }
+
+  public static final class FakeCompositorGlProgram
+      implements DefaultGlTextureFrameCompositingProcessor.CompositorGlProgram {
+    @Nullable public VideoFrameProcessingException exceptionToThrow;
+    @Nullable public GlUtil.GlException glExceptionToThrow;
+
+    @Override
+    public void drawFrame(List<GlCompositionFrame> inputFrameInfos, GlTextureInfo outputTexture)
+        throws GlUtil.GlException, VideoFrameProcessingException {
+      if (exceptionToThrow != null) {
+        throw exceptionToThrow;
+      }
+      if (glExceptionToThrow != null) {
+        throw glExceptionToThrow;
+      }
+    }
+
+    @Override
+    public void release() {}
+  }
+
+  public static final class FakeGlObjectsProvider implements GlObjectsProvider {
+    @Override
+    public EGLContext createEglContext(
+        EGLDisplay eglDisplay, int openGlVersion, int[] configAttributes) {
+      return EGL14.EGL_NO_CONTEXT;
+    }
+
+    @Override
+    public EGLSurface createEglSurface(
+        EGLDisplay eglDisplay, Object surface, int colorTransfer, boolean isEncoderInputSurface) {
+      return EGL14.EGL_NO_SURFACE;
+    }
+
+    @Override
+    public EGLSurface createFocusedPlaceholderEglSurface(
+        EGLContext eglContext, EGLDisplay eglDisplay) {
+      return EGL14.EGL_NO_SURFACE;
+    }
+
+    @Override
+    public GlTextureInfo createBuffersForTexture(int texId, int width, int height) {
+      return new GlTextureInfo(texId, /* fboId= */ -1, /* rboId= */ -1, width, height);
+    }
+
+    @Override
+    public void release(EGLDisplay eglDisplay) {}
   }
 }
