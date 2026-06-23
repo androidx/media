@@ -92,6 +92,7 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.Rating;
+import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.TrackSelectionParameters;
@@ -116,7 +117,9 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import java.lang.ref.WeakReference;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -145,6 +148,11 @@ import java.util.concurrent.ExecutionException;
   private ImmutableBiMap<TrackGroup, String> trackGroupIdMap;
   private ImmutableMap<String, String> trackGroupOriginalToUniqueIdMap;
   private int nextUniqueTrackGroupIdPrefix;
+  private ImmutableBiMap<Object, String> windowUidMap;
+  private ImmutableBiMap<Object, String> periodUidMap;
+  private int nextUniqueTimelineUidPrefix;
+  @Nullable private Timeline lastOriginalTimeline;
+  @Nullable private Timeline lastUidMappingTimeline;
   @Nullable private SurfaceHolderWithSize surfaceHolderWithSize;
 
   public MediaSessionStub(MediaSessionImpl sessionImpl) {
@@ -154,6 +162,9 @@ import java.util.concurrent.ExecutionException;
     pendingControllers = new CopyOnWriteArraySet<>();
     trackGroupIdMap = ImmutableBiMap.of();
     trackGroupOriginalToUniqueIdMap = ImmutableMap.of();
+    windowUidMap = ImmutableBiMap.of();
+    periodUidMap = ImmutableBiMap.of();
+    nextUniqueTimelineUidPrefix = 0;
   }
 
   public ConnectedControllersManager<IBinder> getConnectedControllersManager() {
@@ -600,6 +611,7 @@ import java.util.concurrent.ExecutionException;
                                   connectionResultToUse.availablePlayerCommands));
                     }
                     playerInfo = updatePlayerInfoWithUniqueTrackGroupIds(playerInfo);
+                    playerInfo = updatePlayerInfoWithUniqueTimelineUids(playerInfo);
                     if (connectedControllersManager.isConnected(controllerInfo)) {
                       connectedControllersManager.updateLastSentTimelineAndTracks(
                           controllerInfo, playerInfo.timeline, playerInfo.currentTracks);
@@ -2356,6 +2368,262 @@ import java.util.concurrent.ExecutionException;
 
   private String generateUniqueTrackGroupId(TrackGroup trackGroup) {
     return Util.intToStringMaxRadix(nextUniqueTrackGroupIdPrefix++) + "-" + trackGroup.id;
+  }
+
+  /**
+   * Returns a {@link PlayerInfo} with unique UIDs for the timeline and related position
+   * information, or {@code null} if the input was {@code null}.
+   *
+   * <p>This is used to ensure that UIDs from different sessions or different timelines within the
+   * same session do not collide when exposed to controllers.
+   *
+   * @param playerInfo The original {@link PlayerInfo}.
+   * @return The {@link PlayerInfo} with unique timeline UIDs and mapped position information.
+   */
+  /* package */ PlayerInfo updatePlayerInfoWithUniqueTimelineUids(PlayerInfo playerInfo) {
+    Timeline timeline = playerInfo.timeline;
+    if (timeline.isEmpty()) {
+      return playerInfo;
+    }
+
+    // Rebuild timeline with unique UIDs
+    Timeline updatedTimeline = updateTimelineWithUniqueUids(timeline, playerInfo);
+
+    // Map PositionInfos
+    SessionPositionInfo updatedSessionPositionInfo =
+        copyWithUniqueUids(playerInfo.sessionPositionInfo);
+    Player.PositionInfo updatedOldPositionInfo = copyWithUniqueUids(playerInfo.oldPositionInfo);
+    Player.PositionInfo updatedNewPositionInfo = copyWithUniqueUids(playerInfo.newPositionInfo);
+
+    return new PlayerInfo.Builder(playerInfo)
+        .setTimeline(updatedTimeline)
+        .setSessionPositionInfo(updatedSessionPositionInfo)
+        .setOldPositionInfo(updatedOldPositionInfo)
+        .setNewPositionInfo(updatedNewPositionInfo)
+        .build();
+  }
+
+  private Timeline updateTimelineWithUniqueUids(Timeline timeline, PlayerInfo playerInfo) {
+    if (Objects.equals(lastOriginalTimeline, timeline) && lastUidMappingTimeline != null) {
+      return lastUidMappingTimeline;
+    }
+    generateAndCacheUniqueTimelineUids(timeline, playerInfo);
+    lastOriginalTimeline = timeline;
+    lastUidMappingTimeline = new UidMappingTimeline(timeline, windowUidMap, periodUidMap);
+    return lastUidMappingTimeline;
+  }
+
+  private void generateAndCacheUniqueTimelineUids(Timeline timeline, PlayerInfo playerInfo) {
+    HashMap<Object, String> updatedWindowUidMap = new HashMap<>();
+    HashMap<Object, String> updatedPeriodUidMap = new HashMap<>();
+
+    // Map window UIDs
+    Timeline.Window window = new Timeline.Window();
+    for (int i = 0; i < timeline.getWindowCount(); i++) {
+      timeline.getWindow(i, window);
+      if (window.uid != null && !updatedWindowUidMap.containsKey(window.uid)) {
+        String existingUid = windowUidMap.get(window.uid);
+        updatedWindowUidMap.put(
+            window.uid, existingUid != null ? existingUid : generateUniqueTimelineUid());
+      }
+    }
+
+    // Map period UIDs
+    Timeline.Period period = new Timeline.Period();
+    for (int i = 0; i < timeline.getPeriodCount(); i++) {
+      timeline.getPeriod(i, period, /* setIds= */ true);
+      if (period.uid != null && !updatedPeriodUidMap.containsKey(period.uid)) {
+        String existingUid = periodUidMap.get(period.uid);
+        updatedPeriodUidMap.put(
+            period.uid, existingUid != null ? existingUid : generateUniqueTimelineUid());
+      }
+      if (period.id != null && !updatedPeriodUidMap.containsKey(period.id)) {
+        String existingUid = periodUidMap.get(period.id);
+        updatedPeriodUidMap.put(
+            period.id, existingUid != null ? existingUid : generateUniqueTimelineUid());
+      }
+    }
+
+    // Also retain UIDs from PositionInfos to ensure they aren't stripped if an item was just
+    // removed
+    retainPositionInfoWindowUids(playerInfo.sessionPositionInfo.positionInfo, updatedWindowUidMap);
+    retainPositionInfoWindowUids(playerInfo.oldPositionInfo, updatedWindowUidMap);
+    retainPositionInfoWindowUids(playerInfo.newPositionInfo, updatedWindowUidMap);
+
+    retainPositionInfoPeriodUids(playerInfo.sessionPositionInfo.positionInfo, updatedPeriodUidMap);
+    retainPositionInfoPeriodUids(playerInfo.oldPositionInfo, updatedPeriodUidMap);
+    retainPositionInfoPeriodUids(playerInfo.newPositionInfo, updatedPeriodUidMap);
+
+    windowUidMap = ImmutableBiMap.copyOf(updatedWindowUidMap);
+    periodUidMap = ImmutableBiMap.copyOf(updatedPeriodUidMap);
+  }
+
+  /**
+   * Retains the window UID of the given {@link Player.PositionInfo} in the updated map if it was
+   * already mapped, to ensure consistency across timeline updates.
+   */
+  private void retainPositionInfoWindowUids(
+      Player.PositionInfo positionInfo, Map<Object, String> updatedWindowUidMap) {
+    if (positionInfo.windowUid == null || updatedWindowUidMap.containsKey(positionInfo.windowUid)) {
+      return;
+    }
+    String existingUid = windowUidMap.get(positionInfo.windowUid);
+    if (existingUid != null) {
+      updatedWindowUidMap.put(positionInfo.windowUid, existingUid);
+    }
+  }
+
+  /**
+   * Retains the period UID of the given {@link Player.PositionInfo} in the updated map if it was
+   * already mapped, to ensure consistency across timeline updates.
+   */
+  private void retainPositionInfoPeriodUids(
+      Player.PositionInfo positionInfo, Map<Object, String> updatedPeriodUidMap) {
+    if (positionInfo.periodUid == null || updatedPeriodUidMap.containsKey(positionInfo.periodUid)) {
+      return;
+    }
+    String existingUid = periodUidMap.get(positionInfo.periodUid);
+    if (existingUid != null) {
+      updatedPeriodUidMap.put(positionInfo.periodUid, existingUid);
+    }
+  }
+
+  private String generateUniqueTimelineUid() {
+    return Util.intToStringMaxRadix(nextUniqueTimelineUidPrefix++);
+  }
+
+  private Player.PositionInfo copyWithUniqueUids(Player.PositionInfo positionInfo) {
+    return new Player.PositionInfo(
+        positionInfo.windowUid == null ? null : getUniqueWindowUid(positionInfo.windowUid),
+        positionInfo.mediaItemIndex,
+        positionInfo.mediaItem,
+        positionInfo.periodUid == null ? null : getUniquePeriodUid(positionInfo.periodUid),
+        positionInfo.periodIndex,
+        positionInfo.positionMs,
+        positionInfo.contentPositionMs,
+        positionInfo.adGroupIndex,
+        positionInfo.adIndexInAdGroup);
+  }
+
+  private SessionPositionInfo copyWithUniqueUids(SessionPositionInfo sessionPositionInfo) {
+    return new SessionPositionInfo(
+        copyWithUniqueUids(sessionPositionInfo.positionInfo),
+        sessionPositionInfo.isPlayingAd,
+        sessionPositionInfo.eventTimeMs,
+        sessionPositionInfo.durationMs,
+        sessionPositionInfo.bufferedPositionMs,
+        sessionPositionInfo.bufferedPercentage,
+        sessionPositionInfo.totalBufferedDurationMs,
+        sessionPositionInfo.currentLiveOffsetMs,
+        sessionPositionInfo.contentDurationMs,
+        sessionPositionInfo.contentBufferedPositionMs);
+  }
+
+  private Object getUniqueWindowUid(Object originalUid) {
+    String uniqueUid = windowUidMap.get(originalUid);
+    return uniqueUid == null ? originalUid : uniqueUid;
+  }
+
+  private Object getUniquePeriodUid(Object originalUid) {
+    String uniqueUid = periodUidMap.get(originalUid);
+    return uniqueUid == null ? originalUid : uniqueUid;
+  }
+
+  /* package */ static final class UidMappingTimeline extends Timeline {
+    private final Timeline timeline;
+    private final ImmutableBiMap<Object, String> windowUidMap;
+    private final ImmutableBiMap<Object, String> periodUidMap;
+
+    /* package */ UidMappingTimeline(
+        Timeline timeline,
+        ImmutableBiMap<Object, String> windowUidMap,
+        ImmutableBiMap<Object, String> periodUidMap) {
+      this.timeline = timeline;
+      this.windowUidMap = windowUidMap;
+      this.periodUidMap = periodUidMap;
+    }
+
+    @Override
+    public int getWindowCount() {
+      return timeline.getWindowCount();
+    }
+
+    @Override
+    public Window getWindow(int windowIndex, Window window, long defaultPositionProjectionUs) {
+      timeline.getWindow(windowIndex, window, defaultPositionProjectionUs);
+      if (window.uid != null) {
+        String uniqueUid = windowUidMap.get(window.uid);
+        if (uniqueUid != null) {
+          window.uid = uniqueUid;
+        }
+      }
+      return window;
+    }
+
+    @Override
+    public int getPeriodCount() {
+      return timeline.getPeriodCount();
+    }
+
+    @Override
+    public Period getPeriod(int periodIndex, Period period, boolean setIds) {
+      timeline.getPeriod(periodIndex, period, setIds);
+      if (setIds) {
+        if (period.id != null) {
+          String uniqueId = periodUidMap.get(period.id);
+          if (uniqueId != null) {
+            period.id = uniqueId;
+          }
+        }
+        if (period.uid != null) {
+          String uniqueUid = periodUidMap.get(period.uid);
+          if (uniqueUid != null) {
+            period.uid = uniqueUid;
+          }
+        }
+      }
+      return period;
+    }
+
+    @Override
+    public int getIndexOfPeriod(Object uid) {
+      if (uid instanceof String) {
+        Object originalUid = periodUidMap.inverse().get(uid);
+        if (originalUid != null) {
+          return timeline.getIndexOfPeriod(originalUid);
+        }
+      }
+      return timeline.getIndexOfPeriod(uid);
+    }
+
+    @Override
+    public Object getUidOfPeriod(int periodIndex) {
+      Object originalUid = timeline.getUidOfPeriod(periodIndex);
+      String uniqueUid = periodUidMap.get(originalUid);
+      return uniqueUid == null ? originalUid : uniqueUid;
+    }
+
+    @Override
+    public int getPreviousWindowIndex(
+        int windowIndex, @Player.RepeatMode int repeatMode, boolean shuffleModeEnabled) {
+      return timeline.getPreviousWindowIndex(windowIndex, repeatMode, shuffleModeEnabled);
+    }
+
+    @Override
+    public int getNextWindowIndex(
+        int windowIndex, @Player.RepeatMode int repeatMode, boolean shuffleModeEnabled) {
+      return timeline.getNextWindowIndex(windowIndex, repeatMode, shuffleModeEnabled);
+    }
+
+    @Override
+    public int getLastWindowIndex(boolean shuffleModeEnabled) {
+      return timeline.getLastWindowIndex(shuffleModeEnabled);
+    }
+
+    @Override
+    public int getFirstWindowIndex(boolean shuffleModeEnabled) {
+      return timeline.getFirstWindowIndex(shuffleModeEnabled);
+    }
   }
 
   /** Common interface for code snippets to handle all incoming commands from the controller. */

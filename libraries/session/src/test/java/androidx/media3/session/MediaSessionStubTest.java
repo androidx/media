@@ -16,6 +16,7 @@
 package androidx.media3.session;
 
 import static androidx.media3.test.utils.TestUtil.getThrowingBundle;
+import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.os.Binder;
@@ -29,11 +30,15 @@ import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
+import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.session.MediaSessionStub.UidMappingTimeline;
+import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -534,5 +539,47 @@ public class MediaSessionStubTest {
                 /* connectionHints= */ new Bundle(),
                 /* maxCommandsForMediaItems= */ 0)
             .toBundle());
+  }
+
+  @Test
+  public void uidMappingTimeline_mapsUidsCorrectly() {
+    Timeline rawTimeline = new FakeTimeline(/* windowCount= */ 2);
+    Object windowUid0 = rawTimeline.getWindow(/* windowIndex= */ 0, new Timeline.Window()).uid;
+    Object windowUid1 = rawTimeline.getWindow(/* windowIndex= */ 1, new Timeline.Window()).uid;
+    Object periodUid0 =
+        rawTimeline.getPeriod(/* periodIndex= */ 0, new Timeline.Period(), /* setIds= */ true).uid;
+    Object periodUid1 =
+        rawTimeline.getPeriod(/* periodIndex= */ 1, new Timeline.Period(), /* setIds= */ true).uid;
+    Object periodId0 =
+        rawTimeline.getPeriod(/* periodIndex= */ 0, new Timeline.Period(), /* setIds= */ true).id;
+
+    ImmutableBiMap<Object, String> windowUidMap =
+        ImmutableBiMap.of(windowUid0, "mapped_window_0", windowUid1, "mapped_window_1");
+    ImmutableBiMap<Object, String> periodUidMap =
+        ImmutableBiMap.of(
+            periodUid0, "mapped_period_0",
+            periodUid1, "mapped_period_1",
+            periodId0, "mapped_period_id");
+
+    UidMappingTimeline mappingTimeline =
+        new UidMappingTimeline(rawTimeline, windowUidMap, periodUidMap);
+
+    assertThat(mappingTimeline.getWindow(0, new Timeline.Window()).uid)
+        .isEqualTo("mapped_window_0");
+    assertThat(mappingTimeline.getWindow(1, new Timeline.Window()).uid)
+        .isEqualTo("mapped_window_1");
+    assertThat(mappingTimeline.getPeriod(0, new Timeline.Period(), /* setIds= */ true).uid)
+        .isEqualTo("mapped_period_0");
+    assertThat(mappingTimeline.getPeriod(1, new Timeline.Period(), /* setIds= */ true).uid)
+        .isEqualTo("mapped_period_1");
+    assertThat(mappingTimeline.getPeriod(0, new Timeline.Period(), /* setIds= */ true).id)
+        .isEqualTo("mapped_period_id");
+    assertThat(mappingTimeline.getPeriod(1, new Timeline.Period(), /* setIds= */ true).id)
+        .isEqualTo("mapped_period_id");
+    assertThat(mappingTimeline.getIndexOfPeriod("mapped_period_0")).isEqualTo(0);
+    assertThat(mappingTimeline.getIndexOfPeriod("mapped_period_1")).isEqualTo(1);
+    assertThat(mappingTimeline.getIndexOfPeriod(periodUid0)).isEqualTo(0);
+    assertThat(mappingTimeline.getUidOfPeriod(0)).isEqualTo("mapped_period_0");
+    assertThat(mappingTimeline.getUidOfPeriod(1)).isEqualTo("mapped_period_1");
   }
 }

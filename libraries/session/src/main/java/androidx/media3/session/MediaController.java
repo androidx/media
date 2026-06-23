@@ -1348,15 +1348,7 @@ public class MediaController implements Player {
     return null;
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * <p>Caveat: Some methods of the {@link Timeline} such as {@link Timeline#getPeriodByUid(Object,
-   * Timeline.Period)}, {@link Timeline#getIndexOfPeriod(Object)}, and {@link
-   * Timeline#getUidOfPeriod(int)} will throw {@link UnsupportedOperationException} because of the
-   * limitation of restoring the instance sent from session as described in {@link
-   * Timeline#fromBundle}.
-   */
+  /** {@inheritDoc} */
   @Override
   public final Timeline getCurrentTimeline() {
     verifyApplicationThread();

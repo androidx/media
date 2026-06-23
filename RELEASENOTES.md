@@ -34,7 +34,15 @@
         `MediaNotificationManager` when an asynchronous artwork bitmap load
         callback attempts to start the foreground service while the app is in
         the background ([#3270](https://github.com/androidx/media/issues/3270)).
+    *   Fix an issue where `PositionInfo` objects received by a
+        `MediaController` were missing their original `Timeline` UIDs. The
+        session now reliably translates and propagates these UIDs during state
+        updates.
 *   UI:
+    *   Fix shutter suppression bug in `PlayerView` and Compose
+        `PresentationState` that caused crashes on timelines that do not support
+        period UID lookup
+        ([#3264](https://github.com/androidx/media/issues/3264)).
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:

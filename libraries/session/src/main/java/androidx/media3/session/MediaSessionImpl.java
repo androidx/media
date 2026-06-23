@@ -815,6 +815,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private void dispatchOnPlayerInfoChanged(
       PlayerInfo playerInfo, boolean excludeTimeline, boolean excludeTracks) {
     playerInfo = sessionStub.updatePlayerInfoWithUniqueTrackGroupIds(playerInfo);
+    playerInfo = sessionStub.updatePlayerInfoWithUniqueTimelineUids(playerInfo);
     List<ControllerInfo> controllers =
         sessionStub.getConnectedControllersManager().getConnectedControllers();
     for (int i = 0; i < controllers.size(); i++) {

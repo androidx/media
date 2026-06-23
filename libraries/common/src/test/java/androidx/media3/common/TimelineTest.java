@@ -489,6 +489,199 @@ public class TimelineTest {
         .isTrue();
   }
 
+  @Test
+  public void roundTripViaBundle_ofWindow_preservesStringUid() {
+    Timeline.Window window = new Timeline.Window();
+    window.uid = "string_uid";
+    window.mediaItem = new MediaItem.Builder().setMediaId("mediaId").build();
+
+    Timeline.Window restoredWindow =
+        Timeline.Window.fromBundle(
+            window.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
+
+    assertThat(restoredWindow.uid).isEqualTo("string_uid");
+  }
+
+  @Test
+  public void roundTripViaBundle_ofPeriod_preservesStringIds() {
+    Timeline.Period period = new Timeline.Period();
+    period.id = "string_id";
+    period.uid = "string_uid";
+
+    Timeline.Period restoredPeriod =
+        Timeline.Period.fromBundle(
+            period.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
+
+    assertThat(restoredPeriod.id).isEqualTo("string_id");
+    assertThat(restoredPeriod.uid).isEqualTo("string_uid");
+  }
+
+  @Test
+  public void roundTripViaBundle_ofTimeline_preservesStringUidsAndSupportsLookup() {
+    SimpleBasePlayer.State state =
+        new SimpleBasePlayer.State.Builder()
+            .setPlaylist(
+                ImmutableList.of(
+                    new SimpleBasePlayer.MediaItemData.Builder(/* uid= */ "window_uid_1").build()))
+            .build();
+    Timeline timeline = state.timeline;
+
+    Timeline restoredTimeline =
+        Timeline.fromBundle(
+            timeline.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
+
+    assertThat(restoredTimeline.getWindowCount()).isEqualTo(1);
+    assertThat(restoredTimeline.getWindow(/* windowIndex= */ 0, new Timeline.Window()).uid)
+        .isEqualTo("window_uid_1");
+
+    assertThat(restoredTimeline.getPeriodCount()).isEqualTo(1);
+    Timeline.Period period =
+        restoredTimeline.getPeriod(/* periodIndex= */ 0, new Timeline.Period());
+    assertThat(period.uid).isEqualTo("window_uid_1");
+
+    assertThat(restoredTimeline.getIndexOfPeriod("window_uid_1")).isEqualTo(0);
+    assertThat(restoredTimeline.getUidOfPeriod(0)).isEqualTo("window_uid_1");
+  }
+
+  @Test
+  public void remotableTimeline_withNullPeriodUids_doesNotCrash() {
+    Timeline.Window window = new Timeline.Window();
+    window.uid = "window_uid";
+    window.firstPeriodIndex = 0;
+    window.lastPeriodIndex = 0;
+
+    Timeline.Period period = new Timeline.Period();
+    period.uid = null;
+
+    Timeline.RemotableTimeline timeline =
+        new Timeline.RemotableTimeline(
+            ImmutableList.of(window), ImmutableList.of(period), new int[] {0});
+
+    assertThat(timeline.getWindowCount()).isEqualTo(1);
+    assertThat(timeline.getPeriodCount()).isEqualTo(1);
+    Object assignedUid = timeline.getUidOfPeriod(0);
+    assertThat(assignedUid).isNotNull();
+    assertThat(timeline.getIndexOfPeriod(assignedUid)).isEqualTo(0);
+    assertThat(timeline.getIndexOfPeriod(null)).isEqualTo(C.INDEX_UNSET);
+  }
+
+  @Test
+  public void remotableTimeline_withMixedPeriodUids_preservesNonNullAndSanitizesNull() {
+    Timeline.Window window = new Timeline.Window();
+    window.uid = "window_uid";
+    window.firstPeriodIndex = 0;
+    window.lastPeriodIndex = 2;
+
+    Timeline.Period period1 = new Timeline.Period();
+    period1.uid = "period_1";
+    Timeline.Period period2 = new Timeline.Period();
+    period2.uid = null;
+    Timeline.Period period3 = new Timeline.Period();
+    period3.uid = "period_3";
+
+    Timeline.RemotableTimeline timeline =
+        new Timeline.RemotableTimeline(
+            ImmutableList.of(window), ImmutableList.of(period1, period2, period3), new int[] {0});
+
+    assertThat(timeline.getPeriodCount()).isEqualTo(3);
+    assertThat(timeline.getUidOfPeriod(0)).isEqualTo("period_1");
+    assertThat(timeline.getIndexOfPeriod("period_1")).isEqualTo(0);
+    Object sanitizedUid = timeline.getUidOfPeriod(1);
+    assertThat(sanitizedUid).isNotNull();
+    assertThat(sanitizedUid).isNotEqualTo("period_1");
+    assertThat(sanitizedUid).isNotEqualTo("period_3");
+    assertThat(timeline.getIndexOfPeriod(sanitizedUid)).isEqualTo(1);
+    assertThat(timeline.getUidOfPeriod(2)).isEqualTo("period_3");
+    assertThat(timeline.getIndexOfPeriod("period_3")).isEqualTo(2);
+  }
+
+  @Test
+  public void remotableTimeline_withDuplicatePeriodUids_resolvesToFirstOccurrence() {
+    Timeline.Window window = new Timeline.Window();
+    window.uid = "window_uid";
+    window.firstPeriodIndex = 0;
+    window.lastPeriodIndex = 2;
+
+    Timeline.Period period1 = new Timeline.Period();
+    period1.uid = "duplicate_uid";
+    Timeline.Period period2 = new Timeline.Period();
+    period2.uid = "other_uid";
+    Timeline.Period period3 = new Timeline.Period();
+    period3.uid = "duplicate_uid";
+
+    Timeline.RemotableTimeline timeline =
+        new Timeline.RemotableTimeline(
+            ImmutableList.of(window), ImmutableList.of(period1, period2, period3), new int[] {0});
+
+    assertThat(timeline.getIndexOfPeriod("duplicate_uid")).isEqualTo(0);
+    assertThat(timeline.getUidOfPeriod(0)).isEqualTo("duplicate_uid");
+    assertThat(timeline.getUidOfPeriod(1)).isEqualTo("other_uid");
+    assertThat(timeline.getUidOfPeriod(2)).isEqualTo("duplicate_uid");
+  }
+
+  @Test
+  public void remotableTimeline_serializationOfSanitizedUids_stripsAndRecreatesThem() {
+    Timeline.Window window = new Timeline.Window();
+    window.uid = "window_uid";
+    window.firstPeriodIndex = 0;
+    window.lastPeriodIndex = 0;
+
+    Timeline.Period period = new Timeline.Period();
+    period.uid = null; // Will be sanitized to Object
+
+    Timeline.RemotableTimeline timeline =
+        new Timeline.RemotableTimeline(
+            ImmutableList.of(window), ImmutableList.of(period), new int[] {0});
+
+    Object localSanitizedUid = timeline.getUidOfPeriod(0);
+    assertThat(localSanitizedUid).isNotNull();
+
+    // Serialize and deserialize
+    Bundle bundle = timeline.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
+    Timeline restoredTimeline = Timeline.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION);
+
+    assertThat(restoredTimeline.getPeriodCount()).isEqualTo(1);
+    Object restoredUid = restoredTimeline.getUidOfPeriod(0);
+    assertThat(restoredUid).isNotNull();
+    // It should be a new Object, not equal to the local one (since it was stripped and recreated)
+    assertThat(restoredUid).isNotEqualTo(localSanitizedUid);
+    assertThat(restoredTimeline.getIndexOfPeriod(restoredUid)).isEqualTo(0);
+  }
+
+  @Test
+  public void remotableTimeline_withDuplicateWindowUids_sanitizesThem() {
+    Timeline.Window window1 = new Timeline.Window();
+    window1.firstPeriodIndex = 0;
+    window1.lastPeriodIndex = 0;
+
+    Timeline.Window window2 = new Timeline.Window();
+    window2.firstPeriodIndex = 1;
+    window2.lastPeriodIndex = 1;
+
+    Timeline.Period period1 = new Timeline.Period();
+    period1.uid = "period_1";
+    Timeline.Period period2 = new Timeline.Period();
+    period2.uid = "period_2";
+
+    Timeline.RemotableTimeline timeline =
+        new Timeline.RemotableTimeline(
+            ImmutableList.of(window1, window2),
+            ImmutableList.of(period1, period2),
+            new int[] {0, 1});
+
+    assertThat(timeline.getWindowCount()).isEqualTo(2);
+
+    Object uid1 = timeline.getWindow(/* windowIndex= */ 0, new Timeline.Window()).uid;
+    Object uid2 = timeline.getWindow(/* windowIndex= */ 1, new Timeline.Window()).uid;
+
+    assertThat(uid1).isNotEqualTo(Timeline.Window.SINGLE_WINDOW_UID);
+    assertThat(uid2).isNotEqualTo(Timeline.Window.SINGLE_WINDOW_UID);
+    assertThat(uid1).isNotEqualTo(uid2);
+  }
+
   @SuppressWarnings("deprecation") // Populates the deprecated window.tag property.
   private static Timeline.Window populateWindow(
       @Nullable MediaItem mediaItem, @Nullable Object tag) {

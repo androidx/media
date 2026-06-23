@@ -67,6 +67,7 @@ import androidx.media3.test.session.common.MainLooperTestRule;
 import androidx.media3.test.session.common.MediaBrowserConstants;
 import androidx.media3.test.session.common.PollingCheck;
 import androidx.media3.test.session.common.TestUtils;
+import androidx.media3.test.utils.FakeTimeline;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
@@ -2638,6 +2639,133 @@ public class MediaControllerTest {
 
     assertThat(mediaItem)
         .isEqualTo(timeline.getWindow(mediaItemIndex, new Timeline.Window()).mediaItem);
+  }
+
+  @Test
+  public void getCurrentTimeline_preservesEqualUidsForEqualUidsInPlayer() throws Exception {
+    Timeline timeline =
+        new PlaylistTimeline(
+            ImmutableList.of(MediaItem.fromUri("uri1"), MediaItem.fromUri("uri2")));
+    Bundle playerConfig =
+        new RemoteMediaSession.MockPlayerConfigBuilder().setTimeline(timeline).build();
+    remoteSession.setPlayer(playerConfig);
+
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    Timeline controllerTimeline =
+        threadTestRule.getHandler().postAndSync(controller::getCurrentTimeline);
+
+    assertThat(controllerTimeline.getWindowCount()).isEqualTo(2);
+    Object uid1 = controllerTimeline.getWindow(/* windowIndex= */ 0, new Timeline.Window()).uid;
+    Object uid2 = controllerTimeline.getWindow(/* windowIndex= */ 0, new Timeline.Window()).uid;
+    assertThat(uid1).isEqualTo(uid2);
+    assertThat(uid1)
+        .isNotEqualTo(
+            controllerTimeline.getWindow(/* windowIndex= */ 1, new Timeline.Window()).uid);
+    assertThat(controllerTimeline.getPeriod(/* periodIndex= */ 0, new Timeline.Period()).uid)
+        .isNotEqualTo(
+            controllerTimeline.getPeriod(/* periodIndex= */ 1, new Timeline.Period()).uid);
+  }
+
+  @Test
+  public void getCurrentTimeline_withEmptyTimeline_isHandledCorrectly() throws Exception {
+    Timeline timeline = Timeline.EMPTY;
+    Bundle playerConfig =
+        new RemoteMediaSession.MockPlayerConfigBuilder().setTimeline(timeline).build();
+    remoteSession.setPlayer(playerConfig);
+
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    Timeline controllerTimeline =
+        threadTestRule.getHandler().postAndSync(controller::getCurrentTimeline);
+
+    assertThat(controllerTimeline.isEmpty()).isTrue();
+    assertThat(controllerTimeline.getWindowCount()).isEqualTo(0);
+    assertThat(controllerTimeline.getPeriodCount()).isEqualTo(0);
+  }
+
+  @Test
+  public void getCurrentTimeline_withMultiPeriodWindow_preservesUids() throws Exception {
+    Timeline timeline =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition.Builder()
+                .setPeriodCount(3)
+                .setUid("windowUid")
+                .build());
+    Bundle playerConfig =
+        new RemoteMediaSession.MockPlayerConfigBuilder().setTimeline(timeline).build();
+    remoteSession.setPlayer(playerConfig);
+
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    Timeline controllerTimeline =
+        threadTestRule.getHandler().postAndSync(controller::getCurrentTimeline);
+
+    assertThat(controllerTimeline.getWindowCount()).isEqualTo(1);
+    assertThat(controllerTimeline.getPeriodCount()).isEqualTo(3);
+
+    Timeline.Period period = new Timeline.Period();
+    Object uid0 = controllerTimeline.getPeriod(/* periodIndex= */ 0, period).uid;
+    Object uid1 = controllerTimeline.getPeriod(/* periodIndex= */ 1, period).uid;
+    Object uid2 = controllerTimeline.getPeriod(/* periodIndex= */ 2, period).uid;
+
+    assertThat(uid0).isNotEqualTo(uid1);
+    assertThat(uid1).isNotEqualTo(uid2);
+
+    assertThat(controllerTimeline.getIndexOfPeriod(uid0)).isEqualTo(0);
+    assertThat(controllerTimeline.getIndexOfPeriod(uid1)).isEqualTo(1);
+    assertThat(controllerTimeline.getIndexOfPeriod(uid2)).isEqualTo(2);
+
+    assertThat(controllerTimeline.getUidOfPeriod(0)).isEqualTo(uid0);
+    assertThat(controllerTimeline.getUidOfPeriod(1)).isEqualTo(uid1);
+    assertThat(controllerTimeline.getUidOfPeriod(2)).isEqualTo(uid2);
+  }
+
+  @Test
+  public void getCurrentTimeline_withShuffledTimeline_preservesShuffleOrder() throws Exception {
+    Timeline timeline =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition.Builder().setUid("window0").build(),
+            new FakeTimeline.TimelineWindowDefinition.Builder().setUid("window1").build(),
+            new FakeTimeline.TimelineWindowDefinition.Builder().setUid("window2").build());
+    Bundle playerConfig =
+        new RemoteMediaSession.MockPlayerConfigBuilder().setTimeline(timeline).build();
+    remoteSession.setPlayer(playerConfig);
+
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    Timeline controllerTimeline =
+        threadTestRule.getHandler().postAndSync(controller::getCurrentTimeline);
+
+    assertThat(controllerTimeline.getWindowCount()).isEqualTo(3);
+
+    // Assert that the shuffle order generated by the player is exactly identical to
+    // the shuffle order reconstructed by the controller.
+    assertThat(controllerTimeline.getFirstWindowIndex(/* shuffleModeEnabled= */ true))
+        .isEqualTo(timeline.getFirstWindowIndex(/* shuffleModeEnabled= */ true));
+
+    int index = controllerTimeline.getFirstWindowIndex(/* shuffleModeEnabled= */ true);
+    int expectedIndex = timeline.getFirstWindowIndex(/* shuffleModeEnabled= */ true);
+
+    index =
+        controllerTimeline.getNextWindowIndex(
+            index, Player.REPEAT_MODE_OFF, /* shuffleModeEnabled= */ true);
+    expectedIndex =
+        timeline.getNextWindowIndex(
+            expectedIndex, Player.REPEAT_MODE_OFF, /* shuffleModeEnabled= */ true);
+    assertThat(index).isEqualTo(expectedIndex);
+
+    index =
+        controllerTimeline.getNextWindowIndex(
+            index, Player.REPEAT_MODE_OFF, /* shuffleModeEnabled= */ true);
+    expectedIndex =
+        timeline.getNextWindowIndex(
+            expectedIndex, Player.REPEAT_MODE_OFF, /* shuffleModeEnabled= */ true);
+    assertThat(index).isEqualTo(expectedIndex);
+
+    index =
+        controllerTimeline.getNextWindowIndex(
+            index, Player.REPEAT_MODE_OFF, /* shuffleModeEnabled= */ true);
+    expectedIndex =
+        timeline.getNextWindowIndex(
+            expectedIndex, Player.REPEAT_MODE_OFF, /* shuffleModeEnabled= */ true);
+    assertThat(index).isEqualTo(expectedIndex);
   }
 
   private RemoteMediaSession createRemoteMediaSession(String id, Bundle tokenExtras)
