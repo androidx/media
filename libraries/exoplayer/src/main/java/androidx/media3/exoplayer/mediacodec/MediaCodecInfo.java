@@ -58,6 +58,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.DecoderReuseEvaluation.DecoderDiscardReasons;
+import com.google.errorprone.annotations.InlineMe;
 import java.util.Objects;
 
 /** Information about a {@link MediaCodec} for a given MIME type. */
@@ -288,12 +289,11 @@ public final class MediaCodecInfo {
       if (format.width <= 0 || format.height <= 0) {
         return true;
       }
-      return isVideoSizeAndRateSupportedV21(format.width, format.height, format.frameRate);
+      return isVideoSizeAndRateSupported(format.width, format.height, format.frameRate);
     } else { // Audio
-      return (format.sampleRate == Format.NO_VALUE
-              || isAudioSampleRateSupportedV21(format.sampleRate))
+      return (format.sampleRate == Format.NO_VALUE || isAudioSampleRateSupported(format.sampleRate))
           && (format.channelCount == Format.NO_VALUE
-              || isAudioChannelCountSupportedV21(format.channelCount));
+              || isAudioChannelCountSupported(format.channelCount));
     }
   }
 
@@ -604,7 +604,7 @@ public final class MediaCodecInfo {
    *     Format#NO_VALUE} or any value less than or equal to 0.
    * @return Whether the decoder supports video with the given width, height and frame rate.
    */
-  public boolean isVideoSizeAndRateSupportedV21(int width, int height, double frameRate) {
+  public boolean isVideoSizeAndRateSupported(int width, int height, double frameRate) {
     if (capabilities == null) {
       logNoSupport("sizeAndRate.caps");
       return false;
@@ -643,6 +643,15 @@ public final class MediaCodecInfo {
   }
 
   /**
+   * @deprecated Use {@link #isVideoSizeAndRateSupported(int, int, double)} instead.
+   */
+  @Deprecated
+  @InlineMe(replacement = "this.isVideoSizeAndRateSupported(width, height, frameRate)")
+  public final boolean isVideoSizeAndRateSupportedV21(int width, int height, double frameRate) {
+    return isVideoSizeAndRateSupported(width, height, frameRate);
+  }
+
+  /**
    * Returns the max video frame rate that this codec can support at the provided resolution, or
    * {@link C#RATE_UNSET} if this is not a video codec.
    */
@@ -666,12 +675,12 @@ public final class MediaCodecInfo {
     // that API, we binary search instead.
     float maxFrameRate = 1024;
     float minFrameRate = 0;
-    if (isVideoSizeAndRateSupportedV21(width, height, maxFrameRate)) {
+    if (isVideoSizeAndRateSupported(width, height, maxFrameRate)) {
       return maxFrameRate;
     }
     while (Math.abs(maxFrameRate - minFrameRate) > 5f) {
       float testFrameRate = minFrameRate + (maxFrameRate - minFrameRate) / 2;
-      if (isVideoSizeAndRateSupportedV21(width, height, testFrameRate)) {
+      if (isVideoSizeAndRateSupported(width, height, testFrameRate)) {
         minFrameRate = testFrameRate;
       } else {
         maxFrameRate = testFrameRate;
@@ -691,7 +700,7 @@ public final class MediaCodecInfo {
    *     codec.
    */
   @Nullable
-  public Point alignVideoSizeV21(int width, int height) {
+  public Point alignVideoSize(int width, int height) {
     if (capabilities == null) {
       return null;
     }
@@ -702,13 +711,31 @@ public final class MediaCodecInfo {
     return alignVideoSize(videoCapabilities, width, height);
   }
 
+  private static Point alignVideoSize(VideoCapabilities capabilities, int width, int height) {
+    int widthAlignment = capabilities.getWidthAlignment();
+    int heightAlignment = capabilities.getHeightAlignment();
+    return new Point(
+        Util.ceilDivide(width, widthAlignment) * widthAlignment,
+        Util.ceilDivide(height, heightAlignment) * heightAlignment);
+  }
+
+  /**
+   * @deprecated Use {@link #alignVideoSize(int, int)} instead.
+   */
+  @Deprecated
+  @InlineMe(replacement = "this.alignVideoSize(width, height)")
+  @Nullable
+  public final Point alignVideoSizeV21(int width, int height) {
+    return alignVideoSize(width, height);
+  }
+
   /**
    * Whether the decoder supports audio with a given sample rate.
    *
    * @param sampleRate The sample rate in Hz.
    * @return Whether the decoder supports audio with the given sample rate.
    */
-  public boolean isAudioSampleRateSupportedV21(int sampleRate) {
+  public boolean isAudioSampleRateSupported(int sampleRate) {
     if (capabilities == null) {
       logNoSupport("sampleRate.caps");
       return false;
@@ -726,12 +753,21 @@ public final class MediaCodecInfo {
   }
 
   /**
+   * @deprecated Use {@link #isAudioSampleRateSupported(int)} instead.
+   */
+  @Deprecated
+  @InlineMe(replacement = "this.isAudioSampleRateSupported(sampleRate)")
+  public final boolean isAudioSampleRateSupportedV21(int sampleRate) {
+    return isAudioSampleRateSupported(sampleRate);
+  }
+
+  /**
    * Whether the decoder supports audio with a given channel count.
    *
    * @param channelCount The channel count.
    * @return Whether the decoder supports audio with the given channel count.
    */
-  public boolean isAudioChannelCountSupportedV21(int channelCount) {
+  public boolean isAudioChannelCountSupported(int channelCount) {
     if (capabilities == null) {
       logNoSupport("channelCount.caps");
       return false;
@@ -748,6 +784,15 @@ public final class MediaCodecInfo {
       return false;
     }
     return true;
+  }
+
+  /**
+   * @deprecated Use {@link #isAudioChannelCountSupported(int)} instead.
+   */
+  @Deprecated
+  @InlineMe(replacement = "this.isAudioChannelCountSupported(channelCount)")
+  public final boolean isAudioChannelCountSupportedV21(int channelCount) {
+    return isAudioChannelCountSupported(channelCount);
   }
 
   private void logNoSupport(String message) {
@@ -867,14 +912,6 @@ public final class MediaCodecInfo {
       }
       return floorFrameRate <= achievableFrameRates.getUpper();
     }
-  }
-
-  private static Point alignVideoSize(VideoCapabilities capabilities, int width, int height) {
-    int widthAlignment = capabilities.getWidthAlignment();
-    int heightAlignment = capabilities.getHeightAlignment();
-    return new Point(
-        Util.ceilDivide(width, widthAlignment) * widthAlignment,
-        Util.ceilDivide(height, heightAlignment) * heightAlignment);
   }
 
   /**

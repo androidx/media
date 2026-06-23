@@ -433,7 +433,7 @@ import java.util.function.IntConsumer;
               /* onStateChanged= */ this::onAudioSessionIdChanged);
       audioSessionIdState.runInBackground(
           () -> {
-            int newAudioSessionId = Util.generateAudioSessionIdV21(applicationContext);
+            int newAudioSessionId = Util.generateAudioSessionId(applicationContext);
             if (audioSessionIdState.get() != newAudioSessionId) {
               audioSessionIdState.setStateInBackground(newAudioSessionId);
               // Provide the audio session ID to the renderers on playback thread to prevent race
@@ -1642,7 +1642,7 @@ import java.util.function.IntConsumer;
         /* backgroundStateUpdate= */ previousId ->
             audioSessionId != AUDIO_SESSION_ID_UNSET
                 ? audioSessionId
-                : Util.generateAudioSessionIdV21(applicationContext));
+                : Util.generateAudioSessionId(applicationContext));
   }
 
   @Override

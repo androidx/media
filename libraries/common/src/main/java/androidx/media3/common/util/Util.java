@@ -2946,9 +2946,21 @@ public final class Util {
    * @see AudioManager#generateAudioSessionId()
    */
   @UnstableApi
-  public static int generateAudioSessionIdV21(Context context) {
+  public static int generateAudioSessionId(Context context) {
     int audioSessionId = AudioManagerCompat.getAudioManager(context).generateAudioSessionId();
     return audioSessionId != AudioManager.ERROR ? audioSessionId : C.AUDIO_SESSION_ID_UNSET;
+  }
+
+  /**
+   * @deprecated Use {@link #generateAudioSessionId(Context)} instead.
+   */
+  @UnstableApi
+  @Deprecated
+  @InlineMe(
+      replacement = "Util.generateAudioSessionId(context)",
+      imports = "androidx.media3.common.util.Util")
+  public static int generateAudioSessionIdV21(Context context) {
+    return generateAudioSessionId(context);
   }
 
   /**

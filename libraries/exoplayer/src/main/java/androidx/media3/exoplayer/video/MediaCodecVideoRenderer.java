@@ -2783,12 +2783,12 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         return null;
       } else {
         Point alignedSize =
-            codecInfo.alignVideoSizeV21(
+            codecInfo.alignVideoSize(
                 isVerticalVideo ? shortEdgePx : longEdgePx,
                 isVerticalVideo ? longEdgePx : shortEdgePx);
         float frameRate = format.frameRate;
         if (alignedSize != null
-            && codecInfo.isVideoSizeAndRateSupportedV21(alignedSize.x, alignedSize.y, frameRate)) {
+            && codecInfo.isVideoSizeAndRateSupported(alignedSize.x, alignedSize.y, frameRate)) {
           return alignedSize;
         }
       }
