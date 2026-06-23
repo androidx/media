@@ -134,8 +134,8 @@ public class PlaylistTimeline extends Timeline {
   @Override
   public Period getPeriod(int periodIndex, Period period, boolean setIds) {
     period.set(
-        /* id= */ null,
-        /* uid= */ null,
+        /* id= */ setIds ? periodIndex : null,
+        /* uid= */ setIds ? periodIndex : null,
         periodIndex,
         Util.msToUs(DEFAULT_DURATION_MS),
         /* positionInWindowUs= */ -WINDOW_POSITION_IN_PERIOD_US,
@@ -144,14 +144,20 @@ public class PlaylistTimeline extends Timeline {
     return period;
   }
 
+  // Note: UIDs are based on unstable period indices. This is safe because the
+  // timeline size is fixed and items are not added or removed after creation.
   @Override
   public int getIndexOfPeriod(Object uid) {
-    throw new UnsupportedOperationException();
+    if (!(uid instanceof Integer)) {
+      return C.INDEX_UNSET;
+    }
+    int index = (int) uid;
+    return (index >= 0 && index < getPeriodCount()) ? index : C.INDEX_UNSET;
   }
 
   @Override
   public Object getUidOfPeriod(int periodIndex) {
-    throw new UnsupportedOperationException();
+    return periodIndex;
   }
 
   private static int[] createUnshuffledIndices(int length) {
