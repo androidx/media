@@ -537,10 +537,10 @@ public final class Ac3Util {
     // Parse the bitstream ID for AC-3 and E-AC-3 (see subsections 4.3, E.1.2 and E.1.3.1.6).
     boolean isEac3 = ((buffer.get(buffer.position() + 5) & 0xF8) >> 3) > 10;
     if (isEac3) {
-      // An EC-3 access unit may contain multiple syncframes. Per ETSI TS 102 366 Annex F,
-      // dependent substreams (strmtyp=1) cover the same presentation time as the preceding
-      // independent substream, so only audio blocks from independent substreams count toward the
-      // total sample duration.
+      // Per ETSI TS 102 366 Annex F, an EC-3 sample represents six audio blocks (1536 PCM
+      // samples). Additional independent substreams (substreamid > 0) and dependent substreams
+      // (strmtyp=1) are concurrent services that do not extend the presentation duration. Count
+      // only audio blocks from the primary independent substream (strmtyp=0, substreamid=0).
       int totalAudioBlocks = 0;
       int pos = buffer.position();
       int limit = buffer.limit();
@@ -549,11 +549,12 @@ public final class Ac3Util {
           break;
         }
         int strmtyp = (buffer.get(pos + 2) & 0xC0) >> 6;
+        int substreamid = (buffer.get(pos + 2) & 0x38) >> 3;
         int frmsiz = ((buffer.get(pos + 2) & 0x07) << 8) | (buffer.get(pos + 3) & 0xFF);
         int frameSize = (frmsiz + 1) * 2;
-        int fscod = (buffer.get(pos + 4) & 0xC0) >> 6;
-        int numblkscod = fscod == 0x03 ? 3 : (buffer.get(pos + 4) & 0x30) >> 4;
-        if (strmtyp != SyncFrameInfo.STREAM_TYPE_TYPE1) {
+        if (strmtyp == SyncFrameInfo.STREAM_TYPE_TYPE0 && substreamid == 0) {
+          int fscod = (buffer.get(pos + 4) & 0xC0) >> 6;
+          int numblkscod = fscod == 0x03 ? 3 : (buffer.get(pos + 4) & 0x30) >> 4;
           totalAudioBlocks += BLOCKS_PER_SYNCFRAME_BY_NUMBLKSCOD[numblkscod];
         }
         pos += frameSize;
