@@ -66,7 +66,7 @@
 
 ## 1.11
 
-### 1.11.0-alpha01 (2026-06-17)
+### 1.11.0-alpha01 (2026-06-23)
 
 This release includes the following changes since [1.10.1](#1101-2026-05-12):
 
@@ -132,7 +132,7 @@ This release includes the following changes since [1.10.1](#1101-2026-05-12):
         `getInitialBitrateCountryGroupAssignment` to return the country group
         assignments packed into a 32-bit integer instead of an array, reducing
         code size and avoiding allocations.
-    *   Fix AudioTrack initialization failures on some devices by ensuring the
+    *   Fix `AudioTrack` initialization failures on some devices by ensuring the
         retry logic always attempts a minimum of 1 second buffer size if other
         retries (by halving the buffer size) are unsuccessful
         ([#3207](https://github.com/androidx/media/issues/3207)).
@@ -353,11 +353,11 @@ This release includes the following changes since [1.10.1](#1101-2026-05-12):
     *   Fix transient playback stalls or failures during RTSP playback
         preparation caused by UDP port binding errors.
 *   Cast extension:
-    *   Add new CastParams class to allow configuration of Cast by calling
+    *   Add new `CastParams` class to allow configuration of Cast by calling
         `Cast.initialize(CastParams)`.
-    *   Add new CastParams.getShowSystemOutputSwitcherOnCastIconClick() option,
-        which triggers the use of the SystemUI Output Switcher instead of the
-        in-app Cast device picker when available.
+    *   Add new `CastParams.getShowSystemOutputSwitcherOnCastIconClick()`
+        option, which triggers the use of the SystemUI Output Switcher instead
+        of the in-app Cast device picker when available.
 *   Test utilities:
     *   Expand `DataSourceContractTest` to include support for `POST` requests
         with headers & bodies, add some `POST` resources to
