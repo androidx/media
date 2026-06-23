@@ -20,6 +20,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,6 +31,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.RangeSlider
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
@@ -57,8 +60,10 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.offset
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.demo.compose.R
@@ -212,6 +217,7 @@ fun ClippingSlider(
       onDraggingChanged = { isDraggingClippingThumb = it },
       modifier = Modifier.fillMaxSize(),
     )
+    PositionSlider(state, colors.positionThumbColor, Modifier.fillMaxSize())
   }
 }
 
@@ -527,6 +533,79 @@ private fun ClippingTrack(
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun PositionSlider(
+  state: ClippingSliderState,
+  positionThumbColor: Color,
+  modifier: Modifier = Modifier,
+) {
+  var dragPosition by remember { mutableStateOf<Float?>(null) }
+  val interactionSource = remember { MutableInteractionSource() }
+  val isPressed by interactionSource.collectIsPressedAsState()
+  val isDragged by interactionSource.collectIsDraggedAsState()
+  val isInteracting = isPressed || isDragged
+  LaunchedEffect(isInteracting) {
+    if (isInteracting) {
+      state.pause()
+    }
+  }
+  // Use state.committedClippingRange to compute the position slider position so it only updates
+  // when dragging the clipping thumbs finishes.
+  val visualPositionSliderStart =
+    logicalToVisualPositionSliderStart(state.committedClippingRange.start)
+  val visualPositionSliderEnd =
+    logicalToVisualPositionSliderEnd(state.committedClippingRange.endInclusive)
+  Row(modifier) {
+    Spacer(modifier = Modifier.weight(visualPositionSliderStart))
+    // TODO: b/505719491 - Make the thumb height match the ClippingSlider height
+    Slider(
+      value =
+        dragPosition
+          // Coerce within the active clipping range so the position thumb sticks to the clipping
+          // thumb when the clipping thumb crosses the position thumb. Then coerce within
+          // committedClippingRange to ensure the value stays within Slider.valueRange while player
+          // position updates lag behind a seek.
+          ?: state.playbackProgress
+            ?.coerceIn(state.clippingRange)
+            ?.coerceIn(state.committedClippingRange)
+          ?: state.committedClippingRange.start,
+      onValueChange = { dragPosition = it },
+      enabled = state.changingProgressEnabled,
+      modifier =
+        Modifier.weight(visualPositionSliderEnd - visualPositionSliderStart)
+          .fillMaxHeight()
+          // Expand the slider by 1px on each side to avoid rounding gaps. Row measurement rounds
+          // weighted dimensions to the nearest integer pixel, which can leave a sub-pixel gap
+          // between the clipping thumbs and the slider where the background image is visible. This
+          // 1px overlap ensures the seam is always covered.
+          .layout { measurable, constraints ->
+            val expandedConstraints = constraints.offset(horizontal = 2)
+            val placeable = measurable.measure(expandedConstraints)
+            layout(placeable.width - 2, placeable.height) { placeable.place(x = -1, y = 0) }
+          },
+      valueRange = state.committedClippingRange,
+      onValueChangeFinished = {
+        dragPosition?.let { state.seekTo(it) }
+        dragPosition = null
+      },
+      interactionSource = interactionSource,
+      colors =
+        SliderDefaults.colors(
+          thumbColor =
+            if (state.playbackProgress != null) positionThumbColor else Color.Transparent,
+          activeTrackColor = Color.Transparent,
+          inactiveTrackColor = Color.Transparent,
+          disabledThumbColor =
+            if (state.playbackProgress != null) positionThumbColor else Color.Transparent,
+          disabledActiveTrackColor = Color.Transparent,
+          disabledInactiveTrackColor = Color.Transparent,
+        ),
+    )
+    Spacer(modifier = Modifier.weight(1f - visualPositionSliderEnd))
+  }
+}
+
+@Composable
 private fun rememberClippingSliderState(
   player: Player?,
   positionTickCount: Int,
@@ -680,6 +759,10 @@ private class ClippingSliderState(
       val progress = playbackProgress ?: return false
       return progress >= committedClippingRange.endInclusive
     }
+
+  /** Whether changing the playback progress is enabled. */
+  val changingProgressEnabled: Boolean
+    get() = positionProgressState.changingProgressEnabled
 
   /** The total duration of the media in milliseconds, or [C.TIME_UNSET] if unknown/empty. */
   val durationMs: Long
