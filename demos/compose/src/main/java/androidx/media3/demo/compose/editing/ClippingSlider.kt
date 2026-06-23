@@ -20,7 +20,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -182,11 +181,10 @@ fun ClippingSlider(
   var positionTickCount by remember { mutableIntStateOf(0) }
   val state =
     rememberClippingSliderState(player, positionTickCount, clippingRangeMs, minClippedDurationMs)
-  var isDraggingClippingThumb by remember { mutableStateOf(false) }
   val currentOnClippingRangeChange by rememberUpdatedState(onClippingRangeChange)
 
   LaunchedEffect(clippingRangeMs, minClippedDurationMs, state, state.durationMs) {
-    if (isDraggingClippingThumb) return@LaunchedEffect
+    if (state.isUserInteracting) return@LaunchedEffect
 
     val wasAdjusted = state.syncExternalRange(clippingRangeMs, minClippedDurationMs)
     if (wasAdjusted) {
@@ -214,7 +212,6 @@ fun ClippingSlider(
       colors = colors,
       shape = shape,
       thumbPainter = clippingThumbPainter,
-      onDraggingChanged = { isDraggingClippingThumb = it },
       modifier = Modifier.fillMaxSize(),
     )
     PositionSlider(state, colors.positionThumbColor, Modifier.fillMaxSize())
@@ -335,7 +332,6 @@ private fun ClippingRangeSlider(
   colors: ClippingSliderColors,
   shape: RoundedCornerShape,
   thumbPainter: @Composable (isStart: Boolean, isAtLimit: Boolean) -> Painter,
-  onDraggingChanged: (Boolean) -> Unit,
   modifier: Modifier = Modifier,
 ) {
   val startThumbInteractionSource = remember { MutableInteractionSource() }
@@ -345,17 +341,21 @@ private fun ClippingRangeSlider(
   val isDragging = isDraggingStartThumb || isDraggingEndThumb
   val clippingSliderRange = sliderRangeFromClippingRange(state.clippingRange)
   val minProgressDelta = state.calculateMinProgressDelta(minClippedDurationMs)
+  // While onValueChange and onValueChangeFinished handle ordinary range updates faster upfront,
+  // this observer acts as a safety net for gesture cancellations (e.g. system interrupts like phone
+  // calls).
   LaunchedEffect(isDragging) {
-    onDraggingChanged(isDragging)
     if (isDragging) {
       state.pause()
     }
+    state.isUserInteracting = isDragging
   }
   RangeSlider(
     value = clippingSliderRange,
     onValueChange = { newClippingSliderRange ->
       if (!isDragging) return@RangeSlider // Filter out tapping events
-
+      state.isUserInteracting = true
+      state.pause()
       val proposedRange = clippingRangeFromSliderRange(newClippingSliderRange)
       var constrainedStart = proposedRange.start
       var constrainedEnd = proposedRange.endInclusive
@@ -377,6 +377,7 @@ private fun ClippingRangeSlider(
       val snapPosition =
         if (isDraggingStartThumb) state.clippingRange.start else state.clippingRange.endInclusive
       state.seekTo(snapPosition)
+      state.isUserInteracting = false
       onClippingRangeChangeFinished?.invoke()
     },
     startInteractionSource = startThumbInteractionSource,
@@ -541,13 +542,15 @@ private fun PositionSlider(
 ) {
   var dragPosition by remember { mutableStateOf<Float?>(null) }
   val interactionSource = remember { MutableInteractionSource() }
-  val isPressed by interactionSource.collectIsPressedAsState()
-  val isDragged by interactionSource.collectIsDraggedAsState()
-  val isInteracting = isPressed || isDragged
-  LaunchedEffect(isInteracting) {
-    if (isInteracting) {
+  val isDragging by interactionSource.collectIsDraggedAsState()
+  // While onValueChange and onValueChangeFinished handle ordinary scrubber updates faster upfront,
+  // this observer acts as a safety net for gesture cancellations (e.g. system interrupts like phone
+  // calls).
+  LaunchedEffect(isDragging) {
+    if (isDragging) {
       state.pause()
     }
+    state.isUserInteracting = isDragging
   }
   // Use state.committedClippingRange to compute the position slider position so it only updates
   // when dragging the clipping thumbs finishes.
@@ -569,7 +572,11 @@ private fun PositionSlider(
             ?.coerceIn(state.clippingRange)
             ?.coerceIn(state.committedClippingRange)
           ?: state.committedClippingRange.start,
-      onValueChange = { dragPosition = it },
+      onValueChange = {
+        state.isUserInteracting = true
+        state.pause()
+        dragPosition = it
+      },
       enabled = state.changingProgressEnabled,
       modifier =
         Modifier.weight(visualPositionSliderEnd - visualPositionSliderStart)
@@ -587,6 +594,7 @@ private fun PositionSlider(
       onValueChangeFinished = {
         dragPosition?.let { state.seekTo(it) }
         dragPosition = null
+        state.isUserInteracting = false
       },
       interactionSource = interactionSource,
       colors =
@@ -753,12 +761,8 @@ private class ClippingSliderState(
   val playbackProgress: Float?
     get() = if (durationMs > 0) positionProgressState.currentPositionProgress else null
 
-  /** Returns whether the playback position has reached the clipping end position. */
-  val isPlaybackAtEnd: Boolean
-    get() {
-      val progress = playbackProgress ?: return false
-      return progress >= committedClippingRange.endInclusive
-    }
+  /** Whether the user is actively interacting with the clipping slider. */
+  var isUserInteracting by mutableStateOf(false)
 
   /** Whether changing the playback progress is enabled. */
   val changingProgressEnabled: Boolean
@@ -768,16 +772,28 @@ private class ClippingSliderState(
   val durationMs: Long
     get() = positionProgressState.durationMs
 
+  /**
+   * The intended playback state, tracked synchronously to prevent race conditions during UI
+   * interactions.
+   */
+  private var playWhenReady by mutableStateOf(player?.playWhenReady ?: false)
+
   private var isPlaying by mutableStateOf(false)
 
   private val playerStateObserver: PlayerStateObserver? =
-    player?.observeState(Player.EVENT_IS_PLAYING_CHANGED) { isPlaying = it.isPlaying }
+    player?.observeState(Player.EVENT_IS_PLAYING_CHANGED, Player.EVENT_PLAY_WHEN_READY_CHANGED) {
+      player ->
+      isPlaying = player.isPlaying
+      playWhenReady = player.playWhenReady
+    }
 
   init {
     val unused = syncExternalRange(initialClippingRangeMs, minClippedDurationMs)
   }
 
   fun pause() {
+    if (!playWhenReady) return
+    playWhenReady = false
     player?.let { if (it.isCommandAvailable(Player.COMMAND_PLAY_PAUSE)) it.pause() }
   }
 
@@ -825,6 +841,8 @@ private class ClippingSliderState(
     }
 
   private fun play() {
+    if (playWhenReady) return
+    playWhenReady = true
     player?.let { if (it.isCommandAvailable(Player.COMMAND_PLAY_PAUSE)) it.play() }
   }
 
@@ -861,13 +879,20 @@ private class ClippingSliderState(
     coroutineScope {
       launch { playerStateObserver?.observe() }
       launch {
-        snapshotFlow { isPlaybackAtEnd && isPlaying }
+        snapshotFlow {
+            val progress = playbackProgress
+            !isUserInteracting &&
+              playWhenReady &&
+              isPlaying &&
+              progress != null &&
+              progress >= clippingRange.endInclusive
+          }
           .collect { shouldLoop ->
             if (shouldLoop) {
               // TODO: b/505719491 - Fix playback exceeding clipping end before seeking to clipping
               //  start during playback
               pause()
-              seekTo(committedClippingRange.start)
+              seekTo(clippingRange.start)
               play()
             }
           }
