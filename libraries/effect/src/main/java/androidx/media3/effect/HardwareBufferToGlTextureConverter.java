@@ -70,6 +70,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.activeEglImageTextureWrappers = new HashMap<>();
   }
 
+  /**
+   * Converts a {@link HardwareBufferFrame} to a {@link GlTextureFrame}.
+   *
+   * <p>The release callback in the returned {@link GlTextureFrame} will automatically release the
+   * underlying {@link HardwareBuffer}.
+   */
   @Override
   public GlTextureFrame convert(
       HardwareBufferFrame hardwareBufferFrame,

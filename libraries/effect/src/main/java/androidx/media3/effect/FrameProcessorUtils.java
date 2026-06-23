@@ -255,5 +255,43 @@ import java.util.concurrent.Callable;
         directExecutor());
   }
 
+  /** A runnable that throws an exception. */
+  public interface ThrowingRunnable {
+    /** Runs the operation. */
+    void run() throws Exception;
+  }
+
+  /**
+   * Executes multiple throwing actions sequentially, ensuring all are run even if some fail.
+   *
+   * <p>If multiple exceptions are thrown, they are accumulated using {@link
+   * Throwable#addSuppressed}.
+   *
+   * @param actions The throwing actions to execute.
+   * @throws VideoFrameProcessingException If any of the actions fail.
+   */
+  public static void runAllAndAccumulateExceptions(ThrowingRunnable... actions)
+      throws VideoFrameProcessingException {
+    VideoFrameProcessingException firstException = null;
+    for (ThrowingRunnable action : actions) {
+      if (action == null) {
+        continue;
+      }
+      try {
+        action.run();
+      } catch (Exception e) {
+        VideoFrameProcessingException vfpe = VideoFrameProcessingException.from(e);
+        if (firstException == null) {
+          firstException = vfpe;
+        } else {
+          firstException.addSuppressed(vfpe);
+        }
+      }
+    }
+    if (firstException != null) {
+      throw firstException;
+    }
+  }
+
   private FrameProcessorUtils() {}
 }

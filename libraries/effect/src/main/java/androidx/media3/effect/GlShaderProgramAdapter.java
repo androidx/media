@@ -33,6 +33,7 @@ import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.effect.GlShaderProgram.InputListener;
 import androidx.media3.effect.GlShaderProgram.OutputListener;
 import androidx.media3.effect.GlTextureFrameConsumer.GlTextureFrameProcessor;
+import com.google.common.collect.ImmutableMap;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.Map;
@@ -48,30 +49,29 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * <p>Methods must be called on the dedicated OpenGL thread.
  *
  * <p>The underlying {@link GlShaderProgram} must not alter frame presentation times.
- *
- * <p>Currently, only supports {@link GlShaderProgram GlShaderPrograms} that output the same amount
- * of frames as input.
  */
 @RequiresApi(26)
 @ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.
 /* package */ final class GlShaderProgramAdapter
     implements GlTextureFrameProcessor, InputListener, OutputListener {
+  // TODO: b/525353235 - Consider supporting async GlShaderPrograms, or deprecate them.
 
   private final GlShaderProgram glShaderProgram;
   private final GlObjectsProvider glObjectsProvider;
-  // Map from texId -> input Frame
   private final Map<Integer, GlTextureFrame> inFlightFrames;
   private final Queue<GlTextureFrame> pendingOutputFrames;
   private final Executor glExecutor;
   private final Consumer<VideoFrameProcessingException> errorConsumer;
 
   private @MonotonicNonNull GlTextureFrameConsumer downstreamConsumer;
+  @Nullable private ImmutableMap<String, Object> lastQueuedMetadata;
   @Nullable private Runnable pendingWakeupListener;
   @Nullable private Executor pendingWakeupExecutor;
   private int shaderInputCapacity;
   private int currentStreamDiscontinuityNumber;
   @Nullable private Format currentFormat;
   private boolean inputStreamEnded;
+  private boolean receivedEosSignal;
 
   public GlShaderProgramAdapter(
       GlShaderProgram glShaderProgram,
@@ -142,6 +142,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (shaderInputCapacity > 0) {
       shaderInputCapacity--;
       inFlightFrames.put(frame.glTextureInfo.texId, frame);
+      lastQueuedMetadata = frame.getMetadata();
       glShaderProgram.queueInputFrame(
           glObjectsProvider, frame.glTextureInfo, frame.presentationTimeUs);
       return true;
@@ -156,11 +157,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public void onReadyToAcceptInputFrame() {
     shaderInputCapacity++;
-    if (pendingWakeupListener != null && pendingWakeupExecutor != null) {
-      pendingWakeupExecutor.execute(pendingWakeupListener);
-      pendingWakeupListener = null;
-      pendingWakeupExecutor = null;
-    }
+    maybeInvokePendingWakeupListener();
   }
 
   @Override
@@ -188,6 +185,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                     .setWidth(outputTexture.width)
                     .setHeight(outputTexture.height)
                     .build())
+            .setMetadata(checkNotNull(lastQueuedMetadata))
             .build();
 
     pendingOutputFrames.add(outputGlTextureFrame);
@@ -196,14 +194,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public void onCurrentOutputStreamEnded() {
+    receivedEosSignal = true;
     currentFormat = null;
-    checkNotNull(downstreamConsumer).signalEndOfStream();
-
-    if (pendingWakeupListener != null && pendingWakeupExecutor != null) {
-      pendingWakeupExecutor.execute(pendingWakeupListener);
-      pendingWakeupListener = null;
-      pendingWakeupExecutor = null;
+    if (pendingOutputFrames.isEmpty() && downstreamConsumer != null) {
+      downstreamConsumer.signalEndOfStream();
     }
+    maybeInvokePendingWakeupListener();
   }
 
   @Override
@@ -216,8 +212,30 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public void close() throws VideoFrameProcessingException {
-    glShaderProgram.release();
-    releasePendingFrames();
+    try {
+      glShaderProgram.release();
+    } finally {
+      releasePendingFrames();
+      receivedEosSignal = false;
+    }
+  }
+
+  private void maybeInvokePendingWakeupListener() {
+    if (pendingWakeupListener == null || pendingWakeupExecutor == null) {
+      return;
+    }
+    Runnable listener = pendingWakeupListener;
+    Executor executor = pendingWakeupExecutor;
+    pendingWakeupListener = null;
+    pendingWakeupExecutor = null;
+    executor.execute(
+        () -> {
+          try {
+            listener.run();
+          } catch (RuntimeException e) {
+            errorConsumer.accept(VideoFrameProcessingException.from(e));
+          }
+        });
   }
 
   /** Called on the GL thread. */
@@ -225,6 +243,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     shaderInputCapacity = 0;
     releasePendingFrames();
     glShaderProgram.flush();
+    receivedEosSignal = false;
   }
 
   private void releasePendingFrames() {
@@ -241,6 +260,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     pendingWakeupExecutor = null;
     currentFormat = null;
     inputStreamEnded = false;
+    lastQueuedMetadata = null;
   }
 
   /** Called on the GL thread. */
@@ -257,10 +277,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         } else {
           break;
         }
-      } catch (VideoFrameProcessingException e) {
-        errorConsumer.accept(e);
+      } catch (RuntimeException | VideoFrameProcessingException e) {
+        errorConsumer.accept(VideoFrameProcessingException.from(e));
         return;
       }
+    }
+    if (pendingOutputFrames.isEmpty() && receivedEosSignal && downstreamConsumer != null) {
+      downstreamConsumer.signalEndOfStream();
     }
   }
 }

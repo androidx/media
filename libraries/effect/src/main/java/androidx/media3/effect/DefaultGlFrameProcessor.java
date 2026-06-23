@@ -18,8 +18,6 @@ package androidx.media3.effect;
 import static androidx.media3.effect.FrameProcessorUtils.waitAndCloseFence;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Iterables.getFirst;
-import static com.google.common.collect.Iterables.getLast;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
@@ -34,16 +32,13 @@ import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ExperimentalApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.HardwareBufferFrame;
-import androidx.media3.effect.GlTextureFrameConsumer.GlTextureFrameProcessor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -216,20 +211,14 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
 
   private static final long TIMEOUT_MS = 500;
 
-  private final Context context;
   private final ListeningExecutorService glExecutorService;
-  private final GlObjectsProvider glObjectsProvider;
   private final HardwareBufferConverter hardwareBufferConverter;
   private final GlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
   private final Executor listenerExecutor;
   private final FrameProcessor.Listener listener;
   private final Consumer<VideoFrameProcessingException> errorConsumer;
   // Accessed on the OpenGL thread.
-  private final List<GlTextureFrameProcessor> effectProcessorChain;
-  // Accessed on the OpenGL thread.
-  private final List<Effect> currentEffects;
-
-  private GlTextureFrameConsumer firstGlTextureFrameConsumer;
+  private final GlTextureFrameProcessorChain effectProcessorChain;
 
   private DefaultGlFrameProcessor(
       Context context,
@@ -239,17 +228,19 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       GlTextureFrameConsumer frameWriterGlTextureFrameConsumer,
       Executor listenerExecutor,
       FrameProcessor.Listener listener) {
-    this.context = context;
-    this.glObjectsProvider = glObjectsProvider;
-    this.listenerExecutor = listenerExecutor;
-    this.listener = listener;
-    this.errorConsumer = e -> listenerExecutor.execute(() -> listener.onError(e));
     this.glExecutorService = glExecutorService;
     this.hardwareBufferConverter = hardwareBufferConverter;
     this.frameWriterGlTextureFrameConsumer = frameWriterGlTextureFrameConsumer;
-    firstGlTextureFrameConsumer = frameWriterGlTextureFrameConsumer;
-    effectProcessorChain = new ArrayList<>();
-    currentEffects = new ArrayList<>();
+    this.listenerExecutor = listenerExecutor;
+    this.listener = listener;
+    this.errorConsumer = e -> listenerExecutor.execute(() -> listener.onError(e));
+    effectProcessorChain =
+        new GlTextureFrameProcessorChain(
+            context,
+            glObjectsProvider,
+            glExecutorService,
+            errorConsumer,
+            frameWriterGlTextureFrameConsumer);
   }
 
   @Override
@@ -281,7 +272,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   public void signalEndOfStream() {
     submitToGlExecutor(
         () -> {
-          firstGlTextureFrameConsumer.signalEndOfStream();
+          effectProcessorChain.signalEndOfStream();
           return null;
         });
   }
@@ -290,12 +281,8 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   public void close() {
     submitToGlExecutor(
         () -> {
-          if (!effectProcessorChain.isEmpty()) {
-            for (int i = 0; i < effectProcessorChain.size(); i++) {
-              effectProcessorChain.get(i).close();
-            }
-          }
           hardwareBufferConverter.close();
+          effectProcessorChain.close();
           frameWriterGlTextureFrameConsumer.close();
           return null;
         });
@@ -322,7 +309,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       GLES20.glFinish();
     }
 
-    configureEffectProcessors(
+    effectProcessorChain.configure(
         new ImmutableList.Builder<Effect>()
             .addAll(extractEffects(frame, KEY_ITEM_EFFECTS))
             .addAll(extractEffects(frame, KEY_COMPOSITION_EFFECTS))
@@ -334,7 +321,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
             hardwareBufferFrame, glExecutorService, listenerExecutor, listener);
 
     boolean queued =
-        firstGlTextureFrameConsumer.queue(
+        effectProcessorChain.queue(
             glTextureFrame,
             /* listenerExecutor= */ listenerExecutor,
             /* wakeupListener= */ listener::onWakeup);
@@ -346,50 +333,6 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       hardwareBufferConverter.releaseGlResources(hardwareBufferFrame);
     }
     queueResult.complete(queued);
-  }
-
-  /** The method runs on the GL thread. */
-  private void configureEffectProcessors(List<Effect> effects)
-      throws VideoFrameProcessingException {
-    // TODO: b/505721737 - Implement effect diffing.
-    if (currentEffects.equals(effects)) {
-      return;
-    }
-
-    for (int i = 0; i < effectProcessorChain.size(); i++) {
-      effectProcessorChain.get(i).close();
-    }
-
-    List<GlTextureFrameProcessor> newProcessorChain = new ArrayList<>();
-    for (int i = 0; i < effects.size(); i++) {
-      Effect effect = effects.get(i);
-      checkArgument(
-          effect instanceof GlEffect,
-          Util.formatInvariant("%s supports only GlEffects", getClass().getSimpleName()));
-      // TODO: b/505721737 - Support HDR.
-      newProcessorChain.add(
-          new GlShaderProgramAdapter(
-              ((GlEffect) effect).toGlShaderProgram(context, /* useHdr= */ false),
-              glObjectsProvider,
-              glExecutorService,
-              errorConsumer));
-    }
-
-    for (int i = 0; i < newProcessorChain.size() - 1; i++) {
-      newProcessorChain.get(i).setOutput(newProcessorChain.get(i + 1));
-    }
-    if (!newProcessorChain.isEmpty()) {
-      getLast(newProcessorChain).setOutput(frameWriterGlTextureFrameConsumer);
-    }
-    firstGlTextureFrameConsumer =
-        checkNotNull(
-            getFirst(newProcessorChain, /* defaultValue= */ frameWriterGlTextureFrameConsumer));
-
-    effectProcessorChain.clear();
-    effectProcessorChain.addAll(newProcessorChain);
-
-    currentEffects.clear();
-    currentEffects.addAll(effects);
   }
 
   private static ImmutableList<Effect> extractEffects(Frame frame, String effectKey) {

@@ -21,25 +21,22 @@ import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITOR_SETT
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_ITEM_EFFECTS;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 
 import android.content.Context;
-import android.hardware.HardwareBuffer;
 import androidx.annotation.Nullable;
-import androidx.media3.common.C;
-import androidx.media3.common.Format;
-import androidx.media3.common.GlObjectsProvider;
-import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Util;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
-import androidx.media3.common.video.FrameWriter;
-import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.common.video.SyncFenceWrapper;
+import androidx.media3.effect.GlFrameProcessorTestUtil.FakeGlShaderProgram;
+import androidx.media3.effect.GlFrameProcessorTestUtil.FakeGlTextureFrameConsumer;
+import androidx.media3.effect.GlFrameProcessorTestUtil.FakeHardwareBufferConverter;
+import androidx.media3.effect.GlFrameProcessorTestUtil.FakeHardwareBufferFrame;
+import androidx.media3.effect.GlFrameProcessorTestUtil.NoOpFrameWriter;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
@@ -48,7 +45,6 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import org.junit.After;
@@ -450,209 +446,6 @@ public final class DefaultGlFrameProcessorTest {
     assertThat(queuedTasks).hasSize(expectedSize);
     for (int i = 0; i < expectedSize; i++) {
       queuedTasks.remove().run();
-    }
-  }
-
-  // TODO: b/505721737 - Consider moving fakes into a utility class.
-  private static final class NoOpFrameWriter implements FrameWriter {
-    int queuedFrames;
-    boolean signalEndOfStreamCalled;
-
-    @Override
-    public Info getInfo() {
-      return (format, usage) -> true;
-    }
-
-    @Override
-    public void configure(Format format, long usage) {}
-
-    @Nullable
-    @Override
-    public AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener) {
-      return null;
-    }
-
-    @Override
-    public void queueInputFrame(Frame frame, @Nullable SyncFenceWrapper writeCompleteFence) {
-      queuedFrames++;
-    }
-
-    @Override
-    public void signalEndOfStream() {
-      signalEndOfStreamCalled = true;
-    }
-
-    @Override
-    public void close() {}
-  }
-
-  private static final class FakeHardwareBufferConverter
-      implements DefaultGlFrameProcessor.HardwareBufferConverter {
-    int framesReceived;
-    int framesWithGlResourceReleased;
-
-    @Override
-    public GlTextureFrame convert(
-        HardwareBufferFrame hardwareBufferFrame,
-        Executor glExecutor,
-        Executor listenerExecutor,
-        FrameProcessor.Listener listener) {
-      framesReceived++;
-      return new GlTextureFrame.Builder(
-              new GlTextureInfo(
-                  /* texId= */ 1,
-                  /* fboId= */ -1,
-                  /* rboId= */ -1,
-                  /* width= */ 100,
-                  /* height= */ 100),
-              /* releaseTextureExecutor= */ directExecutor(),
-              /* releaseTextureCallback= */ info -> {
-                if (listener != null) {
-                  listenerExecutor.execute(
-                      () ->
-                          listener.onFrameProcessed(
-                              hardwareBufferFrame, /* onCompleteFence= */ null));
-                }
-              })
-          .setPresentationTimeUs(hardwareBufferFrame.getContentTimeUs())
-          .setFormat(hardwareBufferFrame.getFormat())
-          .setMetadata(hardwareBufferFrame.getMetadata())
-          .build();
-    }
-
-    @Override
-    public void releaseGlResources(HardwareBufferFrame hardwareBufferFrame) {
-      framesWithGlResourceReleased++;
-    }
-
-    @Override
-    public void close() {}
-  }
-
-  static final class FakeGlTextureFrameConsumer implements GlTextureFrameConsumer {
-    private final FrameWriter frameWriter;
-    int framesReceived;
-    boolean signalEndOfStreamCalled;
-    boolean shouldAcceptIncomingFrames;
-
-    FakeGlTextureFrameConsumer(FrameWriter frameWriter) {
-      this.frameWriter = frameWriter;
-      shouldAcceptIncomingFrames = true;
-    }
-
-    @Override
-    public boolean queue(GlTextureFrame frame, Executor listenerExecutor, Runnable wakeupListener) {
-      if (!shouldAcceptIncomingFrames) {
-        return false;
-      }
-      framesReceived++;
-      frameWriter.queueInputFrame(null, null);
-      frame.release(/* releaseFence= */ null);
-      return true;
-    }
-
-    @Override
-    public void signalEndOfStream() {
-      signalEndOfStreamCalled = true;
-      frameWriter.signalEndOfStream();
-    }
-
-    @Override
-    public void close() {}
-  }
-
-  private static final class FakeGlShaderProgram implements GlShaderProgram {
-    int framesReceived;
-    boolean signalEndOfCurrentInputStreamCalled;
-    boolean delayReadyToAcceptInputFrame;
-    private InputListener inputListener = new InputListener() {};
-    private OutputListener outputListener = new OutputListener() {};
-
-    @Override
-    public void setInputListener(InputListener inputListener) {
-      this.inputListener = inputListener;
-      inputListener.onReadyToAcceptInputFrame();
-    }
-
-    @Override
-    public void setOutputListener(OutputListener outputListener) {
-      this.outputListener = outputListener;
-    }
-
-    @Override
-    public void setErrorListener(Executor executor, ErrorListener errorListener) {}
-
-    @Override
-    public void queueInputFrame(
-        GlObjectsProvider glObjectsProvider, GlTextureInfo inputTexture, long presentationTimeUs) {
-      framesReceived++;
-      outputListener.onOutputFrameAvailable(
-          new GlTextureInfo(
-              inputTexture.texId + 1,
-              inputTexture.fboId + 1,
-              C.INDEX_UNSET,
-              inputTexture.width,
-              inputTexture.height),
-          presentationTimeUs);
-      inputListener.onInputFrameProcessed(inputTexture);
-      if (!delayReadyToAcceptInputFrame) {
-        inputListener.onReadyToAcceptInputFrame();
-      }
-    }
-
-    void signalReadyToAcceptInputFrame() {
-      inputListener.onReadyToAcceptInputFrame();
-    }
-
-    @Override
-    public void releaseOutputFrame(GlTextureInfo outputTexture) {}
-
-    @Override
-    public void signalEndOfCurrentInputStream() {
-      signalEndOfCurrentInputStreamCalled = true;
-      outputListener.onCurrentOutputStreamEnded();
-    }
-
-    @Override
-    public void flush() {
-      inputListener.onFlush();
-      inputListener.onReadyToAcceptInputFrame();
-    }
-
-    @Override
-    public void release() {}
-  }
-
-  private static final class FakeHardwareBufferFrame implements HardwareBufferFrame {
-    private final ImmutableMap<String, Object> metadata;
-
-    FakeHardwareBufferFrame(Map<String, Object> metadata) {
-      this.metadata = ImmutableMap.copyOf(metadata);
-    }
-
-    @Override
-    public HardwareBuffer getHardwareBuffer() {
-      return null;
-    }
-
-    @Override
-    public long getContentTimeUs() {
-      return 0;
-    }
-
-    @Override
-    public Format getFormat() {
-      return new Format.Builder().setWidth(100).setHeight(100).build();
-    }
-
-    @Override
-    public ImmutableMap<String, Object> getMetadata() {
-      return metadata;
-    }
-
-    @Override
-    public HardwareBufferFrame.Builder buildUpon() {
-      return null;
     }
   }
 }

@@ -734,6 +734,54 @@ public class GlShaderProgramAdapterTest {
     assertThat(errorReference.get()).isNull();
   }
 
+  @Test
+  public void queue_withDifferentMetadata_propagatesMetadataCorrectly() {
+    Executor testExecutor = task -> {};
+    ImmutableMap<String, Object> metadata1 = ImmutableMap.of("key1", "value1");
+    AtomicBoolean frame1Released = new AtomicBoolean();
+    GlTextureFrame inputFrame1 =
+        new GlTextureFrame.Builder(
+                new GlTextureInfo(/* texId= */ 1, -1, -1, TEXTURE_SIZE, TEXTURE_SIZE),
+                directExecutor(),
+                textureInfo -> frame1Released.set(true))
+            .setPresentationTimeUs(1000L)
+            .setFormat(new Format.Builder().setWidth(TEXTURE_SIZE).setHeight(TEXTURE_SIZE).build())
+            .setMetadata(metadata1)
+            .build();
+    assertThat(glShaderProgramAdapter.queue(inputFrame1, testExecutor, () -> {})).isTrue();
+
+    glShaderProgramAdapter.onInputFrameProcessed(inputFrame1.glTextureInfo);
+    glShaderProgramAdapter.onReadyToAcceptInputFrame();
+    glShaderProgramAdapter.onOutputFrameAvailable(
+        new GlTextureInfo(/* texId= */ 101, -1, -1, TEXTURE_SIZE, TEXTURE_SIZE),
+        /* presentationTimeUs= */ 1000L);
+
+    ImmutableMap<String, Object> metadata2 = ImmutableMap.of("key2", "value2");
+    AtomicBoolean frame2Released = new AtomicBoolean();
+    GlTextureFrame inputFrame2 =
+        new GlTextureFrame.Builder(
+                new GlTextureInfo(/* texId= */ 2, -1, -1, TEXTURE_SIZE, TEXTURE_SIZE),
+                directExecutor(),
+                textureInfo -> frame2Released.set(true))
+            .setPresentationTimeUs(2000L)
+            .setFormat(new Format.Builder().setWidth(TEXTURE_SIZE).setHeight(TEXTURE_SIZE).build())
+            .setMetadata(metadata2)
+            .build();
+    downstreamConsumer.setCapacity(2);
+    assertThat(glShaderProgramAdapter.queue(inputFrame2, testExecutor, () -> {})).isTrue();
+
+    // Purposefully notify in the reversed order from frame1.
+    glShaderProgramAdapter.onOutputFrameAvailable(
+        new GlTextureInfo(/* texId= */ 102, -1, -1, TEXTURE_SIZE, TEXTURE_SIZE),
+        /* presentationTimeUs= */ 2000L);
+    glShaderProgramAdapter.onInputFrameProcessed(inputFrame2.glTextureInfo);
+    glShaderProgramAdapter.onReadyToAcceptInputFrame();
+
+    assertThat(downstreamConsumer.queuedFrames).hasSize(2);
+    assertThat(downstreamConsumer.queuedFrames.get(0).getMetadata()).isEqualTo(metadata1);
+    assertThat(downstreamConsumer.queuedFrames.get(1).getMetadata()).isEqualTo(metadata2);
+  }
+
   private static GlTextureFrame createTestFrameWithDiscontinuityNumber(
       int texId, long timestampUs, int discontinuityNumber, @Nullable AtomicBoolean released) {
     return new GlTextureFrame.Builder(
