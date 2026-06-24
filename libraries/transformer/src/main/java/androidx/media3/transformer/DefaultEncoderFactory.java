@@ -142,8 +142,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
      * <p>With format fallback enabled, when the requested {@link Format} is not supported, {@code
      * DefaultEncoderFactory} finds a format that is supported by the device and configures the
      * {@link Codec} with it. The fallback process may change the requested {@link
-     * Format#sampleMimeType MIME type}, resolution, {@link Format#bitrate bitrate}, {@link
-     * Format#codecs profile/level} etc.
+     * Format#sampleMimeType MIME type}, resolution, {@link Format#bitrate bitrate}.
      *
      * <p>The default value is {@code true}.
      */

@@ -135,7 +135,6 @@ import org.checkerframework.dataflow.qual.Pure;
             .setFrameRate(inputFormat.frameRate)
             .setSampleMimeType(requestedOutputMimeType)
             .setColorInfo(getSupportedInputColor())
-            .setCodecs(inputFormat.codecs)
             .build();
 
     encoder =
@@ -231,7 +230,6 @@ import org.checkerframework.dataflow.qual.Pure;
             .setFrameRate(inputFormat.frameRate)
             .setSampleMimeType(requestedOutputMimeType)
             .setColorInfo(getSupportedInputColor())
-            .setCodecs(inputFormat.codecs)
             .build();
 
     // TODO: b/324426022 - Move logic for supported mime types to DefaultEncoderFactory.
