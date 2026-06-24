@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 The Android Open Source Project
+ * Copyright 2026 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,86 +15,29 @@
  */
 package androidx.media3.cast
 
-import android.content.Context
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.mediarouter.media.MediaRouteSelector
-import androidx.mediarouter.media.MediaRouter
-import androidx.mediarouter.media.MediaRouter.RouteInfo
+import androidx.media3.common.util.UnstableApi
 
-/**
- * Remembers the value of [MediaRouteButtonState] and launch a coroutine to monitor the state of the
- * [MediaRouter].
- *
- * @param context The current [Context].
- * @param selector The [MediaRouteSelector] to be used for monitoring the state of the
- *   [MediaRouter]. The selector must not be empty and it has been validated before calling this
- *   function.
- * @return The [MediaRouteButtonState] that is remembered and updated when the state of the
- *   [MediaRouter] changes.
- */
-@Composable
-internal fun rememberMediaRouteButtonState(
-  context: Context,
-  selector: MediaRouteSelector,
-): MediaRouteButtonState {
-  val mediaRouteButtonState =
-    remember(context, selector) { MediaRouteButtonState(context, selector) }
-  LaunchedEffect(mediaRouteButtonState) { mediaRouteButtonState.observe() }
-  return mediaRouteButtonState
+/** Holds the state for the [MediaRouteButton]. */
+@UnstableApi
+class MediaRouteButtonState {
+  /**
+   * Whether the device picker is visible.
+   *
+   * NOTE: This state is only relevant for the non-System picker and would always be `false` if the
+   * System Output Switcher is launched instead of the in-app picker.
+   */
+  var isPickerVisible by mutableStateOf(false)
+    internal set
 }
 
-/**
- * The state of the media route button.
- *
- * This class is used to manage the state of the media route button. It also handles the click event
- * of the media route button and shows the appropriate dialog.
- *
- * @param context The current [Context].
- * @param selector The [MediaRouteSelector] to be used for monitoring the state of the
- *   [MediaRouter].
- */
-internal class MediaRouteButtonState(val context: Context, val selector: MediaRouteSelector) {
-  val mediaRouter: MediaRouter = MediaRouter.getInstance(context)
-
-  var isConnectedToRemote by mutableStateOf(isConnectedToRemote(mediaRouter))
-    private set
-
-  var connectionState by mutableIntStateOf(getConnectionState(mediaRouter, isConnectedToRemote))
-    private set
-
-  /**
-   * Observes the [MediaRouter] callback events in a coroutine.
-   *
-   * The coroutine is automatically cancelled when the composable leaves the composition, which also
-   * removes the [MediaRouter] callback to clean up the resources.
-   */
-  suspend fun observe(): Nothing {
-    updateMediaRouteState()
-    mediaRouter.observeCallback(selector) { updateMediaRouteState() }
-  }
-
-  private fun updateMediaRouteState() {
-    isConnectedToRemote = isConnectedToRemote(mediaRouter)
-    connectionState = getConnectionState(mediaRouter, isConnectedToRemote)
-  }
-
-  companion object {
-    private const val TAG = "MediaRouteButtonState"
-
-    private fun isConnectedToRemote(mediaRouter: MediaRouter): Boolean =
-      !mediaRouter.selectedRoute.isSystemRoute
-
-    private fun getConnectionState(mediaRouter: MediaRouter, isConnectedToRemote: Boolean): Int =
-      if (isConnectedToRemote) {
-        mediaRouter.selectedRoute.connectionState
-      } else {
-        RouteInfo.CONNECTION_STATE_DISCONNECTED
-      }
-  }
+/** Remembers the value of [MediaRouteButtonState] */
+@UnstableApi
+@Composable
+fun rememberMediaRouteButtonState(): MediaRouteButtonState {
+  return remember { MediaRouteButtonState() }
 }

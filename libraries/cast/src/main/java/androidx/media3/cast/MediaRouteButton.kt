@@ -63,7 +63,29 @@ import androidx.mediarouter.media.MediaTransferReceiver
  * }
  * ```
  *
+ * Consumers can also use the [MediaRouteButtonState] to control inactivity timeout.
+ *
+ * ```kotlin
+ * @Composable
+ * fun MyMediaControls() {
+ *     val mediaRouteState = rememberMediaRouteButtonState()
+ *
+ *     // Pause inactivity timeout if the routing picker is visible
+ *     LaunchedEffect(mediaRouteState.isPickerVisible) {
+ *         if (mediaRouteState.isPickerVisible) {
+ *             stopTimer()
+ *         } else {
+ *             startTimer()
+ *         }
+ *     }
+ *
+ *     // Pass the hoisted state here
+ *     MediaRouteButton(modifier, mediaRouteState)
+ * }
+ * ```
+ *
  * @param modifier the [Modifier] to be applied to the button.
+ * @param state the [MediaRouteButtonState] to be used for the button.
  * @throws IllegalStateException if any of the following condition occurs:
  *     - This method is not called on the main thread.
  *     - The [Cast] has not been initialized via [Cast.initialize()] before this method is called.
@@ -71,31 +93,33 @@ import androidx.mediarouter.media.MediaTransferReceiver
 @MainThread
 @UnstableApi
 @Composable
-fun MediaRouteButton(modifier: Modifier = Modifier) {
+fun MediaRouteButton(
+  modifier: Modifier = Modifier,
+  state: MediaRouteButtonState = rememberMediaRouteButtonState(),
+) {
   CastUtils.verifyMainThread()
-  MediaRouteButtonContainer() {
-    var showMediaRouteDialog by remember { mutableStateOf(false) }
+  MediaRouteButtonContainer {
     IconButton(
       onClick = {
         val isOutputSwitcherEnabled =
-          (mediaRouter?.routerParams?.isOutputSwitcherEnabled ?: false) && isMediaTransferEnabled()
+          (mediaRouter.routerParams?.isOutputSwitcherEnabled ?: false) && isMediaTransferEnabled()
         val outputSwitcherLaunched =
           isOutputSwitcherEnabled && SystemOutputSwitcherDialogController.showDialog(context)
         // If the system output switcher was launched we don't show the media route dialogs.
-        showMediaRouteDialog = outputSwitcherLaunched.not()
+        state.isPickerVisible = !outputSwitcherLaunched
       },
       modifier,
     ) {
       mediaRouteButtonIcon()
     }
-    if (showMediaRouteDialog) {
-      MediaRouteDialog(onDismissRequest = { showMediaRouteDialog = false })
+    if (state.isPickerVisible) {
+      MediaRouteDialog(onDismissRequest = { state.isPickerVisible = false })
     }
   }
 }
 
 @Composable
-private fun MediaRouteButtonState.MediaRouteDialog(onDismissRequest: () -> Unit) {
+private fun MediaRouterState.MediaRouteDialog(onDismissRequest: () -> Unit) {
   if (isConnectedToRemote) {
     MediaRouteControllerDialog(onDismissRequest)
   } else {
@@ -103,7 +127,7 @@ private fun MediaRouteButtonState.MediaRouteDialog(onDismissRequest: () -> Unit)
   }
 }
 
-private fun MediaRouteButtonState.isMediaTransferEnabled(): Boolean {
+private fun MediaRouterState.isMediaTransferEnabled(): Boolean {
   if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
     return false
   }
@@ -112,13 +136,13 @@ private fun MediaRouteButtonState.isMediaTransferEnabled(): Boolean {
   val pm = context.packageManager
   val resolveInfos = pm.queryBroadcastReceivers(queryIntent, 0)
   val isMediaTransferDeclared = resolveInfos.isNotEmpty()
-  val routerParams = mediaRouter?.routerParams
+  val routerParams = mediaRouter.routerParams
   return isMediaTransferDeclared &&
-    (routerParams == null || routerParams!!.isMediaTransferReceiverEnabled)
+    (routerParams == null || routerParams.isMediaTransferReceiverEnabled)
 }
 
 @Composable
-private fun MediaRouteButtonState.MediaRouteChooserDialog(onDismissRequest: () -> Unit) {
+private fun MediaRouterState.MediaRouteChooserDialog(onDismissRequest: () -> Unit) {
   DisposableEffect(Unit) {
     val theme = resolveDialogTheme(context)
     val dialog = MediaRouteChooserDialog(context, theme)
@@ -130,7 +154,7 @@ private fun MediaRouteButtonState.MediaRouteChooserDialog(onDismissRequest: () -
 }
 
 @Composable
-private fun MediaRouteButtonState.MediaRouteControllerDialog(onDismissRequest: () -> Unit) {
+private fun MediaRouterState.MediaRouteControllerDialog(onDismissRequest: () -> Unit) {
   DisposableEffect(Unit) {
     val theme = resolveDialogTheme(context)
     val dialog = MediaRouteControllerDialog(context, theme)
@@ -147,7 +171,7 @@ private fun MediaRouteButtonState.MediaRouteControllerDialog(onDismissRequest: (
  */
 @Composable
 @VisibleForTesting
-internal fun MediaRouteButtonContainer(content: @Composable MediaRouteButtonState.() -> Unit) {
+internal fun MediaRouteButtonContainer(content: @Composable MediaRouterState.() -> Unit) {
   val context = LocalContext.current
   var selector by remember { mutableStateOf(MediaRouteSelector.EMPTY) }
   LaunchedEffect(context) {
@@ -165,11 +189,11 @@ internal fun MediaRouteButtonContainer(content: @Composable MediaRouteButtonStat
     }
   }
   if (!selector.isEmpty) {
-    rememberMediaRouteButtonState(context, selector).content()
+    rememberMediaRouterState(context, selector).content()
   }
 }
 
-private val mediaRouteButtonIcon: @Composable MediaRouteButtonState.() -> Unit =
+private val mediaRouteButtonIcon: @Composable MediaRouterState.() -> Unit =
   @Composable {
     val painter =
       when (connectionState) {

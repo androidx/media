@@ -59,6 +59,10 @@
 *   MIDI extension:
 *   Leanback extension:
 *   Cast extension:
+    *   Add `MediaRouteButtonState` and `rememberMediaRouteButtonState` to
+        support observing the visibility state of the media route picker, and
+        add `state` parameter to `MediaRouteButton`
+        ([3172](https://github.com/androidx/media/issues/3172)).
 *   Test Utilities:
 *   Remove deprecated symbols:
     *   Remove `androidx.media3.common.C.generateAudioSessionIdV21`. Use

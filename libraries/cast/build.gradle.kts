@@ -33,6 +33,7 @@ dependencies {
   testImplementation(libs.androidx.compose.material3)
   testImplementation(libs.androidx.compose.ui.test)
   testImplementation(libs.androidx.compose.ui.test.junit4)
+  testImplementation(libs.androidx.mediarouter.testing)
   testImplementation(libs.material)
   testImplementation(project(":test-utils"))
   testImplementation(libs.robolectric)
