@@ -50,13 +50,12 @@ object CustomizationKt {
     context: Context,
   ) {
     // [START customize_server_interactions_fixed]
-    val dataSourceFactory =
-      DataSource.Factory {
-        val dataSource = httpDataSourceFactory.createDataSource()
-        // Set a custom authentication request header.
-        dataSource.setRequestProperty("Header", "Value")
-        dataSource
-      }
+    val dataSourceFactory = DataSource.Factory {
+      val dataSource = httpDataSourceFactory.createDataSource()
+      // Set a custom authentication request header.
+      dataSource.setRequestProperty("Header", "Value")
+      dataSource
+    }
     val player =
       ExoPlayer.Builder(context)
         .setMediaSourceFactory(

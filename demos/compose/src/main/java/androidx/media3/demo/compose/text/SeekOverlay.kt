@@ -55,11 +55,10 @@ internal class SeekOverlayState(private val scope: CoroutineScope) {
     this.seekAmountMs = seekAmountMs
     visible = true
     hideJob?.cancel()
-    hideJob =
-      scope.launch {
-        delay(durationMillis)
-        visible = false
-      }
+    hideJob = scope.launch {
+      delay(durationMillis)
+      visible = false
+    }
   }
 }
 

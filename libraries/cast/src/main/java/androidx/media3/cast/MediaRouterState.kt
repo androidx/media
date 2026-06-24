@@ -34,8 +34,8 @@ import androidx.mediarouter.media.MediaRouter.RouteInfo
  * @param context The current [Context].
  * @param selector The [MediaRouteSelector] to be used for monitoring the state of the
  *   [MediaRouter]. The selector must not be empty.
- * @return The [MediaRouterState] that is remembered and updated when the state of the
- *   [MediaRouter] changes.
+ * @return The [MediaRouterState] that is remembered and updated when the state of the [MediaRouter]
+ *   changes.
  */
 @Composable
 internal fun rememberMediaRouterState(
@@ -50,8 +50,8 @@ internal fun rememberMediaRouterState(
 /**
  * Monitors the state of the system [MediaRouter] for a given [MediaRouteSelector].
  *
- * This class handles the platform callback registration and exposes reactive states representing the
- * current active remote routing connection.
+ * This class handles the platform callback registration and exposes reactive states representing
+ * the current active remote routing connection.
  */
 internal class MediaRouterState(val context: Context, val selector: MediaRouteSelector) {
   val mediaRouter: MediaRouter = MediaRouter.getInstance(context)

@@ -30,7 +30,7 @@ constructor(
   private val context: Context,
   private val packageManager: PackageManager,
   private val resources: Resources,
-  callback: AppListUpdatedCallback
+  callback: AppListUpdatedCallback,
 ) : FindMediaApps(callback) {
 
   override val mediaApps: List<MediaAppDetails>
@@ -38,14 +38,14 @@ constructor(
       return getMediaAppsFromSessionTokens(
         SessionToken.getAllServiceTokens(context),
         packageManager,
-        resources
+        resources,
       )
     }
 
   private fun getMediaAppsFromSessionTokens(
     sessionTokens: Set<SessionToken>,
     packageManager: PackageManager,
-    resources: Resources
+    resources: Resources,
   ): List<MediaAppDetails> {
     return sessionTokens.map {
       MediaAppDetails.create(packageManager, resources, sessionToken = it)

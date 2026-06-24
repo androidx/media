@@ -33,7 +33,7 @@ import androidx.recyclerview.widget.RecyclerView
 
 class TimelineAdapter(
   private val activity: Activity,
-  private val mediaController: MediaController
+  private val mediaController: MediaController,
 ) : RecyclerView.Adapter<TimelineAdapter.ViewHolder>() {
   private var timeline: Timeline = mediaController.currentTimeline
   private var currentIndex: Int = -1
@@ -59,7 +59,7 @@ class TimelineAdapter(
         override fun onPositionDiscontinuity(
           oldPosition: Player.PositionInfo,
           newPosition: Player.PositionInfo,
-          reason: Int
+          reason: Int,
         ) {
           currentIndex = newPosition.mediaItemIndex
           notifyItemChanged(oldPosition.mediaItemIndex)
@@ -100,7 +100,7 @@ class TimelineAdapter(
           BitmapFactory.decodeByteArray(
             mediaMetadata.artworkData,
             0,
-            mediaMetadata.artworkData!!.size
+            mediaMetadata.artworkData!!.size,
           )
         holder.icon.setImageBitmap(bitmap)
       }

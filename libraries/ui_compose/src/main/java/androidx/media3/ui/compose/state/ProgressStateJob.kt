@@ -73,13 +73,12 @@ internal class ProgressStateJob(
     }
     updateJob?.cancel()
     if (player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM) && shouldScheduleTask()) {
-      updateJob =
-        scope.launch {
-          while (isActive) {
-            smartDelay()
-            scheduledTask()
-          }
+      updateJob = scope.launch {
+        while (isActive) {
+          smartDelay()
+          scheduledTask()
         }
+      }
     }
   }
 

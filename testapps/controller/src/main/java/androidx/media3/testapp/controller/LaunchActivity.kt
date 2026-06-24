@@ -119,8 +119,9 @@ class LaunchActivity : AppCompatActivity() {
           }
       }
     private lateinit var findActiveMediaSessionApps: FindActiveMediaSessionApps
-    private val sessionsChangedListener =
-      ActiveSessionManager.OnActiveSessionsChangedListener { findActiveMediaSessionApps.execute() }
+    private val sessionsChangedListener = ActiveSessionManager.OnActiveSessionsChangedListener {
+      findActiveMediaSessionApps.execute()
+    }
 
     fun onStart() {
       if (!NotificationListener.isEnabled(this@LaunchActivity)) {

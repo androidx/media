@@ -23,33 +23,34 @@ import androidx.media3.session.MediaController
 /** Helper class which handles transport controls and the UI surrounding this feature. */
 class TransportControlHelper(activity: Activity, mediaController: MediaController) {
   private val buttonCommandList: List<Pair<ImageButton, Int>>
+
   init {
     val controls =
       listOf(
         Control(
           { controller: MediaController -> controller.play() },
           activity.findViewById(R.id.action_resume),
-          Player.COMMAND_PLAY_PAUSE
+          Player.COMMAND_PLAY_PAUSE,
         ),
         Control(
           { controller: MediaController -> controller.pause() },
           activity.findViewById(R.id.action_pause),
-          Player.COMMAND_PLAY_PAUSE
+          Player.COMMAND_PLAY_PAUSE,
         ),
         Control(
           { controller: MediaController -> controller.stop() },
           activity.findViewById(R.id.action_stop),
-          Player.COMMAND_STOP
+          Player.COMMAND_STOP,
         ),
         Control(
           { controller: MediaController -> controller.seekToNext() },
           activity.findViewById(R.id.action_skip_next),
-          Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM
+          Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
         ),
         Control(
           { controller: MediaController -> controller.seekToPrevious() },
           activity.findViewById(R.id.action_skip_previous),
-          Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM
+          Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
         ),
         Control(
           { controller: MediaController ->
@@ -57,7 +58,7 @@ class TransportControlHelper(activity: Activity, mediaController: MediaControlle
             controller.seekTo(positionMs - 1000 * 30)
           },
           activity.findViewById(R.id.action_skip_30s_backward),
-          Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM
+          Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
         ),
         Control(
           { controller: MediaController ->
@@ -65,18 +66,18 @@ class TransportControlHelper(activity: Activity, mediaController: MediaControlle
             controller.seekTo(positionMs + 1000 * 30)
           },
           activity.findViewById(R.id.action_skip_30s_forward),
-          Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM
+          Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
         ),
         Control(
           { controller: MediaController -> controller.seekForward() },
           activity.findViewById(R.id.action_fast_forward),
-          Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM
+          Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
         ),
         Control(
           { controller: MediaController -> controller.seekBack() },
           activity.findViewById(R.id.action_fast_rewind),
-          Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM
-        )
+          Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
+        ),
       )
 
     for (control in controls) {
@@ -97,7 +98,7 @@ class TransportControlHelper(activity: Activity, mediaController: MediaControlle
   private class Control(
     val action: (MediaController) -> Unit,
     val button: ImageButton,
-    @Player.Command val command: Int
+    @Player.Command val command: Int,
   )
 
   fun updateBackground(availableCommands: Player.Commands) =

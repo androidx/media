@@ -60,16 +60,15 @@ private constructor(
     if (consumerJob != null) {
       return
     }
-    consumerJob =
-      scope.launch {
-        for (packet in packetChannel) {
-          try {
-            packetConsumer.queuePacket(packet)
-          } catch (e: Exception) {
-            errorConsumer.accept(e)
-          }
+    consumerJob = scope.launch {
+      for (packet in packetChannel) {
+        try {
+          packetConsumer.queuePacket(packet)
+        } catch (e: Exception) {
+          errorConsumer.accept(e)
         }
       }
+    }
   }
 
   /**
@@ -98,11 +97,10 @@ private constructor(
    */
   @CanIgnoreReturnValue
   fun queuePacket(packet: Packet<T>): ListenableFuture<Nothing?> {
-    val future =
-      scope.future {
-        packetChannel.send(packet)
-        null
-      }
+    val future = scope.future {
+      packetChannel.send(packet)
+      null
+    }
     Futures.addCallback(
       future,
       object : FutureCallback<Nothing?> {
@@ -124,11 +122,10 @@ private constructor(
    */
   @CanIgnoreReturnValue
   fun queueEndOfStream(): ListenableFuture<Nothing?> {
-    val future =
-      scope.future {
-        packetChannel.send(Packet.EndOfStream)
-        null
-      }
+    val future = scope.future {
+      packetChannel.send(Packet.EndOfStream)
+      null
+    }
     Futures.addCallback(
       future,
       object : FutureCallback<Nothing?> {

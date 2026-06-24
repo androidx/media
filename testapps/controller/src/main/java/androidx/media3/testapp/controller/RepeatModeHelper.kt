@@ -34,6 +34,7 @@ class RepeatModeHelper(activity: Activity, mediaController: MediaController) {
   // LINT.IfChange
   private val modes: List<Int> =
     listOf(Player.REPEAT_MODE_OFF, Player.REPEAT_MODE_ONE, Player.REPEAT_MODE_ALL)
+
   // LINT.ThenChange(../../../../../res/values/options.xml)
 
   init {

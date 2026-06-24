@@ -38,7 +38,7 @@ import com.google.common.util.concurrent.ListenableFuture
 
 class SearchMediaItemsAdapter(
   private val activity: Activity,
-  private val mediaBrowser: MediaBrowser
+  private val mediaBrowser: MediaBrowser,
 ) : RecyclerView.Adapter<SearchMediaItemsAdapter.ViewHolder>() {
   private var items: List<MediaItem> = emptyList()
 
@@ -70,20 +70,20 @@ class SearchMediaItemsAdapter(
                 query,
                 /* page= */ 0,
                 /* pageSize= */ Int.MAX_VALUE,
-                /* params= */ null
+                /* params= */ null,
               )
             searchFuture.addListener(
               {
                 val mediaItems: List<MediaItem>? = searchFuture.get().value
                 updateItems(mediaItems ?: emptyList())
               },
-              ContextCompat.getMainExecutor(activity)
+              ContextCompat.getMainExecutor(activity),
             )
           } else {
             updateItems(emptyList())
           }
         },
-        ContextCompat.getMainExecutor(activity)
+        ContextCompat.getMainExecutor(activity),
       )
     }
   }
@@ -119,7 +119,7 @@ class SearchMediaItemsAdapter(
           BitmapFactory.decodeByteArray(
             mediaMetadata.artworkData,
             0,
-            mediaMetadata.artworkData!!.size
+            mediaMetadata.artworkData!!.size,
           )
         holder.icon.setImageBitmap(bitmap)
       }

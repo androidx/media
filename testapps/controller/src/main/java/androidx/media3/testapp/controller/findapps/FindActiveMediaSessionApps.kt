@@ -34,21 +34,21 @@ constructor(
   private val packageManager: PackageManager,
   private val resources: Resources,
   private val context: Context,
-  callback: AppListUpdatedCallback
+  callback: AppListUpdatedCallback,
 ) : FindMediaApps(callback) {
   override val mediaApps: List<MediaAppDetails>
     get() {
       return getMediaAppsFromMediaControllers(
         mediaSessionManager.getActiveSessions(componentName),
         packageManager,
-        resources
+        resources,
       )
     }
 
   private fun getMediaAppsFromMediaControllers(
     sessionTokens: List<MediaController>,
     packageManager: PackageManager,
-    resources: Resources
+    resources: Resources,
   ): List<MediaAppDetails> {
     return sessionTokens.map {
       MediaAppDetails.create(packageManager, resources, controller = it, context)
