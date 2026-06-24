@@ -15,14 +15,15 @@
  */
 package androidx.media3.effect;
 
+import static androidx.media3.effect.FrameProcessorUtils.runAllAndAccumulateExceptions;
 import static androidx.media3.effect.FrameProcessorUtils.waitAndCloseFence;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
 import android.hardware.HardwareBuffer;
 import android.opengl.GLES20;
+import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
@@ -37,11 +38,11 @@ import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.HardwareBufferFrame;
+import androidx.media3.effect.FrameProcessorUtils.ThrowingRunnable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import java.util.List;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 /**
@@ -209,8 +210,6 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
    */
   public static final String KEY_FRAME_DISCONTINUITY_NUMBER = "KEY_FRAME_DISCONTINUITY_NUMBER";
 
-  private static final long TIMEOUT_MS = 500;
-
   private final ListeningExecutorService glExecutorService;
   private final HardwareBufferConverter hardwareBufferConverter;
   private final GlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
@@ -219,6 +218,24 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   private final Consumer<VideoFrameProcessingException> errorConsumer;
   // Accessed on the OpenGL thread.
   private final GlTextureFrameProcessorChain effectProcessorChain;
+  private final Object lock;
+
+  @GuardedBy("lock")
+  @Nullable
+  private List<AsyncFrame> pendingFrames;
+
+  @GuardedBy("lock")
+  private boolean pendingWakingupUpstream;
+
+  @GuardedBy("lock")
+  private boolean released;
+
+  @GuardedBy("lock")
+  private boolean signalEndOfStreamDeferred;
+
+  // Accessed on the OpenGL thread.
+  private boolean unsupportedFramesReleased;
+  @Nullable private GlTextureFrame convertedGlTextureFrame;
 
   private DefaultGlFrameProcessor(
       Context context,
@@ -241,37 +258,42 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
             glExecutorService,
             errorConsumer,
             frameWriterGlTextureFrameConsumer);
+    lock = new Object();
   }
 
   @Override
   public boolean queue(List<AsyncFrame> frames) {
     checkArgument(!frames.isEmpty());
-    // TODO: b/505721737 - Don't block the calling thread for result.
-    CompletableFuture<Boolean> queueResult = new CompletableFuture<>();
+    synchronized (lock) {
+      if (released) {
+        return false;
+      }
+      if (pendingFrames != null) {
+        pendingWakingupUpstream = true;
+        return false;
+      }
+      pendingFrames = frames;
+    }
+
     submitToGlExecutor(
         () -> {
-          queueFramesInternal(frames, queueResult);
+          maybeQueueToDownstream();
           return null;
         });
 
-    try {
-      if (queueResult.isDone()) {
-        return queueResult.get();
-      }
-      return queueResult.get(TIMEOUT_MS, MILLISECONDS);
-    } catch (Exception e) {
-      if (e instanceof InterruptedException) {
-        Thread.currentThread().interrupt();
-      }
-      listenerExecutor.execute(() -> listener.onError(VideoFrameProcessingException.from(e)));
-      return false;
-    }
+    return true;
   }
 
   @Override
   public void signalEndOfStream() {
     submitToGlExecutor(
         () -> {
+          synchronized (lock) {
+            if (pendingFrames != null) {
+              signalEndOfStreamDeferred = true;
+              return null;
+            }
+          }
           effectProcessorChain.signalEndOfStream();
           return null;
         });
@@ -279,11 +301,34 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
 
   @Override
   public void close() {
+    @Nullable List<AsyncFrame> framesToRelease;
+    synchronized (lock) {
+      released = true;
+      framesToRelease = pendingFrames;
+      pendingFrames = null;
+    }
     submitToGlExecutor(
         () -> {
-          hardwareBufferConverter.close();
-          effectProcessorChain.close();
-          frameWriterGlTextureFrameConsumer.close();
+          ImmutableList.Builder<ThrowingRunnable> releaseActions = ImmutableList.builder();
+          if (framesToRelease != null) {
+            for (int i = 0; i < framesToRelease.size(); i++) {
+              AsyncFrame asyncFrame = framesToRelease.get(i);
+              releaseActions.add(
+                  () ->
+                      hardwareBufferConverter.releaseGlResources(
+                          (HardwareBufferFrame) asyncFrame.frame));
+            }
+          }
+          @Nullable GlTextureFrame convertedGlTextureFrame = this.convertedGlTextureFrame;
+          if (convertedGlTextureFrame != null) {
+            releaseActions.add(() -> convertedGlTextureFrame.release(null));
+          }
+
+          releaseActions
+              .add(hardwareBufferConverter::close)
+              .add(effectProcessorChain::close)
+              .add(frameWriterGlTextureFrameConsumer::close);
+          runAllAndAccumulateExceptions(releaseActions.build().toArray(new ThrowingRunnable[0]));
           return null;
         });
   }
@@ -293,46 +338,110 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   }
 
   /** The method runs on the GL thread. */
-  private void queueFramesInternal(List<AsyncFrame> frames, CompletableFuture<Boolean> queueResult)
-      throws VideoFrameProcessingException {
+  private void maybeQueueToDownstream() {
+    @Nullable List<AsyncFrame> frames;
+    synchronized (lock) {
+      if (released) {
+        return;
+      }
+      frames = pendingFrames;
+    }
+
+    if (frames == null) {
+      return;
+    }
+
+    try {
+      if (!unsupportedFramesReleased) {
+        releaseUnsupportedFrames(frames);
+        unsupportedFramesReleased = true;
+      }
+
+      if (convertedGlTextureFrame == null) {
+        AsyncFrame asyncFrame = frames.get(0);
+        Frame frame = asyncFrame.frame;
+        HardwareBufferFrame hardwareBufferFrame = (HardwareBufferFrame) frame;
+
+        if (!waitAndCloseFence(asyncFrame)) {
+          GLES20.glFinish();
+        }
+
+        effectProcessorChain.configure(
+            new ImmutableList.Builder<Effect>()
+                .addAll(extractEffects(frame, KEY_ITEM_EFFECTS))
+                .addAll(extractEffects(frame, KEY_COMPOSITION_EFFECTS))
+                .build());
+
+        convertedGlTextureFrame =
+            hardwareBufferConverter.convert(
+                hardwareBufferFrame, glExecutorService, listenerExecutor, listener);
+      }
+
+      boolean queued =
+          effectProcessorChain.queue(
+              checkNotNull(convertedGlTextureFrame),
+              /* listenerExecutor= */ glExecutorService,
+              /* wakeupListener= */ this::maybeQueueToDownstream);
+
+      if (queued) {
+        onFrameQueued();
+      }
+    } catch (VideoFrameProcessingException | RuntimeException e) {
+      synchronized (lock) {
+        pendingFrames = null;
+      }
+      unsupportedFramesReleased = false;
+      if (convertedGlTextureFrame != null) {
+        try {
+          hardwareBufferConverter.releaseGlResources((HardwareBufferFrame) frames.get(0).frame);
+        } catch (Exception suppressedException) {
+          e.addSuppressed(suppressedException);
+        }
+        convertedGlTextureFrame = null;
+      }
+      listenerExecutor.execute(() -> listener.onError(VideoFrameProcessingException.from(e)));
+    }
+  }
+
+  private void onFrameQueued() {
+    boolean invokeWakeup = false;
+    boolean signalEndOfStream = false;
+    convertedGlTextureFrame = null;
+    synchronized (lock) {
+      pendingFrames = null;
+      if (pendingWakingupUpstream) {
+        pendingWakingupUpstream = false;
+        invokeWakeup = true;
+      }
+      if (signalEndOfStreamDeferred) {
+        signalEndOfStreamDeferred = false;
+        signalEndOfStream = true;
+      }
+    }
+    unsupportedFramesReleased = false;
+    if (signalEndOfStream) {
+      effectProcessorChain.signalEndOfStream();
+    }
+    if (invokeWakeup) {
+      listenerExecutor.execute(listener::onWakeup);
+    }
+  }
+
+  /**
+   * Releases the GL resources of all input frames in the batch except the first one.
+   *
+   * <p>This is temporary until multi-sequence support is integrated.
+   */
+  private void releaseUnsupportedFrames(List<AsyncFrame> frames) {
     for (int i = 1; i < frames.size(); i++) {
       // TODO: b/337107769 - Support multiple input frames.
       AsyncFrame asyncFrame = frames.get(i);
-      boolean unused = waitAndCloseFence(asyncFrame);
+      if (!waitAndCloseFence(asyncFrame)) {
+        GLES20.glFinish();
+      }
       listenerExecutor.execute(
           () -> listener.onFrameProcessed(asyncFrame.frame, /* onCompleteFence= */ null));
     }
-
-    AsyncFrame asyncFrame = frames.get(0);
-    Frame frame = asyncFrame.frame;
-    if (!waitAndCloseFence(asyncFrame)) {
-      GLES20.glFinish();
-    }
-
-    effectProcessorChain.configure(
-        new ImmutableList.Builder<Effect>()
-            .addAll(extractEffects(frame, KEY_ITEM_EFFECTS))
-            .addAll(extractEffects(frame, KEY_COMPOSITION_EFFECTS))
-            .build());
-
-    HardwareBufferFrame hardwareBufferFrame = (HardwareBufferFrame) frame;
-    GlTextureFrame glTextureFrame =
-        hardwareBufferConverter.convert(
-            hardwareBufferFrame, glExecutorService, listenerExecutor, listener);
-
-    boolean queued =
-        effectProcessorChain.queue(
-            glTextureFrame,
-            /* listenerExecutor= */ listenerExecutor,
-            /* wakeupListener= */ listener::onWakeup);
-    if (!queued) {
-      // If the frame is not queued, the same frame will be queued again and hence converted again.
-      // Releasing the allocated GL resources to prevent leaking.
-      // TODO: b/505721737 - Don't release resources, if the conversion and releasing process is
-      //  slow.
-      hardwareBufferConverter.releaseGlResources(hardwareBufferFrame);
-    }
-    queueResult.complete(queued);
   }
 
   private static ImmutableList<Effect> extractEffects(Frame frame, String effectKey) {

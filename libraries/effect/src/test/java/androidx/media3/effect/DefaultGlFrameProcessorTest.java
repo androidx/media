@@ -21,12 +21,15 @@ import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITOR_SETT
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_ITEM_EFFECTS;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
 import androidx.annotation.Nullable;
 import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
+import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Util;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
@@ -42,11 +45,15 @@ import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Queue;
+import java.util.Random;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeoutException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -57,8 +64,10 @@ import org.junit.runner.RunWith;
 @SdkSuppress(minSdkVersion = 29)
 public final class DefaultGlFrameProcessorTest {
 
+  private static final long SYNC_TIMEOUT_MS = 1_000;
+
   private final Context context = getApplicationContext();
-  private ArrayDeque<Runnable> queuedFrameProcessedTasks;
+  private Queue<Runnable> queuedFrameProcessedTasks;
   private Executor testExecutor;
 
   private FakeHardwareBufferConverter fakeHardwareBufferConverter;
@@ -77,7 +86,7 @@ public final class DefaultGlFrameProcessorTest {
     fakeGlTextureFrameConsumer = new FakeGlTextureFrameConsumer(frameWriter);
     fakeEffect = (context, useHdr) -> fakeGlShaderProgram;
     glExecutorService = listeningDecorator(Util.newSingleThreadExecutor("Effect:GlThread"));
-    queuedFrameProcessedTasks = new ArrayDeque<>();
+    queuedFrameProcessedTasks = new ConcurrentLinkedQueue<>();
     testExecutor = queuedFrameProcessedTasks::add;
 
     processor =
@@ -116,10 +125,9 @@ public final class DefaultGlFrameProcessorTest {
         new FakeHardwareBufferFrame(
             ImmutableMap.of(KEY_ITEM_EFFECTS, ImmutableList.of(fakeEffect)));
 
-    boolean frameQueued =
-        processor.queue(ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null)));
-
-    assertThat(frameQueued).isTrue();
+    assertThat(processor.queue(ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null))))
+        .isTrue();
+    waitUntilGlThreadFinishes();
     assertThat(fakeHardwareBufferConverter.framesReceived).isEqualTo(1);
     assertThat(fakeGlShaderProgram.framesReceived).isEqualTo(1);
     assertThat(fakeGlTextureFrameConsumer.framesReceived).isEqualTo(1);
@@ -141,11 +149,11 @@ public final class DefaultGlFrameProcessorTest {
         new FakeHardwareBufferFrame(
             ImmutableMap.of(KEY_ITEM_EFFECTS, ImmutableList.of(fakeEffect)));
 
-    boolean frame1Queued =
-        processor.queue(
-            ImmutableList.of(new AsyncFrame(frameWithEffect1, /* acquireFence= */ null)));
-
-    assertThat(frame1Queued).isTrue();
+    assertThat(
+            processor.queue(
+                ImmutableList.of(new AsyncFrame(frameWithEffect1, /* acquireFence= */ null))))
+        .isTrue();
+    waitUntilGlThreadFinishes();
     assertThat(fakeHardwareBufferConverter.framesReceived).isEqualTo(1);
     assertThat(fakeGlShaderProgram.framesReceived).isEqualTo(1);
     assertThat(fakeGlTextureFrameConsumer.framesReceived).isEqualTo(1);
@@ -154,11 +162,11 @@ public final class DefaultGlFrameProcessorTest {
     // 2. Send another frame that has no effect, verify the frame reaches the end.
     Frame frameWithoutEffect = new FakeHardwareBufferFrame(ImmutableMap.of());
 
-    boolean frame2Queued =
-        processor.queue(
-            ImmutableList.of(new AsyncFrame(frameWithoutEffect, /* acquireFence= */ null)));
-
-    assertThat(frame2Queued).isTrue();
+    assertThat(
+            processor.queue(
+                ImmutableList.of(new AsyncFrame(frameWithoutEffect, /* acquireFence= */ null))))
+        .isTrue();
+    waitUntilGlThreadFinishes();
     assertThat(fakeHardwareBufferConverter.framesReceived).isEqualTo(2);
     assertThat(fakeGlShaderProgram.framesReceived).isEqualTo(1);
     assertThat(fakeGlTextureFrameConsumer.framesReceived).isEqualTo(2);
@@ -169,11 +177,11 @@ public final class DefaultGlFrameProcessorTest {
         new FakeHardwareBufferFrame(
             ImmutableMap.of(KEY_ITEM_EFFECTS, ImmutableList.of(fakeEffect)));
 
-    boolean frame3Queued =
-        processor.queue(
-            ImmutableList.of(new AsyncFrame(frameWithEffect2, /* acquireFence= */ null)));
-
-    assertThat(frame3Queued).isTrue();
+    assertThat(
+            processor.queue(
+                ImmutableList.of(new AsyncFrame(frameWithEffect2, /* acquireFence= */ null))))
+        .isTrue();
+    waitUntilGlThreadFinishes();
     assertThat(fakeHardwareBufferConverter.framesReceived).isEqualTo(3);
     assertThat(fakeGlShaderProgram.framesReceived).isEqualTo(2);
     assertThat(fakeGlTextureFrameConsumer.framesReceived).isEqualTo(3);
@@ -201,10 +209,9 @@ public final class DefaultGlFrameProcessorTest {
                 KEY_COMPOSITION_EFFECTS,
                 ImmutableList.of(fakeCompositionEffect)));
 
-    boolean frameQueued =
-        processor.queue(ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null)));
-
-    assertThat(frameQueued).isTrue();
+    assertThat(processor.queue(ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null))))
+        .isTrue();
+    waitUntilGlThreadFinishes();
     assertThat(fakeHardwareBufferConverter.framesReceived).isEqualTo(1);
     assertThat(fakeGlShaderProgram.framesReceived).isEqualTo(1); // Item effect executed
     assertThat(fakeCompositionEffectShaderProgram.framesReceived)
@@ -253,6 +260,7 @@ public final class DefaultGlFrameProcessorTest {
             .create(frameWriter, testExecutor, listener)) {
       frameQueued =
           processor.queue(ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null)));
+      waitUntilGlThreadFinishes();
       executeQueuedTasks(queuedFrameProcessedTasks, 1);
     }
 
@@ -293,14 +301,14 @@ public final class DefaultGlFrameProcessorTest {
                 context, glExecutorService, fakeHardwareBufferConverter, fakeGlTextureFrameConsumer)
             .create(frameWriter, testExecutor, listener);
 
-    boolean framesQueued =
-        processor.queue(
-            ImmutableList.of(
-                new AsyncFrame(frame0, /* acquireFence= */ null),
-                new AsyncFrame(frame1, /* acquireFence= */ null),
-                new AsyncFrame(frame2, /* acquireFence= */ null)));
-
-    assertThat(framesQueued).isTrue();
+    assertThat(
+            processor.queue(
+                ImmutableList.of(
+                    new AsyncFrame(frame0, /* acquireFence= */ null),
+                    new AsyncFrame(frame1, /* acquireFence= */ null),
+                    new AsyncFrame(frame2, /* acquireFence= */ null))))
+        .isTrue();
+    waitUntilGlThreadFinishes();
     // Three tasks are expected: 2 for frames 1 and 2 (instantly completed because multi-frame is
     // not supported yet) and 1 for frame 0 (completed on release by FakeGlTextureFrameConsumer).
     executeQueuedTasks(queuedFrameProcessedTasks, 3);
@@ -348,10 +356,9 @@ public final class DefaultGlFrameProcessorTest {
                 context, glExecutorService, fakeHardwareBufferConverter, fakeGlTextureFrameConsumer)
             .create(frameWriter, testExecutor, listener);
 
-    boolean frameQueued =
-        processor.queue(ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null)));
-
-    assertThat(frameQueued).isTrue();
+    assertThat(processor.queue(ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null))))
+        .isTrue();
+    waitUntilGlThreadFinishes();
     executeQueuedTasks(queuedFrameProcessedTasks, 1);
     assertThat(completedFrames).containsExactly(frame).inOrder();
     assertThat(frameWriter.queuedFrames).isEqualTo(1);
@@ -373,13 +380,18 @@ public final class DefaultGlFrameProcessorTest {
     Frame frame2 =
         new FakeHardwareBufferFrame(
             ImmutableMap.of(KEY_ITEM_EFFECTS, ImmutableList.of(fakeEffect)));
+    Frame frame3 =
+        new FakeHardwareBufferFrame(
+            ImmutableMap.of(KEY_ITEM_EFFECTS, ImmutableList.of(fakeEffect)));
 
     ArrayList<Boolean> wakeupNotified = new ArrayList<>();
+    CountDownLatch latch = new CountDownLatch(1);
     FrameProcessor.Listener listener =
         new FrameProcessor.Listener() {
           @Override
           public void onWakeup() {
             wakeupNotified.add(true);
+            latch.countDown();
           }
 
           @Override
@@ -394,28 +406,27 @@ public final class DefaultGlFrameProcessorTest {
     processor =
         new DefaultGlFrameProcessor.Factory(
                 context, glExecutorService, fakeHardwareBufferConverter, fakeGlTextureFrameConsumer)
-            .create(frameWriter, testExecutor, listener);
+            .create(frameWriter, directExecutor(), listener);
 
-    boolean frame1Queued =
-        processor.queue(ImmutableList.of(new AsyncFrame(frame1, /* acquireFence= */ null)));
-
-    assertThat(frame1Queued).isTrue();
+    assertThat(processor.queue(ImmutableList.of(new AsyncFrame(frame1, /* acquireFence= */ null))))
+        .isTrue();
+    waitUntilGlThreadFinishes();
     assertThat(frameWriter.queuedFrames).isEqualTo(1);
 
-    boolean frame2Queued =
-        processor.queue(ImmutableList.of(new AsyncFrame(frame2, /* acquireFence= */ null)));
+    assertThat(processor.queue(ImmutableList.of(new AsyncFrame(frame2, /* acquireFence= */ null))))
+        .isTrue();
+    waitUntilGlThreadFinishes();
 
-    assertThat(frame2Queued).isFalse();
+    assertThat(processor.queue(ImmutableList.of(new AsyncFrame(frame3, /* acquireFence= */ null))))
+        .isFalse();
     assertThat(wakeupNotified).isEmpty();
     assertThat(frameWriter.queuedFrames).isEqualTo(1);
 
     glExecutorService.submit(() -> fakeGlShaderProgram.signalReadyToAcceptInputFrame()).get();
-    waitUntilGlThreadFinishes();
 
-    executeQueuedTasks(queuedFrameProcessedTasks, 2);
-
+    assertThat(latch.await(SYNC_TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(wakeupNotified).containsExactly(true);
-    assertThat(frameWriter.queuedFrames).isEqualTo(1);
+    assertThat(frameWriter.queuedFrames).isEqualTo(2);
 
     processor.signalEndOfStream();
     waitUntilGlThreadFinishes();
@@ -425,27 +436,274 @@ public final class DefaultGlFrameProcessorTest {
   }
 
   @Test
-  public void queue_whenDownstreamConsumerReturnsFalse_releasesGlResourcesOnHardwareBufferFrame() {
+  public void queue_whenDownstreamConsumerReturnsFalse_doesNotReleaseGlResources()
+      throws Exception {
     fakeGlTextureFrameConsumer.shouldAcceptIncomingFrames = false;
     Frame frame = new FakeHardwareBufferFrame(ImmutableMap.of());
 
-    boolean frameQueued =
-        processor.queue(ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null)));
-
-    assertThat(frameQueued).isFalse();
+    assertThat(processor.queue(ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null))))
+        .isTrue();
+    waitUntilGlThreadFinishes();
     assertThat(fakeHardwareBufferConverter.framesReceived).isEqualTo(1);
-    assertThat(fakeHardwareBufferConverter.framesWithGlResourceReleased).isEqualTo(1);
+    assertThat(fakeHardwareBufferConverter.framesWithGlResourceReleased).isEqualTo(0);
     assertThat(fakeGlTextureFrameConsumer.framesReceived).isEqualTo(0);
   }
 
-  private void waitUntilGlThreadFinishes() throws ExecutionException, InterruptedException {
-    glExecutorService.submit(() -> {}).get();
+  @Test
+  public void queue_cachesFrameAndRetriesOnWakeup_queuesCachedFrame() throws Exception {
+    Frame frame0 = new FakeHardwareBufferFrame(ImmutableMap.of());
+    Frame frame1 = new FakeHardwareBufferFrame(ImmutableMap.of());
+
+    ArrayList<Boolean> wakeupNotified = new ArrayList<>();
+    CountDownLatch latch = new CountDownLatch(1);
+    FrameProcessor.Listener listener =
+        new FrameProcessor.Listener() {
+          @Override
+          public void onWakeup() {
+            wakeupNotified.add(true);
+            latch.countDown();
+          }
+
+          @Override
+          public void onError(VideoFrameProcessingException exception) {
+            throw new AssertionError("Unexpected frame processing error", exception);
+          }
+
+          @Override
+          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper onCompleteFence) {}
+        };
+
+    try (DefaultGlFrameProcessor processor =
+        new DefaultGlFrameProcessor.Factory(
+                context, glExecutorService, fakeHardwareBufferConverter, fakeGlTextureFrameConsumer)
+            .create(frameWriter, directExecutor(), listener)) {
+
+      fakeGlTextureFrameConsumer.shouldAcceptIncomingFrames = false;
+
+      // Queueing succeeds, frame cached in the processor.
+      assertThat(
+              processor.queue(ImmutableList.of(new AsyncFrame(frame0, /* acquireFence= */ null))))
+          .isTrue();
+      waitUntilGlThreadFinishes();
+
+      // Queueing another frame fails: downstream is blocked so frame0 remains in cache.
+      assertThat(
+              processor.queue(ImmutableList.of(new AsyncFrame(frame1, /* acquireFence= */ null))))
+          .isFalse();
+
+      // Downstream is ready to accept frames now.
+      fakeGlTextureFrameConsumer.shouldAcceptIncomingFrames = true;
+      fakeGlTextureFrameConsumer.triggerWakeup();
+
+      // Verify wakeup is notified so the caller knows they can try frame1 again.
+      assertThat(latch.await(SYNC_TIMEOUT_MS, MILLISECONDS)).isTrue();
+      assertThat(wakeupNotified).containsExactly(true);
+    }
   }
 
-  private static void executeQueuedTasks(ArrayDeque<Runnable> queuedTasks, int expectedSize) {
+  @Test
+  public void queue_whenDownstreamRejectsMultipleTimes_notifiesWakeupAndAcceptsSubsequentQueue()
+      throws Exception {
+    Frame frame0 = new FakeHardwareBufferFrame(ImmutableMap.of());
+    Frame frame1 = new FakeHardwareBufferFrame(ImmutableMap.of());
+    Frame frame2 = new FakeHardwareBufferFrame(ImmutableMap.of());
+
+    ArrayList<Boolean> wakeupNotified = new ArrayList<>();
+    CountDownLatch latch = new CountDownLatch(1);
+    FrameProcessor.Listener listener =
+        new FrameProcessor.Listener() {
+          @Override
+          public void onWakeup() {
+            wakeupNotified.add(true);
+            latch.countDown();
+          }
+
+          @Override
+          public void onError(VideoFrameProcessingException exception) {
+            throw new AssertionError("Unexpected frame processing error", exception);
+          }
+
+          @Override
+          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper onCompleteFence) {}
+        };
+
+    try (DefaultGlFrameProcessor processor =
+        new DefaultGlFrameProcessor.Factory(
+                context, glExecutorService, fakeHardwareBufferConverter, fakeGlTextureFrameConsumer)
+            .create(frameWriter, directExecutor(), listener)) {
+
+      fakeGlTextureFrameConsumer.shouldAcceptIncomingFrames = false;
+
+      // Queueing succeeds, frame cached in the processor.
+      assertThat(
+              processor.queue(ImmutableList.of(new AsyncFrame(frame0, /* acquireFence= */ null))))
+          .isTrue();
+      waitUntilGlThreadFinishes();
+
+      // Queueing another frame fails: downstream is blocked so frame0 remains in cache.
+      assertThat(
+              processor.queue(ImmutableList.of(new AsyncFrame(frame1, /* acquireFence= */ null))))
+          .isFalse();
+      assertThat(
+              processor.queue(ImmutableList.of(new AsyncFrame(frame2, /* acquireFence= */ null))))
+          .isFalse();
+
+      fakeGlTextureFrameConsumer.shouldAcceptIncomingFrames = true;
+      fakeGlTextureFrameConsumer.triggerWakeup();
+
+      assertThat(latch.await(SYNC_TIMEOUT_MS, MILLISECONDS)).isTrue();
+      assertThat(wakeupNotified).containsExactly(true);
+
+      assertThat(fakeGlTextureFrameConsumer.framesReceived).isEqualTo(1);
+      assertThat(fakeGlTextureFrameConsumer.lastReceivedFrame).isNotNull();
+
+      // Verify that subsequent queueing of frame2 now succeeds.
+      assertThat(
+              processor.queue(ImmutableList.of(new AsyncFrame(frame2, /* acquireFence= */ null))))
+          .isTrue();
+    }
+  }
+
+  @Test
+  public void queue_whenQueueingThrowsException_releasesGlResourcesAndClearsQueue()
+      throws Exception {
+    fakeGlTextureFrameConsumer.runtimeExceptionToThrowOnQueueing = new RuntimeException();
+    Frame frame = new FakeHardwareBufferFrame(ImmutableMap.of());
+
+    assertThat(processor.queue(ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null))))
+        .isTrue();
+    waitUntilGlThreadFinishes();
+
+    assertThat(fakeHardwareBufferConverter.framesWithGlResourceReleased).isEqualTo(1);
+
+    // Verify we can queue a new frame (meaning pendingFrames was cleared).
+    fakeGlTextureFrameConsumer.runtimeExceptionToThrowOnQueueing = null;
+    Frame frame2 = new FakeHardwareBufferFrame(ImmutableMap.of());
+    assertThat(processor.queue(ImmutableList.of(new AsyncFrame(frame2, /* acquireFence= */ null))))
+        .isTrue();
+  }
+
+  @Test
+  public void queue_multipleInputFramesOnRetry_doesNotNotifyFrameProcessedMultipleTimes()
+      throws Exception {
+    fakeGlTextureFrameConsumer.shouldAcceptIncomingFrames = false;
+    Frame frame0 = new FakeHardwareBufferFrame(ImmutableMap.of());
+    Frame frame1 = new FakeHardwareBufferFrame(ImmutableMap.of());
+
+    List<Frame> completedFrames = new ArrayList<>();
+    CountDownLatch latch = new CountDownLatch(2);
+    FrameProcessor.Listener listener =
+        new FrameProcessor.Listener() {
+          @Override
+          public void onWakeup() {}
+
+          @Override
+          public void onError(VideoFrameProcessingException exception) {}
+
+          @Override
+          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper onCompleteFence) {
+            completedFrames.add(frame);
+            latch.countDown();
+          }
+        };
+    if (processor != null) {
+      processor.close();
+    }
+    processor =
+        new DefaultGlFrameProcessor.Factory(
+                context, glExecutorService, fakeHardwareBufferConverter, fakeGlTextureFrameConsumer)
+            .create(frameWriter, directExecutor(), listener);
+
+    assertThat(
+            processor.queue(
+                ImmutableList.of(
+                    new AsyncFrame(frame0, /* acquireFence= */ null),
+                    new AsyncFrame(frame1, /* acquireFence= */ null))))
+        .isTrue();
+    waitUntilGlThreadFinishes();
+
+    // Frame1 is immediately released synchronously (it doesn't support multi-sequence yet)
+    assertThat(completedFrames).containsExactly(frame1);
+
+    fakeGlTextureFrameConsumer.shouldAcceptIncomingFrames = true;
+    fakeGlTextureFrameConsumer.triggerWakeup();
+
+    // Wait for both frames (frame1 released synchronously, frame0 after retry) to complete.
+    assertThat(latch.await(SYNC_TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(completedFrames).containsExactly(frame1, frame0).inOrder();
+  }
+
+  @Test
+  public void queue_concurrentlyWithWakeup_neverMissesWakeupSignal() throws Exception {
+    ConditionVariable wakeupCondition = new ConditionVariable();
+    FrameProcessor.Listener listener =
+        new FrameProcessor.Listener() {
+          @Override
+          public void onWakeup() {
+            wakeupCondition.open();
+          }
+
+          @Override
+          public void onError(VideoFrameProcessingException exception) {}
+
+          @Override
+          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper onCompleteFence) {}
+        };
+
+    try (DefaultGlFrameProcessor processor =
+        new DefaultGlFrameProcessor.Factory(
+                context, glExecutorService, fakeHardwareBufferConverter, fakeGlTextureFrameConsumer)
+            .create(frameWriter, directExecutor(), listener)) {
+
+      Random random = new Random(/* seed= */ 0);
+      int frameCompleted = 0;
+      GlTextureFrameConsumer finalFakeGlTextureFrameConsumer = fakeGlTextureFrameConsumer;
+
+      // Try to queue 500 frames, with downstream rejects frames randomly
+      while (frameCompleted < 500) {
+        Frame frame = new FakeHardwareBufferFrame(ImmutableMap.of());
+        AsyncFrame asyncFrame = new AsyncFrame(frame, /* acquireFence= */ null);
+        if (processor.queue(ImmutableList.of(asyncFrame))) {
+          frameCompleted++;
+          // Randomly block the downstream to trigger contention.
+          fakeGlTextureFrameConsumer.shouldAcceptIncomingFrames = random.nextBoolean();
+        } else {
+          if (wakeupCondition.isOpen()) {
+            // If queueing failed, check if wakeup has already been signaled when reaching here.
+            wakeupCondition.close();
+          } else {
+            // Open up for next queueing.
+            fakeGlTextureFrameConsumer.shouldAcceptIncomingFrames = true;
+            synchronized (finalFakeGlTextureFrameConsumer) {
+              if (fakeGlTextureFrameConsumer.wakeupListener != null) {
+                fakeGlTextureFrameConsumer.triggerWakeup();
+              }
+            }
+            // Wait for the wakeup notification. If it's on invoked above, the processor invokes it
+            // after successfully queueing it to fakeGlTextureFrameConsumer.
+            assertThat(wakeupCondition.block(SYNC_TIMEOUT_MS)).isTrue();
+            // Reset for next iteration
+            wakeupCondition.close();
+          }
+        }
+      }
+
+      processor.signalEndOfStream();
+      waitUntilGlThreadFinishes();
+    }
+  }
+
+  private void waitUntilGlThreadFinishes()
+      throws ExecutionException, InterruptedException, TimeoutException {
+    // Note this doesn't guarantee all previously queued tasks are executed, if they submit tasks
+    // themselves.
+    glExecutorService.submit(() -> {}).get(SYNC_TIMEOUT_MS, MILLISECONDS);
+  }
+
+  private static void executeQueuedTasks(Queue<Runnable> queuedTasks, int expectedSize) {
     assertThat(queuedTasks).hasSize(expectedSize);
     for (int i = 0; i < expectedSize; i++) {
-      queuedTasks.remove().run();
+      queuedTasks.poll().run();
     }
   }
 }

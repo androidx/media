@@ -81,7 +81,7 @@ public final class GlFrameProcessorTestUtil {
   /** Fake implementation of {@link GlTextureFrameConsumer} for testing. */
   public static final class FakeGlTextureFrameConsumer implements GlTextureFrameConsumer {
 
-    public boolean shouldAcceptIncomingFrames;
+    public volatile boolean shouldAcceptIncomingFrames;
     public int framesReceived;
     public boolean signalEndOfStreamCalled;
     @Nullable public Runnable wakeupListener;
@@ -97,7 +97,8 @@ public final class GlFrameProcessorTestUtil {
     }
 
     @Override
-    public boolean queue(GlTextureFrame frame, Executor listenerExecutor, Runnable wakeupListener)
+    public synchronized boolean queue(
+        GlTextureFrame frame, Executor listenerExecutor, Runnable wakeupListener)
         throws VideoFrameProcessingException {
       if (exceptionToThrowOnQueueing != null) {
         throw exceptionToThrowOnQueueing;
@@ -119,7 +120,7 @@ public final class GlFrameProcessorTestUtil {
       return true;
     }
 
-    public void triggerWakeup() {
+    public synchronized void triggerWakeup() {
       if (listenerExecutor == null || wakeupListener == null) {
         throw new IllegalStateException("No wakeup listener registered");
       }
