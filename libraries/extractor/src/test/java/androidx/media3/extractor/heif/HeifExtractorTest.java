@@ -17,11 +17,14 @@ package androidx.media3.extractor.heif;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.test.utils.ExtractorAsserts;
 import androidx.media3.test.utils.FakeExtractorInput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.testing.junit.testparameterinjector.TestParameter;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestParameterInjector;
@@ -29,6 +32,16 @@ import org.robolectric.RobolectricTestParameterInjector;
 /** Unit tests for {@link HeifExtractor}. */
 @RunWith(RobolectricTestParameterInjector.class)
 public final class HeifExtractorTest {
+
+  @BeforeClass
+  public static void enableParsableByteArrayLimitEnforcement() {
+    ParsableByteArray.setShouldEnforceLimitOnLegacyMethods(true);
+  }
+
+  @AfterClass
+  public static void disableParsableByteArrayLimitEnforcement() {
+    ParsableByteArray.setShouldEnforceLimitOnLegacyMethods(false);
+  }
 
   @Test
   public void sampleStillPhoto_noFlags_extractImage(

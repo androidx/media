@@ -70,6 +70,7 @@ import java.io.IOException;
             /* allowEndOfInput= */ true)) {
           return false;
         }
+        buffer.setLimit(headerSize);
         atomSize = buffer.readUnsignedLongToLong();
       }
 

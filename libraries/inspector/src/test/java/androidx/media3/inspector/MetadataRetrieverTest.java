@@ -33,6 +33,7 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4TimestampData;
@@ -57,7 +58,9 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.LooperMode;
@@ -67,6 +70,16 @@ import org.robolectric.shadows.ShadowLooper;
 @LooperMode(LooperMode.Mode.INSTRUMENTATION_TEST)
 @RunWith(AndroidJUnit4.class)
 public class MetadataRetrieverTest {
+
+  @BeforeClass
+  public static void enableParsableByteArrayLimitEnforcement() {
+    ParsableByteArray.setShouldEnforceLimitOnLegacyMethods(true);
+  }
+
+  @AfterClass
+  public static void disableParsableByteArrayLimitEnforcement() {
+    ParsableByteArray.setShouldEnforceLimitOnLegacyMethods(false);
+  }
 
   private static final long TEST_TIMEOUT_SEC = 10;
 
