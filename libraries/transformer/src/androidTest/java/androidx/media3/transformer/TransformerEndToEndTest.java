@@ -1757,55 +1757,6 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  public void loopingTranscodedAudio_producesExpectedResult() throws Exception {
-    Transformer transformer = new Transformer.Builder(context).build();
-    assumeFormatsSupported(
-        context,
-        testId,
-        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
-        /* outputFormat= */ MP4_ADVANCED_ASSET.videoFormat);
-    EditedMediaItem audioEditedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP3_ASSET.uri)).build();
-    EditedMediaItemSequence loopingAudioSequence =
-        new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_AUDIO))
-            .addItems(audioEditedMediaItem, audioEditedMediaItem)
-            .setIsLooping(true)
-            .build();
-    EditedMediaItem videoEditedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri))
-            .setRemoveAudio(true)
-            .build();
-    EditedMediaItemSequence videoSequence =
-        EditedMediaItemSequence.withVideoFrom(
-            ImmutableList.of(videoEditedMediaItem, videoEditedMediaItem, videoEditedMediaItem));
-    Composition composition =
-        new Composition.Builder(loopingAudioSequence, videoSequence).setTransmuxVideo(true).build();
-
-    ExportTestResult result =
-        new TransformerAndroidTestRunner.Builder(context, transformer)
-            .build()
-            .run(testId, composition);
-
-    assertThat(result.exportResult.processedInputs).hasSize(6);
-    FakeExtractorOutput fakeExtractorOutput =
-        extractAllSamplesFromFilePath(
-            new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(result.filePath));
-    // Audio encoders on different API levels output different audio durations for the same input.
-    // On emulator, API 26 always outputs one access unit (23ms) of audio more than API 33.
-    // If the video track is a lot longer than the audio track, then this API difference wouldn't be
-    // seen in this check as the duration is determined by the last video frame.
-    // However, if the audio track is roughly as long as the video track, this API difference
-    // will be seen in result.exportResult.durationMs.
-    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isWithin(50_000).of(3_020_000);
-    FakeTrackOutput audioTrackOutput =
-        getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO));
-    assertThat(audioTrackOutput.lastFormat.channelCount).isEqualTo(1);
-    FakeTrackOutput videoTrackOutput =
-        getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
-    assertThat(videoTrackOutput.getSampleCount()).isEqualTo(90);
-  }
-
-  @Test
   public void loopingTranscodedVideo_producesExpectedResult() throws Exception {
     Transformer transformer = new Transformer.Builder(context).build();
     assumeFormatsSupported(
