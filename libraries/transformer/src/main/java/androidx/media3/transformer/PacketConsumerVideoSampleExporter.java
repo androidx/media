@@ -22,6 +22,7 @@ import static androidx.media3.transformer.CompositionFrameMetadata.asFrameMetada
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 
 import android.content.Context;
 import android.hardware.HardwareBuffer;
@@ -34,7 +35,6 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Consumer;
@@ -48,11 +48,9 @@ import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.effect.BitmapToHardwareBufferProcessor;
-import androidx.media3.effect.GlTextureFrameRenderer;
+import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferJniWrapper;
-import androidx.media3.effect.HardwareBufferSurfaceRenderer;
-import androidx.media3.effect.PacketConsumerHardwareBufferFrameQueue;
 import androidx.media3.transformer.Codec.EncoderFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -78,13 +76,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final FrameWriter frameWriter;
   private final ImmutableList<HardwareBufferSampleConsumer> sampleConsumers;
 
-  private final Codec.EncoderFactory encoderFactory;
-  private final ImmutableList<Integer> allowedEncodingRotationDegrees;
   private final MuxerWrapper muxerWrapper;
-  private final FallbackListener fallbackListener;
   private final TransformationRequest transformationRequest;
   private final Format firstInputFormat;
-  @Nullable private final LogSessionId logSessionId;
   @Nullable private final BitmapToHardwareBufferProcessor hardwareBufferPostProcessor;
 
   private final Queue<PendingQueueCall> pendingQueueCalls;
@@ -103,8 +97,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private boolean hasMuxedTimestampZero;
   private boolean hasProducedFrameWithTimestampZero;
   private boolean hasSignaledEndOfStream;
-  // TODO: b/512067741 - Remove once HardwareBufferSurfaceRenderer is converted to a FrameWriter.
-  private @MonotonicNonNull VideoEncoderWrapper encoderWrapper;
   private @MonotonicNonNull Codec encoder;
 
   public PacketConsumerVideoSampleExporter(
@@ -127,12 +119,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     super(firstInputFormat, muxerWrapper);
     this.transformationRequest = transformationRequest;
     this.errorConsumer = errorConsumer;
-    this.encoderFactory = encoderFactory;
-    this.allowedEncodingRotationDegrees = allowedEncodingRotationDegrees;
     this.muxerWrapper = muxerWrapper;
-    this.fallbackListener = fallbackListener;
     this.firstInputFormat = firstInputFormat;
-    this.logSessionId = logSessionId;
     this.pendingQueueCalls = new ArrayDeque<>();
     this.inFlightFrames = new HashMap<>();
     finalFramePresentationTimeUs = C.TIME_UNSET;
@@ -148,16 +136,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     Executor listenerExecutor = new HandlerExecutor(handlerWrapper, componentListener);
 
     // TODO: b/484926720 - add executor to the Listener callbacks.
+    Handler playbackHandler = new Handler(playbackLooper);
+    Codec.EncoderFactory strictEncoderFactory = encoderFactory;
+    if (encoderFactory instanceof DefaultEncoderFactory) {
+      strictEncoderFactory =
+          ((DefaultEncoderFactory) encoderFactory)
+              .buildUpon()
+              .setEnableFormatFallback(false)
+              .build();
+    }
+
     if (SDK_INT >= 33) {
-      Codec.EncoderFactory strictEncoderFactory = encoderFactory;
-      if (encoderFactory instanceof DefaultEncoderFactory) {
-        strictEncoderFactory =
-            ((DefaultEncoderFactory) encoderFactory)
-                .buildUpon()
-                .setEnableFormatFallback(false)
-                .build();
-      }
-      Handler playbackHandler = new Handler(playbackLooper);
       frameWriter =
           new EncoderFrameWriter(
               strictEncoderFactory,
@@ -165,22 +154,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               playbackHandler::post,
               playbackHandler,
               logSessionId);
-    } else if (hardwareBufferJniWrapper != null) {
-      // Convert CPU Bitmaps to HardwareBuffers when the native helpers are available.
-      HardwareBufferSurfaceRenderer packetRenderer =
-          HardwareBufferSurfaceRenderer.create(
-              context,
-              hardwareBufferJniWrapper,
-              GlTextureFrameRenderer.Listener.NO_OP.INSTANCE,
-              (e) ->
-                  errorConsumer.accept(
-                      ExportException.createForVideoFrameProcessingException(
-                          VideoFrameProcessingException.from(e))));
-      PacketConsumerHardwareBufferFrameQueue queue =
-          new PacketConsumerHardwareBufferFrameQueue(packetRenderer, componentListener);
-      frameWriter = new HardwareBufferFrameQueueToFrameWriterAdapter(queue);
     } else {
-      throw new UnsupportedOperationException();
+      checkState(hardwareBufferJniWrapper != null);
+      frameWriter =
+          new GlEncoderFrameWriter(
+              context,
+              strictEncoderFactory,
+              componentListener,
+              playbackHandler::post,
+              new DefaultGlObjectsProvider(),
+              listeningDecorator(Util.newSingleThreadExecutor("GlEncoderFrameWriter::Thread")),
+              hardwareBufferJniWrapper,
+              logSessionId);
     }
     frameProcessor =
         frameProcessorFactory.create(
@@ -324,9 +309,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     } catch (RuntimeException e) {
       errorConsumer.accept(ExportException.createForUnexpected(e));
     }
-    if (encoderWrapper != null) {
-      encoderWrapper.release();
-    }
     if (encoder != null) {
       encoder.release();
     }
@@ -335,9 +317,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   @Nullable
   protected Format getMuxerInputFormat() throws ExportException {
-    if (encoderWrapper != null) {
-      return encoderWrapper.getOutputFormat();
-    }
     if (encoder != null) {
       @Nullable Format outputFormat = encoder.getOutputFormat();
       if (outputFormat != null && outputRotationDegrees != 0) {
@@ -351,21 +330,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   @Nullable
   protected DecoderInputBuffer getMuxerInputBuffer() throws ExportException {
-    if (encoderWrapper != null) {
-      encoderOutputBuffer.data = encoderWrapper.getOutputBuffer();
-    } else if (encoder != null) {
-      encoderOutputBuffer.data = encoder.getOutputBuffer();
-    } else {
+    if (encoder == null) {
       return null;
     }
+    encoderOutputBuffer.data = encoder.getOutputBuffer();
     if (encoderOutputBuffer.data == null) {
       return null;
     }
-    BufferInfo bufferInfo =
-        checkNotNull(
-            encoderWrapper != null
-                ? encoderWrapper.getOutputBufferInfo()
-                : checkNotNull(encoder).getOutputBufferInfo());
+    BufferInfo bufferInfo = checkNotNull(encoder.getOutputBufferInfo());
     if (bufferInfo.presentationTimeUs == 0) {
       // Internal ref b/235045165: Some encoder incorrectly set a zero presentation time on the
       // penultimate buffer (before EOS), and sets the actual timestamp on the EOS buffer. Use the
@@ -387,18 +359,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (lastMuxerInputBufferTimestampUs == 0) {
       hasMuxedTimestampZero = true;
     }
-    if (encoderWrapper != null) {
-      encoderWrapper.releaseOutputBuffer(/* render= */ false);
-    } else if (encoder != null) {
+    if (encoder != null) {
       encoder.releaseOutputBuffer(/* render= */ false);
     }
   }
 
   @Override
   protected boolean isMuxerInputEnded() {
-    if (encoderWrapper != null) {
-      return encoderWrapper.isEnded();
-    }
     if (encoder != null) {
       return encoder.isEnded();
     }
@@ -406,33 +373,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private final class ComponentListener
-      implements PacketConsumerHardwareBufferFrameQueue.Listener,
+      implements GlEncoderFrameWriter.Listener,
           EncoderFrameWriter.Listener,
           FrameProcessor.Listener {
-
-    @Override
-    public SurfaceInfo getRendererSurfaceInfo(Format format) throws VideoFrameProcessingException {
-      try {
-        checkState(encoderWrapper == null);
-        VideoEncoderWrapper encoderWrapper =
-            new VideoEncoderWrapper(
-                encoderFactory,
-                format,
-                allowedEncodingRotationDegrees,
-                muxerWrapper.getSupportedSampleMimeTypes(TRACK_TYPE_VIDEO),
-                transformationRequest,
-                fallbackListener,
-                logSessionId);
-
-        PacketConsumerVideoSampleExporter.this.encoderWrapper = encoderWrapper;
-        hasProducedFrameWithTimestampZero = true;
-        return checkNotNull(
-            encoderWrapper.getFixedRotationSurfaceInfo(
-                format.width, format.height, format.rotationDegrees));
-      } catch (ExportException e) {
-        throw VideoFrameProcessingException.from(e);
-      }
-    }
 
     @Override
     public Format onConfigure(Format requestedFormat) {
@@ -445,6 +388,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               .setFrameRate(requestedFormat.frameRate)
               .setPixelFormat(requestedFormat.pixelFormat)
               .setColorInfo(requestedFormat.colorInfo);
+      // TODO: b/523216171 - Check allowedEncodingRotationDegrees and prioritise landscape.
       // Rotation is handled by the muxer, update the encoder format so rotation is always 0.
       formatBuilder.setRotationDegrees(0);
       if (requestedFormat.rotationDegrees != 0) {
@@ -465,22 +409,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public void onEncoderCreated(Codec encoder) {
       checkState(PacketConsumerVideoSampleExporter.this.encoder == null);
       PacketConsumerVideoSampleExporter.this.encoder = encoder;
+      hasProducedFrameWithTimestampZero = true;
     }
 
     @Override
     public void onEndOfStream() {
       checkState(!hasSignaledEndOfStream);
-      if (encoderWrapper != null || encoder != null) {
+      if (encoder != null) {
         hasSignaledEndOfStream = true;
-        if (encoderWrapper != null) {
-          try {
-            // TODO: b/475744934 - Update this to only end the encoder once the renderer has
-            // received the EOS.
-            encoderWrapper.signalEndOfInputStream();
-          } catch (ExportException e) {
-            errorConsumer.accept(e);
-          }
-        }
       }
       finalFramePresentationTimeUs = C.TIME_UNSET;
     }
