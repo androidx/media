@@ -338,10 +338,9 @@ public final class CompositionPlayer extends SimpleBasePlayer {
      *     player.
      * @return This builder, for convenience.
      */
-    @VisibleForTesting
     @CanIgnoreReturnValue
-    /* package */ Builder setPerStreamMediaProgressionEnabled(
-        boolean perStreamMediaProgressionEnabled) {
+    @ExperimentalApi // TODO: b/528260159 - Enable this by default.
+    public Builder setPerStreamMediaProgressionEnabled(boolean perStreamMediaProgressionEnabled) {
       this.perStreamMediaProgressionEnabled = perStreamMediaProgressionEnabled;
       return this;
     }
