@@ -1439,8 +1439,9 @@ public final class RemoteCastPlayer extends BasePlayer {
       // There is no session. We leave the state of the player as it is now.
       return;
     }
-    if (!currentTracks.acceptsUpdate(resultCallback)
-        && selectionRequestReason == TRACK_SELECTION_REQUEST_REASON_RECEIVER_UPDATE) {
+    if (currentTracks.acceptsUpdate(resultCallback)) {
+      currentTracks.clearPendingResultCallback();
+    } else if (selectionRequestReason == TRACK_SELECTION_REQUEST_REASON_RECEIVER_UPDATE) {
       // We are masking a track selection and the masked operation hasn't completed.
       return;
     }
@@ -1782,6 +1783,8 @@ public final class RemoteCastPlayer extends BasePlayer {
       this.remoteMediaClient.getMediaQueue().unregisterCallback(mediaQueueCallback);
     }
     this.remoteMediaClient = remoteMediaClient;
+    resetMaskingAndCacheState();
+
     if (remoteMediaClient != null) {
       if (sessionAvailabilityListener != null) {
         sessionAvailabilityListener.onCastSessionAvailable();
@@ -1801,6 +1804,27 @@ public final class RemoteCastPlayer extends BasePlayer {
         internalSessionAvailabilityListener.onCastSessionUnavailable();
       }
     }
+  }
+
+  /**
+   * Resets all masking state, pending result callbacks, and caches to their default values.
+   *
+   * <p>This cleanup is crucial during session transitions (such as disconnections, reconnections,
+   * or session swaps) to avoid state leakage from the previous session and to prevent stale masking
+   * locks from blocking incoming updates in the new session.
+   */
+  private void resetMaskingAndCacheState() {
+    lastSelectionRequest = null;
+    playWhenReady.clearPendingResultCallback();
+    repeatMode.clearPendingResultCallback();
+    volume.clearPendingResultCallback();
+    playbackParameters.clearPendingResultCallback();
+    currentTracks.clearPendingResultCallback();
+    trackSelectionParameters.clearPendingResultCallback();
+    pendingSeekCount = 0;
+    pendingSeekWindowIndex = C.INDEX_UNSET;
+    pendingSeekPositionMs = C.TIME_UNSET;
+    pendingMediaItemRemovalPosition = null;
   }
 
   @Nullable

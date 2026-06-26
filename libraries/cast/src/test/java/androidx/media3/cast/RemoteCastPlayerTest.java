@@ -2339,6 +2339,106 @@ public class RemoteCastPlayerTest {
   }
 
   @Test
+  public void onStatusUpdated_afterMaskingCompletes_acceptsSubsequentUpdates() {
+    doAnswer(
+            invocation -> {
+              CastTrackSelectorRequest request = invocation.getArgument(0);
+              return new CastTrackSelectorResult(
+                  ImmutableSet.of(request.trackGroupList.get(1)), request.trackSelectionParameters);
+            })
+        .when(spyTrackSelector)
+        .evaluate(any());
+    when(mockRemoteMediaClient.setActiveMediaTracks(any())).thenReturn(mockPendingResult);
+    MediaTrack audioTrack = new MediaTrack.Builder(1, MediaTrack.TYPE_AUDIO).build();
+    MediaTrack videoTrack = new MediaTrack.Builder(2, MediaTrack.TYPE_VIDEO).build();
+    List<MediaTrack> mediaTracks = Arrays.asList(audioTrack, videoTrack);
+    MediaInfo mediaInfo = new MediaInfo.Builder("contentId").setMediaTracks(mediaTracks).build();
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    when(mockMediaStatus.getActiveTrackIds()).thenReturn(new long[] {1});
+    // Trigger initial evaluation and capture the callback to start in a masking state.
+    remoteMediaClientCallback.onStatusUpdated();
+    verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
+
+    // Complete the masking command.
+    ResultCallback<RemoteMediaClient.MediaChannelResult> callback =
+        setResultCallbackArgumentCaptor.getValue();
+    when(mockMediaStatus.getActiveTrackIds()).thenReturn(new long[] {2});
+    callback.onResult(mock(RemoteMediaClient.MediaChannelResult.class));
+    // Clear all prior evaluations to focus only on the subsequent update.
+    clearInvocations(spyTrackSelector);
+    // A subsequent status update arrives after the result callback, with a different track active.
+    when(mockMediaStatus.getActiveTrackIds()).thenReturn(new long[] {1});
+    remoteMediaClientCallback.onStatusUpdated();
+
+    // Verify that this subsequent update is NOT ignored and evaluates with the correct parameters.
+    TrackGroup group1 = CastUtils.mediaTrackToTrackGroup(0, audioTrack);
+    TrackGroup group2 = CastUtils.mediaTrackToTrackGroup(0, videoTrack);
+    CastTrackSelectorRequest expectedRequest =
+        new CastTrackSelectorRequest(
+            /* mediaItemId= */ 0,
+            TrackSelectionParameters.DEFAULT,
+            ImmutableList.of(group1, group2),
+            ImmutableList.of(audioTrack, videoTrack),
+            ImmutableSet.of(group1),
+            TRACK_SELECTION_REQUEST_REASON_RECEIVER_UPDATE);
+    verify(spyTrackSelector).evaluate(expectedRequest);
+  }
+
+  @Test
+  public void onSessionChange_clearsMaskingState_acceptsSubsequentUpdates() {
+    doAnswer(
+            invocation -> {
+              CastTrackSelectorRequest request = invocation.getArgument(0);
+              return new CastTrackSelectorResult(
+                  ImmutableSet.of(request.trackGroupList.get(1)), request.trackSelectionParameters);
+            })
+        .when(spyTrackSelector)
+        .evaluate(any());
+    when(mockRemoteMediaClient.setActiveMediaTracks(any())).thenReturn(mockPendingResult);
+    MediaTrack audioTrack = new MediaTrack.Builder(1, MediaTrack.TYPE_AUDIO).build();
+    MediaTrack videoTrack = new MediaTrack.Builder(2, MediaTrack.TYPE_VIDEO).build();
+    List<MediaTrack> mediaTracks = Arrays.asList(audioTrack, videoTrack);
+    MediaInfo mediaInfo = new MediaInfo.Builder("contentId").setMediaTracks(mediaTracks).build();
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    when(mockMediaStatus.getActiveTrackIds()).thenReturn(new long[] {1});
+    // Trigger initial evaluation and capture the callback to start in a masking state.
+    remoteMediaClientCallback.onStatusUpdated();
+    verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
+
+    // Disconnect the session abruptly (simulates network drop - callback never fires).
+    when(mockSessionManager.getCurrentCastSession()).thenReturn(null);
+    sessionManagerListener.onSessionEnded(mockCastSession, 0);
+    shadowOf(Looper.getMainLooper()).idle(); // Flush disconnection events
+    // Mock the TV to already have the selector's preferred track active (ID 2) upon reconnect.
+    // This prevents the player from sending a new command and setting a new masking lock during
+    // sync.
+    when(mockMediaStatus.getActiveTrackIds()).thenReturn(new long[] {2});
+    // Reconnect to a new session.
+    when(mockSessionManager.getCurrentCastSession()).thenReturn(mockCastSession);
+    sessionManagerListener.onSessionStarted(mockCastSession, "new_session_id");
+    shadowOf(Looper.getMainLooper()).idle(); // Flush reconnection events
+    // Clear all prior evaluations to focus only on the post-reconnect update.
+    clearInvocations(spyTrackSelector);
+    // TV sends a status update in the new session, reporting a different active track (ID 1).
+    when(mockMediaStatus.getActiveTrackIds()).thenReturn(new long[] {1});
+    remoteMediaClientCallback.onStatusUpdated();
+
+    // Verify that this subsequent update is NOT ignored (proving the old masking lock was cleared)
+    // and evaluates with the correct parameters.
+    TrackGroup group1 = CastUtils.mediaTrackToTrackGroup(0, audioTrack);
+    TrackGroup group2 = CastUtils.mediaTrackToTrackGroup(0, videoTrack);
+    CastTrackSelectorRequest expectedRequest =
+        new CastTrackSelectorRequest(
+            /* mediaItemId= */ 0,
+            TrackSelectionParameters.DEFAULT,
+            ImmutableList.of(group1, group2),
+            ImmutableList.of(audioTrack, videoTrack),
+            ImmutableSet.of(group1),
+            TRACK_SELECTION_REQUEST_REASON_RECEIVER_UPDATE);
+    verify(spyTrackSelector).evaluate(expectedRequest);
+  }
+
+  @Test
   public void onStatusUpdated_trackSelectorReturnsSameTracksAndParams_doesNothing() {
     MediaTrack audioTrack = new MediaTrack.Builder(1, MediaTrack.TYPE_AUDIO).build();
     List<MediaTrack> mediaTracks = Collections.singletonList(audioTrack);

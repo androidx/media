@@ -63,6 +63,10 @@
         support observing the visibility state of the media route picker, and
         add `state` parameter to `MediaRouteButton`
         ([3172](https://github.com/androidx/media/issues/3172)).
+    *   Fix bug where `RemoteCastPlayer` could get permanently stuck in a
+        track-masking state after a track selection, causing it to ignore
+        subsequent track updates from the Cast receiver
+        ([#3237](https://github.com/androidx/media/issues/3237)).
     *   Fix bug where `DefaultMediaItemConverter` throws a
         `NullPointerException` when trying to join a cast session started from a
         non-Media3 sender.
