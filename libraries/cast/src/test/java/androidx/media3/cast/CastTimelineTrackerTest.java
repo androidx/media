@@ -301,6 +301,37 @@ public class CastTimelineTrackerTest {
     assertThat(castTimelineTracker.getCastTimeline(mockRemoteMediaClient).isEmpty()).isTrue();
   }
 
+  @Test
+  public void getCastTimeline_noCustomData_returnsFallbackMediaItems() {
+    RemoteMediaClient mockRemoteMediaClient = mock(RemoteMediaClient.class);
+    MediaQueue mockMediaQueue = mock(MediaQueue.class);
+    MediaStatus mockMediaStatus = mock(MediaStatus.class);
+
+    // Construct MediaInfo without custom data
+    MediaInfo mediaInfo =
+        new MediaInfo.Builder("https://example.com/audio.mp3")
+            .setContentType(MimeTypes.AUDIO_MPEG)
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(mediaInfo).setItemId(1).build();
+
+    when(mockRemoteMediaClient.getMediaQueue()).thenReturn(mockMediaQueue);
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[] {1});
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(mockMediaStatus);
+    when(mockMediaStatus.getCurrentItemId()).thenReturn(1);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    when(mockMediaStatus.getQueueItems()).thenReturn(Collections.singletonList(queueItem));
+
+    // This should NOT crash, even if customData is missing
+    CastTimeline castTimeline = castTimelineTracker.getCastTimeline(mockRemoteMediaClient);
+
+    assertThat(castTimeline.getWindowCount()).isEqualTo(1);
+    Window window = castTimeline.getWindow(/* windowIndex= */ 0, new Window());
+    assertThat(window.mediaItem.localConfiguration.uri.toString())
+        .isEqualTo("https://example.com/audio.mp3");
+    assertThat(window.mediaItem.localConfiguration.mimeType).isEqualTo(MimeTypes.AUDIO_MPEG);
+  }
+
   private MediaItem createMediaItem(int uid) {
     return new MediaItem.Builder()
         .setUri("http://www.google.com/" + uid)

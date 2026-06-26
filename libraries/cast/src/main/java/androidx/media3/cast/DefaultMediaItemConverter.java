@@ -87,8 +87,46 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
         metadataBuilder.setTrackNumber(metadata.getInt(MediaMetadata.KEY_TRACK_NUMBER));
       }
     }
-    // `mediaQueueItem` came from `toMediaQueueItem()` so the custom JSON data must be set.
-    return getMediaItem(checkNotNull(mediaInfo.getCustomData()), metadataBuilder.build());
+    // TODO: b/526548538 - Get rid of custom keys in media3 when equivalent CastSDK fields are
+    // present.
+    @Nullable JSONObject customData = mediaInfo.getCustomData();
+    if (customData != null && customData.has(KEY_MEDIA_ITEM)) {
+      try {
+        return getMediaItem(customData, metadataBuilder.build());
+      } catch (RuntimeException e) {
+        Log.w(TAG, "Failed to parse customData, falling back to MediaInfo", e);
+      }
+    }
+    return toMediaItemFallback(mediaInfo, metadataBuilder.build());
+  }
+
+  private static MediaItem toMediaItemFallback(
+      MediaInfo mediaInfo, androidx.media3.common.MediaMetadata mediaMetadata) {
+    MediaItem.Builder builder = new MediaItem.Builder();
+    String contentId = mediaInfo.getContentId();
+    builder.setMediaId(contentId);
+    String contentUrl = mediaInfo.getContentUrl();
+    if (contentUrl != null) {
+      builder.setUri(Uri.parse(contentUrl));
+    } else if (contentId != null) {
+      // The web sender SDK indicates the content url is optional and, if absent, the media id will
+      // be used as media URL.
+      // See
+      // https://developers.google.com/cast/docs/reference/web_sender/chrome.cast.media.MediaInfo#contentUrl
+      Uri parsedContentId = Uri.parse(contentId);
+      if (parsedContentId.getScheme() != null) {
+        builder.setUri(parsedContentId);
+      }
+    }
+    if (mediaInfo.getContentType() != null) {
+      builder.setMimeType(mediaInfo.getContentType());
+    }
+    builder.setMediaMetadata(mediaMetadata);
+    MediaItem mediaItem = builder.build();
+    if (mediaItem.localConfiguration == null) {
+      throw new IllegalArgumentException("Insufficient media info to create a fallback MediaItem");
+    }
+    return mediaItem;
   }
 
   @Override

@@ -63,6 +63,9 @@
         support observing the visibility state of the media route picker, and
         add `state` parameter to `MediaRouteButton`
         ([3172](https://github.com/androidx/media/issues/3172)).
+    *   Fix bug where `DefaultMediaItemConverter` throws a
+        `NullPointerException` when trying to join a cast session started from a
+        non-Media3 sender.
 *   Test Utilities:
 *   Remove deprecated symbols:
     *   Remove `androidx.media3.common.C.generateAudioSessionIdV21`. Use

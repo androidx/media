@@ -16,6 +16,7 @@
 package androidx.media3.cast;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import android.net.Uri;
 import androidx.media3.common.C;
@@ -23,6 +24,7 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.MimeTypes;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.android.gms.cast.MediaInfo;
 import com.google.android.gms.cast.MediaQueueItem;
 import com.google.common.collect.ImmutableMap;
 import org.junit.Test;
@@ -160,5 +162,70 @@ public class DefaultMediaItemConverterTest {
 
     assertThat(queueItem.getMedia().getMetadata().getMediaType())
         .isEqualTo(com.google.android.gms.cast.MediaMetadata.MEDIA_TYPE_MUSIC_TRACK);
+  }
+
+  @Test
+  public void toMediaItem_noCustomData_fallbackWithContentUrl() {
+    com.google.android.gms.cast.MediaMetadata gmsMetadata =
+        new com.google.android.gms.cast.MediaMetadata(
+            com.google.android.gms.cast.MediaMetadata.MEDIA_TYPE_MOVIE);
+    gmsMetadata.putString(com.google.android.gms.cast.MediaMetadata.KEY_TITLE, "fallbackTitle");
+    MediaInfo mediaInfo =
+        new MediaInfo.Builder("contentId")
+            .setContentUrl("http://example.com/url")
+            .setContentType(MimeTypes.VIDEO_MP4)
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .setMetadata(gmsMetadata)
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(mediaInfo).build();
+
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    MediaItem mediaItem = converter.toMediaItem(queueItem);
+
+    assertThat(mediaItem.mediaId).isEqualTo("contentId");
+    assertThat(mediaItem.localConfiguration.uri.toString()).isEqualTo("http://example.com/url");
+    assertThat(mediaItem.localConfiguration.mimeType).isEqualTo(MimeTypes.VIDEO_MP4);
+    assertThat(mediaItem.mediaMetadata.title.toString()).isEqualTo("fallbackTitle");
+  }
+
+  @Test
+  public void toMediaItem_noCustomData_fallbackWithContentIdAsUri() {
+    com.google.android.gms.cast.MediaMetadata gmsMetadata =
+        new com.google.android.gms.cast.MediaMetadata(
+            com.google.android.gms.cast.MediaMetadata.MEDIA_TYPE_MOVIE);
+    gmsMetadata.putString(com.google.android.gms.cast.MediaMetadata.KEY_TITLE, "fallbackTitle");
+    MediaInfo mediaInfo =
+        new MediaInfo.Builder("http://example.com/id")
+            .setContentType(MimeTypes.VIDEO_MP4)
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .setMetadata(gmsMetadata)
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(mediaInfo).build();
+
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    MediaItem mediaItem = converter.toMediaItem(queueItem);
+
+    assertThat(mediaItem.mediaId).isEqualTo("http://example.com/id");
+    assertThat(mediaItem.localConfiguration.uri.toString()).isEqualTo("http://example.com/id");
+    assertThat(mediaItem.localConfiguration.mimeType).isEqualTo(MimeTypes.VIDEO_MP4);
+    assertThat(mediaItem.mediaMetadata.title.toString()).isEqualTo("fallbackTitle");
+  }
+
+  @Test
+  public void toMediaItem_noCustomData_fallbackWithNonUriContentIdAndNoContentUrl() {
+    com.google.android.gms.cast.MediaMetadata gmsMetadata =
+        new com.google.android.gms.cast.MediaMetadata(
+            com.google.android.gms.cast.MediaMetadata.MEDIA_TYPE_MOVIE);
+    gmsMetadata.putString(com.google.android.gms.cast.MediaMetadata.KEY_TITLE, "fallbackTitle");
+    MediaInfo mediaInfo =
+        new MediaInfo.Builder("just_an_id")
+            .setContentType(MimeTypes.VIDEO_MP4)
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .setMetadata(gmsMetadata)
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(mediaInfo).build();
+
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    assertThrows(IllegalArgumentException.class, () -> converter.toMediaItem(queueItem));
   }
 }
