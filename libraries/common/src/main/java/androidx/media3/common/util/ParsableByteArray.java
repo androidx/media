@@ -21,6 +21,7 @@ import static java.nio.ByteOrder.LITTLE_ENDIAN;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Chars;
 import com.google.common.primitives.Ints;
@@ -564,7 +565,7 @@ public final class ParsableByteArray {
    * @return The string encoded by the bytes in the specified character set.
    */
   public String readString(int length, Charset charset) {
-    maybeAssertAtLeastBytesLeftForLegacyMethod(length);
+    maybeAssertAtLeastBytesLeftForLegacyMethod(length, StringIndexOutOfBoundsException::new);
     String result = new String(data, position, length, charset);
     position += length;
     return result;
@@ -578,7 +579,7 @@ public final class ParsableByteArray {
    * @return The string, not including any terminating NUL byte.
    */
   public String readNullTerminatedString(int length) {
-    maybeAssertAtLeastBytesLeftForLegacyMethod(length);
+    maybeAssertAtLeastBytesLeftForLegacyMethod(length, StringIndexOutOfBoundsException::new);
     if (length == 0) {
       return "";
     }
@@ -973,10 +974,14 @@ public final class ParsableByteArray {
    * methods added to this class should unconditionally enforce the limit.
    */
   private void maybeAssertAtLeastBytesLeftForLegacyMethod(int bytesNeeded) {
+    maybeAssertAtLeastBytesLeftForLegacyMethod(bytesNeeded, IndexOutOfBoundsException::new);
+  }
+
+  private void maybeAssertAtLeastBytesLeftForLegacyMethod(
+      int bytesNeeded, Function<String, ? extends RuntimeException> exceptionFactory) {
     if (shouldEnforceLimitOnLegacyMethods.get()) {
       if (bytesLeft() < bytesNeeded) {
-        throw new IndexOutOfBoundsException(
-            "bytesNeeded= " + bytesNeeded + ", bytesLeft=" + bytesLeft());
+        throw exceptionFactory.apply("bytesNeeded= " + bytesNeeded + ", bytesLeft=" + bytesLeft());
       }
     }
   }

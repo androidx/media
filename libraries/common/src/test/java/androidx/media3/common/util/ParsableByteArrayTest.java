@@ -24,19 +24,36 @@ import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeFalse;
+import static org.junit.Assume.assumeTrue;
 
 import androidx.media3.test.utils.TestUtil;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Ints;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Tests for {@link ParsableByteArray}. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class ParsableByteArrayTest {
+
+  @TestParameter private boolean enforceLimit;
+
+  @Before
+  public void enableParsableByteArrayLimitEnforcement() {
+    ParsableByteArray.setShouldEnforceLimitOnLegacyMethods(enforceLimit);
+  }
+
+  @After
+  public void disableParsableByteArrayLimitEnforcement() {
+    ParsableByteArray.setShouldEnforceLimitOnLegacyMethods(false);
+  }
 
   private static final byte[] TEST_DATA =
       new byte[] {0x0F, (byte) 0xFF, (byte) 0x42, (byte) 0x0F, 0x00, 0x00, 0x00, 0x00};
@@ -89,6 +106,7 @@ public final class ParsableByteArrayTest {
 
   @Test
   public void bytesLeft_positionExceedsLimit_returnsZero() {
+    assumeFalse(enforceLimit);
     ParsableByteArray array = getTestDataArray();
     array.setLimit(1);
     // readInt advances position without checking limit (see b/147657250)
@@ -104,6 +122,13 @@ public final class ParsableByteArrayTest {
     testReadShort((short) 1);
     testReadShort(Short.MIN_VALUE);
     testReadShort(Short.MAX_VALUE);
+  }
+
+  @Test
+  public void readShort_exceedsLimit_throwsException() {
+    assumeTrue(enforceLimit);
+    ParsableByteArray testArray = new ParsableByteArray(1);
+    assertThrows(IndexOutOfBoundsException.class, testArray::readShort);
   }
 
   private static void testReadShort(short testValue) {
@@ -132,6 +157,13 @@ public final class ParsableByteArrayTest {
     testReadInt(Integer.MAX_VALUE);
   }
 
+  @Test
+  public void readInt_exceedsLimit_throwsException() {
+    assumeTrue(enforceLimit);
+    ParsableByteArray testArray = new ParsableByteArray(3);
+    assertThrows(IndexOutOfBoundsException.class, testArray::readInt);
+  }
+
   private static void testReadInt(int testValue) {
     ParsableByteArray testArray =
         new ParsableByteArray(ByteBuffer.allocate(4).putInt(testValue).array());
@@ -156,6 +188,13 @@ public final class ParsableByteArrayTest {
     testReadUnsignedInt(Integer.MAX_VALUE);
     testReadUnsignedInt(Integer.MAX_VALUE + 1L);
     testReadUnsignedInt(0xFFFFFFFFL);
+  }
+
+  @Test
+  public void readUnsignedInt_exceedsLimit_throwsException() {
+    assumeTrue(enforceLimit);
+    ParsableByteArray testArray = new ParsableByteArray(3);
+    assertThrows(IndexOutOfBoundsException.class, testArray::readUnsignedInt);
   }
 
   private static void testReadUnsignedInt(long testValue) {
@@ -231,6 +270,13 @@ public final class ParsableByteArrayTest {
     }
   }
 
+  @Test
+  public void readUnsignedLongToLong_exceedsLimit_throwsException() {
+    assumeTrue(enforceLimit);
+    ParsableByteArray testArray = new ParsableByteArray(7);
+    assertThrows(IndexOutOfBoundsException.class, testArray::readUnsignedLongToLong);
+  }
+
   private static void testReadUnsignedLongToLong(long testValue) {
     ParsableByteArray testArray =
         new ParsableByteArray(ByteBuffer.allocate(8).putLong(testValue).array());
@@ -255,6 +301,13 @@ public final class ParsableByteArrayTest {
     testReadLong(-1);
     testReadLong(Long.MIN_VALUE);
     testReadLong(Long.MAX_VALUE);
+  }
+
+  @Test
+  public void readLong_exceedsLimit_throwsException() {
+    assumeTrue(enforceLimit);
+    ParsableByteArray testArray = new ParsableByteArray(7);
+    assertThrows(IndexOutOfBoundsException.class, testArray::readLong);
   }
 
   private static void testReadLong(long testValue) {
@@ -364,11 +417,25 @@ public final class ParsableByteArrayTest {
   }
 
   @Test
+  public void readLittleEndianLong_exceedsLimit_throwsException() {
+    assumeTrue(enforceLimit);
+    ParsableByteArray testArray = new ParsableByteArray(7);
+    assertThrows(IndexOutOfBoundsException.class, testArray::readLittleEndianLong);
+  }
+
+  @Test
   public void readLittleEndianUnsignedInt() {
     ParsableByteArray byteArray = new ParsableByteArray(new byte[] {0x10, 0x00, 0x00, (byte) 0xFF});
 
     assertThat(byteArray.readLittleEndianUnsignedInt()).isEqualTo(0xFF000010L);
     assertThat(byteArray.getPosition()).isEqualTo(4);
+  }
+
+  @Test
+  public void readLittleEndianUnsignedInt_exceedsLimit_throwsException() {
+    assumeTrue(enforceLimit);
+    ParsableByteArray testArray = new ParsableByteArray(3);
+    assertThrows(IndexOutOfBoundsException.class, testArray::readLittleEndianUnsignedInt);
   }
 
   @Test
@@ -380,12 +447,26 @@ public final class ParsableByteArrayTest {
   }
 
   @Test
+  public void readLittleEndianInt_exceedsLimit_throwsException() {
+    assumeTrue(enforceLimit);
+    ParsableByteArray testArray = new ParsableByteArray(3);
+    assertThrows(IndexOutOfBoundsException.class, testArray::readLittleEndianInt);
+  }
+
+  @Test
   public void readLittleEndianUnsignedInt24() {
     byte[] data = {0x01, 0x02, (byte) 0xFF};
     ParsableByteArray byteArray = new ParsableByteArray(data);
 
     assertThat(byteArray.readLittleEndianUnsignedInt24()).isEqualTo(0xFF0201);
     assertThat(byteArray.getPosition()).isEqualTo(3);
+  }
+
+  @Test
+  public void readLittleEndianUnsignedInt24_exceedsLimit_throwsException() {
+    assumeTrue(enforceLimit);
+    ParsableByteArray testArray = new ParsableByteArray(2);
+    assertThrows(IndexOutOfBoundsException.class, testArray::readLittleEndianUnsignedInt24);
   }
 
   @Test
@@ -407,6 +488,13 @@ public final class ParsableByteArrayTest {
   }
 
   @Test
+  public void readInt24_exceedsLimit_throwsException() {
+    assumeTrue(enforceLimit);
+    ParsableByteArray testArray = new ParsableByteArray(2);
+    assertThrows(IndexOutOfBoundsException.class, testArray::readInt24);
+  }
+
+  @Test
   public void readLittleEndianUnsignedShort() {
     ParsableByteArray byteArray =
         new ParsableByteArray(new byte[] {0x01, (byte) 0xFF, 0x02, (byte) 0xFF});
@@ -418,6 +506,13 @@ public final class ParsableByteArrayTest {
   }
 
   @Test
+  public void readLittleEndianUnsignedShort_exceedsLimit_throwsException() {
+    assumeTrue(enforceLimit);
+    ParsableByteArray testArray = new ParsableByteArray(1);
+    assertThrows(IndexOutOfBoundsException.class, testArray::readLittleEndianUnsignedShort);
+  }
+
+  @Test
   public void readLittleEndianShort() {
     ParsableByteArray byteArray =
         new ParsableByteArray(new byte[] {0x01, (byte) 0xFF, 0x02, (byte) 0xFF});
@@ -426,6 +521,13 @@ public final class ParsableByteArrayTest {
     assertThat(byteArray.getPosition()).isEqualTo(2);
     assertThat(byteArray.readLittleEndianShort()).isEqualTo((short) 0xFF02);
     assertThat(byteArray.getPosition()).isEqualTo(4);
+  }
+
+  @Test
+  public void readLittleEndianShort_exceedsLimit_throwsException() {
+    assumeTrue(enforceLimit);
+    ParsableByteArray testArray = new ParsableByteArray(1);
+    assertThrows(IndexOutOfBoundsException.class, testArray::readLittleEndianShort);
   }
 
   @Test
@@ -462,12 +564,26 @@ public final class ParsableByteArrayTest {
   }
 
   @Test
+  public void readString_exceedsLimit_throwsException() {
+    assumeTrue(enforceLimit);
+    ParsableByteArray byteArray = new ParsableByteArray(3);
+    assertThrows(StringIndexOutOfBoundsException.class, () -> byteArray.readString(4));
+  }
+
+  @Test
   public void readAsciiString() {
     byte[] data = new byte[] {'t', 'e', 's', 't'};
     ParsableByteArray testArray = new ParsableByteArray(data);
 
     assertThat(testArray.readString(data.length, US_ASCII)).isEqualTo("test");
     assertThat(testArray.getPosition()).isEqualTo(data.length);
+  }
+
+  @Test
+  public void readString_withCharset_exceedsLimit_throwsException() {
+    assumeTrue(enforceLimit);
+    ParsableByteArray byteArray = new ParsableByteArray(3);
+    assertThrows(StringIndexOutOfBoundsException.class, () -> byteArray.readString(4, UTF_8));
   }
 
   @Test
@@ -516,6 +632,13 @@ public final class ParsableByteArrayTest {
     assertThat(parser.readNullTerminatedString(1)).isEmpty();
     assertThat(parser.getPosition()).isEqualTo(8);
     assertThat(parser.readNullTerminatedString()).isNull();
+  }
+
+  @Test
+  public void readNullTerminatedString_exceedsLimit_throwsException() {
+    assumeTrue(enforceLimit);
+    ParsableByteArray parser = new ParsableByteArray(new byte[] {'f', 'o', 'o'});
+    assertThrows(StringIndexOutOfBoundsException.class, () -> parser.readNullTerminatedString(4));
   }
 
   @Test
