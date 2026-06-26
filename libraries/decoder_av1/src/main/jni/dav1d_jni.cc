@@ -465,10 +465,21 @@ static void release_picture_allocator(Dav1dPicture* p, void* cookie) {
       unused_picture_allocator_data_lock(
           context->unused_picture_allocator_data_mutex);
 
-  // TODO(b/443089644): Consider wrapping this in a try-catch (std::bad_alloc)
-  // to prevent resource leaks if emplace_back fails.
-  context->unused_picture_allocator_data.emplace_back(
+  auto allocator_data = std::unique_ptr<PictureAllocatorData>(
       reinterpret_cast<PictureAllocatorData*>(p->allocator_data));
+  try {
+    context->unused_picture_allocator_data.push_back(std::move(allocator_data));
+  } catch (const std::bad_alloc&) {
+    if (allocator_data) {
+      JNIEnv* env;
+      if (allocator_cookie->jvm->GetEnv(reinterpret_cast<void**>(&env),
+                                        JNI_VERSION_1_6) == JNI_OK) {
+        env->DeleteGlobalRef(allocator_data->direct_byte_buffer);
+      } else {
+        LOGE("Failed to get JNIEnv to clean up allocator data.");
+      }
+    }
+  }
 }
 
 void CleanUpAllocatorData(jlong jContext, JNIEnv* env) {
