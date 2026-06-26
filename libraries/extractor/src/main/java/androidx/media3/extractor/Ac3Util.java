@@ -527,11 +527,12 @@ public final class Ac3Util {
   }
 
   /**
-   * Reads the number of audio samples represented by the given (E-)AC-3 syncframe. The buffer's
-   * position is not modified.
+   * Reads the number of audio samples represented by the given (E-)AC-3 syncframe or access
+   * unit. For E-AC-3 access units, this uses the longest non-dependent substream timeline. 
+   * The buffer's position is not modified.
    *
-   * @param buffer The {@link ByteBuffer} from which to read the syncframe.
-   * @return The number of audio samples represented by the syncframe.
+   * @param buffer The {@link ByteBuffer} from which to read the syncframe or access unit.
+   * @return The number of audio samples represented by the syncframe or access unit.
    */
   public static int parseAc3SyncframeAudioSampleCount(ByteBuffer buffer) {
     // Parse the bitstream ID for AC-3 and E-AC-3 (see subsections 4.3, E.1.2 and E.1.3.1.6).
