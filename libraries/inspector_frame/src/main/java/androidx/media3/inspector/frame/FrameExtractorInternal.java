@@ -29,10 +29,12 @@ import static androidx.media3.common.util.GlUtil.createTexture;
 import static androidx.media3.common.util.Util.usToMs;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.max;
 
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.ColorSpace;
+import android.graphics.Gainmap;
 import android.graphics.Matrix;
 import android.opengl.GLES20;
 import android.opengl.GLES30;
@@ -55,7 +57,9 @@ import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.GlProgram;
+import androidx.media3.common.util.GlRect;
 import androidx.media3.common.util.GlUtil;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
@@ -107,6 +111,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * resource use.
  */
 /* package */ final class FrameExtractorInternal {
+  private static final String TAG = "FrameExtractorInternal";
 
   /** A plain data object holding all configuration for a frame extraction request. */
   /* package */ static final class FrameExtractionRequest {
@@ -118,6 +123,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Nullable private final GlObjectsProvider glObjectsProvider;
     @Nullable private final MediaSource.Factory mediaSourceFactory;
     private final boolean extractHdrFrames;
+    private final boolean enableUltraHdr;
     private final long positionMs;
 
     /* package */ FrameExtractionRequest(
@@ -129,6 +135,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         @Nullable GlObjectsProvider glObjectsProvider,
         @Nullable MediaSource.Factory mediaSourceFactory,
         boolean extractHdrFrames,
+        boolean enableUltraHdr,
         long positionMs) {
       this.context = context;
       this.mediaItem = mediaItem;
@@ -138,6 +145,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       this.glObjectsProvider = glObjectsProvider;
       this.mediaSourceFactory = mediaSourceFactory;
       this.extractHdrFrames = extractHdrFrames;
+      this.enableUltraHdr = enableUltraHdr;
       this.positionMs = positionMs;
     }
 
@@ -155,11 +163,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           this.glObjectsProvider,
           this.mediaSourceFactory,
           this.extractHdrFrames,
+          this.enableUltraHdr,
           positionMs);
     }
   }
 
   private static final Object LOCK = new Object();
+
+  // Matches libultrahdr's default max content boost for HLG (hdr_white_nits / kSdrWhiteNits =
+  // 1000.0f / 203.0f).
+  // See: https://github.com/google/libultrahdr/blob/main/lib/include/ultrahdr/gainmapmath.h
+  // (kHlgMaxNits, kSdrWhiteNits) and
+  // https://github.com/google/libultrahdr/blob/main/lib/src/jpegr.cpp (max_content_boost
+  // calculation)
+  private static final float ULTRA_HDR_MAX_BOOST = 1000.0f / 203.0f;
+  private static final float ULTRA_HDR_MIN_BOOST = 1.0f;
+  private static final int ULTRA_HDR_GAINMAP_SCALE_FACTOR = 4;
 
   private static final MatrixTransformation MIRROR_Y_TRANSFORMATION =
       presentationTimeUs -> {
@@ -188,7 +207,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private MediaCodecSelector currentMediaCodecSelector;
 
-  private boolean currentExtractHdrFrames;
+  private boolean extractHdrFrames;
+  private boolean enableUltraHdr;
 
   @Nullable private GlObjectsProvider currentGlObjectsProvider;
   @Nullable private MediaSource.Factory currentMediaSourceFactory;
@@ -201,6 +221,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     activeTaskCompleter = new AtomicReference<>();
     this.playerHandler = new Handler(Looper.getMainLooper());
     this.currentMediaCodecSelector = MediaCodecSelector.DEFAULT;
+    this.extractHdrFrames = false;
+    this.enableUltraHdr = false;
     thumbnailPresentationTimeMs = C.TIME_UNSET;
   }
 
@@ -229,7 +251,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   player = null;
                 }
                 currentMediaCodecSelector = MediaCodecSelector.DEFAULT;
-                currentExtractHdrFrames = false;
+                extractHdrFrames = false;
+                enableUltraHdr = false;
                 currentGlObjectsProvider = null;
                 currentMediaSourceFactory = null;
                 lastSeekDedupeFrame = null;
@@ -244,22 +267,23 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   /* package */ ListenableFuture<FrameExtractor.Frame> submitTask(FrameExtractionRequest request) {
     return executionSequencer.submitAsync(
         () -> {
+          ExoPlayer activePlayer = player;
           boolean needsNewPlayer =
-              player == null
+              activePlayer == null
                   // TODO: b/457376636 - reuse player when switching between HDR and SDR, after the
                   // video processing pipeline is updated.
-                  || currentExtractHdrFrames
-                  || request.extractHdrFrames
+                  || extractHdrFrames != request.extractHdrFrames
+                  || enableUltraHdr != request.enableUltraHdr
                   // TODO: b/457376636 - reuse the player on error when the video frame processor
                   // can recover from errors.
-                  || player.getPlayerError() != null
+                  || activePlayer.getPlayerError() != null
                   || request.mediaCodecSelector != currentMediaCodecSelector
                   || request.glObjectsProvider != currentGlObjectsProvider
                   || request.mediaSourceFactory != currentMediaSourceFactory;
 
           boolean needsPrepare =
               needsNewPlayer
-                  || !request.mediaItem.equals(checkNotNull(player).getCurrentMediaItem());
+                  || !request.mediaItem.equals(checkNotNull(activePlayer).getCurrentMediaItem());
 
           boolean isThumbnailRequest = request.positionMs == C.TIME_UNSET;
 
@@ -386,7 +410,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
 
       currentMediaCodecSelector = request.mediaCodecSelector;
-      currentExtractHdrFrames = request.extractHdrFrames;
+      extractHdrFrames = request.extractHdrFrames;
+      enableUltraHdr = request.enableUltraHdr;
       currentGlObjectsProvider = request.glObjectsProvider;
       currentMediaSourceFactory = request.mediaSourceFactory;
 
@@ -422,7 +447,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                             playerHandler,
                             request.mediaCodecSelector,
                             videoRendererEventListener,
-                            !request.extractHdrFrames,
+                            /* toneMapHdrToSdr= */ !request.extractHdrFrames
+                                && (SDK_INT < 34 || !request.enableUltraHdr),
                             request.glObjectsProvider,
                             extractedFrameNeedsRendering,
                             this)
@@ -558,7 +584,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private @MonotonicNonNull GlTextureInfo hlgTextureInfo;
     private @MonotonicNonNull GlProgram glProgram;
 
+    private @MonotonicNonNull GlTextureInfo ultraHdrTextureInfo;
+    private int gainmapTextureId;
+    private @MonotonicNonNull GlTextureInfo downscaledGainmapTextureInfo;
+    private int downscaledGainmapTextureId;
+
     private ByteBuffer byteBuffer;
+    private ByteBuffer gainmapByteBuffer;
 
     private FrameReadingGlShaderProgram(
         Context context, boolean useHdr, FrameExtractorInternal internal)
@@ -566,23 +598,37 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       super();
       this.useHdr = useHdr;
       this.internal = internal;
+      gainmapTextureId = C.INDEX_UNSET;
+      downscaledGainmapTextureId = C.INDEX_UNSET;
       byteBuffer = ByteBuffer.allocateDirect(0);
+      gainmapByteBuffer = ByteBuffer.allocateDirect(0);
 
       if (useHdr) {
         checkState(SDK_INT >= 34);
         try {
+          int fragmentShaderResId =
+              shouldReadUltraHdrFrame()
+                  ? R.raw.fragment_shader_hdr_to_ultra_hdr_es3
+                  : R.raw.fragment_shader_oetf_es3;
           glProgram =
               new GlProgram(
                   context,
                   /* vertexShaderResId= */ R.raw.vertex_shader_transformation_es3,
-                  /* fragmentShaderResId= */ R.raw.fragment_shader_oetf_es3);
+                  fragmentShaderResId);
         } catch (IOException | GlUtil.GlException e) {
           throw new VideoFrameProcessingException(e);
         }
         glProgram.setFloatsUniform("uTexTransformationMatrix", GlUtil.create4x4IdentityMatrix());
         glProgram.setFloatsUniform("uTransformationMatrix", GlUtil.create4x4IdentityMatrix());
-        glProgram.setFloatsUniform("uRgbMatrix", GlUtil.create4x4IdentityMatrix());
-        glProgram.setIntUniform("uOutputColorTransfer", COLOR_TRANSFER_HLG);
+        if (shouldReadUltraHdrFrame()) {
+          glProgram.setFloatUniform("uMaxBoost", ULTRA_HDR_MAX_BOOST);
+          // TODO: b/524121859 - Obtain SDR and HDR nits from metadata instead of hardcoding.
+          glProgram.setFloatUniform("uSdrReferenceWhiteNits", 203.0f);
+          glProgram.setFloatUniform("uHdrPeakNits", 1000.0f);
+        } else {
+          glProgram.setFloatsUniform("uRgbMatrix", GlUtil.create4x4IdentityMatrix());
+          glProgram.setIntUniform("uOutputColorTransfer", COLOR_TRANSFER_HLG);
+        }
         glProgram.setBufferAttribute(
             "aFramePosition",
             GlUtil.createVertexBuffer(visiblePolygon),
@@ -590,7 +636,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
       // RGBA_1010102 Bitmaps cannot be saved to file prior to API 36. See b/438163272.
       hdrUses16BitFloat = SDK_INT <= 35;
-      bytesPerPixel = useHdr && hdrUses16BitFloat ? 8 : 4;
+      bytesPerPixel = (useHdr && !shouldReadUltraHdrFrame() && hdrUses16BitFloat) ? 8 : 4;
     }
 
     @Override
@@ -598,17 +644,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         GlObjectsProvider glObjectsProvider, GlTextureInfo inputTexture, long presentationTimeUs) {
       ensureConfigured(glObjectsProvider, inputTexture.width, inputTexture.height);
       Bitmap bitmap;
-      if (useHdr) {
-        if (SDK_INT < 34 || hlgTextureInfo == null) {
-          onError(
-              new VideoFrameProcessingException(
-                  ExoPlaybackException.createForUnexpected(
-                      new IllegalArgumentException(), ERROR_CODE_INVALID_STATE)));
-          return;
-        }
+
+      if (shouldReadUltraHdrFrame()) {
+        GlTextureInfo ultraHdrTextureInfo = checkNotNull(this.ultraHdrTextureInfo);
+        GlTextureInfo downscaledGainmapTextureInfo =
+            checkNotNull(this.downscaledGainmapTextureInfo);
         try {
+          // 1. Render HDR input texture to the MRT FBO (SDR + Gainmap)
           GlUtil.focusFramebufferUsingCurrentContext(
-              hlgTextureInfo.fboId, hlgTextureInfo.width, hlgTextureInfo.height);
+              ultraHdrTextureInfo.fboId, ultraHdrTextureInfo.width, ultraHdrTextureInfo.height);
           GlUtil.checkGlError();
           checkNotNull(glProgram).use();
           glProgram.setSamplerTexIdUniform(
@@ -617,56 +661,142 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           GLES20.glDrawArrays(
               GLES20.GL_TRIANGLE_FAN, /* first= */ 0, /* count= */ visiblePolygon.size());
           GlUtil.checkGlError();
-          // For OpenGL format, internalFormat, type see the docs:
-          // https://registry.khronos.org/OpenGL-Refpages/es3/html/glReadPixels.xhtml
-          // https://registry.khronos.org/OpenGL-Refpages/es3.0/html/glTexImage2D.xhtml
+
+          // Blit full-res gainmap (attachment 1) to downscaled FBO (attachment 0)
+          GLES30.glReadBuffer(GLES30.GL_COLOR_ATTACHMENT1);
+          GlUtil.blitFrameBuffer(
+              ultraHdrTextureInfo.fboId,
+              new GlRect(ultraHdrTextureInfo.width, ultraHdrTextureInfo.height),
+              downscaledGainmapTextureInfo.fboId,
+              new GlRect(downscaledGainmapTextureInfo.width, downscaledGainmapTextureInfo.height));
+
+          // 2. Read SDR pixels from COLOR_ATTACHMENT0 of full-res FBO
+          GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER, ultraHdrTextureInfo.fboId);
+          GLES30.glReadBuffer(GLES30.GL_COLOR_ATTACHMENT0);
           GLES20.glReadPixels(
               /* x= */ 0,
               /* y= */ 0,
-              hlgTextureInfo.width,
-              hlgTextureInfo.height,
+              /* width= */ ultraHdrTextureInfo.width,
+              /* height= */ ultraHdrTextureInfo.height,
               /* format= */ GLES20.GL_RGBA,
-              /* type= */ hdrUses16BitFloat
-                  ? GLES30.GL_HALF_FLOAT
-                  : GLES30.GL_UNSIGNED_INT_2_10_10_10_REV,
-              byteBuffer);
+              /* type= */ GLES20.GL_UNSIGNED_BYTE,
+              /* pixels= */ byteBuffer);
+          GlUtil.checkGlError();
+
+          // 3. Read Gainmap pixels from COLOR_ATTACHMENT0 of downscaled FBO
+          GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER, downscaledGainmapTextureInfo.fboId);
+          GLES30.glReadBuffer(GLES30.GL_COLOR_ATTACHMENT0);
+          GLES20.glPixelStorei(GLES20.GL_PACK_ALIGNMENT, 1);
+          GLES20.glReadPixels(
+              /* x= */ 0,
+              /* y= */ 0,
+              /* width= */ downscaledGainmapTextureInfo.width,
+              /* height= */ downscaledGainmapTextureInfo.height,
+              /* format= */ GLES30.GL_RED,
+              /* type= */ GLES20.GL_UNSIGNED_BYTE,
+              /* pixels= */ gainmapByteBuffer);
+          GLES20.glPixelStorei(GLES20.GL_PACK_ALIGNMENT, 4);
           GlUtil.checkGlError();
         } catch (GlUtil.GlException e) {
           onError(new VideoFrameProcessingException(e));
           return;
         }
-        bitmap =
+
+        // 4. Create Bitmaps directly from buffers (No CPU unpacking loop)
+        byteBuffer.rewind();
+        Bitmap sdrBitmap =
+            Bitmap.createBitmap(ultraHdrTextureInfo.width, ultraHdrTextureInfo.height, ARGB_8888);
+        sdrBitmap.copyPixelsFromBuffer(byteBuffer);
+
+        gainmapByteBuffer.rewind();
+        Bitmap gainmapBitmap =
             Bitmap.createBitmap(
-                /* display= */ null,
+                downscaledGainmapTextureInfo.width,
+                downscaledGainmapTextureInfo.height,
+                Bitmap.Config.ALPHA_8);
+        gainmapBitmap.copyPixelsFromBuffer(gainmapByteBuffer);
+
+        Gainmap gainmap = new Gainmap(gainmapBitmap);
+        gainmap.setRatioMax(ULTRA_HDR_MAX_BOOST, ULTRA_HDR_MAX_BOOST, ULTRA_HDR_MAX_BOOST);
+        gainmap.setRatioMin(ULTRA_HDR_MIN_BOOST, ULTRA_HDR_MIN_BOOST, ULTRA_HDR_MIN_BOOST);
+        gainmap.setDisplayRatioForFullHdr(ULTRA_HDR_MAX_BOOST);
+        gainmap.setMinDisplayRatioForHdrTransition(ULTRA_HDR_MIN_BOOST);
+        sdrBitmap.setGainmap(gainmap);
+
+        bitmap = sdrBitmap;
+
+      } else {
+        // HLG or SDR Flow
+        if (useHdr) {
+          if (SDK_INT < 34 || hlgTextureInfo == null) {
+            onError(
+                new VideoFrameProcessingException(
+                    ExoPlaybackException.createForUnexpected(
+                        new IllegalArgumentException(), ERROR_CODE_INVALID_STATE)));
+            return;
+          }
+          try {
+            GlUtil.focusFramebufferUsingCurrentContext(
+                hlgTextureInfo.fboId, hlgTextureInfo.width, hlgTextureInfo.height);
+            GlUtil.checkGlError();
+            checkNotNull(glProgram).use();
+            glProgram.setSamplerTexIdUniform(
+                "uTexSampler", inputTexture.texId, /* texUnitIndex= */ 0);
+            glProgram.bindAttributesAndUniforms();
+            GLES20.glDrawArrays(
+                GLES20.GL_TRIANGLE_FAN, /* first= */ 0, /* count= */ visiblePolygon.size());
+            GlUtil.checkGlError();
+            // For OpenGL format, internalFormat, type see the docs:
+            // https://registry.khronos.org/OpenGL-Refpages/es3/html/glReadPixels.xhtml
+            // https://registry.khronos.org/OpenGL-Refpages/es3.0/html/glTexImage2D.xhtml
+            GLES20.glReadPixels(
+                /* x= */ 0,
+                /* y= */ 0,
                 hlgTextureInfo.width,
                 hlgTextureInfo.height,
-                hdrUses16BitFloat ? RGBA_F16 : RGBA_1010102,
-                /* hasAlpha= */ false,
-                ColorSpace.get(BT2020_HLG));
-      } else {
-        try {
-          GlUtil.focusFramebufferUsingCurrentContext(
-              inputTexture.fboId, inputTexture.width, inputTexture.height);
-          GlUtil.checkGlError();
-          GLES20.glReadPixels(
-              /* x= */ 0,
-              /* y= */ 0,
-              inputTexture.width,
-              inputTexture.height,
-              GLES20.GL_RGBA,
-              GLES20.GL_UNSIGNED_BYTE,
-              byteBuffer);
-          GlUtil.checkGlError();
-        } catch (GlUtil.GlException e) {
-          onError(new VideoFrameProcessingException(e));
-          return;
+                /* format= */ GLES20.GL_RGBA,
+                /* type= */ hdrUses16BitFloat
+                    ? GLES30.GL_HALF_FLOAT
+                    : GLES30.GL_UNSIGNED_INT_2_10_10_10_REV,
+                byteBuffer);
+            GlUtil.checkGlError();
+          } catch (GlUtil.GlException e) {
+            onError(new VideoFrameProcessingException(e));
+            return;
+          }
+          bitmap =
+              Bitmap.createBitmap(
+                  /* display= */ null,
+                  hlgTextureInfo.width,
+                  hlgTextureInfo.height,
+                  hdrUses16BitFloat ? RGBA_F16 : RGBA_1010102,
+                  /* hasAlpha= */ false,
+                  ColorSpace.get(BT2020_HLG));
+        } else {
+          try {
+            GlUtil.focusFramebufferUsingCurrentContext(
+                inputTexture.fboId, inputTexture.width, inputTexture.height);
+            GlUtil.checkGlError();
+            GLES20.glReadPixels(
+                /* x= */ 0,
+                /* y= */ 0,
+                inputTexture.width,
+                inputTexture.height,
+                GLES20.GL_RGBA,
+                GLES20.GL_UNSIGNED_BYTE,
+                byteBuffer);
+            GlUtil.checkGlError();
+          } catch (GlUtil.GlException e) {
+            onError(new VideoFrameProcessingException(e));
+            return;
+          }
+          // According to https://www.khronos.org/opengl/wiki/Pixel_Transfer#Endian_issues,
+          // the colors will have the order RGBA in client memory. This is what the bitmap expects:
+          // https://developer.android.com/reference/android/graphics/Bitmap.Config.
+          bitmap = Bitmap.createBitmap(inputTexture.width, inputTexture.height, ARGB_8888);
         }
-        // According to https://www.khronos.org/opengl/wiki/Pixel_Transfer#Endian_issues,
-        // the colors will have the order RGBA in client memory. This is what the bitmap expects:
-        // https://developer.android.com/reference/android/graphics/Bitmap.Config.
-        bitmap = Bitmap.createBitmap(inputTexture.width, inputTexture.height, ARGB_8888);
+        bitmap.copyPixelsFromBuffer(byteBuffer);
       }
-      bitmap.copyPixelsFromBuffer(byteBuffer);
 
       CallbackToFutureAdapter.Completer<FrameExtractor.Frame> frameBeingExtractedCompleter =
           internal.activeTaskCompleter.getAndSet(null);
@@ -688,6 +818,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
       byteBuffer.clear();
 
+      if (shouldReadUltraHdrFrame()) {
+        int downscaledWidth = max(1, width / ULTRA_HDR_GAINMAP_SCALE_FACTOR);
+        int downscaledHeight = max(1, height / ULTRA_HDR_GAINMAP_SCALE_FACTOR);
+        int gainmapSize = downscaledWidth * downscaledHeight * 1;
+        if (gainmapByteBuffer.capacity() != gainmapSize) {
+          gainmapByteBuffer = ByteBuffer.allocateDirect(gainmapSize);
+        }
+        gainmapByteBuffer.clear();
+      }
+
       if (useHdr) {
         if (hlgTextureInfo == null
             || hlgTextureInfo.width != width
@@ -706,6 +846,137 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           }
         }
       }
+
+      if (shouldReadUltraHdrFrame()) {
+        if (ultraHdrTextureInfo == null
+            || ultraHdrTextureInfo.width != width
+            || ultraHdrTextureInfo.height != height) {
+          try {
+            if (ultraHdrTextureInfo != null) {
+              ultraHdrTextureInfo.release();
+            }
+            if (gainmapTextureId != C.INDEX_UNSET) {
+              GlUtil.deleteTexture(gainmapTextureId);
+              gainmapTextureId = C.INDEX_UNSET;
+            }
+
+            int sdrTexId =
+                createTexture(width, height, /* useHighPrecisionColorComponents= */ false);
+            ultraHdrTextureInfo =
+                glObjectsProvider.createBuffersForTexture(sdrTexId, width, height);
+
+            gainmapTextureId = createRed8Texture(width, height);
+
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, ultraHdrTextureInfo.fboId);
+            GLES20.glFramebufferTexture2D(
+                GLES20.GL_FRAMEBUFFER,
+                GLES30.GL_COLOR_ATTACHMENT1,
+                GLES20.GL_TEXTURE_2D,
+                gainmapTextureId,
+                /* level= */ 0);
+            GlUtil.checkGlError();
+
+            int[] drawBuffers = {GLES30.GL_COLOR_ATTACHMENT0, GLES30.GL_COLOR_ATTACHMENT1};
+            GLES30.glDrawBuffers(2, drawBuffers, /* offset= */ 0);
+            GlUtil.checkGlError();
+          } catch (GlUtil.GlException e) {
+            onError(new VideoFrameProcessingException(e));
+          }
+        }
+
+        int downscaledWidth = max(1, width / ULTRA_HDR_GAINMAP_SCALE_FACTOR);
+        int downscaledHeight = max(1, height / ULTRA_HDR_GAINMAP_SCALE_FACTOR);
+        if (downscaledGainmapTextureInfo == null
+            || downscaledGainmapTextureInfo.width != downscaledWidth
+            || downscaledGainmapTextureInfo.height != downscaledHeight) {
+          try {
+            if (downscaledGainmapTextureInfo != null) {
+              downscaledGainmapTextureInfo.release();
+            }
+            if (downscaledGainmapTextureId != C.INDEX_UNSET) {
+              GlUtil.deleteTexture(downscaledGainmapTextureId);
+              downscaledGainmapTextureId = C.INDEX_UNSET;
+            }
+
+            downscaledGainmapTextureId = createRed8Texture(downscaledWidth, downscaledHeight);
+            downscaledGainmapTextureInfo =
+                glObjectsProvider.createBuffersForTexture(
+                    downscaledGainmapTextureId, downscaledWidth, downscaledHeight);
+          } catch (GlUtil.GlException e) {
+            onError(new VideoFrameProcessingException(e));
+          }
+        }
+      }
+    }
+
+    private static int createRed8Texture(int width, int height) throws GlUtil.GlException {
+      int texId = GlUtil.generateTexture();
+      GlUtil.bindTexture(GLES20.GL_TEXTURE_2D, texId, GLES20.GL_LINEAR);
+      GLES30.glTexImage2D(
+          GLES30.GL_TEXTURE_2D,
+          /* level= */ 0,
+          GLES30.GL_R8,
+          width,
+          height,
+          /* border= */ 0,
+          GLES30.GL_RED,
+          GLES30.GL_UNSIGNED_BYTE,
+          /* buffer= */ null);
+      GlUtil.checkGlError();
+      return texId;
+    }
+
+    @Override
+    public void release() throws VideoFrameProcessingException {
+      // TODO(b/517020679): use FrameProcessorUtils.runAllAndAccumulateExceptions once available.
+      super.release();
+      if (glProgram != null) {
+        try {
+          glProgram.delete();
+        } catch (GlUtil.GlException e) {
+          Log.w(TAG, "Error deleting glProgram", e);
+        }
+      }
+      if (hlgTextureInfo != null) {
+        try {
+          hlgTextureInfo.release();
+        } catch (GlUtil.GlException e) {
+          Log.w(TAG, "Error releasing hlgTextureInfo", e);
+        }
+      }
+      if (ultraHdrTextureInfo != null) {
+        try {
+          ultraHdrTextureInfo.release();
+        } catch (GlUtil.GlException e) {
+          Log.w(TAG, "Error releasing ultraHdrTextureInfo", e);
+        }
+      }
+      if (gainmapTextureId != C.INDEX_UNSET) {
+        try {
+          GlUtil.deleteTexture(gainmapTextureId);
+        } catch (GlUtil.GlException e) {
+          Log.w(TAG, "Error deleting gainmapTexture", e);
+        }
+      }
+
+      if (downscaledGainmapTextureInfo != null) {
+        try {
+          downscaledGainmapTextureInfo.release();
+        } catch (GlUtil.GlException e) {
+          Log.w(TAG, "Error releasing downscaledGainmapTextureInfo", e);
+        }
+      }
+      if (downscaledGainmapTextureId != C.INDEX_UNSET) {
+        try {
+          GlUtil.deleteTexture(downscaledGainmapTextureId);
+        } catch (GlUtil.GlException e) {
+          Log.w(TAG, "Error deleting downscaledGainmapTexture", e);
+        }
+      }
+    }
+
+    private boolean shouldReadUltraHdrFrame() {
+      return SDK_INT >= 34 && useHdr && !internal.extractHdrFrames && internal.enableUltraHdr;
     }
   }
 
