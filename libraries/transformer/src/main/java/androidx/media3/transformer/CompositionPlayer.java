@@ -48,6 +48,8 @@ import android.view.SurfaceView;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.RestrictTo;
+import androidx.annotation.RestrictTo.Scope;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -90,7 +92,6 @@ import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferFrameProcessor;
 import androidx.media3.effect.HardwareBufferFrameQueue;
 import androidx.media3.effect.HardwareBufferJniWrapper;
-import androidx.media3.effect.PacketConsumer;
 import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.TimestampAdjustment;
@@ -179,9 +180,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     private AudioAttributes audioAttributes;
     private boolean handleAudioFocus;
     private VideoGraph.@MonotonicNonNull Factory videoGraphFactory;
-
-    @Nullable
-    private PacketConsumer.Factory<ImmutableList<HardwareBufferFrame>> packetConsumerFactory;
 
     @Nullable
     private RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
@@ -491,30 +489,14 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     /**
      * @deprecated Use {@link #setFrameProcessorFactory} instead.
      */
-    @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
-    @CanIgnoreReturnValue
-    @Deprecated
-    public Builder setPacketConsumerFactory(
-        PacketConsumer.Factory<ImmutableList<HardwareBufferFrame>> packetConsumerFactory) {
-      checkState(videoGraphFactory == null);
-      checkState(packetProcessor == null);
-      checkState(frameProcessorFactory == null);
-      this.packetConsumerFactory = packetConsumerFactory;
-      return this;
-    }
-
-    /**
-     * @deprecated Use {@link #setFrameProcessorFactory} instead.
-     */
     @Deprecated
     @RequiresApi(28)
     @CanIgnoreReturnValue
-    @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
+    @RestrictTo(Scope.LIBRARY_GROUP) // TODO: b/498547782 - Remove once usages have been migrated.
     public Builder setHardwareBufferEffectsPipeline(
         RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
             packetProcessor) {
       checkState(videoGraphFactory == null);
-      checkState(packetConsumerFactory == null);
       checkState(frameProcessorFactory == null);
       this.packetProcessor = packetProcessor;
       return this;
@@ -533,9 +515,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
      *
      * @param frameProcessorFactory The {@link FrameProcessor.Factory}.
      * @return This builder.
-     * @throws IllegalStateException if a {@linkplain #setVideoGraphFactory videoGraphFactory},
-     *     {@linkplain #setPacketConsumerFactory packetConsumerFactory} or {@link
-     *     #setHardwareBufferEffectsPipeline HardwareBufferEffectsPipeline} is set.
+     * @throws IllegalStateException if a {@linkplain #setVideoGraphFactory videoGraphFactory} or
+     *     {@linkplain #setHardwareBufferEffectsPipeline HardwareBufferEffectsPipeline} is set.
      */
     @RequiresApi(28)
     @CanIgnoreReturnValue
@@ -543,7 +524,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     public Builder setFrameProcessorFactory(FrameProcessor.Factory frameProcessorFactory) {
       checkNotNull(frameProcessorFactory);
       checkState(videoGraphFactory == null);
-      checkState(packetConsumerFactory == null);
       checkState(packetProcessor == null);
       this.frameProcessorFactory = frameProcessorFactory;
       return this;
@@ -676,11 +656,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
   @Nullable private final SurfaceHolderFrameWriter surfaceHolderFrameWriter;
 
-  // Applications can choose to render frames to screen themselves, or use media3 components.
-  // CompositionPlayer only receives events when frames are rendered on screen when media3
-  // components are used.
-  private final boolean packetConsumerReportsRenderingEvents;
-
   @Nullable private final HardwareBufferFrameProcessor hardwareBufferPostProcessor;
 
   private final HandlerThread playbackThread;
@@ -770,12 +745,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         builder.frameProcessorFactory != null
             ? builder.frameProcessorFactory
             : getRenderingPacketConsumerFactory(builder.packetProcessor);
-    if (frameProcessorFactory != null) {
-      packetConsumerReportsRenderingEvents = true;
-    } else {
-      frameProcessorFactory = getPacketConsumerFactory(builder.packetConsumerFactory);
-      packetConsumerReportsRenderingEvents = false;
-    }
     playbackThread =
         new HandlerThread(/* name= */ "CompositionPlaybackThread", Process.THREAD_PRIORITY_AUDIO);
     try {
@@ -1432,7 +1401,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             /* playWhenReady= */ false, /* shouldUpdateInternalPlayers= */ true);
       }
     } else if (endedCount == playerHolders.size()
-        && (!packetConsumerReportsRenderingEvents
+        && (frameProcessor == null
             || packetConsumerEnded
             || !containsVideo(checkNotNull(composition)))) {
       playbackState = STATE_ENDED;
@@ -2659,20 +2628,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         return new PacketConsumerToFrameProcessorAdapter(
             packetProcessor, listenerExecutor, listener);
       };
-    }
-    return null;
-  }
-
-  // TODO: b/510766403 - Remove once PacketConsumer entrypoint is removed.
-  /** Converts a {@link PacketConsumer.Factory} to a {@link FrameProcessor}. */
-  @Nullable
-  private static FrameProcessor.Factory getPacketConsumerFactory(
-      @Nullable PacketConsumer.Factory<ImmutableList<HardwareBufferFrame>> packetConsumerFactory) {
-    if (SDK_INT >= 26 && packetConsumerFactory != null) {
-      PacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer =
-          packetConsumerFactory.create();
-      return (output, listenerExecutor, listener) ->
-          new PacketConsumerToFrameProcessorAdapter(packetConsumer, listenerExecutor, listener);
     }
     return null;
   }

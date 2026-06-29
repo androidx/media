@@ -30,6 +30,8 @@ import android.os.Looper;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.RestrictTo;
+import androidx.annotation.RestrictTo.Scope;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.DebugViewProvider;
@@ -379,7 +381,7 @@ public final class Transformer {
      * @return This builder.
      */
     @CanIgnoreReturnValue
-    @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
+    @RestrictTo(Scope.LIBRARY_GROUP) // TODO: b/498547782 - Remove once usages have been migrated.
     public Builder setHardwareBufferEffectsPipeline(
         RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
             packetProcessor) {
