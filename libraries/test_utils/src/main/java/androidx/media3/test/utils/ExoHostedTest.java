@@ -235,6 +235,17 @@ public abstract class ExoHostedTest implements HostedTest {
     // Do nothing. Subclasses may override to add additional assertions.
   }
 
+  /**
+   * Returns whether the test should be stopped when playback state changes.
+   *
+   * <p>Subclasses may override to delay stopping the test (e.g., waiting for asynchronous postroll
+   * ads to finish).
+   */
+  protected boolean shouldStopTest(Player player) {
+    @Player.State int playbackState = player.getPlaybackState();
+    return playbackState == Player.STATE_ENDED || playbackState == Player.STATE_IDLE;
+  }
+
   @EnsuresNonNullIf(
       result = true,
       expression = {"player", "actionHandler", "trackSelector", "surface"})
@@ -268,8 +279,7 @@ public abstract class ExoHostedTest implements HostedTest {
         }
       }
       if (events.contains(EVENT_PLAYBACK_STATE_CHANGED)) {
-        @Player.State int playbackState = player.getPlaybackState();
-        if (playbackState == Player.STATE_ENDED || playbackState == Player.STATE_IDLE) {
+        if (shouldStopTest(player)) {
           stopTest();
         }
       }

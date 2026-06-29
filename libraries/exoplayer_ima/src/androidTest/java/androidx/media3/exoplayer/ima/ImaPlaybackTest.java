@@ -62,10 +62,8 @@ public final class ImaPlaybackTest {
 
   private static final long TIMEOUT_MS = 5 * 60 * C.MILLIS_PER_SECOND;
 
-  private static final String CONTENT_URI_SHORT =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4";
-  private static final String CONTENT_URI_LONG =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-25s.mp4";
+  private static final String CONTENT_URI_SHORT = "asset:///media/mp4/silent-black-10s.mp4";
+  private static final String CONTENT_URI_LONG = "asset:///media/mp4/silent-black-25s.mp4";
   private static final AdId CONTENT = new AdId(C.INDEX_UNSET, C.INDEX_UNSET);
 
   // TODO: b/464266190 - Migrate to ActivityScenarioRule
@@ -247,6 +245,18 @@ public final class ImaPlaybackTest {
           () -> overlayFrameLayout,
           /* useLazyContentSourcePreparation= */ true,
           /* useAdMediaSourceClipping= */ false);
+    }
+
+    @Override
+    protected boolean shouldStopTest(Player player) {
+      @Player.State int playbackState = player.getPlaybackState();
+      if (playbackState == Player.STATE_IDLE) {
+        return true;
+      }
+      if (playbackState == Player.STATE_ENDED) {
+        return seenAdIds.equals(expectedAdIds);
+      }
+      return false;
     }
 
     @Override
