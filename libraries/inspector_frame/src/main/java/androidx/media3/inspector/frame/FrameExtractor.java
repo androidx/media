@@ -188,6 +188,7 @@ public final class FrameExtractor implements AutoCloseable {
      * @return This builder.
      */
     @CanIgnoreReturnValue
+    @RequiresApi(34)
     @ExperimentalApi // TODO: b/496386990 - Remove once UltraHDR extraction is fully launched.
     public Builder setEnableUltraHdr(boolean enableUltraHdr) {
       this.enableUltraHdr = enableUltraHdr;

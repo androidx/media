@@ -220,7 +220,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     extractedFrameNeedsRendering = new AtomicBoolean(false);
     activeTaskCompleter = new AtomicReference<>();
     this.playerHandler = new Handler(Looper.getMainLooper());
-    this.currentMediaCodecSelector = MediaCodecSelector.DEFAULT;
+    this.currentMediaCodecSelector = MediaCodecSelector.PREFER_SOFTWARE;
     this.extractHdrFrames = false;
     this.enableUltraHdr = false;
     thumbnailPresentationTimeMs = C.TIME_UNSET;
@@ -250,7 +250,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   player.release();
                   player = null;
                 }
-                currentMediaCodecSelector = MediaCodecSelector.DEFAULT;
+                currentMediaCodecSelector = MediaCodecSelector.PREFER_SOFTWARE;
                 extractHdrFrames = false;
                 enableUltraHdr = false;
                 currentGlObjectsProvider = null;
@@ -268,12 +268,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return executionSequencer.submitAsync(
         () -> {
           ExoPlayer activePlayer = player;
+          boolean mediaItemChanged =
+              activePlayer == null || !request.mediaItem.equals(activePlayer.getCurrentMediaItem());
           boolean needsNewPlayer =
               activePlayer == null
-                  // TODO: b/457376636 - reuse player when switching between HDR and SDR, after the
-                  // video processing pipeline is updated.
-                  || extractHdrFrames != request.extractHdrFrames
-                  || enableUltraHdr != request.enableUltraHdr
+                  || needsNewPlayerDueToChangingHdr(request, mediaItemChanged)
                   // TODO: b/457376636 - reuse the player on error when the video frame processor
                   // can recover from errors.
                   || activePlayer.getPlayerError() != null
@@ -281,9 +280,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   || request.glObjectsProvider != currentGlObjectsProvider
                   || request.mediaSourceFactory != currentMediaSourceFactory;
 
-          boolean needsPrepare =
-              needsNewPlayer
-                  || !request.mediaItem.equals(checkNotNull(activePlayer).getCurrentMediaItem());
+          boolean needsPrepare = needsNewPlayer || mediaItemChanged;
 
           boolean isThumbnailRequest = request.positionMs == C.TIME_UNSET;
 
@@ -448,7 +445,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                             request.mediaCodecSelector,
                             videoRendererEventListener,
                             /* toneMapHdrToSdr= */ !request.extractHdrFrames
-                                && (SDK_INT < 34 || !request.enableUltraHdr),
+                                && !request.enableUltraHdr,
                             request.glObjectsProvider,
                             extractedFrameNeedsRendering,
                             this)
@@ -460,6 +457,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       player.addAnalyticsListener(new PlayerListener(this));
       player.setPlayWhenReady(false);
     }
+  }
+
+  private boolean needsNewPlayerDueToChangingHdr(
+      FrameExtractionRequest request, boolean mediaItemChanged) {
+    // TODO: b/457376636 - The video processing pipeline doesn't support switching between
+    // HDR and SDR input. Recreate the player if the item is changing and HDR could be used, or
+    // if the item stays the same but HDR settings are changing.
+    boolean requestUsesHdrPipeline = request.extractHdrFrames || request.enableUltraHdr;
+    boolean currentUsesHdrPipeline = extractHdrFrames || enableUltraHdr;
+    return mediaItemChanged
+        ? (requestUsesHdrPipeline || currentUsesHdrPipeline)
+        : requestUsesHdrPipeline != currentUsesHdrPipeline;
   }
 
   private static ImmutableList<Effect> buildVideoEffects(

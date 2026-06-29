@@ -437,19 +437,19 @@ public class FrameExtractorTest {
   @Test
   public void extractFrame_changeMediaItem_extractsFrameFromTheCorrectItem() throws Exception {
     Frame frameFirstItem;
+    Frame frameSecondItem;
     try (FrameExtractor frameExtractor =
         new FrameExtractor.Builder(context, MediaItem.fromUri(MP4_TRIM_OPTIMIZATION_270.uri))
             .build()) {
       ListenableFuture<Frame> frameFutureFirstItem = frameExtractor.getFrame(/* positionMs= */ 0);
       frameFirstItem = frameFutureFirstItem.get(TIMEOUT_SECONDS, SECONDS);
-    }
 
-    Frame frameSecondItem;
-    try (FrameExtractor frameExtractor =
-        new FrameExtractor.Builder(context, MediaItem.fromUri(FILE_PATH)).build()) {
-      ListenableFuture<Frame> frameFutureSecondItem =
-          frameExtractor.getFrame(/* positionMs= */ 8_500);
-      frameSecondItem = frameFutureSecondItem.get(TIMEOUT_SECONDS, SECONDS);
+      try (FrameExtractor nestedFrameExtractor =
+          new FrameExtractor.Builder(context, MediaItem.fromUri(FILE_PATH)).build()) {
+        ListenableFuture<Frame> frameFutureSecondItem =
+            nestedFrameExtractor.getFrame(/* positionMs= */ 8_500);
+        frameSecondItem = frameFutureSecondItem.get(TIMEOUT_SECONDS, SECONDS);
+      }
     }
 
     Bitmap actualBitmapFirstItem = frameFirstItem.bitmap;
