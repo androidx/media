@@ -215,17 +215,19 @@ public final class GlTextureFrameAggregatorTest {
   }
 
   @Test
-  public void queue_whenDownstreamThrowsVideoFrameProcessingException_routesToErrorConsumer()
+  public void queue_whenDownstreamThrowsVideoFrameProcessingException_throwsIllegalStateException()
       throws Exception {
     frameAggregator.configureSequenceIndices(ImmutableSet.of(0));
     VideoFrameProcessingException exception = new VideoFrameProcessingException("test");
     downstreamConsumer.exceptionToThrowOnQueueing = exception;
     GlTextureFrame frame = createGlTextureFrame();
 
-    assertThat(frameAggregator.getInputConsumer(0).queue(frame, directExecutor(), () -> {}))
-        .isTrue();
-
-    assertThat(errorReference.get()).isEqualTo(exception);
+    IllegalStateException thrown =
+        assertThrows(
+            IllegalStateException.class,
+            () -> frameAggregator.getInputConsumer(0).queue(frame, directExecutor(), () -> {}));
+    assertThat(thrown).hasCauseThat().isEqualTo(exception);
+    assertThat(errorReference.get()).isNull();
   }
 
   @Test
@@ -256,16 +258,19 @@ public final class GlTextureFrameAggregatorTest {
   }
 
   @Test
-  public void queue_whenDownstreamThrowsRuntimeException_routesToErrorConsumer() throws Exception {
+  public void queue_whenDownstreamThrowsRuntimeException_throwsIllegalStateException()
+      throws Exception {
     frameAggregator.configureSequenceIndices(ImmutableSet.of(0));
     RuntimeException exception = new RuntimeException("test");
     downstreamConsumer.runtimeExceptionToThrowOnQueueing = exception;
     GlTextureFrame frame = createGlTextureFrame();
 
-    assertThat(frameAggregator.getInputConsumer(0).queue(frame, directExecutor(), () -> {}))
-        .isTrue();
-
-    assertThat(errorReference.get()).hasCauseThat().isEqualTo(exception);
+    IllegalStateException thrown =
+        assertThrows(
+            IllegalStateException.class,
+            () -> frameAggregator.getInputConsumer(0).queue(frame, directExecutor(), () -> {}));
+    assertThat(thrown).hasCauseThat().isEqualTo(exception);
+    assertThat(errorReference.get()).isNull();
   }
 
   @Test

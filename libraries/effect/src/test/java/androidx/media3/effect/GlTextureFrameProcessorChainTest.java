@@ -15,6 +15,7 @@
  */
 package androidx.media3.effect;
 
+import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_ITEM_EFFECTS;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -22,6 +23,7 @@ import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator
 import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
+import androidx.media3.common.Effect;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Util;
@@ -29,7 +31,9 @@ import androidx.media3.effect.GlFrameProcessorTestUtil.FakeGlShaderProgram;
 import androidx.media3.effect.GlFrameProcessorTestUtil.FakeGlTextureFrameConsumer;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import org.junit.After;
 import org.junit.Before;
@@ -57,7 +61,8 @@ public final class GlTextureFrameProcessorChainTest {
             new DefaultGlObjectsProvider(),
             glExecutorService,
             /* errorConsumer= */ e -> {},
-            downstreamFrameConsumer);
+            downstreamFrameConsumer,
+            KEY_ITEM_EFFECTS);
   }
 
   @After
@@ -67,10 +72,8 @@ public final class GlTextureFrameProcessorChainTest {
   }
 
   @Test
-  public void configure_withEmptyEffects_setsDownstreamAsFirstConsumer() throws Exception {
-    glTextureFrameProcessorChain.configure(ImmutableList.of());
-
-    GlTextureFrame frame = createGlTextureFrame();
+  public void queue_withEmptyEffects_setsDownstreamAsFirstConsumer() throws Exception {
+    GlTextureFrame frame = createGlTextureFrameWithEffects(ImmutableList.of());
     assertThat(
             glTextureFrameProcessorChain.queue(
                 frame, glExecutorService, /* wakeupListener= */ () -> {}))
@@ -81,14 +84,14 @@ public final class GlTextureFrameProcessorChainTest {
   }
 
   @Test
-  public void configure_withEffects_createsProcessors() throws Exception {
+  public void queue_withEffects_createsProcessors() throws Exception {
     FakeGlShaderProgram fakeGlShaderProgram1 = new FakeGlShaderProgram();
     FakeGlShaderProgram fakeGlShaderProgram2 = new FakeGlShaderProgram();
     GlEffect fakeEffect1 = (context, useHdr) -> fakeGlShaderProgram1;
     GlEffect fakeEffect2 = (context, useHdr) -> fakeGlShaderProgram2;
 
-    glTextureFrameProcessorChain.configure(ImmutableList.of(fakeEffect1, fakeEffect2));
-    GlTextureFrame frame = createGlTextureFrame();
+    GlTextureFrame frame =
+        createGlTextureFrameWithEffects(ImmutableList.of(fakeEffect1, fakeEffect2));
 
     // Process the frame.
     assertThat(
@@ -104,31 +107,37 @@ public final class GlTextureFrameProcessorChainTest {
   }
 
   @Test
-  public void configure_withDifferentEffects_replacesProcessors() throws Exception {
+  public void queue_withDifferentEffects_replacesProcessors() throws Exception {
     FakeGlShaderProgram fakeGlShaderProgram1 = new FakeGlShaderProgram();
     GlEffect fakeEffect1 = (context, useHdr) -> fakeGlShaderProgram1;
-    glTextureFrameProcessorChain.configure(ImmutableList.of(fakeEffect1));
+    GlTextureFrame frame1 = createGlTextureFrameWithEffects(ImmutableList.of(fakeEffect1));
 
     FakeGlShaderProgram fakeGlShaderProgram2 = new FakeGlShaderProgram();
     GlEffect fakeEffect2 = (context, useHdr) -> fakeGlShaderProgram2;
+    GlTextureFrame frame2 = createGlTextureFrameWithEffects(ImmutableList.of(fakeEffect2));
 
-    // This should close the first chain and create a new one.
-    glTextureFrameProcessorChain.configure(ImmutableList.of(fakeEffect2));
-
-    GlTextureFrame frame = createGlTextureFrame();
+    // Queue frame1. It configures with fakeEffect1 and processes.
     assertThat(
             glTextureFrameProcessorChain.queue(
-                frame, glExecutorService, /* wakeupListener= */ () -> {}))
+                frame1, glExecutorService, /* wakeupListener= */ () -> {}))
         .isTrue();
     waitUntilGlThreadFinishes();
 
-    assertThat(fakeGlShaderProgram1.framesReceived).isEqualTo(0);
+    // Queue frame2. It should reconfigure with fakeEffect2 (closing fakeEffect1) and process.
+    assertThat(
+            glTextureFrameProcessorChain.queue(
+                frame2, glExecutorService, /* wakeupListener= */ () -> {}))
+        .isTrue();
+    waitUntilGlThreadFinishes();
+
+    assertThat(fakeGlShaderProgram1.framesReceived).isEqualTo(1);
     assertThat(fakeGlShaderProgram2.framesReceived).isEqualTo(1);
-    assertThat(downstreamFrameConsumer.framesReceived).isEqualTo(1);
+    assertThat(fakeGlShaderProgram1.isReleased).isTrue(); // Replaced program is closed
+    assertThat(downstreamFrameConsumer.framesReceived).isEqualTo(2);
   }
 
   @Test
-  public void configure_withException_closesPartiallyCreatedProcessors() throws Exception {
+  public void queue_withException_closesPartiallyCreatedProcessors() throws Exception {
     FakeGlShaderProgram fakeGlShaderProgram = new FakeGlShaderProgram();
     GlEffect fakeEffect = (context, useHdr) -> fakeGlShaderProgram;
 
@@ -137,9 +146,14 @@ public final class GlTextureFrameProcessorChainTest {
           throw new VideoFrameProcessingException("Test error");
         };
 
+    GlTextureFrame frame =
+        createGlTextureFrameWithEffects(ImmutableList.of(fakeEffect, failingEffect));
+
     assertThrows(
         VideoFrameProcessingException.class,
-        () -> glTextureFrameProcessorChain.configure(ImmutableList.of(fakeEffect, failingEffect)));
+        () ->
+            glTextureFrameProcessorChain.queue(
+                frame, glExecutorService, /* wakeupListener= */ () -> {}));
     assertThat(fakeGlShaderProgram.isReleased).isTrue();
   }
 
@@ -147,7 +161,14 @@ public final class GlTextureFrameProcessorChainTest {
   public void signalEndOfStream_delegatesToFirstConsumer() throws Exception {
     FakeGlShaderProgram fakeGlShaderProgram = new FakeGlShaderProgram();
     GlEffect fakeEffect = (context, useHdr) -> fakeGlShaderProgram;
-    glTextureFrameProcessorChain.configure(ImmutableList.of(fakeEffect));
+
+    // We must queue a frame to trigger the initial configuration of the chain.
+    GlTextureFrame frame = createGlTextureFrameWithEffects(ImmutableList.of(fakeEffect));
+    assertThat(
+            glTextureFrameProcessorChain.queue(
+                frame, glExecutorService, /* wakeupListener= */ () -> {}))
+        .isTrue();
+    waitUntilGlThreadFinishes();
 
     glTextureFrameProcessorChain.signalEndOfStream();
     waitUntilGlThreadFinishes();
@@ -160,7 +181,7 @@ public final class GlTextureFrameProcessorChainTest {
     glExecutorService.submit(() -> {}).get();
   }
 
-  private static GlTextureFrame createGlTextureFrame() {
+  private static GlTextureFrame createGlTextureFrameWithEffects(List<Effect> effects) {
     return new GlTextureFrame.Builder(
             new GlTextureInfo(
                 /* texId= */ 1,
@@ -171,6 +192,7 @@ public final class GlTextureFrameProcessorChainTest {
             directExecutor(),
             /* releaseTextureCallback= */ info -> {})
         .setPresentationTimeUs(0)
+        .setMetadata(ImmutableMap.of(KEY_ITEM_EFFECTS, ImmutableList.copyOf(effects)))
         .build();
   }
 }

@@ -17,6 +17,7 @@ package androidx.media3.effect;
 
 import static androidx.media3.effect.FrameProcessorUtils.runAllAndAccumulateExceptions;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getFirst;
 import static com.google.common.collect.Iterables.getLast;
 
@@ -28,6 +29,7 @@ import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.FrameProcessorUtils.ThrowingRunnable;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,6 +48,7 @@ import java.util.concurrent.Executor;
   private final List<GlTextureFrameProcessor> effectProcessorChain;
   private final List<Effect> currentEffects;
   private final GlTextureFrameConsumer downstreamFrameConsumer;
+  private final String effectKey;
 
   private GlTextureFrameConsumer firstGlTextureFrameConsumer;
 
@@ -54,15 +57,35 @@ import java.util.concurrent.Executor;
       GlObjectsProvider glObjectsProvider,
       ListeningExecutorService glExecutorService,
       Consumer<VideoFrameProcessingException> errorConsumer,
-      GlTextureFrameConsumer downstreamFrameConsumer) {
+      GlTextureFrameConsumer downstreamFrameConsumer,
+      String effectKey) {
     this.context = context;
     this.glObjectsProvider = glObjectsProvider;
     this.glExecutorService = glExecutorService;
     this.errorConsumer = errorConsumer;
     this.downstreamFrameConsumer = downstreamFrameConsumer;
+    this.effectKey = effectKey;
     this.firstGlTextureFrameConsumer = downstreamFrameConsumer;
     effectProcessorChain = new ArrayList<>();
     currentEffects = new ArrayList<>();
+  }
+
+  @Override
+  public boolean queue(GlTextureFrame frame, Executor listenerExecutor, Runnable wakeupListener)
+      throws VideoFrameProcessingException {
+    configure(extractEffects(frame));
+    return firstGlTextureFrameConsumer.queue(frame, listenerExecutor, wakeupListener);
+  }
+
+  @Override
+  public void signalEndOfStream() {
+    firstGlTextureFrameConsumer.signalEndOfStream();
+  }
+
+  @Override
+  public void close() throws VideoFrameProcessingException {
+    currentEffects.clear();
+    closeAllProcessors();
   }
 
   /**
@@ -74,12 +97,14 @@ import java.util.concurrent.Executor;
    *
    * @param effects The list of {@link Effect} instances to apply in the chain.
    */
-  public void configure(List<Effect> effects) throws VideoFrameProcessingException {
+  private void configure(List<Effect> effects) throws VideoFrameProcessingException {
     // TODO: b/505721737 - Implement effect diffing.
     if (currentEffects.equals(effects)) {
       return;
     }
 
+    // TODO: b/528240409 - defer reconfiguration after all shaders have output all frames following
+    //   an EOS.
     closeAllProcessors();
     currentEffects.clear();
     List<GlTextureFrameProcessor> newProcessorChain = new ArrayList<>();
@@ -122,21 +147,12 @@ import java.util.concurrent.Executor;
     currentEffects.addAll(effects);
   }
 
-  @Override
-  public boolean queue(GlTextureFrame frame, Executor listenerExecutor, Runnable wakeupListener)
-      throws VideoFrameProcessingException {
-    return firstGlTextureFrameConsumer.queue(frame, listenerExecutor, wakeupListener);
-  }
-
-  @Override
-  public void signalEndOfStream() {
-    firstGlTextureFrameConsumer.signalEndOfStream();
-  }
-
-  @Override
-  public void close() throws VideoFrameProcessingException {
-    currentEffects.clear();
-    closeAllProcessors();
+  @SuppressWarnings("unchecked") // Metadata values are Objects.
+  private ImmutableList<Effect> extractEffects(GlTextureFrame frame) {
+    if (!frame.getMetadata().containsKey(effectKey)) {
+      return ImmutableList.of();
+    }
+    return (ImmutableList<Effect>) checkNotNull(frame.getMetadata().get(effectKey));
   }
 
   private void closeAllProcessors() throws VideoFrameProcessingException {

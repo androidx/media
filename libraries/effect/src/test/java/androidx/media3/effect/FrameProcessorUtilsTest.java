@@ -99,11 +99,4 @@ public final class FrameProcessorUtilsTest {
     assertThat(secondActionExecuted.get()).isTrue();
     assertThat(thirdActionExecuted.get()).isTrue();
   }
-
-  @Test
-  public void runAllAndAccumulateExceptions_nullAction_doesNotThrowOrAffectRun() throws Exception {
-    AtomicBoolean actionExecuted = new AtomicBoolean();
-    runAllAndAccumulateExceptions(null, () -> actionExecuted.set(true), null);
-    assertThat(actionExecuted.get()).isTrue();
-  }
 }

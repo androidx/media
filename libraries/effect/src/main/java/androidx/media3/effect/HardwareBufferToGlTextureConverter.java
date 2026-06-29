@@ -155,8 +155,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 if (glReadFence == null) {
                   GLES20.glFinish();
                 }
-                // TODO: b/505721737 - The input should be released only after writing to the
-                //  output surface, in previewing.
                 listenerExecutor.execute(
                     () -> listener.onFrameProcessed(hardwareBufferFrame, glReadFence));
               } catch (GlException e) {

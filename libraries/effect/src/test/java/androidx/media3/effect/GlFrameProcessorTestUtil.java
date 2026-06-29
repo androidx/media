@@ -36,6 +36,7 @@ import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.common.video.SyncFenceWrapper;
 import com.google.common.collect.ImmutableMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
@@ -144,7 +145,10 @@ public final class GlFrameProcessorTestUtil {
     public int framesReceived;
     public boolean signalEndOfCurrentInputStreamCalled;
     public boolean delayReadyToAcceptInputFrame;
+    public boolean delayUpdatingInputListenerReady;
     public boolean isReleased;
+    public boolean delayProcessing;
+    private final List<GlTextureInfo> pendingInputTextures = new ArrayList<>();
     private InputListener inputListener;
     private OutputListener outputListener;
 
@@ -156,7 +160,9 @@ public final class GlFrameProcessorTestUtil {
     @Override
     public void setInputListener(InputListener inputListener) {
       this.inputListener = inputListener;
-      inputListener.onReadyToAcceptInputFrame();
+      if (!delayUpdatingInputListenerReady) {
+        inputListener.onReadyToAcceptInputFrame();
+      }
     }
 
     @Override
@@ -171,15 +177,19 @@ public final class GlFrameProcessorTestUtil {
     public void queueInputFrame(
         GlObjectsProvider glObjectsProvider, GlTextureInfo inputTexture, long presentationTimeUs) {
       framesReceived++;
-      outputListener.onOutputFrameAvailable(
-          new GlTextureInfo(
-              inputTexture.texId + 1,
-              inputTexture.fboId + 1,
-              C.INDEX_UNSET,
-              inputTexture.width,
-              inputTexture.height),
-          presentationTimeUs);
-      inputListener.onInputFrameProcessed(inputTexture);
+      if (delayProcessing) {
+        pendingInputTextures.add(inputTexture);
+      } else {
+        outputListener.onOutputFrameAvailable(
+            new GlTextureInfo(
+                inputTexture.texId + 1,
+                inputTexture.fboId + 1,
+                C.INDEX_UNSET,
+                inputTexture.width,
+                inputTexture.height),
+            presentationTimeUs);
+        inputListener.onInputFrameProcessed(inputTexture);
+      }
       if (!delayReadyToAcceptInputFrame) {
         inputListener.onReadyToAcceptInputFrame();
       }
@@ -207,6 +217,11 @@ public final class GlFrameProcessorTestUtil {
     @Override
     public void release() {
       isReleased = true;
+      for (GlTextureInfo texture : pendingInputTextures) {
+        // Notifying the listener triggers the release of the wrapping GlTextureFrame in tests.
+        inputListener.onInputFrameProcessed(texture);
+      }
+      pendingInputTextures.clear();
     }
   }
 
@@ -249,6 +264,15 @@ public final class GlFrameProcessorTestUtil {
       implements DefaultGlFrameProcessor.HardwareBufferConverter {
     public int framesReceived;
     public int framesWithGlResourceReleased;
+    private final Runnable releaseListener;
+
+    public FakeHardwareBufferConverter(Runnable releaseListener) {
+      this.releaseListener = releaseListener;
+    }
+
+    public FakeHardwareBufferConverter() {
+      this.releaseListener = () -> {};
+    }
 
     @Override
     public GlTextureFrame convert(
@@ -266,6 +290,7 @@ public final class GlFrameProcessorTestUtil {
                   /* height= */ 100),
               /* releaseTextureExecutor= */ directExecutor(),
               /* releaseTextureCallback= */ info -> {
+                releaseListener.run();
                 if (listener != null) {
                   listenerExecutor.execute(
                       () ->

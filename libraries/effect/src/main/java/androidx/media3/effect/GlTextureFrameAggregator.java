@@ -163,7 +163,6 @@ import java.util.concurrent.Executor;
             }
           }
         }
-        sequenceConsumers.removeAt(i);
       }
     }
     for (Integer sequenceIndex : pendingSequenceIndices) {
@@ -231,13 +230,14 @@ import java.util.concurrent.Executor;
               glExecutorService,
               /* wakeupListener= */ this::tryQueueToCompositingProcessor);
     } catch (RuntimeException | VideoFrameProcessingException e) {
-      errorConsumer.accept(VideoFrameProcessingException.from(e));
+      // Propagating the exception synchronously here ensures that synchronous callers catch the
+      // failure immediately to release pending resources.
       try {
         releaseFrames(retrieveAndClearPendingFrames());
       } catch (VideoFrameProcessingException | RuntimeException releaseException) {
-        // Suppress exceptions when releasing pending frames after a primary failure.
+        e.addSuppressed(releaseException);
       }
-      return;
+      throw new IllegalStateException(e);
     }
     if (queued) {
       for (int i = 0; i < sequenceConsumers.size(); i++) {

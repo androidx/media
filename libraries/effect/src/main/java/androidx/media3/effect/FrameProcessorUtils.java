@@ -273,7 +273,36 @@ import java.util.concurrent.ExecutorService;
    */
   public static void runAllAndAccumulateExceptions(ThrowingRunnable... actions)
       throws VideoFrameProcessingException {
-    VideoFrameProcessingException firstException = null;
+    @Nullable
+    VideoFrameProcessingException exception = runAllAndAccumulateExceptionInternal(actions);
+    if (exception != null) {
+      throw exception;
+    }
+  }
+
+  /**
+   * Executes multiple throwing actions sequentially, ensuring all are run even if some fail.
+   *
+   * <p>If multiple exceptions are thrown, they are accumulated using {@link
+   * Throwable#addSuppressed}.
+   *
+   * @param errorConsumer The {@link Consumer} to which the accumulated {@link
+   *     VideoFrameProcessingException} is routed.
+   * @param actions The throwing actions to execute.
+   */
+  public static void runAllAndAccumulateExceptions(
+      Consumer<VideoFrameProcessingException> errorConsumer, ThrowingRunnable... actions) {
+    @Nullable
+    VideoFrameProcessingException exception = runAllAndAccumulateExceptionInternal(actions);
+    if (exception != null) {
+      errorConsumer.accept(exception);
+    }
+  }
+
+  @Nullable
+  private static VideoFrameProcessingException runAllAndAccumulateExceptionInternal(
+      ThrowingRunnable... actions) {
+    @Nullable VideoFrameProcessingException firstException = null;
     for (ThrowingRunnable action : actions) {
       if (action == null) {
         continue;
@@ -289,9 +318,7 @@ import java.util.concurrent.ExecutorService;
         }
       }
     }
-    if (firstException != null) {
-      throw firstException;
-    }
+    return firstException;
   }
 
   private FrameProcessorUtils() {}
