@@ -1131,11 +1131,11 @@ public class DashManifestParserTest {
 
     assertThat(manifest.locations).hasSize(2);
     assertThat(manifest.locations.get(0).url)
-        .isEqualTo("https://example.com/location1/manifest.mpd");
+        .isEqualTo(Uri.parse("https://example.com/location1/manifest.mpd"));
     assertThat(manifest.locations.get(0).serviceLocation)
         .isEqualTo("https://example.com/location1/manifest.mpd");
     assertThat(manifest.locations.get(1).url)
-        .isEqualTo("https://example.com/location2/manifest.mpd");
+        .isEqualTo(Uri.parse("https://example.com/location2/manifest.mpd"));
     assertThat(manifest.locations.get(1).serviceLocation).isEqualTo("loc2");
     // Verify backward compatibility location field (points to the last location).
     assertThat(manifest.location)
@@ -1155,11 +1155,11 @@ public class DashManifestParserTest {
 
     assertThat(manifest.locations).hasSize(2);
     assertThat(manifest.locations.get(0).url)
-        .isEqualTo("https://example.com/location1/manifest.mpd");
+        .isEqualTo(Uri.parse("https://example.com/location1/manifest.mpd"));
     assertThat(manifest.locations.get(0).serviceLocation)
         .isEqualTo("https://example.com/location1/manifest.mpd");
     assertThat(manifest.locations.get(1).url)
-        .isEqualTo("https://example.com/location2/manifest.mpd");
+        .isEqualTo(Uri.parse("https://example.com/location2/manifest.mpd"));
     assertThat(manifest.locations.get(1).serviceLocation).isEqualTo("loc2");
     // Verify backward compatibility location field (points to the last location).
     assertThat(manifest.location)

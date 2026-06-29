@@ -253,7 +253,7 @@ public class DashManifestTest {
         UTC_TIMING,
         serviceDescription,
         Arrays.asList(periods),
-        ImmutableList.of(new Location(Uri.EMPTY.toString())));
+        ImmutableList.of(new Location(Uri.EMPTY)));
   }
 
   private static Period newPeriod(String id, int startMs, AdaptationSet... adaptationSets) {

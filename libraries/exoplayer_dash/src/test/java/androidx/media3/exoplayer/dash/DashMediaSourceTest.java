@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.dash;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 
 import android.net.Uri;
@@ -29,10 +30,13 @@ import androidx.media3.common.Timeline.Window;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.ByteArrayDataSource;
 import androidx.media3.datasource.DataSource;
+import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.datasource.FileDataSource;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
+import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
 import androidx.media3.test.utils.TestUtil;
 import androidx.media3.test.utils.robolectric.RobolectricUtil;
@@ -44,13 +48,37 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import okhttp3.HttpUrl;
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
+import okio.Buffer;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Unit test for {@link DashMediaSource}. */
 @RunWith(AndroidJUnit4.class)
 public final class DashMediaSourceTest {
+
+  private MockWebServer mockWebServer;
+  private int enqueueCounter;
+  private int assertedRequestCounter;
+
+  @Before
+  public void setUp() {
+    mockWebServer = new MockWebServer();
+    enqueueCounter = 0;
+    assertedRequestCounter = 0;
+  }
+
+  @After
+  public void tearDown() throws IOException {
+    assertThat(assertedRequestCounter).isEqualTo(enqueueCounter);
+    mockWebServer.shutdown();
+  }
 
   private static final String SAMPLE_MPD_LIVE_WITHOUT_LIVE_CONFIGURATION =
       "media/mpd/sample_mpd_live_without_live_configuration";
@@ -69,6 +97,10 @@ public final class DashMediaSourceTest {
       "media/mpd/sample_mpd_live_with_offset_too_short";
   private static final String SAMPLE_MPD_LIVE_WITH_OFFSET_TOO_LONG =
       "media/mpd/sample_mpd_live_with_offset_too_long";
+  private static final String SAMPLE_MPD_MULTIPLE_LOCATIONS_RELATIVE =
+      "media/mpd/sample_mpd_multiple_locations_relative";
+  private static final String SAMPLE_MPD_UPDATED_NO_LOCATIONS =
+      "media/mpd/sample_mpd_updated_no_locations";
 
   @Test
   public void iso8601ParserParse() throws IOException {
@@ -490,6 +522,360 @@ public final class DashMediaSourceTest {
   }
 
   @Test
+  public void prepare_locationsUpdatedAndCurrentLocationKept_staysOnCurrentLocation()
+      throws Exception {
+    DashMediaSource mediaSource =
+        new DashMediaSource.Factory(new DefaultHttpDataSource.Factory())
+            .createMediaSource(
+                MediaItem.fromUri(Uri.parse(mockWebServer.url("/manifest.mpd").toString())));
+    String manifestString =
+        new String(
+            TestUtil.getByteArray(
+                ApplicationProvider.getApplicationContext(),
+                SAMPLE_MPD_MULTIPLE_LOCATIONS_RELATIVE),
+            UTF_8);
+    byte[] initialManifest = manifestString.getBytes(UTF_8);
+    byte[] updatedManifest =
+        manifestString
+            .replace("location1/manifest.mpd", "../location1/manifest.mpd")
+            .replace("location2/manifest.mpd", "../location3/manifest.mpd")
+            .getBytes(UTF_8);
+    // We expect that the DashMediaSource stays sticky on the working location (location1) when it
+    // is still declared in the updated manifest.
+    List<HttpUrl> httpUrls =
+        enqueueWebServerResponses(
+            new String[] {"/manifest.mpd", "/location1/manifest.mpd", "/location1/manifest.mpd"},
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(initialManifest)),
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(updatedManifest)),
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(updatedManifest)));
+    List<Timeline> capturedTimelines = new ArrayList<>();
+
+    mediaSource.prepareSource(
+        (source, timeline) -> capturedTimelines.add(timeline),
+        PlayerId.UNSET,
+        BandwidthMeter.NO_OP);
+    RobolectricUtil.runMainLooperUntil(() -> capturedTimelines.size() == 3);
+
+    assertRequestUrlsCalled(httpUrls);
+  }
+
+  @Test
+  public void prepare_locationsUpdatedAndCurrentLocationRemoved_switchesToNewLocation()
+      throws Exception {
+    DashMediaSource mediaSource =
+        new DashMediaSource.Factory(new DefaultHttpDataSource.Factory())
+            .createMediaSource(
+                MediaItem.fromUri(Uri.parse(mockWebServer.url("/manifest.mpd").toString())));
+    String manifestString =
+        new String(
+            TestUtil.getByteArray(
+                ApplicationProvider.getApplicationContext(),
+                SAMPLE_MPD_MULTIPLE_LOCATIONS_RELATIVE),
+            UTF_8);
+    byte[] initialManifest = manifestString.getBytes(UTF_8);
+    byte[] updatedManifest =
+        manifestString
+            .replace("location1/manifest.mpd", "../location3/manifest.mpd")
+            .replace("location2/manifest.mpd", "../location4/manifest.mpd")
+            .getBytes(UTF_8);
+    // We expect that the DashMediaSource switches to the new location (location3) when the
+    // currently active location (location1) is removed from the updated manifest.
+    List<HttpUrl> httpUrls =
+        enqueueWebServerResponses(
+            new String[] {"/manifest.mpd", "/location1/manifest.mpd", "/location3/manifest.mpd"},
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(initialManifest)),
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(updatedManifest)),
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(updatedManifest)));
+    List<Timeline> capturedTimelines = new ArrayList<>();
+
+    mediaSource.prepareSource(
+        (source, timeline) -> capturedTimelines.add(timeline),
+        PlayerId.UNSET,
+        BandwidthMeter.NO_OP);
+    RobolectricUtil.runMainLooperUntil(() -> capturedTimelines.size() == 3);
+
+    assertRequestUrlsCalled(httpUrls);
+  }
+
+  @Test
+  public void prepare_locationsUpdatedAndAllNewLocationsExcluded_switchesToExcludedLocation()
+      throws Exception {
+    DashMediaSource mediaSource =
+        new DashMediaSource.Factory(new DefaultHttpDataSource.Factory())
+            .createMediaSource(
+                MediaItem.fromUri(Uri.parse(mockWebServer.url("/manifest.mpd").toString())));
+    String manifestString =
+        new String(
+            TestUtil.getByteArray(
+                ApplicationProvider.getApplicationContext(),
+                SAMPLE_MPD_MULTIPLE_LOCATIONS_RELATIVE),
+            UTF_8);
+    byte[] initialManifest = manifestString.getBytes(UTF_8);
+    // The updated manifest has only one location which is location1/manifest.mpd.
+    // Since this updated manifest is loaded from location2/manifest.mpd, we must use the relative
+    // path "../location1/manifest.mpd" to resolve it to /location1/manifest.mpd.
+    byte[] updatedManifest =
+        manifestString
+            .replace("location1/manifest.mpd", "../location1/manifest.mpd")
+            .replace("<Location serviceLocation=\"loc2\">location2/manifest.mpd</Location>", "")
+            .getBytes(UTF_8);
+    // We expect that the DashMediaSource switches to the new location (location1) when the
+    // currently active location (location2) is removed from the updated manifest.
+    List<HttpUrl> httpUrls =
+        enqueueWebServerResponses(
+            new String[] {
+              "/manifest.mpd",
+              "/location1/manifest.mpd",
+              "/location2/manifest.mpd",
+              "/location1/manifest.mpd"
+            },
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(initialManifest)),
+            new MockResponse().setResponseCode(500),
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(updatedManifest)),
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(updatedManifest)));
+    List<Timeline> capturedTimelines = new ArrayList<>();
+
+    mediaSource.prepareSource(
+        (source, timeline) -> capturedTimelines.add(timeline),
+        PlayerId.UNSET,
+        BandwidthMeter.NO_OP);
+    RobolectricUtil.runMainLooperUntil(() -> capturedTimelines.size() == 3);
+
+    assertRequestUrlsCalled(httpUrls);
+  }
+
+  @Test
+  public void prepare_manifestUpdatedViaRedirectionWithoutLocationElements_staysOnRedirectedUri()
+      throws Exception {
+    DashMediaSource mediaSource =
+        new DashMediaSource.Factory(new DefaultHttpDataSource.Factory())
+            .createMediaSource(
+                MediaItem.fromUri(Uri.parse(mockWebServer.url("/manifest.mpd").toString())));
+    byte[] manifest =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), SAMPLE_MPD_MULTIPLE_LOCATIONS_RELATIVE);
+    byte[] updatedManifest =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), SAMPLE_MPD_UPDATED_NO_LOCATIONS);
+    // We expect that the DashMediaSource stays on the redirected URI if the manifest
+    // contains no Location elements. And the redirected URI is the only location option that even
+    // there is load error, the DashMediaSource has no way to fallback but remains retrying.
+    List<HttpUrl> httpUrls =
+        enqueueWebServerResponses(
+            new String[] {
+              "/manifest.mpd",
+              "/location1/manifest.mpd",
+              "/redirected-location/manifest.mpd",
+              "/redirected-location/manifest.mpd",
+              "/redirected-location/manifest.mpd"
+            },
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(manifest)),
+            new MockResponse()
+                .setResponseCode(302)
+                .setHeader(
+                    "Location", mockWebServer.url("/redirected-location/manifest.mpd").toString()),
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(updatedManifest)),
+            new MockResponse().setResponseCode(500),
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(updatedManifest)));
+    List<Timeline> capturedTimelines = new ArrayList<>();
+
+    mediaSource.prepareSource(
+        (source, timeline) -> capturedTimelines.add(timeline),
+        PlayerId.UNSET,
+        BandwidthMeter.NO_OP);
+    RobolectricUtil.runMainLooperUntil(() -> capturedTimelines.size() == 3);
+
+    assertRequestUrlsCalled(httpUrls);
+  }
+
+  @Test
+  public void prepare_manifestUpdatedNotViaRedirectionAndNoLocationElements_staysOnOriginalUri()
+      throws Exception {
+    DashMediaSource mediaSource =
+        new DashMediaSource.Factory(new DefaultHttpDataSource.Factory())
+            .createMediaSource(
+                MediaItem.fromUri(Uri.parse(mockWebServer.url("/manifest.mpd").toString())));
+    byte[] manifest =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), SAMPLE_MPD_MULTIPLE_LOCATIONS_RELATIVE);
+    byte[] updatedManifest =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), SAMPLE_MPD_UPDATED_NO_LOCATIONS);
+    // We expect that the DashMediaSource stays on the original requested URI if the manifest
+    // contains no Location elements. And the original URI is the only location option that even
+    // there is load error, the DashMediaSource has no way to fallback but remains retrying.
+    List<HttpUrl> httpUrls =
+        enqueueWebServerResponses(
+            new String[] {
+              "/manifest.mpd",
+              "/location1/manifest.mpd",
+              "/location1/manifest.mpd",
+              "/location1/manifest.mpd"
+            },
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(manifest)),
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(updatedManifest)),
+            new MockResponse().setResponseCode(500),
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(updatedManifest)));
+    List<Timeline> capturedTimelines = new ArrayList<>();
+
+    mediaSource.prepareSource(
+        (source, timeline) -> capturedTimelines.add(timeline),
+        PlayerId.UNSET,
+        BandwidthMeter.NO_OP);
+    RobolectricUtil.runMainLooperUntil(() -> capturedTimelines.size() == 3);
+
+    assertRequestUrlsCalled(httpUrls);
+  }
+
+  @Test
+  public void prepare_replaceManifestUriCalledDuringLoading_refreshesFromReplacedUriOnly()
+      throws Exception {
+    DashMediaSource mediaSource =
+        new DashMediaSource.Factory(new DefaultHttpDataSource.Factory())
+            .createMediaSource(
+                MediaItem.fromUri(Uri.parse(mockWebServer.url("/manifest.mpd").toString())));
+    byte[] manifest =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), SAMPLE_MPD_MULTIPLE_LOCATIONS_RELATIVE);
+    // We expect that when the manifest URI is explicitly replaced during an active load (before
+    // loading completes), the completed load does not overwrite the manually set URI, and the
+    // manually set URI is the only location option, that even there is load error, the
+    // DashMediaSource has no way to fallback but remains retrying.
+    List<HttpUrl> httpUrls =
+        enqueueWebServerResponses(
+            new String[] {"/manifest.mpd", "/replaced/manifest.mpd", "/replaced/manifest.mpd"},
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(manifest)),
+            new MockResponse().setResponseCode(500),
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(manifest)));
+    List<Timeline> capturedTimelines = new ArrayList<>();
+
+    mediaSource.prepareSource(
+        (source, timeline) -> capturedTimelines.add(timeline),
+        PlayerId.UNSET,
+        BandwidthMeter.NO_OP);
+    // Call replaceManifestUri immediately after starting preparation (while load is active).
+    mediaSource.replaceManifestUri(
+        Uri.parse(mockWebServer.url("/replaced/manifest.mpd").toString()));
+    RobolectricUtil.runMainLooperUntil(() -> capturedTimelines.size() == 2);
+
+    assertRequestUrlsCalled(httpUrls);
+  }
+
+  @Test
+  public void prepare_manifestLoadFailedWithAnotherLocationAvailable_fallsbackToAvailableLocation()
+      throws Exception {
+    byte[] manifest =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), SAMPLE_MPD_MULTIPLE_LOCATIONS_RELATIVE);
+    // We expect that the DashMediaSource falls back to the next available location in
+    // the manifest when the first manifest load attempt fails.
+    List<HttpUrl> httpUrls =
+        enqueueWebServerResponses(
+            new String[] {"/manifest.mpd", "/location1/manifest.mpd", "/location2/manifest.mpd"},
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(manifest)),
+            new MockResponse().setResponseCode(500),
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(manifest)));
+    DashMediaSource mediaSource =
+        new DashMediaSource.Factory(new DefaultHttpDataSource.Factory())
+            .createMediaSource(
+                MediaItem.fromUri(Uri.parse(mockWebServer.url("/manifest.mpd").toString())));
+    List<Timeline> capturedTimelines = new ArrayList<>();
+
+    mediaSource.prepareSource(
+        (source, timeline) -> capturedTimelines.add(timeline),
+        PlayerId.UNSET,
+        BandwidthMeter.NO_OP);
+    RobolectricUtil.runMainLooperUntil(() -> capturedTimelines.size() == 2);
+
+    assertRequestUrlsCalled(httpUrls);
+  }
+
+  @Test
+  public void
+      prepare_manifestLoadFallbackWithDefaultPolicyAndAllLocationsExcluded_doesNotFallbackButRetries()
+          throws Exception {
+    byte[] manifest =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), SAMPLE_MPD_MULTIPLE_LOCATIONS_RELATIVE);
+    // We expect that the DashMediaSource does not exclude the last remaining location but retries
+    // loading from it when the DefaultLoadErrorHandlingPolicy is used and all other locations
+    // are excluded.
+    List<HttpUrl> httpUrls =
+        enqueueWebServerResponses(
+            new String[] {
+              "/manifest.mpd",
+              "/location1/manifest.mpd",
+              "/location2/manifest.mpd",
+              "/location2/manifest.mpd"
+            },
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(manifest)),
+            new MockResponse().setResponseCode(500),
+            new MockResponse().setResponseCode(500),
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(manifest)));
+    DashMediaSource mediaSource =
+        new DashMediaSource.Factory(new DefaultHttpDataSource.Factory())
+            .createMediaSource(
+                MediaItem.fromUri(Uri.parse(mockWebServer.url("/manifest.mpd").toString())));
+    List<Timeline> capturedTimelines = new ArrayList<>();
+
+    mediaSource.prepareSource(
+        (source, timeline) -> capturedTimelines.add(timeline),
+        PlayerId.UNSET,
+        BandwidthMeter.NO_OP);
+    RobolectricUtil.runMainLooperUntil(() -> capturedTimelines.size() == 2);
+
+    assertRequestUrlsCalled(httpUrls);
+  }
+
+  @Test
+  public void
+      prepare_manifestLoadFailedWithCustomPolicyAndAllLocationsExcluded_fallsbackToEarliestExclusionExpiringLocation()
+          throws Exception {
+    byte[] manifest =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), SAMPLE_MPD_MULTIPLE_LOCATIONS_RELATIVE);
+    // We expect that the DashMediaSource falls back to the location whose exclusion duration
+    // expires earliest when a custom LoadErrorHandlingPolicy allows excluding all locations.
+    List<HttpUrl> httpUrls =
+        enqueueWebServerResponses(
+            new String[] {
+              "/manifest.mpd",
+              "/location1/manifest.mpd",
+              "/location2/manifest.mpd",
+              "/location1/manifest.mpd"
+            },
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(manifest)),
+            new MockResponse().setResponseCode(500),
+            new MockResponse().setResponseCode(500),
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(manifest)));
+    AtomicInteger getFallbackSelectionCount = new AtomicInteger(0);
+    LoadErrorHandlingPolicy customPolicy =
+        new DefaultLoadErrorHandlingPolicy() {
+          @Override
+          public FallbackSelection getFallbackSelectionFor(
+              FallbackOptions fallbackOptions, LoadErrorInfo loadErrorInfo) {
+            int count = getFallbackSelectionCount.incrementAndGet();
+            long exclusionDurationMs = count == 1 ? 5000 : 10000;
+            return new FallbackSelection(FALLBACK_TYPE_LOCATION, exclusionDurationMs);
+          }
+        };
+    DashMediaSource mediaSource =
+        new DashMediaSource.Factory(new DefaultHttpDataSource.Factory())
+            .setLoadErrorHandlingPolicy(customPolicy)
+            .createMediaSource(
+                MediaItem.fromUri(Uri.parse(mockWebServer.url("/manifest.mpd").toString())));
+    List<Timeline> capturedTimelines = new ArrayList<>();
+
+    mediaSource.prepareSource(
+        (source, timeline) -> capturedTimelines.add(timeline),
+        PlayerId.UNSET,
+        BandwidthMeter.NO_OP);
+    RobolectricUtil.runMainLooperUntil(() -> capturedTimelines.size() == 2);
+
+    assertRequestUrlsCalled(httpUrls);
+  }
+
+  @Test
   public void canUpdateMediaItem_withIrrelevantFieldsChanged_returnsTrue() {
     MediaItem initialMediaItem =
         new MediaItem.Builder()
@@ -673,5 +1059,25 @@ public final class DashMediaSourceTest {
       long expected, ParsingLoadable.Parser<Long> parser, String data) throws IOException {
     long actual = parser.parse(null, new ByteArrayInputStream(Util.getUtf8Bytes(data)));
     assertThat(actual).isEqualTo(expected);
+  }
+
+  private List<HttpUrl> enqueueWebServerResponses(String[] paths, MockResponse... mockResponses) {
+    assertThat(paths).hasLength(mockResponses.length);
+    for (MockResponse mockResponse : mockResponses) {
+      enqueueCounter++;
+      mockWebServer.enqueue(mockResponse);
+    }
+    List<HttpUrl> urls = new ArrayList<>();
+    for (String path : paths) {
+      urls.add(mockWebServer.url(path));
+    }
+    return urls;
+  }
+
+  private void assertRequestUrlsCalled(List<HttpUrl> httpUrls) throws InterruptedException {
+    for (HttpUrl url : httpUrls) {
+      assertedRequestCounter++;
+      assertThat(url.toString()).endsWith(mockWebServer.takeRequest().getPath());
+    }
   }
 }

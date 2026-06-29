@@ -187,8 +187,8 @@ public class DashManifestParser extends DefaultHandler
         utcTiming = parseUtcTiming(xpp);
       } else if (XmlPullParserUtil.isStartTag(xpp, "Location")) {
         String serviceLocation = xpp.getAttributeValue(null, "serviceLocation");
-        String locationUrl = xpp.nextText();
-        String resolvedUrl = UriUtil.resolve(documentBaseUriString, locationUrl);
+        String locationUrlString = xpp.nextText();
+        Uri resolvedUrl = Uri.parse(UriUtil.resolve(documentBaseUriString, locationUrlString));
         locations.add(
             serviceLocation != null
                 ? new Location(resolvedUrl, serviceLocation)
@@ -289,9 +289,7 @@ public class DashManifestParser extends DefaultHandler
         utcTiming,
         serviceDescription,
         periods,
-        location == null
-            ? ImmutableList.of()
-            : ImmutableList.of(new Location(location.toString())));
+        location == null ? ImmutableList.of() : ImmutableList.of(new Location(location)));
   }
 
   protected DashManifest buildMediaPresentationDescription(

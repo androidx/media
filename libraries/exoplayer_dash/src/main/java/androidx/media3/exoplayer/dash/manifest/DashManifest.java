@@ -132,9 +132,7 @@ public class DashManifest implements FilterableManifest<DashManifest> {
         utcTiming,
         serviceDescription,
         periods,
-        location == null
-            ? ImmutableList.of()
-            : ImmutableList.of(new Location(location.toString())));
+        location == null ? ImmutableList.of() : ImmutableList.of(new Location(location)));
   }
 
   public DashManifest(
@@ -164,8 +162,7 @@ public class DashManifest implements FilterableManifest<DashManifest> {
     this.serviceDescription = serviceDescription;
     this.periods = periods == null ? Collections.emptyList() : periods;
     this.locations = locations == null ? ImmutableList.of() : ImmutableList.copyOf(locations);
-    this.location =
-        locations == null || locations.isEmpty() ? null : Uri.parse(getLast(locations).url);
+    this.location = locations == null || locations.isEmpty() ? null : getLast(locations).url;
   }
 
   public final int getPeriodCount() {

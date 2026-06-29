@@ -53,6 +53,9 @@
         `Format.selectionPriority`
         ([#3236](https://github.com/androidx/media/pull/3236)).
 *   DASH extension:
+    *   Add support for parsing multiple `Location` elements from the manifest
+        (MPD) and performing location fallback in `DashMediaSource` when
+        manifest loads fail.
 *   Smooth Streaming extension:
 *   RTSP extension:
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):

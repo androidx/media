@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.dash.manifest;
 
+import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import java.util.Objects;
@@ -24,7 +25,7 @@ import java.util.Objects;
 public final class Location {
 
   /** The URL. */
-  public final String url;
+  public final Uri url;
 
   /** The service location. */
   public final String serviceLocation;
@@ -32,19 +33,19 @@ public final class Location {
   /**
    * Creates an instance using the URL as the service location.
    *
-   * @param url The URL.
+   * @param url The {@link Uri}.
    */
-  public Location(String url) {
-    this(url, /* serviceLocation= */ url);
+  public Location(Uri url) {
+    this(url, /* serviceLocation= */ url.toString());
   }
 
   /**
    * Creates an instance.
    *
-   * @param url The URL.
+   * @param url The {@link Uri}.
    * @param serviceLocation The service location.
    */
-  public Location(String url, String serviceLocation) {
+  public Location(Uri url, String serviceLocation) {
     this.url = url;
     this.serviceLocation = serviceLocation;
   }
