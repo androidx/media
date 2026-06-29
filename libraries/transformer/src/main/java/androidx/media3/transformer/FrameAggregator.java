@@ -44,14 +44,17 @@ import java.util.Queue;
   /**
    * Creates a new {@link FrameAggregator}.
    *
+   * @param numSequences The number of sequences.
    * @param downstreamConsumer Receives the aggregated {@linkplain
    *     ImmutableList<HardwareBufferFrame> frames}.
    * @param onFlush Callback triggered when {@link #flush(int)} is called.
+   * @throws IllegalArgumentException If {@code numSequences} is less than 1.
    */
   public FrameAggregator(
       int numSequences,
       Consumer<ImmutableList<HardwareBufferFrame>> downstreamConsumer,
       Consumer<Integer> onFlush) {
+    checkArgument(numSequences > 0, "numSequences must be at least 1.");
     this.numSequences = numSequences;
     this.downstreamConsumer = downstreamConsumer;
     this.onFlush = onFlush;
@@ -66,6 +69,9 @@ import java.util.Queue;
    * whether it should be considered when aggregating frames.
    *
    * <p>All sequences must be registered before frames are queued.
+   *
+   * @throws IllegalArgumentException If {@code sequenceIndex} is negative or greater than or equal
+   *     to the number of sequences.
    */
   public void registerSequence(int sequenceIndex, boolean shouldAggregate) {
     checkArgument(sequenceIndex >= 0);
@@ -83,8 +89,8 @@ import java.util.Queue;
    *
    * @param frame The {@link HardwareBufferFrame} to queue.
    * @param sequenceIndex The index of the sequence the queued {@link HardwareBufferFrame} is from.
-   * @throws IllegalArgumentException If {@code sequenceIndex} is non-positive or greater than or
-   *     equal to {@link #numSequences}.
+   * @throws IllegalArgumentException If {@code sequenceIndex} is negative or greater than or equal
+   *     to the number of sequences.
    */
   public void queueFrame(HardwareBufferFrame frame, int sequenceIndex) {
     checkArgument(sequenceIndex >= 0);
@@ -106,8 +112,8 @@ import java.util.Queue;
    * <p>Once called, {@link #flush} the sequenceIndex to reset the ended state.
    *
    * @param sequenceIndex The index of the sequence that has ended.
-   * @throws IllegalArgumentException If {@code sequenceIndex} is non-positive or greater than or
-   *     equal to {@link #numSequences}.
+   * @throws IllegalArgumentException If {@code sequenceIndex} is negative or greater than or equal
+   *     to the number of sequences.
    */
   public void queueEndOfStream(int sequenceIndex) {
     checkArgument(sequenceIndex >= 0);
@@ -124,8 +130,8 @@ import java.util.Queue;
    * Removes all frames from the given sequence.
    *
    * @param sequenceIndex The index of the sequence to flush.
-   * @throws IllegalArgumentException If {@code sequenceIndex} is non-positive or greater than or
-   *     equal to {@link #numSequences}.
+   * @throws IllegalArgumentException If {@code sequenceIndex} is negative or greater than or equal
+   *     to the number of sequences.
    */
   public void flush(int sequenceIndex) {
     checkArgument(sequenceIndex >= 0);

@@ -49,6 +49,28 @@ public class FrameAggregatorTest {
   }
 
   @Test
+  public void constructor_withZeroSequences_throwsIllegalArgumentException() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            new FrameAggregator(
+                /* numSequences= */ 0,
+                /* downstreamConsumer= */ outputFrames::add,
+                /* onFlush= */ flushedSequences::add));
+  }
+
+  @Test
+  public void constructor_withNegativeNumSequences_throwsIllegalArgumentException() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            new FrameAggregator(
+                /* numSequences= */ -1,
+                /* downstreamConsumer= */ outputFrames::add,
+                /* onFlush= */ flushedSequences::add));
+  }
+
+  @Test
   public void queueFrame_withInvalidSequenceIndex_throwsIllegalArgumentException() {
     FrameAggregator frameAggregator =
         new FrameAggregator(
