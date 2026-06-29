@@ -215,7 +215,7 @@ private val mediaRouteButtonIcon: @Composable MediaRouterState.() -> Unit =
 /**
  * Returns the theme to be used for the media route dialogs.
  *
- * If the app theme defines a [colorPrimary], this method returns 0 to use the app's theme.
+ * If the app theme defines a `colorPrimary`, this method returns 0 to use the app's theme.
  * Otherwise, it returns [R.style.AppThemeDialog] as a fallback to ensure the dialogs are styled
  * correctly and to avoid crashes due to missing or translucent attributes.
  */
