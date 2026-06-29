@@ -20,6 +20,7 @@ import static androidx.media3.common.Player.STATE_ENDED;
 import static androidx.media3.common.Player.STATE_IDLE;
 import static androidx.media3.common.Player.STATE_READY;
 import static androidx.media3.common.util.Util.usToMs;
+import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_FRAME_DISCONTINUITY_NUMBER;
 import static androidx.media3.test.utils.AssetInfo.JPG_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_12_5FPS;
 import static androidx.media3.test.utils.AssetInfo.MP4_15FPS;
@@ -56,6 +57,7 @@ import static org.mockito.Mockito.verify;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
+import android.hardware.HardwareBuffer;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
@@ -79,6 +81,7 @@ import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.FrameWriter;
+import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.AlphaScale;
 import androidx.media3.effect.DebugTraceUtil;
@@ -2794,6 +2797,51 @@ public class CompositionPlayerTest {
     assertThat(queuedContentTimes.get(1).get(0)).isEqualTo(firstFrameTimeSeq0);
     assertThat(queuedContentTimes.get(1).get(1)).isEqualTo(firstFrameTimeSeq1);
     assertThat(queuedContentTimes.get(1).get(2)).isEqualTo(firstFrameTimeSeq2);
+  }
+
+  @Test
+  public void seek_doesNotCloseInFlightHardwareBuffer() throws Exception {
+    FakeFrameProcessor.Factory fakeFrameProcessorFactory =
+        new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ false);
+    player = createTestHardwareBufferCompositionPlayerBuilder(fakeFrameProcessorFactory).build();
+
+    player.setComposition(
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+                            .build())))
+            .build());
+    player.prepare();
+
+    // Advance to READY. The first frame should be queued but not completed.
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = fakeFrameProcessorFactory.createdProcessor;
+    ImmutableList<FakeFrameProcessor.Event> events = frameProcessor.getQueuedEvents();
+    FakeFrameProcessor.FramesEvent framesEvent = (FakeFrameProcessor.FramesEvent) events.get(0);
+    AsyncFrame preSeekFrame = framesEvent.frames.get(0);
+
+    assertThat(preSeekFrame.frame).isInstanceOf(HardwareBufferFrame.class);
+    HardwareBufferFrame commonFrame = (HardwareBufferFrame) preSeekFrame.frame;
+    HardwareBuffer preSeekBuffer = commonFrame.getHardwareBuffer();
+    assertThat(preSeekBuffer.isClosed()).isFalse();
+
+    // Trigger seek to flush the player.
+    player.seekTo(1000); // Seek to 1s
+
+    // Advance player to handle seek.
+    advance(player).untilState(STATE_READY);
+
+    AsyncFrame postSeekFrame = frameProcessor.lastFrames.get(0);
+    assertThat((int) postSeekFrame.frame.getMetadata().get(KEY_FRAME_DISCONTINUITY_NUMBER))
+        .isGreaterThan((int) preSeekFrame.frame.getMetadata().get(KEY_FRAME_DISCONTINUITY_NUMBER));
+
+    // Verify that the pre-seek buffer is still NOT closed because we haven't released it.
+    assertThat(preSeekBuffer.isClosed()).isFalse();
+    // TODO: b/518679527 - Implemnet FakeFrameProcessor.close and close the underlying
+    // HardwareBuffer instances.
   }
 
   private static EditedMediaItem getImageItem() {

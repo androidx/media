@@ -235,13 +235,18 @@ import java.util.Map;
   /**
    * {@linkplain HardwareBufferFrame#release Releases} all frames that have not been sent
    * downstream, and {@link VideoFrameReleaseControl#reset() resets} the release control.
+   *
+   * <p>This method does not release the frames in {@link #inFlightFrames} which have been sent
+   * downstream. The {@link #downstreamFrameProcessor} is responsible for releasing in flight
+   * frames.
    */
   private void reset() {
     @Nullable ImmutableList<HardwareBufferFrame> packet;
     while ((packet = packetQueue.poll()) != null) {
       releasePacket(packet);
     }
-    releaseRetainedFrames();
+    releasePacket(lastQueuedPacket);
+    lastQueuedPacket = null;
     videoFrameReleaseControl.reset();
     isEnded = false;
   }

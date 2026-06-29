@@ -47,6 +47,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -65,7 +66,7 @@ public class CompositionVideoPacketReleaseControlTest {
   private FakeFrameTimingEvaluator fakeFrameTimingEvaluator;
   private FakeClock fakeClock;
   private FakeFrameProcessor frameProcessor;
-  private Set<Long> releasedFrameTimestamps;
+  private List<Long> releasedFrameTimestamps;
   private HardwareBuffer placeholderBuffer;
   // The first packet is required to be sent to the CompositionVideoPacketReleaseControl to
   // initialize the VideoFrameReleaseControl so subsequent behaviour can be tested.
@@ -74,7 +75,7 @@ public class CompositionVideoPacketReleaseControlTest {
   @Before
   public void setUp() {
     Context context = ApplicationProvider.getApplicationContext();
-    releasedFrameTimestamps = new HashSet<>();
+    releasedFrameTimestamps = new ArrayList<>();
     placeholderBuffer =
         HardwareBuffer.create(
             /* width= */ 16,
@@ -279,6 +280,12 @@ public class CompositionVideoPacketReleaseControlTest {
 
     assertOutputEvents(
         /* ignoreReleaseTime= */ true, toFramesEvent(packet1), toFramesEvent(packet2));
+    // packet1 is not released yet because it is in-flight.
+    assertThat(releasedFrameTimestamps).isEmpty();
+
+    // Complete packet1
+    AsyncFrame asyncFrame1 = getFirstQueuedFrameInPacket(0);
+    compositionVideoPacketReleaseControl.onFrameProcessed(asyncFrame1.frame, null);
     assertThat(releasedFrameTimestamps).containsExactly(100_000L);
   }
 
@@ -392,11 +399,24 @@ public class CompositionVideoPacketReleaseControlTest {
     compositionVideoPacketReleaseControl.flush(/* sequenceIndex= */ 0);
 
     assertThat(videoFrameReleaseControl.isReady(/* otherwiseReady= */ true)).isFalse();
+    // Only packet1 and packet2 (which were in queue) are released.
+    // firstPacket (in-flight) is NOT released.
+    assertThat(releasedFrameTimestamps)
+        .containsExactly(packet1.get(0).presentationTimeUs, packet2.get(0).presentationTimeUs)
+        .inOrder();
+
+    // Now complete the in-flight frame.
+    AsyncFrame asyncFrame = getFirstQueuedFrameInPacket(0);
+    compositionVideoPacketReleaseControl.onFrameProcessed(
+        asyncFrame.frame, /* releaseFence= */ null);
+
+    // Now it should be released.
     assertThat(releasedFrameTimestamps)
         .containsExactly(
-            firstPacket.get(0).presentationTimeUs,
             packet1.get(0).presentationTimeUs,
-            packet2.get(0).presentationTimeUs);
+            packet2.get(0).presentationTimeUs,
+            firstPacket.get(0).presentationTimeUs)
+        .inOrder();
   }
 
   @Test
@@ -735,7 +755,7 @@ public class CompositionVideoPacketReleaseControlTest {
   }
 
   @Test
-  public void onFrameProcessed_afterFlushingTheSameFrame_ignoresFrame() throws Exception {
+  public void onFrameProcessed_afterFlush_releasesFrame() throws Exception {
     compositionVideoPacketReleaseControl.onStarted();
     ImmutableList<HardwareBufferFrame> packet =
         createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
@@ -747,10 +767,14 @@ public class CompositionVideoPacketReleaseControlTest {
 
     AsyncFrame asyncFrame = frameProcessor.lastFrames.get(0);
     compositionVideoPacketReleaseControl.flush(/* sequenceIndex= */ 0);
-    assertThat(releasedFrameTimestamps).containsExactly(100_000L);
-    // Release the frame, which is already flushed
+    // Not released yet.
+    assertThat(releasedFrameTimestamps).isEmpty();
+
+    // Release the frame after flush.
     compositionVideoPacketReleaseControl.onFrameProcessed(
         asyncFrame.frame, /* releaseFence= */ null);
+    // Now it is released.
+    assertThat(releasedFrameTimestamps).containsExactly(100_000L);
   }
 
   private ImmutableList<HardwareBufferFrame> createPacket(
