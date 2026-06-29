@@ -46,13 +46,13 @@ public final class ParsableByteArrayTest {
   @TestParameter private boolean enforceLimit;
 
   @Before
-  public void enableParsableByteArrayLimitEnforcement() {
+  public void overrideLimitEnforcement() {
     ParsableByteArray.setShouldEnforceLimitOnLegacyMethods(enforceLimit);
   }
 
   @After
-  public void disableParsableByteArrayLimitEnforcement() {
-    ParsableByteArray.setShouldEnforceLimitOnLegacyMethods(false);
+  public void resetLimitEnforcement() {
+    ParsableByteArray.setShouldEnforceLimitOnLegacyMethods(null);
   }
 
   private static final byte[] TEST_DATA =

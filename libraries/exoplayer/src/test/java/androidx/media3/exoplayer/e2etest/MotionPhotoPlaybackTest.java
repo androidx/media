@@ -20,7 +20,6 @@ import android.graphics.SurfaceTexture;
 import android.view.Surface;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
-import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
@@ -31,8 +30,6 @@ import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
@@ -42,16 +39,6 @@ import org.robolectric.ParameterizedRobolectricTestRunner;
 /** End-to-end tests for playing the video embedded in motion photos. */
 @RunWith(ParameterizedRobolectricTestRunner.class)
 public class MotionPhotoPlaybackTest {
-
-  @BeforeClass
-  public static void enableParsableByteArrayLimitEnforcement() {
-    ParsableByteArray.setShouldEnforceLimitOnLegacyMethods(true);
-  }
-
-  @AfterClass
-  public static void disableParsableByteArrayLimitEnforcement() {
-    ParsableByteArray.setShouldEnforceLimitOnLegacyMethods(false);
-  }
 
   @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
   public static ImmutableList<String> mediaSamples() {

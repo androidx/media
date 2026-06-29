@@ -19,8 +19,11 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 
+import android.app.ActivityManager;
+import android.os.Build;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
+import com.google.common.base.Ascii;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Chars;
@@ -33,7 +36,7 @@ import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Wraps a byte array, providing a set of methods for parsing data from it. Numerical values are
@@ -57,7 +60,12 @@ public final class ParsableByteArray {
           StandardCharsets.UTF_16LE);
 
   // TODO: b/147657250 - Flip this to true
-  private static final AtomicBoolean shouldEnforceLimitOnLegacyMethods = new AtomicBoolean();
+  private static final AtomicReference<@NullableType Boolean> shouldEnforceLimitOnLegacyMethods =
+      new AtomicReference<>();
+
+  private static class IsRunningInTestHolder {
+    static final boolean IS_RUNNING_IN_TEST = isRunningInTest();
+  }
 
   private byte[] data;
   private int position;
@@ -779,16 +787,17 @@ public final class ParsableByteArray {
    * Sets whether all read/peek methods should enforce that {@link #getPosition()} never exceeds
    * {@link #limit()}.
    *
-   * <p>Setting this to {@code true} in tests can help catch cases of accidentally reading beyond
-   * {@link #limit()} but still within the bounds of the underlying {@link #getData()}.
+   * <p>Setting this to {@code true} can help catch cases of accidentally reading beyond {@link
+   * #limit()} but still within the bounds of the underlying {@link #getData()}.
    *
    * <p>Some (newer) methods will always enforce the invariant, even when this is set to {@code
    * false}.
    *
-   * <p>Defaults to false (this may change in a later release).
+   * <p>Defaults to {@code null}, which means a default value is used (which may change in a later
+   * release).
    */
   @VisibleForTesting
-  public static void setShouldEnforceLimitOnLegacyMethods(boolean enforceLimit) {
+  public static void setShouldEnforceLimitOnLegacyMethods(@Nullable Boolean enforceLimit) {
     ParsableByteArray.shouldEnforceLimitOnLegacyMethods.set(enforceLimit);
   }
 
@@ -979,7 +988,9 @@ public final class ParsableByteArray {
 
   private void maybeAssertAtLeastBytesLeftForLegacyMethod(
       int bytesNeeded, Function<String, ? extends RuntimeException> exceptionFactory) {
-    if (shouldEnforceLimitOnLegacyMethods.get()) {
+    Boolean override = shouldEnforceLimitOnLegacyMethods.get();
+    boolean enforceLimit = override != null ? override : IsRunningInTestHolder.IS_RUNNING_IN_TEST;
+    if (enforceLimit) {
       if (bytesLeft() < bytesNeeded) {
         throw exceptionFactory.apply("bytesNeeded= " + bytesNeeded + ", bytesLeft=" + bytesLeft());
       }
@@ -996,5 +1007,18 @@ public final class ParsableByteArray {
         UnsignedBytes.checkedCast(((b1 & 0x7) << 2) | (b2 & 0b0011_0000) >> 4),
         UnsignedBytes.checkedCast(((byte) b2 & 0xF) << 4 | ((byte) b3 & 0b0011_1100) >> 2),
         UnsignedBytes.checkedCast(((byte) b3 & 0x3) << 6 | ((byte) b4 & 0x3F)));
+  }
+
+  private static boolean isRunningInTest() {
+    if (Ascii.equalsIgnoreCase("robolectric", Build.FINGERPRINT)) {
+      return true;
+    }
+    @Nullable ClassLoader loader = ParsableByteArray.class.getClassLoader();
+    return (loader != null
+            && (loader.getResource("androidx/test/espresso/Espresso.class") != null
+                || loader.getResource("org/junit/runner/Runner.class") != null
+                || loader.getResource("androidx/test/platform/app/InstrumentationRegistry.class")
+                    != null))
+        || ActivityManager.isRunningInTestHarness();
   }
 }
