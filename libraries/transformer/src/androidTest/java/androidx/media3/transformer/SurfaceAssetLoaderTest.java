@@ -185,8 +185,8 @@ public class SurfaceAssetLoaderTest {
       for (int i = 0; i < inputFrameCount; i++) {
         Image image = imageWriter.dequeueInputImage();
 
-        // Add a large base offset in nanoseconds.
-        image.setTimestamp(3_020_642_044_930_642L + i * C.NANOS_PER_SECOND / 30);
+        // Add a large base offset in nanoseconds. But within the range of int in milliseconds.
+        image.setTimestamp(2_020_642_044_930_642L + i * C.NANOS_PER_SECOND / 30);
         BitmapPixelTestUtil.copyRbga8888BitmapToImage(bitmap, image);
         readyForInputCondition.close();
         imageWriter.queueInputImage(image);
