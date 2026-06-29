@@ -60,7 +60,6 @@ public final class FixedFrameRateEstimator {
   private Matcher currentMatcher;
   private Matcher candidateMatcher;
   private boolean candidateMatcherActive;
-  private boolean switchToCandidateMatcherWhenSynced;
   private long lastFramePresentationTimeNs;
   private int framesWithoutSyncCount;
   private float formatFrameRate;
@@ -142,7 +141,7 @@ public final class FixedFrameRateEstimator {
     }
     frameIndex++;
     currentMatcher.onNextFrame(framePresentationTimeNs);
-    if (currentMatcher.isSynced() && !switchToCandidateMatcherWhenSynced) {
+    if (currentMatcher.isSynced()) {
       candidateMatcherActive = false;
     } else if (lastFramePresentationTimeNs != C.TIME_UNSET) {
       if (!candidateMatcherActive || candidateMatcher.isLastFrameOutlier()) {
@@ -161,7 +160,6 @@ public final class FixedFrameRateEstimator {
       currentMatcher = candidateMatcher;
       candidateMatcher = previousMatcher;
       candidateMatcherActive = false;
-      switchToCandidateMatcherWhenSynced = false;
     }
     lastFramePresentationTimeNs = framePresentationTimeNs;
     framesWithoutSyncCount = currentMatcher.isSynced() ? 0 : framesWithoutSyncCount + 1;
