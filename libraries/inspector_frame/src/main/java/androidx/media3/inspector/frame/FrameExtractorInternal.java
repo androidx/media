@@ -453,6 +453,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   mediaSourceFactoryToUse)
               .setLoadControl(loadControl)
               .setLooper(playerHandler.getLooper())
+              .setPriority(C.PRIORITY_PROCESSING_FOREGROUND)
               .build();
       player.addAnalyticsListener(new PlayerListener(this));
       player.setPlayWhenReady(false);
