@@ -237,7 +237,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   private @MonotonicNonNull CodecMaxValues codecMaxValues;
   private boolean codecNeedsSetOutputSurfaceWorkaround;
+  private boolean codecNeedsStripNonHdr10PlusT35Workaround;
   private boolean codecHandlesHdr10PlusOutOfBandMetadata;
+  private boolean isApplyingContainerHagcMetadata;
   private @MonotonicNonNull VideoSink videoSink;
   private boolean hasSetVideoSink;
   private @VideoSink.FirstFrameReleaseInstruction int nextVideoSinkFirstFrameReleaseInstruction;
@@ -1220,6 +1222,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       hasSetVideoSink = false;
       startPositionUs = C.TIME_UNSET;
       nextOutputBufferToProcessPresentationTimeUs = C.TIME_UNSET;
+      isApplyingContainerHagcMetadata = false;
       releasePlaceholderSurface();
     }
   }
@@ -1689,6 +1692,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     codecNeedsSetOutputSurfaceWorkaround = codecNeedsSetOutputSurfaceWorkaround(name);
     codecHandlesHdr10PlusOutOfBandMetadata =
         checkNotNull(getCodecInfo()).isHdr10PlusOutOfBandMetadataSupported();
+    codecNeedsStripNonHdr10PlusT35Workaround =
+        SDK_INT < 37 && checkNotNull(getCodecInfo()).mimeType.equals(MimeTypes.VIDEO_AV1);
     maybeSetupTunnelingForFirstFrame();
   }
 
@@ -1748,6 +1753,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   protected DecoderReuseEvaluation onInputFormatChanged(FormatHolder formatHolder)
       throws ExoPlaybackException {
     @Nullable DecoderReuseEvaluation evaluation = super.onInputFormatChanged(formatHolder);
+    isApplyingContainerHagcMetadata = false;
     eventDispatcher.inputFormatChanged(checkNotNull(formatHolder.format), evaluation);
     if (videoFrameReleaseEarlyTimeForecaster != null) {
       // A change in input format is likely to affect decoding speed, making predictions from
@@ -1770,12 +1776,17 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (checkNotNull(getCodecInfo()).mimeType.equals(MimeTypes.VIDEO_AV1) && buffer.data != null) {
       ByteBuffer bufferData = buffer.data;
       Format codecInputFormat = getCodecInputFormat();
-      if (codecInputFormat != null
-          && codecInputFormat.colorInfo != null
-          && codecInputFormat.colorInfo.lumaBitdepth > 8) {
-        // For AV1 streams with bitdepth > 8, try to rewrite OBUs to skip invalid metadata on SDKs
-        // prior to 37.
-        Av1ObuUtil.maybeRewriteAv1MetadataObus(bufferData);
+      boolean isAv1HighBitdepth =
+          codecInputFormat != null
+              && codecInputFormat.colorInfo != null
+              && codecInputFormat.colorInfo.lumaBitdepth > 8;
+      if (isApplyingContainerHagcMetadata) {
+        // Strip all T.35 metadata to prevent in-band metadata from overriding container HAGC.
+        Av1ObuUtil.stripAllT35Metadata(bufferData);
+      } else if (isAv1HighBitdepth && codecNeedsStripNonHdr10PlusT35Workaround) {
+        // For AV1 streams with bitdepth > 8, try to rewrite OBUs to skip non-HDR10+ metadata on
+        // SDKs prior to 37.
+        Av1ObuUtil.stripNonHdr10PlusT35Metadata(bufferData);
       }
       if (av1SampleDependencyParser != null && buffer.isKeyFrame()) {
         av1SampleDependencyParser.queueInputBuffer(bufferData);
@@ -1969,7 +1980,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         videoEffectsToApply);
   }
 
-  // codecHandlesHdr10PlusOutOfBandMetadata is false if Util.SDK_INT < 29
+  // codecHandlesHdr10PlusOutOfBandMetadata is false if SDK_INT < 29
   @SuppressWarnings("UseRequiresApi")
   @TargetApi(29)
   @Override
@@ -2013,7 +2024,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         data.get(hagcData);
         data.position(0);
 
-        if (hagcData.length > 0) {
+        isApplyingContainerHagcMetadata = hagcData.length > 0;
+        if (isApplyingContainerHagcMetadata) {
           Bundle codecParameters = new Bundle();
           codecParameters.putByteArray(KEY_HDR_ST2094_50_INFO, hagcData);
           checkNotNull(getCodec()).setParameters(codecParameters);
