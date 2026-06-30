@@ -13,6 +13,9 @@
 *   Extractors:
     *   MP3: Use gapless-aware durations from Xing/Info headers
         ([#3183](https://github.com/androidx/media/issues/3183)).
+    *   MP3: Adjust LAME/Xing encoder delay and padding metadata to match
+        decoded PCM trimming
+        ([#3200](https://github.com/androidx/media/pull/3200)).
 *   Inspector:
 *   Inspector Frame:
 *   Audio:

@@ -25,6 +25,13 @@ import androidx.media3.extractor.MpegAudioUtil;
 /** Representation of a LAME Xing or Info frame. */
 /* package */ final class XingFrame {
 
+  /**
+   * Offset between LAME/Xing delay/padding fields and decoded PCM trim samples. FFmpeg's MP3 muxer
+   * subtracts this offset when writing LAME metadata, and its demuxer adds it back when exposing
+   * decoded PCM skip/discard samples.
+   */
+  private static final int LAME_TO_DECODED_PCM_TRIM_OFFSET_SAMPLES = 528 + 1;
+
   /** The header of the Xing or Info frame. */
   public final MpegAudioUtil.Header header;
 
@@ -107,12 +114,14 @@ import androidx.media3.extractor.MpegAudioUtil;
     @Nullable Mp3InfoReplayGain replayGain;
     int encoderDelay;
     int encoderPadding;
-    // Skip: version string (9), revision & VBR method (1), lowpass filter (1).
-    int bytesToSkipBeforeReplayGain = 9 + 1 + 1;
+    // Skip: revision & VBR method (1), lowpass filter (1).
+    int bytesToSkipBeforeReplayGain = 1 + 1;
     // Skip: encoding flags & ATH type (1), bitrate (1).
     int bytesToSkipAfterReplayGain = 1 + 1;
-    // And account for values we parse, ReplayGain (8) and encoder delay & padding (3).
-    if (frame.bytesLeft() >= bytesToSkipBeforeReplayGain + 8 + bytesToSkipAfterReplayGain + 3) {
+    // And account for values we parse: version string (9), ReplayGain (8) and encoder delay &
+    // padding (3).
+    if (frame.bytesLeft() >= 9 + bytesToSkipBeforeReplayGain + 8 + bytesToSkipAfterReplayGain + 3) {
+      String encoderIdentifier = frame.readString(9);
       frame.skipBytes(bytesToSkipBeforeReplayGain);
       float peak = frame.readFloat();
       int field1 = frame.readUnsignedShort();
@@ -123,6 +132,10 @@ import androidx.media3.extractor.MpegAudioUtil;
       int encoderDelayAndPadding = frame.readUnsignedInt24();
       encoderDelay = (encoderDelayAndPadding & 0xFFF000) >> 12;
       encoderPadding = (encoderDelayAndPadding & 0xFFF);
+      if (usesLameGaplessEncoding(encoderIdentifier)) {
+        encoderDelay += LAME_TO_DECODED_PCM_TRIM_OFFSET_SAMPLES;
+        encoderPadding = Math.max(0, encoderPadding - LAME_TO_DECODED_PCM_TRIM_OFFSET_SAMPLES);
+      }
     } else {
       replayGain = null;
       encoderDelay = C.LENGTH_UNSET;
@@ -159,6 +172,12 @@ import androidx.media3.extractor.MpegAudioUtil;
     // Audio requires both a start and end PCM sample, so subtract one from the sample count before
     // calculating the duration.
     return Util.sampleCountToDurationUs(sampleCount - 1, header.sampleRate);
+  }
+
+  private static boolean usesLameGaplessEncoding(String encoderIdentifier) {
+    return encoderIdentifier.startsWith("LAME")
+        || encoderIdentifier.startsWith("Lavf")
+        || encoderIdentifier.startsWith("Lavc");
   }
 
   /** Provide the metadata derived from this Xing frame, such as ReplayGain data. */
