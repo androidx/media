@@ -77,6 +77,7 @@
         `NullPointerException` when trying to join a cast session started from a
         non-Media3 sender.
 *   Test Utilities:
+    *   Add `setPlaybackLooper` to `TestExoPlayerBuilder`.
 *   Remove deprecated symbols:
     *   Remove `androidx.media3.common.C.generateAudioSessionIdV21`. Use
         `androidx.media3.common.util.Util.generateAudioSessionId` instead.

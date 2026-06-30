@@ -54,6 +54,7 @@ public class TestExoPlayerBuilder {
   @Nullable private MediaSource.Factory mediaSourceFactory;
   private boolean useLazyPreparation;
   private @MonotonicNonNull Looper looper;
+  @Nullable private Looper playbackLooper;
   @Nullable private SuitableOutputChecker suitableOutputChecker;
   private long seekBackIncrementMs;
   private long seekForwardIncrementMs;
@@ -255,6 +256,18 @@ public class TestExoPlayerBuilder {
   }
 
   /**
+   * Sets the {@link Looper} to be used for playback.
+   *
+   * @param playbackLooper The {@link Looper} to be used for playback.
+   * @return This builder.
+   */
+  @CanIgnoreReturnValue
+  public TestExoPlayerBuilder setPlaybackLooper(Looper playbackLooper) {
+    this.playbackLooper = playbackLooper;
+    return this;
+  }
+
+  /**
    * Sets the {@link SuitableOutputChecker} to check the suitability of the selected outputs for
    * playback.
    *
@@ -278,6 +291,15 @@ public class TestExoPlayerBuilder {
   @Nullable
   public Looper getLooper() {
     return looper;
+  }
+
+  /**
+   * Returns the {@link Looper} that will be used for playback, or null if no {@link Looper} has
+   * been set yet and no default is available.
+   */
+  @Nullable
+  public Looper getPlaybackLooper() {
+    return playbackLooper;
   }
 
   /**
@@ -494,6 +516,9 @@ public class TestExoPlayerBuilder {
     }
     if (mediaSourceFactory != null) {
       builder.setMediaSourceFactory(mediaSourceFactory);
+    }
+    if (playbackLooper != null) {
+      builder.setPlaybackLooper(playbackLooper);
     }
     ExoPlayer exoPlayer = builder.build();
     if (preloadConfiguration != null) {
