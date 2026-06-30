@@ -208,8 +208,13 @@ public class CompositionPlayerParameterizedPlaybackTest {
     runCompositionPlayer(composition, pipeline);
 
     // TODO: b/449956936 - add EOS to CompositionPlayer packet consumer and wait until its received.
-    assertThat(queuedPackets).hasSize(expectedVideoTimestampsUs.size());
-    for (int packetIndex = 0; packetIndex < queuedPackets.size(); packetIndex++) {
+
+    // Some decoders output an extra trailing decoded frame. Relax the check to verify that we
+    // received at least the expected N frames, at most N + 1 frames, and match the expected N
+    // timestamps.
+    int expectedFrameCount = expectedVideoTimestampsUs.size();
+    assertThat(queuedPackets.size()).isAnyOf(expectedFrameCount, expectedFrameCount + 1);
+    for (int packetIndex = 0; packetIndex < expectedFrameCount; packetIndex++) {
       long sequencePresentationTimeUs =
           queuedPackets.get(packetIndex).get(0).sequencePresentationTimeUs;
       assertThat(sequencePresentationTimeUs).isEqualTo(expectedVideoTimestampsUs.get(packetIndex));
