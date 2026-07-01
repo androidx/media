@@ -57,6 +57,9 @@ public interface FrameProcessor extends AutoCloseable {
     /**
      * Creates a {@link FrameProcessor} that sends frames to the given {@link FrameWriter}.
      *
+     * <p>The created {@link FrameProcessor} does not {@linkplain FrameWriter#close() close} the
+     * passed in {@link FrameWriter}.
+     *
      * @param output The {@link FrameWriter} to which the {@link FrameProcessor} outputs.
      * @param listenerExecutor The {@link Executor} on which the {@code listener} is invoked.
      * @param listener A {@link Listener} to be invoked for {@link FrameProcessor} events.

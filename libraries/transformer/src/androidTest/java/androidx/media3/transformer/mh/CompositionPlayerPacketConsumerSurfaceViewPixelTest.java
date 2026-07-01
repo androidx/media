@@ -18,6 +18,7 @@ package androidx.media3.transformer.mh;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.lifecycle.Lifecycle.State.CREATED;
 import static androidx.lifecycle.Lifecycle.State.RESUMED;
+import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_COLOR_TEST_1080P_HLG10;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
@@ -25,7 +26,9 @@ import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static androidx.media3.test.utils.PlayerFence.futureWhen;
 import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
+import static androidx.media3.transformer.GlFrameProcessorTestUtil.closeTestingGlResources;
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assume.assumeTrue;
 
 import android.app.Instrumentation;
@@ -50,11 +53,17 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
+import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.ConditionVariable;
+import androidx.media3.common.util.GlUtil.GlException;
+import androidx.media3.common.util.Util;
+import androidx.media3.effect.DefaultGlFrameProcessor;
+import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
+import androidx.media3.effect.FrameProcessorUtils;
 import androidx.media3.effect.SimpleGlFrameProcessor;
 import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.media3.transformer.Composition;
@@ -69,6 +78,8 @@ import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.filters.SdkSuppress;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import java.util.List;
 import java.util.Queue;
@@ -99,14 +110,16 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
   private static final String PACKET_CONSUMER = "packet_consumer";
   private static final String FRAME_PROCESSOR_ADAPTER = "frame_processor_adapter";
   private static final String FRAME_PROCESSOR = "frame_processor";
-  private static final long TEST_TIMEOUT_MS = 10_000;
+  private static final String DEFAULT_GL_FRAME_PROCESSOR = "default_gl_frame_processor";
+  private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 10_000;
   private static final float PSNR_THRESHOLD = 23f;
   private static final String GOLDEN_ASSET_FOLDER_PATH =
       "test-generated-goldens/CompositionPlayerPacketConsumerSurfaceViewPixelTest/";
 
   @Parameters(name = "{0}")
   public static ImmutableList<String> params() {
-    return ImmutableList.of(PACKET_CONSUMER, FRAME_PROCESSOR_ADAPTER, FRAME_PROCESSOR);
+    return ImmutableList.of(
+        PACKET_CONSUMER, FRAME_PROCESSOR_ADAPTER, FRAME_PROCESSOR, DEFAULT_GL_FRAME_PROCESSOR);
   }
 
   @Parameter public String mode;
@@ -123,13 +136,31 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
   private @MonotonicNonNull CompositionPlayer compositionPlayer;
   private @MonotonicNonNull SurfaceView surfaceView;
   private @MonotonicNonNull ImageReaderSurfaceHolder surfaceHolder;
+  private @MonotonicNonNull ListeningExecutorService glExecutorService;
+  // Only used for DefaultGlFrameProcessor
+  private @MonotonicNonNull GlObjectsProvider glObjectsProvider;
 
   private String testId;
 
   @Before
-  public void setUp() {
+  public void setUp() throws Exception {
     testId = testName.getMethodName();
     rule.getScenario().onActivity(activity -> surfaceView = activity.getSurfaceView());
+    glExecutorService =
+        MoreExecutors.listeningDecorator(Util.newSingleThreadExecutor("PacketProcessor:Effect"));
+    glObjectsProvider = new DefaultGlObjectsProvider();
+    if (mode.equals(DEFAULT_GL_FRAME_PROCESSOR)) {
+      glExecutorService
+          .submit(
+              () -> {
+                try {
+                  FrameProcessorUtils.setupOpenGl(glObjectsProvider);
+                } catch (GlException e) {
+                  throw new AssertionError(e);
+                }
+              })
+          .get(TEST_TIMEOUT_MS, MILLISECONDS);
+    }
   }
 
   @After
@@ -143,6 +174,17 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
     rule.getScenario().close();
     if (surfaceHolder != null) {
       surfaceHolder.release();
+    }
+    @Nullable Exception releasingException = null;
+    if (mode.equals(DEFAULT_GL_FRAME_PROCESSOR)) {
+      releasingException =
+          closeTestingGlResources(glExecutorService, glObjectsProvider, TEST_TIMEOUT_MS);
+    }
+    if (glExecutorService != null) {
+      glExecutorService.shutdown();
+    }
+    if (releasingException != null) {
+      throw new AssertionError(releasingException);
     }
   }
 
@@ -476,8 +518,7 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
     assertThat(DataSpace.getRange(actualDataSpace)).isEqualTo(DataSpace.RANGE_LIMITED);
   }
 
-  private static CompositionPlayer.Builder createCompositionPlayerBuilder(
-      Context context, String mode) {
+  private CompositionPlayer.Builder createCompositionPlayerBuilder(Context context, String mode) {
     CompositionPlayer.Builder builder =
         new CompositionPlayer.Builder(context)
             .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE);
@@ -495,6 +536,10 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
     } else if (mode.equals(FRAME_PROCESSOR)) {
       return builder.setFrameProcessorFactory(
           new SimpleGlFrameProcessor.Factory(context, HardwareBufferJni.INSTANCE));
+    } else if (mode.equals(DEFAULT_GL_FRAME_PROCESSOR)) {
+      return builder.setFrameProcessorFactory(
+          new DefaultGlFrameProcessor.Factory(
+              context, glObjectsProvider, HardwareBufferJni.INSTANCE, glExecutorService));
     }
     throw new IllegalArgumentException("Unknown mode: " + mode);
   }
