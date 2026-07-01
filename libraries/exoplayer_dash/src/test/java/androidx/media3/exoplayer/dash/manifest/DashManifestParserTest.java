@@ -65,6 +65,8 @@ public class DashManifestParserTest {
   private static final String SAMPLE_MPD_SEGMENT_TEMPLATE = "media/mpd/sample_mpd_segment_template";
   private static final String SAMPLE_MPD_EVENT_STREAM = "media/mpd/sample_mpd_event_stream";
   private static final String SAMPLE_MPD_IMAGES = "media/mpd/sample_mpd_images";
+  private static final String SAMPLE_MPD_SELECTION_PRIORITY =
+      "media/mpd/sample_mpd_selection_priority";
   private static final String SAMPLE_MPD_LABELS = "media/mpd/sample_mpd_labels";
   private static final String SAMPLE_MPD_ASSET_IDENTIFIER = "media/mpd/sample_mpd_asset_identifier";
   private static final String SAMPLE_MPD_TEXT = "media/mpd/sample_mpd_text";
@@ -320,6 +322,24 @@ public class DashManifestParserTest {
     assertThat(format1.height).isEqualTo(360);
     assertThat(format1.tileCountHorizontal).isEqualTo(2);
     assertThat(format1.tileCountVertical).isEqualTo(4);
+  }
+
+  @Test
+  public void parseMediaPresentationDescription_selectionPriority() throws IOException {
+    DashManifestParser parser = new DashManifestParser();
+    DashManifest manifest =
+        parser.parse(
+            Uri.parse("https://example.com/test.mpd"),
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(), SAMPLE_MPD_SELECTION_PRIORITY));
+
+    AdaptationSet adaptationSet = manifest.getPeriod(0).adaptationSets.get(0);
+    assertThat(adaptationSet.representations.get(0).format.selectionPriority).isEqualTo(3f);
+    assertThat(adaptationSet.representations.get(1).format.selectionPriority).isEqualTo(5f);
+
+    AdaptationSet defaultedAdaptationSet = manifest.getPeriod(0).adaptationSets.get(1);
+    assertThat(defaultedAdaptationSet.representations.get(0).format.selectionPriority)
+        .isEqualTo(1f);
   }
 
   @Test
