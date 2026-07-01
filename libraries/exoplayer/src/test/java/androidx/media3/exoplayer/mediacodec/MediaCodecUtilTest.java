@@ -27,6 +27,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.shadows.ShadowBuild;
 
 /** Unit tests for {@link MediaCodecUtil}. */
 @RunWith(AndroidJUnit4.class)
@@ -257,6 +258,20 @@ public final class MediaCodecUtilTest {
     assertThat(MediaCodecUtil.getAlternativeCodecMimeType(formatDav1NoFallbackPossible)).isNull();
     assertThat(MediaCodecUtil.getAlternativeCodecMimeType(formatDav1FallbackToAv1))
         .isEqualTo(MimeTypes.VIDEO_AV1);
+  }
+
+  @Test
+  public void getAlternativeCodecMimeType_withEac3JocFormatOnNonGoogleDevice_returnsEac3() {
+    ShadowBuild.setManufacturer("Samsung");
+    Format format = new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_E_AC3_JOC).build();
+    assertThat(MediaCodecUtil.getAlternativeCodecMimeType(format)).isEqualTo(MimeTypes.AUDIO_E_AC3);
+  }
+
+  @Test
+  public void getAlternativeCodecMimeType_withEac3JocFormatOnGoogleDevice_returnsNull() {
+    ShadowBuild.setManufacturer("Google");
+    Format format = new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_E_AC3_JOC).build();
+    assertThat(MediaCodecUtil.getAlternativeCodecMimeType(format)).isNull();
   }
 
   private static void assertHevcBaseLayerCodecProfileAndLevelForFormat(

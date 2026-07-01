@@ -48,6 +48,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
@@ -378,7 +379,9 @@ public final class MediaCodecUtil {
   public static String getAlternativeCodecMimeType(Format format) {
     if (MimeTypes.AUDIO_E_AC3_JOC.equals(format.sampleMimeType)) {
       // E-AC3 decoders can decode JOC streams, but in 2-D rather than 3-D.
-      return MimeTypes.AUDIO_E_AC3;
+      // Some devices (e.g. Pixel) integrate an EAC3 decoder that does not support EAC3-JOC
+      // stream decoding.
+      return supportsEac3JocFallbackDecoding() ? MimeTypes.AUDIO_E_AC3 : null;
     }
     if (MimeTypes.AUDIO_DTS_HD.equals(format.sampleMimeType)
         || MimeTypes.AUDIO_DTS_UHD_P2.equals(format.sampleMimeType)) {
@@ -418,6 +421,17 @@ public final class MediaCodecUtil {
   }
 
   // Internal methods.
+
+  /**
+   * Returns whether the device supports decoding E-AC3 JOC streams using a standard E-AC3 decoder
+   * (in 2-D rather than 3-D).
+   *
+   * <p>Some devices (e.g. Pixel) have an E-AC3 decoder that cannot handle E-AC3 JOC streams at all,
+   * even in degraded 2-D. See <a href="https://github.com/androidx/media/pull/3257">Issue 3257</a>.
+   */
+  private static boolean supportsEac3JocFallbackDecoding() {
+    return !Objects.equals(Build.MANUFACTURER, "Google");
+  }
 
   /**
    * Returns {@link MediaCodecInfo}s for the given codec {@link CodecKey} in the order given by

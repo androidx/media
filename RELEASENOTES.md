@@ -21,6 +21,9 @@
 *   Inspector:
 *   Inspector Frame:
 *   Audio:
+    *   Remove fallback path of EAC3-JOC to EAC3 for playback on Google Pixel
+        devices as their standard EAC3 decoders cannot decode EAC3-JOC streams
+        ([#3257](https://github.com/androidx/media/pull/3257)).
 *   Video:
     *   Fix bug in `VideoFrameReleaseHelper` where display changes could trigger
         redundant `Choreographer` callbacks and excessive CPU wakeups on the
