@@ -146,6 +146,60 @@ public final class WaveformAudioBufferSinkTest {
         .of(0.4249);
   }
 
+  @Test
+  public void handleBuffer_customWaveformBarFactory_usesCustomFactory() throws Exception {
+    // Custom WaveformBar that tracks when it's created
+    class TrackedWaveformBar extends WaveformAudioBufferSink.WaveformBar {
+    }
+
+    // Custom factory that creates tracked bars
+    class TrackedWaveformBarFactory extends WaveformAudioBufferSink.WaveformBarFactory {
+
+      private int creationCount = 0;
+
+      @Override
+      WaveformAudioBufferSink.WaveformBar createWaveformBar() {
+        ++creationCount;
+        return new TrackedWaveformBar();
+      }
+
+      int getCreationCount() {
+        return creationCount;
+      }
+    }
+
+    TrackedWaveformBarFactory customFactory = new TrackedWaveformBarFactory();
+    List<WaveformAudioBufferSink.WaveformBar> receivedBars = new ArrayList<>();
+    CountDownLatch countDownLatch = new CountDownLatch(2); // Expecting 2 bars to be created
+
+    WaveformAudioBufferSink waveformAudioBufferSink =
+        new WaveformAudioBufferSink(
+            /* barsPerSecond= */ 2,
+            /* outputChannelCount= */ 1,
+            (channelIndex, bar) -> {
+              receivedBars.add(bar);
+              countDownLatch.countDown();
+            },
+            customFactory);
+
+    // Create a buffer that will trigger bar generation twice
+    ByteBuffer byteBuffer = ByteBuffer.allocate(8);
+    byteBuffer.putShort(0, (short) 1000);
+    byteBuffer.putShort(2, (short) 2000);
+    byteBuffer.putShort(4, (short) 3000);
+    byteBuffer.putShort(6, (short) 4000);
+
+    int sampleRateHz = 4; // 4 samples total, 2 bars per second = 2 samples per bar
+    waveformAudioBufferSink.flush(sampleRateHz, /* inputChannelCount= */ 1, C.ENCODING_PCM_16BIT);
+    waveformAudioBufferSink.handleBuffer(byteBuffer);
+
+    assertThat(countDownLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+
+    // Verify that the custom factory was used
+    assertThat(customFactory.getCreationCount()).isEqualTo(3);
+    assertThat(receivedBars).hasSize(2);
+  }
+
   private ImmutableList<WaveformAudioBufferSink.WaveformBar> calculateChannelWaveformBars(
       ByteBuffer byteBuffer,
       int inputChannelCount,

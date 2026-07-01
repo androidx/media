@@ -89,6 +89,13 @@ public class WaveformAudioBufferSink implements TeeAudioProcessor.AudioBufferSin
     void onNewWaveformBar(int channelIndex, WaveformBar waveformBar);
   }
 
+  public static class WaveformBarFactory {
+    /** Called when a new waveform bar has to be created */
+    WaveformBar createWaveformBar() {
+      return new WaveformBar();
+    }
+  }
+
   private final int barsPerSecond;
   private final Listener listener;
   private final SparseArray<WaveformBar> outputChannels;
@@ -97,6 +104,13 @@ public class WaveformAudioBufferSink implements TeeAudioProcessor.AudioBufferSin
   private @MonotonicNonNull AudioFormat mixingAudioFormat;
   private @MonotonicNonNull ChannelMixingMatrix channelMixingMatrix;
   private int samplesPerBar;
+
+  private WaveformBarFactory waveformBarFactory;
+
+  /**
+   * Default factory instance that creates standard WaveformBar objects.
+   */
+  private static final WaveformBarFactory DEFAULT_WAVEFORM_BAR_FACTORY = new WaveformBarFactory();
 
   /**
    * Creates a new instance.
@@ -108,13 +122,29 @@ public class WaveformAudioBufferSink implements TeeAudioProcessor.AudioBufferSin
    * @param listener The listener to be notified when a new waveform bar has been generated.
    */
   public WaveformAudioBufferSink(int barsPerSecond, int outputChannelCount, Listener listener) {
+    this(barsPerSecond, outputChannelCount, listener, DEFAULT_WAVEFORM_BAR_FACTORY);
+  }
+
+  /**
+   * Creates a new instance.
+   *
+   * @param barsPerSecond The number of bars that should be generated per each second of audio.
+   * @param outputChannelCount The number of channels that the output waveform should contain. If
+   *     this is different than the number of input channels, the audio will be mixed using the
+   *     {@linkplain ChannelMixingMatrix#createForConstantGain default mixing matrix}.
+   * @param listener The listener to be notified when a new waveform bar has been generated.
+   * @param waveformBarFactory The factory to create new waveform bars.
+   */
+  public WaveformAudioBufferSink(int barsPerSecond, int outputChannelCount, Listener listener, WaveformBarFactory waveformBarFactory) {
     this.barsPerSecond = barsPerSecond;
     this.listener = listener;
+    this.waveformBarFactory = waveformBarFactory;
     mixingBuffer =
         ByteBuffer.allocate(Util.getPcmFrameSize(C.ENCODING_PCM_FLOAT, outputChannelCount));
     outputChannels = new SparseArray<>(outputChannelCount);
     for (int i = 0; i < outputChannelCount; i++) {
       outputChannels.append(i, new WaveformBar());
+      outputChannels.append(i, waveformBarFactory.createWaveformBar());
     }
   }
 
@@ -149,7 +179,7 @@ public class WaveformAudioBufferSink implements TeeAudioProcessor.AudioBufferSin
         bar.addSample(mixingBuffer.getFloat());
         if (bar.getSampleCount() >= samplesPerBar) {
           listener.onNewWaveformBar(i, bar);
-          outputChannels.set(i, new WaveformBar());
+          outputChannels.set(i, waveformBarFactory.createWaveformBar());
         }
       }
     }
