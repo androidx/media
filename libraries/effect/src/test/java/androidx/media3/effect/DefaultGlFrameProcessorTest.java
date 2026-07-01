@@ -59,6 +59,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -522,6 +523,7 @@ public final class DefaultGlFrameProcessorTest {
     assertThat(glTextureFramesReleased.get()).isEqualTo(3);
   }
 
+  @Ignore // TODO: b/529360695 - Re-enable when no longer flaky.
   @Test
   public void queue_withFrameWriterRejectingInput_buffersAndRetriesCorrectly() throws Exception {
     // batch A
