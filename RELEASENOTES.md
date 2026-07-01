@@ -22,6 +22,9 @@
 *   Inspector Frame:
 *   Audio:
 *   Video:
+    *   Fix bug in `VideoFrameReleaseHelper` where display changes could trigger
+        redundant `Choreographer` callbacks and excessive CPU wakeups on the
+        main thread.
 *   Text:
 *   Metadata:
 *   Image:

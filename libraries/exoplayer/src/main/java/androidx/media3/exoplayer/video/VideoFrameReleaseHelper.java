@@ -96,6 +96,12 @@ public final class VideoFrameReleaseHelper {
   private long lastAdjustedFrameIndex;
   private long lastAdjustedReleaseTimeNs;
   private long lastAdjustedPresentationTimeUs;
+  @Nullable private VSyncSamplerListener vsyncSamplerListener;
+
+  @VisibleForTesting
+  /* package */ interface VSyncSamplerListener {
+    void onVsyncSampled(Object sampler);
+  }
 
   /**
    * Constructs an instance.
@@ -129,6 +135,10 @@ public final class VideoFrameReleaseHelper {
     resetAdjustment();
     if (!vsyncSampleBuilt) {
       vsyncSampler = VSyncSampler.maybeBuildInstance(context);
+      if (vsyncSampler != null) {
+        vsyncSampler.listener = vsyncSamplerListener;
+      }
+      vsyncSampleBuilt = true;
     }
     if (vsyncSampler != null) {
       vsyncSampler.register();
@@ -260,6 +270,14 @@ public final class VideoFrameReleaseHelper {
   public void setVsyncData(long vsyncSampleTimeNs, long vsyncDurationNs) {
     checkNotNull(vsyncSampler).sampledVsyncTimeNs = vsyncSampleTimeNs;
     vsyncSampler.vsyncDurationNs = vsyncDurationNs;
+  }
+
+  @VisibleForTesting
+  /* package */ void setVSyncSamplerListener(VSyncSamplerListener listener) {
+    this.vsyncSamplerListener = listener;
+    if (vsyncSampler != null) {
+      vsyncSampler.listener = listener;
+    }
   }
 
   private void resetAdjustment() {
@@ -412,6 +430,8 @@ public final class VideoFrameReleaseHelper {
     /* package */ volatile long sampledVsyncTimeNs;
     /* package */ volatile long vsyncDurationNs;
 
+    @Nullable /* package */ VSyncSamplerListener listener;
+
     private VSyncSampler(Choreographer choreographer, DisplayManager displayManager) {
       this.choreographer = choreographer;
       this.displayManager = displayManager;
@@ -450,6 +470,7 @@ public final class VideoFrameReleaseHelper {
     @Override
     /* package */ void register() {
       super.register();
+      choreographer.removeFrameCallback(this);
       choreographer.postFrameCallback(this);
       vsyncDurationNs = getVsyncDurationNsFromDefaultDisplay(displayManager);
     }
@@ -469,12 +490,17 @@ public final class VideoFrameReleaseHelper {
     @Override
     public void doFrame(long vsyncTimeNs) {
       sampledVsyncTimeNs = vsyncTimeNs;
+      choreographer.removeFrameCallback(this);
       choreographer.postFrameCallbackDelayed(this, VSYNC_SAMPLE_UPDATE_PERIOD_MS);
+      if (listener != null) {
+        listener.onVsyncSampled(this);
+      }
     }
 
     @Override
     public void onDisplayChanged(int displayId) {
       if (displayId == Display.DEFAULT_DISPLAY) {
+        choreographer.removeFrameCallback(this);
         choreographer.postFrameCallback(this);
         vsyncDurationNs = getVsyncDurationNsFromDefaultDisplay(displayManager);
       }
@@ -507,6 +533,7 @@ public final class VideoFrameReleaseHelper {
     @Override
     /* package */ void register() {
       super.register();
+      choreographer.removeVsyncCallback(this);
       choreographer.postVsyncCallback(this);
     }
 
@@ -531,13 +558,19 @@ public final class VideoFrameReleaseHelper {
       } else {
         vsyncDurationNs = C.TIME_UNSET;
       }
+      handler.removeCallbacksAndMessages(/* token= */ null);
       handler.postDelayed(
           () -> choreographer.postVsyncCallback(this), VSYNC_SAMPLE_UPDATE_PERIOD_MS);
+      if (listener != null) {
+        listener.onVsyncSampled(this);
+      }
     }
 
     @Override
     public void onDisplayChanged(int displayId) {
       if (displayId == Display.DEFAULT_DISPLAY) {
+        handler.removeCallbacksAndMessages(/* token= */ null);
+        choreographer.removeVsyncCallback(this);
         choreographer.postVsyncCallback(this);
       }
     }
