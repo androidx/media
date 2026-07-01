@@ -11,6 +11,8 @@
 *   Transformer:
 *   Track Selection:
 *   Extractors:
+    *   AVI: Fix an issue where playing files without keyframe flags on audio
+        tracks caused audio loss and `OutOfMemoryError`.
     *   MP3: Use gapless-aware durations from Xing/Info headers
         ([#3183](https://github.com/androidx/media/issues/3183)).
     *   MP3: Adjust LAME/Xing encoder delay and padding metadata to match
