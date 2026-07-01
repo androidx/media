@@ -15,16 +15,20 @@
  */
 package androidx.media3.effect;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import android.opengl.GLES20;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
+import androidx.media3.common.util.Log;
+import androidx.media3.common.util.Util;
 import java.io.IOException;
 
 /**
@@ -35,13 +39,15 @@ import java.io.IOException;
  * <p>This class encapsulates the shader program management and drawing operations required to
  * perform texture-to-texture copies using framebuffers (FBOs). It currently supports copying from
  * external OES textures (typically used for video decoders and camera inputs) to standard 2D
- * textures, and is designed to be extended to support standard 2D-to-2D copies and HDR color space
- * transformations.
+ * textures. It is designed to be extended to support HDR color space transformations.
  */
 /* package */ final class GlTextureCopier {
 
+  private static final String TAG = "GlTextureCopier";
+
   private final Context context;
-  @Nullable private GlProgram externalCopyGlProgram;
+  @Nullable private GlProgram sdrExternalCopyGlProgram;
+  @Nullable private GlProgram sdrInternalCopyGlProgram;
   private int fboId = C.INDEX_UNSET;
 
   public GlTextureCopier(Context context) {
@@ -49,35 +55,63 @@ import java.io.IOException;
   }
 
   /**
-   * Copies the content of an external texture to an internal texture.
+   * Copies the content of an input texture to an output texture.
    *
-   * @param inputTexId The ID of the input external texture.
-   * @param outputTexId The ID of the output internal texture.
+   * @param inputTexId The ID of the input texture.
+   * @param outputTexId The ID of the output texture.
    * @param outputWidth The width of the output texture.
    * @param outputHeight The height of the output texture.
+   * @param inputColorInfo The {@link ColorInfo} of the input texture.
+   * @param requestedOutputColorInfo The {@link ColorInfo} of the requested output texture.
+   * @param textureTransformMatrix The 4x4 matrix to apply to texture coordinates.
+   * @param isExternalTexture Whether the input texture is an external {@link
+   *     android.opengl.GLES11Ext#GL_TEXTURE_EXTERNAL_OES} texture.
    * @throws VideoFrameProcessingException If an OpenGL error occurs during the copy.
    */
-  public void copyExternalTexture(
-      int inputTexId, int outputTexId, int outputWidth, int outputHeight)
+  public void copyTexture(
+      int inputTexId,
+      int outputTexId,
+      int outputWidth,
+      int outputHeight,
+      ColorInfo inputColorInfo,
+      ColorInfo requestedOutputColorInfo,
+      float[] textureTransformMatrix,
+      boolean isExternalTexture)
       throws VideoFrameProcessingException {
+    checkArgument(
+        !isExternalTexture || inputColorInfo.equals(requestedOutputColorInfo),
+        Util.formatInvariant(
+            "Color conversion for external textures is not supported yet. Input: %s, Output: %s",
+            inputColorInfo, requestedOutputColorInfo));
     try {
-      if (externalCopyGlProgram == null) {
-        externalCopyGlProgram =
-            new GlProgram(
-                context,
-                R.raw.vertex_shader_transformation_es2,
-                R.raw.fragment_shader_transformation_sdr_external_es2);
-        externalCopyGlProgram.setBufferAttribute(
-            "aFramePosition",
-            GlUtil.getNormalizedCoordinateBounds(),
-            GlUtil.HOMOGENEOUS_COORDINATE_VECTOR_SIZE);
-        externalCopyGlProgram.setFloatsUniform(
-            "uTransformationMatrix", GlUtil.create4x4IdentityMatrix());
-        externalCopyGlProgram.setFloatsUniform(
-            "uTexTransformationMatrix", GlUtil.create4x4IdentityMatrix());
-        externalCopyGlProgram.setFloatsUniform("uRgbMatrix", GlUtil.create4x4IdentityMatrix());
-        externalCopyGlProgram.setIntUniform("uOutputColorTransfer", C.COLOR_TRANSFER_SDR);
+      GlProgram copyGlProgram;
+      if (isExternalTexture) {
+        if (sdrExternalCopyGlProgram == null) {
+          sdrExternalCopyGlProgram =
+              new GlProgram(
+                  context,
+                  R.raw.vertex_shader_transformation_es2,
+                  R.raw.fragment_shader_transformation_sdr_external_es2);
+          setupCommonAttributesAndUniforms(sdrExternalCopyGlProgram);
+          sdrExternalCopyGlProgram.setIntUniform("uOutputColorTransfer", C.COLOR_TRANSFER_SDR);
+        }
+        copyGlProgram = sdrExternalCopyGlProgram;
+      } else {
+        if (sdrInternalCopyGlProgram == null) {
+          sdrInternalCopyGlProgram =
+              new GlProgram(
+                  context,
+                  R.raw.vertex_shader_transformation_es2,
+                  R.raw.fragment_shader_transformation_sdr_internal_es2);
+          setupCommonAttributesAndUniforms(sdrInternalCopyGlProgram);
+          sdrInternalCopyGlProgram.setIntUniform("uSdrWorkingColorSpace", 0);
+        }
+        copyGlProgram = sdrInternalCopyGlProgram;
+        copyGlProgram.setIntUniform("uInputColorTransfer", inputColorInfo.colorTransfer);
+        copyGlProgram.setIntUniform("uOutputColorTransfer", requestedOutputColorInfo.colorTransfer);
       }
+
+      copyGlProgram.setFloatsUniform("uTexTransformationMatrix", textureTransformMatrix);
 
       if (fboId == C.INDEX_UNSET) {
         int[] fboIds = new int[1];
@@ -94,11 +128,10 @@ import java.io.IOException;
 
       GlUtil.focusFramebufferUsingCurrentContext(fboId, outputWidth, outputHeight);
 
-      checkState(externalCopyGlProgram != null);
-      externalCopyGlProgram.use();
-      externalCopyGlProgram.setSamplerTexIdUniform(
-          "uTexSampler", inputTexId, /* texUnitIndex= */ 0);
-      externalCopyGlProgram.bindAttributesAndUniforms();
+      checkState(copyGlProgram != null);
+      copyGlProgram.use();
+      copyGlProgram.setSamplerTexIdUniform("uTexSampler", inputTexId, /* texUnitIndex= */ 0);
+      copyGlProgram.bindAttributesAndUniforms();
       GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, /* first= */ 0, /* count= */ 4);
       GlUtil.checkGlError();
     } catch (GlException | IOException e) {
@@ -108,17 +141,52 @@ import java.io.IOException;
 
   /** Releases resources used by the copier. */
   public void release() throws VideoFrameProcessingException {
-    try {
-      if (externalCopyGlProgram != null) {
-        externalCopyGlProgram.delete();
-        externalCopyGlProgram = null;
+    @Nullable Exception firstException = null;
+    if (sdrExternalCopyGlProgram != null) {
+      try {
+        sdrExternalCopyGlProgram.delete();
+      } catch (GlException e) {
+        firstException = e;
       }
-      if (fboId != C.INDEX_UNSET) {
-        GlUtil.deleteFbo(fboId);
-        fboId = C.INDEX_UNSET;
-      }
-    } catch (GlException e) {
-      throw VideoFrameProcessingException.from(e);
+      sdrExternalCopyGlProgram = null;
     }
+    if (sdrInternalCopyGlProgram != null) {
+      try {
+        sdrInternalCopyGlProgram.delete();
+      } catch (GlException e) {
+        if (firstException == null) {
+          firstException = e;
+        } else {
+          Log.w(TAG, "Failed to delete sdrInternalCopyGlProgram", e);
+          firstException.addSuppressed(e);
+        }
+      }
+      sdrInternalCopyGlProgram = null;
+    }
+    if (fboId != C.INDEX_UNSET) {
+      try {
+        GlUtil.deleteFbo(fboId);
+      } catch (GlException e) {
+        if (firstException == null) {
+          firstException = e;
+        } else {
+          Log.w(TAG, "Failed to delete FBO", e);
+          firstException.addSuppressed(e);
+        }
+      }
+      fboId = C.INDEX_UNSET;
+    }
+    if (firstException != null) {
+      throw VideoFrameProcessingException.from(firstException);
+    }
+  }
+
+  private static void setupCommonAttributesAndUniforms(GlProgram glProgram) {
+    glProgram.setBufferAttribute(
+        "aFramePosition",
+        GlUtil.getNormalizedCoordinateBounds(),
+        GlUtil.HOMOGENEOUS_COORDINATE_VECTOR_SIZE);
+    glProgram.setFloatsUniform("uTransformationMatrix", GlUtil.create4x4IdentityMatrix());
+    glProgram.setFloatsUniform("uRgbMatrix", GlUtil.create4x4IdentityMatrix());
   }
 }

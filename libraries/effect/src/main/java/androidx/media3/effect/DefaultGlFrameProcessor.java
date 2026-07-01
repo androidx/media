@@ -29,6 +29,7 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Effect;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.VideoCompositorSettings;
@@ -67,6 +68,12 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   interface HardwareBufferConverter extends AutoCloseable {
 
     // TODO: b/517424999 - Unify the listeners to follow the same pattern as FrameProcessor.
+    /**
+     * Converts from {@link HardwareBufferFrame} to {@link GlTextureFrame}.
+     *
+     * <p>The returned {@link GlTextureFrame}'s texture is in standard OpenGL coordinate space
+     * (upright, Y-up, with origin at bottom-left of the image).
+     */
     GlTextureFrame convert(
         HardwareBufferFrame hardwareBufferFrame,
         Executor glExecutor,
@@ -169,6 +176,8 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
             new HardwareBufferToGlTextureConverter(
                 context,
                 hardwareBufferJniWrapper,
+                // TODO: b/517525358 - Use correct output color info once HDR is supported.
+                ColorInfo.SDR_BT709_LIMITED,
                 e -> listenerExecutor.execute(() -> listener.onError(e)));
       }
       return new DefaultGlFrameProcessor(
