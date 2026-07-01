@@ -392,7 +392,9 @@ import java.util.Objects;
     for (String parameter : parameters) {
       // The parameter values can bear equal signs, so splitAtFirst must be used.
       String[] parameterPair = Util.splitAtFirst(parameter, "=");
-      formatParametersBuilder.put(parameterPair[0], parameterPair[1]);
+      if (parameterPair.length == 2) {
+        formatParametersBuilder.put(parameterPair[0].trim(), parameterPair[1].trim());
+      }
     }
     return formatParametersBuilder.buildOrThrow();
   }
