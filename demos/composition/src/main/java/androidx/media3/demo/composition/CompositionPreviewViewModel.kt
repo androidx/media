@@ -668,7 +668,12 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
 
               _uiState.update {
                 it.copy(
-                  exportState = it.exportState.copy(isExporting = false, exportResultInfo = details)
+                  exportState =
+                    it.exportState.copy(
+                      isExporting = false,
+                      exportResultInfo = details,
+                      outputFilePath = filePath,
+                    )
                 )
               }
 
@@ -701,6 +706,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
                     it.exportState.copy(
                       isExporting = false,
                       exportResultInfo = EXPORT_ERROR_MESSAGE,
+                      outputFilePath = null,
                     ),
                 )
               }
@@ -714,7 +720,11 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     _uiState.update {
       it.copy(
         exportState =
-          it.exportState.copy(isExporting = true, exportResultInfo = EXPORT_STARTED_MESSAGE)
+          it.exportState.copy(
+            isExporting = true,
+            exportResultInfo = EXPORT_STARTED_MESSAGE,
+            outputFilePath = null,
+          )
       )
     }
     exportStopwatch.reset()

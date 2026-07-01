@@ -15,6 +15,11 @@
  */
 package androidx.media3.demo.composition.ui
 
+import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,10 +27,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -39,10 +47,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.MUXER_OPTIONS
@@ -52,6 +63,7 @@ import androidx.media3.demo.composition.data.ExportState
 import androidx.media3.demo.composition.data.OutputSettingsState
 import androidx.media3.demo.composition.ui.theme.spacing
 import androidx.media3.demo.composition.ui.theme.textPadding
+import java.io.File
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -67,6 +79,7 @@ internal fun ExportOptions(
   onCancel: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
+  val context = LocalContext.current
   var isAudioTypeExpanded by remember { mutableStateOf(false) }
   var isVideoTypeExpanded by remember { mutableStateOf(false) }
   Column(
@@ -172,6 +185,59 @@ internal fun ExportOptions(
     if (exportState.isExporting) {
       LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp))
     }
-    exportState.exportResultInfo?.let { Text(text = it) }
+    if (exportState.exportResultInfo != null) {
+      Text(text = exportState.exportResultInfo)
+      exportState.outputFilePath?.let { outputFilePath ->
+        Button(
+          onClick = { openExportedVideo(context, outputFilePath) },
+          modifier = Modifier.padding(top = 8.dp),
+        ) {
+          Icon(
+            painter = painterResource(android.R.drawable.ic_media_play),
+            contentDescription = null,
+            modifier = Modifier.size(ButtonDefaults.IconSize),
+          )
+          Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+          Text(text = stringResource(R.string.play_exported_video))
+        }
+      }
+    }
   }
+}
+
+/**
+ * Launches an external video player application to play the exported composition video.
+ *
+ * @param context The application or activity context used to generate URIs and launch intents.
+ * @param outputFilePath The absolute filesystem path to the exported MP4 video file.
+ */
+private fun openExportedVideo(context: Context, outputFilePath: String) {
+  val file = File(outputFilePath)
+  if (!file.exists()) {
+    return
+  }
+  val uri =
+    FileProvider.getUriForFile(
+      context,
+      "${context.packageName}${Constants.FILE_PROVIDER_AUTHORITY_SUFFIX}",
+      file,
+    )
+  val intent =
+    Intent(Intent.ACTION_VIEW).apply {
+      setDataAndType(uri, "video/*")
+      addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+  try {
+    val chooser = Intent.createChooser(intent, context.getString(R.string.play_exported_video))
+    if (context !is Activity) {
+      chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    context.startActivity(chooser)
+  } catch (e: ActivityNotFoundException) {
+    Toast.makeText(context, R.string.no_player_found, Toast.LENGTH_SHORT).show()
+  }
+}
+
+private object Constants {
+  const val FILE_PROVIDER_AUTHORITY_SUFFIX = ".provider"
 }

@@ -82,4 +82,6 @@
   <string name="speed_label" translatable="false">Speed: %1$.2fx</string>
   <string name="edit_media_item" translatable="false">Edit Media Item</string>
   <string name="select_speed" translatable="false">Select Speed</string>
+  <string name="play_exported_video" translatable="false">Play Exported Video</string>
+  <string name="no_player_found" translatable="false">No video player application found</string>
 </resources>

@@ -137,8 +137,13 @@ data class OutputSettingsState(
  *
  * @param isExporting True if an export is currently in progress.
  * @param exportResultInfo A message describing the result of the export.
+ * @param outputFilePath The file path of the exported output video, or null if not available.
  */
-data class ExportState(val isExporting: Boolean = false, val exportResultInfo: String? = null)
+data class ExportState(
+  val isExporting: Boolean = false,
+  val exportResultInfo: String? = null,
+  val outputFilePath: String? = null,
+)
 
 /** The available presets. */
 enum class Preset {
