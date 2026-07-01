@@ -18,6 +18,7 @@ track 0:
     channelCount = 1
     sampleRate = 44100
     pcmEncoding = pcm-16
+    metadata = entries=[ISFT: values=[Lavf58.20.100]]
   sample 0:
     time = 1018185
     flags = 1
