@@ -1,10 +1,10 @@
 seekMap:
   isSeekable = true
   duration = 1728000
-  getPosition(0) = [[timeUs=0, position=898]]
-  getPosition(1) = [[timeUs=1, position=898]]
-  getPosition(864000) = [[timeUs=864000, position=108898]]
-  getPosition(1728000) = [[timeUs=1728000, position=212898]]
+  getPosition(0) = [[timeUs=0, position=400052]]
+  getPosition(1) = [[timeUs=1, position=400052]]
+  getPosition(864000) = [[timeUs=864000, position=508052]]
+  getPosition(1728000) = [[timeUs=1728000, position=612052]]
 numberOfTracks = 1
 track 0:
   total output bytes = 216000
@@ -20,7 +20,7 @@ track 0:
     channelCount = 6
     sampleRate = 48000
     language = und
-    metadata = entries=[FormatSpecificTransmuxingData: boxType=dec3, Mp4Timestamp: creation time=3662086526, modification time=3662086526, timescale=48000]
+    metadata = entries=[FormatSpecificTransmuxingData: boxType=dec3, Mp4Timestamp: creation time=100000000, modification time=500000000, timescale=10000]
   sample 0:
     time = 0
     flags = 1

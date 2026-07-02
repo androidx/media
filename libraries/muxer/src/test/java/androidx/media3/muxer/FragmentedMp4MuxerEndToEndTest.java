@@ -19,17 +19,21 @@ import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
+import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.DumpableMp4Box;
 import androidx.media3.test.utils.FakeExtractorOutput;
+import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.Iterables;
 import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 import org.junit.Rule;
@@ -242,5 +246,65 @@ public class FragmentedMp4MuxerEndToEndTest {
         context,
         dumpableMp4Box,
         MuxerTestUtil.getExpectedMp4DumpFilePath("fragmented_mp4_with_unknown_track.mp4"));
+  }
+
+  @Test
+  public void writeFragmentedMp4File_fromEAc3Input_matchesExpected() throws Exception {
+    transmuxToFragmentedAndAssert(/* inputFileName= */ "mp4/sample_eac3.mp4");
+  }
+
+  @Test
+  public void writeFragmentedMp4File_fromEAc3JocInput_matchesExpected() throws Exception {
+    transmuxToFragmentedAndAssert(/* inputFileName= */ "mp4/sample_eac3joc.mp4");
+  }
+
+  /**
+   * Stream-copies an MP4 audio track through {@link FragmentedMp4Muxer} and asserts the re-extracted
+   * output against the expected dump.
+   *
+   * <p>The input is read with {@link Mp4Extractor} (rather than {@code MediaExtractorCompat}) so that
+   * {@link Format#metadata} — which carries the E-AC-3 {@code dec3} payload as a {@code
+   * FormatSpecificTransmuxingData} entry — is preserved and passed to the muxer.
+   */
+  private void transmuxToFragmentedAndAssert(String inputFileName) throws Exception {
+    FakeExtractorOutput inputExtractorOutput =
+        TestUtil.extractAllSamplesFromFile(new Mp4Extractor(), context, "media/" + inputFileName);
+    FakeTrackOutput audioTrackOutput =
+        Iterables.getOnlyElement(inputExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO));
+    Format audioFormat = checkNotNull(audioTrackOutput.lastFormat);
+    String outputFilePath = temporaryFolder.newFile().getPath();
+
+    try (FragmentedMp4Muxer muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel()).build()) {
+      // Use fixed timestamps so the output (and its dump) is deterministic.
+      muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 100_000_000L,
+              /* modificationTimestampSeconds= */ 500_000_000L));
+      int trackId = muxer.addTrack(audioFormat);
+      for (int i = 0; i < audioTrackOutput.getSampleCount(); i++) {
+        byte[] sampleData = audioTrackOutput.getSampleData(i);
+        ByteBuffer sampleBuffer = ByteBuffer.allocateDirect(sampleData.length);
+        sampleBuffer.put(sampleData);
+        sampleBuffer.rewind();
+        muxer.writeSampleData(
+            trackId,
+            sampleBuffer,
+            new BufferInfo(
+                audioTrackOutput.getSampleTimeUs(i),
+                sampleData.length,
+                audioTrackOutput.getSampleFlags(i)));
+      }
+    }
+
+    FakeExtractorOutput outputExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new FragmentedMp4Extractor(new DefaultSubtitleParserFactory()),
+            checkNotNull(outputFilePath));
+    DumpFileAsserts.assertOutput(
+        context,
+        outputExtractorOutput,
+        MuxerTestUtil.getExpectedDumpFilePath(
+            MuxerTestUtil.getSubstitutedPath(inputFileName, MuxerTestUtil.MP4) + "_fragmented"));
   }
 }

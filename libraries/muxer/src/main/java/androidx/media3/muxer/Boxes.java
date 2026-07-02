@@ -30,10 +30,12 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
+import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.FormatSpecificTransmuxingData;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.NalUnitUtil;
@@ -781,6 +783,9 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         return dOpsBox(format);
       case MimeTypes.AUDIO_IAMF:
         return iacbBox(format);
+      case MimeTypes.AUDIO_E_AC3:
+      case MimeTypes.AUDIO_E_AC3_JOC:
+        return dec3Box(format);
       case MimeTypes.AUDIO_RAW:
         return ByteBuffer.allocate(0); // No codec specific box for raw audio.
       case MimeTypes.VIDEO_H263:
@@ -1643,6 +1648,42 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return BoxUtils.wrapIntoBox("av1C", ByteBuffer.wrap(csd0));
   }
 
+  /**
+   * Returns the dec3 box (EC3SpecificBox) for E-AC-3 / E-AC-3 JOC (Dolby Atmos) audio.
+   *
+   * <p>The dec3 box body is carried verbatim in a {@link FormatSpecificTransmuxingData} entry (with
+   * {@linkplain FormatSpecificTransmuxingData#boxType boxType} {@code "dec3"}) on {@link
+   * Format#metadata}. Stream-copy callers must populate it with the source track's raw dec3 payload;
+   * the MP4 extractor populates this from the source {@code dec3} box.
+   */
+  private static ByteBuffer dec3Box(Format format) {
+    byte[] dec3Payload = getTransmuxingBoxPayload(format, "dec3");
+    checkArgument(
+        dec3Payload != null && dec3Payload.length > 0, "dec3 payload not found for dec3 box.");
+    return BoxUtils.wrapIntoBox("dec3", ByteBuffer.wrap(dec3Payload));
+  }
+
+  /**
+   * Returns the raw payload of the {@link FormatSpecificTransmuxingData} entry on {@code
+   * format.metadata} whose {@linkplain FormatSpecificTransmuxingData#boxType boxType} matches {@code
+   * boxType}, or {@code null} if there is no such entry.
+   */
+  @Nullable
+  private static byte[] getTransmuxingBoxPayload(Format format, String boxType) {
+    @Nullable Metadata metadata = format.metadata;
+    if (metadata == null) {
+      return null;
+    }
+    for (int i = 0; i < metadata.length(); i++) {
+      Metadata.Entry entry = metadata.get(i);
+      if (entry instanceof FormatSpecificTransmuxingData
+          && ((FormatSpecificTransmuxingData) entry).boxType.equals(boxType)) {
+        return ((FormatSpecificTransmuxingData) entry).data;
+      }
+    }
+    return null;
+  }
+
   /** Returns a dvcC/dvwC/dvvC vision box which will be included in dolby vision box. */
   private static ByteBuffer doviBox(int profile, byte[] csd) {
     checkArgument(csd.length > 0, "csd is empty for dovi box.");
@@ -1847,6 +1888,9 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         return "Opus";
       case MimeTypes.AUDIO_IAMF:
         return "iamf";
+      case MimeTypes.AUDIO_E_AC3:
+      case MimeTypes.AUDIO_E_AC3_JOC:
+        return "ec-3";
       case MimeTypes.AUDIO_RAW:
         if (format.pcmEncoding == C.ENCODING_PCM_16BIT) {
           return "sowt";
