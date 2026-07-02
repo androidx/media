@@ -461,10 +461,11 @@ public final class EventLoggerTest {
   public void onLoadError() {
     eventLogger.onLoadError(
         EVENT_TIME,
-        new LoadEventInfo(
-            /* loadTaskId= */ 1,
-            new DataSpec(Uri.parse("http://foo.test")),
-            /* elapsedRealtimeMs= */ 123),
+        new LoadEventInfo.Builder(
+                /* loadTaskId= */ 1,
+                new DataSpec(Uri.parse("http://foo.test")),
+                /* elapsedRealtimeMs= */ 123)
+            .build(),
         MEDIA_LOAD_DATA,
         new IOException("test msg"),
         /* wasCanceled= */ true);

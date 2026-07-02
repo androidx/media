@@ -47,14 +47,10 @@ import org.junit.runner.RunWith;
 public final class DefaultLoadErrorHandlingPolicyTest {
 
   private static final LoadEventInfo PLACEHOLDER_LOAD_EVENT_INFO =
-      new LoadEventInfo(
-          LoadEventInfo.getNewId(),
-          new DataSpec(Uri.EMPTY),
-          Uri.EMPTY,
-          /* responseHeaders= */ Collections.emptyMap(),
-          /* elapsedRealtimeMs= */ 5000,
-          /* loadDurationMs= */ 1000,
-          /* bytesLoaded= */ 0);
+      new LoadEventInfo.Builder(
+              LoadEventInfo.getNewId(), new DataSpec(Uri.EMPTY), /* elapsedRealtimeMs= */ 5000)
+          .setLoadDurationMs(1000)
+          .build();
   private static final MediaLoadData PLACEHOLDER_MEDIA_LOAD_DATA =
       new MediaLoadData(/* dataType= */ C.DATA_TYPE_UNKNOWN);
 

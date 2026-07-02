@@ -602,14 +602,10 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
       if (Arrays.equals(request.getData(), FAKE_PROVISION_REQUEST.getData())) {
         return new Response.Builder(Bytes.toArray(VALID_PROVISION_RESPONSE))
             .setLoadEventInfo(
-                new LoadEventInfo(
-                    /* loadTaskId= */ -1,
-                    new DataSpec(uri),
-                    uri,
-                    /* responseHeaders= */ ImmutableMap.of(),
-                    SystemClock.elapsedRealtime(),
-                    /* loadDurationMs= */ 0,
-                    /* bytesLoaded= */ VALID_PROVISION_RESPONSE.size()))
+                new LoadEventInfo.Builder(
+                        /* loadTaskId= */ -1, new DataSpec(uri), SystemClock.elapsedRealtime())
+                    .setBytesLoaded(VALID_PROVISION_RESPONSE.size())
+                    .build())
             .build();
       } else {
         return new Response(Util.EMPTY_BYTE_ARRAY);
@@ -636,14 +632,10 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
       Uri uri = Uri.parse(request.getLicenseServerUrl());
       return new Response.Builder(Bytes.toArray(response))
           .setLoadEventInfo(
-              new LoadEventInfo(
-                  /* loadTaskId= */ -1,
-                  new DataSpec(uri),
-                  uri,
-                  /* responseHeaders= */ ImmutableMap.of(),
-                  SystemClock.elapsedRealtime(),
-                  /* loadDurationMs= */ 0,
-                  /* bytesLoaded= */ response.size()))
+              new LoadEventInfo.Builder(
+                      /* loadTaskId= */ -1, new DataSpec(uri), SystemClock.elapsedRealtime())
+                  .setBytesLoaded(response.size())
+                  .build())
           .build();
     }
 

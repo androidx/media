@@ -45,7 +45,6 @@ import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -109,7 +108,9 @@ public class FakeAdaptiveMediaPeriod
   @Override
   public void prepare(Callback callback, long positionUs) {
     mediaSourceEventDispatcher.loadStarted(
-        new LoadEventInfo(fakePreparationLoadTaskId, FAKE_DATA_SPEC, SystemClock.elapsedRealtime()),
+        new LoadEventInfo.Builder(
+                fakePreparationLoadTaskId, FAKE_DATA_SPEC, SystemClock.elapsedRealtime())
+            .build(),
         C.DATA_TYPE_MEDIA,
         C.TRACK_TYPE_UNKNOWN,
         /* trackFormat= */ null,
@@ -122,14 +123,10 @@ public class FakeAdaptiveMediaPeriod
     prepared = true;
     Util.castNonNull(this.callback).onPrepared(this);
     mediaSourceEventDispatcher.loadCompleted(
-        new LoadEventInfo(
-            fakePreparationLoadTaskId,
-            FAKE_DATA_SPEC,
-            FAKE_DATA_SPEC.uri,
-            /* responseHeaders= */ ImmutableMap.of(),
-            SystemClock.elapsedRealtime(),
-            /* loadDurationMs= */ 0,
-            /* bytesLoaded= */ 100),
+        new LoadEventInfo.Builder(
+                fakePreparationLoadTaskId, FAKE_DATA_SPEC, SystemClock.elapsedRealtime())
+            .setBytesLoaded(100)
+            .build(),
         C.DATA_TYPE_MEDIA,
         C.TRACK_TYPE_UNKNOWN,
         /* trackFormat= */ null,

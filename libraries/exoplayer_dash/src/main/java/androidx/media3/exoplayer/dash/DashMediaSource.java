@@ -697,31 +697,27 @@ public final class DashMediaSource extends BaseMediaSource {
       long elapsedRealtimeMs,
       long loadDurationMs,
       int retryCount) {
-    LoadEventInfo loadEventInfo =
-        retryCount == 0
-            ? new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
-            : new LoadEventInfo(
-                loadable.loadTaskId,
-                loadable.dataSpec,
-                loadable.getUri(),
-                loadable.getResponseHeaders(),
-                elapsedRealtimeMs,
-                loadDurationMs,
-                loadable.bytesLoaded());
-    manifestEventDispatcher.loadStarted(loadEventInfo, loadable.type, retryCount);
+    LoadEventInfo.Builder loadEventInfo =
+        new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs);
+    if (retryCount != 0) {
+      loadEventInfo
+          .setUri(loadable.getUri())
+          .setResponseHeaders(loadable.getResponseHeaders())
+          .setLoadDurationMs(loadDurationMs)
+          .setBytesLoaded(loadable.bytesLoaded());
+    }
+    manifestEventDispatcher.loadStarted(loadEventInfo.build(), loadable.type, retryCount);
   }
 
   /* package */ void onManifestLoadCompleted(
       ParsingLoadable<DashManifest> loadable, long elapsedRealtimeMs, long loadDurationMs) {
     LoadEventInfo loadEventInfo =
-        new LoadEventInfo(
-            loadable.loadTaskId,
-            loadable.dataSpec,
-            loadable.getUri(),
-            loadable.getResponseHeaders(),
-            elapsedRealtimeMs,
-            loadDurationMs,
-            loadable.bytesLoaded());
+        new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+            .setUri(loadable.getUri())
+            .setResponseHeaders(loadable.getResponseHeaders())
+            .setLoadDurationMs(loadDurationMs)
+            .setBytesLoaded(loadable.bytesLoaded())
+            .build();
     loadErrorHandlingPolicy.onLoadTaskConcluded(loadable.loadTaskId);
     manifestEventDispatcher.loadCompleted(loadEventInfo, loadable.type);
     DashManifest newManifest = loadable.getResult();
@@ -824,14 +820,12 @@ public final class DashMediaSource extends BaseMediaSource {
       IOException error,
       int errorCount) {
     LoadEventInfo loadEventInfo =
-        new LoadEventInfo(
-            loadable.loadTaskId,
-            loadable.dataSpec,
-            loadable.getUri(),
-            loadable.getResponseHeaders(),
-            elapsedRealtimeMs,
-            loadDurationMs,
-            loadable.bytesLoaded());
+        new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+            .setUri(loadable.getUri())
+            .setResponseHeaders(loadable.getResponseHeaders())
+            .setLoadDurationMs(loadDurationMs)
+            .setBytesLoaded(loadable.bytesLoaded())
+            .build();
     MediaLoadData mediaLoadData = new MediaLoadData(loadable.type);
     LoadErrorInfo loadErrorInfo =
         new LoadErrorInfo(loadEventInfo, mediaLoadData, error, errorCount);
@@ -907,14 +901,12 @@ public final class DashMediaSource extends BaseMediaSource {
   /* package */ void onUtcTimestampLoadCompleted(
       ParsingLoadable<Long> loadable, long elapsedRealtimeMs, long loadDurationMs) {
     LoadEventInfo loadEventInfo =
-        new LoadEventInfo(
-            loadable.loadTaskId,
-            loadable.dataSpec,
-            loadable.getUri(),
-            loadable.getResponseHeaders(),
-            elapsedRealtimeMs,
-            loadDurationMs,
-            loadable.bytesLoaded());
+        new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+            .setUri(loadable.getUri())
+            .setResponseHeaders(loadable.getResponseHeaders())
+            .setLoadDurationMs(loadDurationMs)
+            .setBytesLoaded(loadable.bytesLoaded())
+            .build();
     loadErrorHandlingPolicy.onLoadTaskConcluded(loadable.loadTaskId);
     manifestEventDispatcher.loadCompleted(loadEventInfo, loadable.type);
     onUtcTimestampResolved(loadable.getResult() - elapsedRealtimeMs);
@@ -926,14 +918,12 @@ public final class DashMediaSource extends BaseMediaSource {
       long loadDurationMs,
       IOException error) {
     manifestEventDispatcher.loadError(
-        new LoadEventInfo(
-            loadable.loadTaskId,
-            loadable.dataSpec,
-            loadable.getUri(),
-            loadable.getResponseHeaders(),
-            elapsedRealtimeMs,
-            loadDurationMs,
-            loadable.bytesLoaded()),
+        new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+            .setUri(loadable.getUri())
+            .setResponseHeaders(loadable.getResponseHeaders())
+            .setLoadDurationMs(loadDurationMs)
+            .setBytesLoaded(loadable.bytesLoaded())
+            .build(),
         loadable.type,
         error,
         /* wasCanceled= */ true);
@@ -945,14 +935,12 @@ public final class DashMediaSource extends BaseMediaSource {
   /* package */ void onLoadCanceled(
       ParsingLoadable<?> loadable, long elapsedRealtimeMs, long loadDurationMs) {
     LoadEventInfo loadEventInfo =
-        new LoadEventInfo(
-            loadable.loadTaskId,
-            loadable.dataSpec,
-            loadable.getUri(),
-            loadable.getResponseHeaders(),
-            elapsedRealtimeMs,
-            loadDurationMs,
-            loadable.bytesLoaded());
+        new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+            .setUri(loadable.getUri())
+            .setResponseHeaders(loadable.getResponseHeaders())
+            .setLoadDurationMs(loadDurationMs)
+            .setBytesLoaded(loadable.bytesLoaded())
+            .build();
     loadErrorHandlingPolicy.onLoadTaskConcluded(loadable.loadTaskId);
     manifestEventDispatcher.loadCanceled(loadEventInfo, loadable.type);
   }

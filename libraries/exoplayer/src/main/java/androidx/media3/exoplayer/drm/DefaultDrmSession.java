@@ -691,9 +691,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
             synchronized (keyRequestInfoLock) {
               if (currentKeyRequestInfo != null && keyResponse.loadEventInfo != null) {
                 currentKeyRequestInfo.addLoadInfo(
-                    keyResponse.loadEventInfo.copyWithTaskIdAndDurationMs(
-                        requestTask.taskId,
-                        SystemClock.elapsedRealtime() - requestTask.startTimeMs));
+                    keyResponse
+                        .loadEventInfo
+                        .buildUpon()
+                        .setLoadTaskId(requestTask.taskId)
+                        .setLoadDurationMs(SystemClock.elapsedRealtime() - requestTask.startTimeMs)
+                        .build());
               }
             }
             break;
@@ -730,14 +733,13 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         return false;
       }
       LoadEventInfo loadEventInfo =
-          new LoadEventInfo(
-              requestTask.taskId,
-              exception.dataSpec,
-              exception.uriAfterRedirects,
-              exception.responseHeaders,
-              SystemClock.elapsedRealtime(),
-              /* loadDurationMs= */ SystemClock.elapsedRealtime() - requestTask.startTimeMs,
-              exception.bytesLoaded);
+          new LoadEventInfo.Builder(
+                  requestTask.taskId, exception.dataSpec, SystemClock.elapsedRealtime())
+              .setUri(exception.uriAfterRedirects)
+              .setResponseHeaders(exception.responseHeaders)
+              .setLoadDurationMs(SystemClock.elapsedRealtime() - requestTask.startTimeMs)
+              .setBytesLoaded(exception.bytesLoaded)
+              .build();
       MediaLoadData mediaLoadData = new MediaLoadData(C.DATA_TYPE_DRM);
       IOException loadErrorCause =
           exception.getCause() instanceof IOException

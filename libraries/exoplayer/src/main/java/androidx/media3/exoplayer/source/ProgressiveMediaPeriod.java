@@ -772,19 +772,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void onLoadStarted(
       ExtractingLoadable loadable, long elapsedRealtimeMs, long loadDurationMs, int retryCount) {
     StatsDataSource dataSource = loadable.dataSource;
-    LoadEventInfo loadEventInfo =
-        retryCount == 0
-            ? new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
-            : new LoadEventInfo(
-                loadable.loadTaskId,
-                loadable.dataSpec,
-                dataSource.getLastOpenedUri(),
-                dataSource.getLastResponseHeaders(),
-                elapsedRealtimeMs,
-                loadDurationMs,
-                dataSource.getBytesRead());
+    LoadEventInfo.Builder loadEventInfo =
+        new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs);
+    if (retryCount != 0) {
+      loadEventInfo
+          .setUri(dataSource.getLastOpenedUri())
+          .setResponseHeaders(dataSource.getLastResponseHeaders())
+          .setLoadDurationMs(loadDurationMs)
+          .setBytesLoaded(dataSource.getBytesRead());
+    }
     mediaSourceEventDispatcher.loadStarted(
-        loadEventInfo,
+        loadEventInfo.build(),
         C.DATA_TYPE_MEDIA,
         C.TRACK_TYPE_UNKNOWN,
         /* trackFormat= */ null,
@@ -809,14 +807,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     StatsDataSource dataSource = loadable.dataSource;
     LoadEventInfo loadEventInfo =
-        new LoadEventInfo(
-            loadable.loadTaskId,
-            loadable.dataSpec,
-            dataSource.getLastOpenedUri(),
-            dataSource.getLastResponseHeaders(),
-            elapsedRealtimeMs,
-            loadDurationMs,
-            dataSource.getBytesRead());
+        new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+            .setUri(dataSource.getLastOpenedUri())
+            .setResponseHeaders(dataSource.getLastResponseHeaders())
+            .setLoadDurationMs(loadDurationMs)
+            .setBytesLoaded(dataSource.getBytesRead())
+            .build();
     loadErrorHandlingPolicy.onLoadTaskConcluded(loadable.loadTaskId);
     mediaSourceEventDispatcher.loadCompleted(
         loadEventInfo,
@@ -836,14 +832,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       ExtractingLoadable loadable, long elapsedRealtimeMs, long loadDurationMs, boolean released) {
     StatsDataSource dataSource = loadable.dataSource;
     LoadEventInfo loadEventInfo =
-        new LoadEventInfo(
-            loadable.loadTaskId,
-            loadable.dataSpec,
-            dataSource.getLastOpenedUri(),
-            dataSource.getLastResponseHeaders(),
-            elapsedRealtimeMs,
-            loadDurationMs,
-            dataSource.getBytesRead());
+        new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+            .setUri(dataSource.getLastOpenedUri())
+            .setResponseHeaders(dataSource.getLastResponseHeaders())
+            .setLoadDurationMs(loadDurationMs)
+            .setBytesLoaded(dataSource.getBytesRead())
+            .build();
     loadErrorHandlingPolicy.onLoadTaskConcluded(loadable.loadTaskId);
     mediaSourceEventDispatcher.loadCanceled(
         loadEventInfo,
@@ -873,14 +867,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       int errorCount) {
     StatsDataSource dataSource = loadable.dataSource;
     LoadEventInfo loadEventInfo =
-        new LoadEventInfo(
-            loadable.loadTaskId,
-            loadable.dataSpec,
-            dataSource.getLastOpenedUri(),
-            dataSource.getLastResponseHeaders(),
-            elapsedRealtimeMs,
-            loadDurationMs,
-            dataSource.getBytesRead());
+        new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+            .setUri(dataSource.getLastOpenedUri())
+            .setResponseHeaders(dataSource.getLastResponseHeaders())
+            .setLoadDurationMs(loadDurationMs)
+            .setBytesLoaded(dataSource.getBytesRead())
+            .build();
     MediaLoadData mediaLoadData =
         new MediaLoadData(
             C.DATA_TYPE_MEDIA,

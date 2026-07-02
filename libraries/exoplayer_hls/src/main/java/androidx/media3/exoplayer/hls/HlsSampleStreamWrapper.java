@@ -961,19 +961,17 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   @Override
   public void onLoadStarted(
       Chunk loadable, long elapsedRealtimeMs, long loadDurationMs, int retryCount) {
-    LoadEventInfo loadEventInfo =
-        retryCount == 0
-            ? new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
-            : new LoadEventInfo(
-                loadable.loadTaskId,
-                loadable.dataSpec,
-                loadable.getUri(),
-                loadable.getResponseHeaders(),
-                elapsedRealtimeMs,
-                loadDurationMs,
-                loadable.bytesLoaded());
+    LoadEventInfo.Builder loadEventInfo =
+        new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs);
+    if (retryCount != 0) {
+      loadEventInfo
+          .setUri(loadable.getUri())
+          .setResponseHeaders(loadable.getResponseHeaders())
+          .setLoadDurationMs(loadDurationMs)
+          .setBytesLoaded(loadable.bytesLoaded());
+    }
     mediaSourceEventDispatcher.loadStarted(
-        loadEventInfo,
+        loadEventInfo.build(),
         loadable.type,
         trackType,
         loadable.trackFormat,
@@ -989,14 +987,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     loadingChunk = null;
     chunkSource.onChunkLoadCompleted(loadable);
     LoadEventInfo loadEventInfo =
-        new LoadEventInfo(
-            loadable.loadTaskId,
-            loadable.dataSpec,
-            loadable.getUri(),
-            loadable.getResponseHeaders(),
-            elapsedRealtimeMs,
-            loadDurationMs,
-            loadable.bytesLoaded());
+        new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+            .setUri(loadable.getUri())
+            .setResponseHeaders(loadable.getResponseHeaders())
+            .setLoadDurationMs(loadDurationMs)
+            .setBytesLoaded(loadable.bytesLoaded())
+            .build();
     loadErrorHandlingPolicy.onLoadTaskConcluded(loadable.loadTaskId);
     mediaSourceEventDispatcher.loadCompleted(
         loadEventInfo,
@@ -1019,14 +1015,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       Chunk loadable, long elapsedRealtimeMs, long loadDurationMs, boolean released) {
     loadingChunk = null;
     LoadEventInfo loadEventInfo =
-        new LoadEventInfo(
-            loadable.loadTaskId,
-            loadable.dataSpec,
-            loadable.getUri(),
-            loadable.getResponseHeaders(),
-            elapsedRealtimeMs,
-            loadDurationMs,
-            loadable.bytesLoaded());
+        new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+            .setUri(loadable.getUri())
+            .setResponseHeaders(loadable.getResponseHeaders())
+            .setLoadDurationMs(loadDurationMs)
+            .setBytesLoaded(loadable.bytesLoaded())
+            .build();
     loadErrorHandlingPolicy.onLoadTaskConcluded(loadable.loadTaskId);
     mediaSourceEventDispatcher.loadCanceled(
         loadEventInfo,
@@ -1068,14 +1062,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     }
     long bytesLoaded = loadable.bytesLoaded();
     LoadEventInfo loadEventInfo =
-        new LoadEventInfo(
-            loadable.loadTaskId,
-            loadable.dataSpec,
-            loadable.getUri(),
-            loadable.getResponseHeaders(),
-            elapsedRealtimeMs,
-            loadDurationMs,
-            bytesLoaded);
+        new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+            .setUri(loadable.getUri())
+            .setResponseHeaders(loadable.getResponseHeaders())
+            .setLoadDurationMs(loadDurationMs)
+            .setBytesLoaded(bytesLoaded)
+            .build();
     MediaLoadData mediaLoadData =
         new MediaLoadData(
             loadable.type,
