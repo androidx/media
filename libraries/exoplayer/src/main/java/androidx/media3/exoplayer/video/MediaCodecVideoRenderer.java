@@ -259,7 +259,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private boolean isFlushRequired;
   private long totalVideoFrameProcessingOffsetUs;
   private int videoFrameProcessingOffsetCount;
-  private long lastFrameReleaseTimeNs;
   private VideoSize decodedVideoSize;
   @Nullable private VideoSize reportedVideoSize;
   private int rendererPriority;
@@ -292,6 +291,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     private boolean enableMediaCodecBufferDecodeOnlyFlag;
     private boolean enableDurationToProgressUs;
     private long earlySchedulingThresholdUs;
+    private boolean skipBuffersWithIdenticalReleaseTime;
 
     /**
      * Creates a new builder.
@@ -306,6 +306,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       this.parseAv1SampleDependencies = true;
       this.lateThresholdToDropDecoderInputUs = DEFAULT_LATE_THRESHOLD_TO_DROP_DECODER_INPUT_US;
       this.earlySchedulingThresholdUs = DEFAULT_EARLY_SCHEDULING_THRESHOLD_US;
+      this.skipBuffersWithIdenticalReleaseTime = true;
     }
 
     /** Sets the {@link MediaCodecSelector decoder selector}. */
@@ -503,6 +504,24 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
 
     /**
+     * Sets whether to skip buffers that have an identical release time as the previous released
+     * buffer.
+     *
+     * <p>This method is experimental and will be renamed or removed in a future release.
+     *
+     * @param skipBuffersWithIdenticalReleaseTime Whether to skip buffers with identical release
+     *     time.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/321230611 - Remove after next release.
+    public Builder setSkipBuffersWithIdenticalReleaseTime(
+        boolean skipBuffersWithIdenticalReleaseTime) {
+      this.skipBuffersWithIdenticalReleaseTime = skipBuffersWithIdenticalReleaseTime;
+      return this;
+    }
+
+    /**
      * Builds the {@link MediaCodecVideoRenderer}. Must only be called once per Builder instance.
      *
      * <p>Throws {@link IllegalStateException} if the {@link #setEventHandler event handler} and the
@@ -681,7 +700,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     VideoFrameReleaseControl.@Initialized FrameTimingEvaluator thisRef = this;
     videoFrameReleaseControl =
         new VideoFrameReleaseControl(
-            this.context, /* frameTimingEvaluator= */ thisRef, builder.allowedJoiningTimeMs);
+            this.context,
+            /* frameTimingEvaluator= */ thisRef,
+            builder.allowedJoiningTimeMs,
+            builder.skipBuffersWithIdenticalReleaseTime);
     videoFrameReleaseControl.setEarlySchedulingThresholdUs(builder.earlySchedulingThresholdUs);
     videoFrameReleaseInfo = new VideoFrameReleaseControl.FrameReleaseInfo();
     frameRateEstimator = new FixedFrameRateEstimator(this::onFrameRateEstimateChanged);
@@ -2101,8 +2123,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           positionUs,
           isDecodeOnlyBuffer,
           isLastBuffer,
-          videoFrameReleaseInfo,
-          lastFrameReleaseTimeNs);
+          videoFrameReleaseInfo);
     }
     nextOutputBufferToProcessPresentationTimeUs =
         frameReleaseAction == VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER
@@ -2169,18 +2190,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       MediaCodecAdapter codec, int bufferIndex, long presentationTimeUs, Format format) {
     long releaseTimeNs = videoFrameReleaseInfo.getReleaseTimeNs();
     long earlyUs = videoFrameReleaseInfo.getEarlyUs();
-    if (shouldSkipBuffersWithIdenticalReleaseTime() && releaseTimeNs == lastFrameReleaseTimeNs) {
-      // This frame should be displayed on the same vsync with the previous released frame. We
-      // are likely rendering frames at a rate higher than the screen refresh rate. Skip
-      // this buffer so that it's returned to MediaCodec sooner otherwise MediaCodec may not
-      // be able to keep decoding with this rate [b/263454203].
-      skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
-    } else {
-      notifyFrameMetadataListener(presentationTimeUs, releaseTimeNs, format);
-      renderOutputBufferV21(codec, bufferIndex, presentationTimeUs, releaseTimeNs);
-    }
+    notifyFrameMetadataListener(presentationTimeUs, releaseTimeNs, format);
+    renderOutputBufferV21(codec, bufferIndex, presentationTimeUs, releaseTimeNs);
     updateVideoFrameProcessingOffsetCounters(earlyUs);
-    lastFrameReleaseTimeNs = releaseTimeNs;
   }
 
   private void notifyFrameMetadataListener(
@@ -2258,14 +2270,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   protected boolean shouldDropBuffersToKeyframe(
       long earlyUs, long elapsedRealtimeUs, boolean isLastBuffer) {
     return earlyUs < MIN_EARLY_US_VERY_LATE_THRESHOLD && !isLastBuffer;
-  }
-
-  /**
-   * Returns whether to skip buffers that have an identical release time as the previous released
-   * buffer.
-   */
-  protected boolean shouldSkipBuffersWithIdenticalReleaseTime() {
-    return true;
   }
 
   /**
@@ -2914,8 +2918,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       long positionUs,
       boolean isDecodeOnlyBuffer,
       boolean isLastBuffer,
-      VideoFrameReleaseControl.FrameReleaseInfo videoFrameReleaseInfo,
-      long lastFrameReleaseTimeNs) {
+      VideoFrameReleaseControl.FrameReleaseInfo videoFrameReleaseInfo) {
     if (frameReleaseAction == VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER) {
       return;
     }
@@ -2948,9 +2951,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       case VideoFrameReleaseControl.FRAME_RELEASE_SCHEDULED:
         long releaseTimeNs = videoFrameReleaseInfo.getReleaseTimeNs();
         debugString += ", release=" + (releaseTimeNs / 1000);
-        if (lastFrameReleaseTimeNs != 0) {
-          debugString += " (+" + (releaseTimeNs - lastFrameReleaseTimeNs) / 1000 + ")";
-        }
         break;
       case VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER:
       default:

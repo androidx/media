@@ -227,8 +227,8 @@ public class ParseAv1SampleDependenciesPlaybackTest {
                 .setEventListener(eventListener)
                 .setMaxDroppedFramesToNotify(1)
                 .experimentalSetParseAv1SampleDependencies(parseAv1SampleDependencies)
-                .experimentalSetLateThresholdToDropDecoderInputUs(
-                    lateThresholdToDropDecoderInputUs));
+                .experimentalSetLateThresholdToDropDecoderInputUs(lateThresholdToDropDecoderInputUs)
+                .setSkipBuffersWithIdenticalReleaseTime(false));
       }
 
       @Override
@@ -242,12 +242,6 @@ public class ParseAv1SampleDependenciesPlaybackTest {
       protected boolean shouldDropBuffersToKeyframe(
           long earlyUs, long elapsedRealtimeUs, boolean isLastBuffer) {
         // Do not drop output buffers due to slow processing.
-        return false;
-      }
-
-      @Override
-      protected boolean shouldSkipBuffersWithIdenticalReleaseTime() {
-        // Do not skip buffers with identical vsync times as we can't control this from tests.
         return false;
       }
 

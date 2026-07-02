@@ -30,6 +30,7 @@ import android.view.Surface;
 import androidx.annotation.FloatRange;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ExperimentalApi;
@@ -173,6 +174,7 @@ public final class VideoFrameReleaseControl {
   private final FrameTimingEvaluator frameTimingEvaluator;
   private final VideoFrameReleaseHelper frameReleaseHelper;
   private final long allowedJoiningTimeMs;
+  private final boolean skipBuffersWithIdenticalReleaseTime;
 
   private boolean started;
   private @C.FirstFrameState int firstFrameState;
@@ -186,6 +188,7 @@ public final class VideoFrameReleaseControl {
   private boolean frameReadyWithoutSurface;
   private boolean disableAdvancingTimestampChecks;
   private boolean requiresOutputSurface;
+  private long lastFrameReleaseTimeNs;
 
   /**
    * Creates an instance.
@@ -196,13 +199,17 @@ public final class VideoFrameReleaseControl {
    *     FrameReleaseInfo) frame release actions}.
    * @param allowedJoiningTimeMs The maximum duration in milliseconds for which the caller can
    *     attempt to seamlessly join an ongoing playback.
+   * @param skipBuffersWithIdenticalReleaseTime Whether to skip buffers that have an identical
+   *     release time as the previous released buffer.
    */
   public VideoFrameReleaseControl(
       Context applicationContext,
       FrameTimingEvaluator frameTimingEvaluator,
-      long allowedJoiningTimeMs) {
+      long allowedJoiningTimeMs,
+      boolean skipBuffersWithIdenticalReleaseTime) {
     this.frameTimingEvaluator = frameTimingEvaluator;
     this.allowedJoiningTimeMs = allowedJoiningTimeMs;
+    this.skipBuffersWithIdenticalReleaseTime = skipBuffersWithIdenticalReleaseTime;
     frameReleaseHelper = new VideoFrameReleaseHelper(applicationContext);
     firstFrameState = C.FIRST_FRAME_NOT_RENDERED_ONLY_ALLOWED_IF_STARTED;
     initialPositionUs = C.TIME_UNSET;
@@ -211,6 +218,7 @@ public final class VideoFrameReleaseControl {
     clock = Clock.DEFAULT;
     requiresOutputSurface = true;
     earlySchedulingThresholdUs = DEFAULT_EARLY_SCHEDULING_THRESHOLD_US;
+    lastFrameReleaseTimeNs = C.TIME_UNSET;
   }
 
   /**
@@ -266,6 +274,7 @@ public final class VideoFrameReleaseControl {
     started = false;
     joiningDeadlineMs = C.TIME_UNSET;
     frameReleaseHelper.onStopped();
+    lastFrameReleaseTimeNs = C.TIME_UNSET;
   }
 
   /** Called when the display surface changed. */
@@ -455,7 +464,11 @@ public final class VideoFrameReleaseControl {
       return treatDropAsSkip ? FRAME_RELEASE_SKIP : FRAME_RELEASE_DROP;
     } else if (frameReleaseInfo.earlyUs > earlySchedulingThresholdUs) {
       return FRAME_RELEASE_TRY_AGAIN_LATER;
+    } else if (skipBuffersWithIdenticalReleaseTime
+        && frameReleaseInfo.releaseTimeNs == lastFrameReleaseTimeNs) {
+      return FRAME_RELEASE_SKIP;
     }
+    lastFrameReleaseTimeNs = frameReleaseInfo.releaseTimeNs;
     return FRAME_RELEASE_SCHEDULED;
   }
 
@@ -466,6 +479,18 @@ public final class VideoFrameReleaseControl {
     lowerFirstFrameState(C.FIRST_FRAME_NOT_RENDERED);
     joiningDeadlineMs = C.TIME_UNSET;
     frameReadyWithoutSurface = false;
+    lastFrameReleaseTimeNs = C.TIME_UNSET;
+  }
+
+  /**
+   * Sets the vsync timing data.
+   *
+   * @param vsyncSampleTimeNs The vsync sample time in nanoseconds.
+   * @param vsyncDurationNs The vsync duration in nanoseconds.
+   */
+  @VisibleForTesting
+  public void setVsyncData(long vsyncSampleTimeNs, long vsyncDurationNs) {
+    frameReleaseHelper.setVsyncData(vsyncSampleTimeNs, vsyncDurationNs);
   }
 
   /**

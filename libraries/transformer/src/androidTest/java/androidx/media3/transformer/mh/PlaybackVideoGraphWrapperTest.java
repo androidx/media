@@ -172,6 +172,9 @@ public class PlaybackVideoGraphWrapperTest {
           }
         };
     return new VideoFrameReleaseControl(
-        context, frameTimingEvaluator, /* allowedJoiningTimeMs= */ 0);
+        context,
+        frameTimingEvaluator,
+        /* allowedJoiningTimeMs= */ 0,
+        /* skipBuffersWithIdenticalReleaseTime= */ true);
   }
 }

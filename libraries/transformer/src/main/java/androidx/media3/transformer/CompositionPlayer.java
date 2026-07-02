@@ -794,7 +794,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
                     lateThresholdToDropInputUs != C.TIME_UNSET
                         ? -lateThresholdToDropInputUs
                         : C.TIME_UNSET),
-                /* allowedJoiningTimeMs= */ 0);
+                /* allowedJoiningTimeMs= */ 0,
+                /* skipBuffersWithIdenticalReleaseTime= */ false);
         videoFrameReleaseControl.setClock(clock);
         videoPacketReleaseControl =
             new CompositionVideoPacketReleaseControl(
@@ -1535,7 +1536,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             context,
             new CompositionFrameTimingEvaluator(
                 CompositionFrameTimingEvaluator.DEFAULT_FRAME_LATE_THRESHOLD_US),
-            /* allowedJoiningTimeMs= */ 0);
+            /* allowedJoiningTimeMs= */ 0,
+            /* skipBuffersWithIdenticalReleaseTime= */ false);
     playbackVideoGraphWrapper =
         new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
             .setVideoGraphFactory(checkNotNull(videoGraphFactory))

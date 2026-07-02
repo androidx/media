@@ -638,7 +638,8 @@ public class VideoFrameReleaseControlTest {
                 /* shouldForceRelease= */ true,
                 /* shouldDropFrame= */ false,
                 /* shouldIgnoreFrame= */ false),
-            /* allowedJoiningTimeMs= */ 0);
+            /* allowedJoiningTimeMs= */ 0,
+            /* skipBuffersWithIdenticalReleaseTime= */ true);
     videoFrameReleaseControl.setOutputSurface(surface);
     videoFrameReleaseControl.setClock(clock);
     videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
@@ -688,7 +689,8 @@ public class VideoFrameReleaseControlTest {
                 /* shouldForceRelease= */ true,
                 /* shouldDropFrame= */ false,
                 /* shouldIgnoreFrame= */ false),
-            /* allowedJoiningTimeMs= */ 0);
+            /* allowedJoiningTimeMs= */ 0,
+            /* skipBuffersWithIdenticalReleaseTime= */ true);
     videoFrameReleaseControl.setOutputSurface(surface);
     videoFrameReleaseControl.setClock(clock);
     videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
@@ -737,7 +739,8 @@ public class VideoFrameReleaseControlTest {
                 /* shouldForceRelease= */ true,
                 /* shouldDropFrame= */ false,
                 /* shouldIgnoreFrame= */ false),
-            /* allowedJoiningTimeMs= */ 0);
+            /* allowedJoiningTimeMs= */ 0,
+            /* skipBuffersWithIdenticalReleaseTime= */ true);
     videoFrameReleaseControl.setOutputSurface(surface);
     videoFrameReleaseControl.setClock(clock);
     videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
@@ -788,7 +791,8 @@ public class VideoFrameReleaseControlTest {
                 /* shouldForceRelease= */ true,
                 /* shouldDropFrame= */ false,
                 /* shouldIgnoreFrame= */ false),
-            /* allowedJoiningTimeMs= */ 0);
+            /* allowedJoiningTimeMs= */ 0,
+            /* skipBuffersWithIdenticalReleaseTime= */ true);
     videoFrameReleaseControl.setOutputSurface(surface);
     videoFrameReleaseControl.setClock(clock);
     videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
@@ -839,7 +843,8 @@ public class VideoFrameReleaseControlTest {
                 /* shouldForceRelease= */ true,
                 /* shouldDropFrame= */ false,
                 /* shouldIgnoreFrame= */ false),
-            /* allowedJoiningTimeMs= */ 0);
+            /* allowedJoiningTimeMs= */ 0,
+            /* skipBuffersWithIdenticalReleaseTime= */ true);
     videoFrameReleaseControl.setOutputSurface(surface);
     videoFrameReleaseControl.setClock(clock);
     videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
@@ -902,7 +907,8 @@ public class VideoFrameReleaseControlTest {
                 /* shouldForceRelease= */ false,
                 /* shouldDropFrame= */ true,
                 /* shouldIgnoreFrame= */ false),
-            /* allowedJoiningTimeMs= */ 0);
+            /* allowedJoiningTimeMs= */ 0,
+            /* skipBuffersWithIdenticalReleaseTime= */ true);
     videoFrameReleaseControl.setOutputSurface(surface);
     videoFrameReleaseControl.setClock(clock);
     videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
@@ -955,7 +961,8 @@ public class VideoFrameReleaseControlTest {
                 /* shouldForceRelease= */ false,
                 /* shouldDropFrame= */ true,
                 /* shouldIgnoreFrame= */ false),
-            /* allowedJoiningTimeMs= */ 1234);
+            /* allowedJoiningTimeMs= */ 1234,
+            /* skipBuffersWithIdenticalReleaseTime= */ true);
     videoFrameReleaseControl.setOutputSurface(surface);
     videoFrameReleaseControl.setClock(clock);
     videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
@@ -1007,7 +1014,8 @@ public class VideoFrameReleaseControlTest {
                 /* shouldForceRelease= */ false,
                 /* shouldDropFrame= */ true,
                 /* shouldIgnoreFrame= */ false),
-            /* allowedJoiningTimeMs= */ 1234);
+            /* allowedJoiningTimeMs= */ 1234,
+            /* skipBuffersWithIdenticalReleaseTime= */ true);
     videoFrameReleaseControl.setOutputSurface(surface);
     videoFrameReleaseControl.setClock(clock);
     videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
@@ -1058,7 +1066,8 @@ public class VideoFrameReleaseControlTest {
                 /* shouldForceRelease= */ false,
                 /* shouldDropFrame= */ false,
                 /* shouldIgnoreFrame= */ true),
-            /* allowedJoiningTimeMs= */ 0);
+            /* allowedJoiningTimeMs= */ 0,
+            /* skipBuffersWithIdenticalReleaseTime= */ true);
     videoFrameReleaseControl.setOutputSurface(surface);
     videoFrameReleaseControl.setClock(clock);
     videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
@@ -1201,7 +1210,8 @@ public class VideoFrameReleaseControlTest {
                 /* shouldForceRelease= */ false,
                 /* shouldDropFrame= */ false,
                 /* shouldIgnoreFrame= */ true),
-            /* allowedJoiningTimeMs= */ 0);
+            /* allowedJoiningTimeMs= */ 0,
+            /* skipBuffersWithIdenticalReleaseTime= */ true);
     videoFrameReleaseControl.setOutputSurface(/* outputSurface= */ null);
     videoFrameReleaseControl.setClock(clock);
     videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
@@ -1274,6 +1284,64 @@ public class VideoFrameReleaseControlTest {
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_SKIP);
   }
 
+  @Test
+  public void getFrameReleaseAction_duplicateReleaseTime_returnsSkip() throws ExoPlaybackException {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
+    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setClock(clock);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
+    videoFrameReleaseControl.onStarted();
+
+    // Frame 0 (First frame, released immediately)
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 0,
+                /* positionUs= */ 0,
+                /* elapsedRealtimeUs= */ 0,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isDecodeOnlyFrame= */ false,
+                /* isLastFrame= */ false,
+                /* frameDurationNs= */ 16_666_666,
+                /* frameIndex= */ 0L,
+                frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
+    videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+
+    videoFrameReleaseControl.setVsyncData(
+        /* vsyncSampleTimeNs= */ 0, /* vsyncDurationNs= */ 16_666_666);
+
+    // Frame 1 (Scheduled for vsync 3 = 36.67ms)
+    clock.advanceTime(49); // ms
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 16_667,
+                /* positionUs= */ 16_667,
+                /* elapsedRealtimeUs= */ 49_000,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isDecodeOnlyFrame= */ false,
+                /* isLastFrame= */ false,
+                /* frameDurationNs= */ 8_333_333,
+                /* frameIndex= */ 1L,
+                frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_SCHEDULED);
+
+    // Frame 2 (Same release time -> returns SKIP)
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 25_000,
+                /* positionUs= */ 16_667,
+                /* elapsedRealtimeUs= */ 49_000,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isDecodeOnlyFrame= */ false,
+                /* isLastFrame= */ false,
+                /* frameDurationNs= */ 8_333_333,
+                /* frameIndex= */ 2L,
+                frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_SKIP);
+  }
+
   private VideoFrameReleaseControl createVideoFrameReleaseControl() {
     return createVideoFrameReleaseControl(/* allowedJoiningTimeMs= */ 0);
   }
@@ -1283,7 +1351,8 @@ public class VideoFrameReleaseControlTest {
         new VideoFrameReleaseControl(
             ApplicationProvider.getApplicationContext(),
             new TestFrameTimingEvaluator(),
-            allowedJoiningTimeMs);
+            allowedJoiningTimeMs,
+            /* skipBuffersWithIdenticalReleaseTime= */ true);
     videoFrameReleaseControl.setOutputSurface(surface);
     frameRateEstimator =
         new FixedFrameRateEstimator(

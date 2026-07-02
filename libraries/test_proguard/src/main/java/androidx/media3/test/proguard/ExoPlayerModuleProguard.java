@@ -253,7 +253,11 @@ public final class ExoPlayerModuleProguard {
           }
         };
     VideoFrameReleaseControl videoFrameReleaseControl =
-        new VideoFrameReleaseControl(context, frameTimingEvaluator, /* allowedJoiningTimeMs= */ 0);
+        new VideoFrameReleaseControl(
+            context,
+            frameTimingEvaluator,
+            /* allowedJoiningTimeMs= */ 0,
+            /* skipBuffersWithIdenticalReleaseTime= */ true);
     PlaybackVideoGraphWrapper playbackVideoGraphWrapper =
         new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl).build();
     playbackVideoGraphWrapper.getSink(/* inputIndex= */ 0).initialize(new Format.Builder().build());

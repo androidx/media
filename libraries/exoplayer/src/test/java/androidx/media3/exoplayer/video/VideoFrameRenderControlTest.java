@@ -215,7 +215,7 @@ public class VideoFrameRenderControlTest {
     videoFrameRenderControl.onStreamChanged(
         RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED, /* streamStartPositionUs= */ 20_000);
     videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 10_000);
-    videoFrameRenderControl.render(/* positionUs= */ 10_000, /* elapsedRealtimeUs= */ 0);
+    videoFrameRenderControl.render(/* positionUs= */ 10_000, /* elapsedRealtimeUs= */ 10_000);
 
     // Second frame has the second stream start position and it is also a first frame.
     inOrder
@@ -396,7 +396,8 @@ public class VideoFrameRenderControlTest {
         new VideoFrameReleaseControl(
             ApplicationProvider.getApplicationContext(),
             frameTimingEvaluator,
-            /* allowedJoiningTimeMs= */ 0);
+            /* allowedJoiningTimeMs= */ 0,
+            /* skipBuffersWithIdenticalReleaseTime= */ true);
     videoFrameReleaseControl.setOutputSurface(surface);
     return videoFrameReleaseControl;
   }

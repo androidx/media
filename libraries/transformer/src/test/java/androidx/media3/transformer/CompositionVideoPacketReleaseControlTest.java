@@ -88,7 +88,10 @@ public class CompositionVideoPacketReleaseControlTest {
     fakeClock = new FakeClock(/* initialTimeMs= */ 0);
     videoFrameReleaseControl =
         new VideoFrameReleaseControl(
-            context, fakeFrameTimingEvaluator, /* allowedJoiningTimeMs= */ 0);
+            context,
+            fakeFrameTimingEvaluator,
+            /* allowedJoiningTimeMs= */ 0,
+            /* skipBuffersWithIdenticalReleaseTime= */ false);
     videoFrameReleaseControl.setClock(fakeClock);
     frameProcessor =
         new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ false)

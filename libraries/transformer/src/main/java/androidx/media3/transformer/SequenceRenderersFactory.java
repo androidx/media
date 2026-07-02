@@ -804,7 +804,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               .setEventListener(videoRendererEventListener)
               .setMaxDroppedFramesToNotify(MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY)
               .setAssumedMinimumCodecOperatingRate(DEFAULT_FRAME_RATE)
-              .experimentalSetLateThresholdToDropDecoderInputUs(lateThresholdToDropInputUs));
+              .experimentalSetLateThresholdToDropDecoderInputUs(lateThresholdToDropInputUs)
+              .setSkipBuffersWithIdenticalReleaseTime(false));
       this.compositionRendererListener = compositionRendererListener;
       this.hardwareBufferFrameReaderSupplier = hardwareBufferFrameReaderSupplier;
       this.lateThresholdToDropInputUs = lateThresholdToDropInputUs;
@@ -963,12 +964,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         return false;
       }
       return super.shouldDropBuffersToKeyframe(earlyUs, elapsedRealtimeUs, isLastBuffer);
-    }
-
-    @Override
-    protected boolean shouldSkipBuffersWithIdenticalReleaseTime() {
-      // Do not skip buffers with identical vsync times as we aren't rendering to a screen.
-      return false;
     }
 
     @Override

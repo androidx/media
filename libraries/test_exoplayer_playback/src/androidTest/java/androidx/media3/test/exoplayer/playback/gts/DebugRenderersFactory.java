@@ -110,7 +110,10 @@ import java.util.ArrayList;
               .setEventHandler(eventHandler)
               .setEventListener(eventListener)
               .setMaxDroppedFramesToNotify(maxDroppedFrameCountToNotify)
-              .setCodecAdapterFactory(codecAdapterFactory));
+              .setCodecAdapterFactory(codecAdapterFactory)
+              // TODO: b/321230611 - Remove this override when 'late' buffers that result in
+              // identical release timestamps are reported as 'dropped' instead of 'skipped'.
+              .setSkipBuffersWithIdenticalReleaseTime(false));
       timestampsList = new long[ARRAY_SIZE];
     }
 
@@ -159,13 +162,6 @@ import java.util.ArrayList;
                 + bufferCount
                 + ").");
       }
-    }
-
-    // TODO: b/321230611 - Remove this override when 'late' buffers that result in identical release
-    //  timestamps are reported as 'dropped' instead of 'skipped'.
-    @Override
-    protected boolean shouldSkipBuffersWithIdenticalReleaseTime() {
-      return false;
     }
 
     private void clearTimestamps() {

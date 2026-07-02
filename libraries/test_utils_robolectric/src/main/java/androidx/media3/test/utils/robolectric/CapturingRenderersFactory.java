@@ -263,7 +263,9 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
               .setMaxDroppedFramesToNotify(maxDroppedFramesToNotify)
               .experimentalSetParseAv1SampleDependencies(parseAv1SampleDependencies)
               // Do not drop input buffers due to slow processing.
-              .experimentalSetLateThresholdToDropDecoderInputUs(C.TIME_UNSET));
+              .experimentalSetLateThresholdToDropDecoderInputUs(C.TIME_UNSET)
+              // Do not skip buffers with identical vsync times as we can't control this from tests.
+              .setSkipBuffersWithIdenticalReleaseTime(false));
     }
 
     @Override
@@ -277,12 +279,6 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
     protected boolean shouldDropBuffersToKeyframe(
         long earlyUs, long elapsedRealtimeUs, boolean isLastBuffer) {
       // Do not drop output buffers due to slow processing.
-      return false;
-    }
-
-    @Override
-    protected boolean shouldSkipBuffersWithIdenticalReleaseTime() {
-      // Do not skip buffers with identical vsync times as we can't control this from tests.
       return false;
     }
   }
