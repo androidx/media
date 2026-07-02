@@ -72,9 +72,9 @@
 // apps merge native libraries and reduce the binary size. See go/android_onelib
 // for details.
 #ifdef ANDROID_NATIVE_LIB_MERGING
-jint JNI_OnLoad_libdav1dJNI
+extern "C" JNIEXPORT jint JNICALL JNI_OnLoad_libdav1dJNI
 #else
-jint JNI_OnLoad
+extern "C" JNIEXPORT jint JNICALL JNI_OnLoad
 #endif
     (JavaVM* vm, void* reserved) {
   JNIEnv* env;
