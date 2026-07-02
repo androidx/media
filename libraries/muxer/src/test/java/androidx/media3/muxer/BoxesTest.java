@@ -404,6 +404,63 @@ public class BoxesTest {
   }
 
   @Test
+  public void createCodecSpecificBox_forEAc3_wrapsDec3PayloadVerbatim() {
+    byte[] payload = new byte[] {0x0F, (byte) 0x80, 0x00};
+    Format format =
+        FAKE_AUDIO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_E_AC3)
+            .setInitializationData(ImmutableList.of(payload))
+            .build();
+
+    ByteBuffer box = Boxes.codecSpecificBox(format);
+
+    // Box layout: 4 bytes size + 4 bytes "dec3" type + payload bytes.
+    assertThat(box.remaining()).isEqualTo(8 + payload.length);
+    byte[] typeBytes = new byte[4];
+    box.position(4);
+    box.get(typeBytes);
+    assertThat(new String(typeBytes)).isEqualTo("dec3");
+    byte[] actual = new byte[payload.length];
+    box.get(actual);
+    assertThat(actual).isEqualTo(payload);
+  }
+
+  @Test
+  public void createCodecSpecificBox_forEAc3Joc_wrapsDec3PayloadVerbatim() {
+    byte[] payload = new byte[] {0x0F, (byte) 0x80, 0x00};
+    Format format =
+        FAKE_AUDIO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_E_AC3_JOC)
+            .setInitializationData(ImmutableList.of(payload))
+            .build();
+
+    ByteBuffer box = Boxes.codecSpecificBox(format);
+
+    assertThat(box.remaining()).isEqualTo(8 + payload.length);
+    byte[] typeBytes = new byte[4];
+    box.position(4);
+    box.get(typeBytes);
+    assertThat(new String(typeBytes)).isEqualTo("dec3");
+    byte[] actual = new byte[payload.length];
+    box.get(actual);
+    assertThat(actual).isEqualTo(payload);
+  }
+
+  @Test
+  public void createCodecSpecificBox_forEAc3WithNoCsd_throws() {
+    Format format =
+        FAKE_AUDIO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_E_AC3)
+            .setInitializationData(ImmutableList.of())
+            .build();
+
+    assertThrows(IllegalArgumentException.class, () -> Boxes.codecSpecificBox(format));
+  }
+
+  @Test
   public void createAudioSampleEntryBox_withUnknownAudioFormat_throws() {
     // The audio format contains an unknown MIME type.
     Format format = FAKE_AUDIO_FORMAT.buildUpon().setSampleMimeType("audio/mp4a-unknown").build();
