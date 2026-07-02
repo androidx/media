@@ -325,7 +325,7 @@ public final class EditedMediaItemAssetInfo {
   @Nullable public final Format videoFormat;
 
   /** Descriptive name of the asset configuration. */
-  public final String name;
+  private final String name;
 
   private EditedMediaItemAssetInfo(Builder builder) {
     this.editedMediaItem = checkNotNull(builder.editedMediaItem);
