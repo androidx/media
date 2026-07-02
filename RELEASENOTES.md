@@ -10,6 +10,9 @@
 *   CompositionPlayer:
 *   Transformer:
 *   Track Selection:
+    *   Fix a timing-dependent concurrency issue where rapid sequential updates
+        to track selection parameters could result in some updates being lost or
+        overwritten.
 *   Extractors:
     *   AVI: Fix an issue where playing files without keyframe flags on audio
         tracks caused audio loss and `OutOfMemoryError`.
