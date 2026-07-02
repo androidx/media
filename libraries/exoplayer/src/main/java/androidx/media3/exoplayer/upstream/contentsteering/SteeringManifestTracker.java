@@ -208,14 +208,12 @@ public final class SteeringManifestTracker {
 
   private static LoadEventInfo buildLoadEventInfo(
       ParsingLoadable<SteeringManifest> loadable, long elapsedRealtimeMs, long loadDurationMs) {
-    return new LoadEventInfo(
-        loadable.loadTaskId,
-        loadable.dataSpec,
-        loadable.getUri(),
-        loadable.getResponseHeaders(),
-        elapsedRealtimeMs,
-        loadDurationMs,
-        loadable.bytesLoaded());
+    return new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+        .setUri(loadable.getUri())
+        .setResponseHeaders(loadable.getResponseHeaders())
+        .setLoadDurationMs(loadDurationMs)
+        .setBytesLoaded(loadable.bytesLoaded())
+        .build();
   }
 
   private class SteeringManifestLoaderCallback

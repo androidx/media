@@ -635,10 +635,11 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
       }
       createEventDispatcher(/* mediaPeriodId= */ null)
           .loadError(
-              new LoadEventInfo(
-                  LoadEventInfo.getNewId(),
-                  dataSpec,
-                  /* elapsedRealtimeMs= */ SystemClock.elapsedRealtime()),
+              new LoadEventInfo.Builder(
+                      LoadEventInfo.getNewId(),
+                      dataSpec,
+                      /* elapsedRealtimeMs= */ SystemClock.elapsedRealtime())
+                  .build(),
               C.DATA_TYPE_AD,
               error,
               /* wasCanceled= */ true);
@@ -667,10 +668,11 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
     public void onPrepareError(MediaPeriodId mediaPeriodId, IOException exception) {
       createEventDispatcher(mediaPeriodId)
           .loadError(
-              new LoadEventInfo(
-                  LoadEventInfo.getNewId(),
-                  new DataSpec(checkNotNull(adMediaItem.localConfiguration).uri),
-                  /* elapsedRealtimeMs= */ SystemClock.elapsedRealtime()),
+              new LoadEventInfo.Builder(
+                      LoadEventInfo.getNewId(),
+                      new DataSpec(checkNotNull(adMediaItem.localConfiguration).uri),
+                      /* elapsedRealtimeMs= */ SystemClock.elapsedRealtime())
+                  .build(),
               C.DATA_TYPE_AD,
               AdLoadException.createForAd(exception),
               /* wasCanceled= */ true);

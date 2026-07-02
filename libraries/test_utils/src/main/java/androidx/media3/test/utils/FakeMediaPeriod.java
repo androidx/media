@@ -52,7 +52,6 @@ import com.google.common.collect.Sets;
 import com.google.common.math.DoubleMath;
 import java.io.IOException;
 import java.math.RoundingMode;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -304,7 +303,9 @@ public class FakeMediaPeriod implements MediaPeriod {
   @Override
   public synchronized void prepare(Callback callback, long positionUs) {
     mediaSourceEventDispatcher.loadStarted(
-        new LoadEventInfo(fakePreparationLoadTaskId, FAKE_DATA_SPEC, SystemClock.elapsedRealtime()),
+        new LoadEventInfo.Builder(
+                fakePreparationLoadTaskId, FAKE_DATA_SPEC, SystemClock.elapsedRealtime())
+            .build(),
         C.DATA_TYPE_MEDIA,
         C.TRACK_TYPE_UNKNOWN,
         /* trackFormat= */ null,
@@ -518,14 +519,10 @@ public class FakeMediaPeriod implements MediaPeriod {
     prepared = true;
     Util.castNonNull(prepareCallback).onPrepared(this);
     mediaSourceEventDispatcher.loadCompleted(
-        new LoadEventInfo(
-            fakePreparationLoadTaskId,
-            FAKE_DATA_SPEC,
-            FAKE_DATA_SPEC.uri,
-            /* responseHeaders= */ Collections.emptyMap(),
-            SystemClock.elapsedRealtime(),
-            /* loadDurationMs= */ 0,
-            /* bytesLoaded= */ 100),
+        new LoadEventInfo.Builder(
+                fakePreparationLoadTaskId, FAKE_DATA_SPEC, SystemClock.elapsedRealtime())
+            .setBytesLoaded(100)
+            .build(),
         C.DATA_TYPE_MEDIA,
         C.TRACK_TYPE_UNKNOWN,
         /* trackFormat= */ null,

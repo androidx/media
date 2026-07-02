@@ -332,7 +332,8 @@ public final class HlsMediaPeriodTest {
   private LoadErrorHandlingPolicy.LoadErrorInfo createFakeLoadErrorInfo(
       DataSpec dataSpec, int httpResponseCode, int errorCount) {
     LoadEventInfo loadEventInfo =
-        new LoadEventInfo(/* loadTaskId= */ 0, dataSpec, SystemClock.elapsedRealtime());
+        new LoadEventInfo.Builder(/* loadTaskId= */ 0, dataSpec, SystemClock.elapsedRealtime())
+            .build();
     MediaLoadData mediaLoadData = new MediaLoadData(C.DATA_TYPE_MEDIA);
     HttpDataSource.InvalidResponseCodeException invalidResponseCodeException =
         new HttpDataSource.InvalidResponseCodeException(

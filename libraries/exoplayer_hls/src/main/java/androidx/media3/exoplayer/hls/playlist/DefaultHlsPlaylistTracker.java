@@ -385,18 +385,16 @@ public final class DefaultHlsPlaylistTracker
       long elapsedRealtimeMs,
       long loadDurationMs,
       int retryCount) {
-    LoadEventInfo loadEventInfo =
-        retryCount == 0
-            ? new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
-            : new LoadEventInfo(
-                loadable.loadTaskId,
-                loadable.dataSpec,
-                loadable.getUri(),
-                loadable.getResponseHeaders(),
-                elapsedRealtimeMs,
-                loadDurationMs,
-                loadable.bytesLoaded());
-    eventDispatcher.loadStarted(loadEventInfo, loadable.type, retryCount);
+    LoadEventInfo.Builder loadEventInfo =
+        new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs);
+    if (retryCount != 0) {
+      loadEventInfo
+          .setUri(loadable.getUri())
+          .setResponseHeaders(loadable.getResponseHeaders())
+          .setLoadDurationMs(loadDurationMs)
+          .setBytesLoaded(loadable.bytesLoaded());
+    }
+    eventDispatcher.loadStarted(loadEventInfo.build(), loadable.type, retryCount);
   }
 
   @Override
@@ -448,14 +446,12 @@ public final class DefaultHlsPlaylistTracker
     listeners.add(new FirstPrimaryMediaPlaylistListener());
     createBundles();
     LoadEventInfo loadEventInfo =
-        new LoadEventInfo(
-            loadable.loadTaskId,
-            loadable.dataSpec,
-            loadable.getUri(),
-            loadable.getResponseHeaders(),
-            elapsedRealtimeMs,
-            loadDurationMs,
-            loadable.bytesLoaded());
+        new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+            .setUri(loadable.getUri())
+            .setResponseHeaders(loadable.getResponseHeaders())
+            .setLoadDurationMs(loadDurationMs)
+            .setBytesLoaded(loadable.bytesLoaded())
+            .build();
     RedundantGroupBundle primaryRedundantGroupBundle =
         checkNotNull(redundantGroupBundles.get(primaryMediaPlaylistUrl));
     if (isMediaPlaylist) {
@@ -477,14 +473,12 @@ public final class DefaultHlsPlaylistTracker
       long loadDurationMs,
       boolean released) {
     LoadEventInfo loadEventInfo =
-        new LoadEventInfo(
-            loadable.loadTaskId,
-            loadable.dataSpec,
-            loadable.getUri(),
-            loadable.getResponseHeaders(),
-            elapsedRealtimeMs,
-            loadDurationMs,
-            loadable.bytesLoaded());
+        new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+            .setUri(loadable.getUri())
+            .setResponseHeaders(loadable.getResponseHeaders())
+            .setLoadDurationMs(loadDurationMs)
+            .setBytesLoaded(loadable.bytesLoaded())
+            .build();
     loadErrorHandlingPolicy.onLoadTaskConcluded(loadable.loadTaskId);
     eventDispatcher.loadCanceled(loadEventInfo, C.DATA_TYPE_MANIFEST);
   }
@@ -497,14 +491,12 @@ public final class DefaultHlsPlaylistTracker
       IOException error,
       int errorCount) {
     LoadEventInfo loadEventInfo =
-        new LoadEventInfo(
-            loadable.loadTaskId,
-            loadable.dataSpec,
-            loadable.getUri(),
-            loadable.getResponseHeaders(),
-            elapsedRealtimeMs,
-            loadDurationMs,
-            loadable.bytesLoaded());
+        new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+            .setUri(loadable.getUri())
+            .setResponseHeaders(loadable.getResponseHeaders())
+            .setLoadDurationMs(loadDurationMs)
+            .setBytesLoaded(loadable.bytesLoaded())
+            .build();
     MediaLoadData mediaLoadData = new MediaLoadData(loadable.type);
     long retryDelayMs =
         loadErrorHandlingPolicy.getRetryDelayMsFor(
@@ -997,18 +989,16 @@ public final class DefaultHlsPlaylistTracker
         long elapsedRealtimeMs,
         long loadDurationMs,
         int retryCount) {
-      LoadEventInfo loadEventInfo =
-          retryCount == 0
-              ? new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
-              : new LoadEventInfo(
-                  loadable.loadTaskId,
-                  loadable.dataSpec,
-                  loadable.getUri(),
-                  loadable.getResponseHeaders(),
-                  elapsedRealtimeMs,
-                  loadDurationMs,
-                  loadable.bytesLoaded());
-      eventDispatcher.loadStarted(loadEventInfo, loadable.type, retryCount);
+      LoadEventInfo.Builder loadEventInfo =
+          new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs);
+      if (retryCount != 0) {
+        loadEventInfo
+            .setUri(loadable.getUri())
+            .setResponseHeaders(loadable.getResponseHeaders())
+            .setLoadDurationMs(loadDurationMs)
+            .setBytesLoaded(loadable.bytesLoaded());
+      }
+      eventDispatcher.loadStarted(loadEventInfo.build(), loadable.type, retryCount);
     }
 
     @Override
@@ -1016,14 +1006,12 @@ public final class DefaultHlsPlaylistTracker
         ParsingLoadable<HlsPlaylist> loadable, long elapsedRealtimeMs, long loadDurationMs) {
       @Nullable HlsPlaylist result = loadable.getResult();
       LoadEventInfo loadEventInfo =
-          new LoadEventInfo(
-              loadable.loadTaskId,
-              loadable.dataSpec,
-              loadable.getUri(),
-              loadable.getResponseHeaders(),
-              elapsedRealtimeMs,
-              loadDurationMs,
-              loadable.bytesLoaded());
+          new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+              .setUri(loadable.getUri())
+              .setResponseHeaders(loadable.getResponseHeaders())
+              .setLoadDurationMs(loadDurationMs)
+              .setBytesLoaded(loadable.bytesLoaded())
+              .build();
       if (result instanceof HlsMediaPlaylist) {
         processLoadedPlaylist((HlsMediaPlaylist) result, loadEventInfo);
         eventDispatcher.loadCompleted(loadEventInfo, C.DATA_TYPE_MANIFEST);
@@ -1044,14 +1032,12 @@ public final class DefaultHlsPlaylistTracker
         long loadDurationMs,
         boolean released) {
       LoadEventInfo loadEventInfo =
-          new LoadEventInfo(
-              loadable.loadTaskId,
-              loadable.dataSpec,
-              loadable.getUri(),
-              loadable.getResponseHeaders(),
-              elapsedRealtimeMs,
-              loadDurationMs,
-              loadable.bytesLoaded());
+          new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+              .setUri(loadable.getUri())
+              .setResponseHeaders(loadable.getResponseHeaders())
+              .setLoadDurationMs(loadDurationMs)
+              .setBytesLoaded(loadable.bytesLoaded())
+              .build();
       loadErrorHandlingPolicy.onLoadTaskConcluded(loadable.loadTaskId);
       eventDispatcher.loadCanceled(loadEventInfo, C.DATA_TYPE_MANIFEST);
     }
@@ -1064,14 +1050,12 @@ public final class DefaultHlsPlaylistTracker
         IOException error,
         int errorCount) {
       LoadEventInfo loadEventInfo =
-          new LoadEventInfo(
-              loadable.loadTaskId,
-              loadable.dataSpec,
-              loadable.getUri(),
-              loadable.getResponseHeaders(),
-              elapsedRealtimeMs,
-              loadDurationMs,
-              loadable.bytesLoaded());
+          new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+              .setUri(loadable.getUri())
+              .setResponseHeaders(loadable.getResponseHeaders())
+              .setLoadDurationMs(loadDurationMs)
+              .setBytesLoaded(loadable.bytesLoaded())
+              .build();
       boolean isBlockingRequest = loadable.getUri().getQueryParameter(BLOCK_MSN_PARAM) != null;
       boolean deltaUpdateFailed = error instanceof HlsPlaylistParser.DeltaUpdateException;
       if (isBlockingRequest || deltaUpdateFailed) {
