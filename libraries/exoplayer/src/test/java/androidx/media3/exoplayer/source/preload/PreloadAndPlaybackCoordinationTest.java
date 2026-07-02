@@ -79,7 +79,7 @@ public class PreloadAndPlaybackCoordinationTest {
     FakeMediaSourceFactory mediaSourceFactory = new FakeMediaSourceFactory();
     LoadControl loadControl = new DefaultLoadControl();
     TrackSelector trackSelector = new DefaultTrackSelector(context);
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     RenderersFactory renderersFactory =
         (handler, videoListener, audioListener, textOutput, metadataOutput) ->
             new Renderer[] {

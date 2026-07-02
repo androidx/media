@@ -38,7 +38,6 @@ import android.util.Pair;
 import android.util.SparseArray;
 import android.util.SparseBooleanArray;
 import android.view.accessibility.CaptioningManager;
-import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
@@ -67,6 +66,7 @@ import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.TrackGroupArray;
+import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.util.SpatializerWrapper;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ComparisonChain;
@@ -2455,16 +2455,13 @@ public class DefaultTrackSelector extends MappingTrackSelector
                   ? (second == Format.NO_VALUE ? 0 : -1)
                   : (second == Format.NO_VALUE ? 1 : (first - second)));
 
-  private final Object lock;
   @Nullable public final Context context;
   private final ExoTrackSelection.Factory trackSelectionFactory;
 
-  @GuardedBy("lock")
-  private Parameters parameters;
+  private Parameters applicationParameters;
+  private Parameters playerParameters;
 
-  @GuardedBy("lock")
-  @Nullable
-  private Thread playbackThread;
+  @Nullable private volatile Thread playbackThread;
 
   @Nullable private SpatializerWrapper spatializer;
   private AudioAttributes audioAttributes;
@@ -2531,28 +2528,46 @@ public class DefaultTrackSelector extends MappingTrackSelector
       TrackSelectionParameters parameters,
       ExoTrackSelection.Factory trackSelectionFactory,
       @Nullable Context context) {
-    this.lock = new Object();
     this.context = context != null ? context.getApplicationContext() : null;
     this.trackSelectionFactory = trackSelectionFactory;
+    Parameters initialParameters;
     if (parameters instanceof Parameters) {
-      this.parameters = (Parameters) parameters;
+      initialParameters = (Parameters) parameters;
     } else {
-      this.parameters = Parameters.DEFAULT.buildUpon().set(parameters).build();
+      initialParameters = Parameters.DEFAULT.buildUpon().set(parameters).build();
     }
+    this.applicationParameters = initialParameters;
+    this.playerParameters = initialParameters;
     this.audioAttributes = AudioAttributes.DEFAULT;
-    if (this.parameters.constrainAudioChannelCountToDeviceCapabilities && context == null) {
+    if (initialParameters.constrainAudioChannelCountToDeviceCapabilities && context == null) {
       Log.w(TAG, AUDIO_CHANNEL_COUNT_CONSTRAINTS_WARN_MESSAGE);
     }
   }
 
   @Override
+  public void init(InvalidationListener listener, BandwidthMeter bandwidthMeter) {
+    super.init(listener, bandwidthMeter);
+    this.playerParameters = getParameters();
+  }
+
+  @Override
+  public void onParametersActivated(@Nullable TrackSelectionParameters parameters) {
+    if (parameters == null) {
+      return;
+    }
+    if (parameters instanceof Parameters) {
+      this.playerParameters = (Parameters) parameters;
+    } else {
+      this.playerParameters = new Parameters.Builder(this.playerParameters).set(parameters).build();
+    }
+  }
+
+  @Override
   public void release() {
-    synchronized (lock) {
-      if (playbackThread != null) {
-        checkState(
-            playbackThread == Thread.currentThread(),
-            "DefaultTrackSelector is accessed on the wrong thread.");
-      }
+    if (playbackThread != null) {
+      checkState(
+          Thread.currentThread().equals(playbackThread),
+          "DefaultTrackSelector is accessed on the wrong thread.");
     }
     if (SDK_INT >= 32 && spatializer != null) {
       spatializer.release();
@@ -2563,9 +2578,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
 
   @Override
   public Parameters getParameters() {
-    synchronized (lock) {
-      return parameters;
-    }
+    return applicationParameters;
   }
 
   @Override
@@ -2622,17 +2635,14 @@ public class DefaultTrackSelector extends MappingTrackSelector
    */
   private void setParametersInternal(Parameters parameters) {
     checkNotNull(parameters);
-    boolean parametersChanged;
-    synchronized (lock) {
-      parametersChanged = !this.parameters.equals(parameters);
-      this.parameters = parameters;
-    }
+    boolean parametersChanged = !this.applicationParameters.equals(parameters);
+    this.applicationParameters = parameters;
 
     if (parametersChanged) {
       if (parameters.constrainAudioChannelCountToDeviceCapabilities && context == null) {
         Log.w(TAG, AUDIO_CHANNEL_COUNT_CONSTRAINTS_WARN_MESSAGE);
       }
-      invalidate();
+      invalidate(parameters);
     }
   }
 
@@ -2660,15 +2670,11 @@ public class DefaultTrackSelector extends MappingTrackSelector
           MediaPeriodId mediaPeriodId,
           Timeline timeline)
           throws ExoPlaybackException {
-    Parameters parameters;
-    synchronized (lock) {
-      playbackThread = Thread.currentThread();
-      parameters = this.parameters;
-    }
+    playbackThread = Thread.currentThread();
     if (deviceIsTV == null && context != null) {
       deviceIsTV = Util.isTv(context);
     }
-    if (parameters.constrainAudioChannelCountToDeviceCapabilities
+    if (playerParameters.constrainAudioChannelCountToDeviceCapabilities
         && SDK_INT >= 32
         && spatializer == null) {
       spatializer =
@@ -2681,9 +2687,9 @@ public class DefaultTrackSelector extends MappingTrackSelector
         new ExoTrackSelection.Definition[rendererCount];
 
     // Apply overrides once so that selectAllTracks is aware of the overridden tracks.
-    applyTrackSelectionOverrides(mappedTrackInfo, parameters, definitions);
-    applyLegacyRendererOverrides(mappedTrackInfo, parameters, definitions);
-    applyRendererDisableOverrides(mappedTrackInfo, parameters, definitions);
+    applyTrackSelectionOverrides(mappedTrackInfo, playerParameters, definitions);
+    applyLegacyRendererOverrides(mappedTrackInfo, playerParameters, definitions);
+    applyRendererDisableOverrides(mappedTrackInfo, playerParameters, definitions);
 
     // Select remaining tracks based on parameters.
     selectAllTracks(
@@ -2691,13 +2697,13 @@ public class DefaultTrackSelector extends MappingTrackSelector
         mappedTrackInfo,
         rendererFormatSupports,
         rendererMixedMimeTypeAdaptationSupport,
-        parameters);
+        playerParameters);
 
     // Re-apply overrides to enforce them in case selectAllTracks changed them or added additional
     // tracks that shouldn't be enabled according to the overrides.
-    applyTrackSelectionOverrides(mappedTrackInfo, parameters, definitions);
-    applyLegacyRendererOverrides(mappedTrackInfo, parameters, definitions);
-    applyRendererDisableOverrides(mappedTrackInfo, parameters, definitions);
+    applyTrackSelectionOverrides(mappedTrackInfo, playerParameters, definitions);
+    applyLegacyRendererOverrides(mappedTrackInfo, playerParameters, definitions);
+    applyRendererDisableOverrides(mappedTrackInfo, playerParameters, definitions);
 
     @NullableType
     ExoTrackSelection[] rendererTrackSelections =
@@ -2711,7 +2717,8 @@ public class DefaultTrackSelector extends MappingTrackSelector
     for (int i = 0; i < rendererCount; i++) {
       @C.TrackType int rendererType = mappedTrackInfo.getRendererType(i);
       boolean forceRendererDisabled =
-          parameters.getRendererDisabled(i) || parameters.disabledTrackTypes.contains(rendererType);
+          playerParameters.getRendererDisabled(i)
+              || playerParameters.disabledTrackTypes.contains(rendererType);
       boolean rendererEnabled =
           !forceRendererDisabled
               && (mappedTrackInfo.getRendererType(i) == C.TRACK_TYPE_NONE
@@ -2720,15 +2727,15 @@ public class DefaultTrackSelector extends MappingTrackSelector
     }
 
     // Configure audio and video renderers to use tunneling if appropriate.
-    if (parameters.tunnelingEnabled) {
+    if (playerParameters.tunnelingEnabled) {
       maybeConfigureRenderersForTunneling(
           mappedTrackInfo, rendererFormatSupports, rendererConfigurations, rendererTrackSelections);
     }
 
     // Configure audio renderer to use offload if appropriate.
-    if (parameters.audioOffloadPreferences.audioOffloadMode != AUDIO_OFFLOAD_MODE_DISABLED) {
+    if (playerParameters.audioOffloadPreferences.audioOffloadMode != AUDIO_OFFLOAD_MODE_DISABLED) {
       maybeConfigureRendererForOffload(
-          parameters,
+          playerParameters,
           mappedTrackInfo,
           rendererFormatSupports,
           rendererConfigurations,
@@ -3258,25 +3265,18 @@ public class DefaultTrackSelector extends MappingTrackSelector
   }
 
   private void maybeInvalidateForAudioChannelCountConstraints() {
-    boolean shouldInvalidate;
-    synchronized (lock) {
-      shouldInvalidate =
-          parameters.constrainAudioChannelCountToDeviceCapabilities
-              && SDK_INT >= 32
-              && spatializer != null
-              && spatializer.isSpatializationSupported();
-    }
+    boolean shouldInvalidate =
+        playerParameters.constrainAudioChannelCountToDeviceCapabilities
+            && SDK_INT >= 32
+            && spatializer != null
+            && spatializer.isSpatializationSupported();
     if (shouldInvalidate) {
-      invalidate();
+      invalidate(/* parameters= */ null);
     }
   }
 
   private void maybeInvalidateForRendererCapabilitiesChange(Renderer renderer) {
-    boolean shouldInvalidate;
-    synchronized (lock) {
-      shouldInvalidate = parameters.allowInvalidateSelectionsOnRendererCapabilitiesChange;
-    }
-    if (shouldInvalidate) {
+    if (playerParameters.allowInvalidateSelectionsOnRendererCapabilitiesChange) {
       invalidateForRendererCapabilitiesChange(renderer);
     }
   }

@@ -57,6 +57,7 @@ import androidx.media3.common.Player.DiscontinuityReason;
 import androidx.media3.common.Player.PlaybackSuppressionReason;
 import androidx.media3.common.Player.RepeatMode;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.audio.AudioFocusManager;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
@@ -691,8 +692,8 @@ import java.util.Objects;
   // TrackSelector.InvalidationListener implementation.
 
   @Override
-  public void onTrackSelectionsInvalidated() {
-    handler.sendEmptyMessage(MSG_TRACK_SELECTION_INVALIDATED);
+  public void onTrackSelectionsInvalidated(@Nullable TrackSelectionParameters parameters) {
+    handler.obtainMessage(MSG_TRACK_SELECTION_INVALIDATED, parameters).sendToTarget();
   }
 
   @Override
@@ -807,6 +808,8 @@ import java.util.Objects;
           handleContinueLoadingRequested((MediaPeriod) msg.obj);
           break;
         case MSG_TRACK_SELECTION_INVALIDATED:
+          @Nullable TrackSelectionParameters parameters = (TrackSelectionParameters) msg.obj;
+          trackSelector.onParametersActivated(parameters);
           reselectTracksInternal();
           break;
         case MSG_PLAYBACK_PARAMETERS_CHANGED_INTERNAL:

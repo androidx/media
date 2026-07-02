@@ -37,9 +37,10 @@ import static androidx.media3.exoplayer.audio.AudioSink.OFFLOAD_MODE_DISABLED;
 import static androidx.media3.exoplayer.audio.AudioSink.OFFLOAD_MODE_ENABLED_GAPLESS_NOT_REQUIRED;
 import static androidx.media3.exoplayer.audio.AudioSink.OFFLOAD_MODE_ENABLED_GAPLESS_REQUIRED;
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
@@ -183,6 +184,14 @@ public final class DefaultTrackSelectorTest {
     Context context = ApplicationProvider.getApplicationContext();
     defaultParameters = Parameters.DEFAULT;
     trackSelector = new DefaultTrackSelector(context);
+    doAnswer(
+            invocation -> {
+              TrackSelectionParameters parameters = invocation.getArgument(0);
+              trackSelector.onParametersActivated(parameters);
+              return null;
+            })
+        .when(invalidationListener)
+        .onTrackSelectionsInvalidated(any());
     trackSelector.init(invalidationListener, bandwidthMeter);
   }
 
@@ -539,37 +548,38 @@ public final class DefaultTrackSelectorTest {
 
   /**
    * Tests that track selector will not call {@link
-   * InvalidationListener#onTrackSelectionsInvalidated()} when it's set with default values of
-   * {@link Parameters}.
+   * InvalidationListener#onTrackSelectionsInvalidated(TrackSelectionParameters)} when it's set with
+   * default values of {@link Parameters}.
    */
   @Test
   public void setParameterWithDefaultParametersDoesNotNotifyInvalidationListener() {
     trackSelector.setParameters(defaultParameters);
-    verify(invalidationListener, never()).onTrackSelectionsInvalidated();
+    verify(invalidationListener, never()).onTrackSelectionsInvalidated(any());
   }
 
   /**
-   * Tests that track selector will call {@link InvalidationListener#onTrackSelectionsInvalidated()}
-   * when it's set with non-default values of {@link Parameters}.
+   * Tests that track selector will call {@link
+   * InvalidationListener#onTrackSelectionsInvalidated(TrackSelectionParameters)} when it's set with
+   * non-default values of {@link Parameters}.
    */
   @Test
   public void setParameterWithNonDefaultParameterNotifyInvalidationListener() {
     Parameters.Builder builder = defaultParameters.buildUpon().setPreferredAudioLanguage("eng");
     trackSelector.setParameters(builder);
-    verify(invalidationListener).onTrackSelectionsInvalidated();
+    verify(invalidationListener).onTrackSelectionsInvalidated(any());
   }
 
   /**
    * Tests that track selector will not call {@link
-   * InvalidationListener#onTrackSelectionsInvalidated()} again when it's set with the same values
-   * of {@link Parameters}.
+   * InvalidationListener#onTrackSelectionsInvalidated(TrackSelectionParameters)} again when it's
+   * set with the same values of {@link Parameters}.
    */
   @Test
   public void setParameterWithSameParametersDoesNotNotifyInvalidationListenerAgain() {
     Parameters.Builder builder = defaultParameters.buildUpon().setPreferredAudioLanguage("eng");
     trackSelector.setParameters(builder);
     trackSelector.setParameters(builder);
-    verify(invalidationListener, times(1)).onTrackSelectionsInvalidated();
+    verify(invalidationListener).onTrackSelectionsInvalidated(any());
   }
 
   /**

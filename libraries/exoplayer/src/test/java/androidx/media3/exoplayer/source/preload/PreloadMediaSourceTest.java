@@ -163,7 +163,7 @@ public final class PreloadMediaSourceTest {
     mediaSourceFactory.setContinueLoadingCheckIntervalBytes(LOADING_CHECK_INTERVAL_BYTES);
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mediaSourceFactory,
@@ -203,7 +203,7 @@ public final class PreloadMediaSourceTest {
     mediaSourceFactory.setContinueLoadingCheckIntervalBytes(LOADING_CHECK_INTERVAL_BYTES);
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mediaSourceFactory,
@@ -242,7 +242,7 @@ public final class PreloadMediaSourceTest {
             new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()));
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mediaSourceFactory,
@@ -270,7 +270,7 @@ public final class PreloadMediaSourceTest {
   @Test
   public void preload_whileSourceIsAccessedByExternalCaller_notProceedWithPreloading() {
     TrackSelector trackSelector = new FakeTrackSelector();
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             new FakeMediaSourceFactory(),
@@ -311,7 +311,7 @@ public final class PreloadMediaSourceTest {
     mediaSourceFactory.setContinueLoadingCheckIntervalBytes(LOADING_CHECK_INTERVAL_BYTES);
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mediaSourceFactory,
@@ -358,7 +358,7 @@ public final class PreloadMediaSourceTest {
     mediaSourceFactory.setContinueLoadingCheckIntervalBytes(LOADING_CHECK_INTERVAL_BYTES);
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     LoadControl loadControl =
         mock(
             LoadControl.class,
@@ -439,7 +439,7 @@ public final class PreloadMediaSourceTest {
         };
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mediaSourceFactory,
@@ -524,7 +524,7 @@ public final class PreloadMediaSourceTest {
         };
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mediaSourceFactory,
@@ -636,7 +636,7 @@ public final class PreloadMediaSourceTest {
         };
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mediaSourceFactory,
@@ -667,7 +667,7 @@ public final class PreloadMediaSourceTest {
     HandlerThread preloadThread = new HandlerThread("preload");
     preloadThread.start();
     TrackSelector trackSelector = new FakeTrackSelector();
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             new FakeMediaSourceFactory(),
@@ -693,7 +693,7 @@ public final class PreloadMediaSourceTest {
     HandlerThread preloadThread = new HandlerThread("preload");
     preloadThread.start();
     TrackSelector trackSelector = new FakeTrackSelector();
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             new FakeMediaSourceFactory(),
@@ -721,7 +721,7 @@ public final class PreloadMediaSourceTest {
       prepareSource_beforeSourceInfoRefreshedForPreloading_onlyInvokeExternalCallerOnSourceInfoRefreshed() {
     FakeMediaSourceFactory mediaSourceFactory = new FakeMediaSourceFactory();
     TrackSelector trackSelector = new FakeTrackSelector();
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mediaSourceFactory,
@@ -751,7 +751,7 @@ public final class PreloadMediaSourceTest {
   public void prepareSource_afterPreload_immediatelyInvokeExternalCallerOnSourceInfoRefreshed() {
     FakeMediaSourceFactory mediaSourceFactory = new FakeMediaSourceFactory();
     TrackSelector trackSelector = new FakeTrackSelector();
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mediaSourceFactory,
@@ -818,7 +818,7 @@ public final class PreloadMediaSourceTest {
                 new ExoTrackSelection[0],
                 Tracks.EMPTY,
                 /* info= */ null));
-    mockTrackSelector.init(() -> {}, bandwidthMeter);
+    mockTrackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mockMediaSourceFactory,
@@ -895,7 +895,7 @@ public final class PreloadMediaSourceTest {
                 new ExoTrackSelection[0],
                 Tracks.EMPTY,
                 /* info= */ null));
-    mockTrackSelector.init(() -> {}, bandwidthMeter);
+    mockTrackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mockMediaSourceFactory,
@@ -959,7 +959,7 @@ public final class PreloadMediaSourceTest {
             });
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mockMediaSourceFactory,
@@ -1010,7 +1010,7 @@ public final class PreloadMediaSourceTest {
               }
             });
     TrackSelector trackSelector = new FakeTrackSelector();
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mockMediaSourceFactory,
@@ -1067,7 +1067,7 @@ public final class PreloadMediaSourceTest {
               }
             });
     TrackSelector trackSelector = new FakeTrackSelector();
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mockMediaSourceFactory,
@@ -1112,7 +1112,7 @@ public final class PreloadMediaSourceTest {
               return mockMediaSource;
             });
     TrackSelector trackSelector = new FakeTrackSelector();
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mockMediaSourceFactory,
@@ -1161,7 +1161,7 @@ public final class PreloadMediaSourceTest {
               return mockMediaSource;
             });
     TrackSelector trackSelector = new FakeTrackSelector();
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mockMediaSourceFactory,
@@ -1211,7 +1211,7 @@ public final class PreloadMediaSourceTest {
               return mockMediaSource;
             });
     TrackSelector trackSelector = new FakeTrackSelector();
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mockMediaSourceFactory,
@@ -1265,7 +1265,7 @@ public final class PreloadMediaSourceTest {
               return mockMediaSource;
             });
     TrackSelector trackSelector = new FakeTrackSelector();
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mockMediaSourceFactory,
@@ -1312,7 +1312,7 @@ public final class PreloadMediaSourceTest {
               return mockMediaSource;
             });
     TrackSelector trackSelector = new FakeTrackSelector();
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mockMediaSourceFactory,

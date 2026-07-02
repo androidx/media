@@ -1578,6 +1578,52 @@ public final class ExoPlayerTest {
   }
 
   @Test
+  public void setTrackSelectionParameters_rapidUpdate_notifiesSequentially() throws Exception {
+    MediaSource mediaSource =
+        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT);
+    List<DefaultTrackSelector.Parameters> parameterHistory = new ArrayList<>();
+    FakeTrackSelector trackSelector =
+        new FakeTrackSelector() {
+          @Override
+          protected void selectAllTracks(
+              ExoTrackSelection.@NullableType Definition[] definitions,
+              MappedTrackInfo mappedTrackInfo,
+              int[][][] rendererFormatSupports,
+              int[] rendererMixedMimeTypeAdaptationSupports,
+              Parameters params) {
+            super.selectAllTracks(
+                definitions,
+                mappedTrackInfo,
+                rendererFormatSupports,
+                rendererMixedMimeTypeAdaptationSupports,
+                params);
+            parameterHistory.add(params);
+          }
+        };
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context).setTrackSelector(trackSelector))
+            .build();
+    player.setMediaSource(mediaSource);
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+    // Initial track selection happens during prepare/ready. Clear history to focus on updates.
+    parameterHistory.clear();
+    // Trigger two parameter changes in rapid succession on the application thread.
+    DefaultTrackSelector.Parameters params1 =
+        trackSelector.buildUponParameters().setPreferredAudioLanguage("eng").build();
+    DefaultTrackSelector.Parameters params2 =
+        trackSelector.buildUponParameters().setPreferredAudioLanguage("deu").build();
+
+    player.setTrackSelectionParameters(params1);
+    player.setTrackSelectionParameters(params2);
+
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.release();
+    assertThat(parameterHistory).containsExactly(params1, params2).inOrder();
+  }
+
+  @Test
   public void allActivatedTrackSelectionAreReleasedForMultiPeriods() throws Exception {
     Timeline timeline = new FakeTimeline(/* windowCount= */ 2);
     MediaSource mediaSource =

@@ -648,7 +648,7 @@ public final class DefaultPreloadManager
     preloadLooperProvider = builder.preloadLooperProvider;
     trackSelector = builder.trackSelectorFactory.createTrackSelector(builder.context);
     BandwidthMeter bandwidthMeter = builder.bandwidthMeterSupplier.get();
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(trackSelector::onParametersActivated, bandwidthMeter);
     Looper preloadLooper = preloadLooperProvider.obtainLooper();
     preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(

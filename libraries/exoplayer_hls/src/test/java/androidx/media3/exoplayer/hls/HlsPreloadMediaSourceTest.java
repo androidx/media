@@ -128,7 +128,7 @@ public final class HlsPreloadMediaSourceTest {
             });
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mediaSourceFactory,
@@ -164,7 +164,7 @@ public final class HlsPreloadMediaSourceTest {
             });
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mediaSourceFactory,
@@ -200,7 +200,7 @@ public final class HlsPreloadMediaSourceTest {
             });
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mediaSourceFactory,
@@ -237,7 +237,7 @@ public final class HlsPreloadMediaSourceTest {
         .onLoadedToTheEndOfSource(any());
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mediaSourceFactory,
@@ -277,7 +277,7 @@ public final class HlsPreloadMediaSourceTest {
         .onLoadedToTheEndOfSource(any());
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     LoadControl loadControl =
         mock(
             LoadControl.class,

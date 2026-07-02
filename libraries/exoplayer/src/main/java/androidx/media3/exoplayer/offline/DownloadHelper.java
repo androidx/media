@@ -563,7 +563,7 @@ public final class DownloadHelper {
     this.rendererCapabilities = rendererCapabilities;
     this.debugLoggingEnabled = debugLoggingEnabled;
     this.scratchSet = new SparseIntArray();
-    trackSelector.init(/* listener= */ () -> {}, BandwidthMeter.NO_OP);
+    trackSelector.init(/* listener= */ trackSelector::onParametersActivated, BandwidthMeter.NO_OP);
     callbackHandler = Util.createHandlerForCurrentOrMainLooper();
     window = new Timeline.Window();
   }
