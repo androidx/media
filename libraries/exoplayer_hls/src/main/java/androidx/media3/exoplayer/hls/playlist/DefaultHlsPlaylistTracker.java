@@ -1128,7 +1128,9 @@ public final class DefaultHlsPlaylistTracker
         playlistRefreshHandler.postDelayed(
             () -> {
               loadPending = false;
-              loadPlaylistImmediately(playlistRequestUri);
+              if (playlistUrl.equals(primaryMediaPlaylistUrl) || isActiveForPlayback()) {
+                loadPlaylistImmediately(playlistRequestUri);
+              }
             },
             earliestNextLoadTimeMs - currentTimeMs);
       } else {
