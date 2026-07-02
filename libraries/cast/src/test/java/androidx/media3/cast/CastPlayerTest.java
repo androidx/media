@@ -252,6 +252,15 @@ public final class CastPlayerTest {
   public void playerTransfer_whenSourcePlayerIsNonIdle_callsPrepare() {
     // We need a non-empty timeline to be in a non-idle state, and check that the target player is
     // prepared as a result.
+    MediaInfo mediaInfo =
+        new MediaInfo.Builder("https://example.com/media.mp4")
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .setContentType("video/mp4")
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(mediaInfo).setItemId(1).build();
+    when(mockMediaStatus.getQueueItems()).thenReturn(ImmutableList.of(queueItem));
+    when(mockMediaStatus.getCurrentItemId()).thenReturn(1);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
     when(mockMediaQueue.getItemIds()).thenReturn(new int[] {1});
     when(mockRemoteMediaClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PLAYING);
     castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "ignored");
