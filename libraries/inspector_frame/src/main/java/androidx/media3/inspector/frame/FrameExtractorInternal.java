@@ -36,6 +36,7 @@ import android.graphics.Bitmap;
 import android.graphics.ColorSpace;
 import android.graphics.Gainmap;
 import android.graphics.Matrix;
+import android.media.MediaFormat;
 import android.opengl.GLES20;
 import android.opengl.GLES30;
 import android.os.Handler;
@@ -1171,6 +1172,26 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
       frameRenderedSinceLastPositionReset = true;
       super.renderOutputBufferV21(codec, index, presentationTimeUs, releaseTimeNs);
+    }
+
+    @Override
+    protected MediaFormat getMediaFormat(
+        Format format,
+        String codecMimeType,
+        CodecMaxValues codecMaxValues,
+        float codecOperatingRate,
+        boolean deviceNeedsNoPostProcessWorkaround,
+        int tunnelingAudioSessionId) {
+      MediaFormat mediaFormat =
+          super.getMediaFormat(
+              format,
+              codecMimeType,
+              codecMaxValues,
+              codecOperatingRate,
+              deviceNeedsNoPostProcessWorkaround,
+              tunnelingAudioSessionId);
+      mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, C.MEDIA_CODEC_PRIORITY_NON_REALTIME);
+      return mediaFormat;
     }
 
     @Override
