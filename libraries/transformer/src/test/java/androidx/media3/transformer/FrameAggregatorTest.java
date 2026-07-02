@@ -19,11 +19,15 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static org.junit.Assert.assertThrows;
 
+import android.util.Rational;
+import androidx.annotation.Nullable;
 import androidx.media3.effect.GlTextureFrame;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -1115,22 +1119,572 @@ public class FrameAggregatorTest {
     assertThat(outputFrames.get(2).get(1).sequencePresentationTimeUs).isEqualTo(50_000);
   }
 
+  @Test
+  public void queueFrame_withFrameRate_upsamplesMatchesAndDownsamplesInputStreams() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(
+            /* numSequences= */ 3,
+            /* frameRate= */ new Rational(30, 1),
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
+    registerAllSequences(frameAggregator, /* numSequences= */ 3);
+
+    /*
+     * Pacing / Retiming Timeline (Target Virtual Clock: 30 FPS):
+     *
+     * Virtual Ticks:         [Tick 0: 0us]    [Tick 1: 33_333us]    [Tick 2: 66_667us]
+     * ----------------------------------------------------------------------------------
+     * Seq 0 (15 FPS, up):    |--- 0us ---|    |--- 66_667us ---|    | (hold 66_667us)|
+     * Seq 1 (30 FPS, exact): |--- 0us ---|    |--- 33_333us ---|    |--- 66_667us ---|
+     * Seq 2 (60 FPS, drop):  |0| (16_667)|    |--- 33_333us ---|    |(50_000)| 66_667|
+     */
+
+    List<HardwareBufferFrame> seq0Frames =
+        createFrameList(/* numFrames= */ 2, /* frameRate= */ 15, /* sequenceIndex= */ 0);
+    List<HardwareBufferFrame> seq1Frames =
+        createFrameList(/* numFrames= */ 3, /* frameRate= */ 30, /* sequenceIndex= */ 1);
+    List<HardwareBufferFrame> seq2Frames =
+        createFrameList(/* numFrames= */ 5, /* frameRate= */ 60, /* sequenceIndex= */ 2);
+
+    // Queue initial frame batch for Virtual Tick 0 (0us)
+    frameAggregator.queueFrame(seq0Frames.get(0), /* sequenceIndex= */ 0);
+    frameAggregator.queueFrame(seq1Frames.get(0), /* sequenceIndex= */ 1);
+    frameAggregator.queueFrame(seq2Frames.get(0), /* sequenceIndex= */ 2);
+
+    assertOutputPacket(
+        Iterables.getLast(outputFrames),
+        /* expectedSize= */ 3,
+        /* expectedTimeUs= */ 0,
+        new SourceFrame(
+            /* sequenceIndex= */ 0,
+            /* presentationTimeUs= */ 0,
+            /* sequencePresentationTimeUs= */ 0),
+        new SourceFrame(
+            /* sequenceIndex= */ 1,
+            /* presentationTimeUs= */ 0,
+            /* sequencePresentationTimeUs= */ 0),
+        new SourceFrame(
+            /* sequenceIndex= */ 2,
+            /* presentationTimeUs= */ 0,
+            /* sequencePresentationTimeUs= */ 0));
+
+    // Queue next frame batch for Virtual Tick 1 (33_333us)
+    // Seq 0 (15 FPS): Queues Frame 2 (66_667us >= 33_333us), which is matched for Virtual Tick 1
+    // (33_333us).
+    // Seq 2 (60 FPS): Frame 2 (16_667us) is dropped (downsampled).
+    frameAggregator.queueFrame(seq0Frames.get(1), /* sequenceIndex= */ 0);
+    frameAggregator.queueFrame(seq1Frames.get(1), /* sequenceIndex= */ 1);
+    frameAggregator.queueFrame(seq2Frames.get(1), /* sequenceIndex= */ 2);
+    frameAggregator.queueFrame(seq2Frames.get(2), /* sequenceIndex= */ 2);
+
+    assertThat(outputFrames).hasSize(2); // Virtual Ticks 0 and 1 emitted
+    assertOutputPacket(
+        Iterables.getLast(outputFrames),
+        /* expectedSize= */ 3,
+        /* expectedTimeUs= */ 33_333,
+        new SourceFrame(
+            /* sequenceIndex= */ 0,
+            /* presentationTimeUs= */ 66_667,
+            /* sequencePresentationTimeUs= */ 66_667),
+        new SourceFrame(
+            /* sequenceIndex= */ 1,
+            /* presentationTimeUs= */ 33_333,
+            /* sequencePresentationTimeUs= */ 33_333),
+        new SourceFrame(
+            /* sequenceIndex= */ 2,
+            /* presentationTimeUs= */ 33_333,
+            /* sequencePresentationTimeUs= */ 33_333));
+    assertThat(releasedFrameTimestamps).contains(seq2Frames.get(1).presentationTimeUs);
+
+    // Queue final frame batch for Virtual Tick 2 (66_667us)
+    // Seq 0 (15 FPS): Holds (reuses) Frame 2 (66_667us == 66_667us).
+    // Seq 2 (60 FPS): Frame 4 (50_000us) is dropped.
+    frameAggregator.queueFrame(seq1Frames.get(2), /* sequenceIndex= */ 1);
+    frameAggregator.queueFrame(seq2Frames.get(3), /* sequenceIndex= */ 2);
+    frameAggregator.queueFrame(seq2Frames.get(4), /* sequenceIndex= */ 2);
+
+    assertThat(outputFrames).hasSize(3); // Virtual Ticks 0, 1, and 2 emitted
+    assertOutputPacket(
+        Iterables.getLast(outputFrames),
+        /* expectedSize= */ 3,
+        /* expectedTimeUs= */ 66_667,
+        new SourceFrame(
+            /* sequenceIndex= */ 0,
+            /* presentationTimeUs= */ 66_667,
+            /* sequencePresentationTimeUs= */ 66_667),
+        new SourceFrame(
+            /* sequenceIndex= */ 1,
+            /* presentationTimeUs= */ 66_667,
+            /* sequencePresentationTimeUs= */ 66_667),
+        new SourceFrame(
+            /* sequenceIndex= */ 2,
+            /* presentationTimeUs= */ 66_667,
+            /* sequencePresentationTimeUs= */ 66_667));
+    assertThat(releasedFrameTimestamps).contains(seq2Frames.get(3).presentationTimeUs);
+
+    frameAggregator.queueEndOfStream(/* sequenceIndex= */ 0);
+    frameAggregator.queueEndOfStream(/* sequenceIndex= */ 1);
+    frameAggregator.queueEndOfStream(/* sequenceIndex= */ 2);
+
+    assertThat(outputFrames).hasSize(4);
+    assertThat(Iterables.getLast(outputFrames))
+        .containsExactly(HardwareBufferFrame.END_OF_STREAM_FRAME);
+  }
+
+  @Test
+  public void queueFrame_withFrameRateAndSecondarySequenceEndsEarly_outputsOnlyPrimaryFrame() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(
+            /* numSequences= */ 2,
+            /* frameRate= */ new Rational(30, 1),
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
+    registerAllSequences(frameAggregator, /* numSequences= */ 2);
+
+    /*
+     * Pacing / Retiming Timeline (Target Virtual Clock: 30 FPS):
+     *
+     * Virtual Ticks:         [Tick 0: 0us]         [Tick 1: 33_333us]
+     * ---------------------------------------------------------------
+     * Seq 0 (Primary):       |--- 0us ---|         |--- 33_333us ---|
+     * Seq 1 (Secondary):     |--- 0us ---| (EOS)
+     */
+
+    List<HardwareBufferFrame> primaryFrames =
+        createFrameList(/* numFrames= */ 2, /* frameRate= */ 30, /* sequenceIndex= */ 0);
+    List<HardwareBufferFrame> secondaryFrames =
+        createFrameList(/* numFrames= */ 1, /* frameRate= */ 30, /* sequenceIndex= */ 1);
+
+    frameAggregator.queueFrame(primaryFrames.get(0), /* sequenceIndex= */ 0);
+    frameAggregator.queueFrame(secondaryFrames.get(0), /* sequenceIndex= */ 1);
+
+    assertThat(outputFrames).hasSize(1); // Virtual Tick 0 emitted
+    assertOutputPacket(
+        Iterables.getLast(outputFrames), /* expectedSize= */ 2, /* expectedTimeUs= */ 0);
+
+    frameAggregator.queueEndOfStream(/* sequenceIndex= */ 1);
+    frameAggregator.queueFrame(primaryFrames.get(1), /* sequenceIndex= */ 0);
+
+    assertThat(outputFrames).hasSize(2); // Virtual Ticks 0 and 1 emitted
+    assertOutputPacket(
+        Iterables.getLast(outputFrames),
+        /* expectedSize= */ 1,
+        /* expectedTimeUs= */ 33_333,
+        new SourceFrame(
+            /* sequenceIndex= */ 0,
+            /* presentationTimeUs= */ 33_333,
+            /* sequencePresentationTimeUs= */ 33_333));
+  }
+
+  @Test
+  public void queueFrame_withFrameRateAndPrimarySequenceEndsEarly_outputsOnlySecondaryFrame() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(
+            /* numSequences= */ 2,
+            /* frameRate= */ new Rational(30, 1),
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
+    registerAllSequences(frameAggregator, /* numSequences= */ 2);
+
+    /*
+     * Pacing / Retiming Timeline (Target Virtual Clock: 30 FPS):
+     *
+     * Virtual Ticks:         [Tick 0: 0us]         [Tick 1: 33_333us]
+     * ---------------------------------------------------------------
+     * Seq 0 (Primary):       |--- 0us ---| (EOS)
+     * Seq 1 (Secondary):     |--- 0us ---|         |--- 33_333us ---|
+     */
+
+    List<HardwareBufferFrame> primaryFrames =
+        createFrameList(/* numFrames= */ 1, /* frameRate= */ 30, /* sequenceIndex= */ 0);
+    List<HardwareBufferFrame> secondaryFrames =
+        createFrameList(/* numFrames= */ 2, /* frameRate= */ 30, /* sequenceIndex= */ 1);
+
+    frameAggregator.queueFrame(primaryFrames.get(0), /* sequenceIndex= */ 0);
+    frameAggregator.queueFrame(secondaryFrames.get(0), /* sequenceIndex= */ 1);
+
+    assertThat(outputFrames).hasSize(1); // Virtual Tick 0 emitted
+    assertOutputPacket(
+        Iterables.getLast(outputFrames), /* expectedSize= */ 2, /* expectedTimeUs= */ 0);
+
+    frameAggregator.queueEndOfStream(/* sequenceIndex= */ 0);
+    frameAggregator.queueFrame(secondaryFrames.get(1), /* sequenceIndex= */ 1);
+
+    assertThat(outputFrames).hasSize(2); // Virtual Ticks 0 and 1 emitted
+    assertOutputPacket(
+        Iterables.getLast(outputFrames),
+        /* expectedSize= */ 1,
+        /* expectedTimeUs= */ 33_333,
+        new SourceFrame(
+            /* sequenceIndex= */ 1,
+            /* presentationTimeUs= */ 33_333,
+            /* sequencePresentationTimeUs= */ 33_333));
+  }
+
+  @Test
+  public void queueFrame_withFrameRateAndStartsAtVirtualTick_exactMatch() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(
+            /* numSequences= */ 2,
+            /* frameRate= */ new Rational(30, 1),
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
+    registerAllSequences(frameAggregator, /* numSequences= */ 2);
+
+    /*
+     * Pacing / Retiming Timeline (Target Virtual Clock: 30 FPS):
+     *
+     * Virtual Ticks:         [Tick 1: 33_333us]
+     * -----------------------------------------
+     * Seq 0 (Primary):       |--- 33_333us ---|
+     * Seq 1 (Secondary):     |--- 33_333us ---|
+     */
+
+    HardwareBufferFrame primaryFrame =
+        createFrame(/* presentationTimeUs= */ 33_333, /* sequencePresentationTimeUs= */ 33_333);
+    HardwareBufferFrame secondaryFrame =
+        createFrame(/* presentationTimeUs= */ 33_333, /* sequencePresentationTimeUs= */ 33_333);
+
+    frameAggregator.queueFrame(primaryFrame, /* sequenceIndex= */ 0);
+    frameAggregator.queueFrame(secondaryFrame, /* sequenceIndex= */ 1);
+
+    assertThat(outputFrames).hasSize(1);
+    assertOutputPacket(
+        Iterables.getLast(outputFrames), /* expectedSize= */ 2, /* expectedTimeUs= */ 33_333);
+  }
+
+  @Test
+  public void queueFrame_withFrameRateAndStartsAtVirtualTick_dropsDueToUpstreamRounding() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(
+            /* numSequences= */ 2,
+            /* frameRate= */ new Rational(30, 1),
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
+    registerAllSequences(frameAggregator, /* numSequences= */ 2);
+
+    // TODO: b/525309275 - Consider adding a tolerance to getVirtualFrameIndexCeil.
+    // Right now, perfectly aligned frames might be dropped due to upstream integer rounding.
+    // 66_667 is the nearest-integer rounded timestamp for the 2nd tick at 30fps (66666.666... us).
+    // When we calculate the exact index: ceil((66_667 * 30) / 1_000_000) = ceil(2.00001) = 3.
+    //
+    /*
+     * Pacing / Retiming Timeline (Target Virtual Clock: 30 FPS):
+     *
+     * Virtual Ticks:         [Tick 2: 66_667us]    [Tick 3: 100_000us]
+     * ----------------------------------------------------------------
+     * Seq 0 (Primary):                             | (Drop 66_667us) |
+     * Seq 1 (Secondary):                           | (Wait)          |
+     */
+    //
+    // The virtual clock starts at tick 3 (100_000us) because the ceiling logic overshoots to 3.
+    // Because the incoming 66_667us frames are strictly older than the target time of 100_000us,
+    // they are dropped, and the aggregator outputs nothing until the next frames arrive.
+    HardwareBufferFrame primaryFrame =
+        createFrame(/* presentationTimeUs= */ 66_667, /* sequencePresentationTimeUs= */ 66_667);
+    HardwareBufferFrame secondaryFrame =
+        createFrame(/* presentationTimeUs= */ 66_667, /* sequencePresentationTimeUs= */ 66_667);
+
+    frameAggregator.queueFrame(primaryFrame, /* sequenceIndex= */ 0);
+    frameAggregator.queueFrame(secondaryFrame, /* sequenceIndex= */ 1);
+
+    assertThat(outputFrames).isEmpty(); // Dropped
+    // Only the primary frame is dropped initially because the matcher aborts checking further
+    // sequences as soon as the primary queue is empty.
+    assertThat(releasedFrameTimestamps).containsExactly(66_667L);
+  }
+
+  @Test
+  public void queueFrame_withFrameRateAndRoundsUpToNearestVirtualTick_dropsPrecedingFrames() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(
+            /* numSequences= */ 2,
+            /* frameRate= */ new Rational(30, 1),
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
+    registerAllSequences(frameAggregator, /* numSequences= */ 2);
+
+    /*
+     * Pacing / Retiming Timeline (Target Virtual Clock: 30 FPS):
+     *
+     * Virtual Ticks (30 FPS):   [  Tick 3: 100_000us  ]      [ Tick 4: 133_333us ]
+     * ---------------------------------------------------------------------------------
+     * Seq 0 (Primary):          | 82_000us | 100_000us|      |---- 133_333us ----|
+     * Seq 1 (Secondary):        | (Wait)   | 133_333us|      |---- 133_333us ----|
+     */
+
+    HardwareBufferFrame primaryFrame1 =
+        createFrame(/* presentationTimeUs= */ 82_000, /* sequencePresentationTimeUs= */ 82_000);
+    HardwareBufferFrame primaryFrame2 =
+        createFrame(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
+    HardwareBufferFrame primaryFrame3 =
+        createFrame(/* presentationTimeUs= */ 133_333, /* sequencePresentationTimeUs= */ 133_333);
+    HardwareBufferFrame secondaryFrame1 =
+        createFrame(/* presentationTimeUs= */ 133_333, /* sequencePresentationTimeUs= */ 133_333);
+
+    // Queue secondary frame [133_333]. Output is empty.
+    frameAggregator.queueFrame(secondaryFrame1, /* sequenceIndex= */ 1);
+
+    assertThat(outputFrames).isEmpty();
+
+    // Queue primary frame [82_000].
+    // timeUs * frameRate / 1_000_000.0 = 82_000 * 30 / 1M = 2.46.
+    // This ceils to index 3 (target time 100_000us) to ensure the virtual clock
+    // never produces frames with timestamps earlier than the current available frames.
+    // Because 82_000 < 100_000, it is dropped.
+    frameAggregator.queueFrame(primaryFrame1, /* sequenceIndex= */ 0);
+
+    assertThat(outputFrames).isEmpty();
+    assertThat(releasedFrameTimestamps).containsExactly(82_000L);
+
+    // Queue primary frame [100_000]. Output matches S1[100_000] + S2[133_333] at Target 100_000.
+    frameAggregator.queueFrame(primaryFrame2, /* sequenceIndex= */ 0);
+
+    assertThat(outputFrames).hasSize(1);
+    assertOutputPacket(outputFrames.get(0), /* expectedSize= */ 2, /* expectedTimeUs= */ 100_000);
+
+    // Queue primary frame [133_333]. Output matches S1[133_333] + S2[133_333] at Target 133_333.
+    // The previous primary frame [100_000] is released.
+    frameAggregator.queueFrame(primaryFrame3, /* sequenceIndex= */ 0);
+
+    assertThat(outputFrames).hasSize(2);
+    assertOutputPacket(outputFrames.get(1), /* expectedSize= */ 2, /* expectedTimeUs= */ 133_333);
+    assertThat(releasedFrameTimestamps).containsExactly(82_000L);
+  }
+
+  @Test
+  public void flush_withFrameRate_resetsToSeekTimestampVirtualTick() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(
+            /* numSequences= */ 2,
+            /* frameRate= */ new Rational(30, 1),
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
+    registerAllSequences(frameAggregator, /* numSequences= */ 2);
+
+    /*
+     * Pacing / Retiming Timeline (Target Virtual Clock: 30 FPS):
+     *
+     * Virtual Ticks:         [Tick 0: 0us]    <SEEK>    [Tick 3: 100_000us]
+     * ---------------------------------------------------------------------
+     * Seq 0 (Primary):       |--- 0us ---|    <SEEK>    |--- 100_000us ---|
+     * Seq 1 (Secondary):     |--- 0us ---|    <SEEK>    |--- 100_000us ---|
+     */
+
+    frameAggregator.queueFrame(
+        createFrame(/* presentationTimeUs= */ 0, /* sequencePresentationTimeUs= */ 0),
+        /* sequenceIndex= */ 0);
+    frameAggregator.queueFrame(
+        createFrame(/* presentationTimeUs= */ 0, /* sequencePresentationTimeUs= */ 0),
+        /* sequenceIndex= */ 1);
+
+    assertThat(outputFrames).hasSize(1); // Pre-seek Virtual Tick emitted
+
+    // Seek to 100_000us
+    frameAggregator.flush(/* sequenceIndex= */ 0);
+    frameAggregator.flush(/* sequenceIndex= */ 1);
+
+    frameAggregator.queueFrame(
+        createFrame(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000),
+        /* sequenceIndex= */ 0);
+    frameAggregator.queueFrame(
+        createFrame(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000),
+        /* sequenceIndex= */ 1);
+
+    assertThat(outputFrames).hasSize(2); // Post-seek Virtual Tick emitted
+    assertOutputPacket(
+        Iterables.getLast(outputFrames), /* expectedSize= */ 2, /* expectedTimeUs= */ 100_000);
+  }
+
+  @Test
+  public void queueFrame_withFrameRate_multipleItems_retimesPresentationAndSequenceTimestamps() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(
+            /* numSequences= */ 1,
+            /* frameRate= */ new Rational(10, 1),
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
+    registerAllSequences(frameAggregator, /* numSequences= */ 1);
+
+    /*
+     * Pacing / Retiming Timeline (Target Virtual Clock: 10 FPS):
+     *
+     * Virtual Ticks (10 FPS):  [ Tick 0: 0us ]                      [ Tick 1: 100_000us ]
+     * -----------------------------------------------------------------------------------
+     * Item 1 (30 FPS):         |--- 0us ---| (33) | (66) |
+     * Item 2 (30 FPS, offset):                         | (90) |     |---- 123_333us ----|
+     */
+
+    List<HardwareBufferFrame> item1Frames =
+        createFrameList(/* numFrames= */ 3, /* frameRate= */ 30, /* sequenceIndex= */ 0);
+    List<HardwareBufferFrame> item2Frames =
+        createFrameList(
+            /* numFrames= */ 2,
+            /* frameRate= */ 30,
+            /* sequenceIndex= */ 0,
+            /* sequencePresentationTimeOffsetUs= */ 90_000);
+
+    item1Frames.forEach(frame -> frameAggregator.queueFrame(frame, /* sequenceIndex= */ 0));
+    item2Frames.forEach(frame -> frameAggregator.queueFrame(frame, /* sequenceIndex= */ 0));
+
+    assertThat(outputFrames).hasSize(2); // Virtual Ticks 0 and 1 emitted
+
+    // Virtual Tick 0 (0us): Matches Item 1 Frame 0 (SeqPTS = 0us).
+    assertOutputPacket(
+        outputFrames.get(0),
+        /* expectedSize= */ 1,
+        /* expectedTimeUs= */ 0,
+        new SourceFrame(
+            /* sequenceIndex= */ 0,
+            /* presentationTimeUs= */ 0,
+            /* sequencePresentationTimeUs= */ 0));
+
+    // Virtual Tick 1 (100_000us):
+    // Intermediate 30 FPS frames (Item 1 Frames 1 & 2 at 33_333us & 66_667us;
+    // Item 2 Frame 0 at 90_000us) are dropped because SeqPTS < 100_000us.
+    // Item 2 Frame 1 (SeqPTS = 90_000 + 33_333 = 123_333us >= 100_000us) matches.
+    // shiftDeltaUs = 100_000 - 123_333 = -23_333us.
+    // Retimed PTS = 33_333 - 23_333 = 10_000us.
+    assertOutputPacket(
+        outputFrames.get(1),
+        /* expectedSize= */ 1,
+        /* expectedPresentationTimeUs= */ 10_000,
+        /* expectedSequencePresentationTimeUs= */ 100_000,
+        new SourceFrame(
+            /* sequenceIndex= */ 0,
+            /* presentationTimeUs= */ 33_333,
+            /* sequencePresentationTimeUs= */ 123_333));
+  }
+
+  private static void assertOutputPacket(
+      List<HardwareBufferFrame> outputPacket,
+      int expectedSize,
+      long expectedTimeUs,
+      SourceFrame... expectedSourceFrames) {
+    assertOutputPacket(
+        outputPacket,
+        expectedSize,
+        /* expectedPresentationTimeUs= */ expectedTimeUs,
+        /* expectedSequencePresentationTimeUs= */ expectedTimeUs,
+        expectedSourceFrames);
+  }
+
+  private static void assertOutputPacket(
+      List<HardwareBufferFrame> outputPacket,
+      int expectedSize,
+      long expectedPresentationTimeUs,
+      long expectedSequencePresentationTimeUs,
+      SourceFrame... expectedSourceFrames) {
+    assertThat(outputPacket).hasSize(expectedSize);
+    for (HardwareBufferFrame frame : outputPacket) {
+      assertThat(frame.presentationTimeUs).isEqualTo(expectedPresentationTimeUs);
+      assertThat(frame.sequencePresentationTimeUs).isEqualTo(expectedSequencePresentationTimeUs);
+    }
+    if (expectedSourceFrames.length > 0) {
+      List<SourceFrame> actualSourceFrames = new ArrayList<>();
+      for (HardwareBufferFrame frame : outputPacket) {
+        actualSourceFrames.add(getSourceFrame(frame));
+      }
+      assertThat(actualSourceFrames).containsExactlyElementsIn(expectedSourceFrames).inOrder();
+    }
+  }
+
   /** Creates a {@link GlTextureFrame} for testing. */
   private HardwareBufferFrame createFrame(
       long presentationTimeUs, long sequencePresentationTimeUs) {
+    return createFrame(presentationTimeUs, sequencePresentationTimeUs, /* sequenceIndex= */ 0);
+  }
+
+  private HardwareBufferFrame createFrame(
+      long presentationTimeUs, long sequencePresentationTimeUs, int sequenceIndex) {
     return new HardwareBufferFrame.Builder(
             /* hardwareBuffer= */ null,
             directExecutor(),
             (releaseFence) -> releasedFrameTimestamps.add(presentationTimeUs))
         .setPresentationTimeUs(presentationTimeUs)
         .setSequencePresentationTimeUs(sequencePresentationTimeUs)
+        .setMetadata(
+            new SourceFrameMetadata(
+                new SourceFrame(sequenceIndex, presentationTimeUs, sequencePresentationTimeUs)))
         .setInternalFrame(this)
         .build();
+  }
+
+  private List<HardwareBufferFrame> createFrameList(
+      int numFrames, float frameRate, int sequenceIndex) {
+    return createFrameList(
+        numFrames, frameRate, sequenceIndex, /* sequencePresentationTimeOffsetUs= */ 0);
+  }
+
+  private List<HardwareBufferFrame> createFrameList(
+      int numFrames, float frameRate, int sequenceIndex, long sequencePresentationTimeOffsetUs) {
+    List<HardwareBufferFrame> frames = new ArrayList<>();
+    for (int i = 0; i < numFrames; i++) {
+      long timeUs = Math.round(i * 1_000_000.0 / frameRate);
+      frames.add(
+          createFrame(
+              /* presentationTimeUs= */ timeUs,
+              /* sequencePresentationTimeUs= */ sequencePresentationTimeOffsetUs + timeUs,
+              sequenceIndex));
+    }
+    return frames;
+  }
+
+  private static SourceFrame getSourceFrame(HardwareBufferFrame frame) {
+    return ((SourceFrameMetadata) frame.getMetadata()).sourceFrame;
   }
 
   private static void registerAllSequences(FrameAggregator frameAggregator, int numSequences) {
     for (int i = 0; i < numSequences; i++) {
       frameAggregator.registerSequence(i, /* shouldAggregate= */ true);
+    }
+  }
+
+  private static final class SourceFrame {
+    final int sequenceIndex;
+    final long presentationTimeUs;
+    final long sequencePresentationTimeUs;
+
+    SourceFrame(int sequenceIndex, long presentationTimeUs, long sequencePresentationTimeUs) {
+      this.sequenceIndex = sequenceIndex;
+      this.presentationTimeUs = presentationTimeUs;
+      this.sequencePresentationTimeUs = sequencePresentationTimeUs;
+    }
+
+    @Override
+    @SuppressWarnings("PatternMatchingInstanceof")
+    public boolean equals(@Nullable Object obj) {
+      if (!(obj instanceof SourceFrame)) {
+        return false;
+      }
+      SourceFrame other = (SourceFrame) obj;
+      return sequenceIndex == other.sequenceIndex
+          && presentationTimeUs == other.presentationTimeUs
+          && sequencePresentationTimeUs == other.sequencePresentationTimeUs;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(sequenceIndex, presentationTimeUs, sequencePresentationTimeUs);
+    }
+
+    @Override
+    public String toString() {
+      return "SourceFrame[sequence="
+          + sequenceIndex
+          + ", pts="
+          + presentationTimeUs
+          + ", seqPts="
+          + sequencePresentationTimeUs
+          + "]";
+    }
+  }
+
+  private static final class SourceFrameMetadata implements HardwareBufferFrame.Metadata {
+    final SourceFrame sourceFrame;
+
+    SourceFrameMetadata(SourceFrame sourceFrame) {
+      this.sourceFrame = sourceFrame;
     }
   }
 }
