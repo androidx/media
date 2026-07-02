@@ -585,6 +585,75 @@ public class DefaultHlsPlaylistTrackerTest {
   }
 
   @Test
+  public void start_refreshScheduledButNotExecutedForNonPlayingPlaylist() throws Exception {
+    List<HttpUrl> httpUrls =
+        enqueueWebServerResponses(
+            new String[] {
+              "/multivariant.m3u8",
+              "/media0/playlist.m3u8",
+              "/media1/playlist.m3u8",
+              "/media1/playlist.m3u8",
+            },
+            getMockResponse(SAMPLE_M3U8_LIVE_MULTIVARIANT),
+            getMockResponse(SAMPLE_M3U8_LIVE_MEDIA_CAN_NOT_SKIP),
+            getMockResponse(SAMPLE_M3U8_LIVE_MEDIA_CAN_NOT_SKIP),
+            getMockResponse(SAMPLE_M3U8_LIVE_MEDIA_CAN_NOT_SKIP_NEXT));
+    DefaultHlsPlaylistTracker defaultHlsPlaylistTracker =
+        new DefaultHlsPlaylistTracker(
+            dataType -> new DefaultHttpDataSource.Factory().createDataSource(),
+            new DefaultLoadErrorHandlingPolicy(),
+            new DefaultHlsPlaylistParserFactory(),
+            /* cmcdConfiguration= */ null,
+            /* downloadExecutorSupplier= */ null);
+    AtomicInteger playlistChangedCounter = new AtomicInteger();
+    defaultHlsPlaylistTracker.addListener(
+        new HlsPlaylistTracker.PlaylistEventListener() {
+          @Override
+          public void onPlaylistChanged() {
+            playlistChangedCounter.addAndGet(1);
+          }
+
+          @Override
+          public boolean onPlaylistError(
+              Uri url, LoadErrorHandlingPolicy.LoadErrorInfo loadErrorInfo, boolean forceRetry) {
+            return false;
+          }
+        });
+
+    defaultHlsPlaylistTracker.start(
+        Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
+        new MediaSourceEventListener.EventDispatcher(),
+        mediaPlaylist -> {},
+        BandwidthMeter.NO_OP);
+    // Wait for playlist A (media0) to load. Since A is the initial primary playlist, it will
+    // schedule a refresh with a 4-second delay (based on target duration) once it finishes loading.
+    Uri playlistUrlA = Uri.parse(mockWebServer.url("/media0/playlist.m3u8").toString());
+    RobolectricUtil.runMainLooperUntil(
+        () -> defaultHlsPlaylistTracker.isSnapshotValid(playlistUrlA));
+    // Explicitly activate playlist A for playback.
+    defaultHlsPlaylistTracker.getPlaylistSnapshot(playlistUrlA, /* isForPlayback= */ true);
+    // Refresh B (media1) and wait for it to load.
+    Uri playlistUrlB = Uri.parse(mockWebServer.url("/media1/playlist.m3u8").toString());
+    defaultHlsPlaylistTracker.refreshPlaylist(playlistUrlB);
+    RobolectricUtil.runMainLooperUntil(
+        () -> defaultHlsPlaylistTracker.isSnapshotValid(playlistUrlB));
+    // Make playlist B primary and active.
+    defaultHlsPlaylistTracker.getPlaylistSnapshot(playlistUrlB, /* isForPlayback= */ true);
+    // Explicitly deactivate playlist A for playback, simulating the track change. The Playlist A
+    // is now non-primary and inactive, but its refresh task is still pending in the looper queue
+    // with the original 4-second delay.
+    defaultHlsPlaylistTracker.deactivatePlaylistForPlayback(playlistUrlA);
+    // Keep running the looper until the scheduled refresh tasks got run. Both A and B's refresh
+    // tasks will run by the looper. But A is no longer primary or active, so its task should skip
+    // the actual loading.
+    RobolectricUtil.runMainLooperUntil(
+        /* maxTimeDiffMs= */ 10_000, () -> playlistChangedCounter.get() >= 3);
+    defaultHlsPlaylistTracker.stop();
+
+    assertRequestUrlsCalled(httpUrls);
+  }
+
+  @Test
   public void
       start_refreshPlaylistWithAllowingDeliveryDirectives_requestWithCorrectDeliveryDirectives()
           throws Exception {

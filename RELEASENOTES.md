@@ -63,6 +63,9 @@
         `EXT-X-I-FRAME-STREAM-INF`, and populate it to
         `Format.selectionPriority`
         ([#3236](https://github.com/androidx/media/pull/3236)).
+    *   Fix bug where scheduled HLS playlist refreshes continue even if the
+        playlist is no longer primary or active
+        ([#3254](https://github.com/androidx/media/issues/3254)).
 *   DASH extension:
     *   Add support for parsing multiple `Location` elements from the manifest
         (MPD) and performing location fallback in `DashMediaSource` when
