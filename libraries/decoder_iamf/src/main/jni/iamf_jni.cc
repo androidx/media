@@ -51,7 +51,7 @@ constexpr int ERROR = -1;
 constexpr int OK = 0;
 }  // namespace
 
-jint JNI_OnLoad(JavaVM* vm, void* reserved) {
+extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
   JNIEnv* env;
   if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
     return ERROR;
