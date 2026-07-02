@@ -99,95 +99,110 @@ public class FrameExtractorTest {
 
   @Test
   public void extractFrame_oneFrame_returnsNearest() throws Exception {
+    Frame frame;
+    int initialRenderedOutputBufferCount;
+    int finalRenderedOutputBufferCount;
     try (FrameExtractor frameExtractor =
         new FrameExtractor.Builder(context, MediaItem.fromUri(FILE_PATH)).build()) {
       DecoderCounters initialCounters =
           frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
-      int initialRenderedOutputBufferCount =
+      initialRenderedOutputBufferCount =
           initialCounters != null ? initialCounters.renderedOutputBufferCount : 0;
       ListenableFuture<Frame> frameFuture = frameExtractor.getFrame(/* positionMs= */ 8_500);
-      Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
-      Bitmap actualBitmap = frame.bitmap;
-      Bitmap expectedBitmap =
-          readBitmap(
-              /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
-                  + "sample_with_increasing_timestamps_360p_8.531.png");
-      maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
-
-      assertThat(frame.presentationTimeMs).isEqualTo(8_531);
-      assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+      frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
       DecoderCounters finalCounters =
           frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
-      assertThat(finalCounters.renderedOutputBufferCount - initialRenderedOutputBufferCount)
-          .isAtMost(2);
+      finalRenderedOutputBufferCount =
+          finalCounters != null ? finalCounters.renderedOutputBufferCount : 0;
     }
+    Bitmap actualBitmap = frame.bitmap;
+    Bitmap expectedBitmap =
+        readBitmap(
+            /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
+                + "sample_with_increasing_timestamps_360p_8.531.png");
+    maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
+
+    assertThat(frame.presentationTimeMs).isEqualTo(8_531);
+    assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+    assertThat(finalRenderedOutputBufferCount - initialRenderedOutputBufferCount).isAtMost(2);
   }
 
   @Test
   public void extractFrame_oneFrameWithPresentationEffect_returnsScaledFrame() throws Exception {
+    Frame frame;
+    int initialRenderedOutputBufferCount;
+    int finalRenderedOutputBufferCount;
     try (FrameExtractor frameExtractor =
         new FrameExtractor.Builder(context, MediaItem.fromUri(FILE_PATH))
             .setEffects(ImmutableList.of(Presentation.createForHeight(180)))
             .build()) {
       DecoderCounters initialCounters =
           frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
-      int initialRenderedOutputBufferCount =
+      initialRenderedOutputBufferCount =
           initialCounters != null ? initialCounters.renderedOutputBufferCount : 0;
       ListenableFuture<Frame> frameFuture = frameExtractor.getFrame(/* positionMs= */ 8_500);
-      Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
-      Bitmap actualBitmap = frame.bitmap;
-      Bitmap expectedBitmap =
-          readBitmap(
-              /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
-                  + "sample_with_increasing_timestamps_360p_8.531_scaled_to_180p.png");
-      maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
-
-      assertThat(frame.presentationTimeMs).isEqualTo(8_531);
-      assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+      frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
       DecoderCounters finalCounters =
           frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
-      assertThat(finalCounters.renderedOutputBufferCount - initialRenderedOutputBufferCount)
-          .isAtMost(2);
+      finalRenderedOutputBufferCount =
+          finalCounters != null ? finalCounters.renderedOutputBufferCount : 0;
     }
+    Bitmap actualBitmap = frame.bitmap;
+    Bitmap expectedBitmap =
+        readBitmap(
+            /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
+                + "sample_with_increasing_timestamps_360p_8.531_scaled_to_180p.png");
+    maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
+
+    assertThat(frame.presentationTimeMs).isEqualTo(8_531);
+    assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+    assertThat(finalRenderedOutputBufferCount - initialRenderedOutputBufferCount).isAtMost(2);
   }
 
   @Test
   public void extractFrame_pastDuration_returnsLastFrame() throws Exception {
+    Frame frame;
+    int initialRenderedOutputBufferCount;
+    int finalRenderedOutputBufferCount;
     try (FrameExtractor frameExtractor =
         new FrameExtractor.Builder(context, MediaItem.fromUri(FILE_PATH)).build()) {
       DecoderCounters initialCounters =
           frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
-      int initialRenderedOutputBufferCount =
+      initialRenderedOutputBufferCount =
           initialCounters != null ? initialCounters.renderedOutputBufferCount : 0;
       ListenableFuture<Frame> frameFuture = frameExtractor.getFrame(/* positionMs= */ 200_000);
-      Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
-      Bitmap actualBitmap = frame.bitmap;
-      int lastVideoFramePresentationTimeMs = 17_029;
-      Bitmap expectedBitmap =
-          readBitmap(
-              /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
-                  + "sample_with_increasing_timestamps_360p_17.029.png");
-      maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
-
-      assertThat(frame.presentationTimeMs).isEqualTo(lastVideoFramePresentationTimeMs);
-      assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+      frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
       DecoderCounters finalCounters =
           frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
-      assertThat(finalCounters.renderedOutputBufferCount - initialRenderedOutputBufferCount)
-          .isAtMost(2);
+      finalRenderedOutputBufferCount =
+          finalCounters != null ? finalCounters.renderedOutputBufferCount : 0;
     }
+    Bitmap actualBitmap = frame.bitmap;
+    int lastVideoFramePresentationTimeMs = 17_029;
+    Bitmap expectedBitmap =
+        readBitmap(
+            /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
+                + "sample_with_increasing_timestamps_360p_17.029.png");
+    maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
+
+    assertThat(frame.presentationTimeMs).isEqualTo(lastVideoFramePresentationTimeMs);
+    assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+    assertThat(finalRenderedOutputBufferCount - initialRenderedOutputBufferCount).isAtMost(2);
   }
 
   @Test
   public void extractFrame_repeatedPositionMs_returnsTheSameFrame() throws Exception {
+    ImmutableList<Long> expectedFramePositionsMs = ImmutableList.of(0L, 0L, 33L, 66L, 66L);
+    List<Frame> extractedFrames = new ArrayList<>();
+    int initialRenderedOutputBufferCount;
+    int finalRenderedOutputBufferCount;
     try (FrameExtractor frameExtractor =
         new FrameExtractor.Builder(context, MediaItem.fromUri(FILE_PATH)).build()) {
       DecoderCounters initialCounters =
           frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
-      int initialRenderedOutputBufferCount =
+      initialRenderedOutputBufferCount =
           initialCounters != null ? initialCounters.renderedOutputBufferCount : 0;
       ImmutableList<Long> requestedFramePositionsMs = ImmutableList.of(0L, 0L, 33L, 34L, 34L);
-      ImmutableList<Long> expectedFramePositionsMs = ImmutableList.of(0L, 0L, 33L, 66L, 66L);
       List<ListenableFuture<Frame>> frameFutures = new ArrayList<>();
 
       for (long positionMs : requestedFramePositionsMs) {
@@ -196,37 +211,44 @@ public class FrameExtractorTest {
       for (int i = 0; i < expectedFramePositionsMs.size(); i++) {
         ListenableFuture<Frame> frameListenableFuture = frameFutures.get(i);
         Frame frame = frameListenableFuture.get(TIMEOUT_SECONDS, SECONDS);
-        maybeSaveTestBitmap(
-            testId, /* bitmapLabel= */ "actual_" + i, frame.bitmap, /* path= */ null);
-        Bitmap expectedBitmap =
-            readBitmap(
-                /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
-                    + "sample_with_increasing_timestamps_360p_"
-                    + String.format(Locale.US, "%.3f", frame.presentationTimeMs / 1000f)
-                    + ".png");
-
-        assertBitmapsAreSimilar(expectedBitmap, frame.bitmap, PSNR_THRESHOLD);
-        assertThat(frame.presentationTimeMs).isEqualTo(expectedFramePositionsMs.get(i));
+        extractedFrames.add(frame);
       }
       DecoderCounters finalCounters =
           frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
-      assertThat(finalCounters.renderedOutputBufferCount - initialRenderedOutputBufferCount)
-          .isAtMost(3);
+      finalRenderedOutputBufferCount =
+          finalCounters != null ? finalCounters.renderedOutputBufferCount : 0;
     }
+    for (int i = 0; i < expectedFramePositionsMs.size(); i++) {
+      Frame frame = extractedFrames.get(i);
+      maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual_" + i, frame.bitmap, /* path= */ null);
+      Bitmap expectedBitmap =
+          readBitmap(
+              /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
+                  + "sample_with_increasing_timestamps_360p_"
+                  + String.format(Locale.US, "%.3f", frame.presentationTimeMs / 1000f)
+                  + ".png");
+
+      assertBitmapsAreSimilar(expectedBitmap, frame.bitmap, PSNR_THRESHOLD);
+      assertThat(frame.presentationTimeMs).isEqualTo(expectedFramePositionsMs.get(i));
+    }
+    assertThat(finalRenderedOutputBufferCount - initialRenderedOutputBufferCount).isAtMost(3);
   }
 
   @Test
   public void extractFrame_repeatedPositionMsAndClosestSync_returnsTheSameFrame() throws Exception {
+    ImmutableList<Long> expectedFramePositionsMs = ImmutableList.of(0L, 0L, 0L, 0L, 0L);
+    List<Frame> extractedFrames = new ArrayList<>();
+    int initialRenderedOutputBufferCount;
+    int finalRenderedOutputBufferCount;
     try (FrameExtractor frameExtractor =
         new FrameExtractor.Builder(context, MediaItem.fromUri(FILE_PATH))
             .setSeekParameters(CLOSEST_SYNC)
             .build()) {
       DecoderCounters initialCounters =
           frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
-      int initialRenderedOutputBufferCount =
+      initialRenderedOutputBufferCount =
           initialCounters != null ? initialCounters.renderedOutputBufferCount : 0;
       ImmutableList<Long> requestedFramePositionsMs = ImmutableList.of(0L, 0L, 33L, 34L, 34L);
-      ImmutableList<Long> expectedFramePositionsMs = ImmutableList.of(0L, 0L, 0L, 0L, 0L);
       List<ListenableFuture<Frame>> frameFutures = new ArrayList<>();
 
       for (long positionMs : requestedFramePositionsMs) {
@@ -235,23 +257,27 @@ public class FrameExtractorTest {
       for (int i = 0; i < expectedFramePositionsMs.size(); i++) {
         ListenableFuture<Frame> frameListenableFuture = frameFutures.get(i);
         Frame frame = frameListenableFuture.get(TIMEOUT_SECONDS, SECONDS);
-        maybeSaveTestBitmap(
-            testId, /* bitmapLabel= */ "actual_" + i, frame.bitmap, /* path= */ null);
-        Bitmap expectedBitmap =
-            readBitmap(
-                /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
-                    + "sample_with_increasing_timestamps_360p_"
-                    + String.format(Locale.US, "%.3f", frame.presentationTimeMs / 1000f)
-                    + ".png");
-
-        assertBitmapsAreSimilar(expectedBitmap, frame.bitmap, PSNR_THRESHOLD);
-        assertThat(frame.presentationTimeMs).isEqualTo(expectedFramePositionsMs.get(i));
+        extractedFrames.add(frame);
       }
       DecoderCounters finalCounters =
           frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
-      assertThat(finalCounters.renderedOutputBufferCount - initialRenderedOutputBufferCount)
-          .isAtMost(1);
+      finalRenderedOutputBufferCount =
+          finalCounters != null ? finalCounters.renderedOutputBufferCount : 0;
     }
+    for (int i = 0; i < expectedFramePositionsMs.size(); i++) {
+      Frame frame = extractedFrames.get(i);
+      maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual_" + i, frame.bitmap, /* path= */ null);
+      Bitmap expectedBitmap =
+          readBitmap(
+              /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
+                  + "sample_with_increasing_timestamps_360p_"
+                  + String.format(Locale.US, "%.3f", frame.presentationTimeMs / 1000f)
+                  + ".png");
+
+      assertBitmapsAreSimilar(expectedBitmap, frame.bitmap, PSNR_THRESHOLD);
+      assertThat(frame.presentationTimeMs).isEqualTo(expectedFramePositionsMs.get(i));
+    }
+    assertThat(finalRenderedOutputBufferCount - initialRenderedOutputBufferCount).isAtMost(1);
   }
 
   @Test
@@ -380,29 +406,33 @@ public class FrameExtractorTest {
 
   @Test
   public void extractFrame_oneFrameRotated_returnsFrameInCorrectOrientation() throws Exception {
+    Frame frame;
+    int initialRenderedOutputBufferCount;
+    int finalRenderedOutputBufferCount;
     try (FrameExtractor frameExtractor =
         new FrameExtractor.Builder(context, MediaItem.fromUri(MP4_TRIM_OPTIMIZATION_270.uri))
             .build()) {
       DecoderCounters initialCounters =
           frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
-      int initialRenderedOutputBufferCount =
+      initialRenderedOutputBufferCount =
           initialCounters != null ? initialCounters.renderedOutputBufferCount : 0;
       ListenableFuture<Frame> frameFuture = frameExtractor.getFrame(/* positionMs= */ 0);
-      Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
-      Bitmap actualBitmap = frame.bitmap;
-      Bitmap expectedBitmap =
-          readBitmap(
-              /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
-                  + "internal_emulator_transformer_output_180_rotated_0.000.png");
-      maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
-
-      assertThat(frame.presentationTimeMs).isEqualTo(0);
-      assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+      frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
       DecoderCounters finalCounters =
           frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
-      assertThat(finalCounters.renderedOutputBufferCount - initialRenderedOutputBufferCount)
-          .isAtMost(1);
+      finalRenderedOutputBufferCount =
+          finalCounters != null ? finalCounters.renderedOutputBufferCount : 0;
     }
+    Bitmap actualBitmap = frame.bitmap;
+    Bitmap expectedBitmap =
+        readBitmap(
+            /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
+                + "internal_emulator_transformer_output_180_rotated_0.000.png");
+    maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
+
+    assertThat(frame.presentationTimeMs).isEqualTo(0);
+    assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+    assertThat(finalRenderedOutputBufferCount - initialRenderedOutputBufferCount).isAtMost(1);
   }
 
   @Test
@@ -616,82 +646,94 @@ public class FrameExtractorTest {
         testId,
         /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
         /* outputFormat= */ null);
+    Frame frame;
+    int initialRenderedOutputBufferCount;
+    int finalRenderedOutputBufferCount;
     try (FrameExtractor frameExtractor =
         new FrameExtractor.Builder(context, MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)).build()) {
       DecoderCounters initialCounters =
           frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
-      int initialRenderedOutputBufferCount =
+      initialRenderedOutputBufferCount =
           initialCounters != null ? initialCounters.renderedOutputBufferCount : 0;
       ListenableFuture<Frame> frameFuture = frameExtractor.getThumbnail();
-      Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
-      Bitmap actualBitmap = frame.bitmap;
-      Bitmap expectedBitmap =
-          readBitmap(/* assetString= */ GOLDEN_ASSET_FOLDER_PATH + "sample_0.000.png");
-      maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
-
-      assertThat(frame.presentationTimeMs).isEqualTo(0);
-      assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+      frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
       DecoderCounters finalCounters =
           frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
-      assertThat(finalCounters.renderedOutputBufferCount - initialRenderedOutputBufferCount)
-          .isAtMost(1);
+      finalRenderedOutputBufferCount =
+          finalCounters != null ? finalCounters.renderedOutputBufferCount : 0;
     }
+    Bitmap actualBitmap = frame.bitmap;
+    Bitmap expectedBitmap =
+        readBitmap(/* assetString= */ GOLDEN_ASSET_FOLDER_PATH + "sample_0.000.png");
+    maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
+
+    assertThat(frame.presentationTimeMs).isEqualTo(0);
+    assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+    assertThat(finalRenderedOutputBufferCount - initialRenderedOutputBufferCount).isAtMost(1);
   }
 
   @Test
   public void extractThumbnail_whenThumbnailMetadataTimestampIsNonZero_returnsCorrectFrame()
       throws Exception {
+    Frame frame;
+    int initialRenderedOutputBufferCount;
+    int finalRenderedOutputBufferCount;
     try (FrameExtractor frameExtractor =
         new FrameExtractor.Builder(context, MediaItem.fromUri(FILE_PATH)).build()) {
       DecoderCounters initialCounters =
           frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
-      int initialRenderedOutputBufferCount =
+      initialRenderedOutputBufferCount =
           initialCounters != null ? initialCounters.renderedOutputBufferCount : 0;
       ListenableFuture<Frame> frameFuture = frameExtractor.getThumbnail();
-      Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
-      Bitmap actualBitmap = frame.bitmap;
-      Bitmap expectedBitmap =
-          readBitmap(
-              /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
-                  + "sample_with_increasing_timestamps_360p_8.331.png");
-      maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
-
-      assertThat(frame.presentationTimeMs).isEqualTo(8_331);
-      assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+      frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
       DecoderCounters finalCounters =
           frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
-      assertThat(finalCounters.renderedOutputBufferCount - initialRenderedOutputBufferCount)
-          .isAtMost(2);
+      finalRenderedOutputBufferCount =
+          finalCounters != null ? finalCounters.renderedOutputBufferCount : 0;
     }
+    Bitmap actualBitmap = frame.bitmap;
+    Bitmap expectedBitmap =
+        readBitmap(
+            /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
+                + "sample_with_increasing_timestamps_360p_8.331.png");
+    maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
+
+    assertThat(frame.presentationTimeMs).isEqualTo(8_331);
+    assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+    assertThat(finalRenderedOutputBufferCount - initialRenderedOutputBufferCount).isAtMost(2);
   }
 
   @Test
   public void extractThumbnail_whenThumbnailMetadataIsMissing_returnsCorrectFrame()
       throws Exception {
+    Frame frame;
+    int initialRenderedOutputBufferCount;
+    int finalRenderedOutputBufferCount;
     try (FrameExtractor frameExtractor =
         new FrameExtractor.Builder(
                 context, MediaItem.fromUri(MP4_ONLY_PREROLL_SYNC_SAMPLE_EDIT_LIST.uri))
             .build()) {
       DecoderCounters initialCounters =
           frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
-      int initialRenderedOutputBufferCount =
+      initialRenderedOutputBufferCount =
           initialCounters != null ? initialCounters.renderedOutputBufferCount : 0;
       ListenableFuture<Frame> frameFuture = frameExtractor.getThumbnail();
-      Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
-      Bitmap actualBitmap = frame.bitmap;
-      Bitmap expectedBitmap =
-          readBitmap(
-              /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
-                  + "sample_edit_list_only_preroll_sync_sample_0.000.png");
-      maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
-
-      assertThat(frame.presentationTimeMs).isEqualTo(0);
-      assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+      frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
       DecoderCounters finalCounters =
           frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
-      assertThat(finalCounters.renderedOutputBufferCount - initialRenderedOutputBufferCount)
-          .isAtMost(1);
+      finalRenderedOutputBufferCount =
+          finalCounters != null ? finalCounters.renderedOutputBufferCount : 0;
     }
+    Bitmap actualBitmap = frame.bitmap;
+    Bitmap expectedBitmap =
+        readBitmap(
+            /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
+                + "sample_edit_list_only_preroll_sync_sample_0.000.png");
+    maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
+
+    assertThat(frame.presentationTimeMs).isEqualTo(0);
+    assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+    assertThat(finalRenderedOutputBufferCount - initialRenderedOutputBufferCount).isAtMost(1);
   }
 
   @Test
