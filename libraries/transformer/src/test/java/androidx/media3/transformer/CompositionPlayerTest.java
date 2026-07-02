@@ -95,6 +95,7 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.ForwardingAudioSink;
 import androidx.media3.exoplayer.audio.TrimmingAudioProcessor;
 import androidx.media3.test.utils.FakeFrameProcessor;
+import androidx.media3.test.utils.FakeFrameProcessor.FramesEvent;
 import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
@@ -2842,6 +2843,64 @@ public class CompositionPlayerTest {
     assertThat(preSeekBuffer.isClosed()).isFalse();
     // TODO: b/518679527 - Implemnet FakeFrameProcessor.close and close the underlying
     // HardwareBuffer instances.
+  }
+
+  @Test
+  public void setComposition_doesNotCloseInFlightHardwareBufferOfPreviousComposition()
+      throws Exception {
+    FakeFrameProcessor.Factory fakeFrameProcessorFactory =
+        new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ false);
+    player = createTestHardwareBufferCompositionPlayerBuilder(fakeFrameProcessorFactory).build();
+
+    Composition firstComposition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+                            .build())))
+            .build();
+    player.setComposition(firstComposition);
+    player.prepare();
+
+    // Advance to READY. The first frame should be queued but not completed.
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = fakeFrameProcessorFactory.createdProcessor;
+    ImmutableList<FakeFrameProcessor.Event> events = frameProcessor.getQueuedEvents();
+    FakeFrameProcessor.FramesEvent firstFramesEvent =
+        (FakeFrameProcessor.FramesEvent) events.get(0);
+    AsyncFrame firstFrame = firstFramesEvent.frames.get(0);
+    HardwareBuffer firstBuffer = ((HardwareBufferFrame) firstFrame.frame).getHardwareBuffer();
+    assertThat(firstBuffer.isClosed()).isFalse();
+
+    Composition firstCompositionFromMetadata =
+        (Composition) firstFrame.frame.getMetadata().get("KEY_COMPOSITION");
+    assertThat(firstCompositionFromMetadata.toString()).isEqualTo(firstComposition.toString());
+
+    // Set a different composition.
+    Composition secondComposition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_15FPS.uri))
+                            .setDurationUs(MP4_15FPS.videoDurationUs)
+                            .build())))
+            .build();
+    player.setComposition(secondComposition);
+
+    // Advance player to handle the new composition.
+    advance(player).untilState(STATE_READY);
+
+    // Verify we got a frame from the second composition.
+    events = frameProcessor.getQueuedEvents();
+    FakeFrameProcessor.FramesEvent secondFramesEvent = (FramesEvent) events.getLast();
+    AsyncFrame secondFrame = secondFramesEvent.frames.get(0);
+    Composition secondCompositionFromMetadata =
+        (Composition) secondFrame.frame.getMetadata().get("KEY_COMPOSITION");
+    assertThat(secondCompositionFromMetadata.toString()).isEqualTo(secondComposition.toString());
+    // Verify that the buffer from the first composition is still NOT closed.
+    assertThat(firstBuffer.isClosed()).isFalse();
   }
 
   private static EditedMediaItem getImageItem() {
