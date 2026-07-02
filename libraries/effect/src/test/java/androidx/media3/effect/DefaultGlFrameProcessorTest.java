@@ -603,8 +603,8 @@ public final class DefaultGlFrameProcessorTest {
       // Now unblock downstream and trigger wakeup retry loop
       fakeFrameWriterGlTextureFrameConsumer.shouldAcceptIncomingFrames = true;
       fakeFrameWriterGlTextureFrameConsumer.triggerWakeup();
-      waitUntilGlThreadFinishes();
       assertThat(completedFramesLatch.await(SYNC_TIMEOUT_MS, MILLISECONDS)).isTrue();
+      waitUntilGlThreadFinishes();
 
       assertThat(fakeFrameWriterGlTextureFrameConsumer.framesReceived).isEqualTo(3);
       // frame1C and frame2C bypass the preprocessor chain (no effects) and were initially rejected
