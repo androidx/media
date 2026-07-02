@@ -50,7 +50,7 @@ import java.util.concurrent.ExecutorService;
 
 @ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.
 @RequiresApi(26)
-/* package */ final class FrameProcessorUtils {
+public final class FrameProcessorUtils {
 
   private static final String TAG = "FrameProcessorUtils";
   private static final long TIMEOUT_MS = 500;

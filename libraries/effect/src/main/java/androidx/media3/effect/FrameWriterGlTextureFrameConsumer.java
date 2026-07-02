@@ -151,8 +151,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public void close() throws VideoFrameProcessingException {
-    // Release frame writer first in case releasing the shader program throw
-    frameWriter.close();
     if (defaultShaderProgram != null) {
       defaultShaderProgram.release();
     }
