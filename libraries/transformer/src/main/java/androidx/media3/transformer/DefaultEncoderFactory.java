@@ -58,9 +58,6 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
   private static final int DEFAULT_AUDIO_BITRATE = 128 * 1024;
   private static final int DEFAULT_FRAME_RATE = 30;
 
-  /** Best effort, or as-fast-as-possible priority setting for {@link MediaFormat#KEY_PRIORITY}. */
-  private static final int PRIORITY_BEST_EFFORT = 1;
-
   /** A builder for {@link DefaultEncoderFactory} instances. */
   public static final class Builder {
     private final Context context;
@@ -805,7 +802,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       return;
     }
 
-    mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, PRIORITY_BEST_EFFORT);
+    mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, C.MEDIA_CODEC_PRIORITY_NON_REALTIME);
 
     if (SDK_INT == 26) {
       mediaFormat.setInteger(MediaFormat.KEY_OPERATING_RATE, DEFAULT_FRAME_RATE);

@@ -2684,7 +2684,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     MediaFormatUtil.maybeSetInteger(
         mediaFormat, MediaFormat.KEY_MAX_INPUT_SIZE, codecMaxValues.inputSize);
     // Set codec configuration values.
-    mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, 0 /* realtime priority */);
+    mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, C.MEDIA_CODEC_PRIORITY_REALTIME);
     if (codecOperatingRate != CODEC_OPERATING_RATE_UNSET) {
       mediaFormat.setFloat(MediaFormat.KEY_OPERATING_RATE, codecOperatingRate);
     }

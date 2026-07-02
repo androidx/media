@@ -31,6 +31,7 @@ import android.content.Context;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaFormat;
+import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -229,7 +230,8 @@ public class DefaultEncoderFactoryTest {
     MediaFormat configurationMediaFormat =
         ((DefaultCodec) videoEncoder).getConfigurationMediaFormat();
     assertThat(configurationMediaFormat.containsKey(MediaFormat.KEY_PRIORITY)).isTrue();
-    assertThat(configurationMediaFormat.getInteger(MediaFormat.KEY_PRIORITY)).isEqualTo(1);
+    assertThat(configurationMediaFormat.getInteger(MediaFormat.KEY_PRIORITY))
+        .isEqualTo(C.MEDIA_CODEC_PRIORITY_NON_REALTIME);
     assertThat(configurationMediaFormat.containsKey(MediaFormat.KEY_OPERATING_RATE)).isTrue();
     assertThat(configurationMediaFormat.getInteger(MediaFormat.KEY_OPERATING_RATE))
         .isEqualTo(Integer.MAX_VALUE);
@@ -254,7 +256,8 @@ public class DefaultEncoderFactoryTest {
     MediaFormat configurationMediaFormat =
         ((DefaultCodec) videoEncoder).getConfigurationMediaFormat();
     assertThat(configurationMediaFormat.containsKey(MediaFormat.KEY_PRIORITY)).isTrue();
-    assertThat(configurationMediaFormat.getInteger(MediaFormat.KEY_PRIORITY)).isEqualTo(1);
+    assertThat(configurationMediaFormat.getInteger(MediaFormat.KEY_PRIORITY))
+        .isEqualTo(C.MEDIA_CODEC_PRIORITY_NON_REALTIME);
     assertThat(configurationMediaFormat.containsKey(MediaFormat.KEY_OPERATING_RATE)).isTrue();
     assertThat(configurationMediaFormat.getInteger(MediaFormat.KEY_OPERATING_RATE)).isEqualTo(-1);
   }
@@ -279,7 +282,8 @@ public class DefaultEncoderFactoryTest {
     MediaFormat configurationMediaFormat =
         ((DefaultCodec) videoEncoder).getConfigurationMediaFormat();
     assertThat(configurationMediaFormat.containsKey(MediaFormat.KEY_PRIORITY)).isTrue();
-    assertThat(configurationMediaFormat.getInteger(MediaFormat.KEY_PRIORITY)).isEqualTo(1);
+    assertThat(configurationMediaFormat.getInteger(MediaFormat.KEY_PRIORITY))
+        .isEqualTo(C.MEDIA_CODEC_PRIORITY_NON_REALTIME);
     assertThat(configurationMediaFormat.containsKey(MediaFormat.KEY_OPERATING_RATE)).isFalse();
   }
 

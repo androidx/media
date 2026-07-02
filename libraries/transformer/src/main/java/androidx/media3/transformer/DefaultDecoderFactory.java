@@ -418,8 +418,8 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     }
 
     if (deviceNeedsPriorityWorkaround()) {
-      // Setting KEY_PRIORITY to 1 leads to worse performance on many devices.
-      mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, 1);
+      // Setting KEY_PRIORITY to non-realtime leads to worse performance on many devices.
+      mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, C.MEDIA_CODEC_PRIORITY_NON_REALTIME);
     }
 
     mediaFormat.setFloat(MediaFormat.KEY_OPERATING_RATE, maxSupportedFrameRate);

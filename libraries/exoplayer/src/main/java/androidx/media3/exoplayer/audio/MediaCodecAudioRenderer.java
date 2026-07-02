@@ -1127,7 +1127,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     // Set codec max values.
     MediaFormatUtil.maybeSetInteger(mediaFormat, MediaFormat.KEY_MAX_INPUT_SIZE, codecMaxInputSize);
     // Set codec configuration values.
-    mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, 0 /* realtime priority */);
+    mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, C.MEDIA_CODEC_PRIORITY_REALTIME);
     if (codecOperatingRate != CODEC_OPERATING_RATE_UNSET && !deviceDoesntSupportOperatingRate()) {
       mediaFormat.setFloat(MediaFormat.KEY_OPERATING_RATE, codecOperatingRate);
     }
