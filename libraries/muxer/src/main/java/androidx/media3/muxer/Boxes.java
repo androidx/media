@@ -742,6 +742,9 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         return damrBox(/* mode= */ (short) 0x83FF); // mode set: all enabled for AMR-WB
       case MimeTypes.AUDIO_OPUS:
         return dOpsBox(format);
+      case MimeTypes.AUDIO_E_AC3:
+      case MimeTypes.AUDIO_E_AC3_JOC:
+        return dec3Box(format);
       case MimeTypes.AUDIO_RAW:
         return ByteBuffer.allocate(0); // No codec specific box for raw audio.
       case MimeTypes.VIDEO_H263:
@@ -1590,6 +1593,19 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return BoxUtils.wrapIntoBox("av1C", ByteBuffer.wrap(csd0));
   }
 
+  /**
+   * Returns the dec3 box (EC3SpecificBox) for E-AC-3 / E-AC-3 JOC (Dolby Atmos) audio.
+   *
+   * <p>The dec3 box body is the codec-specific configuration, carried verbatim in csd-0. Stream-copy
+   * callers must populate {@code format.initializationData} with the source track's raw dec3 payload.
+   */
+  private static ByteBuffer dec3Box(Format format) {
+    checkArgument(
+        !format.initializationData.isEmpty(), "csd-0 (dec3 payload) not found for dec3 box.");
+    byte[] csd0 = format.initializationData.get(0);
+    return BoxUtils.wrapIntoBox("dec3", ByteBuffer.wrap(csd0));
+  }
+
   /** Returns a dvcC/dvwC/dvvC vision box which will be included in dolby vision box. */
   private static ByteBuffer doviBox(int profile, byte[] csd) {
     checkArgument(csd.length > 0, "csd is empty for dovi box.");
@@ -1792,6 +1808,9 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         return "s263";
       case MimeTypes.AUDIO_OPUS:
         return "Opus";
+      case MimeTypes.AUDIO_E_AC3:
+      case MimeTypes.AUDIO_E_AC3_JOC:
+        return "ec-3";
       case MimeTypes.AUDIO_RAW:
         if (format.pcmEncoding == C.ENCODING_PCM_16BIT) {
           return "sowt";
