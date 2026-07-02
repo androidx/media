@@ -91,6 +91,9 @@
     *   Fix bug where `DefaultMediaItemConverter` throws a
         `NullPointerException` when trying to join a cast session started from a
         non-Media3 sender.
+    *   Prevent `CastPlayer` from transferring `MediaItems` that are not
+        playable when changing the active player
+        ([#3199](https://github.com/androidx/media/issues/3199)).
 *   Test Utilities:
     *   Add `setPlaybackLooper` to `TestExoPlayerBuilder`.
 *   Remove deprecated symbols:
