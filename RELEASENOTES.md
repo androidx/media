@@ -57,6 +57,9 @@
         `PresentationState` that caused crashes on timelines that do not support
         period UID lookup
         ([#3264](https://github.com/androidx/media/issues/3264)).
+    *   Introduce `PresentationState.videoAspectRatio` and make
+        `Modifier.resizeWithContentScale` take `aspectRatio: Float?` instead of
+        `sourceSizeDp: Size?`.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:

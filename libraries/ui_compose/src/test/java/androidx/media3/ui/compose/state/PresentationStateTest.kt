@@ -58,7 +58,8 @@ class PresentationStateTest {
 
     assertThat(state.coverSurface).isTrue()
     assertThat(state.keepContentOnReset).isFalse()
-    assertThat(state.videoSizeDp).isNull()
+    @Suppress("DEPRECATION") assertThat(state.videoSizeDp).isNull()
+    assertThat(state.videoAspectRatio).isNull()
   }
 
   @Test
@@ -69,7 +70,8 @@ class PresentationStateTest {
     lateinit var state: PresentationState
     setContent { state = rememberPresentationState(player) }
 
-    assertThat(state.videoSizeDp).isEqualTo(Size(1920f, 1080f))
+    @Suppress("DEPRECATION") assertThat(state.videoSizeDp).isEqualTo(Size(1920f, 1080f))
+    assertThat(state.videoAspectRatio).isEqualTo(1920f / 1080f)
   }
 
   @Test
@@ -80,46 +82,48 @@ class PresentationStateTest {
     lateinit var state: PresentationState
     setContent { state = rememberPresentationState(player) }
 
-    assertThat(state.videoSizeDp).isEqualTo(Size(1920f, 1080f))
+    @Suppress("DEPRECATION") assertThat(state.videoSizeDp).isEqualTo(Size(1920f, 1080f))
+    assertThat(state.videoAspectRatio).isEqualTo(1920f / 1080f)
   }
 
   @Test
-  fun rememberPresentationState_recomposition_hasSizeOnFirstPass() = runComposeUiTest {
+  fun rememberPresentationState_recomposition_hasAspectRatioOnFirstPass() = runComposeUiTest {
     val player = FakePlayer(playbackState = Player.STATE_IDLE)
     player.setVideoSize(VideoSize(1920, 1080))
-    val observedSizes = mutableSetOf<Size?>()
+    val observedAspectRatios = mutableSetOf<Float?>()
 
     setContent {
       val state = rememberPresentationState(player)
-      // Capture the value of videoSizeDp exactly as it is seen during the composition pass.
+      // Capture the value of videoAspectRatio exactly as it is seen during the composition pass.
       // This happens before LaunchedEffect gets a chance to run.
-      observedSizes.add(state.videoSizeDp)
+      observedAspectRatios.add(state.videoAspectRatio)
     }
 
-    // Assert that all composition passes had the correct size.
-    assertThat(observedSizes).containsExactly(Size(1920f, 1080f))
+    // Assert that all composition passes had the correct aspect ratio.
+    assertThat(observedAspectRatios).containsExactly(1920f / 1080f)
   }
 
   @Test
-  fun rememberPresentationState_recomposition_syncsVideoSizeImmediately() = runComposeUiTest {
-    val player = FakePlayer()
-    player.setVideoSize(VideoSize(1920, 1080))
+  fun rememberPresentationState_recomposition_syncsVideoAspectRatioImmediately() =
+    runComposeUiTest {
+      val player = FakePlayer()
+      player.setVideoSize(VideoSize(1920, 1080))
 
-    lateinit var recomposeKey: MutableIntState
-    lateinit var state: PresentationState
+      lateinit var recomposeKey: MutableIntState
+      lateinit var state: PresentationState
 
-    setContent {
-      recomposeKey = remember { mutableIntStateOf(0) }
-      key(recomposeKey.intValue) { state = rememberPresentationState(player) }
+      setContent {
+        recomposeKey = remember { mutableIntStateOf(0) }
+        key(recomposeKey.intValue) { state = rememberPresentationState(player) }
+      }
+
+      assertThat(state.videoAspectRatio).isEqualTo(1920f / 1080f)
+
+      recomposeKey.intValue = 1
+      waitForIdle()
+
+      assertThat(state.videoAspectRatio).isEqualTo(1920f / 1080f)
     }
-
-    assertThat(state.videoSizeDp).isEqualTo(Size(1920f, 1080f))
-
-    recomposeKey.intValue = 1
-    waitForIdle()
-
-    assertThat(state.videoSizeDp).isEqualTo(Size(1920f, 1080f))
-  }
 
   @Test
   fun playerChangesVideoSizeBeforeEventListenerRegisters_observeGetsTheLatestValues_uiInSync() =
@@ -135,7 +139,7 @@ class PresentationStateTest {
         state = rememberPresentationState(player)
       }
 
-      assertThat(state.videoSizeDp).isEqualTo(Size(480f, 360f))
+      assertThat(state.videoAspectRatio).isEqualTo(480f / 360f)
       assertThat(state.coverSurface).isTrue()
       assertThat(state.keepContentOnReset).isFalse()
     }

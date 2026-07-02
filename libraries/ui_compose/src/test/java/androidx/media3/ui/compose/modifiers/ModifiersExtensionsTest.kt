@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import com.google.common.truth.Truth.assertThat
 import com.google.testing.junit.testparameterinjector.KotlinTestParameters.testValues
 import com.google.testing.junit.testparameterinjector.TestParameter
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestParameterInjector
@@ -51,7 +52,7 @@ class ModifiersExtensionsTest {
     setContent {
       TestLayout(
         constraints = Constraints.fixed(300, 100),
-        sourceSizeDp = Size(200f, 100f),
+        aspectRatio = 2f,
         contentScale = ContentScale.Fit,
         onPlaceableMeasured = { measuredSize = it },
       )
@@ -61,7 +62,7 @@ class ModifiersExtensionsTest {
   }
 
   @Test
-  fun resizeWithContentScale_unboundedWidth_scalesToHeight(
+  fun resizeWithContentScale_unboundedWidth_scalesToHeight_deprecatedApi(
     @TestParameter
     scale: ContentScale =
       testValues(
@@ -94,7 +95,41 @@ class ModifiersExtensionsTest {
   }
 
   @Test
-  fun resizeWithContentScale_unboundedHeight_scalesToWidth(
+  fun resizeWithContentScale_unboundedWidth_scalesToHeight(
+    @TestParameter
+    scale: ContentScale =
+      testValues(
+        ContentScale.Fit,
+        ContentScale.Crop,
+        ContentScale.FillWidth,
+        ContentScale.FillHeight,
+        ContentScale.FillBounds,
+        ContentScale.Inside,
+        ContentScale.None,
+      )
+  ) = runComposeUiTest {
+    var measuredSize: IntSize? = null
+
+    setContent {
+      TestLayout(
+        constraints =
+          Constraints(
+            minWidth = 0,
+            maxWidth = Constraints.Infinity,
+            minHeight = 0,
+            maxHeight = 100,
+          ),
+        aspectRatio = 2f,
+        contentScale = scale,
+        onPlaceableMeasured = { measuredSize = it },
+      )
+    }
+
+    assertThat(measuredSize).isEqualTo(IntSize(200, 100))
+  }
+
+  @Test
+  fun resizeWithContentScale_unboundedHeight_scalesToWidth_deprecatedApi(
     @TestParameter
     scale: ContentScale =
       testValues(
@@ -127,7 +162,41 @@ class ModifiersExtensionsTest {
   }
 
   @Test
-  fun resizeWithContentScale_bothUnbounded_usesSourceSize() = runComposeUiTest {
+  fun resizeWithContentScale_unboundedHeight_scalesToWidth(
+    @TestParameter
+    scale: ContentScale =
+      testValues(
+        ContentScale.Fit,
+        ContentScale.Crop,
+        ContentScale.FillWidth,
+        ContentScale.FillHeight,
+        ContentScale.FillBounds,
+        ContentScale.Inside,
+        ContentScale.None,
+      )
+  ) = runComposeUiTest {
+    var measuredSize: IntSize? = null
+
+    setContent {
+      TestLayout(
+        constraints =
+          Constraints(
+            minWidth = 0,
+            maxWidth = 100,
+            minHeight = 0,
+            maxHeight = Constraints.Infinity,
+          ),
+        aspectRatio = 2f,
+        contentScale = scale,
+        onPlaceableMeasured = { measuredSize = it },
+      )
+    }
+
+    assertThat(measuredSize).isEqualTo(IntSize(100, 50))
+  }
+
+  @Test
+  fun resizeWithContentScale_bothUnbounded_usesSourceSize_deprecatedApi() = runComposeUiTest {
     var measuredSize: IntSize? = null
 
     setContent {
@@ -143,6 +212,20 @@ class ModifiersExtensionsTest {
   }
 
   @Test
+  fun resizeWithContentScale_bothUnbounded_throws() = runComposeUiTest {
+    assertThrows(IllegalArgumentException::class.java) {
+      setContent {
+        TestLayout(
+          constraints = Constraints(),
+          aspectRatio = 2f,
+          contentScale = ContentScale.Fit,
+          onPlaceableMeasured = {},
+        )
+      }
+    }
+  }
+
+  @Test
   fun resizeWithContentScale_crop_scalesToCrop() = runComposeUiTest {
     var measuredSize: IntSize? = null
     var outerSize: IntSize? = null
@@ -150,7 +233,7 @@ class ModifiersExtensionsTest {
     setContent {
       TestLayout(
         constraints = Constraints.fixed(120, 80),
-        sourceSizeDp = Size(400f, 200f),
+        aspectRatio = 2f,
         contentScale = ContentScale.Crop,
         onPlaceableMeasured = { measuredSize = it },
         onOuterMeasured = { outerSize = it },
@@ -170,7 +253,7 @@ class ModifiersExtensionsTest {
     setContent {
       TestLayout(
         constraints = Constraints(minWidth = 150, maxWidth = 300, minHeight = 0, maxHeight = 50),
-        sourceSizeDp = Size(200f, 100f),
+        aspectRatio = 2f,
         contentScale = ContentScale.Fit,
         onPlaceableMeasured = { measuredSize = it },
         onOuterMeasured = { outerSize = it },
@@ -209,6 +292,25 @@ class ModifiersExtensionsTest {
   }
 
   @Test
+  fun resizeWithContentScale_inside_behavesLikeFit() = runComposeUiTest {
+    var measuredSize: IntSize? = null
+    var outerSize: IntSize? = null
+
+    setContent {
+      TestLayout(
+        constraints = Constraints.fixed(300, 100),
+        aspectRatio = 2f,
+        contentScale = ContentScale.Inside,
+        onPlaceableMeasured = { measuredSize = it },
+        onOuterMeasured = { outerSize = it },
+      )
+    }
+
+    assertThat(measuredSize).isEqualTo(IntSize(200, 100))
+    assertThat(outerSize).isEqualTo(IntSize(300, 100))
+  }
+
+  @Test
   fun resizeWithContentScale_nullSourceSize_doesNotScale() = runComposeUiTest {
     var measuredSize: IntSize? = null
     var outerSize: IntSize? = null
@@ -217,6 +319,28 @@ class ModifiersExtensionsTest {
       TestLayout(
         constraints = Constraints(minWidth = 10, maxWidth = 100, minHeight = 20, maxHeight = 200),
         sourceSizeDp = null,
+        contentScale = ContentScale.Fit,
+        childModifier = Modifier,
+        onPlaceableMeasured = { measuredSize = it },
+        onOuterMeasured = { outerSize = it },
+      )
+    }
+
+    // If we only had `wrapContentSize()` but not `fillMaxSize()`, outerSize would be 10x20
+    assertThat(outerSize).isEqualTo(IntSize(100, 200)) // fillMaxSize() lead to max constraints
+    // If we only had `fillMaxSize()` but not `wrapContentSize()`, measuredSize would be 100x200
+    assertThat(measuredSize).isEqualTo(IntSize(0, 0)) // wrapContentSize() drops min constraints
+  }
+
+  @Test
+  fun resizeWithContentScale_nullAspectRatio_doesNotScale() = runComposeUiTest {
+    var measuredSize: IntSize? = null
+    var outerSize: IntSize? = null
+
+    setContent {
+      TestLayout(
+        constraints = Constraints(minWidth = 10, maxWidth = 100, minHeight = 20, maxHeight = 200),
+        aspectRatio = null,
         contentScale = ContentScale.Fit,
         childModifier = Modifier,
         onPlaceableMeasured = { measuredSize = it },
@@ -264,6 +388,22 @@ class ModifiersExtensionsTest {
   }
 
   @Test
+  fun resizeWithContentScale_invalidAspectRatio_throws(
+    @TestParameter aspectRatio: Float = testValues(-0.5f, 0f, Float.POSITIVE_INFINITY, Float.NaN)
+  ) = runComposeUiTest {
+    assertThrows(IllegalArgumentException::class.java) {
+      setContent {
+        TestLayout(
+          constraints = Constraints.fixed(300, 100),
+          aspectRatio = aspectRatio,
+          contentScale = ContentScale.Fit,
+          onPlaceableMeasured = {},
+        )
+      }
+    }
+  }
+
+  @Test
   fun resizeWithContentScale_childSmallerThanScaledConstraints_respectsChildSize() =
     runComposeUiTest {
       var measuredSize: IntSize? = null
@@ -273,7 +413,7 @@ class ModifiersExtensionsTest {
       setContent {
         TestLayout(
           constraints = Constraints.fixed(300, 100),
-          sourceSizeDp = Size(100f, 50f),
+          aspectRatio = 2f,
           contentScale = ContentScale.Fit,
           childModifier = Modifier.size(50.dp, 10.dp),
           onPlaceableMeasured = { measuredSize = it },
@@ -297,7 +437,7 @@ class ModifiersExtensionsTest {
       setContent {
         TestLayout(
           constraints = Constraints.fixed(300, 100),
-          sourceSizeDp = Size(100f, 50f),
+          aspectRatio = 2f,
           contentScale = ContentScale.Fit,
           childModifier = Modifier.size(250.dp, 200.dp),
           onPlaceableMeasured = { measuredSize = it },
@@ -320,7 +460,7 @@ class ModifiersExtensionsTest {
     setContent {
       TestLayout(
         constraints = Constraints.fixed(300, 100),
-        sourceSizeDp = Size(100f, 50f),
+        aspectRatio = 2f,
         contentScale = ContentScale.Fit,
         childModifier = Modifier.size(50.dp, 150.dp),
         onPlaceableMeasured = { measuredSize = it },
@@ -351,19 +491,27 @@ class ModifiersExtensionsTest {
   @Composable
   private fun TestLayout(
     constraints: Constraints,
-    sourceSizeDp: Size?,
     contentScale: ContentScale,
+    aspectRatio: Float? = null,
+    sourceSizeDp: Size? = null,
     @SuppressLint("ModifierParameter") childModifier: Modifier = Modifier.fillMaxSize(),
     onPlaceableMeasured: (IntSize) -> Unit,
     onOuterMeasured: (IntSize) -> Unit = {},
     onScaledSizeCalculated: (IntSize) -> Unit = {},
   ) {
+    require(aspectRatio == null || sourceSizeDp == null) {
+      "Both aspectRatio and sourceSizeDp cannot be non-null"
+    }
     Layout(
       content = {
         Layout(
           content = {},
           modifier =
-            Modifier.resizeWithContentScale(contentScale, sourceSizeDp)
+            (if (sourceSizeDp != null) {
+                @Suppress("DEPRECATION") Modifier.resizeWithContentScale(contentScale, sourceSizeDp)
+              } else {
+                Modifier.resizeWithContentScale(contentScale, aspectRatio)
+              })
               .layout { measurable, childConstraints ->
                 onScaledSizeCalculated(
                   IntSize(childConstraints.maxWidth, childConstraints.maxHeight)

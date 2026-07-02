@@ -63,21 +63,28 @@ fun rememberPresentationState(
  *
  * @param[keepContentOnReset] whether the currently displayed video frame or media artwork is kept
  *   visible when tracks change or player changes. Defaults to false.
- * @property[videoSizeDp] wraps [Player.getVideoSize] in Compose's [Size], becomes `null` when
- *   either height or width of the video is zero, or [player] is null. Takes into account
- *   [VideoSize.pixelWidthHeightRatio] to return a Size in [Dp][androidx.compose.ui.unit.Dp], i.e.
- *   device-independent pixel. To use this measurement in Compose's Drawing and Layout stages,
- *   convert it into pixels using [Density.toPx][androidx.compose.ui.unit.Density.toPx]. Note that
- *   for cases where `pixelWidthHeightRatio` is not equal to 1, the rescaling will be down, i.e.
- *   reducing the width or the height to achieve the same aspect ratio in square pixels.
+ * @property[videoAspectRatio] the aspect ratio of the video (width / height), adjusted for
+ *   [VideoSize.pixelWidthHeightRatio]. Becomes `null` when either height or width of the video is
+ *   zero, or [player] is null.
  * @property[coverSurface] set to false when the Player emits [Player.EVENT_RENDERED_FIRST_FRAME]
  *   and reset back to true on [Player.EVENT_TRACKS_CHANGED] depending on the number and type of
  *   tracks.
  */
 @UnstableApi
 class PresentationState(keepContentOnReset: Boolean = false) {
-  var videoSizeDp: Size? by mutableStateOf(null)
-    private set
+  private var _adjustedVideoSize by mutableStateOf<Size?>(null)
+
+  /**
+   * Wraps the video size in Compose's [Size].
+   *
+   * @deprecated Use [videoAspectRatio] instead.
+   */
+  @Deprecated("Use videoAspectRatio instead.")
+  val videoSizeDp: Size?
+    get() = _adjustedVideoSize
+
+  val videoAspectRatio: Float?
+    get() = _adjustedVideoSize?.run { width / height }
 
   var coverSurface by mutableStateOf(true)
     private set
@@ -96,7 +103,7 @@ class PresentationState(keepContentOnReset: Boolean = false) {
       field = value
       // Only update the size if we are attaching a player OR if we don't need to keep the content
       if (value != null || !keepContentOnReset) {
-        videoSizeDp = getVideoSizeDp(value)
+        _adjustedVideoSize = getAdjustedVideoSize(value)
       }
       maybeHideSurface(value)
     }
@@ -115,7 +122,7 @@ class PresentationState(keepContentOnReset: Boolean = false) {
       player?.listen { events ->
         if (events.contains(Player.EVENT_VIDEO_SIZE_CHANGED)) {
           if (videoSize != VideoSize.UNKNOWN && playbackState != Player.STATE_IDLE) {
-            this@PresentationState.videoSizeDp = getVideoSizeDp(player)
+            _adjustedVideoSize = getAdjustedVideoSize(player)
           }
         }
         if (events.contains(Player.EVENT_RENDERED_FIRST_FRAME)) {
@@ -133,7 +140,7 @@ class PresentationState(keepContentOnReset: Boolean = false) {
     }
   }
 
-  private fun getVideoSizeDp(player: Player?): Size? {
+  private fun getAdjustedVideoSize(player: Player?): Size? {
     player ?: return null
     var videoSize = Size(player.videoSize.width.toFloat(), player.videoSize.height.toFloat())
     if (videoSize.width == 0f || videoSize.height == 0f) return null
