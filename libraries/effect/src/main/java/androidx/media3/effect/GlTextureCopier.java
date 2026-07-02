@@ -78,10 +78,17 @@ import java.io.IOException;
       float[] textureTransformMatrix,
       boolean isExternalTexture)
       throws VideoFrameProcessingException {
+    boolean isHdr =
+        ColorInfo.isTransferHdr(inputColorInfo)
+            || ColorInfo.isTransferHdr(requestedOutputColorInfo);
+
+    // TODO: b/517525358 - Remove this check once HDR color conversion for external textures is
+    //  implemented.
     checkArgument(
-        !isExternalTexture || inputColorInfo.equals(requestedOutputColorInfo),
+        !isExternalTexture || !isHdr || inputColorInfo.equals(requestedOutputColorInfo),
         Util.formatInvariant(
-            "Color conversion for external textures is not supported yet. Input: %s, Output: %s",
+            "Color conversion for HDR external textures is not supported yet. Input: %s, Output:"
+                + " %s",
             inputColorInfo, requestedOutputColorInfo));
     try {
       GlProgram copyGlProgram;
@@ -93,7 +100,6 @@ import java.io.IOException;
                   R.raw.vertex_shader_transformation_es2,
                   R.raw.fragment_shader_transformation_sdr_external_es2);
           setupCommonAttributesAndUniforms(sdrExternalCopyGlProgram);
-          sdrExternalCopyGlProgram.setIntUniform("uOutputColorTransfer", C.COLOR_TRANSFER_SDR);
         }
         copyGlProgram = sdrExternalCopyGlProgram;
       } else {
@@ -110,6 +116,7 @@ import java.io.IOException;
         copyGlProgram.setIntUniform("uInputColorTransfer", inputColorInfo.colorTransfer);
         copyGlProgram.setIntUniform("uOutputColorTransfer", requestedOutputColorInfo.colorTransfer);
       }
+      copyGlProgram.setIntUniform("uOutputColorTransfer", requestedOutputColorInfo.colorTransfer);
 
       copyGlProgram.setFloatsUniform("uTexTransformationMatrix", textureTransformMatrix);
 
