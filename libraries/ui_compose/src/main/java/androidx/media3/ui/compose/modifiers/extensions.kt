@@ -24,6 +24,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.media3.common.util.UnstableApi
@@ -40,25 +41,70 @@ fun Modifier.resizeWithContentScale(
   sourceSizeDp: Size?,
   density: Density = LocalDensity.current,
 ): Modifier =
-  this.then(
-    Modifier.fillMaxSize()
-      .wrapContentSize()
-      .then(
-        sourceSizeDp?.let { srcSizeDp ->
+  if (sourceSizeDp == null) {
+    this.then(Modifier.fillMaxSize().wrapContentSize())
+  } else if (
+    !sourceSizeDp.width.isFinite() || !sourceSizeDp.height.isFinite() || sourceSizeDp.isEmpty()
+  ) {
+    // Grouping !isFinite() with <= 0f ensures that all invalid/unspecified sizes (Zero, NaN,
+    // Infinity) behave consistently by falling back to minimum constraints, rather than having Zero
+    // hide the layout and NaN/null expand it.
+    this.then(
+      Modifier.layout { measurable, constraints ->
+        val placeable =
+          measurable.measure(Constraints.fixed(constraints.minWidth, constraints.minHeight))
+        layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+      }
+    )
+  } else {
+    this.then(
+      Modifier.fillMaxSize()
+        .wrapContentSize()
+        .then(
           Modifier.layout { measurable, constraints ->
             val srcSizePx =
-              with(density) { Size(Dp(srcSizeDp.width).toPx(), Dp(srcSizeDp.height).toPx()) }
-            val dstSizePx = Size(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
-            val scaleFactor = contentScale.computeScaleFactor(srcSizePx, dstSizePx)
+              with(density) { Size(Dp(sourceSizeDp.width).toPx(), Dp(sourceSizeDp.height).toPx()) }
+            val aspectRatio = srcSizePx.width / srcSizePx.height
+
             val placeable =
-              measurable.measure(
-                constraints.copy(
-                  maxWidth = (srcSizePx.width * scaleFactor.scaleX).roundToInt(),
-                  maxHeight = (srcSizePx.height * scaleFactor.scaleY).roundToInt(),
+              if (constraints.hasBoundedWidth || constraints.hasBoundedHeight) {
+                val dstWidth =
+                  if (constraints.hasBoundedWidth) {
+                    constraints.maxWidth.toFloat()
+                  } else {
+                    constraints.maxHeight * aspectRatio
+                  }
+                val dstHeight =
+                  if (constraints.hasBoundedHeight) {
+                    constraints.maxHeight.toFloat()
+                  } else {
+                    constraints.maxWidth / aspectRatio
+                  }
+                val scaleFactor =
+                  contentScale.computeScaleFactor(srcSizePx, Size(dstWidth, dstHeight))
+                measurable.measure(
+                  constraints.copy(
+                    maxWidth = (srcSizePx.width * scaleFactor.scaleX).roundToInt(),
+                    maxHeight = (srcSizePx.height * scaleFactor.scaleY).roundToInt(),
+                  )
                 )
-              )
-            layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+              } else {
+                measurable.measure(
+                  constraints.copy(
+                    maxWidth = srcSizePx.width.roundToInt(),
+                    maxHeight = srcSizePx.height.roundToInt(),
+                  )
+                )
+              }
+            val layoutWidth = placeable.width.coerceIn(constraints.minWidth, constraints.maxWidth)
+            val layoutHeight =
+              placeable.height.coerceIn(constraints.minHeight, constraints.maxHeight)
+            layout(layoutWidth, layoutHeight) {
+              val x = (layoutWidth - placeable.width) / 2
+              val y = (layoutHeight - placeable.height) / 2
+              placeable.place(x, y)
+            }
           }
-        } ?: Modifier
-      )
-  )
+        )
+    )
+  }

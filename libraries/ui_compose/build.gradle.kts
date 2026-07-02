@@ -36,4 +36,5 @@ dependencies {
   testImplementation(project(":test-utils"))
   testImplementation(project(":test-utils-robolectric"))
   testImplementation(libs.robolectric)
+  testImplementation(libs.test.parameter.injector)
 }
