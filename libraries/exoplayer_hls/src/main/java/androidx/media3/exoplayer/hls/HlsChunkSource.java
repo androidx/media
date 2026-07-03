@@ -475,6 +475,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     int selectedTrackIndex = trackSelection.getSelectedIndexInTrackGroup();
     boolean switchingTrack = oldTrackIndex != selectedTrackIndex;
     Uri selectedPlaylistUrl = redundantGroups[selectedTrackIndex].getCurrentPlaylistUrl();
+    @Nullable
+    String pathwayIdForSelectedPlaylistUrl =
+        contentSteeringTracker != null && contentSteeringTracker.isActive()
+            ? redundantGroups[selectedTrackIndex].getCurrentPathwayId()
+            : null;
     if (!playlistTracker.isSnapshotValid(selectedPlaylistUrl)) {
       out.playlistUrl = selectedPlaylistUrl;
       nextChunkStuckOnPlaylistUrl = selectedPlaylistUrl;
@@ -645,6 +650,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             playlist,
             segmentBaseHolder,
             selectedPlaylistUrl,
+            pathwayIdForSelectedPlaylistUrl,
             muxedCaptionFormats,
             trackSelection.getSelectionReason(),
             trackSelection.getSelectionData(),

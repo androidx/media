@@ -16,12 +16,24 @@
 package androidx.media3.exoplayer.hls.playlist;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import android.net.Uri;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
+import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
+import androidx.media3.exoplayer.source.LoadEventInfo;
+import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
@@ -32,6 +44,7 @@ import androidx.media3.test.utils.robolectric.RobolectricUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.base.Supplier;
+import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,6 +59,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 
 /** Unit test for {@link DefaultHlsPlaylistTracker}. */
 @RunWith(AndroidJUnit4.class)
@@ -871,18 +885,54 @@ public class DefaultHlsPlaylistTrackerTest {
             new MockResponse().setResponseCode(200).setBody(steeringManifest),
             new MockResponse().setResponseCode(200).setBody(CDN_A_PLAYLIST),
             new MockResponse().setResponseCode(200).setBody(CDN_B_PLAYLIST));
+    MediaSourceEventListener mockListener = mock(MediaSourceEventListener.class);
+    MediaSourceEventListener.EventDispatcher eventDispatcher =
+        new MediaSourceEventListener.EventDispatcher();
+    eventDispatcher.addEventListener(Util.createHandlerForCurrentLooper(), mockListener);
 
     // Use the directExecutor() to ensure the order of the playlist arrivals.
     List<HlsMediaPlaylist> mediaPlaylists =
         runPlaylistTrackerAndCollectMediaPlaylists(
             /* dataSourceFactory= */ new DefaultHttpDataSource.Factory(),
             () -> ReleasableExecutor.from(directExecutor(), e -> {}),
+            eventDispatcher,
             Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
             /* awaitedMediaPlaylistCount= */ 2);
 
     assertRequestUrlsCalled(httpUrls);
     assertThat(mediaPlaylists.get(0).segments.get(0).url).endsWith("a-segment1.ts");
     assertThat(mediaPlaylists.get(1).segments.get(0).url).endsWith("b-segment1.ts");
+    ArgumentCaptor<LoadEventInfo> loadStartedCaptor = ArgumentCaptor.forClass(LoadEventInfo.class);
+    ArgumentCaptor<MediaLoadData> loadStartedMediaLoadDataCaptor =
+        ArgumentCaptor.forClass(MediaLoadData.class);
+    ArgumentCaptor<LoadEventInfo> loadCompletedCaptor =
+        ArgumentCaptor.forClass(LoadEventInfo.class);
+    ArgumentCaptor<MediaLoadData> loadCompletedMediaLoadDataCaptor =
+        ArgumentCaptor.forClass(MediaLoadData.class);
+    verify(mockListener, times(4))
+        .onLoadStarted(
+            anyInt(),
+            any(),
+            loadStartedCaptor.capture(),
+            loadStartedMediaLoadDataCaptor.capture(),
+            anyInt());
+    verify(mockListener, times(4))
+        .onLoadCompleted(
+            anyInt(),
+            any(),
+            loadCompletedCaptor.capture(),
+            loadCompletedMediaLoadDataCaptor.capture());
+    verify(mockListener, never()).onLoadError(anyInt(), any(), any(), any(), any(), anyBoolean());
+    verifySteeredPathwayIds(
+        loadStartedCaptor.getAllValues(),
+        loadStartedMediaLoadDataCaptor.getAllValues(),
+        "CDN-A",
+        "CDN-B");
+    verifySteeredPathwayIds(
+        loadCompletedCaptor.getAllValues(),
+        loadCompletedMediaLoadDataCaptor.getAllValues(),
+        "CDN-A",
+        "CDN-B");
   }
 
   @Test
@@ -905,17 +955,64 @@ public class DefaultHlsPlaylistTrackerTest {
             new MockResponse().setResponseCode(404),
             new MockResponse().setResponseCode(404),
             new MockResponse().setResponseCode(200).setBody(CDN_B_PLAYLIST));
+    MediaSourceEventListener mockListener = mock(MediaSourceEventListener.class);
+    MediaSourceEventListener.EventDispatcher eventDispatcher =
+        new MediaSourceEventListener.EventDispatcher();
+    eventDispatcher.addEventListener(Util.createHandlerForCurrentLooper(), mockListener);
 
     // Use the directExecutor() to ensure the order of the playlist arrivals.
     List<HlsMediaPlaylist> mediaPlaylists =
         runPlaylistTrackerAndCollectMediaPlaylists(
             /* dataSourceFactory= */ new DefaultHttpDataSource.Factory(),
             () -> ReleasableExecutor.from(directExecutor(), e -> {}),
+            eventDispatcher,
             Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
             /* awaitedMediaPlaylistCount= */ 1);
 
     assertRequestUrlsCalled(httpUrls);
     assertThat(mediaPlaylists.get(0).segments.get(0).url).isEqualTo("b-segment1.ts");
+    ArgumentCaptor<LoadEventInfo> loadStartedCaptor = ArgumentCaptor.forClass(LoadEventInfo.class);
+    ArgumentCaptor<MediaLoadData> loadStartedMediaLoadDataCaptor =
+        ArgumentCaptor.forClass(MediaLoadData.class);
+    ArgumentCaptor<LoadEventInfo> loadCompletedCaptor =
+        ArgumentCaptor.forClass(LoadEventInfo.class);
+    ArgumentCaptor<MediaLoadData> loadCompletedMediaLoadDataCaptor =
+        ArgumentCaptor.forClass(MediaLoadData.class);
+    ArgumentCaptor<LoadEventInfo> loadErrorCaptor = ArgumentCaptor.forClass(LoadEventInfo.class);
+    ArgumentCaptor<MediaLoadData> loadErrorMediaLoadDataCaptor =
+        ArgumentCaptor.forClass(MediaLoadData.class);
+    verify(mockListener, times(5))
+        .onLoadStarted(
+            anyInt(),
+            any(),
+            loadStartedCaptor.capture(),
+            loadStartedMediaLoadDataCaptor.capture(),
+            anyInt());
+    verify(mockListener, times(3))
+        .onLoadCompleted(
+            anyInt(),
+            any(),
+            loadCompletedCaptor.capture(),
+            loadCompletedMediaLoadDataCaptor.capture());
+    verify(mockListener, times(2))
+        .onLoadError(
+            anyInt(),
+            any(),
+            loadErrorCaptor.capture(),
+            loadErrorMediaLoadDataCaptor.capture(),
+            any(),
+            anyBoolean());
+    verifySteeredPathwayIds(
+        loadStartedCaptor.getAllValues(),
+        loadStartedMediaLoadDataCaptor.getAllValues(),
+        "CDN-A",
+        "CDN-B");
+    verifySteeredPathwayIds(
+        loadCompletedCaptor.getAllValues(),
+        loadCompletedMediaLoadDataCaptor.getAllValues(),
+        "CDN-B");
+    verifySteeredPathwayIds(
+        loadErrorCaptor.getAllValues(), loadErrorMediaLoadDataCaptor.getAllValues(), "CDN-A");
   }
 
   @Test
@@ -949,18 +1046,54 @@ public class DefaultHlsPlaylistTrackerTest {
             new MockResponse().setResponseCode(200).setBody(steeringManifest),
             new MockResponse().setResponseCode(200).setBody(CDN_A_PLAYLIST),
             new MockResponse().setResponseCode(200).setBody(CDN_A_CLONE_PLAYLIST));
+    MediaSourceEventListener mockListener = mock(MediaSourceEventListener.class);
+    MediaSourceEventListener.EventDispatcher eventDispatcher =
+        new MediaSourceEventListener.EventDispatcher();
+    eventDispatcher.addEventListener(Util.createHandlerForCurrentLooper(), mockListener);
 
     // Use the directExecutor() to ensure the order of the playlist arrivals.
     List<HlsMediaPlaylist> mediaPlaylists =
         runPlaylistTrackerAndCollectMediaPlaylists(
             /* dataSourceFactory= */ new DefaultHttpDataSource.Factory(),
             () -> ReleasableExecutor.from(directExecutor(), e -> {}),
+            eventDispatcher,
             Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
             /* awaitedMediaPlaylistCount= */ 2);
 
     assertRequestUrlsCalled(httpUrls);
     assertThat(mediaPlaylists.get(0).segments.get(0).url).endsWith("a-segment1.ts");
     assertThat(mediaPlaylists.get(1).segments.get(0).url).endsWith("a-clone-segment1.ts");
+    ArgumentCaptor<LoadEventInfo> loadStartedCaptor = ArgumentCaptor.forClass(LoadEventInfo.class);
+    ArgumentCaptor<MediaLoadData> loadStartedMediaLoadDataCaptor =
+        ArgumentCaptor.forClass(MediaLoadData.class);
+    ArgumentCaptor<LoadEventInfo> loadCompletedCaptor =
+        ArgumentCaptor.forClass(LoadEventInfo.class);
+    ArgumentCaptor<MediaLoadData> loadCompletedMediaLoadDataCaptor =
+        ArgumentCaptor.forClass(MediaLoadData.class);
+    verify(mockListener, times(4))
+        .onLoadStarted(
+            anyInt(),
+            any(),
+            loadStartedCaptor.capture(),
+            loadStartedMediaLoadDataCaptor.capture(),
+            anyInt());
+    verify(mockListener, times(4))
+        .onLoadCompleted(
+            anyInt(),
+            any(),
+            loadCompletedCaptor.capture(),
+            loadCompletedMediaLoadDataCaptor.capture());
+    verify(mockListener, never()).onLoadError(anyInt(), any(), any(), any(), any(), anyBoolean());
+    verifySteeredPathwayIds(
+        loadStartedCaptor.getAllValues(),
+        loadStartedMediaLoadDataCaptor.getAllValues(),
+        "CDN-A",
+        "CDN-A-CLONE");
+    verifySteeredPathwayIds(
+        loadCompletedCaptor.getAllValues(),
+        loadCompletedMediaLoadDataCaptor.getAllValues(),
+        "CDN-A",
+        "CDN-A-CLONE");
   }
 
   private List<HttpUrl> enqueueWebServerResponses(String[] paths, MockResponse... mockResponses) {
@@ -989,6 +1122,21 @@ public class DefaultHlsPlaylistTrackerTest {
       Uri multivariantPlaylistUri,
       int awaitedMediaPlaylistCount)
       throws TimeoutException {
+    return runPlaylistTrackerAndCollectMediaPlaylists(
+        dataSourceFactory,
+        downloadExecutorSupplier,
+        new MediaSourceEventListener.EventDispatcher(),
+        multivariantPlaylistUri,
+        awaitedMediaPlaylistCount);
+  }
+
+  private static List<HlsMediaPlaylist> runPlaylistTrackerAndCollectMediaPlaylists(
+      DataSource.Factory dataSourceFactory,
+      @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier,
+      MediaSourceEventListener.EventDispatcher eventDispatcher,
+      Uri multivariantPlaylistUri,
+      int awaitedMediaPlaylistCount)
+      throws TimeoutException {
 
     DefaultHlsPlaylistTracker defaultHlsPlaylistTracker =
         new DefaultHlsPlaylistTracker(
@@ -1002,7 +1150,7 @@ public class DefaultHlsPlaylistTrackerTest {
     AtomicInteger playlistCounter = new AtomicInteger();
     defaultHlsPlaylistTracker.start(
         multivariantPlaylistUri,
-        new MediaSourceEventListener.EventDispatcher(),
+        eventDispatcher,
         mediaPlaylist -> {
           mediaPlaylists.add(mediaPlaylist);
           playlistCounter.addAndGet(1);
@@ -1015,6 +1163,40 @@ public class DefaultHlsPlaylistTrackerTest {
 
     defaultHlsPlaylistTracker.stop();
     return mediaPlaylists;
+  }
+
+  private static void verifySteeredPathwayIds(
+      List<LoadEventInfo> loadEventInfos,
+      List<MediaLoadData> mediaLoadDatas,
+      String... expectedPathwayIds) {
+    ImmutableSet.Builder<String> mediaPlaylistLoadingSteeredPathwayIds = ImmutableSet.builder();
+    for (int i = 0; i < loadEventInfos.size(); i++) {
+      LoadEventInfo eventInfo = loadEventInfos.get(i);
+      MediaLoadData mediaLoadData = mediaLoadDatas.get(i);
+      if (eventInfo.uri.getPath() != null
+          && eventInfo.uri.getPath().endsWith("multivariant.m3u8")) {
+        // The multivariant playlist load event is initiated before the content steering manifest
+        // is parsed, so its steered pathway ID must be null.
+        assertWithMessage("loadEventInfos[%s]: %s", i, loadEventInfoString(eventInfo))
+            .that(eventInfo.steeredPathwayId)
+            .isNull();
+      } else if (mediaLoadData.dataType == C.DATA_TYPE_STEERING_MANIFEST) {
+        // Content steering manifest load events are decoupled from any specific steered pathway,
+        // so their steered pathway ID must be null.
+        assertWithMessage("loadEventInfos[%s]: %s", i, loadEventInfoString(eventInfo))
+            .that(eventInfo.steeredPathwayId)
+            .isNull();
+      } else if (eventInfo.steeredPathwayId != null) {
+        // Collect the steered pathway IDs from the media playlist requests.
+        mediaPlaylistLoadingSteeredPathwayIds.add(eventInfo.steeredPathwayId);
+      }
+    }
+    assertThat(mediaPlaylistLoadingSteeredPathwayIds.build())
+        .containsExactlyElementsIn(expectedPathwayIds);
+  }
+
+  private static String loadEventInfoString(LoadEventInfo loadEventInfo) {
+    return "LoadEventInfo{uri=" + loadEventInfo.uri + "}";
   }
 
   private static MockResponse getMockResponse(String assetFile) throws IOException {

@@ -65,7 +65,8 @@ public abstract class DataChunk extends Chunk {
         trackSelectionReason,
         trackSelectionData,
         C.TIME_UNSET,
-        C.TIME_UNSET);
+        C.TIME_UNSET,
+        /* steeredPathwayId= */ null);
     this.data = data == null ? Util.EMPTY_BYTE_ARRAY : data;
   }
 

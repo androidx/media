@@ -726,6 +726,73 @@ public class HlsChunkSourceTest {
   }
 
   @Test
+  public void getNextChunk_withContentSteeringActive_chunkHasSteeredPathwayId() throws IOException {
+    HlsRedundantGroup[] redundantGroups = createSampleRedundantGroups();
+    when(mockPlaylistTracker.getContentSteeringTracker()).thenReturn(mockContentSteeringTracker);
+    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockPlaylistTracker);
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 0,
+        /* largestReadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+
+    assertThat(output.chunk.steeredPathwayId).isEqualTo("CDN-A");
+
+    // Switch/select CDN-B pathway ID for all redundant groups
+    for (HlsRedundantGroup group : redundantGroups) {
+      group.setCurrentPathwayId("CDN-B");
+    }
+
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(4_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 4_000_000,
+        /* largestReadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of((HlsMediaChunk) output.chunk),
+        /* allowEndOfStream= */ true,
+        output);
+
+    assertThat(output.chunk.steeredPathwayId).isEqualTo("CDN-B");
+  }
+
+  @Test
+  public void getNextChunk_withContentSteeringInactive_chunkSteeredPathwayIdIsNull()
+      throws IOException {
+    HlsRedundantGroup[] redundantGroups = createSampleRedundantGroups();
+    when(mockPlaylistTracker.getContentSteeringTracker()).thenReturn(null);
+    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockPlaylistTracker);
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 0,
+        /* largestReadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+
+    assertThat(output.chunk.steeredPathwayId).isNull();
+
+    // Switch/select CDN-B pathway ID for all redundant groups
+    for (HlsRedundantGroup group : redundantGroups) {
+      group.setCurrentPathwayId("CDN-B");
+    }
+
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(4_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 4_000_000,
+        /* largestReadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of((HlsMediaChunk) output.chunk),
+        /* allowEndOfStream= */ true,
+        output);
+
+    assertThat(output.chunk.steeredPathwayId).isNull();
+  }
+
+  @Test
   public void getChunkPublicationState_withCmcdQueryParameters_returnsPublished() throws Exception {
     CmcdConfiguration.Factory cmcdConfigurationFactory =
         mediaItem ->

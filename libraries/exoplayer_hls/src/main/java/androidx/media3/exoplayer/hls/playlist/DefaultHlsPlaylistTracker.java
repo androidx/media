@@ -990,7 +990,8 @@ public final class DefaultHlsPlaylistTracker
         long loadDurationMs,
         int retryCount) {
       LoadEventInfo.Builder loadEventInfo =
-          new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs);
+          new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+              .setSteeredPathwayId(loadable.steeredPathwayId);
       if (retryCount != 0) {
         loadEventInfo
             .setUri(loadable.getUri())
@@ -1008,6 +1009,7 @@ public final class DefaultHlsPlaylistTracker
       LoadEventInfo loadEventInfo =
           new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
               .setUri(loadable.getUri())
+              .setSteeredPathwayId(loadable.steeredPathwayId)
               .setResponseHeaders(loadable.getResponseHeaders())
               .setLoadDurationMs(loadDurationMs)
               .setBytesLoaded(loadable.bytesLoaded())
@@ -1034,6 +1036,7 @@ public final class DefaultHlsPlaylistTracker
       LoadEventInfo loadEventInfo =
           new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
               .setUri(loadable.getUri())
+              .setSteeredPathwayId(loadable.steeredPathwayId)
               .setResponseHeaders(loadable.getResponseHeaders())
               .setLoadDurationMs(loadDurationMs)
               .setBytesLoaded(loadable.bytesLoaded())
@@ -1052,6 +1055,7 @@ public final class DefaultHlsPlaylistTracker
       LoadEventInfo loadEventInfo =
           new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
               .setUri(loadable.getUri())
+              .setSteeredPathwayId(loadable.steeredPathwayId)
               .setResponseHeaders(loadable.getResponseHeaders())
               .setLoadDurationMs(loadDurationMs)
               .setBytesLoaded(loadable.bytesLoaded())
@@ -1140,8 +1144,10 @@ public final class DefaultHlsPlaylistTracker
         dataSpec = cmcdDataFactory.createCmcdData().addToDataSpec(dataSpec);
       }
       ParsingLoadable<HlsPlaylist> mediaPlaylistLoadable =
-          new ParsingLoadable<>(
-              mediaPlaylistDataSource, dataSpec, C.DATA_TYPE_MANIFEST, mediaPlaylistParser);
+          new ParsingLoadable.Builder<HlsPlaylist>(
+                  mediaPlaylistDataSource, dataSpec, C.DATA_TYPE_MANIFEST, mediaPlaylistParser)
+              .setSteeredPathwayId(getReportedPathwayId())
+              .build();
       mediaPlaylistLoader.startLoading(
           mediaPlaylistLoadable,
           /* callback= */ this,
@@ -1250,6 +1256,24 @@ public final class DefaultHlsPlaylistTracker
      */
     private void excludePlaylist(long exclusionDurationMs) {
       excludeUntilMs = SystemClock.DEFAULT.elapsedRealtime() + exclusionDurationMs;
+    }
+
+    @Nullable
+    private String getReportedPathwayId() {
+      if (contentSteeringTracker == null || !contentSteeringTracker.isActive()) {
+        return null;
+      }
+      @Nullable RedundantGroupBundle bundle = redundantGroupBundles.get(playlistUrl);
+      if (bundle != null) {
+        String currentPathwayId = bundle.redundantGroup.getCurrentPathwayId();
+        if (pathwayIds.contains(currentPathwayId)) {
+          return currentPathwayId;
+        }
+      }
+      // If the current pathway ID is not associated with this URL, we fall back to reporting the
+      // first available pathway ID. This is a heuristic for rare cases where multiple pathways
+      // might map to the same URL.
+      return Iterables.getFirst(pathwayIds, null);
     }
   }
 
