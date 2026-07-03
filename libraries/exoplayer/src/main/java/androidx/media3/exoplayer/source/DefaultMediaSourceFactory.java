@@ -482,10 +482,19 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
   }
 
   /**
-   * Sets whether to load only the tracks selected by the track selection policy.
+   * Sets whether to load only the video and image tracks selected by the track selection policy.
    *
-   * @param loadOnlySelectedTracks Whether to load only the tracks selected by the track selection
-   *     policy, instead of loading all tracks.
+   * <p>Audio, text, and metadata tracks are always loaded regardless of track selection, as they
+   * have relatively low bitrate and are more likely to be toggled mid-playback (e.g., changing
+   * audio languages or subtitle tracks, or disabling audio during scrubbing mode). Always loading
+   * them allows seamlessly switching mid-playback without re-buffering or seeking.
+   *
+   * <p>Note that while this saves memory, it may cause additional buffering or latency if
+   * unselected video or image tracks are enabled mid-playback, as the player may need to perform
+   * additional network requests to fetch the newly selected track data.
+   *
+   * @param loadOnlySelectedTracks Whether to load only the video and image tracks selected by the
+   *     track selection policy, instead of loading all tracks.
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue

@@ -192,8 +192,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *     indexing. May be null.
    * @param continueLoadingCheckIntervalBytes The number of bytes that should be loaded between each
    *     invocation of {@link Callback#onContinueLoadingRequested(SequenceableLoader)}.
-   * @param loadOnlySelectedTracks Whether to load only the tracks selected by the track selection
-   *     policy.
+   * @param loadOnlySelectedTracks Whether to load only the video and image tracks selected by the
+   *     track selection policy. Audio, text, and metadata tracks are always loaded.
    * @param singleTrackId The ID of the track configured by {@code singleTrackFormat}. Ignored if
    *     {@code singleTrackFormat} is null.
    * @param singleTrackFormat The format of the single track this period is known to emit, allowing
@@ -419,9 +419,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 checkState(!trackEnabledStates[j]);
                 enabledTrackCount++;
                 trackEnabledStates[j] = true;
-                if (loadOnlySelectedTracks) {
-                  controlledTrackOutputs[j].updateSelectionState(true);
-                }
                 // HAGC it35 metadata samples are standalone and do not depend on
                 // previous samples, hence hasPreroll is not relevant and always false.
                 stream =
@@ -438,8 +435,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         streams[i] = stream;
         streamResetFlags[i] = true;
 
-        if (loadOnlySelectedTracks) {
-          // If we reenable a track, it needs to be seeked since it was not previously loaded.
+        if (loadOnlySelectedTracks && !controlledTrackOutputs[track].isSelected()) {
+          // If we reenable a track that was not previously loaded, it needs to be seeked.
           seekRequired |= seenFirstTrackSelection;
           continue;
         }
@@ -462,8 +459,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     if (loadOnlySelectedTracks) {
+      boolean[] tracksSelectedForLoading = getTracksSelectedForLoading(trackEnabledStates, tracks);
       for (int i = 0; i < controlledTrackOutputs.length; i++) {
-        controlledTrackOutputs[i].updateSelectionState(trackEnabledStates[i]);
+        controlledTrackOutputs[i].updateSelectionState(tracksSelectedForLoading[i]);
       }
     }
 
@@ -1209,6 +1207,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     checkState(prepared);
     checkNotNull(trackState);
     checkNotNull(seekMap);
+  }
+
+  private static boolean[] getTracksSelectedForLoading(
+      boolean[] trackEnabledStates, TrackGroupArray tracks) {
+    boolean[] selectedForLoading = new boolean[trackEnabledStates.length];
+    for (int i = 0; i < selectedForLoading.length; i++) {
+      int type = tracks.get(i).type;
+      selectedForLoading[i] =
+          (type != C.TRACK_TYPE_VIDEO && type != C.TRACK_TYPE_IMAGE) || trackEnabledStates[i];
+    }
+    return selectedForLoading;
   }
 
   private final class SampleStreamImpl implements SampleStream {

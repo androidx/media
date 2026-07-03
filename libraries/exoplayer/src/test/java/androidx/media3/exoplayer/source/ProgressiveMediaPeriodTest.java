@@ -126,9 +126,9 @@ public final class ProgressiveMediaPeriodTest {
     @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
 
-    // Select only track 0.
-    selections[0] =
-        new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
+    // Select only track 1 (audio). Track 0 (video) is left unselected.
+    selections[1] =
+        new FakeTrackSelection(trackGroups.get(1), new int[] {0}, /* selectedIndex= */ 0);
     long unused =
         mediaPeriod.selectTracks(
             selections,
@@ -141,17 +141,119 @@ public final class ProgressiveMediaPeriodTest {
         mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
     runMainLooperUntil(() -> mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE);
 
-    // Read from stream 0 (selected) to check we successfully read the format and samples.
+    // Read from stream 1 (selected audio) to check we successfully read the format and samples.
+    assertThat(readProgressiveStream(mediaPeriod, /* trackIndex= */ 1, buffer))
+        .isEqualTo(C.RESULT_FORMAT_READ);
+    assertThat(readProgressiveStream(mediaPeriod, /* trackIndex= */ 1, buffer))
+        .isEqualTo(C.RESULT_BUFFER_READ);
+    assertThat(buffer.isEndOfStream()).isFalse();
+    // Read from stream 0 (unselected video) to check we get no samples.
+    assertThat(readProgressiveStream(mediaPeriod, /* trackIndex= */ 0, buffer))
+        .isEqualTo(C.RESULT_BUFFER_READ);
+    assertThat(buffer.isEndOfStream()).isTrue();
+    mediaPeriod.release();
+  }
+
+  @Test
+  public void readData_unselectedTextTrack_returnsSamples() throws Exception {
+    ProgressiveMediaPeriod mediaPeriod =
+        createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample_with_vobsub.mp4"));
+    DecoderInputBuffer buffer =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    assertThat(trackGroups.length).isEqualTo(3);
+    assertThat(trackGroups.get(0).type).isEqualTo(C.TRACK_TYPE_VIDEO);
+    assertThat(trackGroups.get(1).type).isEqualTo(C.TRACK_TYPE_AUDIO);
+    assertThat(trackGroups.get(2).type).isEqualTo(C.TRACK_TYPE_TEXT);
+    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    boolean[] streamResetFlags = new boolean[trackGroups.length];
+    selections[1] =
+        new FakeTrackSelection(trackGroups.get(1), new int[] {0}, /* selectedIndex= */ 0);
+
+    long unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            streamResetFlags,
+            /* positionUs= */ 0);
+    assertThat(streams[0]).isNull();
+    assertThat(streams[1]).isNotNull();
+    assertThat(streams[2]).isNull();
+    boolean unusedResult =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    runMainLooperUntil(() -> mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE);
+
+    // Audio track (selected) returns samples.
+    assertThat(readProgressiveStream(mediaPeriod, /* trackIndex= */ 1, buffer))
+        .isEqualTo(C.RESULT_FORMAT_READ);
+    assertThat(readProgressiveStream(mediaPeriod, /* trackIndex= */ 1, buffer))
+        .isEqualTo(C.RESULT_BUFFER_READ);
+    assertThat(buffer.isEndOfStream()).isFalse();
+    // Text track (unselected) returns samples because audio, text, and metadata tracks are always
+    // loaded.
+    assertThat(readProgressiveStream(mediaPeriod, /* trackIndex= */ 2, buffer))
+        .isEqualTo(C.RESULT_FORMAT_READ);
+    assertThat(readProgressiveStream(mediaPeriod, /* trackIndex= */ 2, buffer))
+        .isEqualTo(C.RESULT_BUFFER_READ);
+    assertThat(buffer.isEndOfStream()).isFalse();
+    // Video track (unselected) returns no samples (end of stream).
+    assertThat(readProgressiveStream(mediaPeriod, /* trackIndex= */ 0, buffer))
+        .isEqualTo(C.RESULT_BUFFER_READ);
+    assertThat(buffer.isEndOfStream()).isTrue();
+    mediaPeriod.release();
+  }
+
+  @Test
+  public void readData_unselectedAudioAndTextTracks_returnsSamples() throws Exception {
+    ProgressiveMediaPeriod mediaPeriod =
+        createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample_with_vobsub.mp4"));
+    DecoderInputBuffer buffer =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    assertThat(trackGroups.length).isEqualTo(3);
+    assertThat(trackGroups.get(0).type).isEqualTo(C.TRACK_TYPE_VIDEO);
+    assertThat(trackGroups.get(1).type).isEqualTo(C.TRACK_TYPE_AUDIO);
+    assertThat(trackGroups.get(2).type).isEqualTo(C.TRACK_TYPE_TEXT);
+    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    boolean[] streamResetFlags = new boolean[trackGroups.length];
+    selections[0] =
+        new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
+
+    long unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            streamResetFlags,
+            /* positionUs= */ 0);
+    assertThat(streams[0]).isNotNull();
+    assertThat(streams[1]).isNull();
+    assertThat(streams[2]).isNull();
+    boolean unusedResult =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    runMainLooperUntil(() -> mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE);
+
+    // Video track (selected) returns samples.
     assertThat(readProgressiveStream(mediaPeriod, /* trackIndex= */ 0, buffer))
         .isEqualTo(C.RESULT_FORMAT_READ);
     assertThat(readProgressiveStream(mediaPeriod, /* trackIndex= */ 0, buffer))
         .isEqualTo(C.RESULT_BUFFER_READ);
     assertThat(buffer.isEndOfStream()).isFalse();
-    // Read from stream 1 (unselected) to check we get no samples.
+    // Audio track (unselected) returns samples because audio tracks are always loaded.
+    assertThat(readProgressiveStream(mediaPeriod, /* trackIndex= */ 1, buffer))
+        .isEqualTo(C.RESULT_FORMAT_READ);
     assertThat(readProgressiveStream(mediaPeriod, /* trackIndex= */ 1, buffer))
         .isEqualTo(C.RESULT_BUFFER_READ);
-    assertThat(buffer.isEndOfStream()).isTrue();
-
+    assertThat(buffer.isEndOfStream()).isFalse();
+    // Text track (unselected) returns samples because text tracks are always loaded.
+    assertThat(readProgressiveStream(mediaPeriod, /* trackIndex= */ 2, buffer))
+        .isEqualTo(C.RESULT_FORMAT_READ);
+    assertThat(readProgressiveStream(mediaPeriod, /* trackIndex= */ 2, buffer))
+        .isEqualTo(C.RESULT_BUFFER_READ);
+    assertThat(buffer.isEndOfStream()).isFalse();
     mediaPeriod.release();
   }
 
@@ -327,6 +429,56 @@ public final class ProgressiveMediaPeriodTest {
             /* positionUs= */ 0);
 
     assertThat(streams[0]).isInstanceOf(MergingMetadataSampleStream.class);
+    mediaPeriod.release();
+  }
+
+  @Test
+  public void selectTracks_switchingToTrackOfSameType_retainsBuffer() throws Exception {
+    ProgressiveMediaPeriod mediaPeriod =
+        createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample_ac3_aac.mp4"));
+    DecoderInputBuffer buffer =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    assertThat(trackGroups.length).isEqualTo(2);
+    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    boolean[] streamResetFlags = new boolean[trackGroups.length];
+    selections[0] =
+        new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
+
+    long unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            streamResetFlags,
+            /* positionUs= */ 0);
+    boolean unusedResult =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    runMainLooperUntil(() -> mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE);
+
+    assertThat(readProgressiveStream(mediaPeriod, /* trackIndex= */ 0, buffer))
+        .isEqualTo(C.RESULT_FORMAT_READ);
+    assertThat(readProgressiveStream(mediaPeriod, /* trackIndex= */ 0, buffer))
+        .isEqualTo(C.RESULT_BUFFER_READ);
+    assertThat(buffer.isEndOfStream()).isFalse();
+
+    selections[0] = null;
+    selections[1] =
+        new FakeTrackSelection(trackGroups.get(1), new int[] {0}, /* selectedIndex= */ 0);
+    unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[] {true, false},
+            streams,
+            streamResetFlags,
+            /* positionUs= */ 0);
+
+    assertThat(readProgressiveStream(mediaPeriod, /* trackIndex= */ 1, buffer))
+        .isEqualTo(C.RESULT_FORMAT_READ);
+    assertThat(readProgressiveStream(mediaPeriod, /* trackIndex= */ 1, buffer))
+        .isEqualTo(C.RESULT_BUFFER_READ);
+    assertThat(buffer.isEndOfStream()).isFalse();
     mediaPeriod.release();
   }
 

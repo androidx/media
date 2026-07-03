@@ -7,6 +7,10 @@
     *   Add `Format.selectionPriority` representing the relative preference of
         the `Format` in track selection
         ([#3236](https://github.com/androidx/media/pull/3236)).
+    *   Limit `setLoadOnlySelectedTracks(true)` on `ProgressiveMediaSource` and
+        `DefaultMediaSourceFactory` to only filter out unselected video and
+        image tracks. Audio and text tracks are always loaded to allow seamless
+        track switching without re-buffering.
 *   CompositionPlayer:
 *   Transformer:
 *   Track Selection:
