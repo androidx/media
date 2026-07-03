@@ -29,6 +29,7 @@ import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
 import static androidx.media3.transformer.GlFrameProcessorTestUtil.closeTestingGlResources;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.app.Instrumentation;
@@ -485,6 +486,9 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
   @Test
   @SdkSuppress(minSdkVersion = 34) // RGBA_1010102 only supported in ImageReader from API 34.
   public void compositionPlayer_andHdrVideo_outputsCorrectDataSpace() throws Exception {
+    // TODO: b/505721737 - Support HDR.
+    // DefaultGlFrameProcessor doesn't support HDR yet.
+    assumeFalse(mode.equals(DEFAULT_GL_FRAME_PROCESSOR));
     assumeFormatsSupported(
         context,
         testId,
