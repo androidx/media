@@ -62,7 +62,7 @@ public final class ParsingLoadable<T> implements Loadable {
   public static final class Builder<T> {
     private final DataSource dataSource;
     private final DataSpec dataSpec;
-    private final int type;
+    private final @C.DataType int type;
     private final Parser<? extends T> parser;
     @Nullable private String steeredPathwayId;
 
@@ -71,10 +71,11 @@ public final class ParsingLoadable<T> implements Loadable {
      *
      * @param dataSource A {@link DataSource} to use when loading the data.
      * @param uri The {@link Uri} from which the object should be loaded.
-     * @param type See {@link ParsingLoadable#type}.
+     * @param type The {@linkplain C.DataType type} of the data.
      * @param parser Parses the object from the response.
      */
-    public Builder(DataSource dataSource, Uri uri, int type, Parser<? extends T> parser) {
+    public Builder(
+        DataSource dataSource, Uri uri, @C.DataType int type, Parser<? extends T> parser) {
       this(
           dataSource,
           new DataSpec.Builder().setUri(uri).setFlags(DataSpec.FLAG_ALLOW_GZIP).build(),
@@ -87,10 +88,14 @@ public final class ParsingLoadable<T> implements Loadable {
      *
      * @param dataSource A {@link DataSource} to use when loading the data.
      * @param dataSpec The {@link DataSpec} from which the object should be loaded.
-     * @param type See {@link ParsingLoadable#type}.
+     * @param type The {@linkplain C.DataType type} of the data.
      * @param parser Parses the object from the response.
      */
-    public Builder(DataSource dataSource, DataSpec dataSpec, int type, Parser<? extends T> parser) {
+    public Builder(
+        DataSource dataSource,
+        DataSpec dataSpec,
+        @C.DataType int type,
+        Parser<? extends T> parser) {
       this.dataSource = dataSource;
       this.dataSpec = dataSpec;
       this.type = type;
@@ -115,54 +120,14 @@ public final class ParsingLoadable<T> implements Loadable {
     }
   }
 
-  /**
-   * Loads a single parsable object.
-   *
-   * @param dataSource The {@link DataSource} through which the object should be read.
-   * @param parser The {@link Parser} to parse the object from the response.
-   * @param uri The {@link Uri} of the object to read.
-   * @param type The type of the data. One of the {@link C}{@code DATA_TYPE_*} constants.
-   * @return The parsed object
-   * @throws IOException Thrown if there is an error while loading or parsing.
-   */
-  public static <T> T load(DataSource dataSource, Parser<? extends T> parser, Uri uri, int type)
-      throws IOException {
-    ParsingLoadable<T> loadable =
-        new ParsingLoadable.Builder<T>(dataSource, uri, type, parser).build();
-    loadable.load();
-    return checkNotNull(loadable.getResult());
-  }
-
-  /**
-   * Loads a single parsable object.
-   *
-   * @param dataSource The {@link DataSource} through which the object should be read.
-   * @param parser The {@link Parser} to parse the object from the response.
-   * @param dataSpec The {@link DataSpec} of the object to read.
-   * @param type The type of the data. One of the {@link C}{@code DATA_TYPE_*} constants.
-   * @return The parsed object
-   * @throws IOException Thrown if there is an error while loading or parsing.
-   */
-  public static <T> T load(
-      DataSource dataSource, Parser<? extends T> parser, DataSpec dataSpec, int type)
-      throws IOException {
-    ParsingLoadable<T> loadable =
-        new ParsingLoadable.Builder<T>(dataSource, dataSpec, type, parser).build();
-    loadable.load();
-    return checkNotNull(loadable.getResult());
-  }
-
   /** Identifies the load task for this loadable. */
   public final long loadTaskId;
 
   /** The {@link DataSpec} that defines the data to be loaded. */
   public final DataSpec dataSpec;
 
-  /**
-   * The type of the data. One of the {@code DATA_TYPE_*} constants defined in {@link C}. For
-   * reporting only.
-   */
-  public final int type;
+  /** The {@linkplain C.DataType type} of the data. For reporting only. */
+  public final @C.DataType int type;
 
   /**
    * The ID of the steered pathway from which data is being loaded, or {@code null} if not
@@ -179,7 +144,8 @@ public final class ParsingLoadable<T> implements Loadable {
    * @deprecated Use {@link Builder} instead.
    */
   @Deprecated
-  public ParsingLoadable(DataSource dataSource, Uri uri, int type, Parser<? extends T> parser) {
+  public ParsingLoadable(
+      DataSource dataSource, Uri uri, @C.DataType int type, Parser<? extends T> parser) {
     this(
         dataSource,
         new DataSpec.Builder().setUri(uri).setFlags(DataSpec.FLAG_ALLOW_GZIP).build(),
@@ -192,7 +158,7 @@ public final class ParsingLoadable<T> implements Loadable {
    */
   @Deprecated
   public ParsingLoadable(
-      DataSource dataSource, DataSpec dataSpec, int type, Parser<? extends T> parser) {
+      DataSource dataSource, DataSpec dataSpec, @C.DataType int type, Parser<? extends T> parser) {
     this.dataSource = new StatsDataSource(dataSource);
     this.dataSpec = dataSpec;
     this.type = type;
@@ -208,6 +174,63 @@ public final class ParsingLoadable<T> implements Loadable {
     this.parser = builder.parser;
     this.steeredPathwayId = builder.steeredPathwayId;
     loadTaskId = LoadEventInfo.getNewId();
+  }
+
+  /**
+   * Loads a single parsable object.
+   *
+   * @param dataSource The {@link DataSource} through which the object should be read.
+   * @param parser The {@link Parser} to parse the object from the response.
+   * @param uri The {@link Uri} of the object to read.
+   * @param type The {@linkplain C.DataType type} of the data.
+   * @return The parsed object
+   * @throws IOException Thrown if there is an error while loading or parsing.
+   */
+  public static <T> T load(
+      DataSource dataSource, Parser<? extends T> parser, Uri uri, @C.DataType int type)
+      throws IOException {
+    ParsingLoadable<T> loadable =
+        new ParsingLoadable.Builder<T>(dataSource, uri, type, parser).build();
+    loadable.load();
+    return checkNotNull(loadable.getResult());
+  }
+
+  /**
+   * Loads a single parsable object.
+   *
+   * @param dataSource The {@link DataSource} through which the object should be read.
+   * @param parser The {@link Parser} to parse the object from the response.
+   * @param dataSpec The {@link DataSpec} of the object to read.
+   * @param type The {@linkplain C.DataType type} of the data.
+   * @return The parsed object
+   * @throws IOException Thrown if there is an error while loading or parsing.
+   */
+  public static <T> T load(
+      DataSource dataSource, Parser<? extends T> parser, DataSpec dataSpec, @C.DataType int type)
+      throws IOException {
+    ParsingLoadable<T> loadable =
+        new ParsingLoadable.Builder<T>(dataSource, dataSpec, type, parser).build();
+    loadable.load();
+    return checkNotNull(loadable.getResult());
+  }
+
+  @Override
+  public final void load() throws IOException {
+    // We always load from the beginning, so reset bytesRead to 0.
+    dataSource.resetBytesRead();
+    DataSourceInputStream inputStream = new DataSourceInputStream(dataSource, dataSpec);
+    try {
+      inputStream.open();
+      Uri dataSourceUri = checkNotNull(dataSource.getUri());
+      result = parser.parse(dataSourceUri, inputStream);
+    } finally {
+      Util.closeQuietly(inputStream);
+    }
+  }
+
+  @Override
+  public final void cancelLoad() {
+    // Do nothing.
   }
 
   /** Returns the loaded object, or null if an object has not been loaded. */
@@ -239,24 +262,5 @@ public final class ParsingLoadable<T> implements Loadable {
    */
   public Map<String, List<String>> getResponseHeaders() {
     return dataSource.getLastResponseHeaders();
-  }
-
-  @Override
-  public final void cancelLoad() {
-    // Do nothing.
-  }
-
-  @Override
-  public final void load() throws IOException {
-    // We always load from the beginning, so reset bytesRead to 0.
-    dataSource.resetBytesRead();
-    DataSourceInputStream inputStream = new DataSourceInputStream(dataSource, dataSpec);
-    try {
-      inputStream.open();
-      Uri dataSourceUri = checkNotNull(dataSource.getUri());
-      result = parser.parse(dataSourceUri, inputStream);
-    } finally {
-      Util.closeQuietly(inputStream);
-    }
   }
 }
