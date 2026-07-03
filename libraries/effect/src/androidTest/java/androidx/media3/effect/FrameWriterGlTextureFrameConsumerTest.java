@@ -31,6 +31,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorSpace;
+import android.graphics.Matrix;
 import android.hardware.HardwareBuffer;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -298,11 +299,24 @@ public final class FrameWriterGlTextureFrameConsumerTest {
         .isLessThan(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
   }
 
+  /**
+   * Creates a {@link GlTextureFrame} that is flipped along the y-axis from the input {@link
+   * Bitmap}.
+   *
+   * <p>This method converts the input {@link Bitmap} to the OpenGL coordinate system that {@link
+   * FrameWriterGlTextureFrameConsumer} always receives.
+   */
   private static GlTextureFrame createGlTextureFrame(Bitmap bitmap, long presentationTimeUs)
       throws GlException {
     int width = bitmap.getWidth();
     int height = bitmap.getHeight();
-    int texId = GlUtil.createTexture(bitmap);
+    Matrix matrix = new Matrix();
+    matrix.postScale(/* sx= */ 1f, /* sy= */ -1f, width / 2f, height / 2f);
+    Bitmap flippedBitmap =
+        Bitmap.createBitmap(
+            bitmap, /* x= */ 0, /* y= */ 0, width, height, matrix, /* filter= */ true);
+    int texId = GlUtil.createTexture(flippedBitmap);
+    flippedBitmap.recycle();
     return new GlTextureFrame.Builder(
             new GlTextureInfo(
                 /* texId= */ texId,
