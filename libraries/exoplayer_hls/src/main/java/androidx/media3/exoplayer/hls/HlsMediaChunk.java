@@ -58,30 +58,31 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   /**
    * Creates a new instance.
    *
-   * @param extractorFactory A {@link HlsExtractorFactory} from which the {@link
-   *     HlsMediaChunkExtractor} is obtained.
-   * @param dataSource The source from which the data should be loaded.
-   * @param format The chunk format.
-   * @param startOfPlaylistInPeriodUs The position of the playlist in the period in microseconds.
-   * @param mediaPlaylist The media playlist from which this chunk was obtained.
+   * @param extractorFactory An {@link HlsExtractorFactory} for creating {@link
+   *     HlsMediaChunkExtractor}s.
+   * @param dataSource The {@link DataSource} for loading the data.
+   * @param format The chunk {@link Format}.
+   * @param startOfPlaylistInPeriodUs The start time of the playlist in the period, in microseconds.
+   * @param mediaPlaylist The {@link HlsMediaPlaylist} from which this chunk was obtained.
    * @param segmentBaseHolder The segment holder.
    * @param playlistUrl The url of the playlist from which this chunk was obtained.
+   * @param steeredPathwayId The ID of the steered pathway from which data is being loaded, or
+   *     {@code null} if not applicable.
    * @param muxedCaptionFormats List of muxed caption {@link Format}s. Null if no closed caption
    *     information is available in the multivariant playlist.
    * @param trackSelectionReason See {@link #trackSelectionReason}.
    * @param trackSelectionData See {@link #trackSelectionData}.
-   * @param isPrimaryTimestampSource True if the chunk can initialize the timestamp adjuster.
-   * @param timestampAdjusterProvider The provider from which to obtain the {@link
-   *     TimestampAdjuster}.
-   * @param timestampAdjusterInitializationTimeoutMs The timeout for the loading thread to wait for
-   *     the timestamp adjuster to initialize, in milliseconds. A timeout of zero is interpreted as
-   *     an infinite timeout.
-   * @param previousChunk The {@link HlsMediaChunk} that preceded this one. May be null.
+   * @param isPrimaryTimestampSource Whether this chunk is providing the timestamp source.
+   * @param timestampAdjusterProvider A provider of {@link TimestampAdjuster}s.
+   * @param timestampAdjusterInitializationTimeoutMs The timeout for waiting for the timestamp
+   *     adjuster to be initialized, in milliseconds.
+   * @param previousChunk The previous chunk in the output, or null.
    * @param mediaSegmentKey The media segment decryption key, if fully encrypted. Null otherwise.
    * @param initSegmentKey The initialization segment decryption key, if fully encrypted. Null
    *     otherwise.
    * @param shouldSpliceIn Whether samples for this chunk should be spliced into existing samples.
    * @param isIndependent Whether the chunk starts with a keyframe.
+   * @param playerId The {@link PlayerId} of the player.
    * @param cmcdDataFactory The {@link CmcdData.Factory} for generating {@link CmcdData}.
    */
   public static HlsMediaChunk createInstance(
@@ -92,6 +93,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       HlsMediaPlaylist mediaPlaylist,
       HlsChunkSource.SegmentBaseHolder segmentBaseHolder,
       Uri playlistUrl,
+      @Nullable String steeredPathwayId,
       @Nullable List<Format> muxedCaptionFormats,
       @C.SelectionReason int trackSelectionReason,
       @Nullable Object trackSelectionData,
@@ -215,7 +217,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         scratchId3Data,
         shouldSpliceIn,
         isIndependent,
-        playerId);
+        playerId,
+        steeredPathwayId);
   }
 
   /**
@@ -334,7 +337,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       ParsableByteArray scratchId3Data,
       boolean shouldSpliceIn,
       boolean isIndependent,
-      PlayerId playerId) {
+      PlayerId playerId,
+      @Nullable String steeredPathwayId) {
     super(
         mediaDataSource,
         dataSpec,
@@ -343,7 +347,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         trackSelectionData,
         startTimeUs,
         endTimeUs,
-        chunkMediaSequence);
+        chunkMediaSequence,
+        steeredPathwayId);
     this.mediaSegmentEncrypted = mediaSegmentEncrypted;
     this.partIndex = partIndex;
     this.publishedDurationUs = isPublished ? endTimeUs - startTimeUs : C.TIME_UNSET;

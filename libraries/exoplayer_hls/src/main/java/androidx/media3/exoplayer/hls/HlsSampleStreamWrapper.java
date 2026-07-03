@@ -962,7 +962,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   public void onLoadStarted(
       Chunk loadable, long elapsedRealtimeMs, long loadDurationMs, int retryCount) {
     LoadEventInfo.Builder loadEventInfo =
-        new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs);
+        new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+            .setSteeredPathwayId(loadable.steeredPathwayId);
     if (retryCount != 0) {
       loadEventInfo
           .setUri(loadable.getUri())
@@ -989,6 +990,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     LoadEventInfo loadEventInfo =
         new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
             .setUri(loadable.getUri())
+            .setSteeredPathwayId(loadable.steeredPathwayId)
             .setResponseHeaders(loadable.getResponseHeaders())
             .setLoadDurationMs(loadDurationMs)
             .setBytesLoaded(loadable.bytesLoaded())
@@ -1017,6 +1019,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     LoadEventInfo loadEventInfo =
         new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
             .setUri(loadable.getUri())
+            .setSteeredPathwayId(loadable.steeredPathwayId)
             .setResponseHeaders(loadable.getResponseHeaders())
             .setLoadDurationMs(loadDurationMs)
             .setBytesLoaded(loadable.bytesLoaded())
@@ -1064,6 +1067,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     LoadEventInfo loadEventInfo =
         new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
             .setUri(loadable.getUri())
+            .setSteeredPathwayId(loadable.steeredPathwayId)
             .setResponseHeaders(loadable.getResponseHeaders())
             .setLoadDurationMs(loadDurationMs)
             .setBytesLoaded(bytesLoaded)

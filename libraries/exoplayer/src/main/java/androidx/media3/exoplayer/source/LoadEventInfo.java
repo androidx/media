@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.source;
 
 import android.net.Uri;
 import android.os.SystemClock;
+import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSpec;
 import com.google.common.collect.ImmutableMap;
@@ -35,6 +36,7 @@ public final class LoadEventInfo {
     private DataSpec dataSpec;
     private long elapsedRealtimeMs;
     private Uri uri;
+    @Nullable private String steeredPathwayId;
     private Map<String, List<String>> responseHeaders;
     private long loadDurationMs;
     private long bytesLoaded;
@@ -124,6 +126,18 @@ public final class LoadEventInfo {
     }
 
     /**
+     * Sets the {@link LoadEventInfo#steeredPathwayId}, the default is {@code null}.
+     *
+     * @param steeredPathwayId See {@link LoadEventInfo#steeredPathwayId}.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setSteeredPathwayId(@Nullable String steeredPathwayId) {
+      this.steeredPathwayId = steeredPathwayId;
+      return this;
+    }
+
+    /**
      * Sets the {@link LoadEventInfo#responseHeaders}.
      *
      * @param responseHeaders See {@link LoadEventInfo#responseHeaders}.
@@ -186,6 +200,12 @@ public final class LoadEventInfo {
    */
   public final Uri uri;
 
+  /**
+   * The ID of the steered pathway from which data is being loaded, or {@code null} if not
+   * applicable.
+   */
+  @Nullable public final String steeredPathwayId;
+
   /** The response headers associated with the load, or an empty map if unavailable. */
   public final Map<String, List<String>> responseHeaders;
 
@@ -228,6 +248,7 @@ public final class LoadEventInfo {
     this.loadTaskId = loadTaskId;
     this.dataSpec = dataSpec;
     this.uri = uri;
+    this.steeredPathwayId = null;
     this.responseHeaders = responseHeaders;
     this.elapsedRealtimeMs = elapsedRealtimeMs;
     this.loadDurationMs = loadDurationMs;
@@ -243,6 +264,7 @@ public final class LoadEventInfo {
     this.loadTaskId = builder.loadTaskId;
     this.dataSpec = builder.dataSpec;
     this.uri = builder.uri;
+    this.steeredPathwayId = builder.steeredPathwayId;
     this.responseHeaders = builder.responseHeaders;
     this.elapsedRealtimeMs = builder.elapsedRealtimeMs;
     this.loadDurationMs = builder.loadDurationMs;
