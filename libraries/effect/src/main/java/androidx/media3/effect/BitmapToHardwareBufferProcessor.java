@@ -116,27 +116,25 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
       if (currentFrame == null) {
         HardwareBuffer buffer = null;
         try {
-          if (SDK_INT >= 31) {
+          if (nextBitmap.getConfig() == Config.RGBA_1010102) {
+            buffer = copyCpuBitmapToHardwareBuffer(nextBitmap, hardwareBufferJniWrapper);
+          } else if (SDK_INT >= 31) {
             if (nextBitmap.getConfig() == Config.HARDWARE) {
-              // Input is HARDWARE and API >= 31: Direct access to HardwareBuffer is possible.
               buffer = nextBitmap.getHardwareBuffer();
             } else {
-              // Input is not HARDWARE and API >= 31: We can create a HARDWARE Bitmap copy
-              // and get its HardwareBuffer.
-              buffer = nextBitmap.copy(Config.HARDWARE, /* isMutable= */ false).getHardwareBuffer();
+              Bitmap hwCopy = nextBitmap.copy(Config.HARDWARE, /* isMutable= */ false);
+              if (hwCopy != null) {
+                buffer = hwCopy.getHardwareBuffer();
+              }
             }
           }
           // Fallback to the native helper when the HardwareBuffer retrieved from the Bitmap was
           // null, or SDK_INT < 31.
           if (buffer == null) {
             if (nextBitmap.getConfig() == Config.HARDWARE) {
-              // Input is HARDWARE but API < 31: HardwareBuffer is not directly accessible.
-              // We must first copy to a software Bitmap (e.g. ARGB_8888)
-              // and then copy that to a new HardwareBuffer via JNI.
               Bitmap softwareBitmap = nextBitmap.copy(Config.ARGB_8888, /* isMutable= */ false);
               buffer = copyCpuBitmapToHardwareBuffer(softwareBitmap, hardwareBufferJniWrapper);
             } else {
-              // Input is not HARDWARE: Copy the software Bitmap to a new HardwareBuffer via JNI.
               buffer = copyCpuBitmapToHardwareBuffer(nextBitmap, hardwareBufferJniWrapper);
             }
           }
@@ -206,16 +204,19 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
    * <p>The created buffer will have {@linkplain HardwareBuffer#USAGE_GPU_SAMPLED_IMAGE GPU read},
    * {@linkplain HardwareBuffer#USAGE_GPU_COLOR_OUTPUT GPU write}, {@linkplain
    * HardwareBuffer#USAGE_CPU_READ_OFTEN CPU read} and {@linkplain
-   * HardwareBuffer#USAGE_CPU_WRITE_OFTEN CPU write} usage flags set, and pixelFormat of {@link
-   * HardwareBuffer#RGBA_8888}.
+   * HardwareBuffer#USAGE_CPU_WRITE_OFTEN CPU write} usage flags set.
    */
   private static HardwareBuffer copyCpuBitmapToHardwareBuffer(
       Bitmap bitmap, HardwareBufferJniWrapper hardwareBufferJniWrapper) {
+    int pixelFormat =
+        bitmap.getConfig() == Config.RGBA_1010102
+            ? HardwareBuffer.RGBA_1010102
+            : HardwareBuffer.RGBA_8888;
     HardwareBuffer buffer =
         HardwareBuffer.create(
             bitmap.getWidth(),
             bitmap.getHeight(),
-            /* pixelFormat= */ HardwareBuffer.RGBA_8888,
+            pixelFormat,
             /* layers= */ 1,
             /* usageFlags= */ HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE
                 | HardwareBuffer.USAGE_GPU_COLOR_OUTPUT
