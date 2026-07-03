@@ -26,6 +26,7 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.mockwebserver.MockWebServer;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -116,6 +117,11 @@ public class WebServerDispatcherTest {
                     .setData(GZIP_FORCED_DATA)
                     .setGzipSupport(WebServerDispatcher.Resource.GZIP_SUPPORT_FORCED)
                     .build())));
+  }
+
+  @After
+  public void teardownServer() throws Exception {
+    mockWebServer.shutdown();
   }
 
   @Test

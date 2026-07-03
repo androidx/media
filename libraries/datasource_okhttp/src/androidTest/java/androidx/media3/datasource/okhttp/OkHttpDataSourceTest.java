@@ -35,12 +35,26 @@ import okhttp3.OkHttpClient;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Unit tests for {@link OkHttpDataSource}. */
 @RunWith(AndroidJUnit4.class)
 public class OkHttpDataSourceTest {
+
+  private MockWebServer mockWebServer;
+
+  @Before
+  public void setUp() {
+    mockWebServer = new MockWebServer();
+  }
+
+  @After
+  public void tearDown() throws Exception {
+    mockWebServer.shutdown();
+  }
 
   /**
    * This test will set HTTP default request parameters (1) in the OkHttpDataSource, (2) via
@@ -61,7 +75,6 @@ public class OkHttpDataSourceTest {
    */
   @Test
   public void open_setsCorrectHeaders() throws Exception {
-    MockWebServer mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse());
 
     String propertyFromFactory = "fromFactory";
@@ -108,7 +121,6 @@ public class OkHttpDataSourceTest {
 
   @Test
   public void open_invalidResponseCode() {
-    MockWebServer mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse().setResponseCode(404).setBody("failure msg"));
 
     HttpDataSource okHttpDataSource =
@@ -129,44 +141,40 @@ public class OkHttpDataSourceTest {
   @Test
   @SdkSuppress(minSdkVersion = 25) // Cookies aren't persisted on API <= 24: b/502906567
   public void cookiejarConfigured_cookiesPersistedBetweenRequests() throws Exception {
-    try (MockWebServer mockWebServer = new MockWebServer()) {
-      mockWebServer.enqueue(
-          new MockResponse().setHeader(HttpHeaders.SET_COOKIE, "cookie-name=cookie-val"));
-      mockWebServer.enqueue(new MockResponse());
+    mockWebServer.enqueue(
+        new MockResponse().setHeader(HttpHeaders.SET_COOKIE, "cookie-name=cookie-val"));
+    mockWebServer.enqueue(new MockResponse());
 
-      DataSpec dataSpec =
-          new DataSpec.Builder().setUri(mockWebServer.url("foo").toString()).build();
-      OkHttpDataSource dataSource =
-          new OkHttpDataSource.Factory(
-                  new OkHttpClient.Builder()
-                      .cookieJar(new JavaNetCookieJar(new CookieManager()))
-                      .build())
-              .createDataSource();
-      dataSource.open(dataSpec);
-      dataSource.close();
-      dataSource.open(dataSpec);
+    DataSpec dataSpec = new DataSpec.Builder().setUri(mockWebServer.url("foo").toString()).build();
+    OkHttpDataSource dataSource =
+        new OkHttpDataSource.Factory(
+                new OkHttpClient.Builder()
+                    .cookieJar(new JavaNetCookieJar(new CookieManager()))
+                    .build())
+            .createDataSource();
+    dataSource.open(dataSpec);
+    dataSource.close();
+    dataSource.open(dataSpec);
 
-      RecordedRequest firstRequest = mockWebServer.takeRequest();
-      assertThat(firstRequest.getPath()).isEqualTo("/foo");
-      assertThat(firstRequest.getHeader(HttpHeaders.COOKIE)).isNull();
+    RecordedRequest firstRequest = mockWebServer.takeRequest();
+    assertThat(firstRequest.getPath()).isEqualTo("/foo");
+    assertThat(firstRequest.getHeader(HttpHeaders.COOKIE)).isNull();
 
-      RecordedRequest secondRequest = mockWebServer.takeRequest();
-      assertThat(secondRequest.getPath()).isEqualTo("/foo");
-      assertThat(secondRequest.getHeader(HttpHeaders.COOKIE)).isEqualTo("cookie-name=cookie-val");
-    }
+    RecordedRequest secondRequest = mockWebServer.takeRequest();
+    assertThat(secondRequest.getPath()).isEqualTo("/foo");
+    assertThat(secondRequest.getHeader(HttpHeaders.COOKIE)).isEqualTo("cookie-name=cookie-val");
   }
 
   @Test
   @SdkSuppress(minSdkVersion = 25) // Cookies aren't persisted on API <= 24: b/502906567
   public void cookiejarConfigured_cookiesForwardedOnRedirect() throws Exception {
-    try (MockWebServer redirectWebServer = new MockWebServer();
-        MockWebServer originWebServer = new MockWebServer()) {
+    try (MockWebServer redirectWebServer = new MockWebServer()) {
       redirectWebServer.enqueue(
           new MockResponse()
               .setResponseCode(302)
               .setHeader(HttpHeaders.SET_COOKIE, "cookie-name=cookie-val")
-              .setHeader(HttpHeaders.LOCATION, originWebServer.url("bar").toString()));
-      originWebServer.enqueue(new MockResponse());
+              .setHeader(HttpHeaders.LOCATION, mockWebServer.url("bar").toString()));
+      mockWebServer.enqueue(new MockResponse());
 
       DataSpec dataSpec =
           new DataSpec.Builder().setUri(redirectWebServer.url("foo").toString()).build();
@@ -178,7 +186,7 @@ public class OkHttpDataSourceTest {
               .createDataSource();
       dataSource.open(dataSpec);
 
-      RecordedRequest originRequest = originWebServer.takeRequest();
+      RecordedRequest originRequest = mockWebServer.takeRequest();
       assertThat(originRequest.getPath()).isEqualTo("/bar");
       assertThat(originRequest.getHeader(HttpHeaders.COOKIE)).isEqualTo("cookie-name=cookie-val");
     }
@@ -186,7 +194,6 @@ public class OkHttpDataSourceTest {
 
   @Test
   public void factory_setRequestPropertyAfterCreation_setsCorrectHeaders() throws Exception {
-    MockWebServer mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse());
     DataSpec dataSpec =
         new DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build();

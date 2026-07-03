@@ -31,12 +31,26 @@ import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 import okio.Buffer;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Unit tests for {@link DefaultHttpDataSource}. */
 @RunWith(AndroidJUnit4.class)
 public class DefaultHttpDataSourceTest {
+
+  private MockWebServer mockWebServer;
+
+  @Before
+  public void setUp() {
+    mockWebServer = new MockWebServer();
+  }
+
+  @After
+  public void tearDown() throws Exception {
+    mockWebServer.shutdown();
+  }
 
   /**
    * This test will set HTTP default request parameters (1) in the DefaultHttpDataSource, (2) via
@@ -57,7 +71,6 @@ public class DefaultHttpDataSourceTest {
    */
   @Test
   public void open_withSpecifiedRequestParameters_usesCorrectParameters() throws Exception {
-    MockWebServer mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse());
 
     String propertyFromFactory = "fromFactory";
@@ -111,7 +124,6 @@ public class DefaultHttpDataSourceTest {
             .setReadTimeoutMs(1000)
             .createDataSource();
 
-    MockWebServer mockWebServer = new MockWebServer();
     mockWebServer.enqueue(
         new MockResponse()
             .setResponseCode(404)
@@ -139,7 +151,6 @@ public class DefaultHttpDataSourceTest {
             .setAllowCrossProtocolRedirects(false)
             .createDataSource();
 
-    MockWebServer mockWebServer = new MockWebServer();
     String newLocationUrl = mockWebServer.url("/redirect-path").toString();
     String httpsUrl = newLocationUrl.replaceFirst("http", "https");
     mockWebServer.enqueue(
@@ -175,7 +186,6 @@ public class DefaultHttpDataSourceTest {
             .setCrossProtocolRedirectsForceOriginal(true)
             .createDataSource();
 
-    MockWebServer mockWebServer = new MockWebServer();
     String newLocationUrl = mockWebServer.url("/redirect-path").toString();
     String httpsUrl = newLocationUrl.replaceFirst("http", "https");
     mockWebServer.enqueue(
@@ -217,7 +227,6 @@ public class DefaultHttpDataSourceTest {
             .setCrossProtocolRedirectsForceOriginal(true)
             .createDataSource();
 
-    MockWebServer mockWebServer = new MockWebServer();
     String newLocationUrl = "https/redirect-path";
     mockWebServer.enqueue(
         new MockResponse()
@@ -258,7 +267,6 @@ public class DefaultHttpDataSourceTest {
             .setAllowCrossProtocolRedirects(true)
             .createDataSource();
 
-    MockWebServer mockWebServer = new MockWebServer();
     String newLocationUrl = mockWebServer.url("/redirect-path").toString();
     mockWebServer.enqueue(
         new MockResponse()
@@ -297,7 +305,6 @@ public class DefaultHttpDataSourceTest {
             .setKeepPostFor302Redirects(true)
             .createDataSource();
 
-    MockWebServer mockWebServer = new MockWebServer();
     String newLocationUrl = mockWebServer.url("/redirect-path").toString();
     mockWebServer.enqueue(
         new MockResponse()
@@ -328,7 +335,6 @@ public class DefaultHttpDataSourceTest {
 
   @Test
   public void factory_setRequestPropertyAfterCreation_setsCorrectHeaders() throws Exception {
-    MockWebServer mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse());
     DataSpec dataSpec =
         new DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build();

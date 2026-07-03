@@ -25,6 +25,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.net.Uri;
+import androidx.annotation.Nullable;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.ParserException;
 import androidx.media3.test.utils.TestUtil;
@@ -38,6 +39,7 @@ import java.util.concurrent.ExecutionException;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okio.Buffer;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -65,11 +67,19 @@ public class DataSourceBitmapLoaderTest {
 
   private DataSource.Factory dataSourceFactory;
   private Context context;
+  @Nullable private MockWebServer mockWebServer;
 
   @Before
   public void setUp() {
     context = ApplicationProvider.getApplicationContext();
     dataSourceFactory = new DefaultDataSource.Factory(context);
+  }
+
+  @After
+  public void tearDown() throws Exception {
+    if (mockWebServer != null) {
+      mockWebServer.shutdown();
+    }
   }
 
   @Test
@@ -140,12 +150,11 @@ public class DataSourceBitmapLoaderTest {
             .build();
     byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     Buffer responseBody = new Buffer().write(imageData);
-    Bitmap bitmap;
-    try (MockWebServer mockWebServer = new MockWebServer()) {
-      mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(responseBody));
+    mockWebServer = new MockWebServer();
+    mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(responseBody));
 
-      bitmap = bitmapLoader.loadBitmap(Uri.parse(mockWebServer.url("test_path").toString())).get();
-    }
+    Bitmap bitmap =
+        bitmapLoader.loadBitmap(Uri.parse(mockWebServer.url("test_path").toString())).get();
 
     assertThat(
             bitmap.sameAs(
@@ -160,12 +169,11 @@ public class DataSourceBitmapLoaderTest {
             .setExecutorService(newDirectExecutorService())
             .setDataSourceFactory(dataSourceFactory)
             .build();
-    ListenableFuture<Bitmap> future;
-    try (MockWebServer mockWebServer = new MockWebServer()) {
-      mockWebServer.enqueue(new MockResponse().setResponseCode(404));
+    mockWebServer = new MockWebServer();
+    mockWebServer.enqueue(new MockResponse().setResponseCode(404));
 
-      future = bitmapLoader.loadBitmap(Uri.parse(mockWebServer.url("test_path").toString()));
-    }
+    ListenableFuture<Bitmap> future =
+        bitmapLoader.loadBitmap(Uri.parse(mockWebServer.url("test_path").toString()));
 
     assertException(
         future::get, HttpDataSource.InvalidResponseCodeException.class, /* messagePart= */ "404");
@@ -306,22 +314,21 @@ public class DataSourceBitmapLoaderTest {
             .setExecutorService(newDirectExecutorService())
             .setDataSourceFactory(dataSourceFactory)
             .build();
-    try (MockWebServer mockWebServer = new MockWebServer()) {
-      Uri uri = Uri.parse(mockWebServer.url("test_path").toString());
-      MediaMetadata metadata =
-          new MediaMetadata.Builder()
-              .setArtworkData(imageData, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
-              .setArtworkUri(uri)
-              .build();
+    mockWebServer = new MockWebServer();
+    Uri uri = Uri.parse(mockWebServer.url("test_path").toString());
+    MediaMetadata metadata =
+        new MediaMetadata.Builder()
+            .setArtworkData(imageData, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+            .setArtworkUri(uri)
+            .build();
 
-      Bitmap bitmap = bitmapLoader.loadBitmapFromMetadata(metadata).get();
+    Bitmap bitmap = bitmapLoader.loadBitmapFromMetadata(metadata).get();
 
-      assertThat(
-              bitmap.sameAs(
-                  BitmapFactory.decodeByteArray(imageData, /* offset= */ 0, imageData.length)))
-          .isTrue();
-      assertThat(mockWebServer.getRequestCount()).isEqualTo(0);
-    }
+    assertThat(
+            bitmap.sameAs(
+                BitmapFactory.decodeByteArray(imageData, /* offset= */ 0, imageData.length)))
+        .isTrue();
+    assertThat(mockWebServer.getRequestCount()).isEqualTo(0);
   }
 
   @Test
@@ -333,19 +340,18 @@ public class DataSourceBitmapLoaderTest {
             .setExecutorService(newDirectExecutorService())
             .setDataSourceFactory(dataSourceFactory)
             .build();
-    try (MockWebServer mockWebServer = new MockWebServer()) {
-      mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(responseBody));
-      Uri uri = Uri.parse(mockWebServer.url("test_path").toString());
-      MediaMetadata metadata = new MediaMetadata.Builder().setArtworkUri(uri).build();
+    mockWebServer = new MockWebServer();
+    mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(responseBody));
+    Uri uri = Uri.parse(mockWebServer.url("test_path").toString());
+    MediaMetadata metadata = new MediaMetadata.Builder().setArtworkUri(uri).build();
 
-      Bitmap bitmap = bitmapLoader.loadBitmapFromMetadata(metadata).get();
+    Bitmap bitmap = bitmapLoader.loadBitmapFromMetadata(metadata).get();
 
-      assertThat(
-              bitmap.sameAs(
-                  BitmapFactory.decodeByteArray(imageData, /* offset= */ 0, imageData.length)))
-          .isTrue();
-      assertThat(mockWebServer.getRequestCount()).isEqualTo(1);
-    }
+    assertThat(
+            bitmap.sameAs(
+                BitmapFactory.decodeByteArray(imageData, /* offset= */ 0, imageData.length)))
+        .isTrue();
+    assertThat(mockWebServer.getRequestCount()).isEqualTo(1);
   }
 
   @Test
@@ -381,7 +387,7 @@ public class DataSourceBitmapLoaderTest {
         new DataSourceBitmapLoader.Builder(context).setMakeShared(true).build();
     byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     Buffer responseBody = new Buffer().write(imageData);
-    MockWebServer mockWebServer = new MockWebServer();
+    mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(responseBody));
     Uri uri = Uri.parse(mockWebServer.url("test_path").toString());
 

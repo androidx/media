@@ -34,6 +34,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import org.junit.After
 import org.junit.Assume.assumeFalse
 import org.junit.Before
 import org.junit.Test
@@ -53,6 +54,11 @@ class DrmPlaybackTest {
   @Before
   fun setUpLicenseServer() {
     mockWebServer.enqueue(MockResponse().setResponseCode(200).setBody(CLEARKEY_RESPONSE))
+  }
+
+  @After
+  fun tearDown() {
+    mockWebServer.shutdown()
   }
 
   @Test

@@ -21,6 +21,7 @@ import static org.junit.Assert.assertThrows;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
+import androidx.annotation.Nullable;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
@@ -36,6 +37,7 @@ import java.util.concurrent.ExecutionException;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okio.Buffer;
+import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.function.ThrowingRunnable;
@@ -51,6 +53,15 @@ public class SimpleBitmapLoaderTest {
   private static final String TEST_IMAGE_PATH = "media/jpeg/non-motion-photo-shortened.jpg";
 
   @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
+
+  @Nullable private MockWebServer mockWebServer;
+
+  @After
+  public void tearDown() throws Exception {
+    if (mockWebServer != null) {
+      mockWebServer.shutdown();
+    }
+  }
 
   @Test
   public void loadData() throws Exception {
@@ -86,7 +97,7 @@ public class SimpleBitmapLoaderTest {
   public void load_httpUri_loadsImage() throws Exception {
     SimpleBitmapLoader bitmapLoader =
         new SimpleBitmapLoader(MoreExecutors.newDirectExecutorService());
-    MockWebServer mockWebServer = new MockWebServer();
+    mockWebServer = new MockWebServer();
     byte[] imageData =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TEST_IMAGE_PATH);
     Buffer responseBody = new Buffer().write(imageData);
@@ -105,7 +116,7 @@ public class SimpleBitmapLoaderTest {
   public void load_httpUriAndServerError_throwsException() {
     SimpleBitmapLoader bitmapLoader =
         new SimpleBitmapLoader(MoreExecutors.newDirectExecutorService());
-    MockWebServer mockWebServer = new MockWebServer();
+    mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse().setResponseCode(404));
 
     ListenableFuture<Bitmap> future =
@@ -172,7 +183,7 @@ public class SimpleBitmapLoaderTest {
   public void loadBitmapFromMetadata_decodeFromArtworkData() throws Exception {
     byte[] imageData =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TEST_IMAGE_PATH);
-    MockWebServer mockWebServer = new MockWebServer();
+    mockWebServer = new MockWebServer();
     Uri uri = Uri.parse(mockWebServer.url("test_path").toString());
     // Set both artworkData and artworkUri
     MediaMetadata metadata =
@@ -196,7 +207,7 @@ public class SimpleBitmapLoaderTest {
   public void loadBitmapFromMetadata_loadFromArtworkUri() throws Exception {
     byte[] imageData =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TEST_IMAGE_PATH);
-    MockWebServer mockWebServer = new MockWebServer();
+    mockWebServer = new MockWebServer();
     Buffer responseBody = new Buffer().write(imageData);
     mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(responseBody));
     Uri uri = Uri.parse(mockWebServer.url("test_path").toString());

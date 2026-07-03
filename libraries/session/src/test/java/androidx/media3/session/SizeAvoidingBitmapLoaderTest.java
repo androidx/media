@@ -22,6 +22,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.net.Uri;
+import androidx.annotation.Nullable;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.datasource.DataSourceBitmapLoader;
@@ -32,6 +33,7 @@ import com.google.common.primitives.ImmutableIntArray;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okio.Buffer;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -47,10 +49,18 @@ public class SizeAvoidingBitmapLoaderTest {
   @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
   private Context context;
+  @Nullable private MockWebServer mockWebServer;
 
   @Before
   public void setUp() {
     context = ApplicationProvider.getApplicationContext();
+  }
+
+  @After
+  public void tearDown() throws Exception {
+    if (mockWebServer != null) {
+      mockWebServer.shutdown();
+    }
   }
 
   @Test
@@ -117,7 +127,7 @@ public class SizeAvoidingBitmapLoaderTest {
             /* avoidSizes= */ ImmutableIntArray.of(200));
     byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     Buffer responseBody = new Buffer().write(imageData);
-    MockWebServer mockWebServer = new MockWebServer();
+    mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(responseBody));
     Uri uri = Uri.parse(mockWebServer.url("test_path").toString());
 
@@ -137,7 +147,7 @@ public class SizeAvoidingBitmapLoaderTest {
             /* avoidSizes= */ ImmutableIntArray.of(200));
     byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     Buffer responseBody = new Buffer().write(imageData);
-    MockWebServer mockWebServer = new MockWebServer();
+    mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(responseBody));
     Uri uri = Uri.parse(mockWebServer.url("test_path").toString());
 
@@ -157,7 +167,7 @@ public class SizeAvoidingBitmapLoaderTest {
             /* avoidSizes= */ ImmutableIntArray.of(200));
     byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     Buffer responseBody = new Buffer().write(imageData);
-    MockWebServer mockWebServer = new MockWebServer();
+    mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(responseBody));
     Uri uri = Uri.parse(mockWebServer.url("test_path").toString());
 

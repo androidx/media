@@ -25,6 +25,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.net.Uri;
+import androidx.annotation.Nullable;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.datasource.DataSourceBitmapLoader;
@@ -37,6 +38,7 @@ import java.util.concurrent.ExecutionException;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okio.Buffer;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -55,10 +57,18 @@ public class SizeLimitedBitmapLoaderTest {
   @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
   private Context context;
+  @Nullable private MockWebServer mockWebServer;
 
   @Before
   public void setUp() {
     context = ApplicationProvider.getApplicationContext();
+  }
+
+  @After
+  public void tearDown() throws Exception {
+    if (mockWebServer != null) {
+      mockWebServer.shutdown();
+    }
   }
 
   @Test
@@ -88,7 +98,7 @@ public class SizeLimitedBitmapLoaderTest {
             new DataSourceBitmapLoader.Builder(context).build(), limit, /* makeShared= */ false);
     byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     Buffer responseBody = new Buffer().write(imageData);
-    MockWebServer mockWebServer = new MockWebServer();
+    mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(responseBody));
     Uri uri = Uri.parse(mockWebServer.url("test_path").toString());
     Bitmap expectedBitmap = getExpectedBitmap(imageData, limit);
@@ -109,7 +119,7 @@ public class SizeLimitedBitmapLoaderTest {
     byte[] imageData2 = TestUtil.getByteArray(context, SECOND_TEST_IMAGE_PATH);
     Buffer responseBody1 = new Buffer().write(imageData1);
     Buffer responseBody2 = new Buffer().write(imageData2);
-    MockWebServer mockWebServer = new MockWebServer();
+    mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(responseBody1));
     mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(responseBody2));
     Uri uri1 = Uri.parse(mockWebServer.url("test_path_1").toString());
@@ -135,7 +145,7 @@ public class SizeLimitedBitmapLoaderTest {
     SizeLimitedBitmapLoader sizeLimitedBitmapLoader =
         new SizeLimitedBitmapLoader(
             new DataSourceBitmapLoader.Builder(context).build(), limit, /* makeShared= */ false);
-    MockWebServer mockWebServer = new MockWebServer();
+    mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse().setResponseCode(404));
     Uri uri = Uri.parse(mockWebServer.url("test_path").toString());
 
@@ -159,7 +169,7 @@ public class SizeLimitedBitmapLoaderTest {
     SizeLimitedBitmapLoader sizeLimitedBitmapLoader =
         new SizeLimitedBitmapLoader(testBitmapLoader, limit, /* makeShared= */ false);
     Buffer responseBody = new Buffer().write(imageData);
-    MockWebServer mockWebServer = new MockWebServer();
+    mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(responseBody));
     Uri uri = Uri.parse(mockWebServer.url("test_path").toString());
     MediaMetadata metadata = new MediaMetadata.Builder().setArtworkUri(uri).build();
@@ -211,7 +221,7 @@ public class SizeLimitedBitmapLoaderTest {
             new DataSourceBitmapLoader.Builder(context).build(), limit, /* makeShared= */ true);
     byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     Buffer responseBody = new Buffer().write(imageData);
-    MockWebServer mockWebServer = new MockWebServer();
+    mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(responseBody));
     Uri uri = Uri.parse(mockWebServer.url("test_path").toString());
 
@@ -231,7 +241,7 @@ public class SizeLimitedBitmapLoaderTest {
             new DataSourceBitmapLoader.Builder(context).build(), limit, /* makeShared= */ true);
     byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     Buffer responseBody = new Buffer().write(imageData);
-    MockWebServer mockWebServer = new MockWebServer();
+    mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(responseBody));
     Uri uri = Uri.parse(mockWebServer.url("test_path").toString());
 
