@@ -33,6 +33,7 @@ import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.Size;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.HardwareBufferFrame;
@@ -70,6 +71,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       GlTextureFrame inputFrame, Executor listenerExecutor, Runnable wakeupListener)
       throws VideoFrameProcessingException {
     if (!isFrameWriterConfigured) {
+      // TODO: b/530130970 - Configure with the DefaultShaderProgram's output size.
       frameWriter.configure(inputFrame.format, USAGE_GPU_COLOR_OUTPUT);
       isFrameWriterConfigured = true;
     }
@@ -102,12 +104,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               /* writesToBoundImage= */ true);
 
       if (defaultShaderProgram == null) {
+        // Convert OpenGL coordinate system back.
+        // TODO: b/530927743 - Handle rotation correctly in the pipeline.
+        GlMatrixTransformation yFlip =
+            new ScaleAndRotateTransformation.Builder()
+                .setScale(/* scaleX= */ 1f, /* scaleY= */ -1f)
+                .build();
         defaultShaderProgram =
             DefaultShaderProgram.create(
                 context,
-                /* matrixTransformations= */ ImmutableList.of(),
+                /* matrixTransformations= */ ImmutableList.of(yFlip),
                 /* rgbMatrices= */ ImmutableList.of(),
                 /* useHdr= */ false);
+        Size unused =
+            defaultShaderProgram.configure(
+                inputFrame.glTextureInfo.width, inputFrame.glTextureInfo.height);
       }
       defaultShaderProgram.drawFrame(inputFrame.glTextureInfo.texId, inputFrame.presentationTimeUs);
       GlUtil.checkGlError();

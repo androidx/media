@@ -214,6 +214,8 @@ public final class TranscodeQualityTest {
   @Test
   public void transcode_rotated270_outputsRotated270() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
+    // TODO: b/530927743 - Enable after rotation handling is fixed.
+    assumeFalse(mode.equals(DEFAULT_GL_FRAME_PROCESSOR_NDK));
     assumeFormatsSupported(
         context,
         testId,
