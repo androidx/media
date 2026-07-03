@@ -57,7 +57,8 @@ fun ContentFrame(
   shutter: @Composable () -> Unit = { Box(Modifier.fillMaxSize().background(Color.Black)) },
 ) {
   val presentationState: PresentationState = rememberPresentationState(player, keepContentOnReset)
-  val scaledModifier = modifier.resizeWithContentScale(contentScale, presentationState.videoSizeDp)
+  val scaledModifier =
+    modifier.resizeWithContentScale(contentScale, presentationState.videoAspectRatio)
 
   // Always leave PlayerSurface to be part of the Compose tree because it will be initialised in
   // the process. If this composable is guarded by some condition, it might never become visible
