@@ -214,6 +214,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     liveMinSpeed = C.RATE_UNSET;
     liveMaxSpeed = C.RATE_UNSET;
     parseSubtitlesDuringExtraction = true;
+    loadOnlySelectedTracks = true;
   }
 
   @CanIgnoreReturnValue
@@ -493,6 +494,8 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
    * unselected video or image tracks are enabled mid-playback, as the player may need to perform
    * additional network requests to fetch the newly selected track data.
    *
+   * <p>The default is {@code true}.
+   *
    * @param loadOnlySelectedTracks Whether to load only the video and image tracks selected by the
    *     track selection policy, instead of loading all tracks.
    * @return This factory, for convenience.
@@ -745,6 +748,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
       mediaSourceFactorySuppliers = new HashMap<>();
       mediaSourceFactories = new HashMap<>();
       parseSubtitlesDuringExtraction = true;
+      loadOnlySelectedTracks = true;
       experimentalEnableHagcPlayback = true;
       codecsToParseWithinGopSampleDependencies = C.VIDEO_CODEC_FLAG_H264 | C.VIDEO_CODEC_FLAG_H265;
     }

@@ -187,6 +187,7 @@ public final class ProgressiveMediaSource extends BaseMediaSource
       this.drmSessionManagerProvider = drmSessionManagerProvider;
       this.loadErrorHandlingPolicy = loadErrorHandlingPolicy;
       this.continueLoadingCheckIntervalBytes = continueLoadingCheckIntervalBytes;
+      this.loadOnlySelectedTracks = true;
       this.experimentalEnableHagcPlayback = true;
     }
 
@@ -297,6 +298,8 @@ public final class ProgressiveMediaSource extends BaseMediaSource
      * <p>Note that while this saves memory, it may cause additional buffering or latency if
      * unselected video or image tracks are enabled mid-playback, as the player may need to perform
      * additional network requests to fetch the newly selected track data.
+     *
+     * <p>The default is {@code true}.
      *
      * @param loadOnlySelectedTracks Whether to load only the video and image tracks selected by the
      *     track selection policy, instead of loading all tracks.

@@ -11,6 +11,12 @@
         `DefaultMediaSourceFactory` to only filter out unselected video and
         image tracks. Audio and text tracks are always loaded to allow seamless
         track switching without re-buffering.
+    *   Enable `setLoadOnlySelectedTracks(true)` by default on
+        `ProgressiveMediaSource` and `DefaultMediaSourceFactory`. This saves
+        memory and allows `DefaultLoadControl` buffer allocation calculations to
+        work more accurately when not all tracks are selected. Note that this
+        may cause additional buffering if unselected video or image tracks are
+        newly enabled mid-playback.
 *   CompositionPlayer:
 *   Transformer:
 *   Track Selection:
