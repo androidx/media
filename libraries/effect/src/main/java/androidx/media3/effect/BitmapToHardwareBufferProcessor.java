@@ -120,21 +120,25 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
             buffer = copyCpuBitmapToHardwareBuffer(nextBitmap, hardwareBufferJniWrapper);
           } else if (SDK_INT >= 31) {
             if (nextBitmap.getConfig() == Config.HARDWARE) {
+              // Input is HARDWARE and API >= 31: Direct access to HardwareBuffer is possible.
               buffer = nextBitmap.getHardwareBuffer();
             } else {
-              Bitmap hwCopy = nextBitmap.copy(Config.HARDWARE, /* isMutable= */ false);
-              if (hwCopy != null) {
-                buffer = hwCopy.getHardwareBuffer();
-              }
+              // Input is not HARDWARE and API >= 31: We can create a HARDWARE Bitmap copy
+              // and get its HardwareBuffer.
+              buffer = nextBitmap.copy(Config.HARDWARE, /* isMutable= */ false).getHardwareBuffer();
             }
           }
           // Fallback to the native helper when the HardwareBuffer retrieved from the Bitmap was
           // null, or SDK_INT < 31.
           if (buffer == null) {
             if (nextBitmap.getConfig() == Config.HARDWARE) {
+              // Input is HARDWARE but API < 31: HardwareBuffer is not directly accessible.
+              // We must first copy to a software Bitmap (e.g. ARGB_8888)
+              // and then copy that to a new HardwareBuffer via JNI.
               Bitmap softwareBitmap = nextBitmap.copy(Config.ARGB_8888, /* isMutable= */ false);
               buffer = copyCpuBitmapToHardwareBuffer(softwareBitmap, hardwareBufferJniWrapper);
             } else {
+              // Input is not HARDWARE: Copy the software Bitmap to a new HardwareBuffer via JNI.
               buffer = copyCpuBitmapToHardwareBuffer(nextBitmap, hardwareBufferJniWrapper);
             }
           }
