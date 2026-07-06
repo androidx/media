@@ -89,6 +89,17 @@ public final class VideoFrameReleaseControl {
   /** Signals that a frame should not be released and the caller should try again later. */
   public static final int FRAME_RELEASE_TRY_AGAIN_LATER = 5;
 
+  /**
+   * The fractional threshold of a vsync duration allowed when detecting frame starvation.
+   *
+   * <p>When checking if starvation caused a frame to miss its intended vsync, the gap between frame
+   * releases is expected to exceed the intended presentation gap by at least one vsync duration.
+   * Applying this threshold reduces the required gap to {@code STARVATION_TOLERANCE *
+   * vsyncDurationNs} to account for minor timing fluctuations in vsync arrival or release
+   * execution.
+   */
+  private static final float STARVATION_TOLERANCE = 0.85f;
+
   /** Per {@link FrameReleaseAction} metadata. */
   public static class FrameReleaseInfo {
     private long earlyUs;
@@ -189,6 +200,9 @@ public final class VideoFrameReleaseControl {
   private boolean disableAdvancingTimestampChecks;
   private boolean requiresOutputSurface;
   private long lastFrameReleaseTimeNs;
+  private long prevFrameReleaseTimeNs;
+  private long lastFramePresentationTimeUs;
+  private long prevFramePresentationTimeUs;
 
   /**
    * Creates an instance.
@@ -218,7 +232,7 @@ public final class VideoFrameReleaseControl {
     clock = Clock.DEFAULT;
     requiresOutputSurface = true;
     earlySchedulingThresholdUs = DEFAULT_EARLY_SCHEDULING_THRESHOLD_US;
-    lastFrameReleaseTimeNs = C.TIME_UNSET;
+    resetReleasedFrameState();
   }
 
   /**
@@ -274,7 +288,7 @@ public final class VideoFrameReleaseControl {
     started = false;
     joiningDeadlineMs = C.TIME_UNSET;
     frameReleaseHelper.onStopped();
-    lastFrameReleaseTimeNs = C.TIME_UNSET;
+    resetReleasedFrameState();
   }
 
   /** Called when the display surface changed. */
@@ -437,6 +451,7 @@ public final class VideoFrameReleaseControl {
       frameReadyWithoutSurface = true;
     }
     if (shouldForceRelease(positionUs, frameReleaseInfo.earlyUs, outputStreamStartPositionUs)) {
+      updateReleasedFrameState(clock.nanoTime(), presentationTimeUs);
       return FRAME_RELEASE_IMMEDIATELY;
     }
     if (!started || positionUs == initialPositionUs) {
@@ -466,9 +481,9 @@ public final class VideoFrameReleaseControl {
       return FRAME_RELEASE_TRY_AGAIN_LATER;
     } else if (skipBuffersWithIdenticalReleaseTime
         && frameReleaseInfo.releaseTimeNs == lastFrameReleaseTimeNs) {
-      return FRAME_RELEASE_SKIP;
+      return treatSameReleaseTimeAsDropped() ? FRAME_RELEASE_DROP : FRAME_RELEASE_SKIP;
     }
-    lastFrameReleaseTimeNs = frameReleaseInfo.releaseTimeNs;
+    updateReleasedFrameState(frameReleaseInfo.releaseTimeNs, presentationTimeUs);
     return FRAME_RELEASE_SCHEDULED;
   }
 
@@ -479,7 +494,7 @@ public final class VideoFrameReleaseControl {
     lowerFirstFrameState(C.FIRST_FRAME_NOT_RENDERED);
     joiningDeadlineMs = C.TIME_UNSET;
     frameReadyWithoutSurface = false;
-    lastFrameReleaseTimeNs = C.TIME_UNSET;
+    resetReleasedFrameState();
   }
 
   /**
@@ -576,5 +591,47 @@ public final class VideoFrameReleaseControl {
       default:
         throw new IllegalStateException();
     }
+  }
+
+  private void resetReleasedFrameState() {
+    lastFrameReleaseTimeNs = C.TIME_UNSET;
+    prevFrameReleaseTimeNs = C.TIME_UNSET;
+    lastFramePresentationTimeUs = C.TIME_UNSET;
+    prevFramePresentationTimeUs = C.TIME_UNSET;
+  }
+
+  private void updateReleasedFrameState(long releaseTimeNs, long presentationTimeUs) {
+    prevFrameReleaseTimeNs = lastFrameReleaseTimeNs;
+    lastFrameReleaseTimeNs = releaseTimeNs;
+    prevFramePresentationTimeUs = lastFramePresentationTimeUs;
+    lastFramePresentationTimeUs = presentationTimeUs;
+  }
+
+  /**
+   * Evaluates whether two buffers scheduled for identical release times collided because of slow
+   * decoding starvation (DROP) or intentional high-FPS subsampling (SKIP).
+   *
+   * <p>If the actual release timestamp gap between the previous two rendered frames exceeds the
+   * intended presentation timestamp gap by roughly a vsync duration, the renderer fell behind due
+   * to slow decoding and missed a vsync (return {@code true} -> DROP). Otherwise, the renderer is
+   * keeping up with playback speed and duplicate vsync assignments occur due to high content frame
+   * rate exceeding display refresh rate (return {@code false} -> SKIP).
+   */
+  private boolean treatSameReleaseTimeAsDropped() {
+    long vsyncDurationNs = frameReleaseHelper.getVsyncDurationNs();
+    if (lastFrameReleaseTimeNs == C.TIME_UNSET
+        || prevFrameReleaseTimeNs == C.TIME_UNSET
+        || lastFramePresentationTimeUs == C.TIME_UNSET
+        || prevFramePresentationTimeUs == C.TIME_UNSET
+        || vsyncDurationNs == C.TIME_UNSET) {
+      return true;
+    }
+
+    long actualReleaseGapNs = lastFrameReleaseTimeNs - prevFrameReleaseTimeNs;
+    long presentationTimeGapUs = lastFramePresentationTimeUs - prevFramePresentationTimeUs;
+    long intendedReleaseGapNs = (long) ((presentationTimeGapUs * 1000) / (double) playbackSpeed);
+    long toleranceNs = (long) (vsyncDurationNs * STARVATION_TOLERANCE);
+
+    return actualReleaseGapNs >= intendedReleaseGapNs + toleranceNs;
   }
 }

@@ -22,6 +22,8 @@
 *   Inspector Frame:
 *   Audio:
 *   Video:
+    *   Fix reporting of late video frames with identical release timestamps so
+        that they are reported as dropped instead of skipped.
 *   Text:
 *   Metadata:
 *   Image:

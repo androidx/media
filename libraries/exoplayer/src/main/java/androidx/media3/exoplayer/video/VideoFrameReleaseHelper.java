@@ -280,6 +280,11 @@ public final class VideoFrameReleaseHelper {
     }
   }
 
+  /** Returns the vsync duration in nanoseconds, or {@link C#TIME_UNSET} if unknown. */
+  public long getVsyncDurationNs() {
+    return vsyncSampler != null ? vsyncSampler.vsyncDurationNs : C.TIME_UNSET;
+  }
+
   private void resetAdjustment() {
     lastAdjustedFrameIndex = C.INDEX_UNSET;
     pendingLastAdjustedFrameIndex = C.INDEX_UNSET;
