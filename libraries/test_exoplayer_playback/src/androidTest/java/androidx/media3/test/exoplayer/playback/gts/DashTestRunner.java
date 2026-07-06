@@ -20,10 +20,15 @@ import static androidx.media3.common.C.WIDEVINE_UUID;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
+import android.content.Context;
 import android.media.MediaDrm;
 import android.media.UnsupportedSchemeException;
+import android.os.Build;
+import android.view.Display;
 import android.view.Surface;
+import android.view.WindowManager;
 import android.widget.FrameLayout;
+import androidx.annotation.Nullable;
 import androidx.annotation.Size;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -35,8 +40,10 @@ import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.DecoderCounters;
+import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.RendererCapabilities;
+import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.dash.DashMediaSource;
 import androidx.media3.exoplayer.drm.DefaultDrmSessionManager;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
@@ -237,6 +244,8 @@ import java.util.List;
     private final DataSource.Factory dataSourceFactory;
 
     private boolean needsCddLimitedRetry;
+    private float displayRefreshRate = Format.NO_VALUE;
+    private float contentFrameRate = Format.NO_VALUE;
 
     /**
      * @param tag A tag to use for logging.
@@ -328,10 +337,23 @@ import java.util.List;
     @Override
     protected ExoPlayer buildExoPlayer(
         HostActivity host, Surface surface, MappingTrackSelector trackSelector) {
+      displayRefreshRate = getMaxDisplayRefreshRate(host);
       ExoPlayer player =
           new ExoPlayer.Builder(host, new DebugRenderersFactory(host))
               .setTrackSelector(trackSelector)
               .build();
+      player.addAnalyticsListener(
+          new AnalyticsListener() {
+            @Override
+            public void onVideoInputFormatChanged(
+                EventTime eventTime,
+                Format format,
+                @Nullable DecoderReuseEvaluation decoderReuseEvaluation) {
+              if (format != null && format.frameRate != Format.NO_VALUE) {
+                contentFrameRate = format.frameRate;
+              }
+            }
+          });
       player.setVideoSurface(surface);
       return player;
     }
@@ -371,8 +393,18 @@ import java.util.List;
         // We shouldn't have skipped any output buffers.
         DecoderCountersUtil.assertSkippedOutputBufferCount(
             tag + AUDIO_TAG_SUFFIX, audioCounters, 0);
+        int expectedSkips = 0;
+        int tolerance = 0;
+        if (displayRefreshRate > 0
+            && contentFrameRate != Format.NO_VALUE
+            && contentFrameRate > displayRefreshRate) {
+          double expectedSkipFraction = 1.0 - (double) displayRefreshRate / contentFrameRate;
+          int totalBuffers = DecoderCountersUtil.getTotalBufferCount(videoCounters);
+          expectedSkips = (int) (totalBuffers * expectedSkipFraction);
+          tolerance = Math.max(5, (int) (totalBuffers * 0.1f));
+        }
         DecoderCountersUtil.assertSkippedOutputBufferCount(
-            tag + VIDEO_TAG_SUFFIX, videoCounters, 0);
+            tag + VIDEO_TAG_SUFFIX, videoCounters, expectedSkips, tolerance);
         DecoderCountersUtil.assertTotalBufferCount(tag + AUDIO_TAG_SUFFIX, audioCounters);
         DecoderCountersUtil.assertTotalBufferCount(tag + VIDEO_TAG_SUFFIX, videoCounters);
       }
@@ -400,6 +432,29 @@ import java.util.List;
           throw e;
         }
       }
+    }
+
+    private static float getMaxDisplayRefreshRate(@Nullable Context context) {
+      if (context == null) {
+        return Format.NO_VALUE;
+      }
+      WindowManager windowManager =
+          (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+      if (windowManager == null || windowManager.getDefaultDisplay() == null) {
+        return Format.NO_VALUE;
+      }
+      Display display = windowManager.getDefaultDisplay();
+      float maxRefreshRate = display.getMode().getRefreshRate();
+      if (Build.VERSION.SDK_INT >= 31) {
+        for (float alternativeRefreshRate : display.getMode().getAlternativeRefreshRates()) {
+          maxRefreshRate = Math.max(maxRefreshRate, alternativeRefreshRate);
+        }
+      } else {
+        for (Display.Mode mode : display.getSupportedModes()) {
+          maxRefreshRate = Math.max(maxRefreshRate, mode.getRefreshRate());
+        }
+      }
+      return maxRefreshRate;
     }
   }
 

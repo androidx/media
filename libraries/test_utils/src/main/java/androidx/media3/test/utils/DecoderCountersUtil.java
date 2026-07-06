@@ -40,14 +40,38 @@ public final class DecoderCountersUtil {
         + counters.renderedOutputBufferCount;
   }
 
+  /**
+   * Asserts that the skipped output buffer count is {@code expected}.
+   *
+   * @param name The name of the decoder.
+   * @param counters The decoder counters.
+   * @param expected The expected number of skipped output buffers.
+   */
   public static void assertSkippedOutputBufferCount(
       String name, DecoderCounters counters, int expected) {
+    assertSkippedOutputBufferCount(name, counters, expected, /* tolerance= */ 0);
+  }
+
+  /**
+   * Asserts that the skipped output buffer count is within {@code tolerance} of {@code expected}.
+   *
+   * @param name The name of the decoder.
+   * @param counters The decoder counters.
+   * @param expected The expected number of skipped output buffers.
+   * @param tolerance The allowed tolerance around the expected count.
+   */
+  public static void assertSkippedOutputBufferCount(
+      String name, DecoderCounters counters, int expected, int tolerance) {
     counters.ensureUpdated();
     int actual = counters.skippedOutputBufferCount;
     assertWithMessage(
-            "Codec(%s) skipped an unexpected number of buffers. Counters:\n%s", name, counters)
+            "Codec(%s) skipped unexpected number of buffers (expected=%s, tolerance=%s)."
+                + " Counters:\n"
+                + "%s",
+            name, expected, tolerance, counters)
         .that(actual)
-        .isEqualTo(expected);
+        .isWithin(tolerance)
+        .of(expected);
   }
 
   /** Asserts that the input and output values in {@code counters} are self-consistent. */

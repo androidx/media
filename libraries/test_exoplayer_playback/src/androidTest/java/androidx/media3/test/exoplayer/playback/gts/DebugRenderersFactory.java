@@ -110,10 +110,7 @@ import java.util.ArrayList;
               .setEventHandler(eventHandler)
               .setEventListener(eventListener)
               .setMaxDroppedFramesToNotify(maxDroppedFrameCountToNotify)
-              .setCodecAdapterFactory(codecAdapterFactory)
-              // TODO: b/321230611 - Remove this override when 'late' buffers that result in
-              // identical release timestamps are reported as 'dropped' instead of 'skipped'.
-              .setSkipBuffersWithIdenticalReleaseTime(false));
+              .setCodecAdapterFactory(codecAdapterFactory));
       timestampsList = new long[ARRAY_SIZE];
     }
 
