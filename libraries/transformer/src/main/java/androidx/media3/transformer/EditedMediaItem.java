@@ -412,7 +412,10 @@ public final class EditedMediaItem {
    */
   @RestrictTo(Scope.LIBRARY_GROUP)
   public long getPresentationDurationUs() {
-    checkState(durationUs != C.TIME_UNSET);
+    checkState(
+        durationUs != C.TIME_UNSET,
+        "durationUs must be set via EditedMediaItem.Builder.setDurationUs() for"
+            + " CompositionPlayer.");
     if (presentationDurationUs == C.TIME_UNSET) {
       presentationDurationUs = getClippedDuration(mediaItem.clippingConfiguration, durationUs);
 
