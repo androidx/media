@@ -89,6 +89,7 @@ import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -102,7 +103,7 @@ import org.mockito.junit.MockitoRule;
 public final class PreloadMediaSourceTest {
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
 
-  private static final int LOADING_CHECK_INTERVAL_BYTES = 32;
+  private static final int LOADING_CHECK_INTERVAL_BYTES = 1024;
   private static final int TARGET_PRELOAD_DURATION_US = 10000;
   private static final int LARGE_TARGET_BUFFER_BYTES_FOR_PRELOAD = Integer.MAX_VALUE;
   private static final int SMALL_TARGET_BUFFER_BYTES_FOR_PRELOAD = 1024;
@@ -112,6 +113,7 @@ public final class PreloadMediaSourceTest {
   private RenderersFactory renderersFactory;
   private MediaItem mediaItem;
   @Mock private PreloadMediaSource.PreloadControl mockPreloadControl;
+  @Nullable private PreloadMediaSource preloadMediaSource;
 
   @Before
   public void setUp() {
@@ -144,6 +146,13 @@ public final class PreloadMediaSourceTest {
     when(mockPreloadControl.onContinueLoadingRequested(any(), anyLong())).thenReturn(true);
   }
 
+  @After
+  public void tearDown() {
+    if (preloadMediaSource != null) {
+      preloadMediaSource.releasePreloadMediaSource();
+    }
+  }
+
   @Test
   public void preload_loadPeriodToTargetPreloadPosition() throws Exception {
     AtomicBoolean preloadTerminated = new AtomicBoolean();
@@ -173,7 +182,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             loadControl,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     runMainLooperUntil(preloadTerminated::get);
@@ -213,7 +222,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             loadControl,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     runMainLooperUntil(preloadTerminated::get);
@@ -252,7 +261,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             loadControl,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     runMainLooperUntil(preloadTerminated::get);
@@ -280,7 +289,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             loadControl,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     MediaSource.MediaSourceCaller externalCaller = mock(MediaSource.MediaSourceCaller.class);
     preloadMediaSource.prepareSource(externalCaller, PlayerId.UNSET, bandwidthMeter);
@@ -321,7 +330,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             loadControl,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     runMainLooperUntil(preloadTerminated::get);
@@ -343,15 +352,16 @@ public final class PreloadMediaSourceTest {
   }
 
   @Test
-  public void preload_withSmallTargetBufferBytesThreshold_onLoadingUnableToContinueCalled() {
+  public void preload_withSmallTargetBufferBytesThreshold_onLoadingUnableToContinueCalled()
+      throws Exception {
     AtomicBoolean preloadTerminated = new AtomicBoolean();
     doAnswer(
             invocation -> {
               preloadTerminated.set(true);
-              return null;
+              return false;
             })
         .when(mockPreloadControl)
-        .onLoadedToTheEndOfSource(any());
+        .onLoadingUnableToContinue(any());
     ProgressiveMediaSource.Factory mediaSourceFactory =
         new ProgressiveMediaSource.Factory(
             new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()));
@@ -376,11 +386,11 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             loadControl,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
 
-    assertThrows(TimeoutException.class, () -> runMainLooperUntil(preloadTerminated::get));
+    runMainLooperUntil(preloadTerminated::get);
     verify(loadControl).onPrepared(PlayerId.PRELOAD);
     verify(mockPreloadControl).onSourcePrepared(eq(preloadMediaSource));
     verify(mockPreloadControl).onTracksSelected(eq(preloadMediaSource));
@@ -449,7 +459,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             loadControl,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     runMainLooperUntil(() -> preloadExceptionReference.get() != null);
@@ -534,7 +544,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             loadControl,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     runMainLooperUntil(() -> preloadExceptionReference.get() != null);
@@ -646,7 +656,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             loadControl,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     runMainLooperUntil(() -> preloadExceptionReference.get() != null);
@@ -677,7 +687,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             loadControl,
             preloadThread.getLooper());
-    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     assertThrows(
         IllegalStateException.class,
@@ -703,7 +713,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             loadControl,
             preloadThread.getLooper());
-    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
     preloadMediaSource.preload(/* startPositionUs= */ C.TIME_UNSET);
     shadowOf(preloadThread.getLooper()).idle();
 
@@ -731,7 +741,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             loadControl,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
     FakeMediaSource wrappedMediaSource = mediaSourceFactory.getLastCreatedSource();
     wrappedMediaSource.setAllowPreparation(false);
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
@@ -761,7 +771,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             loadControl,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
@@ -828,7 +838,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             loadControl,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
@@ -905,7 +915,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             loadControl,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
@@ -969,7 +979,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             loadControl,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
 
@@ -1020,7 +1030,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             loadControl,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
 
@@ -1077,7 +1087,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             loadControl,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
 
@@ -1122,7 +1132,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             loadControl,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
     AtomicBoolean externalCallerSourceInfoRefreshedCalled = new AtomicBoolean();
     MediaSource.MediaSourceCaller externalCaller =
         (source, timeline) -> externalCallerSourceInfoRefreshedCalled.set(true);
@@ -1171,7 +1181,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             loadControl,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
     MediaSource.MediaSourceCaller externalCaller = mock(MediaSource.MediaSourceCaller.class);
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
@@ -1221,7 +1231,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             loadControl,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
     AtomicBoolean externalCaller1SourceInfoRefreshedCalled = new AtomicBoolean();
     AtomicBoolean externalCaller2SourceInfoRefreshedCalled = new AtomicBoolean();
     MediaSource.MediaSourceCaller externalCaller1 =
@@ -1275,7 +1285,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             loadControl,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
     preloadMediaSource.releasePreloadMediaSource();
@@ -1322,7 +1332,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             loadControl,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
     MediaSource.MediaSourceCaller externalCaller = mock(MediaSource.MediaSourceCaller.class);
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
