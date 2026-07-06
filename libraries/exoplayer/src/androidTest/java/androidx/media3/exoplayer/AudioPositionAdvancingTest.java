@@ -35,7 +35,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -185,13 +184,12 @@ public class AudioPositionAdvancingTest {
     getInstrumentation().runOnMainSync(() -> player.get().release());
   }
 
-  @Ignore("Flaky: b/493133077")
   @Test
   public void playFromStart_reportedStartTimeEventuallyMatchesPlaybackPosition() throws Exception {
-    // Try up to two times as the audio track behavior is not fully reliable and can't be
-    // controlled, which results in a 1-2% flakiness rate.
+    // Try up to 5 times (retrying 4 times) as looper message dispatch delay between the internal
+    // playback thread and the main looper on slow emulators can occasionally exceed 50 ms.
     repeatFlakyTest(
-        /* maxRepetitions= */ 2,
+        /* maxRepetitions= */ 5,
         () -> {
           MediaItem mediaItem = MediaItem.fromUri("asset:///media/mp3/bear-id3.mp3");
           AtomicLong reportedStartSystemTimeMs = new AtomicLong();
@@ -247,8 +245,13 @@ public class AudioPositionAdvancingTest {
               .that(playbackException.get())
               .isNull();
           assertThat(calculationMessageHandled.block(TIMEOUT_MS)).isTrue();
+          // The message callback runs on the main looper, where System.currentTimeMillis() is
+          // evaluated after looper scheduling delay, while player.getCurrentPosition() returns the
+          // position sampled when the message was scheduled on the internal playback thread. This
+          // looper dispatch delay can easily exceed tens of milliseconds on slow emulators, so we
+          // use 50 ms.
           assertThat(reportedStartSystemTimeMs.get())
-              .isWithin(10)
+              .isWithin(50)
               .of(calculatedStartSystemTimeMs.get());
 
           getInstrumentation().runOnMainSync(() -> playerRef.get().release());
