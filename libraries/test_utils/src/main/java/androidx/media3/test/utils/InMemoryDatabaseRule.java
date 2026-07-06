@@ -15,6 +15,8 @@
  */
 package androidx.media3.test.utils;
 
+import static com.google.common.base.StandardSystemProperty.JAVA_IO_TMPDIR;
+
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import androidx.media3.common.util.UnstableApi;
@@ -22,6 +24,7 @@ import androidx.media3.database.DatabaseProvider;
 import androidx.media3.database.DefaultDatabaseProvider;
 import androidx.media3.datasource.cache.NoOpCacheEvictor;
 import androidx.media3.datasource.cache.SimpleCache;
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,8 +54,27 @@ public final class InMemoryDatabaseRule implements TestRule {
   public static InMemoryDatabaseRule create() {
     TemporaryFolder temporaryFolder = new TemporaryFolder();
     RuleImpl ruleImpl = new RuleImpl(temporaryFolder);
+    ExternalResource tmpDirSetupResource =
+        new ExternalResource() {
+          @Override
+          protected void before() throws Throwable {
+            // On some Android environments, particularly physical devices on clean runs, the
+            // directory returned by JAVA_IO_TMPDIR may not exist, causing issues with
+            // TemporaryFolder.
+            String tmpDirProperty = JAVA_IO_TMPDIR.value();
+            if (tmpDirProperty != null) {
+              File tmpDir = new File(tmpDirProperty);
+              if (!tmpDir.exists()) {
+                if (!tmpDir.mkdirs()) {
+                  throw new IOException("Failed to create java.io.tmpdir: " + tmpDir);
+                }
+              }
+            }
+          }
+        };
     return new InMemoryDatabaseRule(
-        ruleImpl, RuleChain.outerRule(temporaryFolder).around(ruleImpl));
+        ruleImpl,
+        RuleChain.outerRule(tmpDirSetupResource).around(temporaryFolder).around(ruleImpl));
   }
 
   @Override
