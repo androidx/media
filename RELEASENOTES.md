@@ -1,14 +1,14 @@
 # Release notes
 
-### Unreleased changes
+### 1.11.0-beta01 (2026-07-08)
 
-*   Common Library:
+This release includes the following changes since
+[1.11.0-alpha01](#1110-alpha01-2026-06-23):
+
 *   ExoPlayer:
     *   Add `Format.selectionPriority` representing the relative preference of
         the `Format` in track selection
         ([#3236](https://github.com/androidx/media/pull/3236)).
-*   CompositionPlayer:
-*   Transformer:
 *   Track Selection:
     *   Fix a timing-dependent concurrency issue where rapid sequential updates
         to track selection parameters could result in some updates being lost or
@@ -21,8 +21,6 @@
     *   MP3: Adjust LAME/Xing encoder delay and padding metadata to match
         decoded PCM trimming
         ([#3200](https://github.com/androidx/media/pull/3200)).
-*   Inspector:
-*   Inspector Frame:
 *   Audio:
     *   Remove fallback path of EAC3-JOC to EAC3 for playback on Google Pixel
         devices as their standard EAC3 decoders cannot decode EAC3-JOC streams
@@ -31,15 +29,6 @@
     *   Fix bug in `VideoFrameReleaseHelper` where display changes could trigger
         redundant `Choreographer` callbacks and excessive CPU wakeups on the
         main thread.
-*   Text:
-*   Metadata:
-*   Image:
-*   DataSource:
-*   DRM:
-*   Effect:
-*   Effect Lottie:
-*   Muxers:
-*   IMA extension:
 *   Session:
     *   Fix double-downscaling of artwork in `MediaSession` when the image size
         is close to the platform limit, resolving blurriness in notifications
@@ -57,10 +46,6 @@
         `PresentationState` that caused crashes on timelines that do not support
         period UID lookup
         ([#3264](https://github.com/androidx/media/issues/3264)).
-*   Downloads:
-*   OkHttp extension:
-*   Cronet extension:
-*   RTMP extension:
 *   HLS extension:
     *   Parse `SCORE` attribute of `EXT-X-STREAM-INF` and
         `EXT-X-I-FRAME-STREAM-INF`, and populate it to
@@ -73,8 +58,6 @@
     *   Add support for parsing multiple `Location` elements from the manifest
         (MPD) and performing location fallback in `DashMediaSource` when
         manifest loads fail.
-*   Smooth Streaming extension:
-*   RTSP extension:
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
     *   Add monochrome video support to bundled dav1d JNI.
 *   MIDI extension:
@@ -99,8 +82,6 @@
 *   Remove deprecated symbols:
     *   Remove `androidx.media3.common.C.generateAudioSessionIdV21`. Use
         `androidx.media3.common.util.Util.generateAudioSessionId` instead.
-
-## 1.11
 
 ### 1.11.0-alpha01 (2026-06-23)
 
