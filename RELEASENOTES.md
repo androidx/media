@@ -60,8 +60,6 @@ This release includes the following changes since
         manifest loads fail.
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
     *   Add monochrome video support to bundled dav1d JNI.
-*   MIDI extension:
-*   Leanback extension:
 *   Cast extension:
     *   Add `MediaRouteButtonState` and `rememberMediaRouteButtonState` to
         support observing the visibility state of the media route picker, and
