@@ -96,7 +96,6 @@ import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -320,7 +319,6 @@ public final class DashPlaybackTest {
    * at this transition.
    */
   @Test
-  @Ignore("Flaky: b/514594662")
   public void webvttInMp4_transientLoadError_playbackContinues() throws Exception {
     MockWebServer mockWebServer = new MockWebServer();
     WebServerDispatcher webServerDispatcher =
@@ -352,9 +350,13 @@ public final class DashPlaybackTest {
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
         new CapturingRenderersFactory(applicationContext, clock);
+    // Disable stuck buffering detection because the test setup requires a player in the buffering
+    // state and waiting for the subtitle load, inevitably causing a potential race between the
+    // simulated time and real time.
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
+            .setStuckBufferingDetectionTimeoutMs(Integer.MAX_VALUE)
             .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
