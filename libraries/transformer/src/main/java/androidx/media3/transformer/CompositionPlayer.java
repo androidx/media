@@ -856,7 +856,9 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
     composition = applyPreProcessingEffects(composition);
 
-    if (composition.sequences.size() > 1 && !videoGraphFactory.supportsMultipleInputs()) {
+    if (composition.sequences.size() > 1
+        && frameProcessor == null
+        && !videoGraphFactory.supportsMultipleInputs()) {
       Log.w(TAG, "Setting multi-sequence Composition with single input video graph.");
     }
 
