@@ -665,8 +665,10 @@ import java.util.regex.Pattern;
         trickPlayProperty = findTrickPlayProperty(adaptationSet.supplementalProperties);
       }
       if (trickPlayProperty != null) {
-        long mainAdaptationSetId = Long.parseLong(trickPlayProperty.value);
-        @Nullable Integer mainAdaptationSetIndex = adaptationSetIdToIndex.get(mainAdaptationSetId);
+        String mainAdaptationSetId = Util.splitAtFirst(trickPlayProperty.value, "\\s+")[0];
+        @Nullable
+        Integer mainAdaptationSetIndex =
+            adaptationSetIdToIndex.get(Long.parseLong(mainAdaptationSetId));
         if (mainAdaptationSetIndex != null
             && canMergeAdaptationSets(adaptationSet, adaptationSets.get(mainAdaptationSetIndex))) {
           mergedGroupIndex = mainAdaptationSetIndex;

@@ -154,6 +154,24 @@ public final class DashMediaPeriodTest {
   }
 
   @Test
+  public void trickPlayProperty_withMultipleIds_mergesTrackGroups() throws IOException {
+    DashManifest manifest = parseManifest("media/mpd/sample_mpd_trick_play_property_multiple_ids");
+    DashMediaPeriod dashMediaPeriod = createDashMediaPeriod(manifest, 0);
+    List<AdaptationSet> adaptationSets = manifest.getPeriod(0).adaptationSets;
+
+    TrackGroupArray expectedTrackGroups =
+        new TrackGroupArray(
+            new TrackGroup(
+                /* id= */ "3000000000",
+                adaptationSets.get(0).representations.get(0).format,
+                adaptationSets.get(0).representations.get(1).format,
+                adaptationSets.get(1).representations.get(0).format,
+                adaptationSets.get(2).representations.get(0).format));
+
+    MediaPeriodAsserts.assertTrackGroups(dashMediaPeriod, expectedTrackGroups);
+  }
+
+  @Test
   public void trickPlayProperty_withIncompatibleFormats_mergesOnlyCompatibleTrackGroups()
       throws IOException {
     DashManifest manifest = parseManifest("media/mpd/sample_mpd_trick_play_property_incompatible");
