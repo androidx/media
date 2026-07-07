@@ -16,6 +16,10 @@
         newly enabled mid-playback.
 *   CompositionPlayer:
 *   Transformer:
+    *   Fix a segmentation fault during release by introducing
+        `AssetLoader.stop()` and `AssetLoader.isStopped()` methods to verify
+        that data production has halted before releasing the output surface.
+        Custom `AssetLoader` implementations must implement these new methods.
 *   Track Selection:
 *   Extractors:
 *   Inspector:

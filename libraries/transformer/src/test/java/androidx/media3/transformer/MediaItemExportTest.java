@@ -61,6 +61,7 @@ import static org.mockito.Mockito.verify;
 import android.content.Context;
 import android.media.MediaCrypto;
 import android.media.MediaFormat;
+import android.media.metrics.LogSessionId;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -98,15 +99,22 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
@@ -1480,6 +1488,195 @@ public final class MediaItemExportTest {
   }
 
   @Test
+  public void cancel_releasesResourcesInCorrectOrder() throws Exception {
+    shadowMediaCodecConfig.addDecoders(CODEC_INFO_AMR_NB);
+    shadowMediaCodecConfig.addEncoders(CODEC_INFO_AAC);
+    List<String> events = Collections.synchronizedList(new ArrayList<>());
+    AtomicReference<AssetLoader> assetLoaderRef = new AtomicReference<>();
+    AtomicBoolean decoderUsed = new AtomicBoolean();
+    AtomicBoolean encoderUsed = new AtomicBoolean();
+    AtomicBoolean completed = new AtomicBoolean();
+    AtomicReference<ExportException> exportExceptionRef = new AtomicReference<>();
+    FakeClock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    Codec.DecoderFactory verifyingDecoderFactory =
+        new Codec.DecoderFactory() {
+          private final Codec.DecoderFactory delegate =
+              new DefaultDecoderFactory.Builder(context).build();
+
+          @Override
+          public Codec createForAudioDecoding(Format format, @Nullable LogSessionId logSessionId)
+              throws ExportException {
+            Codec codec = delegate.createForAudioDecoding(format, logSessionId);
+            return createVerifyingProxy(
+                codec,
+                Codec.class,
+                method -> {
+                  if (method.getName().equals("release")) {
+                    events.add("decoder-release");
+                  } else if (method.getName().equals("maybeDequeueInputBuffer")) {
+                    decoderUsed.set(true);
+                  }
+                });
+          }
+
+          @Override
+          public Codec createForVideoDecoding(
+              Format format,
+              Surface outputSurface,
+              boolean requestSdrToneMapping,
+              @Nullable LogSessionId logSessionId)
+              throws ExportException {
+            Codec codec =
+                delegate.createForVideoDecoding(
+                    format, outputSurface, requestSdrToneMapping, logSessionId);
+            return createVerifyingProxy(
+                codec,
+                Codec.class,
+                method -> {
+                  if (method.getName().equals("release")) {
+                    events.add("decoder-release");
+                  } else if (method.getName().equals("maybeDequeueInputBuffer")) {
+                    decoderUsed.set(true);
+                  }
+                });
+          }
+        };
+    AssetLoader.Factory verifyingAssetLoaderFactory =
+        new AssetLoader.Factory() {
+          private final AssetLoader.Factory delegate =
+              new ExoPlayerAssetLoader.Factory(context, verifyingDecoderFactory, fakeClock);
+
+          @Override
+          public AssetLoader createAssetLoader(
+              EditedMediaItem editedMediaItem,
+              Looper looper,
+              AssetLoader.Listener listener,
+              AssetLoader.CompositionSettings compositionSettings) {
+            AssetLoader assetLoader =
+                delegate.createAssetLoader(editedMediaItem, looper, listener, compositionSettings);
+            assetLoaderRef.set(assetLoader);
+            return createVerifyingProxy(
+                assetLoader,
+                AssetLoader.class,
+                method -> {
+                  if (method.getName().equals("stop")) {
+                    events.add("loader-stop");
+                  }
+                });
+          }
+        };
+    Codec.EncoderFactory verifyingEncoderFactory =
+        new Codec.EncoderFactory() {
+          private final Codec.EncoderFactory delegate =
+              new DefaultEncoderFactory.Builder(context).build();
+
+          @Override
+          public Codec createForAudioEncoding(Format format, @Nullable LogSessionId logSessionId)
+              throws ExportException {
+            Codec codec = delegate.createForAudioEncoding(format, logSessionId);
+            return createVerifyingProxy(
+                codec,
+                Codec.class,
+                method -> {
+                  if (method.getName().equals("release")) {
+                    if (assetLoaderRef.get() != null) {
+                      events.add(
+                          "loader-stopped-before-encoder-release:"
+                              + assetLoaderRef.get().isStopped());
+                    }
+                    events.add("encoder-release");
+                  } else if (method.getName().equals("maybeDequeueInputBuffer")) {
+                    encoderUsed.set(true);
+                  }
+                });
+          }
+
+          @Override
+          public Codec createForVideoEncoding(Format format, @Nullable LogSessionId logSessionId)
+              throws ExportException {
+            Codec codec = delegate.createForVideoEncoding(format, logSessionId);
+            return createVerifyingProxy(
+                codec,
+                Codec.class,
+                method -> {
+                  if (method.getName().equals("release")) {
+                    if (assetLoaderRef.get() != null) {
+                      events.add(
+                          "loader-stopped-before-encoder-release:"
+                              + assetLoaderRef.get().isStopped());
+                    }
+                    events.add("encoder-release");
+                  } else if (method.getName().equals("maybeDequeueInputBuffer")) {
+                    encoderUsed.set(true);
+                  }
+                });
+          }
+        };
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setAssetLoaderFactory(verifyingAssetLoaderFactory)
+            .setEncoderFactory(verifyingEncoderFactory)
+            .setClock(fakeClock)
+            .setAudioMimeType(MimeTypes.AUDIO_AAC)
+            .build();
+    transformer.addListener(
+        new Transformer.Listener() {
+          @Override
+          public void onCompleted(Composition composition, ExportResult exportResult) {
+            completed.set(true);
+          }
+
+          @Override
+          public void onError(
+              Composition composition, ExportResult exportResult, ExportException exportException) {
+            exportExceptionRef.set(exportException);
+          }
+        });
+
+    transformer.start(
+        MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_AMR_NB), outputDir.newFile().getPath());
+    runLooperUntil(
+        transformer.getApplicationLooper(),
+        () ->
+            (encoderUsed.get() && decoderUsed.get())
+                || completed.get()
+                || exportExceptionRef.get() != null);
+    if (exportExceptionRef.get() != null) {
+      throw new AssertionError(exportExceptionRef.get());
+    }
+
+    transformer.cancel();
+
+    // Assert correct order: stop AssetLoader -> release encoder (in SampleExporter release) ->
+    // release decoder (in AssetLoader release)
+    assertThat(events)
+        .containsExactly(
+            "loader-stop",
+            "loader-stopped-before-encoder-release:true",
+            "encoder-release",
+            "decoder-release")
+        .inOrder();
+  }
+
+  // Safe because the proxy is created for the interface clazz of type T.
+  @SuppressWarnings("unchecked")
+  private static <T> T createVerifyingProxy(
+      T delegate, Class<T> clazz, Consumer<Method> onMethodInvoked) {
+    return (T)
+        Proxy.newProxyInstance(
+            clazz.getClassLoader(),
+            new Class<?>[] {clazz},
+            (proxy, method, args) -> {
+              onMethodInvoked.accept(method);
+              try {
+                return method.invoke(delegate, args);
+              } catch (InvocationTargetException e) {
+                throw e.getCause();
+              }
+            });
+  }
+
+  @Test
   @Config(minSdk = 30)
   // This test requires Android SDK >= 30 for MediaMuxer negative PTS support.
   public void transmux_audioWithEditList_api30_correctDuration() throws Exception {
@@ -1682,6 +1879,7 @@ public final class MediaItemExportTest {
     private final AssetLoader.Listener listener;
     private final @SupportedOutputTypes int supportedOutputTypes;
     @Nullable private final AtomicReference<SampleConsumer> sampleConsumerRef;
+    private boolean isStopped;
 
     public FakeAssetLoader(
         Listener listener,
@@ -1727,6 +1925,18 @@ public final class MediaItemExportTest {
     }
 
     @Override
-    public void release() {}
+    public void stop() {
+      isStopped = true;
+    }
+
+    @Override
+    public boolean isStopped() {
+      return isStopped;
+    }
+
+    @Override
+    public void release() {
+      isStopped = true;
+    }
   }
 }

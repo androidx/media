@@ -20,7 +20,10 @@ import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.createCodecPro
 import android.annotation.SuppressLint;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecProfileLevel;
+import android.media.MediaCrypto;
 import android.media.MediaFormat;
+import android.view.Surface;
+import androidx.annotation.Nullable;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
@@ -399,6 +402,17 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
               /* inputBufferSize= */ bufferSize,
               /* outputBufferSize= */ bufferSize,
               /* codec= */ this));
+    }
+
+    @Override
+    public void onConfigured(
+        MediaFormat format, @Nullable Surface surface, @Nullable MediaCrypto crypto, int flags) {
+      if (!isEncoder && MimeTypes.isAudio(codecInfo.mimeType)) {
+        // The format parameter is a mutable MediaFormat passed by the Robolectric shadow framework
+        // when the application calls MediaCodec.configure(). Mutating it here changes the format
+        // that the shadow codec reports as its output format.
+        format.setString(MediaFormat.KEY_MIME, MimeTypes.AUDIO_RAW);
+      }
     }
 
     @Override

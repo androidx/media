@@ -204,6 +204,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
+  public void stop() {
+    currentAssetLoader.stop();
+  }
+
+  @Override
+  public boolean isStopped() {
+    return currentAssetLoader.isStopped();
+  }
+
+  @Override
   public void release() {
     currentAssetLoader.release();
     released = true;
@@ -750,6 +760,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     private boolean producedAudio;
     private boolean producedVideo;
+    private boolean isStopped;
 
     private GapSignalingAssetLoader(long durationUs) {
       this.durationUs = durationUs;
@@ -800,7 +811,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     @Override
-    public void release() {}
+    public void stop() {
+      isStopped = true;
+    }
+
+    @Override
+    public boolean isStopped() {
+      return isStopped;
+    }
+
+    @Override
+    public void release() {
+      isStopped = true;
+    }
 
     /** Outputs the gap format, scheduling to try again if unsuccessful. */
     private void outputFormatToSequenceAssetLoader() {

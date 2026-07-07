@@ -197,6 +197,17 @@ public interface AssetLoader {
    */
   ImmutableMap<Integer, String> getDecoderNames();
 
+  /**
+   * Stops loading data, without releasing resources.
+   *
+   * <p>Implementations must ensure no further data is output after this method has been processed
+   * (which can be checked using {@link #isStopped()}).
+   */
+  void stop();
+
+  /** Returns whether the asset loader has stopped loading data. */
+  boolean isStopped();
+
   /** Stops loading data and releases all resources associated with the asset loader. */
   void release();
 }
