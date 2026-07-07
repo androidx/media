@@ -89,6 +89,9 @@ data class Media(
   val uri: String,
   val selectedEffects: Set<String> = emptySet(),
   val speed: Float = 1.0f,
+  val clipStartUs: Long = 0L,
+  val clipEndUs: Long = Long.MAX_VALUE,
+  val originalDurationUs: Long = durationUs,
 ) : Item {
   override fun copy(): Item =
     copy(
@@ -97,6 +100,9 @@ data class Media(
       uri = uri,
       selectedEffects = selectedEffects,
       speed = speed,
+      clipStartUs = clipStartUs,
+      clipEndUs = clipEndUs,
+      originalDurationUs = originalDurationUs,
     )
 }
 

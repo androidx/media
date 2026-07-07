@@ -491,13 +491,42 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
         return@launch
       }
 
-      val newItem =
-        Media(
-          durationUs = durationUs,
-          title = displayName,
-          uri = uri.toString(),
-          selectedEffects = emptySet(),
+      val uriString = uri.toString()
+      val newItems = mutableListOf<Media>()
+      if (durationUs > SPLIT_THRESHOLD_US) {
+        newItems.add(
+          Media(
+            durationUs = SPLIT_THRESHOLD_US,
+            title = "$displayName (part 1)",
+            uri = uriString,
+            selectedEffects = emptySet(),
+            clipStartUs = 0L,
+            clipEndUs = SPLIT_THRESHOLD_US,
+            originalDurationUs = durationUs,
+          )
         )
+        newItems.add(
+          Media(
+            durationUs = durationUs - SPLIT_THRESHOLD_US,
+            title = "$displayName (part 2)",
+            uri = uriString,
+            selectedEffects = emptySet(),
+            clipStartUs = SPLIT_THRESHOLD_US,
+            clipEndUs = durationUs,
+            originalDurationUs = durationUs,
+          )
+        )
+        Log.i(TAG, "Split media \"$displayName\" at ${SPLIT_THRESHOLD_US / 1_000_000}s into 2 parts")
+      } else {
+        newItems.add(
+          Media(
+            durationUs = durationUs,
+            title = displayName,
+            uri = uriString,
+            selectedEffects = emptySet(),
+          )
+        )
+      }
 
       withContext(Dispatchers.Main) {
         _uiState.update { currentState ->
@@ -505,7 +534,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
             currentState.mediaState.selectedItemsBySequence.toMutableList()
           if (sequenceIndex < currentItemsBySequence.size) {
             val updatedItems = currentItemsBySequence[sequenceIndex].toMutableList()
-            updatedItems.add(newItem)
+            updatedItems.addAll(newItems)
             currentItemsBySequence[sequenceIndex] = updatedItems
           }
           currentState.copy(
@@ -776,11 +805,19 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
             sequenceBuilder.addGap(item.durationUs)
           }
           is Media -> {
-            val mediaItem =
+            val mediaItemBuilder =
               MediaItem.Builder()
                 .setUri(item.uri)
                 .setImageDurationMs(usToMs(item.durationUs)) // Ignored for audio/video
-                .build()
+            if (item.clipStartUs > 0L || item.clipEndUs < Long.MAX_VALUE) {
+              val clippingConfig =
+                MediaItem.ClippingConfiguration.Builder()
+                  .setStartPositionUs(item.clipStartUs)
+                  .setEndPositionUs(item.clipEndUs)
+                  .build()
+              mediaItemBuilder.setClippingConfiguration(clippingConfig)
+            }
+            val mediaItem = mediaItemBuilder.build()
             val effectsForItem = mutableListOf<Effect>()
             for (effectName in item.selectedEffects) {
               // TODO(b/433484977): Order of applied effects should be more clear in the UI
@@ -804,8 +841,9 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
                 // Required for image inputs. For video inputs, it sets the target FPS.
                 .setFrameRate(DEFAULT_FRAME_RATE_FPS)
                 // Setting duration explicitly is only required for preview with CompositionPlayer,
-                // and is not needed for export with Transformer.
-                .setDurationUs(item.durationUs)
+                // and is not needed for export with Transformer. When clipping is used, this must
+                // be the original media duration so getClippedDuration can compute correctly.
+                .setDurationUs(item.originalDurationUs)
             sequenceBuilder.addItem(itemBuilder.build())
           }
         }
@@ -1018,6 +1056,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     // and provide a stable, readable real-time playback FPS value in the UI.
     private const val FPS_TRACKING_DURATION_MS = 3000L
     private const val DEFAULT_IMAGE_DURATION_US = 1_000_000L
+    private const val SPLIT_THRESHOLD_US = 3_000_000L
     val MEDIA_TYPES = arrayOf("video/*", "image/*", "audio/*")
     val HDR_MODE_DESCRIPTIONS =
       mapOf(
