@@ -69,7 +69,7 @@ public final class VideoFrameReleaseHelper {
 
   private final Context context;
 
-  private boolean vsyncSampleBuilt;
+  private boolean vsyncSamplerBuilt;
   @Nullable private VSyncSampler vsyncSampler;
   private boolean started;
   @Nullable private Surface surface;
@@ -133,12 +133,12 @@ public final class VideoFrameReleaseHelper {
   public void onStarted() {
     started = true;
     resetAdjustment();
-    if (!vsyncSampleBuilt) {
+    if (!vsyncSamplerBuilt) {
       vsyncSampler = VSyncSampler.maybeBuildInstance(context);
       if (vsyncSampler != null) {
         vsyncSampler.listener = vsyncSamplerListener;
       }
-      vsyncSampleBuilt = true;
+      vsyncSamplerBuilt = true;
     }
     if (vsyncSampler != null) {
       vsyncSampler.register();
