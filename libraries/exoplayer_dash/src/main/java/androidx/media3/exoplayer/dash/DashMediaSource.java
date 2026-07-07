@@ -979,8 +979,12 @@ public final class DashMediaSource extends BaseMediaSource {
   private void resolveUtcTimingElementHttp(
       UtcTimingElement timingElement, ParsingLoadable.Parser<Long> parser) {
     startLoading(
-        new ParsingLoadable<>(
-            dataSource, Uri.parse(timingElement.value), C.DATA_TYPE_TIME_SYNCHRONIZATION, parser),
+        new ParsingLoadable.Builder<>(
+                dataSource,
+                Uri.parse(timingElement.value),
+                C.DATA_TYPE_TIME_SYNCHRONIZATION,
+                parser)
+            .build(),
         new UtcTimestampCallback(),
         1);
   }
@@ -1290,7 +1294,9 @@ public final class DashMediaSource extends BaseMediaSource {
       dataSpec = cmcdDataFactory.createCmcdData().addToDataSpec(dataSpec);
     }
     startLoading(
-        new ParsingLoadable<>(dataSource, dataSpec, C.DATA_TYPE_MANIFEST, manifestParser),
+        new ParsingLoadable.Builder<DashManifest>(
+                dataSource, dataSpec, C.DATA_TYPE_MANIFEST, manifestParser)
+            .build(),
         manifestCallback,
         loadErrorHandlingPolicy.getMinimumLoadableRetryCount(C.DATA_TYPE_MANIFEST));
   }

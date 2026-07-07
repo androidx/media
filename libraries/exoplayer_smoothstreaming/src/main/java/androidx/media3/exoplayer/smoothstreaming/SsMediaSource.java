@@ -706,7 +706,9 @@ public final class SsMediaSource extends BaseMediaSource
       dataSpec = cmcdDataFactory.createCmcdData().addToDataSpec(dataSpec);
     }
     ParsingLoadable<SsManifest> loadable =
-        new ParsingLoadable<>(manifestDataSource, dataSpec, C.DATA_TYPE_MANIFEST, manifestParser);
+        new ParsingLoadable.Builder<SsManifest>(
+                manifestDataSource, dataSpec, C.DATA_TYPE_MANIFEST, manifestParser)
+            .build();
     manifestLoader.startLoading(
         loadable, this, loadErrorHandlingPolicy.getMinimumLoadableRetryCount(loadable.type));
   }

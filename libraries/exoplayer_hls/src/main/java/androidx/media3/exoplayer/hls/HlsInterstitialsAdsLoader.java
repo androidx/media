@@ -1242,14 +1242,12 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       adPlaybackState =
           window.isLive()
               ? mapInterstitialsForLive(
-                  window.mediaItem,
                   mediaPlaylist,
                   adPlaybackState,
                   session,
                   window.positionInFirstPeriodUs,
                   window.defaultPositionUs)
               : mapInterstitialsForVod(
-                  window.mediaItem,
                   mediaPlaylist,
                   adPlaybackState,
                   session,
@@ -1395,11 +1393,12 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     cancelPendingAssetListResolutionMessage();
     getLoader()
         .startLoading(
-            new ParsingLoadable<>(
-                dataSourceFactory.createDataSource(),
-                checkNotNull(assetListData.interstitial.assetListUri),
-                C.DATA_TYPE_AD,
-                new AssetListParser()),
+            new ParsingLoadable.Builder<>(
+                    dataSourceFactory.createDataSource(),
+                    checkNotNull(assetListData.interstitial.assetListUri),
+                    C.DATA_TYPE_AD,
+                    new AssetListParser())
+                .build(),
             new LoaderCallback(assetListData),
             /* defaultMinRetryCount= */ 1);
     notifyListeners(
@@ -1576,7 +1575,6 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
   }
 
   private AdPlaybackState mapInterstitialsForLive(
-      MediaItem mediaItem,
       HlsMediaPlaylist mediaPlaylist,
       AdPlaybackState adPlaybackState,
       HlsAdSession session,
@@ -1636,7 +1634,6 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
         adPlaybackState =
             insertOrUpdateInterstitialInAdGroup(
                 mediaPlaylist,
-                mediaItem,
                 interstitial,
                 adPlaybackState,
                 /* adGroupIndex= */ insertionIndex,
@@ -1710,7 +1707,6 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
   }
 
   private AdPlaybackState mapInterstitialsForVod(
-      MediaItem mediaItem,
       HlsMediaPlaylist mediaPlaylist,
       AdPlaybackState adPlaybackState,
       HlsAdSession session,
@@ -1767,7 +1763,6 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
         adPlaybackState =
             insertOrUpdateInterstitialInAdGroup(
                 mediaPlaylist,
-                mediaItem,
                 interstitial,
                 adPlaybackState,
                 adGroupIndex,
@@ -1781,7 +1776,6 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
 
   private AdPlaybackState insertOrUpdateInterstitialInAdGroup(
       HlsMediaPlaylist mediaPlaylist,
-      MediaItem mediaItem,
       Interstitial interstitial,
       AdPlaybackState adPlaybackState,
       int adGroupIndex,

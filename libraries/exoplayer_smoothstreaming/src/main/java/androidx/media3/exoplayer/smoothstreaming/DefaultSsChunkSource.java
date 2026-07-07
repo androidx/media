@@ -412,7 +412,8 @@ public class DefaultSsChunkSource implements SsChunkSource {
             /* numberOfLocations= */ 1,
             /* numberOfExcludedLocations= */ 0,
             numberOfTracks,
-            numberOfExcludedTracks);
+            numberOfExcludedTracks,
+            /* locationSteeringActive= */ false);
     @Nullable
     FallbackSelection fallbackSelection =
         loadErrorHandlingPolicy.getFallbackSelectionFor(fallbackOptions, loadErrorInfo);

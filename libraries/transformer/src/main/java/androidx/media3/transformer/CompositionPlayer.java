@@ -1334,6 +1334,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
    */
   // TODO: b/449937111 - Delete this once Effects#createExperimentalSpeedAdjustingEffect() is
   // removed.
+  @SuppressWarnings("deprecation") // Uses deprecated TimestampAdjustment.
   private static EditedMediaItem deactivateSpeedAdjustingVideoEffects(EditedMediaItem item) {
     ImmutableList<Effect> videoEffects = item.effects.videoEffects;
     List<Effect> newVideoEffects = new ArrayList<>();
@@ -1581,6 +1582,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       frameAggregator =
           new FrameAggregator(
               composition.sequences.size(),
+              /* frameRate= */ null,
               videoPacketReleaseControl::queue,
               videoPacketReleaseControl::flush);
     }

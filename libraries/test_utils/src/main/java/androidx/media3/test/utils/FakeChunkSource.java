@@ -159,6 +159,7 @@ public class FakeChunkSource implements ChunkSource {
    *
    * <p>Subclasses can override this method to return custom {@link MediaChunk} implementations.
    */
+  @SuppressWarnings("deprecation") // Uses deprecated SingleSampleMediaChunk.
   protected MediaChunk createMediaChunk(
       DataSource dataSource,
       DataSpec dataSpec,

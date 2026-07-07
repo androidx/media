@@ -1183,7 +1183,7 @@ public final class MediaItemExportTest {
         context,
         muxerFactory.getCreatedMuxer(),
         getDumpFileName(
-            /* originalFileName= */ FILE_AUDIO_RAW_AAC, /* modifications= */ "transmuxed"));
+            /* originalFileName= */ FILE_AUDIO_RAW_AAC, /* modifications...= */ "transmuxed"));
   }
 
   @Test

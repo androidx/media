@@ -179,11 +179,12 @@ public final class SteeringManifestTracker {
     DataSpec dataSpec =
         new DataSpec.Builder().setUri(checkNotNull(steeringManifestUrlBuilder.build())).build();
     ParsingLoadable<SteeringManifest> steeringManifestLoadable =
-        new ParsingLoadable<>(
-            dataSourceFactory.createDataSource(),
-            dataSpec,
-            C.DATA_TYPE_STEERING_MANIFEST,
-            new SteeringManifestParser());
+        new ParsingLoadable.Builder<>(
+                dataSourceFactory.createDataSource(),
+                dataSpec,
+                C.DATA_TYPE_STEERING_MANIFEST,
+                new SteeringManifestParser())
+            .build();
     checkNotNull(steeringManifestLoader)
         .startLoading(
             steeringManifestLoadable,

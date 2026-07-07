@@ -69,6 +69,7 @@ public final class PacketConsumerToFrameProcessorAdapter implements FrameProcess
   }
 
   @Override
+  @SuppressWarnings("deprecation") // TODO: b/498547782 - Remove with effect.HardwareBufferFrame.
   public boolean queue(List<AsyncFrame> frames) {
     if (pendingException != null) {
       return false;

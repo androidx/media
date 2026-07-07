@@ -66,6 +66,7 @@ public final class TimestampAdjustment implements GlEffect {
   }
 
   @Override
+  @SuppressWarnings("deprecation") // Uses deprecated TimestampAdjustmentShaderProgram.
   public GlShaderProgram toGlShaderProgram(Context context, boolean useHdr) {
     return new TimestampAdjustmentShaderProgram(timestampMap);
   }

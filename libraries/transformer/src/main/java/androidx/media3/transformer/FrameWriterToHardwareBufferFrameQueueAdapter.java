@@ -102,6 +102,7 @@ public final class FrameWriterToHardwareBufferFrameQueueAdapter
   }
 
   @Override
+  @SuppressWarnings("deprecation") // TODO: b/498547782 - Remove with effect.HardwareBufferFrame.
   public void queue(HardwareBufferFrame frame) {
     HardwareBuffer hardwareBuffer = frame.hardwareBuffer;
     AsyncFrame asyncFrame =

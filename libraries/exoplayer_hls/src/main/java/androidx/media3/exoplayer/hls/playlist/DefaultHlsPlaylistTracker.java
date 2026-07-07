@@ -186,11 +186,12 @@ public final class DefaultHlsPlaylistTracker
       dataSpec = cmcdData.addToDataSpec(dataSpec);
     }
     ParsingLoadable<HlsPlaylist> multivariantPlaylistLoadable =
-        new ParsingLoadable<>(
-            dataSourceFactory.createDataSource(C.DATA_TYPE_MANIFEST),
-            dataSpec,
-            C.DATA_TYPE_MANIFEST,
-            playlistParserFactory.createPlaylistParser());
+        new ParsingLoadable.Builder<>(
+                dataSourceFactory.createDataSource(C.DATA_TYPE_MANIFEST),
+                dataSpec,
+                C.DATA_TYPE_MANIFEST,
+                playlistParserFactory.createPlaylistParser())
+            .build();
     checkState(initialPlaylistLoader == null);
     initialPlaylistLoader =
         downloadExecutorSupplier != null

@@ -108,6 +108,7 @@ import java.util.concurrent.Executor;
   }
 
   @Override
+  @SuppressWarnings("deprecation") // TODO: b/498547782 - Remove with effect.HardwareBufferFrame.
   public void queueInputFrame(Frame frame, @Nullable SyncFenceWrapper writeCompleteFence) {
     checkState(frame instanceof DefaultHardwareBufferFrame, "Expected DefaultHardwareBufferFrame");
     DefaultHardwareBufferFrame hardwareBufferFrame = (DefaultHardwareBufferFrame) frame;

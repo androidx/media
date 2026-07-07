@@ -455,6 +455,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         frameBuilder, presentationTimeUs, sequenceOffsetUs, itemIndex, format);
   }
 
+  @SuppressWarnings("deprecation") // TODO: b/498547782 - Remove with effect.HardwareBufferFrame.
   private HardwareBufferFrame createHardwareBufferFrame(
       HardwareBufferFrame.Builder frameBuilder,
       long presentationTimeUs,

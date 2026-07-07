@@ -661,7 +661,8 @@ public class DefaultDashChunkSource implements DashChunkSource {
         /* numberOfExcludedLocations= */ priorityCount
             - baseUrlExclusionList.getPriorityCountAfterExclusion(baseUrls),
         numberOfTracks,
-        numberOfExcludedTracks);
+        numberOfExcludedTracks,
+        /* locationSteeringActive= */ false);
   }
 
   private long getSegmentNum(

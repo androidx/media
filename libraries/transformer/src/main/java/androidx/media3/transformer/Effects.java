@@ -81,6 +81,7 @@ public final class Effects {
    *     timestamps.
    * @deprecated Use {@link EditedMediaItem.Builder#setSpeed(SpeedProvider)} instead.
    */
+  @SuppressWarnings("deprecation") // Uses deprecated TimestampAdjustment.
   @Deprecated
   public static Pair<AudioProcessor, Effect> createExperimentalSpeedChangingEffect(
       SpeedProvider speedProvider) {

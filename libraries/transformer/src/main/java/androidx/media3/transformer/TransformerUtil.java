@@ -355,6 +355,7 @@ public final class TransformerUtil {
    *
    * <p>If no speed changing effects are present, this method returns {@code true}.
    */
+  @SuppressWarnings("deprecation") // Uses deprecated TimestampAdjustment.
   public static boolean validateSpeedChangingEffects(Effects effects, SpeedProvider speedProvider) {
     if (!effects.audioProcessors.isEmpty()) {
       AudioProcessor firstProcessor = effects.audioProcessors.get(0);
@@ -385,6 +386,7 @@ public final class TransformerUtil {
    * SpeedChangingAudioProcessor} are ignored as first elements of the video and audio pipelines,
    * respectively.
    */
+  @SuppressWarnings("deprecation") // Uses deprecated SpeedChangeEffect and TimestampAdjustment.
   public static boolean containsSpeedChangingEffects(Effects effects, boolean ignoreFirstEffect) {
     for (int i = ignoreFirstEffect ? 1 : 0; i < effects.audioProcessors.size(); i++) {
       if (effects.audioProcessors.get(i) instanceof SpeedChangingAudioProcessor) {
