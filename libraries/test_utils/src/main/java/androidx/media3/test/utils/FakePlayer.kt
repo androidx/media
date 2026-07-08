@@ -27,6 +27,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
 import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.common.VideoSize
+import androidx.media3.common.text.CueGroup
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
 import androidx.media3.common.util.Util.getAvailableCommands
@@ -240,6 +241,16 @@ class FakePlayer(
    */
   fun setBufferedPositionMs(bufferedPositionMs: Long) {
     state = state.buildUpon().setContentBufferedPositionMs { bufferedPositionMs }.build()
+    invalidateState()
+  }
+
+  /**
+   * Sets the current cues.
+   *
+   * @param cues The current cues.
+   */
+  fun setCurrentCues(cues: CueGroup) {
+    state = state.buildUpon().setCurrentCues(cues).build()
     invalidateState()
   }
 

@@ -46,6 +46,8 @@
     *   Introduce `PresentationState.videoAspectRatio` and make
         `Modifier.resizeWithContentScale` take `aspectRatio: Float?` instead of
         `sourceSizeDp: Size?`.
+    *   Add `CuesState` class and `rememberCuesState` Composable to the
+        `media3-ui-compose` module for listening to player's current cues.
 *   Downloads:
     *   Resolve HLS variables in media playlist when fetched for download
         ([#3258](https://github.com/androidx/media/issues/3258)).
