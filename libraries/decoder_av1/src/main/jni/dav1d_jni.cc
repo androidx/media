@@ -66,17 +66,7 @@
   JNIEXPORT RETURN_TYPE Java_androidx_media3_decoder_av1_Dav1dDecoder_##NAME( \
       JNIEnv* env, jobject thiz, ##__VA_ARGS__)
 
-// If ANDROID_NATIVE_LIB_MERGING is set, rename JNI_OnLoad to
-// JNI_OnLoad_libdav1dJNI. The suffix has to be the same as "lib<rule_name>"
-// where <rule_name> is the name of the android_jni_library target. This lets
-// apps merge native libraries and reduce the binary size. See go/android_onelib
-// for details.
-#ifdef ANDROID_NATIVE_LIB_MERGING
-extern "C" JNIEXPORT jint JNICALL JNI_OnLoad_libdav1dJNI
-#else
-extern "C" JNIEXPORT jint JNICALL JNI_OnLoad
-#endif
-    (JavaVM* vm, void* reserved) {
+extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
   JNIEnv* env;
   if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
     return -1;
