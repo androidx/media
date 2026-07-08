@@ -1,5 +1,47 @@
 # Release notes
 
+### Unreleased changes
+
+*   Common Library:
+*   ExoPlayer:
+*   CompositionPlayer:
+*   Transformer:
+*   Track Selection:
+*   Extractors:
+*   Inspector:
+*   Inspector Frame:
+*   Audio:
+*   Video:
+*   Text:
+*   Metadata:
+*   Image:
+*   DataSource:
+*   DRM:
+*   Effect:
+*   Effect Lottie:
+*   Muxers:
+*   IMA extension:
+*   Session:
+*   UI:
+*   Downloads:
+    *   Resolve HLS variables in media playlist when fetched for download
+        ([#3258](https://github.com/androidx/media/issues/3258)).
+*   OkHttp extension:
+*   Cronet extension:
+*   RTMP extension:
+*   HLS extension:
+*   DASH extension:
+*   Smooth Streaming extension:
+*   RTSP extension:
+*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+*   MIDI extension:
+*   Leanback extension:
+*   Cast extension:
+*   Test Utilities:
+*   Remove deprecated symbols:
+
+## 1.11
+
 ### 1.11.0-beta01 (2026-07-08)
 
 This release includes the following changes since
