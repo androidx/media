@@ -15,7 +15,9 @@
  */
 package androidx.media3.effect;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.hardware.HardwareBuffer;
 import android.opengl.EGL14;
@@ -39,6 +41,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 
 /** Utility class containing fakes for GlFrameProcessor testing. */
@@ -83,18 +86,40 @@ public final class GlFrameProcessorTestUtil {
   public static final class FakeGlTextureFrameConsumer implements GlTextureFrameConsumer {
 
     public volatile boolean shouldAcceptIncomingFrames;
-    public int framesReceived;
-    public boolean signalEndOfStreamCalled;
+    public volatile int framesReceived;
+    public volatile boolean signalEndOfStreamCalled;
     @Nullable public Runnable wakeupListener;
     @Nullable public Executor listenerExecutor;
     @Nullable public GlTextureFrame lastReceivedFrame;
     @Nullable public FrameWriter frameWriter;
     @Nullable public VideoFrameProcessingException exceptionToThrowOnQueueing;
     @Nullable public RuntimeException runtimeExceptionToThrowOnQueueing;
+    @Nullable private volatile CountDownLatch framesReceivedLatch;
 
     public FakeGlTextureFrameConsumer(@Nullable FrameWriter frameWriter) {
       this.frameWriter = frameWriter;
       shouldAcceptIncomingFrames = true;
+    }
+
+    /**
+     * Sets the number of expected frames to be received.
+     *
+     * <p>This method must be called before the expected frames are queued.
+     */
+    public void setExpectedFrameCount(int count) {
+      this.framesReceivedLatch = new CountDownLatch(count);
+    }
+
+    public boolean awaitFramesReceived(long timeoutMs) {
+      if (framesReceivedLatch == null) {
+        return true;
+      }
+      try {
+        return checkNotNull(framesReceivedLatch).await(timeoutMs, MILLISECONDS);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        return false;
+      }
     }
 
     @Override
@@ -114,6 +139,9 @@ public final class GlFrameProcessorTestUtil {
       }
       lastReceivedFrame = frame;
       framesReceived++;
+      if (framesReceivedLatch != null) {
+        framesReceivedLatch.countDown();
+      }
       if (frameWriter != null) {
         frameWriter.queueInputFrame(null, null);
       }

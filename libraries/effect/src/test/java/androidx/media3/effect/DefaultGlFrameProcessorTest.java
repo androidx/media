@@ -599,10 +599,12 @@ public final class DefaultGlFrameProcessorTest {
       waitUntilGlThreadFinishes();
 
       // Now unblock downstream and trigger wakeup retry loop
+      fakeFrameWriterGlTextureFrameConsumer.setExpectedFrameCount(3);
       fakeFrameWriterGlTextureFrameConsumer.shouldAcceptIncomingFrames = true;
       fakeFrameWriterGlTextureFrameConsumer.triggerWakeup();
       assertThat(completedFramesLatch.await(SYNC_TIMEOUT_MS, MILLISECONDS)).isTrue();
-      waitUntilGlThreadFinishes();
+      assertThat(fakeFrameWriterGlTextureFrameConsumer.awaitFramesReceived(SYNC_TIMEOUT_MS))
+          .isTrue();
 
       assertThat(fakeFrameWriterGlTextureFrameConsumer.framesReceived).isEqualTo(3);
       // frame1C and frame2C bypass the preprocessor chain (no effects) and were initially rejected
@@ -906,12 +908,15 @@ public final class DefaultGlFrameProcessorTest {
           .isFalse();
 
       // Downstream is ready to accept frames now.
+      fakeFrameWriterGlTextureFrameConsumer.setExpectedFrameCount(2);
       fakeFrameWriterGlTextureFrameConsumer.shouldAcceptIncomingFrames = true;
       fakeFrameWriterGlTextureFrameConsumer.triggerWakeup();
 
       // Verify wakeup is notified.
       assertThat(latch.await(SYNC_TIMEOUT_MS, MILLISECONDS)).isTrue();
       assertThat(wakeupNotified).containsExactly(true);
+      assertThat(fakeFrameWriterGlTextureFrameConsumer.awaitFramesReceived(SYNC_TIMEOUT_MS))
+          .isTrue();
 
       // Verify that the first frame (frame0) and second frame (frame1) were accepted.
       assertThat(fakeFrameWriterGlTextureFrameConsumer.framesReceived).isEqualTo(2);
