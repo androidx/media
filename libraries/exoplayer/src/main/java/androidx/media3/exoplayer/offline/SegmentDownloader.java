@@ -394,6 +394,29 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
    */
   protected final M getManifest(DataSource dataSource, DataSpec dataSpec, boolean removing)
       throws InterruptedException, IOException {
+    return getManifest(dataSource, manifestParser, dataSpec, removing);
+  }
+
+  /**
+   * Loads and parses a manifest with a different parser than the base parser that parsed the
+   * initial manifest.
+   *
+   * <p>This is useful for cases where the manifest needs to be loaded and parsed as a different
+   * type than the base parser. For example, HLS manifests can be parsed as media playlists that
+   * inherit variable declarations from the multivariant playlist.
+   *
+   * @param dataSource The source to use when loading the manifest.
+   * @param manifestParser The parser to use when parsing the manifest.
+   * @param dataSpec The manifest {@link DataSpec}.
+   * @param removing Whether the manifest is being loaded as part of the download being removed.
+   * @return The loaded manifest.
+   * @throws InterruptedException If the thread on which the method is called is interrupted.
+   * @throws IOException If an error occurs during execution.
+   */
+  protected final M getManifest(
+      DataSource dataSource, Parser<M> manifestParser, DataSpec dataSpec, boolean removing)
+      throws InterruptedException, IOException {
+    checkNotNull(manifestParser);
     return execute(
         () ->
             new RunnableFutureTask<M, IOException>() {

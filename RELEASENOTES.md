@@ -47,6 +47,8 @@
         `Modifier.resizeWithContentScale` take `aspectRatio: Float?` instead of
         `sourceSizeDp: Size?`.
 *   Downloads:
+    *   Resolve HLS variables in media playlist when fetched for download
+        ([#3258](https://github.com/androidx/media/issues/3258)).
 *   OkHttp extension:
 *   Cronet extension:
 *   RTMP extension:
