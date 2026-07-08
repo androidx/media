@@ -305,5 +305,8 @@ void main() {
           ? vec4(applyBt2020ToBt709Ootf(opticalColorBt2020), 1.0)
           : vec4(scaleHdrLuminance(opticalColorBt2020), 1.0);
   vec4 transformedColors = uRgbMatrix * opticalColor;
-  outColor = vec4(applyOetf(transformedColors.rgb), 1.0);
+  vec3 clampedColors = (uApplyHdrToSdrToneMapping == 1)
+                           ? clamp(transformedColors.rgb, 0.0, 1.0)
+                           : max(transformedColors.rgb, 0.0);
+  outColor = vec4(applyOetf(clampedColors), 1.0);
 }
