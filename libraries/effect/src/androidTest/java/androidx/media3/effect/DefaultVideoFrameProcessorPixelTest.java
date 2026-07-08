@@ -26,8 +26,10 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.graphics.Matrix;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Effect;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Size;
@@ -86,6 +88,8 @@ public final class DefaultVideoFrameProcessorPixelTest {
       "test-generated-goldens/sample_mp4_first_frame/electrical_colors/increase_brightness.png";
   private static final String GRAYSCALE_THEN_INCREASE_RED_CHANNEL_PNG_ASSET_PATH =
       "test-generated-goldens/sample_mp4_first_frame/electrical_colors/grayscale_then_increase_red_channel.png";
+  private static final String TONE_MAP_PQ_REGISTER_INPUT_PNG_ASSET_PATH =
+      "test-generated-goldens/DefaultVideoFrameProcessorPixelTest/toneMap_pqRegisterInput.png";
 
   /** Input video of which we only use the first frame. */
   private static final String INPUT_SDR_MP4_ASSET_STRING = "media/mp4/sample.mp4";
@@ -154,6 +158,46 @@ public final class DefaultVideoFrameProcessorPixelTest {
     Bitmap actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
 
     // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
+    float averagePixelAbsoluteDifference =
+        getBitmapAveragePixelAbsoluteDifferenceArgb8888(expectedBitmap, actualBitmap, testId);
+    assertThat(averagePixelAbsoluteDifference).isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
+  }
+
+  @Test
+  public void toneMap_pqRegisterInput_matchesGoldenFile() throws Exception {
+    videoFrameProcessorTestRunner = getDefaultFrameProcessorTestRunnerBuilder(testId).build();
+
+    int width = 64;
+    int height = 64;
+    Bitmap inputBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+    // Use saturated primary colors (pure green and pure blue).
+    // In wide-gamut BT.2020 PQ space, saturated primaries lie outside the BT.709 color gamut.
+    // When tone-mapping to SDR (BT.709), applying the OOTF to these colors yields negative RGB
+    // component values in linear BT.709 space. Without clamping to 0.0 before applying the Gamma
+    // 2.2 OETF (pow(x, 1.0 / 2.2)), GLSL produces NaNs for pow(negative, fraction), causing severe
+    // rendering artifacts or corrupted output bitmaps.
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        if (x < width / 2) {
+          inputBitmap.setPixel(x, y, Color.GREEN);
+        } else {
+          inputBitmap.setPixel(x, y, Color.BLUE);
+        }
+      }
+    }
+
+    ColorInfo pqColorInfo =
+        new ColorInfo.Builder()
+            .setColorSpace(C.COLOR_SPACE_BT2020)
+            .setColorRange(C.COLOR_RANGE_FULL)
+            .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+            .build();
+
+    videoFrameProcessorTestRunner.queueInputBitmap(
+        inputBitmap, C.MICROS_PER_SECOND, /* offsetToAddUs= */ 0L, /* frameRate= */ 1, pqColorInfo);
+    videoFrameProcessorTestRunner.endFrameProcessing();
+    Bitmap actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
+    Bitmap expectedBitmap = readBitmap(TONE_MAP_PQ_REGISTER_INPUT_PNG_ASSET_PATH);
     float averagePixelAbsoluteDifference =
         getBitmapAveragePixelAbsoluteDifferenceArgb8888(expectedBitmap, actualBitmap, testId);
     assertThat(averagePixelAbsoluteDifference).isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
