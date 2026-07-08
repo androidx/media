@@ -581,6 +581,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Nullable private ImageMetadataListener imageMetadataListener;
     private @MonotonicNonNull Format outputFormat;
     private long streamOffsetUs;
+    private boolean listenerSet;
 
     public SequenceImageRenderer(ImageDecoder.Factory imageDecoderFactory, VideoSink videoSink) {
       super(imageDecoderFactory, ImageOutput.NO_OP);
@@ -600,17 +601,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           mayRenderStartOfStream
               ? RELEASE_FIRST_FRAME_IMMEDIATELY
               : RELEASE_FIRST_FRAME_WHEN_STARTED;
-      // TODO: b/328444280 - Unregister as a listener when the renderer is not used anymore
-      videoSink.setListener(
-          new VideoSink.Listener() {
-            @Override
-            public void onFrameAvailableForRendering() {
-              if (wakeupListener != null) {
-                wakeupListener.onWakeup();
-              }
-            }
-          },
-          directExecutor());
+      if (mayRenderStartOfStream) {
+        maybeSetVideoSinkListener();
+      }
+    }
+
+    @Override
+    protected void onStarted() throws ExoPlaybackException {
+      super.onStarted();
+      maybeSetVideoSinkListener();
+    }
+
+    @Override
+    protected void onDisabled() {
+      super.onDisabled();
+      listenerSet = false;
     }
 
     @Override
@@ -752,6 +757,23 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           break;
         default:
           super.handleMessage(messageType, message);
+      }
+    }
+
+    private void maybeSetVideoSinkListener() {
+      if (!listenerSet) {
+        // TODO: b/328444280 - Unregister as a listener when the renderer is not used anymore
+        videoSink.setListener(
+            new VideoSink.Listener() {
+              @Override
+              public void onFrameAvailableForRendering() {
+                if (wakeupListener != null) {
+                  wakeupListener.onWakeup();
+                }
+              }
+            },
+            directExecutor());
+        listenerSet = true;
       }
     }
 
