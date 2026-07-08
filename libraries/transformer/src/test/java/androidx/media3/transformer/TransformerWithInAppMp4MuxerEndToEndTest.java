@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.common.MimeTypes.isVideo;
 import static androidx.media3.test.utils.TestUtil.extractAllSamplesFromFilePath;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static com.google.common.base.Preconditions.checkState;
@@ -28,6 +29,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
@@ -35,15 +37,20 @@ import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.container.XmpData;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.muxer.BufferInfo;
 import androidx.media3.muxer.Muxer;
+import androidx.media3.muxer.MuxerException;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestTransformerBuilder;
+import androidx.media3.test.utils.robolectric.RobolectricUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
 import java.io.File;
+import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutionException;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -289,6 +296,26 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
         .isEqualTo(1_555_736);
   }
 
+  @Test
+  public void cancel_immediatelyAfterVideoTrackAdded_doesNotCrash() throws Exception {
+    InAppMp4Muxer.Factory inAppMuxerFactory = new InAppMp4Muxer.Factory();
+    inAppMuxerFactory.setVideoDurationUs(2_000_000L); // Triggers EOS write on close
+
+    ConditionVariable videoTrackAddedCondition = new ConditionVariable();
+    TestMuxerFactory testMuxerFactory =
+        new TestMuxerFactory(inAppMuxerFactory, videoTrackAddedCondition);
+
+    Transformer transformer =
+        new TestTransformerBuilder(context).setMuxerFactory(testMuxerFactory).build();
+
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE_PATH));
+    transformer.start(mediaItem, outputPath);
+
+    RobolectricUtil.runLooperUntil(
+        transformer.getApplicationLooper(), videoTrackAddedCondition::isOpen);
+    transformer.cancel();
+  }
+
   /**
    * Returns specific {@linkplain Metadata.Entry metadata} from the media file.
    *
@@ -343,6 +370,58 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
     // If same metadata is present in both audio and video track, then they must be same.
     if (firstTrackMetadata != null && secondTrackMetadata != null) {
       checkState(firstTrackMetadata.equals(secondTrackMetadata));
+    }
+  }
+
+  private static final class TestMuxerFactory implements Muxer.Factory {
+    private final InAppMp4Muxer.Factory nestedFactory;
+    private final ConditionVariable videoTrackAddedCondition;
+
+    TestMuxerFactory(
+        InAppMp4Muxer.Factory nestedFactory, ConditionVariable videoTrackAddedCondition) {
+      this.nestedFactory = nestedFactory;
+      this.videoTrackAddedCondition = videoTrackAddedCondition;
+    }
+
+    @Override
+    public Muxer create(String path) throws MuxerException {
+      Muxer realMuxer = nestedFactory.create(path);
+      return new Muxer() {
+        @Override
+        public int addTrack(Format format) throws MuxerException {
+          int trackId = realMuxer.addTrack(format);
+          if (isVideo(format.sampleMimeType)) {
+            videoTrackAddedCondition.open();
+          }
+          return trackId;
+        }
+
+        @Override
+        public void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
+            throws MuxerException {
+          realMuxer.writeSampleData(trackId, byteBuffer, bufferInfo);
+        }
+
+        @Override
+        public void addMetadataEntry(Metadata.Entry metadataEntry) {
+          realMuxer.addMetadataEntry(metadataEntry);
+        }
+
+        @Override
+        public void close() throws MuxerException {
+          realMuxer.close();
+        }
+      };
+    }
+
+    @Override
+    public ImmutableList<String> getSupportedSampleMimeTypes(int trackType) {
+      return nestedFactory.getSupportedSampleMimeTypes(trackType);
+    }
+
+    @Override
+    public boolean supportsWritingNegativeTimestampsInEditList() {
+      return nestedFactory.supportsWritingNegativeTimestampsInEditList();
     }
   }
 }

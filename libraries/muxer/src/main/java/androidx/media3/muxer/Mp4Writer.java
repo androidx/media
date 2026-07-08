@@ -174,6 +174,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
       boolean primaryTrackSampleWritten = tracks.contains(track);
       long currentSampleTimestampUs = bufferInfo.presentationTimeUs;
       if (primaryTrackSampleWritten
+          && hasWrittenSamples.get()
           && canWriteMoovAtStart
           && (currentSampleTimestampUs - lastMoovWrittenAtSampleTimestampUs
               >= MOOV_BOX_UPDATE_INTERVAL_US)) {

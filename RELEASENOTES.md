@@ -38,6 +38,8 @@
 *   Effect:
 *   Effect Lottie:
 *   Muxers:
+    *   Fix crash in `Mp4Writer` when writing an EOS sample before any other
+        samples are written.
 *   IMA extension:
 *   Session:
 *   UI:

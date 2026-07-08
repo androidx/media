@@ -1201,4 +1201,19 @@ public class Mp4MuxerEndToEndTest {
       muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
     }
   }
+
+  @Test
+  public void writeMp4File_onlyEndOfStreamSample_doesNotCrash() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    try (Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      int track = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      BufferInfo endOfStreamBufferInfo =
+          new BufferInfo(
+              /* presentationTimeUs= */ 2_000_000L, /* size= */ 0, C.BUFFER_FLAG_END_OF_STREAM);
+      mp4Muxer.writeSampleData(track, ByteBuffer.allocate(0), endOfStreamBufferInfo);
+    }
+
+    byte[] outputFileBytes = TestUtil.getByteArrayFromFilePath(outputFilePath);
+    assertThat(outputFileBytes).isEmpty();
+  }
 }
