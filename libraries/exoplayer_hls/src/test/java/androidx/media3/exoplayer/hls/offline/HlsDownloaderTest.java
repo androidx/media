@@ -290,6 +290,128 @@ public class HlsDownloaderTest {
     assertCachedData(cache, fakeDataSet);
   }
 
+  @Test
+  public void download_withVariableSubstitutionInSegmentUrls_resolvesVariables() throws Exception {
+    // Multivariant playlist defines a variable via EXT-X-DEFINE NAME/VALUE
+    byte[] multivariantPlaylistData =
+        ("#EXTM3U\n"
+                + "#EXT-X-DEFINE:NAME=\"cdnPrefix\",VALUE=\"https://cdn.example.com/\"\n"
+                + "#EXT-X-STREAM-INF:BANDWIDTH=232370,CODECS=\"mp4a.40.2, avc1.4d4015\"\n"
+                + "media_with_vars.m3u8\n")
+            .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+    // Media playlist uses the variable in segment URLs with IMPORT
+    byte[] mediaPlaylistData =
+        ("#EXTM3U\n"
+                + "#EXT-X-TARGETDURATION:10\n"
+                + "#EXT-X-VERSION:8\n"
+                + "#EXT-X-MEDIA-SEQUENCE:0\n"
+                + "#EXT-X-PLAYLIST-TYPE:VOD\n"
+                + "#EXT-X-DEFINE:IMPORT=\"cdnPrefix\"\n"
+                + "#EXTINF:9.97667,\n"
+                + "{$cdnPrefix}segment0.ts\n"
+                + "#EXTINF:9.97667,\n"
+                + "{$cdnPrefix}segment1.ts\n"
+                + "#EXT-X-ENDLIST")
+            .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+    fakeDataSet =
+        new FakeDataSet()
+            .setData("master_vars.m3u8", multivariantPlaylistData)
+            .setData("media_with_vars.m3u8", mediaPlaylistData)
+            .setRandomData("https://cdn.example.com/segment0.ts", 10)
+            .setRandomData("https://cdn.example.com/segment1.ts", 11);
+
+    HlsDownloader downloader = getHlsDownloader("master_vars.m3u8", getKeys(0));
+    downloader.download(progressListener);
+
+    // Verify segments were downloaded with resolved URLs
+    assertCachedData(cache, fakeDataSet);
+  }
+
+  @Test
+  public void download_withMultipleVariablesInSegmentUrls_resolvesAllVariables() throws Exception {
+    // Multivariant playlist defines multiple variables
+    byte[] multivariantPlaylistData =
+        ("#EXTM3U\n"
+                + "#EXT-X-DEFINE:NAME=\"contentPrefix\",VALUE=\"https://media.example.com/\"\n"
+                + "#EXT-X-DEFINE:NAME=\"sessionId\",VALUE=\"abc123\"\n"
+                + "#EXT-X-STREAM-INF:BANDWIDTH=500000,CODECS=\"avc1.4d401f,mp4a.40.2\"\n"
+                + "{$contentPrefix}video/720p.m3u8?sid={$sessionId}\n")
+            .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+    // Media playlist imports and uses both variables
+    byte[] mediaPlaylistData =
+        ("#EXTM3U\n"
+                + "#EXT-X-TARGETDURATION:6\n"
+                + "#EXT-X-VERSION:8\n"
+                + "#EXT-X-MEDIA-SEQUENCE:0\n"
+                + "#EXT-X-PLAYLIST-TYPE:VOD\n"
+                + "#EXT-X-DEFINE:IMPORT=\"contentPrefix\"\n"
+                + "#EXT-X-DEFINE:IMPORT=\"sessionId\"\n"
+                + "#EXTINF:6.0,\n"
+                + "{$contentPrefix}seg/s0.ts?sid={$sessionId}\n"
+                + "#EXTINF:6.0,\n"
+                + "{$contentPrefix}seg/s1.ts?sid={$sessionId}\n"
+                + "#EXT-X-ENDLIST")
+            .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+    fakeDataSet =
+        new FakeDataSet()
+            .setData("master_multi_vars.m3u8", multivariantPlaylistData)
+            .setData(
+                "https://media.example.com/video/720p.m3u8?sid=abc123", mediaPlaylistData)
+            .setRandomData(
+                "https://media.example.com/seg/s0.ts?sid=abc123", 10)
+            .setRandomData(
+                "https://media.example.com/seg/s1.ts?sid=abc123", 11);
+
+    HlsDownloader downloader = getHlsDownloader("master_multi_vars.m3u8", getKeys(0));
+    downloader.download(progressListener);
+
+    assertCachedData(cache, fakeDataSet);
+  }
+
+  @Test
+  public void download_withVariableInChildManifestUri_resolvesVariables() throws Exception {
+    // Multivariant playlist uses variable in the child manifest URI itself
+    byte[] multivariantPlaylistData =
+        ("#EXTM3U\n"
+                + "#EXT-X-DEFINE:NAME=\"manifestBase\",VALUE=\"https://manifest.example.com/\"\n"
+                + "#EXT-X-DEFINE:NAME=\"segmentBase\",VALUE=\"https://segments.example.com/\"\n"
+                + "#EXT-X-STREAM-INF:BANDWIDTH=128000,CODECS=\"mp4a.40.2\"\n"
+                + "{$manifestBase}audio/playlist.m3u8\n")
+            .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+    // Media playlist uses a different variable for segment URLs
+    byte[] mediaPlaylistData =
+        ("#EXTM3U\n"
+                + "#EXT-X-TARGETDURATION:10\n"
+                + "#EXT-X-VERSION:8\n"
+                + "#EXT-X-MEDIA-SEQUENCE:0\n"
+                + "#EXT-X-PLAYLIST-TYPE:VOD\n"
+                + "#EXT-X-DEFINE:IMPORT=\"segmentBase\"\n"
+                + "#EXTINF:10.0,\n"
+                + "{$segmentBase}audio/chunk_0.ts\n"
+                + "#EXTINF:10.0,\n"
+                + "{$segmentBase}audio/chunk_1.ts\n"
+                + "#EXT-X-ENDLIST")
+            .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+    fakeDataSet =
+        new FakeDataSet()
+            .setData("master_child_var.m3u8", multivariantPlaylistData)
+            .setData(
+                "https://manifest.example.com/audio/playlist.m3u8", mediaPlaylistData)
+            .setRandomData("https://segments.example.com/audio/chunk_0.ts", 10)
+            .setRandomData("https://segments.example.com/audio/chunk_1.ts", 11);
+
+    HlsDownloader downloader = getHlsDownloader("master_child_var.m3u8", getKeys(0));
+    downloader.download(progressListener);
+
+    assertCachedData(cache, fakeDataSet);
+  }
+
   private HlsDownloader getHlsDownloader(String mediaPlaylistUri, List<StreamKey> keys) {
     CacheDataSource.Factory cacheDataSourceFactory =
         new CacheDataSource.Factory()

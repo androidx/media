@@ -406,6 +406,20 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
         removing);
   }
 
+  protected final M getManifest(DataSource dataSource, DataSpec dataSpec, boolean removing, Parser<M> manifestParser)
+      throws InterruptedException, IOException {
+    return execute(
+        () ->
+            new RunnableFutureTask<M, IOException>() {
+              @Override
+              protected M doWork() throws IOException {
+                return ParsingLoadable.load(
+                    dataSource, manifestParser, dataSpec, C.DATA_TYPE_MANIFEST);
+              }
+            },
+        removing);
+  }
+
   /**
    * Executes the provided {@link RunnableFutureTask}.
    *
