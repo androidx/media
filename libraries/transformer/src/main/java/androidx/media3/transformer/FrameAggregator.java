@@ -28,7 +28,6 @@ import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.HardwareBufferFrame;
 import com.google.common.collect.ImmutableList;
-import com.google.errorprone.annotations.InlineMe;
 import java.math.RoundingMode;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -55,18 +54,6 @@ import java.util.Queue;
   private volatile long nextVirtualFrameIndex;
   @Nullable private volatile HardwareBufferFrame cachedVirtualFrame;
   private volatile long cachedVirtualFrameIndex;
-
-  /**
-   * @deprecated Use {@link #FrameAggregator(int, Rational, Consumer, Consumer)} instead.
-   */
-  @InlineMe(replacement = "this(numSequences, null, downstreamConsumer, onFlush)")
-  @Deprecated
-  /* package */ FrameAggregator(
-      int numSequences,
-      Consumer<ImmutableList<HardwareBufferFrame>> downstreamConsumer,
-      Consumer<Integer> onFlush) {
-    this(numSequences, /* frameRate= */ null, downstreamConsumer, onFlush);
-  }
 
   /**
    * Creates a new {@link FrameAggregator}.
