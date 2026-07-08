@@ -492,6 +492,11 @@ public final class PreCacheHelper {
 
     public void maybeSubmitPendingDownloadRequest() {
       checkState(Looper.myLooper() == preCacheHandler.getLooper());
+      synchronized (lock) {
+        if (isCanceled) {
+          return;
+        }
+      }
       if (pendingDownloadRequest != null) {
         downloader = downloaderFactory.createDownloader(pendingDownloadRequest);
         downloaderTask =

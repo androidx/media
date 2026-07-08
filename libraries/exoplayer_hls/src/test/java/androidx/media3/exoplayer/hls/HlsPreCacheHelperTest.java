@@ -17,8 +17,6 @@ package androidx.media3.exoplayer.hls;
 
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -72,7 +70,7 @@ public class HlsPreCacheHelperTest {
               return null;
             })
         .when(preCacheHelperListener)
-        .onPreCacheProgress(any(), anyLong(), anyLong(), eq(100f));
+        .onPreCacheCompleted(any());
     PreCacheHelper preCacheHelper =
         new PreCacheHelper.Factory(
                 ApplicationProvider.getApplicationContext(),
@@ -90,7 +88,7 @@ public class HlsPreCacheHelperTest {
     verify(preCacheHelperListener, never()).onPrepareError(any(), any());
     verify(preCacheHelperListener, never()).onDownloadError(any(), any());
 
-    preCacheHelper.release(/* removeCachedContent= */ true);
+    preCacheHelper.release(/* removeCachedContent= */ false);
     shadowOf(preCacheLooper).idle();
   }
 }

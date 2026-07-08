@@ -4,6 +4,8 @@
 
 *   Common Library:
 *   ExoPlayer:
+    *   Fix race condition in `PreCacheHelper` where canceling an ongoing
+        preparation request could still start background downloads.
     *   Limit `setLoadOnlySelectedTracks(true)` on `ProgressiveMediaSource` and
         `DefaultMediaSourceFactory` to only filter out unselected video and
         image tracks. Audio and text tracks are always loaded to allow seamless
