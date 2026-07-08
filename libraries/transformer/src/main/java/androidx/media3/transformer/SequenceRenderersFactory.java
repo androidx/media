@@ -916,22 +916,24 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         boolean isLastBuffer,
         Format format)
         throws ExoPlaybackException {
+      checkNotNull(codec);
+      // Allow decode only buffers to be dropped before this renderer is ready to output frames,
+      // so the first frame that will be processed is guaranteed to be output.
+      if (isDecodeOnlyBuffer && !isLastBuffer) {
+        skipOutputBuffer(codec, bufferIndex, bufferPresentationTimeUs);
+        return true;
+      }
       // When prewarming is enabled this method will be called when the renderer is enabled, which
       // is well before item should be displayed. Frames should not be rendered until a Surface is
       // set on this renderer.
       if (!hasOutputSurface) {
         return false;
       }
-      checkNotNull(codec);
       nextFormat = format;
       long outputStreamOffsetUs = getOutputStreamOffsetUs();
       long presentationTimeUs = bufferPresentationTimeUs - outputStreamOffsetUs;
       if (targetFrameRateHelper.shouldDropOutputFrame(presentationTimeUs) && !isLastBuffer) {
         skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
-        return true;
-      }
-      if (isDecodeOnlyBuffer && !isLastBuffer) {
-        skipOutputBuffer(codec, bufferIndex, bufferPresentationTimeUs);
         return true;
       }
       if (!checkNotNull(hardwareBufferFrameReader).canAcceptFrameViaSurface()) {
