@@ -478,7 +478,8 @@ public class BoxesTest {
             .setSampleMimeType(MimeTypes.AUDIO_E_AC3)
             .setMetadata(
                 new Metadata(
-                    new FormatSpecificTransmuxingData("dec3", new byte[] {0x0F, (byte) 0x80, 0x00})))
+                    new FormatSpecificTransmuxingData(
+                        "dec3", new byte[] {0x0F, (byte) 0x80, 0x00})))
             .build();
 
     ByteBuffer box = Boxes.audioSampleEntry(format);

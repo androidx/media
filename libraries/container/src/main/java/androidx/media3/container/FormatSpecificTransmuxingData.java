@@ -18,12 +18,11 @@ package androidx.media3.container;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import java.util.Arrays;
 
 /**
- * Stores the raw payload of a format-specific box so it can be re-written during transmuxing (stream
- * copy) without re-encoding.
+ * Stores the raw payload of a format-specific box so it can be re-written during transmuxing
+ * (stream copy) without re-encoding.
  *
  * <p>Some codecs store codec configuration in a container box whose bytes are not otherwise exposed
  * on {@link androidx.media3.common.Format} (for example the E-AC-3 {@code dec3} / EC3SpecificBox).

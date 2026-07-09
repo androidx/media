@@ -259,11 +259,11 @@ public class FragmentedMp4MuxerEndToEndTest {
   }
 
   /**
-   * Stream-copies an MP4 audio track through {@link FragmentedMp4Muxer} and asserts the re-extracted
-   * output against the expected dump.
+   * Stream-copies an MP4 audio track through {@link FragmentedMp4Muxer} and asserts the
+   * re-extracted output against the expected dump.
    *
-   * <p>The input is read with {@link Mp4Extractor} (rather than {@code MediaExtractorCompat}) so that
-   * {@link Format#metadata} — which carries the E-AC-3 {@code dec3} payload as a {@code
+   * <p>The input is read with {@link Mp4Extractor} (rather than {@code MediaExtractorCompat}) so
+   * that {@link Format#metadata} — which carries the E-AC-3 {@code dec3} payload as a {@code
    * FormatSpecificTransmuxingData} entry — is preserved and passed to the muxer.
    */
   private void transmuxToFragmentedAndAssert(String inputFileName) throws Exception {

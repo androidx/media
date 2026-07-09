@@ -1653,8 +1653,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
    *
    * <p>The dec3 box body is carried verbatim in a {@link FormatSpecificTransmuxingData} entry (with
    * {@linkplain FormatSpecificTransmuxingData#boxType boxType} {@code "dec3"}) on {@link
-   * Format#metadata}. Stream-copy callers must populate it with the source track's raw dec3 payload;
-   * the MP4 extractor populates this from the source {@code dec3} box.
+   * Format#metadata}. Stream-copy callers must populate it with the source track's raw dec3
+   * payload; the MP4 extractor populates this from the source {@code dec3} box.
    */
   private static ByteBuffer dec3Box(Format format) {
     byte[] dec3Payload = getTransmuxingBoxPayload(format, "dec3");
@@ -1665,8 +1665,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
   /**
    * Returns the raw payload of the {@link FormatSpecificTransmuxingData} entry on {@code
-   * format.metadata} whose {@linkplain FormatSpecificTransmuxingData#boxType boxType} matches {@code
-   * boxType}, or {@code null} if there is no such entry.
+   * format.metadata} whose {@linkplain FormatSpecificTransmuxingData#boxType boxType} matches
+   * {@code boxType}, or {@code null} if there is no such entry.
    */
   @Nullable
   private static byte[] getTransmuxingBoxPayload(Format format, String boxType) {
