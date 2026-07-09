@@ -4,6 +4,8 @@
 
 *   Common Library:
 *   ExoPlayer:
+    *   Fix potential scrubbing mode issue where scrubbing could stall when
+        seeking to 'end of stream'.
 *   CompositionPlayer:
 *   Transformer:
 *   Track Selection:

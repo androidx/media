@@ -67,6 +67,7 @@ import androidx.media3.exoplayer.image.ImageRenderer;
 import androidx.media3.exoplayer.mediacodec.ForwardingMediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
+import androidx.media3.exoplayer.source.MergingMediaSource;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
@@ -1155,6 +1156,74 @@ public final class ExoPlayerScrubbingTest {
         .that(bufferCountingCodecAdapter.get().outputBufferDequeuedCount.get())
         .isWithin(2)
         .of(58);
+  }
+
+  @Test
+  public void
+      scrubbingMode_seekIntoAudioOnlyPortionOfMergingMediaSource_doesNotHangSubsequentSeeks()
+          throws Exception {
+    ExoPlayer player =
+        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
+            .setStuckPlayingDetectionTimeoutMs(Integer.MAX_VALUE)
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    // Create a source where the video track ends early to provide an 'audio-only' portion.
+    FakeMediaSource audioSource =
+        createFakeMediaSource(ExoPlayerTestRunner.AUDIO_FORMAT, /* durationUs= */ 1_000_000L);
+    FakeMediaSource videoSource1 =
+        createFakeMediaSource(ExoPlayerTestRunner.VIDEO_FORMAT, /* durationUs= */ 1_000_000L);
+    FakeMediaSource videoSource2 =
+        createFakeMediaSource(ExoPlayerTestRunner.VIDEO_FORMAT, /* durationUs= */ 500_000L);
+    MergingMediaSource mergingSource1 =
+        new MergingMediaSource(
+            /* adjustPeriodTimeOffsets= */ false,
+            /* clipDurations= */ false,
+            videoSource1,
+            audioSource);
+    MergingMediaSource mergingSource2 =
+        new MergingMediaSource(
+            /* adjustPeriodTimeOffsets= */ false,
+            /* clipDurations= */ false,
+            videoSource2,
+            audioSource);
+    player.setMediaSources(ImmutableList.of(mergingSource1, mergingSource2));
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+    List<Long> renderedFrames = new ArrayList<>();
+    player.setVideoFrameMetadataListener(
+        (presentationTimeUs, releaseTimeNs, format, mediaFormat) ->
+            renderedFrames.add(presentationTimeUs));
+
+    player.setScrubbingModeEnabled(true);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 800);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 500);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilBackgroundThreadCondition(() -> renderedFrames.contains(500_000L));
+
+    player.release();
+    surface.release();
+  }
+
+  private static FakeMediaSource createFakeMediaSource(Format format, long durationUs) {
+    return new FakeMediaSource.Builder()
+        .setTimeline(
+            new FakeTimeline(
+                new TimelineWindowDefinition.Builder()
+                    .setWindowPositionInFirstPeriodUs(0)
+                    .setDurationUs(durationUs)
+                    .build()))
+        .setFormats(format)
+        .setTrackDataFactory(
+            TrackDataFactory.samplesWithRateDurationAndKeyframeInterval(
+                /* initialSampleTimeUs= */ 0,
+                /* sampleRate= */ 30,
+                /* durationUs= */ durationUs,
+                /* keyFrameInterval= */ 1))
+        .build();
   }
 
   private static FakeMediaSource create30Fps2sGop10sDurationVideoSource() {
