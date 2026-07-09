@@ -24,6 +24,9 @@
         Custom `AssetLoader` implementations must implement these new methods.
 *   Track Selection:
 *   Extractors:
+    *   MP4: Preserve E-AC-3 and E-AC-3 JOC (Dolby Atmos) format metadata during
+        demuxing to enable lossless stream-copying
+        ([#3317](https://github.com/androidx/media/pull/3317)).
 *   Inspector:
 *   Inspector Frame:
 *   Audio:
@@ -40,6 +43,9 @@
 *   Muxers:
     *   Fix crash in `Mp4Writer` when writing an EOS sample before any other
         samples are written.
+    *   MP4: Add support for writing E-AC-3 and E-AC-3 JOC (Dolby Atmos) audio
+        tracks in `Mp4Muxer` and `FragmentedMp4Muxer`
+        ([#3317](https://github.com/androidx/media/pull/3317)).
 *   IMA extension:
 *   Session:
 *   UI:
