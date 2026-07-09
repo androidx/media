@@ -18,16 +18,19 @@
 package androidx.media3.docsamples.ui
 
 import androidx.annotation.OptIn
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import androidx.media3.common.Player.EVENT_AVAILABLE_COMMANDS_CHANGED
 import androidx.media3.common.listen
@@ -45,8 +49,11 @@ import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
 import androidx.media3.ui.compose.SurfaceType
 import androidx.media3.ui.compose.buttons.PlayPauseButton
+import androidx.media3.ui.compose.material3.Player
+import androidx.media3.ui.compose.material3.PlayerDefaults
 import androidx.media3.ui.compose.material3.R
 import androidx.media3.ui.compose.material3.buttons.NextButton
+import androidx.media3.ui.compose.material3.buttons.PlayPauseButton as Material3PlayPauseButton
 import androidx.media3.ui.compose.material3.buttons.PreviousButton
 import androidx.media3.ui.compose.modifiers.resizeWithContentScale
 import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
@@ -160,4 +167,30 @@ class ComposeCustomization {
     }
     // [END android_compose_mixed_player_controls]
   }
+
+  // [START android_compose_custom_player_slots]
+  @Composable
+  fun CustomPlayerSlots(player: Player, modifier: Modifier = Modifier) {
+    Player(
+      player = player,
+      modifier = modifier,
+      topControls = { p, visible ->
+        // Fully custom top controls
+        AnimatedVisibility(visible) { Text("My custom title") }
+      },
+      centerControls = { p, visible ->
+        // Use default CenterControls but override the central button
+        PlayerDefaults.CenterControls(
+          player = p,
+          visible = visible,
+          central = {
+            // A custom play/pause button
+            Material3PlayPauseButton(it, modifier = Modifier.size(64.dp))
+          },
+        )
+      },
+      // bottomControls are left as default
+    )
+  }
+  // [END android_compose_custom_player_slots]
 }
