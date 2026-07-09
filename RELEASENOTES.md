@@ -16,6 +16,8 @@
         work more accurately when not all tracks are selected. Note that this
         may cause additional buffering if unselected video or image tracks are
         newly enabled mid-playback.
+    *   Fix potential scrubbing mode issue where scrubbing could stall when
+        seeking to 'end of stream'.
 *   CompositionPlayer:
 *   Transformer:
     *   Fix a segmentation fault during release by introducing

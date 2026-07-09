@@ -1470,6 +1470,7 @@ import java.util.Objects;
 
     boolean renderersEnded = true;
     boolean renderersAllowPlayback = true;
+    boolean hasActiveVideoOrImageRenderer = false;
     if (playingPeriodHolder.prepared) {
       rendererPositionElapsedRealtimeUs = msToUs(clock.elapsedRealtime());
       playingPeriodHolder.mediaPeriod.discardBuffer(
@@ -1487,12 +1488,24 @@ import java.util.Objects;
         // getting stuck if tracks in the current period have uneven durations and are still being
         // read by another renderer. See: https://github.com/google/ExoPlayer/issues/1874.
         renderersEnded = renderersEnded && renderer.isEnded();
+        if (seekIsPendingWhileScrubbing
+            && renderer.isRendererEnabled()
+            && (renderer.getTrackType() == C.TRACK_TYPE_VIDEO
+                || renderer.getTrackType() == C.TRACK_TYPE_IMAGE)
+            && !renderer.isEnded()) {
+          hasActiveVideoOrImageRenderer = true;
+        }
         boolean allowsPlayback = renderer.allowsPlayback(playingPeriodHolder);
         maybeTriggerOnRendererReadyChanged(/* rendererIndex= */ i, allowsPlayback);
         renderersAllowPlayback = renderersAllowPlayback && allowsPlayback;
         if (!allowsPlayback) {
           maybeThrowRendererStreamError(/* rendererIndex= */ i);
         }
+      }
+      if (seekIsPendingWhileScrubbing
+          && !hasActiveVideoOrImageRenderer
+          && !handler.hasMessages(MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE)) {
+        handler.obtainMessage(MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE).sendToTarget();
       }
     } else {
       playingPeriodHolder.mediaPeriod.maybeThrowPrepareError();
