@@ -33,6 +33,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SliderState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -51,6 +52,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import androidx.media3.common.util.Util
+import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.indicators.ProgressIndicator
 import androidx.media3.ui.compose.state.ProgressStateWithTickCount
 import kotlinx.coroutines.CoroutineScope
@@ -95,19 +97,34 @@ fun LabeledProgressSlider(
     },
 ) {
   var sliderWidthPx by remember { mutableIntStateOf(0) }
+  // Safely cast to ExoPlayer because we are in a demo app
+  // TODO: for ProgressSlider, use reflection OR move scrubbing mode to the Player interface
+  val exoPlayer = remember(player) { player as? ExoPlayer }
   ProgressIndicator(player, totalTickCount = sliderWidthPx, scope) {
     var isDragging by remember { mutableStateOf(false) }
     var seekPosition by remember { mutableFloatStateOf(0f) }
 
+    // Fallback for navigating away before the trailing invoke in onValueChangeFinished is called
+    DisposableEffect(exoPlayer) {
+      onDispose {
+        exoPlayer?.setScrubbingModeEnabled(false)
+        isDragging = false
+      }
+    }
+
     Slider(
       value = if (isDragging) seekPosition else currentPositionProgress,
       onValueChange = {
+        if (!isDragging) {
+          exoPlayer?.setScrubbingModeEnabled(true)
+        }
         isDragging = true
         seekPosition = it
+        updateCurrentPositionProgress(it)
         onValueChange?.invoke(it)
       },
       onValueChangeFinished = {
-        updateCurrentPositionProgress(seekPosition)
+        exoPlayer?.setScrubbingModeEnabled(false)
         isDragging = false
         onValueChangeFinished?.invoke()
       },
