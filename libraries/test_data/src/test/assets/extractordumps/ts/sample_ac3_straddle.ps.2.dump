@@ -1,0 +1,97 @@
+seekMap:
+  isSeekable = true
+  duration = 1201344
+  getPosition(0) = [[timeUs=0, position=0]]
+  getPosition(1) = [[timeUs=1, position=0]]
+  getPosition(600672) = [[timeUs=600672, position=35805]]
+  getPosition(1201344) = [[timeUs=1201344, position=71799]]
+numberOfTracks = 2
+track 189:
+  total output bytes = 13056
+  sample count = 17
+  format 0:
+    averageBitrate = 192000
+    peakBitrate = 192000
+    id = 189
+    sampleMimeType = audio/ac3
+    channelCount = 2
+    sampleRate = 48000
+  sample 0:
+    time = 317333
+    flags = 1
+    data = length 768, hash 6CDA87FA
+  sample 1:
+    time = 349333
+    flags = 1
+    data = length 768, hash D7542AD6
+  sample 2:
+    time = 413333
+    flags = 1
+    data = length 768, hash 650B3B21
+  sample 3:
+    time = 445333
+    flags = 1
+    data = length 768, hash 7AA9EA5
+  sample 4:
+    time = 477333
+    flags = 1
+    data = length 768, hash 36E854AB
+  sample 5:
+    time = 509333
+    flags = 1
+    data = length 768, hash 1958F2B0
+  sample 6:
+    time = 541333
+    flags = 1
+    data = length 768, hash E12C6DFC
+  sample 7:
+    time = 573333
+    flags = 1
+    data = length 768, hash 64E149B3
+  sample 8:
+    time = 605333
+    flags = 1
+    data = length 768, hash A053FE3F
+  sample 9:
+    time = 637333
+    flags = 1
+    data = length 768, hash 326041DB
+  sample 10:
+    time = 669333
+    flags = 1
+    data = length 768, hash 865250F
+  sample 11:
+    time = 701333
+    flags = 1
+    data = length 768, hash B45ADB43
+  sample 12:
+    time = 733333
+    flags = 1
+    data = length 768, hash 99626351
+  sample 13:
+    time = 765333
+    flags = 1
+    data = length 768, hash BCED46AE
+  sample 14:
+    time = 797333
+    flags = 1
+    data = length 768, hash 63B6188F
+  sample 15:
+    time = 829333
+    flags = 1
+    data = length 768, hash 86C6C28B
+  sample 16:
+    time = 861333
+    flags = 1
+    data = length 768, hash A1D014D1
+track 224:
+  total output bytes = 0
+  sample count = 0
+  format 0:
+    id = 224
+    sampleMimeType = video/mpeg2
+    width = 160
+    height = 120
+    initializationData:
+      data = length 22, hash 3B91971B
+tracksEnded = true

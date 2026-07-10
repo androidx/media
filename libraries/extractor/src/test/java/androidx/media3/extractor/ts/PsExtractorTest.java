@@ -44,4 +44,12 @@ public final class PsExtractorTest {
   public void sampleWithAc3() throws Exception {
     ExtractorAsserts.assertBehavior(PsExtractor::new, "media/ts/sample_ac3.ps", simulationConfig);
   }
+
+  @Test
+  public void sampleWithAc3StraddlingPesBoundaries() throws Exception {
+    // Regression test for a private_stream_1 (0xBD) sample whose AC-3 frames straddle PES packet
+    // boundaries, so the DVD sub-stream header preceding each packet's payload must be stripped.
+    ExtractorAsserts.assertBehavior(
+        PsExtractor::new, "media/ts/sample_ac3_straddle.ps", simulationConfig);
+  }
 }

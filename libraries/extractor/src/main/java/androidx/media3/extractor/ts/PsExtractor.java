@@ -260,7 +260,11 @@ public final class PsExtractor implements Extractor {
         if (elementaryStreamReader != null) {
           TrackIdGenerator idGenerator = new TrackIdGenerator(streamId, MAX_STREAM_ID_PLUS_ONE);
           elementaryStreamReader.createTracks(output, idGenerator);
-          payloadReader = new PesReader(elementaryStreamReader, timestampAdjuster);
+          payloadReader =
+              new PesReader(
+                  elementaryStreamReader,
+                  timestampAdjuster,
+                  /* isPrivateStream1= */ streamId == PRIVATE_STREAM_1);
           psPayloadReaders.put(streamId, payloadReader);
         }
       }
@@ -328,6 +332,10 @@ public final class PsExtractor implements Extractor {
     private final ElementaryStreamReader pesPayloadReader;
     private final TimestampAdjuster timestampAdjuster;
     private final ParsableBitArray pesScratch;
+    // Whether this reader consumes the MPEG-PS private_stream_1 (0xBD), which in DVD-style content
+    // carries a sub-stream header (sub_stream_id, number_of_frame_headers and
+    // first_access_unit_pointer) before the audio elementary stream.
+    private final boolean isPrivateStream1;
 
     private boolean ptsFlag;
     private boolean dtsFlag;
@@ -335,9 +343,13 @@ public final class PsExtractor implements Extractor {
     private int extendedHeaderLength;
     private long timeUs;
 
-    public PesReader(ElementaryStreamReader pesPayloadReader, TimestampAdjuster timestampAdjuster) {
+    public PesReader(
+        ElementaryStreamReader pesPayloadReader,
+        TimestampAdjuster timestampAdjuster,
+        boolean isPrivateStream1) {
       this.pesPayloadReader = pesPayloadReader;
       this.timestampAdjuster = timestampAdjuster;
+      this.isPrivateStream1 = isPrivateStream1;
       pesScratch = new ParsableBitArray(new byte[PES_SCRATCH_SIZE]);
     }
 
@@ -366,10 +378,37 @@ public final class PsExtractor implements Extractor {
       data.readBytes(pesScratch.data, 0, extendedHeaderLength);
       pesScratch.setPosition(0);
       parseHeaderExtension();
+      // For DVD-style private_stream_1 (AC-3/DTS/LPCM), a sub-stream header follows the PES header
+      // and precedes the audio elementary stream. It must be stripped so it isn't fed into the
+      // audio reader as elementary data, which would corrupt the audio frame spanning this PES
+      // boundary (see ISO/IEC 13818-1 / DVD-Video PS spec).
+      maybeSkipPrivateStream1SubStreamHeader(data);
       pesPayloadReader.packetStarted(timeUs, TsPayloadReader.FLAG_DATA_ALIGNMENT_INDICATOR);
       pesPayloadReader.consume(data);
       // We always have complete PES packets with program stream.
       pesPayloadReader.packetFinished();
+    }
+
+    /**
+     * Skips the DVD-style private_stream_1 sub-stream header, if present, so that {@code data} is
+     * positioned at the start of the audio elementary stream.
+     *
+     * <p>In DVD-Video and similar MPEG-PS content, each private_stream_1 (0xBD) PES packet begins
+     * with a 4-byte header: {@code sub_stream_id} (1 byte, 0x80-0x87 for AC-3, 0x88-0x8F for DTS,
+     * 0xA0-0xA7 for LPCM), {@code number_of_frame_headers} (1 byte) and {@code
+     * first_access_unit_pointer} (2 bytes). These bytes are not part of the audio elementary stream
+     * and must not be forwarded to the audio reader.
+     */
+    private void maybeSkipPrivateStream1SubStreamHeader(ParsableByteArray data) {
+      if (!isPrivateStream1 || data.bytesLeft() < 4) {
+        return;
+      }
+      int subStreamId = data.peekUnsignedByte();
+      // AC-3 (0x80-0x87), DTS (0x88-0x8F) and LPCM (0xA0-0xA7) sub-streams carry the 4-byte header.
+      if ((subStreamId >= 0x80 && subStreamId <= 0x8F)
+          || (subStreamId >= 0xA0 && subStreamId <= 0xA7)) {
+        data.skipBytes(4);
+      }
     }
 
     private void consumeEndOfInput() {
