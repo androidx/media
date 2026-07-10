@@ -64,6 +64,7 @@
 *   Smooth Streaming extension:
 *   RTSP extension:
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+    *   Revert monochrome video support to bundled dav1d JNI.
 *   MIDI extension:
 *   Leanback extension:
 *   Cast extension:

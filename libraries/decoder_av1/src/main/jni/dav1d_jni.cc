@@ -114,9 +114,6 @@ const int kDav1dThreadCountPerformanceCores = -1;
 const int kDav1dThreadCountExperimental = -2;
 // LINT.ThenChange(../java/androidx/media3/decoder/av1/Libdav1dVideoRenderer.java)
 
-// Monochrome planes fill value
-const int kMidGray = 128;
-
 // Status codes specific to the JNI wrapper code.
 enum JniStatusCode {
   kJniStatusOk = 0,
@@ -330,20 +327,8 @@ void CopyFrameToDataBuffer(const Dav1dPicture* dav1d_picture, jbyte* data) {
     uint64_t planeHeight = (plane_index == kPlaneY)
                                ? dav1d_picture->p.h
                                : ((dav1d_picture->p.h + 1) / 2);
-    bool is_monochrome = dav1d_picture->p.layout == DAV1D_PIXEL_LAYOUT_I400;
-    int stride = dav1d_picture->stride[stride_index];
-    if (is_monochrome && plane_index != kPlaneY) {
-      stride = (dav1d_picture->stride[kPlaneY] + 1) / 2;
-    }
-    uint64_t length = stride * planeHeight;
-    if (length > 0) {
-      // Monochrome plane pointers are NULL. Fill with a neutral value (128).
-      if (dav1d_picture->data[plane_index] != nullptr) {
-        memcpy(data, dav1d_picture->data[plane_index], length);
-      } else {
-        memset(data, kMidGray, length);
-      }
-    }
+    uint64_t length = dav1d_picture->stride[stride_index] * planeHeight;
+    memcpy(data, dav1d_picture->data[plane_index], length);
     data += length;
   }
 }
@@ -355,14 +340,6 @@ void CopyPlane(const uint8_t* source, int source_stride, uint8_t* destination,
   while (height--) {
     std::memcpy(destination, source, width);
     source += source_stride;
-    destination += destination_stride;
-  }
-}
-
-void FillPlane(const uint8_t value, uint8_t* destination,
-               int destination_stride, int width, int height) {
-  while (height--) {
-    std::memset(destination, value, width);
     destination += destination_stride;
   }
 }
@@ -860,11 +837,6 @@ DECODER_FUNC(jint, dav1dGetFrame, jlong jContext, jobject jOutputBuffer) {
   }
   if (returned_user_data->output_mode == kOutputModeYuv) {
     jboolean init_result;
-    int y_stride = dav1d_picture->stride[kPlaneY];
-    int uv_stride = dav1d_picture->stride[kPlaneU];
-    if (dav1d_picture->p.layout == DAV1D_PIXEL_LAYOUT_I400) {
-      uv_stride = (y_stride + 1) / 2;
-    }
     if (context->use_custom_allocator) {
       PictureAllocatorData* allocator_data =
           reinterpret_cast<PictureAllocatorData*>(
@@ -874,13 +846,15 @@ DECODER_FUNC(jint, dav1dGetFrame, jlong jContext, jobject jOutputBuffer) {
       init_result = env->CallBooleanMethod(
           jOutputBuffer, context->init_for_offset_frames_method,
           allocator_data->offset, dav1d_picture->p.w, dav1d_picture->p.h,
-          y_stride, uv_stride, GetColorSpace(dav1d_picture->seq_hdr->pri),
+          dav1d_picture->stride[kPlaneY], dav1d_picture->stride[kPlaneU],
+          GetColorSpace(dav1d_picture->seq_hdr->pri),
           allocator_data->aligned_height);
       CleanUpAllocatorData(jContext, env);
     } else {
       init_result = env->CallBooleanMethod(
           jOutputBuffer, context->init_for_yuv_frame_method, dav1d_picture->p.w,
-          dav1d_picture->p.h, y_stride, uv_stride,
+          dav1d_picture->p.h, dav1d_picture->stride[kPlaneY],
+          dav1d_picture->stride[kPlaneU],
           GetColorSpace(dav1d_picture->seq_hdr->pri));
     }
     if (!init_result) {
@@ -1013,45 +987,37 @@ DECODER_FUNC(jint, dav1dRenderFrame, jlong jContext, jobject jSurface,
             reinterpret_cast<uint8_t*>(native_window_buffer.bits),
             native_window_buffer.stride, y_copy_width, y_copy_height);
 
-  const int32_t y_plane_size =
+  const int y_plane_size =
       native_window_buffer.stride * native_window_buffer.height;
-  const int32_t native_window_buffer_uv_stride =
+  const int32_t native_window_buffer_uv_height =
+      (native_window_buffer.height + 1) / 2;
+  const int native_window_buffer_uv_stride =
       AlignTo16(native_window_buffer.stride / 2);
-  const int32_t uv_plane_height = (native_window_buffer.height + 1) / 2;
-  const int32_t uv_plane_size =
-      uv_plane_height * native_window_buffer_uv_stride;
 
-  uint8_t* uv_base_ptr =
-      reinterpret_cast<uint8_t*>(native_window_buffer.bits) + y_plane_size;
-  // In YV12 format, V plane comes before U plane.
-  uint8_t* v_dest_ptr = uv_base_ptr;
-  uint8_t* u_dest_ptr = uv_base_ptr + uv_plane_size;
+  // UV planes
+  const int uv_copy_height = (y_copy_height + 1) / 2;
+  const int v_plane_size =
+      native_window_buffer_uv_height * native_window_buffer_uv_stride;
 
-  const int32_t uv_copy_height = (y_copy_height + 1) / 2;
-  const int32_t uv_copy_width = (y_copy_width + 1) / 2;
+  const int uv_copy_width = (y_copy_width + 1) / 2;
 
-  // Handle monochrome videos
-  const Dav1dSequenceHeader* header = dav1d_picture->seq_hdr;
-  if (header->monochrome) {
-    // V Plane
-    // Set to 128 to make it gray
-    FillPlane(kMidGray, v_dest_ptr, native_window_buffer_uv_stride,
-              uv_copy_width, uv_copy_height);
-    // U Plane
-    FillPlane(kMidGray, u_dest_ptr, native_window_buffer_uv_stride,
-              uv_copy_width, uv_copy_height);
-  } else {
-    // V plane
-    // Since the format for ANativeWindow is YV12, V plane is being processed
-    // before U plane.
-    CopyPlane(reinterpret_cast<const uint8_t*>(dav1d_picture->data[kPlaneV]),
-              dav1d_picture->stride[kPlaneU], v_dest_ptr,
-              native_window_buffer_uv_stride, uv_copy_width, uv_copy_height);
-    // U plane
-    CopyPlane(reinterpret_cast<const uint8_t*>(dav1d_picture->data[kPlaneU]),
-              dav1d_picture->stride[kPlaneU], u_dest_ptr,
-              native_window_buffer_uv_stride, uv_copy_width, uv_copy_height);
-  }
+  // TODO(b/140606738): Handle monochrome videos.
+  // V plane
+  // Since the format for ANativeWindow is YV12, V plane is being processed
+  // before U plane.
+  CopyPlane(
+      reinterpret_cast<const uint8_t*>(dav1d_picture->data[kPlaneV]),
+      dav1d_picture->stride[kPlaneU],
+      reinterpret_cast<uint8_t*>(native_window_buffer.bits) + y_plane_size,
+      native_window_buffer_uv_stride, uv_copy_width, uv_copy_height);
+
+  // U plane
+  CopyPlane(reinterpret_cast<const uint8_t*>(dav1d_picture->data[kPlaneU]),
+            dav1d_picture->stride[kPlaneU],
+            reinterpret_cast<uint8_t*>(native_window_buffer.bits) +
+                y_plane_size + v_plane_size,
+            native_window_buffer_uv_stride, uv_copy_width, uv_copy_height);
+
   if (ANativeWindow_unlockAndPost(context->native_window)) {
     context->jni_status_code = kJniStatusANativeWindowError;
     LOGE("Failed to unlock and post native window.");
