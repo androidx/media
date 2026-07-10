@@ -18,6 +18,8 @@
         newly enabled mid-playback.
     *   Fix potential scrubbing mode issue where scrubbing could stall when
         seeking to 'end of stream'.
+    *   Revert: Add support for ads in multi-period content (e.g., DASH) by
+        splitting and offsetting the `AdPlaybackState` for each period.
 *   CompositionPlayer:
 *   Transformer:
     *   Fix a segmentation fault during release by introducing

@@ -346,7 +346,7 @@ public class ExoPlayerAdTest {
     Timeline primaryContentTimeline =
         new FakeTimeline(new TimelineWindowDefinition.Builder().setDurationUs(60_000_000L).build());
     AdPlaybackState adPlaybackState =
-        new AdPlaybackState("adsId", 10_000_000L, 20_000_000L)
+        new AdPlaybackState("adsId", 133_000_000L, 143_000_000L)
             .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
             .withAvailableAdMediaItem(
                 /* adGroupIndex= */ 0,
@@ -2360,104 +2360,5 @@ public class ExoPlayerAdTest {
     assertThat(videoRenderer.get().positionResetCount).isEqualTo(1);
     assertThat(timeline.getPeriod(0, new Timeline.Period()).adPlaybackState.adGroupCount)
         .isEqualTo(2);
-  }
-
-  @Test
-  public void playAds_midRollsInMultiPeriodContent_playedSuccessfully()
-      throws PlaybackException, TimeoutException {
-    Timeline primaryContentTimeline =
-        new FakeTimeline(
-            new TimelineWindowDefinition.Builder()
-                .setPeriodCount(2)
-                .setDurationUs(60_000_000L)
-                .setWindowPositionInFirstPeriodUs(0)
-                .build());
-    AdPlaybackState adPlaybackState =
-        new AdPlaybackState("adsId", 10_000_000L, 40_000_000L)
-            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
-            .withAvailableAdMediaItem(
-                /* adGroupIndex= */ 0,
-                /* adIndexInAdGroup= */ 0,
-                MediaItem.fromUri("http://example.com/ad_0_0"))
-            .withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 1)
-            .withAvailableAdMediaItem(
-                /* adGroupIndex= */ 1,
-                /* adIndexInAdGroup= */ 0,
-                MediaItem.fromUri("http://example.com/ad_1_0"));
-    FakeAdsLoader fakeAdsLoader = new FakeAdsLoader();
-    AdsMediaSource adsMediaSource =
-        new AdsMediaSource(
-            new FakeMediaSource(primaryContentTimeline, ExoPlayerTestRunner.VIDEO_FORMAT),
-            new DataSpec(Uri.EMPTY),
-            "adsId",
-            /* adMediaSourceFactory= */ new FakeMediaSourceFactory(
-                new TimelineWindowDefinition.Builder()
-                    .setDurationUs(10_000_000L)
-                    .setWindowPositionInFirstPeriodUs(0)),
-            fakeAdsLoader,
-            /* adViewProvider= */ () -> null,
-            /* useLazyContentSourcePreparation= */ true,
-            /* useAdMediaSourceClipping= */ true);
-    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
-    Player.Listener mockListener = mock(Player.Listener.class);
-    player.addListener(mockListener);
-    player.setMediaSource(adsMediaSource);
-    player.prepare();
-    advance(player)
-        .untilBackgroundThreadCondition(
-            (Supplier<Boolean>) () -> fakeAdsLoader.eventListeners.get("adsId") != null);
-    fakeAdsLoader.eventListeners.get("adsId").onAdPlaybackState(adPlaybackState);
-
-    player.play();
-    // Play past midroll 0 (at 10s) but before midroll 1 (at 40s) and period transition (at 30s)
-    advance(player).untilPositionAtLeast(/* mediaItemIndex= */ 0, /* positionMs= */ 15_000L);
-    // Mark midroll 0 as played.
-    adPlaybackState =
-        adPlaybackState.withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);
-    fakeAdsLoader.eventListeners.get("adsId").onAdPlaybackState(adPlaybackState);
-
-    advance(player).untilState(Player.STATE_ENDED);
-    player.release();
-
-    ArgumentCaptor<PositionInfo> oldPositionsCaptor = ArgumentCaptor.forClass(PositionInfo.class);
-    ArgumentCaptor<PositionInfo> newPositionsCaptor = ArgumentCaptor.forClass(PositionInfo.class);
-    ArgumentCaptor<Integer> reasonsCaptor = ArgumentCaptor.forClass(Integer.class);
-    verify(mockListener, times(5))
-        .onPositionDiscontinuity(
-            oldPositionsCaptor.capture(), newPositionsCaptor.capture(), reasonsCaptor.capture());
-    assertThat(reasonsCaptor.getAllValues())
-        .containsExactly(
-            DISCONTINUITY_REASON_AUTO_TRANSITION, // content to midroll 0
-            DISCONTINUITY_REASON_AUTO_TRANSITION, // midroll 0 to content
-            DISCONTINUITY_REASON_AUTO_TRANSITION, // period transition
-            DISCONTINUITY_REASON_AUTO_TRANSITION, // content to midroll 1
-            DISCONTINUITY_REASON_AUTO_TRANSITION); // midroll 1 to content
-
-    List<PositionInfo> oldPositions = oldPositionsCaptor.getAllValues();
-    List<PositionInfo> newPositions = newPositionsCaptor.getAllValues();
-
-    // midroll 0 to content
-    assertThat(oldPositions.get(1).adGroupIndex).isEqualTo(0);
-    assertThat(oldPositions.get(1).positionMs).isEqualTo(10_000L); // ad duration
-    assertThat(oldPositions.get(1).contentPositionMs).isEqualTo(10_000L);
-    assertThat(newPositions.get(1).adGroupIndex).isEqualTo(C.INDEX_UNSET);
-    assertThat(newPositions.get(1).positionMs).isEqualTo(10_000L);
-    assertThat(newPositions.get(1).contentPositionMs).isEqualTo(10_000L);
-
-    // period transition
-    assertThat(oldPositions.get(2).periodIndex).isEqualTo(0);
-    assertThat(oldPositions.get(2).adGroupIndex).isEqualTo(C.INDEX_UNSET);
-    assertThat(oldPositions.get(2).positionMs).isEqualTo(30_000L);
-    assertThat(newPositions.get(2).periodIndex).isEqualTo(1);
-    assertThat(newPositions.get(2).adGroupIndex).isEqualTo(C.INDEX_UNSET);
-    assertThat(newPositions.get(2).positionMs).isEqualTo(30_000L);
-
-    // midroll 1 to content
-    assertThat(oldPositions.get(4).adGroupIndex).isEqualTo(1);
-    assertThat(oldPositions.get(4).positionMs).isEqualTo(10_000L); // ad duration
-    assertThat(oldPositions.get(4).contentPositionMs).isEqualTo(40_000L);
-    assertThat(newPositions.get(4).adGroupIndex).isEqualTo(C.INDEX_UNSET);
-    assertThat(newPositions.get(4).positionMs).isEqualTo(40_000L);
-    assertThat(newPositions.get(4).contentPositionMs).isEqualTo(40_000L);
   }
 }
