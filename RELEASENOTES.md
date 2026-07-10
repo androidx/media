@@ -24,6 +24,11 @@
         Custom `AssetLoader` implementations must implement these new methods.
 *   Track Selection:
 *   Extractors:
+    *   Fix corrupted AC-3, DTS and LPCM audio when playing DVD-style MPEG-PS
+        content, by stripping the `private_stream_1` sub-stream header from each
+        PES packet in `PsExtractor` before the payload is passed to the audio
+        reader
+        ([#3327](https://github.com/androidx/media/issues/3327)).
 *   Inspector:
 *   Inspector Frame:
 *   Audio:
