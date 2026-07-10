@@ -49,6 +49,7 @@ import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo;
 import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
+import androidx.media3.exoplayer.upstream.contentsteering.ContentSteeringTracker;
 import androidx.media3.exoplayer.util.ReleasableExecutor;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
@@ -438,8 +439,12 @@ public final class DefaultHlsPlaylistTracker
               new ContentSteeringCallback(),
               checkNotNull(bandwidthMeter),
               SystemClock.DEFAULT);
+      String initialPathwayId =
+          contentSteeringInfo.pathwayId != null
+              ? contentSteeringInfo.pathwayId
+              : variantRedundantGroups.get(0).getCurrentPathwayId();
       contentSteeringTracker.start(
-          contentSteeringInfo.serverUri, contentSteeringInfo.pathwayId, eventDispatcher);
+          contentSteeringInfo.serverUri, initialPathwayId, eventDispatcher);
     }
     HlsRedundantGroup primaryRedundantGroup = variantRedundantGroups.get(0);
     primaryMediaPlaylistUrl = primaryRedundantGroup.getCurrentPlaylistUrl();
@@ -1359,20 +1364,23 @@ public final class DefaultHlsPlaylistTracker
     }
   }
 
-  private class ContentSteeringCallback implements HlsContentSteeringTracker.Callback {
+  private class ContentSteeringCallback implements ContentSteeringTracker.Callback {
 
     @Override
     public void onCurrentPathwayUpdated(
-        String currentPathwayId, String oldPathwayId, long oldPathwayExcludeDurationMs) {
+        String currentPathwayId,
+        @Nullable String previousPathwayId,
+        long previousPathwayExcludeDurationMs) {
       // Defer updating primary url on pathway change if we haven't loaded the first primary
       // playlist yet, so that the playlist of the old pathway can still be propagated to the
       // client, who doesn't have to wait extra time for the playlist of the new pathway.
       boolean shouldDeferUpdatingPrimaryUrl =
-          (oldPathwayExcludeDurationMs == C.TIME_UNSET && primaryMediaPlaylistSnapshot == null);
+          (previousPathwayExcludeDurationMs == C.TIME_UNSET
+              && primaryMediaPlaylistSnapshot == null);
       for (RedundantGroupBundle redundantGroupBundle : redundantGroupBundles.values()) {
         @Nullable
         Uri currentPlaylistUrlToExclude =
-            oldPathwayExcludeDurationMs != C.TIME_UNSET
+            previousPathwayExcludeDurationMs != C.TIME_UNSET
                 ? redundantGroupBundle.redundantGroup.getCurrentPlaylistUrl()
                 : null;
         if (currentPlaylistUrlToExclude == null) {
@@ -1381,7 +1389,7 @@ public final class DefaultHlsPlaylistTracker
         } else {
           boolean unusedExcludeResult =
               redundantGroupBundle.excludePlaylist(
-                  currentPlaylistUrlToExclude, oldPathwayExcludeDurationMs, currentPathwayId);
+                  currentPlaylistUrlToExclude, previousPathwayExcludeDurationMs, currentPathwayId);
         }
       }
     }
@@ -1390,13 +1398,13 @@ public final class DefaultHlsPlaylistTracker
     public void onNewPathwayAvailable(
         String newPathwayId,
         String basePathwayId,
-        ImmutableList<Uri> newPlaylistUrls,
-        ImmutableList<Uri> basePlaylistUrls) {
-      checkState(newPlaylistUrls.size() == basePlaylistUrls.size());
-      for (int i = 0; i < newPlaylistUrls.size(); i++) {
+        ImmutableList<Uri> newUris,
+        ImmutableList<Uri> baseUris) {
+      checkState(newUris.size() == baseUris.size());
+      for (int i = 0; i < newUris.size(); i++) {
         RedundantGroupBundle redundantGroupBundle =
-            checkNotNull(redundantGroupBundles.get(basePlaylistUrls.get(i)));
-        Uri newPlaylistUrl = newPlaylistUrls.get(i);
+            checkNotNull(redundantGroupBundles.get(baseUris.get(i)));
+        Uri newPlaylistUrl = newUris.get(i);
         redundantGroupBundle.addPlaylistUrl(newPathwayId, newPlaylistUrl);
         redundantGroupBundles.put(newPlaylistUrl, redundantGroupBundle);
       }

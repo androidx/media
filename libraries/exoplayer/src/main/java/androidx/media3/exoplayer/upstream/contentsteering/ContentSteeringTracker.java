@@ -17,26 +17,63 @@ package androidx.media3.exoplayer.upstream.contentsteering;
 
 import android.net.Uri;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
+import com.google.common.collect.ImmutableList;
 
 /** Tracks the content steering states for an adaptive stream. */
 @UnstableApi
 public interface ContentSteeringTracker {
+
+  /** A callback to be notified of {@link ContentSteeringTracker} events. */
+  interface Callback {
+
+    /**
+     * Called when the current pathway is updated.
+     *
+     * @param currentPathwayId The current pathway ID after the update.
+     * @param previousPathwayId The pathway ID before the update, or {@code null} if the call of
+     *     this method is the result of starting the tracker.
+     * @param previousPathwayExcludeDurationMs The exclude duration in milliseconds if the update is
+     *     due to the exclusion of the previous pathway, or {@link C#TIME_UNSET} if the previous
+     *     pathway is not excluded.
+     */
+    void onCurrentPathwayUpdated(
+        String currentPathwayId,
+        @Nullable String previousPathwayId,
+        long previousPathwayExcludeDurationMs);
+
+    /**
+     * Called when a new pathway cloned from an existing pathway becomes available.
+     *
+     * <p>The lists {@code newUris} and {@code baseUris} have the equal size, and each URI in the
+     * {@code newUris} is cloned from the base URI in the {@code baseUris} of the same index.
+     *
+     * @param newPathwayId The new pathway ID.
+     * @param basePathwayId The base pathway ID.
+     * @param newUris The list of new cloned URIs.
+     * @param baseUris The list of base URIs.
+     */
+    void onNewPathwayAvailable(
+        String newPathwayId,
+        String basePathwayId,
+        ImmutableList<Uri> newUris,
+        ImmutableList<Uri> baseUris);
+  }
 
   /**
    * Starts the {@link ContentSteeringTracker}.
    *
    * @param initialSteeringManifestUri The initial {@link Uri} of the steering manifest.
    * @param initialPathwayId The ID of the initial pathway to use before the first steering manifest
-   *     is loaded, or {@code null} to allow the tracker to pick any available pathway before the
-   *     first steering manifest is loaded.
+   *     is loaded.
    * @param eventDispatcher A {@link MediaSourceEventListener.EventDispatcher} for reporting load
    *     events.
    */
   void start(
       Uri initialSteeringManifestUri,
-      @Nullable String initialPathwayId,
+      String initialPathwayId,
       MediaSourceEventListener.EventDispatcher eventDispatcher);
 
   /**

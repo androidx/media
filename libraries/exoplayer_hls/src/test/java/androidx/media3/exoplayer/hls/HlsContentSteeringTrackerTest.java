@@ -106,28 +106,6 @@ public final class HlsContentSteeringTrackerTest {
   }
 
   @Test
-  public void
-      start_withoutInitialPathwayId_picksTheCurrentPathwayOfVariantRedundantGroupAndNotifyCallback() {
-    AtomicReference<TimeoutException> timeoutExceptionRef = new AtomicReference<>();
-    HlsContentSteeringTracker contentSteeringTracker =
-        runContentSteeringTracker(
-            new FakeDataSource(),
-            /* initialPathwayId= */ null,
-            mockContentSteeringTrackerCallback,
-            SystemClock.DEFAULT,
-            /* awaitedCurrentPathwayUpdateCount= */ 1,
-            timeoutExceptionRef);
-
-    assertThat(timeoutExceptionRef.get()).isNull();
-    verify(mockContentSteeringTrackerCallback)
-        .onCurrentPathwayUpdated(
-            /* currentPathwayId= */ eq("CDN-A"),
-            /* previousPathwayId= */ eq(null),
-            /* previousPathwayExcludeDurationMs= */ eq(C.TIME_UNSET));
-    assertThat(contentSteeringTracker.isActive()).isTrue();
-  }
-
-  @Test
   public void start_withInvalidInitialPathwayId_throwsIllegalStateException() {
     assertThrows(
         IllegalStateException.class,
@@ -245,8 +223,8 @@ public final class HlsContentSteeringTrackerTest {
         .onNewPathwayAvailable(
             /* newPathwayId= */ eq("CDN-A-CLONE"),
             /* basePathwayId= */ eq("CDN-A"),
-            /* newPlaylistUrls= */ eq(expectedNewPlaylistUrls.build()),
-            /* basePlaylistUrls= */ eq(expectedBasePlaylistUrls.build()));
+            /* newUris= */ eq(expectedNewPlaylistUrls.build()),
+            /* baseUris= */ eq(expectedBasePlaylistUrls.build()));
 
     verify(mockContentSteeringTrackerCallback)
         .onCurrentPathwayUpdated(
@@ -316,8 +294,8 @@ public final class HlsContentSteeringTrackerTest {
         .onNewPathwayAvailable(
             /* newPathwayId= */ eq("CDN-A-CLONE"),
             /* basePathwayId= */ eq("CDN-A"),
-            /* newPlaylistUrls= */ eq(expectedNewPlaylistUrls.build()),
-            /* basePlaylistUrls= */ eq(expectedBasePlaylistUrls.build()));
+            /* newUris= */ eq(expectedNewPlaylistUrls.build()),
+            /* baseUris= */ eq(expectedBasePlaylistUrls.build()));
 
     verify(mockContentSteeringTrackerCallback)
         .onCurrentPathwayUpdated(
