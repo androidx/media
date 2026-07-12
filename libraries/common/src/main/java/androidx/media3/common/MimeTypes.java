@@ -195,6 +195,11 @@ public final class MimeTypes {
   @UnstableApi public static final String IMAGE_WEBP = BASE_TYPE_IMAGE + "/webp";
   @UnstableApi public static final String IMAGE_RAW = BASE_TYPE_IMAGE + "/raw";
 
+  // multipart/ MIME types
+
+  /** MIME type for multipart Motion JPEG streams. */
+  @UnstableApi public static final String MULTIPART_MJPEG = "multipart/x-mixed-replace";
+
   /**
    * A non-standard codec string for E-AC3-JOC. Use of this constant allows for disambiguation
    * between regular E-AC3 ("ec-3") and E-AC3-JOC ("ec+3") streams from the codec string alone. The

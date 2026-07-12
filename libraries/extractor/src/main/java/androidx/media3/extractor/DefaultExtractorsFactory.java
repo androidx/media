@@ -36,6 +36,7 @@ import androidx.media3.extractor.flac.FlacExtractor;
 import androidx.media3.extractor.flv.FlvExtractor;
 import androidx.media3.extractor.heif.HeifExtractor;
 import androidx.media3.extractor.jpeg.JpegExtractor;
+import androidx.media3.extractor.jpeg.MjpegExtractor;
 import androidx.media3.extractor.mkv.MatroskaExtractor;
 import androidx.media3.extractor.mp3.Mp3Extractor;
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
@@ -88,6 +89,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *             generally include a FLAC decoder before API 27. This can be worked around by using
  *             the FLAC extension or the FFmpeg extension.
  *       </ul>
+ *   <li>Motion JPEG ({@link MjpegExtractor})
  *   <li>JPEG ({@link JpegExtractor})
  *   <li>PNG ({@link PngExtractor})
  *   <li>WEBP ({@link WebpExtractor})
@@ -124,6 +126,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
         // without further analysis.
         FileTypes.AVI,
         FileTypes.MIDI,
+        FileTypes.MJPEG,
         FileTypes.JPEG,
         FileTypes.PNG,
         FileTypes.WEBP,
@@ -612,6 +615,9 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
         break;
       case FileTypes.AVIF:
         extractors.add(new AvifExtractor());
+        break;
+      case FileTypes.MJPEG:
+        extractors.add(new MjpegExtractor());
         break;
       case FileTypes.WEBVTT:
       case FileTypes.UNKNOWN:
