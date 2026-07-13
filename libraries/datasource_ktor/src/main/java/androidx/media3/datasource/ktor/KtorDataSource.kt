@@ -154,7 +154,7 @@ private constructor(
                 setBody(dataSpec.httpBody!!)
               }
             }
-            .execute()
+            .body<HttpResponse>()
         channel = httpResponse.bodyAsChannel()
       }
       this.response = httpResponse

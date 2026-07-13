@@ -38,6 +38,9 @@
 *   Metadata:
 *   Image:
 *   DataSource:
+    *   Fix `KtorDataSource` loading the entire HTTP response body into memory
+        when opening a connection
+        ([#3305](https://github.com/androidx/media/issues/3305)).
 *   DRM:
 *   Effect:
 *   Effect Lottie:

@@ -15,6 +15,7 @@
  */
 package androidx.media3.datasource.ktor
 
+import android.os.SystemClock
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.HttpDataSource
@@ -339,6 +340,46 @@ class KtorDataSourceTest(
 
     dataSource.close()
     assertThat(transferEndCalled).isTrue()
+  }
+
+  @Test
+  fun open_doesNotWaitForResponseBody() {
+    val testData = "a".repeat(100)
+    val bodyDelayMs = 800L
+    val mockWebServer = MockWebServer()
+    mockWebServer.enqueue(
+      MockResponse()
+        .setResponseCode(200)
+        .setHeader("Content-Length", testData.length)
+        .setBody(testData)
+        .setBodyDelay(bodyDelayMs, TimeUnit.MILLISECONDS)
+    )
+
+    val httpClient =
+      HttpClient(httpClientEngineFactory) {
+        install(HttpTimeout) {
+          requestTimeoutMillis = 3000
+          connectTimeoutMillis = 3000
+          socketTimeoutMillis = 3000
+        }
+      }
+    val dataSource = KtorDataSource.Factory(httpClient).createDataSource()
+    val dataSpec = DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build()
+
+    val startTimeMs = SystemClock.elapsedRealtime()
+    assertThat(dataSource.open(dataSpec)).isEqualTo(testData.length.toLong())
+    val openDurationMs = SystemClock.elapsedRealtime() - startTimeMs
+
+    // Verify that open() completed without waiting for the delayed response body.
+    assertThat(openDurationMs).isLessThan(400L)
+
+    val buffer = ByteArray(10)
+    val bytesRead = dataSource.read(buffer, 0, buffer.size)
+    val readDurationMs = SystemClock.elapsedRealtime() - startTimeMs
+    assertThat(bytesRead).isEqualTo(10)
+    assertThat(readDurationMs).isGreaterThan(bodyDelayMs)
+
+    dataSource.close()
   }
 
   // TODO: b/503301819 - Remove this when the OkHttp engine works without it.
