@@ -28,7 +28,6 @@ import java.util.Arrays;
  *
  * <p>Some codecs store codec configuration in a container box whose bytes are not otherwise exposed
  * on {@link androidx.media3.common.Format} (for example the E-AC-3 {@code dec3} / EC3SpecificBox).
- * The extractor preserves that box's payload here so a muxer can reproduce the box verbatim.
  *
  * <p>The {@link #data} holds the box body only, i.e. excluding the 4-byte size and 4-byte type
  * header, and {@link #boxType} identifies which box the payload belongs to (for example {@code
