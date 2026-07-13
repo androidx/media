@@ -636,6 +636,52 @@ public class DefaultDashChunkSourceTest {
     assertThat(output.endOfStream).isTrue();
   }
 
+  @Test
+  public void updateManifest_representationWithZeroSegments_doesNotThrow() throws Exception {
+    DashManifestParser parser = new DashManifestParser();
+    DashManifest emptyManifest =
+        parser.parse(
+            Uri.EMPTY,
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(),
+                "media/dash/empty-segment-timeline/sample.mpd"));
+    DashManifest nonEmptyManifest =
+        parser.parse(
+            Uri.EMPTY,
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(), "media/dash/multi-track/sample.mpd"));
+
+    DefaultDashChunkSource chunkSource =
+        new DefaultDashChunkSource(
+            new BundledChunkExtractor.Factory(),
+            new LoaderErrorThrower.Placeholder(),
+            emptyManifest,
+            new BaseUrlExclusionList(),
+            /* periodIndex= */ 0,
+            /* adaptationSetIndices= */ new int[] {0},
+            new FixedTrackSelection(
+                new TrackGroup(
+                    emptyManifest.getPeriod(0).adaptationSets.get(0).representations.get(0).format),
+                /* track= */ 0),
+            C.TRACK_TYPE_VIDEO,
+            new FakeDataSource(),
+            /* elapsedRealtimeOffsetMs= */ 0,
+            /* maxSegmentsPerLoad= */ 1,
+            /* enableEventMessageTrack= */ false,
+            /* closedCaptionFormats= */ ImmutableList.of(),
+            /* playerTrackEmsgHandler= */ null,
+            PlayerId.UNSET,
+            /* cmcdConfiguration= */ null);
+
+    // Update from empty to non-empty manifest.
+    chunkSource.updateManifest(nonEmptyManifest, /* newPeriodIndex= */ 0);
+    chunkSource.maybeThrowError();
+
+    // Update from non-empty to empty manifest.
+    chunkSource.updateManifest(emptyManifest, /* newPeriodIndex= */ 0);
+    chunkSource.maybeThrowError();
+  }
+
   private DashChunkSource createDashChunkSource(
       int numberOfTracks, @Nullable CmcdConfiguration cmcdConfiguration) throws IOException {
     checkArgument(numberOfTracks < 6);

@@ -1011,19 +1011,12 @@ public class DefaultDashChunkSource implements DashChunkSource {
       @Nullable DashSegmentIndex oldIndex = representation.getIndex();
       @Nullable DashSegmentIndex newIndex = newRepresentation.getIndex();
 
-      if (oldIndex == null) {
-        // Segment numbers cannot shift if the index isn't defined by the manifest.
-        return new RepresentationHolder(
-            newPeriodDurationUs,
-            newRepresentation,
-            selectedBaseUrl,
-            chunkExtractor,
-            segmentNumShift,
-            oldIndex);
-      }
-
-      if (!oldIndex.isExplicit()) {
-        // Segment numbers cannot shift if the index isn't explicit.
+      if (oldIndex == null
+          || newIndex == null
+          || !oldIndex.isExplicit()
+          || oldIndex.getSegmentCount(newPeriodDurationUs) == 0
+          || newIndex.getSegmentCount(newPeriodDurationUs) == 0) {
+        // Segment numbers cannot shift if an index is missing, non-explicit, or empty.
         return new RepresentationHolder(
             newPeriodDurationUs,
             newRepresentation,
@@ -1034,19 +1027,6 @@ public class DefaultDashChunkSource implements DashChunkSource {
       }
 
       long oldIndexSegmentCount = oldIndex.getSegmentCount(newPeriodDurationUs);
-      if (oldIndexSegmentCount == 0) {
-        // Segment numbers cannot shift if the old index was empty.
-        return new RepresentationHolder(
-            newPeriodDurationUs,
-            newRepresentation,
-            selectedBaseUrl,
-            chunkExtractor,
-            segmentNumShift,
-            newIndex);
-      }
-
-      checkNotNull(newIndex);
-
       long oldIndexFirstSegmentNum = oldIndex.getFirstSegmentNum();
       long oldIndexStartTimeUs = oldIndex.getTimeUs(oldIndexFirstSegmentNum);
       long oldIndexLastSegmentNum = oldIndexFirstSegmentNum + oldIndexSegmentCount - 1;

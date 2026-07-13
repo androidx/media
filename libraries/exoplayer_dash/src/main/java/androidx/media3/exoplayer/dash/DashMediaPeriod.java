@@ -970,22 +970,22 @@ import java.util.regex.Pattern;
   }
 
   private static long getFirstChunkStartTimeUs(
-      long positionsUs, DashManifest manifest, int periodIndex, int[] adaptationSetIndices) {
-    // Use the first representation as all representations in one adaptation set (or in grouped
-    // adaptation sets) need to be segment-aligned.
-    Representation representation =
-        manifest
-            .getPeriod(periodIndex)
-            .adaptationSets
-            .get(adaptationSetIndices[0])
-            .representations
-            .get(0);
-    @Nullable DashSegmentIndex segmentIndex = representation.getIndex();
-    if (segmentIndex == null) {
-      return C.TIME_UNSET;
-    }
+      long positionUs, DashManifest manifest, int periodIndex, int[] adaptationSetIndices) {
     long periodDurationUs = manifest.getPeriodDurationUs(periodIndex);
-    return segmentIndex.getTimeUs(segmentIndex.getSegmentNum(positionsUs, periodDurationUs));
+    List<AdaptationSet> adaptationSets = manifest.getPeriod(periodIndex).adaptationSets;
+    // Use the first non-empty representation, as all representations in one adaptation set (or in
+    // grouped adaptation sets) need to be segment-aligned.
+    for (int i = 0; i < adaptationSetIndices.length; i++) {
+      int adaptationSetIndex = adaptationSetIndices[i];
+      List<Representation> representations = adaptationSets.get(adaptationSetIndex).representations;
+      for (int j = 0; j < representations.size(); j++) {
+        @Nullable DashSegmentIndex segmentIndex = representations.get(j).getIndex();
+        if (segmentIndex != null && segmentIndex.getSegmentCount(periodDurationUs) != 0) {
+          return segmentIndex.getTimeUs(segmentIndex.getSegmentNum(positionUs, periodDurationUs));
+        }
+      }
+    }
+    return C.TIME_UNSET;
   }
 
   private static boolean areAllSamplesSyncSamples(

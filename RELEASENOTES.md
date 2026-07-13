@@ -35,6 +35,9 @@
 *   RTMP extension:
 *   HLS extension:
 *   DASH extension:
+    *   Fix crash (`IndexOutOfBoundsException`) when opening manifests with an
+        empty `<SegmentTimeline/>` element
+        ([#3326](https://github.com/androidx/media/issues/3326)).
 *   Smooth Streaming extension:
 *   RTSP extension:
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
