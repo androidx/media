@@ -116,51 +116,6 @@ public class Mp4MuxerEndToEndTest {
     transmuxAndAssert(/* inputFileName= */ "sample_eac3joc.mp4");
   }
 
-  /**
-   * Stream-copies an MP4 audio track through {@link Mp4Muxer} and asserts the re-extracted output
-   * against the expected dump.
-   *
-   * <p>The input is read with {@link Mp4Extractor} (rather than {@code MediaExtractorCompat}) so
-   * that {@link Format#metadata} — which carries the E-AC-3 {@code dec3} payload as a {@code
-   * FormatSpecificTransmuxingData} entry — is preserved and passed to the muxer.
-   */
-  private void transmuxAndAssert(String inputFileName) throws Exception {
-    FakeExtractorOutput inputExtractorOutput =
-        TestUtil.extractAllSamplesFromFile(
-            new Mp4Extractor(), context, "media/mp4/" + inputFileName);
-    FakeTrackOutput audioTrackOutput =
-        Iterables.getOnlyElement(inputExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO));
-    Format audioFormat = checkNotNull(audioTrackOutput.lastFormat);
-    String outputFilePath = temporaryFolder.newFile().getPath();
-
-    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
-      // Use fixed timestamps so the output (and its dump) is deterministic.
-      muxer.addMetadataEntry(
-          new Mp4TimestampData(
-              /* creationTimestampSeconds= */ 100_000_000L,
-              /* modificationTimestampSeconds= */ 500_000_000L));
-      int trackId = muxer.addTrack(audioFormat);
-      for (int i = 0; i < audioTrackOutput.getSampleCount(); i++) {
-        byte[] sampleData = audioTrackOutput.getSampleData(i);
-        ByteBuffer sampleBuffer = ByteBuffer.allocateDirect(sampleData.length);
-        sampleBuffer.put(sampleData);
-        sampleBuffer.rewind();
-        muxer.writeSampleData(
-            trackId,
-            sampleBuffer,
-            new BufferInfo(
-                audioTrackOutput.getSampleTimeUs(i),
-                sampleData.length,
-                audioTrackOutput.getSampleFlags(i)));
-      }
-    }
-
-    FakeExtractorOutput outputExtractorOutput =
-        TestUtil.extractAllSamplesFromFilePath(new Mp4Extractor(), outputFilePath);
-    DumpFileAsserts.assertOutput(
-        context, outputExtractorOutput, MuxerTestUtil.getExpectedMp4DumpFilePath(inputFileName));
-  }
-
   @Test
   public void createMp4File_addTrackAndMetadataButNoSamples_createsEmptyFile() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
@@ -1271,5 +1226,53 @@ public class Mp4MuxerEndToEndTest {
 
     byte[] outputFileBytes = TestUtil.getByteArrayFromFilePath(outputFilePath);
     assertThat(outputFileBytes).isEmpty();
+  }
+
+  /**
+   * Stream-copies an MP4 audio track through {@link Mp4Muxer} and asserts the re-extracted output
+   * against the expected dump.
+   *
+   * <p>The input is read with {@link Mp4Extractor} (rather than {@code MediaExtractorCompat}) so
+   * that {@link Format#metadata} — which carries the E-AC-3 {@code dec3} payload as a {@code
+   * FormatSpecificTransmuxingData} entry — is preserved and passed to the muxer.
+   */
+  private void transmuxAndAssert(String inputFileName) throws Exception {
+    FakeExtractorOutput inputExtractorOutput =
+        TestUtil.extractAllSamplesFromFile(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()),
+            context,
+            "media/mp4/" + inputFileName);
+    FakeTrackOutput audioTrackOutput =
+        Iterables.getOnlyElement(inputExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO));
+    Format audioFormat = checkNotNull(audioTrackOutput.lastFormat);
+    String outputFilePath = temporaryFolder.newFile().getPath();
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      // Use fixed timestamps so the output (and its dump) is deterministic.
+      muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 100_000_000L,
+              /* modificationTimestampSeconds= */ 500_000_000L));
+      int trackId = muxer.addTrack(audioFormat);
+      for (int i = 0; i < audioTrackOutput.getSampleCount(); i++) {
+        byte[] sampleData = audioTrackOutput.getSampleData(i);
+        ByteBuffer sampleBuffer = ByteBuffer.allocateDirect(sampleData.length);
+        sampleBuffer.put(sampleData);
+        sampleBuffer.rewind();
+        muxer.writeSampleData(
+            trackId,
+            sampleBuffer,
+            new BufferInfo(
+                audioTrackOutput.getSampleTimeUs(i),
+                sampleData.length,
+                audioTrackOutput.getSampleFlags(i)));
+      }
+    }
+
+    FakeExtractorOutput outputExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), outputFilePath);
+    DumpFileAsserts.assertOutput(
+        context, outputExtractorOutput, MuxerTestUtil.getExpectedMp4DumpFilePath(inputFileName));
   }
 }

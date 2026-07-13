@@ -35,6 +35,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.container.FormatSpecificTransmuxingData;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
+import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.muxer.FragmentedMp4Writer.SampleMetadata;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.DumpableMp4Box;
@@ -471,11 +472,73 @@ public class BoxesTest {
   }
 
   @Test
+  public void createCodecSpecificBox_forEAc3WithWrongBoxType_throws() {
+    Format format =
+        FAKE_AUDIO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_E_AC3)
+            .setMetadata(
+                new Metadata(
+                    new FormatSpecificTransmuxingData(
+                        "wrong", new byte[] {0x0F, (byte) 0x80, 0x00})))
+            .build();
+
+    assertThrows(IllegalArgumentException.class, () -> Boxes.codecSpecificBox(format));
+  }
+
+  @Test
+  public void createCodecSpecificBox_forEAc3WithMultipleMetadataEntries_findsCorrectPayload() {
+    byte[] payload = new byte[] {0x0F, (byte) 0x80, 0x00};
+    Format format =
+        FAKE_AUDIO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_E_AC3)
+            .setMetadata(
+                new Metadata(
+                    new FormatSpecificTransmuxingData("wrong", new byte[] {1, 2, 3}),
+                    new Mp4TimestampData(100_000_000L, 500_000_000L),
+                    new FormatSpecificTransmuxingData("dec3", payload)))
+            .build();
+
+    ByteBuffer box = Boxes.codecSpecificBox(format);
+
+    assertThat(box.remaining()).isEqualTo(8 + payload.length);
+    byte[] typeBytes = new byte[4];
+    box.position(4);
+    box.get(typeBytes);
+    assertThat(Util.fromUtf8Bytes(typeBytes)).isEqualTo("dec3");
+    byte[] actual = new byte[payload.length];
+    box.get(actual);
+    assertThat(actual).isEqualTo(payload);
+  }
+
+  @Test
   public void createAudioSampleEntryBox_forEAc3_usesEc3Fourcc() {
     Format format =
         FAKE_AUDIO_FORMAT
             .buildUpon()
             .setSampleMimeType(MimeTypes.AUDIO_E_AC3)
+            .setMetadata(
+                new Metadata(
+                    new FormatSpecificTransmuxingData(
+                        "dec3", new byte[] {0x0F, (byte) 0x80, 0x00})))
+            .build();
+
+    ByteBuffer box = Boxes.audioSampleEntry(format);
+
+    // Sample entry box layout: 4 bytes size + 4 bytes fourcc + ...
+    byte[] fourccBytes = new byte[4];
+    box.position(4);
+    box.get(fourccBytes);
+    assertThat(Util.fromUtf8Bytes(fourccBytes)).isEqualTo("ec-3");
+  }
+
+  @Test
+  public void createAudioSampleEntryBox_forEAc3Joc_usesEc3Fourcc() {
+    Format format =
+        FAKE_AUDIO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_E_AC3_JOC)
             .setMetadata(
                 new Metadata(
                     new FormatSpecificTransmuxingData(

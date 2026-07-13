@@ -268,7 +268,10 @@ public class FragmentedMp4MuxerEndToEndTest {
    */
   private void transmuxToFragmentedAndAssert(String inputFileName) throws Exception {
     FakeExtractorOutput inputExtractorOutput =
-        TestUtil.extractAllSamplesFromFile(new Mp4Extractor(), context, "media/" + inputFileName);
+        TestUtil.extractAllSamplesFromFile(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()),
+            context,
+            "media/" + inputFileName);
     FakeTrackOutput audioTrackOutput =
         Iterables.getOnlyElement(inputExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO));
     Format audioFormat = checkNotNull(audioTrackOutput.lastFormat);

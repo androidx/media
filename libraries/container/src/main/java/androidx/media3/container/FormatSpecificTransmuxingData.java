@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 The Android Open Source Project
+ * Copyright 2026 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 package androidx.media3.container;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
@@ -43,8 +45,8 @@ public final class FormatSpecificTransmuxingData implements Metadata.Entry {
 
   /** Creates an instance. */
   public FormatSpecificTransmuxingData(String boxType, byte[] data) {
-    this.boxType = boxType;
-    this.data = data;
+    this.boxType = checkNotNull(boxType);
+    this.data = checkNotNull(data).clone();
   }
 
   @Override
