@@ -1153,6 +1153,10 @@ public final class Mp4Extractor implements Extractor {
    * with the next logical sample (based on sample time) exceeds {@link
    * #MAXIMUM_READ_AHEAD_BYTES_STREAM}. If this is the case, we continue with this sample even
    * though it may require a source reload.
+   *
+   * <p>As an exception, dependent metadata tracks are prioritized over the aforementioned logic if
+   * their timestamp is behind or equal to the primary track (e.g., video). This ensures they can be
+   * extracted before the frames they apply to.
    */
   private int getTrackIndexOfNextReadSample(long inputPosition) {
     long preferredSkipAmount = Long.MAX_VALUE;
@@ -1162,11 +1166,26 @@ public final class Mp4Extractor implements Extractor {
     long minAccumulatedBytes = Long.MAX_VALUE;
     boolean minAccumulatedBytesRequiresReload = true;
     int minAccumulatedBytesTrackIndex = C.INDEX_UNSET;
+
+    long minVideoTimestampUs = Long.MAX_VALUE;
+    long minIt35TimestampUs = Long.MAX_VALUE;
+    int minIt35TrackIndex = C.INDEX_UNSET;
+
     for (int trackIndex = 0; trackIndex < tracks.length; trackIndex++) {
       Mp4Track track = tracks[trackIndex];
       int sampleIndex = track.sampleIndex;
       if (sampleIndex == track.sampleTable.sampleCount) {
         continue;
+      }
+
+      long sampleTimestampUs = track.sampleTable.timestampsUs[sampleIndex];
+      if (track.isVideo) {
+        minVideoTimestampUs = Math.min(minVideoTimestampUs, sampleTimestampUs);
+      } else if (track.isItutT35) {
+        if (sampleTimestampUs < minIt35TimestampUs) {
+          minIt35TimestampUs = sampleTimestampUs;
+          minIt35TrackIndex = trackIndex;
+        }
       }
       long sampleOffset = track.sampleTable.offsets[sampleIndex];
       long sampleAccumulatedBytes = checkNotNull(accumulatedSampleSizes)[trackIndex][sampleIndex];
@@ -1185,6 +1204,12 @@ public final class Mp4Extractor implements Extractor {
         minAccumulatedBytesTrackIndex = trackIndex;
       }
     }
+    if (minVideoTimestampUs != Long.MAX_VALUE
+        && minIt35TrackIndex != C.INDEX_UNSET
+        && minIt35TimestampUs <= minVideoTimestampUs) {
+      return minIt35TrackIndex;
+    }
+
     return minAccumulatedBytes == Long.MAX_VALUE
             || !minAccumulatedBytesRequiresReload
             || preferredAccumulatedBytes < minAccumulatedBytes + MAXIMUM_READ_AHEAD_BYTES_STREAM
@@ -1379,6 +1404,8 @@ public final class Mp4Extractor implements Extractor {
     public final TrackSampleTable sampleTable;
     public final TrackOutput trackOutput;
     @Nullable public final TrueHdSampleRechunker trueHdSampleRechunker;
+    private final boolean isVideo;
+    private final boolean isItutT35;
 
     public int sampleIndex;
 
@@ -1392,6 +1419,8 @@ public final class Mp4Extractor implements Extractor {
       this.track = track;
       this.sampleTable = sampleTable;
       this.trackOutput = trackOutput;
+      this.isVideo = track.type == C.TRACK_TYPE_VIDEO;
+      this.isItutT35 = Objects.equals(track.format.sampleMimeType, MimeTypes.APPLICATION_ITUT_T35);
       trueHdSampleRechunker =
           MimeTypes.AUDIO_TRUEHD.equals(track.format.sampleMimeType)
               ? new TrueHdSampleRechunker()
