@@ -59,6 +59,7 @@ public final class FileTypes {
    *   <li>{@link #BMP}
    *   <li>{@link #HEIF}
    *   <li>{@link #AVIF}
+   *   <li>{@link #MMT_TLV}
    * </ul>
    */
   @Documented
@@ -66,7 +67,7 @@ public final class FileTypes {
   @Target(TYPE_USE)
   @IntDef({
     UNKNOWN, AC3, AC4, ADTS, AMR, FLAC, FLV, MATROSKA, MP3, MP4, OGG, PS, TS, WAV, WEBVTT, JPEG,
-    MIDI, AVI, PNG, WEBP, BMP, HEIF, AVIF
+    MIDI, AVI, PNG, WEBP, BMP, HEIF, AVIF, MMT_TLV
   })
   public @interface Type {}
 
@@ -139,6 +140,9 @@ public final class FileTypes {
   /** File type for the AVIF format. */
   public static final int AVIF = 21;
 
+  /** File type for the MMT (MPEG Media Transport) over TLV format. */
+  public static final int MMT_TLV = 22;
+
   @VisibleForTesting /* package */ static final String HEADER_CONTENT_TYPE = "Content-Type";
 
   private static final String EXTENSION_AC3 = ".ac3";
@@ -181,6 +185,9 @@ public final class FileTypes {
   private static final String EXTENSION_HEIC = ".heic";
   private static final String EXTENSION_HEIF = ".heif";
   private static final String EXTENSION_AVIF = ".avif";
+  private static final String EXTENSION_MMT = ".mmt";
+  private static final String EXTENSION_MMTS = ".mmts";
+  private static final String EXTENSION_TLV = ".tlv";
 
   private FileTypes() {}
 
@@ -257,6 +264,8 @@ public final class FileTypes {
         return FileTypes.HEIF;
       case MimeTypes.IMAGE_AVIF:
         return FileTypes.AVIF;
+      case MimeTypes.VIDEO_MMT_TLV:
+        return FileTypes.MMT_TLV;
       default:
         return FileTypes.UNKNOWN;
     }
@@ -334,6 +343,10 @@ public final class FileTypes {
       return FileTypes.HEIF;
     } else if (filename.endsWith(EXTENSION_AVIF)) {
       return FileTypes.AVIF;
+    } else if (filename.endsWith(EXTENSION_MMT)
+        || filename.endsWith(EXTENSION_MMTS)
+        || filename.endsWith(EXTENSION_TLV)) {
+      return FileTypes.MMT_TLV;
     } else {
       return FileTypes.UNKNOWN;
     }
