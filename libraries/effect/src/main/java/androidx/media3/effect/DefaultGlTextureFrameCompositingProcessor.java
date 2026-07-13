@@ -81,6 +81,7 @@ import java.util.concurrent.Executor;
   @Nullable
   private Executor pendingWakeupExecutor;
 
+  // This is reset when a new batch of frames is queued.
   private boolean inputStreamEnded;
 
   /**
@@ -142,6 +143,7 @@ import java.util.concurrent.Executor;
       return false;
     }
 
+    inputStreamEnded = false;
     if (frames.size() == 1) {
       return downstreamConsumer.queue(frames.get(0), listenerExecutor, wakeupListener);
     }

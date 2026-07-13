@@ -52,6 +52,7 @@ import java.util.concurrent.Executor;
 
   @Nullable private ImmutableSet<Integer> pendingSequenceIndices;
   private boolean isClosed;
+  // This is reset when a new batch of frames is queued.
   private boolean allInputStreamsEnded;
 
   public GlTextureFrameAggregator(
@@ -301,6 +302,7 @@ import java.util.concurrent.Executor;
     @Nullable private Runnable pendingWakeupListener;
     @Nullable private Executor pendingWakeupExecutor;
     @Nullable private GlTextureFrame pendingFrame;
+    // This is reset when a new batch of frames is queued.
     private boolean isEnded;
     private boolean isActive;
 
@@ -324,6 +326,8 @@ import java.util.concurrent.Executor;
         return false;
       }
 
+      isEnded = false;
+      allInputStreamsEnded = false;
       pendingFrame = frame;
       tryQueueToCompositingProcessor();
       // Returning true to signal the input frame is queued. If queueing to the compositing

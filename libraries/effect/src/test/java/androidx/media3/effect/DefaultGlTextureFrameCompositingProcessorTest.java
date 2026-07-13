@@ -250,6 +250,59 @@ public final class DefaultGlTextureFrameCompositingProcessorTest {
         .isEqualTo("CUSTOM_VALUE");
   }
 
+  @Test
+  public void queue_afterSignalEndOfStream_doesNotPrematurelySignalEos() throws Exception {
+    GlTextureFrame frame1 = createGlTextureFrame(/* texId= */ 0, /* sequenceIndex= */ 0);
+    GlTextureFrame frame2 = createGlTextureFrame(/* texId= */ 1, /* sequenceIndex= */ 1);
+    assertThat(
+            compositingProcessor.queue(
+                ImmutableList.of(frame1, frame2), directExecutor(), () -> {}))
+        .isTrue();
+    assertThat(downstreamConsumer.framesReceived).isEqualTo(1);
+
+    compositingProcessor.signalEndOfStream();
+    assertThat(downstreamConsumer.signalEndOfStreamCalled).isTrue();
+
+    downstreamConsumer.signalEndOfStreamCalled = false;
+
+    GlTextureFrame frame3 = createGlTextureFrame(/* texId= */ 2, /* sequenceIndex= */ 0);
+    GlTextureFrame frame4 = createGlTextureFrame(/* texId= */ 3, /* sequenceIndex= */ 1);
+    assertThat(
+            compositingProcessor.queue(
+                ImmutableList.of(frame3, frame4), directExecutor(), () -> {}))
+        .isTrue();
+
+    assertThat(downstreamConsumer.framesReceived).isEqualTo(2);
+    assertThat(downstreamConsumer.signalEndOfStreamCalled).isFalse();
+
+    compositingProcessor.signalEndOfStream();
+    assertThat(downstreamConsumer.signalEndOfStreamCalled).isTrue();
+  }
+
+  @Test
+  public void queue_singleFrameAfterSignalEndOfStream_doesNotPrematurelySignalEos()
+      throws Exception {
+    GlTextureFrame frame1 = createGlTextureFrame(/* texId= */ 0, /* sequenceIndex= */ 0);
+    assertThat(compositingProcessor.queue(ImmutableList.of(frame1), directExecutor(), () -> {}))
+        .isTrue();
+    assertThat(downstreamConsumer.framesReceived).isEqualTo(1);
+
+    compositingProcessor.signalEndOfStream();
+    assertThat(downstreamConsumer.signalEndOfStreamCalled).isTrue();
+
+    downstreamConsumer.signalEndOfStreamCalled = false;
+
+    GlTextureFrame frame2 = createGlTextureFrame(/* texId= */ 1, /* sequenceIndex= */ 0);
+    assertThat(compositingProcessor.queue(ImmutableList.of(frame2), directExecutor(), () -> {}))
+        .isTrue();
+
+    assertThat(downstreamConsumer.framesReceived).isEqualTo(2);
+    assertThat(downstreamConsumer.signalEndOfStreamCalled).isFalse();
+
+    compositingProcessor.signalEndOfStream();
+    assertThat(downstreamConsumer.signalEndOfStreamCalled).isTrue();
+  }
+
   private static GlTextureFrame createGlTextureFrame(int texId, int sequenceIndex) {
     return new GlTextureFrame.Builder(
             new GlTextureInfo(

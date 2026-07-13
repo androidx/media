@@ -215,6 +215,63 @@ public final class GlTextureFrameAggregatorTest {
   }
 
   @Test
+  public void signalEndOfStream_afterEndOfStreamAndQueue_signalsDownstreamAgain() throws Exception {
+    frameAggregator.configureSequenceIndices(ImmutableSet.of(0));
+    GlTextureFrame frame1 = createGlTextureFrame(/* sequenceIndex= */ 0);
+
+    assertThat(frameAggregator.getInputConsumer(0).queue(frame1, directExecutor(), () -> {}))
+        .isTrue();
+    frameAggregator.getInputConsumer(0).signalEndOfStream();
+    assertThat(downstreamConsumer.signalEndOfStreamCalled).isTrue();
+
+    downstreamConsumer.signalEndOfStreamCalled = false;
+
+    GlTextureFrame frame2 = createGlTextureFrame(/* sequenceIndex= */ 0);
+    assertThat(frameAggregator.getInputConsumer(0).queue(frame2, directExecutor(), () -> {}))
+        .isTrue();
+    assertThat(downstreamConsumer.signalEndOfStreamCalled).isFalse();
+
+    frameAggregator.getInputConsumer(0).signalEndOfStream();
+    assertThat(downstreamConsumer.signalEndOfStreamCalled).isTrue();
+  }
+
+  @Test
+  public void
+      signalEndOfStream_afterEndOfStreamAndQueueWithMultipleSequences_signalsDownstreamAgain()
+          throws Exception {
+    frameAggregator.configureSequenceIndices(/* requestedSequenceIndices= */ ImmutableSet.of(0, 1));
+    // Batch A, sequences 0 and 1
+    GlTextureFrame frame0A = createGlTextureFrame(/* sequenceIndex= */ 0);
+    GlTextureFrame frame1A = createGlTextureFrame(/* sequenceIndex= */ 1);
+
+    assertThat(frameAggregator.getInputConsumer(0).queue(frame0A, directExecutor(), () -> {}))
+        .isTrue();
+    assertThat(frameAggregator.getInputConsumer(1).queue(frame1A, directExecutor(), () -> {}))
+        .isTrue();
+    frameAggregator.getInputConsumer(0).signalEndOfStream();
+    frameAggregator.getInputConsumer(1).signalEndOfStream();
+    assertThat(downstreamConsumer.signalEndOfStreamCalled).isTrue();
+
+    downstreamConsumer.signalEndOfStreamCalled = false;
+    // Batch B, sequences 0 and 1
+    GlTextureFrame frame0B = createGlTextureFrame(/* sequenceIndex= */ 0);
+    GlTextureFrame frame1B = createGlTextureFrame(/* sequenceIndex= */ 1);
+    assertThat(frameAggregator.getInputConsumer(0).queue(frame0B, directExecutor(), () -> {}))
+        .isTrue();
+    assertThat(frameAggregator.getInputConsumer(1).queue(frame1B, directExecutor(), () -> {}))
+        .isTrue();
+    assertThat(downstreamConsumer.signalEndOfStreamCalled).isFalse();
+
+    frameAggregator.getInputConsumer(0).signalEndOfStream();
+    // Downstream EOS is not yet signaled because sequence 1 hasn't signaled EOS since frame1B.
+    assertThat(downstreamConsumer.signalEndOfStreamCalled).isFalse();
+
+    // Verify downstream EOS is signaled only after sequence 1 also signals EOS again.
+    frameAggregator.getInputConsumer(1).signalEndOfStream();
+    assertThat(downstreamConsumer.signalEndOfStreamCalled).isTrue();
+  }
+
+  @Test
   public void queue_whenDownstreamThrowsVideoFrameProcessingException_throwsIllegalStateException()
       throws Exception {
     frameAggregator.configureSequenceIndices(ImmutableSet.of(0));
