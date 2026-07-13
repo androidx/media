@@ -21,6 +21,7 @@ import static androidx.media3.effect.FrameProcessorUtils.generateSyncFences;
 import static androidx.media3.effect.FrameProcessorUtils.releaseEglImageTexture;
 import static androidx.media3.effect.FrameProcessorUtils.waitAndCloseFence;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.hardware.HardwareBuffer;
@@ -28,6 +29,8 @@ import android.opengl.EGLDisplay;
 import android.opengl.GLES20;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.media3.common.ColorInfo;
+import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.GlUtil;
@@ -40,15 +43,17 @@ import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.FrameProcessorUtils.EglImageTextureWrapper;
 import com.google.common.collect.ImmutableList;
+import java.util.Objects;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
-/** A {@link GlTextureFrameConsumer} that writes the input to a {@link FrameWriter}. */
+/** Writes input texture frames to a {@link FrameWriter}. */
 @ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.
 @RequiresApi(26)
 /* package */ final class FrameWriterGlTextureFrameConsumer implements GlTextureFrameConsumer {
 
   private static final String TAG = "FrameWriterGlTexCons";
+  private static final long OUTPUT_USAGE = USAGE_GPU_COLOR_OUTPUT;
 
   private final Context context;
   private final FrameWriter frameWriter;
@@ -56,6 +61,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Nullable private DefaultShaderProgram defaultShaderProgram;
   private @MonotonicNonNull EGLDisplay eglDisplay;
+  private @MonotonicNonNull Size inputSize;
+  private @MonotonicNonNull ColorInfo inputColorInfo;
+  private @MonotonicNonNull Format outputFormat;
   private boolean isFrameWriterConfigured;
 
   FrameWriterGlTextureFrameConsumer(
@@ -71,10 +79,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       GlTextureFrame inputFrame, Executor listenerExecutor, Runnable wakeupListener)
       throws VideoFrameProcessingException {
     if (!isFrameWriterConfigured) {
-      // TODO: b/530130970 - Configure with the DefaultShaderProgram's output size.
-      frameWriter.configure(inputFrame.format, USAGE_GPU_COLOR_OUTPUT);
+      outputFormat = establishOutputFormat(inputFrame.format);
+      frameWriter.configure(outputFormat, OUTPUT_USAGE);
       isFrameWriterConfigured = true;
     }
+
+    maybeReconfigureShader(inputFrame);
 
     AsyncFrame asyncFrame = frameWriter.dequeueInputFrame(listenerExecutor, wakeupListener);
     if (asyncFrame == null) {
@@ -103,24 +113,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               /* target= */ GLES20.GL_TEXTURE_2D,
               /* writesToBoundImage= */ true);
 
-      if (defaultShaderProgram == null) {
-        // Convert OpenGL coordinate system back.
-        // TODO: b/530927743 - Handle rotation correctly in the pipeline.
-        GlMatrixTransformation yFlip =
-            new ScaleAndRotateTransformation.Builder()
-                .setScale(/* scaleX= */ 1f, /* scaleY= */ -1f)
-                .build();
-        defaultShaderProgram =
-            DefaultShaderProgram.create(
-                context,
-                /* matrixTransformations= */ ImmutableList.of(yFlip),
-                /* rgbMatrices= */ ImmutableList.of(),
-                /* useHdr= */ false);
-        Size unused =
-            defaultShaderProgram.configure(
-                inputFrame.glTextureInfo.width, inputFrame.glTextureInfo.height);
-      }
-      defaultShaderProgram.drawFrame(inputFrame.glTextureInfo.texId, inputFrame.presentationTimeUs);
+      GlUtil.clearFocusedBuffersOpaque();
+      checkNotNull(defaultShaderProgram)
+          .drawFrame(inputFrame.glTextureInfo.texId, inputFrame.presentationTimeUs);
       GlUtil.checkGlError();
       ImmutableList<SyncFenceWrapper> fences = generateSyncFences(/* count= */ 2);
       if (fences.size() == 2) {
@@ -166,6 +161,115 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     frameWriter.close();
     if (defaultShaderProgram != null) {
       defaultShaderProgram.release();
+      defaultShaderProgram = null;
     }
+  }
+
+  /** Establishes the output format based on the first frame. */
+  private Format establishOutputFormat(Format inputFormat) {
+    int rotationDegrees = calculateOutputRotationDegrees(inputFormat);
+    int outputWidth =
+        (rotationDegrees == 90 || rotationDegrees == 270) ? inputFormat.height : inputFormat.width;
+    int outputHeight =
+        (rotationDegrees == 90 || rotationDegrees == 270) ? inputFormat.width : inputFormat.height;
+    return updateFormat(
+        inputFormat,
+        outputWidth,
+        outputHeight,
+        // Sets the degrees that the player needs to rotate. If we rotated 90 degrees, the player
+        // needs to rotate -90 degrees, which is equivalent to rotating it 270 degrees.
+        /* rotationDegrees= */ (360 - rotationDegrees) % 360);
+  }
+
+  /** Reconfigures the shader program if the input size or color space changed. */
+  private void maybeReconfigureShader(GlTextureFrame inputFrame)
+      throws VideoFrameProcessingException {
+    Format inputFormat = inputFrame.format;
+    // The frames in the GL pipeline should always be in the intended orientation.
+    checkArgument(inputFormat.rotationDegrees == 0);
+    ColorInfo inputColorInfo = checkNotNull(inputFormat.colorInfo);
+    if (inputSize != null
+        && inputFormat.width == inputSize.getWidth()
+        && inputFormat.height == inputSize.getHeight()
+        && Objects.equals(inputColorInfo, this.inputColorInfo)) {
+      return;
+    }
+
+    if (defaultShaderProgram != null) {
+      defaultShaderProgram.release();
+      defaultShaderProgram = null;
+    }
+
+    // Force physical rotation to match the logical rotation of the established output format.
+    // The output format stores the rotation that player applies. We convert it back to the degrees
+    // the pipeline needs to rotate.
+    int rotationDegrees = (360 - checkNotNull(outputFormat).rotationDegrees) % 360;
+
+    // Flip OpenGL coordinate system back and rotate.
+    GlMatrixTransformation flipAndRotate =
+        new ScaleAndRotateTransformation.Builder()
+            .setScale(/* scaleX= */ 1f, /* scaleY= */ -1f)
+            .setRotationDegrees(rotationDegrees)
+            .build();
+
+    ImmutableList.Builder<GlMatrixTransformation> transformationsBuilder = ImmutableList.builder();
+    transformationsBuilder
+        .add(flipAndRotate)
+        .add(
+            Presentation.createForWidthAndHeight(
+                outputFormat.width, outputFormat.height, Presentation.LAYOUT_SCALE_TO_FIT));
+
+    defaultShaderProgram =
+        DefaultShaderProgram.create(
+            context,
+            /* matrixTransformations= */ transformationsBuilder.build(),
+            /* rgbMatrices= */ ImmutableList.of(),
+            /* useHdr= */ ColorInfo.isTransferHdr(inputColorInfo));
+
+    inputSize = new Size(inputFormat.width, inputFormat.height);
+    this.inputColorInfo = inputColorInfo;
+    Size unusedSize =
+        defaultShaderProgram.configure(
+            inputFrame.glTextureInfo.width, inputFrame.glTextureInfo.height);
+  }
+
+  private int calculateOutputRotationDegrees(Format format) {
+    if (format.width >= format.height) {
+      // Input is landscape, no rotation needed.
+      return 0;
+    }
+
+    if (frameWriter.getInfo().isSupported(format, OUTPUT_USAGE)) {
+      // Portrait is supported, no rotation needed.
+      return 0;
+    }
+
+    // If frameWriter doesn't support portrait, try rotating the input by 90 or 270 degrees to swap
+    // to landscape dimensions supported by the encoder.
+    int rotatedWidth = format.height;
+    int rotatedHeight = format.width;
+    Format formatRotate90 =
+        updateFormat(format, rotatedWidth, rotatedHeight, /* rotationDegrees= */ 90);
+    if (frameWriter.getInfo().isSupported(formatRotate90, OUTPUT_USAGE)) {
+      return 90;
+    }
+
+    Format formatRotate270 =
+        updateFormat(format, rotatedWidth, rotatedHeight, /* rotationDegrees= */ 270);
+    if (frameWriter.getInfo().isSupported(formatRotate270, OUTPUT_USAGE)) {
+      return 270;
+    }
+
+    // Fallback if nothing is supported.
+    return 0;
+  }
+
+  private static Format updateFormat(Format format, int width, int height, int rotationDegrees) {
+    return format
+        .buildUpon()
+        .setWidth(width)
+        .setHeight(height)
+        .setRotationDegrees(rotationDegrees)
+        .build();
   }
 }

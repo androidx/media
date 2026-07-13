@@ -21,10 +21,12 @@ import static androidx.media3.effect.FrameProcessorUtils.shutdownGlExecutorServi
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -35,6 +37,7 @@ import android.graphics.Matrix;
 import android.hardware.HardwareBuffer;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
@@ -70,19 +73,26 @@ import org.junit.runner.RunWith;
 public final class FrameWriterGlTextureFrameConsumerTest {
 
   private static final String TEST_IMAGE_ASSET = "media/png/first_frame_1920x1080.png";
+
+  private static final long TIMEOUT_MS = 5_000;
   private static final int BITMAP_WIDTH = 1920;
   private static final int BITMAP_HEIGHT = 1080;
 
-  @Rule public final TestName testName = new TestName();
-  private final Context context = getApplicationContext();
+  @Rule public final TestName testName;
+  private final Context context;
 
   private @MonotonicNonNull ListeningExecutorService glExecutorService;
   private @MonotonicNonNull GlObjectsProvider glObjectsProvider;
-  private @MonotonicNonNull HardwareBuffer frameWriterHardwareBuffer;
   private @MonotonicNonNull BitmapSavingFrameWriter frameWriter;
   private @MonotonicNonNull FakeHardwareBufferJniWrapper fakeJniWrapper;
   private @MonotonicNonNull FrameWriterGlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
-  private final List<Bitmap> actualBitmaps = new CopyOnWriteArrayList<>();
+  private final List<Bitmap> actualBitmaps;
+
+  public FrameWriterGlTextureFrameConsumerTest() {
+    testName = new TestName();
+    context = getApplicationContext();
+    actualBitmaps = new CopyOnWriteArrayList<>();
+  }
 
   @Before
   public void setUp() throws Exception {
@@ -96,18 +106,8 @@ public final class FrameWriterGlTextureFrameConsumerTest {
             })
         .get();
 
-    frameWriterHardwareBuffer =
-        HardwareBuffer.create(
-            BITMAP_WIDTH,
-            BITMAP_HEIGHT,
-            HardwareBuffer.RGBA_8888,
-            /* layers= */ 1,
-            HardwareBuffer.USAGE_CPU_READ_OFTEN
-                | HardwareBuffer.USAGE_GPU_COLOR_OUTPUT
-                | HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
-
     fakeJniWrapper = new FakeHardwareBufferJniWrapper();
-    frameWriter = new BitmapSavingFrameWriter(frameWriterHardwareBuffer, actualBitmaps);
+    frameWriter = new BitmapSavingFrameWriter(actualBitmaps);
     frameWriterGlTextureFrameConsumer =
         new FrameWriterGlTextureFrameConsumer(context, frameWriter, fakeJniWrapper);
   }
@@ -118,15 +118,15 @@ public final class FrameWriterGlTextureFrameConsumerTest {
       glExecutorService.submit(this::tearDownInternal).get();
       shutdownGlExecutorService(glExecutorService);
     }
-    if (frameWriterHardwareBuffer != null) {
-      frameWriterHardwareBuffer.close();
-    }
   }
 
   private void tearDownInternal() {
     try {
       if (frameWriterGlTextureFrameConsumer != null) {
         frameWriterGlTextureFrameConsumer.close();
+      }
+      if (frameWriter != null) {
+        frameWriter.close();
       }
       if (glObjectsProvider != null) {
         releaseOpenGl(glObjectsProvider);
@@ -299,6 +299,188 @@ public final class FrameWriterGlTextureFrameConsumerTest {
         .isLessThan(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
   }
 
+  @Test
+  public void queue_portraitFrameWhenPortraitUnsupported_rotatesToLandscape() throws Exception {
+    frameWriter.supportsPortrait = false;
+    Bitmap landscapeBitmap = BitmapPixelTestUtil.readBitmap(TEST_IMAGE_ASSET);
+    Matrix matrix = new Matrix();
+    matrix.postRotate(90);
+    Bitmap portraitInputBitmap =
+        Bitmap.createBitmap(
+            landscapeBitmap,
+            /* x= */ 0,
+            /* y= */ 0,
+            landscapeBitmap.getWidth(),
+            landscapeBitmap.getHeight(),
+            matrix,
+            /* filter= */ true);
+    Matrix expectedMatrix = new Matrix();
+    expectedMatrix.postRotate(180);
+    // The input bitmap is rotated 90 clockwise, and the pipeline rotates it to landscape by another
+    // 90 degrees, so the output will be 180 degrees rotated.
+    Bitmap expectedBitmap =
+        Bitmap.createBitmap(
+            landscapeBitmap,
+            /* x= */ 0,
+            /* y= */ 0,
+            landscapeBitmap.getWidth(),
+            landscapeBitmap.getHeight(),
+            expectedMatrix,
+            /* filter= */ true);
+
+    glExecutorService
+        .submit(
+            () -> {
+              try {
+                GlTextureFrame inputFrame =
+                    createGlTextureFrame(portraitInputBitmap, /* presentationTimeUs= */ 1000);
+                assertThat(
+                        frameWriterGlTextureFrameConsumer.queue(
+                            inputFrame, directExecutor(), /* wakeupListener= */ () -> {}))
+                    .isTrue();
+              } catch (Exception e) {
+                throw new AssertionError(e);
+              }
+            })
+        .get(TIMEOUT_MS, MILLISECONDS);
+
+    Bitmap outputBitmap = actualBitmaps.get(0);
+    assertThat(
+            BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+                expectedBitmap, outputBitmap, testName.getMethodName()))
+        .isLessThan(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
+
+    Format configuredFrameWriterFormat = checkNotNull(frameWriter.configuredFormat);
+    assertThat(configuredFrameWriterFormat.width).isEqualTo(BITMAP_WIDTH);
+    assertThat(configuredFrameWriterFormat.height).isEqualTo(BITMAP_HEIGHT);
+    assertThat(configuredFrameWriterFormat.rotationDegrees).isEqualTo(270);
+  }
+
+  @Test
+  public void queue_landscapeThenPortrait_outputsCorrectBitmaps() throws Exception {
+    Bitmap inputBitmap1 = BitmapPixelTestUtil.readBitmap(TEST_IMAGE_ASSET); // 1920x1080
+    Matrix matrix = new Matrix();
+    matrix.postRotate(90);
+    Bitmap inputBitmap2 =
+        Bitmap.createBitmap(
+            inputBitmap1,
+            /* x= */ 0,
+            /* y= */ 0,
+            inputBitmap1.getWidth(),
+            inputBitmap1.getHeight(),
+            matrix,
+            /* filter= */ true); // 1080x1920
+    // Construct the expected pillarboxed bitmap.
+    // Scale 1080x1920 to fit 1920x1080: 608x1080, hence pillar box width = (1920 - 608) / 2 = 656.
+    Bitmap expectedBitmap2 =
+        Bitmap.createBitmap(/* width= */ 1920, /* height= */ 1080, Bitmap.Config.ARGB_8888);
+    Canvas canvas = new Canvas(expectedBitmap2);
+    canvas.drawColor(Color.BLACK); // black background
+    Bitmap scaledInput2 = Bitmap.createScaledBitmap(inputBitmap2, 608, 1080, /* filter= */ true);
+    canvas.drawBitmap(scaledInput2, /* left= */ 656, /* top= */ 0, /* paint= */ null);
+
+    glExecutorService
+        .submit(
+            () -> {
+              try {
+                GlTextureFrame inputFrame1 =
+                    createGlTextureFrame(inputBitmap1, /* presentationTimeUs= */ 1000);
+                assertThat(
+                        frameWriterGlTextureFrameConsumer.queue(
+                            inputFrame1, directExecutor(), /* wakeupListener= */ () -> {}))
+                    .isTrue();
+
+                GlTextureFrame inputFrame2 =
+                    createGlTextureFrame(inputBitmap2, /* presentationTimeUs= */ 2000);
+                assertThat(
+                        frameWriterGlTextureFrameConsumer.queue(
+                            inputFrame2, directExecutor(), /* wakeupListener= */ () -> {}))
+                    .isTrue();
+              } catch (Exception e) {
+                throw new AssertionError(e);
+              }
+            })
+        .get();
+
+    // Frame 1: 1920x1080
+    Bitmap outputBitmap1 = actualBitmaps.get(0);
+    assertThat(
+            BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+                inputBitmap1, outputBitmap1, testName.getMethodName() + "_frame1"))
+        .isLessThan(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
+
+    // Frame 2: Conformed to 1920x1080 (pillarboxed)
+    Bitmap outputBitmap2 = actualBitmaps.get(1);
+    assertThat(
+            BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+                expectedBitmap2, outputBitmap2, testName.getMethodName() + "_frame2"))
+        .isLessThan(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
+  }
+
+  @Test
+  public void queue_portraitThenLandscape_outputsCorrectBitmaps() throws Exception {
+    Bitmap originalBitmap = BitmapPixelTestUtil.readBitmap(TEST_IMAGE_ASSET); // 1920x1080
+    Matrix matrix = new Matrix();
+    matrix.postRotate(90);
+    Bitmap inputBitmap1 =
+        Bitmap.createBitmap(
+            originalBitmap,
+            /* x= */ 0,
+            /* y= */ 0,
+            originalBitmap.getWidth(),
+            originalBitmap.getHeight(),
+            matrix,
+            /* filter= */ true); // 1080x1920
+    Bitmap inputBitmap2 = originalBitmap; // 1920x1080 (landscape)
+    // Construct the expected letterboxed bitmap.
+    // Scale 1920x1080 to fit 1080x1920: 1080x608, hence letter box height = (1920 - 608) / 2 = 656.
+    Bitmap expectedBitmap2 =
+        Bitmap.createBitmap(/* width= */ 1080, /* height= */ 1920, Bitmap.Config.ARGB_8888);
+    Canvas canvas = new Canvas(expectedBitmap2);
+    canvas.drawColor(Color.BLACK); // black background
+    Bitmap scaledInput2 =
+        Bitmap.createScaledBitmap(
+            inputBitmap2, /* dstWidth= */ 1080, /* dstHeight= */ 608, /* filter= */ true);
+    canvas.drawBitmap(scaledInput2, /* left= */ 0, /* top= */ 656, /* paint= */ null);
+
+    glExecutorService
+        .submit(
+            () -> {
+              try {
+                GlTextureFrame inputFrame1 =
+                    createGlTextureFrame(inputBitmap1, /* presentationTimeUs= */ 1000);
+                assertThat(
+                        frameWriterGlTextureFrameConsumer.queue(
+                            inputFrame1, directExecutor(), /* wakeupListener= */ () -> {}))
+                    .isTrue();
+
+                GlTextureFrame inputFrame2 =
+                    createGlTextureFrame(inputBitmap2, /* presentationTimeUs= */ 2000);
+                assertThat(
+                        frameWriterGlTextureFrameConsumer.queue(
+                            inputFrame2, directExecutor(), /* wakeupListener= */ () -> {}))
+                    .isTrue();
+              } catch (Exception e) {
+                throw new AssertionError(e);
+              }
+            })
+        .get();
+
+    // Frame 1: 1080x1920 (portrait)
+    Bitmap outputBitmap1 = actualBitmaps.get(0);
+    assertThat(
+            BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+                inputBitmap1, outputBitmap1, testName.getMethodName() + "_frame1"))
+        .isLessThan(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
+
+    // Frame 2: Conformed to 1080x1920 (letterboxed)
+    Bitmap outputBitmap2 = actualBitmaps.get(1);
+    assertThat(
+            BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+                expectedBitmap2, outputBitmap2, testName.getMethodName() + "_frame2"))
+        .isLessThan(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
+  }
+
   /**
    * Creates a {@link GlTextureFrame} that is flipped along the y-axis from the input {@link
    * Bitmap}.
@@ -333,7 +515,12 @@ public final class FrameWriterGlTextureFrameConsumerTest {
               }
             })
         .setPresentationTimeUs(presentationTimeUs)
-        .setFormat(new Format.Builder().setWidth(width).setHeight(height).build())
+        .setFormat(
+            new Format.Builder()
+                .setWidth(width)
+                .setHeight(height)
+                .setColorInfo(ColorInfo.SRGB_BT709_FULL)
+                .build())
         .build();
   }
 
@@ -371,15 +558,18 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   }
 
   private static final class BitmapSavingFrameWriter implements FrameWriter {
-    private final HardwareBuffer hardwareBuffer;
+    @Nullable private HardwareBuffer hardwareBuffer;
     private final List<Bitmap> outputBitmaps;
-    private boolean hasCapacity = true;
+    private boolean hasCapacity;
     @Nullable private Runnable pendingWakeupListener;
     @Nullable private Executor pendingWakeupExecutor;
+    private boolean supportsPortrait;
+    @Nullable private Format configuredFormat;
 
-    BitmapSavingFrameWriter(HardwareBuffer hardwareBuffer, List<Bitmap> outputBitmaps) {
-      this.hardwareBuffer = hardwareBuffer;
+    BitmapSavingFrameWriter(List<Bitmap> outputBitmaps) {
       this.outputBitmaps = outputBitmaps;
+      supportsPortrait = true;
+      hasCapacity = true;
     }
 
     void setCapacity(boolean hasCapacity) {
@@ -393,11 +583,29 @@ public final class FrameWriterGlTextureFrameConsumerTest {
 
     @Override
     public Info getInfo() {
-      return (format, usage) -> true;
+      return (format, usage) -> supportsPortrait || format.width >= format.height;
     }
 
     @Override
-    public void configure(Format format, long usage) {}
+    public void configure(Format format, long usage) {
+      this.configuredFormat = format;
+      if (hardwareBuffer == null
+          || hardwareBuffer.getWidth() != format.width
+          || hardwareBuffer.getHeight() != format.height) {
+        if (hardwareBuffer != null) {
+          hardwareBuffer.close();
+        }
+        hardwareBuffer =
+            HardwareBuffer.create(
+                format.width,
+                format.height,
+                HardwareBuffer.RGBA_8888,
+                /* layers= */ 1,
+                HardwareBuffer.USAGE_CPU_READ_OFTEN
+                    | HardwareBuffer.USAGE_GPU_COLOR_OUTPUT
+                    | HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
+      }
+    }
 
     @Override
     public AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener) {
@@ -407,7 +615,8 @@ public final class FrameWriterGlTextureFrameConsumerTest {
         return null;
       }
       return new AsyncFrame(
-          new DefaultHardwareBufferFrame.Builder(hardwareBuffer).build(), /* acquireFence= */ null);
+          new DefaultHardwareBufferFrame.Builder(checkNotNull(hardwareBuffer)).build(),
+          /* acquireFence= */ null);
     }
 
     @Override
@@ -433,6 +642,10 @@ public final class FrameWriterGlTextureFrameConsumerTest {
     public void signalEndOfStream() {}
 
     @Override
-    public void close() {}
+    public void close() {
+      if (hardwareBuffer != null) {
+        hardwareBuffer.close();
+      }
+    }
   }
 }

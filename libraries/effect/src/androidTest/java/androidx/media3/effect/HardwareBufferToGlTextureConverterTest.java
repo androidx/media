@@ -311,47 +311,19 @@ public final class HardwareBufferToGlTextureConverterTest {
   @Test
   public void convert_withRgba8888HardwareBufferAndRotation_outputsCorrectGlTexture()
       throws Exception {
+    int rotationDegrees = 90;
     Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap("media/png/first_frame_1920x1080.png");
     Bitmap hardwareBitmap = inputBitmap.copy(Bitmap.Config.HARDWARE, /* isMutable= */ false);
     HardwareBuffer hardwareBuffer = hardwareBitmap.getHardwareBuffer();
-    assertThat(hardwareBuffer.getFormat()).isEqualTo(HardwareBuffer.RGBA_8888);
-
-    int rotationDegrees = 90;
-    int formatWidth = inputBitmap.getHeight();
-    int formatHeight = inputBitmap.getWidth();
-
-    AtomicReference<Frame> completedFrame = new AtomicReference<>();
-    FrameProcessor.Listener listener =
-        new FrameProcessor.Listener() {
-          @Override
-          public void onWakeup() {}
-
-          @Override
-          public void onError(VideoFrameProcessingException exception) {}
-
-          @Override
-          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
-            if (releaseFence != null) {
-              assertThat(releaseFence.awaitMs(FENCE_TIMEOUT_MS)).isTrue();
-              releaseFence.close();
-            }
-            hardwareBuffer.close();
-            completedFrame.set(frame);
-          }
-        };
-
     Format inputFormat =
         new Format.Builder()
-            .setWidth(formatWidth)
-            .setHeight(formatHeight)
+            .setWidth(inputBitmap.getWidth())
+            .setHeight(inputBitmap.getHeight())
             .setRotationDegrees(rotationDegrees)
             .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
             .build();
-
     HardwareBufferFrame inputHardwareBufferFrame =
         new DefaultHardwareBufferFrame.Builder(hardwareBuffer).setFormat(inputFormat).build();
-
-    Bitmap actualBitmap = convertAndCaptureBitmap(inputHardwareBufferFrame, listener);
 
     Matrix rotationMatrix = new Matrix();
     rotationMatrix.postRotate(rotationDegrees);
@@ -365,11 +337,32 @@ public final class HardwareBufferToGlTextureConverterTest {
             rotationMatrix,
             /* filter= */ true);
 
+    FrameProcessor.Listener listener =
+        new FrameProcessor.Listener() {
+          @Override
+          public void onWakeup() {}
+
+          @Override
+          public void onError(VideoFrameProcessingException exception) {
+            throw new AssertionError(exception);
+          }
+
+          @Override
+          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
+            if (releaseFence != null) {
+              assertThat(releaseFence.awaitMs(FENCE_TIMEOUT_MS)).isTrue();
+              releaseFence.close();
+            }
+            hardwareBuffer.close();
+          }
+        };
+
+    Bitmap actualBitmap = convertAndCaptureBitmap(inputHardwareBufferFrame, listener);
+
     assertThat(
             getBitmapAveragePixelAbsoluteDifferenceArgb8888(
                 expectedBitmap, actualBitmap, testName.getMethodName()))
         .isLessThan(MAX_PIXEL_DIFFERENCE);
-    assertThat(completedFrame.get()).isSameInstanceAs(inputHardwareBufferFrame);
   }
 
   @SdkSuppress(minSdkVersion = 31)
@@ -448,6 +441,7 @@ public final class HardwareBufferToGlTextureConverterTest {
                 actualBitmap.set(
                     createArgb8888BitmapFromFocusedGlFramebuffer(textureWidth, textureHeight));
                 glTextureFrame.release(/* releaseFence= */ null);
+                assertThat(glTextureFrame.format.rotationDegrees).isEqualTo(0);
                 GlUtil.deleteFbo(fboId);
                 // createArgb8888BitmapFromFocusedGlFramebuffer calls glReadPixels, which syncs
                 // OpenGL

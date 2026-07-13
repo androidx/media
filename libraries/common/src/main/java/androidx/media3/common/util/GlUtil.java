@@ -615,10 +615,18 @@ public final class GlUtil {
    * #createFocusedPlaceholderEglSurface}.
    */
   public static void clearFocusedBuffers() throws GlException {
-    GLES20.glClearColor(/* red= */ 0, /* green= */ 0, /* blue= */ 0, /* alpha= */ 0);
-    GLES20.glClearDepthf(1.0f);
-    GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
-    GlUtil.checkGlError();
+    clearFocusedBuffersInternal(/* r= */ 0, /* g= */ 0, /* b= */ 0, /* a= */ 0);
+  }
+
+  /**
+   * Fills the pixels in the current output render target buffers with (r=0, g=0, b=0, a=1).
+   *
+   * <p>Buffers can be focused using {@link #focusEglSurface} and {@link
+   * #focusFramebufferUsingCurrentContext}, {@link #focusFramebuffer}, and {@link
+   * #createFocusedPlaceholderEglSurface}.
+   */
+  public static void clearFocusedBuffersOpaque() throws GlException {
+    clearFocusedBuffersInternal(/* r= */ 0, /* g= */ 0, /* b= */ 0, /* a= */ 1);
   }
 
   /**
@@ -1150,5 +1158,13 @@ public final class GlUtil {
       GLES30.glReadBuffer(GLES30.GL_BACK);
       checkGlError();
     }
+  }
+
+  private static void clearFocusedBuffersInternal(float r, float g, float b, float a)
+      throws GlException {
+    GLES20.glClearColor(r, g, b, a);
+    GLES20.glClearDepthf(1.0f);
+    GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
+    GlUtil.checkGlError();
   }
 }

@@ -97,8 +97,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Nullable EglImageTextureWrapper eglImageTextureWrapper = null;
     int internalTexId = C.INDEX_UNSET;
     Format inputFormat = hardwareBufferFrame.getFormat();
-    int outputWidth = inputFormat.width;
-    int outputHeight = inputFormat.height;
+    boolean isRotated = inputFormat.rotationDegrees == 90 || inputFormat.rotationDegrees == 270;
+    int outputWidth = isRotated ? inputFormat.height : inputFormat.width;
+    int outputHeight = isRotated ? inputFormat.width : inputFormat.height;
     try {
       if (eglDisplay == null) {
         eglDisplay = GlUtil.getDefaultEglDisplay();
@@ -198,7 +199,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               }
             })
         .setPresentationTimeUs(hardwareBufferFrame.getContentTimeUs())
-        .setFormat(hardwareBufferFrame.getFormat())
+        .setFormat(
+            hardwareBufferFrame
+                .getFormat()
+                .buildUpon()
+                .setWidth(outputWidth)
+                .setHeight(outputHeight)
+                // Reset rotation to 0 because we rotated the frame physically with OpenGL. The
+                // pipeline should always receive frames in their intended orientation.
+                .setRotationDegrees(0)
+                .build())
         .setMetadata(hardwareBufferFrame.getMetadata())
         .build();
   }
