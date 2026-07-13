@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.source;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
 
 import android.net.Uri;
@@ -26,9 +27,13 @@ import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.datasource.AssetDataSource;
+import androidx.media3.datasource.DataSource;
+import androidx.media3.datasource.DataSpec;
+import androidx.media3.datasource.TransferListener;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.LoadingInfo;
@@ -39,6 +44,7 @@ import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.Extractor;
@@ -52,6 +58,8 @@ import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.test.utils.FakeTrackSelection;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
@@ -254,6 +262,285 @@ public final class ProgressiveMediaPeriodTest {
     assertThat(readProgressiveStream(mediaPeriod, /* trackIndex= */ 2, buffer))
         .isEqualTo(C.RESULT_BUFFER_READ);
     assertThat(buffer.isEndOfStream()).isFalse();
+    mediaPeriod.release();
+  }
+
+  @Test
+  public void selectTracks_disablingAllTracksAfterFatalError_clearsFatalError() throws Exception {
+    FatalErrorDataSource dataSource =
+        new FatalErrorDataSource(new AssetDataSource(ApplicationProvider.getApplicationContext()));
+    ProgressiveMediaPeriod mediaPeriod =
+        createMediaPeriod(
+            Uri.parse("asset://android_asset/media/mp4/sample.mp4"),
+            dataSource,
+            new DefaultLoadErrorHandlingPolicy());
+
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    boolean[] streamResetFlags = new boolean[trackGroups.length];
+    selections[0] =
+        new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
+
+    // Select a track so continueLoading starts sample loading.
+    long unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            streamResetFlags,
+            /* positionUs= */ 0);
+    boolean unusedLoad =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    // Wait until initial loading is complete before testing fatal error behavior.
+    runMainLooperUntil(() -> !mediaPeriod.isLoading());
+
+    // Reset track selection when idle so continueLoading can start a fresh load.
+    Arrays.fill(selections, null);
+    unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            streamResetFlags,
+            /* positionUs= */ 0);
+    selections[0] =
+        new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
+    unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            streamResetFlags,
+            /* positionUs= */ 0);
+
+    dataSource.setThrowErrorAfterPrepare(true);
+    unusedLoad =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    runMainLooperUntil(
+        () -> {
+          try {
+            mediaPeriod.maybeThrowPrepareError();
+            return false;
+          } catch (IOException e) {
+            return true;
+          }
+        });
+    assertThrows(ParserException.class, mediaPeriod::maybeThrowPrepareError);
+    assertThat(
+            mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build()))
+        .isFalse();
+
+    // Disabling all tracks clears the fatal error state on the loader.
+    Arrays.fill(selections, null);
+    unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            streamResetFlags,
+            /* positionUs= */ 0);
+    mediaPeriod.maybeThrowPrepareError();
+    dataSource.setThrowErrorAfterPrepare(false);
+    selections[0] =
+        new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
+    unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            streamResetFlags,
+            /* positionUs= */ 0);
+
+    assertThat(
+            mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build()))
+        .isTrue();
+    mediaPeriod.release();
+  }
+
+  @Test
+  public void seekToUs_afterFatalError_clearsFatalError() throws Exception {
+    FatalErrorDataSource dataSource =
+        new FatalErrorDataSource(new AssetDataSource(ApplicationProvider.getApplicationContext()));
+    ProgressiveMediaPeriod mediaPeriod =
+        createMediaPeriod(
+            Uri.parse("asset://android_asset/media/mp4/sample.mp4"),
+            dataSource,
+            new DefaultLoadErrorHandlingPolicy());
+
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    boolean[] streamResetFlags = new boolean[trackGroups.length];
+    selections[0] =
+        new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
+
+    // Select a track so continueLoading starts sample loading.
+    long unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            streamResetFlags,
+            /* positionUs= */ 0);
+    boolean unusedLoad =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    // Wait until initial loading is complete before testing fatal error behavior.
+    runMainLooperUntil(() -> !mediaPeriod.isLoading());
+
+    // Reset track selection when idle so continueLoading can start a fresh load.
+    Arrays.fill(selections, null);
+    unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            streamResetFlags,
+            /* positionUs= */ 0);
+    selections[0] =
+        new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
+    unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            streamResetFlags,
+            /* positionUs= */ 0);
+
+    dataSource.setThrowErrorAfterPrepare(true);
+    unusedLoad =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    runMainLooperUntil(
+        () -> {
+          try {
+            mediaPeriod.maybeThrowPrepareError();
+            return false;
+          } catch (IOException e) {
+            return true;
+          }
+        });
+    assertThrows(ParserException.class, mediaPeriod::maybeThrowPrepareError);
+    assertThat(
+            mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build()))
+        .isFalse();
+
+    // Seeking outside the buffer clears the fatal error state on the loader.
+    long unusedSeek = mediaPeriod.seekToUs(1000);
+    mediaPeriod.maybeThrowPrepareError();
+    dataSource.setThrowErrorAfterPrepare(false);
+
+    assertThat(
+            mediaPeriod.continueLoading(
+                new LoadingInfo.Builder().setPlaybackPositionUs(1000).build()))
+        .isTrue();
+    mediaPeriod.release();
+  }
+
+  @Test
+  public void selectTracks_disablingAllTracksWhenIdle_resetsLoadingFinished() throws Exception {
+    ProgressiveMediaPeriod mediaPeriod =
+        createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
+
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    boolean[] streamResetFlags = new boolean[trackGroups.length];
+    selections[0] =
+        new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
+
+    // Select a track so continueLoading starts sample loading.
+    long unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            streamResetFlags,
+            /* positionUs= */ 0);
+    boolean unusedLoad =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    runMainLooperUntil(() -> !mediaPeriod.isLoading());
+
+    // When idle (loading finished), continueLoading returns false.
+    assertThat(
+            mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build()))
+        .isFalse();
+
+    // Disabling all tracks when idle resets loadingFinished.
+    Arrays.fill(selections, null);
+    unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            streamResetFlags,
+            /* positionUs= */ 0);
+    selections[0] =
+        new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
+    unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            streamResetFlags,
+            /* positionUs= */ 0);
+
+    assertThat(
+            mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build()))
+        .isTrue();
+    mediaPeriod.release();
+  }
+
+  @Test
+  public void selectTracks_disablingAllTracksWhenLoading_cancelsLoading() throws Exception {
+    ProgressiveMediaPeriod mediaPeriod =
+        createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    boolean[] streamResetFlags = new boolean[trackGroups.length];
+    selections[1] =
+        new FakeTrackSelection(trackGroups.get(1), new int[] {0}, /* selectedIndex= */ 0);
+
+    long unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            streamResetFlags,
+            /* positionUs= */ 0);
+    assertThat(
+            mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build()))
+        .isTrue();
+    assertThat(mediaPeriod.isLoading()).isTrue();
+
+    // Disabling all tracks while loading starts canceling.
+    Arrays.fill(selections, null);
+    unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            streamResetFlags,
+            /* positionUs= */ 0);
+
+    assertThat(
+            mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build()))
+        .isFalse();
+
+    runMainLooperUntil(() -> !mediaPeriod.isLoading());
+    selections[1] =
+        new FakeTrackSelection(trackGroups.get(1), new int[] {0}, /* selectedIndex= */ 0);
+    unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            streamResetFlags,
+            /* positionUs= */ 0);
+
+    assertThat(
+            mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build()))
+        .isTrue();
     mediaPeriod.release();
   }
 
@@ -504,6 +791,34 @@ public final class ProgressiveMediaPeriodTest {
   private static ProgressiveMediaPeriod createMediaPeriod(Uri uri) throws TimeoutException {
     return createMediaPeriod(
         uri,
+        new AssetDataSource(ApplicationProvider.getApplicationContext()),
+        new DefaultLoadErrorHandlingPolicy());
+  }
+
+  private static ProgressiveMediaPeriod createMediaPeriod(
+      Uri uri,
+      ProgressiveMediaExtractor extractor,
+      long imageDurationUs,
+      @Nullable Executor executor,
+      @Nullable Consumer<Executor> executorReleased)
+      throws TimeoutException {
+    return createMediaPeriod(
+        uri,
+        new AssetDataSource(ApplicationProvider.getApplicationContext()),
+        new DefaultLoadErrorHandlingPolicy(),
+        extractor,
+        imageDurationUs,
+        executor,
+        executorReleased);
+  }
+
+  private static ProgressiveMediaPeriod createMediaPeriod(
+      Uri uri, DataSource dataSource, LoadErrorHandlingPolicy loadErrorHandlingPolicy)
+      throws TimeoutException {
+    return createMediaPeriod(
+        uri,
+        dataSource,
+        loadErrorHandlingPolicy,
         new BundledExtractorsAdapter(new DefaultExtractorsFactory()),
         /* imageDurationUs= */ C.TIME_UNSET,
         /* executor= */ null,
@@ -512,6 +827,8 @@ public final class ProgressiveMediaPeriodTest {
 
   private static ProgressiveMediaPeriod createMediaPeriod(
       Uri uri,
+      DataSource dataSource,
+      LoadErrorHandlingPolicy loadErrorHandlingPolicy,
       ProgressiveMediaExtractor extractor,
       long imageDurationUs,
       @Nullable Executor executor,
@@ -524,12 +841,12 @@ public final class ProgressiveMediaPeriodTest {
     ProgressiveMediaPeriod mediaPeriod =
         new ProgressiveMediaPeriod(
             uri,
-            new AssetDataSource(ApplicationProvider.getApplicationContext()),
+            dataSource,
             extractor,
             DrmSessionManager.DRM_UNSUPPORTED,
             new DrmSessionEventListener.EventDispatcher()
                 .withParameters(/* windowIndex= */ 0, mediaPeriodId),
-            new DefaultLoadErrorHandlingPolicy(),
+            loadErrorHandlingPolicy,
             new MediaSourceEventListener.EventDispatcher()
                 .withParameters(/* windowIndex= */ 0, mediaPeriodId),
             sourceInfoRefreshListener,
@@ -594,6 +911,56 @@ public final class ProgressiveMediaPeriodTest {
     public void run() {
       hasRun.set(true);
       super.run();
+    }
+  }
+
+  private static final class FatalErrorDataSource implements DataSource {
+    private final DataSource delegate;
+    private boolean throwErrorAfterPrepare;
+
+    public FatalErrorDataSource(DataSource delegate) {
+      this.delegate = delegate;
+    }
+
+    public void setThrowErrorAfterPrepare(boolean throwErrorAfterPrepare) {
+      this.throwErrorAfterPrepare = throwErrorAfterPrepare;
+    }
+
+    @Override
+    public void addTransferListener(TransferListener transferListener) {
+      delegate.addTransferListener(transferListener);
+    }
+
+    @Override
+    public long open(DataSpec dataSpec) throws IOException {
+      if (throwErrorAfterPrepare) {
+        throw ParserException.createForMalformedContainer("Fatal error", /* cause= */ null);
+      }
+      return delegate.open(dataSpec);
+    }
+
+    @Override
+    public int read(byte[] buffer, int offset, int length) throws IOException {
+      if (throwErrorAfterPrepare) {
+        throw ParserException.createForMalformedContainer("Fatal error", /* cause= */ null);
+      }
+      return delegate.read(buffer, offset, length);
+    }
+
+    @Override
+    @Nullable
+    public Uri getUri() {
+      return delegate.getUri();
+    }
+
+    @Override
+    public Map<String, List<String>> getResponseHeaders() {
+      return delegate.getResponseHeaders();
+    }
+
+    @Override
+    public void close() throws IOException {
+      delegate.close();
     }
   }
 }

@@ -174,6 +174,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private int extractedSamplesCountAtStartOfLoad;
   private boolean loadingFinished;
+  private boolean canceling;
   private boolean released;
 
   /**
@@ -470,12 +471,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       notifyDiscontinuity = false;
       pendingInitialDiscontinuity = false;
       if (loader.isLoading()) {
+        canceling = true;
         // Discard as much as we can synchronously.
         for (SampleQueue sampleQueue : sampleQueues) {
           sampleQueue.discardToEnd();
         }
         loader.cancelLoading();
       } else {
+        loader.clearFatalError();
         loadingFinished = false;
         for (SampleQueue sampleQueue : sampleQueues) {
           sampleQueue.reset();
@@ -525,6 +528,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public boolean continueLoading(LoadingInfo loadingInfo) {
     if (loadingFinished
+        || canceling
         || loader.hasFatalError()
         || pendingDeferredRetry
         || ((prepared || singleTrackFormat != null) && enabledTrackCount == 0)) {
@@ -630,6 +634,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     loadingFinished = false;
     pendingInitialDiscontinuity = false;
     if (loader.isLoading()) {
+      canceling = true;
       // Discard as much as we can synchronously.
       for (SampleQueue sampleQueue : sampleQueues) {
         sampleQueue.discardToEnd();
@@ -822,6 +827,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         /* mediaStartTimeUs= */ loadable.seekTimeUs,
         durationUs);
     loadingFinished = true;
+    canceling = false;
     checkNotNull(callback).onContinueLoadingRequested(this);
   }
 
@@ -846,6 +852,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         /* trackSelectionData= */ null,
         /* mediaStartTimeUs= */ loadable.seekTimeUs,
         durationUs);
+    canceling = false;
     if (!released) {
       for (SampleQueue sampleQueue : sampleQueues) {
         sampleQueue.reset();
@@ -910,6 +917,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (wasCanceled) {
       loadErrorHandlingPolicy.onLoadTaskConcluded(loadable.loadTaskId);
     }
+    canceling = false;
     return loadErrorAction;
   }
 
