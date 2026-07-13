@@ -63,6 +63,9 @@
     *   Support whitespace-separated lists of `@id` values in trick mode
         (`http://dashif.org/guidelines/trickmode`) descriptor `@value`
         attributes ([#3315](https://github.com/androidx/media/issues/3315)).
+    *   Fix crash (`IndexOutOfBoundsException`) when opening manifests with an
+        empty `<SegmentTimeline/>` element
+        ([#3326](https://github.com/androidx/media/issues/3326)).
 *   Smooth Streaming extension:
 *   RTSP extension:
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):

@@ -379,6 +379,25 @@ public final class DashMediaPeriodTest {
         .inOrder();
   }
 
+  @Test
+  public void selectTracks_withEmptySegmentTimeline_doesNotCrash() throws IOException {
+    DashManifest manifest = parseManifest("media/dash/empty-segment-timeline/sample.mpd");
+    DashMediaPeriod dashMediaPeriod = createDashMediaPeriod(manifest, /* periodIndex= */ 0);
+    ExoTrackSelection trackSelection =
+        new FixedTrackSelection(dashMediaPeriod.getTrackGroups().get(0), /* track= */ 0);
+    SampleStream[] sampleStreams = new SampleStream[1];
+
+    long unused =
+        dashMediaPeriod.selectTracks(
+            new ExoTrackSelection[] {trackSelection},
+            new boolean[1],
+            sampleStreams,
+            new boolean[1],
+            /* positionUs= */ 0L);
+
+    assertThat(sampleStreams[0]).isNotNull();
+  }
+
   private static DashMediaPeriod createDashMediaPeriod(DashManifest manifest, int periodIndex) {
     return createDashMediaPeriod(manifest, mock(DashChunkSource.Factory.class), periodIndex);
   }
