@@ -47,6 +47,11 @@ import androidx.media3.common.Format;
   }
 
   @Override
+  public boolean isVideoFormatSupported(Format format) {
+    return encoderFactory.isVideoFormatSupported(format);
+  }
+
+  @Override
   public boolean audioNeedsEncoding() {
     return encoderFactory.audioNeedsEncoding();
   }

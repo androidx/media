@@ -378,6 +378,11 @@ public final class AndroidTestUtil {
     }
 
     @Override
+    public boolean isVideoFormatSupported(Format format) {
+      return encoderFactory.isVideoFormatSupported(format);
+    }
+
+    @Override
     public boolean audioNeedsEncoding() {
       return true;
     }
