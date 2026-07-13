@@ -36,15 +36,14 @@ public class MmtSignalingParserTest {
       TestUtil.createByteArray(
           // Signaling payload header: FI=complete, LEF=0, A=0; fragmentation_counter=0.
           0x00, 0x00,
-          // PA signaling_message: message_id=0x0000, version=0x00, length (32-bit, unused)=26.
-          0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1A,
-          // PA body: number_of_tables=1.
-          0x01,
-          // Table index entry: table_id=0x20 (MPT), version=0x00, table_length=26.
-          0x20, 0x00, 0x00, 0x1A,
+          // PA signaling_message: message_id=0x0000, version=0x00, length (32-bit, unused)=27.
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1B,
+          // PA body: number_of_tables=0 and the tables inlined directly (as ARIB STD-B60 streams
+          // such as NHK BS4K/BS8K actually transmit them).
+          0x00,
           // MMT Package Table (26 bytes):
           0x20, 0x00, // table_id, version.
-          0x00, 0x00, // length (unused).
+          0x00, 0x16, // table_length = 22 (bytes following this field).
           0x00, // reserved(6) + MPT_mode(2).
           0x00, // MMT_package_id_length.
           0x00, 0x00, // MPT_descriptors_length.

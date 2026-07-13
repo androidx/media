@@ -36,6 +36,19 @@ import java.util.List;
  * a four character {@code asset_type} (for example {@code hev1}) and one or more locations. Assets
  * delivered on the same MMTP flow use location type {@code 0x00}, which carries the {@code
  * packet_id} directly.
+ *
+ * <p>Observed NHK BS4K/BS8K packages, for reference:
+ *
+ * <ul>
+ *   <li>BS8K: {@code hev1} video, {@code mp4a} (MPEG-4 AAC) audio, and two {@code stpp} (TTML)
+ *       subtitle assets.
+ *   <li>BS4K: {@code hev1} video, two {@code mp4a} audio assets, {@code stpp} subtitles, and
+ *       several {@code aapp} data-broadcasting (application) assets.
+ * </ul>
+ *
+ * <p>These streams set {@code number_of_tables} to 0 in the PA message and inline the tables
+ * directly, so {@link #parsePaMessage} walks the concatenated tables rather than trusting the
+ * (empty) table index.
  */
 /* package */ final class MmtSignalingParser {
 
@@ -193,27 +206,29 @@ import java.util.List;
     if (limit - data.getPosition() < 1) {
       return false;
     }
+    // The PA message begins with number_of_tables followed by an index of {table_id (8),
+    // table_version (8), table_length (16)} entries, and then the tables themselves. In practice
+    // ARIB STD-B60 streams (e.g. NHK BS4K/BS8K) set number_of_tables to 0 and inline the tables
+    // directly, so the index cannot be relied upon. We therefore skip the index (when present) and
+    // then walk the concatenated tables by their own {table_id, version, table_length} headers,
+    // which is robust to both layouts.
     int numberOfTables = data.readUnsignedByte();
-    int[] tableLengths = new int[numberOfTables];
-    int[] tableIds = new int[numberOfTables];
-    for (int i = 0; i < numberOfTables; i++) {
-      if (limit - data.getPosition() < 4) {
-        return false;
-      }
-      tableIds[i] = data.readUnsignedByte();
-      data.skipBytes(1); // table_version.
-      tableLengths[i] = data.readUnsignedShort();
-    }
+    data.skipBytes(Math.min(numberOfTables * 4, Math.max(0, limit - data.getPosition())));
     boolean updated = false;
-    for (int i = 0; i < numberOfTables; i++) {
+    while (limit - data.getPosition() >= 4) {
       int tableStart = data.getPosition();
-      int tableLimit = Math.min(limit, tableStart + tableLengths[i]);
-      if (tableIds[i] == TABLE_ID_MPT) {
+      int tableId = data.getData()[tableStart] & 0xFF;
+      int tableLength = ((data.getData()[tableStart + 2] & 0xFF) << 8) | (data.getData()[tableStart + 3] & 0xFF);
+      int tableLimit = Math.min(limit, tableStart + 4 + tableLength);
+      if (tableId == TABLE_ID_MPT) {
         List<Asset> parsed = parseMmtPackageTable(data, tableLimit);
-        if (parsed != null) {
+        if (parsed != null && !parsed.isEmpty()) {
           assets = ImmutableList.copyOf(parsed);
           updated = true;
         }
+      }
+      if (tableLimit <= tableStart) {
+        break; // Guard against a zero-length table causing an infinite loop.
       }
       data.setPosition(tableLimit);
     }
