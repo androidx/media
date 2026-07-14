@@ -94,8 +94,9 @@ import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.ForwardingAudioSink;
 import androidx.media3.exoplayer.audio.TrimmingAudioProcessor;
+import androidx.media3.test.utils.CapturingFrameProcessor;
+import androidx.media3.test.utils.CapturingFrameProcessor.FramesEvent;
 import androidx.media3.test.utils.FakeFrameProcessor;
-import androidx.media3.test.utils.FakeFrameProcessor.FramesEvent;
 import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
@@ -423,12 +424,13 @@ public class CompositionPlayerTest {
           "AUDIO_ITEM_WITH_CLIPPED_START_AND_END_WITH_SET_HALF_SPEED");
 
   @MonotonicNonNull CompositionPlayer player;
-  private FakeFrameProcessor.Factory frameProcessorFactory;
+  private CapturingFrameProcessor.Factory frameProcessorFactory;
 
   @Before
   public void setUp() {
     frameProcessorFactory =
-        new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ true);
+        new CapturingFrameProcessor.Factory(
+            new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ true));
   }
 
   @After
@@ -1350,14 +1352,14 @@ public class CompositionPlayerTest {
 
     player.setComposition(composition1);
     player.prepare();
-    advance(player).untilState(STATE_READY);
+    advance(player).withTimeoutMs(TEST_TIMEOUT_MS).untilState(STATE_READY);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
     assertThat(frameProcessor.getQueuedContentTimesUs()).containsExactly(ImmutableList.of(0L, 0L));
 
     player.setComposition(composition2);
-    advance(player).untilState(STATE_READY);
+    advance(player).withTimeoutMs(TEST_TIMEOUT_MS).untilState(STATE_READY);
     runMainLooperUntilContentTimesUs(frameProcessor, ImmutableList.of(0L, 0L, 0L));
 
     assertThat(frameProcessor.getQueuedContentTimesUs())
@@ -1365,7 +1367,7 @@ public class CompositionPlayerTest {
         .inOrder();
 
     player.setComposition(composition3);
-    advance(player).untilState(STATE_READY);
+    advance(player).withTimeoutMs(TEST_TIMEOUT_MS).untilState(STATE_READY);
     runMainLooperUntilContentTimesUs(frameProcessor, ImmutableList.of(0L));
 
     assertThat(frameProcessor.getQueuedContentTimesUs())
@@ -1403,7 +1405,7 @@ public class CompositionPlayerTest {
     player.seekTo(/* positionMs= */ 500);
     advance(player).untilState(STATE_READY);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
     assertThat(frameProcessor.getQueuedContentTimesUs())
         .containsExactly(ImmutableList.of(500_000L, 500_500L));
@@ -1441,7 +1443,7 @@ public class CompositionPlayerTest {
     player.play();
     advance(player).untilState(STATE_ENDED);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
     // Output should be a 2s long, 30fps video, because the frameRate is set on the EditedMediaItem.
     assertThat(frameProcessor.getQueuedContentTimesUs())
@@ -1478,7 +1480,7 @@ public class CompositionPlayerTest {
     player.play();
     advance(player).untilState(STATE_ENDED);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
     // Output should be a 2s long, 30fps video, because the frameRate is set on the EditedMediaItem.
     assertThat(frameProcessor.getQueuedContentTimesUs())
@@ -1535,7 +1537,7 @@ public class CompositionPlayerTest {
 
     play(player).untilState(STATE_ENDED);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
 
     // The frame at 0L should be dropped because the start position is 1000L.
@@ -1573,7 +1575,7 @@ public class CompositionPlayerTest {
     player.seekTo(/* positionMs= */ 500);
     advance(player).untilState(STATE_READY);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
     assertThat(frameProcessor.getQueuedContentTimesUs())
         .containsExactly(ImmutableList.of(500_000L, 500_500L));
@@ -1622,7 +1624,7 @@ public class CompositionPlayerTest {
 
     play(player).untilState(STATE_ENDED);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
     assertThat(frameProcessor.getQueuedContentTimesUs())
         .containsExactlyElementsIn(expectedTimestampsUs.build())
@@ -1655,7 +1657,7 @@ public class CompositionPlayerTest {
 
     play(player).untilState(STATE_ENDED);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
     assertThat(frameProcessor.getQueuedContentTimesUs())
         .containsExactlyElementsIn(expectedTimestampsUs.build())
@@ -1687,7 +1689,7 @@ public class CompositionPlayerTest {
 
     play(player).untilState(STATE_ENDED);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
     assertThat(frameProcessor.getQueuedContentTimesUs())
         .containsExactlyElementsIn(expectedTimestamps)
@@ -1720,9 +1722,8 @@ public class CompositionPlayerTest {
     player.prepare();
     play(player).untilState(STATE_ENDED);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
-    FakeFrameProcessor.FramesEvent framesEvent =
-        (FakeFrameProcessor.FramesEvent) frameProcessor.getQueuedEvents().get(0);
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
+    FramesEvent framesEvent = (FramesEvent) frameProcessor.getQueuedEvents().get(0);
     Frame frame = framesEvent.frames.get(0).frame;
     ImmutableMap<String, Object> metadata = frame.getMetadata();
 
@@ -1754,7 +1755,7 @@ public class CompositionPlayerTest {
     player.seekTo(/* positionMs= */ 500);
     play(player).untilState(STATE_ENDED);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
     // 1 initial frame + 15 frames from 500ms + 1 EOS.
     assertThat(frameProcessor.getQueuedEvents()).hasSize(1 + 15 + 1);
@@ -1773,7 +1774,7 @@ public class CompositionPlayerTest {
 
     advance(player).untilState(STATE_READY);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
 
     // Seek forwards
@@ -1829,7 +1830,7 @@ public class CompositionPlayerTest {
 
     advance(player).untilState(STATE_READY);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
 
     // Seek forwards
@@ -1885,7 +1886,7 @@ public class CompositionPlayerTest {
 
     advance(player).untilState(STATE_READY);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
 
     // Seek forwards
@@ -1935,7 +1936,7 @@ public class CompositionPlayerTest {
 
     advance(player).untilState(STATE_READY);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
 
     // Seek forwards
@@ -1986,7 +1987,7 @@ public class CompositionPlayerTest {
 
     advance(player).untilState(STATE_READY);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
 
     // Seek forwards
@@ -2035,7 +2036,7 @@ public class CompositionPlayerTest {
 
     advance(player).untilState(STATE_READY);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
 
     // Seek forwards
@@ -2085,7 +2086,7 @@ public class CompositionPlayerTest {
 
     advance(player).untilState(STATE_READY);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
 
     // Seek forwards
@@ -2136,7 +2137,7 @@ public class CompositionPlayerTest {
 
     advance(player).untilState(STATE_READY);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
 
     // Seek forwards
@@ -2188,7 +2189,7 @@ public class CompositionPlayerTest {
 
     advance(player).untilState(STATE_READY);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
 
     player.setScrubbingModeEnabled(true);
@@ -2222,7 +2223,7 @@ public class CompositionPlayerTest {
 
     advance(player).untilState(STATE_READY);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
 
     player.setScrubbingModeEnabled(true);
@@ -2259,7 +2260,7 @@ public class CompositionPlayerTest {
 
     advance(player).untilState(STATE_READY);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
 
     // Seek forwards
@@ -2311,7 +2312,7 @@ public class CompositionPlayerTest {
 
     advance(player).untilState(STATE_READY);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
 
     // Seek forwards
@@ -2358,7 +2359,7 @@ public class CompositionPlayerTest {
 
     advance(player).untilState(STATE_READY);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
 
     // Seek forwards
@@ -2409,7 +2410,7 @@ public class CompositionPlayerTest {
 
     advance(player).untilState(STATE_READY);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
 
     // Seek forwards
@@ -2460,7 +2461,7 @@ public class CompositionPlayerTest {
     player.setScrubbingModeEnabled(false);
     advance(player).untilState(STATE_READY);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
 
     player.play();
@@ -2506,7 +2507,7 @@ public class CompositionPlayerTest {
     player.setScrubbingModeEnabled(false);
     advance(player).untilState(STATE_READY);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
 
     player.play();
@@ -2550,7 +2551,7 @@ public class CompositionPlayerTest {
     player.prepare();
     advance(player).untilState(STATE_READY);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
 
     // Seek to 466ms, primary will resolve to 480_000, secondary will resolve to 466_667, then
@@ -2641,7 +2642,7 @@ public class CompositionPlayerTest {
     player.prepare();
     advance(player).untilState(STATE_READY);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     // First frame is rendered on prepare (playback is paused).
     ImmutableList<ImmutableList<Long>> queuedContentTimes =
         frameProcessor.getQueuedContentTimesUs();
@@ -2671,7 +2672,7 @@ public class CompositionPlayerTest {
     player.prepare();
     play(player).untilState(STATE_ENDED);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
 
     int videoFrameCount = MP4_SIMPLE_ASSET.videoFrameCount;
@@ -2703,7 +2704,7 @@ public class CompositionPlayerTest {
     player.prepare();
     advance(player).untilState(STATE_READY);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     player.seekTo(500);
     advance(player).untilState(STATE_READY);
 
@@ -2736,7 +2737,7 @@ public class CompositionPlayerTest {
     advance(player).untilState(STATE_READY);
     player.play();
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     runMainLooperUntil(() -> frameProcessor.getQueuedContentTimesUs().size() >= 3);
     player.experimentalRedrawLastFrame();
 
@@ -2778,7 +2779,7 @@ public class CompositionPlayerTest {
     player.prepare();
     advance(player).untilState(STATE_READY);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     ImmutableList<ImmutableList<Long>> queuedContentTimes =
         frameProcessor.getQueuedContentTimesUs();
     assertThat(queuedContentTimes).hasSize(1);
@@ -2804,7 +2805,10 @@ public class CompositionPlayerTest {
   public void seek_doesNotCloseInFlightHardwareBuffer() throws Exception {
     FakeFrameProcessor.Factory fakeFrameProcessorFactory =
         new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ false);
-    player = createTestHardwareBufferCompositionPlayerBuilder(fakeFrameProcessorFactory).build();
+    CapturingFrameProcessor.Factory capturingFrameProcessorFactory =
+        new CapturingFrameProcessor.Factory(fakeFrameProcessorFactory);
+    player =
+        createTestHardwareBufferCompositionPlayerBuilder(capturingFrameProcessorFactory).build();
 
     player.setComposition(
         new Composition.Builder(
@@ -2819,9 +2823,9 @@ public class CompositionPlayerTest {
     // Advance to READY. The first frame should be queued but not completed.
     advance(player).untilState(STATE_READY);
 
-    FakeFrameProcessor frameProcessor = fakeFrameProcessorFactory.createdProcessor;
-    ImmutableList<FakeFrameProcessor.Event> events = frameProcessor.getQueuedEvents();
-    FakeFrameProcessor.FramesEvent framesEvent = (FakeFrameProcessor.FramesEvent) events.get(0);
+    CapturingFrameProcessor frameProcessor = capturingFrameProcessorFactory.getCreatedProcessor();
+    ImmutableList<CapturingFrameProcessor.Event> events = frameProcessor.getQueuedEvents();
+    FramesEvent framesEvent = (FramesEvent) events.get(0);
     AsyncFrame preSeekFrame = framesEvent.frames.get(0);
 
     assertThat(preSeekFrame.frame).isInstanceOf(HardwareBufferFrame.class);
@@ -2835,13 +2839,15 @@ public class CompositionPlayerTest {
     // Advance player to handle seek.
     advance(player).untilState(STATE_READY);
 
-    AsyncFrame postSeekFrame = frameProcessor.lastFrames.get(0);
+    ImmutableList<CapturingFrameProcessor.Event> postSeekEvents = frameProcessor.getQueuedEvents();
+    AsyncFrame postSeekFrame =
+        ((FramesEvent) postSeekEvents.get(postSeekEvents.size() - 1)).frames.get(0);
     assertThat((int) postSeekFrame.frame.getMetadata().get(KEY_FRAME_DISCONTINUITY_NUMBER))
         .isGreaterThan((int) preSeekFrame.frame.getMetadata().get(KEY_FRAME_DISCONTINUITY_NUMBER));
 
     // Verify that the pre-seek buffer is still NOT closed because we haven't released it.
     assertThat(preSeekBuffer.isClosed()).isFalse();
-    // TODO: b/518679527 - Implemnet FakeFrameProcessor.close and close the underlying
+    // TODO: b/518679527 - Implement FakeFrameProcessor.close and close the underlying
     // HardwareBuffer instances.
   }
 
@@ -2850,7 +2856,10 @@ public class CompositionPlayerTest {
       throws Exception {
     FakeFrameProcessor.Factory fakeFrameProcessorFactory =
         new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ false);
-    player = createTestHardwareBufferCompositionPlayerBuilder(fakeFrameProcessorFactory).build();
+    CapturingFrameProcessor.Factory capturingFrameProcessorFactory =
+        new CapturingFrameProcessor.Factory(fakeFrameProcessorFactory);
+    player =
+        createTestHardwareBufferCompositionPlayerBuilder(capturingFrameProcessorFactory).build();
 
     Composition firstComposition =
         new Composition.Builder(
@@ -2866,10 +2875,9 @@ public class CompositionPlayerTest {
     // Advance to READY. The first frame should be queued but not completed.
     advance(player).untilState(STATE_READY);
 
-    FakeFrameProcessor frameProcessor = fakeFrameProcessorFactory.createdProcessor;
-    ImmutableList<FakeFrameProcessor.Event> events = frameProcessor.getQueuedEvents();
-    FakeFrameProcessor.FramesEvent firstFramesEvent =
-        (FakeFrameProcessor.FramesEvent) events.get(0);
+    CapturingFrameProcessor frameProcessor = capturingFrameProcessorFactory.getCreatedProcessor();
+    ImmutableList<CapturingFrameProcessor.Event> events = frameProcessor.getQueuedEvents();
+    FramesEvent firstFramesEvent = (FramesEvent) events.get(0);
     AsyncFrame firstFrame = firstFramesEvent.frames.get(0);
     HardwareBuffer firstBuffer = ((HardwareBufferFrame) firstFrame.frame).getHardwareBuffer();
     assertThat(firstBuffer.isClosed()).isFalse();
@@ -2894,7 +2902,7 @@ public class CompositionPlayerTest {
 
     // Verify we got a frame from the second composition.
     events = frameProcessor.getQueuedEvents();
-    FakeFrameProcessor.FramesEvent secondFramesEvent = (FramesEvent) events.getLast();
+    FramesEvent secondFramesEvent = (FramesEvent) events.getLast();
     AsyncFrame secondFrame = secondFramesEvent.frames.get(0);
     Composition secondCompositionFromMetadata =
         (Composition) secondFrame.frame.getMetadata().get("KEY_COMPOSITION");
@@ -2935,11 +2943,20 @@ public class CompositionPlayerTest {
    * frameProcessor}.
    */
   private static void runMainLooperUntilContentTimesUs(
-      FakeFrameProcessor frameProcessor, ImmutableList<Long> timestamps) throws TimeoutException {
+      CapturingFrameProcessor frameProcessor, ImmutableList<Long> timestamps)
+      throws TimeoutException {
     runMainLooperUntil(
         () -> {
-          List<AsyncFrame> lastFrames = frameProcessor.lastFrames;
-          if (lastFrames == null || lastFrames.size() != timestamps.size()) {
+          ImmutableList<CapturingFrameProcessor.Event> events = frameProcessor.getQueuedEvents();
+          if (events.isEmpty()) {
+            return false;
+          }
+          CapturingFrameProcessor.Event lastEvent = events.get(events.size() - 1);
+          if (!(lastEvent instanceof FramesEvent)) {
+            return false;
+          }
+          ImmutableList<AsyncFrame> lastFrames = ((FramesEvent) lastEvent).frames;
+          if (lastFrames.size() != timestamps.size()) {
             return false;
           }
           for (int i = 0; i < timestamps.size(); i++) {

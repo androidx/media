@@ -15,12 +15,10 @@
  */
 package androidx.media3.test.utils;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
-import androidx.media3.common.C;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.video.AsyncFrame;
@@ -28,13 +26,10 @@ import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.SyncFenceWrapper;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 
-/** A no-op {@link FrameProcessor} that holds a reference to all queued frames for testing. */
+/** A fake {@link FrameProcessor} implementation. */
 @RequiresApi(26)
 @ExperimentalApi // TODO: b/498176910 Remove once FrameProcessor is production ready.
 public class FakeFrameProcessor implements FrameProcessor {
@@ -85,31 +80,11 @@ public class FakeFrameProcessor implements FrameProcessor {
     }
   }
 
-  /** Marker interface for ordering frames and EOS signals. */
-  public interface Event {}
-
-  /** Holds the frames queued in a {@link #queue} call. */
-  public static final class FramesEvent implements Event {
-    public final List<AsyncFrame> frames;
-
-    public FramesEvent(List<AsyncFrame> frames) {
-      this.frames = frames;
-    }
-  }
-
-  /** Marker class representing a {@link #signalEndOfStream()} call. */
-  public static final class EosEvent implements Event {}
-
   private final FrameWriter output;
   private final Executor listenerExecutor;
   private final Listener listener;
-
-  /** All the frames and EOS events queued to this {@link FrameProcessor}. */
-  private final List<Event> queuedEvents;
-
   private final boolean shouldCompleteIncomingFrames;
 
-  @Nullable public List<AsyncFrame> lastFrames;
   private boolean configured;
 
   private FakeFrameProcessor(
@@ -117,7 +92,6 @@ public class FakeFrameProcessor implements FrameProcessor {
       Executor listenerExecutor,
       Listener listener,
       boolean shouldCompleteIncomingFrames) {
-    this.queuedEvents = new ArrayList<>();
     this.output = output;
     this.listenerExecutor = listenerExecutor;
     this.listener = listener;
@@ -137,8 +111,6 @@ public class FakeFrameProcessor implements FrameProcessor {
         output.queueInputFrame(placeholderFrame.frame, /* writeCompleteFence= */ null);
       }
     }
-    queuedEvents.add(new FramesEvent(frames));
-    this.lastFrames = frames;
     if (shouldCompleteIncomingFrames) {
       for (AsyncFrame asyncFrame : frames) {
         listenerExecutor.execute(
@@ -150,42 +122,11 @@ public class FakeFrameProcessor implements FrameProcessor {
 
   @Override
   public void signalEndOfStream() {
-    queuedEvents.add(new EosEvent());
     output.signalEndOfStream();
   }
 
   @Override
   public void close() {}
-
-  /** Returns true if the last {@link Event} queued was an {@link EosEvent}. */
-  public boolean isEnded() {
-    return !queuedEvents.isEmpty() && Iterables.getLast(queuedEvents) instanceof EosEvent;
-  }
-
-  /** Returns an {@link ImmutableList} of all queued events. */
-  public ImmutableList<Event> getQueuedEvents() {
-    return ImmutableList.copyOf(queuedEvents);
-  }
-
-  /**
-   * Returns an {@link ImmutableList} of content timestamps for all queued frames. EOS frames return
-   * {@link C#TIME_UNSET}.
-   */
-  public ImmutableList<ImmutableList<Long>> getQueuedContentTimesUs() {
-    ImmutableList<Event> currentEvents = getQueuedEvents();
-    return currentEvents.stream()
-        .map(
-            event -> {
-              if (event instanceof EosEvent) {
-                return ImmutableList.of(C.TIME_UNSET);
-              }
-              FramesEvent framesEvent = (FakeFrameProcessor.FramesEvent) event;
-              return framesEvent.frames.stream()
-                  .map(asyncFrame -> asyncFrame.frame.getContentTimeUs())
-                  .collect(toImmutableList());
-            })
-        .collect(toImmutableList());
-  }
 
   /** Simulates a video frame processing error by notifying the listener. */
   public void triggerError(VideoFrameProcessingException exception) {

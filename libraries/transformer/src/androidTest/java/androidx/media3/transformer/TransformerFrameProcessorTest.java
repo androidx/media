@@ -31,6 +31,7 @@ import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.effect.AlphaScale;
 import androidx.media3.effect.DefaultGlFrameProcessor;
 import androidx.media3.effect.HardwareBufferJniWrapper;
+import androidx.media3.test.utils.CapturingFrameProcessor;
 import androidx.media3.test.utils.FakeFrameProcessor;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -68,8 +69,10 @@ public class TransformerFrameProcessorTest {
         /* inputFormat= */ MP4_SIMPLE_ASSET.videoFormat,
         /* outputFormat= */ MP4_SIMPLE_ASSET.videoFormat);
 
-    FakeFrameProcessor.Factory frameProcessorFactory =
+    FakeFrameProcessor.Factory fakeFrameProcessorFactory =
         new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ true);
+    CapturingFrameProcessor.Factory frameProcessorFactory =
+        new CapturingFrameProcessor.Factory(fakeFrameProcessorFactory);
     Transformer transformer =
         new Transformer.Builder(context)
             .setFrameProcessorFactory(frameProcessorFactory)
@@ -95,9 +98,9 @@ public class TransformerFrameProcessorTest {
 
     new TransformerAndroidTestRunner.Builder(context, transformer).build().run(testId, composition);
 
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
-    FakeFrameProcessor.FramesEvent framesEvent =
-        (FakeFrameProcessor.FramesEvent) frameProcessor.getQueuedEvents().get(0);
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
+    CapturingFrameProcessor.FramesEvent framesEvent =
+        (CapturingFrameProcessor.FramesEvent) frameProcessor.getQueuedEvents().get(0);
     Frame frame = framesEvent.frames.get(0).frame;
     ImmutableMap<String, Object> metadata = frame.getMetadata();
 
