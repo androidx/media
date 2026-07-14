@@ -62,6 +62,9 @@
 *   Cronet extension:
 *   RTMP extension:
 *   HLS extension:
+    *   Fix unexpected audio track timestamp discontinuity when resuming low
+        latency live playback after a playlist request failure
+        ([#3311](https://github.com/androidx/media/issues/3311)).
 *   DASH extension:
     *   Support whitespace-separated lists of `@id` values in trick mode
         (`http://dashif.org/guidelines/trickmode`) descriptor `@value`
