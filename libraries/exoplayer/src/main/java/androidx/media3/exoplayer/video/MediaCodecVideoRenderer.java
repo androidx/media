@@ -1773,23 +1773,31 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @CallSuper
   @Override
   protected void onQueueInputBuffer(DecoderInputBuffer buffer) throws ExoPlaybackException {
-    if (checkNotNull(getCodecInfo()).mimeType.equals(MimeTypes.VIDEO_AV1) && buffer.data != null) {
+    String mimeType = checkNotNull(getCodecInfo()).mimeType;
+    if (mimeType.equals(MimeTypes.VIDEO_AV1) && buffer.data != null) {
       ByteBuffer bufferData = buffer.data;
       Format codecInputFormat = getCodecInputFormat();
       boolean isAv1HighBitdepth =
           codecInputFormat != null
               && codecInputFormat.colorInfo != null
               && codecInputFormat.colorInfo.lumaBitdepth > 8;
-      if (isApplyingContainerHagcMetadata) {
+      if (isApplyingContainerHagcMetadata && !bufferData.isReadOnly()) {
         // Strip all T.35 metadata to prevent in-band metadata from overriding container HAGC.
         Av1ObuUtil.stripAllT35Metadata(bufferData);
-      } else if (isAv1HighBitdepth && codecNeedsStripNonHdr10PlusT35Workaround) {
+      } else if (isAv1HighBitdepth
+          && codecNeedsStripNonHdr10PlusT35Workaround
+          && !bufferData.isReadOnly()) {
         // For AV1 streams with bitdepth > 8, try to rewrite OBUs to skip non-HDR10+ metadata on
         // SDKs prior to 37.
         Av1ObuUtil.stripNonHdr10PlusT35Metadata(bufferData);
       }
       if (av1SampleDependencyParser != null && buffer.isKeyFrame()) {
         av1SampleDependencyParser.queueInputBuffer(bufferData);
+      }
+    } else if (mimeType.equals(MimeTypes.VIDEO_H265) && buffer.data != null) {
+      if (isApplyingContainerHagcMetadata && !buffer.data.isReadOnly()) {
+        // Strip all T.35 metadata to prevent in-band metadata from overriding container HAGC.
+        HevcSeiUtil.stripAllT35Metadata(buffer.data);
       }
     }
     consecutiveDroppedInputBufferCount = 0;
