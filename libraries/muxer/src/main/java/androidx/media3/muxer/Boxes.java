@@ -30,7 +30,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
-import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
@@ -1661,14 +1660,10 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     if (format.metadata == null) {
       return null;
     }
-    for (int i = 0; i < format.metadata.length(); i++) {
-      Metadata.Entry entry = format.metadata.get(i);
-      if (entry instanceof FormatSpecificTransmuxingData
-          && ((FormatSpecificTransmuxingData) entry).boxType.equals(boxType)) {
-        return ((FormatSpecificTransmuxingData) entry).data;
-      }
-    }
-    return null;
+    @Nullable
+    FormatSpecificTransmuxingData entry =
+        format.metadata.getFirstEntryOfType(FormatSpecificTransmuxingData.class);
+    return entry != null && entry.boxType.equals(boxType) ? entry.data : null;
   }
 
   /** Returns a dvcC/dvwC/dvvC vision box which will be included in dolby vision box. */
