@@ -98,8 +98,7 @@ fun LabeledProgressSlider(
 ) {
   var sliderWidthPx by remember { mutableIntStateOf(0) }
   // Safely cast to ExoPlayer because we are in a demo app
-  // TODO: for ProgressSlider, use reflection OR move scrubbing mode to the Player interface
-  val exoPlayer = remember(player) { player as? ExoPlayer }
+  val exoPlayer = remember(player) { player as ExoPlayer? }
   ProgressIndicator(player, totalTickCount = sliderWidthPx, scope) {
     var isDragging by remember { mutableStateOf(false) }
     var seekPosition by remember { mutableFloatStateOf(0f) }
@@ -115,15 +114,14 @@ fun LabeledProgressSlider(
     Slider(
       value = if (isDragging) seekPosition else currentPositionProgress,
       onValueChange = {
-        if (!isDragging) {
-          exoPlayer?.setScrubbingModeEnabled(true)
-        }
+        if (!isDragging) exoPlayer?.setScrubbingModeEnabled(true)
         isDragging = true
         seekPosition = it
         updateCurrentPositionProgress(it)
         onValueChange?.invoke(it)
       },
       onValueChangeFinished = {
+        updateCurrentPositionProgress(seekPosition)
         exoPlayer?.setScrubbingModeEnabled(false)
         isDragging = false
         onValueChangeFinished?.invoke()

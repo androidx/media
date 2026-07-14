@@ -55,6 +55,8 @@
         `sourceSizeDp: Size?`.
     *   Add `CuesState` class and `rememberCuesState` Composable to the
         `media3-ui-compose` module for listening to player's current cues.
+    *   Add scrubbing mode support to `ProgressSlider` if it is based on
+        `ExoPlayer` or `CompositionPlayer`.
 *   Downloads:
     *   Resolve HLS variables in media playlist when fetched for download
         ([#3258](https://github.com/androidx/media/issues/3258)).

@@ -1,0 +1,27 @@
+# Proguard rules specific to the ui-compose-material3 module.
+
+-if class androidx.media3.ui.compose.material3.util.ScrubbingModeUtil {
+  *** *ScrubbingModeEnabled(...);
+}
+-keepnames class androidx.media3.exoplayer.ExoPlayer {}
+
+-if class androidx.media3.ui.compose.material3.util.ScrubbingModeUtil {
+  *** *ScrubbingModeEnabled(...);
+}
+-keepclassmembers class androidx.media3.exoplayer.ExoPlayer {
+  void setScrubbingModeEnabled(boolean);
+  boolean isScrubbingModeEnabled();
+}
+
+-if class androidx.media3.ui.compose.material3.util.ScrubbingModeUtil {
+  *** *ScrubbingModeEnabled(...);
+}
+-keepnames class androidx.media3.transformer.CompositionPlayer {}
+
+-if class androidx.media3.ui.compose.material3.util.ScrubbingModeUtil {
+  *** *ScrubbingModeEnabled(...);
+}
+-keepclassmembers class androidx.media3.transformer.CompositionPlayer {
+  void setScrubbingModeEnabled(boolean);
+  boolean isScrubbingModeEnabled();
+}

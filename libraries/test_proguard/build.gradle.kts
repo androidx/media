@@ -43,6 +43,7 @@ dependencies {
   implementation(project(":lib-exoplayer-smoothstreaming"))
   implementation(project(":lib-transformer"))
   implementation(project(":lib-ui"))
+  implementation(project(":lib-ui-compose-material3"))
   implementation(project(":lib-datasource-rtmp"))
   implementation(project(":lib-decoder-vp9"))
   implementation(project(":lib-decoder-opus"))

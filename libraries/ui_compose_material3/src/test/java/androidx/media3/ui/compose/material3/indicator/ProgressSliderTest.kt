@@ -16,6 +16,7 @@
 
 package androidx.media3.ui.compose.material3.indicator
 
+import android.content.Context
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -29,10 +30,19 @@ import androidx.compose.ui.test.assertRangeInfoEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.common.Player.STATE_READY
 import androidx.media3.common.SimpleBasePlayer
+import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.test.utils.FakePlayer
+import androidx.media3.transformer.Composition
+import androidx.media3.transformer.CompositionPlayer
+import androidx.media3.transformer.EditedMediaItem
+import androidx.media3.transformer.EditedMediaItemSequence
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.google.common.collect.ImmutableList
 import com.google.common.truth.Truth.assertThat
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -41,6 +51,11 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.AdditionalAnswers.delegatesTo
+import org.mockito.Mockito.doReturn
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
+import org.mockito.Mockito.verify
 import org.robolectric.annotation.Config
 
 private const val SLIDER_TAG = "slider"
@@ -274,6 +289,172 @@ class ProgressSliderTest {
     }
 
   @Test
+  fun slider_dragAndRelease_transitionsScrubbingMode() =
+    runTest(testDispatcher) {
+      val fakePlayer =
+        FakePlayer(
+          playlist =
+            listOf(
+              SimpleBasePlayer.MediaItemData.Builder("Item")
+                .setDurationUs(10_000_000)
+                .setIsSeekable(true)
+                .build()
+            )
+        )
+      val player = mock(ExoPlayer::class.java, delegatesTo<Any>(fakePlayer))
+      doReturn(true).`when`(player).isScrubbingModeEnabled
+
+      var slop = 0f
+
+      composeTestRule.setContent {
+        slop = LocalViewConfiguration.current.touchSlop
+        ProgressSlider(
+          player = player,
+          modifier = Modifier.testTag(SLIDER_TAG),
+          scope = backgroundScope,
+          scrubbingEnabled = true,
+        )
+      }
+
+      // Drag starts
+      composeTestRule.onNodeWithTag(SLIDER_TAG).performTouchInput {
+        down(center)
+        moveBy(Offset(slop, 0f))
+      }
+      testScheduler.runCurrent()
+      verify(player).isScrubbingModeEnabled = true
+
+      // Verify scrubbing position changed during drag
+      assertThat(player.currentPosition).isEqualTo(5_000)
+
+      // Drag continues
+      composeTestRule.onNodeWithTag(SLIDER_TAG).performTouchInput { moveBy(Offset(slop, 0f)) }
+      testScheduler.runCurrent()
+
+      // Finish drag, lift pointer
+      composeTestRule.onNodeWithTag(SLIDER_TAG).performTouchInput { up() }
+      testScheduler.runCurrent()
+
+      verify(player).isScrubbingModeEnabled = false
+    }
+
+  @Test
+  fun slider_dragAndRelease_transitionsScrubbingMode_compositionPlayer() =
+    runTest(testDispatcher) {
+      val context = ApplicationProvider.getApplicationContext<Context>()
+      val player = CompositionPlayer.Builder(context).build()
+      val mediaItem = MediaItem.fromUri("asset:///some_asset")
+      val editedMediaItem = EditedMediaItem.Builder(mediaItem).setDurationUs(10_000_000L).build()
+      val sequence =
+        EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(editedMediaItem))
+      val composition = Composition.Builder(ImmutableList.of(sequence)).build()
+      player.setComposition(composition)
+      player.prepare()
+
+      var slop = 0f
+
+      composeTestRule.setContent {
+        slop = LocalViewConfiguration.current.touchSlop
+        ProgressSlider(
+          player = player,
+          modifier = Modifier.testTag(SLIDER_TAG),
+          scope = backgroundScope,
+          scrubbingEnabled = true,
+        )
+      }
+
+      // Drag starts
+      composeTestRule.onNodeWithTag(SLIDER_TAG).performTouchInput {
+        down(center)
+        moveBy(Offset(slop, 0f))
+      }
+      testScheduler.runCurrent()
+      assertThat(player.isScrubbingModeEnabled).isTrue()
+
+      // Verify scrubbing position changed during drag
+      assertThat(player.currentPosition).isEqualTo(5_000)
+
+      // Drag continues
+      composeTestRule.onNodeWithTag(SLIDER_TAG).performTouchInput { moveBy(Offset(slop, 0f)) }
+      testScheduler.runCurrent()
+
+      // Finish drag, lift pointer
+      composeTestRule.onNodeWithTag(SLIDER_TAG).performTouchInput { up() }
+      testScheduler.runCurrent()
+
+      assertThat(player.isScrubbingModeEnabled).isFalse()
+    }
+
+  @Test
+  fun slider_receivesNewPlayerMidDrag_transitionsScrubbingMode() =
+    runTest(testDispatcher) {
+      val fakePlayer1 =
+        FakePlayer(
+          playlist =
+            listOf(
+              SimpleBasePlayer.MediaItemData.Builder("Item1")
+                .setDurationUs(10_000_000)
+                .setIsSeekable(true)
+                .build()
+            )
+        )
+      val fakePlayer2 =
+        FakePlayer(
+          playlist =
+            listOf(
+              SimpleBasePlayer.MediaItemData.Builder("Item2")
+                .setDurationUs(10_000_000)
+                .setIsSeekable(true)
+                .build()
+            )
+        )
+      val player1 = mock(ExoPlayer::class.java, delegatesTo<Any>(fakePlayer1))
+      val player2 = mock(ExoPlayer::class.java, delegatesTo<Any>(fakePlayer2))
+
+      val currentPlayer = mutableStateOf<Player>(player1)
+      var slop = 0f
+
+      composeTestRule.setContent {
+        slop = LocalViewConfiguration.current.touchSlop
+        ProgressSlider(
+          player = currentPlayer.value,
+          modifier = Modifier.testTag(SLIDER_TAG),
+          scope = backgroundScope,
+          scrubbingEnabled = true,
+        )
+      }
+
+      // Drag starts on player1
+      composeTestRule.onNodeWithTag(SLIDER_TAG).performTouchInput {
+        down(center)
+        moveBy(Offset(slop, 0f))
+      }
+      testScheduler.runCurrent()
+      verify(player1).isScrubbingModeEnabled = true
+
+      // Swap players mid-drag
+      currentPlayer.value = player2
+      composeTestRule.waitForIdle()
+
+      // player1 should have scrubbing disabled when it leaves composition
+      verify(player1).isScrubbingModeEnabled = false
+
+      // Drag continues
+      composeTestRule.onNodeWithTag(SLIDER_TAG).performTouchInput { moveBy(Offset(slop, 0f)) }
+      testScheduler.runCurrent()
+
+      // player2 should have scrubbing mode enabled since we continued dragging
+      verify(player2).isScrubbingModeEnabled = true
+
+      // Finish drag, lift pointer
+      composeTestRule.onNodeWithTag(SLIDER_TAG).performTouchInput { up() }
+      testScheduler.runCurrent()
+
+      // player2 should have scrubbing mode disabled at the end
+      verify(player2).isScrubbingModeEnabled = false
+    }
+
+  @Test
   fun slider_dragAndRelease_firesCallbacksCorrectly() =
     runTest(testDispatcher) {
       val player =
@@ -313,6 +494,92 @@ class ProgressSliderTest {
       testScheduler.runCurrent()
 
       assertThat(onValueChangeFinishedCount).isEqualTo(1)
+    }
+
+  @Test
+  fun slider_scrubbingDisabled_doesNotTransitionScrubbingMode() =
+    runTest(testDispatcher) {
+      val fakePlayer =
+        FakePlayer(
+          playlist =
+            listOf(
+              SimpleBasePlayer.MediaItemData.Builder("Item")
+                .setDurationUs(10_000_000)
+                .setIsSeekable(true)
+                .build()
+            )
+        )
+      val player = mock(ExoPlayer::class.java, delegatesTo<Any>(fakePlayer))
+
+      var slop = 0f
+
+      composeTestRule.setContent {
+        slop = LocalViewConfiguration.current.touchSlop
+        ProgressSlider(
+          player = player,
+          modifier = Modifier.testTag(SLIDER_TAG),
+          scope = backgroundScope,
+          scrubbingEnabled = false,
+        )
+      }
+
+      // Drag starts
+      composeTestRule.onNodeWithTag(SLIDER_TAG).performTouchInput {
+        down(center)
+        moveBy(Offset(slop, 0f))
+      }
+      testScheduler.runCurrent()
+      verify(player, never()).isScrubbingModeEnabled = true
+
+      // Finish drag, lift pointer
+      composeTestRule.onNodeWithTag(SLIDER_TAG).performTouchInput { up() }
+      testScheduler.runCurrent()
+
+      verify(player).isScrubbingModeEnabled = false
+    }
+
+  @Test
+  fun slider_nonExoPlayer_scrubbingEnabled_doesNotScrubImmediately() =
+    runTest(testDispatcher) {
+      val player =
+        FakePlayer(
+          playlist =
+            listOf(
+              SimpleBasePlayer.MediaItemData.Builder("Item")
+                .setDurationUs(10_000_000)
+                .setIsSeekable(true)
+                .build()
+            )
+        )
+
+      var slop = 0f
+
+      composeTestRule.setContent {
+        slop = LocalViewConfiguration.current.touchSlop
+        ProgressSlider(
+          player = player,
+          modifier = Modifier.testTag(SLIDER_TAG),
+          scope = backgroundScope,
+          scrubbingEnabled = true,
+        )
+      }
+
+      // Drag starts
+      composeTestRule.onNodeWithTag(SLIDER_TAG).performTouchInput {
+        down(center)
+        moveBy(Offset(slop, 0f))
+      }
+      testScheduler.runCurrent()
+
+      // The position should NOT update during drag because scrubbing is unsupported
+      assertThat(player.currentPosition).isEqualTo(0)
+
+      // Finish drag, lift pointer
+      composeTestRule.onNodeWithTag(SLIDER_TAG).performTouchInput { up() }
+      testScheduler.runCurrent()
+
+      // The position should update ONLY after pointer is lifted
+      assertThat(player.currentPosition).isEqualTo(5_000)
     }
 
   private fun assertThatSliderValueEquals(value: Float) {

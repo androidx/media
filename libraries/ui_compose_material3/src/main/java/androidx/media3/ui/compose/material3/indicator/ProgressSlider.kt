@@ -21,6 +21,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderColors
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -34,6 +35,8 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.indicators.ProgressIndicator
+import androidx.media3.ui.compose.material3.util.isScrubbingModeEnabled
+import androidx.media3.ui.compose.material3.util.setScrubbingModeEnabled
 import kotlinx.coroutines.CoroutineScope
 
 /**
@@ -70,6 +73,8 @@ fun ProgressSlider(player: Player?, modifier: Modifier = Modifier) {
  * @param scope The [CoroutineScope] to use for listening to player progress updates.
  * @param colors [SliderColors] that will be used to resolve the colors used for this slider in
  *   different states. See [SliderDefaults.colors].
+ * @param scrubbingEnabled Whether the time bar should seek immediately as the user drags the
+ *   scrubber around (true), or only seek when the user releases the scrubber (false).
  * @param interactionSource the [MutableInteractionSource] representing the stream of
  *   [Interactions][androidx.compose.foundation.interaction.Interaction] for this slider. You can
  *   create and pass in your own `remember`ed instance to observe `Interactions` and customize the
@@ -84,6 +89,7 @@ fun ProgressSlider(
   onValueChangeFinished: (() -> Unit)? = null,
   scope: CoroutineScope = rememberCoroutineScope(),
   colors: SliderColors = SliderDefaults.colors(),
+  scrubbingEnabled: Boolean = false,
   interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
 ) {
   var sliderWidthPx by remember { mutableIntStateOf(0) }
@@ -91,16 +97,33 @@ fun ProgressSlider(
     var isDragging by remember { mutableStateOf(false) }
     var seekPosition by remember { mutableFloatStateOf(0f) }
 
+    // Fallback for navigating away before the trailing invoke in onValueChangeFinished is called
+    DisposableEffect(player) {
+      onDispose {
+        player.setScrubbingModeEnabled(false)
+        isDragging = false
+      }
+    }
+    // Cache the result to avoid repeated reflection calls
+    var scrubbingEnabledForThisPlayer by
+      remember(player, scrubbingEnabled) { mutableStateOf(false) }
+
     Slider(
       value = if (isDragging) seekPosition else currentPositionProgress,
       onValueChange = {
-        // TODO: b/459444117 - Add ScrubbingMode
+        if (!isDragging && scrubbingEnabled) {
+          player.setScrubbingModeEnabled(true)
+          scrubbingEnabledForThisPlayer = player.isScrubbingModeEnabled()
+        }
         isDragging = true
         seekPosition = it
+        // Dispatch seeks only if they are less expensive (scrubbing mode enabled)
+        if (scrubbingEnabledForThisPlayer) updateCurrentPositionProgress(seekPosition)
         onValueChange?.invoke(it)
       },
       onValueChangeFinished = {
         updateCurrentPositionProgress(seekPosition)
+        player.setScrubbingModeEnabled(false)
         isDragging = false
         onValueChangeFinished?.invoke()
       },

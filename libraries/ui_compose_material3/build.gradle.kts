@@ -42,5 +42,7 @@ dependencies {
   testImplementation(libs.androidx.compose.ui.test)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(project(":test-utils"))
+  testImplementation(project(":lib-exoplayer"))
+  testImplementation(project(":lib-transformer"))
   testImplementation(libs.robolectric)
 }
