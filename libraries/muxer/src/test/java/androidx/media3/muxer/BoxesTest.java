@@ -32,8 +32,8 @@ import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
-import androidx.media3.container.FormatSpecificTransmuxingData;
 import androidx.media3.container.MdtaMetadataEntry;
+import androidx.media3.container.Mp4FormatSpecificMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.muxer.FragmentedMp4Writer.SampleMetadata;
 import androidx.media3.test.utils.DumpFileAsserts;
@@ -412,7 +412,7 @@ public class BoxesTest {
         FAKE_AUDIO_FORMAT
             .buildUpon()
             .setSampleMimeType(MimeTypes.AUDIO_E_AC3)
-            .setMetadata(new Metadata(new FormatSpecificTransmuxingData("dec3", payload)))
+            .setMetadata(new Metadata(new Mp4FormatSpecificMetadataEntry("dec3", payload)))
             .build();
 
     ByteBuffer box = Boxes.codecSpecificBox(format);
@@ -435,7 +435,7 @@ public class BoxesTest {
         FAKE_AUDIO_FORMAT
             .buildUpon()
             .setSampleMimeType(MimeTypes.AUDIO_E_AC3_JOC)
-            .setMetadata(new Metadata(new FormatSpecificTransmuxingData("dec3", payload)))
+            .setMetadata(new Metadata(new Mp4FormatSpecificMetadataEntry("dec3", payload)))
             .build();
 
     ByteBuffer box = Boxes.codecSpecificBox(format);
@@ -452,7 +452,7 @@ public class BoxesTest {
 
   @Test
   public void createCodecSpecificBox_forEAc3WithNoTransmuxingData_throws() {
-    // No FormatSpecificTransmuxingData entry on the format's metadata.
+    // No Mp4FormatSpecificMetadataEntry entry on the format's metadata.
     Format format = FAKE_AUDIO_FORMAT.buildUpon().setSampleMimeType(MimeTypes.AUDIO_E_AC3).build();
 
     assertThrows(IllegalArgumentException.class, () -> Boxes.codecSpecificBox(format));
@@ -464,7 +464,7 @@ public class BoxesTest {
         FAKE_AUDIO_FORMAT
             .buildUpon()
             .setSampleMimeType(MimeTypes.AUDIO_E_AC3)
-            .setMetadata(new Metadata(new FormatSpecificTransmuxingData("dec3", new byte[0])))
+            .setMetadata(new Metadata(new Mp4FormatSpecificMetadataEntry("dec3", new byte[0])))
             .build();
 
     assertThrows(IllegalArgumentException.class, () -> Boxes.codecSpecificBox(format));
@@ -478,7 +478,7 @@ public class BoxesTest {
             .setSampleMimeType(MimeTypes.AUDIO_E_AC3)
             .setMetadata(
                 new Metadata(
-                    new FormatSpecificTransmuxingData(
+                    new Mp4FormatSpecificMetadataEntry(
                         "wrong", new byte[] {0x0F, (byte) 0x80, 0x00})))
             .build();
 
@@ -493,7 +493,7 @@ public class BoxesTest {
             .setSampleMimeType(MimeTypes.AUDIO_E_AC3)
             .setMetadata(
                 new Metadata(
-                    new FormatSpecificTransmuxingData(
+                    new Mp4FormatSpecificMetadataEntry(
                         "dec3", new byte[] {0x0F, (byte) 0x80, 0x00})))
             .build();
 
@@ -514,7 +514,7 @@ public class BoxesTest {
             .setSampleMimeType(MimeTypes.AUDIO_E_AC3_JOC)
             .setMetadata(
                 new Metadata(
-                    new FormatSpecificTransmuxingData(
+                    new Mp4FormatSpecificMetadataEntry(
                         "dec3", new byte[] {0x0F, (byte) 0x80, 0x00})))
             .build();
 

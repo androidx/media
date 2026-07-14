@@ -34,8 +34,8 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
-import androidx.media3.container.FormatSpecificTransmuxingData;
 import androidx.media3.container.MdtaMetadataEntry;
+import androidx.media3.container.Mp4FormatSpecificMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.NalUnitUtil;
 import androidx.media3.muxer.FragmentedMp4Writer.SampleMetadata;
@@ -1651,8 +1651,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   }
 
   /**
-   * Returns the raw payload of the {@link FormatSpecificTransmuxingData} entry on {@code
-   * format.metadata} whose {@linkplain FormatSpecificTransmuxingData#boxType boxType} matches
+   * Returns the raw payload of the {@link Mp4FormatSpecificMetadataEntry} entry on {@code
+   * format.metadata} whose {@linkplain Mp4FormatSpecificMetadataEntry#boxType boxType} matches
    * {@code boxType}, or {@code null} if there is no such entry.
    */
   @Nullable
@@ -1661,8 +1661,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       return null;
     }
     @Nullable
-    FormatSpecificTransmuxingData entry =
-        format.metadata.getFirstEntryOfType(FormatSpecificTransmuxingData.class);
+    Mp4FormatSpecificMetadataEntry entry =
+        format.metadata.getFirstEntryOfType(Mp4FormatSpecificMetadataEntry.class);
     return entry != null && entry.boxType.equals(boxType) ? entry.data : null;
   }
 

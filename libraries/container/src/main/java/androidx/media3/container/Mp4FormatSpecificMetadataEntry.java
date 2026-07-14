@@ -34,7 +34,7 @@ import java.util.Arrays;
  * dec3}).
  */
 @UnstableApi
-public final class FormatSpecificTransmuxingData implements Metadata.Entry {
+public final class Mp4FormatSpecificMetadataEntry implements Metadata.Entry {
 
   /** The four-character type of the box the {@link #data} belongs to, for example {@code dec3}. */
   public final String boxType;
@@ -43,7 +43,7 @@ public final class FormatSpecificTransmuxingData implements Metadata.Entry {
   public final byte[] data;
 
   /** Creates an instance. */
-  public FormatSpecificTransmuxingData(String boxType, byte[] data) {
+  public Mp4FormatSpecificMetadataEntry(String boxType, byte[] data) {
     this.boxType = checkNotNull(boxType);
     this.data = checkNotNull(data).clone();
   }
@@ -56,7 +56,7 @@ public final class FormatSpecificTransmuxingData implements Metadata.Entry {
     if (obj == null || getClass() != obj.getClass()) {
       return false;
     }
-    FormatSpecificTransmuxingData other = (FormatSpecificTransmuxingData) obj;
+    Mp4FormatSpecificMetadataEntry other = (Mp4FormatSpecificMetadataEntry) obj;
     return boxType.equals(other.boxType) && Arrays.equals(data, other.data);
   }
 
@@ -67,6 +67,6 @@ public final class FormatSpecificTransmuxingData implements Metadata.Entry {
 
   @Override
   public String toString() {
-    return "FormatSpecificTransmuxingData: boxType=" + boxType;
+    return "Mp4FormatSpecificMetadataEntry: boxType=" + boxType;
   }
 }

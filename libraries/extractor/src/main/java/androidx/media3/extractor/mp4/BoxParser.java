@@ -41,10 +41,10 @@ import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.DolbyVisionConfig;
-import androidx.media3.container.FormatSpecificTransmuxingData;
 import androidx.media3.container.Mp4AlternateGroupData;
 import androidx.media3.container.Mp4Box;
 import androidx.media3.container.Mp4Box.LeafBox;
+import androidx.media3.container.Mp4FormatSpecificMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.container.NalUnitUtil;
@@ -2262,7 +2262,7 @@ public final class BoxParser {
         Format eac3Format =
             Ac3Util.parseEAc3AnnexFFormat(parent, Integer.toString(trackId), language, drmInitData);
         Metadata.Entry dec3TransmuxingData =
-            new FormatSpecificTransmuxingData("dec3", ec3SpecificBoxPayload);
+            new Mp4FormatSpecificMetadataEntry("dec3", ec3SpecificBoxPayload);
         out.format =
             eac3Format
                 .buildUpon()

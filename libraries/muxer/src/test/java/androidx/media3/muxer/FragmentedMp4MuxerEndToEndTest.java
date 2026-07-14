@@ -264,7 +264,7 @@ public class FragmentedMp4MuxerEndToEndTest {
    *
    * <p>The input is read with {@link Mp4Extractor} (rather than {@code MediaExtractorCompat}) so
    * that {@link Format#metadata} — which carries the E-AC-3 {@code dec3} payload as a {@code
-   * FormatSpecificTransmuxingData} entry — is preserved and passed to the muxer.
+   * Mp4FormatSpecificMetadataEntry} entry — is preserved and passed to the muxer.
    */
   private void transmuxToFragmentedAndAssert(String inputFileName) throws Exception {
     FakeExtractorOutput inputExtractorOutput =
