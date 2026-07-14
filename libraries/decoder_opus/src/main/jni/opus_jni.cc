@@ -173,9 +173,9 @@ DECODER_FUNC(jint, opusGetErrorCode, jlong jContext) { return errorCode; }
 
 DECODER_FUNC(void, opusSetFloatOutput) { outputFloat = true; }
 
-LIBRARY_FUNC(jstring, opusIsSecureDecodeSupported) {
+LIBRARY_FUNC(jboolean, opusIsSecureDecodeSupported) {
   // Doesn't support
-  return 0;
+  return JNI_FALSE;
 }
 
 LIBRARY_FUNC(jstring, opusGetVersion) {
