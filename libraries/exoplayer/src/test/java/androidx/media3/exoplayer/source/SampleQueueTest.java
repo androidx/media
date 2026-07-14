@@ -1898,6 +1898,255 @@ public final class SampleQueueTest {
         ALLOCATION_SIZE);
   }
 
+  @Test
+  public void expectResume_traverseOverlap_unwindsOverlapBytesAndAppendsNewSamplesCleanly() {
+    sampleQueue.format(FORMAT_1);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 1000000,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 2000000,
+        /* flags= */ 0,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertAllocationCount(2);
+
+    sampleQueue.expectResume();
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 1000000,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertAllocationCount(2);
+
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 2000000,
+        /* flags= */ 0,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertAllocationCount(2);
+
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 3000000,
+        /* flags= */ 0,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    assertAllocationCount(3);
+    assertReadFormat(false, FORMAT_1);
+    assertReadSample(
+        /* timeUs= */ 1000000,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+    assertReadSample(
+        /* timeUs= */ 2000000,
+        /* isKeyFrame= */ false,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+    assertReadSample(
+        /* timeUs= */ 3000000,
+        /* isKeyFrame= */ false,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+  }
+
+  @Test
+  public void expectResume_audioTimestampDrift_clearsPendingResumeAndAppendsCleanly() {
+    sampleQueue.format(FORMAT_1);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 1000000,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    sampleQueue.expectResume();
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 1000001,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertAllocationCount(1);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 1020000,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    assertAllocationCount(2);
+    assertReadFormat(false, FORMAT_1);
+    assertReadSample(
+        /* timeUs= */ 1000000,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+    assertReadSample(
+        /* timeUs= */ 1020000,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+  }
+
+  @Test
+  public void expectResume_duplicateTimestampsAtTail_dropsExactDuplicateCountAndAppends() {
+    sampleQueue.format(FORMAT_1);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 1000000,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 2000000,
+        /* flags= */ 0,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 2000000,
+        /* flags= */ 0,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertAllocationCount(3);
+
+    sampleQueue.expectResume();
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 2000000,
+        /* flags= */ 0,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertAllocationCount(3);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 2000000,
+        /* flags= */ 0,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertAllocationCount(3);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 3000000,
+        /* flags= */ 0,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    assertAllocationCount(4);
+    assertReadFormat(false, FORMAT_1);
+    assertReadSample(
+        /* timeUs= */ 1000000,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+    assertReadSample(
+        /* timeUs= */ 2000000,
+        /* isKeyFrame= */ false,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+    assertReadSample(
+        /* timeUs= */ 2000000,
+        /* isKeyFrame= */ false,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+    assertReadSample(
+        /* timeUs= */ 3000000,
+        /* isKeyFrame= */ false,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+  }
+
+  @Test
+  public void expectResume_withNonZeroSampleOffset_unwindsOverlapAndAppendsCleanly() {
+    sampleQueue.format(FORMAT_1);
+    sampleQueue.setSampleOffsetUs(500000);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 500000,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertAllocationCount(1);
+
+    sampleQueue.expectResume();
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 500000,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertAllocationCount(1);
+
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 1500000,
+        /* flags= */ 0,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    assertAllocationCount(2);
+    assertReadFormat(false, FORMAT_1.buildUpon().setSubsampleOffsetUs(500000).build());
+    assertReadSample(
+        /* timeUs= */ 1000000,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+    assertReadSample(
+        /* timeUs= */ 2000000,
+        /* isKeyFrame= */ false,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+  }
+
   // Internal methods.
 
   /** Writes standard test data to {@code sampleQueue}. */

@@ -78,6 +78,8 @@ public class SampleQueue implements TrackOutput {
    */
   private static final int DEFAULT_MAX_NUM_REORDER_SAMPLES = 16;
 
+  private static final long EXPECT_RESUME_MAX_TIMESTAMP_DRIFT_US = 1_000;
+
   private final SampleDataQueue sampleDataQueue;
   private final SampleExtrasHolder extrasHolder;
   private final SpannedData<SharedSampleMetadata> sharedSampleMetadata;
@@ -125,6 +127,9 @@ public class SampleQueue implements TrackOutput {
 
   private long sampleOffsetUs;
   private boolean pendingSplice;
+  private boolean pendingResume;
+  private long resumeEndTimestampUs;
+  private int resumeEndDuplicateCount;
 
   /**
    * Creates a sample queue without DRM resource management.
@@ -236,6 +241,7 @@ public class SampleQueue implements TrackOutput {
     largestDiscardedTimestampUs = Long.MIN_VALUE;
     largestQueuedTimestampUs = Long.MIN_VALUE;
     isLastSampleQueued = false;
+    pendingResume = false;
     sharedSampleMetadata.clear();
     if (resetUpstreamFormat) {
       unadjustedUpstreamFormat = null;
@@ -287,6 +293,34 @@ public class SampleQueue implements TrackOutput {
   /** Indicates samples that are subsequently queued should be spliced into those already queued. */
   public final void splice() {
     pendingSplice = true;
+  }
+
+  /**
+   * Prepares the queue to resume receiving samples from an earlier timestamp, matching duplicate
+   * overlap samples at the existing queue tail before appending new samples.
+   */
+  public final void expectResume() {
+    if (length > 0) {
+      upstreamKeyframeRequired = false;
+      int relativeTailIndex = getRelativeIndex(length - 1);
+      resumeEndTimestampUs = timesUs[relativeTailIndex];
+
+      int duplicateCount = 0;
+      for (int i = length - 1; i >= 0; i--) {
+        int index = getRelativeIndex(i);
+        if (Math.abs(timesUs[index] - resumeEndTimestampUs)
+            <= EXPECT_RESUME_MAX_TIMESTAMP_DRIFT_US) {
+          duplicateCount++;
+        } else {
+          break;
+        }
+      }
+      resumeEndDuplicateCount = duplicateCount;
+      pendingResume = true;
+    } else {
+      pendingResume = false;
+      resumeEndDuplicateCount = 0;
+    }
   }
 
   /** Returns the current absolute write index. */
@@ -679,6 +713,30 @@ public class SampleQueue implements TrackOutput {
       format(checkNotNull(unadjustedUpstreamFormat));
     }
 
+    timeUs += sampleOffsetUs;
+
+    if (pendingResume) {
+      boolean isDuplicateMatch =
+          Math.abs(timeUs - resumeEndTimestampUs) <= EXPECT_RESUME_MAX_TIMESTAMP_DRIFT_US;
+      if (isDuplicateMatch) {
+        if (resumeEndDuplicateCount > 1) {
+          resumeEndDuplicateCount--;
+        } else {
+          pendingResume = false;
+        }
+        discardUpstreamSampleBytes(size, offset);
+        return;
+      }
+
+      boolean isKeyframe = (flags & C.BUFFER_FLAG_KEY_FRAME) != 0;
+      if (isKeyframe && timeUs > largestQueuedTimestampUs + EXPECT_RESUME_MAX_TIMESTAMP_DRIFT_US) {
+        pendingResume = false;
+      } else {
+        discardUpstreamSampleBytes(size, offset);
+        return;
+      }
+    }
+
     boolean isKeyframe = (flags & C.BUFFER_FLAG_KEY_FRAME) != 0;
     if (upstreamKeyframeRequired) {
       if (!isKeyframe) {
@@ -688,7 +746,6 @@ public class SampleQueue implements TrackOutput {
       upstreamKeyframeRequired = false;
     }
 
-    timeUs += sampleOffsetUs;
     if (discardAllSamplesToStartTime) {
       if (timeUs < startTimeUs) {
         discardUpstreamSampleBytes(size, offset);
