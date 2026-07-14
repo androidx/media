@@ -682,6 +682,7 @@ public class SampleQueue implements TrackOutput {
     boolean isKeyframe = (flags & C.BUFFER_FLAG_KEY_FRAME) != 0;
     if (upstreamKeyframeRequired) {
       if (!isKeyframe) {
+        discardUpstreamSampleBytes(size, offset);
         return;
       }
       upstreamKeyframeRequired = false;
@@ -690,6 +691,7 @@ public class SampleQueue implements TrackOutput {
     timeUs += sampleOffsetUs;
     if (discardAllSamplesToStartTime) {
       if (timeUs < startTimeUs) {
+        discardUpstreamSampleBytes(size, offset);
         return;
       }
       if ((flags & C.BUFFER_FLAG_KEY_FRAME) == 0) {
@@ -704,6 +706,7 @@ public class SampleQueue implements TrackOutput {
     }
     if (pendingSplice) {
       if (!isKeyframe || !attemptSplice(timeUs)) {
+        discardUpstreamSampleBytes(size, offset);
         return;
       }
       pendingSplice = false;
@@ -744,6 +747,12 @@ public class SampleQueue implements TrackOutput {
   }
 
   // Internal methods.
+
+  private void discardUpstreamSampleBytes(int size, int offset) {
+    if (offset == 0) {
+      sampleDataQueue.discardUpstreamSampleBytes(sampleDataQueue.getTotalBytesWritten() - size);
+    }
+  }
 
   /** Rewinds the read position to the first sample in the queue. */
   private synchronized void rewind() {

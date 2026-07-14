@@ -1724,6 +1724,180 @@ public final class SampleQueueTest {
     assertReadEndOfStream(/* formatRequired= */ false);
   }
 
+  @Test
+  public void
+      sampleMetadata_droppedNonKeyframeOnEmptyQueueAfterDownstreamDiscard_unwindsCorrectlyWithoutCorruption() {
+    sampleQueue.format(FORMAT_SYNC_SAMPLE_ONLY_1);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 0,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertReadFormat(false, FORMAT_SYNC_SAMPLE_ONLY_1);
+    assertReadSample(
+        /* timeUs= */ 0,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+    sampleQueue.discardToRead();
+    sampleQueue.setStartTimeUs(2000);
+
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 1000,
+        /* flags= */ 0,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    assertAllocationCount(0);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 2000,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertReadSample(
+        /* timeUs= */ 2000,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+  }
+
+  @Test
+  public void sampleMetadata_droppedPrerollSample_unwindsSampleDataQueue() {
+    sampleQueue.format(FORMAT_SYNC_SAMPLE_ONLY_1);
+    sampleQueue.setStartTimeUs(1000);
+
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 0,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    assertAllocationCount(0);
+    assertReadFormat(false, FORMAT_SYNC_SAMPLE_ONLY_1);
+    assertNoSamplesToRead(FORMAT_SYNC_SAMPLE_ONLY_1);
+  }
+
+  @Test
+  public void sampleMetadata_droppedSpliceSample_unwindsSampleDataQueue() {
+    sampleQueue.format(FORMAT_1);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 1000,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertReadFormat(false, FORMAT_1);
+    assertReadSample(
+        /* timeUs= */ 1000,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+    sampleQueue.splice();
+
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 500,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    assertAllocationCount(1);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 2000,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertReadSample(
+        /* timeUs= */ 2000,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+  }
+
+  @Test
+  public void
+      sampleMetadata_droppedSampleSpanningMultipleAllocationNodes_freesAllocationsAndResetsWritePosition() {
+    sampleQueue.format(FORMAT_SYNC_SAMPLE_ONLY_1);
+    sampleQueue.setStartTimeUs(1000);
+
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE * 3);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 0,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE * 3,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    assertAllocationCount(0);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE * 2);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 1000,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE * 2,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertAllocationCount(2);
+    assertReadFormat(false, FORMAT_SYNC_SAMPLE_ONLY_1);
+    assertReadSample(
+        /* timeUs= */ 1000,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE * 2);
+  }
+
+  @Test
+  public void
+      sampleMetadata_droppedSampleWithNonZeroOffset_skipsUnwindingToPreserveTrailingBytes() {
+    sampleQueue.format(FORMAT_SYNC_SAMPLE_ONLY_1);
+    sampleQueue.setStartTimeUs(1000);
+
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE * 2);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 0,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ ALLOCATION_SIZE,
+        /* cryptoData= */ null);
+
+    assertAllocationCount(2);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 1000,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertReadFormat(false, FORMAT_SYNC_SAMPLE_ONLY_1);
+    assertReadSample(
+        /* timeUs= */ 1000,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ ALLOCATION_SIZE,
+        ALLOCATION_SIZE);
+  }
+
   // Internal methods.
 
   /** Writes standard test data to {@code sampleQueue}. */
