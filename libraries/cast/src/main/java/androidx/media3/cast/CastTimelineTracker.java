@@ -108,21 +108,11 @@ import java.util.List;
       return CastTimeline.EMPTY_CAST_TIMELINE;
     }
 
-    int currentItemId = mediaStatus.getCurrentItemId();
-    String currentContentId = checkNotNull(mediaStatus.getMediaInfo()).getContentId();
-    MediaItem mediaItem = mediaItemsByContentId.get(currentContentId);
-    updateItemData(
-        currentItemId,
-        mediaItem != null ? mediaItem : MediaItem.EMPTY,
-        mediaStatus.getMediaInfo(),
-        currentContentId,
-        /* defaultPositionUs= */ C.TIME_UNSET);
-
     for (MediaQueueItem queueItem : mediaStatus.getQueueItems()) {
       long defaultPositionUs = (long) (queueItem.getStartTime() * C.MICROS_PER_SECOND);
       @Nullable MediaInfo mediaInfo = queueItem.getMedia();
       String contentId = mediaInfo != null ? mediaInfo.getContentId() : UNKNOWN_CONTENT_ID;
-      mediaItem = mediaItemsByContentId.get(contentId);
+      MediaItem mediaItem = mediaItemsByContentId.get(contentId);
       updateItemData(
           queueItem.getItemId(),
           mediaItem != null ? mediaItem : mediaItemConverter.toMediaItem(queueItem),
@@ -130,6 +120,23 @@ import java.util.List;
           contentId,
           defaultPositionUs);
     }
+
+    // Process mediaStatus.getMediaInfo() after mediaStatus.getQueueItems()[...].getMedia(). Static
+    // queue items in the Cast SDK do not receive dynamic runtime updates (such as transitioning
+    // from buffered to live upon manifest loading). Updating from mediaStatus.getMediaInfo() second
+    // ensures that active runtime playback state is preserved and not overwritten by stale queue
+    // item metadata.
+    int currentItemId = mediaStatus.getCurrentItemId();
+    MediaInfo currentMediaInfo = checkNotNull(mediaStatus.getMediaInfo());
+    String currentContentId = currentMediaInfo.getContentId();
+    MediaItem mediaItem = mediaItemsByContentId.get(currentContentId);
+    updateItemData(
+        currentItemId,
+        mediaItem != null ? mediaItem : MediaItem.EMPTY,
+        currentMediaInfo,
+        currentContentId,
+        /* defaultPositionUs= */ C.TIME_UNSET);
+
     return new CastTimeline(itemIds, itemIdToData);
   }
 
@@ -150,6 +157,11 @@ import java.util.List;
             : mediaInfo.getStreamType() == MediaInfo.STREAM_TYPE_LIVE;
     if (defaultPositionUs == C.TIME_UNSET) {
       defaultPositionUs = previousData.defaultPositionUs;
+    }
+    // The media item can be empty if it originates from another sender. We use previous data as
+    // itemIdToData is populated when all media items from the queue are updated.
+    if (mediaItem == MediaItem.EMPTY) {
+      mediaItem = previousData.mediaItem;
     }
     itemIdToData.put(
         itemId,

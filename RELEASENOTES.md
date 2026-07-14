@@ -48,6 +48,9 @@
 *   MIDI extension:
 *   Leanback extension:
 *   Cast extension:
+    *   Fix bug where unconfigured live streams (`liveConfiguration == UNSET`)
+        were queued as `STREAM_TYPE_BUFFERED`
+        ([#3318](https://github.com/androidx/media/issues/3318)).
 *   Test Utilities:
 *   Remove deprecated symbols:
 
