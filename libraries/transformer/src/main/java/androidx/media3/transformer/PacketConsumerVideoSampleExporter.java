@@ -188,7 +188,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     frameAggregator =
         new FrameAggregator(
             composition.sequences.size(),
-            /* frameRate= */ null,
+            composition.videoFrameAggregationParameters.frameRate,
             thisRef::queueAggregatedFrames,
             /* onFlush= */ (unused) -> {});
     // Create the per sequence consumers that feed buffers from the decoders into the

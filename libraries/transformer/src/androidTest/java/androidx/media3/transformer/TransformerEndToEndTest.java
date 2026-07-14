@@ -27,6 +27,7 @@ import static androidx.media3.test.utils.AssetInfo.MOV_WITH_PCM_AUDIO;
 import static androidx.media3.test.utils.AssetInfo.MP3_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP3_ASSET_CBR_TRAILING_GARBAGE;
 import static androidx.media3.test.utils.AssetInfo.MP3_ASSET_CBR_TRAILING_ID3V1;
+import static androidx.media3.test.utils.AssetInfo.MP4_15FPS;
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_DOLBY_VISION_HDR;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_PHOTOS_TRIM_OPTIMIZATION_VIDEO;
@@ -37,6 +38,7 @@ import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIM
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_SHORTER_AUDIO;
 import static androidx.media3.test.utils.AssetInfo.MP4_PORTRAIT_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_POSITIVE_SHIFT_EDIT_LIST;
+import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_TRIM_OPTIMIZATION;
 import static androidx.media3.test.utils.AssetInfo.MP4_TRIM_OPTIMIZATION_180;
 import static androidx.media3.test.utils.AssetInfo.MP4_TRIM_OPTIMIZATION_270;
@@ -48,11 +50,14 @@ import static androidx.media3.test.utils.AssetInfo.WAV_32LE_PCM_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_96KHZ_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WEBP_LARGE;
+import static androidx.media3.test.utils.FormatSupportAssumptions.assumeAllFormatsSupported;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static androidx.media3.test.utils.TestSummaryLogger.recordTestSkipped;
 import static androidx.media3.test.utils.TestUtil.createByteCountingAudioProcessor;
 import static androidx.media3.test.utils.TestUtil.extractAllSamplesFromFilePath;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
+import static androidx.media3.transformer.AndroidTestUtil.assertExportResultHasOriginalVideoTimestamps;
+import static androidx.media3.transformer.AndroidTestUtil.assertExportedVideoFrameRateIsConstant;
 import static androidx.media3.transformer.AndroidTestUtil.assumeCanEncodeWithProfile;
 import static androidx.media3.transformer.AndroidTestUtil.createFrameCountingEffect;
 import static androidx.media3.transformer.AndroidTestUtil.createOpenGlObjects;
@@ -87,7 +92,9 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Pair;
+import android.util.Rational;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
@@ -117,14 +124,17 @@ import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.RgbFilter;
 import androidx.media3.effect.ScaleAndRotateTransformation;
+import androidx.media3.effect.SimpleGlFrameProcessor;
 import androidx.media3.effect.SpeedChangeEffect;
 import androidx.media3.effect.TimestampWrapper;
 import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.media3.exoplayer.audio.TeeAudioProcessor;
+import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.inspector.MediaExtractorCompat;
 import androidx.media3.inspector.MetadataRetriever;
+import androidx.media3.test.utils.AssetInfo;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.RecordingHardwareBufferEffectsPipeline;
@@ -137,6 +147,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ShortBuffer;
 import java.util.ArrayList;
@@ -145,6 +156,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.json.JSONException;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -158,6 +170,10 @@ import org.junit.runner.RunWith;
 // TODO: b/443998866 - Use MetadataRetriever to get exact duration in all tests.
 @RunWith(AndroidJUnit4.class)
 public class TransformerEndToEndTest {
+
+  private static final Rational FPS_60 = new Rational(60, 1);
+  private static final Rational FPS_15 = new Rational(15, 1);
+  private static final Rational FPS_HALF = new Rational(1, 2);
 
   private static final GlEffect NO_OP_EFFECT = new Contrast(0f);
   private static final int MIN_BLANK_FRAME_OUTPUT_WIDTH = 320;
@@ -825,6 +841,164 @@ public class TransformerEndToEndTest {
     new TransformerAndroidTestRunner.Builder(context, transformer).build().run(testId, composition);
 
     assertThat(timestampRecordingShaderProgram.getInputTimestampsUs()).isNotEmpty();
+  }
+
+  @Test
+  public void videoEditing_withAggregationFps60AndNoFrameProcessor_ignoresAggregationParameters()
+      throws Exception {
+    Composition composition =
+        assumeFormatsAndSetupComposition(context, testId, FPS_60, MP4_SIMPLE_ASSET);
+
+    // The Transformer has no frame processor, so the aggregator is not active.
+    // The frame aggregation parameters should be ignored.
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(
+                new DefaultEncoderFactory.Builder(context).setEnableFallback(false).build())
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    // The output should have the original frame count of 30, not upsampled to 60.
+    assertExportResultHasOriginalVideoTimestamps(result, MP4_SIMPLE_ASSET);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 28)
+  public void videoEditing_withAggregationFps60AndFrameProcessor_upsamplesTo60Fps()
+      throws Exception {
+    Composition composition =
+        assumeFormatsAndSetupComposition(context, testId, FPS_60, MP4_ADVANCED_ASSET);
+
+    Transformer transformer = buildTransformerWithFrameProcessorFactory(context);
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    // As defined in AssetInfo, the last frame timestamp of the input is 967,633us.
+    // At 60 fps, the 59th frame is targeted at 966,666us. The 60th frame (targeted at
+    // 983,333us) exceeds the last available timestamp and is dropped, yielding exactly 59 frames.
+    assertThat(result.exportResult.videoFrameCount).isEqualTo(59);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+    assertExportedVideoFrameRateIsConstant(result.filePath, FPS_60);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 28)
+  public void videoEditing_multiSequenceWithAggregationFps60AndFrameProcessor_upsamplesTo60Fps()
+      throws Exception {
+    Composition composition =
+        assumeFormatsAndSetupComposition(
+            context, testId, FPS_60, MP4_ADVANCED_ASSET, MP4_PORTRAIT_ASSET);
+
+    Transformer transformer = buildTransformerWithFrameProcessorFactory(context);
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    // As defined in AssetInfo, the last frame timestamp of the input is 967,633us.
+    // At 60 fps, the 59th frame is targeted at 966,666us. The 60th frame (targeted at
+    // 983,333us) exceeds the last available timestamp and is dropped, yielding exactly 59 frames.
+    assertThat(result.exportResult.videoFrameCount).isEqualTo(59);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+    assertExportedVideoFrameRateIsConstant(result.filePath, FPS_60);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 28)
+  public void videoEditing_multiSequenceWithNoAggregationFpsAndFrameProcessor_keepsIntrinsicFps()
+      throws Exception {
+    Composition composition =
+        assumeFormatsAndSetupComposition(
+            context, testId, /* targetVideoFrameRate= */ null, MP4_15FPS, MP4_PORTRAIT_ASSET);
+
+    Transformer transformer = buildTransformerWithFrameProcessorFactory(context);
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    // The Composition has no target frame rate, so the Transformer passes the
+    // frames through with their exact original timestamps, yielding exactly 15 frames.
+    assertExportResultHasOriginalVideoTimestamps(result, MP4_15FPS);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 28)
+  public void videoEditing_singleSequenceWithNoAggregationFpsAndFrameProcessor_keepsIntrinsicFps()
+      throws Exception {
+    Composition composition =
+        assumeFormatsAndSetupComposition(
+            context, testId, /* targetVideoFrameRate= */ null, MP4_15FPS);
+
+    Transformer transformer = buildTransformerWithFrameProcessorFactory(context);
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    // The Composition has no target frame rate, so the Transformer passes the
+    // frames through with their exact original timestamps, yielding exactly 15 frames.
+    assertExportResultHasOriginalVideoTimestamps(result, MP4_15FPS);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 28)
+  public void videoEditing_withAggregationFps15AndFrameProcessor_downsamplesTo15Fps()
+      throws Exception {
+    // As defined in AssetInfo, MP4_ADVANCED_ASSET has a duration of 1024ms and
+    // contains 30 frames (~29.3 fps). The Composition downsamples it to exactly 15 fps.
+    Composition composition =
+        assumeFormatsAndSetupComposition(context, testId, FPS_15, MP4_ADVANCED_ASSET);
+
+    Transformer transformer = buildTransformerWithFrameProcessorFactory(context);
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    // As defined in AssetInfo, the last frame timestamp of the input is 967,633us.
+    // At 15 fps, the 15th frame is targeted at 933,333us. The 16th frame (targeted at
+    // 1,000,000us) exceeds the last available timestamp and is dropped, yielding exactly 15 frames.
+    assertThat(result.exportResult.videoFrameCount).isEqualTo(15);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+    assertExportedVideoFrameRateIsConstant(result.filePath, FPS_15);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 28)
+  public void videoEditing_withAggregationFpsHalfAndFrameProcessor_downsamplesToFpsHalf()
+      throws Exception {
+    // As defined in AssetInfo, MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S has a duration
+    // of 5019ms and contains 300 frames (~59.8 fps). The Composition downsamples it to exactly 0.5
+    // fps.
+    Composition composition =
+        assumeFormatsAndSetupComposition(
+            context, testId, FPS_HALF, MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S);
+
+    Transformer transformer = buildTransformerWithFrameProcessorFactory(context);
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    // As defined in AssetInfo, the last frame timestamp of the input is around 4,983,333us.
+    // At 0.5 fps, the 3rd frame is targeted at 4,000,000us. The 4th frame (targeted at
+    // 6,000,000us) exceeds the last available timestamp and is dropped, yielding exactly 3 frames.
+    assertThat(result.exportResult.videoFrameCount).isEqualTo(3);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+    assertExportedVideoFrameRateIsConstant(result.filePath, FPS_HALF);
   }
 
   @Test
@@ -3435,6 +3609,53 @@ public class TransformerEndToEndTest {
             0L, 66_733L, 133_466L, 200_200L, 266_933L, 333_666L, 400_400L, 467_133L, 533_866L,
             600_600L, 667_333L, 734_066L, 800_800L, 867_533L, 934_266L)
         .inOrder();
+  }
+
+  private static Composition assumeFormatsAndSetupComposition(
+      Context context,
+      String testId,
+      @Nullable Rational targetVideoFrameRate,
+      AssetInfo... assetInfos)
+      throws IOException, JSONException, MediaCodecUtil.DecoderQueryException {
+    ImmutableList.Builder<Format> inputFormats = new ImmutableList.Builder<>();
+    for (AssetInfo assetInfo : assetInfos) {
+      inputFormats.add(assetInfo.videoFormat);
+    }
+    assumeAllFormatsSupported(
+        context, testId, inputFormats.build(), /* outputFormat= */ assetInfos[0].videoFormat);
+
+    ImmutableList.Builder<EditedMediaItemSequence> sequences = new ImmutableList.Builder<>();
+    for (int i = 0; i < assetInfos.length; i++) {
+      AssetInfo assetInfo = assetInfos[i];
+      MediaItem mediaItem = MediaItem.fromUri(Uri.parse(assetInfo.uri));
+      EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
+      if (i == 0) {
+        sequences.add(
+            EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(editedMediaItem)));
+      } else {
+        sequences.add(
+            new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_VIDEO))
+                .addItem(editedMediaItem)
+                .build());
+      }
+    }
+    Composition.Builder builder = new Composition.Builder(sequences.build());
+    if (targetVideoFrameRate != null) {
+      builder.setVideoFrameAggregationParameters(
+          new VideoFrameAggregationParameters.Builder().setFrameRate(targetVideoFrameRate).build());
+    }
+    return builder.build();
+  }
+
+  @RequiresApi(26)
+  private static Transformer buildTransformerWithFrameProcessorFactory(Context context) {
+    return new Transformer.Builder(context)
+        .setEncoderFactory(
+            new DefaultEncoderFactory.Builder(context).setEnableFallback(false).build())
+        .setFrameProcessorFactory(
+            new SimpleGlFrameProcessor.Factory(context, HardwareBufferJni.INSTANCE))
+        .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
+        .build();
   }
 
   private static AudioProcessor createSonic(float pitch) {

@@ -19,6 +19,7 @@ import static androidx.media3.test.utils.TestUtil.extractAllSamplesFromFilePath;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -31,6 +32,7 @@ import android.media.metrics.LogSessionId;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.os.Handler;
+import android.util.Rational;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -46,6 +48,7 @@ import androidx.media3.common.util.GlRect;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Size;
+import androidx.media3.common.util.Util;
 import androidx.media3.effect.ByteBufferGlEffect;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.GlEffect;
@@ -65,6 +68,7 @@ import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.muxer.BufferInfo;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
+import androidx.media3.test.utils.AssetInfo;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
@@ -73,7 +77,9 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
+import java.io.File;
 import java.io.IOException;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -618,6 +624,48 @@ public final class AndroidTestUtil {
         extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(filePath));
     return Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO))
         .getSampleTimesUs();
+  }
+
+  /**
+   * Asserts that the exported video frames are paced at a constant frame rate.
+   *
+   * @param filePath The {@link String filepath} of the exported video.
+   * @param expectedFps The expected {@link Rational frame rate}.
+   */
+  public static void assertExportedVideoFrameRateIsConstant(String filePath, Rational expectedFps)
+      throws IOException {
+    ImmutableList<Long> sampleTimesUs = getVideoSampleTimesUs(filePath);
+    long expectedDeltaUs =
+        Util.scaleLargeValue(
+            1_000_000L,
+            expectedFps.getDenominator(),
+            expectedFps.getNumerator(),
+            RoundingMode.HALF_UP);
+    for (int i = 1; i < sampleTimesUs.size(); i++) {
+      long deltaUs = sampleTimesUs.get(i) - sampleTimesUs.get(i - 1);
+      // Absolute timestamps rounded to the nearest microsecond can cause
+      // deltas to fluctuate by 1us from the exact mathematical duration.
+      assertWithMessage(
+              "Time between frames %s (%s) and %s (%s) does not match expected %s fps",
+              i - 1, sampleTimesUs.get(i - 1), i, sampleTimesUs.get(i), expectedFps)
+          .that(deltaUs)
+          .isWithin(1L)
+          .of(expectedDeltaUs);
+    }
+  }
+
+  /**
+   * Asserts that the exported video matches the original video's frame count and timestamps.
+   *
+   * @param result The {@link ExportTestResult} from the transformer.
+   * @param assetInfo The original {@link AssetInfo} to compare against.
+   */
+  public static void assertExportResultHasOriginalVideoTimestamps(
+      ExportTestResult result, AssetInfo assetInfo) throws IOException {
+    assertThat(new File(checkNotNull(result.filePath)).length()).isGreaterThan(0);
+    assertThat(getVideoSampleTimesUs(result.filePath))
+        .containsExactlyElementsIn(assetInfo.videoTimestampsUs)
+        .inOrder();
   }
 
   private AndroidTestUtil() {}

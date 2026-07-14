@@ -21,6 +21,8 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 import androidx.annotation.IntDef;
+import androidx.annotation.RestrictTo;
+import androidx.annotation.RestrictTo.Scope;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.VideoCompositorSettings;
@@ -28,6 +30,7 @@ import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.video.Frame;
+import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.effect.DefaultGlFrameProcessor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -61,6 +64,7 @@ public final class Composition {
     private boolean transmuxVideo;
     private @HdrMode int hdrMode;
     private boolean retainHdrFromUltraHdrImage;
+    private VideoFrameAggregationParameters videoFrameAggregationParameters;
 
     /**
      * Creates an instance.
@@ -88,6 +92,7 @@ public final class Composition {
       this.sequences = ImmutableList.copyOf(sequences);
       videoCompositorSettings = VideoCompositorSettings.DEFAULT;
       effects = Effects.EMPTY;
+      videoFrameAggregationParameters = VideoFrameAggregationParameters.DEFAULT;
     }
 
     /** Creates a new instance to build upon the provided {@link Composition}. */
@@ -100,6 +105,7 @@ public final class Composition {
       transmuxVideo = composition.transmuxVideo;
       hdrMode = composition.hdrMode;
       retainHdrFromUltraHdrImage = composition.retainHdrFromUltraHdrImage;
+      videoFrameAggregationParameters = composition.videoFrameAggregationParameters;
     }
 
     /**
@@ -127,6 +133,30 @@ public final class Composition {
     @CanIgnoreReturnValue
     public Builder setEffects(Effects effects) {
       this.effects = effects;
+      return this;
+    }
+
+    /**
+     * Sets the {@link VideoFrameAggregationParameters} to apply to the {@link Composition}.
+     *
+     * <p>The default value is {@link VideoFrameAggregationParameters#DEFAULT}.
+     *
+     * <p>Currently, this configuration is supported only for export workflows (when using {@link
+     * Transformer}) and not yet supported for preview/playback with {@link CompositionPlayer}.
+     *
+     * <p>Note: This configuration is only applied when a {@link FrameProcessor} is enabled (e.g.,
+     * by setting a {@link FrameProcessor.Factory} via {@link
+     * Transformer.Builder#setFrameProcessorFactory(FrameProcessor.Factory)}).
+     *
+     * @param videoFrameAggregationParameters The {@link VideoFrameAggregationParameters} to apply.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/526781983 - Remove @ExperimentalApi.
+    @RestrictTo(Scope.LIBRARY_GROUP) // TODO: b/503214887 - Remove once playback flow is supported.
+    public Builder setVideoFrameAggregationParameters(
+        VideoFrameAggregationParameters videoFrameAggregationParameters) {
+      this.videoFrameAggregationParameters = videoFrameAggregationParameters;
       return this;
     }
 
@@ -272,7 +302,8 @@ public final class Composition {
           transmuxAudio,
           transmuxVideo,
           hdrMode,
-          retainHdrFromUltraHdrImage && hdrMode == HDR_MODE_KEEP_HDR);
+          retainHdrFromUltraHdrImage && hdrMode == HDR_MODE_KEEP_HDR,
+          videoFrameAggregationParameters);
     }
 
     /**
@@ -431,6 +462,15 @@ public final class Composition {
    */
   public final boolean retainHdrFromUltraHdrImage;
 
+  /**
+   * The {@link VideoFrameAggregationParameters} to apply to the composition.
+   *
+   * <p>The default value is {@link VideoFrameAggregationParameters#DEFAULT}.
+   */
+  @ExperimentalApi // TODO: b/526781983 - Remove @ExperimentalApi.
+  @RestrictTo(Scope.LIBRARY_GROUP) // TODO: b/503214887 - Remove once playback flow is supported.
+  public final VideoFrameAggregationParameters videoFrameAggregationParameters;
+
   /** Returns a {@link Composition.Builder} initialized with the values of this instance. */
   /* package */ Builder buildUpon() {
     return new Builder(this);
@@ -444,7 +484,8 @@ public final class Composition {
       boolean transmuxAudio,
       boolean transmuxVideo,
       @HdrMode int hdrMode,
-      boolean retainHdrFromUltraHdrImage) {
+      boolean retainHdrFromUltraHdrImage,
+      VideoFrameAggregationParameters videoFrameAggregationParameters) {
     checkArgument(
         !transmuxAudio || !forceAudioTrack,
         "Audio transmuxing and audio track forcing are not allowed together.");
@@ -459,6 +500,7 @@ public final class Composition {
     this.forceAudioTrack = forceAudioTrack;
     this.hdrMode = hdrMode;
     this.retainHdrFromUltraHdrImage = retainHdrFromUltraHdrImage;
+    this.videoFrameAggregationParameters = videoFrameAggregationParameters;
   }
 
   @Override
@@ -493,6 +535,8 @@ public final class Composition {
       jsonObject.put("transmuxVideo", transmuxVideo);
       jsonObject.put("hdrMode", hdrMode);
       jsonObject.put("retainHdrFromUltraHdrImage", retainHdrFromUltraHdrImage);
+      jsonObject.put(
+          "videoFrameAggregationParameters", videoFrameAggregationParameters.toJsonObject());
       return jsonObject;
     } catch (JSONException e) {
       Log.w(/* tag= */ "Composition", "JSON conversion failed.", e);
