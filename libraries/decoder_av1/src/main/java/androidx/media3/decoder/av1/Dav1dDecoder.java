@@ -302,6 +302,10 @@ public final class Dav1dDecoder
       if (outputMode != C.VIDEO_OUTPUT_MODE_SURFACE_YUV) {
         throw new Dav1dDecoderException("Unsupported Output Mode.");
       }
+      if (surface == null || !surface.isValid()) {
+        throw new Dav1dDecoderException(
+            "Failed to render output buffer to surface: invalid surface.");
+      }
       int error = dav1dRenderFrame(dav1dDecoderContext, surface, outputBuffer);
       if (error != DAV1D_OK) {
         String errorMsg = dav1dGetErrorMessage(dav1dDecoderContext);
