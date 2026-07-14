@@ -324,9 +324,8 @@ public class FakeClock implements Clock {
       } else {
         // Make sure the current looper message is finished before handling the new message.
         activeMessageLooper = currentLooper;
-        try {
-          new Handler(currentLooper).post(() -> onMessageHandled(currentLooper));
-        } catch (IllegalStateException e) {
+        // Prevent deadlocks when the current looper rejects the message without throwing.
+        if (!postOnMessageHandled(currentLooper, new Handler(currentLooper))) {
           onMessageHandled(currentLooper);
         }
       }
@@ -427,7 +426,9 @@ public class FakeClock implements Clock {
             realHandler.sendMessage(
                 realHandler.obtainMessage(message.what, message.arg1, message.arg2, message.obj));
       }
-      messageSent &= message.handler.internalHandler.post(() -> onMessageHandled(targetLooper));
+      if (messageSent) {
+        messageSent = postOnMessageHandled(targetLooper, message.handler.internalHandler);
+      }
     } catch (IllegalStateException e) {
       // In Robolectric PAUSED looper mode, sending a message to a Handler on a dead thread throws
       // IllegalStateException instead of returning false.
@@ -449,6 +450,14 @@ public class FakeClock implements Clock {
     timeSinceBootMs += timeDiffMs;
     if (isRobolectric) {
       SystemClock.setCurrentTimeMillis(timeSinceBootMs);
+    }
+  }
+
+  private boolean postOnMessageHandled(Looper looper, Handler handler) {
+    try {
+      return handler.post(() -> onMessageHandled(looper));
+    } catch (IllegalStateException e) {
+      return false;
     }
   }
 

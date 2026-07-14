@@ -713,6 +713,34 @@ public final class FakeClockTest {
     assertThat(mainMessageRun.get()).isTrue();
   }
 
+  @Test(timeout = 1000)
+  public void postFromQuittingExternalLooper_doesNotStallMainLooper() throws Exception {
+    HandlerThread handlerThread = new HandlerThread("ExternalBackgroundThread");
+    handlerThread.start();
+    FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 0);
+    HandlerWrapper mainHandler =
+        fakeClock.createHandler(Looper.getMainLooper(), /* callback= */ null);
+    Handler rawBackgroundHandler = new Handler(handlerThread.getLooper());
+    AtomicBoolean mainMessageRun = new AtomicBoolean();
+    ConditionVariable backgroundTaskFinished = new ConditionVariable();
+
+    rawBackgroundHandler.post(
+        () -> {
+          handlerThread.quit();
+          mainHandler.post(() -> mainMessageRun.set(true));
+          backgroundTaskFinished.open();
+        });
+
+    backgroundTaskFinished.block();
+    quitAndJoin(handlerThread);
+
+    // Trigger the message on the main thread. If the clock is locked up, this will timeout or do
+    // nothing.
+    ShadowLooper.idleMainLooper();
+
+    assertThat(mainMessageRun.get()).isTrue();
+  }
+
   private static class TestActivity extends Activity {
 
     public Button button;
