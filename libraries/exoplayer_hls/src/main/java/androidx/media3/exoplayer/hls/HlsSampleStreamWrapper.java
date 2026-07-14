@@ -1180,7 +1180,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     long endTimeUs = getLastMediaChunk().endTimeUs;
     HlsMediaChunk firstRemovedChunk = discardUpstreamMediaChunksFromIndex(newQueueSize);
     if (mediaChunks.isEmpty()) {
-      pendingResetPositionUs = lastSeekPositionUs;
+      pendingResetPositionUs = max(lastSeekPositionUs, firstRemovedChunk.startTimeUs);
     } else {
       getLast(mediaChunks).invalidateExtractor();
     }
