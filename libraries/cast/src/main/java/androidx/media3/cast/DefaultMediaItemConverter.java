@@ -50,6 +50,12 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
   private static final String KEY_UUID = "uuid";
   private static final String KEY_LICENSE_URI = "licenseUri";
   private static final String KEY_REQUEST_HEADERS = "requestHeaders";
+  private static final String KEY_LIVE_CONFIGURATION = "m3-liveConfiguration";
+  private static final String KEY_TARGET_OFFSET_MS = "m3-targetOffsetMs";
+  private static final String KEY_MIN_OFFSET_MS = "m3-minOffsetMs";
+  private static final String KEY_MAX_OFFSET_MS = "m3-maxOffsetMs";
+  private static final String KEY_MIN_PLAYBACK_SPEED = "m3-minPlaybackSpeed";
+  private static final String KEY_MAX_PLAYBACK_SPEED = "m3-maxPlaybackSpeed";
 
   @Override
   public MediaItem toMediaItem(MediaQueueItem mediaQueueItem) {
@@ -165,14 +171,20 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
     String contentUrl = mediaItem.localConfiguration.uri.toString();
     String contentId =
         mediaItem.mediaId.equals(MediaItem.DEFAULT_MEDIA_ID) ? contentUrl : mediaItem.mediaId;
-    MediaInfo mediaInfo =
+    // If the MediaItem has a LiveConfiguration, we set the stream type to STREAM_TYPE_LIVE.
+    // Otherwise, we leave it unset letting the receiver decide whether the item is live.
+    boolean isExplicitlyLive =
+        !mediaItem.liveConfiguration.equals(MediaItem.LiveConfiguration.UNSET);
+    MediaInfo.Builder mediaInfoBuilder =
         new MediaInfo.Builder(contentId)
-            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
             .setContentType(mediaItem.localConfiguration.mimeType)
             .setContentUrl(contentUrl)
             .setMetadata(metadata)
-            .setCustomData(getCustomData(mediaItem))
-            .build();
+            .setCustomData(getCustomData(mediaItem));
+    if (isExplicitlyLive) {
+      mediaInfoBuilder.setStreamType(MediaInfo.STREAM_TYPE_LIVE);
+    }
+    MediaInfo mediaInfo = mediaInfoBuilder.build();
     return new MediaQueueItem.Builder(mediaInfo).build();
   }
 
@@ -231,10 +243,35 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
       if (mediaItemJson.has(KEY_DRM_CONFIGURATION)) {
         populateDrmConfiguration(mediaItemJson.getJSONObject(KEY_DRM_CONFIGURATION), builder);
       }
+      if (mediaItemJson.has(KEY_LIVE_CONFIGURATION)) {
+        builder.setLiveConfiguration(
+            getLiveConfiguration(mediaItemJson.getJSONObject(KEY_LIVE_CONFIGURATION)));
+      }
       return builder.build();
     } catch (JSONException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  private static MediaItem.LiveConfiguration getLiveConfiguration(JSONObject json)
+      throws JSONException {
+    MediaItem.LiveConfiguration.Builder builder = new MediaItem.LiveConfiguration.Builder();
+    if (json.has(KEY_TARGET_OFFSET_MS)) {
+      builder.setTargetOffsetMs(json.getLong(KEY_TARGET_OFFSET_MS));
+    }
+    if (json.has(KEY_MIN_OFFSET_MS)) {
+      builder.setMinOffsetMs(json.getLong(KEY_MIN_OFFSET_MS));
+    }
+    if (json.has(KEY_MAX_OFFSET_MS)) {
+      builder.setMaxOffsetMs(json.getLong(KEY_MAX_OFFSET_MS));
+    }
+    if (json.has(KEY_MIN_PLAYBACK_SPEED)) {
+      builder.setMinPlaybackSpeed((float) json.getDouble(KEY_MIN_PLAYBACK_SPEED));
+    }
+    if (json.has(KEY_MAX_PLAYBACK_SPEED)) {
+      builder.setMaxPlaybackSpeed((float) json.getDouble(KEY_MAX_PLAYBACK_SPEED));
+    }
+    return builder.build();
   }
 
   private static void populateDrmConfiguration(JSONObject json, MediaItem.Builder mediaItem)
@@ -279,6 +316,31 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
       json.put(
           KEY_DRM_CONFIGURATION,
           getDrmConfigurationJson(mediaItem.localConfiguration.drmConfiguration));
+    }
+    if (!mediaItem.liveConfiguration.equals(MediaItem.LiveConfiguration.UNSET)) {
+      JSONObject liveConfigurationJson = getLiveConfigurationJson(mediaItem.liveConfiguration);
+      json.put(KEY_LIVE_CONFIGURATION, liveConfigurationJson);
+    }
+    return json;
+  }
+
+  private static JSONObject getLiveConfigurationJson(MediaItem.LiveConfiguration liveConfiguration)
+      throws JSONException {
+    JSONObject json = new JSONObject();
+    if (liveConfiguration.targetOffsetMs != C.TIME_UNSET) {
+      json.put(KEY_TARGET_OFFSET_MS, liveConfiguration.targetOffsetMs);
+    }
+    if (liveConfiguration.minOffsetMs != C.TIME_UNSET) {
+      json.put(KEY_MIN_OFFSET_MS, liveConfiguration.minOffsetMs);
+    }
+    if (liveConfiguration.maxOffsetMs != C.TIME_UNSET) {
+      json.put(KEY_MAX_OFFSET_MS, liveConfiguration.maxOffsetMs);
+    }
+    if (liveConfiguration.minPlaybackSpeed != C.RATE_UNSET) {
+      json.put(KEY_MIN_PLAYBACK_SPEED, liveConfiguration.minPlaybackSpeed);
+    }
+    if (liveConfiguration.maxPlaybackSpeed != C.RATE_UNSET) {
+      json.put(KEY_MAX_PLAYBACK_SPEED, liveConfiguration.maxPlaybackSpeed);
     }
     return json;
   }

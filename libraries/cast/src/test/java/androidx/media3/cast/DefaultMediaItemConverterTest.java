@@ -228,4 +228,50 @@ public class DefaultMediaItemConverterTest {
     DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
     assertThrows(IllegalArgumentException.class, () -> converter.toMediaItem(queueItem));
   }
+
+  @Test
+  public void toMediaQueueItem_withLiveConfiguration_setsStreamTypeLive() {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri("http://example.com/live.m3u8")
+            .setLiveConfiguration(
+                new MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(10000).build())
+            .build();
+
+    MediaQueueItem queueItem = converter.toMediaQueueItem(mediaItem);
+
+    assertThat(queueItem.getMedia().getStreamType()).isEqualTo(MediaInfo.STREAM_TYPE_LIVE);
+  }
+
+  @Test
+  public void serialize_deserialize_liveConfiguration() {
+    MediaItem item =
+        new MediaItem.Builder()
+            .setUri("http://example.com/live.m3u8")
+            .setLiveConfiguration(
+                new MediaItem.LiveConfiguration.Builder()
+                    .setTargetOffsetMs(10000)
+                    .setMinOffsetMs(5000)
+                    .setMaxOffsetMs(20000)
+                    .setMinPlaybackSpeed(0.9f)
+                    .setMaxPlaybackSpeed(1.1f)
+                    .build())
+            .build();
+
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    MediaQueueItem queueItem = converter.toMediaQueueItem(item);
+    MediaItem reconstructedItem = converter.toMediaItem(queueItem);
+    assertThat(reconstructedItem.liveConfiguration).isEqualTo(item.liveConfiguration);
+  }
+
+  @Test
+  public void toMediaQueueItem_withoutLiveConfiguration_setsStreamTypeInvalid() {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    MediaItem mediaItem = new MediaItem.Builder().setUri("http://example.com/live.m3u8").build();
+
+    MediaQueueItem queueItem = converter.toMediaQueueItem(mediaItem);
+
+    assertThat(queueItem.getMedia().getStreamType()).isEqualTo(MediaInfo.STREAM_TYPE_INVALID);
+  }
 }
