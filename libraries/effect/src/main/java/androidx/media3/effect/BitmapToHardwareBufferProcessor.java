@@ -125,7 +125,10 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
             } else {
               // Input is not HARDWARE and API >= 31: We can create a HARDWARE Bitmap copy
               // and get its HardwareBuffer.
-              buffer = nextBitmap.copy(Config.HARDWARE, /* isMutable= */ false).getHardwareBuffer();
+              Bitmap hwCopy = nextBitmap.copy(Config.HARDWARE, /* isMutable= */ false);
+              if (hwCopy != null) {
+                buffer = hwCopy.getHardwareBuffer();
+              }
             }
           }
           // Fallback to the native helper when the HardwareBuffer retrieved from the Bitmap was
