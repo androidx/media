@@ -57,7 +57,6 @@ import androidx.media3.extractor.Extractor;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.common.primitives.Ints;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -100,9 +99,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private @MonotonicNonNull TrackGroupArray trackGroups;
   private HlsSampleStreamWrapper[] sampleStreamWrappers;
   private HlsSampleStreamWrapper[] enabledSampleStreamWrappers;
-  // Maps sample stream wrappers to variant/rendition redundant group index by matching array
-  // positions.
-  private int[][] redundantGroupIndicesPerWrapper;
   private int audioVideoSampleStreamWrapperCount;
   private SequenceableLoader compositeSequenceableLoader;
   private long endPositionUs;
@@ -177,7 +173,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     timestampAdjusterProvider = new TimestampAdjusterProvider();
     sampleStreamWrappers = new HlsSampleStreamWrapper[0];
     enabledSampleStreamWrappers = new HlsSampleStreamWrapper[0];
-    redundantGroupIndicesPerWrapper = new int[0][];
     endPositionUs = C.TIME_END_OF_SOURCE;
   }
 
@@ -217,27 +212,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // See HlsMultivariantPlaylist.copy for interpretation of StreamKeys.
     HlsMultivariantPlaylist multivariantPlaylist =
         checkNotNull(playlistTracker.getMultivariantPlaylist());
-    List<HlsRedundantGroup> variantRedundantGroups =
-        checkNotNull(playlistTracker.getRedundantGroups(HlsRedundantGroup.VARIANT));
-    List<HlsRedundantGroup> audioRenditionRedundantGroups =
-        checkNotNull(playlistTracker.getRedundantGroups(HlsRedundantGroup.AUDIO_RENDITION));
-    List<HlsRedundantGroup> subtitleRenditionRedundantGroups =
-        checkNotNull(playlistTracker.getRedundantGroups(HlsRedundantGroup.SUBTITLE_RENDITION));
     boolean hasVariants = !multivariantPlaylist.variants.isEmpty();
     int audioWrapperOffset = hasVariants ? 1 : 0;
 
-    TrackGroupArray mainWrapperTrackGroups;
-    int mainWrapperPrimaryTrackGroupIndex;
-    int[] mainWrapperRedundantGroupIndices;
+    @Nullable HlsSampleStreamWrapper mainWrapper;
+    @Nullable TrackGroupArray mainWrapperTrackGroups;
     if (hasVariants) {
-      HlsSampleStreamWrapper mainWrapper = sampleStreamWrappers[0];
-      mainWrapperRedundantGroupIndices = redundantGroupIndicesPerWrapper[0];
+      mainWrapper = sampleStreamWrappers[0];
       mainWrapperTrackGroups = mainWrapper.getTrackGroups();
-      mainWrapperPrimaryTrackGroupIndex = mainWrapper.getPrimaryTrackGroupIndex();
     } else {
-      mainWrapperRedundantGroupIndices = new int[0];
-      mainWrapperTrackGroups = TrackGroupArray.EMPTY;
-      mainWrapperPrimaryTrackGroupIndex = 0;
+      mainWrapper = null;
+      mainWrapperTrackGroups = null;
     }
 
     List<StreamKey> streamKeys = new ArrayList<>();
@@ -245,18 +230,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     boolean hasPrimaryTrackGroupSelection = false;
     for (ExoTrackSelection trackSelection : trackSelections) {
       TrackGroup trackSelectionGroup = trackSelection.getTrackGroup();
-      int mainWrapperTrackGroupIndex = mainWrapperTrackGroups.indexOf(trackSelectionGroup);
+      int mainWrapperTrackGroupIndex =
+          mainWrapperTrackGroups != null
+              ? mainWrapperTrackGroups.indexOf(trackSelectionGroup)
+              : C.INDEX_UNSET;
       if (mainWrapperTrackGroupIndex != C.INDEX_UNSET) {
-        if (mainWrapperTrackGroupIndex == mainWrapperPrimaryTrackGroupIndex) {
+        if (mainWrapperTrackGroupIndex == mainWrapper.getPrimaryTrackGroupIndex()) {
           // Primary group in main wrapper.
           hasPrimaryTrackGroupSelection = true;
+          ImmutableList<HlsRedundantGroup> mainWrapperRedundantGroups =
+              mainWrapper.getRedundantGroups();
           for (int i = 0; i < trackSelection.length(); i++) {
-            int variantRedundantGroupIndex =
-                mainWrapperRedundantGroupIndices[trackSelection.getIndexInTrackGroup(i)];
-            HlsRedundantGroup variantRedundantGroup =
-                variantRedundantGroups.get(variantRedundantGroupIndex);
+            HlsRedundantGroup mainWrapperSelectedRedundantGroup =
+                mainWrapperRedundantGroups.get(trackSelection.getIndexInTrackGroup(i));
             for (int variantUrlIndexInMultivariantPlaylist :
-                variantRedundantGroup.getIndicesInMultivariantPlaylist()) {
+                mainWrapperSelectedRedundantGroup.getIndicesInMultivariantPlaylist()) {
               streamKeys.add(
                   new StreamKey(
                       HlsMultivariantPlaylist.GROUP_INDEX_VARIANT,
@@ -270,28 +258,26 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       } else {
         // Audio or subtitle group.
         for (int i = audioWrapperOffset; i < sampleStreamWrappers.length; i++) {
+          HlsSampleStreamWrapper wrapper = sampleStreamWrappers[i];
           TrackGroupArray wrapperTrackGroups = sampleStreamWrappers[i].getTrackGroups();
           int selectedTrackGroupIndex = wrapperTrackGroups.indexOf(trackSelectionGroup);
           if (selectedTrackGroupIndex != C.INDEX_UNSET) {
-            int groupIndexType =
-                wrapperTrackGroups.get(selectedTrackGroupIndex).type == C.TRACK_TYPE_AUDIO
-                    ? HlsMultivariantPlaylist.GROUP_INDEX_AUDIO
-                    : HlsMultivariantPlaylist.GROUP_INDEX_SUBTITLE;
-            List<HlsRedundantGroup> renditionRedundantGroups =
-                (groupIndexType == HlsMultivariantPlaylist.GROUP_INDEX_AUDIO)
-                    ? audioRenditionRedundantGroups
-                    : subtitleRenditionRedundantGroups;
-            int[] selectedWrapperRedundantGroupIndices = redundantGroupIndicesPerWrapper[i];
-            for (int trackIndex = 0; trackIndex < trackSelection.length(); trackIndex++) {
-              int renditionRedundantGroupIndex =
-                  selectedWrapperRedundantGroupIndices[
-                      trackSelection.getIndexInTrackGroup(trackIndex)];
-              HlsRedundantGroup renditionRedundantGroup =
-                  renditionRedundantGroups.get(renditionRedundantGroupIndex);
-              for (int renditionUrlIndexInMultivariantPlaylist :
-                  renditionRedundantGroup.getIndicesInMultivariantPlaylist()) {
-                streamKeys.add(
-                    new StreamKey(groupIndexType, renditionUrlIndexInMultivariantPlaylist));
+            if (selectedTrackGroupIndex == wrapper.getPrimaryTrackGroupIndex()) {
+              // Primary group in the rendition wrapper.
+              int groupIndexType =
+                  wrapperTrackGroups.get(selectedTrackGroupIndex).type == C.TRACK_TYPE_AUDIO
+                      ? HlsMultivariantPlaylist.GROUP_INDEX_AUDIO
+                      : HlsMultivariantPlaylist.GROUP_INDEX_SUBTITLE;
+              ImmutableList<HlsRedundantGroup> wrapperRedundantGroups =
+                  wrapper.getRedundantGroups();
+              for (int trackIndex = 0; trackIndex < trackSelection.length(); trackIndex++) {
+                HlsRedundantGroup wrapperSelectedRedundantGroup =
+                    wrapperRedundantGroups.get(trackSelection.getIndexInTrackGroup(trackIndex));
+                for (int renditionUrlIndexInMultivariantPlaylist :
+                    wrapperSelectedRedundantGroup.getIndicesInMultivariantPlaylist()) {
+                  streamKeys.add(
+                      new StreamKey(groupIndexType, renditionUrlIndexInMultivariantPlaylist));
+                }
               }
             }
             break;
@@ -299,24 +285,25 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         }
       }
     }
-    if (needsPrimaryTrackGroupSelection && !hasPrimaryTrackGroupSelection) {
+    if (hasVariants && needsPrimaryTrackGroupSelection && !hasPrimaryTrackGroupSelection) {
       // A track selection includes a variant-embedded track, but no variant is added yet. We use
       // the valid variant with the lowest bitrate to reduce overhead.
-      int lowestBitrateRedundantGroupIndex = mainWrapperRedundantGroupIndices[0];
+      ImmutableList<HlsRedundantGroup> mainWrapperRedundantGroups =
+          mainWrapper.getRedundantGroups();
+      int lowestBitrateRedundantGroupIndex = 0;
       int lowestBitrate =
-          variantRedundantGroups.get(mainWrapperRedundantGroupIndices[0]).groupKey.format.bitrate;
-      for (int i = 1; i < mainWrapperRedundantGroupIndices.length; i++) {
-        int variantBitrate =
-            variantRedundantGroups.get(mainWrapperRedundantGroupIndices[i]).groupKey.format.bitrate;
+          mainWrapperRedundantGroups.get(lowestBitrateRedundantGroupIndex).groupKey.format.bitrate;
+      for (int i = 1; i < mainWrapperRedundantGroups.size(); i++) {
+        int variantBitrate = mainWrapperRedundantGroups.get(i).groupKey.format.bitrate;
         if (variantBitrate < lowestBitrate) {
           lowestBitrate = variantBitrate;
-          lowestBitrateRedundantGroupIndex = mainWrapperRedundantGroupIndices[i];
+          lowestBitrateRedundantGroupIndex = i;
         }
       }
-      HlsRedundantGroup variantRedundantGroupWithLowestBitrate =
-          variantRedundantGroups.get(lowestBitrateRedundantGroupIndex);
+      HlsRedundantGroup mainWrapperRedundantGroupWithLowestBitrate =
+          mainWrapperRedundantGroups.get(lowestBitrateRedundantGroupIndex);
       for (int variantUrlIndexInMultivariantPlaylist :
-          variantRedundantGroupWithLowestBitrate.getIndicesInMultivariantPlaylist()) {
+          mainWrapperRedundantGroupWithLowestBitrate.getIndicesInMultivariantPlaylist()) {
         streamKeys.add(
             new StreamKey(
                 HlsMultivariantPlaylist.GROUP_INDEX_VARIANT,
@@ -552,7 +539,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     pendingPrepareCount = 0;
     ArrayList<HlsSampleStreamWrapper> sampleStreamWrappers = new ArrayList<>();
-    ArrayList<int[]> redundantGroupIndicesPerWrapper = new ArrayList<>();
 
     if (hasVariants) {
       buildAndPrepareMainSampleStreamWrapper(
@@ -562,30 +548,20 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           multivariantPlaylist.muxedCaptionFormats,
           positionUs,
           sampleStreamWrappers,
-          redundantGroupIndicesPerWrapper,
           overridingDrmInitData);
     }
 
     // TODO: Build video stream wrappers here.
 
     buildAndPrepareAudioSampleStreamWrappers(
-        positionUs,
-        audioRedundantGroups,
-        sampleStreamWrappers,
-        redundantGroupIndicesPerWrapper,
-        overridingDrmInitData);
+        positionUs, audioRedundantGroups, sampleStreamWrappers, overridingDrmInitData);
 
     audioVideoSampleStreamWrapperCount = sampleStreamWrappers.size();
 
     buildAndPrepareSubtitleSampleStreamWrappers(
-        positionUs,
-        subtitleRedundantGroups,
-        sampleStreamWrappers,
-        redundantGroupIndicesPerWrapper,
-        overridingDrmInitData);
+        positionUs, subtitleRedundantGroups, sampleStreamWrappers, overridingDrmInitData);
 
     this.sampleStreamWrappers = sampleStreamWrappers.toArray(new HlsSampleStreamWrapper[0]);
-    this.redundantGroupIndicesPerWrapper = redundantGroupIndicesPerWrapper.toArray(new int[0][]);
     pendingPrepareCount = this.sampleStreamWrappers.length;
     // Set primary timestamp source and trigger preparation (if not already prepared)
     for (int i = 0; i < audioVideoSampleStreamWrapperCount; i++) {
@@ -630,8 +606,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param positionUs If preparation requires any chunk downloads, the position in microseconds at
    *     which downloading should start. Ignored otherwise.
    * @param sampleStreamWrappers List to which the built main sample stream wrapper should be added.
-   * @param redundantGroupIndicesPerWrapper List to which the selected variant redundant group
-   *     indices should be added.
    * @param overridingDrmInitData Overriding {@link DrmInitData}, keyed by protection scheme type
    *     (i.e. {@link DrmInitData#schemeType}).
    */
@@ -642,7 +616,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       @Nullable List<Format> muxedCaptionFormats,
       long positionUs,
       List<HlsSampleStreamWrapper> sampleStreamWrappers,
-      List<int[]> redundantGroupIndicesPerWrapper,
       Map<String, DrmInitData> overridingDrmInitData) {
     int[] variantTypes = new int[variantRedundantGroups.size()];
     int videoVariantCount = 0;
@@ -676,7 +649,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     HlsRedundantGroup[] selectedRedundantGroups = new HlsRedundantGroup[selectedVariantsCount];
     Format[] selectedRedundantGroupFormats = new Format[selectedVariantsCount];
-    int[] selectedVariantRedundantGroupIndices = new int[selectedVariantsCount];
     int outIndex = 0;
     for (int i = 0; i < variantRedundantGroups.size(); i++) {
       if ((!useVideoVariantsOnly || variantTypes[i] == C.TRACK_TYPE_VIDEO)
@@ -684,7 +656,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         HlsRedundantGroup variantRedundantGroup = variantRedundantGroups.get(i);
         selectedRedundantGroups[outIndex] = variantRedundantGroup;
         selectedRedundantGroupFormats[outIndex] = variantRedundantGroup.groupKey.format;
-        selectedVariantRedundantGroupIndices[outIndex++] = i;
+        outIndex++;
       }
     }
     String codecs = selectedRedundantGroupFormats[0].codecs;
@@ -711,7 +683,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             overridingDrmInitData,
             positionUs);
     sampleStreamWrappers.add(sampleStreamWrapper);
-    redundantGroupIndicesPerWrapper.add(selectedVariantRedundantGroupIndices);
     if (allowChunklessPreparation && codecsStringAllowsChunklessPreparation) {
       List<TrackGroup> muxedTrackGroups = new ArrayList<>();
       if (numberOfVideoCodecs > 0) {
@@ -781,13 +752,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       long positionUs,
       List<HlsRedundantGroup> audioRedundantGroups,
       List<HlsSampleStreamWrapper> sampleStreamWrappers,
-      List<int[]> redundantGroupIndicesPerWrapper,
       Map<String, DrmInitData> overridingDrmInitData) {
     ArrayList<HlsRedundantGroup> scratchRedundantGroups =
         new ArrayList<>(/* initialCapacity= */ audioRedundantGroups.size());
     ArrayList<Format> scratchRedundantGroupFormats =
-        new ArrayList<>(/* initialCapacity= */ audioRedundantGroups.size());
-    ArrayList<Integer> scratchIndicesList =
         new ArrayList<>(/* initialCapacity= */ audioRedundantGroups.size());
     HashSet<String> alreadyGroupedNames = new HashSet<>();
     for (int renditionByNameIndex = 0;
@@ -802,7 +770,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       boolean codecStringsAllowChunklessPreparation = true;
       scratchRedundantGroups.clear();
       scratchRedundantGroupFormats.clear();
-      scratchIndicesList.clear();
       // Group all redundantGroups with matching name.
       for (int redundantGroupIndex = 0;
           redundantGroupIndex < audioRedundantGroups.size();
@@ -810,7 +777,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         if (Objects.equals(name, audioRedundantGroups.get(redundantGroupIndex).groupKey.name)) {
           HlsRedundantGroup audioRedundantGroup = audioRedundantGroups.get(redundantGroupIndex);
           Format format = audioRedundantGroup.groupKey.format;
-          scratchIndicesList.add(redundantGroupIndex);
           scratchRedundantGroups.add(audioRedundantGroup);
           scratchRedundantGroupFormats.add(format);
           codecStringsAllowChunklessPreparation &=
@@ -829,7 +795,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               /* muxedCaptionFormats= */ Collections.emptyList(),
               overridingDrmInitData,
               positionUs);
-      redundantGroupIndicesPerWrapper.add(Ints.toArray(scratchIndicesList));
       sampleStreamWrappers.add(sampleStreamWrapper);
 
       if (allowChunklessPreparation && codecStringsAllowChunklessPreparation) {
@@ -856,13 +821,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       long positionUs,
       List<HlsRedundantGroup> subtitleRedundantGroups,
       List<HlsSampleStreamWrapper> sampleStreamWrappers,
-      List<int[]> redundantGroupIndicesPerWrapper,
       Map<String, DrmInitData> overridingDrmInitData) {
     ArrayList<HlsRedundantGroup> scratchRedundantGroups =
         new ArrayList<>(/* initialCapacity= */ subtitleRedundantGroups.size());
     ArrayList<Format> scratchRedundantGroupFormats =
-        new ArrayList<>(/* initialCapacity= */ subtitleRedundantGroups.size());
-    ArrayList<Integer> scratchIndicesList =
         new ArrayList<>(/* initialCapacity= */ subtitleRedundantGroups.size());
     HashSet<String> alreadyGroupedNames = new HashSet<>();
     for (int renditionByNameIndex = 0;
@@ -876,7 +838,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
       scratchRedundantGroups.clear();
       scratchRedundantGroupFormats.clear();
-      scratchIndicesList.clear();
       // Group all redundantGroups with matching name.
       for (int redundantGroupIndex = 0;
           redundantGroupIndex < subtitleRedundantGroups.size();
@@ -884,7 +845,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         if (Objects.equals(name, subtitleRedundantGroups.get(redundantGroupIndex).groupKey.name)) {
           HlsRedundantGroup subtitleRedundantGroup =
               subtitleRedundantGroups.get(redundantGroupIndex);
-          scratchIndicesList.add(redundantGroupIndex);
           scratchRedundantGroups.add(subtitleRedundantGroup);
           scratchRedundantGroupFormats.add(subtitleRedundantGroup.groupKey.format);
         }
@@ -902,7 +862,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               /* muxedCaptionFormats= */ ImmutableList.of(),
               overridingDrmInitData,
               positionUs);
-      redundantGroupIndicesPerWrapper.add(Ints.toArray(scratchIndicesList));
       sampleStreamWrappers.add(sampleStreamWrapper);
 
       Format[] outputTextFormats = new Format[originalSubtitleFormats.length];

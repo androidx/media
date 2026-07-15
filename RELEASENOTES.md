@@ -40,6 +40,9 @@
     *   Fix unexpected audio track timestamp discontinuity when resuming low
         latency live playback after a playlist request failure
         ([#3311](https://github.com/androidx/media/issues/3311)).
+    *   Fix bug in `HlsMediaPeriod.getStreamKeys()` where the ID3 track in audio
+        renditions is considered as subtitles
+        ([#3333](https://github.com/androidx/media/issues/3333)).
 *   DASH extension:
     *   Fix crash (`IndexOutOfBoundsException`) when opening manifests with an
         empty `<SegmentTimeline/>` element
