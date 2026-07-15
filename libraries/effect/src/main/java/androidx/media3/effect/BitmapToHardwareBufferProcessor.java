@@ -165,9 +165,16 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
       outputFrame = checkNotNull(currentFrame).retain();
     }
 
-    inputFrame.release(/* releaseFence= */ null);
-    return outputFrame
-        .buildUpon()
+    return new HardwareBufferFrame.Builder(
+            checkNotNull(outputFrame.hardwareBuffer),
+            directExecutor(),
+            /* releaseCallback= */ (fence) -> {
+              outputFrame.release(fence);
+              // inputFrame is used when creating the outputFrame synchronously, it can be safely
+              // released earlier without a fence. Releasing it here with the outputFrame to keep
+              // backpressuring the upstream.
+              inputFrame.release(/* releaseFence= */ null);
+            })
         .setFormat(inputFrame.format)
         .setInternalFrame(nextBitmap)
         .setReleaseTimeNs(inputFrame.releaseTimeNs)
