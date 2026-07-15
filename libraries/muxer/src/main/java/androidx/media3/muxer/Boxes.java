@@ -784,7 +784,13 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         return iacbBox(format);
       case MimeTypes.AUDIO_E_AC3:
       case MimeTypes.AUDIO_E_AC3_JOC:
-        byte[] dec3Payload = getTransmuxingBoxPayload(format, "dec3");
+        @Nullable
+        Mp4FormatSpecificMetadataEntry dec3Entry =
+            format.metadata != null
+                ? format.metadata.getFirstEntryOfType(Mp4FormatSpecificMetadataEntry.class)
+                : null;
+        byte[] dec3Payload =
+            dec3Entry != null && dec3Entry.boxType.equals("dec3") ? dec3Entry.data : null;
         checkArgument(
             dec3Payload != null && dec3Payload.length > 0, "dec3 payload not found for dec3 box.");
         return BoxUtils.wrapIntoBox("dec3", ByteBuffer.wrap(dec3Payload));
@@ -1648,22 +1654,6 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     byte[] csd0 = format.initializationData.get(0);
 
     return BoxUtils.wrapIntoBox("av1C", ByteBuffer.wrap(csd0));
-  }
-
-  /**
-   * Returns the raw payload of the {@link Mp4FormatSpecificMetadataEntry} entry on {@code
-   * format.metadata} whose {@linkplain Mp4FormatSpecificMetadataEntry#boxType boxType} matches
-   * {@code boxType}, or {@code null} if there is no such entry.
-   */
-  @Nullable
-  private static byte[] getTransmuxingBoxPayload(Format format, String boxType) {
-    if (format.metadata == null) {
-      return null;
-    }
-    @Nullable
-    Mp4FormatSpecificMetadataEntry entry =
-        format.metadata.getFirstEntryOfType(Mp4FormatSpecificMetadataEntry.class);
-    return entry != null && entry.boxType.equals(boxType) ? entry.data : null;
   }
 
   /** Returns a dvcC/dvwC/dvvC vision box which will be included in dolby vision box. */

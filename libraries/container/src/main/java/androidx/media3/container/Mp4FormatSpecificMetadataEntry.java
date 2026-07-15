@@ -15,9 +15,8 @@
  */
 package androidx.media3.container;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import androidx.annotation.Nullable;
+import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 import java.util.Arrays;
@@ -27,7 +26,8 @@ import java.util.Arrays;
  * (stream copy) without re-encoding.
  *
  * <p>Some codecs store codec configuration in a container box whose bytes are not otherwise exposed
- * on {@link androidx.media3.common.Format} (for example the E-AC-3 {@code dec3} / EC3SpecificBox).
+ * on {@link Format} or {@link Format#initializationData} (for example the E-AC-3 {@code dec3} /
+ * EC3SpecificBox).
  *
  * <p>The {@link #data} holds the box body only, i.e. excluding the 4-byte size and 4-byte type
  * header, and {@link #boxType} identifies which box the payload belongs to (for example {@code
@@ -44,8 +44,8 @@ public final class Mp4FormatSpecificMetadataEntry implements Metadata.Entry {
 
   /** Creates an instance. */
   public Mp4FormatSpecificMetadataEntry(String boxType, byte[] data) {
-    this.boxType = checkNotNull(boxType);
-    this.data = checkNotNull(data).clone();
+    this.boxType = boxType;
+    this.data = data.clone();
   }
 
   @Override
