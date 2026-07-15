@@ -36,6 +36,7 @@ android {
 
 dependencies {
   coreLibraryDesugaring(libs.desugar.jdk.libs)
+  implementation(project(":lib-effect-ndk"))
   implementation(project(":lib-exoplayer"))
   implementation(project(":lib-exoplayer-dash"))
   implementation(project(":lib-exoplayer-hls"))
