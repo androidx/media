@@ -70,33 +70,6 @@ public final class HlsMediaPeriodTest {
 
   @Test
   public void getSteamKeys_isCompatibleWithHlsMultivariantPlaylistFilter() {
-    HlsMultivariantPlaylist testMultivariantPlaylist =
-        createMultivariantPlaylist(
-            /* variants= */ Arrays.asList(
-                createAudioOnlyVariant(Uri.parse("https://variant1"), /* peakBitrate= */ 10000),
-                createMuxedVideoAudioVariant(
-                    Uri.parse("https://variant2"), /* peakBitrate= */ 200000),
-                createMuxedVideoAudioVariant(
-                    Uri.parse("https://backup/variant2"), /* peakBitrate= */ 200000),
-                createAudioOnlyVariant(Uri.parse("https://variant3"), /* peakBitrate= */ 300000),
-                createMuxedVideoAudioVariant(
-                    Uri.parse("https://variant4"), /* peakBitrate= */ 400000),
-                createMuxedVideoAudioVariant(
-                    Uri.parse("https://variant5"), /* peakBitrate= */ 600000)),
-            /* audios= */ Arrays.asList(
-                createAudioRendition(Uri.parse("https://audio1"), /* language= */ "spa"),
-                createAudioRendition(Uri.parse("https://backup/audio1"), /* language= */ "spa"),
-                createAudioRendition(Uri.parse("https://audio2"), /* language= */ "ger"),
-                createAudioRendition(Uri.parse("https://audio3"), /* language= */ "tur")),
-            /* subtitles= */ Arrays.asList(
-                createSubtitleRendition(Uri.parse("https://subtitle1"), /* language= */ "spa"),
-                createSubtitleRendition(
-                    Uri.parse("https://backup/subtitle1"), /* language= */ "spa"),
-                createSubtitleRendition(Uri.parse("https://subtitle2"), /* language= */ "ger"),
-                createSubtitleRendition(Uri.parse("https://subtitle3"), /* language= */ "tur")),
-            /* muxedAudioFormat= */ createAudioFormat("eng"),
-            /* muxedCaptionFormats= */ Arrays.asList(
-                createSubtitleFormat("eng"), createSubtitleFormat("gsw")));
     FilterableManifestMediaPeriodFactory<HlsPlaylist> mediaPeriodFactory =
         (playlist, periodIndex) -> {
           HlsExtractorFactory mockHlsExtractorFactory = mock(HlsExtractorFactory.class);
@@ -129,9 +102,58 @@ public final class HlsMediaPeriodTest {
               /* downloadExecutorSupplier= */ null);
         };
 
+    HlsMultivariantPlaylist testMultivariantPlaylist =
+        createMultivariantPlaylist(
+            /* variants= */ Arrays.asList(
+                createAudioOnlyVariant(Uri.parse("https://variant1"), /* peakBitrate= */ 10000),
+                createMuxedVideoAudioVariant(
+                    Uri.parse("https://variant2"), /* peakBitrate= */ 200000),
+                createMuxedVideoAudioVariant(
+                    Uri.parse("https://backup/variant2"), /* peakBitrate= */ 200000),
+                createAudioOnlyVariant(Uri.parse("https://variant3"), /* peakBitrate= */ 300000),
+                createMuxedVideoAudioVariant(
+                    Uri.parse("https://variant4"), /* peakBitrate= */ 400000),
+                createMuxedVideoAudioVariant(
+                    Uri.parse("https://variant5"), /* peakBitrate= */ 600000)),
+            /* audios= */ Arrays.asList(
+                createAudioRendition(Uri.parse("https://audio1"), /* language= */ "spa"),
+                createAudioRendition(Uri.parse("https://backup/audio1"), /* language= */ "spa"),
+                createAudioRendition(Uri.parse("https://audio2"), /* language= */ "ger"),
+                createAudioRendition(Uri.parse("https://audio3"), /* language= */ "tur")),
+            /* subtitles= */ Arrays.asList(
+                createSubtitleRendition(Uri.parse("https://subtitle1"), /* language= */ "spa"),
+                createSubtitleRendition(
+                    Uri.parse("https://backup/subtitle1"), /* language= */ "spa"),
+                createSubtitleRendition(Uri.parse("https://subtitle2"), /* language= */ "ger"),
+                createSubtitleRendition(Uri.parse("https://subtitle3"), /* language= */ "tur")),
+            /* muxedAudioFormat= */ createAudioFormat("eng"),
+            /* muxedCaptionFormats= */ Arrays.asList(
+                createSubtitleFormat("eng"), createSubtitleFormat("gsw")));
     MediaPeriodAsserts.assertGetStreamKeysAndManifestFilterIntegration(
         mediaPeriodFactory,
         testMultivariantPlaylist,
+        /* periodIndex= */ 0,
+        /* ignoredMimeType= */ APPLICATION_ID3);
+
+    HlsMultivariantPlaylist testMultivariantPlaylistWithoutSubtitles =
+        createMultivariantPlaylist(
+            /* variants= */ Arrays.asList(
+                createAudioOnlyVariant(Uri.parse("https://variant1"), /* peakBitrate= */ 10000),
+                createMuxedVideoAudioVariant(
+                    Uri.parse("https://variant2"), /* peakBitrate= */ 200000),
+                createAudioOnlyVariant(Uri.parse("https://variant3"), /* peakBitrate= */ 300000),
+                createMuxedVideoAudioVariant(
+                    Uri.parse("https://variant4"), /* peakBitrate= */ 400000)),
+            /* audios= */ Arrays.asList(
+                createAudioRendition(Uri.parse("https://audio1"), /* language= */ "spa"),
+                createAudioRendition(Uri.parse("https://audio2"), /* language= */ "ger")),
+            /* subtitles= */ ImmutableList.of(),
+            /* muxedAudioFormat= */ createAudioFormat("eng"),
+            /* muxedCaptionFormats= */ Arrays.asList(
+                createSubtitleFormat("eng"), createSubtitleFormat("gsw")));
+    MediaPeriodAsserts.assertGetStreamKeysAndManifestFilterIntegration(
+        mediaPeriodFactory,
+        testMultivariantPlaylistWithoutSubtitles,
         /* periodIndex= */ 0,
         /* ignoredMimeType= */ APPLICATION_ID3);
   }

@@ -1018,6 +1018,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         contentSteeringActive);
   }
 
+  /** Returns the redundant groups for this chunk source. */
+  public ImmutableList<HlsRedundantGroup> getRedundantGroups() {
+    return ImmutableList.copyOf(redundantGroups);
+  }
+
   // Private methods.
 
   /**

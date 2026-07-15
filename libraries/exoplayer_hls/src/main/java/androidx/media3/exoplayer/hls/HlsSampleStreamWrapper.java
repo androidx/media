@@ -49,6 +49,7 @@ import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.drm.DrmSession;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
+import androidx.media3.exoplayer.hls.playlist.HlsRedundantGroup;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
@@ -1360,6 +1361,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         }
       }
     }
+  }
+
+  /** Returns the redundant groups for this sample stream wrapper. */
+  public ImmutableList<HlsRedundantGroup> getRedundantGroups() {
+    return chunkSource.getRedundantGroups();
   }
 
   // Internal methods.
