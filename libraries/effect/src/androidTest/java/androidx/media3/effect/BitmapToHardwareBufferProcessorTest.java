@@ -255,7 +255,7 @@ public final class BitmapToHardwareBufferProcessorTest {
   }
 
   @Test
-  public void process_releasesInputFrame() throws Exception {
+  public void process_defersInputFrameReleaseUntilOutputFrameRelease() throws Exception {
     CountDownLatch releasedLatch = new CountDownLatch(1);
     HardwareBufferFrame inputFrame =
         new HardwareBufferFrame.Builder(
@@ -266,10 +266,13 @@ public final class BitmapToHardwareBufferProcessorTest {
             .build();
 
     HardwareBufferFrame outputFrame = processor.process(inputFrame);
+    // The input frame should not have been released yet.
+    assertThat(releasedLatch.getCount()).isEqualTo(1);
 
-    assertThat(releasedLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
-
+    // Releasing the output frame should trigger inputFrame release
     outputFrame.release(/* releaseFence= */ null);
+    assertThat(releasedLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(releasedLatch.getCount()).isEqualTo(0);
   }
 
   @Test
