@@ -15,6 +15,7 @@
  */
 package androidx.media3.demo.composition
 
+import android.annotation.SuppressLint
 import android.app.Application
 import android.net.Uri
 import android.os.Build.VERSION.SDK_INT
@@ -23,6 +24,7 @@ import android.provider.OpenableColumns
 import android.view.SurfaceView
 import androidx.annotation.GuardedBy
 import androidx.annotation.OptIn
+import androidx.annotation.RequiresApi
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -32,6 +34,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Effect
+import androidx.media3.common.GlObjectsProvider
 import androidx.media3.common.MediaItem
 import androidx.media3.common.OverlaySettings
 import androidx.media3.common.PlaybackException
@@ -44,8 +47,8 @@ import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.Log
 import androidx.media3.common.util.Size
 import androidx.media3.common.util.Util
+import androidx.media3.common.util.Util.newSingleThreadExecutor
 import androidx.media3.common.util.Util.usToMs
-import androidx.media3.common.video.HardwareBufferFrame
 import androidx.media3.demo.composition.MatrixTransformationFactory.createDizzyCropEffect
 import androidx.media3.demo.composition.data.CompositionPreviewState
 import androidx.media3.demo.composition.data.ExportState
@@ -56,16 +59,17 @@ import androidx.media3.demo.composition.data.MediaState
 import androidx.media3.demo.composition.data.OutputSettingsState
 import androidx.media3.demo.composition.data.Preset
 import androidx.media3.effect.DebugTraceUtil
+import androidx.media3.effect.DefaultGlFrameProcessor
+import androidx.media3.effect.DefaultGlObjectsProvider
+import androidx.media3.effect.FrameProcessorUtils
 import androidx.media3.effect.LanczosResample
 import androidx.media3.effect.MultipleInputVideoGraph
 import androidx.media3.effect.Presentation
 import androidx.media3.effect.RgbFilter
-import androidx.media3.effect.SimpleGlFrameProcessor
 import androidx.media3.effect.StaticOverlaySettings
 import androidx.media3.effect.ndk.HardwareBufferJni
 import androidx.media3.inspector.MetadataRetriever
 import androidx.media3.transformer.Composition
-import androidx.media3.transformer.CompositionFrameMetadata
 import androidx.media3.transformer.CompositionPlayer
 import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.EditedMediaItemSequence
@@ -78,8 +82,11 @@ import androidx.media3.transformer.JsonUtil
 import androidx.media3.transformer.Transformer
 import com.google.common.base.Stopwatch
 import com.google.common.base.Ticker
+import com.google.common.util.concurrent.ListeningExecutorService
+import com.google.common.util.concurrent.MoreExecutors.listeningDecorator
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
 import kotlin.math.ceil
 import kotlin.math.cos
@@ -114,6 +121,10 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   internal var frameConsumerEnabled: Boolean = false
   internal var surfaceView: SurfaceView? = null
   private var transformer: Transformer? = null
+  private var playbackGlExecutorService: ListeningExecutorService? = null
+  private var playbackGlObjectsProvider: GlObjectsProvider? = null
+  private var exportGlExecutorService: ListeningExecutorService? = null
+  private var exportGlObjectsProvider: GlObjectsProvider? = null
   private var outputFile: File? = null
   private var preparedComposition: Composition? = null
   private var playerPrepared: Boolean = false
@@ -620,13 +631,19 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
           }
           return
         }
+        if (exportGlExecutorService == null) {
+          val glResources = setupGlResources("Export:Effect")
+          exportGlExecutorService = glResources.first
+          exportGlObjectsProvider = glResources.second
+        }
         Transformer.Builder(getApplication())
           .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
           .setFrameProcessorFactory(
-            SimpleGlFrameProcessor.Factory(
+            DefaultGlFrameProcessor.Factory(
               getApplication(),
-              hardwareBufferJniWrapper = HardwareBufferJni.INSTANCE,
-              overlaySettingsProvider = CompositionPreviewViewModel::getOverlaySettings,
+              checkNotNull(exportGlObjectsProvider),
+              HardwareBufferJni.INSTANCE,
+              checkNotNull(exportGlExecutorService),
             )
           )
       } else {
@@ -688,6 +705,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
               } catch (e: JSONException) {
                 Log.w(TAG, "Unable to convert exportResult to JSON", e)
               }
+              cleanUpExportGlResources()
             }
 
             override fun onError(
@@ -712,6 +730,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
               }
               Log.e(TAG, "Export error", exportException)
               Log.d(TAG, DebugTraceUtil.generateTraceSummary())
+              cleanUpExportGlResources()
             }
           }
         )
@@ -737,6 +756,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   fun cancelExport() {
     transformer?.cancel()
     transformer = null
+    cleanUpExportGlResources()
     outputFile?.delete()
     outputFile = null
     _uiState.update { it.copy(exportState = ExportState()) }
@@ -861,8 +881,14 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     val totalVideoSlots = videoEnabledUIIndices.size
     if (totalVideoSlots >= 3) {
       return object : VideoCompositorSettings {
+        var outputSize: Size? = null
+
         override fun getOutputSize(inputSizes: List<Size>): Size {
-          return inputSizes[0]
+          // Use a constant compositing size to avoid sudden layout shifts.
+          if (outputSize == null) {
+            outputSize = inputSizes[0]
+          }
+          return outputSize!!
         }
 
         override fun getOverlaySettings(inputId: Int, presentationTimeUs: Long): OverlaySettings {
@@ -924,14 +950,20 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     val playerBuilder: CompositionPlayer.Builder
     frameConsumerEnabled = uiState.value.outputSettingsState.frameConsumerEnabled
     if (uiState.value.outputSettingsState.frameConsumerEnabled && SDK_INT >= 28) {
+      if (playbackGlExecutorService == null) {
+        val glResources = setupGlResources("Preview:Effect")
+        playbackGlExecutorService = glResources.first
+        playbackGlObjectsProvider = glResources.second
+      }
       playerBuilder =
         CompositionPlayer.Builder(getApplication())
           .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
           .setFrameProcessorFactory(
-            SimpleGlFrameProcessor.Factory(
+            DefaultGlFrameProcessor.Factory(
               getApplication(),
-              hardwareBufferJniWrapper = HardwareBufferJni.INSTANCE,
-              overlaySettingsProvider = CompositionPreviewViewModel::getOverlaySettings,
+              checkNotNull(playbackGlObjectsProvider),
+              HardwareBufferJni.INSTANCE,
+              checkNotNull(playbackGlExecutorService),
             )
           )
     } else {
@@ -985,10 +1017,64 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   }
 
   private fun releaseAndRecreatePlayer() {
+    releaseGlResources(
+      playbackGlObjectsProvider,
+      playbackGlExecutorService,
+      "Failed to release OpenGL",
+    )
+    playbackGlExecutorService = null
+    playbackGlObjectsProvider = null
     compositionPlayer.stop()
     compositionPlayer.release()
     compositionPlayer = createCompositionPlayer()
     playerPrepared = false
+  }
+
+  @RequiresApi(26)
+  private fun setupGlResources(
+    threadName: String
+  ): Pair<ListeningExecutorService, GlObjectsProvider> {
+    val glObjectsProvider = DefaultGlObjectsProvider()
+    val executorService = listeningDecorator(newSingleThreadExecutor(threadName))
+    // No need to wait for completion, as all subsequent GL operations are scheduled on the same
+    // thread.
+    executorService.execute {
+      try {
+        FrameProcessorUtils.setupOpenGl(glObjectsProvider)
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to setup OpenGL", e)
+        _uiState.update { it.copy(snackbarMessage = "Failed to setup OpenGL") }
+      }
+    }
+    return executorService to glObjectsProvider
+  }
+
+  @SuppressLint("NewApi")
+  private fun releaseGlResources(
+    glObjectsProvider: GlObjectsProvider?,
+    executorService: ExecutorService?,
+    errorMessage: String,
+  ) {
+    glObjectsProvider?.let {
+      executorService?.execute {
+        try {
+          FrameProcessorUtils.releaseOpenGl(it)
+        } catch (e: Exception) {
+          Log.e(TAG, errorMessage, e)
+        }
+      }
+    }
+    executorService?.let { FrameProcessorUtils.shutdownGlExecutorService(it) }
+  }
+
+  private fun cleanUpExportGlResources() {
+    releaseGlResources(
+      exportGlObjectsProvider,
+      exportGlExecutorService,
+      "Failed to release export OpenGL",
+    )
+    exportGlExecutorService = null
+    exportGlObjectsProvider = null
   }
 
   /**
@@ -1044,16 +1130,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
         .addItem(audioItem)
         .setIsLooping(true)
         .build()
-    }
-
-    fun getOverlaySettings(frame: HardwareBufferFrame): OverlaySettings {
-      val metadata =
-        frame.metadata[CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA]
-          as CompositionFrameMetadata
-      return metadata.composition.videoCompositorSettings.getOverlaySettings(
-        metadata.sequenceIndex,
-        frame.contentTimeUs,
-      )
     }
   }
 }

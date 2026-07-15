@@ -17,9 +17,11 @@ package androidx.media3.demo.transformer;
 
 import static android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION;
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.common.util.Util.newSingleThreadExecutor;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 
 import android.app.Activity;
 import android.app.Notification;
@@ -55,6 +57,7 @@ import android.widget.Toast;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
+import androidx.annotation.RequiresApi;
 import androidx.annotation.StringRes;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.NotificationCompat;
@@ -63,8 +66,8 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.media3.common.C;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
+import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.OverlaySettings;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingMatrix;
@@ -73,14 +76,17 @@ import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ElapsedRealtimeTicker;
 import androidx.media3.common.util.ExperimentalApi;
+import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
-import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.effect.BitmapOverlay;
 import androidx.media3.effect.Contrast;
 import androidx.media3.effect.DebugTraceUtil;
+import androidx.media3.effect.DefaultGlFrameProcessor;
+import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DrawableOverlay;
+import androidx.media3.effect.FrameProcessorUtils;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.HslAdjustment;
 import androidx.media3.effect.LanczosResample;
@@ -90,7 +96,6 @@ import androidx.media3.effect.RgbAdjustment;
 import androidx.media3.effect.RgbFilter;
 import androidx.media3.effect.RgbMatrix;
 import androidx.media3.effect.ScaleAndRotateTransformation;
-import androidx.media3.effect.SimpleGlFrameProcessor;
 import androidx.media3.effect.SingleColorLut;
 import androidx.media3.effect.StaticOverlaySettings;
 import androidx.media3.effect.TextOverlay;
@@ -100,7 +105,6 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor;
 import androidx.media3.exoplayer.util.DebugTextViewHelper;
 import androidx.media3.transformer.Composition;
-import androidx.media3.transformer.CompositionFrameMetadata;
 import androidx.media3.transformer.DefaultEncoderFactory;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EditedMediaItemSequence;
@@ -123,6 +127,7 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -165,6 +170,8 @@ public final class TransformerActivity extends AppCompatActivity {
   @Nullable private ExoPlayer inputPlayer;
   @Nullable private ExoPlayer outputPlayer;
   @Nullable private Transformer transformer;
+  @Nullable private ListeningExecutorService glExecutorService;
+  @Nullable private GlObjectsProvider glObjectsProvider;
   @Nullable private File outputFile;
   @Nullable private File oldOutputFile;
 
@@ -291,7 +298,7 @@ public final class TransformerActivity extends AppCompatActivity {
     MediaItem mediaItem = createMediaItem(bundle, inputUri);
     Util.maybeRequestReadStoragePermission(/* activity= */ this, mediaItem);
     Composition composition = createComposition(mediaItem, bundle);
-    Transformer transformer = createTransformer(bundle, composition, inputUri, outputFilePath);
+    Transformer transformer = createTransformer(bundle, inputUri, outputFilePath);
     exportStopwatch.reset();
     exportStopwatch.start();
     if (oldOutputFile == null) {
@@ -356,24 +363,41 @@ public final class TransformerActivity extends AppCompatActivity {
     return mediaItemBuilder.build();
   }
 
-  @OptIn(markerClass = androidx.media3.common.util.ExperimentalApi.class)
-  private Transformer createTransformer(
-      @Nullable Bundle bundle, Composition composition, Uri inputUri, String filePath) {
+  @OptIn(markerClass = ExperimentalApi.class)
+  private Transformer createTransformer(@Nullable Bundle bundle, Uri inputUri, String filePath) {
     Transformer.Builder transformerBuilder;
 
     if (bundle != null && bundle.getBoolean(ConfigurationActivity.ENABLE_PACKET_PROCESSOR)) {
-      // We cannot use checkState(SDK_INT < 28); because the compiler is not smart enough.
       if (SDK_INT < 28) {
-        throw new IllegalStateException("API version 28+ required to export with PacketProcessor");
+        throw new UnsupportedOperationException("API28 required for using FrameProcessor");
       }
+      glExecutorService = listeningDecorator(newSingleThreadExecutor("Transformer:Effect"));
+      glObjectsProvider = new DefaultGlObjectsProvider();
+      // Do not wait for the GL setup to complete before continuing because the same single-thread
+      // executor will be used for all subsequent GL operations, ensuring correct ordering.
+      glExecutorService.execute(
+          () -> {
+            try {
+              FrameProcessorUtils.setupOpenGl(glObjectsProvider);
+            } catch (GlException | RuntimeException e) {
+              Log.e(TAG, "Failed to setup OpenGL", e);
+              runOnUiThread(
+                  () ->
+                      Toast.makeText(
+                              TransformerActivity.this, "Failed to setup OpenGL", Toast.LENGTH_LONG)
+                          .show());
+            }
+          });
+
       transformerBuilder =
           new Transformer.Builder(/* context= */ this)
               .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
               .setFrameProcessorFactory(
-                  new SimpleGlFrameProcessor.Factory(
+                  new DefaultGlFrameProcessor.Factory(
                       /* context= */ this,
+                      glObjectsProvider,
                       HardwareBufferJni.INSTANCE,
-                      /* overlaySettingsProvider= */ TransformerActivity::getOverlaySettings));
+                      glExecutorService));
     } else {
       transformerBuilder = new Transformer.Builder(/* context= */ this);
     }
@@ -884,10 +908,34 @@ public final class TransformerActivity extends AppCompatActivity {
     }
   }
 
+  @RequiresApi(26)
+  @OptIn(markerClass = ExperimentalApi.class)
+  private void cleanUpGlResources() {
+    if (glExecutorService == null) {
+      return;
+    }
+    GlObjectsProvider finalGlObjectsProvider = checkNotNull(glObjectsProvider);
+    glExecutorService.execute(
+        () -> {
+          try {
+            FrameProcessorUtils.releaseOpenGl(finalGlObjectsProvider);
+          } catch (GlException e) {
+            Log.e(TAG, "Failed to release OpenGL", e);
+          }
+        });
+    FrameProcessorUtils.shutdownGlExecutorService(glExecutorService);
+    glExecutorService = null;
+    glObjectsProvider = null;
+  }
+
   private void cleanUpExport() {
     if (transformer != null) {
       transformer.cancel();
       transformer = null;
+    }
+
+    if (glExecutorService != null && SDK_INT >= 26) {
+      cleanUpGlResources();
     }
     if (outputFile != null) {
       outputFile.delete();
@@ -929,16 +977,6 @@ public final class TransformerActivity extends AppCompatActivity {
       oldOutputFile.delete();
     }
     oldOutputFile = outputFile;
-  }
-
-  @OptIn(markerClass = ExperimentalApi.class)
-  private static OverlaySettings getOverlaySettings(HardwareBufferFrame frame) {
-    CompositionFrameMetadata metadata =
-        checkNotNull(
-            (CompositionFrameMetadata)
-                frame.getMetadata().get(CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA));
-    return metadata.composition.videoCompositorSettings.getOverlaySettings(
-        metadata.sequenceIndex, frame.getContentTimeUs());
   }
 
   private boolean isUsingMediaProjection() {
