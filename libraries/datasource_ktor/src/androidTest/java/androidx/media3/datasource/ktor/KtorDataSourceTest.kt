@@ -36,7 +36,9 @@ import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import org.junit.After
 import org.junit.Assert.assertThrows
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -47,11 +49,20 @@ class KtorDataSourceTest(
     namedTestValues("Android" to Android, "OkHttp" to OkHttp)
 ) {
 
+  @get:Rule val mockWebServer = MockWebServer()
+
+  private lateinit var httpClient: HttpClient
+  private lateinit var dataSource: KtorDataSource
+
+  @After
+  fun tearDown() {
+    if (::dataSource.isInitialized) dataSource.close()
+    if (::httpClient.isInitialized) httpClient.close()
+  }
+
   @Test
-  @Throws(Exception::class)
   fun open_setsCorrectHeaders() {
-    val httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
-    val mockWebServer = MockWebServer()
+    httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
     mockWebServer.enqueue(MockResponse())
 
     val propertyFromFactory = "fromFactory"
@@ -61,7 +72,7 @@ class KtorDataSourceTest(
     defaultRequestProperties["2"] = propertyFromFactory
     defaultRequestProperties["4"] = propertyFromFactory
 
-    val dataSource =
+    dataSource =
       KtorDataSource.Factory(httpClient)
         .setDefaultRequestProperties(defaultRequestProperties)
         .createDataSource()
@@ -87,9 +98,9 @@ class KtorDataSourceTest(
 
     assertThat(dataSource.open(dataSpec)).isEqualTo(0)
 
-    val request = mockWebServer.takeRequest(10, TimeUnit.SECONDS)
-    assertThat(request).isNotNull()
-    val headers = request!!.headers
+    val headers =
+      checkNotNull(mockWebServer.takeRequest(10, TimeUnit.SECONDS)) { "No request received." }
+        .headers
     assertThat(headers["0"]).isEqualTo(propertyFromFactory)
     assertThat(headers["1"]).isEqualTo(propertyFromSetter)
     assertThat(headers["2"]).isEqualTo(propertyFromDataSpec)
@@ -101,11 +112,10 @@ class KtorDataSourceTest(
 
   @Test
   fun open_invalidResponseCode() {
-    val httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
-    val mockWebServer = MockWebServer()
+    httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
     mockWebServer.enqueue(MockResponse().setResponseCode(404).setBody("failure msg"))
 
-    val dataSource = KtorDataSource.Factory(httpClient).createDataSource()
+    dataSource = KtorDataSource.Factory(httpClient).createDataSource()
 
     val dataSpec = DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build()
 
@@ -119,31 +129,29 @@ class KtorDataSourceTest(
   }
 
   @Test
-  @Throws(Exception::class)
   fun factory_setRequestPropertyAfterCreation_setsCorrectHeaders() {
-    val httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
-    val mockWebServer = MockWebServer()
+    httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
     mockWebServer.enqueue(MockResponse())
     val dataSpec = DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build()
 
     val factory = KtorDataSource.Factory(httpClient)
-    val dataSource = factory.createDataSource()
+    dataSource = factory.createDataSource()
 
     val defaultRequestProperties = HashMap<String, String>()
     defaultRequestProperties["0"] = "afterCreation"
     factory.setDefaultRequestProperties(defaultRequestProperties)
     assertThat(dataSource.open(dataSpec)).isEqualTo(0)
 
-    val request = mockWebServer.takeRequest(10, TimeUnit.SECONDS)
-    assertThat(request).isNotNull()
-    val headers = request!!.headers
+    val headers =
+      checkNotNull(mockWebServer.takeRequest(10, TimeUnit.SECONDS)) { "No request received." }
+        .headers
     assertThat(headers["0"]).isEqualTo("afterCreation")
   }
 
   @Test
   fun open_malformedUrl_throwsException() {
-    val httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
-    val dataSource = KtorDataSource.Factory(httpClient).createDataSource()
+    httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
+    dataSource = KtorDataSource.Factory(httpClient).createDataSource()
 
     val dataSpec = DataSpec.Builder().setUri("not-a-valid-url").build()
 
@@ -154,13 +162,11 @@ class KtorDataSourceTest(
   }
 
   @Test
-  @Throws(Exception::class)
   fun open_httpPost_sendsPostRequest() {
-    val httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
-    val mockWebServer = MockWebServer()
+    httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
     mockWebServer.enqueue(MockResponse())
 
-    val dataSource = KtorDataSource.Factory(httpClient).createDataSource()
+    dataSource = KtorDataSource.Factory(httpClient).createDataSource()
 
     val dataSpec =
       DataSpec.Builder()
@@ -171,101 +177,94 @@ class KtorDataSourceTest(
 
     assertThat(dataSource.open(dataSpec)).isEqualTo(0)
 
-    val request = mockWebServer.takeRequest(10, TimeUnit.SECONDS)
-    assertThat(request).isNotNull()
-    assertThat(request!!.method).isEqualTo("POST")
+    val request =
+      checkNotNull(mockWebServer.takeRequest(10, TimeUnit.SECONDS)) { "No request received." }
+    assertThat(request.method).isEqualTo("POST")
     assertThat(request.body.readUtf8()).isEqualTo("test body")
   }
 
   @Test
-  @Throws(java.lang.Exception::class)
   fun cookiesConfigured_cookiesPersistedBetweenRequests() {
-    val httpClient =
+    httpClient =
       HttpClient(httpClientEngineFactory) {
         configureTimeout()
         install(HttpCookies)
       }
-    MockWebServer().use { mockWebServer ->
-      mockWebServer.enqueue(
-        MockResponse().setHeader(HttpHeaders.SET_COOKIE, "cookie-name=cookie-val")
-      )
-      mockWebServer.enqueue(MockResponse())
+    mockWebServer.enqueue(
+      MockResponse().setHeader(HttpHeaders.SET_COOKIE, "cookie-name=cookie-val")
+    )
+    mockWebServer.enqueue(MockResponse())
 
-      val dataSpec = DataSpec.Builder().setUri(mockWebServer.url("foo").toString()).build()
-      val dataSource: KtorDataSource = KtorDataSource.Factory(httpClient).createDataSource()
-      assertThat(dataSource.open(dataSpec)).isEqualTo(0)
-      dataSource.close()
-      assertThat(dataSource.open(dataSpec)).isEqualTo(0)
+    val dataSpec = DataSpec.Builder().setUri(mockWebServer.url("foo").toString()).build()
+    dataSource = KtorDataSource.Factory(httpClient).createDataSource()
+    assertThat(dataSource.open(dataSpec)).isEqualTo(0)
+    dataSource.close()
+    assertThat(dataSource.open(dataSpec)).isEqualTo(0)
 
-      val firstRequest = mockWebServer.takeRequest()
-      assertThat(firstRequest.path).isEqualTo("/foo")
-      assertThat(firstRequest.getHeader(HttpHeaders.COOKIE)).isNull()
+    val firstRequest =
+      checkNotNull(mockWebServer.takeRequest(10, TimeUnit.SECONDS)) { "No request received." }
+    assertThat(firstRequest.path).isEqualTo("/foo")
+    assertThat(firstRequest.getHeader(HttpHeaders.COOKIE)).isNull()
 
-      val secondRequest = mockWebServer.takeRequest()
-      assertThat(secondRequest.path).isEqualTo("/foo")
-      assertThat(secondRequest.getHeader(HttpHeaders.COOKIE)).isEqualTo("cookie-name=cookie-val")
-    }
+    val secondRequest =
+      checkNotNull(mockWebServer.takeRequest(10, TimeUnit.SECONDS)) { "No request received." }
+    assertThat(secondRequest.path).isEqualTo("/foo")
+    assertThat(secondRequest.getHeader(HttpHeaders.COOKIE)).isEqualTo("cookie-name=cookie-val")
   }
 
   @Test
-  @Throws(java.lang.Exception::class)
   fun cookiesConfigured_cookiesForwardedOnRedirect() {
-    val httpClient =
+    httpClient =
       HttpClient(httpClientEngineFactory) {
         configureTimeout()
         install(HttpCookies)
       }
     MockWebServer().use { redirectWebServer ->
-      MockWebServer().use { originWebServer ->
-        val originUrl = originWebServer.url("bar").toString()
-        redirectWebServer.enqueue(
-          MockResponse()
-            .setResponseCode(302)
-            .setHeader(HttpHeaders.SET_COOKIE, "cookie-name=cookie-val; Path=/")
-            .setHeader(HttpHeaders.LOCATION, originUrl)
-        )
-        originWebServer.enqueue(MockResponse())
+      val originUrl = mockWebServer.url("bar").toString()
+      redirectWebServer.enqueue(
+        MockResponse()
+          .setResponseCode(302)
+          .setHeader(HttpHeaders.SET_COOKIE, "cookie-name=cookie-val; Path=/")
+          .setHeader(HttpHeaders.LOCATION, originUrl)
+      )
+      mockWebServer.enqueue(MockResponse())
 
-        val redirectUrl = redirectWebServer.url("foo").toString()
-        val dataSpec = DataSpec.Builder().setUri(redirectUrl).build()
-        val dataSource: KtorDataSource = KtorDataSource.Factory(httpClient).createDataSource()
-        assertThat(dataSource.open(dataSpec)).isEqualTo(0)
+      val redirectUrl = redirectWebServer.url("foo").toString()
+      val dataSpec = DataSpec.Builder().setUri(redirectUrl).build()
+      dataSource = KtorDataSource.Factory(httpClient).createDataSource()
+      assertThat(dataSource.open(dataSpec)).isEqualTo(0)
 
-        val originRequest = originWebServer.takeRequest()
-        assertThat(originRequest.path).isEqualTo("/bar")
-        assertThat(originRequest.getHeader(HttpHeaders.COOKIE)).isEqualTo("cookie-name=cookie-val")
-      }
+      val originRequest =
+        checkNotNull(mockWebServer.takeRequest(10, TimeUnit.SECONDS)) { "No request received." }
+      assertThat(originRequest.path).isEqualTo("/bar")
+      assertThat(originRequest.getHeader(HttpHeaders.COOKIE)).isEqualTo("cookie-name=cookie-val")
     }
   }
 
   @Test
-  @Throws(Exception::class)
   fun factory_setUserAgent_setsCorrectHeader() {
-    val httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
-    val mockWebServer = MockWebServer()
+    httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
     mockWebServer.enqueue(MockResponse())
 
     val userAgent = "testUserAgent"
-    val dataSource = KtorDataSource.Factory(httpClient, userAgent = userAgent).createDataSource()
+    dataSource = KtorDataSource.Factory(httpClient, userAgent = userAgent).createDataSource()
     val dataSpec = DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build()
 
     assertThat(dataSource.open(dataSpec)).isEqualTo(0)
 
-    val request = mockWebServer.takeRequest(10, TimeUnit.SECONDS)
-    assertThat(request).isNotNull()
-    assertThat(request!!.getHeader("User-Agent")).isEqualTo(userAgent)
+    val request =
+      checkNotNull(mockWebServer.takeRequest(10, TimeUnit.SECONDS)) { "No request received." }
+    assertThat(request.getHeader("User-Agent")).isEqualTo(userAgent)
   }
 
   @Test
-  @Throws(Exception::class)
   fun factory_setContentTypePredicate_filtersContentType() {
-    val httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
-    val mockWebServer = MockWebServer()
+    httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
     mockWebServer.enqueue(
       MockResponse().setResponseCode(200).setHeader("Content-Type", "text/html")
     )
 
-    val dataSource =
+    dataSource =
       KtorDataSource.Factory(
           httpClient,
           contentTypePredicate = { contentType -> contentType == "audio/mpeg" },
@@ -282,10 +281,8 @@ class KtorDataSourceTest(
   }
 
   @Test
-  @Throws(Exception::class)
   fun factory_setTransferListener_setsListener() {
-    val httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
-    val mockWebServer = MockWebServer()
+    httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
     mockWebServer.enqueue(MockResponse())
 
     var transferInitializingCalled = false
@@ -330,7 +327,7 @@ class KtorDataSourceTest(
         }
       }
 
-    val dataSource =
+    dataSource =
       KtorDataSource.Factory(httpClient, transferListener = transferListener).createDataSource()
     val dataSpec = DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build()
 
@@ -346,7 +343,6 @@ class KtorDataSourceTest(
   fun open_doesNotWaitForResponseBody() {
     val testData = "a".repeat(100)
     val bodyDelayMs = 800L
-    val mockWebServer = MockWebServer()
     mockWebServer.enqueue(
       MockResponse()
         .setResponseCode(200)
@@ -355,7 +351,7 @@ class KtorDataSourceTest(
         .setBodyDelay(bodyDelayMs, TimeUnit.MILLISECONDS)
     )
 
-    val httpClient =
+    httpClient =
       HttpClient(httpClientEngineFactory) {
         install(HttpTimeout) {
           requestTimeoutMillis = 3000
@@ -363,7 +359,7 @@ class KtorDataSourceTest(
           socketTimeoutMillis = 3000
         }
       }
-    val dataSource = KtorDataSource.Factory(httpClient).createDataSource()
+    dataSource = KtorDataSource.Factory(httpClient).createDataSource()
     val dataSpec = DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build()
 
     val startTimeMs = SystemClock.elapsedRealtime()
@@ -378,8 +374,6 @@ class KtorDataSourceTest(
     val readDurationMs = SystemClock.elapsedRealtime() - startTimeMs
     assertThat(bytesRead).isEqualTo(10)
     assertThat(readDurationMs).isGreaterThan(bodyDelayMs)
-
-    dataSource.close()
   }
 
   // TODO: b/503301819 - Remove this when the OkHttp engine works without it.
