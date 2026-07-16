@@ -17,6 +17,7 @@
 package androidx.media3.test.proguard
 
 import android.content.Context
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.transformer.CompositionPlayer
 import androidx.media3.ui.compose.material3.util.isScrubbingModeEnabled
@@ -24,11 +25,11 @@ import androidx.media3.ui.compose.material3.util.setScrubbingModeEnabled
 import com.google.common.base.Preconditions.checkState
 
 internal fun testScrubbingModeReflection(context: Context) {
-  val exoPlayer = ExoPlayer.Builder(context).build()
+  val exoPlayer: Player = ExoPlayer.Builder(context).build()
   exoPlayer.setScrubbingModeEnabled(true)
   checkState(exoPlayer.isScrubbingModeEnabled())
 
-  val compPlayer = CompositionPlayer.Builder(context).build()
+  val compPlayer: Player = CompositionPlayer.Builder(context).build()
   compPlayer.setScrubbingModeEnabled(true)
   checkState(compPlayer.isScrubbingModeEnabled())
 }
