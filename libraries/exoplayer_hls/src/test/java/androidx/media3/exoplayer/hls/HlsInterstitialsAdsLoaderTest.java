@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.hls;
 
 import static androidx.media3.common.AdPlaybackState.AD_STATE_AVAILABLE;
+import static androidx.media3.common.AdPlaybackState.AD_STATE_SKIPPED;
 import static androidx.media3.common.AdPlaybackState.AD_STATE_UNAVAILABLE;
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_AUTO_TRANSITION;
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_SKIP;
@@ -2535,6 +2536,84 @@ public class HlsInterstitialsAdsLoaderTest {
   }
 
   @Test
+  public void handleContentTimelineChanged_assetListResolvedTwice_correctContentResumeOffsetUs()
+      throws IOException, TimeoutException {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2026-07-14T08:56:00.000Z\n"
+            + "#EXTINF:6.037333,\n"
+            + "main0.ts\n"
+            + "#EXTINF:6.037333,\n"
+            + "main1.ts\n"
+            + "#EXTINF:6.037333,\n"
+            + "main2.ts\n"
+            + "#EXTINF:6.037333,\n"
+            + "main3.ts\n"
+            + "#EXTINF:6.037333,\n"
+            + "main4.ts\n"
+            + "#EXTINF:6.037333,\n"
+            + "main5.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad-break-12338\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2026-07-14T08:56:17.860Z\","
+            + "PLANNED-DURATION=12.074666,"
+            + "X-PLAYOUT-LIMIT=12.074666,"
+            + "X-ASSET-LIST=\"asset-list-two-ads\","
+            + "X-SNAP=\"OUT,IN\","
+            + "X-TIMELINE-OCCUPIES=\"RANGE\","
+            + "X-TIMELINE-STYLE=\"HIGHLIGHT\","
+            + "X-CONTENT-MAY-VARY=\"YES\"\n";
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
+
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+
+    assetListLoadingListener.reset();
+    adsLoader.setWithSkippedAdGroup(/* adGroupIndex= */ 0);
+    assertThat(adsLoader.setWithAssetListReset("adsId", "ad-break-12338")).isTrue();
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+
+    ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(5)).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    List<AdPlaybackState> capturedStates = adPlaybackStateCaptor.getAllValues();
+    AdPlaybackState initialState = capturedStates.get(0);
+    AdPlaybackState firstResolvedState = capturedStates.get(1);
+    AdPlaybackState skippedState = capturedStates.get(2);
+    AdPlaybackState resetState = capturedStates.get(3);
+    AdPlaybackState secondResolvedState = capturedStates.get(4);
+    assertThat(initialState.adGroupCount).isEqualTo(1);
+    assertThat(initialState.getAdGroup(0).contentResumeOffsetUs).isEqualTo(12_074_666L);
+    assertThat(firstResolvedState.adGroupCount).isEqualTo(1);
+    assertThat(firstResolvedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(2);
+    assertThat(firstResolvedState.getAdGroup(/* adGroupIndex= */ 0).contentResumeOffsetUs)
+        .isEqualTo(12_074_666L);
+    assertThat(skippedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(2);
+    assertThat(skippedState.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_SKIPPED, AD_STATE_SKIPPED);
+    assertThat(resetState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(1);
+    assertThat(resetState.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_UNAVAILABLE);
+    assertThat(secondResolvedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(2);
+    assertThat(secondResolvedState.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_AVAILABLE, AD_STATE_AVAILABLE);
+    assertThat(secondResolvedState.getAdGroup(/* adGroupIndex= */ 0).contentResumeOffsetUs)
+        .isEqualTo(12_074_666L);
+  }
+
+  @Test
   public void
       handleContentTimelineChanged_preRollWithAssetList_resolvesAndSchedulesNextPlayerMessage()
           throws IOException, TimeoutException {
@@ -3278,8 +3357,7 @@ public class HlsInterstitialsAdsLoaderTest {
                         .setUri("http://2")
                         .setMimeType(MimeTypes.APPLICATION_M3U8)
                         .build())
-                .withContentResumeOffsetUs(
-                    /* adGroupIndex= */ 0, 3_246_000L + 10_123_000L + 11_123_000L + 12_123_000L))
+                .withContentResumeOffsetUs(/* adGroupIndex= */ 0, 33_369_000L))
         .inOrder();
   }
 
@@ -8068,6 +8146,20 @@ public class HlsInterstitialsAdsLoaderTest {
               /* skipInfoLabelId= */ "skip_label_from_json");
         case "http://slow_loading":
           return getJsonAssetList(/* assetCount= */ 1, /* delayMs= */ 150);
+        case "asset-list-two-ads":
+          return ("{\n"
+                  + "  \"ASSETS\": [\n"
+                  + "    {\n"
+                  + "      \"URI\": \"http://example.com/ad/1\",\n"
+                  + "      \"DURATION\": 6.037333\n"
+                  + "    },\n"
+                  + "    {\n"
+                  + "      \"URI\": \"http://example.com/ad/2\",\n"
+                  + "      \"DURATION\": 6.037333\n"
+                  + "    }\n"
+                  + "  ]\n"
+                  + "}\n")
+              .getBytes(Charset.defaultCharset());
         default:
           return getJsonAssetList(/* assetCount= */ 1, /* delayMs= */ 0);
       }

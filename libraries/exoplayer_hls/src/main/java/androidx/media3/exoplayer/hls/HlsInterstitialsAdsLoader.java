@@ -1657,7 +1657,9 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       }
       Interstitial interstitial = pendingSnapInResolution.interstitial;
       // Resolve the resume offset according to the snap position of the segement start
-      long resolvedResumeOffsetUs = resolveInterstitialResumeOffsetUs(interstitial, mediaPlaylist);
+      long resolvedResumeOffsetUs =
+          resolveInterstitialResumeOffsetUs(
+              interstitial, /* defaultDurationUs= */ C.TIME_UNSET, mediaPlaylist);
       AdGroup adGroup = adPlaybackState.getAdGroup(pendingSnapInResolution.adGroupIndex);
       long interstitialDurationUs =
           resolveInterstitialDurationUs(interstitial, /* defaultDurationUs= */ C.TIME_UNSET);
@@ -1809,14 +1811,16 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     if (interstitial.snapTypes.contains(SNAP_TYPE_IN)) {
       long resumeTimeUs = interstitial.startDateUnixUs + resumeOffsetIncrementUs;
       if (resumeTimeUs < mediaPlaylist.startTimeUs + mediaPlaylist.durationUs) {
-        resumeOffsetIncrementUs = resolveInterstitialResumeOffsetUs(interstitial, mediaPlaylist);
+        resumeOffsetIncrementUs =
+            resolveInterstitialResumeOffsetUs(
+                interstitial, /* defaultDurationUs= */ C.TIME_UNSET, mediaPlaylist);
       } else {
         // The segment at which to resume is not yet in the playlist. Deferring offset calculation.
         session.pendingSnapInResolutions.add(
             new PendingSnapInResolution(resumeTimeUs, adGroupIndex, interstitial));
       }
     }
-    long resumeOffsetUs = adGroup.contentResumeOffsetUs + resumeOffsetIncrementUs;
+    long resumeOffsetUs = max(adGroup.contentResumeOffsetUs, 0) + resumeOffsetIncrementUs;
     adPlaybackState =
         adPlaybackState
             .withAdCount(adGroupIndex, adIndexInAdGroup + 1)
@@ -1896,21 +1900,27 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
   }
 
   private static long resolveInterstitialResumeOffsetUs(
-      Interstitial interstitial, HlsMediaPlaylist mediaPlaylist) {
+      Interstitial interstitial, long defaultDurationUs, HlsMediaPlaylist mediaPlaylist) {
     if (interstitial.snapTypes.contains(SNAP_TYPE_IN)) {
       long resumeOffsetUs =
           interstitial.resumeOffsetUs != C.TIME_UNSET
               ? interstitial.resumeOffsetUs
-              : resolveInterstitialDurationUs(interstitial, /* defaultDurationUs= */ 0L);
+              : resolveInterstitialDurationUs(
+                  interstitial,
+                  /* defaultDurationUs= */ defaultDurationUs != C.TIME_UNSET
+                      ? defaultDurationUs
+                      : 0L);
       long startTimeUs =
           interstitial.snapTypes.contains(SNAP_TYPE_OUT)
               ? getClosestSegmentBoundaryUs(interstitial.startDateUnixUs, mediaPlaylist)
               : interstitial.startDateUnixUs;
-      return getClosestSegmentBoundaryUs(startTimeUs + resumeOffsetUs, mediaPlaylist) - startTimeUs;
+      return max(
+          0L,
+          getClosestSegmentBoundaryUs(startTimeUs + resumeOffsetUs, mediaPlaylist) - startTimeUs);
     } else {
       return interstitial.resumeOffsetUs != C.TIME_UNSET
           ? interstitial.resumeOffsetUs
-          : resolveInterstitialDurationUs(interstitial, C.TIME_UNSET);
+          : resolveInterstitialDurationUs(interstitial, defaultDurationUs);
     }
   }
 
@@ -2306,14 +2316,16 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
             Pair<AssetList, JSONObject> result = checkNotNull(loadable.getResult());
             @Nullable AssetList assetList = result.first;
             HlsAdSession session = adsMediaSourceSessionManager.getSession(assetListData.adsId);
-            AdPlaybackState adPlaybackState = session != null ? session.adPlaybackState : null;
+            if (session == null) {
+              // Stale asset list load finished after session was removed.
+              return;
+            }
+            AdPlaybackState adPlaybackState = session.adPlaybackState;
             // Get the state of the ad to validate there was no manual change since we started
             // loading.
             int assetListAdState =
-                adPlaybackState != null
-                    ? adPlaybackState.getAdGroup(assetListData.adGroupIndex)
-                        .states[assetListData.adIndexInAdGroup]
-                    : AD_STATE_ERROR;
+                adPlaybackState.getAdGroup(assetListData.adGroupIndex)
+                    .states[assetListData.adIndexInAdGroup];
             if (assetListAdState != AD_STATE_UNAVAILABLE) {
               // The ad was manipulated manually since the asset loading was started. Ignore asset
               // list and make sure the next asset list is scheduled for loading (if any).
@@ -2374,17 +2386,16 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
             adPlaybackState =
                 adPlaybackState.withAdDurationsUs(assetListData.adGroupIndex, newDurationsUs);
             if (assetListData.interstitial.resumeOffsetUs == C.TIME_UNSET) {
-              adGroup = adPlaybackState.getAdGroup(assetListData.adGroupIndex);
-              long oldAdContentResumeOffset =
-                  resolveInterstitialDurationUs(
-                      assetListData.interstitial, /* defaultDurationUs= */ 0);
-              long newContentResumeOffsetUs =
-                  adGroup.contentResumeOffsetUs
-                      - oldAdContentResumeOffset
-                      + sumOfAssetListAdDurationUs;
+              // for asset lists without an explicit resume offset, the sum of asset
+              // durations acts as the default resume offset.
+              long resumeOffsetUs =
+                  resolveInterstitialResumeOffsetUs(
+                      assetListData.interstitial,
+                      /* defaultDurationUs= */ sumOfAssetListAdDurationUs,
+                      checkNotNull(session.lastProcessedPlaylist));
               adPlaybackState =
                   adPlaybackState.withContentResumeOffsetUs(
-                      assetListData.adGroupIndex, newContentResumeOffsetUs);
+                      assetListData.adGroupIndex, resumeOffsetUs);
             }
             putAndNotifyAdPlaybackStateUpdate(assetListData.adsId, adPlaybackState);
             notifyListeners(
