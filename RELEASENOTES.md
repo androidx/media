@@ -37,6 +37,8 @@
 *   Cronet extension:
 *   RTMP extension:
 *   HLS extension:
+    *   Fix calculation of content resume offset when resolving interstitial
+        asset lists ([#3322](https://github.com/androidx/media/issues/3322)).
     *   Fix unexpected audio track timestamp discontinuity when resuming low
         latency live playback after a playlist request failure
         ([#3311](https://github.com/androidx/media/issues/3311)).

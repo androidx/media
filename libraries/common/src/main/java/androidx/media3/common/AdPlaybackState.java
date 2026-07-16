@@ -1795,6 +1795,8 @@ public final class AdPlaybackState {
     for (int i = 0; i < adGroups.length; i++) {
       sb.append("adGroup(timeUs=");
       sb.append(adGroups[i].timeUs);
+      sb.append(", contentResumeOffsetUs=");
+      sb.append(adGroups[i].contentResumeOffsetUs);
       sb.append(", ads=[");
       for (int j = 0; j < adGroups[i].states.length; j++) {
         sb.append("ad(state=");
