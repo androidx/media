@@ -49,6 +49,9 @@
         samples are written.
 *   IMA extension:
 *   Session:
+    *   Fix crash by catching `ForegroundServiceStartNotAllowedException` in
+        `MediaSessionService.stopSelfSafely()`
+        ([#3310](https://github.com/androidx/media/issues/3310)).
 *   UI:
     *   Introduce `PresentationState.videoAspectRatio` and make
         `Modifier.resizeWithContentScale` take `aspectRatio: Float?` instead of

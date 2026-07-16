@@ -587,17 +587,26 @@ public abstract class MediaSessionService extends LifecycleService {
 
   @SuppressLint("InlinedApi") // Using compile time constant FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
   private void stopSelfSafely() {
-    Pair<Integer, Notification> shutdownNotification =
-        getMediaNotificationManager().createShutdownNotification(/* context= */ this);
-    Util.setForegroundServiceNotification(
-        /* service= */ this,
-        /* notificationId= */ shutdownNotification.first,
-        /* notification= */ shutdownNotification.second,
-        ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
-        /* foregroundServiceManifestType= */ "mediaPlayback");
-    getMediaNotificationManager().disableUserEngagedTimeout();
-    Util.stopForeground(/* service= */ this, /* removeNotification= */ true);
-    stopSelf();
+    try {
+      Pair<Integer, Notification> shutdownNotification =
+          getMediaNotificationManager().createShutdownNotification(/* context= */ this);
+      Util.setForegroundServiceNotification(
+          /* service= */ this,
+          /* notificationId= */ shutdownNotification.first,
+          /* notification= */ shutdownNotification.second,
+          ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
+          /* foregroundServiceManifestType= */ "mediaPlayback");
+      getMediaNotificationManager().disableUserEngagedTimeout();
+      Util.stopForeground(/* service= */ this, /* removeNotification= */ true);
+    } catch (IllegalStateException e) {
+      if (SDK_INT >= 31 && e instanceof ForegroundServiceStartNotAllowedException) {
+        onForegroundServiceStartNotAllowedException();
+      } else {
+        throw e;
+      }
+    } finally {
+      stopSelf();
+    }
   }
 
   private static ControllerInfo createFallbackMediaButtonCaller(Intent mediaButtonIntent) {
