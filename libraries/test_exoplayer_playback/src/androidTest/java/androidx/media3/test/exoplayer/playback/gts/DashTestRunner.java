@@ -28,6 +28,7 @@ import androidx.annotation.Size;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
@@ -224,6 +225,12 @@ import java.util.List;
 
   /** A {@link HostedTest} for DASH playback tests. */
   private static final class DashHostedTest extends ExoHostedTest {
+
+    static {
+      // Disable all device and codec-specific workarounds, since we are interested in testing
+      // that the underlying platform is behaving correctly.
+      MediaLibraryInfo.setEnableWorkarounds(false);
+    }
 
     private final String streamName;
     private final String manifestUrl;
