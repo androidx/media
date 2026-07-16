@@ -17,7 +17,6 @@ package androidx.media3.cast;
 
 import android.os.Looper;
 import androidx.annotation.Nullable;
-import androidx.core.util.Preconditions;
 import androidx.media3.common.C;
 import androidx.media3.common.C.TrackType;
 import androidx.media3.common.Format;
@@ -27,6 +26,7 @@ import androidx.media3.common.util.Util;
 import com.google.android.gms.cast.CastStatusCodes;
 import com.google.android.gms.cast.MediaInfo;
 import com.google.android.gms.cast.MediaTrack;
+import com.google.common.base.Preconditions;
 
 /** Utility methods for Cast integration. */
 /* package */ final class CastUtils {

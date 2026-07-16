@@ -20,7 +20,6 @@ import android.content.Context
 import android.net.Uri
 import android.util.JsonReader
 import androidx.core.net.toUri
-import androidx.core.util.Preconditions.checkState
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -117,7 +116,7 @@ private fun readEntry(reader: JsonReader, insidePlaylist: Boolean): PlaylistHold
       "subtitle_mime_type" -> subtitleMimeType = reader.nextString()
       "subtitle_language" -> subtitleLanguage = reader.nextString()
       "playlist" -> {
-        checkState(!insidePlaylist, "Invalid nesting of playlists")
+        check(!insidePlaylist) { "Invalid nesting of playlists" }
         children = mutableListOf()
         reader.beginArray()
         while (reader.hasNext()) {

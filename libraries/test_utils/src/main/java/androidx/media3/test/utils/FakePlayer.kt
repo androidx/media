@@ -32,7 +32,6 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
 import androidx.media3.common.util.Util.getAvailableCommands
 import androidx.media3.common.util.Util.msToUs
-import com.google.common.base.Preconditions.checkState
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
@@ -222,8 +221,8 @@ class FakePlayer(
    * * assuming the playback speed does not change after the supplier is set
    */
   fun setPositionSupplierDrivenBy(testScheduler: TestCoroutineScheduler) {
-    checkState(state.playlist.size == 1, "Playlist must contain exactly one item")
-    checkState(isPlaying, "Player must be playing")
+    check(state.playlist.size == 1) { "Playlist must contain exactly one item" }
+    check(isPlaying) { "Player must be playing" }
     val startTime = testScheduler.timeSource.markNow()
     val currentPositionMs = currentPosition
     val positionSupplier = {

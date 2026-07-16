@@ -29,7 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import com.google.common.base.Preconditions.checkState
 import kotlinx.coroutines.CoroutineScope
 
 /**
@@ -180,8 +179,8 @@ class ProgressStateWithTickCount(
   suspend fun observe() = updateJob?.observeProgress()
 
   private fun nextMediaWakeUpPositionMs(player: Player): Long {
-    checkState(totalTickCount != 0)
-    checkState(durationMs > 0)
+    check(totalTickCount != 0)
+    check(durationMs > 0)
     val currentPositionTick =
       getPositionTick(getCurrentPositionMsOrDefault(player), durationMs, totalTickCount)
     val nextTickIndex = currentPositionTick + 1

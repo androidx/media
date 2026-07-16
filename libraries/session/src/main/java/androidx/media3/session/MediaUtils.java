@@ -15,9 +15,9 @@
  */
 package androidx.media3.session;
 
-import static androidx.core.util.Preconditions.checkState;
 import static androidx.media3.common.Player.COMMAND_CHANGE_MEDIA_ITEMS;
 import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
 import android.os.Parcel;
