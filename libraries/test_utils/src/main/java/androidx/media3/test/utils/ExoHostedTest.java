@@ -23,7 +23,6 @@ import android.view.Surface;
 import android.widget.FrameLayout;
 import androidx.annotation.Nullable;
 import androidx.annotation.Size;
-import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Clock;
@@ -47,12 +46,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /** A {@link HostedTest} for {@link ExoPlayer} playback tests. */
 @UnstableApi
 public abstract class ExoHostedTest implements HostedTest {
-
-  static {
-    // Disable all device and codec-specific workarounds, since we're interested in testing that the
-    // underlying platform is behaving correctly.
-    MediaLibraryInfo.setEnableWorkarounds(false);
-  }
 
   public static final long MAX_PLAYING_TIME_DISCREPANCY_MS = 5000;
   public static final long EXPECTED_PLAYING_TIME_MEDIA_DURATION_MS = -2;
