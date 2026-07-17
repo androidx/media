@@ -24,6 +24,7 @@ import android.app.Instrumentation;
 import android.content.Context;
 import android.media.AudioManager;
 import android.net.ConnectivityManager;
+import android.net.Network;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
@@ -118,8 +119,11 @@ public final class BinderStressCreator implements AutoCloseable {
                   // process and are unlikely to work without binder calls even in the future.
                   ConnectivityManager connectivityManager =
                       (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
-                  checkNotNull(connectivityManager)
-                      .requestBandwidthUpdate(checkNotNull(connectivityManager.getActiveNetwork()));
+                  checkNotNull(connectivityManager);
+                  Network activeNetwork = connectivityManager.getActiveNetwork();
+                  if (activeNetwork != null) {
+                    connectivityManager.requestBandwidthUpdate(activeNetwork);
+                  }
                   AudioManager audioManager =
                       (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
                   checkNotNull(audioManager).setStreamVolume(C.STREAM_TYPE_DEFAULT, 1, 0);
