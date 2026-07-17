@@ -54,10 +54,15 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.CodecSpecificDataUtil.MediaCodecProfileAndLevel;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.DecoderReuseEvaluation.DecoderDiscardReasons;
+import com.google.common.base.Strings;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
+import com.google.common.primitives.Ints;
 import com.google.errorprone.annotations.InlineMe;
 import java.util.Objects;
 
@@ -73,6 +78,10 @@ public final class MediaCodecInfo {
    * number of supported instances is unknown.
    */
   public static final int MAX_SUPPORTED_INSTANCES_UNKNOWN = -1;
+
+  private static final Supplier<@NullableType Integer> VENDOR_API_LEVEL =
+      Suppliers.<@NullableType Integer>memoize(
+          () -> Ints.tryParse(Strings.nullToEmpty(Util.getSystemProperty("ro.vendor.api_level"))));
 
   /**
    * The name of the decoder.
@@ -1072,13 +1081,12 @@ public final class MediaCodecInfo {
 
   /** Returns whether the device is known to have issues with the detached surface mode. */
   private static boolean needsDetachedSurfaceUnsupportedWorkaround() {
-    if (!MediaLibraryInfo.enableWorkarounds()) {
-      return false;
-    }
-    if (SDK_INT > 37) {
-      // After API 37, we assume that detached surface mode is supported and we don't apply the
-      // workaround. Devices should not declare support for FEATURE_DetachedSurface unless they
-      // actually support it.
+    // We deliberately don't check MediaLibraryInfo.enableWorkarounds() here, because this
+    // workaround needs to remain active even during certification testing (b/535214648).
+    Integer vendorApiLevel = VENDOR_API_LEVEL.get();
+    if (vendorApiLevel == null || vendorApiLevel > 202604) {
+      // Devices with vendor API level higher than SDK_INT 37 must only declare support for
+      // FEATURE_DetachedSurface if they actually support it.
       return false;
     }
     return Build.MANUFACTURER.equals("Xiaomi")
