@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.video;
 
+import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.ObuParser;
 import java.nio.BufferUnderflowException;
@@ -24,21 +25,6 @@ import java.util.List;
 /** Utility methods for AV1 OBUs. */
 @UnstableApi
 public final class Av1ObuUtil {
-
-  // Expected magic bytes for HDR10+ metadata in AV1 OBU. Spec:
-  // https://aomediacodec.github.io/av1-hdr10plus/#hdr10plus-metadata
-  private static final byte[] expectedAv1Hdr10PlusPayloadPrefix = {
-    // itu_t_t35_country_code == 0xB5
-    (byte) 0xB5,
-    // itu_t_t35_terminal_provider_code == 0x003C
-    (byte) 0x00,
-    (byte) 0x3C,
-    // itu_t_t35_terminal_provider_oriented_code == 0x0001
-    (byte) 0x00,
-    (byte) 0x01,
-    // application_identifier == 0x04
-    (byte) 0x04,
-  };
 
   private Av1ObuUtil() {}
 
@@ -84,7 +70,7 @@ public final class Av1ObuUtil {
       if (metadata.type != ObuParser.Metadata.METADATA_TYPE_ITUT_T35) {
         continue;
       }
-      if (!keepHdr10Plus || !isHdr10PlusMetadata(metadata.payload)) {
+      if (!keepHdr10Plus || !CodecSpecificDataUtil.isHdr10PlusMetadata(metadata.payload)) {
         // This is a metadata OBU with metadata type ITUT-T35, that we want to rewrite. Set the
         // first byte of the metadata type leb128 in the OBU payload to 0x1F to mark it as an
         // unknown metadata OBU. 0x1F is the leb128() encoding of the value 31 (which according to
@@ -93,18 +79,5 @@ public final class Av1ObuUtil {
         buffer.put(obu.payload.position(), (byte) 0x1F);
       }
     }
-  }
-
-  private static boolean isHdr10PlusMetadata(ByteBuffer payload) {
-    if (payload.remaining() < expectedAv1Hdr10PlusPayloadPrefix.length) {
-      return false;
-    }
-    int position = payload.position();
-    for (int i = 0; i < expectedAv1Hdr10PlusPayloadPrefix.length; i++) {
-      if (payload.get(position + i) != expectedAv1Hdr10PlusPayloadPrefix[i]) {
-        return false;
-      }
-    }
-    return true;
   }
 }

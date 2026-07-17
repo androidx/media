@@ -97,6 +97,103 @@ public final class HevcSeiUtilTest {
   }
 
   @Test
+  public void stripNonHdr10PlusT35Metadata_leavesHdr10PlusMetadataUnchanged() {
+    ByteBuffer buffer = ByteBuffer.wrap(SEI_NAL_UNIT_HDR10_PLUS.toArray());
+    int originalPosition = buffer.position();
+    int originalLimit = buffer.limit();
+
+    ByteBuffer expectedBuffer = ByteBuffer.wrap(SEI_NAL_UNIT_HDR10_PLUS.toArray());
+
+    HevcSeiUtil.stripNonHdr10PlusT35Metadata(buffer);
+
+    assertThat(buffer.position()).isEqualTo(originalPosition);
+    assertThat(buffer.limit()).isEqualTo(originalLimit);
+    assertThat(buffer.array()).isEqualTo(expectedBuffer.array());
+  }
+
+  @Test
+  public void stripNonHdr10PlusT35Metadata_multipleMessages_rewritesOnlyNonHdr10PlusT35() {
+    ImmutableByteArray seiNalUnitMultipleMessagesWithHdr10 =
+        ImmutableByteArray.ofUnsigned(
+            0x00,
+            0x00,
+            0x00,
+            0x01, // NAL start code
+            0x4E,
+            0x01, // NAL Header (type 39)
+            // First message: type 5 (User Data Unregistered), size 4
+            0x05,
+            0x04,
+            0xAA,
+            0xBB,
+            0xCC,
+            0xDD,
+            // Second message: type 4 (T.35), size 6, HDR10+
+            0x04,
+            0x06,
+            0xB5,
+            0x00,
+            0x3C,
+            0x00,
+            0x01,
+            0x04,
+            // Third message: type 4 (T.35), size 6, non-HDR10+
+            0x04,
+            0x06,
+            0xB5,
+            0x00,
+            0x90,
+            0x00,
+            0x01,
+            0x00,
+            0x80); // rbsp_trailing_bits
+
+    ByteBuffer buffer = ByteBuffer.wrap(seiNalUnitMultipleMessagesWithHdr10.toArray());
+    int originalPosition = buffer.position();
+    int originalLimit = buffer.limit();
+
+    ByteBuffer expectedBuffer = ByteBuffer.wrap(seiNalUnitMultipleMessagesWithHdr10.toArray());
+    // Offset 6 is first message type (5), stays 5
+    // Offset 12 is second message type (4, HDR10+), stays 4
+    // Offset 20 is third message type (4, non-HDR10+)
+    expectedBuffer.put(20, (byte) HevcSeiUtil.SEI_PAYLOAD_TYPE_UNSPECIFIED);
+
+    HevcSeiUtil.stripNonHdr10PlusT35Metadata(buffer);
+
+    assertThat(buffer.position()).isEqualTo(originalPosition);
+    assertThat(buffer.limit()).isEqualTo(originalLimit);
+    assertThat(buffer.array()).isEqualTo(expectedBuffer.array());
+  }
+
+  @Test
+  public void stripNonHdr10PlusT35Metadata_t35MessageTooShortForHdr10Plus_rewritesT35PayloadType() {
+    // T.35 payload size is 4, which is less than HevcSeiUtil.HDR10_PLUS_PREFIX.length (7).
+    ImmutableByteArray seiNalUnitShortT35 =
+        ImmutableByteArray.ofUnsigned(
+            0x00, 0x00, 0x00, 0x01, // NAL start code
+            0x4E, 0x01, // NAL Header (type 39)
+            0x04, // payloadType: 4 (T.35)
+            0x04, // payloadSize: 4
+            0xB5, 0x00, 0x3C, 0x00, // HDR10+ prefix bytes, but cut short
+            0x80); // rbsp_trailing_bits
+
+    ByteBuffer buffer = ByteBuffer.wrap(seiNalUnitShortT35.toArray());
+    int originalPosition = buffer.position();
+    int originalLimit = buffer.limit();
+
+    ByteBuffer expectedBuffer = ByteBuffer.wrap(seiNalUnitShortT35.toArray());
+    // Offset 6 is the payload type (4), which should be rewritten because the payload is too short
+    // to be a valid HDR10+ message.
+    expectedBuffer.put(6, (byte) HevcSeiUtil.SEI_PAYLOAD_TYPE_UNSPECIFIED);
+
+    HevcSeiUtil.stripNonHdr10PlusT35Metadata(buffer);
+
+    assertThat(buffer.position()).isEqualTo(originalPosition);
+    assertThat(buffer.limit()).isEqualTo(originalLimit);
+    assertThat(buffer.array()).isEqualTo(expectedBuffer.array());
+  }
+
+  @Test
   public void stripAllT35Metadata_multipleMessages_rewritesOnlyT35() {
     ByteBuffer buffer = ByteBuffer.wrap(SEI_NAL_UNIT_MULTIPLE_MESSAGES.toArray());
 

@@ -28,6 +28,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.nio.ByteBuffer;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -366,6 +367,37 @@ public class CodecSpecificDataUtilTest {
         .isEqualTo(MimeTypes.VIDEO_AV1);
     assertThat(CodecSpecificDataUtil.getDolbyVisionBaseLayerMimeType(formatDav1FallbackToAv1))
         .isEqualTo(MimeTypes.VIDEO_AV1);
+  }
+
+  @Test
+  public void isHdr10PlusMetadata_withHdr10PlusPrefix_returnsTrue() {
+    byte[] hdr10PlusBytes =
+        TestUtil.createByteArray(0xB5, 0x00, 0x3C, 0x00, 0x01, 0x04, 0x00, 0x01, 0x02, 0x03);
+    ByteBuffer buffer = ByteBuffer.wrap(hdr10PlusBytes);
+    assertThat(CodecSpecificDataUtil.isHdr10PlusMetadata(buffer)).isTrue();
+  }
+
+  @Test
+  public void isHdr10PlusMetadata_withNonHdr10PlusPrefix_returnsFalse() {
+    byte[] nonHdr10PlusBytes =
+        TestUtil.createByteArray(0xB5, 0x00, 0x90, 0x00, 0x01, 0x00, 0x00, 0x01, 0x02, 0x03);
+    ByteBuffer buffer = ByteBuffer.wrap(nonHdr10PlusBytes);
+    assertThat(CodecSpecificDataUtil.isHdr10PlusMetadata(buffer)).isFalse();
+  }
+
+  @Test
+  public void isHdr10PlusMetadata_withShortBuffer_returnsFalse() {
+    byte[] shortBytes = TestUtil.createByteArray(0xB5, 0x00, 0x3C);
+    ByteBuffer buffer = ByteBuffer.wrap(shortBytes);
+    assertThat(CodecSpecificDataUtil.isHdr10PlusMetadata(buffer)).isFalse();
+  }
+
+  @Test
+  public void isHdr10PlusMetadata_withOffset_returnsTrue() {
+    byte[] bytes =
+        TestUtil.createByteArray(0x00, 0x00, 0x00, 0x01, 0xB5, 0x00, 0x3C, 0x00, 0x01, 0x04, 0x00);
+    ByteBuffer buffer = ByteBuffer.wrap(bytes);
+    assertThat(CodecSpecificDataUtil.isHdr10PlusMetadata(buffer, 4, buffer.limit())).isTrue();
   }
 
   private static void assertCodecProfileAndLevelForCodecsString(

@@ -2363,5 +2363,50 @@ public final class CodecSpecificDataUtil {
     }
   }
 
+  // Expected magic bytes for HDR10+ metadata in AV1 OBU or HEVC SEI. Spec:
+  // https://aomediacodec.github.io/av1-hdr10plus/#hdr10plus-metadata
+  private static final byte[] expectedHdr10PlusPayloadPrefix = {
+    // itu_t_t35_country_code == 0xB5
+    (byte) 0xB5,
+    // itu_t_t35_terminal_provider_code == 0x003C
+    (byte) 0x00,
+    (byte) 0x3C,
+    // itu_t_t35_terminal_provider_oriented_code == 0x0001
+    (byte) 0x00,
+    (byte) 0x01,
+    // application_identifier == 0x04
+    (byte) 0x04,
+  };
+
+  /**
+   * Returns whether the given {@link ByteBuffer} contains HDR10+ metadata at the current position.
+   *
+   * @param payload The {@link ByteBuffer} to check.
+   * @return Whether the payload contains HDR10+ metadata.
+   */
+  public static boolean isHdr10PlusMetadata(ByteBuffer payload) {
+    return isHdr10PlusMetadata(payload, payload.position(), payload.limit());
+  }
+
+  /**
+   * Returns whether the given {@link ByteBuffer} contains HDR10+ metadata at the given offset.
+   *
+   * @param buffer The {@link ByteBuffer} to check.
+   * @param offset The offset in the buffer to start checking from.
+   * @param limit The limit in the buffer to stop checking at.
+   * @return Whether the payload contains HDR10+ metadata.
+   */
+  public static boolean isHdr10PlusMetadata(ByteBuffer buffer, int offset, int limit) {
+    if (limit - offset < expectedHdr10PlusPayloadPrefix.length) {
+      return false;
+    }
+    for (int i = 0; i < expectedHdr10PlusPayloadPrefix.length; i++) {
+      if (buffer.get(offset + i) != expectedHdr10PlusPayloadPrefix[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   private CodecSpecificDataUtil() {}
 }

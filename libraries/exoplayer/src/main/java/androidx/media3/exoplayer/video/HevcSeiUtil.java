@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.video;
 
+import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.NalUnitUtil;
 import java.nio.ByteBuffer;
@@ -29,16 +30,33 @@ public final class HevcSeiUtil {
   private HevcSeiUtil() {}
 
   /**
+   * Modifies the provided {@link ByteBuffer} in place to strip all ITU-T T.35 SEI messages that are
+   * not HDR10+.
+   *
+   * <p>This is achieved by masking the payload type of any non-HDR10+ T.35 SEI message to an
+   * unspecified payload type ({@link #SEI_PAYLOAD_TYPE_UNSPECIFIED}).
+   *
+   * @param buffer The {@link ByteBuffer} containing the HEVC bitstream with Annex B start codes.
+   */
+  public static void stripNonHdr10PlusT35Metadata(ByteBuffer buffer) {
+    stripT35Metadata(buffer, /* keepHdr10Plus= */ true);
+  }
+
+  /**
    * Modifies the provided {@link ByteBuffer} in place to strip all ITU-T T.35 SEI messages.
    *
    * <p>This is achieved by masking the payload type of any T.35 SEI message to an unspecified
    * payload type ({@link #SEI_PAYLOAD_TYPE_UNSPECIFIED}). The NAL unit lengths and message lengths
-   * the operation can be done in-place with zero memory allocations, avoiding the need to fully
-   * parse emulation prevention bytes or copy the buffer.
+   * remain unchanged, so the operation can be done in-place with zero memory allocations, avoiding
+   * the need to fully parse emulation prevention bytes or copy the buffer.
    *
    * @param buffer The {@link ByteBuffer} containing the HEVC bitstream with Annex B start codes.
    */
   public static void stripAllT35Metadata(ByteBuffer buffer) {
+    stripT35Metadata(buffer, /* keepHdr10Plus= */ false);
+  }
+
+  private static void stripT35Metadata(ByteBuffer buffer, boolean keepHdr10Plus) {
     int position = buffer.position();
     int limit = buffer.limit();
     if (limit - position < 4) {
@@ -77,6 +95,7 @@ public final class HevcSeiUtil {
         while (seiOffset < seiLimit) {
           // Read payloadType
           int payloadType = 0;
+          int t35PayloadTypeOffset = -1;
           while (seiOffset < seiLimit) {
             int b = buffer.get(seiOffset) & 0xFF;
             if (b == 0x03 && consecutiveZeros >= 2) {
@@ -91,13 +110,16 @@ public final class HevcSeiUtil {
             payloadType += b;
             if (b != 0xFF) {
               if (payloadType == SEI_PAYLOAD_TYPE_ITU_T_T35) {
-                buffer.put(currentOffset, (byte) SEI_PAYLOAD_TYPE_UNSPECIFIED);
+                t35PayloadTypeOffset = currentOffset;
               }
               break;
             }
           }
 
           if (seiOffset >= seiLimit) {
+            if (t35PayloadTypeOffset != -1) {
+              buffer.put(t35PayloadTypeOffset, (byte) SEI_PAYLOAD_TYPE_UNSPECIFIED);
+            }
             break;
           }
 
@@ -116,6 +138,14 @@ public final class HevcSeiUtil {
             payloadSize += b;
             if (b != 0xFF) {
               break;
+            }
+          }
+
+          if (t35PayloadTypeOffset != -1) {
+            if (!keepHdr10Plus
+                || !CodecSpecificDataUtil.isHdr10PlusMetadata(
+                    buffer, seiOffset, Math.min(seiOffset + payloadSize, seiLimit))) {
+              buffer.put(t35PayloadTypeOffset, (byte) SEI_PAYLOAD_TYPE_UNSPECIFIED);
             }
           }
 
