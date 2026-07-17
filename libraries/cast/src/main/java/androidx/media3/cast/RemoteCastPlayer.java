@@ -318,6 +318,25 @@ public final class RemoteCastPlayer extends BasePlayer {
   private static final long PROGRESS_REPORT_PERIOD_MS = 1000;
   private static final long[] EMPTY_TRACK_ID_ARRAY = new long[0];
 
+  /**
+   * GMS error code 2055 corresponds to {@link CastStatusCodes#APPLICATION_STOPPED}. This value is
+   * not part of the public API but is used when the receiver application stops.
+   */
+  @VisibleForTesting /* package */ static final int APPLICATION_STOPPED = 2055;
+
+  /**
+   * GMS error code 2155 corresponds to {@link
+   * CastStatusCodes#SESSION_ENDED_WITH_REASON_ROUTE_CHANGED}. This value is not part of the public
+   * API but is used when the route playing the media is changed.
+   */
+  @VisibleForTesting /* package */ static final int SESSION_END_REASON_ROUTE_CHANGE = 2155;
+
+  /**
+   * GMS error code 2154 corresponds to {@link CastStatusCodes#SESSION_ENDED_WITH_REASON_STOPPED}.
+   * This value is not part of the public API but is used when the stop casting button is pressed.
+   */
+  @VisibleForTesting /* package */ static final int SESSION_END_REASON_STOPPED = 2154;
+
   private final Cast cast;
   private final MediaItemConverter mediaItemConverter;
   @Nullable private final CastTrackSelector trackSelector;
@@ -346,6 +365,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   private final StateHolder<Boolean> playWhenReady;
   private final StateHolder<Integer> repeatMode;
   private boolean isMuted;
+  private boolean isSessionEnding;
   private int deviceVolume;
   private final StateHolder<Float> volume;
   private final StateHolder<PlaybackParameters> playbackParameters;
@@ -628,7 +648,7 @@ public final class RemoteCastPlayer extends BasePlayer {
 
   @Override
   public void setPlayWhenReady(boolean playWhenReady) {
-    if (remoteMediaClient == null) {
+    if (!isCastSessionActive()) {
       return;
     }
     // We update the local state and send the message to the receiver app, which will cause the
@@ -750,7 +770,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   @Override
   public void stop() {
     playbackState = STATE_IDLE;
-    if (remoteMediaClient != null) {
+    if (isCastSessionActive()) {
       // TODO(b/69792021): Support or emulate stop without position reset.
       remoteMediaClient.stop();
     }
@@ -779,7 +799,7 @@ public final class RemoteCastPlayer extends BasePlayer {
 
   @Override
   public void setPlaybackParameters(PlaybackParameters playbackParameters) {
-    if (remoteMediaClient == null) {
+    if (!isCastSessionActive()) {
       return;
     }
     PlaybackParameters actualPlaybackParameters =
@@ -805,7 +825,7 @@ public final class RemoteCastPlayer extends BasePlayer {
 
   @Override
   public void setRepeatMode(@RepeatMode int repeatMode) {
-    if (remoteMediaClient == null) {
+    if (!isCastSessionActive()) {
       return;
     }
     // We update the local state and send the message to the receiver app, which will cause the
@@ -913,7 +933,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   public long getCurrentPosition() {
     return pendingSeekPositionMs != C.TIME_UNSET
         ? pendingSeekPositionMs
-        : remoteMediaClient != null
+        : isCastSessionActive()
             ? remoteMediaClient.getApproximateStreamPosition()
             : lastReportedPositionMs;
   }
@@ -970,7 +990,7 @@ public final class RemoteCastPlayer extends BasePlayer {
 
   @Override
   public void setVolume(float volume) {
-    if (remoteMediaClient == null) {
+    if (!isCastSessionActive()) {
       return;
     }
     // We update the local state and send the message to the receiver app, which will cause the
@@ -1172,8 +1192,8 @@ public final class RemoteCastPlayer extends BasePlayer {
   // Call deprecated callbacks.
   @SuppressWarnings("deprecation")
   private void updateInternalStateAndNotifyIfChanged() {
-    if (remoteMediaClient == null) {
-      // There is no session. We leave the state of the player as it is now.
+    if (!isCastSessionActive()) {
+      // There is no session or session is ending. We leave the state of the player as it is now.
       return;
     }
     int oldWindowIndex = this.currentWindowIndex;
@@ -1330,8 +1350,8 @@ public final class RemoteCastPlayer extends BasePlayer {
    */
   @SuppressWarnings("deprecation") // Calling deprecated listener method.
   private boolean updateTimelineAndNotifyIfChanged() {
-    if (remoteMediaClient == null) {
-      // There is no session. We leave the state of the player as it is now.
+    if (!isCastSessionActive()) {
+      // We ignore calls when the session is not active.
       return false;
     }
     Timeline oldTimeline = currentTimeline;
@@ -1435,8 +1455,8 @@ public final class RemoteCastPlayer extends BasePlayer {
   private void updateTracksAndNotifyIfChanged(
       @Nullable ResultCallback<MediaChannelResult> resultCallback,
       @TrackSelectionRequestReason int selectionRequestReason) {
-    if (remoteMediaClient == null) {
-      // There is no session. We leave the state of the player as it is now.
+    if (!isCastSessionActive()) {
+      // We ignore calls when the session is not active.
       return;
     }
     if (currentTracks.acceptsUpdate(resultCallback)) {
@@ -1560,7 +1580,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   }
 
   private boolean isSetVolumeCommandAvailable() {
-    if (remoteMediaClient != null) {
+    if (isCastSessionActive()) {
       MediaStatus mediaStatus = remoteMediaClient.getMediaStatus();
       if (mediaStatus != null) {
         return mediaStatus.isMediaCommandSupported(MediaStatus.COMMAND_SET_VOLUME);
@@ -1574,7 +1594,7 @@ public final class RemoteCastPlayer extends BasePlayer {
       int startIndex,
       long startPositionMs,
       @RepeatMode int repeatMode) {
-    if (remoteMediaClient == null || mediaItems.isEmpty()) {
+    if (!isCastSessionActive() || mediaItems.isEmpty()) {
       return;
     }
     startPositionMs = startPositionMs == C.TIME_UNSET ? 0 : startPositionMs;
@@ -1609,7 +1629,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   }
 
   private void addMediaItemsInternal(List<MediaItem> mediaItems, int uid) {
-    if (remoteMediaClient == null || getMediaStatus() == null) {
+    if (!isCastSessionActive() || getMediaStatus() == null) {
       return;
     }
     MediaQueueItem[] itemsToInsert = toMediaQueueItems(mediaItems);
@@ -1618,7 +1638,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   }
 
   private void moveMediaItemsInternal(int[] uids, int fromIndex, int newIndex) {
-    if (remoteMediaClient == null || getMediaStatus() == null) {
+    if (!isCastSessionActive() || getMediaStatus() == null) {
       return;
     }
     int insertBeforeIndex = fromIndex < newIndex ? newIndex + uids.length : newIndex;
@@ -1631,7 +1651,7 @@ public final class RemoteCastPlayer extends BasePlayer {
 
   @Nullable
   private PendingResult<MediaChannelResult> removeMediaItemsInternal(int[] uids) {
-    if (remoteMediaClient == null || getMediaStatus() == null) {
+    if (!isCastSessionActive() || getMediaStatus() == null) {
       return null;
     }
     Timeline timeline = getCurrentTimeline();
@@ -1764,6 +1784,14 @@ public final class RemoteCastPlayer extends BasePlayer {
   }
 
   private void setCastSession(@Nullable CastSession castSession) {
+    setCastSession(
+        castSession, SessionAvailabilityListener.SESSION_UNAVAILABLE_REASON_DISCONNECTED);
+  }
+
+  private void setCastSession(
+      @Nullable CastSession castSession,
+      @SessionAvailabilityListener.SessionUnavailableReason int sessionUnavailableReason) {
+    isSessionEnding = false;
     if (this.castSession != null) {
       this.castSession.removeCastListener(castListener);
     }
@@ -1798,11 +1826,25 @@ public final class RemoteCastPlayer extends BasePlayer {
       updateInternalStateAndNotifyIfChanged();
     } else {
       if (sessionAvailabilityListener != null) {
-        sessionAvailabilityListener.onCastSessionUnavailable();
+        sessionAvailabilityListener.onCastSessionUnavailable(sessionUnavailableReason);
       }
       if (internalSessionAvailabilityListener != null) {
-        internalSessionAvailabilityListener.onCastSessionUnavailable();
+        internalSessionAvailabilityListener.onCastSessionUnavailable(sessionUnavailableReason);
       }
+    }
+  }
+
+  private static @SessionAvailabilityListener.SessionUnavailableReason int mapDisconnectionReason(
+      int error) {
+    switch (error) {
+      case SESSION_END_REASON_ROUTE_CHANGE:
+        return SessionAvailabilityListener.SESSION_UNAVAILABLE_REASON_ROUTE_CHANGED;
+      case SESSION_END_REASON_STOPPED:
+        return SessionAvailabilityListener.SESSION_UNAVAILABLE_REASON_STOPPED;
+      case APPLICATION_STOPPED:
+        return SessionAvailabilityListener.SESSION_UNAVAILABLE_REASON_APP_STOPPED;
+      default:
+        return SessionAvailabilityListener.SESSION_UNAVAILABLE_REASON_DISCONNECTED;
     }
   }
 
@@ -1829,7 +1871,11 @@ public final class RemoteCastPlayer extends BasePlayer {
 
   @Nullable
   private MediaStatus getMediaStatus() {
-    return remoteMediaClient != null ? remoteMediaClient.getMediaStatus() : null;
+    return isCastSessionActive() ? remoteMediaClient.getMediaStatus() : null;
+  }
+
+  private boolean isCastSessionActive() {
+    return remoteMediaClient != null && !isSessionEnding;
   }
 
   /**
@@ -1933,7 +1979,9 @@ public final class RemoteCastPlayer extends BasePlayer {
 
     @Override
     public void onProgressUpdated(long progressMs, long unusedDurationMs) {
-      lastReportedPositionMs = progressMs;
+      if (isCastSessionActive()) {
+        lastReportedPositionMs = progressMs;
+      }
     }
 
     // RemoteMediaClient.Callback implementation.
@@ -1974,13 +2022,13 @@ public final class RemoteCastPlayer extends BasePlayer {
     }
 
     @Override
-    public void onSessionEnded(CastSession castSession, int i) {
-      setCastSession(null);
+    public void onSessionEnded(CastSession castSession, int error) {
+      setCastSession(null, mapDisconnectionReason(error));
     }
 
     @Override
-    public void onSessionSuspended(CastSession castSession, int i) {
-      setCastSession(null);
+    public void onSessionSuspended(CastSession castSession, int reason) {
+      setCastSession(null, SessionAvailabilityListener.SESSION_UNAVAILABLE_REASON_DISCONNECTED);
     }
 
     @Override
@@ -2012,10 +2060,10 @@ public final class RemoteCastPlayer extends BasePlayer {
     public void onSessionEnding(CastSession castSession) {
       // We don't wait until the onSessionEnded event because the media queue callback will send
       // updates before that (but after onSessionEnding) indicating the queue is being cleared. This
-      // complicates playback state transfer to local. As a result, we clear the active cast session
-      // here so that the player keeps reflecting the state at this point in time, before the queue
-      // is cleared. See [internal: b/479112029].
-      setCastSession(null);
+      // complicates playback state transfer to local. As a result, we freeze the state here by
+      // setting isSessionEnding = true, and wait for onSessionEnded to call setCastSession(null)
+      // with the unselect reason. See [internal: b/479112029] and [internal: b/502159642].
+      isSessionEnding = true;
     }
 
     @Override

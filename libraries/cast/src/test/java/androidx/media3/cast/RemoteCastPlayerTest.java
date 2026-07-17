@@ -144,6 +144,7 @@ public class RemoteCastPlayerTest {
   private SessionManagerListener<CastSession> sessionManagerListener;
   private RemoteMediaClient.Callback remoteMediaClientCallback;
   private MediaQueue.Callback mediaQueueCallback;
+  private RemoteMediaClient.ProgressListener progressListener;
 
   @Mock private RemoteMediaClient mockRemoteMediaClient;
   @Mock private MediaStatus mockMediaStatus;
@@ -153,6 +154,7 @@ public class RemoteCastPlayerTest {
   @Mock private CastSession mockCastSession;
   @Mock private Listener mockListener;
   @Mock private PendingResult<RemoteMediaClient.MediaChannelResult> mockPendingResult;
+  @Mock private SessionAvailabilityListener mockSessionAvailabilityListener;
 
   @Captor private ArgumentCaptor<CastTrackSelectorRequest> trackSelectionArgumentCaptor;
 
@@ -175,6 +177,7 @@ public class RemoteCastPlayerTest {
   @Captor private ArgumentCaptor<MediaLoadRequestData> loadArgumentCaptor;
   @Captor private ArgumentCaptor<MediaQueueItem[]> queueItemsArgumentCaptor;
   @Captor private ArgumentCaptor<MediaItem> mediaItemCaptor;
+  @Captor private ArgumentCaptor<RemoteMediaClient.ProgressListener> progressListenerArgumentCaptor;
 
   @Before
   public void setUp() {
@@ -187,6 +190,8 @@ public class RemoteCastPlayerTest {
     when(mockMediaQueue.getItemIds()).thenReturn(new int[0]);
     // Make the remote media client present the same default values as ExoPlayer:
     when(mockRemoteMediaClient.isPaused()).thenReturn(true);
+    when(mockRemoteMediaClient.play()).thenReturn(mockPendingResult);
+    when(mockRemoteMediaClient.pause()).thenReturn(mockPendingResult);
     when(mockMediaStatus.getQueueRepeatMode()).thenReturn(MediaStatus.REPEAT_MODE_REPEAT_OFF);
     when(mockMediaStatus.getStreamVolume()).thenReturn(1.0);
     when(mockMediaStatus.getPlaybackRate()).thenReturn(1.0d);
@@ -220,6 +225,9 @@ public class RemoteCastPlayerTest {
     remoteMediaClientCallback = remoteMediaClientCallbackArgumentCaptor.getValue();
     verify(mockMediaQueue).registerCallback(mediaQueueCallbackArgumentCaptor.capture());
     mediaQueueCallback = mediaQueueCallbackArgumentCaptor.getValue();
+    verify(mockRemoteMediaClient)
+        .addProgressListener(progressListenerArgumentCaptor.capture(), anyLong());
+    progressListener = progressListenerArgumentCaptor.getValue();
   }
 
   @After
@@ -2755,6 +2763,146 @@ public class RemoteCastPlayerTest {
     Timeline timelineAfterSessionEnd = remoteCastPlayer.getCurrentTimeline();
     verify(mockListener, never()).onTimelineChanged(any(), anyInt());
     assertThat(initialTimeline).isEqualTo(timelineAfterSessionEnd);
+  }
+
+  @Test
+  public void onSessionEnded_withReasonStopped_notifiesUnavailableWithStoppedReason() {
+    remoteCastPlayer.setSessionAvailabilityListener(mockSessionAvailabilityListener);
+
+    sessionManagerListener.onSessionEnding(mockCastSession);
+    sessionManagerListener.onSessionEnded(
+        mockCastSession, RemoteCastPlayer.SESSION_END_REASON_STOPPED);
+
+    verify(mockSessionAvailabilityListener)
+        .onCastSessionUnavailable(SessionAvailabilityListener.SESSION_UNAVAILABLE_REASON_STOPPED);
+  }
+
+  @Test
+  public void onSessionEnded_withReasonRouteChanged_notifiesUnavailableWithRouteChangedReason() {
+    remoteCastPlayer.setSessionAvailabilityListener(mockSessionAvailabilityListener);
+
+    sessionManagerListener.onSessionEnding(mockCastSession);
+    sessionManagerListener.onSessionEnded(
+        mockCastSession, RemoteCastPlayer.SESSION_END_REASON_ROUTE_CHANGE);
+
+    verify(mockSessionAvailabilityListener)
+        .onCastSessionUnavailable(
+            SessionAvailabilityListener.SESSION_UNAVAILABLE_REASON_ROUTE_CHANGED);
+  }
+
+  @Test
+  public void onSessionEnded_withReasonAppStopped_notifiesUnavailableWithAppStoppedReason() {
+    remoteCastPlayer.setSessionAvailabilityListener(mockSessionAvailabilityListener);
+
+    sessionManagerListener.onSessionEnding(mockCastSession);
+    sessionManagerListener.onSessionEnded(mockCastSession, RemoteCastPlayer.APPLICATION_STOPPED);
+
+    verify(mockSessionAvailabilityListener)
+        .onCastSessionUnavailable(
+            SessionAvailabilityListener.SESSION_UNAVAILABLE_REASON_APP_STOPPED);
+  }
+
+  @Test
+  public void onSessionSuspended_notifiesUnavailableWithDisconnectedReason() {
+    remoteCastPlayer.setSessionAvailabilityListener(mockSessionAvailabilityListener);
+
+    sessionManagerListener.onSessionSuspended(mockCastSession, 0);
+
+    verify(mockSessionAvailabilityListener)
+        .onCastSessionUnavailable(
+            SessionAvailabilityListener.SESSION_UNAVAILABLE_REASON_DISCONNECTED);
+  }
+
+  @Test
+  public void onCastSessionUnavailable_notifiesLegacyListener() {
+    class LegacyListener implements SessionAvailabilityListener {
+      boolean onCastSessionUnavailableCalled = false;
+
+      @Override
+      public void onCastSessionAvailable() {}
+
+      @Override
+      public void onCastSessionUnavailable() {
+        onCastSessionUnavailableCalled = true;
+      }
+    }
+    LegacyListener legacyListener = new LegacyListener();
+    remoteCastPlayer.setSessionAvailabilityListener(legacyListener);
+
+    sessionManagerListener.onSessionEnding(mockCastSession);
+    sessionManagerListener.onSessionEnded(
+        mockCastSession, RemoteCastPlayer.SESSION_END_REASON_STOPPED);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertThat(legacyListener.onCastSessionUnavailableCalled).isTrue();
+  }
+
+  @Test
+  public void onSessionEnding_withReceiverUpdates_freezesTimelineAndTracks() {
+    // Set up an active playing session with playlist, tracks, and progress.
+    List<MediaTrack> mediaTracks = Collections.singletonList(FAKE_MEDIA_TRACK_AUDIO);
+    MediaInfo mediaInfo = new MediaInfo.Builder("contentId").setMediaTracks(mediaTracks).build();
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    when(mockMediaStatus.getActiveTrackIds())
+        .thenReturn(new long[] {FAKE_MEDIA_TRACK_AUDIO.getId()});
+    int[] queueItemIds = new int[] {1};
+    when(mockMediaQueue.getItemIds()).thenReturn(queueItemIds);
+    when(mockRemoteMediaClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PLAYING);
+    when(mockRemoteMediaClient.isPaused()).thenReturn(false);
+    when(mockRemoteMediaClient.getApproximateStreamPosition()).thenReturn(12345L);
+    // Trigger callbacks to update the player state.
+    mediaQueueCallback.mediaQueueChanged();
+    remoteMediaClientCallback.onStatusUpdated();
+    progressListener.onProgressUpdated(12345L, 0L);
+    shadowOf(Looper.getMainLooper()).idle();
+    // Validate the initial player state.
+    Timeline originalTimeline = remoteCastPlayer.getCurrentTimeline();
+    Tracks originalTracks = remoteCastPlayer.getCurrentTracks();
+    boolean originalPlayWhenReady = remoteCastPlayer.getPlayWhenReady();
+    long originalPosition = remoteCastPlayer.getCurrentPosition();
+    assertThat(originalTimeline.getWindowCount()).isEqualTo(1);
+    assertThat(originalTracks.getGroups()).hasSize(1);
+    assertThat(originalPlayWhenReady).isTrue();
+    assertThat(originalPosition).isEqualTo(12345L);
+
+    // Trigger the session disconnect sequence and simulate background GMS updates.
+    sessionManagerListener.onSessionEnding(mockCastSession);
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[0]);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(new MediaInfo.Builder("contentId").build());
+    when(mockRemoteMediaClient.getApproximateStreamPosition()).thenReturn(0L);
+    progressListener.onProgressUpdated(0L, 0L);
+    mediaQueueCallback.mediaQueueChanged();
+    remoteMediaClientCallback.onStatusUpdated();
+    shadowOf(Looper.getMainLooper()).idle();
+
+    // Verify that player state parameters remained frozen.
+    assertThat(remoteCastPlayer.getCurrentTimeline()).isEqualTo(originalTimeline);
+    assertThat(remoteCastPlayer.getCurrentTracks()).isEqualTo(originalTracks);
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isEqualTo(originalPlayWhenReady);
+    assertThat(remoteCastPlayer.getCurrentPosition()).isEqualTo(originalPosition);
+  }
+
+  @Test
+  public void onSessionEnding_withClientSideUpdates_freezesState() {
+    // Set up an active playing session
+    when(mockRemoteMediaClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PLAYING);
+    when(mockRemoteMediaClient.isPaused()).thenReturn(false);
+    when(mockMediaStatus.getPlaybackRate()).thenReturn(1.0);
+    when(mockMediaStatus.getQueueRepeatMode()).thenReturn(MediaStatus.REPEAT_MODE_REPEAT_OFF);
+    remoteMediaClientCallback.onStatusUpdated();
+
+    // Trigger the session disconnect sequence
+    sessionManagerListener.onSessionEnding(mockCastSession);
+    // Simulate client-side attempts to modify the player state
+    remoteCastPlayer.setPlayWhenReady(false);
+    remoteCastPlayer.setPlaybackParameters(new PlaybackParameters(2.0f));
+    remoteCastPlayer.setRepeatMode(Player.REPEAT_MODE_ALL);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    // Verify that the state was frozen and client-side updates were ignored
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isTrue();
+    assertThat(remoteCastPlayer.getPlaybackParameters().speed).isEqualTo(1.0f);
+    assertThat(remoteCastPlayer.getRepeatMode()).isEqualTo(Player.REPEAT_MODE_OFF);
   }
 
   private int[] createMediaQueueItemIds(int numberOfIds) {

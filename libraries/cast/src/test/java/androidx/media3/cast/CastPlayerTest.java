@@ -280,4 +280,63 @@ public final class CastPlayerTest {
 
     assertThat(localPlayer.getPlaybackState()).isEqualTo(Player.STATE_IDLE);
   }
+
+  @Test
+  public void playerTransfer_whenSessionStopped_pausesLocalPlayer() {
+    castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "");
+    castPlayer = castPlayerBuilder.build();
+    castPlayer.setPlayWhenReady(true);
+
+    castSessionListener.onSessionEnded(
+        mockCastSession, RemoteCastPlayer.SESSION_END_REASON_STOPPED);
+
+    assertThat(localPlayer.getPlayWhenReady()).isFalse();
+  }
+
+  @Test
+  public void playerTransfer_whenReceiverApplicationStopped_pausesLocalPlayer() {
+    castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "");
+    castPlayer = castPlayerBuilder.build();
+    castPlayer.setPlayWhenReady(true);
+
+    castSessionListener.onSessionEnded(mockCastSession, RemoteCastPlayer.APPLICATION_STOPPED);
+
+    assertThat(localPlayer.getPlayWhenReady()).isFalse();
+  }
+
+  @Test
+  public void playerTransfer_whenRouteChanged_doesNotPauseLocalPlayer() {
+    castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "");
+    castPlayer = castPlayerBuilder.build();
+    castPlayer.setPlayWhenReady(true);
+
+    castSessionListener.onSessionEnded(
+        mockCastSession, RemoteCastPlayer.SESSION_END_REASON_ROUTE_CHANGE);
+
+    assertThat(localPlayer.getPlayWhenReady()).isTrue();
+  }
+
+  @Test
+  public void playerTransfer_whenSessionSuspended_pausesLocalPlayer() {
+    castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "");
+    castPlayer = castPlayerBuilder.build();
+    castPlayer.setPlayWhenReady(true);
+
+    castSessionListener.onSessionSuspended(mockCastSession, /* reason= */ 0);
+
+    assertThat(localPlayer.getPlayWhenReady()).isFalse();
+  }
+
+  @Test
+  public void playerTransfer_whenSessionStarted_doesNotPauseRemotePlayer() {
+    castPlayer = castPlayerBuilder.build();
+    castPlayer.setPlayWhenReady(true);
+
+    castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "");
+
+    // Verify the remote player inherited the playing state and was NOT explicitly paused
+    assertThat(castPlayer.getPlayWhenReady()).isTrue();
+    // Verify that the command was actually forwarded to the Cast SDK
+    verify(mockRemoteMediaClient).play();
+  }
 }
