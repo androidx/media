@@ -24,6 +24,7 @@ import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
 import androidx.media3.common.Effect;
+import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Util;
@@ -194,5 +195,50 @@ public final class GlTextureFrameProcessorChainTest {
         .setPresentationTimeUs(0)
         .setMetadata(ImmutableMap.of(KEY_ITEM_EFFECTS, ImmutableList.copyOf(effects)))
         .build();
+  }
+
+  @Test
+  public void queue_withSizeChangingEffect_propagatesNewSizeDownstream() throws Exception {
+    int newWidth = 200;
+    int newHeight = 300;
+    SizeChangingGlShaderProgram sizeChangingShaderProgram =
+        new SizeChangingGlShaderProgram(newWidth, newHeight);
+    GlEffect sizeChangingEffect = (context, useHdr) -> sizeChangingShaderProgram;
+
+    GlTextureFrame frame = createGlTextureFrameWithEffects(ImmutableList.of(sizeChangingEffect));
+
+    // Process the frame.
+    assertThat(
+            glTextureFrameProcessorChain.queue(
+                frame, glExecutorService, /* wakeupListener= */ () -> {}))
+        .isTrue();
+    waitUntilGlThreadFinishes();
+
+    assertThat(downstreamFrameConsumer.framesReceived).isEqualTo(1);
+    assertThat(downstreamFrameConsumer.lastReceivedFrame.format.width).isEqualTo(newWidth);
+    assertThat(downstreamFrameConsumer.lastReceivedFrame.format.height).isEqualTo(newHeight);
+  }
+
+  private static final class SizeChangingGlShaderProgram extends FakeGlShaderProgram {
+    private final int outputWidth;
+    private final int outputHeight;
+
+    SizeChangingGlShaderProgram(int outputWidth, int outputHeight) {
+      this.outputWidth = outputWidth;
+      this.outputHeight = outputHeight;
+    }
+
+    @Override
+    public void queueInputFrame(
+        GlObjectsProvider glObjectsProvider, GlTextureInfo inputTexture, long presentationTimeUs) {
+      GlTextureInfo sizeChangedInputTexture =
+          new GlTextureInfo(
+              /* texId= */ inputTexture.texId,
+              /* fboId= */ inputTexture.fboId,
+              /* rboId= */ inputTexture.rboId,
+              /* width= */ outputWidth,
+              /* height= */ outputHeight);
+      super.queueInputFrame(glObjectsProvider, sizeChangedInputTexture, presentationTimeUs);
+    }
   }
 }

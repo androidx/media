@@ -169,7 +169,7 @@ public final class GlFrameProcessorTestUtil {
   }
 
   /** Fake {@link GlShaderProgram} for testing. */
-  public static final class FakeGlShaderProgram implements GlShaderProgram {
+  public static class FakeGlShaderProgram implements GlShaderProgram {
     public int framesReceived;
     public boolean signalEndOfCurrentInputStreamCalled;
     public boolean delayReadyToAcceptInputFrame;
