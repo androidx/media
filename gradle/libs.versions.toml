@@ -1,6 +1,6 @@
 [versions]
-releaseVersion = "1.11.0-beta01"
-releaseVersionCode = "1011000101"
+releaseVersion = "1.11.0-rc01"
+releaseVersionCode = "1011000201"
 # SDK
 compileSdkVersion = "36"
 appTargetSdkVersion = "34"
