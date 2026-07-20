@@ -28,6 +28,7 @@ import static android.view.KeyEvent.KEYCODE_MEDIA_SKIP_FORWARD;
 import static android.view.KeyEvent.KEYCODE_MEDIA_STOP;
 import static androidx.media3.common.Player.COMMAND_CHANGE_MEDIA_ITEMS;
 import static androidx.media3.common.Player.COMMAND_SET_MEDIA_ITEM;
+import static androidx.media3.common.Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.MediaSessionStub.UNKNOWN_SEQUENCE_NUMBER;
 import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
@@ -2010,9 +2011,18 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       if (player == null) {
         return;
       }
+      SessionPositionInfo sessionPositionInfo = player.createSessionPositionInfo();
+      if (reason == TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED
+          && session.playerInfo.timeline.isEmpty()) {
+        session.playerInfo =
+            new PlayerInfo.Builder(session.playerInfo)
+                .setOldPositionInfo(session.playerInfo.newPositionInfo)
+                .setNewPositionInfo(sessionPositionInfo.positionInfo)
+                .build();
+      }
       session.playerInfo =
           session.playerInfo.copyWithTimelineAndSessionPositionInfo(
-              timeline, player.createSessionPositionInfo(), reason);
+              timeline, sessionPositionInfo, reason);
       session.onPlayerInfoChangedHandler.sendPlayerInfoChangedMessage(
           /* excludeTimeline= */ false, /* excludeTracks= */ true);
       session.dispatchRemoteControllerTaskToLegacyStub(

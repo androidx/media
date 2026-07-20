@@ -2974,11 +2974,17 @@ import org.checkerframework.checker.nullness.qual.NonNull;
             checkNotNull(connectedToken));
     PlayerInfo finalPlayerInfo = playerInfo;
 
+    // Discontinuity events are only emitted if both timelines are not empty, or if it's a seek
+    // discontinuity which is emitted even when the player is empty.
+    boolean seekOrNonEmptyTimeline =
+        finalPlayerInfo.discontinuityReason == DISCONTINUITY_REASON_SEEK
+            || (!oldPlayerInfo.timeline.isEmpty() && !finalPlayerInfo.timeline.isEmpty());
     @Nullable
     @Player.DiscontinuityReason
     Integer positionDiscontinuityReason =
-        (!oldPlayerInfo.oldPositionInfo.equals(newPlayerInfo.oldPositionInfo)
-                || !oldPlayerInfo.newPositionInfo.equals(newPlayerInfo.newPositionInfo))
+        (seekOrNonEmptyTimeline
+                && (!oldPlayerInfo.oldPositionInfo.equals(finalPlayerInfo.oldPositionInfo)
+                    || !oldPlayerInfo.newPositionInfo.equals(finalPlayerInfo.newPositionInfo)))
             ? finalPlayerInfo.discontinuityReason
             : null;
 

@@ -25,7 +25,10 @@ import static android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE;
 import static android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS;
 import static android.view.KeyEvent.KEYCODE_MEDIA_REWIND;
 import static android.view.KeyEvent.KEYCODE_MEDIA_STOP;
+import static androidx.media3.common.Player.DISCONTINUITY_REASON_SEEK;
+import static androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED;
 import static androidx.media3.common.Player.STATE_IDLE;
+import static androidx.media3.common.Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED;
 import static androidx.media3.test.session.common.TestUtils.LONG_TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
@@ -47,12 +50,18 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.text.TextUtils;
 import android.view.KeyEvent;
+import androidx.annotation.Nullable;
 import androidx.media.MediaSessionManager;
+import androidx.media3.common.C;
 import androidx.media3.common.ForwardingPlayer;
+import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Player;
+import androidx.media3.common.Player.PositionInfo;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Log;
+import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.source.SilenceMediaSource;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MainLooperTestRule;
@@ -63,6 +72,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
 import androidx.test.filters.SdkSuppress;
 import androidx.test.platform.app.InstrumentationRegistry;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -1295,6 +1305,118 @@ public class MediaSessionTest {
     int limit = MediaSessionImpl.getBitmapDimensionLimit(context);
     assertThat(limit).isGreaterThan(0);
     assertThat(limit).isAtMost(4096);
+  }
+
+  @Test
+  public void setMediaItems_withMediaItemIndexNotZero_silentPositionUpdateOnTimelineChange()
+      throws Exception {
+    AtomicReference<ExoPlayer> player = new AtomicReference<>();
+    try {
+      player.set(
+          new ExoPlayer.Builder(ApplicationProvider.getApplicationContext())
+              .setLooper(handler.getLooper())
+              .build());
+      MediaSession testSession =
+          sessionTestRule.ensureReleaseAfterTest(
+              new MediaSession.Builder(context, player.get())
+                  .setId("setMediaItems_withMediaItemIndexNotZero_")
+                  .build());
+      CountDownLatch disconnectedLatch = new CountDownLatch(1);
+      MediaController testController =
+          new MediaController.Builder(context, testSession.getToken())
+              .setListener(
+                  new MediaController.Listener() {
+                    @Override
+                    public void onDisconnected(MediaController controller) {
+                      disconnectedLatch.countDown();
+                    }
+                  })
+              .setApplicationLooper(handler.getLooper())
+              .buildAsync()
+              .get(TIMEOUT_MS, MILLISECONDS);
+      assertThat(testController.isConnected()).isTrue();
+      CountDownLatch timelineLatch = new CountDownLatch(/* count= */ 1);
+      CountDownLatch discontinuityLatch = new CountDownLatch(/* count= */ 2);
+      CountDownLatch expectedMediaItemTransitionLatch = new CountDownLatch(/* count= */ 1);
+      AtomicBoolean unexpectedMediaItemTransitionCall = new AtomicBoolean(false);
+      List<Integer> discontinuityMediaItemIndices = new ArrayList<>();
+      List<Integer> discontinuityReasons = new ArrayList<>();
+      List<Integer> transitionReasons = new ArrayList<>();
+      handler.postAndSync(
+          () -> {
+            testController.addListener(
+                new Player.Listener() {
+                  @Override
+                  public void onTimelineChanged(
+                      Timeline timeline, @Player.TimelineChangeReason int reason) {
+                    if (reason == TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) {
+                      timelineLatch.countDown();
+                    }
+                  }
+
+                  @Override
+                  public void onMediaItemTransition(
+                      @Nullable MediaItem mediaItem, @Player.MediaItemTransitionReason int reason) {
+                    transitionReasons.add(reason);
+                    if (reason == MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED) {
+                      expectedMediaItemTransitionLatch.countDown();
+                      return;
+                    }
+                    unexpectedMediaItemTransitionCall.set(true);
+                  }
+
+                  @Override
+                  public void onPositionDiscontinuity(
+                      PositionInfo oldPosition,
+                      PositionInfo newPosition,
+                      @Player.DiscontinuityReason int reason) {
+                    discontinuityReasons.add(reason);
+                    discontinuityMediaItemIndices.add(oldPosition.mediaItemIndex);
+                    discontinuityMediaItemIndices.add(newPosition.mediaItemIndex);
+                    if (reason == DISCONTINUITY_REASON_SEEK) {
+                      discontinuityLatch.countDown();
+                    }
+                  }
+                });
+          });
+      // Set the media source with start position that triggers the initial events.
+      handler.postAndSync(
+          () -> {
+            SilenceMediaSource silenceMediaSource1 =
+                new SilenceMediaSource(/* durationUs= */ 10_000_000L);
+            SilenceMediaSource silenceMediaSource2 =
+                new SilenceMediaSource(/* durationUs= */ 20_000_000L);
+            player
+                .get()
+                .setMediaSources(
+                    ImmutableList.of(silenceMediaSource1, silenceMediaSource2),
+                    /* startMediaItemIndex= */ 1,
+                    /* startPositionMs= */ C.TIME_UNSET);
+          });
+      assertThat(timelineLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+      assertThat(expectedMediaItemTransitionLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+      assertThat(discontinuityMediaItemIndices).isEmpty();
+      assertThat(unexpectedMediaItemTransitionCall.get()).isFalse();
+
+      // No media item transition because the media item index was silently updated.
+      handler.postAndSync(
+          () -> {
+            player.get().seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 2_000L);
+          });
+      handler.postAndSync(
+          () -> {
+            player.get().seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 10_000_000L);
+          });
+
+      assertThat(discontinuityLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+      assertThat(unexpectedMediaItemTransitionCall.get()).isFalse();
+      assertThat(transitionReasons).containsExactly(MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED);
+      assertThat(discontinuityMediaItemIndices).containsExactly(1, 1, 1, 1);
+      assertThat(discontinuityReasons)
+          .containsExactly(DISCONTINUITY_REASON_SEEK, DISCONTINUITY_REASON_SEEK);
+    } finally {
+      threadTestRule.getHandler().postAndSync(() -> player.get().release());
+    }
   }
 
   /**

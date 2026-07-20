@@ -108,6 +108,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.Player.DiscontinuityReason;
 import androidx.media3.common.Player.PositionInfo;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.Timeline.Window;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
@@ -1457,6 +1458,24 @@ public class MediaSessionProviderService extends Service {
             MediaSession session = sessionMap.get(sessionId);
             MockPlayer player = (MockPlayer) session.getPlayer();
             player.notifyTimelineChanged(reason);
+          });
+    }
+
+    @Override
+    public void notifyTimelineChangedWithMediaItemTransition(String sessionId)
+        throws RemoteException {
+      runOnHandler(
+          () -> {
+            MediaSession session = sessionMap.get(sessionId);
+            MockPlayer player = (MockPlayer) session.getPlayer();
+            player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
+            MediaItem mediaItem = null;
+            if (player.currentMediaItemIndex < player.timeline.getWindowCount()) {
+              mediaItem =
+                  player.timeline.getWindow(player.currentMediaItemIndex, new Window()).mediaItem;
+            }
+            player.notifyMediaItemTransition(
+                mediaItem, Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED);
           });
     }
 

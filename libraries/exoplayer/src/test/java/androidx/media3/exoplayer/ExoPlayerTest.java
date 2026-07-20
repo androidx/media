@@ -50,6 +50,7 @@ import static androidx.media3.common.Player.COMMAND_SET_TRACK_SELECTION_PARAMETE
 import static androidx.media3.common.Player.COMMAND_SET_VIDEO_SURFACE;
 import static androidx.media3.common.Player.COMMAND_SET_VOLUME;
 import static androidx.media3.common.Player.COMMAND_STOP;
+import static androidx.media3.common.Player.DISCONTINUITY_REASON_SEEK;
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
@@ -8386,6 +8387,18 @@ public final class ExoPlayerTest {
     assertThat(exception.getSourceException().getCause()).isInstanceOf(OutOfMemoryError.class);
 
     assertThat(renderer.sampleBufferReadCount).isEqualTo(3);
+  }
+
+  @Test
+  public void seekTo_withEmptyTimeline_emitsPositionDiscontinuityEvent() throws Exception {
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    Player.Listener mockListener = mock(Player.Listener.class);
+    player.addListener(mockListener);
+
+    player.seekTo(/* positionMs= */ 2_000L);
+
+    verify(mockListener).onPositionDiscontinuity(any(), any(), eq(DISCONTINUITY_REASON_SEEK));
+    player.release();
   }
 
   @Test
