@@ -52,6 +52,9 @@
     *   Fix crash by catching `ForegroundServiceStartNotAllowedException` in
         `MediaSessionService.stopSelfSafely()`
         ([#3310](https://github.com/androidx/media/issues/3310)).
+    *   Fix unexpected `onMediaItemTransition()` callback on `MediaController`
+        when seeking inside the same media item
+        ([#3248](https://github.com/androidx/media/issues/3248)).
 *   UI:
     *   Introduce `PresentationState.videoAspectRatio` and make
         `Modifier.resizeWithContentScale` take `aspectRatio: Float?` instead of

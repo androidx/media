@@ -447,6 +447,10 @@ public class RemoteMediaSession {
       binder.notifyTimelineChanged(sessionId, reason);
     }
 
+    public void notifyTimelineChangedWithMediaItemTransition() throws RemoteException {
+      binder.notifyTimelineChangedWithMediaItemTransition(sessionId);
+    }
+
     public void notifyPlaylistMetadataChanged() throws RemoteException {
       binder.notifyPlaylistMetadataChanged(sessionId);
     }
