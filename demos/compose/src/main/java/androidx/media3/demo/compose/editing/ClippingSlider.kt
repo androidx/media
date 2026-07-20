@@ -61,7 +61,10 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.offset
 import androidx.media3.common.C
 import androidx.media3.common.Player
@@ -107,6 +110,9 @@ private const val MIN_CLIPPING_DELTA_FOR_NO_OVERLAP =
  */
 private const val BOUNDARY_EPSILON = 1e-3f
 
+/** The width of the playback position thumb. */
+private val POSITION_THUMB_WIDTH = 4.dp
+
 /**
  * A Material3 clipping slider that allows users to select a clipping range and track playback
  * position.
@@ -147,10 +153,14 @@ private const val BOUNDARY_EPSILON = 1e-3f
 // TODO: b/505719491
 //  - Implement accessibility requirements
 //  - Implement color defaults
+//  - Match the height of the position slider's thumb to that of Google Photos' video trimmer's one.
+//  - Update position slider's thumb after compose addresses dynamic thumb size change.
 //  - Decide and test what the slider should look like for RTL locales
 //  - Remove @OptIn(ExperimentalMaterial3Api::class) annotations once the RangeSlider is stable
 //  - Move to material3 module and mark API unstable
 //  - Add tests
+//  - Optimize PositionSlider recomposition scope (e.g. sliderColors reading playbackProgress on
+// every frame)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClippingSlider(
@@ -558,46 +568,17 @@ private fun PositionSlider(
     logicalToVisualPositionSliderStart(state.committedClippingRange.start)
   val visualPositionSliderEnd =
     logicalToVisualPositionSliderEnd(state.committedClippingRange.endInclusive)
+  val density = LocalDensity.current
+  var sliderHeight by remember { mutableStateOf(0.dp) }
   Row(modifier) {
     Spacer(modifier = Modifier.weight(visualPositionSliderStart))
-    // TODO: b/505719491 - Make the thumb height match the ClippingSlider height
-    Slider(
-      value =
-        dragPosition
-          // Coerce within the active clipping range so the position thumb sticks to the clipping
-          // thumb when the clipping thumb crosses the position thumb. Then coerce within
-          // committedClippingRange to ensure the value stays within Slider.valueRange while player
-          // position updates lag behind a seek.
-          ?: state.playbackProgress
-            ?.coerceIn(state.clippingRange)
-            ?.coerceIn(state.committedClippingRange)
-          ?: state.committedClippingRange.start,
-      onValueChange = {
-        state.isUserInteracting = true
-        state.pause()
-        dragPosition = it
-      },
-      enabled = state.changingProgressEnabled,
+    Box(
       modifier =
         Modifier.weight(visualPositionSliderEnd - visualPositionSliderStart)
           .fillMaxHeight()
-          // Expand the slider by 1px on each side to avoid rounding gaps. Row measurement rounds
-          // weighted dimensions to the nearest integer pixel, which can leave a sub-pixel gap
-          // between the clipping thumbs and the slider where the background image is visible. This
-          // 1px overlap ensures the seam is always covered.
-          .layout { measurable, constraints ->
-            val expandedConstraints = constraints.offset(horizontal = 2)
-            val placeable = measurable.measure(expandedConstraints)
-            layout(placeable.width - 2, placeable.height) { placeable.place(x = -1, y = 0) }
-          },
-      valueRange = state.committedClippingRange,
-      onValueChangeFinished = {
-        dragPosition?.let { state.seekTo(it) }
-        dragPosition = null
-        state.isUserInteracting = false
-      },
-      interactionSource = interactionSource,
-      colors =
+          .onSizeChanged { size -> sliderHeight = with(density) { size.height.toDp() } }
+    ) {
+      val sliderColors =
         SliderDefaults.colors(
           thumbColor =
             if (state.playbackProgress != null) positionThumbColor else Color.Transparent,
@@ -607,8 +588,52 @@ private fun PositionSlider(
             if (state.playbackProgress != null) positionThumbColor else Color.Transparent,
           disabledActiveTrackColor = Color.Transparent,
           disabledInactiveTrackColor = Color.Transparent,
-        ),
-    )
+        )
+      Slider(
+        value =
+          dragPosition
+            // Coerce within the active clipping range so the position thumb sticks to the clipping
+            // thumb when the clipping thumb crosses the position thumb. Then coerce within
+            // committedClippingRange to ensure the value stays within Slider.valueRange while
+            // player position updates lag behind a seek.
+            ?: state.playbackProgress
+              ?.coerceIn(state.clippingRange)
+              ?.coerceIn(state.committedClippingRange)
+            ?: state.committedClippingRange.start,
+        onValueChange = {
+          state.isUserInteracting = true
+          state.pause()
+          dragPosition = it
+        },
+        enabled = state.changingProgressEnabled,
+        modifier =
+          Modifier.fillMaxSize()
+            // Expand the slider by 1px on each side to avoid rounding gaps. Row measurement rounds
+            // weighted dimensions to the nearest integer pixel, which can leave a sub-pixel gap
+            // between the clipping thumbs and the slider where the background image is visible.
+            // This 1px overlap ensures the seam is always covered.
+            .layout { measurable, constraints ->
+              val expandedConstraints = constraints.offset(horizontal = 2)
+              val placeable = measurable.measure(expandedConstraints)
+              layout(placeable.width - 2, placeable.height) { placeable.place(x = -1, y = 0) }
+            },
+        valueRange = state.committedClippingRange,
+        onValueChangeFinished = {
+          dragPosition?.let { state.seekTo(it) }
+          dragPosition = null
+          state.isUserInteracting = false
+        },
+        interactionSource = interactionSource,
+        colors = sliderColors,
+        thumb = {
+          SliderDefaults.Thumb(
+            interactionSource = interactionSource,
+            colors = sliderColors,
+            thumbSize = DpSize(width = POSITION_THUMB_WIDTH, height = sliderHeight),
+          )
+        },
+      )
+    }
     Spacer(modifier = Modifier.weight(1f - visualPositionSliderEnd))
   }
 }
