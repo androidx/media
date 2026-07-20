@@ -38,22 +38,6 @@
 #define LOGE(...) \
   ((void)__android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__))
 
-#define DECODER_FUNC(RETURN_TYPE, NAME, ...)                                \
-  extern "C" {                                                              \
-  JNIEXPORT RETURN_TYPE Java_androidx_media3_decoder_vp9_VpxDecoder_##NAME( \
-      JNIEnv* env, jobject thiz, ##__VA_ARGS__);                            \
-  }                                                                         \
-  JNIEXPORT RETURN_TYPE Java_androidx_media3_decoder_vp9_VpxDecoder_##NAME( \
-      JNIEnv* env, jobject thiz, ##__VA_ARGS__)
-
-#define LIBRARY_FUNC(RETURN_TYPE, NAME, ...)                                \
-  extern "C" {                                                              \
-  JNIEXPORT RETURN_TYPE Java_androidx_media3_decoder_vp9_VpxLibrary_##NAME( \
-      JNIEnv* env, jobject thiz, ##__VA_ARGS__);                            \
-  }                                                                         \
-  JNIEXPORT RETURN_TYPE Java_androidx_media3_decoder_vp9_VpxLibrary_##NAME( \
-      JNIEnv* env, jobject thiz, ##__VA_ARGS__)
-
 // JNI references for VideoDecoderOutputBuffer class.
 static jmethodID initForYuvFrame;
 static jmethodID initForPrivateFrame;
@@ -67,14 +51,6 @@ static const int kImageFormatYV12 = 0x32315659;
 static const int kDecoderPrivateBase = 0x100;
 
 static int errorCode;
-
-extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
-  JNIEnv* env;
-  if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
-    return -1;
-  }
-  return JNI_VERSION_1_6;
-}
 
 #ifdef __ARM_NEON__
 static int convert_16_to_8_neon(const vpx_image_t* const img, jbyte* const data,
@@ -432,8 +408,8 @@ int vpx_release_frame_buffer(void* priv, vpx_codec_frame_buffer_t* fb) {
   return buffer_manager->release(*(int*)fb->priv);
 }
 
-DECODER_FUNC(jlong, vpxInit, jboolean disableLoopFilter,
-             jboolean enableRowMultiThreadMode, jint threads) {
+jlong vpxInit(JNIEnv* env, jobject thiz, jboolean disableLoopFilter,
+              jboolean enableRowMultiThreadMode, jint threads) {
   JniCtx* context = new JniCtx();
   context->decoder = new vpx_codec_ctx_t();
   vpx_codec_dec_cfg_t cfg = {0, 0, 0};
@@ -488,7 +464,8 @@ DECODER_FUNC(jlong, vpxInit, jboolean disableLoopFilter,
   return reinterpret_cast<intptr_t>(context);
 }
 
-DECODER_FUNC(jlong, vpxDecode, jlong jContext, jobject encoded, jint len) {
+jlong vpxDecode(JNIEnv* env, jobject thiz, jlong jContext, jobject encoded,
+                jint len) {
   JniCtx* const context = reinterpret_cast<JniCtx*>(jContext);
   const uint8_t* const buffer =
       reinterpret_cast<const uint8_t*>(env->GetDirectBufferAddress(encoded));
@@ -503,10 +480,11 @@ DECODER_FUNC(jlong, vpxDecode, jlong jContext, jobject encoded, jint len) {
   return 0;
 }
 
-DECODER_FUNC(jlong, vpxSecureDecode, jlong jContext, jobject encoded, jint len,
-             jobject mediaCrypto, jint inputMode, jbyteArray&, jbyteArray&,
-             jint inputNumSubSamples, jintArray numBytesOfClearData,
-             jintArray numBytesOfEncryptedData) {
+jlong vpxSecureDecode(JNIEnv* env, jobject thiz, jlong jContext,
+                      jobject encoded, jint len, jobject mediaCrypto,
+                      jint inputMode, jbyteArray&, jbyteArray&,
+                      jint inputNumSubSamples, jintArray numBytesOfClearData,
+                      jintArray numBytesOfEncryptedData) {
   // Doesn't support
   // Java client should have checked vpxSupportSecureDecode
   // and avoid calling this
@@ -514,14 +492,15 @@ DECODER_FUNC(jlong, vpxSecureDecode, jlong jContext, jobject encoded, jint len,
   return -2;
 }
 
-DECODER_FUNC(jlong, vpxClose, jlong jContext) {
+jlong vpxClose(JNIEnv* env, jobject thiz, jlong jContext) {
   JniCtx* const context = reinterpret_cast<JniCtx*>(jContext);
   vpx_codec_destroy(context->decoder);
   delete context;
   return 0;
 }
 
-DECODER_FUNC(jint, vpxGetFrame, jlong jContext, jobject jOutputBuffer) {
+jint vpxGetFrame(JNIEnv* env, jobject thiz, jlong jContext,
+                 jobject jOutputBuffer) {
   JniCtx* const context = reinterpret_cast<JniCtx*>(jContext);
   vpx_codec_iter_t iter = NULL;
   const vpx_image_t* const img = vpx_codec_get_frame(context->decoder, &iter);
@@ -621,8 +600,8 @@ DECODER_FUNC(jint, vpxGetFrame, jlong jContext, jobject jOutputBuffer) {
   return 0;
 }
 
-DECODER_FUNC(jint, vpxRenderFrame, jlong jContext, jobject jSurface,
-             jobject jOutputBuffer) {
+jint vpxRenderFrame(JNIEnv* env, jobject thiz, jlong jContext, jobject jSurface,
+                    jobject jOutputBuffer) {
   JniCtx* const context = reinterpret_cast<JniCtx*>(jContext);
   const int id = env->GetLongField(jOutputBuffer, decoderPrivateField) -
                  kDecoderPrivateBase;
@@ -677,30 +656,101 @@ DECODER_FUNC(jint, vpxRenderFrame, jlong jContext, jobject jSurface,
   return ANativeWindow_unlockAndPost(context->native_window);
 }
 
-DECODER_FUNC(void, vpxReleaseFrame, jlong jContext, jobject jOutputBuffer) {
+int vpxReleaseFrame(JNIEnv* env, jobject thiz, jlong jContext,
+                    jobject jOutputBuffer) {
   JniCtx* const context = reinterpret_cast<JniCtx*>(jContext);
   const int id = env->GetLongField(jOutputBuffer, decoderPrivateField) -
                  kDecoderPrivateBase;
   env->SetLongField(jOutputBuffer, decoderPrivateField, -1);
   context->buffer_manager->release(id);
+  return 0;
 }
 
-DECODER_FUNC(jstring, vpxGetErrorMessage, jlong jContext) {
+jstring vpxGetErrorMessage(JNIEnv* env, jobject thiz, jlong jContext) {
   JniCtx* const context = reinterpret_cast<JniCtx*>(jContext);
   return env->NewStringUTF(vpx_codec_error(context->decoder));
 }
 
-DECODER_FUNC(jint, vpxGetErrorCode, jlong jContext) { return errorCode; }
-
-LIBRARY_FUNC(jstring, vpxIsSecureDecodeSupported) {
-  // Doesn't support
-  return 0;
+jint vpxGetErrorCode(JNIEnv* env, jobject thiz, jlong jContext) {
+  return errorCode;
 }
 
-LIBRARY_FUNC(jstring, vpxGetVersion) {
+jboolean vpxIsSecureDecodeSupported(JNIEnv* env, jobject thiz) {
+  // Doesn't support
+  return JNI_FALSE;
+}
+
+jstring vpxGetVersion(JNIEnv* env, jobject thiz) {
   return env->NewStringUTF(vpx_codec_version_str());
 }
 
-LIBRARY_FUNC(jstring, vpxGetBuildConfig) {
+jstring vpxGetBuildConfig(JNIEnv* env, jobject thiz) {
   return env->NewStringUTF(vpx_codec_build_config());
+}
+
+extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
+  JNIEnv* env;
+  if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
+    return -1;
+  }
+
+  static const JNINativeMethod kVpxDecoderMethods[] = {
+      {"vpxInit", "(ZZI)J", reinterpret_cast<void*>(vpxInit)},
+      {"vpxClose", "(J)J", reinterpret_cast<void*>(vpxClose)},
+      {"vpxDecode", "(JLjava/nio/ByteBuffer;I)J",
+       reinterpret_cast<void*>(vpxDecode)},
+      {"vpxSecureDecode",
+       "(JLjava/nio/ByteBuffer;ILandroidx/media3/decoder/CryptoConfig;I[B[BI[I"
+       "[I)J",
+       reinterpret_cast<void*>(vpxSecureDecode)},
+      {"vpxGetFrame", "(JLandroidx/media3/decoder/VideoDecoderOutputBuffer;)I",
+       reinterpret_cast<void*>(vpxGetFrame)},
+      {"vpxRenderFrame",
+       "(JLandroid/view/Surface;Landroidx/media3/decoder/"
+       "VideoDecoderOutputBuffer;)I",
+       reinterpret_cast<void*>(vpxRenderFrame)},
+      {"vpxReleaseFrame",
+       "(JLandroidx/media3/decoder/VideoDecoderOutputBuffer;)I",
+       reinterpret_cast<void*>(vpxReleaseFrame)},
+      {"vpxGetErrorCode", "(J)I", reinterpret_cast<void*>(vpxGetErrorCode)},
+      {"vpxGetErrorMessage", "(J)Ljava/lang/String;",
+       reinterpret_cast<void*>(vpxGetErrorMessage)},
+  };
+
+  static const JNINativeMethod kVpxLibraryMethods[] = {
+      {"vpxGetVersion", "()Ljava/lang/String;",
+       reinterpret_cast<void*>(vpxGetVersion)},
+      {"vpxGetBuildConfig", "()Ljava/lang/String;",
+       reinterpret_cast<void*>(vpxGetBuildConfig)},
+      {"vpxIsSecureDecodeSupported", "()Z",
+       reinterpret_cast<void*>(vpxIsSecureDecodeSupported)},
+  };
+
+  jclass decoderClazz =
+      env->FindClass("androidx/media3/decoder/vp9/VpxDecoder");
+  if (!decoderClazz) {
+    LOGE("JNI_OnLoad: FindClass failed for VpxDecoder");
+    return -1;
+  }
+  if (env->RegisterNatives(
+          decoderClazz, kVpxDecoderMethods,
+          sizeof(kVpxDecoderMethods) / sizeof(kVpxDecoderMethods[0])) < 0) {
+    LOGE("JNI_OnLoad: RegisterNatives failed for VpxDecoder");
+    return -1;
+  }
+
+  jclass libraryClazz =
+      env->FindClass("androidx/media3/decoder/vp9/VpxLibrary");
+  if (!libraryClazz) {
+    LOGE("JNI_OnLoad: FindClass failed for VpxLibrary");
+    return -1;
+  }
+  if (env->RegisterNatives(
+          libraryClazz, kVpxLibraryMethods,
+          sizeof(kVpxLibraryMethods) / sizeof(kVpxLibraryMethods[0])) < 0) {
+    LOGE("JNI_OnLoad: RegisterNatives failed for VpxLibrary");
+    return -1;
+  }
+
+  return JNI_VERSION_1_6;
 }

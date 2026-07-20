@@ -38,6 +38,10 @@ add_library(iamfJNI
             SHARED
             iamf_jni.cc)
 
+set_target_properties(iamfJNI PROPERTIES
+                      CXX_VISIBILITY_PRESET hidden
+                      VISIBILITY_INLINES_HIDDEN ON)
+
 # Locate NDK log library.
 find_library(android_log_lib log)
 

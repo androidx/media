@@ -1,6 +1,6 @@
 # Proguard rules specific to the effect NDK module.
 
 # This prevents the names of native methods from being obfuscated.
--keepclasseswithmembernames class androidx.media3.effect.ndk.** {
+-keep,includedescriptorclasses class androidx.media3.effect.ndk.** {
     native <methods>;
 }

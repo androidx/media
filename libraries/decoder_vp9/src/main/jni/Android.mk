@@ -32,6 +32,7 @@ LOCAL_SRC_FILES := vpx_jni.cc
 LOCAL_LDLIBS := -llog -lz -lm -landroid
 LOCAL_SHARED_LIBRARIES := libvpx
 LOCAL_STATIC_LIBRARIES := cpufeatures
+LOCAL_CFLAGS += -fvisibility=hidden
 
 include $(BUILD_SHARED_LIBRARY)
 

@@ -38,26 +38,10 @@
 #include <cstdint>
 #include <memory>
 
-#define DECODER_FUNC(RETURN_TYPE, NAME, ...)                                  \
-  extern "C" {                                                                \
-  JNIEXPORT RETURN_TYPE Java_androidx_media3_decoder_iamf_IamfDecoder_##NAME( \
-      JNIEnv* env, jobject thiz, ##__VA_ARGS__);                              \
-  }                                                                           \
-  JNIEXPORT RETURN_TYPE Java_androidx_media3_decoder_iamf_IamfDecoder_##NAME( \
-      JNIEnv* env, jobject thiz, ##__VA_ARGS__)
-
 namespace {
 constexpr int ERROR = -1;
 constexpr int OK = 0;
 }  // namespace
-
-extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
-  JNIEnv* env;
-  if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
-    return ERROR;
-  }
-  return JNI_VERSION_1_6;
-}
 
 namespace {
 struct IamfDecoderWrapper {
@@ -235,17 +219,17 @@ iamf_tools::api::IamfDecoderFactory::Settings CreateSettings(
 }
 }  // namespace
 
-DECODER_FUNC(jlong, iamfOpen) {
+jlong iamfOpen(JNIEnv* env, jobject thiz) {
   return reinterpret_cast<intptr_t>(new IamfDecoderWrapper{nullptr});
 }
 
-DECODER_FUNC(void, iamfClose, jlong decoderRawPointer) {
+void iamfClose(JNIEnv* env, jobject thiz, jlong decoderRawPointer) {
   delete reinterpret_cast<IamfDecoderWrapper*>(decoderRawPointer);
 }
 
-DECODER_FUNC(jint, iamfCreate, jint requestedOutputLayout,
-             jlong requestedMixPresentationId, jint outputSampleType,
-             jint channelOrdering, jlong decoderRawPointer) {
+jint iamfCreate(JNIEnv* env, jobject thiz, jint requestedOutputLayout,
+                jlong requestedMixPresentationId, jint outputSampleType,
+                jint channelOrdering, jlong decoderRawPointer) {
   IamfDecoderWrapper* wrapper =
       reinterpret_cast<IamfDecoderWrapper*>(decoderRawPointer);
   if (!wrapper) {
@@ -263,10 +247,12 @@ DECODER_FUNC(jint, iamfCreate, jint requestedOutputLayout,
   return OK;
 }
 
-DECODER_FUNC(jint, iamfCreateFromDescriptors,
-             jbyteArray initializationDataArray, jint requestedOutputLayout,
-             jlong requestedMixPresentationId, jint outputSampleType,
-             jint channelOrdering, jlong decoderRawPointer) {
+jint iamfCreateFromDescriptors(JNIEnv* env, jobject thiz,
+                               jbyteArray initializationDataArray,
+                               jint requestedOutputLayout,
+                               jlong requestedMixPresentationId,
+                               jint outputSampleType, jint channelOrdering,
+                               jlong decoderRawPointer) {
   IamfDecoderWrapper* wrapper =
       reinterpret_cast<IamfDecoderWrapper*>(decoderRawPointer);
   if (!wrapper) {
@@ -292,8 +278,8 @@ DECODER_FUNC(jint, iamfCreateFromDescriptors,
   return OK;  // Success
 }
 
-DECODER_FUNC(jint, iamfDecode, jobject inputBuffer, jint inputSize,
-             jlong decoderRawPointer) {
+jint iamfDecode(JNIEnv* env, jobject thiz, jobject inputBuffer, jint inputSize,
+                jlong decoderRawPointer) {
   IamfDecoderWrapper* wrapper =
       reinterpret_cast<IamfDecoderWrapper*>(decoderRawPointer);
   if (!wrapper || !wrapper->decoder) {
@@ -321,8 +307,8 @@ DECODER_FUNC(jint, iamfDecode, jobject inputBuffer, jint inputSize,
   return OK;
 }
 
-DECODER_FUNC(jint, iamfGetOutputTemporalUnit, jobject outputBuffer,
-             jint outputSize, jlong decoderRawPointer) {
+jint iamfGetOutputTemporalUnit(JNIEnv* env, jobject thiz, jobject outputBuffer,
+                               jint outputSize, jlong decoderRawPointer) {
   IamfDecoderWrapper* wrapper =
       reinterpret_cast<IamfDecoderWrapper*>(decoderRawPointer);
   if (!wrapper || !wrapper->decoder) {
@@ -350,7 +336,8 @@ DECODER_FUNC(jint, iamfGetOutputTemporalUnit, jobject outputBuffer,
   return bytes_written;
 }
 
-DECODER_FUNC(jboolean, iamfIsTemporalUnitAvailable, jlong decoderRawPointer) {
+jboolean iamfIsTemporalUnitAvailable(JNIEnv* env, jobject thiz,
+                                     jlong decoderRawPointer) {
   IamfDecoderWrapper* wrapper =
       reinterpret_cast<IamfDecoderWrapper*>(decoderRawPointer);
   if (!wrapper || !wrapper->decoder) {
@@ -360,8 +347,8 @@ DECODER_FUNC(jboolean, iamfIsTemporalUnitAvailable, jlong decoderRawPointer) {
   return wrapper->decoder->IsTemporalUnitAvailable();
 }
 
-DECODER_FUNC(jboolean, iamfIsDescriptorProcessingComplete,
-             jlong decoderRawPointer) {
+jboolean iamfIsDescriptorProcessingComplete(JNIEnv* env, jobject thiz,
+                                            jlong decoderRawPointer) {
   IamfDecoderWrapper* wrapper =
       reinterpret_cast<IamfDecoderWrapper*>(decoderRawPointer);
   if (!wrapper || !wrapper->decoder) {
@@ -371,7 +358,8 @@ DECODER_FUNC(jboolean, iamfIsDescriptorProcessingComplete,
   return wrapper->decoder->IsDescriptorProcessingComplete();
 }
 
-DECODER_FUNC(jint, iamfGetNumberOfOutputChannels, jlong decoderRawPointer) {
+jint iamfGetNumberOfOutputChannels(JNIEnv* env, jobject thiz,
+                                   jlong decoderRawPointer) {
   IamfDecoderWrapper* wrapper =
       reinterpret_cast<IamfDecoderWrapper*>(decoderRawPointer);
   if (!wrapper || !wrapper->decoder) {
@@ -389,7 +377,8 @@ DECODER_FUNC(jint, iamfGetNumberOfOutputChannels, jlong decoderRawPointer) {
   return channel_count;
 }
 
-DECODER_FUNC(jint, iamfGetSelectedOutputLayout, jlong decoderRawPointer) {
+jint iamfGetSelectedOutputLayout(JNIEnv* env, jobject thiz,
+                                 jlong decoderRawPointer) {
   IamfDecoderWrapper* wrapper =
       reinterpret_cast<IamfDecoderWrapper*>(decoderRawPointer);
   if (!wrapper || !wrapper->decoder) {
@@ -406,7 +395,8 @@ DECODER_FUNC(jint, iamfGetSelectedOutputLayout, jlong decoderRawPointer) {
   return FromIamfToolsOutputLayout(selected_mix.output_layout);
 }
 
-DECODER_FUNC(jlong, iamfGetSelectedMixPresentationId, jlong decoderRawPointer) {
+jlong iamfGetSelectedMixPresentationId(JNIEnv* env, jobject thiz,
+                                       jlong decoderRawPointer) {
   IamfDecoderWrapper* wrapper =
       reinterpret_cast<IamfDecoderWrapper*>(decoderRawPointer);
   if (!wrapper || !wrapper->decoder) {
@@ -423,7 +413,8 @@ DECODER_FUNC(jlong, iamfGetSelectedMixPresentationId, jlong decoderRawPointer) {
   return selected_mix.mix_presentation_id;
 }
 
-DECODER_FUNC(jint, iamfGetOutputSampleType, jlong decoderRawPointer) {
+jint iamfGetOutputSampleType(JNIEnv* env, jobject thiz,
+                             jlong decoderRawPointer) {
   IamfDecoderWrapper* wrapper =
       reinterpret_cast<IamfDecoderWrapper*>(decoderRawPointer);
   if (!wrapper || !wrapper->decoder) {
@@ -440,7 +431,7 @@ DECODER_FUNC(jint, iamfGetOutputSampleType, jlong decoderRawPointer) {
   return value;
 }
 
-DECODER_FUNC(jint, iamfGetSampleRate, jlong decoderRawPointer) {
+jint iamfGetSampleRate(JNIEnv* env, jobject thiz, jlong decoderRawPointer) {
   IamfDecoderWrapper* wrapper =
       reinterpret_cast<IamfDecoderWrapper*>(decoderRawPointer);
   if (!wrapper || !wrapper->decoder) {
@@ -457,7 +448,7 @@ DECODER_FUNC(jint, iamfGetSampleRate, jlong decoderRawPointer) {
   return sample_rate;
 }
 
-DECODER_FUNC(jint, iamfGetFrameSize, jlong decoderRawPointer) {
+jint iamfGetFrameSize(JNIEnv* env, jobject thiz, jlong decoderRawPointer) {
   IamfDecoderWrapper* wrapper =
       reinterpret_cast<IamfDecoderWrapper*>(decoderRawPointer);
   if (!wrapper || !wrapper->decoder) {
@@ -474,7 +465,7 @@ DECODER_FUNC(jint, iamfGetFrameSize, jlong decoderRawPointer) {
   return frame_size;
 }
 
-DECODER_FUNC(jint, iamfReset, jlong decoderRawPointer) {
+jint iamfReset(JNIEnv* env, jobject thiz, jlong decoderRawPointer) {
   IamfDecoderWrapper* wrapper =
       reinterpret_cast<IamfDecoderWrapper*>(decoderRawPointer);
   if (!wrapper || !wrapper->decoder) {
@@ -489,8 +480,9 @@ DECODER_FUNC(jint, iamfReset, jlong decoderRawPointer) {
   return OK;
 }
 
-DECODER_FUNC(jint, iamfResetWithNewMix, jint requestedOutputLayout,
-             jlong requestedMixPresentationId, jlong decoderRawPointer) {
+jint iamfResetWithNewMix(JNIEnv* env, jobject thiz, jint requestedOutputLayout,
+                         jlong requestedMixPresentationId,
+                         jlong decoderRawPointer) {
   IamfDecoderWrapper* wrapper =
       reinterpret_cast<IamfDecoderWrapper*>(decoderRawPointer);
   if (!wrapper || !wrapper->decoder) {
@@ -513,7 +505,8 @@ DECODER_FUNC(jint, iamfResetWithNewMix, jint requestedOutputLayout,
   return OK;
 }
 
-DECODER_FUNC(jint, iamfSignalEndOfDecoding, jlong decoderRawPointer) {
+jint iamfSignalEndOfDecoding(JNIEnv* env, jobject thiz,
+                             jlong decoderRawPointer) {
   IamfDecoderWrapper* wrapper =
       reinterpret_cast<IamfDecoderWrapper*>(decoderRawPointer);
   if (!wrapper || !wrapper->decoder) {
@@ -526,4 +519,56 @@ DECODER_FUNC(jint, iamfSignalEndOfDecoding, jlong decoderRawPointer) {
     return ERROR;
   }
   return OK;
+}
+
+extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
+  JNIEnv* env;
+  if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
+    return ERROR;
+  }
+
+  static const JNINativeMethod kIamfDecoderMethods[] = {
+      {"iamfOpen", "()J", reinterpret_cast<void*>(iamfOpen)},
+      {"iamfClose", "(J)V", reinterpret_cast<void*>(iamfClose)},
+      {"iamfCreate", "(IIIJ)I", reinterpret_cast<void*>(iamfCreate)},
+      {"iamfCreateFromDescriptors", "([BIJIIJ)I",
+       reinterpret_cast<void*>(iamfCreateFromDescriptors)},
+      {"iamfDecode", "(Ljava/nio/ByteBuffer;IJ)I",
+       reinterpret_cast<void*>(iamfDecode)},
+      {"iamfGetOutputTemporalUnit", "(Ljava/nio/ByteBuffer;IJ)I",
+       reinterpret_cast<void*>(iamfGetOutputTemporalUnit)},
+      {"iamfIsTemporalUnitAvailable", "(J)Z",
+       reinterpret_cast<void*>(iamfIsTemporalUnitAvailable)},
+      {"iamfIsDescriptorProcessingComplete", "(J)Z",
+       reinterpret_cast<void*>(iamfIsDescriptorProcessingComplete)},
+      {"iamfGetNumberOfOutputChannels", "(J)I",
+       reinterpret_cast<void*>(iamfGetNumberOfOutputChannels)},
+      {"iamfGetSelectedOutputLayout", "(J)I",
+       reinterpret_cast<void*>(iamfGetSelectedOutputLayout)},
+      {"iamfGetSelectedMixPresentationId", "(J)J",
+       reinterpret_cast<void*>(iamfGetSelectedMixPresentationId)},
+      {"iamfGetOutputSampleType", "(J)I",
+       reinterpret_cast<void*>(iamfGetOutputSampleType)},
+      {"iamfGetSampleRate", "(J)I", reinterpret_cast<void*>(iamfGetSampleRate)},
+      {"iamfGetFrameSize", "(J)I", reinterpret_cast<void*>(iamfGetFrameSize)},
+      {"iamfReset", "(J)I", reinterpret_cast<void*>(iamfReset)},
+      {"iamfResetWithNewMix", "(IJJ)I",
+       reinterpret_cast<void*>(iamfResetWithNewMix)},
+      {"iamfSignalEndOfDecoding", "(J)I",
+       reinterpret_cast<void*>(iamfSignalEndOfDecoding)},
+  };
+
+  jclass clazz = env->FindClass("androidx/media3/decoder/iamf/IamfDecoder");
+  if (!clazz) {
+    LOGE("JNI_OnLoad: FindClass failed for IamfDecoder");
+    return ERROR;
+  }
+  if (env->RegisterNatives(
+          clazz, kIamfDecoderMethods,
+          sizeof(kIamfDecoderMethods) / sizeof(kIamfDecoderMethods[0])) < 0) {
+    LOGE("JNI_OnLoad: RegisterNatives failed for IamfDecoder");
+    return ERROR;
+  }
+
+  return JNI_VERSION_1_6;
 }

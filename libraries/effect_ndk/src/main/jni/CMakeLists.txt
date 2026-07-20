@@ -30,7 +30,9 @@ find_library(jnigraphics-lib jnigraphics)
 
 add_library(${PROJECT_NAME} SHARED hardware_buffer_jni.cc)
 
-
+set_target_properties(${PROJECT_NAME} PROPERTIES
+                      CXX_VISIBILITY_PRESET hidden
+                      VISIBILITY_INLINES_HIDDEN ON)
 
 target_link_libraries(${PROJECT_NAME}
     ${log-lib}
