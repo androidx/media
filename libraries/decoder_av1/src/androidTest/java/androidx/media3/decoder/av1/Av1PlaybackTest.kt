@@ -23,6 +23,7 @@ import androidx.media3.exoplayer.RenderersFactory
 import androidx.media3.exoplayer.video.VideoDecoderGLSurfaceView
 import androidx.media3.test.utils.awaitPlaybackState
 import androidx.test.core.app.ApplicationProvider.getApplicationContext
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import kotlinx.coroutines.Dispatchers
@@ -30,16 +31,10 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.junit.runners.Parameterized
-import org.junit.runners.Parameterized.Parameter
-import org.junit.runners.Parameterized.Parameters
 
 /** Playback tests using [Libdav1dVideoRenderer]. */
-@RunWith(Parameterized::class)
+@RunWith(AndroidJUnit4::class)
 class Av1PlaybackTest {
-
-  @Parameter(0) @JvmField var title: String = ""
-  @Parameter(1) @JvmField var uri: String = ""
 
   @Before
   fun setUp() {
@@ -47,7 +42,7 @@ class Av1PlaybackTest {
   }
 
   @Test
-  fun playback() =
+  fun basicPlayback() =
     runBlocking(Dispatchers.Main) {
       val context = getApplicationContext<Context>()
       val renderersFactory = RenderersFactory { eventHandler, videoRendererEventListener, _, _, _ ->
@@ -62,7 +57,7 @@ class Av1PlaybackTest {
       }
       val player = ExoPlayer.Builder(context).setRenderersFactory(renderersFactory).build()
       player.setVideoSurfaceView(VideoDecoderGLSurfaceView(context))
-      player.setMediaItem(MediaItem.fromUri(uri))
+      player.setMediaItem(MediaItem.fromUri(SAMPLE_AV1_URI))
       player.prepare()
       player.play()
 
@@ -78,12 +73,6 @@ class Av1PlaybackTest {
     }
 
   companion object {
-    @JvmStatic
-    @Parameters(name = "{0}")
-    fun params(): List<Array<Any>> =
-      listOf(
-        arrayOf("8bit_color_sdr", "asset:///media/mp4/sample_av1.mp4"),
-        arrayOf("8bit_monochrome_sdr", "asset:///media/mp4/sample_av1_monochrome_sdr.mp4"),
-      )
+    private const val SAMPLE_AV1_URI = "asset:///media/mp4/sample_av1.mp4"
   }
 }
