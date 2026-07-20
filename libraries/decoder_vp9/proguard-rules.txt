@@ -1,7 +1,7 @@
 # Proguard rules specific to the VP9 extension.
 
 # This prevents the names of native methods from being obfuscated.
--keepclasseswithmembernames class * {
+-keep,includedescriptorclasses class androidx.media3.decoder.vp9.** {
     native <methods>;
 }
 

@@ -59,39 +59,9 @@ static void initializeEGLFunctions() {
   }
 }
 
-extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
-  JNIEnv* env;
-  if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
-    return -1;
-  }
-
-  if (API_AT_LEAST(26)) {
-    s_AHardwareBuffer_fromHardwareBuffer = AHardwareBuffer_fromHardwareBuffer;
-    s_AHardwareBuffer_describe = AHardwareBuffer_describe;
-    s_AHardwareBuffer_lock = AHardwareBuffer_lock;
-    s_AHardwareBuffer_unlock = AHardwareBuffer_unlock;
-  } else {
-    LOGE(
-        "AHardwareBuffer APIs are not available on this Android version (API < "
-        "26)");
-    return -1;
-  }
-
-  initializeEGLFunctions();
-  if (eglCreateImageKHR == nullptr ||
-      eglGetNativeClientBufferANDROID == nullptr ||
-      glEGLImageTargetTexture2DOES == nullptr ||
-      eglDestroyImageKHR == nullptr) {
-    LOGE("Failed to get addresses of GL/EGL functions.");
-    return -1;
-  }
-  return JNI_VERSION_1_6;
-}
-
-extern "C" JNIEXPORT jlong JNICALL
-Java_androidx_media3_effect_ndk_HardwareBufferJni_nativeCreateEglImageFromHardwareBuffer(
-    JNIEnv* env, jobject /* this */, jlong displayHandle,
-    jobject hardwareBufferJava) {
+jlong nativeCreateEglImageFromHardwareBuffer(JNIEnv* env, jobject /* this */,
+                                             jlong displayHandle,
+                                             jobject hardwareBufferJava) {
   EGLDisplay display = reinterpret_cast<EGLDisplay>(displayHandle);
   if (display == EGL_NO_DISPLAY) {
     LOGE("Invalid EGL display");
@@ -119,9 +89,8 @@ Java_androidx_media3_effect_ndk_HardwareBufferJni_nativeCreateEglImageFromHardwa
   return (jlong)eglImage;
 }
 
-extern "C" JNIEXPORT jboolean JNICALL
-Java_androidx_media3_effect_ndk_HardwareBufferJni_nativeBindEGLImage(
-    JNIEnv* env, jobject clazz, jint target, jlong eglImageHandle) {
+jboolean nativeBindEGLImage(JNIEnv* /* env */, jobject /* this */, jint target,
+                            jlong eglImageHandle) {
   if (eglImageHandle == 0) {
     LOGE("Invalid eglImageHandle (0)");
     return JNI_FALSE;
@@ -140,10 +109,9 @@ Java_androidx_media3_effect_ndk_HardwareBufferJni_nativeBindEGLImage(
   return JNI_TRUE;
 }
 
-extern "C" JNIEXPORT jboolean JNICALL
-Java_androidx_media3_effect_ndk_HardwareBufferJni_nativeDestroyEGLImage(
-    JNIEnv* env, jobject clazz, jlong displayHandle, jlong imageHandle) {
-  if (imageHandle == 0) {
+jboolean nativeDestroyEGLImage(JNIEnv* /* env */, jobject /* this */,
+                               jlong displayHandle, jlong eglImageHandle) {
+  if (eglImageHandle == 0) {
     LOGE("Invalid eglImageHandle (0)");
     return JNI_FALSE;
   }
@@ -153,7 +121,7 @@ Java_androidx_media3_effect_ndk_HardwareBufferJni_nativeDestroyEGLImage(
     return JNI_FALSE;
   }
 
-  EGLImageKHR image = reinterpret_cast<EGLImageKHR>(imageHandle);
+  EGLImageKHR image = reinterpret_cast<EGLImageKHR>(eglImageHandle);
   EGLBoolean result = eglDestroyImageKHR(display, image);
 
   if (result == EGL_TRUE) {
@@ -164,12 +132,12 @@ Java_androidx_media3_effect_ndk_HardwareBufferJni_nativeDestroyEGLImage(
   }
 }
 
-extern "C" JNIEXPORT jboolean JNICALL
-Java_androidx_media3_effect_ndk_HardwareBufferJni_nativeCopyBitmapToHardwareBuffer(
-    JNIEnv* env, jobject clazz, jobject bitmap, jobject hardwareBuffer) {
+jboolean nativeCopyBitmapToHardwareBuffer(JNIEnv* env, jobject /* this */,
+                                          jobject bitmap,
+                                          jobject hardwareBufferJava) {
   AHardwareBuffer* hb;
   if (API_AT_LEAST(26)) {
-    hb = s_AHardwareBuffer_fromHardwareBuffer(env, hardwareBuffer);
+    hb = s_AHardwareBuffer_fromHardwareBuffer(env, hardwareBufferJava);
   } else {
     LOGE(
         "AHardwareBuffer APIs are not available on this Android version (API < "
@@ -254,9 +222,10 @@ Java_androidx_media3_effect_ndk_HardwareBufferJni_nativeCopyBitmapToHardwareBuff
   return success;
 }
 
-extern "C" JNIEXPORT jboolean JNICALL
-Java_androidx_media3_effect_ndk_HardwareBufferJni_nativeCopyHardwareBufferToHardwareBuffer(
-    JNIEnv* env, jobject clazz, jobject srcHbJava, jobject dstHbJava) {
+jboolean nativeCopyHardwareBufferToHardwareBuffer(JNIEnv* env,
+                                                  jobject /* this */,
+                                                  jobject srcHbJava,
+                                                  jobject dstHbJava) {
   if (env->IsSameObject(srcHbJava, dstHbJava)) {
     return JNI_TRUE;
   }
@@ -337,4 +306,60 @@ Java_androidx_media3_effect_ndk_HardwareBufferJni_nativeCopyHardwareBufferToHard
   s_AHardwareBuffer_unlock(dstHb, nullptr);
 
   return JNI_TRUE;
+}
+
+extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
+  JNIEnv* env;
+  if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
+    return -1;
+  }
+
+  if (API_AT_LEAST(26)) {
+    s_AHardwareBuffer_fromHardwareBuffer = AHardwareBuffer_fromHardwareBuffer;
+    s_AHardwareBuffer_describe = AHardwareBuffer_describe;
+    s_AHardwareBuffer_lock = AHardwareBuffer_lock;
+    s_AHardwareBuffer_unlock = AHardwareBuffer_unlock;
+  } else {
+    LOGE(
+        "AHardwareBuffer APIs are not available on this Android version (API < "
+        "26)");
+    return -1;
+  }
+
+  initializeEGLFunctions();
+  if (eglCreateImageKHR == nullptr ||
+      eglGetNativeClientBufferANDROID == nullptr ||
+      glEGLImageTargetTexture2DOES == nullptr ||
+      eglDestroyImageKHR == nullptr) {
+    LOGE("Failed to get addresses of GL/EGL functions.");
+    return -1;
+  }
+
+  jclass clazz = env->FindClass("androidx/media3/effect/ndk/HardwareBufferJni");
+  if (!clazz) {
+    LOGE("JNI_OnLoad: FindClass failed for HardwareBufferJni");
+    return -1;
+  }
+  static const JNINativeMethod kMethods[] = {
+      {"nativeCreateEglImageFromHardwareBuffer",
+       "(JLandroid/hardware/HardwareBuffer;)J",
+       reinterpret_cast<void*>(nativeCreateEglImageFromHardwareBuffer)},
+      {"nativeBindEGLImage", "(IJ)Z",
+       reinterpret_cast<void*>(nativeBindEGLImage)},
+      {"nativeDestroyEGLImage", "(JJ)Z",
+       reinterpret_cast<void*>(nativeDestroyEGLImage)},
+      {"nativeCopyBitmapToHardwareBuffer",
+       "(Landroid/graphics/Bitmap;Landroid/hardware/HardwareBuffer;)Z",
+       reinterpret_cast<void*>(nativeCopyBitmapToHardwareBuffer)},
+      {"nativeCopyHardwareBufferToHardwareBuffer",
+       "(Landroid/hardware/HardwareBuffer;Landroid/hardware/HardwareBuffer;)Z",
+       reinterpret_cast<void*>(nativeCopyHardwareBufferToHardwareBuffer)},
+  };
+  if (env->RegisterNatives(clazz, kMethods,
+                           sizeof(kMethods) / sizeof(kMethods[0])) < 0) {
+    LOGE("JNI_OnLoad: RegisterNatives failed for HardwareBufferJni");
+    return -1;
+  }
+
+  return JNI_VERSION_1_6;
 }

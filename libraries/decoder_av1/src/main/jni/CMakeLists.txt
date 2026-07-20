@@ -55,6 +55,10 @@ add_library(dav1dJNI
             cpu_info.cc
             cpu_info.h)
 
+set_target_properties(dav1dJNI PROPERTIES
+                      CXX_VISIBILITY_PRESET hidden
+                      VISIBILITY_INLINES_HIDDEN ON)
+
 # Locate NDK log library.
 find_library(android_log_lib log)
 

@@ -57,23 +57,6 @@
 #define LOG_TAG "dav1d_jni"
 #define LOGE(...) \
   ((void)__android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__))
-
-#define DECODER_FUNC(RETURN_TYPE, NAME, ...)                                  \
-  extern "C" {                                                                \
-  JNIEXPORT RETURN_TYPE Java_androidx_media3_decoder_av1_Dav1dDecoder_##NAME( \
-      JNIEnv* env, jobject thiz, ##__VA_ARGS__);                              \
-  }                                                                           \
-  JNIEXPORT RETURN_TYPE Java_androidx_media3_decoder_av1_Dav1dDecoder_##NAME( \
-      JNIEnv* env, jobject thiz, ##__VA_ARGS__)
-
-extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
-  JNIEnv* env;
-  if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
-    return -1;
-  }
-  return JNI_VERSION_1_6;
-}
-
 namespace {
 
 // YUV plane indices.
@@ -491,8 +474,8 @@ void CleanUpAllocatorData(jlong jContext, JNIEnv* env) {
 }
 }  // namespace
 
-DECODER_FUNC(jlong, dav1dInit, jint threads, jint max_frame_delay,
-             jboolean use_custom_allocator, jint num_input_buffers) {
+jlong dav1dInit(JNIEnv* env, jobject thiz, jint threads, jint max_frame_delay,
+                jboolean use_custom_allocator, jint num_input_buffers) {
   JniContext* context = new (std::nothrow) JniContext();
   if (context == nullptr) {
     return kStatusError;
@@ -656,7 +639,7 @@ DECODER_FUNC(jlong, dav1dInit, jint threads, jint max_frame_delay,
   return reinterpret_cast<jlong>(context);
 }
 
-DECODER_FUNC(void, dav1dClose, jlong jContext) {
+void dav1dClose(JNIEnv* env, jobject thiz, jlong jContext) {
   if (jContext == kStatusError) {
     return;
   }
@@ -696,9 +679,10 @@ DECODER_FUNC(void, dav1dClose, jlong jContext) {
   delete context;
 }
 
-DECODER_FUNC(jint, dav1dDecode, jlong jContext, jobject jInputBuffer,
-             jint bufferIndex, jint offset, jint length, jboolean decodeOnly,
-             jint flags, jlong timeUs, jint outputMode) {
+jint dav1dDecode(JNIEnv* env, jobject thiz, jlong jContext,
+                 jobject jInputBuffer, jint bufferIndex, jint offset,
+                 jint length, jboolean decodeOnly, jint flags, jlong timeUs,
+                 jint outputMode) {
   if (jContext == kStatusError) {
     return kStatusError;
   }
@@ -782,7 +766,8 @@ DECODER_FUNC(jint, dav1dDecode, jlong jContext, jobject jInputBuffer,
   return kStatusOk;
 }
 
-DECODER_FUNC(jint, dav1dGetFrame, jlong jContext, jobject jOutputBuffer) {
+jint dav1dGetFrame(JNIEnv* env, jobject thiz, jlong jContext,
+                   jobject jOutputBuffer) {
   if (jContext == kStatusError) {
     return kStatusError;
   }
@@ -907,8 +892,8 @@ DECODER_FUNC(jint, dav1dGetFrame, jlong jContext, jobject jOutputBuffer) {
   return kStatusOk;
 }
 
-DECODER_FUNC(jint, dav1dRenderFrame, jlong jContext, jobject jSurface,
-             jobject jOutputBuffer) {
+jint dav1dRenderFrame(JNIEnv* env, jobject thiz, jlong jContext,
+                      jobject jSurface, jobject jOutputBuffer) {
   if (jContext == kStatusError) {
     LOGE("Failed to render frame. jContext is error.");
     return kStatusError;
@@ -1026,7 +1011,8 @@ DECODER_FUNC(jint, dav1dRenderFrame, jlong jContext, jobject jSurface,
   return kStatusOk;
 }
 
-DECODER_FUNC(void, dav1dReleaseFrame, jlong jContext, jobject jOutputBuffer) {
+void dav1dReleaseFrame(JNIEnv* env, jobject thiz, jlong jContext,
+                       jobject jOutputBuffer) {
   if (jContext == kStatusError) {
     return;
   }
@@ -1047,7 +1033,7 @@ DECODER_FUNC(void, dav1dReleaseFrame, jlong jContext, jobject jOutputBuffer) {
   }
 }
 
-DECODER_FUNC(jstring, dav1dGetErrorMessage, jlong jContext) {
+jstring dav1dGetErrorMessage(JNIEnv* env, jobject thiz, jlong jContext) {
   if (jContext == kStatusError) {
     return env->NewStringUTF("Failed to initialize JNI context.");
   }
@@ -1074,7 +1060,7 @@ DECODER_FUNC(jstring, dav1dGetErrorMessage, jlong jContext) {
   return env->NewStringUTF("None.");
 }
 
-DECODER_FUNC(jint, dav1dGetLastErrorJniStatusCode, jlong jContext) {
+jint dav1dGetLastErrorJniStatusCode(JNIEnv* env, jobject thiz, jlong jContext) {
   if (jContext == kStatusError) {
     return kJniStatusOk;
   }
@@ -1082,7 +1068,7 @@ DECODER_FUNC(jint, dav1dGetLastErrorJniStatusCode, jlong jContext) {
   return context->jni_status_code;
 }
 
-DECODER_FUNC(jint, dav1dCheckError, jlong jContext) {
+jint dav1dCheckError(JNIEnv* env, jobject thiz, jlong jContext) {
   if (jContext == kStatusError) {
     return kStatusError;
   }
@@ -1095,7 +1081,7 @@ DECODER_FUNC(jint, dav1dCheckError, jlong jContext) {
              : kStatusOk;
 }
 
-DECODER_FUNC(void, dav1dFlush, jlong jContext) {
+void dav1dFlush(JNIEnv* env, jobject thiz, jlong jContext) {
   if (jContext == kStatusError) {
     return;
   }
@@ -1106,7 +1092,8 @@ DECODER_FUNC(void, dav1dFlush, jlong jContext) {
   }
 }
 
-DECODER_FUNC(void, releaseUnusedInputBuffers, jlong jContext, jobject decoder) {
+void releaseUnusedInputBuffers(JNIEnv* env, jobject thiz, jlong jContext,
+                               jobject decoder) {
   if (jContext == kStatusError) {
     return;
   }
@@ -1133,4 +1120,49 @@ DECODER_FUNC(void, releaseUnusedInputBuffers, jlong jContext, jobject decoder) {
   if (context->use_custom_allocator) {
     CleanUpAllocatorData(jContext, env);
   }
+}
+
+extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
+  JNIEnv* env;
+  if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
+    return -1;
+  }
+
+  jclass clazz = env->FindClass("androidx/media3/decoder/av1/Dav1dDecoder");
+  if (!clazz) {
+    LOGE("JNI_OnLoad: FindClass failed for Dav1dDecoder");
+    return -1;
+  }
+  static const JNINativeMethod kMethods[] = {
+      {"dav1dInit", "(IIZI)J", reinterpret_cast<void*>(dav1dInit)},
+      {"dav1dClose", "(J)V", reinterpret_cast<void*>(dav1dClose)},
+      {"dav1dDecode", "(JLandroidx/media3/decoder/DecoderInputBuffer;IIIZIJI)I",
+       reinterpret_cast<void*>(dav1dDecode)},
+      {"dav1dGetFrame",
+       "(JLandroidx/media3/decoder/VideoDecoderOutputBuffer;)I",
+       reinterpret_cast<void*>(dav1dGetFrame)},
+      {"dav1dRenderFrame",
+       "(JLandroid/view/Surface;Landroidx/media3/decoder/"
+       "VideoDecoderOutputBuffer;)I",
+       reinterpret_cast<void*>(dav1dRenderFrame)},
+      {"dav1dReleaseFrame",
+       "(JLandroidx/media3/decoder/VideoDecoderOutputBuffer;)V",
+       reinterpret_cast<void*>(dav1dReleaseFrame)},
+      {"dav1dGetErrorMessage", "(J)Ljava/lang/String;",
+       reinterpret_cast<void*>(dav1dGetErrorMessage)},
+      {"dav1dGetLastErrorJniStatusCode", "(J)I",
+       reinterpret_cast<void*>(dav1dGetLastErrorJniStatusCode)},
+      {"dav1dCheckError", "(J)I", reinterpret_cast<void*>(dav1dCheckError)},
+      {"dav1dFlush", "(J)V", reinterpret_cast<void*>(dav1dFlush)},
+      {"releaseUnusedInputBuffers",
+       "(JLandroidx/media3/decoder/av1/Dav1dDecoder;)V",
+       reinterpret_cast<void*>(releaseUnusedInputBuffers)},
+  };
+  if (env->RegisterNatives(clazz, kMethods,
+                           sizeof(kMethods) / sizeof(kMethods[0])) < 0) {
+    LOGE("JNI_OnLoad: RegisterNatives failed for Dav1dDecoder");
+    return -1;
+  }
+
+  return JNI_VERSION_1_6;
 }
