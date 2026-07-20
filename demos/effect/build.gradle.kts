@@ -43,7 +43,7 @@ dependencies {
   implementation(libs.material)
 
   implementation(project(":lib-exoplayer"))
-  implementation(project(":lib-ui"))
+  implementation(project(":lib-ui-compose-material3"))
   implementation(project(":lib-effect"))
   implementation(project(":lib-effect-lottie"))
 
