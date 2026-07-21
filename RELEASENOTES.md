@@ -1,33 +1,19 @@
 # Release notes
 
-### Unreleased changes
+### 1.11.0-rc01 (2026-07-22)
 
-*   Common Library:
+This release includes the following changes since
+[1.11.0-beta01](#1110-beta01-2026-07-08):
+
 *   ExoPlayer:
     *   Fix potential scrubbing mode issue where scrubbing could stall when
         seeking to 'end of stream'.
     *   Revert: Add support for ads in multi-period content (e.g., DASH) by
         splitting and offsetting the `AdPlaybackState` for each period.
-*   CompositionPlayer:
-*   Transformer:
-*   Track Selection:
-*   Extractors:
-*   Inspector:
-*   Inspector Frame:
-*   Audio:
-*   Video:
-*   Text:
-*   Metadata:
-*   Image:
 *   DataSource:
     *   Fix `KtorDataSource` loading the entire HTTP response body into memory
         when opening a connection
         ([#3305](https://github.com/androidx/media/issues/3305)).
-*   DRM:
-*   Effect:
-*   Effect Lottie:
-*   Muxers:
-*   IMA extension:
 *   Session:
     *   Fix crash by catching `ForegroundServiceStartNotAllowedException` in
         `MediaSessionService.stopSelfSafely()`
@@ -35,13 +21,9 @@
     *   Fix unexpected `onMediaItemTransition()` callback on `MediaController`
         when seeking inside the same media item
         ([#3248](https://github.com/androidx/media/issues/3248)).
-*   UI:
 *   Downloads:
     *   Resolve HLS variables in media playlist when fetched for download
         ([#3258](https://github.com/androidx/media/issues/3258)).
-*   OkHttp extension:
-*   Cronet extension:
-*   RTMP extension:
 *   HLS extension:
     *   Fix calculation of content resume offset when resolving interstitial
         asset lists ([#3322](https://github.com/androidx/media/issues/3322)).
@@ -55,20 +37,12 @@
     *   Fix crash (`IndexOutOfBoundsException`) when opening manifests with an
         empty `<SegmentTimeline/>` element
         ([#3326](https://github.com/androidx/media/issues/3326)).
-*   Smooth Streaming extension:
-*   RTSP extension:
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
     *   Revert monochrome video support to bundled dav1d JNI.
-*   MIDI extension:
-*   Leanback extension:
 *   Cast extension:
     *   Fix bug where unconfigured live streams (`liveConfiguration == UNSET`)
         were queued as `STREAM_TYPE_BUFFERED`
         ([#3318](https://github.com/androidx/media/issues/3318)).
-*   Test Utilities:
-*   Remove deprecated symbols:
-
-## 1.11
 
 ### 1.11.0-beta01 (2026-07-08)
 
