@@ -38,6 +38,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.shadows.ShadowLooper;
 
 /** Tests the {@link RtspClient} using the {@link RtspServer}. */
 @RunWith(AndroidJUnit4.class)
@@ -529,5 +530,51 @@ public final class RtspClientTest {
 
     RobolectricUtil.runMainLooperUntil(timelineRequestFailed::get);
     assertThat(rtspClient.getState()).isEqualTo(RtspClient.RTSP_STATE_UNINITIALIZED);
+  }
+
+  @Test
+  public void close_serverWithoutDescribeSupport_clearsPendingRequestAndPreventsError()
+      throws Exception {
+    AtomicBoolean optionsResponseSent = new AtomicBoolean();
+    AtomicBoolean onSessionTimelineRequestFailed = new AtomicBoolean();
+    rtspServer =
+        new RtspServer(
+            () -> {
+              optionsResponseSent.set(true);
+              // Return an OPTIONS response that does NOT include DESCRIBE.
+              // If this is incorrectly processed after close(), it will trigger a failure.
+              return new RtspResponse(
+                  /* status= */ 200,
+                  new RtspHeaders.Builder().add(RtspHeaders.PUBLIC, "OPTIONS").build());
+            });
+    rtspClient =
+        new RtspClient(
+            new SessionInfoListener() {
+              @Override
+              public void onSessionTimelineUpdated(
+                  RtspSessionTiming timing, ImmutableList<RtspMediaTrack> tracks) {}
+
+              @Override
+              public void onSessionTimelineRequestFailed(
+                  String message, @Nullable Throwable cause) {
+                onSessionTimelineRequestFailed.set(true);
+              }
+            },
+            EMPTY_PLAYBACK_LISTENER,
+            /* userAgent= */ "ExoPlayer:RtspClientTest",
+            RtspTestUtils.getTestUri(rtspServer.startAndGetPortNumber()),
+            SocketFactory.getDefault(),
+            /* debugLoggingEnabled= */ false);
+    rtspClient.start();
+
+    RobolectricUtil.runMainLooperUntil(optionsResponseSent::get);
+    int maxWaitLoops = 5000;
+    while (ShadowLooper.shadowMainLooper().isIdle() && maxWaitLoops-- > 0) {
+      Thread.sleep(1);
+    }
+    rtspClient.close();
+    ShadowLooper.idleMainLooper();
+
+    assertThat(onSessionTimelineRequestFailed.get()).isFalse();
   }
 }

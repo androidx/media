@@ -265,12 +265,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public void close() throws IOException {
     if (keepAliveMonitor != null) {
-      // Playback has started. We have to stop the periodic keep alive and send a TEARDOWN so that
-      // the RTSP server stops sending RTP packets and frees up resources.
       keepAliveMonitor.close();
       keepAliveMonitor = null;
-      messageSender.sendTeardownRequest(uri, checkNotNull(sessionId));
     }
+    if (sessionId != null) {
+      messageSender.sendTeardownRequest(uri, sessionId);
+    }
+    rtspState = RTSP_STATE_UNINITIALIZED;
+    sessionId = null;
+    pendingSetupRtpLoadInfos.clear();
+    pendingRequests.clear();
     messageChannel.close();
   }
 
@@ -284,7 +288,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       close();
       messageChannel = new RtspMessageChannel(new MessageListener());
       messageChannel.open(getSocket(uri));
-      sessionId = null;
       receivedAuthorizationRequest = false;
       rtspAuthenticationInfo = null;
     } catch (IOException e) {

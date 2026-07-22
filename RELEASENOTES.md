@@ -61,6 +61,8 @@
         attributes ([#3315](https://github.com/androidx/media/issues/3315)).
 *   Smooth Streaming extension:
 *   RTSP extension:
+    *   Fix an `IllegalStateException` crash that occurred when processing
+        delayed network responses after the RTSP client was closed.
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
 *   MIDI extension:
 *   Leanback extension:
