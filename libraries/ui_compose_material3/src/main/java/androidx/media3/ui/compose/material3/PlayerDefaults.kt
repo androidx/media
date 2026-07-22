@@ -218,12 +218,13 @@ object PlayerDefaults {
     below: @Composable ColumnScope.(Player?) -> Unit = {},
     progressSlider: @Composable (Player?) -> Unit = { ProgressSlider(it) },
   ) {
-    AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut()) {
-      Column(
-        modifier
-          .background(brush = PlayerTokens.bottomControlsGradient)
-          .padding(horizontal = PlayerTokens.ControlsHorizontalPadding)
-      ) {
+    AnimatedVisibility(
+      visible = visible,
+      modifier = Modifier.background(brush = PlayerTokens.bottomControlsGradient),
+      enter = fadeIn(),
+      exit = fadeOut(),
+    ) {
+      Column(modifier.padding(horizontal = PlayerTokens.ControlsHorizontalPadding)) {
         above(player)
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
           left(player)
