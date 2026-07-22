@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.util.GlUtil;
@@ -32,6 +33,10 @@ import java.util.Iterator;
   public interface TextureAllocator {
     int createTexture(int width, int height, boolean useHighPrecisionColorComponents)
         throws GlUtil.GlException;
+  }
+
+  /* package */ interface Factory {
+    TexturePool create(ColorInfo outputColorInfo);
   }
 
   private final TextureAllocator textureAllocator;

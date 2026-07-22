@@ -56,6 +56,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
 import org.junit.Before;
@@ -145,6 +146,59 @@ public final class DefaultGlFrameProcessorTest {
     assertThat(fakeGlShaderProgram.signalEndOfCurrentInputStreamCalled).isTrue();
     assertThat(fakeFrameWriterGlTextureFrameConsumer.signalEndOfStreamCalled).isTrue();
     assertThat(frameWriter.signalEndOfStreamCalled).isTrue();
+  }
+
+  @Test
+  public void constructor_defersComponentInitializationToQueue() throws Exception {
+    AtomicBoolean componentCreated = new AtomicBoolean(false);
+    DefaultGlFrameProcessor.Factory customFactory =
+        new DefaultGlFrameProcessor.Factory(
+            context,
+            new GlFrameProcessorTestUtil.FakeGlObjectsProvider(),
+            glExecutorService,
+            /* hardwareBufferConverterFactory= */ outputColorInfo -> {
+              componentCreated.set(true);
+              return fakeHardwareBufferConverter;
+            },
+            fakeFrameWriterGlTextureFrameConsumer,
+            new FakeCompositorGlProgram(),
+            /* compositorTexturePoolFactory= */ outputColorInfo ->
+                new TexturePool(
+                    /* textureAllocator= */ (width, height, useHighPrecisionColorComponents) -> 100,
+                    /* useHighPrecisionColorComponents= */ false,
+                    /* capacity= */ COMPOSITOR_CAPACITY));
+
+    try (DefaultGlFrameProcessor customProcessor =
+        customFactory.create(
+            frameWriter,
+            glExecutorService,
+            new FrameProcessor.Listener() {
+              @Override
+              public void onWakeup() {}
+
+              @Override
+              public void onError(VideoFrameProcessingException exception) {
+                throw new AssertionError(exception);
+              }
+
+              @Override
+              public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper fence) {}
+            })) {
+
+      // Assert that the closure has not been executed yet.
+      assertThat(componentCreated.get()).isFalse();
+
+      // Call queue.
+      Frame frame = createFakeHardwareBufferFrame(/* sequenceIndex= */ 0, fakeEffect);
+      assertThat(
+              customProcessor.queue(
+                  ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null))))
+          .isTrue();
+      waitUntilGlThreadFinishes();
+
+      // Now the components should be lazily instantiated!
+      assertThat(componentCreated.get()).isTrue();
+    }
   }
 
   @Test
@@ -1164,13 +1218,14 @@ public final class DefaultGlFrameProcessorTest {
         context,
         new GlFrameProcessorTestUtil.FakeGlObjectsProvider(),
         glExecutorService,
-        fakeHardwareBufferConverter,
+        outputColorInfo -> fakeHardwareBufferConverter,
         fakeFrameWriterGlTextureFrameConsumer,
         new FakeCompositorGlProgram(),
-        new TexturePool(
-            /* textureAllocator= */ (width, height, useHighPrecisionColorComponents) -> 100,
-            /* useHighPrecisionColorComponents= */ false,
-            /* capacity= */ COMPOSITOR_CAPACITY));
+        outputColorInfo ->
+            new TexturePool(
+                /* textureAllocator= */ (width, height, useHighPrecisionColorComponents) -> 100,
+                /* useHighPrecisionColorComponents= */ false,
+                /* capacity= */ COMPOSITOR_CAPACITY));
   }
 
   private static Frame createFakeHardwareBufferFrame(

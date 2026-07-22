@@ -54,6 +54,7 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
  * A {@link FrameProcessor} implementation that executes a chain of {@link GlTextureFrameConsumer}s.
@@ -66,6 +67,11 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
 
   /** Converts from {@link HardwareBuffer} to {@link GlTextureFrame}. */
   interface HardwareBufferConverter extends AutoCloseable {
+
+    @VisibleForTesting
+    /* package */ interface Factory {
+      HardwareBufferConverter create(ColorInfo outputColorInfo);
+    }
 
     // TODO: b/517424999 - Unify the listeners to follow the same pattern as FrameProcessor.
     /**
@@ -105,12 +111,14 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     private final Context context;
     private final GlObjectsProvider glObjectsProvider;
     private final ExecutorService glExecutorService;
-    @Nullable private final HardwareBufferConverter hardwareBufferConverter;
+    @Nullable private final HardwareBufferConverter.Factory hardwareBufferConverterFactory;
     @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
     @Nullable private final GlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
     private final CompositorGlProgram compositorGlProgram;
-    private final TexturePool compositorTexturePool;
+    @Nullable private final TexturePool.Factory compositorTexturePoolFactory;
 
+    // TODO: b/536810100 - Remove this constructor and make the testing constructor public so
+    // callers can pass factories.
     /**
      * Creates an instance.
      *
@@ -127,12 +135,14 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       this.glObjectsProvider = glObjectsProvider;
       this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
       this.glExecutorService = glExecutorService;
-      hardwareBufferConverter = null;
+      hardwareBufferConverterFactory = null;
       frameWriterGlTextureFrameConsumer = null;
       compositorGlProgram = new DefaultCompositorGlProgram(context);
-      compositorTexturePool =
-          new TexturePool(
-              /* useHighPrecisionColorComponents= */ false, DEFAULT_COMPOSITOR_CAPACITY);
+      compositorTexturePoolFactory =
+          outputColorInfo ->
+              new TexturePool(
+                  /* useHighPrecisionColorComponents= */ ColorInfo.isTransferHdr(outputColorInfo),
+                  DEFAULT_COMPOSITOR_CAPACITY);
     }
 
     /**
@@ -147,17 +157,17 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
         Context context,
         GlObjectsProvider glObjectsProvider,
         ListeningExecutorService glExecutorService,
-        HardwareBufferConverter hardwareBufferConverter,
+        HardwareBufferConverter.Factory hardwareBufferConverterFactory,
         GlTextureFrameConsumer frameWriterGlTextureFrameConsumer,
         CompositorGlProgram compositorGlProgram,
-        TexturePool compositorTexturePool) {
+        TexturePool.Factory compositorTexturePoolFactory) {
       this.context = context;
       this.glObjectsProvider = glObjectsProvider;
       this.glExecutorService = glExecutorService;
-      this.hardwareBufferConverter = hardwareBufferConverter;
+      this.hardwareBufferConverterFactory = hardwareBufferConverterFactory;
       this.frameWriterGlTextureFrameConsumer = frameWriterGlTextureFrameConsumer;
       this.compositorGlProgram = compositorGlProgram;
-      this.compositorTexturePool = compositorTexturePool;
+      this.compositorTexturePoolFactory = compositorTexturePoolFactory;
       hardwareBufferJniWrapper = null;
     }
 
@@ -170,24 +180,28 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
         frameWriterGlTextureFrameConsumer =
             new FrameWriterGlTextureFrameConsumer(context, output, hardwareBufferJniWrapper);
       }
-      HardwareBufferConverter hardwareBufferConverter = this.hardwareBufferConverter;
-      if (hardwareBufferConverter == null && hardwareBufferJniWrapper != null) {
-        hardwareBufferConverter =
-            new HardwareBufferToGlTextureConverter(
-                context,
-                hardwareBufferJniWrapper,
-                // TODO: b/517525358 - Use correct output color info once HDR is supported.
-                ColorInfo.SDR_BT709_LIMITED,
-                e -> listenerExecutor.execute(() -> listener.onError(e)));
+      HardwareBufferConverter.Factory hardwareBufferConverterFactory =
+          this.hardwareBufferConverterFactory;
+      if (hardwareBufferConverterFactory == null && hardwareBufferJniWrapper != null) {
+        HardwareBufferJniWrapper nonNullHardwareBufferJniWrapper = hardwareBufferJniWrapper;
+        hardwareBufferConverterFactory =
+            outputColorInfo ->
+                new HardwareBufferToGlTextureConverter(
+                    context,
+                    nonNullHardwareBufferJniWrapper,
+                    outputColorInfo,
+                    e -> listenerExecutor.execute(() -> listener.onError(e)));
       }
+      TexturePool.Factory compositorTexturePoolFactory =
+          checkNotNull(this.compositorTexturePoolFactory);
       return new DefaultGlFrameProcessor(
           context,
           listeningDecorator(glExecutorService),
           glObjectsProvider,
-          checkNotNull(hardwareBufferConverter),
+          checkNotNull(hardwareBufferConverterFactory),
           checkNotNull(frameWriterGlTextureFrameConsumer),
           compositorGlProgram,
-          compositorTexturePool,
+          checkNotNull(compositorTexturePoolFactory),
           listenerExecutor,
           listener);
     }
@@ -247,21 +261,25 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   private final Context context;
   private final GlObjectsProvider glObjectsProvider;
   private final ListeningExecutorService glExecutorService;
-  private final HardwareBufferConverter hardwareBufferConverter;
+  private final HardwareBufferConverter.Factory hardwareBufferConverterFactory;
+  private final TexturePool.Factory compositorTexturePoolFactory;
   private final GlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
+  private final CompositorGlProgram compositorGlProgram;
   private final Executor listenerExecutor;
   private final Listener listener;
   private final Consumer<VideoFrameProcessingException> errorConsumer;
   // Accessed on the OpenGL thread.
   private final SparseArray<GlTextureFrameProcessorChain> preProcessingChains;
-  private final GlTextureFrameAggregator frameAggregator;
-  private final DefaultGlTextureFrameCompositingProcessor compositingProcessor;
-  private final GlTextureFrameProcessorChain postProcessingChain;
   private final Set<GlTextureFrame> glTextureFramesQueuedDownstream;
   private final SparseArray<GlTextureFrame> convertedGlTextureFrames;
   private final Object lock;
   // Accessed only on GL thread. This field is to avoid creating a new set on queueing every time.
   private final Set<Integer> activeSequenceIndices;
+
+  private @MonotonicNonNull GlTextureFrameAggregator frameAggregator;
+  private @MonotonicNonNull DefaultGlTextureFrameCompositingProcessor compositingProcessor;
+  private @MonotonicNonNull GlTextureFrameProcessorChain postProcessingChain;
+  private @MonotonicNonNull HardwareBufferConverter hardwareBufferConverter;
 
   @GuardedBy("lock")
   @Nullable
@@ -276,50 +294,36 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   @GuardedBy("lock")
   private boolean shouldSignalEos;
 
+  // Accessed on the GL thread.
+  private boolean isPipelineInitialized;
+
   private DefaultGlFrameProcessor(
       Context context,
       ListeningExecutorService glExecutorService,
       GlObjectsProvider glObjectsProvider,
-      HardwareBufferConverter hardwareBufferConverter,
+      HardwareBufferConverter.Factory hardwareBufferConverterFactory,
       GlTextureFrameConsumer frameWriterGlTextureFrameConsumer,
       CompositorGlProgram compositorGlProgram,
-      TexturePool compositorTexturePool,
+      TexturePool.Factory compositorTexturePoolFactory,
       Executor listenerExecutor,
       Listener listener) {
     this.context = context;
     this.glObjectsProvider = glObjectsProvider;
     this.glExecutorService = glExecutorService;
-    this.hardwareBufferConverter = hardwareBufferConverter;
+    this.hardwareBufferConverterFactory = hardwareBufferConverterFactory;
     this.frameWriterGlTextureFrameConsumer = frameWriterGlTextureFrameConsumer;
+    this.compositorGlProgram = compositorGlProgram;
+    this.compositorTexturePoolFactory = compositorTexturePoolFactory;
     this.listenerExecutor = listenerExecutor;
     this.listener = listener;
     this.errorConsumer = e -> listenerExecutor.execute(() -> listener.onError(e));
     this.glTextureFramesQueuedDownstream = Collections.newSetFromMap(new IdentityHashMap<>());
     this.convertedGlTextureFrames = new SparseArray<>();
 
-    postProcessingChain =
-        new GlTextureFrameProcessorChain(
-            context,
-            glObjectsProvider,
-            glExecutorService,
-            errorConsumer,
-            frameWriterGlTextureFrameConsumer,
-            KEY_COMPOSITION_EFFECTS);
-
-    compositingProcessor =
-        new DefaultGlTextureFrameCompositingProcessor(
-            glObjectsProvider,
-            compositorTexturePool,
-            errorConsumer,
-            compositorGlProgram,
-            glExecutorService,
-            postProcessingChain);
-
-    frameAggregator =
-        new GlTextureFrameAggregator(compositingProcessor, glExecutorService, errorConsumer);
     preProcessingChains = new SparseArray<>();
     lock = new Object();
     activeSequenceIndices = new HashSet<>();
+    isPipelineInitialized = false;
   }
 
   @Override
@@ -344,12 +348,17 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
                 return null;
               }
             }
+            if (!isPipelineInitialized) {
+              // TODO: b/517525358 - Use correct output color info once HDR is supported.
+              // For now, use static SDR_BT709_LIMITED since initialization is deferred here.
+              initializePipeline(ColorInfo.SDR_BT709_LIMITED);
+            }
             activeSequenceIndices.clear();
             for (int i = 0; i < frames.size(); i++) {
               activeSequenceIndices.add(extractSequenceIndex(frames.get(i).frame));
             }
             // TODO: b/528240409 - Make config signal in-band.
-            frameAggregator.configureSequenceIndices(activeSequenceIndices);
+            checkNotNull(frameAggregator).configureSequenceIndices(activeSequenceIndices);
 
             convertToGlTextureFrames(frames);
             for (int i = 0; i < frames.size(); i++) {
@@ -392,19 +401,51 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
         () -> {
           ImmutableList.Builder<ThrowingRunnable> closeActions = ImmutableList.builder();
           closeActions.addAll(getReleaseUnqueuedFramesActions());
-          closeActions.add(hardwareBufferConverter::close);
+          if (hardwareBufferConverter != null) {
+            closeActions.add(hardwareBufferConverter::close);
+          }
           for (int i = 0; i < preProcessingChains.size(); i++) {
             GlTextureFrameProcessorChain processorChain = preProcessingChains.valueAt(i);
             closeActions.add(processorChain::close);
           }
-          closeActions
-              .add(frameAggregator::close)
-              .add(compositingProcessor::close)
-              .add(postProcessingChain::close)
-              .add(frameWriterGlTextureFrameConsumer::close);
+          if (frameAggregator != null) {
+            closeActions.add(frameAggregator::close);
+          }
+          if (compositingProcessor != null) {
+            closeActions.add(compositingProcessor::close);
+          } else {
+            closeActions.add(compositorGlProgram::release);
+          }
+          if (postProcessingChain != null) {
+            closeActions.add(postProcessingChain::close);
+          }
+          closeActions.add(frameWriterGlTextureFrameConsumer::close);
           runAllAndAccumulateExceptions(closeActions.build().toArray(new ThrowingRunnable[0]));
           return null;
         });
+  }
+
+  private void initializePipeline(ColorInfo outputColorInfo) {
+    hardwareBufferConverter = hardwareBufferConverterFactory.create(outputColorInfo);
+    postProcessingChain =
+        new GlTextureFrameProcessorChain(
+            context,
+            glObjectsProvider,
+            glExecutorService,
+            errorConsumer,
+            frameWriterGlTextureFrameConsumer,
+            KEY_COMPOSITION_EFFECTS);
+    compositingProcessor =
+        new DefaultGlTextureFrameCompositingProcessor(
+            glObjectsProvider,
+            compositorTexturePoolFactory.create(outputColorInfo),
+            errorConsumer,
+            compositorGlProgram,
+            glExecutorService,
+            postProcessingChain);
+    frameAggregator =
+        new GlTextureFrameAggregator(compositingProcessor, glExecutorService, errorConsumer);
+    isPipelineInitialized = true;
   }
 
   private void submitToGlExecutor(Callable<Void> operation) {
@@ -433,7 +474,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
                 glObjectsProvider,
                 glExecutorService,
                 errorConsumer,
-                frameAggregator.getInputConsumer(sequenceIndex),
+                checkNotNull(frameAggregator).getInputConsumer(sequenceIndex),
                 KEY_ITEM_EFFECTS);
         preProcessingChains.put(sequenceIndex, processingChain);
       }
@@ -467,8 +508,9 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       convertedGlTextureFrames.put(
           sequenceIndex,
           checkNotNull(
-              hardwareBufferConverter.convert(
-                  (HardwareBufferFrame) frame, glExecutorService, listenerExecutor, listener)));
+              checkNotNull(hardwareBufferConverter)
+                  .convert(
+                      (HardwareBufferFrame) frame, glExecutorService, listenerExecutor, listener)));
     }
   }
 
