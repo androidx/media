@@ -71,7 +71,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private int currentStreamDiscontinuityNumber;
   @Nullable private Format currentFormat;
   private boolean inputStreamEnded;
-  private boolean receivedEosSignal;
+  private boolean hasSignaledEosToWrappedShader;
+  private boolean receivedEosSignalFromWrappedShader;
 
   public GlShaderProgramAdapter(
       GlShaderProgram glShaderProgram,
@@ -126,14 +127,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     if (currentFormat == null) {
+      // currentFormat is set to null after the wrapped shader has processed the EOS
       currentFormat = frame.format;
-      inputStreamEnded = false;
+      // Resets pending EOS signal from format transition to prevent prematurely signaling EOS to
+      // downstreamConsumer if the upstream signals EOS.
+      receivedEosSignalFromWrappedShader = false;
+      hasSignaledEosToWrappedShader = false;
     }
     if (!frame.format.equals(currentFormat)) {
       pendingWakeupListener = wakeupListener;
       pendingWakeupExecutor = listenerExecutor;
-      if (!inputStreamEnded) {
-        inputStreamEnded = true;
+      // TODO: b/524240959 - Don't use format change to signal EOS.
+      if (!hasSignaledEosToWrappedShader) {
+        hasSignaledEosToWrappedShader = true;
         glShaderProgram.signalEndOfCurrentInputStream();
       }
       return false;
@@ -194,19 +200,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public void onCurrentOutputStreamEnded() {
-    receivedEosSignal = true;
+    receivedEosSignalFromWrappedShader = true;
     currentFormat = null;
-    if (pendingOutputFrames.isEmpty() && downstreamConsumer != null) {
-      downstreamConsumer.signalEndOfStream();
-    }
+    // Attempts to drain the output queue and sends EOS downstream if there's no frame pending.
+    tryQueueFramesDownstream();
     maybeInvokePendingWakeupListener();
   }
 
   @Override
   public void signalEndOfStream() {
     if (!inputStreamEnded) {
-      glShaderProgram.signalEndOfCurrentInputStream();
       inputStreamEnded = true;
+      if (!hasSignaledEosToWrappedShader) {
+        hasSignaledEosToWrappedShader = true;
+        glShaderProgram.signalEndOfCurrentInputStream();
+      }
     }
   }
 
@@ -216,7 +224,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       glShaderProgram.release();
     } finally {
       releasePendingFrames();
-      receivedEosSignal = false;
+      receivedEosSignalFromWrappedShader = false;
     }
   }
 
@@ -243,7 +251,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     shaderInputCapacity = 0;
     releasePendingFrames();
     glShaderProgram.flush();
-    receivedEosSignal = false;
+    hasSignaledEosToWrappedShader = false;
+    receivedEosSignalFromWrappedShader = false;
   }
 
   private void releasePendingFrames() {
@@ -282,8 +291,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         return;
       }
     }
-    if (pendingOutputFrames.isEmpty() && receivedEosSignal && downstreamConsumer != null) {
-      downstreamConsumer.signalEndOfStream();
+    if (pendingOutputFrames.isEmpty() && receivedEosSignalFromWrappedShader) {
+      receivedEosSignalFromWrappedShader = false;
+      if (inputStreamEnded) {
+        downstreamConsumer.signalEndOfStream();
+      }
     }
   }
 }

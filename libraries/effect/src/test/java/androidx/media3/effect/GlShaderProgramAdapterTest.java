@@ -18,6 +18,7 @@ package androidx.media3.effect;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_FRAME_DISCONTINUITY_NUMBER;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.assertThrows;
 
 import android.opengl.EGLContext;
@@ -35,6 +36,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -49,6 +51,7 @@ public class GlShaderProgramAdapterTest {
 
   private static final FakeGlObjectsProvider FAKE_GL_OBJECTS_PROVIDER = new FakeGlObjectsProvider();
   private static final int TEXTURE_SIZE = 16;
+  private static final long TIMEOUT_MS = 5_000;
 
   private GlShaderProgramAdapter glShaderProgramAdapter;
   private FakeGlShaderProgram fakeGlShaderProgram;
@@ -183,16 +186,47 @@ public class GlShaderProgramAdapterTest {
   }
 
   @Test
+  public void onCurrentOutputStreamEnded_withPendingFrame_onlySignalsEosOnce() {
+    AtomicBoolean frameReleased = new AtomicBoolean();
+    GlTextureFrame inputFrame =
+        createTestFrame(/* texId= */ 1, /* timestampUs= */ 1000L, frameReleased);
+    assertThat(glShaderProgramAdapter.queue(inputFrame, task -> {}, () -> {})).isTrue();
+
+    // Force the downstream capacity to block queueing
+    downstreamConsumer.setCapacity(0);
+    GlTextureInfo outputTexture =
+        new GlTextureInfo(
+            /* texId= */ 101,
+            /* fboId= */ -1,
+            /* rboId= */ -1,
+            /* width= */ 100,
+            /* height= */ 100);
+    glShaderProgramAdapter.onOutputFrameAvailable(outputTexture, 1000L);
+
+    // Call onCurrentOutputStreamEnded while there is a pending frame, EOS shouldn't be signaled yet
+    glShaderProgramAdapter.signalEndOfStream();
+
+    assertThat(downstreamConsumer.eosSignalsReceived).isEqualTo(0);
+
+    // Make capacity available, the queued frame and EOS should now be processed.
+    downstreamConsumer.setCapacity(1);
+
+    assertThat(downstreamConsumer.queuedFrames).hasSize(1);
+    assertThat(downstreamConsumer.eosSignalsReceived).isEqualTo(1);
+    assertThat(errorReference.get()).isNull();
+  }
+
+  @Test
   public void onCurrentOutputStreamEnded_signalsEndOfStreamToDownstream() {
-    glShaderProgramAdapter.onCurrentOutputStreamEnded();
-    assertThat(downstreamConsumer.endOfStreamSignaled).isTrue();
+    glShaderProgramAdapter.signalEndOfStream();
+    assertThat(downstreamConsumer.eosSignalsReceived).isEqualTo(1);
     assertThat(errorReference.get()).isNull();
   }
 
   @Test
   public void signalEndOfStream_signalsEndOfInputStreamToShaderProgram() {
     glShaderProgramAdapter.signalEndOfStream();
-    assertThat(fakeGlShaderProgram.endOfInputStreamSignaled).isTrue();
+    assertThat(fakeGlShaderProgram.eosSignalsReceived).isEqualTo(1);
     assertThat(errorReference.get()).isNull();
   }
 
@@ -572,7 +606,7 @@ public class GlShaderProgramAdapterTest {
             glShaderProgramAdapter.queue(inputFrame2, testExecutor, () -> wakeupCalled.set(true)))
         .isFalse();
 
-    assertThat(fakeGlShaderProgram.endOfInputStreamSignaled).isTrue();
+    assertThat(fakeGlShaderProgram.eosSignalsReceived).isEqualTo(1);
 
     assertThat(queuedWakeupTasks).hasSize(1);
     queuedWakeupTasks.remove().run();
@@ -629,9 +663,9 @@ public class GlShaderProgramAdapterTest {
     glShaderProgramAdapter.onOutputFrameAvailable(outputTexture, 1000L);
     glShaderProgramAdapter.onInputFrameProcessed(inputFrame2.glTextureInfo);
 
-    glShaderProgramAdapter.onCurrentOutputStreamEnded();
+    glShaderProgramAdapter.signalEndOfStream();
 
-    assertThat(downstreamConsumer.endOfStreamSignaled).isTrue();
+    assertThat(downstreamConsumer.eosSignalsReceived).isEqualTo(1);
     assertThat(downstreamConsumer.queuedFrames).hasSize(1);
     assertThat(downstreamConsumer.queuedFrames.get(0).presentationTimeUs).isEqualTo(1000L);
     assertThat(frame1Released.get()).isTrue();
@@ -683,7 +717,7 @@ public class GlShaderProgramAdapterTest {
     assertThat(
             glShaderProgramAdapter.queue(inputFrame1, testExecutor, /* wakeupListener= */ () -> {}))
         .isTrue();
-    assertThat(downstreamConsumer.endOfStreamSignaled).isFalse();
+    assertThat(downstreamConsumer.eosSignalsReceived).isEqualTo(0);
 
     // Simulate the shader processing the frame to restore capacity.
     glShaderProgramAdapter.onInputFrameProcessed(inputFrame1.glTextureInfo);
@@ -702,13 +736,16 @@ public class GlShaderProgramAdapterTest {
         .isFalse();
 
     assertThat(queuedWakeupTasks).hasSize(1);
-    assertThat(downstreamConsumer.endOfStreamSignaled).isTrue();
+    // Suppressed EOS on format change, so EOS is not forwarded downstream yet.
+    assertThat(downstreamConsumer.eosSignalsReceived).isEqualTo(0);
 
     // Execute the wakeup listener. It should requeue the frame successfully since currentFormat
     // is now null and capacity has been restored.
     queuedWakeupTasks.remove().run();
 
     assertThat(frame2Queued.get()).isTrue();
+    glShaderProgramAdapter.signalEndOfStream();
+    assertThat(downstreamConsumer.eosSignalsReceived).isEqualTo(1);
     assertThat(errorReference.get()).isNull();
   }
 
@@ -730,7 +767,7 @@ public class GlShaderProgramAdapterTest {
     // Calling signalEndOfStream() should not double-signal the underlying glShaderProgram.
     glShaderProgramAdapter.signalEndOfStream();
 
-    assertThat(fakeGlShaderProgram.endOfInputStreamSignaled).isTrue();
+    assertThat(fakeGlShaderProgram.eosSignalsReceived).isEqualTo(1);
     assertThat(errorReference.get()).isNull();
   }
 
@@ -780,6 +817,81 @@ public class GlShaderProgramAdapterTest {
     assertThat(downstreamConsumer.queuedFrames).hasSize(2);
     assertThat(downstreamConsumer.queuedFrames.get(0).getMetadata()).isEqualTo(metadata1);
     assertThat(downstreamConsumer.queuedFrames.get(1).getMetadata()).isEqualTo(metadata2);
+  }
+
+  @Test
+  public void signalEndOfStream_followedByNewFormatWithDiscontinuity_isReusable() throws Exception {
+    Executor testExecutor = task -> {};
+    Format format1 = new Format.Builder().setWidth(100).setHeight(100).build();
+    Format format2 = new Format.Builder().setWidth(200).setHeight(200).build();
+
+    GlTextureFrame inputFrame1 =
+        createTestFrameWithFormat(
+                /* texId= */ 1, /* timestampUs= */ 1000L, format1, new AtomicBoolean())
+            .buildUpon()
+            .setMetadata(ImmutableMap.of(KEY_FRAME_DISCONTINUITY_NUMBER, 0))
+            .build();
+
+    GlTextureFrame inputFrame2 =
+        createTestFrameWithFormat(
+                /* texId= */ 2, /* timestampUs= */ 2000L, format2, new AtomicBoolean())
+            .buildUpon()
+            // Format change is not accompanied by a discontinuity
+            .setMetadata(ImmutableMap.of(KEY_FRAME_DISCONTINUITY_NUMBER, 0))
+            .build();
+
+    assertThat(
+            glShaderProgramAdapter.queue(
+                inputFrame1, /* listenerExecutor= */ testExecutor, /* wakeupListener= */ () -> {}))
+        .isTrue();
+    glShaderProgramAdapter.onInputFrameProcessed(inputFrame1.glTextureInfo);
+    glShaderProgramAdapter.onReadyToAcceptInputFrame();
+    glShaderProgramAdapter.onOutputFrameAvailable(
+        new GlTextureInfo(
+            /* texId= */ 100,
+            /* fboId= */ -1,
+            /* rboId= */ -1,
+            /* width= */ 100,
+            /* height= */ 100),
+        /* presentationTimeUs= */ 1000L);
+
+    downstreamConsumer.setCapacity(1);
+    // Queue format change should return false.
+    CountDownLatch eosPropagated = new CountDownLatch(1);
+    assertThat(
+            glShaderProgramAdapter.queue(
+                inputFrame2, /* listenerExecutor= */ testExecutor, /* wakeupListener= */ () -> {}))
+        .isFalse();
+    // Wait until EOS is propagated.
+    fakeGlShaderProgram.setEosReceivedLatch(eosPropagated);
+    eosPropagated.await(TIMEOUT_MS, MILLISECONDS);
+
+    // Queueing the second time succeeds, as the states are reset internally.
+    assertThat(
+            glShaderProgramAdapter.queue(
+                inputFrame2, /* listenerExecutor= */ testExecutor, /* wakeupListener= */ () -> {}))
+        .isTrue();
+
+    // Format change signals shader.onCurrentInputStreamEnded, but doesn't signal EOS to downstream
+    // consumer
+    assertThat(fakeGlShaderProgram.eosSignalsReceived).isEqualTo(1);
+    assertThat(downstreamConsumer.eosSignalsReceived).isEqualTo(0);
+
+    glShaderProgramAdapter.onInputFrameProcessed(inputFrame2.glTextureInfo);
+    glShaderProgramAdapter.onReadyToAcceptInputFrame();
+    glShaderProgramAdapter.onOutputFrameAvailable(
+        new GlTextureInfo(
+            /* texId= */ 200,
+            /* fboId= */ -1,
+            /* rboId= */ -1,
+            /* width= */ 200,
+            /* height= */ 200),
+        /* presentationTimeUs= */ 2000L);
+
+    glShaderProgramAdapter.signalEndOfStream();
+    assertThat(fakeGlShaderProgram.eosSignalsReceived).isEqualTo(2);
+    assertThat(downstreamConsumer.eosSignalsReceived).isEqualTo(1);
+    assertThat(errorReference.get()).isNull();
   }
 
   private static GlTextureFrame createTestFrameWithDiscontinuityNumber(
@@ -867,7 +979,7 @@ public class GlShaderProgramAdapterTest {
 
     @Nullable private Runnable pendingWakeupListener;
     private int capacity = 1;
-    boolean endOfStreamSignaled;
+    int eosSignalsReceived;
     @Nullable private VideoFrameProcessingException exceptionToThrowOnQueue;
 
     FakeGlTextureFrameConsumer() {
@@ -902,7 +1014,7 @@ public class GlShaderProgramAdapterTest {
 
     @Override
     public void signalEndOfStream() {
-      endOfStreamSignaled = true;
+      eosSignalsReceived++;
     }
 
     @Override
@@ -925,13 +1037,13 @@ public class GlShaderProgramAdapterTest {
     private InputListener inputListener;
     private OutputListener outputListener;
     @Nullable private ErrorListener errorListener;
-    boolean endOfInputStreamSignaled;
+    int eosSignalsReceived;
     boolean flushed;
+    @Nullable private CountDownLatch eosReceivedLatch;
 
     FakeGlShaderProgram() {
       queuedFrames = new ArrayList<>();
       releasedFrames = new ArrayList<>();
-      endOfInputStreamSignaled = false;
       flushed = false;
       inputListener = new InputListener() {};
     }
@@ -972,9 +1084,12 @@ public class GlShaderProgramAdapterTest {
 
     @Override
     public void signalEndOfCurrentInputStream() {
-      endOfInputStreamSignaled = true;
+      eosSignalsReceived++;
       if (outputListener != null) {
         outputListener.onCurrentOutputStreamEnded();
+      }
+      if (eosReceivedLatch != null) {
+        eosReceivedLatch.countDown();
       }
     }
 
@@ -987,5 +1102,9 @@ public class GlShaderProgramAdapterTest {
 
     @Override
     public void release() {}
+
+    void setEosReceivedLatch(CountDownLatch latch) {
+      this.eosReceivedLatch = latch;
+    }
   }
 }
