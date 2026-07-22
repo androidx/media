@@ -15,41 +15,51 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.CompositionAssetInfo.MULTI_SEQUENCE_CONFIGS;
 import static androidx.media3.test.utils.CompositionAssetInfo.MULTI_SEQUENCE_VIDEO_CONFIGS;
 import static androidx.media3.test.utils.CompositionAssetInfo.SINGLE_SEQUENCE_CONFIGS;
+import static androidx.media3.test.utils.EditedMediaItemAssetInfo.VIDEO_ONLY_CLIPPED_HALF_SPEED;
+import static androidx.media3.test.utils.EditedMediaItemAssetInfo.VIDEO_ONLY_CLIPPED_TWICE_SPEED;
+import static androidx.media3.transformer.GlFrameProcessorTestUtil.closeTestingGlResources;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.TruthJUnit.assume;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
 import android.view.SurfaceView;
+import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
-import androidx.media3.common.MediaItem;
+import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoGraph;
+import androidx.media3.common.util.GlUtil;
+import androidx.media3.common.util.Util;
+import androidx.media3.common.video.FrameProcessor;
+import androidx.media3.effect.DefaultGlFrameProcessor;
+import androidx.media3.effect.DefaultGlObjectsProvider;
+import androidx.media3.effect.FrameProcessorUtils;
 import androidx.media3.effect.GlEffect;
-import androidx.media3.effect.HardwareBufferFrame;
-import androidx.media3.effect.HardwareBufferFrameQueue;
 import androidx.media3.effect.MultipleInputVideoGraph;
-import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.ndk.HardwareBufferJni;
+import androidx.media3.test.utils.CapturingFrameProcessor;
 import androidx.media3.test.utils.CompositionAssetInfo;
+import androidx.media3.test.utils.FrameProcessorTestUtil;
 import androidx.media3.test.utils.PlayerFence;
-import androidx.media3.test.utils.RecordingHardwareBufferEffectsPipeline;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
@@ -71,6 +81,8 @@ public class CompositionPlayerParameterizedPlaybackTest {
 
   private @MonotonicNonNull CompositionPlayer player;
   private @MonotonicNonNull SurfaceView surfaceView;
+  private @MonotonicNonNull ListeningExecutorService glExecutorService;
+  private @MonotonicNonNull GlObjectsProvider glObjectsProvider;
 
   private static class SingleInputVideoGraphConfigsProvider extends TestParameterValuesProvider {
     @Override
@@ -95,17 +107,45 @@ public class CompositionPlayerParameterizedPlaybackTest {
     @Override
     protected List<CompositionAssetInfo> provideValues(
         TestParameterValuesProvider.Context context) {
-      return new ImmutableList.Builder<CompositionAssetInfo>()
-          .addAll(SINGLE_SEQUENCE_CONFIGS)
-          .addAll(MULTI_SEQUENCE_VIDEO_CONFIGS)
-          .addAll(MULTI_SEQUENCE_CONFIGS)
-          .build();
+      ImmutableList<CompositionAssetInfo> allConfigs =
+          new ImmutableList.Builder<CompositionAssetInfo>()
+              .addAll(SINGLE_SEQUENCE_CONFIGS)
+              .addAll(MULTI_SEQUENCE_VIDEO_CONFIGS)
+              .addAll(MULTI_SEQUENCE_CONFIGS)
+              .build();
+      ImmutableList.Builder<CompositionAssetInfo> filteredConfigs = new ImmutableList.Builder<>();
+      // DefaultGlFrameProcessor doesn't support speed changing video effects.
+      // TODO: b/530108514 - Move tests to use EditedMediaItem.setSpeed().
+      for (CompositionAssetInfo config : allConfigs) {
+        String configString = config.toString();
+        if (configString.contains(VIDEO_ONLY_CLIPPED_HALF_SPEED.name)
+            || configString.contains(VIDEO_ONLY_CLIPPED_TWICE_SPEED.name)) {
+          continue;
+        }
+        filteredConfigs.add(config);
+      }
+      return filteredConfigs.build();
     }
   }
 
   @Before
-  public void setup() {
+  public void setup() throws Exception {
     rule.getScenario().onActivity(activity -> surfaceView = activity.getSurfaceView());
+    if (SDK_INT >= 26) {
+      glExecutorService =
+          MoreExecutors.listeningDecorator(Util.newSingleThreadExecutor("CompositionTest:GL"));
+      glObjectsProvider = new DefaultGlObjectsProvider();
+      glExecutorService
+          .submit(
+              () -> {
+                try {
+                  FrameProcessorUtils.setupOpenGl(glObjectsProvider);
+                } catch (GlUtil.GlException e) {
+                  throw new AssertionError(e);
+                }
+              })
+          .get(TEST_TIMEOUT_MS, MILLISECONDS);
+    }
   }
 
   @After
@@ -118,6 +158,15 @@ public class CompositionPlayerParameterizedPlaybackTest {
               }
             });
     rule.getScenario().close();
+    @Nullable Exception releasingException = null;
+    if (SDK_INT >= 26 && glExecutorService != null) {
+      releasingException =
+          closeTestingGlResources(glExecutorService, glObjectsProvider, TEST_TIMEOUT_MS);
+      glExecutorService.shutdown();
+    }
+    if (releasingException != null) {
+      throw new AssertionError(releasingException);
+    }
   }
 
   @Test
@@ -182,55 +231,31 @@ public class CompositionPlayerParameterizedPlaybackTest {
 
   @Test
   @SdkSuppress(minSdkVersion = 28)
-  public void playback_packetConsumer(
+  public void playback_frameProcessor(
       @TestParameter(valuesProvider = FrameConsumerConfigsProvider.class)
           CompositionAssetInfo compositionAssetInfo)
       throws Exception {
-    // The MediaCodec decoder's output surface is sometimes dropping frames on emulator despite
-    // using MediaFormat.KEY_ALLOW_FRAME_DROP.
     assume()
         .withMessage("Skipped on emulator due to surface dropping frames")
         .that(isRunningOnEmulator())
         .isFalse();
-    List<ImmutableList<HardwareBufferFrame>> queuedPackets = new CopyOnWriteArrayList<>();
-    RecordingHardwareBufferEffectsPipeline pipeline =
-        RecordingHardwareBufferEffectsPipeline.create(
-            context,
-            HardwareBufferJni.INSTANCE,
-            (frames) -> {
-              queuedPackets.add(frames);
-              return frames;
-            });
-    ImmutableList<Long> expectedVideoTimestampsUs =
-        compositionAssetInfo.getExpectedVideoTimestampsUs();
 
+    CapturingFrameProcessor.Factory recordingFrameProcessorFactory =
+        new CapturingFrameProcessor.Factory(
+            new DefaultGlFrameProcessor.Factory(
+                context, glObjectsProvider, HardwareBufferJni.INSTANCE, glExecutorService));
     Composition composition = compositionAssetInfo.getComposition();
-    runCompositionPlayer(composition, pipeline);
+    runCompositionPlayer(composition, recordingFrameProcessorFactory);
 
-    // TODO: b/449956936 - add EOS to CompositionPlayer packet consumer and wait until its received.
-
-    // Some decoders output an extra trailing decoded frame. Relax the check to verify that we
-    // received at least the expected N frames, at most N + 1 frames, and match the expected N
-    // timestamps.
-    int expectedFrameCount = expectedVideoTimestampsUs.size();
-    assertThat(queuedPackets.size()).isAnyOf(expectedFrameCount, expectedFrameCount + 1);
-    for (int packetIndex = 0; packetIndex < expectedFrameCount; packetIndex++) {
-      long sequencePresentationTimeUs =
-          queuedPackets.get(packetIndex).get(0).sequencePresentationTimeUs;
-      assertThat(sequencePresentationTimeUs).isEqualTo(expectedVideoTimestampsUs.get(packetIndex));
-      assertThat(queuedPackets.get(0)).hasSize(getNumVideoSequences(composition));
-      for (int i = 0; i < queuedPackets.get(packetIndex).size(); ++i) {
-        HardwareBufferFrame.Metadata metadata = queuedPackets.get(packetIndex).get(i).getMetadata();
-        assertThat(metadata).isInstanceOf(CompositionFrameMetadata.class);
-        CompositionFrameMetadata compositionFrameMetadata = (CompositionFrameMetadata) metadata;
-        int sequenceIndex = compositionFrameMetadata.sequenceIndex;
-        // CompositionPlayer replaces TimestampAdjustment effects with InactiveTimestampAdjustment.
-        // Assert on the non-edited MediaItem.
-        MediaItem itemFromMetadata = itemFromMetadata(compositionFrameMetadata);
-        MediaItem expectedItemAtTime =
-            expectedItemAtTime(composition, sequenceIndex, sequencePresentationTimeUs);
-        assertThat(itemFromMetadata).isEqualTo(expectedItemAtTime);
-      }
+    CapturingFrameProcessor frameProcessor = recordingFrameProcessorFactory.getCreatedProcessor();
+    assertThat(frameProcessor).isNotNull();
+    if (compositionAssetInfo.hasVideo()) {
+      assertThat(frameProcessor.isEnded()).isTrue();
+      FrameProcessorTestUtil.assertPlaybackOutput(frameProcessor, compositionAssetInfo);
+    } else {
+      // TODO: b/534326875 - Remove this once audio only Compositions are handled.
+      assertThat(frameProcessor.isEnded()).isFalse();
+      assertThat(frameProcessor.getQueuedEvents()).isEmpty();
     }
   }
 
@@ -258,10 +283,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
 
   @RequiresApi(28)
   private void runCompositionPlayer(
-      Composition composition,
-      RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
-          hardwareBufferEffectsPipeline)
-      throws Exception {
+      Composition composition, FrameProcessor.Factory frameProcessorFactory) throws Exception {
     SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
         .runOnMainSync(
@@ -269,7 +291,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
               player =
                   new CompositionPlayer.Builder(context)
                       .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
-                      .setHardwareBufferEffectsPipeline(hardwareBufferEffectsPipeline)
+                      .setFrameProcessorFactory(frameProcessorFactory)
                       .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                       .build();
               // Set a surface on the player even though there is no UI on this test. We need a
@@ -281,41 +303,6 @@ public class CompositionPlayerParameterizedPlaybackTest {
               player.play();
             });
     endedFuture.get();
-  }
-
-  private static MediaItem itemFromMetadata(CompositionFrameMetadata metadata) {
-    return metadata
-        .composition
-        .sequences
-        .get(metadata.sequenceIndex)
-        .editedMediaItems
-        .get(metadata.itemIndex)
-        .mediaItem;
-  }
-
-  private static MediaItem expectedItemAtTime(
-      Composition composition, int sequenceIndex, long presentationTimeUs) {
-    EditedMediaItemSequence sequence = composition.sequences.get(sequenceIndex);
-    int itemIndex = 0;
-    while (itemIndex < sequence.editedMediaItems.size()) {
-      long itemDurationUs = sequence.editedMediaItems.get(itemIndex).getPresentationDurationUs();
-      if (presentationTimeUs < itemDurationUs) {
-        break;
-      }
-      presentationTimeUs -= itemDurationUs;
-      itemIndex++;
-    }
-    return sequence.editedMediaItems.get(itemIndex).mediaItem;
-  }
-
-  private static int getNumVideoSequences(Composition composition) {
-    int numVideoSequences = 0;
-    for (int i = 0; i < composition.sequences.size(); i++) {
-      if (composition.sequences.get(i).trackTypes.contains(TRACK_TYPE_VIDEO)) {
-        numVideoSequences++;
-      }
-    }
-    return numVideoSequences;
   }
 
   private static PlayerFence futureWhen(Player player) {

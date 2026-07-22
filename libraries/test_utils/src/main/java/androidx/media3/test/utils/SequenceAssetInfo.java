@@ -29,7 +29,7 @@ import java.util.Set;
 @UnstableApi
 public final class SequenceAssetInfo {
   public final ImmutableList<EditedMediaItemAssetInfo> assets;
-  private final ImmutableSet<@TrackType Integer> trackTypes;
+  public final ImmutableSet<@TrackType Integer> trackTypes;
   private final boolean isLooping;
 
   public SequenceAssetInfo(

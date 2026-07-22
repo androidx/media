@@ -197,6 +197,15 @@ public final class CompositionAssetInfo {
         .build();
   }
 
+  public boolean hasVideo() {
+    for (SequenceAssetInfo sequence : sequences) {
+      if (sequence.trackTypes.contains(C.TRACK_TYPE_VIDEO)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   public ImmutableList<Long> getExpectedVideoTimestampsUs() {
     // When there are multiple sequences, output timestamps should match those of the primary
     // sequence.
