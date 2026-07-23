@@ -31,6 +31,8 @@ import androidx.media3.common.Format
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaLibraryInfo
+import androidx.media3.common.MimeTypes.AUDIO_AAC
+import androidx.media3.common.MimeTypes.TEXT_VTT
 import androidx.media3.common.MimeTypes.VIDEO_VP9
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
@@ -496,6 +498,123 @@ class PresentationStateTest {
     waitForIdle()
 
     // Should remain visible (shutter open) because we are in the same window on the same timeline
+    assertThat(state.coverSurface).isFalse()
+  }
+
+  @Test
+  fun videoOnly_shutterClosedUntilFirstFrame() = runComposeUiTest {
+    val group =
+      Tracks.Group(
+        /* mediaTrackGroup = */ TrackGroup(Format.Builder().setSampleMimeType(VIDEO_VP9).build()),
+        /* adaptiveSupported = */ true,
+        /* trackSupport = */ intArrayOf(C.FORMAT_HANDLED),
+        /* trackSelected = */ booleanArrayOf(true),
+      )
+    val player =
+      FakePlayer(
+        playlist = listOf(MediaItemData.Builder("uid").setTracks(Tracks(listOf(group))).build())
+      )
+
+    lateinit var state: PresentationState
+    setContent { state = rememberPresentationState(player) }
+
+    // With video, shutter starts closed
+    assertThat(state.coverSurface).isTrue()
+
+    player.renderFirstFrame(true)
+    waitForIdle()
+
+    // First frame opens the shutter
+    assertThat(state.coverSurface).isFalse()
+  }
+
+  @Test
+  fun videoAndText_shutterClosedUntilFirstFrame() = runComposeUiTest {
+    val videoGroup =
+      Tracks.Group(
+        /* mediaTrackGroup = */ TrackGroup(Format.Builder().setSampleMimeType(VIDEO_VP9).build()),
+        /* adaptiveSupported = */ true,
+        /* trackSupport = */ intArrayOf(C.FORMAT_HANDLED),
+        /* trackSelected = */ booleanArrayOf(true),
+      )
+    val textGroup =
+      Tracks.Group(
+        /* mediaTrackGroup = */ TrackGroup(Format.Builder().setSampleMimeType(TEXT_VTT).build()),
+        /* adaptiveSupported = */ true,
+        /* trackSupport = */ intArrayOf(C.FORMAT_HANDLED),
+        /* trackSelected = */ booleanArrayOf(true),
+      )
+    val player =
+      FakePlayer(
+        playlist =
+          listOf(
+            MediaItemData.Builder("uid").setTracks(Tracks(listOf(videoGroup, textGroup))).build()
+          )
+      )
+
+    lateinit var state: PresentationState
+    setContent { state = rememberPresentationState(player) }
+
+    // Even with text, because there is video, shutter starts closed
+    assertThat(state.coverSurface).isTrue()
+
+    player.renderFirstFrame(true)
+    waitForIdle()
+
+    // First frame opens the shutter
+    assertThat(state.coverSurface).isFalse()
+  }
+
+  @Test
+  fun audioOnly_shutterClosed() = runComposeUiTest {
+    val audioGroup =
+      Tracks.Group(
+        /* mediaTrackGroup = */ TrackGroup(Format.Builder().setSampleMimeType(AUDIO_AAC).build()),
+        /* adaptiveSupported = */ true,
+        /* trackSupport = */ intArrayOf(C.FORMAT_HANDLED),
+        /* trackSelected = */ booleanArrayOf(true),
+      )
+    val player =
+      FakePlayer(
+        playlist =
+          listOf(MediaItemData.Builder("uid").setTracks(Tracks(listOf(audioGroup))).build())
+      )
+
+    lateinit var state: PresentationState
+    setContent { state = rememberPresentationState(player) }
+
+    // Audio only, no video, no text -> shutter stays closed
+    assertThat(state.coverSurface).isTrue()
+  }
+
+  @Test
+  fun audioAndText_shutterOpen() = runComposeUiTest {
+    val audioGroup =
+      Tracks.Group(
+        /* mediaTrackGroup = */ TrackGroup(Format.Builder().setSampleMimeType(AUDIO_AAC).build()),
+        /* adaptiveSupported = */ true,
+        /* trackSupport = */ intArrayOf(C.FORMAT_HANDLED),
+        /* trackSelected = */ booleanArrayOf(true),
+      )
+    val textGroup =
+      Tracks.Group(
+        /* mediaTrackGroup = */ TrackGroup(Format.Builder().setSampleMimeType(TEXT_VTT).build()),
+        /* adaptiveSupported = */ true,
+        /* trackSupport = */ intArrayOf(C.FORMAT_HANDLED),
+        /* trackSelected = */ booleanArrayOf(true),
+      )
+    val player =
+      FakePlayer(
+        playlist =
+          listOf(
+            MediaItemData.Builder("uid").setTracks(Tracks(listOf(audioGroup, textGroup))).build()
+          )
+      )
+
+    lateinit var state: PresentationState
+    setContent { state = rememberPresentationState(player) }
+
+    // Audio and text -> shutter should be immediately open to show the subtitles over black
     assertThat(state.coverSurface).isFalse()
   }
 }
