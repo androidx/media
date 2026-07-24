@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import androidx.annotation.Nullable;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
 
@@ -61,6 +62,13 @@ public class ForwardingAudioOutputProvider implements AudioOutputProvider {
   @Override
   public void setClock(Clock clock) {
     audioOutputProvider.setClock(clock);
+  }
+
+  @UnstableApi
+  @Nullable
+  @Override
+  public AudioCapabilities getAudioCapabilities() {
+    return audioOutputProvider.getAudioCapabilities();
   }
 
   @Override
