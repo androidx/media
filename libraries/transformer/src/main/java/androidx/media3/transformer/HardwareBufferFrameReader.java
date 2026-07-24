@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.graphics.Bitmap;
+import android.graphics.ColorSpace;
 import android.hardware.HardwareBuffer;
 import android.os.Handler;
 import android.os.Looper;
@@ -228,7 +229,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             .setSampleMimeType(MimeTypes.IMAGE_RAW)
             .setWidth(bitmap.getWidth())
             .setHeight(bitmap.getHeight())
-            .setColorInfo(ColorInfo.SRGB_BT709_FULL)
+            .setColorInfo(resolveColorInfoFromBitmap(bitmap))
             .setFrameRate(/* frameRate= */ DEFAULT_FRAME_RATE)
             .build();
     synchronized (this) {
@@ -504,6 +505,29 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     for (int i = 0; i < rendererWakeupListenerList.size(); i++) {
       rendererWakeupListenerList.get(i).onWakeup();
     }
+  }
+
+  private static ColorInfo resolveColorInfoFromBitmap(Bitmap bitmap) {
+    if (SDK_INT >= 34) {
+      ColorSpace colorSpace = bitmap.getColorSpace();
+      if (colorSpace != null) {
+        int id = colorSpace.getId();
+        if (id == ColorSpace.get(ColorSpace.Named.BT2020_HLG).getId()) {
+          return new ColorInfo.Builder()
+              .setColorSpace(C.COLOR_SPACE_BT2020)
+              .setColorRange(C.COLOR_RANGE_FULL)
+              .setColorTransfer(C.COLOR_TRANSFER_HLG)
+              .build();
+        } else if (id == ColorSpace.get(ColorSpace.Named.BT2020_PQ).getId()) {
+          return new ColorInfo.Builder()
+              .setColorSpace(C.COLOR_SPACE_BT2020)
+              .setColorRange(C.COLOR_RANGE_FULL)
+              .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+              .build();
+        }
+      }
+    }
+    return ColorInfo.SRGB_BT709_FULL;
   }
 
   /**
