@@ -140,11 +140,13 @@ public class EndToEndOffloadFailureRecoveryTest {
 
     @Override
     protected AudioSink buildAudioSink(
-        Context context, boolean enableFloatOutput, boolean enableAudioOutputPlaybackParams) {
+        Context context,
+        boolean enableHighResolutionPcmOutput,
+        boolean enableAudioOutputPlaybackParams) {
       dumpingAudioSink =
           new DumpingAudioSinkWithOffloadInitFailure(
               new DefaultAudioSink.Builder(context)
-                  .setEnableFloatOutput(enableFloatOutput)
+                  .setEnableHighResolutionPcmOutput(enableHighResolutionPcmOutput)
                   .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
                   .build());
       return dumpingAudioSink;
@@ -170,11 +172,13 @@ public class EndToEndOffloadFailureRecoveryTest {
 
     @Override
     protected AudioSink buildAudioSink(
-        Context context, boolean enableFloatOutput, boolean enableAudioOutputPlaybackParams) {
+        Context context,
+        boolean enableHighResolutionPcmOutput,
+        boolean enableAudioOutputPlaybackParams) {
       dumpingAudioSink =
           new DumpingAudioSinkWithOffloadWriteFailure(
               new DefaultAudioSink.Builder(context)
-                  .setEnableFloatOutput(enableFloatOutput)
+                  .setEnableHighResolutionPcmOutput(enableHighResolutionPcmOutput)
                   .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
                   .build());
       return dumpingAudioSink;
