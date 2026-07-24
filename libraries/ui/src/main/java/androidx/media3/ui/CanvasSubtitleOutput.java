@@ -26,7 +26,9 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.text.Cue;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A {@link SubtitleView.Output} that uses Android's native layout framework via {@link
@@ -104,12 +106,39 @@ import java.util.List;
       return;
     }
 
+    // Track cumulative offsets per line value to prevent overlapping only among cues that share
+    // the same line number. Cues with different line numbers are already separated by the
+    // line-number positioning math in SubtitlePainter, so they don't need viewport adjustment.
+    // We use Float as the key: DIMEN_UNSET for unpositioned cues, or the actual line value.
+    Map<Float, Integer> cumulativeOffsetByLine = new HashMap<>();
+
     int cueCount = cues.size();
     for (int i = 0; i < cueCount; i++) {
       Cue cue = cues.get(i);
       if (cue.verticalType != Cue.TYPE_UNSET) {
         cue = repositionVerticalCue(cue);
       }
+
+      // Determine the effective line key for grouping.
+      float lineKey = cue.line;
+      boolean isBottomStackedCue =
+          cue.line == Cue.DIMEN_UNSET
+              || (cue.lineType == Cue.LINE_TYPE_NUMBER && cue.line < 0);
+      boolean isTopStackedCue =
+          cue.line != Cue.DIMEN_UNSET && cue.lineType == Cue.LINE_TYPE_NUMBER && cue.line >= 0;
+
+      // Get the cumulative offset for cues at this same line value.
+      int cumulativeOffset = cumulativeOffsetByLine.getOrDefault(lineKey, 0);
+
+      // Adjust boundaries to account for previously drawn cues at the same line.
+      int adjustedTop = top;
+      int adjustedBottom = bottom;
+      if (isBottomStackedCue && cumulativeOffset > 0) {
+        adjustedBottom = bottom - cumulativeOffset;
+      } else if (isTopStackedCue && cumulativeOffset > 0) {
+        adjustedTop = top + cumulativeOffset;
+      }
+
       float cueTextSizePx =
           SubtitleViewUtils.resolveTextSize(
               cue.textSizeType, cue.textSize, rawViewHeight, viewHeightMinusPadding);
@@ -122,9 +151,14 @@ import java.util.List;
           bottomPaddingFraction,
           canvas,
           left,
-          top,
+          adjustedTop,
           right,
-          bottom);
+          adjustedBottom);
+
+      // Accumulate offset so subsequent cues at the same line don't overlap.
+      if (isBottomStackedCue || isTopStackedCue) {
+        cumulativeOffsetByLine.put(lineKey, cumulativeOffset + painter.getLastDrawnCueHeight());
+      }
     }
   }
 
