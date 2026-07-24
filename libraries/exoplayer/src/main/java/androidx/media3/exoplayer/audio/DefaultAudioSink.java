@@ -601,6 +601,8 @@ public final class DefaultAudioSink implements AudioSink {
   private long writtenPcmBytes;
   private long writtenEncodedFrames;
   private int framesPerEncodedSample;
+  private int inputBufferOriginalRemaining;
+  private long currentBufferFramesWritten;
   private boolean startMediaTimeUsNeedsSync;
   private boolean startMediaTimeUsNeedsInit;
   private long startMediaTimeUs;
@@ -1071,6 +1073,8 @@ public final class DefaultAudioSink implements AudioSink {
 
       inputBuffer = buffer;
       inputBufferAccessUnitCount = encodedAccessUnitCount;
+      inputBufferOriginalRemaining = buffer.remaining();
+      currentBufferFramesWritten = 0;
     }
 
     processBuffers(presentationTimeUs);
@@ -1316,17 +1320,37 @@ public final class DefaultAudioSink implements AudioSink {
       }
     }
 
+    int bytesWritten = bytesRemaining - outputBuffer.remaining();
     if (configuration.isPcm()) {
-      writtenPcmBytes += bytesRemaining - outputBuffer.remaining();
+      writtenPcmBytes += bytesWritten;
     }
     if (fullyHandled) {
       if (!configuration.isPcm()) {
         // When playing non-PCM, the inputBuffer is never processed, thus the last inputBuffer
         // must be the current input buffer.
         checkState(outputBuffer == inputBuffer);
-        writtenEncodedFrames += (long) framesPerEncodedSample * inputBufferAccessUnitCount;
+        // Add only the remaining unreconciled frames to ensure exact sample accuracy.
+        writtenEncodedFrames +=
+            ((long) framesPerEncodedSample * inputBufferAccessUnitCount)
+                - currentBufferFramesWritten;
+        currentBufferFramesWritten = 0;
       }
       outputBuffer = null;
+    } else {
+      if (!configuration.isPcm() && bytesWritten > 0) {
+        checkState(inputBufferOriginalRemaining > 0);
+        int totalBytesWrittenForCurrentBuffer =
+            inputBufferOriginalRemaining - outputBuffer.remaining();
+        long totalFramesWrittenForCurrentBuffer =
+            Util.scaleLargeValue(
+                totalBytesWrittenForCurrentBuffer,
+                (long) framesPerEncodedSample * inputBufferAccessUnitCount,
+                inputBufferOriginalRemaining,
+                RoundingMode.CEILING);
+        long newFramesWritten = totalFramesWrittenForCurrentBuffer - currentBufferFramesWritten;
+        writtenEncodedFrames += newFramesWritten;
+        currentBufferFramesWritten = totalFramesWrittenForCurrentBuffer;
+      }
     }
   }
 
@@ -1638,6 +1662,8 @@ public final class DefaultAudioSink implements AudioSink {
     writtenEncodedFrames = 0;
     isWaitingForOffloadEndOfStreamHandled = false;
     framesPerEncodedSample = 0;
+    inputBufferOriginalRemaining = 0;
+    currentBufferFramesWritten = 0;
     mediaPositionParameters =
         new MediaPositionParameters(
             playbackParameters, /* mediaTimeUs= */ 0, /* audioOutputPositionUs= */ 0);
