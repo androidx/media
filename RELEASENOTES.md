@@ -32,6 +32,8 @@
 *   Inspector:
 *   Inspector Frame:
 *   Audio:
+    *   Fix offload issue in which playback could stall during pre-roll or
+        gapless transitions due to limited hardware buffer sizes.
 *   Video:
     *   Fix reporting of late video frames with identical release timestamps so
         that they are reported as dropped instead of skipped.
