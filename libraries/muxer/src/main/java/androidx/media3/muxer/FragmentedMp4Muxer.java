@@ -62,6 +62,8 @@ import java.nio.channels.WritableByteChannel;
  *         <li>Opus
  *         <li>Vorbis
  *         <li>Raw Audio
+ *         <li>E-AC-3 (Dolby Digital Plus)
+ *         <li>E-AC-3 JOC (Dolby Atmos)
  *       </ul>
  *   <li>Metadata
  * </ul>
@@ -180,7 +182,9 @@ public final class FragmentedMp4Muxer implements Muxer {
           MimeTypes.AUDIO_IAMF,
           MimeTypes.AUDIO_OPUS,
           MimeTypes.AUDIO_VORBIS,
-          MimeTypes.AUDIO_RAW);
+          MimeTypes.AUDIO_RAW,
+          MimeTypes.AUDIO_E_AC3,
+          MimeTypes.AUDIO_E_AC3_JOC);
 
   // LINT.ThenChange(Boxes.java:codec_specific_boxes)
 

@@ -35,6 +35,7 @@ import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
+import androidx.media3.container.Mp4FormatSpecificMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.NalUnitUtil;
 import androidx.media3.muxer.FragmentedMp4Writer.SampleMetadata;
@@ -781,6 +782,18 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         return dOpsBox(format);
       case MimeTypes.AUDIO_IAMF:
         return iacbBox(format);
+      case MimeTypes.AUDIO_E_AC3:
+      case MimeTypes.AUDIO_E_AC3_JOC:
+        @Nullable
+        Mp4FormatSpecificMetadataEntry dec3Entry =
+            format.metadata != null
+                ? format.metadata.getFirstEntryOfType(Mp4FormatSpecificMetadataEntry.class)
+                : null;
+        byte[] dec3Payload =
+            dec3Entry != null && dec3Entry.boxType.equals("dec3") ? dec3Entry.data : null;
+        checkArgument(
+            dec3Payload != null && dec3Payload.length > 0, "dec3 payload not found for dec3 box.");
+        return BoxUtils.wrapIntoBox("dec3", ByteBuffer.wrap(dec3Payload));
       case MimeTypes.AUDIO_RAW:
         return ByteBuffer.allocate(0); // No codec specific box for raw audio.
       case MimeTypes.VIDEO_H263:
@@ -1847,6 +1860,9 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         return "Opus";
       case MimeTypes.AUDIO_IAMF:
         return "iamf";
+      case MimeTypes.AUDIO_E_AC3:
+      case MimeTypes.AUDIO_E_AC3_JOC:
+        return "ec-3";
       case MimeTypes.AUDIO_RAW:
         if (format.pcmEncoding == C.ENCODING_PCM_16BIT) {
           return "sowt";
