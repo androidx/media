@@ -436,6 +436,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
 
   /** Returns the {@link AudioCapabilities}. */
   @UnstableApi
+  @Override
   @Nullable
   public AudioCapabilities getAudioCapabilities() {
     return audioCapabilities;

@@ -688,6 +688,12 @@ public interface AudioOutputProvider {
   @UnstableApi
   default void setClock(Clock clock) {}
 
+  /** Returns the {@link AudioCapabilities}. */
+  @UnstableApi
+  default @Nullable AudioCapabilities getAudioCapabilities() {
+    return null;
+  }
+
   /** Releases resources held by the provider. */
   void release();
 }
