@@ -300,6 +300,13 @@ This release includes the following changes since [1.10.1](#1101-2026-05-12):
         custom format ordering and ABR selection priority beyond bitrate-only
         ordering.
 *   Extractors:
+    *   MPEG-TS: Add Dolby Vision support in HLS/TS streams. The extractor now
+        detects the `DOVI` registration descriptor and the `0xB0` Dolby Vision
+        video descriptor in the PMT, and routes HEVC-based Dolby Vision
+        elementary streams to the Dolby Vision decoder with the correct profile,
+        level, and colour info. This fixes a green/magenta tint on
+        non-cross-compatible profiles (e.g. profile 5) that was caused by the
+        HEVC base layer being decoded without DV signalling.
     *   MP4, MP3, and FLAC: Add `FLAG_DISABLE_ARTWORK_METADATA` to allow
         discarding attached pictures and cover art metadata during container
         parsing to reduce runtime memory consumption
