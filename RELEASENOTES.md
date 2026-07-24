@@ -4,6 +4,11 @@
 
 *   Common Library:
 *   ExoPlayer:
+    *   Move the flag to enable/disable HAGC metadata for progressive media from
+        `MediaSource.Factory` to `ExtractorsFactory`. The previous
+        `setExperimentalEnableHagcPlayback` method is removed and replaced by
+        `ExtractorsFactory.setParseHagcMetadata`. This also resolves an issue
+        where disabling didn't work for Matroska/WebM containers.
     *   Fix race condition in `PreCacheHelper` where canceling an ongoing
         preparation request could still start background downloads.
     *   Limit `setLoadOnlySelectedTracks(true)` on `ProgressiveMediaSource` and

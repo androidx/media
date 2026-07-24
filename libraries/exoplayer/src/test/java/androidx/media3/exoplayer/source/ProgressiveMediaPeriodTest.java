@@ -854,7 +854,6 @@ public final class ProgressiveMediaPeriodTest {
             /* customCacheKey= */ null,
             ProgressiveMediaSource.DEFAULT_LOADING_CHECK_INTERVAL_BYTES,
             /* loadOnlySelectedTracks= */ true,
-            /* experimentalEnableHagcPlayback= */ true,
             /* singleTrackId= */ 0,
             /* singleTrackFormat= */ null,
             imageDurationUs,

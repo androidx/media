@@ -35,6 +35,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
+import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.TimestampAdjuster;
@@ -115,7 +116,8 @@ public class FragmentedMp4Extractor implements Extractor {
         FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265,
         FLAG_MERGE_FRAGMENTED_SIDX,
         FLAG_READ_MFRA_FOR_SEEK_MAP,
-        FLAG_DISABLE_ARTWORK_METADATA
+        FLAG_DISABLE_ARTWORK_METADATA,
+        FLAG_DISABLE_HAGC_METADATA
       })
   public @interface Flags {}
 
@@ -176,6 +178,9 @@ public class FragmentedMp4Extractor implements Extractor {
 
   /** Flag to disable parsing of artwork metadata. */
   public static final int FLAG_DISABLE_ARTWORK_METADATA = 1 << 10;
+
+  /** Flag to disable parsing of HAGC (ST 2094-50) metadata. */
+  public static final int FLAG_DISABLE_HAGC_METADATA = 1 << 11;
 
   /**
    * @deprecated Use {@link #newFactory(SubtitleParser.Factory)} instead.
@@ -897,6 +902,13 @@ public class FragmentedMp4Extractor implements Extractor {
 
   @Nullable
   protected Track modifyTrack(@Nullable Track track) {
+    if (track == null) {
+      return null;
+    }
+    if ((flags & FLAG_DISABLE_HAGC_METADATA) != 0
+        && CodecSpecificDataUtil.isHagcTrack(track.format)) {
+      return null;
+    }
     return track;
   }
 

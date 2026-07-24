@@ -90,6 +90,17 @@ public interface ExtractorsFactory {
     return this;
   }
 
+  /**
+   * Sets whether to parse HAGC (ST 2094-50) metadata.
+   *
+   * @param parseHagcMetadata Whether HAGC metadata parsing is enabled.
+   * @return This factory, for convenience.
+   */
+  @CanIgnoreReturnValue
+  default ExtractorsFactory setParseHagcMetadata(boolean parseHagcMetadata) {
+    return this;
+  }
+
   /** Returns an array of new {@link Extractor} instances. */
   Extractor[] createExtractors();
 

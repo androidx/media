@@ -2378,6 +2378,18 @@ public final class CodecSpecificDataUtil {
     (byte) 0x04,
   };
 
+  // Expected magic bytes for HAGC (ST 2094-50) metadata in AV1 OBU or HEVC SEI.
+  private static final byte[] expectedHagcPayloadPrefix = {
+    // itu_t_t35_country_code == 0xB5
+    (byte) 0xB5,
+    // itu_t_t35_terminal_provider_code == 0x0090
+    (byte) 0x00,
+    (byte) 0x90,
+    // itu_t_t35_terminal_provider_oriented_code == 0x0001
+    (byte) 0x00,
+    (byte) 0x01,
+  };
+
   /**
    * Returns whether the given {@link ByteBuffer} contains HDR10+ metadata at the current position.
    *
@@ -2406,6 +2418,60 @@ public final class CodecSpecificDataUtil {
       }
     }
     return true;
+  }
+
+  /**
+   * Returns whether the given {@code data} contains HAGC (ST 2094-50) ITU-T T.35 metadata.
+   *
+   * @param data The payload data.
+   * @param length The length of the payload data.
+   */
+  public static boolean isHagcMetadata(byte[] data, int length) {
+    if (length < expectedHagcPayloadPrefix.length) {
+      return false;
+    }
+    for (int i = 0; i < expectedHagcPayloadPrefix.length; i++) {
+      if (data[i] != expectedHagcPayloadPrefix[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Returns whether the given {@link ByteBuffer} contains HAGC (ST 2094-50) ITU-T T.35 metadata,
+   * without consuming any bytes.
+   *
+   * @param buffer The payload data.
+   */
+  public static boolean isHagcMetadata(ByteBuffer buffer) {
+    if (buffer.remaining() < expectedHagcPayloadPrefix.length) {
+      return false;
+    }
+    int pos = buffer.position();
+    for (int i = 0; i < expectedHagcPayloadPrefix.length; i++) {
+      if (buffer.get(pos + i) != expectedHagcPayloadPrefix[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Returns whether the given {@link Format} represents an HAGC (ST 2094-50) metadata track.
+   *
+   * @param format The format of the track.
+   */
+  public static boolean isHagcTrack(Format format) {
+    if (!Objects.equals(format.sampleMimeType, MimeTypes.APPLICATION_ITUT_T35)) {
+      return false;
+    }
+    for (byte[] initData : format.initializationData) {
+      if (isHagcMetadata(initData, initData.length)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private CodecSpecificDataUtil() {}

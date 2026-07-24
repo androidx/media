@@ -37,6 +37,7 @@ import androidx.media3.common.Label;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
+import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -108,7 +109,8 @@ public final class Mp4Extractor implements Extractor {
         FLAG_READ_AUXILIARY_TRACKS,
         FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265,
         FLAG_OMIT_TRACK_SAMPLE_TABLE,
-        FLAG_DISABLE_ARTWORK_METADATA
+        FLAG_DISABLE_ARTWORK_METADATA,
+        FLAG_DISABLE_HAGC_METADATA
       })
   public @interface Flags {}
 
@@ -174,6 +176,9 @@ public final class Mp4Extractor implements Extractor {
 
   /** Flag to disable parsing of artwork metadata. */
   public static final int FLAG_DISABLE_ARTWORK_METADATA = 1 << 9;
+
+  /** Flag to disable parsing of HAGC (ST 2094-50) metadata. */
+  public static final int FLAG_DISABLE_HAGC_METADATA = 1 << 10;
 
   /** The maximum number of sync samples to scan when searching for a thumbnail. */
   private static final int MAX_SYNC_SAMPLES_TO_SCAN_FOR_THUMBNAIL = 20;
@@ -657,7 +662,16 @@ public final class Mp4Extractor implements Extractor {
             /* drmInitData= */ null,
             ignoreEditLists,
             isQuickTime,
-            /* modifyTrackFunction= */ track -> track,
+            /* modifyTrackFunction= */ track -> {
+              if (track == null) {
+                return null;
+              }
+              if ((flags & FLAG_DISABLE_HAGC_METADATA) != 0
+                  && CodecSpecificDataUtil.isHagcTrack(track.format)) {
+                return null;
+              }
+              return track;
+            },
             omitTrackSampleTable);
 
     if (readingAuxiliaryTracks) {

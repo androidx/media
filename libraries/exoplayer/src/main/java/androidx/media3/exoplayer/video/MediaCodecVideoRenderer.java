@@ -2050,10 +2050,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           data.position(0);
           setHdr10PlusInfoV29(checkNotNull(getCodec()), hdr10PlusInfo);
         }
-      } else if (SDK_INT >= 37
-          && ituTT35CountryCode == (byte) 0xB5
-          && ituTT35TerminalProviderCode == 0x0090
-          && ituTT35TerminalProviderOrientedCode == 0x0001) {
+      } else if (SDK_INT >= 37 && CodecSpecificDataUtil.isHagcMetadata(data)) {
         // HAGC (ST 2094-50) metadata from out-of-band track.
         // Android's MediaCodec API for ST 2094-50 expects the payload without the 5-byte T.35
         // header.

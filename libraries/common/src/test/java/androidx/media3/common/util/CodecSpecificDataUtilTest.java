@@ -28,6 +28,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -398,6 +399,59 @@ public class CodecSpecificDataUtilTest {
         TestUtil.createByteArray(0x00, 0x00, 0x00, 0x01, 0xB5, 0x00, 0x3C, 0x00, 0x01, 0x04, 0x00);
     ByteBuffer buffer = ByteBuffer.wrap(bytes);
     assertThat(CodecSpecificDataUtil.isHdr10PlusMetadata(buffer, 4, buffer.limit())).isTrue();
+  }
+
+  @Test
+  public void isHagcMetadata_withHagcPrefix_returnsTrue() {
+    byte[] hagcBytes =
+        TestUtil.createByteArray(0xB5, 0x00, 0x90, 0x00, 0x01, 0x00, 0x00, 0x01, 0x02, 0x03);
+    assertThat(CodecSpecificDataUtil.isHagcMetadata(hagcBytes, hagcBytes.length)).isTrue();
+
+    ByteBuffer buffer = ByteBuffer.wrap(hagcBytes);
+    assertThat(CodecSpecificDataUtil.isHagcMetadata(buffer)).isTrue();
+  }
+
+  @Test
+  public void isHagcMetadata_withShortBuffer_returnsFalse() {
+    byte[] shortBytes = TestUtil.createByteArray(0xB5, 0x00, 0x90);
+    assertThat(CodecSpecificDataUtil.isHagcMetadata(shortBytes, shortBytes.length)).isFalse();
+
+    ByteBuffer buffer = ByteBuffer.wrap(shortBytes);
+    assertThat(CodecSpecificDataUtil.isHagcMetadata(buffer)).isFalse();
+  }
+
+  @Test
+  public void isHagcTrack_withValidHagc_returnsTrue() {
+    byte[] hagcBytes =
+        TestUtil.createByteArray(0xB5, 0x00, 0x90, 0x00, 0x01, 0x00, 0x00, 0x01, 0x02, 0x03);
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.APPLICATION_ITUT_T35)
+            .setInitializationData(ImmutableList.of(hagcBytes))
+            .build();
+    assertThat(CodecSpecificDataUtil.isHagcTrack(format)).isTrue();
+  }
+
+  @Test
+  public void isHagcTrack_withoutHagc_returnsFalse() {
+    byte[] badBytes = TestUtil.createByteArray(0x00, 0x01, 0x02);
+    Format formatWithBadBytes =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.APPLICATION_ITUT_T35)
+            .setInitializationData(ImmutableList.of(badBytes))
+            .build();
+    assertThat(CodecSpecificDataUtil.isHagcTrack(formatWithBadBytes)).isFalse();
+
+    Format formatWithoutInitData =
+        new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_ITUT_T35).build();
+    assertThat(CodecSpecificDataUtil.isHagcTrack(formatWithoutInitData)).isFalse();
+
+    Format formatWithWrongMimeType =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setInitializationData(ImmutableList.of(badBytes))
+            .build();
+    assertThat(CodecSpecificDataUtil.isHagcTrack(formatWithWrongMimeType)).isFalse();
   }
 
   private static void assertCodecProfileAndLevelForCodecsString(
