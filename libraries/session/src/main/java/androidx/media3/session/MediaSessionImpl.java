@@ -168,6 +168,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private ImmutableList<CommandButton> mediaButtonPreferences;
   private Bundle sessionExtras;
   @Nullable private PlaybackException playbackException;
+  private final @Nullable Boolean systemUiPlaybackResumptionOptIn;
 
   @SuppressWarnings("argument.type.incompatible") // Using this in System.identityHashCode
   public MediaSessionImpl(
@@ -186,7 +187,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       boolean playIfSuppressed,
       boolean isPeriodicPositionUpdateEnabled,
       boolean useLegacySurfaceHandling,
-      @Nullable String packageNameOverride) {
+      @Nullable String packageNameOverride,
+      @Nullable Boolean systemUiPlaybackResumptionOptIn) {
     Log.i(
         TAG,
         "Init "
@@ -210,6 +212,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     this.isPeriodicPositionUpdateEnabled = isPeriodicPositionUpdateEnabled;
     this.useLegacySurfaceHandling = useLegacySurfaceHandling;
     this.packageNameOverride = packageNameOverride;
+    this.systemUiPlaybackResumptionOptIn = systemUiPlaybackResumptionOptIn;
 
     @SuppressWarnings("nullness:assignment")
     @Initialized
@@ -1256,7 +1259,9 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   /* package */ boolean canResumePlaybackOnStart() {
-    return sessionLegacyStub.canResumePlaybackOnStart();
+    return systemUiPlaybackResumptionOptIn != null
+        ? systemUiPlaybackResumptionOptIn
+        : sessionLegacyStub.canResumePlaybackOnStart();
   }
 
   /* package */ void setMediaSessionListener(MediaSession.Listener listener) {
