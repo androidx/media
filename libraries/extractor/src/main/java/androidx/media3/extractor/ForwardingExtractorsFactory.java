@@ -60,6 +60,11 @@ public class ForwardingExtractorsFactory implements ExtractorsFactory {
   }
 
   @Override
+  public ExtractorsFactory setParseHagcMetadata(boolean parseHagcMetadata) {
+    return factory.setParseHagcMetadata(parseHagcMetadata);
+  }
+
+  @Override
   public Extractor[] createExtractors() {
     return factory.createExtractors();
   }

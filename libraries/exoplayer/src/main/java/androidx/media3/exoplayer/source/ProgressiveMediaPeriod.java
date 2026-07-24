@@ -32,6 +32,7 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.TrackGroup;
+import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
@@ -130,7 +131,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Nullable private final String customCacheKey;
   private final long continueLoadingCheckIntervalBytes;
   private final boolean loadOnlySelectedTracks;
-  private final boolean experimentalEnableHagcPlayback;
   private final int singleTrackId;
   @Nullable private final Format singleTrackFormat;
   private final long singleSampleDurationUs;
@@ -217,7 +217,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       @Nullable String customCacheKey,
       int continueLoadingCheckIntervalBytes,
       boolean loadOnlySelectedTracks,
-      boolean experimentalEnableHagcPlayback,
       int singleTrackId,
       @Nullable Format singleTrackFormat,
       long singleSampleDurationUs,
@@ -233,7 +232,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.customCacheKey = customCacheKey;
     this.continueLoadingCheckIntervalBytes = continueLoadingCheckIntervalBytes;
     this.loadOnlySelectedTracks = loadOnlySelectedTracks;
-    this.experimentalEnableHagcPlayback = experimentalEnableHagcPlayback;
     this.singleTrackId = singleTrackId;
     this.singleTrackFormat = singleTrackFormat;
     this.endPositionUs = C.TIME_END_OF_SOURCE;
@@ -393,8 +391,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         hasPreroll |= selection.getSelectedFormat().hasPrerollSamples;
         SampleStream stream =
             new SampleStreamImpl(track, selection.getSelectedFormat().hasPrerollSamples);
-        if (experimentalEnableHagcPlayback
-            && Build.VERSION.SDK_INT >= 37
+        if (Build.VERSION.SDK_INT >= 37
             && !isT35TrackExplicitlySelected
             && MimeTypes.isVideo(selection.getSelectedFormat().sampleMimeType)) {
           // TODO: b/388762778 - The MP4 container has extra information (e.g. cdsc box) specifying
@@ -402,36 +399,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           // the correct mergingSampleStreams when multiple video/HAGC tracks exist.
           for (int j = 0; j < tracks.length; j++) {
             Format format = tracks.get(j).getFormat(0);
-            if (Objects.equals(format.sampleMimeType, MimeTypes.APPLICATION_ITUT_T35)) {
-              boolean isHagc = false;
-              if (!format.initializationData.isEmpty()) {
-                byte[] initData = format.initializationData.get(0);
-                if (initData.length >= 5
-                    && initData[0] == (byte) 0xB5
-                    && initData[1] == (byte) 0x00
-                    && initData[2] == (byte) 0x90
-                    && initData[3] == (byte) 0x00
-                    && initData[4] == (byte) 0x01) {
-                  isHagc = true;
-                }
-              }
-              if (isHagc) {
-                checkState(!trackEnabledStates[j]);
-                enabledTrackCount++;
-                trackEnabledStates[j] = true;
-                if (loadOnlySelectedTracks) {
-                  controlledTrackOutputs[j].updateSelectionState(true);
-                }
-                // HAGC it35 metadata samples are standalone and do not depend on
-                // previous samples, hence hasPreroll is not relevant and always false.
-                stream =
-                    new MergingMetadataSampleStream(
-                        stream,
-                        new SampleStreamImpl(j, /* hasPreroll= */ false),
-                        selection.getSelectedFormat());
-                mergingSampleStreams.add((MergingMetadataSampleStream) stream);
-                break;
-              }
+            if (CodecSpecificDataUtil.isHagcTrack(format)) {
+              checkState(!trackEnabledStates[j]);
+              enabledTrackCount++;
+              trackEnabledStates[j] = true;
+              // HAGC it35 metadata samples are standalone and do not depend on
+              // previous samples, hence hasPreroll is not relevant and always false.
+              stream =
+                  new MergingMetadataSampleStream(
+                      stream,
+                      new SampleStreamImpl(j, /* hasPreroll= */ false),
+                      selection.getSelectedFormat());
+              mergingSampleStreams.add((MergingMetadataSampleStream) stream);
+              break;
             }
           }
         }
