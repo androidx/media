@@ -28,6 +28,7 @@ import static androidx.media3.common.Player.STATE_READY;
 import static androidx.media3.test.session.common.MediaSessionConstants.KEY_IS_LEGACY_CONTROLLER;
 import static androidx.media3.test.session.common.MediaSessionConstants.NOTIFICATION_CONTROLLER_KEY;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_CUSTOM_ACTION_WITH_PROGRESS_UPDATE;
+import static androidx.media3.test.session.common.MediaSessionConstants.TEST_LIVE_POSITION_CONFIGURED;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_MEDIA_CONTROLLER_COMPAT_CALLBACK_WITH_MEDIA_SESSION_TEST;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_SET_SHOW_PLAY_BUTTON_IF_SUPPRESSED_TO_FALSE;
 import static androidx.media3.test.session.common.TestUtils.LONG_TIMEOUT_MS;
@@ -1516,6 +1517,63 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
         .isEqualTo(0);
     assertThat(getterPlaybackStateCompat.getActions() & PlaybackStateCompat.ACTION_SEEK_TO)
         .isEqualTo(0);
+  }
+
+  @Test
+  public void playbackStateChange_forSeekableLiveStream_notifiesKnownPositionAndSeekAction()
+      throws Exception {
+    Bundle tokenExtras = new Bundle();
+    tokenExtras.putBoolean(
+        MediaSessionProviderService.KEY_ENABLE_FAKE_MEDIA_NOTIFICATION_MANAGER_CONTROLLER, true);
+    tokenExtras.putBoolean(
+        MediaSessionProviderService.KEY_ENABLE_LIVE_MEDIA_POSITION, true
+    );
+    RemoteMediaSession configuredSession = new RemoteMediaSession(TEST_LIVE_POSITION_CONFIGURED, context, tokenExtras);
+    MediaControllerCompat configuredControllerCompat = new MediaControllerCompat(context, configuredSession.getCompatToken());
+    waitUntilSessionReady(configuredControllerCompat);
+
+    long testCurrentPositionMs = 5000;
+    long testBufferedPositionMs = 6000;
+    AtomicReference<PlaybackStateCompat> playbackStateRef = new AtomicReference<>();
+    CountDownLatch latch = new CountDownLatch(1);
+    MediaControllerCompat.Callback callback =
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onPlaybackStateChanged(PlaybackStateCompat state) {
+            if (state.getPosition() == testCurrentPositionMs) {
+              playbackStateRef.set(state);
+              latch.countDown();
+            }
+          }
+        };
+    configuredControllerCompat.registerCallback(callback, handler);
+    configuredSession
+        .getMockPlayer()
+        .setTimeline(
+            new FakeTimeline(
+                new FakeTimeline.TimelineWindowDefinition.Builder()
+                    .setLive(true)
+                    .setSeekable(true)
+                    .build()));
+    configuredSession.getMockPlayer().setCurrentPosition(testCurrentPositionMs);
+    configuredSession.getMockPlayer().setBufferedPosition(testBufferedPositionMs);
+
+    configuredSession.getMockPlayer().notifyPlaybackStateChanged(STATE_READY);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    PlaybackStateCompat parameterPlaybackStateCompat = playbackStateRef.get();
+    PlaybackStateCompat getterPlaybackStateCompat = configuredControllerCompat.getPlaybackState();
+    assertThat(getterPlaybackStateCompat.getPosition()).isEqualTo(testCurrentPositionMs);
+    assertThat(parameterPlaybackStateCompat.getBufferedPosition()).isEqualTo(testBufferedPositionMs);
+    assertThat(getterPlaybackStateCompat.getBufferedPosition()).isEqualTo(testBufferedPositionMs);
+    assertThat(parameterPlaybackStateCompat.getPlaybackSpeed()).isEqualTo(0f);
+    assertThat(getterPlaybackStateCompat.getPlaybackSpeed()).isEqualTo(0f);
+    assertThat(parameterPlaybackStateCompat.getActions() & PlaybackStateCompat.ACTION_SEEK_TO)
+        .isNotEqualTo(0);
+    assertThat(getterPlaybackStateCompat.getActions() & PlaybackStateCompat.ACTION_SEEK_TO)
+        .isNotEqualTo(0);
+    // release local session
+    configuredSession.release();
   }
 
   @Test
