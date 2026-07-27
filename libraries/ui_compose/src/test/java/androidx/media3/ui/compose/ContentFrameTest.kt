@@ -19,6 +19,7 @@ package androidx.media3.ui.compose
 import android.view.SurfaceView
 import android.view.TextureView
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -99,16 +100,17 @@ class ContentFrameTest {
       ContentFrame(
         player,
         contentScale = contentScale.value,
-        modifier = Modifier.testTag("ContentFrame"),
+        modifier = Modifier.testTag("ContentFrameOuter"),
+        overlay = { Box(Modifier.fillMaxSize().testTag("ScaledVideoBounds")) },
       )
     }
-    val initialBounds = composeTestRule.onNodeWithTag("ContentFrame").getBoundsInRoot()
+    val initialBounds = composeTestRule.onNodeWithTag("ScaledVideoBounds").getBoundsInRoot()
     val initialAspectRatio = initialBounds.width / initialBounds.height
 
     contentScale.value = ContentScale.Crop
     composeTestRule.waitForIdle()
 
-    val croppedBounds = composeTestRule.onNodeWithTag("ContentFrame").getBoundsInRoot()
+    val croppedBounds = composeTestRule.onNodeWithTag("ScaledVideoBounds").getBoundsInRoot()
     val croppedAspectRatio = croppedBounds.width / croppedBounds.height
 
     assertThat(croppedBounds).isNotEqualTo(initialBounds)

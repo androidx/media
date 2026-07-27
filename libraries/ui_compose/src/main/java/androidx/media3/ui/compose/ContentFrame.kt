@@ -43,6 +43,7 @@ import androidx.media3.ui.compose.state.rememberPresentationState
  * @param contentScale The [ContentScale] strategy for the container.
  * @param keepContentOnReset If `true`, the last rendered frame will remain visible when the player
  *   is reset. If `false`, the surface will be cleared.
+ * @param overlay A composable drawn on top of the media content, but under the shutter.
  * @param shutter A composable that is displayed when the video surface needs to be covered. By
  *   default, this is a black background.
  */
@@ -54,18 +55,25 @@ fun ContentFrame(
   surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
   contentScale: ContentScale = ContentScale.Fit,
   keepContentOnReset: Boolean = false,
+  overlay: @Composable () -> Unit = {},
   shutter: @Composable () -> Unit = { Box(Modifier.fillMaxSize().background(Color.Black)) },
 ) {
   val presentationState: PresentationState = rememberPresentationState(player, keepContentOnReset)
   val scaledModifier =
-    modifier.resizeWithContentScale(contentScale, presentationState.videoAspectRatio)
+    Modifier.resizeWithContentScale(contentScale, presentationState.videoAspectRatio)
 
-  // Always leave PlayerSurface to be part of the Compose tree because it will be initialised in
-  // the process. If this composable is guarded by some condition, it might never become visible
-  // because the Player will not emit the relevant event, e.g. the first frame being ready.
-  PlayerSurface(player, scaledModifier, surfaceType)
+  Box(modifier) {
+    Box(scaledModifier) {
+      // Always leave PlayerSurface to be part of the Compose tree because it will be initialised in
+      // the process. If this composable is guarded by some condition, it might never become visible
+      // because the Player will not emit the relevant event, e.g. the first frame being ready.
+      PlayerSurface(player, Modifier.fillMaxSize(), surfaceType)
 
-  if (presentationState.coverSurface) {
-    shutter()
+      overlay()
+    }
+
+    if (presentationState.coverSurface) {
+      shutter()
+    }
   }
 }

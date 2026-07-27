@@ -36,6 +36,7 @@ import androidx.media3.ui.compose.ContentFrame
 import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
 import androidx.media3.ui.compose.SurfaceType
 import androidx.media3.ui.compose.material3.PlayerTokens.ErrorVerticalOffsetFromControls
+import androidx.media3.ui.compose.material3.text.Subtitles
 
 /**
  * A composable that provides a basic player UI layout with default controls and a shutter.
@@ -83,6 +84,7 @@ fun Player(player: Player?, modifier: Modifier = Modifier) {
  * @param surfaceType The type of surface to use for video rendering. See [SurfaceType].
  * @param contentScale The scaling mode to apply to the content within the [ContentFrame].
  * @param keepContentOnReset Whether to keep the content visible when the player is reset.
+ * @param subtitleOverlay A composable for rendering subtitles.
  * @param shutter A composable to be displayed as a shutter over the content. The default shutter is
  *   a black [Box].
  * @param showControls Whether the controls should be visible. False by default.
@@ -103,6 +105,7 @@ fun Player(
   surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
   contentScale: ContentScale = ContentScale.Fit,
   keepContentOnReset: Boolean = false,
+  subtitleOverlay: @Composable (Player?) -> Unit = { Subtitles(it) },
   shutter: @Composable () -> Unit = PlayerDefaults::Shutter,
   showControls: Boolean = false,
   topControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = { player, showControls ->
@@ -122,6 +125,7 @@ fun Player(
     surfaceType,
     contentScale,
     keepContentOnReset,
+    subtitleOverlay,
     shutter,
     showControls,
     topControls,
@@ -138,6 +142,7 @@ private fun PlayerImpl(
   surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
   contentScale: ContentScale = ContentScale.Fit,
   keepContentOnReset: Boolean = false,
+  subtitleOverlay: @Composable (Player?) -> Unit = { Subtitles(it) },
   shutter: @Composable () -> Unit = PlayerDefaults::Shutter,
   showControls: Boolean = false,
   topControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = { player, showControls ->
@@ -161,6 +166,7 @@ private fun PlayerImpl(
       surfaceType = surfaceType,
       contentScale = contentScale,
       keepContentOnReset = keepContentOnReset,
+      overlay = { subtitleOverlay(player) },
       shutter = shutter,
     )
 

@@ -116,4 +116,6 @@
   <!-- Frame processing errors (7xxx) -->
   <string name="media3_error_video_frame_processor_init_failed">Failed to initialize the video frame processor.</string>
   <string name="media3_error_video_frame_processing_failed">Failed to process a video frame.</string>
+  <!-- Accessibility description for a subtitle image cue. [CHAR LIMIT=NONE] -->
+  <string name="subtitle_bitmap_cue">Subtitle bitmap cue</string>
 </resources>

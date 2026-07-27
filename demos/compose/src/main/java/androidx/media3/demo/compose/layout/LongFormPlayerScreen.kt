@@ -21,6 +21,7 @@ import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -58,6 +59,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.ExperimentalApi
+import androidx.media3.demo.compose.buttons.CcButton
 import androidx.media3.demo.compose.buttons.LabeledProgressSlider
 import androidx.media3.demo.compose.buttons.SettingsBottomSheet
 import androidx.media3.demo.compose.buttons.SettingsButton
@@ -204,10 +206,10 @@ internal fun LongFormPlayerScreen(player: Player?, modifier: Modifier = Modifier
       contentScale = CONTENT_SCALES[currentContentScaleIndex].second,
       topControls = { player, showControls ->
         PlayerDefaults.TopControls(player, showControls, Modifier.fillMaxWidth()) {
-          SettingsButton(
-            Modifier.padding(horizontal = 15.dp).align(Alignment.CenterEnd),
-            onSettingsClick = { showSettings = true },
-          )
+          Row(Modifier.align(Alignment.CenterEnd).padding(horizontal = 15.dp)) {
+            CcButton(player = player)
+            SettingsButton(onSettingsClick = { showSettings = true })
+          }
         }
       },
       bottomControls = { player, showControls ->
