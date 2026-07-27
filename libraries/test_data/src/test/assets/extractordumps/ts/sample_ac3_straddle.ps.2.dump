@@ -13,6 +13,7 @@ track 189:
     averageBitrate = 192000
     peakBitrate = 192000
     id = 189
+    containerMimeType = video/mp2p
     sampleMimeType = audio/ac3
     channelCount = 2
     sampleRate = 48000
@@ -89,6 +90,7 @@ track 224:
   sample count = 0
   format 0:
     id = 224
+    containerMimeType = video/mp2p
     sampleMimeType = video/mpeg2
     width = 160
     height = 120

@@ -46,7 +46,7 @@ public final class PsExtractorTest {
   }
 
   @Test
-  public void sampleWithAc3StraddlingPesBoundaries() throws Exception {
+  public void extract_withAc3StraddlingPesBoundaries_stripsSubStreamHeader() throws Exception {
     // Regression test for a private_stream_1 (0xBD) sample whose AC-3 frames straddle PES packet
     // boundaries, so the DVD sub-stream header preceding each packet's payload must be stripped.
     ExtractorAsserts.assertBehavior(

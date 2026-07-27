@@ -13,6 +13,7 @@ track 189:
     averageBitrate = 192000
     peakBitrate = 192000
     id = 189
+    containerMimeType = video/mp2p
     sampleMimeType = audio/ac3
     channelCount = 2
     sampleRate = 48000
@@ -106,9 +107,10 @@ track 189:
     data = length 768, hash A1D014D1
 track 224:
   total output bytes = 30037
-  sample count = 6
+  sample count = 7
   format 0:
     id = 224
+    containerMimeType = video/mp2p
     sampleMimeType = video/mpeg2
     width = 160
     height = 120
@@ -138,4 +140,8 @@ track 224:
     time = 733333
     flags = 0
     data = length 2471, hash B011430D
+  sample 6:
+    time = 800000
+    flags = 0
+    data = length 3709, hash 381BE4ED
 tracksEnded = true
