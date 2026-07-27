@@ -44,6 +44,7 @@ import androidx.media3.container.DolbyVisionConfig;
 import androidx.media3.container.Mp4AlternateGroupData;
 import androidx.media3.container.Mp4Box;
 import androidx.media3.container.Mp4Box.LeafBox;
+import androidx.media3.container.Mp4FormatSpecificMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.container.NalUnitUtil;
@@ -2251,9 +2252,25 @@ public final class BoxParser {
         out.format =
             Ac3Util.parseAc3AnnexFFormat(parent, Integer.toString(trackId), language, drmInitData);
       } else if (childAtomType == Mp4Box.TYPE_dec3) {
+        // Preserve the raw EC3SpecificBox body as format-specific transmuxing metadata so that
+        // downstream components (e.g. the muxer for stream-copy) can rewrite the dec3 box.
+        int childAtomBodySize = childAtomSize - Mp4Box.HEADER_SIZE;
+        byte[] ec3SpecificBoxPayload = new byte[childAtomBodySize];
         parent.setPosition(Mp4Box.HEADER_SIZE + childPosition);
-        out.format =
+        parent.readBytes(ec3SpecificBoxPayload, /* offset= */ 0, childAtomBodySize);
+        parent.setPosition(Mp4Box.HEADER_SIZE + childPosition);
+        Format eac3Format =
             Ac3Util.parseEAc3AnnexFFormat(parent, Integer.toString(trackId), language, drmInitData);
+        Metadata.Entry dec3TransmuxingData =
+            new Mp4FormatSpecificMetadataEntry("dec3", ec3SpecificBoxPayload);
+        out.format =
+            eac3Format
+                .buildUpon()
+                .setMetadata(
+                    eac3Format.metadata != null
+                        ? eac3Format.metadata.copyWithAppendedEntries(dec3TransmuxingData)
+                        : new Metadata(dec3TransmuxingData))
+                .build();
       } else if (childAtomType == Mp4Box.TYPE_dac4) {
         parent.setPosition(Mp4Box.HEADER_SIZE + childPosition);
         out.format =
