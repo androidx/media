@@ -110,3 +110,5 @@ moof (556 bytes):
       Data = length 492, hash EC9CC954
 mdat (248 bytes):
   Data = length 240, hash BD3FF239
+mfra (200 bytes):
+  Data = length 192, hash EEE97A63

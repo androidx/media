@@ -178,8 +178,23 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void close() throws IOException {
     try {
       createFragment();
+      writeMfraBox();
     } finally {
       outputChannel.close();
+    }
+  }
+
+  private void writeMfraBox() throws IOException {
+    List<ByteBuffer> tfraBoxes = new ArrayList<>();
+    for (int i = 0; i < tracks.size(); i++) {
+      Track track = tracks.get(i);
+      if (!track.tfraEntries.isEmpty()) {
+        // TODO(b/538527053): Use 1-based track ID indices throughout and remove +1 logic.
+        tfraBoxes.add(Boxes.tfra(/* trackId= */ i + 1, track.tfraEntries));
+      }
+    }
+    if (!tfraBoxes.isEmpty()) {
+      outputChannel.write(Boxes.mfra(tfraBoxes));
     }
   }
 
@@ -242,6 +257,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private boolean shouldFlushPendingSamples(Track track, BufferInfo nextSampleBufferInfo) {
+    // LINT.IfChange(fragmentation_logic)
     // If video track is present then fragment will be created based on group of pictures and
     // track's duration so far.
     if (videoTrack != null) {
@@ -258,6 +274,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     } else {
       return maxTrackDurationUs >= fragmentDurationUs;
     }
+    // LINT.ThenChange(:mfra_indexing_logic)
   }
 
   private void createFragment() throws IOException {
@@ -272,9 +289,33 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
            trun
      mdat
      */
+    long moofBoxStartPosition = outputChannel.getPosition();
+    // The 1-based index of the 'traf' box within the 'moof' box for the current track.
+    int activeTrafIndex = 1;
+    for (int i = 0; i < tracks.size(); i++) {
+      Track track = tracks.get(i);
+      if (!track.pendingSamplesBufferInfo.isEmpty()) {
+        BufferInfo firstPendingSample = checkNotNull(track.pendingSamplesBufferInfo.peekFirst());
+        // LINT.IfChange(mfra_indexing_logic)
+        // Index video keyframes, audio keyframes, and the first sample of metadata/text tracks.
+        boolean isRandomAccessPoint =
+            (firstPendingSample.flags & C.BUFFER_FLAG_KEY_FRAME) != 0
+                || (!MimeTypes.isVideo(track.format.sampleMimeType)
+                    && !MimeTypes.isAudio(track.format.sampleMimeType));
+        // LINT.ThenChange(:fragmentation_logic)
+        if (isRandomAccessPoint) {
+          long ptsInTimescale =
+              Util.scaleLargeTimestamp(
+                  firstPendingSample.presentationTimeUs, track.videoUnitTimebase(), 1_000_000L);
+          track.tfraEntries.add(
+              new Boxes.TfraEntry(ptsInTimescale, moofBoxStartPosition, activeTrafIndex));
+        }
+        activeTrafIndex++;
+      }
+    }
+
     ImmutableList<ProcessedTrackInfo> trackInfos = processAllTracks();
-    ImmutableList<ByteBuffer> trafBoxes =
-        createTrafBoxes(trackInfos, /* moofBoxStartPosition= */ outputChannel.getPosition());
+    ImmutableList<ByteBuffer> trafBoxes = createTrafBoxes(trackInfos, moofBoxStartPosition);
     if (trafBoxes.isEmpty()) {
       return;
     }

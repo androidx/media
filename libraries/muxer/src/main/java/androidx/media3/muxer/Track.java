@@ -38,6 +38,7 @@ import java.util.Map;
   public final List<BufferInfo> writtenSamples;
   public final List<Long> writtenChunkOffsets;
   public final List<Integer> writtenChunkSampleCounts;
+  public final List<Boxes.TfraEntry> tfraEntries;
   public final Deque<BufferInfo> pendingSamplesBufferInfo;
   public final Deque<ByteBuffer> pendingSamplesByteBuffer;
   // Map from the reference type (e.g. "cdsc") to the list of referenced track ids.
@@ -69,6 +70,7 @@ import java.util.Map;
     writtenSamples = new ArrayList<>();
     writtenChunkOffsets = new ArrayList<>();
     writtenChunkSampleCounts = new ArrayList<>();
+    tfraEntries = new ArrayList<>();
     pendingSamplesBufferInfo = new ArrayDeque<>();
     pendingSamplesByteBuffer = new ArrayDeque<>();
     trackReferences = new HashMap<>();

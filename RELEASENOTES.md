@@ -45,6 +45,9 @@
 *   Effect:
 *   Effect Lottie:
 *   Muxers:
+    *   Write `mfra` (Movie Fragment Random Access) box at the end of fragmented
+        MP4 files to allow seeking via `FragmentedMp4Extractor` using
+        `FLAG_READ_MFRA_FOR_SEEK_MAP`.
     *   Fix crash in `Mp4Writer` when writing an EOS sample before any other
         samples are written.
 *   IMA extension:
