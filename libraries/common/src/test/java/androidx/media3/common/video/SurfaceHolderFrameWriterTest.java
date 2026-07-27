@@ -48,6 +48,20 @@ public final class SurfaceHolderFrameWriterTest {
   private static final int WIDTH = 640;
   private static final int HEIGHT = 480;
 
+  private static final ColorInfo PQ_COLOR_INFO =
+      new ColorInfo.Builder()
+          .setColorSpace(C.COLOR_SPACE_BT2020)
+          .setColorRange(C.COLOR_RANGE_LIMITED)
+          .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+          .build();
+
+  private static final ColorInfo HLG_COLOR_INFO =
+      new ColorInfo.Builder()
+          .setColorSpace(C.COLOR_SPACE_BT2020)
+          .setColorRange(C.COLOR_RANGE_LIMITED)
+          .setColorTransfer(C.COLOR_TRANSFER_HLG)
+          .build();
+
   private ImageReaderSurfaceHolder surfaceHolder;
   private SurfaceHolderFrameWriter frameWriter;
   private AtomicBoolean onEnded;
@@ -192,16 +206,7 @@ public final class SurfaceHolderFrameWriterTest {
   @Config(sdk = 32)
   public void getInfo_hdrFormatOnApi32_returnsFalse() {
     Format format =
-        new Format.Builder()
-            .setWidth(WIDTH)
-            .setHeight(HEIGHT)
-            .setColorInfo(
-                new ColorInfo.Builder()
-                    .setColorSpace(C.COLOR_SPACE_BT2020)
-                    .setColorRange(C.COLOR_RANGE_LIMITED)
-                    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
-                    .build())
-            .build();
+        new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).setColorInfo(PQ_COLOR_INFO).build();
     assertThat(frameWriter.getInfo().isSupported(format, /* usage= */ 0L)).isFalse();
   }
 
@@ -209,16 +214,23 @@ public final class SurfaceHolderFrameWriterTest {
   @Config(sdk = 33)
   public void getInfo_hdrFormatOnApi33_returnsTrue() {
     Format format =
-        new Format.Builder()
-            .setWidth(WIDTH)
-            .setHeight(HEIGHT)
-            .setColorInfo(
-                new ColorInfo.Builder()
-                    .setColorSpace(C.COLOR_SPACE_BT2020)
-                    .setColorRange(C.COLOR_RANGE_LIMITED)
-                    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
-                    .build())
-            .build();
+        new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).setColorInfo(PQ_COLOR_INFO).build();
+    assertThat(frameWriter.getInfo().isSupported(format, /* usage= */ 0L)).isTrue();
+  }
+
+  @Test
+  @Config(sdk = 33)
+  public void getInfo_hlgFormatOnApi33_returnsFalse() {
+    Format format =
+        new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).setColorInfo(HLG_COLOR_INFO).build();
+    assertThat(frameWriter.getInfo().isSupported(format, /* usage= */ 0L)).isFalse();
+  }
+
+  @Test
+  @Config(sdk = 34)
+  public void getInfo_hlgFormatOnApi34_returnsTrue() {
+    Format format =
+        new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).setColorInfo(HLG_COLOR_INFO).build();
     assertThat(frameWriter.getInfo().isSupported(format, /* usage= */ 0L)).isTrue();
   }
 

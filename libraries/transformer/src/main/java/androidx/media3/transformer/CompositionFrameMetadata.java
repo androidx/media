@@ -18,6 +18,7 @@ package androidx.media3.transformer;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITION_EFFECTS;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITION_SEQUENCE_INDEX;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITOR_SETTINGS;
+import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_HDR_MODE;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_ITEM_EFFECTS;
 import static androidx.media3.transformer.Composition.KEY_COMPOSITION;
 import static androidx.media3.transformer.Composition.KEY_COMPOSITION_ITEM_INDEX;
@@ -55,6 +56,7 @@ public class CompositionFrameMetadata implements HardwareBufferFrame.Metadata {
         .put(KEY_COMPOSITION_ITEM_INDEX, itemIndex)
         .put(KEY_ITEM_EFFECTS, editedMediaItem.effects.videoEffects)
         .put(KEY_COMPOSITOR_SETTINGS, composition.videoCompositorSettings)
+        .put(KEY_HDR_MODE, composition.hdrMode)
         .put(KEY_COMPOSITION_EFFECTS, composition.effects.videoEffects)
         .buildOrThrow();
   }

@@ -270,4 +270,20 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         .setRotationDegrees(rotationDegrees)
         .build();
   }
+
+  @Override
+  public boolean isOutputFormatSupported(Format format) {
+    if (!frameWriter.getInfo().isSupported(format, OUTPUT_USAGE)) {
+      return false;
+    }
+    try {
+      if (format.colorInfo != null
+          && !GlUtil.isColorTransferSupported(format.colorInfo.colorTransfer)) {
+        return false;
+      }
+    } catch (GlException e) {
+      return false;
+    }
+    return true;
+  }
 }

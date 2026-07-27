@@ -28,9 +28,14 @@ import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
+import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ConditionVariable;
+import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.Util;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
@@ -58,6 +63,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -152,21 +158,7 @@ public final class DefaultGlFrameProcessorTest {
   public void constructor_defersComponentInitializationToQueue() throws Exception {
     AtomicBoolean componentCreated = new AtomicBoolean(false);
     DefaultGlFrameProcessor.Factory customFactory =
-        new DefaultGlFrameProcessor.Factory(
-            context,
-            new GlFrameProcessorTestUtil.FakeGlObjectsProvider(),
-            glExecutorService,
-            /* hardwareBufferConverterFactory= */ outputColorInfo -> {
-              componentCreated.set(true);
-              return fakeHardwareBufferConverter;
-            },
-            fakeFrameWriterGlTextureFrameConsumer,
-            new FakeCompositorGlProgram(),
-            /* compositorTexturePoolFactory= */ outputColorInfo ->
-                new TexturePool(
-                    /* textureAllocator= */ (width, height, useHighPrecisionColorComponents) -> 100,
-                    /* useHighPrecisionColorComponents= */ false,
-                    /* capacity= */ COMPOSITOR_CAPACITY));
+        createCustomFactory(outputColorInfo -> componentCreated.set(true));
 
     try (DefaultGlFrameProcessor customProcessor =
         customFactory.create(
@@ -199,6 +191,101 @@ public final class DefaultGlFrameProcessorTest {
       // Now the components should be lazily instantiated!
       assertThat(componentCreated.get()).isTrue();
     }
+  }
+
+  @Test
+  public void queue_withHdrFrameAndSupportedHardware_keepsHdr() throws Exception {
+    ColorInfo hdrColorInfo =
+        new ColorInfo.Builder()
+            .setColorSpace(C.COLOR_SPACE_BT2020)
+            .setColorTransfer(C.COLOR_TRANSFER_HLG)
+            .setColorRange(C.COLOR_RANGE_LIMITED)
+            .build();
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setColorInfo(hdrColorInfo)
+            .build();
+    ColorInfo actualColorInfo =
+        queueFrameAndGetColorInfo(format, /* hdrMode= */ 0, /* forceUnsupportedFormat= */ false);
+
+    assertThat(actualColorInfo).isEqualTo(hdrColorInfo);
+  }
+
+  @Test
+  public void queue_withSdrFrame_keepsSdr() throws Exception {
+    ColorInfo sdrColorInfo =
+        new ColorInfo.Builder()
+            .setColorSpace(C.COLOR_SPACE_BT709)
+            .setColorTransfer(C.COLOR_TRANSFER_SDR)
+            .setColorRange(C.COLOR_RANGE_LIMITED)
+            .build();
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setColorInfo(sdrColorInfo)
+            .build();
+    ColorInfo actualColorInfo =
+        queueFrameAndGetColorInfo(format, /* hdrMode= */ 0, /* forceUnsupportedFormat= */ false);
+
+    assertThat(actualColorInfo).isEqualTo(sdrColorInfo);
+  }
+
+  @Test
+  public void queue_withHdrFrameAndUnsupportedHardware_fallsBackToSdr() throws Exception {
+    ColorInfo hdrColorInfo =
+        new ColorInfo.Builder()
+            .setColorSpace(C.COLOR_SPACE_BT2020)
+            .setColorTransfer(C.COLOR_TRANSFER_HLG)
+            .setColorRange(C.COLOR_RANGE_LIMITED)
+            .build();
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setColorInfo(hdrColorInfo)
+            .build();
+    ColorInfo actualColorInfo =
+        queueFrameAndGetColorInfo(format, /* hdrMode= */ 0, /* forceUnsupportedFormat= */ true);
+
+    assertThat(actualColorInfo).isEqualTo(ColorInfo.SDR_BT709_LIMITED);
+  }
+
+  @Test
+  public void queue_withHdrFrameAndToneMapHdrToSdrMode_fallsBackToSdr() throws Exception {
+    ColorInfo hdrColorInfo =
+        new ColorInfo.Builder()
+            .setColorSpace(C.COLOR_SPACE_BT2020)
+            .setColorTransfer(C.COLOR_TRANSFER_HLG)
+            .setColorRange(C.COLOR_RANGE_LIMITED)
+            .build();
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setColorInfo(hdrColorInfo)
+            .build();
+    ColorInfo actualColorInfo =
+        queueFrameAndGetColorInfo(format, /* hdrMode= */ 2, /* forceUnsupportedFormat= */ false);
+
+    assertThat(actualColorInfo).isEqualTo(ColorInfo.SDR_BT709_LIMITED);
+  }
+
+  @Test
+  public void queue_withJpegRAndSrgbTransfer_infersHdrHlg() throws Exception {
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.IMAGE_JPEG_R)
+            .setColorInfo(ColorInfo.SRGB_BT709_FULL) // SRGB metadata typical of JPEG input
+            .build();
+    ColorInfo actualColorInfo =
+        queueFrameAndGetColorInfo(format, /* hdrMode= */ 0, /* forceUnsupportedFormat= */ false);
+
+    ColorInfo expectedHdrColor =
+        new ColorInfo.Builder()
+            .setColorSpace(C.COLOR_SPACE_BT2020)
+            .setColorTransfer(C.COLOR_TRANSFER_HLG)
+            .setColorRange(C.COLOR_RANGE_LIMITED)
+            .build();
+    assertThat(actualColorInfo).isEqualTo(expectedHdrColor);
   }
 
   @Test
@@ -1228,6 +1315,25 @@ public final class DefaultGlFrameProcessorTest {
                 /* capacity= */ COMPOSITOR_CAPACITY));
   }
 
+  private DefaultGlFrameProcessor.Factory createCustomFactory(
+      Consumer<ColorInfo> colorInfoConsumer) {
+    return new DefaultGlFrameProcessor.Factory(
+        context,
+        new GlFrameProcessorTestUtil.FakeGlObjectsProvider(),
+        glExecutorService,
+        /* hardwareBufferConverterFactory= */ outputColorInfo -> {
+          colorInfoConsumer.accept(outputColorInfo);
+          return fakeHardwareBufferConverter;
+        },
+        fakeFrameWriterGlTextureFrameConsumer,
+        new FakeCompositorGlProgram(),
+        /* compositorTexturePoolFactory= */ outputColorInfo ->
+            new TexturePool(
+                /* textureAllocator= */ (width, height, useHighPrecisionColorComponents) -> 100,
+                /* useHighPrecisionColorComponents= */ false,
+                /* capacity= */ COMPOSITOR_CAPACITY));
+  }
+
   private static Frame createFakeHardwareBufferFrame(
       int sequenceIndex, @Nullable GlEffect itemEffect) {
     ImmutableMap.Builder<String, Object> metadataBuilder = new ImmutableMap.Builder<>();
@@ -1241,5 +1347,46 @@ public final class DefaultGlFrameProcessorTest {
       metadataBuilder.put(KEY_ITEM_EFFECTS, ImmutableList.of());
     }
     return new FakeHardwareBufferFrame(metadataBuilder.buildOrThrow());
+  }
+
+  private ColorInfo queueFrameAndGetColorInfo(
+      Format format, int hdrMode, boolean forceUnsupportedFormat) throws Exception {
+    ImmutableMap<String, Object> metadata =
+        ImmutableMap.of(
+            DefaultGlFrameProcessor.KEY_HDR_MODE,
+            hdrMode,
+            KEY_COMPOSITION_SEQUENCE_INDEX,
+            0,
+            KEY_COMPOSITOR_SETTINGS,
+            VideoCompositorSettings.DEFAULT,
+            DefaultGlFrameProcessor.KEY_COMPOSITION_EFFECTS,
+            ImmutableList.of());
+
+    Frame frame = new FakeHardwareBufferFrame(format, metadata);
+    fakeFrameWriterGlTextureFrameConsumer.forceUnsupportedFormat = forceUnsupportedFormat;
+
+    AtomicReference<ColorInfo> actualColorInfo = new AtomicReference<>();
+    DefaultGlFrameProcessor.Factory customFactory = createCustomFactory(actualColorInfo::set);
+
+    try (DefaultGlFrameProcessor customProcessor =
+        customFactory.create(
+            frameWriter,
+            glExecutorService,
+            new FrameProcessor.Listener() {
+              @Override
+              public void onWakeup() {}
+
+              @Override
+              public void onError(VideoFrameProcessingException exception) {
+                throw new AssertionError(exception);
+              }
+
+              @Override
+              public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper fence) {}
+            })) {
+      assertThat(customProcessor.queue(ImmutableList.of(new AsyncFrame(frame, null)))).isTrue();
+      waitUntilGlThreadFinishes();
+      return actualColorInfo.get();
+    }
   }
 }

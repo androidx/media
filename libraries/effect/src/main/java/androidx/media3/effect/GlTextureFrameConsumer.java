@@ -15,6 +15,7 @@
  */
 package androidx.media3.effect;
 
+import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.video.FrameProcessor;
@@ -54,6 +55,16 @@ public interface GlTextureFrameConsumer extends AutoCloseable {
 
   /** Notifies the current stream has ended. */
   void signalEndOfStream();
+
+  /**
+   * Returns whether this consumer supports the provided {@link Format}.
+   *
+   * <p>Returns {@code true} by default.
+   */
+  // TODO: b/535069683 - Remove default implementation once all consumers are updated.
+  default boolean isOutputFormatSupported(Format format) {
+    return true;
+  }
 
   @Override
   void close() throws VideoFrameProcessingException;

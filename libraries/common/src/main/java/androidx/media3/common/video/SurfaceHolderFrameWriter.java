@@ -226,11 +226,17 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
 
   @Override
   public Info getInfo() {
+    // PQ SurfaceView output is supported from API 33, but HLG output is supported from API 34.
+    // By returning false for HLG on API < 34, we signal the pipeline to fall back (e.g., converting
+    // HLG to PQ) so that HLG input can still be displayed.
     return (format, usageFlags) ->
         format.colorInfo != null
-            && (!ColorInfo.isTransferHdr(format.colorInfo) || SDK_INT >= 33)
             && format.width > 0
-            && format.height > 0;
+            && format.height > 0
+            && (!ColorInfo.isTransferHdr(format.colorInfo)
+                || (format.colorInfo.colorTransfer == C.COLOR_TRANSFER_HLG
+                    ? SDK_INT >= 34
+                    : SDK_INT >= 33));
   }
 
   @Override

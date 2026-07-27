@@ -29,9 +29,12 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
+import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Effect;
+import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Consumer;
@@ -50,6 +53,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
@@ -62,8 +66,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 @ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.
 @RequiresApi(26)
 public final class DefaultGlFrameProcessor implements FrameProcessor {
-
-  private static final String TAG = "GlFrameProcessor";
 
   /** Converts from {@link HardwareBuffer} to {@link GlTextureFrame}. */
   interface HardwareBufferConverter extends AutoCloseable {
@@ -229,6 +231,12 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   public static final String KEY_COMPOSITOR_SETTINGS = "KEY_COMPOSITOR_SETTINGS";
 
   /**
+   * Metadata key for storing the {@code Composition.HdrMode} (an {@link Integer}) in {@linkplain
+   * Frame#getMetadata() frame metadata}.
+   */
+  public static final String KEY_HDR_MODE = "KEY_HDR_MODE";
+
+  /**
    * Metadata key for storing the {@link List} of video {@linkplain Effect effects} to apply on the
    * composited frames, in {@linkplain Frame#getMetadata() frame metadata}.
    *
@@ -255,6 +263,17 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
    * {@link GlShaderProgram} implementations during discontinuities.
    */
   public static final String KEY_FRAME_DISCONTINUITY_NUMBER = "KEY_FRAME_DISCONTINUITY_NUMBER";
+
+  private static final String TAG = "GlFrameProcessor";
+
+  private static final ColorInfo ULTRA_HDR_OUTPUT_COLOR_INFO =
+      new ColorInfo.Builder()
+          .setColorSpace(C.COLOR_SPACE_BT2020)
+          .setColorTransfer(C.COLOR_TRANSFER_HLG)
+          .setColorRange(C.COLOR_RANGE_LIMITED)
+          .build();
+
+  private static final ColorInfo DEFAULT_COLOR_INFO = ColorInfo.SDR_BT709_LIMITED;
 
   private static final int DEFAULT_COMPOSITOR_CAPACITY = 2;
 
@@ -349,9 +368,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
               }
             }
             if (!isPipelineInitialized) {
-              // TODO: b/517525358 - Use correct output color info once HDR is supported.
-              // For now, use static SDR_BT709_LIMITED since initialization is deferred here.
-              initializePipeline(ColorInfo.SDR_BT709_LIMITED);
+              initializePipeline(resolveOutputColorInfo(frames.get(0).frame));
             }
             activeSequenceIndices.clear();
             for (int i = 0; i < frames.size(); i++) {
@@ -423,6 +440,60 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
           runAllAndAccumulateExceptions(closeActions.build().toArray(new ThrowingRunnable[0]));
           return null;
         });
+  }
+
+  private ColorInfo resolveOutputColorInfo(Frame firstFrame) {
+    Format format = firstFrame.getFormat();
+    ColorInfo inputColorInfo = format.colorInfo != null ? format.colorInfo : DEFAULT_COLOR_INFO;
+    int hdrMode = 0; /* HDR_MODE_KEEP_HDR */
+    if (firstFrame.getMetadata().containsKey(KEY_HDR_MODE)) {
+      hdrMode = (int) firstFrame.getMetadata().get(KEY_HDR_MODE);
+    }
+
+    ColorInfo outputColorInfo;
+    if (Objects.equals(format.sampleMimeType, MimeTypes.IMAGE_JPEG_R)
+        && inputColorInfo.colorTransfer == C.COLOR_TRANSFER_SRGB) {
+      outputColorInfo = ULTRA_HDR_OUTPUT_COLOR_INFO;
+    } else if (inputColorInfo.colorTransfer == C.COLOR_TRANSFER_SRGB
+        || inputColorInfo.colorTransfer == C.COLOR_TRANSFER_GAMMA_2_2) {
+      outputColorInfo = ColorInfo.SDR_BT709_LIMITED;
+    } else {
+      outputColorInfo = inputColorInfo;
+    }
+
+    boolean isTransferHdr =
+        ColorInfo.isTransferHdr(inputColorInfo)
+            || Objects.equals(format.sampleMimeType, MimeTypes.IMAGE_JPEG_R);
+
+    if (!isTransferHdr) {
+      return outputColorInfo;
+    }
+
+    if (hdrMode == 2 /* Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL */) {
+      return ColorInfo.SDR_BT709_LIMITED;
+    }
+
+    if (hdrMode == 0 /* Composition.HDR_MODE_KEEP_HDR */) {
+      Format testFormat = format.buildUpon().setColorInfo(outputColorInfo).build();
+      boolean isSupported =
+          isFormatSupportedWithFallback(frameWriterGlTextureFrameConsumer, testFormat);
+
+      if (!isSupported) {
+        if (outputColorInfo.colorTransfer == C.COLOR_TRANSFER_HLG) {
+          ColorInfo pqColorInfo =
+              outputColorInfo.buildUpon().setColorTransfer(C.COLOR_TRANSFER_ST2084).build();
+          Format testFormatPq = testFormat.buildUpon().setColorInfo(pqColorInfo).build();
+          boolean isPqSupported =
+              isFormatSupportedWithFallback(frameWriterGlTextureFrameConsumer, testFormatPq);
+          if (isPqSupported) {
+            return pqColorInfo;
+          }
+        }
+        return ColorInfo.SDR_BT709_LIMITED;
+      }
+    }
+
+    return outputColorInfo;
   }
 
   private void initializePipeline(ColorInfo outputColorInfo) {
@@ -580,5 +651,25 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
           glTextureFramesQueuedDownstream.clear();
         });
     return actions.build();
+  }
+
+  private static boolean isFormatSupportedWithFallback(
+      GlTextureFrameConsumer consumer, Format format) {
+    if (consumer.isOutputFormatSupported(format)) {
+      return true;
+    }
+    if (format.width < format.height) {
+      Format rotated90 =
+          format
+              .buildUpon()
+              .setWidth(format.height)
+              .setHeight(format.width)
+              .setRotationDegrees(90)
+              .build();
+      Format rotated270 = rotated90.buildUpon().setRotationDegrees(270).build();
+      return consumer.isOutputFormatSupported(rotated90)
+          || consumer.isOutputFormatSupported(rotated270);
+    }
+    return false;
   }
 }
