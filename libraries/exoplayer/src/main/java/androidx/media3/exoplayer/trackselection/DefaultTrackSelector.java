@@ -3937,7 +3937,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
               == RendererCapabilities.HARDWARE_ACCELERATION_SUPPORTED;
       this.resolvedMimeType = resolvedMimeType;
       codecPreferenceScore = getVideoCodecPreferenceScore(resolvedMimeType);
-      isHdr = usesPrimaryDecoder && ColorInfo.isTransferHdr(format.colorInfo);
+      isHdr = usesPrimaryOrFallbackDecoder && ColorInfo.isTransferHdr(format.colorInfo);
       selectionEligibility = evaluateSelectionEligibility(formatSupport, requiredAdaptiveSupport);
     }
 

@@ -223,6 +223,55 @@ public final class MediaCodecUtil {
   }
 
   /**
+   * Returns a list of decoders that can decode media in the specified format, in the priority order
+   * specified by the {@link MediaCodecSelector}.
+   * Unlike {@link #getDecoderInfosSoftMatch}, this method may exclude decoders that match the
+   * sample MIME type but do not support relevant format details.
+   *
+   * <p>This list is more complete than {@link #getDecoderInfos}, as it also considers alternative
+   * MIME types that are a close match using {@link #getAlternativeCodecMimeType}.
+   *
+   * @param context The application context.
+   * @param mediaCodecSelector The decoder selector.
+   * @param format The {@link Format} for which a decoder is required.
+   * @param requiresSecureDecoder Whether a secure decoder is required.
+   * @param requiresTunnelingDecoder Whether a tunneling decoder is required.
+   * @return A list of {@link MediaCodecInfo}s corresponding to decoders. May be empty.
+   * @throws DecoderQueryException Thrown if there was an error querying decoders.
+   */
+  @RequiresNonNull("#3.sampleMimeType")
+  public static List<MediaCodecInfo> getDecoderInfosSoftMatchFilteredByFormatSupport(
+      Context context,
+      MediaCodecSelector mediaCodecSelector,
+      Format format,
+      boolean requiresSecureDecoder,
+      boolean requiresTunnelingDecoder)
+      throws DecoderQueryException {
+
+    List<MediaCodecInfo> decoderInfos =
+        mediaCodecSelector.getDecoderInfos(
+            format.sampleMimeType, requiresSecureDecoder, requiresTunnelingDecoder);
+
+    ImmutableList.Builder<MediaCodecInfo> result = ImmutableList.builder();
+
+    for (MediaCodecInfo decoderInfo : decoderInfos) {
+      if (!decoderInfo.isFormatSupported(context, format)) {
+        continue;
+      }
+      result.add(decoderInfo);
+    }
+
+    result.addAll(
+        getAlternativeDecoderInfos(
+            mediaCodecSelector,
+            format,
+            requiresSecureDecoder,
+            requiresTunnelingDecoder));
+
+    return result.build();
+  }
+
+  /**
    * Returns a list of decoders for {@linkplain #getAlternativeCodecMimeType alternative MIME types}
    * that can decode samples of the provided {@link Format}, in the priority order specified by the
    * {@link MediaCodecSelector}.
