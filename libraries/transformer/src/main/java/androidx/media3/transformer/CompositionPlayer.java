@@ -1584,7 +1584,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       frameAggregator =
           new FrameAggregator(
               composition.sequences.size(),
-              /* frameRate= */ null,
+              composition.videoFrameAggregationParameters.frameRate,
               videoPacketReleaseControl::queue,
               videoPacketReleaseControl::flush);
     }

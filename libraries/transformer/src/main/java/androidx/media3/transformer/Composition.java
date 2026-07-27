@@ -21,8 +21,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.RestrictTo;
-import androidx.annotation.RestrictTo.Scope;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.VideoCompositorSettings;
@@ -141,19 +139,16 @@ public final class Composition {
      *
      * <p>The default value is {@link VideoFrameAggregationParameters#DEFAULT}.
      *
-     * <p>Currently, this configuration is supported only for export workflows (when using {@link
-     * Transformer}) and not yet supported for preview/playback with {@link CompositionPlayer}.
-     *
      * <p>Note: This configuration is only applied when a {@link FrameProcessor} is enabled (e.g.,
      * by setting a {@link FrameProcessor.Factory} via {@link
-     * Transformer.Builder#setFrameProcessorFactory(FrameProcessor.Factory)}).
+     * Transformer.Builder#setFrameProcessorFactory(FrameProcessor.Factory)} or {@link
+     * CompositionPlayer.Builder#setFrameProcessorFactory(FrameProcessor.Factory)}).
      *
      * @param videoFrameAggregationParameters The {@link VideoFrameAggregationParameters} to apply.
      * @return This builder.
      */
     @CanIgnoreReturnValue
     @ExperimentalApi // TODO: b/526781983 - Remove @ExperimentalApi.
-    @RestrictTo(Scope.LIBRARY_GROUP) // TODO: b/503214887 - Remove once playback flow is supported.
     public Builder setVideoFrameAggregationParameters(
         VideoFrameAggregationParameters videoFrameAggregationParameters) {
       this.videoFrameAggregationParameters = videoFrameAggregationParameters;
@@ -468,7 +463,6 @@ public final class Composition {
    * <p>The default value is {@link VideoFrameAggregationParameters#DEFAULT}.
    */
   @ExperimentalApi // TODO: b/526781983 - Remove @ExperimentalApi.
-  @RestrictTo(Scope.LIBRARY_GROUP) // TODO: b/503214887 - Remove once playback flow is supported.
   public final VideoFrameAggregationParameters videoFrameAggregationParameters;
 
   /** Returns a {@link Composition.Builder} initialized with the values of this instance. */

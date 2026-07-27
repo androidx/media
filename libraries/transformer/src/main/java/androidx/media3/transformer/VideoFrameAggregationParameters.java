@@ -19,8 +19,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import android.util.Rational;
 import androidx.annotation.Nullable;
-import androidx.annotation.RestrictTo;
-import androidx.annotation.RestrictTo.Scope;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -35,7 +33,6 @@ import org.json.JSONObject;
  * duplicated before entering the processing pipeline.
  */
 @ExperimentalApi // TODO: b/526781983 - Remove @ExperimentalApi.
-@RestrictTo(Scope.LIBRARY_GROUP) // TODO: b/503214887 - Remove once playback flow is supported.
 public final class VideoFrameAggregationParameters {
 
   /** A builder for {@link VideoFrameAggregationParameters} instances. */

@@ -18,38 +18,51 @@ package androidx.media3.transformer;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.TestUtil.extractAllSamplesFromFilePath;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.graphics.Bitmap;
 import android.graphics.SurfaceTexture;
 import android.hardware.HardwareBuffer;
 import android.media.Image;
 import android.os.Handler;
+import android.util.Rational;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.PlaybackException;
+import androidx.media3.common.Player;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingMatrix;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.test.utils.AssetInfo;
+import androidx.media3.test.utils.CapturingFrameProcessor;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.PassthroughAudioProcessor;
+import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
+import java.math.RoundingMode;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Queue;
 import java.util.StringJoiner;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Utility class for {@link Transformer} unit tests */
@@ -89,6 +102,10 @@ public final class TestUtil {
   public static final String FILE_PNG = "png/media3test.png";
   private static final String DUMP_FILE_OUTPUT_DIRECTORY = "transformerdumps";
   private static final String DUMP_FILE_EXTENSION = "dump";
+  public static final Rational FPS_10 = new Rational(10, 1);
+  public static final Rational FPS_30 = new Rational(30, 1);
+  public static final Rational FPS_60 = new Rational(60, 1);
+  public static final Rational FPS_HALF = new Rational(1, 2);
 
   private TestUtil() {}
 
@@ -242,6 +259,107 @@ public final class TestUtil {
         .setImageReaderAdapterFactory(new FakeImageReaderAdapterFactory())
         .setFrameProcessorFactory(factory)
         .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET);
+  }
+
+  /**
+   * Sets up a {@link CompositionPlayer} with fake hardware buffer components, sets the given {@link
+   * Composition}, and prepares the player, waiting for it to reach {@link Player#STATE_READY}.
+   *
+   * @param composition The {@link Composition} to set.
+   * @param frameProcessorFactory The {@link FrameProcessor.Factory} to use.
+   * @return The prepared {@link CompositionPlayer} in {@link Player#STATE_READY} state.
+   * @throws PlaybackException If a fatal playback error occurs during preparation.
+   * @throws TimeoutException If the player fails to reach {@link Player#STATE_READY} within the
+   *     timeout.
+   */
+  public static CompositionPlayer setupAndPrepareHardwareBufferPlayer(
+      Composition composition, FrameProcessor.Factory frameProcessorFactory)
+      throws PlaybackException, TimeoutException {
+    CompositionPlayer player =
+        createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+    TestPlayerRunHelper.advance(player).untilState(Player.STATE_READY);
+    return player;
+  }
+
+  /**
+   * Asserts that the deltas between consecutive timestamps match the expected frame rate.
+   *
+   * @param timestampsUs The list of timestamps in microseconds.
+   * @param expectedFps The expected frame rate.
+   */
+  public static void assertTimestampsMatchFrameRate(List<Long> timestampsUs, Rational expectedFps) {
+    assertWithMessage("Expected at least two timestamps to verify frame rate")
+        .that(timestampsUs.size())
+        .isAtLeast(2);
+    long expectedDeltaUs =
+        Util.scaleLargeValue(
+            1_000_000L,
+            expectedFps.getDenominator(),
+            expectedFps.getNumerator(),
+            RoundingMode.HALF_UP);
+    for (int i = 1; i < timestampsUs.size(); i++) {
+      long deltaUs = timestampsUs.get(i) - timestampsUs.get(i - 1);
+      // Absolute timestamps rounded to the nearest microsecond can cause
+      // deltas to fluctuate by 1us from the exact mathematical duration.
+      assertWithMessage(
+              "Time between frames %s (%s) and %s (%s) does not match expected %s fps",
+              i - 1, timestampsUs.get(i - 1), i, timestampsUs.get(i), expectedFps)
+          .that(deltaUs)
+          .isWithin(1L)
+          .of(expectedDeltaUs);
+    }
+  }
+
+  /**
+   * Extracts the first timestamp of each queued frame group from the {@link
+   * CapturingFrameProcessor}.
+   *
+   * @param frameProcessor The {@link CapturingFrameProcessor} to query.
+   * @return An {@link ImmutableList} of queued content timestamps in microseconds.
+   */
+  public static ImmutableList<Long> getQueuedContentTimesUs(
+      CapturingFrameProcessor frameProcessor) {
+    return frameProcessor.getQueuedContentTimesUs().stream()
+        .map(list -> Iterables.getFirst(list, C.TIME_UNSET))
+        .filter(timeUs -> timeUs != C.TIME_UNSET)
+        .collect(toImmutableList());
+  }
+
+  /**
+   * Builds a {@link Composition} from a list of asset sequences.
+   *
+   * <p>The composition is configured with the specified video frame aggregation frame rate.
+   *
+   * @param sequencesAssets A list of sequences, where each sequence is a list of {@link
+   *     AssetInfo}s.
+   * @param aggregationFrameRate The target frame rate for video frame aggregation, or {@code null}
+   *     to use the default aggregation behavior (follows the primary sequence's physical
+   *     timestamps).
+   * @return The constructed {@link Composition}.
+   */
+  public static Composition buildComposition(
+      List<List<AssetInfo>> sequencesAssets, @Nullable Rational aggregationFrameRate) {
+    ImmutableList.Builder<EditedMediaItemSequence> sequences = ImmutableList.builder();
+    for (List<AssetInfo> sequenceAssets : sequencesAssets) {
+      ImmutableList.Builder<EditedMediaItem> editedMediaItems = ImmutableList.builder();
+      for (AssetInfo asset : sequenceAssets) {
+        checkArgument(
+            asset.videoDurationUs != C.TIME_UNSET, "Asset duration is unset: %s", asset.uri);
+        editedMediaItems.add(
+            new EditedMediaItem.Builder(MediaItem.fromUri(asset.uri))
+                .setDurationUs(asset.videoDurationUs)
+                .build());
+      }
+      sequences.add(EditedMediaItemSequence.withAudioAndVideoFrom(editedMediaItems.build()));
+    }
+    return new Composition.Builder(sequences.build())
+        .setVideoFrameAggregationParameters(
+            new VideoFrameAggregationParameters.Builder()
+                .setFrameRate(aggregationFrameRate)
+                .build())
+        .build();
   }
 
   public static final class FormatCapturingAudioProcessor extends PassthroughAudioProcessor {

@@ -22,11 +22,17 @@
         may cause additional buffering if unselected video or image tracks are
         newly enabled mid-playback.
 *   CompositionPlayer:
+    *   Support configuring the frame rate of video frame aggregation via
+        `Composition.Builder.setVideoFrameAggregationParameters` for playback
+        workflows.
 *   Transformer:
     *   Fix a segmentation fault during release by introducing
         `AssetLoader.stop()` and `AssetLoader.isStopped()` methods to verify
         that data production has halted before releasing the output surface.
         Custom `AssetLoader` implementations must implement these new methods.
+    *   Support configuring the frame rate of video frame aggregation via
+        `Composition.Builder.setVideoFrameAggregationParameters` for export
+        workflows.
 *   Track Selection:
 *   Extractors:
 *   Inspector:
