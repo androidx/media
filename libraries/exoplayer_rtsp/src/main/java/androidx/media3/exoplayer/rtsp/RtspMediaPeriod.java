@@ -279,7 +279,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     //     used in the following PLAY request.
 
     // TODO(internal: b/213153670) Handle dropped seek position.
-    if (getBufferedPositionUs() == 0 && !isUsingRtpTcp) {
+    if (getBufferedPositionUs() == 0 && !prepared && !isUsingRtpTcp) {
       // Stores the seek position for later, if no RTP packet is received when using UDP.
       pendingSeekPositionUsForTcpRetry = positionUs;
       return positionUs;
@@ -535,7 +535,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     public void onLoadCompleted(
         RtpDataLoadable loadable, long elapsedRealtimeMs, long loadDurationMs) {
-      if (getBufferedPositionUs() == 0) {
+      if (getBufferedPositionUs() == 0 && !prepared) {
         if (!isUsingRtpTcp) {
           // Retry playback with TCP if no sample has been received so far, and we are not already
           // using TCP. Retrying will setup new loadables, so will not retry with the current

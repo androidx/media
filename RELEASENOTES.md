@@ -70,6 +70,8 @@
 *   RTSP extension:
     *   Fix an `IllegalStateException` crash that occurred when processing
         delayed network responses after the RTSP client was closed.
+    *   Fix issue where rapid scrubbing could incorrectly trigger the TCP
+        protocol fallback mechanic.
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
 *   MIDI extension:
 *   Leanback extension:
