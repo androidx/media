@@ -343,7 +343,7 @@ public final class PsExtractor implements Extractor {
     private int extendedHeaderLength;
     private long timeUs;
 
-    public PesReader(
+    PesReader(
         ElementaryStreamReader pesPayloadReader,
         TimestampAdjuster timestampAdjuster,
         boolean isPrivateStream1) {
