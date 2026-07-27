@@ -124,6 +124,7 @@ public final class FrameworkMuxer implements Muxer {
 
   private boolean isStarted;
   private boolean isReleased;
+  private boolean suppressReleaseException;
 
   private FrameworkMuxer(MediaMuxer mediaMuxer, long videoDurationUs) {
     this.mediaMuxer = mediaMuxer;
@@ -275,11 +276,25 @@ public final class FrameworkMuxer implements Muxer {
     try {
       stopMuxer(mediaMuxer);
     } catch (RuntimeException e) {
+      if (suppressReleaseException) {
+        // Suppress OS MediaMuxer.stop() errors on cancel.
+        // Platform muxer implementations throw if stopped without samples (b/488422335,
+        // b/243008015).
+        return;
+      }
       throw new MuxerException(MUXER_STOPPING_FAILED_ERROR_MESSAGE, e);
     } finally {
       mediaMuxer.release();
       isReleased = true;
     }
+  }
+
+  /**
+   * Configures the muxer to suppress stopping failures from the underlying {@link MediaMuxer} in
+   * {@link #close()}.
+   */
+  /* package */ void setSuppressReleaseException() {
+    this.suppressReleaseException = true;
   }
 
   private void startMuxer() throws MuxerException {

@@ -30,6 +30,9 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
+import androidx.media3.common.Metadata;
+import androidx.media3.muxer.BufferInfo;
+import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.test.core.app.ApplicationProvider;
@@ -709,6 +712,80 @@ public class MuxerWrapperTest {
             /* presentationTimeUs= */ 100);
     assertThat(sampleWritten).isFalse();
     // Set muxerWrapper to null so that its not released again in tear down.
+    muxerWrapper = null;
+  }
+
+  @Test
+  public void finishWritingAndMaybeRelease_cancelledOnNonFrameworkMuxer_throwsException()
+      throws Exception {
+    Muxer.Factory throwingMuxerFactory =
+        new Muxer.Factory() {
+          @Override
+          public Muxer create(String path) {
+            return new Muxer() {
+              @Override
+              public int addTrack(Format format) {
+                return 0;
+              }
+
+              @Override
+              public void writeSampleData(
+                  int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo) {}
+
+              @Override
+              public void addMetadataEntry(Metadata.Entry metadataEntry) {}
+
+              @Override
+              public void close() throws MuxerException {
+                throw new MuxerException(
+                    FrameworkMuxer.MUXER_STOPPING_FAILED_ERROR_MESSAGE, new Exception());
+              }
+            };
+          }
+
+          @Override
+          public ImmutableList<String> getSupportedSampleMimeTypes(@C.TrackType int trackType) {
+            return ImmutableList.of(VIDEO_H264);
+          }
+        };
+    muxerWrapper =
+        new MuxerWrapper(
+            temporaryFolder.newFile().getPath(),
+            throwingMuxerFactory,
+            new NoOpMuxerListenerImpl(),
+            MUXER_MODE_DEFAULT,
+            /* dropSamplesBeforeFirstVideoSample= */ false,
+            /* appendVideoFormat= */ null);
+    muxerWrapper.setTrackCount(1);
+    muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
+    muxerWrapper.writeSample(
+        C.TRACK_TYPE_VIDEO,
+        FAKE_SAMPLE.duplicate(),
+        /* isKeyFrame= */ true,
+        /* presentationTimeUs= */ 0);
+
+    assertThrows(
+        MuxerException.class,
+        () ->
+            muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_CANCELLED));
+    muxerWrapper = null;
+  }
+
+  @Test
+  public void finishWritingAndMaybeRelease_cancelledOnFrameworkMuxer_doesNotThrow()
+      throws Exception {
+    muxerWrapper =
+        new MuxerWrapper(
+            temporaryFolder.newFile().getPath(),
+            new FrameworkMuxer.Factory(),
+            new NoOpMuxerListenerImpl(),
+            MUXER_MODE_DEFAULT,
+            /* dropSamplesBeforeFirstVideoSample= */ false,
+            /* appendVideoFormat= */ null);
+    muxerWrapper.setTrackCount(1);
+    muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
+
+    muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_CANCELLED);
     muxerWrapper = null;
   }
 

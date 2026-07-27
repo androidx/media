@@ -676,18 +676,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     isReady = false;
     if (muxer != null) {
-      try {
-        muxer.close();
-      } catch (MuxerException e) {
-        if (releaseReason == MUXER_RELEASE_REASON_CANCELLED
-            && checkNotNull(e.getMessage())
-                .equals(FrameworkMuxer.MUXER_STOPPING_FAILED_ERROR_MESSAGE)) {
-          // When releasing the muxer, FrameworkMuxer may sometimes fail before the actual release.
-          // When the release is due to cancellation, swallow this exception.
-          return;
-        }
-        throw e;
+      if (muxer instanceof FrameworkMuxer && releaseReason == MUXER_RELEASE_REASON_CANCELLED) {
+        ((FrameworkMuxer) muxer).setSuppressReleaseException();
       }
+      muxer.close();
     }
     if (releaseReason == MUXER_RELEASE_REASON_COMPLETED) {
       // Make sure to only read the output file size after the muxer and underlying file are closed.

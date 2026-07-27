@@ -134,6 +134,8 @@ import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.inspector.MediaExtractorCompat;
 import androidx.media3.inspector.MetadataRetriever;
+import androidx.media3.muxer.Muxer;
+import androidx.media3.muxer.MuxerException;
 import androidx.media3.test.utils.AssetInfo;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
@@ -2575,6 +2577,76 @@ public class TransformerEndToEndTest {
         new TransformerAndroidTestRunner.Builder(context, transformer).build();
     ListenableFuture<ExportTestResult> unused = runner.runAsync(testId, imageItem);
     assertThat(firstFrameLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              try {
+                transformer.cancel();
+              } catch (RuntimeException e) {
+                exceptionReference.set(ExportException.createForUnexpected(e));
+              }
+            });
+
+    assertThat(exceptionReference.get()).isNull();
+    assertThat(completedReference.get()).isFalse();
+  }
+
+  @Test
+  public void cancelExport_withFrameworkMuxer_doesNotThrow() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat);
+    AtomicReference<@NullableType ExportException> exceptionReference = new AtomicReference<>();
+    AtomicBoolean completedReference = new AtomicBoolean(false);
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri)))
+            .build();
+
+    CountDownLatch muxerCreatedLatch = new CountDownLatch(1);
+    FrameworkMuxer.Factory frameworkMuxerFactory = new FrameworkMuxer.Factory();
+    Muxer.Factory latchMuxerFactory =
+        new Muxer.Factory() {
+          @Override
+          public Muxer create(String path) throws MuxerException {
+            Muxer muxer = frameworkMuxerFactory.create(path);
+            muxerCreatedLatch.countDown();
+            return muxer;
+          }
+
+          @Override
+          public ImmutableList<String> getSupportedSampleMimeTypes(@C.TrackType int trackType) {
+            return frameworkMuxerFactory.getSupportedSampleMimeTypes(trackType);
+          }
+        };
+
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setMuxerFactory(latchMuxerFactory)
+            .addListener(
+                new Transformer.Listener() {
+                  @Override
+                  public void onCompleted(Composition composition, ExportResult exportResult) {
+                    completedReference.set(true);
+                  }
+
+                  @Override
+                  public void onError(
+                      Composition composition,
+                      ExportResult exportResult,
+                      ExportException exportException) {
+                    exceptionReference.set(exportException);
+                  }
+                })
+            .build();
+
+    TransformerAndroidTestRunner runner =
+        new TransformerAndroidTestRunner.Builder(context, transformer).build();
+    ListenableFuture<ExportTestResult> unused = runner.runAsync(testId, item);
+    assertThat(muxerCreatedLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
 
     getInstrumentation()
         .runOnMainSync(
