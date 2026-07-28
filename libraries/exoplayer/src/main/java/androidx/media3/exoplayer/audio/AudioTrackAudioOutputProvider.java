@@ -424,6 +424,12 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
     this.clock = clock;
   }
 
+  @UnstableApi
+  @Override
+  public boolean hasPendingReleases() {
+    return AudioTrackAudioOutput.hasPendingReleases();
+  }
+
   @Override
   public void release() {
     if (listeners != null) {

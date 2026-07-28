@@ -688,6 +688,16 @@ public interface AudioOutputProvider {
   @UnstableApi
   default void setClock(Clock clock) {}
 
+  /**
+   * Returns whether there are any pending asynchronous releases of audio outputs.
+   *
+   * <p>Implementations that release resources synchronously should return false.
+   */
+  @UnstableApi
+  default boolean hasPendingReleases() {
+    return false;
+  }
+
   /** Releases resources held by the provider. */
   void release();
 }

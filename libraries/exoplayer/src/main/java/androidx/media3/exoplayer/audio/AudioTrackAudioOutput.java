@@ -397,6 +397,13 @@ public final class AudioTrackAudioOutput implements AudioOutput {
     return audioTrackPositionTracker.isStalled(getWrittenFrames());
   }
 
+  /** Returns whether there are any pending asynchronous releases. */
+  /* package */ static boolean hasPendingReleases() {
+    synchronized (releaseExecutorLock) {
+      return pendingReleaseCount > 0;
+    }
+  }
+
   private long getWrittenFrames() {
     return isOutputPcm ? Util.ceilDivide(writtenPcmBytes, pcmFrameSize) : writtenEncodedFrames;
   }

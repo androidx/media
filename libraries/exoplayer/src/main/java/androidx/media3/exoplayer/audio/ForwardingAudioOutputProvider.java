@@ -63,6 +63,12 @@ public class ForwardingAudioOutputProvider implements AudioOutputProvider {
     audioOutputProvider.setClock(clock);
   }
 
+  @UnstableApi
+  @Override
+  public boolean hasPendingReleases() {
+    return audioOutputProvider.hasPendingReleases();
+  }
+
   @Override
   public void release() {
     audioOutputProvider.release();
