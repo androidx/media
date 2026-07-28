@@ -36,6 +36,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.media3.demo.compose.layout.EditingPlayerScreen
 import androidx.media3.demo.compose.layout.LongFormPlayerScreen
 import androidx.media3.demo.compose.layout.PlayerFormatScreen
 import androidx.media3.demo.compose.layout.SampleChooserScreen
@@ -88,9 +89,14 @@ private fun ComposeDemoApp(modifier: Modifier = Modifier, viewModel: ComposeDemo
         )
       }
       composable(ROUTE_PLAYER_FORMAT_CHOOSER) {
+        val mediaItems by viewModel.mediaItems.collectAsState()
         PlayerFormatScreen(
           onLongFormClick = { navController.navigate(ROUTE_LONG_FORM_PLAYER) },
           onShortFormClick = { navController.navigate(ROUTE_SHORT_FORM_PLAYER) },
+          onEditingClick =
+            if (mediaItems.size == 1) {
+              { navController.navigate(ROUTE_EDITING_PLAYER) }
+            } else null,
           modifier = modifier.statusBarsPadding(),
         )
       }
@@ -104,6 +110,12 @@ private fun ComposeDemoApp(modifier: Modifier = Modifier, viewModel: ComposeDemo
         val playlistName by viewModel.playlistName.collectAsState()
         ShortFormPlayerScreen(playlistName, mediaItems)
       }
+      composable(ROUTE_EDITING_PLAYER) {
+        val mediaItems by viewModel.mediaItems.collectAsState()
+        if (mediaItems.size == 1) {
+          EditingPlayerScreen(mediaItems[0])
+        }
+      }
     }
   }
 }
@@ -112,3 +124,4 @@ private const val ROUTE_SAMPLE_CHOOSER = "sample_chooser"
 private const val ROUTE_PLAYER_FORMAT_CHOOSER = "player_format_chooser"
 private const val ROUTE_LONG_FORM_PLAYER = "long_form_player"
 private const val ROUTE_SHORT_FORM_PLAYER = "short_form_player"
+private const val ROUTE_EDITING_PLAYER = "editing_player"

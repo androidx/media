@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 fun PlayerFormatScreen(
   onLongFormClick: () -> Unit,
   onShortFormClick: () -> Unit,
+  onEditingClick: (() -> Unit)? = null,
   modifier: Modifier = Modifier,
 ) {
   Column(
@@ -41,5 +42,9 @@ fun PlayerFormatScreen(
     Button(onClick = onLongFormClick) { Text(text = "Long-Form Player") }
     Spacer(modifier = Modifier.height(16.dp))
     Button(onClick = onShortFormClick) { Text(text = "Short-Form Player") }
+    if (onEditingClick != null) {
+      Spacer(modifier = Modifier.height(16.dp))
+      Button(onClick = onEditingClick) { Text(text = "Editing Player") }
+    }
   }
 }
