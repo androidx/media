@@ -583,7 +583,10 @@ public final class FrameWriterGlTextureFrameConsumerTest {
 
     @Override
     public Info getInfo() {
-      return (format, usage) -> supportsPortrait || format.width >= format.height;
+      // Rejects rotation degree if portrait is not supported, this mirrors
+      // DefaultEncoderFactory.
+      return (format, usage) ->
+          format.rotationDegrees == 0 && (supportsPortrait || format.width >= format.height);
     }
 
     @Override
