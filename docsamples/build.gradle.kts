@@ -35,6 +35,7 @@ dependencies {
   implementation(libs.glide.concurrent.integration)
   implementation(libs.kotlinx.coroutines.guava)
   implementation(project(":lib-cast"))
+  implementation(project(":lib-common-ktx"))
   implementation(project(":lib-container"))
   implementation(project(":lib-datasource-cronet"))
   implementation(project(":lib-effect"))
