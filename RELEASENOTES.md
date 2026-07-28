@@ -82,6 +82,8 @@
     *   Fix issue where rapid scrubbing could incorrectly trigger the TCP
         protocol fallback mechanic.
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+    *   Opus: Fix memory corruption when multiple `OpusDecoder` instances are
+        initialized concurrently.
 *   MIDI extension:
 *   Leanback extension:
 *   Cast extension:
