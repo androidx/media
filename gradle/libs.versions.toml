@@ -169,5 +169,8 @@ truth = { group = "com.google.truth", name = "truth", version.ref = "truthVersio
 androidx-runner = { group = "androidx.test", name = "runner", version.ref = "runnerVersion" }
 
 [plugins]
+android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
+android-library = { id = "com.android.library", version.ref = "androidGradlePlugin" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlinGradlePlugin" }
 kotlin-compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlinComposeCompiler" }
 protobuf = { id = "com.google.protobuf", version.ref = "protobufGradlePlugin" }
