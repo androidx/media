@@ -130,7 +130,7 @@ public class Cast {
    *
    * <pre>{@code
    * public class MainApplication extends Application {
-   *   &#64;Override
+   *   @Override
    *   public void onCreate() {
    *     super.onCreate();
    *     CastParams castParams = // Build your Cast configurations or use CastParams.DEFAULT.
