@@ -40,6 +40,9 @@
 *   Audio:
     *   Fix offload issue in which playback could stall during pre-roll or
         gapless transitions due to limited hardware buffer sizes.
+    *   Fix bug in `DefaultAudioSink` where release count doesn't decrease when
+        playback thread is no longer alive
+        ([#3338](https://github.com/androidx/media/issues/3338)).
 *   Video:
     *   Fix reporting of late video frames with identical release timestamps so
         that they are reported as dropped instead of skipped.
