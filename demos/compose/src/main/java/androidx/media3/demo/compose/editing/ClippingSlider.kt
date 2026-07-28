@@ -33,7 +33,6 @@ import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -152,7 +151,6 @@ private val POSITION_THUMB_WIDTH = 4.dp
  */
 // TODO: b/505719491
 //  - Implement accessibility requirements
-//  - Implement color defaults
 //  - Match the height of the position slider's thumb to that of Google Photos' video trimmer's one.
 //  - Update position slider's thumb after compose addresses dynamic thumb size change.
 //  - Decide and test what the slider should look like for RTL locales
@@ -171,7 +169,7 @@ fun ClippingSlider(
   modifier: Modifier = Modifier,
   onClippingRangeChangeFinished: (() -> Unit)? = null,
   minClippedDurationMs: Long = 1000L,
-  colors: ClippingSliderColors,
+  colors: ClippingSliderColors = ClippingSliderDefaults.colors(),
   shape: RoundedCornerShape = RoundedCornerShape(percent = 30),
   clippingThumbPainter: @Composable (isStart: Boolean, isAtLimit: Boolean) -> Painter =
     defaultClippingThumbPainterIcon,
@@ -209,9 +207,9 @@ fun ClippingSlider(
       }
   ) {
     ImageRow(bitmaps, Modifier.fillMaxWidth().clip(shape))
-    ClippedImagesFilter(
+    InactiveTrackFilter(
       clippingRangeProvider = { state.clippingRange },
-      colors.clippedFilterColor,
+      colors.inactiveTrackColor,
       Modifier.fillMaxSize().clip(shape),
     )
     ClippingRangeSlider(
@@ -225,58 +223,6 @@ fun ClippingSlider(
       modifier = Modifier.fillMaxSize(),
     )
     PositionSlider(state, colors.positionThumbColor, Modifier.fillMaxSize())
-  }
-}
-
-/**
- * Represents the colors used in a [ClippingSlider] to customize its appearance.
- *
- * @property clippingFrameColor The color of the selection frame and of the clipping handles.
- * @property clippingIconColor The color used to tint the icons within the clipping thumbs.
- * @property positionThumbColor The color of the thumb representing the current playback position.
- * @property clippedFilterColor The color of the filter applied to the clipped areas of the slider.
- *   The image bitmaps underneath remain visible if the alpha is less than 1.
- */
-@Immutable
-class ClippingSliderColors(
-  val clippingFrameColor: Color,
-  val clippingIconColor: Color,
-  val positionThumbColor: Color,
-  val clippedFilterColor: Color,
-) {
-
-  /** Returns a copy of this ClippingSliderColors, optionally overriding some of the values. */
-  fun copy(
-    clippingFrameColor: Color = this.clippingFrameColor,
-    clippingIconColor: Color = this.clippingIconColor,
-    positionThumbColor: Color = this.positionThumbColor,
-    clippedFilterColor: Color = this.clippedFilterColor,
-  ): ClippingSliderColors =
-    ClippingSliderColors(
-      clippingFrameColor,
-      clippingIconColor,
-      positionThumbColor,
-      clippedFilterColor,
-    )
-
-  override fun equals(other: Any?): Boolean {
-    if (this === other) return true
-    if (other !is ClippingSliderColors) return false
-
-    if (clippingFrameColor != other.clippingFrameColor) return false
-    if (clippingIconColor != other.clippingIconColor) return false
-    if (positionThumbColor != other.positionThumbColor) return false
-    if (clippedFilterColor != other.clippedFilterColor) return false
-
-    return true
-  }
-
-  override fun hashCode(): Int {
-    var result = clippingFrameColor.hashCode()
-    result = 31 * result + clippingIconColor.hashCode()
-    result = 31 * result + positionThumbColor.hashCode()
-    result = 31 * result + clippedFilterColor.hashCode()
-    return result
   }
 }
 
@@ -296,21 +242,21 @@ private fun ImageRow(bitmaps: ImmutableList<Bitmap>, modifier: Modifier = Modifi
 }
 
 /**
- * A composable that draws a visual filter (overlay) over the clipped (inactive) areas of the
- * slider.
+ * A composable that draws a visual filter (overlay) over the inactive track areas of the slider.
  *
  * This component dims the regions of the image row that fall outside the active clipping range (to
  * the left of the start thumb and to the right of the end thumb).
  *
  * @param clippingRangeProvider A provider that returns the current active clipping range as a
  *   fraction (0.0 to 1.0) of the total duration.
- * @param clippedFilterColor The color (usually translucent) used to overlay the clipped areas.
+ * @param inactiveTrackColor The color (usually translucent) used to overlay the inactive track
+ *   areas.
  * @param modifier The [Modifier] to be applied to this composable.
  */
 @Composable
-private fun ClippedImagesFilter(
+private fun InactiveTrackFilter(
   clippingRangeProvider: () -> ClosedFloatingPointRange<Float>,
-  clippedFilterColor: Color,
+  inactiveTrackColor: Color,
   modifier: Modifier = Modifier,
 ) {
   Canvas(modifier) {
@@ -319,12 +265,12 @@ private fun ClippedImagesFilter(
     val height = size.height
     val positionSliderStart = logicalToVisualPositionSliderStart(clippingRange.start) * width
     if (positionSliderStart > 0f) {
-      drawRect(clippedFilterColor, size = Size(positionSliderStart, height))
+      drawRect(inactiveTrackColor, size = Size(positionSliderStart, height))
     }
     val positionSliderEnd = logicalToVisualPositionSliderEnd(clippingRange.endInclusive) * width
     if (positionSliderEnd < width) {
       drawRect(
-        clippedFilterColor,
+        inactiveTrackColor,
         topLeft = Offset(x = positionSliderEnd, y = 0f),
         size = Size(width - positionSliderEnd, height),
       )
@@ -494,7 +440,7 @@ private fun ClippingThumb(
       contentDescription = null,
       modifier = Modifier.fillMaxHeight().fillMaxWidth(CLIPPING_THUMB_PLAIN_RATIO),
       contentScale = ContentScale.FillBounds,
-      colorFilter = ColorFilter.tint(colors.clippingIconColor),
+      colorFilter = ColorFilter.tint(colors.clippingThumbIconColor),
     )
   }
 }

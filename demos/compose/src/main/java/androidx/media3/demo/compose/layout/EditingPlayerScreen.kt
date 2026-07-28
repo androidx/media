@@ -47,7 +47,6 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.Log
 import androidx.media3.demo.compose.editing.ClippingSlider
-import androidx.media3.demo.compose.editing.ClippingSliderColors
 import androidx.media3.effect.Presentation
 import androidx.media3.effect.Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP
 import androidx.media3.exoplayer.ExoPlayer
@@ -139,13 +138,6 @@ internal fun EditingPlayerScreen(
               onClippingRangeChangeFinished = {
                 Log.d("EditingPlayerScreen", "onClippingRangeChangeFinished")
               },
-              colors =
-                ClippingSliderColors(
-                  clippingFrameColor = MaterialTheme.colorScheme.primary,
-                  clippingIconColor = MaterialTheme.colorScheme.onPrimary,
-                  positionThumbColor = MaterialTheme.colorScheme.inversePrimary,
-                  clippedFilterColor = MaterialTheme.colorScheme.scrim.copy(alpha = 0.6f),
-                ),
             )
           },
         )
