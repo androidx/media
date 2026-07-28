@@ -139,7 +139,7 @@ public final class OpusDecoder
 
     this.outputFloat = outputFloat;
     if (outputFloat) {
-      opusSetFloatOutput();
+      opusSetFloatOutput(nativeDecoderContext);
     }
   }
 
@@ -351,5 +351,5 @@ public final class OpusDecoder
 
   private native String opusGetErrorMessage(long decoder);
 
-  private native void opusSetFloatOutput();
+  private native void opusSetFloatOutput(long decoder);
 }

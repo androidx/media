@@ -71,6 +71,8 @@
     *   Fix an `IllegalStateException` crash that occurred when processing
         delayed network responses after the RTSP client was closed.
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+    *   Opus: Fix memory corruption when multiple `OpusDecoder` instances are
+        initialized concurrently.
 *   MIDI extension:
 *   Leanback extension:
 *   Cast extension:

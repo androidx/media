@@ -144,6 +144,39 @@ public final class OpusDecoderTest {
         .isEqualTo(DECODED_DATA_SIZE - nanosecondsToBytes(DISCARD_PADDING_NANOS));
   }
 
+  // b/528791354
+  @Test
+  public void decode_concurrentDecoders_sizesOutputBufferPerInstance() throws OpusDecoderException {
+    assertThat(OpusLibrary.isAvailable()).isTrue();
+    OpusDecoder decoderStereo =
+        new OpusDecoder(
+            /* numInputBuffers= */ 0,
+            /* numOutputBuffers= */ 0,
+            /* initialInputBufferSize= */ 0,
+            createInitializationData(/* preSkipNanos= */ 0),
+            /* cryptoConfig= */ null,
+            /* outputFloat= */ false);
+    byte[] headerMono = HEADER.clone();
+    headerMono[9] = 1;
+    OpusDecoder decoderMono =
+        new OpusDecoder(
+            /* numInputBuffers= */ 0,
+            /* numOutputBuffers= */ 0,
+            /* initialInputBufferSize= */ 0,
+            ImmutableList.of(headerMono, CUSTOM_PRE_SKIP_BYTES, CUSTOM_SEEK_PRE_ROLL_BYTES),
+            /* cryptoConfig= */ null,
+            /* outputFloat= */ false);
+
+    DecoderInputBuffer input =
+        createInputBuffer(decoderStereo, ENCODED_DATA, /* supplementalData= */ null);
+    SimpleDecoderOutputBuffer output = decoderStereo.createOutputBuffer();
+
+    assertThat(decoderStereo.decode(input, output, false)).isNull();
+    assertThat(output.data.capacity()).isEqualTo(960 * 6 * 2 * 2);
+    decoderStereo.release();
+    decoderMono.release();
+  }
+
   private static long sampleCountToNanoseconds(long sampleCount) {
     return (sampleCount * C.NANOS_PER_SECOND) / OpusDecoder.SAMPLE_RATE;
   }

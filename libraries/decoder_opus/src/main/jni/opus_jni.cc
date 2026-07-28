@@ -41,16 +41,18 @@ static jmethodID outputBufferInit;
 static const int kBytesPerIntPcmSample = 2;
 static const int kBytesPerFloatSample = 4;
 static const int kMaxOpusOutputPacketSizeSamples = 960 * 6;
-static int channelCount;
-static int errorCode;
-static bool outputFloat = false;
+
+struct OpusDecoderContext {
+  OpusMSDecoder* decoder = nullptr;
+  int channelCount = 0;
+  bool outputFloat = false;
+  int errorCode = 0;
+};
 
 jlong opusInit(JNIEnv* env, jobject thiz, jint sampleRate, jint channelCount,
                jint numStreams, jint numCoupled, jint gain,
                jbyteArray jStreamMap) {
   int status = OPUS_INVALID_STATE;
-  ::channelCount = channelCount;
-  errorCode = 0;
   jbyte* streamMapBytes = env->GetByteArrayElements(jStreamMap, 0);
   uint8_t* streamMap = reinterpret_cast<uint8_t*>(streamMapBytes);
   OpusMSDecoder* decoder = opus_multistream_decoder_create(
@@ -63,6 +65,7 @@ jlong opusInit(JNIEnv* env, jobject thiz, jint sampleRate, jint channelCount,
   status = opus_multistream_decoder_ctl(decoder, OPUS_SET_GAIN(gain));
   if (status != OPUS_OK) {
     LOGE("Failed to set Opus header gain; status=%s", opus_strerror(status));
+    opus_multistream_decoder_destroy(decoder);
     return 0;
   }
 
@@ -72,19 +75,26 @@ jlong opusInit(JNIEnv* env, jobject thiz, jint sampleRate, jint channelCount,
   outputBufferInit =
       env->GetMethodID(outputBufferClass, "init", "(JI)Ljava/nio/ByteBuffer;");
 
-  return reinterpret_cast<intptr_t>(decoder);
+  OpusDecoderContext* context = new OpusDecoderContext();
+  context->decoder = decoder;
+  context->channelCount = channelCount;
+  context->outputFloat = false;
+  context->errorCode = 0;
+
+  return reinterpret_cast<intptr_t>(context);
 }
 
-jint opusDecode(JNIEnv* env, jobject thiz, jlong jDecoder, jlong jTimeUs,
+jint opusDecode(JNIEnv* env, jobject thiz, jlong jContext, jlong jTimeUs,
                 jobject jInputBuffer, jint inputSize, jobject jOutputBuffer) {
-  OpusMSDecoder* decoder = reinterpret_cast<OpusMSDecoder*>(jDecoder);
+  OpusDecoderContext* context = reinterpret_cast<OpusDecoderContext*>(jContext);
+  OpusMSDecoder* decoder = context->decoder;
   const uint8_t* inputBuffer = reinterpret_cast<const uint8_t*>(
       env->GetDirectBufferAddress(jInputBuffer));
 
   const int byteSizePerSample =
-      outputFloat ? kBytesPerFloatSample : kBytesPerIntPcmSample;
-  const jint outputSize =
-      kMaxOpusOutputPacketSizeSamples * byteSizePerSample * channelCount;
+      context->outputFloat ? kBytesPerFloatSample : kBytesPerIntPcmSample;
+  const jint outputSize = kMaxOpusOutputPacketSizeSamples * byteSizePerSample *
+                          context->channelCount;
 
   env->CallObjectMethod(jOutputBuffer, outputBufferInit, jTimeUs, outputSize);
   if (env->ExceptionCheck()) {
@@ -99,7 +109,7 @@ jint opusDecode(JNIEnv* env, jobject thiz, jlong jDecoder, jlong jTimeUs,
   }
 
   int sampleCount;
-  if (outputFloat) {
+  if (context->outputFloat) {
     float* outputBufferData = reinterpret_cast<float*>(
         env->GetDirectBufferAddress(jOutputBufferData));
     sampleCount = opus_multistream_decode_float(
@@ -114,12 +124,13 @@ jint opusDecode(JNIEnv* env, jobject thiz, jlong jDecoder, jlong jTimeUs,
   }
 
   // record error code
-  errorCode = (sampleCount < 0) ? sampleCount : 0;
-  return (sampleCount < 0) ? sampleCount
-                           : sampleCount * byteSizePerSample * channelCount;
+  context->errorCode = (sampleCount < 0) ? sampleCount : 0;
+  return (sampleCount < 0)
+             ? sampleCount
+             : sampleCount * byteSizePerSample * context->channelCount;
 }
 
-jint opusSecureDecode(JNIEnv* env, jobject thiz, jlong jDecoder, jlong jTimeUs,
+jint opusSecureDecode(JNIEnv* env, jobject thiz, jlong jContext, jlong jTimeUs,
                       jobject jInputBuffer, jint inputSize,
                       jobject jOutputBuffer, jint sampleRate,
                       jobject mediaCrypto, jint inputMode, jbyteArray key,
@@ -133,25 +144,40 @@ jint opusSecureDecode(JNIEnv* env, jobject thiz, jlong jDecoder, jlong jTimeUs,
   return -2;
 }
 
-void opusClose(JNIEnv* env, jobject thiz, jlong jDecoder) {
-  OpusMSDecoder* decoder = reinterpret_cast<OpusMSDecoder*>(jDecoder);
-  opus_multistream_decoder_destroy(decoder);
+void opusClose(JNIEnv* env, jobject thiz, jlong jContext) {
+  OpusDecoderContext* context = reinterpret_cast<OpusDecoderContext*>(jContext);
+  if (context) {
+    if (context->decoder) {
+      opus_multistream_decoder_destroy(context->decoder);
+    }
+    delete context;
+  }
 }
 
-void opusReset(JNIEnv* env, jobject thiz, jlong jDecoder) {
-  OpusMSDecoder* decoder = reinterpret_cast<OpusMSDecoder*>(jDecoder);
-  opus_multistream_decoder_ctl(decoder, OPUS_RESET_STATE);
+void opusReset(JNIEnv* env, jobject thiz, jlong jContext) {
+  OpusDecoderContext* context = reinterpret_cast<OpusDecoderContext*>(jContext);
+  if (context && context->decoder) {
+    opus_multistream_decoder_ctl(context->decoder, OPUS_RESET_STATE);
+  }
 }
 
 jstring opusGetErrorMessage(JNIEnv* env, jobject thiz, jlong jContext) {
+  OpusDecoderContext* context = reinterpret_cast<OpusDecoderContext*>(jContext);
+  int errorCode = context ? context->errorCode : OPUS_INVALID_STATE;
   return env->NewStringUTF(opus_strerror(errorCode));
 }
 
 jint opusGetErrorCode(JNIEnv* env, jobject thiz, jlong jContext) {
-  return errorCode;
+  OpusDecoderContext* context = reinterpret_cast<OpusDecoderContext*>(jContext);
+  return context ? context->errorCode : OPUS_INVALID_STATE;
 }
 
-void opusSetFloatOutput(JNIEnv* env, jobject thiz) { outputFloat = true; }
+void opusSetFloatOutput(JNIEnv* env, jobject thiz, jlong jContext) {
+  OpusDecoderContext* context = reinterpret_cast<OpusDecoderContext*>(jContext);
+  if (context) {
+    context->outputFloat = true;
+  }
+}
 
 jboolean opusIsSecureDecodeSupported(JNIEnv* env, jobject thiz) {
   // Doesn't support
@@ -184,7 +210,7 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
       {"opusGetErrorMessage", "(J)Ljava/lang/String;",
        reinterpret_cast<void*>(opusGetErrorMessage)},
       {"opusGetErrorCode", "(J)I", reinterpret_cast<void*>(opusGetErrorCode)},
-      {"opusSetFloatOutput", "()V",
+      {"opusSetFloatOutput", "(J)V",
        reinterpret_cast<void*>(opusSetFloatOutput)},
   };
 
