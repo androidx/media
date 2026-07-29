@@ -417,6 +417,13 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private CodecParameters activeCodecParameters;
   private CodecParameters lastDispatchedCodecParameters;
   private ImmutableSet<String> subscribedCodecParameterKeys;
+  // Some MediaCodec implementations (observed on c2.mtk.hevc.decoder) return output buffers
+  // whose presentationTimeUs is not monotonically increasing, while the codec's own buffer
+  // *release order* remains correct. Re-deriving each buffer's timestamp from its release order
+  // and the stream's known frame duration corrects this without reordering or holding buffers.
+  private long arrivalOrderPtsFrameDurationUs = C.TIME_UNSET;
+  private long arrivalOrderPtsBaseUs = C.TIME_UNSET;
+  private long arrivalOrderPtsFrameIndex;
 
   /**
    * @param context A context.
@@ -1112,6 +1119,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         codecReconfigured ? RECONFIGURATION_STATE_WRITE_PENDING : RECONFIGURATION_STATE_NONE;
     hasSkippedFlushAndWaitingForQueueInputBuffer = false;
     skippedFlushOffsetUs = 0;
+    arrivalOrderPtsBaseUs = C.TIME_UNSET;
+    arrivalOrderPtsFrameIndex = 0;
   }
 
   /**
@@ -2253,6 +2262,25 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         // The dequeued buffer indicates the end of the stream. Process it immediately.
         processEndOfStream();
         return false;
+      }
+
+      if (getTrackType() == C.TRACK_TYPE_VIDEO
+          && inputFormat != null
+          && inputFormat.frameRate != Format.NO_VALUE
+          && inputFormat.frameRate > 0) {
+        if (arrivalOrderPtsFrameDurationUs == C.TIME_UNSET) {
+          arrivalOrderPtsFrameDurationUs = Math.round(1_000_000.0 / inputFormat.frameRate);
+        }
+        if (arrivalOrderPtsBaseUs == C.TIME_UNSET) {
+          // Anchor to the first real output buffer's own reported timestamp; only the spacing
+          // of subsequent buffers is re-derived, not the absolute position in the stream.
+          arrivalOrderPtsBaseUs = outputBufferInfo.presentationTimeUs;
+          arrivalOrderPtsFrameIndex = 0;
+        } else {
+          arrivalOrderPtsFrameIndex++;
+          outputBufferInfo.presentationTimeUs =
+              arrivalOrderPtsBaseUs + arrivalOrderPtsFrameIndex * arrivalOrderPtsFrameDurationUs;
+        }
       }
 
       this.outputIndex = outputIndex;
