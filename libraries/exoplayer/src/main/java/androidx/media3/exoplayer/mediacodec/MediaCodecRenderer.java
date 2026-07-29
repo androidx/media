@@ -421,7 +421,11 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   // whose presentationTimeUs is not monotonically increasing, while the codec's own buffer
   // *release order* remains correct. Re-deriving each buffer's timestamp from its release order
   // and the stream's known frame duration corrects this without reordering or holding buffers.
-  private long arrivalOrderPtsFrameDurationUs = C.TIME_UNSET;
+  // Kept unrounded and only rounded per-frame at the point of use (see below) — rounding this
+  // once and multiplying by a growing frame index would accumulate error linearly over the
+  // life of the stream (e.g. ~0.33us/frame for 24000/1001fps content is only 0.7ms over a 90s
+  // clip, but ~58ms over a 2-hour movie).
+  private double arrivalOrderPtsFrameDurationUs = -1;
   private long arrivalOrderPtsBaseUs = C.TIME_UNSET;
   private long arrivalOrderPtsFrameIndex;
 
@@ -2268,8 +2272,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
           && inputFormat != null
           && inputFormat.frameRate != Format.NO_VALUE
           && inputFormat.frameRate > 0) {
-        if (arrivalOrderPtsFrameDurationUs == C.TIME_UNSET) {
-          arrivalOrderPtsFrameDurationUs = Math.round(1_000_000.0 / inputFormat.frameRate);
+        if (arrivalOrderPtsFrameDurationUs < 0) {
+          arrivalOrderPtsFrameDurationUs = 1_000_000.0 / inputFormat.frameRate;
         }
         if (arrivalOrderPtsBaseUs == C.TIME_UNSET) {
           // Anchor to the first real output buffer's own reported timestamp; only the spacing
@@ -2278,8 +2282,11 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
           arrivalOrderPtsFrameIndex = 0;
         } else {
           arrivalOrderPtsFrameIndex++;
+          // Round only the final offset, not the per-frame duration, so rounding error can't
+          // accumulate across the length of the stream.
           outputBufferInfo.presentationTimeUs =
-              arrivalOrderPtsBaseUs + arrivalOrderPtsFrameIndex * arrivalOrderPtsFrameDurationUs;
+              arrivalOrderPtsBaseUs
+                  + Math.round(arrivalOrderPtsFrameIndex * arrivalOrderPtsFrameDurationUs);
         }
       }
 
