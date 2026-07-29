@@ -133,7 +133,6 @@ public abstract class BaseGlShaderProgram implements GlShaderProgram {
    * {@link GlUtil#clearFocusedBuffers()}.
    */
   public boolean shouldClearTextureBuffer() {
-    // TODO - b/309428083: Clear the texture before first use.
     return true;
   }
 
