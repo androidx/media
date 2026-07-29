@@ -22,9 +22,9 @@ import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.TransferListener
 import com.google.common.net.HttpHeaders
 import com.google.common.truth.Truth.assertThat
-import com.google.testing.junit.testparameterinjector.KotlinTestParameters.namedTestValues
 import com.google.testing.junit.testparameterinjector.TestParameter
 import com.google.testing.junit.testparameterinjector.TestParameterInjector
+import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider
 import io.ktor.client.HttpClient
 import io.ktor.client.HttpClientConfig
 import io.ktor.client.engine.HttpClientEngineFactory
@@ -44,10 +44,15 @@ import org.junit.runner.RunWith
 
 @RunWith(TestParameterInjector::class)
 class KtorDataSourceTest(
-  @TestParameter
-  private val httpClientEngineFactory: HttpClientEngineFactory<*> =
-    namedTestValues("Android" to Android, "OkHttp" to OkHttp)
+  @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
+  private val httpClientEngineFactory: HttpClientEngineFactory<*>
 ) {
+
+  private class ClientEngineFactoryProvider : TestParameterValuesProvider() {
+    override fun provideValues(context: Context?): List<*>? {
+      return listOf(value(Android).withName("Android"), value(OkHttp).withName("OkHttp"))
+    }
+  }
 
   @get:Rule val mockWebServer = MockWebServer()
 
