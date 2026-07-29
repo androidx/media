@@ -42,7 +42,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
-import static java.lang.Math.min;
 
 import android.content.Context;
 import android.net.Uri;
@@ -88,7 +87,6 @@ import androidx.media3.exoplayer.source.ads.AdsMediaSource;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -97,8 +95,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
@@ -954,6 +954,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
         /* adIndexInAdGroup= */ 0,
         adGroup.timeUs,
         checkNotNull(lastProcessedPlaylist).targetDurationUs);
+    session.removeAssetListDurations(interstitial.id);
     putAndNotifyAdPlaybackStateUpdate(session.adsId, adPlaybackState);
 
     AdsConfiguration currentAdsConfiguration =
@@ -1238,6 +1239,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     Window window = timeline.getWindow(0, new Window());
     if (window.manifest instanceof HlsManifest) {
       HlsMediaPlaylist mediaPlaylist = ((HlsManifest) window.manifest).mediaPlaylist;
+      session.lastProcessedPlaylist = mediaPlaylist;
       int assetListCount = session.unresolvedAssetLists.size();
       adPlaybackState =
           window.isLive()
@@ -1282,7 +1284,6 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
         maybeExecuteOrSetNextAssetListResolutionMessage(
             adsId, timeline, /* windowIndex= */ 0, publicPositionInFirstPeriod, contentPositionUs);
       }
-      session.lastProcessedPlaylist = mediaPlaylist;
     }
     boolean adPlaybackStateUpdated = putAndNotifyAdPlaybackStateUpdate(adsId, adPlaybackState);
     if (!adsMediaSourceSessionManager.isUnsupportedContentMediaSource(adsId)) {
@@ -1648,37 +1649,43 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
   private AdPlaybackState maybeResolvePendingSnapInResolutions(
       AdPlaybackState adPlaybackState, HlsMediaPlaylist mediaPlaylist, HlsAdSession session) {
     long endOfPlaylistUs = mediaPlaylist.startTimeUs + mediaPlaylist.durationUs;
-    List<PendingSnapInResolution> pendingSnapInResolutions = session.pendingSnapInResolutions;
-    int resolvedIndex = C.INDEX_UNSET;
-    for (int i = 0; i < pendingSnapInResolutions.size(); i++) {
-      PendingSnapInResolution pendingSnapInResolution = pendingSnapInResolutions.get(i);
-      if (pendingSnapInResolution.resumeTimeUs > endOfPlaylistUs) {
-        break;
-      }
-      Interstitial interstitial = pendingSnapInResolution.interstitial;
-      // Resolve the resume offset according to the snap position of the segement start
-      long resolvedResumeOffsetUs =
-          resolveInterstitialResumeOffsetUs(
-              interstitial, /* defaultDurationUs= */ C.TIME_UNSET, mediaPlaylist);
-      AdGroup adGroup = adPlaybackState.getAdGroup(pendingSnapInResolution.adGroupIndex);
-      long interstitialDurationUs =
-          resolveInterstitialDurationUs(interstitial, /* defaultDurationUs= */ C.TIME_UNSET);
-      // The content resume offset that was used before resolving the actuals offset.
-      long oldResumeOffsetIncrementUs =
-          interstitial.resumeOffsetUs != C.TIME_UNSET
-              ? interstitial.resumeOffsetUs
-              : (interstitialDurationUs != C.TIME_UNSET ? interstitialDurationUs : 0L);
-      // Recalculate the resume offset of the group in case the interstitial offset has changed.
-      long correctedAdGroupContentResumeOffsetUs =
-          adGroup.contentResumeOffsetUs - oldResumeOffsetIncrementUs + resolvedResumeOffsetUs;
-      adPlaybackState =
-          adPlaybackState.withContentResumeOffsetUs(
-              pendingSnapInResolution.adGroupIndex, correctedAdGroupContentResumeOffsetUs);
-      resolvedIndex++;
+    NavigableMap<Long, PendingSnapInResolution> headMap =
+        session.pendingSnapInResolutions.headMap(endOfPlaylistUs, /* inclusive= */ true);
+    if (headMap.isEmpty()) {
+      return adPlaybackState;
     }
-    if (resolvedIndex != C.INDEX_UNSET) {
-      // Remove resolved interstitials from the list of pending resolutions.
-      session.removePendingSnapInResolutionUntilIndexInclusive(resolvedIndex);
+    Iterator<Map.Entry<Long, PendingSnapInResolution>> iterator = headMap.entrySet().iterator();
+    while (iterator.hasNext()) {
+      Map.Entry<Long, PendingSnapInResolution> entry = iterator.next();
+      PendingSnapInResolution pendingSnapInResolution = entry.getValue();
+      // The head map is expected to have very few entries only. No need to care about the
+      // overhead here.
+      Interstitial interstitial =
+          getInterstitialById(mediaPlaylist, pendingSnapInResolution.interstitialId);
+      if (interstitial != null) {
+        // Once the asset list durations are set, we use these instead of what's in the playlist.
+        long adDurationsUs = session.getSumOfAssetListDurationsUs(interstitial.id);
+        if (adDurationsUs == C.TIME_UNSET) {
+          adDurationsUs = resolveInterstitialDurationUs(interstitial, /* defaultDurationUs= */ 0);
+        }
+        // Resolve the resume offset according to the snap position of the segment start.
+        long resolvedResumeOffsetUs =
+            resolveInterstitialResumeOffsetUs(
+                interstitial, /* defaultDurationUs= */ adDurationsUs, mediaPlaylist);
+        AdGroup adGroup = adPlaybackState.getAdGroup(pendingSnapInResolution.adGroupIndex);
+        // The content resume offset that was used before resolving the actual offset.
+        long oldResumeOffsetIncrementUs =
+            interstitial.resumeOffsetUs != C.TIME_UNSET
+                ? interstitial.resumeOffsetUs
+                : adDurationsUs;
+        // Recalculate the resume offset of the group in case the interstitial offset has changed.
+        long correctedAdGroupContentResumeOffsetUs =
+            adGroup.contentResumeOffsetUs - oldResumeOffsetIncrementUs + resolvedResumeOffsetUs;
+        adPlaybackState =
+            adPlaybackState.withContentResumeOffsetUs(
+                pendingSnapInResolution.adGroupIndex, correctedAdGroupContentResumeOffsetUs);
+      }
+      iterator.remove();
     }
     return adPlaybackState;
   }
@@ -1805,21 +1812,8 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     }
     adDurations[adDurations.length - 1] = interstitial.playoutLimitUs;
     long resumeOffsetIncrementUs =
-        interstitial.resumeOffsetUs != C.TIME_UNSET
-            ? interstitial.resumeOffsetUs
-            : (interstitialDurationUs != C.TIME_UNSET ? interstitialDurationUs : 0L);
-    if (interstitial.snapTypes.contains(SNAP_TYPE_IN)) {
-      long resumeTimeUs = interstitial.startDateUnixUs + resumeOffsetIncrementUs;
-      if (resumeTimeUs < mediaPlaylist.startTimeUs + mediaPlaylist.durationUs) {
-        resumeOffsetIncrementUs =
-            resolveInterstitialResumeOffsetUs(
-                interstitial, /* defaultDurationUs= */ C.TIME_UNSET, mediaPlaylist);
-      } else {
-        // The segment at which to resume is not yet in the playlist. Deferring offset calculation.
-        session.pendingSnapInResolutions.add(
-            new PendingSnapInResolution(resumeTimeUs, adGroupIndex, interstitial));
-      }
-    }
+        getResumeOffsetUsOrDeferSnapInResolution(
+            interstitial, interstitialDurationUs, adGroupIndex, mediaPlaylist, session);
     long resumeOffsetUs = max(adGroup.contentResumeOffsetUs, 0) + resumeOffsetIncrementUs;
     adPlaybackState =
         adPlaybackState
@@ -1856,6 +1850,44 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
           interstitial, adGroupIndex, adIndexInAdGroup, adGroup.timeUs, playlistTargetDurationUs);
     }
     return adPlaybackState;
+  }
+
+  /**
+   * Returns the content resume offset in microseconds for a given interstitial or defers the
+   * calculation if the interstitial needs to snap into a segment that is not yet in the playlist.
+   *
+   * <p>The {@link #maybeResolvePendingSnapInResolutions} method will handle deferred resolutions
+   * when the timeline updates with a playlist containing the snap-in segment.
+   *
+   * @param interstitial The {@link Interstitial}.
+   * @param interstitialDurationUs The resolved duration of the interstitial or {@link C#TIME_UNSET}
+   *     if unknown.
+   * @param adGroupIndex The index of the ad group.
+   * @param mediaPlaylist The current {@link HlsMediaPlaylist}.
+   * @param session The {@link HlsAdSession}.
+   * @return The content resume offset in microseconds.
+   */
+  private long getResumeOffsetUsOrDeferSnapInResolution(
+      Interstitial interstitial,
+      long interstitialDurationUs,
+      int adGroupIndex,
+      HlsMediaPlaylist mediaPlaylist,
+      HlsAdSession session) {
+    if (interstitial.resumeOffsetUs != C.TIME_UNSET) {
+      return interstitial.resumeOffsetUs;
+    }
+    long resumeOffsetUs = interstitialDurationUs != C.TIME_UNSET ? interstitialDurationUs : 0L;
+    if (interstitial.snapTypes.contains(SNAP_TYPE_IN)) {
+      long resumeTimeUs = interstitial.startDateUnixUs + resumeOffsetUs;
+      if (resumeTimeUs < mediaPlaylist.startTimeUs + mediaPlaylist.durationUs) {
+        resumeOffsetUs =
+            resolveInterstitialResumeOffsetUs(interstitial, interstitialDurationUs, mediaPlaylist);
+      } else {
+        // The segment at which to resume is not yet in the playlist. Deferring offset calculation.
+        session.addPendingSnapInResolution(resumeTimeUs, adGroupIndex, interstitial);
+      }
+    }
+    return resumeOffsetUs;
   }
 
   private static int getLowestValidAdGroupInsertionIndex(AdPlaybackState adPlaybackState) {
@@ -1932,10 +1964,17 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     if (lastProcessedPlaylist == null) {
       return null;
     }
-    for (int i = 0; i < lastProcessedPlaylist.interstitials.size(); i++) {
-      if (id.equals(lastProcessedPlaylist.interstitials.get(i).id)) {
-        Interstitial interstitial = lastProcessedPlaylist.interstitials.get(i);
-        return interstitial.assetListUri != null ? interstitial : null;
+    Interstitial interstitial = getInterstitialById(lastProcessedPlaylist, id);
+    return interstitial != null && interstitial.assetListUri != null ? interstitial : null;
+  }
+
+  @Nullable
+  private static Interstitial getInterstitialById(
+      HlsMediaPlaylist mediaPlaylist, String interstitialId) {
+    for (int i = 0; i < mediaPlaylist.interstitials.size(); i++) {
+      Interstitial interstitial = mediaPlaylist.interstitials.get(i);
+      if (interstitial.id.equals(interstitialId)) {
+        return interstitial;
       }
     }
     return null;
@@ -2161,13 +2200,16 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
   /** A session for each media source that was started to play ads with this ads loader. */
   /* package */ static final class HlsAdSession {
 
+    @VisibleForTesting /* package */ final TreeMap<Long, AssetListData> unresolvedAssetLists;
+
+    @VisibleForTesting
+    /* package */ final TreeMap<Long, PendingSnapInResolution> pendingSnapInResolutions;
+
     private final Object adsId;
     private final Set<String> insertedInterstitialIds;
     private final MediaItem contentMediaItem;
     @Nullable private final EventListener eventListener;
-
-    @VisibleForTesting /* package */ final TreeMap<Long, AssetListData> unresolvedAssetLists;
-    @VisibleForTesting /* package */ final List<PendingSnapInResolution> pendingSnapInResolutions;
+    private final Map<String, long[]> assetListDurations = new HashMap<>();
 
     private AdPlaybackState adPlaybackState;
     @Nullable private HlsMediaPlaylist lastProcessedPlaylist;
@@ -2180,7 +2222,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       this.eventListener = eventListener;
       insertedInterstitialIds = new HashSet<>();
       unresolvedAssetLists = new TreeMap<>();
-      pendingSnapInResolutions = new ArrayList<>();
+      pendingSnapInResolutions = new TreeMap<>();
       adPlaybackState = AdPlaybackState.NONE;
       awaitingFirstAdToStart = true;
     }
@@ -2189,12 +2231,6 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     /* package */ AssetListData getNextUnresolvedAssetListData(long periodPositionUs) {
       Map.Entry<Long, AssetListData> entry = unresolvedAssetLists.ceilingEntry(periodPositionUs);
       return entry != null ? entry.getValue() : null;
-    }
-
-    /* package */ void removePendingSnapInResolutionUntilIndexInclusive(int resolvedIndex) {
-      Preconditions.checkArgument(resolvedIndex >= 0);
-      resolvedIndex = min(resolvedIndex, pendingSnapInResolutions.size() - 1);
-      pendingSnapInResolutions.subList(0, resolvedIndex + 1).clear();
     }
 
     /* package */ void addUnresolvedAssetList(
@@ -2223,6 +2259,83 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       long adGroupInsertionTimeUs =
           adGroupTimeUs == C.TIME_END_OF_SOURCE ? Long.MAX_VALUE : adGroupTimeUs;
       return unresolvedAssetLists.remove(adGroupInsertionTimeUs);
+    }
+
+    /**
+     * Sets the durations that resulted from fetching the asset list.
+     *
+     * <p>Available asset list durations take precedence over the durations that were reported by
+     * the HLS playlist.
+     *
+     * @param interstitialId The {@linkplain Interstitial#id ID of the interstitital}.
+     * @param durations The durations of the interstitial as declared by the asset list.
+     */
+    private void setAssetListDurations(String interstitialId, long[] durations) {
+      assetListDurations.put(interstitialId, durations);
+    }
+
+    /**
+     * Removes the durations set for a given interstitial ID.
+     *
+     * <p>This is called if an asset list of a given interstitial is {@link
+     * #setWithAssetListReset(Object, String) reset by the user}.
+     *
+     * @param interstitialId The {@linkplain Interstitial#id ID of the interstitital}.
+     */
+    private void removeAssetListDurations(String interstitialId) {
+      assetListDurations.remove(interstitialId);
+    }
+
+    /**
+     * Returns the sum of the durations that were declared in the asset list after resolving the
+     * asset, or {link C#TIME_UNSET} if no durations are available. If available, asset list
+     * durations take precedence over the durations that were reported in the HLS playlist.
+     *
+     * @param interstitialId The ID of the interstitial.
+     * @return The sum of the durations or {@link C#TIME_UNSET} if the asset list has not yet been
+     *     resolved, or the given interstitial is not an asset list interstitial.
+     */
+    private long getSumOfAssetListDurationsUs(String interstitialId) {
+      long totalDurationUs = 0;
+      long[] durations = assetListDurations.get(interstitialId);
+      if (durations == null) {
+        return C.TIME_UNSET;
+      }
+      for (long durationUs : durations) {
+        totalDurationUs += durationUs;
+      }
+      return totalDurationUs;
+    }
+
+    /**
+     * Adds a pending snap-in resolution by making sure that there are no duplicates for the same
+     * interstitial.
+     *
+     * <p>Note that the same interstitial may have a different {@code resumeTimeUs} when the
+     * duration is different. This can be the case for the same interstitial when calculating the
+     * resume time and the duration in the asset list is different than the duration in the
+     * playlist.
+     *
+     * @param resumeTimeUs The estimated resumption time of the interstitials that is used to snap
+     *     to the corresponding nearest segment boundary.
+     * @param adGroupIndex The index of the ad group.
+     * @param interstitial The interstitial.
+     */
+    /* package */ void addPendingSnapInResolution(
+        long resumeTimeUs, int adGroupIndex, Interstitial interstitial) {
+      PendingSnapInResolution pendingSnapInResolution =
+          new PendingSnapInResolution(adGroupIndex, interstitial.id);
+      // Linear iteration is fine to search for duplicates as we expect very few items in the map.
+      Iterator<Map.Entry<Long, PendingSnapInResolution>> iterator =
+          pendingSnapInResolutions.entrySet().iterator();
+      while (iterator.hasNext()) {
+        Map.Entry<Long, PendingSnapInResolution> entry = iterator.next();
+        if (pendingSnapInResolution.equals(entry.getValue())) {
+          iterator.remove();
+          break;
+        }
+      }
+      pendingSnapInResolutions.put(resumeTimeUs, pendingSnapInResolution);
     }
   }
 
@@ -2359,6 +2472,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
               adGroup = adPlaybackState.getAdGroup(assetListData.adGroupIndex);
             }
             int adIndex = assetListData.adIndexInAdGroup;
+            long[] assetDurations = new long[assetList.assets.size()];
             long[] newDurationsUs = adGroup.durationsUs.clone();
             for (int i = 0; i < assetList.assets.size(); i++) {
               Asset asset = assetList.assets.get(i);
@@ -2366,6 +2480,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
                 adIndex = oldAdCount + i - 1;
               }
               newDurationsUs[adIndex] = asset.durationUs;
+              assetDurations[i] = asset.durationUs;
               sumOfAssetListAdDurationUs += asset.durationUs;
               MediaItem mediaItem =
                   new MediaItem.Builder()
@@ -2383,20 +2498,19 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
                         assetListData.adGroupIndex, adIndex, assetList.skipInfo);
               }
             }
+            session.setAssetListDurations(assetListData.interstitial.id, assetDurations);
             adPlaybackState =
                 adPlaybackState.withAdDurationsUs(assetListData.adGroupIndex, newDurationsUs);
-            if (assetListData.interstitial.resumeOffsetUs == C.TIME_UNSET) {
-              // for asset lists without an explicit resume offset, the sum of asset
-              // durations acts as the default resume offset.
-              long resumeOffsetUs =
-                  resolveInterstitialResumeOffsetUs(
-                      assetListData.interstitial,
-                      /* defaultDurationUs= */ sumOfAssetListAdDurationUs,
-                      checkNotNull(session.lastProcessedPlaylist));
-              adPlaybackState =
-                  adPlaybackState.withContentResumeOffsetUs(
-                      assetListData.adGroupIndex, resumeOffsetUs);
-            }
+            long resumeOffsetUs =
+                getResumeOffsetUsOrDeferSnapInResolution(
+                    assetListData.interstitial,
+                    sumOfAssetListAdDurationUs,
+                    assetListData.adGroupIndex,
+                    checkNotNull(session.lastProcessedPlaylist),
+                    session);
+            adPlaybackState =
+                adPlaybackState.withContentResumeOffsetUs(
+                    assetListData.adGroupIndex, resumeOffsetUs);
             putAndNotifyAdPlaybackStateUpdate(assetListData.adsId, adPlaybackState);
             notifyListeners(
                 listener ->
@@ -2543,15 +2657,32 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
   @VisibleForTesting
   /* package */ static class PendingSnapInResolution {
 
-    private final long resumeTimeUs;
     private final int adGroupIndex;
-    private final Interstitial interstitial;
+    private final String interstitialId;
 
-    /* package */ PendingSnapInResolution(
-        long resumeTimeUs, int adGroupIndex, Interstitial interstitial) {
-      this.resumeTimeUs = resumeTimeUs;
+    /* package */ PendingSnapInResolution(int adGroupIndex, String interstitialId) {
       this.adGroupIndex = adGroupIndex;
-      this.interstitial = interstitial;
+      this.interstitialId = interstitialId;
+    }
+
+    @Override
+    public boolean equals(@Nullable Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof PendingSnapInResolution)) {
+        return false;
+      }
+      PendingSnapInResolution that = (PendingSnapInResolution) o;
+      return adGroupIndex == that.adGroupIndex
+          && Objects.equals(interstitialId, that.interstitialId);
+    }
+
+    @Override
+    public int hashCode() {
+      int result = interstitialId.hashCode();
+      result = 31 * result + adGroupIndex;
+      return result;
     }
   }
 }

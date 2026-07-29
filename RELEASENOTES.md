@@ -74,6 +74,9 @@
 *   Cronet extension:
 *   RTMP extension:
 *   HLS extension:
+    *   Fix calculation of content resume offset when the target segment for
+        snapping is not yet in the playlist
+        ([#3322](https://github.com/androidx/media/issues/3322)).
 *   DASH extension:
     *   Support whitespace-separated lists of `@id` values in trick mode
         (`http://dashif.org/guidelines/trickmode`) descriptor `@value`

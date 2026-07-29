@@ -93,7 +93,10 @@ import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.NavigableMap;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.json.JSONObject;
@@ -1512,7 +1515,6 @@ public class HlsInterstitialsAdsLoaderTest {
                     + "CLASS=\"com.apple.hls.interstitial\","
                     + "START-DATE=\"2020-01-02T21:55:40.000\"," //
                     + "X-SNAP=\"IN\","
-                    + "X-RESUME-OFFSET=3.222," // Snaps to start of next content segment.
                     + "X-PLAYOUT-LIMIT=3.222,"
                     + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
                     + "\n"
@@ -1521,7 +1523,6 @@ public class HlsInterstitialsAdsLoaderTest {
                     + "CLASS=\"com.apple.hls.interstitial\","
                     + "START-DATE=\"2020-01-02T21:55:52.222\","
                     + "X-SNAP=\"IN\","
-                    + "X-RESUME-OFFSET=4.333," // Snaps to start of next content segment.
                     + "X-PLAYOUT-LIMIT=4.333,"
                     + "X-ASSET-URI=\"http://example.com/media-1-0.m3u8\""
                     + "\n",
@@ -1535,6 +1536,67 @@ public class HlsInterstitialsAdsLoaderTest {
                 .withAdCount(/* adGroupIndex= */ 1, 1)
                 .withContentResumeOffsetUs(/* adGroupIndex= */ 0, 6_111_000L)
                 .withContentResumeOffsetUs(/* adGroupIndex= */ 1, 6_111_000L)
+                .withAdDurationsUs(/* adGroupIndex= */ 0, 3_222_000L)
+                .withAdDurationsUs(/* adGroupIndex= */ 1, 4_333_000L)
+                .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad0-0")
+                .withAdId(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, "ad1-0")
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 0,
+                    new MediaItem.Builder()
+                        .setUri("http://example.com/media-0-0.m3u8")
+                        .setMimeType(MimeTypes.APPLICATION_M3U8)
+                        .build())
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 1,
+                    /* adIndexInAdGroup= */ 0,
+                    new MediaItem.Builder()
+                        .setUri("http://example.com/media-1-0.m3u8")
+                        .setMimeType(MimeTypes.APPLICATION_M3U8)
+                        .build()));
+  }
+
+  @Test
+  public void handleContentTimelineChanged_snapInWithExplicitResumeOffset_usesExplicitResumeOffset()
+      throws IOException {
+    assertThat(
+            callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+                "#EXTM3U\n"
+                    + "#EXT-X-TARGETDURATION:6\n"
+                    + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+                    + "#EXTINF:6.111,\nmain1.ts\n"
+                    + "#EXTINF:6.111,\nmain2.ts\n" // segment start at 6.111
+                    + "#EXTINF:6.111,\nmain3.ts\n" // end of window at 18.333
+                    + "#EXT-X-ENDLIST"
+                    + "\n"
+                    + "#EXT-X-DATERANGE:"
+                    + "ID=\"ad0-0\","
+                    + "CLASS=\"com.apple.hls.interstitial\","
+                    + "START-DATE=\"2020-01-02T21:55:40.000\"," //
+                    + "X-SNAP=\"IN\","
+                    + "X-RESUME-OFFSET=1.234,"
+                    + "X-PLAYOUT-LIMIT=3.222,"
+                    + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
+                    + "\n"
+                    + "#EXT-X-DATERANGE:"
+                    + "ID=\"ad1-0\","
+                    + "CLASS=\"com.apple.hls.interstitial\","
+                    + "START-DATE=\"2020-01-02T21:55:52.222\","
+                    + "X-SNAP=\"IN\","
+                    + "X-RESUME-OFFSET=2.345,"
+                    + "X-PLAYOUT-LIMIT=4.333,"
+                    + "X-ASSET-URI=\"http://example.com/media-1-0.m3u8\""
+                    + "\n",
+                adsLoader,
+                /* windowIndex= */ 0,
+                /* windowPositionInPeriodUs= */ 0,
+                /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE))
+        .isEqualTo(
+            new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 0L, 12_222_000)
+                .withAdCount(/* adGroupIndex= */ 0, 1)
+                .withAdCount(/* adGroupIndex= */ 1, 1)
+                .withContentResumeOffsetUs(/* adGroupIndex= */ 0, 1_234_000L)
+                .withContentResumeOffsetUs(/* adGroupIndex= */ 1, 2_345_000L)
                 .withAdDurationsUs(/* adGroupIndex= */ 0, 3_222_000L)
                 .withAdDurationsUs(/* adGroupIndex= */ 1, 4_333_000L)
                 .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad0-0")
@@ -1571,8 +1633,8 @@ public class HlsInterstitialsAdsLoaderTest {
                     + "ID=\"ad0-0\","
                     + "CLASS=\"com.apple.hls.interstitial\","
                     + "START-DATE=\"2020-01-02T21:55:40.111\","
+                    + "PLANNED-DURATION=4.333,"
                     + "X-SNAP=\"IN\","
-                    + "X-RESUME-OFFSET=3.222," // snap to end of first segment: 6.000
                     + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
                     + "\n"
                     + "#EXT-X-DATERANGE:"
@@ -1581,7 +1643,6 @@ public class HlsInterstitialsAdsLoaderTest {
                     + "START-DATE=\"2020-01-02T21:55:52.332\","
                     + "X-SNAP=\"IN\","
                     + "DURATION=4.333,"
-                    + "X-RESUME-OFFSET=4.333," // snap to end of first segment: 6.001
                     + "X-ASSET-URI=\"http://example.com/media-1-0.m3u8\""
                     + "\n"
                     + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
@@ -1712,7 +1773,7 @@ public class HlsInterstitialsAdsLoaderTest {
                     + "ID=\"ad0-0\"," // pre roll
                     + "CLASS=\"com.apple.hls.interstitial\","
                     + "START-DATE=\"2020-01-02T21:55:48.111Z\"," // snap OUT to start of segment
-                    + "X-RESUME-OFFSET=10.000," // snap IN to end of playlist: 12_222
+                    + "DURATION=10.000," // snap IN to end of playlist: 12_222
                     + "X-SNAP=\"OUT,IN\","
                     + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
                     + "\n"
@@ -1727,7 +1788,7 @@ public class HlsInterstitialsAdsLoaderTest {
                     + "ID=\"ad0-0\"," // pre roll
                     + "CLASS=\"com.apple.hls.interstitial\","
                     + "START-DATE=\"2020-01-02T21:55:46.111Z\","
-                    + "X-RESUME-OFFSET=10.000,"
+                    + "DURATION=10.000,"
                     + "X-SNAP=\"IN,OUT\","
                     + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
                     + "\n"
@@ -1739,6 +1800,86 @@ public class HlsInterstitialsAdsLoaderTest {
         .containsExactly(
             expectedAdPlaybackState,
             expectedAdPlaybackState.withContentResumeOffsetUs(/* adGroupIndex= */ 0, 12_222_000L));
+  }
+
+  @Test
+  public void handleContentTimelineChanged_snapInLiveMultipleDeferred_resolvesInOrder()
+      throws IOException {
+    AdPlaybackState firstAdPlaybackState =
+        new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 0L, 6_111_000L)
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false)
+            .withAdCount(/* adGroupIndex= */ 0, 1)
+            .withContentResumeOffsetUs(/* adGroupIndex= */ 0, 12_222_000L)
+            .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad0-0")
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 0,
+                new MediaItem.Builder()
+                    .setUri("http://example.com/media-0-0.m3u8")
+                    .setMimeType(MimeTypes.APPLICATION_M3U8)
+                    .build())
+            .withAdCount(/* adGroupIndex= */ 1, 1)
+            .withContentResumeOffsetUs(/* adGroupIndex= */ 1, 10_000_000L)
+            .withAdId(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, "ad1-0")
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 1,
+                /* adIndexInAdGroup= */ 0,
+                new MediaItem.Builder()
+                    .setUri("http://example.com/media-1-0.m3u8")
+                    .setMimeType(MimeTypes.APPLICATION_M3U8)
+                    .build());
+
+    assertThat(
+            callHandleContentTimelineChangedForLiveAndCaptureAdPlaybackStates(
+                adsLoader,
+                /* startAdsLoader= */ true,
+                /* windowOffsetInFirstPeriodUs= */ 0,
+                "#EXTM3U\n"
+                    + "#EXT-X-TARGETDURATION:6\n"
+                    + "#EXT-X-MEDIA-SEQUENCE:0\n"
+                    + "#EXT-X-DATERANGE:"
+                    + "ID=\"ad0-0\","
+                    + "CLASS=\"com.apple.hls.interstitial\","
+                    + "START-DATE=\"2020-01-02T21:55:40.000Z\","
+                    + "DURATION=10.000,"
+                    + "X-SNAP=\"IN,OUT\","
+                    + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\"\n"
+                    + "#EXT-X-DATERANGE:"
+                    + "ID=\"ad1-0\","
+                    + "CLASS=\"com.apple.hls.interstitial\","
+                    + "START-DATE=\"2020-01-02T21:55:46.111Z\","
+                    + "DURATION=10.000,"
+                    + "X-SNAP=\"IN,OUT\","
+                    + "X-ASSET-URI=\"http://example.com/media-1-0.m3u8\"\n"
+                    + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+                    + "#EXTINF:6.111,\nmain1.0.ts\n"
+                    + "#EXTINF:6.111,\nmain2.0.ts\n"
+                    + "\n",
+                "#EXTM3U\n"
+                    + "#EXT-X-TARGETDURATION:6\n"
+                    + "#EXT-X-MEDIA-SEQUENCE:0\n"
+                    + "#EXT-X-DATERANGE:"
+                    + "ID=\"ad0-0\","
+                    + "CLASS=\"com.apple.hls.interstitial\","
+                    + "START-DATE=\"2020-01-02T21:55:40.000Z\","
+                    + "DURATION=10.000,"
+                    + "X-SNAP=\"IN,OUT\","
+                    + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\"\n"
+                    + "#EXT-X-DATERANGE:"
+                    + "ID=\"ad1-0\","
+                    + "CLASS=\"com.apple.hls.interstitial\","
+                    + "START-DATE=\"2020-01-02T21:55:46.111Z\","
+                    + "DURATION=10.000,"
+                    + "X-SNAP=\"IN,OUT\","
+                    + "X-ASSET-URI=\"http://example.com/media-1-0.m3u8\"\n"
+                    + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+                    + "#EXTINF:6.111,\nmain1.0.ts\n"
+                    + "#EXTINF:6.111,\nmain2.0.ts\n"
+                    + "#EXTINF:6.111,\nmain3.0.ts\n"
+                    + "\n"))
+        .containsExactly(
+            firstAdPlaybackState,
+            firstAdPlaybackState.withContentResumeOffsetUs(/* adGroupIndex= */ 1, 12_222_000L));
   }
 
   @Test
@@ -1767,7 +1908,7 @@ public class HlsInterstitialsAdsLoaderTest {
                     + "CLASS=\"com.apple.hls.interstitial\","
                     + "START-DATE=\"2020-01-02T21:55:47.111\"," // snaps OUT to 6_111_000
                     + "X-SNAP=\"OUT,IN\","
-                    + "X-RESUME-OFFSET=3.111," // Changed by snap IN to 6.111
+                    + "DURATION=3.111," // Changed by snap IN to 6.111
                     + "X-ASSET-URI=\"http://example.com/media-0-1.m3u8\""
                     + "\n",
                 adsLoader,
@@ -1813,7 +1954,7 @@ public class HlsInterstitialsAdsLoaderTest {
                     + "CLASS=\"com.apple.hls.interstitial\","
                     + "START-DATE=\"2020-01-02T21:55:45.000\"," // snaps OUT to 6_111_000L
                     + "X-SNAP=\"OUT,IN\","
-                    + "X-RESUME-OFFSET=4.222," // snaps IN to 6.111
+                    + "DURATION=4.222," // snaps IN to 6.111
                     + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
                     + "\n"
                     + "#EXT-X-DATERANGE:"
@@ -2563,10 +2704,8 @@ public class HlsInterstitialsAdsLoaderTest {
             + "PLANNED-DURATION=12.074666,"
             + "X-PLAYOUT-LIMIT=12.074666,"
             + "X-ASSET-LIST=\"asset-list-two-ads\","
-            + "X-SNAP=\"OUT,IN\","
-            + "X-TIMELINE-OCCUPIES=\"RANGE\","
-            + "X-TIMELINE-STYLE=\"HIGHLIGHT\","
-            + "X-CONTENT-MAY-VARY=\"YES\"\n";
+            + "X-SNAP=\"OUT,IN\""
+            + "\n";
     when(mockPlayer.getContentPosition()).thenReturn(0L);
     callHandleContentTimelineChangedAndCaptureAdPlaybackState(
         playlistString,
@@ -2611,6 +2750,421 @@ public class HlsInterstitialsAdsLoaderTest {
         .containsExactly(AD_STATE_AVAILABLE, AD_STATE_AVAILABLE);
     assertThat(secondResolvedState.getAdGroup(/* adGroupIndex= */ 0).contentResumeOffsetUs)
         .isEqualTo(12_074_666L);
+  }
+
+  @Test
+  public void handleContentTimelineChanged_assetListResolved_calculatesContentResumeOffsetUs()
+      throws Exception {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2026-07-14T08:56:00.000Z\n"
+            + "#EXTINF:6.037333,\n"
+            + "main0.ts\n"
+            + "#EXTINF:6.037333,\n"
+            + "main1.ts"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad-break-12338\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2026-07-14T08:56:17.860Z\","
+            + "PLANNED-DURATION=12.074665,"
+            + "X-PLAYOUT-LIMIT=12.074665,"
+            + "X-ASSET-LIST=\"asset-list-two-ads\","
+            + "X-SNAP=\"OUT,IN\","
+            + "\n"
+            + "#EXTINF:6.037333,\n"
+            + "main2.ts"
+            + "\n"
+            + "#EXTINF:6.037333,\n"
+            + "main3.ts"
+            + "\n";
+    String playlistString2 =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2026-07-14T08:56:00.000Z\n"
+            + "#EXTINF:6.037333,\n"
+            + "main0.ts\n"
+            + "#EXTINF:6.037333,\n"
+            + "main1.ts"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad-break-12338\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2026-07-14T08:56:17.860Z\","
+            + "PLANNED-DURATION=12.074665,"
+            + "X-PLAYOUT-LIMIT=12.074665,"
+            + "X-ASSET-LIST=\"asset-list-two-ads\","
+            + "X-SNAP=\"OUT,IN\","
+            + "\n"
+            + "#EXTINF:6.037333,\n"
+            + "main2.ts"
+            + "\n"
+            + "#EXTINF:6.037333,\n"
+            + "main3.ts"
+            + "\n"
+            + "#EXTINF:6.037333,\n"
+            + "main4.ts"
+            + "\n";
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    when(mockPlayer.getCurrentMediaItem()).thenReturn(contentMediaItem);
+    when(mockPlayer.getCurrentTimeline()).thenReturn(new FakeTimeline(contentWindowDefinition));
+
+    callHandleContentTimelineChangedForLiveAndCaptureAdPlaybackStates(
+        adsLoader,
+        /* startAdsLoader= */ true,
+        /* windowOffsetInFirstPeriodUs= */ 0,
+        playlistString,
+        playlistString2);
+
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(3)).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    List<AdPlaybackState> capturedStates = adPlaybackStateCaptor.getAllValues();
+    AdPlaybackState initialState = capturedStates.get(0);
+    AdPlaybackState firstResolvedState = capturedStates.get(1);
+    AdPlaybackState secondResolvedState = capturedStates.get(2);
+    assertThat(initialState.adGroupCount).isEqualTo(2);
+    assertThat(initialState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(1);
+    assertThat(initialState.getAdGroup(/* adGroupIndex= */ 0).contentResumeOffsetUs)
+        .isEqualTo(12_074_665L);
+    assertThat(initialState.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_UNAVAILABLE);
+    assertThat(firstResolvedState.adGroupCount).isEqualTo(2);
+    assertThat(firstResolvedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(1);
+    assertThat(firstResolvedState.getAdGroup(/* adGroupIndex= */ 0).contentResumeOffsetUs)
+        .isEqualTo(12_074_666L);
+    assertThat(firstResolvedState.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_UNAVAILABLE);
+    assertThat(secondResolvedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(2);
+    assertThat(secondResolvedState.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_AVAILABLE, AD_STATE_AVAILABLE);
+    assertThat(secondResolvedState.getAdGroup(/* adGroupIndex= */ 0).contentResumeOffsetUs)
+        .isEqualTo(12_074_666L);
+  }
+
+  @Test
+  public void
+      handleContentTimelineChanged_assetListResolvedWithExplicitResumeOffset_usesExplicitResumeOffsetUs()
+          throws IOException, TimeoutException {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2026-07-14T08:56:00.000Z\n"
+            + "#EXTINF:6.037333,\n"
+            + "main0.ts\n"
+            + "#EXTINF:6.037333,\n"
+            + "main1.ts"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad-break-12338\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2026-07-14T08:56:17.860Z\","
+            + "PLANNED-DURATION=12.074665,"
+            + "X-PLAYOUT-LIMIT=12.074665,"
+            + "X-RESUME-OFFSET=1.2345,"
+            + "X-ASSET-LIST=\"asset-list-two-ads\","
+            + "X-SNAP=\"OUT,IN\","
+            + "\n"
+            + "#EXTINF:6.037333,\n"
+            + "main2.ts"
+            + "\n"
+            + "#EXTINF:6.037333,\n"
+            + "main3.ts"
+            + "\n";
+    String playlistString2 =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2026-07-14T08:56:00.000Z\n"
+            + "#EXTINF:6.037333,\n"
+            + "main0.ts\n"
+            + "#EXTINF:6.037333,\n"
+            + "main1.ts"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad-break-12338\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2026-07-14T08:56:17.860Z\","
+            + "PLANNED-DURATION=12.074665,"
+            + "X-PLAYOUT-LIMIT=12.074665,"
+            + "X-RESUME-OFFSET=1.2345,"
+            + "X-ASSET-LIST=\"asset-list-two-ads\","
+            + "X-SNAP=\"OUT,IN\","
+            + "\n"
+            + "#EXTINF:6.037333,\n"
+            + "main2.ts"
+            + "\n"
+            + "#EXTINF:6.037333,\n"
+            + "main3.ts"
+            + "\n"
+            + "#EXTINF:6.037333,\n"
+            + "main4.ts"
+            + "\n";
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    when(mockPlayer.getCurrentMediaItem()).thenReturn(contentMediaItem);
+    when(mockPlayer.getCurrentTimeline()).thenReturn(new FakeTimeline(contentWindowDefinition));
+
+    callHandleContentTimelineChangedForLiveAndCaptureAdPlaybackStates(
+        adsLoader,
+        /* startAdsLoader= */ true,
+        /* windowOffsetInFirstPeriodUs= */ 0,
+        playlistString,
+        playlistString2);
+
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    List<AdPlaybackState> capturedStates = adPlaybackStateCaptor.getAllValues();
+    AdPlaybackState initialState = capturedStates.get(0);
+    AdPlaybackState firstResolvedState = capturedStates.get(1);
+    assertThat(initialState.adGroupCount).isEqualTo(2);
+    assertThat(initialState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(1);
+    assertThat(initialState.getAdGroup(/* adGroupIndex= */ 0).contentResumeOffsetUs)
+        .isEqualTo(1_234_500L);
+    assertThat(initialState.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_UNAVAILABLE);
+    assertThat(firstResolvedState.adGroupCount).isEqualTo(2);
+    assertThat(firstResolvedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(2);
+    assertThat(firstResolvedState.getAdGroup(/* adGroupIndex= */ 0).contentResumeOffsetUs)
+        .isEqualTo(1_234_500L);
+    assertThat(firstResolvedState.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_AVAILABLE, AD_STATE_AVAILABLE);
+  }
+
+  @Test
+  public void
+      handleContentTimelineChanged_durationChangedByAssetList_deferredCalculationSnapsToSegmentEnd()
+          throws Exception {
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    when(mockPlayer.getCurrentMediaItem()).thenReturn(contentMediaItem);
+    when(mockPlayer.getCurrentTimeline()).thenReturn(new FakeTimeline(contentWindowDefinition));
+
+    callHandleContentTimelineChangedForLiveAndCaptureAdPlaybackStates(
+        adsLoader,
+        /* startAdsLoader= */ true,
+        /* windowOffsetInFirstPeriodUs= */ 0,
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2026-07-14T08:56:00.000Z\n"
+            + "#EXTINF:6.037333,\n"
+            + "main0.ts\n"
+            + "#EXTINF:6.037333,\n"
+            + "main1.ts"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad-break-12338\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2026-07-14T08:56:17.860Z\","
+            + "PLANNED-DURATION=12.074665," // Initial duration defined by playlist.
+            + "X-ASSET-LIST=\"asset-list-two-ads\","
+            + "X-SNAP=\"OUT,IN\","
+            + "\n"
+            + "#EXTINF:6.037333,\n"
+            + "main2.ts"
+            + "\n"
+            + "#EXTINF:6.037333,\n"
+            + "main3.ts"
+            + "\n");
+
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    List<AdPlaybackState> capturedStates = adPlaybackStateCaptor.getAllValues();
+    AdPlaybackState initialState = capturedStates.get(0);
+    AdPlaybackState firstResolvedState = capturedStates.get(1);
+    assertThat(initialState.adGroupCount).isEqualTo(2);
+    assertThat(initialState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(1);
+    assertThat(initialState.getAdGroup(/* adGroupIndex= */ 0).contentResumeOffsetUs)
+        .isEqualTo(12_074_665L); // Interstitial duration in the playlist.
+    assertThat(initialState.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_UNAVAILABLE);
+    assertThat(firstResolvedState.adGroupCount).isEqualTo(2);
+    assertThat(firstResolvedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(2);
+    assertThat(firstResolvedState.getAdGroup(/* adGroupIndex= */ 0).contentResumeOffsetUs)
+        .isEqualTo(12_074_664L); // Snap segment not available: durations from asset list.
+    assertThat(firstResolvedState.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_AVAILABLE, AD_STATE_AVAILABLE);
+
+    reset(mockEventListener);
+    callHandleContentTimelineChangedForLiveAndCaptureAdPlaybackStates(
+        adsLoader,
+        /* startAdsLoader= */ false,
+        /* windowOffsetInFirstPeriodUs= */ 0,
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2026-07-14T08:56:00.000Z\n"
+            + "#EXTINF:6.037333,\n"
+            + "main0.ts\n"
+            + "#EXTINF:6.037333,\n"
+            + "main1.ts"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad-break-12338\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2026-07-14T08:56:17.860Z\","
+            + "PLANNED-DURATION=12.074665," // Initial duration defined by playlist.
+            + "X-ASSET-LIST=\"asset-list-two-ads\","
+            + "X-SNAP=\"OUT,IN\","
+            + "\n"
+            + "#EXTINF:6.037333,\n"
+            + "main2.ts"
+            + "\n"
+            + "#EXTINF:6.037333,\n"
+            + "main3.ts"
+            + "\n"
+            + "#EXTINF:6.037333,\n"
+            + "main4.ts"
+            + "\n");
+
+    verify(mockEventListener).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    AdPlaybackState secondResolvedState = adPlaybackStateCaptor.getValue();
+    assertThat(secondResolvedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(2);
+    assertThat(secondResolvedState.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_AVAILABLE, AD_STATE_AVAILABLE);
+    assertThat(secondResolvedState.getAdGroup(/* adGroupIndex= */ 0).contentResumeOffsetUs)
+        .isEqualTo(12_074_666L); // The offset snapped to the end of the segment.
+  }
+
+  @Test
+  public void
+      handleContentTimelineChanged_undefinedDurationChangedByAssetList_deferredCalculationSnapsToSegmentEnd()
+          throws Exception {
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    when(mockPlayer.getCurrentMediaItem()).thenReturn(contentMediaItem);
+    when(mockPlayer.getCurrentTimeline()).thenReturn(new FakeTimeline(contentWindowDefinition));
+
+    callHandleContentTimelineChangedForLiveAndCaptureAdPlaybackStates(
+        adsLoader,
+        /* startAdsLoader= */ true,
+        /* windowOffsetInFirstPeriodUs= */ 0,
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2026-07-14T08:56:00.000Z\n"
+            + "#EXTINF:6.037333,\n"
+            + "main0.ts\n"
+            + "#EXTINF:6.037333,\n"
+            + "main1.ts"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad-break-12338\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2026-07-14T08:56:17.860Z\","
+            + "X-ASSET-LIST=\"asset-list-two-ads\","
+            + "X-SNAP=\"OUT,IN\"," // Snap requested with undefined duration (defaults to 0).
+            + "\n"
+            + "#EXTINF:6.037333,\n"
+            + "main2.ts"
+            + "\n"
+            + "#EXTINF:6.037333,\n"
+            + "main3.ts"
+            + "\n");
+
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    List<AdPlaybackState> capturedStates = adPlaybackStateCaptor.getAllValues();
+    AdPlaybackState initialState = capturedStates.get(0);
+    AdPlaybackState firstResolvedState = capturedStates.get(1);
+    assertThat(initialState.adGroupCount).isEqualTo(2);
+    assertThat(initialState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(1);
+    assertThat(initialState.getAdGroup(/* adGroupIndex= */ 0).contentResumeOffsetUs)
+        .isEqualTo(0); // Undefined duration in the playlist defaults to 0.
+    assertThat(initialState.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_UNAVAILABLE);
+    assertThat(firstResolvedState.adGroupCount).isEqualTo(2);
+    assertThat(firstResolvedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(2);
+    assertThat(firstResolvedState.getAdGroup(/* adGroupIndex= */ 0).contentResumeOffsetUs)
+        .isEqualTo(12_074_664L); // Snap segment not available: durations from asset list.
+    assertThat(firstResolvedState.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_AVAILABLE, AD_STATE_AVAILABLE);
+
+    reset(mockEventListener);
+    callHandleContentTimelineChangedForLiveAndCaptureAdPlaybackStates(
+        adsLoader,
+        /* startAdsLoader= */ false,
+        /* windowOffsetInFirstPeriodUs= */ 0,
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2026-07-14T08:56:00.000Z\n"
+            + "#EXTINF:6.037333,\n"
+            + "main0.ts\n"
+            + "#EXTINF:6.037333,\n"
+            + "main1.ts"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad-break-12338\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2026-07-14T08:56:17.860Z\","
+            + "PLANNED-DURATION=12.074665,"
+            + "X-PLAYOUT-LIMIT=12.074665,"
+            + "X-ASSET-LIST=\"asset-list-two-ads\","
+            + "X-SNAP=\"OUT,IN\"," // Snap requested with duration available from asset list.
+            + "\n"
+            + "#EXTINF:6.037333,\n"
+            + "main2.ts"
+            + "\n"
+            + "#EXTINF:6.037333,\n"
+            + "main3.ts"
+            + "\n"
+            + "#EXTINF:6.037333,\n"
+            + "main4.ts"
+            + "\n");
+
+    verify(mockEventListener).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    AdPlaybackState secondResolvedState = adPlaybackStateCaptor.getValue();
+    assertThat(secondResolvedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(2);
+    assertThat(secondResolvedState.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_AVAILABLE, AD_STATE_AVAILABLE);
+    assertThat(secondResolvedState.getAdGroup(/* adGroupIndex= */ 0).contentResumeOffsetUs)
+        .isEqualTo(12_074_666L); // The offset snapped to the end of the segment.
+    // Reset the listener to be able to wait for another asset list resolution to happen.
+    assetListLoadingListener.reset();
+    // Skip ads to allow resetting the asset list.
+    adsLoader.setWithSkippedAdGroup(/* adGroupIndex= */ 0);
+
+    // Reset the asset list which removes the known durations and recalculates resume offset again.
+    assertThat(adsLoader.setWithAssetListReset("adsId", /* adGroupIndex= */ 0)).isTrue();
+
+    verify(mockEventListener, times(3)).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    AdPlaybackState adPlaybackStateAfterAssetReset = adPlaybackStateCaptor.getValue();
+    assertThat(adPlaybackStateAfterAssetReset.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(1);
+    assertThat(adPlaybackStateAfterAssetReset.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_UNAVAILABLE);
+    assertThat(
+            adPlaybackStateAfterAssetReset.getAdGroup(/* adGroupIndex= */ 0).contentResumeOffsetUs)
+        .isEqualTo(0L); // The offset collapsed because the interstitial duration is unset.
+
+    // Wait for the async asset list resolution to complete...
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    // and verify the updated ad playback state that now should have a resume offset calculated with
+    // the durations declared by the asset list that was fetched again.
+    verify(mockEventListener, times(4)).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    AdPlaybackState adPlaybackStateAfterAssetResolution = adPlaybackStateCaptor.getValue();
+    assertThat(adPlaybackStateAfterAssetResolution.getAdGroup(/* adGroupIndex= */ 0).count)
+        .isEqualTo(2);
+    assertThat(adPlaybackStateAfterAssetResolution.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_AVAILABLE, AD_STATE_AVAILABLE);
+    assertThat(
+            adPlaybackStateAfterAssetResolution.getAdGroup(/* adGroupIndex= */ 0)
+                .contentResumeOffsetUs)
+        .isEqualTo(12_074_666L); // The offset snapped to the end of the segment again.
   }
 
   @Test
@@ -6564,7 +7118,7 @@ public class HlsInterstitialsAdsLoaderTest {
   }
 
   @Test
-  public void removePendingSnapInResolutionUntilIncludingIndex_correctOperations() {
+  public void addPendingSnapInResolution_withOutOfOrderInserts_maintainsSortedOrder() {
     Interstitial interstitial =
         new Interstitial(
             /* id= */ "ad1",
@@ -6589,53 +7143,33 @@ public class HlsInterstitialsAdsLoaderTest {
             /* skipControlLabelId= */ null);
     AdsMediaSourceSessionManager holder = new AdsMediaSourceSessionManager();
     holder.startContentSource("adsId", MediaItem.fromUri("http://1"), mockEventListener);
-    holder.startContentSource("adsId_other", MediaItem.fromUri("http://1"), mockEventListener);
-    for (int i = 0; i < 10; i++) {
+    long[] resumeTimesUs = new long[] {25_001L, 20_000L, 10_000L};
+    // Add pending snaps out of order.
+    for (int i = 0; i < resumeTimesUs.length; i++) {
       holder
           .getSession("adsId")
-          .pendingSnapInResolutions
-          .add(
-              new PendingSnapInResolution(
-                  /* resumeTimeUs= */ i * 10_000L,
-                  /* adGroupIndex= */ i,
-                  /* interstitial= */ interstitial));
-      holder
-          .getSession("adsId_other")
-          .pendingSnapInResolutions
-          .add(
-              new PendingSnapInResolution(
-                  /* resumeTimeUs= */ i * 10_000L,
-                  /* adGroupIndex= */ i,
-                  /* interstitial= */ interstitial));
+          .addPendingSnapInResolution(
+              /* resumeTimeUs= */ resumeTimesUs[i],
+              /* adGroupIndex= */ i,
+              /* interstitial= */ interstitial);
     }
-    assertThat(holder.getSession("adsId").pendingSnapInResolutions).hasSize(10);
-    assertThat(holder.getSession("adsId_other").pendingSnapInResolutions).hasSize(10);
+    assertThat(holder.getSession("adsId").pendingSnapInResolutions).hasSize(3);
+    assertThat(holder.getSession("adsId").pendingSnapInResolutions.keySet())
+        .containsExactly(10_000L, 20_000L, 25_001L)
+        .inOrder();
 
-    holder
-        .getSession("adsId")
-        .removePendingSnapInResolutionUntilIndexInclusive(/* resolvedIndex= */ 4);
-    holder
-        .getSession("adsId_other")
-        .removePendingSnapInResolutionUntilIndexInclusive(/* resolvedIndex= */ 4);
+    // Get all snaps before and including a given position (like the end of the playlist).
+    NavigableMap<Long, PendingSnapInResolution> headMap =
+        holder.getSession("adsId").pendingSnapInResolutions.headMap(25_000L, /* inclusive= */ true);
 
-    assertThat(holder.getSession("adsId").pendingSnapInResolutions).hasSize(5);
-    assertThat(holder.getSession("adsId_other").pendingSnapInResolutions).hasSize(5);
-
-    holder
-        .getSession("adsId")
-        .removePendingSnapInResolutionUntilIndexInclusive(/* resolvedIndex= */ 4);
-    holder
-        .getSession("adsId_other")
-        .removePendingSnapInResolutionUntilIndexInclusive(/* resolvedIndex= */ 1234);
-
-    assertThat(holder.getSession("adsId").pendingSnapInResolutions).isEmpty();
-    assertThat(holder.getSession("adsId_other").pendingSnapInResolutions).isEmpty();
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            holder
-                .getSession("adsId")
-                .removePendingSnapInResolutionUntilIndexInclusive(/* resolvedIndex= */ -1));
+    Iterator<Map.Entry<Long, PendingSnapInResolution>> iterator = headMap.entrySet().iterator();
+    while (iterator.hasNext()) {
+      iterator.next();
+      iterator.remove();
+    }
+    assertThat(holder.getSession("adsId").pendingSnapInResolutions).hasSize(1);
+    assertThat(holder.getSession("adsId").pendingSnapInResolutions.keySet())
+        .containsExactly(25_001L);
   }
 
   @Test
@@ -8151,11 +8685,11 @@ public class HlsInterstitialsAdsLoaderTest {
                   + "  \"ASSETS\": [\n"
                   + "    {\n"
                   + "      \"URI\": \"http://example.com/ad/1\",\n"
-                  + "      \"DURATION\": 6.037333\n"
+                  + "      \"DURATION\": 6.037332\n"
                   + "    },\n"
                   + "    {\n"
                   + "      \"URI\": \"http://example.com/ad/2\",\n"
-                  + "      \"DURATION\": 6.037333\n"
+                  + "      \"DURATION\": 6.037332\n"
                   + "    }\n"
                   + "  ]\n"
                   + "}\n")
