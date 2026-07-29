@@ -168,37 +168,6 @@ public final class CodecSpecificDataUtil {
   // IAMF
   private static final String CODEC_ID_IAMF = "iamf";
 
-  // TODO(b/482032815): Replace VVC literal constants with MediaCodecInfo.CodecProfileLevel
-  // constants when compile SDK is updated to 37.
-  private static final int VVC_PROFILE_MAIN_8 = 0x01;
-  private static final int VVC_PROFILE_MAIN_10 = 0x02;
-  private static final int VVC_PROFILE_MAIN_10_STILL = 0x04;
-  private static final int VVC_PROFILE_MAIN_10_HDR10 = 0x1000;
-
-  private static final int VVC_MAIN_TIER_LEVEL_1_0 = 0x01;
-  private static final int VVC_MAIN_TIER_LEVEL_2_0 = 0x02;
-  private static final int VVC_MAIN_TIER_LEVEL_2_1 = 0x04;
-  private static final int VVC_MAIN_TIER_LEVEL_3_0 = 0x08;
-  private static final int VVC_MAIN_TIER_LEVEL_3_1 = 0x10;
-  private static final int VVC_MAIN_TIER_LEVEL_4_0 = 0x20;
-  private static final int VVC_HIGH_TIER_LEVEL_4_0 = 0x40;
-  private static final int VVC_MAIN_TIER_LEVEL_4_1 = 0x80;
-  private static final int VVC_HIGH_TIER_LEVEL_4_1 = 0x100;
-  private static final int VVC_MAIN_TIER_LEVEL_5_0 = 0x200;
-  private static final int VVC_HIGH_TIER_LEVEL_5_0 = 0x400;
-  private static final int VVC_MAIN_TIER_LEVEL_5_1 = 0x800;
-  private static final int VVC_HIGH_TIER_LEVEL_5_1 = 0x1000;
-  private static final int VVC_MAIN_TIER_LEVEL_5_2 = 0x2000;
-  private static final int VVC_HIGH_TIER_LEVEL_5_2 = 0x4000;
-  private static final int VVC_MAIN_TIER_LEVEL_6_0 = 0x8000;
-  private static final int VVC_HIGH_TIER_LEVEL_6_0 = 0x10000;
-  private static final int VVC_MAIN_TIER_LEVEL_6_1 = 0x20000;
-  private static final int VVC_HIGH_TIER_LEVEL_6_1 = 0x40000;
-  private static final int VVC_MAIN_TIER_LEVEL_6_2 = 0x80000;
-  private static final int VVC_HIGH_TIER_LEVEL_6_2 = 0x100000;
-  private static final int VVC_MAIN_TIER_LEVEL_6_3 = 0x200000;
-  private static final int VVC_HIGH_TIER_LEVEL_6_3 = 0x400000;
-
   private static final Pattern PROFILE_PATTERN = Pattern.compile("^\\D?(\\d+)$");
 
   private static final String TAG = "CodecSpecificDataUtil";
@@ -940,14 +909,14 @@ public final class CodecSpecificDataUtil {
     int profile;
     if (profileIdc == 1) {
       if (colorInfo != null && colorInfo.colorTransfer == C.COLOR_TRANSFER_ST2084) {
-        profile = VVC_PROFILE_MAIN_10_HDR10;
+        profile = CodecProfileLevel.VVCProfileMain10HDR10;
       } else if (colorInfo != null && colorInfo.lumaBitdepth == 8) {
-        profile = VVC_PROFILE_MAIN_8;
+        profile = CodecProfileLevel.VVCProfileMain8;
       } else {
-        profile = VVC_PROFILE_MAIN_10;
+        profile = CodecProfileLevel.VVCProfileMain10;
       }
     } else if (profileIdc == 65) {
-      profile = VVC_PROFILE_MAIN_10_STILL;
+      profile = CodecProfileLevel.VVCProfileMain10Still;
     } else {
       Log.w(TAG, "Unknown VVC profile IDC: " + parts[1]);
       return MediaCodecProfileAndLevel.UNSUPPORTABLE;
@@ -977,51 +946,51 @@ public final class CodecSpecificDataUtil {
   private static Integer vvcCodecStringToProfileLevel(String codecString) {
     switch (codecString) {
       case "L16":
-        return VVC_MAIN_TIER_LEVEL_1_0;
+        return CodecProfileLevel.VVCMainTierLevel10;
       case "L32":
-        return VVC_MAIN_TIER_LEVEL_2_0;
+        return CodecProfileLevel.VVCMainTierLevel20;
       case "L35":
-        return VVC_MAIN_TIER_LEVEL_2_1;
+        return CodecProfileLevel.VVCMainTierLevel21;
       case "L48":
-        return VVC_MAIN_TIER_LEVEL_3_0;
+        return CodecProfileLevel.VVCMainTierLevel30;
       case "L51":
-        return VVC_MAIN_TIER_LEVEL_3_1;
+        return CodecProfileLevel.VVCMainTierLevel31;
       case "L64":
-        return VVC_MAIN_TIER_LEVEL_4_0;
+        return CodecProfileLevel.VVCMainTierLevel40;
       case "H64":
-        return VVC_HIGH_TIER_LEVEL_4_0;
+        return CodecProfileLevel.VVCHighTierLevel40;
       case "L67":
-        return VVC_MAIN_TIER_LEVEL_4_1;
+        return CodecProfileLevel.VVCMainTierLevel41;
       case "H67":
-        return VVC_HIGH_TIER_LEVEL_4_1;
+        return CodecProfileLevel.VVCHighTierLevel41;
       case "L80":
-        return VVC_MAIN_TIER_LEVEL_5_0;
+        return CodecProfileLevel.VVCMainTierLevel50;
       case "H80":
-        return VVC_HIGH_TIER_LEVEL_5_0;
+        return CodecProfileLevel.VVCHighTierLevel50;
       case "L83":
-        return VVC_MAIN_TIER_LEVEL_5_1;
+        return CodecProfileLevel.VVCMainTierLevel51;
       case "H83":
-        return VVC_HIGH_TIER_LEVEL_5_1;
+        return CodecProfileLevel.VVCHighTierLevel51;
       case "L86":
-        return VVC_MAIN_TIER_LEVEL_5_2;
+        return CodecProfileLevel.VVCMainTierLevel52;
       case "H86":
-        return VVC_HIGH_TIER_LEVEL_5_2;
+        return CodecProfileLevel.VVCHighTierLevel52;
       case "L96":
-        return VVC_MAIN_TIER_LEVEL_6_0;
+        return CodecProfileLevel.VVCMainTierLevel60;
       case "H96":
-        return VVC_HIGH_TIER_LEVEL_6_0;
+        return CodecProfileLevel.VVCHighTierLevel60;
       case "L112":
-        return VVC_MAIN_TIER_LEVEL_6_1;
+        return CodecProfileLevel.VVCMainTierLevel61;
       case "H112":
-        return VVC_HIGH_TIER_LEVEL_6_1;
+        return CodecProfileLevel.VVCHighTierLevel61;
       case "L128":
-        return VVC_MAIN_TIER_LEVEL_6_2;
+        return CodecProfileLevel.VVCMainTierLevel62;
       case "H128":
-        return VVC_HIGH_TIER_LEVEL_6_2;
+        return CodecProfileLevel.VVCHighTierLevel62;
       case "L144":
-        return VVC_MAIN_TIER_LEVEL_6_3;
+        return CodecProfileLevel.VVCMainTierLevel63;
       case "H144":
-        return VVC_HIGH_TIER_LEVEL_6_3;
+        return CodecProfileLevel.VVCHighTierLevel63;
       default:
         return null;
     }
