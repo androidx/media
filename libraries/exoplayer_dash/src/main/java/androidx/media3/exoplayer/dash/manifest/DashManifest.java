@@ -100,9 +100,13 @@ public class DashManifest implements FilterableManifest<DashManifest> {
   /** The locations to request future updates of the DASH media presentation description (mpd). */
   public final ImmutableList<Location> locations;
 
+  /** The {@link ContentSteering}, or {@code null} if not present. */
+  @Nullable public final ContentSteering contentSteering;
+
   /**
    * @deprecated Use {@link #DashManifest(long, long, long, boolean, long, long, long, long,
-   *     ProgramInformation, UtcTimingElement, ServiceDescriptionElement, List, List)} instead.
+   *     ProgramInformation, UtcTimingElement, ServiceDescriptionElement, List, List,
+   *     ContentSteering)} instead.
    */
   @Deprecated
   public DashManifest(
@@ -132,7 +136,45 @@ public class DashManifest implements FilterableManifest<DashManifest> {
         utcTiming,
         serviceDescription,
         periods,
-        location == null ? ImmutableList.of() : ImmutableList.of(new Location(location)));
+        location == null ? ImmutableList.of() : ImmutableList.of(new Location(location)),
+        /* contentSteering= */ null);
+  }
+
+  /**
+   * @deprecated Use {@link #DashManifest(long, long, long, boolean, long, long, long, long,
+   *     ProgramInformation, UtcTimingElement, ServiceDescriptionElement, List, List,
+   *     ContentSteering)} instead.
+   */
+  @Deprecated
+  public DashManifest(
+      long availabilityStartTimeMs,
+      long durationMs,
+      long minBufferTimeMs,
+      boolean dynamic,
+      long minUpdatePeriodMs,
+      long timeShiftBufferDepthMs,
+      long suggestedPresentationDelayMs,
+      long publishTimeMs,
+      @Nullable ProgramInformation programInformation,
+      @Nullable UtcTimingElement utcTiming,
+      @Nullable ServiceDescriptionElement serviceDescription,
+      List<Period> periods,
+      List<Location> locations) {
+    this(
+        availabilityStartTimeMs,
+        durationMs,
+        minBufferTimeMs,
+        dynamic,
+        minUpdatePeriodMs,
+        timeShiftBufferDepthMs,
+        suggestedPresentationDelayMs,
+        publishTimeMs,
+        programInformation,
+        utcTiming,
+        serviceDescription,
+        periods,
+        locations,
+        /* contentSteering= */ null);
   }
 
   public DashManifest(
@@ -148,7 +190,8 @@ public class DashManifest implements FilterableManifest<DashManifest> {
       @Nullable UtcTimingElement utcTiming,
       @Nullable ServiceDescriptionElement serviceDescription,
       List<Period> periods,
-      List<Location> locations) {
+      List<Location> locations,
+      @Nullable ContentSteering contentSteering) {
     this.availabilityStartTimeMs = availabilityStartTimeMs;
     this.durationMs = durationMs;
     this.minBufferTimeMs = minBufferTimeMs;
@@ -163,6 +206,7 @@ public class DashManifest implements FilterableManifest<DashManifest> {
     this.periods = periods == null ? Collections.emptyList() : periods;
     this.locations = locations == null ? ImmutableList.of() : ImmutableList.copyOf(locations);
     this.location = locations == null || locations.isEmpty() ? null : getLast(locations).url;
+    this.contentSteering = contentSteering;
   }
 
   public final int getPeriodCount() {
@@ -222,7 +266,8 @@ public class DashManifest implements FilterableManifest<DashManifest> {
         utcTiming,
         serviceDescription,
         copyPeriods,
-        locations);
+        locations,
+        contentSteering);
   }
 
   private static ArrayList<AdaptationSet> copyAdaptationSets(

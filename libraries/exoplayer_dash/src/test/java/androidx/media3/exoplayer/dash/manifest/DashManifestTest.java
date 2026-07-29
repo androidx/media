@@ -194,6 +194,7 @@ public class DashManifestTest {
     assertThat(actual.locations).isEqualTo(expected.locations);
     assertThat(actual.getPeriodCount()).isEqualTo(expected.getPeriodCount());
     assertThat(actual.serviceDescription).isEqualTo(expected.serviceDescription);
+    assertThat(actual.contentSteering).isEqualTo(expected.contentSteering);
     for (int i = 0; i < expected.getPeriodCount(); i++) {
       Period expectedPeriod = expected.getPeriod(i);
       Period actualPeriod = actual.getPeriod(i);
@@ -253,7 +254,11 @@ public class DashManifestTest {
         UTC_TIMING,
         serviceDescription,
         Arrays.asList(periods),
-        ImmutableList.of(new Location(Uri.EMPTY)));
+        ImmutableList.of(new Location(Uri.EMPTY)),
+        new ContentSteering(
+            Uri.parse("http://example.com/steer"),
+            /* defaultServiceLocation= */ null,
+            /* queryBeforeStart= */ true));
   }
 
   private static Period newPeriod(String id, int startMs, AdaptationSet... adaptationSets) {

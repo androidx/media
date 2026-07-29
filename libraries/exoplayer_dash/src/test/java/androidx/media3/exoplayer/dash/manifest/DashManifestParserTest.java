@@ -102,6 +102,7 @@ public class DashManifestParserTest {
       "media/mpd/sample_mpd_multiple_locations_relative";
   private static final String SAMPLE_MPD_MULTIPLE_LOCATIONS_ABSOLUTE =
       "media/mpd/sample_mpd_multiple_locations_absolute";
+  private static final String SAMPLE_MPD_CONTENT_STEERING = "media/mpd/sample_mpd_content_steering";
 
   private static final String NEXT_TAG_NAME = "Next";
   private static final String NEXT_TAG = "<" + NEXT_TAG_NAME + "/>";
@@ -1164,6 +1165,22 @@ public class DashManifestParserTest {
     // Verify backward compatibility location field (points to the last location).
     assertThat(manifest.location)
         .isEqualTo(Uri.parse("https://example.com/location2/manifest.mpd"));
+  }
+
+  @Test
+  public void parse_contentSteering_parsedCorrectly() throws IOException {
+    DashManifestParser parser = new DashManifestParser();
+    DashManifest manifest =
+        parser.parse(
+            Uri.parse("https://example.com/test.mpd"),
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(), SAMPLE_MPD_CONTENT_STEERING));
+
+    assertThat(manifest.contentSteering).isNotNull();
+    assertThat(manifest.contentSteering.steeringServerUri)
+        .isEqualTo(Uri.parse("http://steering-server.com/steering"));
+    assertThat(manifest.contentSteering.defaultServiceLocation).isEqualTo("loc1");
+    assertThat(manifest.contentSteering.queryBeforeStart).isTrue();
   }
 
   private static List<Descriptor> buildCea608AccessibilityDescriptors(String value) {

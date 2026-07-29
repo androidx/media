@@ -157,6 +157,7 @@ public class DashManifestParser extends DefaultHandler
     UtcTimingElement utcTiming = null;
     List<Location> locations = new ArrayList<>();
     ServiceDescriptionElement serviceDescription = null;
+    ContentSteering contentSteering = null;
     long baseUrlAvailabilityTimeOffsetUs = dynamic ? 0 : C.TIME_UNSET;
     String documentBaseUriString = documentBaseUri.toString();
     BaseUrl documentBaseUrl =
@@ -187,7 +188,7 @@ public class DashManifestParser extends DefaultHandler
         utcTiming = parseUtcTiming(xpp);
       } else if (XmlPullParserUtil.isStartTag(xpp, "Location")) {
         String serviceLocation = xpp.getAttributeValue(null, "serviceLocation");
-        String locationUrlString = xpp.nextText();
+        String locationUrlString = parseText(xpp, "Location").trim();
         Uri resolvedUrl = Uri.parse(UriUtil.resolve(documentBaseUriString, locationUrlString));
         locations.add(
             serviceLocation != null
@@ -195,6 +196,8 @@ public class DashManifestParser extends DefaultHandler
                 : new Location(resolvedUrl));
       } else if (XmlPullParserUtil.isStartTag(xpp, "ServiceDescription")) {
         serviceDescription = parseServiceDescription(xpp);
+      } else if (XmlPullParserUtil.isStartTag(xpp, "ContentSteering")) {
+        contentSteering = parseContentSteering(xpp, documentBaseUri);
       } else if (XmlPullParserUtil.isStartTag(xpp, "Period") && !seenEarlyAccessPeriod) {
         Pair<Period, Long> periodWithDurationMs =
             parsePeriod(
@@ -253,13 +256,14 @@ public class DashManifestParser extends DefaultHandler
         utcTiming,
         serviceDescription,
         periods,
-        locations);
+        locations,
+        contentSteering);
   }
 
   /**
    * @deprecated Use {@link #buildMediaPresentationDescription(long, long, long, boolean, long,
    *     long, long, long, ProgramInformation, UtcTimingElement, ServiceDescriptionElement, List,
-   *     List)} instead.
+   *     List, ContentSteering)} instead.
    */
   @Deprecated
   protected DashManifest buildMediaPresentationDescription(
@@ -289,9 +293,16 @@ public class DashManifestParser extends DefaultHandler
         utcTiming,
         serviceDescription,
         periods,
-        location == null ? ImmutableList.of() : ImmutableList.of(new Location(location)));
+        location == null ? ImmutableList.of() : ImmutableList.of(new Location(location)),
+        /* contentSteering= */ null);
   }
 
+  /**
+   * @deprecated Use {@link #buildMediaPresentationDescription(long, long, long, boolean, long,
+   *     long, long, long, ProgramInformation, UtcTimingElement, ServiceDescriptionElement, List,
+   *     List, ContentSteering)} instead.
+   */
+  @Deprecated
   protected DashManifest buildMediaPresentationDescription(
       long availabilityStartTime,
       long durationMs,
@@ -319,7 +330,49 @@ public class DashManifestParser extends DefaultHandler
         utcTiming,
         serviceDescription,
         periods,
-        locations);
+        locations,
+        /* contentSteering= */ null);
+  }
+
+  protected DashManifest buildMediaPresentationDescription(
+      long availabilityStartTime,
+      long durationMs,
+      long minBufferTimeMs,
+      boolean dynamic,
+      long minUpdateTimeMs,
+      long timeShiftBufferDepthMs,
+      long suggestedPresentationDelayMs,
+      long publishTimeMs,
+      @Nullable ProgramInformation programInformation,
+      @Nullable UtcTimingElement utcTiming,
+      @Nullable ServiceDescriptionElement serviceDescription,
+      List<Period> periods,
+      List<Location> locations,
+      @Nullable ContentSteering contentSteering) {
+    return new DashManifest(
+        availabilityStartTime,
+        durationMs,
+        minBufferTimeMs,
+        dynamic,
+        minUpdateTimeMs,
+        timeShiftBufferDepthMs,
+        suggestedPresentationDelayMs,
+        publishTimeMs,
+        programInformation,
+        utcTiming,
+        serviceDescription,
+        periods,
+        locations,
+        contentSteering);
+  }
+
+  protected ContentSteering parseContentSteering(XmlPullParser xpp, Uri documentBaseUri)
+      throws XmlPullParserException, IOException {
+    String defaultServiceLocation = xpp.getAttributeValue(null, "defaultServiceLocation");
+    boolean queryBeforeStart = "true".equals(xpp.getAttributeValue(null, "queryBeforeStart"));
+    String serverUriString = parseText(xpp, "ContentSteering").trim();
+    Uri serverUri = UriUtil.resolveToUri(documentBaseUri.toString(), serverUriString);
+    return new ContentSteering(serverUri, defaultServiceLocation, queryBeforeStart);
   }
 
   protected UtcTimingElement parseUtcTiming(XmlPullParser xpp) {
@@ -1531,7 +1584,7 @@ public class DashManifestParser extends DefaultHandler
     @Nullable String weightValue = xpp.getAttributeValue(null, "dvb:weight");
     int weight = weightValue != null ? Integer.parseInt(weightValue) : DEFAULT_WEIGHT;
     @Nullable String serviceLocation = xpp.getAttributeValue(null, "serviceLocation");
-    String baseUrl = parseText(xpp, "BaseURL");
+    String baseUrl = parseText(xpp, "BaseURL").trim();
     if (UriUtil.isAbsolute(baseUrl)) {
       if (serviceLocation == null) {
         serviceLocation = baseUrl;
