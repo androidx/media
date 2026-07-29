@@ -164,6 +164,28 @@ public final class Id3PeekerTest {
     assertThat(commentFrame.text).isEqualTo("text");
   }
 
+  @Test
+  public void peekId3Data_withInvalidMajorVersion_returnsNull() throws IOException {
+    Id3Peeker id3Peeker = new Id3Peeker();
+    byte[] data = new byte[] {'I', 'D', '3', 'M', '0', 'W', 0x78, 0x62, 0x32, 0x59, 0, 0, 0, 0};
+    FakeExtractorInput input = new FakeExtractorInput.Builder().setData(data).build();
+
+    @Nullable Metadata metadata = id3Peeker.peekId3Data(input, /* id3FramePredicate= */ null, 128);
+
+    assertThat(metadata).isNull();
+  }
+
+  @Test
+  public void peekId3Data_withTagLengthExceedingInputLength_returnsNull() throws IOException {
+    Id3Peeker id3Peeker = new Id3Peeker();
+    byte[] data = new byte[] {'I', 'D', '3', 3, 0, 0, 0x78, 0x62, 0x32, 0x59, 0, 0, 0, 0};
+    FakeExtractorInput input = new FakeExtractorInput.Builder().setData(data).build();
+
+    @Nullable Metadata metadata = id3Peeker.peekId3Data(input, /* id3FramePredicate= */ null, 128);
+
+    assertThat(metadata).isNull();
+  }
+
   private static void assertApicFramesEqual(ApicFrame actual, ApicFrame expected) {
     assertThat(actual.mimeType).isEqualTo(expected.mimeType);
     assertThat(actual.description).isEqualTo(expected.description);

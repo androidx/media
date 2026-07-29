@@ -105,6 +105,16 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     this.framePredicate = framePredicate;
   }
 
+  /**
+   * Returns whether the given major version number is supported by {@link Id3Decoder}.
+   *
+   * @param majorVersion The ID3v2 major version number.
+   * @return Whether the major version is supported (ID3v2.2, ID3v2.3, or ID3v2.4).
+   */
+  public static boolean isSupportedMajorVersion(int majorVersion) {
+    return majorVersion >= 2 && majorVersion <= 4;
+  }
+
   @Override
   @Nullable
   @SuppressWarnings("ByteBufferBackingArray") // Buffer validated by SimpleMetadataDecoder.decode
@@ -183,6 +193,10 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     }
 
     int majorVersion = data.readUnsignedByte();
+    if (!isSupportedMajorVersion(majorVersion)) {
+      Log.w(TAG, "Skipped ID3 tag with unsupported majorVersion=" + majorVersion);
+      return null;
+    }
     data.skipBytes(1); // Skip minor version.
     int flags = data.readUnsignedByte();
     int framesSize = data.readSynchSafeInt();
@@ -211,9 +225,6 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
       if (hasFooter) {
         framesSize -= 10;
       }
-    } else {
-      Log.w(TAG, "Skipped ID3 tag with unsupported majorVersion=" + majorVersion);
-      return null;
     }
 
     // isUnsynchronized is advisory only in version 4. Frame level flags are used instead.
