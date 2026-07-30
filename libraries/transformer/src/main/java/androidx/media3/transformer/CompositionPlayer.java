@@ -510,8 +510,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
      * used and {@link CompositionPlayer} will not process {@link
      * androidx.media3.common.video.HardwareBufferFrame}s.
      *
-     * <p>If used on API 32 and below, the {@linkplain #setNativeHardwareBufferHelpers native
-     * helpers} must be set.
+     * <p>{@linkplain #setNativeHardwareBufferHelpers Native helpers} must be set when using this
+     * method.
      *
      * @param frameProcessorFactory The {@link FrameProcessor.Factory}.
      * @return This builder.
@@ -534,7 +534,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
      *
      * <p>This method is experimental and will be renamed or removed in a future release.
      *
-     * <p>This will only be used if {@link #setHardwareBufferEffectsPipeline} is set.
+     * <p>This will only be used if {@link #setFrameProcessorFactory} is set.
      *
      * @param hardwareBufferJniWrapper The {@link HardwareBufferJniWrapper} to provide native
      *     helpers.
@@ -768,18 +768,18 @@ public final class CompositionPlayer extends SimpleBasePlayer {
           hardwareBufferPostProcessor = null;
         }
         surfaceHolderFrameWriter =
-            SDK_INT >= 33
+            hardwareBufferJniWrapper != null || SDK_INT < 33
                 ? SurfaceHolderFrameWriter.create(
                     /* surfaceHolder= */ null,
                     /* surfaceHolderExecutor= */ applicationThreadExecutor,
                     internalListener,
-                    applicationThreadExecutor)
+                    applicationThreadExecutor,
+                    checkNotNull(hardwareBufferJniWrapper))
                 : SurfaceHolderFrameWriter.create(
                     /* surfaceHolder= */ null,
                     /* surfaceHolderExecutor= */ applicationThreadExecutor,
                     internalListener,
-                    applicationThreadExecutor,
-                    checkNotNull(hardwareBufferJniWrapper));
+                    applicationThreadExecutor);
         frameProcessor =
             frameProcessorFactory.create(
                 surfaceHolderFrameWriter,

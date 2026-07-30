@@ -310,13 +310,7 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
     instrumentation.runOnMainSync(
         () -> {
           surfaceView.getHolder().addCallback(callback);
-          DefaultHardwareBufferEffectsPipeline packetProcessor =
-              DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE);
-          compositionPlayer =
-              new CompositionPlayer.Builder(context)
-                  .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
-                  .setHardwareBufferEffectsPipeline(packetProcessor)
-                  .build();
+          compositionPlayer = createCompositionPlayerBuilder(context, mode).build();
           firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
           compositionPlayer.setVideoSurfaceView(surfaceView);
           compositionPlayer.setComposition(
@@ -378,6 +372,92 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
   }
 
   @Test
+  @SdkSuppress(
+      minSdkVersion = 34) // RGBA_1010102 only supported in ImageReader/SurfaceView from API 34.
+  public void compositionPlayer_withPacketConsumer_hdr_backsUpAndRestoresFrameOnLifecycleChange()
+      throws Exception {
+    assumeFalse(mode.equals(DEFAULT_GL_FRAME_PROCESSOR));
+    assumeTrue(isDeviceReady());
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat,
+        /* outputFormat= */ null);
+    SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
+    ConditionVariable surfaceDestroyed = new ConditionVariable();
+    ConditionVariable surfaceChanged = new ConditionVariable();
+
+    SurfaceHolder.Callback callback =
+        new SurfaceHolder.Callback() {
+          @Override
+          public void surfaceCreated(SurfaceHolder holder) {}
+
+          @Override
+          public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+            surfaceChanged.open();
+          }
+
+          @Override
+          public void surfaceDestroyed(SurfaceHolder holder) {
+            surfaceDestroyed.open();
+          }
+        };
+
+    instrumentation.runOnMainSync(
+        () -> {
+          surfaceView.getHolder().addCallback(callback);
+          compositionPlayer = createCompositionPlayerBuilder(context, mode).build();
+          firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.setComposition(
+              new Composition.Builder(
+                      EditedMediaItemSequence.withVideoFrom(
+                          ImmutableList.of(
+                              new EditedMediaItem.Builder(
+                                      MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri))
+                                  .setDurationUs(MP4_ASSET_COLOR_TEST_1080P_HLG10.videoDurationUs)
+                                  .build())))
+                  .build());
+          compositionPlayer.prepare();
+          compositionPlayer.setPlayWhenReady(false);
+        });
+
+    firstFrameRenderedFuture.get();
+
+    // Move activity to stopped state (destroys surface, triggers backup).
+    rule.getScenario().moveToState(CREATED);
+
+    // Wait for surface destruction to complete.
+    assertThat(surfaceDestroyed.block(TEST_TIMEOUT_MS)).isTrue();
+
+    // Reset the condition variable to wait for the next recreation.
+    surfaceChanged.close();
+
+    // Move activity back to resumed state (re-creates surface, triggers restore).
+    rule.getScenario().moveToState(RESUMED);
+
+    // Wait for surface re-creation.
+    assertThat(surfaceChanged.block(TEST_TIMEOUT_MS)).isTrue();
+
+    Bitmap bitmap = Bitmap.createBitmap(/* width= */ 1920, /* height= */ 1080, Config.RGBA_1010102);
+    ConditionVariable pixelCopyFinished = new ConditionVariable();
+
+    instrumentation.runOnMainSync(
+        () ->
+            PixelCopy.request(
+                surfaceView,
+                bitmap,
+                result -> {
+                  if (result == PixelCopy.SUCCESS) {
+                    pixelCopyFinished.open();
+                  }
+                },
+                surfaceView.getHandler()));
+    assertThat(pixelCopyFinished.block(TEST_TIMEOUT_MS)).isTrue();
+    assertThat(isBitmapBlackOrEmpty(bitmap)).isFalse();
+  }
+
+  @Test
   public void compositionPlayer_withPacketConsumer_usesMetadataListener() throws Exception {
     SettableFuture<Void> endedFuture = SettableFuture.create();
     Queue<Long> videoTimestamps = new ConcurrentLinkedQueue<>();
@@ -385,12 +465,8 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
 
     instrumentation.runOnMainSync(
         () -> {
-          DefaultHardwareBufferEffectsPipeline packetProcessor =
-              DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE);
           compositionPlayer =
-              new CompositionPlayer.Builder(context)
-                  .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
-                  .setHardwareBufferEffectsPipeline(packetProcessor)
+              createCompositionPlayerBuilder(context, mode)
                   .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                   .build();
           compositionPlayer.setVideoSurfaceView(surfaceView);
@@ -556,6 +632,19 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
     boolean userSetupComplete =
         Settings.Secure.getInt(context.getContentResolver(), "user_setup_complete", 1) == 1;
     return deviceProvisioned && userSetupComplete;
+  }
+
+  private static boolean isBitmapBlackOrEmpty(Bitmap bitmap) {
+    int width = bitmap.getWidth();
+    int height = bitmap.getHeight();
+    for (int x = 0; x < width; x += 10) {
+      for (int y = 0; y < height; y += 10) {
+        if ((bitmap.getPixel(x, y) & 0xFFFFFF) != 0) {
+          return false;
+        }
+      }
+    }
+    return true;
   }
 
   /** An implementation of {@link SurfaceHolder} which is backed by an {@link ImageReader}. */
