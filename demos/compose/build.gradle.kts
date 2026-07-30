@@ -38,6 +38,7 @@ dependencies {
   implementation(libs.androidx.activity.compose)
   implementation(libs.androidx.appcompat)
   implementation(libs.androidx.lifecycle.runtime.compose)
+  implementation(libs.androidx.lifecycle.viewmodel)
   implementation(libs.androidx.navigation.compose)
   implementation(libs.material)
   implementation(libs.kotlinx.coroutines.guava)

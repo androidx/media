@@ -27,6 +27,7 @@
 
     <activity
         android:name="androidx.media3.demo.compose.MainActivity"
+        android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
         android:exported="true">
       <intent-filter>
         <action android:name="android.intent.action.MAIN" />

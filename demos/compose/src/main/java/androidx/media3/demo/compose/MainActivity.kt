@@ -41,23 +41,35 @@ import androidx.media3.demo.compose.layout.LongFormPlayerScreen
 import androidx.media3.demo.compose.layout.PlayerFormatScreen
 import androidx.media3.demo.compose.layout.SampleChooserScreen
 import androidx.media3.demo.compose.layout.ShortFormPlayerScreen
-import androidx.media3.demo.compose.viewmodel.ComposeDemoViewModel
+import androidx.media3.demo.compose.viewmodel.NavigationViewModel
+import androidx.media3.demo.compose.viewmodel.PlayerLifecycleViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 
 class MainActivity : ComponentActivity() {
-  private val sharedViewModel: ComposeDemoViewModel by viewModels()
+  private val navigationViewModel: NavigationViewModel by viewModels()
+  private val playerViewModel: PlayerLifecycleViewModel by viewModels()
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
-    setContent { ComposeDemoApp(modifier = Modifier.fillMaxSize(), viewModel = sharedViewModel) }
+    setContent {
+      ComposeDemoApp(
+        navigationViewModel = navigationViewModel,
+        playerViewModel = playerViewModel,
+        modifier = Modifier.fillMaxSize(),
+      )
+    }
   }
 }
 
 @Composable
-private fun ComposeDemoApp(modifier: Modifier = Modifier, viewModel: ComposeDemoViewModel) {
+private fun ComposeDemoApp(
+  navigationViewModel: NavigationViewModel,
+  playerViewModel: PlayerLifecycleViewModel,
+  modifier: Modifier = Modifier,
+) {
   val context = LocalContext.current
   val isDarkTheme = isSystemInDarkTheme()
   val supportsDynamicColor = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
@@ -81,15 +93,15 @@ private fun ComposeDemoApp(modifier: Modifier = Modifier, viewModel: ComposeDemo
       composable(ROUTE_SAMPLE_CHOOSER) {
         SampleChooserScreen(
           onPlaylistClick = { selectedPlaylistName, selectedMedia ->
-            viewModel.selectPlaylistName(selectedPlaylistName)
-            viewModel.selectMediaItems(selectedMedia)
+            navigationViewModel.selectPlaylistName(selectedPlaylistName)
+            navigationViewModel.selectMediaItems(selectedMedia)
             navController.navigate(ROUTE_PLAYER_FORMAT_CHOOSER)
           },
           modifier = modifier.statusBarsPadding(),
         )
       }
       composable(ROUTE_PLAYER_FORMAT_CHOOSER) {
-        val mediaItems by viewModel.mediaItems.collectAsState()
+        val mediaItems by navigationViewModel.mediaItems.collectAsState()
         PlayerFormatScreen(
           onLongFormClick = { navController.navigate(ROUTE_LONG_FORM_PLAYER) },
           onShortFormClick = { navController.navigate(ROUTE_SHORT_FORM_PLAYER) },
@@ -101,19 +113,19 @@ private fun ComposeDemoApp(modifier: Modifier = Modifier, viewModel: ComposeDemo
         )
       }
       composable(ROUTE_LONG_FORM_PLAYER) {
-        val mediaItems by viewModel.mediaItems.collectAsState()
-        val playlistName by viewModel.playlistName.collectAsState()
-        LongFormPlayerScreen(playlistName, mediaItems)
+        val mediaItems by navigationViewModel.mediaItems.collectAsState()
+        val playlistName by navigationViewModel.playlistName.collectAsState()
+        LongFormPlayerScreen(playlistName, mediaItems, playerViewModel)
       }
       composable(ROUTE_SHORT_FORM_PLAYER) {
-        val mediaItems by viewModel.mediaItems.collectAsState()
-        val playlistName by viewModel.playlistName.collectAsState()
+        val mediaItems by navigationViewModel.mediaItems.collectAsState()
+        val playlistName by navigationViewModel.playlistName.collectAsState()
         ShortFormPlayerScreen(playlistName, mediaItems)
       }
       composable(ROUTE_EDITING_PLAYER) {
-        val mediaItems by viewModel.mediaItems.collectAsState()
+        val mediaItems by navigationViewModel.mediaItems.collectAsState()
         if (mediaItems.size == 1) {
-          EditingPlayerScreen(mediaItems[0])
+          EditingPlayerScreen(mediaItems.single(), playerViewModel)
         }
       }
     }

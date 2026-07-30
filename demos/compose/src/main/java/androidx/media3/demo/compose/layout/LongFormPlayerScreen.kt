@@ -16,8 +16,6 @@
 
 package androidx.media3.demo.compose.layout
 
-import android.content.Context
-import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,14 +47,10 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.LifecycleResumeEffect
-import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.demo.compose.buttons.CcButton
@@ -68,7 +62,8 @@ import androidx.media3.demo.compose.text.FastForwardOverlay
 import androidx.media3.demo.compose.text.PlaylistInfoBottomSheet
 import androidx.media3.demo.compose.text.SeekOverlay
 import androidx.media3.demo.compose.text.SeekOverlayState
-import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.demo.compose.viewmodel.PlayerLifecycleViewModel
+import androidx.media3.demo.compose.viewmodel.rememberPlayerWithLifecycle
 import androidx.media3.ui.compose.material3.Player
 import androidx.media3.ui.compose.material3.PlayerDefaults
 import androidx.media3.ui.compose.material3.buttons.MuteButton
@@ -83,41 +78,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
-fun LongFormPlayerScreen(
+internal fun LongFormPlayerScreen(
   playlistName: String,
   mediaItems: List<MediaItem>,
+  playerViewModel: PlayerLifecycleViewModel,
   modifier: Modifier = Modifier,
 ) {
-  val context = LocalContext.current
-  var player by remember { mutableStateOf<Player?>(null) }
-
-  // See the following resources
-  // https://developer.android.com/topic/libraries/architecture/lifecycle#onStop-and-savedState
-  // https://developer.android.com/develop/ui/views/layout/support-multi-window-mode#multi-window_mode_configuration
-  // https://developer.android.com/develop/ui/compose/layouts/adaptive/support-multi-window-mode#android_9
-
-  if (Build.VERSION.SDK_INT > 23) {
-    // Initialize/release in onStart()/onStop() only because in a multi-window environment multiple
-    // apps can be visible at the same time. The apps that are out-of-focus are paused, but video
-    // playback should continue.
-    LifecycleStartEffect(mediaItems, playlistName) {
-      player = initializePlayer(context, playlistName, mediaItems)
-      onStopOrDispose {
-        player?.apply { release() }
-        player = null
-      }
-    }
-  } else {
-    // Call to onStop() is not guaranteed, hence we release the Player in onPause() instead
-    LifecycleResumeEffect(mediaItems, playlistName) {
-      player = initializePlayer(context, playlistName, mediaItems)
-      onPauseOrDispose {
-        player?.apply { release() }
-        player = null
-      }
-    }
-  }
-
+  val player by rememberPlayerWithLifecycle(playerViewModel, mediaItems, playlistName)
   CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.primary) {
     LongFormPlayerScreen(player, modifier = modifier.fillMaxSize())
   }
@@ -129,13 +96,13 @@ fun LongFormPlayerScreen(
 internal fun LongFormPlayerScreen(player: Player?, modifier: Modifier = Modifier) {
   val density = LocalDensity.current
   val scope = rememberCoroutineScope()
-  var currentContentScaleIndex by remember { mutableIntStateOf(0) }
+  var currentContentScaleIndex by rememberSaveable { mutableIntStateOf(0) }
   var showPlaylist by rememberSaveable { mutableStateOf(false) }
   var showCurrentMediaItemInfo by rememberSaveable { mutableStateOf(false) }
   var showSettings by rememberSaveable { mutableStateOf(false) }
   var bottomControlsHeight by remember { mutableStateOf(0.dp) }
 
-  var showControls by remember { mutableStateOf(true) }
+  var showControls by rememberSaveable { mutableStateOf(true) }
   var anyPointerDown by remember { mutableStateOf(false) }
   val playPauseButtonState = rememberPlayPauseButtonState(player)
 
@@ -295,16 +262,5 @@ private fun PlaylistButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
 private fun PlayingNowButton(visible: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
   Button(onClick, modifier) { Text("Playing\nNow" + if (visible) " <<" else " >>") }
 }
-
-private fun initializePlayer(
-  context: Context,
-  playlistName: String,
-  mediaItems: List<MediaItem>,
-): Player =
-  ExoPlayer.Builder(context).build().apply {
-    setMediaItems(mediaItems)
-    setPlaylistMetadata(MediaMetadata.Builder().setTitle(playlistName).build())
-    prepare()
-  }
 
 private val CONTROLS_VISIBILITY_TIMEOUT = 3000.milliseconds

@@ -18,7 +18,6 @@ package androidx.media3.demo.compose.layout
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -39,17 +38,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.LifecycleResumeEffect
-import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.Log
 import androidx.media3.demo.compose.editing.ClippingSlider
+import androidx.media3.demo.compose.viewmodel.PlayerLifecycleViewModel
+import androidx.media3.demo.compose.viewmodel.rememberPlayerWithLifecycle
 import androidx.media3.effect.Presentation
 import androidx.media3.effect.Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP
-import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.inspector.frame.FrameExtractor
 import androidx.media3.ui.compose.material3.Player
@@ -68,39 +66,16 @@ private const val BITMAP_COUNT = 8
 @OptIn(ExperimentalMaterial3Api::class)
 @androidx.annotation.OptIn(ExperimentalApi::class)
 @Composable
-fun EditingPlayerScreen(mediaItem: MediaItem, modifier: Modifier = Modifier) {
+internal fun EditingPlayerScreen(
+  mediaItem: MediaItem,
+  playerViewModel: PlayerLifecycleViewModel,
+  modifier: Modifier = Modifier,
+) {
   val context = LocalContext.current
-  var player by remember { mutableStateOf<Player?>(null) }
+  val player by rememberPlayerWithLifecycle(playerViewModel, mediaItem)
   val durationMs = rememberProgressStateWithTickCount(player).durationMs
   // A list state that will hold the extracted preview frames of the video for the clipping track.
   val bitmaps by rememberExtractedFrames(context, mediaItem, durationMs)
-
-  // See the following resources
-  // https://developer.android.com/topic/libraries/architecture/lifecycle#onStop-and-savedState
-  // https://developer.android.com/develop/ui/views/layout/support-multi-window-mode#multi-window_mode_configuration
-  // https://developer.android.com/develop/ui/compose/layouts/adaptive/support-multi-window-mode#android_9
-
-  if (Build.VERSION.SDK_INT > 23) {
-    // Initialize/release in onStart()/onStop() only because in a multi-window environment multiple
-    // apps can be visible at the same time. The apps that are out-of-focus are paused, but video
-    // playback should continue.
-    LifecycleStartEffect(mediaItem) {
-      player = initializePlayer(context, mediaItem)
-      onStopOrDispose {
-        player?.release()
-        player = null
-      }
-    }
-  } else {
-    // Call to onStop() is not guaranteed, hence we release the Player in onPause() instead
-    LifecycleResumeEffect(mediaItem) {
-      player = initializePlayer(context, mediaItem)
-      onPauseOrDispose {
-        player?.release()
-        player = null
-      }
-    }
-  }
 
   CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.primary) {
     EditingPlayerScreen(player, bitmaps, mediaItem, modifier = modifier.fillMaxSize())
@@ -113,7 +88,7 @@ fun EditingPlayerScreen(mediaItem: MediaItem, modifier: Modifier = Modifier) {
 internal fun EditingPlayerScreen(
   player: Player?,
   bitmaps: ImmutableList<Bitmap>,
-  mediaItem: MediaItem? = null,
+  mediaItem: MediaItem,
   modifier: Modifier = Modifier,
 ) {
   Box(modifier.background(MaterialTheme.colorScheme.background).statusBarsPadding()) {
@@ -146,13 +121,6 @@ internal fun EditingPlayerScreen(
   }
 }
 
-private fun initializePlayer(context: Context, mediaItem: MediaItem): Player =
-  ExoPlayer.Builder(context).build().apply {
-    setMediaItem(mediaItem)
-    prepare()
-  }
-
-@OptIn(ExperimentalApi::class)
 @Composable
 private fun rememberExtractedFrames(
   context: Context,
@@ -160,12 +128,7 @@ private fun rememberExtractedFrames(
   durationMs: Long,
   bitmapCount: Int = BITMAP_COUNT,
 ): State<ImmutableList<Bitmap>> {
-  return produceState(
-    initialValue = ImmutableList.of<Bitmap>(),
-    mediaItem,
-    durationMs,
-    bitmapCount,
-  ) {
+  return produceState(initialValue = ImmutableList.of(), mediaItem, durationMs, bitmapCount) {
     if (durationMs <= 0L) return@produceState
 
     try {
