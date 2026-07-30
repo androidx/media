@@ -18,6 +18,7 @@ package androidx.media3.test.utils;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_SRGB;
+import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_VIDEO_ONLY_ASSET;
 import static androidx.media3.test.utils.AssetInfo.PNG_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
@@ -139,14 +140,14 @@ public final class EditedMediaItemAssetInfo {
           .setName("Image")
           .build();
 
-  /** An {@link EditedMediaItemAssetInfo} wrapper around {@link AssetInfo#MP4_ADVANCED_ASSET}. */
+  /** An {@link EditedMediaItemAssetInfo} wrapper around {@link AssetInfo#MP4_SIMPLE_ASSET}. */
   public static final EditedMediaItemAssetInfo VIDEO =
       new EditedMediaItemAssetInfo.Builder()
-          .setOriginalAssetInfo(MP4_ADVANCED_ASSET)
+          .setOriginalAssetInfo(MP4_SIMPLE_ASSET)
           .setEditedMediaItem(
               new EditedMediaItem.Builder(
-                      new MediaItem.Builder().setUri(MP4_ADVANCED_ASSET.uri).build())
-                  .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
+                      new MediaItem.Builder().setUri(MP4_SIMPLE_ASSET.uri).build())
+                  .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
                   .build())
           .setName("Video")
           .build();
