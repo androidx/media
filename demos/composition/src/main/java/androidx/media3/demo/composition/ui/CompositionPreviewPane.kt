@@ -238,6 +238,12 @@ internal fun CompositionPreviewPane(
       Button(onClick = { viewModel.play() }, enabled = uiState.isCompositionSet) {
         Text(text = stringResource(R.string.play))
       }
+      Button(
+        onClick = { viewModel.reproduceStuckSeekBug() },
+        enabled = uiState.isCompositionSet,
+      ) {
+        Text(text = "Reproduce stuck-seek bug")
+      }
       Button(onClick = onOpenExportOptions) {
         Text(text = stringResource(R.string.export_settings))
       }
