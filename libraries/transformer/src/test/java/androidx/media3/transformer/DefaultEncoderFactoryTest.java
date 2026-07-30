@@ -22,93 +22,48 @@ import static androidx.media3.common.C.COLOR_RANGE_FULL;
 import static androidx.media3.common.C.COLOR_SPACE_BT2020;
 import static androidx.media3.common.C.COLOR_TRANSFER_ST2084;
 import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.createCodecProfileLevel;
+import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_AAC;
 import static androidx.media3.transformer.ExportException.ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
-import android.media.MediaCodecInfo;
-import android.media.MediaCodecInfo.CodecProfileLevel;
+import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaFormat;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
+import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CodecInfo;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
-import org.junit.After;
-import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
-import org.robolectric.shadows.MediaCodecInfoBuilder;
 import org.robolectric.shadows.ShadowBuild;
-import org.robolectric.shadows.ShadowMediaCodec;
-import org.robolectric.shadows.ShadowMediaCodecList;
 
 /** Unit test for {@link DefaultEncoderFactory}. */
 @RunWith(AndroidJUnit4.class)
 public class DefaultEncoderFactoryTest {
+
+  private static final CodecInfo CODEC_INFO_AVC_LEVEL4 =
+      new CodecInfo(
+          /* codecName= */ "test.transformer.avc.encoder",
+          MediaFormat.MIMETYPE_VIDEO_AVC,
+          // Using Level4 gives us 8192 16x16 blocks. If using width 1920 uses 120 blocks, 8192 /
+          // 120 = 68
+          // blocks will be left for encoding height 1088.
+          ImmutableList.of(createCodecProfileLevel(AVCProfileHigh, AVCLevel4)),
+          ImmutableList.of(CodecCapabilities.COLOR_FormatYUV420Flexible));
   private final Context context = getApplicationContext();
 
-  @Before
-  public void setUp() {
-    createShadowH264Encoder();
-    createShadowAacEncoder();
-  }
-
-  @After
-  public void tearDown() {
-    ShadowMediaCodec.clearCodecs();
-    ShadowMediaCodecList.reset();
-    EncoderUtil.clearCachedEncoders();
-  }
-
-  private static void createShadowH264Encoder() {
-    MediaFormat avcFormat = new MediaFormat();
-    avcFormat.setString(MediaFormat.KEY_MIME, MediaFormat.MIMETYPE_VIDEO_AVC);
-    // Using Level4 gives us 8192 16x16 blocks. If using width 1920 uses 120 blocks, 8192 / 120 = 68
-    // blocks will be left for encoding height 1088.
-    CodecProfileLevel profileLevel = createCodecProfileLevel(AVCProfileHigh, AVCLevel4);
-
-    createShadowVideoEncoder(avcFormat, profileLevel, "test.transformer.avc.encoder");
-  }
-
-  private static void createShadowAacEncoder() {
-    MediaFormat format = new MediaFormat();
-    format.setString(MediaFormat.KEY_MIME, MediaFormat.MIMETYPE_AUDIO_AAC);
-    MediaCodecInfo.CodecCapabilities capabilities =
-        MediaCodecInfoBuilder.CodecCapabilitiesBuilder.newBuilder()
-            .setMediaFormat(format)
-            .setIsEncoder(true)
-            .build();
-    createShadowEncoder("test.transformer.aac.encoder", capabilities);
-  }
-
-  private static void createShadowVideoEncoder(
-      MediaFormat supportedFormat, CodecProfileLevel supportedProfileLevel, String name) {
-    MediaCodecInfo.CodecCapabilities capabilities =
-        MediaCodecInfoBuilder.CodecCapabilitiesBuilder.newBuilder()
-            .setMediaFormat(supportedFormat)
-            .setIsEncoder(true)
-            .setColorFormats(
-                new int[] {MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible})
-            .setProfileLevels(new CodecProfileLevel[] {supportedProfileLevel})
-            .build();
-    createShadowEncoder(name, capabilities);
-  }
-
-  private static void createShadowEncoder(
-      String name, MediaCodecInfo.CodecCapabilities... capabilities) {
-    // ShadowMediaCodecList is static. The added encoders will be visible for every test.
-    ShadowMediaCodecList.addCodec(
-        MediaCodecInfoBuilder.newBuilder()
-            .setName(name)
-            .setIsEncoder(true)
-            .setCapabilities(capabilities)
-            .build());
-  }
+  @Rule
+  public ShadowMediaCodecConfig shadowMediaCodecConfig =
+      ShadowMediaCodecConfig.withCodecs(
+          ImmutableList.of(), ImmutableList.of(CODEC_INFO_AVC_LEVEL4, CODEC_INFO_AAC));
 
   @Test
   public void createForVideoEncoding_withFallbackOnAndSupportedInputFormat_configuresEncoder()
@@ -221,14 +176,13 @@ public class DefaultEncoderFactoryTest {
       createForVideoEncoding_withH264EncodingOnApi31_configuresEncoderWithCorrectPerformanceSettings()
           throws Exception {
     Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
-    Codec videoEncoder =
+    DefaultCodec videoEncoder =
         new DefaultEncoderFactory.Builder(context)
             .build()
             .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
 
     assertThat(videoEncoder).isInstanceOf(DefaultCodec.class);
-    MediaFormat configurationMediaFormat =
-        ((DefaultCodec) videoEncoder).getConfigurationMediaFormat();
+    MediaFormat configurationMediaFormat = videoEncoder.getConfigurationMediaFormat();
     assertThat(configurationMediaFormat.containsKey(MediaFormat.KEY_PRIORITY)).isTrue();
     assertThat(configurationMediaFormat.getInteger(MediaFormat.KEY_PRIORITY))
         .isEqualTo(C.MEDIA_CODEC_PRIORITY_NON_REALTIME);
@@ -243,7 +197,7 @@ public class DefaultEncoderFactoryTest {
       createForVideoEncoding_withH264EncodingOnApi29AndConservativeDefault_configuresEncoderWithCorrectPerformanceSettings()
           throws Exception {
     Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
-    Codec videoEncoder =
+    DefaultCodec videoEncoder =
         new DefaultEncoderFactory.Builder(context)
             .setRequestedVideoEncoderSettings(
                 new VideoEncoderSettings.Builder()
@@ -253,8 +207,7 @@ public class DefaultEncoderFactoryTest {
             .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
 
     assertThat(videoEncoder).isInstanceOf(DefaultCodec.class);
-    MediaFormat configurationMediaFormat =
-        ((DefaultCodec) videoEncoder).getConfigurationMediaFormat();
+    MediaFormat configurationMediaFormat = videoEncoder.getConfigurationMediaFormat();
     assertThat(configurationMediaFormat.containsKey(MediaFormat.KEY_PRIORITY)).isTrue();
     assertThat(configurationMediaFormat.getInteger(MediaFormat.KEY_PRIORITY))
         .isEqualTo(C.MEDIA_CODEC_PRIORITY_NON_REALTIME);
@@ -268,7 +221,7 @@ public class DefaultEncoderFactoryTest {
       createForVideoEncoding_withOperatingRateUnset_configuresEncoderWithCorrectPerformanceSettings()
           throws Exception {
     Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
-    Codec videoEncoder =
+    DefaultCodec videoEncoder =
         new DefaultEncoderFactory.Builder(context)
             .setRequestedVideoEncoderSettings(
                 new VideoEncoderSettings.Builder()
@@ -279,8 +232,7 @@ public class DefaultEncoderFactoryTest {
             .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
 
     assertThat(videoEncoder).isInstanceOf(DefaultCodec.class);
-    MediaFormat configurationMediaFormat =
-        ((DefaultCodec) videoEncoder).getConfigurationMediaFormat();
+    MediaFormat configurationMediaFormat = videoEncoder.getConfigurationMediaFormat();
     assertThat(configurationMediaFormat.containsKey(MediaFormat.KEY_PRIORITY)).isTrue();
     assertThat(configurationMediaFormat.getInteger(MediaFormat.KEY_PRIORITY))
         .isEqualTo(C.MEDIA_CODEC_PRIORITY_NON_REALTIME);
@@ -293,7 +245,7 @@ public class DefaultEncoderFactoryTest {
       createForVideoEncoding_withOperatingRatePriorityUnset_configuresEncoderWithCorrectPerformanceSettings()
           throws Exception {
     Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
-    Codec videoEncoder =
+    DefaultCodec videoEncoder =
         new DefaultEncoderFactory.Builder(context)
             .setRequestedVideoEncoderSettings(
                 new VideoEncoderSettings.Builder()
@@ -304,8 +256,7 @@ public class DefaultEncoderFactoryTest {
             .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
 
     assertThat(videoEncoder).isInstanceOf(DefaultCodec.class);
-    MediaFormat configurationMediaFormat =
-        ((DefaultCodec) videoEncoder).getConfigurationMediaFormat();
+    MediaFormat configurationMediaFormat = videoEncoder.getConfigurationMediaFormat();
     assertThat(configurationMediaFormat.containsKey(MediaFormat.KEY_PRIORITY)).isFalse();
     assertThat(configurationMediaFormat.containsKey(MediaFormat.KEY_OPERATING_RATE)).isFalse();
   }
