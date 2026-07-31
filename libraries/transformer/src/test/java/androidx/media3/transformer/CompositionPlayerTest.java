@@ -132,6 +132,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mockito;
 import org.robolectric.RobolectricTestParameterInjector;
+import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 
 /** Unit tests for {@link CompositionPlayer}. */
@@ -1385,6 +1386,41 @@ public class CompositionPlayerTest {
         .containsExactly(
             ImmutableList.of(0L, 0L), ImmutableList.of(0L, 0L, 0L), ImmutableList.of(0L))
         .inOrder();
+  }
+
+  @Test
+  @Config(minSdk = 28)
+  public void frameProcessor_setComposition_withLowFrameRate_rendersFirstFrame()
+      throws PlaybackException, TimeoutException {
+    MediaItem clippedMediaItem =
+        new MediaItem.Builder()
+            .setUri(MP4_SIMPLE_ASSET.uri)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder()
+                    .setStartPositionMs(430)
+                    .setEndPositionMs(460)
+                    .build())
+            .build();
+
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(clippedMediaItem)
+                            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+                            .setFrameRate(1)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+
+    player.setComposition(composition);
+    player.prepare();
+    player.play();
+    advance(player).untilState(STATE_ENDED);
+
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
+    assertThat(frameProcessor).isNotNull();
+    assertThat(getQueuedContentTimesUs(frameProcessor)).containsExactly(3766L);
   }
 
   @Test

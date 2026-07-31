@@ -32,7 +32,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.media.MediaCodec;
 import android.media.MediaFormat;
 import android.os.Handler;
 import android.os.SystemClock;
@@ -45,7 +44,6 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.ConstantRateTimestampIterator;
 import androidx.media3.common.util.NullableType;
-import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RenderersFactory;
@@ -405,17 +403,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       pendingEffects = editedMediaItem.effects.videoEffects;
       targetFrameRateHelper.onStreamChanged(editedMediaItem);
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
-    }
-
-    @Override
-    protected void onQueueInputBuffer(DecoderInputBuffer buffer) throws ExoPlaybackException {
-      targetFrameRateHelper.onQueueInputBuffer(buffer, getCodecInputFormat());
-      super.onQueueInputBuffer(buffer);
-    }
-
-    @Override
-    protected int getCodecBufferFlags(DecoderInputBuffer buffer) {
-      return super.getCodecBufferFlags(buffer) | targetFrameRateHelper.getCodecBufferFlags(buffer);
     }
 
     @Override
@@ -892,17 +879,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     @Override
-    protected void onQueueInputBuffer(DecoderInputBuffer buffer) throws ExoPlaybackException {
-      targetFrameRateHelper.onQueueInputBuffer(buffer, getCodecInputFormat());
-      super.onQueueInputBuffer(buffer);
-    }
-
-    @Override
-    protected int getCodecBufferFlags(DecoderInputBuffer buffer) {
-      return super.getCodecBufferFlags(buffer) | targetFrameRateHelper.getCodecBufferFlags(buffer);
-    }
-
-    @Override
     protected boolean processOutputBuffer(
         long positionUs,
         long elapsedRealtimeUs,
@@ -1187,22 +1163,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   /** Helper class that encapsulates frame dropping logic for video renderers. */
   private static final class TargetFrameRateHelper {
 
-    private long nextDecoderInputExpectedTimestampUs;
     private long nextDecoderOutputExpectedTimestampUs;
     private long expectedTimestampDeltaUs;
-    private long decodeOnlyBufferTimestampUs;
 
     private TargetFrameRateHelper() {
-      nextDecoderInputExpectedTimestampUs = C.TIME_UNSET;
       nextDecoderOutputExpectedTimestampUs = C.TIME_UNSET;
       expectedTimestampDeltaUs = C.TIME_UNSET;
-      decodeOnlyBufferTimestampUs = C.TIME_UNSET;
     }
 
     private void onPositionReset() {
-      nextDecoderInputExpectedTimestampUs = C.TIME_UNSET;
       nextDecoderOutputExpectedTimestampUs = C.TIME_UNSET;
-      decodeOnlyBufferTimestampUs = C.TIME_UNSET;
     }
 
     private void onStreamChanged(EditedMediaItem editedMediaItem) {
@@ -1210,31 +1180,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           editedMediaItem.frameRate == C.RATE_UNSET_INT
               ? C.TIME_UNSET
               : C.MICROS_PER_SECOND / editedMediaItem.frameRate;
-    }
-
-    private void onQueueInputBuffer(DecoderInputBuffer buffer, @Nullable Format codecInputFormat) {
-      if (SDK_INT >= 34 && shouldMaintainTargetFrameRate()) {
-        if (shouldDropDecoderInputFrameToMaintainTargetFrameRate(
-                buffer.timeUs, nextDecoderInputExpectedTimestampUs, codecInputFormat)
-            && !buffer.isEndOfStream()
-            && !buffer.isLastSample()) {
-          // Mark this buffer as DECODE_ONLY. The frame will be dropped by the renderer. We track
-          // the timestamp to later add the DECODE_ONLY flag in getCodecBufferFlags.
-          decodeOnlyBufferTimestampUs = buffer.timeUs;
-        } else {
-          nextDecoderInputExpectedTimestampUs =
-              (nextDecoderInputExpectedTimestampUs == C.TIME_UNSET)
-                  ? (buffer.timeUs + expectedTimestampDeltaUs)
-                  : (nextDecoderInputExpectedTimestampUs + expectedTimestampDeltaUs);
-        }
-      }
-    }
-
-    private int getCodecBufferFlags(DecoderInputBuffer buffer) {
-      if (SDK_INT >= 34 && decodeOnlyBufferTimestampUs == buffer.timeUs) {
-        return MediaCodec.BUFFER_FLAG_DECODE_ONLY;
-      }
-      return 0;
     }
 
     private boolean shouldDropOutputFrame(long presentationTimeUs) {
@@ -1253,17 +1198,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     private boolean shouldMaintainTargetFrameRate() {
       return expectedTimestampDeltaUs != C.TIME_UNSET;
-    }
-
-    private boolean shouldDropDecoderInputFrameToMaintainTargetFrameRate(
-        long presentationTimeUs,
-        long nextExpectedPresentationTimeUs,
-        @Nullable Format codecInputFormat) {
-      checkNotNull(codecInputFormat);
-      boolean mediaItemContainsBFrames = codecInputFormat.maxNumReorderSamples > 0;
-      return !mediaItemContainsBFrames
-          && shouldDropFrameToMaintainTargetFrameRate(
-              presentationTimeUs, nextExpectedPresentationTimeUs);
     }
 
     private boolean shouldDropFrameToMaintainTargetFrameRate(

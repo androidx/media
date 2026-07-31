@@ -16,7 +16,6 @@
 
 package androidx.media3.transformer;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_AUTO_TRANSITION;
 import static androidx.media3.common.Player.REPEAT_MODE_ALL;
 import static androidx.media3.common.Player.REPEAT_MODE_OFF;
@@ -656,13 +655,8 @@ public class CompositionPlaybackTest {
             566_666L, 600_000L, 633_333L, 666_666L, 700_000L, 733_333L, 766_666L, 800_000L,
             833_333L, 866_666L, 900_000L, 933_333L, 966_666L, 983_333L)
         .inOrder();
-    if (SDK_INT >= 34) {
-      // Frames are dropped by MediaCodec internally.
-      assertThat(videoDecoderCounters.skippedOutputBufferCount).isEqualTo(0);
-    } else {
-      // Frames are dropped after MediaCodec output.
-      assertThat(videoDecoderCounters.skippedOutputBufferCount).isEqualTo(29);
-    }
+    // Frames are dropped after MediaCodec output.
+    assertThat(videoDecoderCounters.skippedOutputBufferCount).isEqualTo(29);
   }
 
   @Test
