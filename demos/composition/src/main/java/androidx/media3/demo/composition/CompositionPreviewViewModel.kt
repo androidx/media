@@ -796,14 +796,11 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
             sequenceBuilder.addGap(item.durationUs)
           }
           is Media -> {
-            val mediaItem =
-              MediaItem.Builder()
-                .setUri(item.uri)
-                .setImageDurationMs(usToMs(item.durationUs)) // Ignored for audio/video
-                .build()
+            val nameToCheck = item.title.lowercase() + " " + item.uri.lowercase()
+            val isImage = nameToCheck.contains(".jpg") || nameToCheck.contains(".jpeg") || nameToCheck.contains(".png") || nameToCheck.contains(".webp") || nameToCheck.contains(".heif") || nameToCheck.contains(".heic")
+
             val effectsForItem = mutableListOf<Effect>()
             for (effectName in item.selectedEffects) {
-              // TODO(b/433484977): Order of applied effects should be more clear in the UI
               effectOptions[effectName]?.let { effect -> effectsForItem.add(effect) }
             }
             val finalVideoEffects = globalVideoEffects + effectsForItem
@@ -815,25 +812,53 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
               }
             val speedParameters = SpeedParameters(speedProvider, /* shouldMaintainPitch= */ true)
 
-            val itemBuilder =
-              EditedMediaItem.Builder(mediaItem)
-                .setEffects(
-                  Effects(/* audioProcessors= */ emptyList(), /* videoEffects= */ finalVideoEffects)
-                )
+            if (isImage) {
+              val mediaItem = MediaItem.Builder().setUri(item.uri)
+                .setImageDurationMs(usToMs(item.durationUs))
+                .build()
+              val editedItem = EditedMediaItem.Builder(mediaItem)
+                .setEffects(Effects(emptyList(), finalVideoEffects))
                 .setSpeed(speedParameters)
-                // Required for image inputs. For video inputs, it sets the target FPS.
                 .setFrameRate(DEFAULT_FRAME_RATE_FPS)
-                // Setting duration explicitly is only required for preview with CompositionPlayer,
-                // and is not needed for export with Transformer.
                 .setDurationUs(item.durationUs)
-            sequenceBuilder.addItem(itemBuilder.build())
+                .build()
+              sequenceBuilder.addItem(editedItem)
+              Log.d(TAG, "Added image '${item.title}' (${item.durationUs}us) without splitting")
+            } else {
+              val halfDurationUs = item.durationUs / 2
+              val halves = listOf(
+                0L to halfDurationUs,
+                halfDurationUs to item.durationUs,
+              )
+              Log.d(TAG, "Splitting video '${item.title}' (${item.durationUs}us) into 2 halves at ${halfDurationUs}us")
+              for ((startUs, endUs) in halves) {
+                val halfDur = endUs - startUs
+                val clippingConfig = MediaItem.ClippingConfiguration.Builder()
+                  .setStartPositionUs(startUs)
+                  .setEndPositionUs(endUs)
+                  .build()
+                val mediaItem = MediaItem.Builder().setUri(item.uri)
+                  .setClippingConfiguration(clippingConfig)
+                  .build()
+                val editedItem = EditedMediaItem.Builder(mediaItem)
+                  .setEffects(Effects(emptyList(), finalVideoEffects))
+                  .setSpeed(speedParameters)
+                  .setFrameRate(DEFAULT_FRAME_RATE_FPS)
+                  .setDurationUs(item.durationUs)
+                  .build()
+                sequenceBuilder.addItem(editedItem)
+                Log.d(TAG, "  Added video half: startUs=$startUs, endUs=$endUs, halfDur=$halfDur")
+              }
+            }
           }
         }
       }
+      val builtSequence = sequenceBuilder.build()
+      Log.d(TAG, "Sequence $sequenceIndex total EditedMediaItems: ${builtSequence.editedMediaItems.size}")
       if (trackTypes.contains(C.TRACK_TYPE_VIDEO)) {
         compositionHasVideo = true
       }
-      sequences.add(sequenceBuilder.build())
+      sequences.add(builtSequence)
     }
 
     if (settings.includeBackgroundAudio) {
