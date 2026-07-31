@@ -33,10 +33,14 @@ import static androidx.media3.transformer.TestUtil.createAudioEffects;
 import static androidx.media3.transformer.TestUtil.createChannelCountChangingAudioProcessor;
 import static androidx.media3.transformer.TestUtil.createSampleRateChangingAudioProcessor;
 import static androidx.media3.transformer.TestUtil.createTestCompositionPlayer;
+import static androidx.media3.transformer.TestUtil.createTestCompositionPlayerBuilder;
 import static androidx.media3.transformer.TestUtil.createVolumeScalingAudioProcessor;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import android.content.Context;
 import androidx.media3.common.C;
@@ -45,6 +49,7 @@ import androidx.media3.common.MediaItem.ClippingConfiguration;
 import androidx.media3.common.Player;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
+import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.test.utils.CapturingAudioSink;
 import androidx.media3.test.utils.DumpFileAsserts;
@@ -74,6 +79,7 @@ import org.robolectric.RobolectricTestParameterInjector;
  * <p>These tests focus on audio because the video pipeline doesn't work in Robolectric.
  */
 @RunWith(RobolectricTestParameterInjector.class)
+// TODO(b/540736479): Implement better instrumentation for seeking tests.
 public final class CompositionPlayerAudioPlaybackTest {
   @Rule public final Expect expect = Expect.create();
 
@@ -1441,6 +1447,33 @@ public final class CompositionPlayerAudioPlaybackTest {
 
     expect.that(getLast(firstSequenceRecorder.positionOffsetsUs)).isEqualTo(400_000L);
     expect.that(getLast(secondSequenceRecorder.positionOffsetsUs)).isEqualTo(100_000L);
+  }
+
+  @Test
+  public void seek_withScrubbingModeEnabled_disablesAudioTrackWhileScrubbing() throws Exception {
+    AnalyticsListener listener = mock(AnalyticsListener.class);
+    player =
+        createTestCompositionPlayerBuilder().setSequencePlayerAnalyticsListener(listener).build();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(1_000_000L)
+            .build();
+    Composition composition =
+        new Composition.Builder(withAudioFrom(ImmutableList.of(item))).build();
+
+    player.setComposition(composition);
+    player.prepare();
+    advance(player).untilState(STATE_READY);
+
+    verify(listener).onAudioEnabled(any(), any());
+
+    player.setScrubbingModeEnabled(true);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    verify(listener).onAudioDisabled(any(), any());
+
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+    verify(listener).onAudioEnabled(any(), any());
   }
 
   private static class ForwardingAudioMixer implements AudioMixer {

@@ -37,6 +37,7 @@ import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** A {@link TrackSelector} implementation for {@link CompositionPlayer}. */
+// TODO(b/540734725): Refactor and add tests for CompositionTrackSelector.
 /* package */ final class CompositionTrackSelector extends TrackSelector {
 
   public interface Listener {
@@ -55,6 +56,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void init(InvalidationListener listener, BandwidthMeter bandwidthMeter) {
     super.init(listener, bandwidthMeter);
     trackSelectorInternal.init(listener, bandwidthMeter);
+  }
+
+  @Override
+  public void onParametersActivated(@Nullable TrackSelectionParameters parameters) {
+    trackSelectorInternal.onParametersActivated(parameters);
   }
 
   @Override

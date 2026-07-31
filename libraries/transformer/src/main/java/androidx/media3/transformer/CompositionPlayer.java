@@ -190,6 +190,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     @Nullable private HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
     private Supplier<ImageReaderAdapter.Factory> imageReaderAdapterFactorySupplier;
+    @Nullable private AnalyticsListener sequencePlayerAnalyticsListener;
 
     private boolean videoPrewarmingEnabled;
     private boolean perStreamMediaProgressionEnabled;
@@ -568,6 +569,19 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     }
 
     /**
+     * Sets a {@link AnalyticsListener} to receive events from internal players for testing
+     * purposes.
+     *
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    @VisibleForTesting
+    /* package */ Builder setSequencePlayerAnalyticsListener(AnalyticsListener listener) {
+      sequencePlayerAnalyticsListener = listener;
+      return this;
+    }
+
+    /**
      * Builds the {@link CompositionPlayer} instance. Must be called at most once.
      *
      * <p>If no {@link Looper} has been called with {@link #setLooper(Looper)}, then this method
@@ -665,6 +679,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private final SparseBooleanArray videoTracksSelected;
 
   private final AnalyticsCollector analyticsCollector;
+  @Nullable private final AnalyticsListener sequencePlayerAnalyticsListener;
 
   private @MonotonicNonNull CompositionPlayerInternal compositionPlayerInternal;
   private @MonotonicNonNull ImmutableList<MediaItemData> playlist;
@@ -722,6 +737,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     this.enableReplayableCache = builder.enableReplayableCache;
     lateThresholdToDropInputUs = builder.lateThresholdToDropInputUs;
     imageReaderAdapterFactory = builder.imageReaderAdapterFactorySupplier.get();
+    sequencePlayerAnalyticsListener = builder.sequencePlayerAnalyticsListener;
     videoTracksSelected = new SparseBooleanArray();
     playerHolders = new ArrayList<>();
     compositionDurationUs = C.TIME_UNSET;
@@ -1735,6 +1751,9 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     playerHolder.player.addListener(new PlayerListener(sequenceIndex));
     playerHolder.player.addAnalyticsListener(new PlayerAnalyticsListener());
     playerHolder.player.addAnalyticsListener(new EventLogger(TAG + "-" + sequenceIndex));
+    if (sequencePlayerAnalyticsListener != null) {
+      playerHolder.player.addAnalyticsListener(sequencePlayerAnalyticsListener);
+    }
     // Audio focus is handled directly by CompositionPlayer, not by sequence players.
     playerHolder.player.setAudioAttributes(audioAttributes, /* handleAudioFocus= */ false);
     playerHolder.player.setPauseAtEndOfMediaItems(true);
