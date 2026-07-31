@@ -45,6 +45,7 @@
   <string name="select_audio_effects" translatable="false">Add audio effects</string>
   <string name="select_video_effects" translatable="false">Add video effects</string>
   <string name="periodic_vignette_options" translatable="false">Periodic vignette options</string>
+  <string name="frame_aggregation_fps" translatable="false">Frame Aggregation FPS</string>
   <string name="export" translatable="false">Export</string>
   <string name="debug_preview" translatable="false">Debug preview:</string>
   <string name="pause" translatable="false">Pause</string>
@@ -93,4 +94,7 @@
   <string name="single_sequence_items" translatable="false">Single sequence items:</string>
   <string name="edit">Edit</string>
   <string name="average_fps" translatable="false">Average FPS: %1$.2f</string>
+  <string name="error_invalid_frame_aggregation_fps_value" translatable="false">Frame aggregation FPS must be positive</string>
+  <string name="error_invalid_frame_aggregation_fps_format" translatable="false">Invalid frame aggregation FPS format</string>
+  <string name="frame_aggregation_fps_hint" translatable="false">e.g. 23.976</string>
 </resources>

@@ -46,6 +46,7 @@ import android.os.IBinder;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.style.ForegroundColorSpan;
+import android.util.Rational;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
@@ -118,6 +119,7 @@ import androidx.media3.transformer.MediaProjectionAssetLoader;
 import androidx.media3.transformer.ProgressHolder;
 import androidx.media3.transformer.Transformer;
 import androidx.media3.transformer.VideoEncoderSettings;
+import androidx.media3.transformer.VideoFrameAggregationParameters;
 import androidx.media3.ui.AspectRatioFrameLayout;
 import androidx.media3.ui.PlayerView;
 import androidx.window.layout.WindowMetricsCalculator;
@@ -493,6 +495,7 @@ public final class TransformerActivity extends AppCompatActivity {
     return file;
   }
 
+  @OptIn(markerClass = ExperimentalApi.class)
   private Composition createComposition(MediaItem mediaItem, @Nullable Bundle bundle) {
     EditedMediaItem.Builder editedMediaItemBuilder = new EditedMediaItem.Builder(mediaItem);
     // Required for image inputs. For video inputs, it sets the target FPS.
@@ -522,6 +525,16 @@ public final class TransformerActivity extends AppCompatActivity {
         new Composition.Builder(editedMediaItemSequenceBuilder.build());
     if (bundle != null) {
       compositionBuilder.setHdrMode(bundle.getInt(ConfigurationActivity.HDR_MODE));
+      if (bundle.containsKey(ConfigurationActivity.FRAME_AGGREGATION_FPS)) {
+        float fps = bundle.getFloat(ConfigurationActivity.FRAME_AGGREGATION_FPS);
+        int numerator = Math.round(fps * 1000f);
+        if (numerator > 0) {
+          compositionBuilder.setVideoFrameAggregationParameters(
+              new VideoFrameAggregationParameters.Builder()
+                  .setFrameRate(new Rational(numerator, 1000))
+                  .build());
+        }
+      }
     }
     return compositionBuilder.build();
   }

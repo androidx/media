@@ -220,6 +220,7 @@ internal fun CompositionPreviewPane(
         outputSettings = uiState.outputSettingsState,
         onResolutionChanged = viewModel::onOutputResolutionChanged,
         onHdrModeChanged = viewModel::onHdrModeChanged,
+        onFrameAggregationFpsChanged = viewModel::onFrameAggregationFpsChanged,
       )
     }
 

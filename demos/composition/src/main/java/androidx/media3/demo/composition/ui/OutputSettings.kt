@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,9 +31,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.FRAME_AGGREGATION_FPS_OPTIONS
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.HDR_MODE_DESCRIPTIONS
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.RESOLUTION_HEIGHTS
+import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.UNSET_OPTION
 import androidx.media3.demo.composition.R
 import androidx.media3.demo.composition.data.OutputSettingsState
 import androidx.media3.demo.composition.ui.theme.spacing
@@ -45,9 +49,11 @@ internal fun OutputSettings(
   outputSettings: OutputSettingsState,
   onResolutionChanged: (String) -> Unit,
   onHdrModeChanged: (Int) -> Unit,
+  onFrameAggregationFpsChanged: (String) -> Unit,
 ) {
   var resolutionExpanded by remember { mutableStateOf(false) }
   var hdrExpanded by remember { mutableStateOf(false) }
+  var fpsExpanded by remember { mutableStateOf(false) }
   val selectedHdrKey =
     HDR_MODE_DESCRIPTIONS.entries.find { it.value == outputSettings.hdrMode }?.key
 
@@ -85,6 +91,28 @@ internal fun OutputSettings(
           onHdrModeChanged(newMode)
         },
       )
+    }
+    if (outputSettings.frameConsumerEnabled) {
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier.fillMaxWidth(),
+      ) {
+        Text(
+          text = stringResource(R.string.frame_aggregation_fps),
+          modifier = Modifier.textPadding(),
+        )
+        EditableDropDownSpinner(
+          isDropDownOpen = fpsExpanded,
+          currentValue = outputSettings.frameAggregationFps,
+          dropDownOptions = FRAME_AGGREGATION_FPS_OPTIONS,
+          changeDropDownOpen = { fpsExpanded = it },
+          onValueChange = onFrameAggregationFpsChanged,
+          labelProvider = { if (it == UNSET_OPTION) stringResource(R.string.unset) else it },
+          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+          placeholder = { Text(stringResource(R.string.unset)) },
+        )
+      }
     }
   }
 }

@@ -283,6 +283,22 @@
             android:layout_gravity="end"/>
       </TableRow>
       <TableRow
+          android:id="@+id/frame_aggregation_fps_row"
+          android:layout_weight="1"
+          android:gravity="center_vertical"
+          android:visibility="gone">
+        <TextView
+            android:id="@+id/frame_aggregation_fps_text_view"
+            android:text="@string/frame_aggregation_fps" />
+        <EditText
+            android:id="@+id/frame_aggregation_fps_edit_text"
+            android:layout_width="wrap_content"
+            android:layout_gravity="end|center_vertical"
+            android:gravity="end"
+            android:hint="@string/frame_aggregation_fps_hint"
+            android:inputType="numberDecimal" />
+      </TableRow>
+      <TableRow
           android:layout_weight="1">
         <TextView
             android:layout_gravity="center_vertical"

@@ -35,12 +35,15 @@
   <string name="select" translatable="false">Select</string>
   <string name="select_effects" translatable="false">Select Effects</string>
   <string name="cancel" translatable="false">Cancel</string>
+  <string name="unset" translatable="false">Unset</string>
+  <string name="error_invalid_frame_aggregation_fps" translatable="false">Invalid frame aggregation FPS</string>
   <string name="export_settings" translatable="false">Export</string>
   <string name="output_audio_mime_type" translatable="false">Output audio MIME type</string>
   <string name="output_video_mime_type" translatable="false">Output video MIME type</string>
   <string name="enable_debug_tracing" translatable="false">Enable debug tracing</string>
   <string name="use_media3_mp4_muxer" translatable="false">Use Media3 Mp4Muxer</string>
   <string name="use_media3_fragmented_mp4_muxer" translatable="false">Use Media3 FragmentedMp4Muxer</string>
+  <string name="frame_aggregation_fps" translatable="false">Frame Aggregation FPS</string>
   <string name="layout_preset" translatable="false">Choose a sequence layout preset</string>
   <string name="title_activity_main">MainActivity</string>
   <string name="effect_name_grayscale">Grayscale</string>

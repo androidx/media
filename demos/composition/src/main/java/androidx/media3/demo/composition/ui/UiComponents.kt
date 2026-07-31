@@ -21,15 +21,19 @@ import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.media3.demo.composition.R
 
@@ -68,6 +72,52 @@ fun <T> DropDownSpinner(
             onClick = {
               changeDropDownOpen(false)
               changeSelectedOption(option)
+            },
+          )
+        }
+      }
+    }
+  }
+}
+
+@Composable
+fun EditableDropDownSpinner(
+  isDropDownOpen: Boolean,
+  currentValue: String,
+  dropDownOptions: List<String>,
+  changeDropDownOpen: (Boolean) -> Unit,
+  onValueChange: (String) -> Unit,
+  modifier: Modifier = Modifier,
+  labelProvider: @Composable (String) -> String = { it },
+  keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+  placeholder: @Composable (() -> Unit)? = null,
+) {
+  val keyboardController = LocalSoftwareKeyboardController.current
+  val focusManager = LocalFocusManager.current
+  Column(modifier = modifier) {
+    Box {
+      OutlinedTextField(
+        value = currentValue,
+        onValueChange = onValueChange,
+        trailingIcon = {
+          IconButton(onClick = { changeDropDownOpen(!isDropDownOpen) }) {
+            Icon(painterResource(R.drawable.arrow_drop_down), null)
+          }
+        },
+        modifier = Modifier.fillMaxWidth(),
+        keyboardOptions = keyboardOptions,
+        singleLine = true,
+        placeholder = placeholder,
+      )
+      DropdownMenu(expanded = isDropDownOpen, onDismissRequest = { changeDropDownOpen(false) }) {
+        dropDownOptions.forEach { option ->
+          DropdownMenuItem(
+            text = { Text(text = labelProvider(option)) },
+            onClick = {
+              changeDropDownOpen(false)
+              onValueChange(option)
+              keyboardController?.hide()
+              focusManager.clearFocus()
             },
           )
         }

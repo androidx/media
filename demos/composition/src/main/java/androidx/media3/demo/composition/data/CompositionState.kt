@@ -128,6 +128,7 @@ data class OutputSettingsState(
   val hdrMode: Int,
   val audioMimeType: String,
   val videoMimeType: String,
+  val frameAggregationFps: String,
   val muxerOption: String,
   val renderSize: Size = Size.Zero,
 )

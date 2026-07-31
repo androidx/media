@@ -21,6 +21,7 @@ import android.net.Uri
 import android.os.Build.VERSION.SDK_INT
 import android.os.SystemClock
 import android.provider.OpenableColumns
+import android.util.Rational
 import android.view.SurfaceView
 import androidx.annotation.GuardedBy
 import androidx.annotation.OptIn
@@ -80,6 +81,7 @@ import androidx.media3.transformer.InAppFragmentedMp4Muxer
 import androidx.media3.transformer.InAppMp4Muxer
 import androidx.media3.transformer.JsonUtil
 import androidx.media3.transformer.Transformer
+import androidx.media3.transformer.VideoFrameAggregationParameters
 import com.google.common.base.Stopwatch
 import com.google.common.base.Ticker
 import com.google.common.util.concurrent.ListeningExecutorService
@@ -160,6 +162,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
           hdrMode = Composition.HDR_MODE_KEEP_HDR,
           audioMimeType = SAME_AS_INPUT_OPTION,
           videoMimeType = SAME_AS_INPUT_OPTION,
+          frameAggregationFps = UNSET_OPTION,
           muxerOption = MUXER_OPTIONS[0],
         ),
       exportState = ExportState(),
@@ -396,6 +399,15 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     }
   }
 
+  fun onFrameAggregationFpsChanged(fps: String) {
+    _uiState.update {
+      it.copy(
+        outputSettingsState = it.outputSettingsState.copy(frameAggregationFps = fps),
+        isCompositionSet = false,
+      )
+    }
+  }
+
   fun onRenderSizeChanged(newSize: geometrySize) {
     _uiState.update {
       it.copy(
@@ -575,13 +587,13 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   }
 
   fun setComposition() {
+    val composition = prepareComposition() ?: return
     val isFrameConsumerEnabled =
       frameConsumerEnabled && uiState.value.outputSettingsState.frameConsumerEnabled
     // Recreate the player if it isn't prepared or if the FrameProcessor is disabled.
     if (!playerPrepared || !isFrameConsumerEnabled) {
       releaseAndRecreatePlayer()
     }
-    val composition = prepareComposition()
     preparedComposition = composition
     // Maintain the current position when updating the Composition.
     compositionPlayer.setComposition(
@@ -604,6 +616,9 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     val composition =
       if (uiState.value.isCompositionSet) preparedComposition ?: prepareComposition()
       else prepareComposition()
+    if (composition == null) {
+      return
+    }
     val settings = uiState.value.outputSettingsState
 
     try {
@@ -762,7 +777,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     _uiState.update { it.copy(exportState = ExportState()) }
   }
 
-  private fun prepareComposition(): Composition {
+  private fun prepareComposition(): Composition? {
     val settings = uiState.value.outputSettingsState
     var compositionHasVideo = false
 
@@ -853,6 +868,30 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     }
 
     val compositionBuilder = Composition.Builder(sequences).setHdrMode(settings.hdrMode)
+    if (settings.frameConsumerEnabled) {
+      val frameAggregationFpsStr = settings.frameAggregationFps.trim()
+      if (frameAggregationFpsStr.isNotEmpty()) {
+        val frameAggregationFps = frameAggregationFpsStr.toDoubleOrNull()
+        val numerator = frameAggregationFps?.let { (it * 1000).roundToInt() }
+        if (numerator != null && numerator > 0) {
+          compositionBuilder.setVideoFrameAggregationParameters(
+            VideoFrameAggregationParameters.Builder()
+              .setFrameRate(Rational(numerator, 1000))
+              .build()
+          )
+        } else {
+          _uiState.update {
+            it.copy(
+              snackbarMessage =
+                getApplication<Application>()
+                  .resources
+                  .getString(R.string.error_invalid_frame_aggregation_fps)
+            )
+          }
+          return null
+        }
+      }
+    }
 
     if (compositionHasVideo) {
       compositionBuilder
@@ -1096,6 +1135,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   }
 
   companion object {
+    const val UNSET_OPTION = ""
     const val SAME_AS_INPUT_OPTION = "same as input"
     private const val TAG = "CompPreviewVM"
     private const val AUDIO_URI = "https://storage.googleapis.com/exoplayer-test-media-0/play.mp3"
@@ -1122,6 +1162,22 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
       listOf(SAME_AS_INPUT_OPTION, "144", "240", "360", "480", "720", "1080", "1440", "2160")
     val MUXER_OPTIONS =
       listOf("Use Platform MediaMuxer", "Use Media3 Mp4Muxer", "Use Media3 FragmentedMp4Muxer")
+    val FRAME_AGGREGATION_FPS_OPTIONS =
+      listOf(
+        UNSET_OPTION,
+        "0.5",
+        "1",
+        "15",
+        "23.976",
+        "24",
+        "25",
+        "29.97",
+        "30",
+        "48",
+        "50",
+        "59.94",
+        "60",
+      )
 
     fun getAudioBackgroundSequence(): EditedMediaItemSequence {
       val audioMediaItem: MediaItem = MediaItem.Builder().setUri(AUDIO_URI).build()
