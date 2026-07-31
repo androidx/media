@@ -37,7 +37,6 @@ import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultGlFrameProcessor;
 import androidx.media3.effect.DefaultGlObjectsProvider;
-import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
 import androidx.media3.effect.FrameProcessorUtils;
 import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.media3.test.utils.CompositionAssetInfo;
@@ -63,9 +62,8 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 // TODO: b/479415308 - Expand API versions below 28 once supported.
 @SdkSuppress(minSdkVersion = 28)
-public final class TransformerParameterizedPacketConsumerAndroidTest {
+public final class TransformerParameterizedFrameProcessorAndroidTest {
 
-  private static final String PACKET_PROCESSOR = "packet_processor";
   private static final String DEFAULT_GL_FRAME_PROCESSOR = "default_gl_frame_processor";
   private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 10_000;
 
@@ -75,9 +73,6 @@ public final class TransformerParameterizedPacketConsumerAndroidTest {
   private @MonotonicNonNull ListeningExecutorService glExecutorService;
   private @MonotonicNonNull GlObjectsProvider glObjectsProvider;
   private String testId;
-
-  @TestParameter({PACKET_PROCESSOR, DEFAULT_GL_FRAME_PROCESSOR})
-  public String pipelineMode;
 
   private static class TestConfigProvider extends TestParameterValuesProvider {
     @Override
@@ -104,7 +99,7 @@ public final class TransformerParameterizedPacketConsumerAndroidTest {
     }
   }
 
-  public TransformerParameterizedPacketConsumerAndroidTest() {
+  public TransformerParameterizedFrameProcessorAndroidTest() {
     context = ApplicationProvider.getApplicationContext();
     testName = new TestName();
   }
@@ -113,29 +108,25 @@ public final class TransformerParameterizedPacketConsumerAndroidTest {
   public void setUp() throws Exception {
     testId = testName.getMethodName();
     glExecutorService =
-        MoreExecutors.listeningDecorator(Util.newSingleThreadExecutor("PacketProcessor:Effect"));
-    if (pipelineMode.equals(DEFAULT_GL_FRAME_PROCESSOR)) {
-      glObjectsProvider = new DefaultGlObjectsProvider();
-      glExecutorService
-          .submit(
-              () -> {
-                try {
-                  FrameProcessorUtils.setupOpenGl(glObjectsProvider);
-                } catch (GlUtil.GlException e) {
-                  throw new AssertionError(e);
-                }
-              })
-          .get(TEST_TIMEOUT_MS, MILLISECONDS);
-    }
+        MoreExecutors.listeningDecorator(Util.newSingleThreadExecutor("FrameProcessor:Effect"));
+    glObjectsProvider = new DefaultGlObjectsProvider();
+    glExecutorService
+        .submit(
+            () -> {
+              try {
+                FrameProcessorUtils.setupOpenGl(glObjectsProvider);
+              } catch (GlUtil.GlException e) {
+                throw new AssertionError(e);
+              }
+            })
+        .get(TEST_TIMEOUT_MS, MILLISECONDS);
   }
 
   @After
   public void tearDown() {
-    @Nullable Exception releasingException = null;
-    if (pipelineMode.equals(DEFAULT_GL_FRAME_PROCESSOR)) {
-      releasingException =
-          closeTestingGlResources(glExecutorService, glObjectsProvider, TEST_TIMEOUT_MS);
-    }
+    @Nullable
+    Exception releasingException =
+        closeTestingGlResources(glExecutorService, glObjectsProvider, TEST_TIMEOUT_MS);
     if (glExecutorService != null) {
       glExecutorService.shutdown();
     }
@@ -145,14 +136,13 @@ public final class TransformerParameterizedPacketConsumerAndroidTest {
   }
 
   @Test
-  public void export_completesSuccessfully(
+  public void export_withDefaultGlFrameProcessor_completesSuccessfully(
       @TestParameter(valuesProvider = TestConfigProvider.class) CompositionAssetInfo testConfig)
       throws Exception {
-    String testId = "export_" + pipelineMode + "_" + testConfig;
     Composition composition = testConfig.getComposition();
     assumeAllFormatsSupported(
         context,
-        testId,
+        testId + "_" + testConfig,
         /* inputFormats= */ testConfig.getAllVideoFormats(),
         /* outputFormat= */ testConfig.getVideoEncoderInputFormat());
     Transformer transformer = buildTransformer();
@@ -185,18 +175,11 @@ public final class TransformerParameterizedPacketConsumerAndroidTest {
   }
 
   private Transformer buildTransformer() {
-    Transformer.Builder transformerBuilder =
-        new Transformer.Builder(context).setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE);
-    if (pipelineMode.equals(PACKET_PROCESSOR)) {
-      transformerBuilder.setHardwareBufferEffectsPipeline(
-          DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE));
-    } else if (pipelineMode.equals(DEFAULT_GL_FRAME_PROCESSOR)) {
-      transformerBuilder.setFrameProcessorFactory(
-          new DefaultGlFrameProcessor.Factory(
-              context, glObjectsProvider, HardwareBufferJni.INSTANCE, glExecutorService));
-    } else {
-      throw new UnsupportedOperationException(pipelineMode);
-    }
-    return transformerBuilder.build();
+    return new Transformer.Builder(context)
+        .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
+        .setFrameProcessorFactory(
+            new DefaultGlFrameProcessor.Factory(
+                context, glObjectsProvider, HardwareBufferJni.INSTANCE, glExecutorService))
+        .build();
   }
 }
