@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -25,24 +26,20 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.media.session.MediaController;
 import android.media.session.MediaSession;
-import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -71,76 +68,6 @@ public final class MediaSessionManager {
   // We don't use weak references here as it's the app's responsibility to unregister listeners.
   private static final Map<OnActiveSessionsChangedListener, ListenerWrapper> listenersMap =
       new HashMap<>();
-
-  // TODO: b/500320224 - Remove reflection once compileSdk is bumped to 37.
-  private static final Supplier<@NullableType Method>
-      GET_ACTIVE_SESSIONS_FOR_PACKAGE_METHOD_SUPPLIER =
-          Suppliers.memoize(
-              new Supplier<@NullableType Method>() {
-                @Override
-                public @NullableType Method get() {
-                  if (Build.VERSION.SDK_INT < 37) {
-                    return null;
-                  }
-                  try {
-                    return android.media.session.MediaSessionManager.class.getMethod(
-                        "getActiveSessionsForPackage", String.class, ComponentName.class);
-                  } catch (ReflectiveOperationException e) {
-                    Log.w(TAG, "Failed to resolve getActiveSessionsForPackage method", e);
-                    return null;
-                  }
-                }
-              });
-
-  private static final Supplier<@NullableType Method>
-      ADD_ON_ACTIVE_SESSIONS_FOR_PACKAGE_CHANGED_LISTENER_METHOD_SUPPLIER =
-          Suppliers.memoize(
-              new Supplier<@NullableType Method>() {
-                @Override
-                public @NullableType Method get() {
-                  if (Build.VERSION.SDK_INT < 37) {
-                    return null;
-                  }
-                  try {
-                    return android.media.session.MediaSessionManager.class.getMethod(
-                        "addOnActiveSessionsForPackageChangedListener",
-                        String.class,
-                        Executor.class,
-                        android.media.session.MediaSessionManager.OnActiveSessionsChangedListener
-                            .class);
-                  } catch (ReflectiveOperationException e) {
-                    Log.w(
-                        TAG,
-                        "Failed to resolve addOnActiveSessionsForPackageChangedListener method",
-                        e);
-                    return null;
-                  }
-                }
-              });
-
-  private static final Supplier<@NullableType Method>
-      REMOVE_ON_ACTIVE_SESSIONS_FOR_PACKAGE_CHANGED_LISTENER_METHOD_SUPPLIER =
-          Suppliers.memoize(
-              new Supplier<@NullableType Method>() {
-                @Override
-                public @NullableType Method get() {
-                  if (Build.VERSION.SDK_INT < 37) {
-                    return null;
-                  }
-                  try {
-                    return android.media.session.MediaSessionManager.class.getMethod(
-                        "removeOnActiveSessionsForPackageChangedListener",
-                        android.media.session.MediaSessionManager.OnActiveSessionsChangedListener
-                            .class);
-                  } catch (ReflectiveOperationException e) {
-                    Log.w(
-                        TAG,
-                        "Failed to resolve removeOnActiveSessionsForPackageChangedListener method",
-                        e);
-                    return null;
-                  }
-                }
-              });
 
   private MediaSessionManager() {
     // Prevent instantiation.
@@ -185,13 +112,13 @@ public final class MediaSessionManager {
           "Requires MEDIA_CONTENT_CONTROL or enabled notification listener");
     }
 
-    if (Build.VERSION.SDK_INT < 37 && isOwnPackage && !hasPermission) {
+    if (SDK_INT < 37 && isOwnPackage && !hasPermission) {
       return immediateFuture(ImmutableList.of());
     }
 
-    if (packageName != null) {
+    if (SDK_INT >= 37 && packageName != null) {
       ListenableFuture<List<SessionToken>> sessionsForPackage =
-          getActiveSessionsForPackageReflection(
+          Api37.getActiveSessionsForPackage(
               applicationContext, platformManager, packageName, notificationListener);
       if (sessionsForPackage != null) {
         return sessionsForPackage;
@@ -246,7 +173,7 @@ public final class MediaSessionManager {
           "Requires MEDIA_CONTENT_CONTROL or enabled notification listener");
     }
 
-    if (Build.VERSION.SDK_INT < 37 && isOwnPackage && !hasPermission) {
+    if (SDK_INT < 37 && isOwnPackage && !hasPermission) {
       return;
     }
 
@@ -286,11 +213,10 @@ public final class MediaSessionManager {
       }
 
       boolean isPackageSpecific = false;
-      if (packageName != null) {
-        if (tryAddOnActiveSessionsForPackageChangedListenerReflection(
-            platformManager, packageName, platformListener, executor)) {
-          isPackageSpecific = true;
-        }
+      if (SDK_INT >= 37 && packageName != null) {
+        Api37.addOnActiveSessionsForPackageChangedListener(
+            platformManager, packageName, executor, platformListener);
+        isPackageSpecific = true;
       }
 
       listenersMap.put(listener, new ListenerWrapper(platformListener, isPackageSpecific));
@@ -319,8 +245,8 @@ public final class MediaSessionManager {
     }
 
     if (wrapper != null) {
-      if (wrapper.isPackageSpecific) {
-        tryRemoveOnActiveSessionsForPackageChangedListenerReflection(
+      if (wrapper.isPackageSpecific && SDK_INT >= 37) {
+        Api37.removeOnActiveSessionsForPackageChangedListener(
             platformManager, wrapper.platformListener);
       } else {
         platformManager.removeOnActiveSessionsChangedListener(wrapper.platformListener);
@@ -340,7 +266,7 @@ public final class MediaSessionManager {
    */
   public static ListenableFuture<@NullableType SessionToken> getMediaKeyEventSession(
       Context context) {
-    if (Build.VERSION.SDK_INT < 33) {
+    if (SDK_INT < 33) {
       return immediateFuture(null);
     }
     Context applicationContext = context.getApplicationContext();
@@ -389,7 +315,7 @@ public final class MediaSessionManager {
     if (notificationListener == null) {
       return false;
     }
-    if (Build.VERSION.SDK_INT >= 27) {
+    if (SDK_INT >= 27) {
       NotificationManager notificationManager = context.getSystemService(NotificationManager.class);
       return notificationManager.isNotificationListenerAccessGranted(notificationListener);
     }
@@ -407,68 +333,44 @@ public final class MediaSessionManager {
     return false;
   }
 
-  // TODO: b/500320224 - Remove reflection once compileSdk is bumped to 37.
-  @Nullable
-  @SuppressWarnings("nullness")
-  private static ListenableFuture<List<SessionToken>> getActiveSessionsForPackageReflection(
-      Context context,
-      android.media.session.MediaSessionManager platformManager,
-      String packageName,
-      @Nullable ComponentName notificationListener) {
-    Method method = GET_ACTIVE_SESSIONS_FOR_PACKAGE_METHOD_SUPPLIER.get();
-    if (method == null) {
-      return null;
-    }
-    try {
-      List<?> tokens = (List<?>) method.invoke(platformManager, packageName, notificationListener);
+  @RequiresApi(37)
+  private static final class Api37 {
+    private Api37() {}
+
+    @Nullable
+    @SuppressWarnings("nullness")
+    private static ListenableFuture<List<SessionToken>> getActiveSessionsForPackage(
+        Context context,
+        android.media.session.MediaSessionManager platformManager,
+        String packageName,
+        @Nullable ComponentName notificationListener) {
+      List<MediaSession.Token> tokens =
+          platformManager.getActiveSessionsForPackage(packageName, notificationListener);
       if (tokens == null) {
         return null;
       }
       List<ListenableFuture<SessionToken>> tokenFutures = new ArrayList<>(tokens.size());
-      for (Object tokenObj : tokens) {
-        MediaSession.Token platformToken = (MediaSession.Token) tokenObj;
+      for (MediaSession.Token platformToken : tokens) {
         tokenFutures.add(SessionToken.createSessionToken(context, platformToken));
       }
       return convertFuturesToTokens(tokenFutures);
-    } catch (ReflectiveOperationException e) {
-      Log.w(TAG, "Failed to call getActiveSessionsForPackage via reflection", e);
-      return null;
     }
-  }
 
-  private static boolean tryAddOnActiveSessionsForPackageChangedListenerReflection(
-      android.media.session.MediaSessionManager platformManager,
-      String packageName,
-      android.media.session.MediaSessionManager.OnActiveSessionsChangedListener platformListener,
-      Executor executor) {
-    Method method = ADD_ON_ACTIVE_SESSIONS_FOR_PACKAGE_CHANGED_LISTENER_METHOD_SUPPLIER.get();
-    if (method == null) {
-      return false;
+    private static void addOnActiveSessionsForPackageChangedListener(
+        android.media.session.MediaSessionManager platformManager,
+        String packageName,
+        Executor executor,
+        android.media.session.MediaSessionManager.OnActiveSessionsChangedListener
+            platformListener) {
+      platformManager.addOnActiveSessionsForPackageChangedListener(
+          packageName, executor, platformListener);
     }
-    try {
-      method.invoke(platformManager, packageName, executor, platformListener);
-      return true;
-    } catch (ReflectiveOperationException e) {
-      Log.w(TAG, "Failed to call addOnActiveSessionsForPackageChangedListener via reflection", e);
-      return false;
-    }
-  }
 
-  @CanIgnoreReturnValue
-  private static boolean tryRemoveOnActiveSessionsForPackageChangedListenerReflection(
-      android.media.session.MediaSessionManager platformManager,
-      android.media.session.MediaSessionManager.OnActiveSessionsChangedListener platformListener) {
-    Method method = REMOVE_ON_ACTIVE_SESSIONS_FOR_PACKAGE_CHANGED_LISTENER_METHOD_SUPPLIER.get();
-    if (method == null) {
-      return false;
-    }
-    try {
-      method.invoke(platformManager, platformListener);
-      return true;
-    } catch (ReflectiveOperationException e) {
-      Log.w(
-          TAG, "Failed to call removeOnActiveSessionsForPackageChangedListener via reflection", e);
-      return false;
+    private static void removeOnActiveSessionsForPackageChangedListener(
+        android.media.session.MediaSessionManager platformManager,
+        android.media.session.MediaSessionManager.OnActiveSessionsChangedListener
+            platformListener) {
+      platformManager.removeOnActiveSessionsForPackageChangedListener(platformListener);
     }
   }
 
