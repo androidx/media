@@ -25,6 +25,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.TimestampAdjuster;
 import androidx.media3.common.util.UriUtil;
@@ -544,6 +545,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
           // See onTruncatedSegmentParsed's javadoc for more info on why we are swallowing the EOF
           // exception for trick play tracks.
           extractor.onTruncatedSegmentParsed();
+        } else if (dataSpec.length != C.LENGTH_UNSET
+            && input.getPosition() >= dataSpec.position + dataSpec.length) {
+          // The chunk is fully loaded, but an EOFException was thrown. This can happen if the
+          // chunk is corrupted.
+          throw ParserException.createForMalformedContainer(/* message= */ null, e);
         } else {
           throw e;
         }
