@@ -685,6 +685,7 @@ public final class C {
    * <ul>
    *   <li>{@link #VIDEO_CODEC_FLAG_H264}
    *   <li>{@link #VIDEO_CODEC_FLAG_H265}
+   *   <li>{@link #VIDEO_CODEC_FLAG_AV1}
    * </ul>
    */
   @UnstableApi
@@ -693,11 +694,17 @@ public final class C {
   @Target(TYPE_USE)
   @IntDef(
       flag = true,
-      value = {VIDEO_CODEC_FLAG_H264, VIDEO_CODEC_FLAG_H265})
+      value = {VIDEO_CODEC_FLAG_H264, VIDEO_CODEC_FLAG_H265, VIDEO_CODEC_FLAG_AV1})
   public @interface VideoCodecFlags {}
 
+  /** H.264 Video Coding Standard (AVC). */
   @UnstableApi public static final int VIDEO_CODEC_FLAG_H264 = 1;
+
+  /** H.265 Video Coding Standard (HEVC). */
   @UnstableApi public static final int VIDEO_CODEC_FLAG_H265 = 2;
+
+  /** AV1 Video Coding Standard. */
+  @UnstableApi public static final int VIDEO_CODEC_FLAG_AV1 = 4;
 
   /**
    * Flags which can apply to a buffer containing a media sample.
