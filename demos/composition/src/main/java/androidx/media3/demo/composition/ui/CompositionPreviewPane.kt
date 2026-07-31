@@ -252,6 +252,7 @@ private fun presetToString(preset: Preset): String {
     Preset.SEQUENCE -> stringResource(R.string.preset_sequence)
     Preset.GRID -> stringResource(R.string.preset_grid)
     Preset.PIP -> stringResource(R.string.preset_pip)
+    Preset.AV_SPLIT_REPRO -> stringResource(R.string.preset_av_split_repro)
     Preset.CUSTOM -> stringResource(R.string.preset_custom)
   }
 }

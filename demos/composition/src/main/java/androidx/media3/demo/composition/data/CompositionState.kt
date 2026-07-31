@@ -151,5 +151,8 @@ enum class Preset {
   SEQUENCE,
   GRID,
   PIP,
+  // Two sequences (video-only, audio-only) from the same clips, to test whether that
+  // structure is required to repro the short-clips playback freeze.
+  AV_SPLIT_REPRO,
   CUSTOM,
 }
