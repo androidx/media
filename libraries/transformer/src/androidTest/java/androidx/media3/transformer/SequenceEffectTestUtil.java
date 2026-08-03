@@ -35,6 +35,7 @@ import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.Presentation;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
+import androidx.media3.test.utils.BitmapPixelTestUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
@@ -116,13 +117,28 @@ public final class SequenceEffectTestUtil {
   }
 
   /**
-   * Assert that the bitmaps output in {@link #PNG_ASSET_BASE_PATH} match those written in {code
-   * actualBitmaps}.
+   * Asserts that the bitmaps output in {@link #PNG_ASSET_BASE_PATH} match those written in {@code
+   * actualBitmaps} with luma threshold {@link
+   * BitmapPixelTestUtil#MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_LUMA}.
    *
    * <p>Also saves {@code actualBitmaps} bitmaps, in case they differ from expected bitmaps, stored
    * at {@link #PNG_ASSET_BASE_PATH}/{@code testId}_id.png.
    */
   public static void assertBitmapsMatchExpectedAndSave(List<Bitmap> actualBitmaps, String testId)
+      throws IOException {
+    assertBitmapsMatchExpectedAndSave(
+        actualBitmaps, testId, MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_LUMA);
+  }
+
+  /**
+   * Asserts that the bitmaps output in {@link #PNG_ASSET_BASE_PATH} match those written in {@code
+   * actualBitmaps} with {@code maxAveragePixelAbsoluteDifference}.
+   *
+   * <p>Also saves {@code actualBitmaps} bitmaps, in case they differ from expected bitmaps, stored
+   * at {@link #PNG_ASSET_BASE_PATH}/{@code testId}_id.png.
+   */
+  public static void assertBitmapsMatchExpectedAndSave(
+      List<Bitmap> actualBitmaps, String testId, float maxAveragePixelAbsoluteDifference)
       throws IOException {
     for (int i = 0; i < actualBitmaps.size(); i++) {
       maybeSaveTestBitmap(
@@ -139,7 +155,7 @@ public final class SequenceEffectTestUtil {
               expectedBitmap, actualBitmaps.get(i), subTestId);
       assertWithMessage("For expected bitmap " + expectedPath)
           .that(averagePixelAbsoluteDifference)
-          .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_LUMA);
+          .isAtMost(maxAveragePixelAbsoluteDifference);
     }
   }
 

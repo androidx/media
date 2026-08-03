@@ -108,29 +108,62 @@ import java.util.concurrent.Executor;
     closeAllProcessors();
     currentEffects.clear();
     List<GlTextureFrameProcessor> newProcessorChain = new ArrayList<>();
-    for (int i = 0; i < effects.size(); i++) {
-      Effect effect = effects.get(i);
-      checkArgument(
-          effect instanceof GlEffect,
-          Util.formatInvariant("%s supports only GlEffects", getClass().getSimpleName()));
-      // TODO: b/505721737 - Support HDR.
-      try {
+    ImmutableList.Builder<GlMatrixTransformation> matrixTransformationBuilder =
+        new ImmutableList.Builder<>();
+    ImmutableList.Builder<RgbMatrix> colorTransformationBuilder = new ImmutableList.Builder<>();
+    try {
+      for (int i = 0; i < effects.size(); i++) {
+        Effect effect = effects.get(i);
+        checkArgument(
+            effect instanceof GlEffect,
+            Util.formatInvariant("%s supports only GlEffects", getClass().getSimpleName()));
+        GlEffect glEffect = (GlEffect) effect;
+        // Merge consecutive matrix and color effects.
+        if (glEffect instanceof GlMatrixTransformation) {
+          matrixTransformationBuilder.add((GlMatrixTransformation) glEffect);
+          continue;
+        }
+        if (glEffect instanceof RgbMatrix) {
+          colorTransformationBuilder.add((RgbMatrix) glEffect);
+          continue;
+        }
+
+        ImmutableList<GlMatrixTransformation> matrixTransformations =
+            matrixTransformationBuilder.build();
+        ImmutableList<RgbMatrix> colorTransformations = colorTransformationBuilder.build();
+
+        if (!matrixTransformations.isEmpty() || !colorTransformations.isEmpty()) {
+          newProcessorChain.add(createMergedProcessor(matrixTransformations, colorTransformations));
+          matrixTransformationBuilder = new ImmutableList.Builder<>();
+          colorTransformationBuilder = new ImmutableList.Builder<>();
+        }
+
+        // TODO: b/505721737 - Support HDR.
         newProcessorChain.add(
             new GlShaderProgramAdapter(
-                ((GlEffect) effect).toGlShaderProgram(context, /* useHdr= */ false),
+                glEffect.toGlShaderProgram(context, /* useHdr= */ false),
                 glObjectsProvider,
                 glExecutorService,
                 errorConsumer));
-      } catch (VideoFrameProcessingException | RuntimeException e) {
-        for (int j = 0; j < newProcessorChain.size(); j++) {
-          try {
-            newProcessorChain.get(j).close();
-          } catch (VideoFrameProcessingException | RuntimeException closeException) {
-            // Ignore exceptions when closing during an error recovery.
-          }
-        }
-        throw e;
       }
+
+      ImmutableList<GlMatrixTransformation> remainingMatrixTransformations =
+          matrixTransformationBuilder.build();
+      ImmutableList<RgbMatrix> remainingColorTransformations = colorTransformationBuilder.build();
+
+      if (!remainingMatrixTransformations.isEmpty() || !remainingColorTransformations.isEmpty()) {
+        newProcessorChain.add(
+            createMergedProcessor(remainingMatrixTransformations, remainingColorTransformations));
+      }
+    } catch (VideoFrameProcessingException | RuntimeException e) {
+      for (int j = 0; j < newProcessorChain.size(); j++) {
+        try {
+          newProcessorChain.get(j).close();
+        } catch (VideoFrameProcessingException | RuntimeException closeException) {
+          // Ignore exceptions when closing during an error recovery.
+        }
+      }
+      throw e;
     }
     for (int i = 0; i < newProcessorChain.size() - 1; i++) {
       newProcessorChain.get(i).setOutput(newProcessorChain.get(i + 1));
@@ -153,6 +186,18 @@ import java.util.concurrent.Executor;
       return ImmutableList.of();
     }
     return (ImmutableList<Effect>) checkNotNull(frame.getMetadata().get(effectKey));
+  }
+
+  private GlTextureFrameProcessor createMergedProcessor(
+      List<GlMatrixTransformation> matrixTransformations, List<RgbMatrix> colorTransformations)
+      throws VideoFrameProcessingException {
+    // TODO: b/505721737 - Support HDR.
+    return new GlShaderProgramAdapter(
+        DefaultShaderProgram.create(
+            context, matrixTransformations, colorTransformations, /* useHdr= */ false),
+        glObjectsProvider,
+        glExecutorService,
+        errorConsumer);
   }
 
   private void closeAllProcessors() throws VideoFrameProcessingException {

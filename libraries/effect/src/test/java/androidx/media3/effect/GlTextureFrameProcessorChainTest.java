@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -176,6 +177,58 @@ public final class GlTextureFrameProcessorChainTest {
 
     assertThat(fakeGlShaderProgram.signalEndOfCurrentInputStreamCalled).isTrue();
     assertThat(downstreamFrameConsumer.signalEndOfStreamCalled).isTrue();
+  }
+
+  @Test
+  public void queue_withMatrixAndRgbEffects_mergesIntoSingleProcessor() throws Exception {
+    AtomicBoolean matrixToGlShaderProgramCalled = new AtomicBoolean();
+    GlMatrixTransformation fakeMatrixEffect =
+        new GlMatrixTransformation() {
+          @Override
+          public float[] getGlMatrixArray(long presentationTimeUs) {
+            return new float[16];
+          }
+
+          @Override
+          public BaseGlShaderProgram toGlShaderProgram(Context context, boolean useHdr)
+              throws VideoFrameProcessingException {
+            matrixToGlShaderProgramCalled.set(true);
+            return GlMatrixTransformation.super.toGlShaderProgram(context, useHdr);
+          }
+        };
+
+    AtomicBoolean rgbToGlShaderProgramCalled = new AtomicBoolean();
+    RgbMatrix fakeColorEffect =
+        new RgbMatrix() {
+          @Override
+          public float[] getMatrix(long presentationTimeUs, boolean useHdr) {
+            return new float[16];
+          }
+
+          @Override
+          public BaseGlShaderProgram toGlShaderProgram(Context context, boolean useHdr)
+              throws VideoFrameProcessingException {
+            rgbToGlShaderProgramCalled.set(true);
+            return RgbMatrix.super.toGlShaderProgram(context, useHdr);
+          }
+        };
+
+    // Queue frame with Matrix and RGB effects.
+    GlTextureFrame frame =
+        createGlTextureFrameWithEffects(ImmutableList.of(fakeMatrixEffect, fakeColorEffect));
+
+    try {
+      boolean unused =
+          glTextureFrameProcessorChain.queue(
+              frame, glExecutorService, /* wakeupListener= */ () -> {});
+    } catch (Exception e) {
+      // We can't create actual GL shaders in unit tests, ignore the exceptions thrown.
+    }
+
+    // If these effects are merged properly, they are added directly to the DefaultShaderProgram's
+    // constructor arguments, and their individual toGlShaderProgram(...) method is skipped.
+    assertThat(matrixToGlShaderProgramCalled.get()).isFalse();
+    assertThat(rgbToGlShaderProgramCalled.get()).isFalse();
   }
 
   private void waitUntilGlThreadFinishes() throws ExecutionException, InterruptedException {
