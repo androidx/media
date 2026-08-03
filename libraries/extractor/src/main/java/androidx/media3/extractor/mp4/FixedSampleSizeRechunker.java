@@ -71,7 +71,9 @@ import androidx.media3.common.util.Util;
       long[] chunkOffsets,
       int[] chunkSampleCounts,
       long timestampDeltaInTimeUnits) {
-    int maxSampleCount = MAX_SAMPLE_SIZE / fixedSampleSize;
+    // Ensure maxSampleCount is at least 1 when fixedSampleSize exceeds MAX_SAMPLE_SIZE to prevent
+    // division by zero in rechunking.
+    int maxSampleCount = max(1, MAX_SAMPLE_SIZE / fixedSampleSize);
 
     // Count the number of new, rechunked buffers.
     int rechunkedSampleCount = 0;
