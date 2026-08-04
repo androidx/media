@@ -1764,7 +1764,7 @@ public final class DefaultAudioSinkTest {
     defaultAudioSink.configure(new AudioSink.AudioSinkConfig.Builder(format).build());
   }
 
-  private void configureDefaultAudioSinkWithOffload_Mpegh() throws AudioSink.ConfigurationException {
+  private void configureDefaultAudioSinkWithOffloadMpegh() throws AudioSink.ConfigurationException {
     Format format =
         new Format.Builder()
             .setSampleMimeType(MimeTypes.AUDIO_MPEGH_MHM1)
@@ -1822,7 +1822,7 @@ public final class DefaultAudioSinkTest {
         audioAttributes.getPlatformAudioAttributes(),
         AudioManager.DIRECT_PLAYBACK_OFFLOAD_SUPPORTED);
 
-    configureDefaultAudioSinkWithOffload_Mpegh();
+    configureDefaultAudioSinkWithOffloadMpegh();
 
     byte[] data1 = Util.getBytesFromHexString(MPEGH_CONFIG_FRAME);
     ByteBuffer buffer = ByteBuffer.wrap(data1);

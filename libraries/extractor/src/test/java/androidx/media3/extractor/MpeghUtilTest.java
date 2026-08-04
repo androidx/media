@@ -75,7 +75,7 @@ public final class MpeghUtilTest {
   public void parseTruncationSampleCount_configFrame() {
     byte[] data = Util.getBytesFromHexString(MPEGH_CONFIG_FRAME);
     ParsableByteArray byteArray = new ParsableByteArray(data);
-    int truncationSamples = MpeghUtil.getTruncationSampleCount(byteArray);
+    int truncationSamples = MpeghUtil.getTruncationSampleCount(ByteBuffer.wrap(byteArray.getData(), 0, byteArray.limit()));
     assertThat(truncationSamples).isEqualTo(32);
   }
 
@@ -83,7 +83,7 @@ public final class MpeghUtilTest {
   public void parseTruncationSampleCount_truncationFrame() {
     byte[] data = Util.getBytesFromHexString(MPEGH_TRUNCATION_FRAME);
     ParsableByteArray byteArray = new ParsableByteArray(data);
-    int truncationSamples = MpeghUtil.getTruncationSampleCount(byteArray);
+    int truncationSamples = MpeghUtil.getTruncationSampleCount(ByteBuffer.wrap(byteArray.getData(), 0, byteArray.limit()));
     assertThat(truncationSamples).isEqualTo(992);
   }
 
@@ -91,7 +91,7 @@ public final class MpeghUtilTest {
   public void parseTruncationSampleCount_combinedFrames() {
     byte[] data = Util.getBytesFromHexString(MPEGH_COMBINED_FRAMES);
     ParsableByteArray byteArray = new ParsableByteArray(data);
-    int truncationSamples = MpeghUtil.getTruncationSampleCount(byteArray);
+    int truncationSamples = MpeghUtil.getTruncationSampleCount(ByteBuffer.wrap(byteArray.getData(), 0, byteArray.limit()));
     assertThat(truncationSamples).isEqualTo(1024);
   }
 
@@ -99,7 +99,7 @@ public final class MpeghUtilTest {
   public void parseTruncationSampleCount_truncationPacket0() {
     byte[] data = Util.getBytesFromHexString(MPEGH_TRUNC_PACKET0);
     ParsableByteArray byteArray = new ParsableByteArray(data);
-    int truncationSamples = MpeghUtil.getTruncationSampleCount(byteArray);
+    int truncationSamples = MpeghUtil.getTruncationSampleCount(ByteBuffer.wrap(byteArray.getData(), 0, byteArray.limit()));
     assertThat(truncationSamples).isEqualTo(992);
   }
 
@@ -107,7 +107,7 @@ public final class MpeghUtilTest {
   public void parseTruncationSampleCount_truncationPacket1() {
     byte[] data = Util.getBytesFromHexString(MPEGH_TRUNC_PACKET1);
     ParsableByteArray byteArray = new ParsableByteArray(data);
-    int truncationSamples = MpeghUtil.getTruncationSampleCount(byteArray);
+    int truncationSamples = MpeghUtil.getTruncationSampleCount(ByteBuffer.wrap(byteArray.getData(), 0, byteArray.limit()));
     assertThat(truncationSamples).isEqualTo(32);
   }
 

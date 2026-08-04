@@ -61,7 +61,7 @@ public final class MpeghAudioRenderer extends DecoderAudioRenderer<MpeghBaseDeco
   /** Helper for handling MPEG-H UI commands and system settings. */
   private final MpeghUiCommandHelper uiHelper;
 
-  /** Whether the decoder is configured for direct (hardware offload) playback. **/
+  /** Whether the decoder is configured for direct (hardware offload) playback. */
   private boolean isDirectPlayback;
 
   /*  Creates a new instance. */

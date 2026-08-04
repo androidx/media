@@ -52,7 +52,6 @@ import androidx.media3.common.audio.ToInt16PcmAudioProcessor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.OpusUtil;
@@ -608,7 +607,6 @@ public final class DefaultAudioSink implements AudioSink {
   private long outputStreamOffsetUs;
   private float volume;
 
-  private final ParsableByteArray mpeghScratchBytes;
 
   @Nullable private ByteBuffer inputBuffer;
   private int inputBufferAccessUnitCount;
@@ -648,7 +646,6 @@ public final class DefaultAudioSink implements AudioSink {
     availableAudioProcessors =
         ImmutableList.of(trimmingAudioProcessor, channelMappingAudioProcessor);
     volume = 1f;
-    mpeghScratchBytes = new ParsableByteArray();
     audioSessionId = C.AUDIO_SESSION_ID_UNSET;
     auxEffectInfo = new AuxEffectInfo(AuxEffectInfo.NO_AUX_EFFECT_ID, 0f);
     mediaPositionParameters =
@@ -1027,11 +1024,6 @@ public final class DefaultAudioSink implements AudioSink {
         }
       }
 
-      if (Util.isMpegh(configuration.outputConfig.encoding) && buffer.remaining() == buffer.limit()) {
-        mpeghScratchBytes.reset(buffer.remaining());
-        buffer.get(mpeghScratchBytes.getData(), 0, buffer.remaining());
-        buffer.rewind();
-      }
 
       if (afterDrainParameters != null) {
         if (!drainToEndOfStream()) {
@@ -1076,11 +1068,8 @@ public final class DefaultAudioSink implements AudioSink {
       if (configuration.isPcm()) {
         submittedPcmBytes += buffer.remaining();
       } else {
-        int truncationSamples = 0;
-        if (Util.isMpegh(configuration.outputConfig.encoding)) {
-          truncationSamples = MpeghUtil.getTruncationSampleCount(mpeghScratchBytes);
-        }
-        submittedEncodedFrames += (long) framesPerEncodedSample * encodedAccessUnitCount - truncationSamples;
+        int paddingSamples = getPerBufferTruncationSamples(configuration.outputConfig.encoding, buffer);
+        submittedEncodedFrames += (long) framesPerEncodedSample * encodedAccessUnitCount - paddingSamples;
       }
 
       inputBuffer = buffer;
@@ -1278,11 +1267,6 @@ public final class DefaultAudioSink implements AudioSink {
     if (outputBuffer == null) {
       return;
     }
-    if (Util.isMpegh(configuration.outputConfig.encoding) && outputBuffer.remaining() == outputBuffer.limit()) {
-      mpeghScratchBytes.reset(outputBuffer.remaining());
-      outputBuffer.get(mpeghScratchBytes.getData(), 0, outputBuffer.remaining());
-      outputBuffer.rewind();
-    }
     if (writeExceptionPendingExceptionHolder.shouldWaitBeforeRetry()) {
       return;
     }
@@ -1346,13 +1330,10 @@ public final class DefaultAudioSink implements AudioSink {
         // When playing non-PCM, the inputBuffer is never processed, thus the last inputBuffer
         // must be the current input buffer.
         checkState(outputBuffer == inputBuffer);
-        int truncationSamples = 0;
-        if (Util.isMpegh(configuration.outputConfig.encoding)) {
-          truncationSamples = MpeghUtil.getTruncationSampleCount(mpeghScratchBytes);
-        }
+        int paddingSamples = getPerBufferTruncationSamples(configuration.outputConfig.encoding, outputBuffer);
         writtenEncodedFrames +=
             ((long) framesPerEncodedSample * inputBufferAccessUnitCount)
-                - truncationSamples
+                - paddingSamples
                 - currentBufferFramesWritten;
         currentBufferFramesWritten = 0;      }      outputBuffer = null;
     } else {
@@ -1886,6 +1867,18 @@ public final class DefaultAudioSink implements AudioSink {
         .setPreferredBufferSize(preferredBufferSize)
         .setVirtualDeviceId(virtualDeviceId)
         .build();
+  }
+
+  private static int getPerBufferTruncationSamples(@C.Encoding int encoding, ByteBuffer buffer) {
+    switch (encoding) {
+      case C.ENCODING_MPEGH_BL_L3:
+      case C.ENCODING_MPEGH_BL_L4:
+      case C.ENCODING_MPEGH_LC_L3:
+      case C.ENCODING_MPEGH_LC_L4:
+        return MpeghUtil.getTruncationSampleCount(buffer);
+      default:
+        return 0;
+    }
   }
 
   /* package */ static int getFramesPerEncodedSample(@C.Encoding int encoding, ByteBuffer buffer) {

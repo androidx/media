@@ -23,7 +23,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableBitArray;
-import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.math.IntMath;
 import com.google.common.math.LongMath;
@@ -447,7 +446,7 @@ public final class MpeghUtil {
 
       switch (usacElementType) {
         case 0 /*ID_USAC_SCE*/:
-          parseMpegh3daCoreConfig(data); // coreConfig
+          boolean unusedCoreConfig = parseMpegh3daCoreConfig(data); // coreConfig
           if (sbrRatioIndex > 0) {
             skipSbrConfig(data); // sbrConfig
           }
@@ -493,11 +492,11 @@ public final class MpeghUtil {
           }
           break;
         case 3 /*ID_USAC_EXT*/:
-          readEscapedIntValue(data, 4, 8, 16); // usacExtElementType
+          int unusedUsac = readEscapedIntValue(data, 4, 8, 16); // usacExtElementType
           int usacExtElementConfigLength = readEscapedIntValue(data, 4, 8, 16);
 
           if (data.readBit()) { // usacExtElementDefaultLengthPresent
-            readEscapedIntValue(data, 8, 16, 0) /* +1 */; // usacExtElementDefaultLength
+            int unusedUsacDef = readEscapedIntValue(data, 8, 16, 0) /* +1 */; // usacExtElementDefaultLength
           }
           data.skipBit(); // usacExtElementPayloadFrag
 
@@ -754,9 +753,11 @@ public final class MpeghUtil {
    * @param buffer The data to parse, containing complete MPEG-H access units
    * @return The number of truncated samples.
    */
-  public static int getTruncationSampleCount(ParsableByteArray buffer) {
+  public static int getTruncationSampleCount(ByteBuffer buffer) {
     int truncationSamples = 0;
-    ParsableBitArray bitArray = new ParsableBitArray(buffer.getData(), buffer.limit());
+    ParsableBitArray bitArray =
+        new ParsableBitArray(buffer.array(), buffer.limit());
+    bitArray.setPosition(buffer.position() * 8);
     MhasPacketHeader header = new MhasPacketHeader();
     while (bitArray.bitsLeft() > 0) {
       try {
@@ -782,11 +783,9 @@ public final class MpeghUtil {
    * @return The standard audio frame length.
    */
   public static int getStandardFrameLength(ByteBuffer buffer) {
-    int bufferPos = buffer.position();
-    byte[] bytes = new byte[buffer.remaining()];
-    buffer.get(bytes);
-    buffer.position(bufferPos);
-    ParsableBitArray bitArray = new ParsableBitArray(bytes);
+    ParsableBitArray bitArray =
+        new ParsableBitArray(buffer.array(), buffer.limit());
+    bitArray.setPosition(buffer.position() * 8);
 
     MhasPacketHeader header = new MhasPacketHeader();
     while (bitArray.bitsLeft() > 0) {

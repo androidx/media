@@ -40,7 +40,6 @@ import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.analytics.PlayerId;
@@ -99,7 +98,6 @@ public final class AudioTrackAudioOutput implements AudioOutput {
   @Nullable private OnRoutingChangedListenerApi24 onRoutingChangedListener;
   private final AudioTrackPositionTracker audioTrackPositionTracker;
   private final boolean isOutputPcm;
-  private boolean isMpegh;
   private final int pcmFrameSize;
   @Nullable private final StreamEventCallbackV29 offloadStreamEventCallbackV29;
   private final ListenerSet<Listener> listeners;
@@ -113,8 +111,6 @@ public final class AudioTrackAudioOutput implements AudioOutput {
   private int framesPerEncodedSample;
   private int lastUnderrunCount;
   private boolean hasData;
-
-  private final ParsableByteArray mpeghScratchBytes;
 
   /**
    * @deprecated Use {@link
@@ -160,8 +156,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
       int channelCount = Integer.bitCount(config.channelMask);
       pcmFrameSize = Util.getPcmFrameSize(config.encoding, channelCount);
     } else {
-      isMpegh = Util.isMpegh(config.encoding);
-      pcmFrameSize = C.LENGTH_UNSET;
+        pcmFrameSize = C.LENGTH_UNSET;
     }
 
     audioTrackPositionTracker =
@@ -178,8 +173,6 @@ public final class AudioTrackAudioOutput implements AudioOutput {
           new OnRoutingChangedListenerApi24(audioTrack, capabilityChangeListener);
     }
     offloadStreamEventCallbackV29 = isOffloadedPlayback() ? new StreamEventCallbackV29() : null;
-
-    mpeghScratchBytes = new ParsableByteArray();
   }
 
   /** Returns the {@link AudioTrack} instance used for audio output. */
@@ -251,11 +244,6 @@ public final class AudioTrackAudioOutput implements AudioOutput {
       // If this is the first encoded sample, calculate the sample size in frames.
       framesPerEncodedSample = DefaultAudioSink.getFramesPerEncodedSample(config.encoding, buffer);
     }
-    if (isMpegh && buffer.remaining() == buffer.limit()) {
-      mpeghScratchBytes.reset(buffer.remaining());
-      buffer.get(mpeghScratchBytes.getData(), 0, buffer.remaining());
-      buffer.rewind();
-    }
     maybeReportUnderrun();
     int bytesRemaining = buffer.remaining();
     int bytesWrittenOrError;
@@ -290,11 +278,11 @@ public final class AudioTrackAudioOutput implements AudioOutput {
     } else if (fullyHandled) {
       // For non-PCM we can only be sure about the number of written frames once the entire buffer
       // is submitted.
-      int truncationSamples = 0;
-      if (isMpegh) {
-        truncationSamples = MpeghUtil.getTruncationSampleCount(mpeghScratchBytes);
+      int paddingSamples = 0;
+      if (Util.isMpegh(config.encoding)) {
+        paddingSamples = MpeghUtil.getTruncationSampleCount(buffer);
       }
-      writtenEncodedFrames += (long) framesPerEncodedSample * encodedAccessUnitCount - truncationSamples;
+      writtenEncodedFrames += (long) framesPerEncodedSample * encodedAccessUnitCount - paddingSamples;
     }
     return fullyHandled;
   }
