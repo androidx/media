@@ -1132,19 +1132,34 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
   /** Returns the stsz (sample size) box. */
   public static ByteBuffer stsz(List<BufferInfo> writtenSamples) {
-    ByteBuffer contents = ByteBuffer.allocate(writtenSamples.size() * 4 + MAX_FIXED_LEAF_BOX_SIZE);
+    boolean sameSampleSize = !writtenSamples.isEmpty() && writtenSamples.get(0).size != 0;
+    int firstSampleSize = writtenSamples.isEmpty() ? 0 : writtenSamples.get(0).size;
+    if (sameSampleSize) {
+      for (int i = 1; i < writtenSamples.size(); i++) {
+        if (writtenSamples.get(i).size != firstSampleSize) {
+          sameSampleSize = false;
+          break;
+        }
+      }
+    }
+
+    int capacity =
+        sameSampleSize
+            ? MAX_FIXED_LEAF_BOX_SIZE
+            : (writtenSamples.size() * 4 + MAX_FIXED_LEAF_BOX_SIZE);
+    ByteBuffer contents = ByteBuffer.allocate(capacity);
 
     contents.putInt(0x0); // version and flags
 
-    // TODO: b/270583563 - Consider optimizing for identically-sized samples.
-    // sample_size: specifying the default sample size. Set to zero to indicate that the samples
-    // have different sizes and they are stored in the sample size table.
-    contents.putInt(0);
-
-    contents.putInt(writtenSamples.size()); // sample_count
-
-    for (int i = 0; i < writtenSamples.size(); i++) {
-      contents.putInt(writtenSamples.get(i).size);
+    if (sameSampleSize) {
+      contents.putInt(firstSampleSize); // sample_size
+      contents.putInt(writtenSamples.size()); // sample_count
+    } else {
+      contents.putInt(0); // sample_size
+      contents.putInt(writtenSamples.size()); // sample_count
+      for (int i = 0; i < writtenSamples.size(); i++) {
+        contents.putInt(writtenSamples.get(i).size); // entry_size
+      }
     }
 
     contents.flip();

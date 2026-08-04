@@ -858,6 +858,39 @@ public class BoxesTest {
   }
 
   @Test
+  public void stsz_withIdenticallySizedSamples_matchesExpected() throws IOException {
+    List<BufferInfo> sampleBufferInfos = createBufferInfoListWithSampleSizes(150, 150, 150, 150);
+
+    ByteBuffer stszBox = Boxes.stsz(sampleBufferInfos);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(stszBox);
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedMp4DumpFilePath("stsz_box_with_identically_sized_samples"));
+  }
+
+  @Test
+  public void stsz_withIdenticallySizedSamples_omitsSampleTableAndSetsHeaderSampleSize()
+      throws Exception {
+    List<BufferInfo> sampleBufferInfos = createBufferInfoListWithSampleSizes(150, 150, 150, 150);
+
+    ByteBuffer stszBox = Boxes.stsz(sampleBufferInfos);
+
+    // Verify total box size is 20 bytes (8-byte header + 12-byte payload, omitting 4x4 entry array)
+    assertThat(stszBox.remaining()).isEqualTo(20);
+
+    // Parse ISO 14496-12 fields: version/flags (4 bytes), sample_size (4 bytes), sample_count (4
+    // bytes)
+    stszBox.position(12);
+    int sampleSize = stszBox.getInt();
+    int sampleCount = stszBox.getInt();
+
+    assertThat(sampleSize).isEqualTo(150);
+    assertThat(sampleCount).isEqualTo(4);
+  }
+
+  @Test
   public void createStscBox_withDifferentChunks_matchesExpected() throws IOException {
     ImmutableList<Integer> chunkSampleCounts = ImmutableList.of(100, 500, 200, 100);
 
