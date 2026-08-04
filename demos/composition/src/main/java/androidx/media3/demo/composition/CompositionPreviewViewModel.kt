@@ -814,7 +814,12 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
             val mediaItem =
               MediaItem.Builder()
                 .setUri(item.uri)
-                .setImageDurationMs(usToMs(item.durationUs)) // Ignored for audio/video
+                .setClippingConfiguration(
+                  MediaItem.ClippingConfiguration.Builder()
+                    .setStartPositionMs(0)
+                    .setEndPositionMs(usToMs(CLIPPED_DURATION_US))
+                    .build()
+                )
                 .build()
             val effectsForItem = mutableListOf<Effect>()
             for (effectName in item.selectedEffects) {
@@ -1144,6 +1149,8 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     // and provide a stable, readable real-time playback FPS value in the UI.
     private const val FPS_TRACKING_DURATION_MS = 3000L
     private const val DEFAULT_IMAGE_DURATION_US = 1_000_000L
+    // HACK: force every added media item to be clipped to a 200ms window (startMs=0, endMs=200).
+    private const val CLIPPED_DURATION_US = 200_000L
     val MEDIA_TYPES = arrayOf("video/*", "image/*", "audio/*")
     val HDR_MODE_DESCRIPTIONS =
       mapOf(
