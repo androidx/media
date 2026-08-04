@@ -118,13 +118,13 @@ import java.util.Objects;
   private static final int IMA_AD_STATE_NONE = 0;
 
   /**
-   * The ad playback state when IMA has called {@link ComponentListener#playAd(AdMediaInfo)} and not
-   * {@link ComponentListener##pauseAd(AdMediaInfo)}.
+   * The ad playback state when IMA has called {@link VideoAdPlayer#playAd(AdMediaInfo)} and not
+   * {@link VideoAdPlayer#pauseAd(AdMediaInfo)}.
    */
   private static final int IMA_AD_STATE_PLAYING = 1;
 
   /**
-   * The ad playback state when IMA has called {@link ComponentListener#pauseAd(AdMediaInfo)} while
+   * The ad playback state when IMA has called {@link VideoAdPlayer#pauseAd(AdMediaInfo)} while
    * playing an ad.
    */
   private static final int IMA_AD_STATE_PAUSED = 2;
@@ -200,9 +200,9 @@ import java.util.Objects;
 
   /**
    * If a content period has finished but IMA has not yet called {@link
-   * ComponentListener#playAd(AdMediaInfo)}, stores the value of {@link
-   * SystemClock#elapsedRealtime()} when the content stopped playing. This can be used to determine
-   * a fake, increasing content position. {@link C#TIME_UNSET} otherwise.
+   * VideoAdPlayer#playAd(AdMediaInfo)}, stores the value of {@link SystemClock#elapsedRealtime()}
+   * when the content stopped playing. This can be used to determine a fake, increasing content
+   * position. {@link C#TIME_UNSET} otherwise.
    */
   private long fakeContentProgressElapsedRealtimeMs;
 
@@ -216,7 +216,7 @@ import java.util.Objects;
   private long pendingContentPositionMs;
 
   /**
-   * Whether {@link ComponentListener#getContentProgress()} has sent {@link
+   * Whether {@link ContentProgressProvider#getContentProgress()} has sent {@link
    * #pendingContentPositionMs} to IMA.
    */
   private boolean sentPendingContentPositionMs;

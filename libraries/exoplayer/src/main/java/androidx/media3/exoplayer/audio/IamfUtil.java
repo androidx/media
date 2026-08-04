@@ -378,9 +378,9 @@ public final class IamfUtil {
    * @param useIntegratedBinauralRenderer When it seems the user is using headphones (because {@link
    *     AudioCapabilities#getSpatializerChannelMasks()} is non-empty), if {@code
    *     useIntegratedBinauralRenderer} is {@code true}, this method will return {@link
-   *     OUTPUT_LAYOUT_BINAURAL} to get binaural audio directly from the decoder, otherwise, it will
-   *     return an output layout appropriate for the {@link android.media.Spatializer} based on the
-   *     available Spatializer channel masks.
+   *     #OUTPUT_LAYOUT_BINAURAL} to get binaural audio directly from the decoder, otherwise, it
+   *     will return an output layout appropriate for the {@link android.media.Spatializer} based on
+   *     the available Spatializer channel masks.
    */
   public static @OutputLayout int getOutputLayoutForCurrentConfiguration(
       AudioCapabilities audioCapabilities, boolean useIntegratedBinauralRenderer) {

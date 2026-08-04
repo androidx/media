@@ -34,6 +34,7 @@ import androidx.media3.transformer.Codec;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.DefaultEncoderFactory;
 import androidx.media3.transformer.DefaultMuxer;
+import androidx.media3.transformer.ExportException;
 import androidx.media3.transformer.ExportResult;
 import androidx.media3.transformer.Transformer;
 import com.google.common.collect.ImmutableList;

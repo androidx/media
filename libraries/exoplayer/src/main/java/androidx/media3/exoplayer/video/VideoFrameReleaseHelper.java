@@ -74,11 +74,7 @@ public final class VideoFrameReleaseHelper {
   private boolean started;
   @Nullable private Surface surface;
 
-  /**
-   * The media frame rate used to calculate the playback frame rate of the {@link Surface}. This may
-   * be different to {@link #formatFrameRate} if {@link #formatFrameRate} is unspecified or
-   * inaccurate.
-   */
+  /** The media frame rate used to calculate the playback frame rate of the {@link Surface}. */
   private float surfaceMediaFrameRate;
 
   /** The playback frame rate set on the {@link Surface}. */

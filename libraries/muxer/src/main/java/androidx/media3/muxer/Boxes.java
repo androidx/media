@@ -1356,7 +1356,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return BoxUtils.wrapIntoBox("trun", contents);
   }
 
-  /** Returns the size required for {@link #trun(int, List, int, boolean)} box content. */
+  /** Returns the size required for {@link #trun} box content. */
   public static int getTrunBoxContentSize(int sampleCount, boolean hasBFrame) {
     int trunBoxFixedSize = 3 * BYTES_PER_INTEGER;
     int intWrittenPerSample = hasBFrame ? 4 : 3;
