@@ -38,10 +38,11 @@
   <string name="trim" translatable="false">Trim</string>
   <string name="hdr_mode" translatable="false">HDR mode</string>
   <string name="enable_trim_optimization" translatable="false">Enable trim optimization</string>
-  <string name="enable_packet_processor" translatable="false">Enable Packet Processor</string>
+  <string name="enable_frame_processor" translatable="false">Enable FrameProcessor</string>
   <string name="enable_mp4_edit_list_trimming" translatable="false">Enable MP4 edit list trimming</string>
   <string name="enable_codecdb_lite" translatable="false">Enable CodecDB Lite</string>
   <string name="error_select_track_type" translatable="false">At least one track must be enabled to start export.</string>
+  <string name="api_28_required_frame_processor" translatable="false">API 28+ required for using FrameProcessor</string>
   <string name="select_audio_effects" translatable="false">Add audio effects</string>
   <string name="select_video_effects" translatable="false">Add video effects</string>
   <string name="periodic_vignette_options" translatable="false">Periodic vignette options</string>

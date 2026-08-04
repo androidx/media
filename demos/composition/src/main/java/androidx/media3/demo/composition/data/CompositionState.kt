@@ -122,7 +122,7 @@ data class Gap(override val durationUs: Long) : Item {
  */
 @OptIn(UnstableApi::class)
 data class OutputSettingsState(
-  val frameConsumerEnabled: Boolean = false,
+  val frameProcessorEnabled: Boolean = false,
   val includeBackgroundAudio: Boolean = false,
   val resolutionHeight: String,
   val hdrMode: Int,

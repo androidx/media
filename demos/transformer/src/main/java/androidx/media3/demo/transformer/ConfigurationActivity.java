@@ -104,7 +104,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
   public static final String TEXT_OVERLAY_TEXT = "text_overlay_text";
   public static final String TEXT_OVERLAY_TEXT_COLOR = "text_overlay_text_color";
   public static final String TEXT_OVERLAY_ALPHA = "text_overlay_alpha";
-  public static final String ENABLE_PACKET_PROCESSOR = "enable_packet_processor";
+  public static final String ENABLE_FRAME_PROCESSOR = "enable_frame_processor";
   public static final String FRAME_AGGREGATION_FPS = "frame_aggregation_fps";
 
   // Video effect selections.
@@ -189,7 +189,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
   private CheckBox produceFragmentedMp4;
   private Spinner hdrModeSpinner;
   private CheckBox enableTrimOptimization;
-  private CheckBox enablePacketProcessorCheckBox;
+  private CheckBox enableFrameProcessorCheckBox;
   private CheckBox enableMp4EditListTrimming;
   private CheckBox enableCodecDbLite;
   private Button selectAudioEffectsButton;
@@ -330,11 +330,15 @@ public final class ConfigurationActivity extends AppCompatActivity {
             enableMp4EditListTrimming.setChecked(false);
           }
         });
-    enablePacketProcessorCheckBox = findViewById(R.id.enable_packet_processor);
+    enableFrameProcessorCheckBox = findViewById(R.id.enable_frame_processor);
     View frameAggregationFpsRow = findViewById(R.id.frame_aggregation_fps_row);
-    enablePacketProcessorCheckBox.setOnCheckedChangeListener(
+    enableFrameProcessorCheckBox.setOnCheckedChangeListener(
         (buttonView, isChecked) ->
             frameAggregationFpsRow.setVisibility(isChecked ? View.VISIBLE : View.GONE));
+    if (SDK_INT < 28) {
+      enableFrameProcessorCheckBox.setEnabled(false);
+      findViewById(R.id.enable_frame_processor_hint).setVisibility(View.VISIBLE);
+    }
     enableMp4EditListTrimming.setOnCheckedChangeListener(
         (buttonView, isChecked) -> {
           if (isChecked) {
@@ -440,7 +444,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
     bundle.putBoolean(ABORT_SLOW_EXPORT, abortSlowExportCheckBox.isChecked());
     bundle.putBoolean(PRODUCE_FRAGMENTED_MP4, produceFragmentedMp4.isChecked());
     bundle.putBoolean(ENABLE_TRIM_OPTIMIZATION, enableTrimOptimization.isChecked());
-    bundle.putBoolean(ENABLE_PACKET_PROCESSOR, enablePacketProcessorCheckBox.isChecked());
+    bundle.putBoolean(ENABLE_FRAME_PROCESSOR, enableFrameProcessorCheckBox.isChecked());
     bundle.putBoolean(ENABLE_MP4_EDIT_LIST_TRIMMING, enableMp4EditListTrimming.isChecked());
     bundle.putBoolean(ENABLE_CODECDB_LITE, enableCodecDbLite.isChecked());
     String selectedHdrMode = String.valueOf(hdrModeSpinner.getSelectedItem());
@@ -464,7 +468,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
     bundle.putString(TEXT_OVERLAY_TEXT, textOverlayText);
     bundle.putInt(TEXT_OVERLAY_TEXT_COLOR, textOverlayTextColor);
     bundle.putFloat(TEXT_OVERLAY_ALPHA, textOverlayAlpha);
-    if (enablePacketProcessorCheckBox.isChecked()) {
+    if (enableFrameProcessorCheckBox.isChecked()) {
       String frameAggregationFps = frameAggregationFpsEditText.getText().toString().trim();
       if (!frameAggregationFps.isEmpty()) {
         try {

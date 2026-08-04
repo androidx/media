@@ -15,6 +15,7 @@
  */
 package androidx.media3.demo.composition.ui
 
+import android.os.Build.VERSION.SDK_INT
 import android.view.SurfaceView
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
@@ -191,13 +192,24 @@ internal fun CompositionPreviewPane(
         horizontalArrangement = Arrangement.SpaceBetween,
         modifier = Modifier.fillMaxWidth(),
       ) {
-        Text(
-          text = stringResource(R.string.frame_consumer_enabled),
-          modifier = Modifier.textPadding(),
-        )
+        Column {
+          Text(
+            text = stringResource(R.string.frame_processor_enabled),
+            modifier = Modifier.textPadding(),
+          )
+          if (SDK_INT < 28) {
+            Text(
+              text = stringResource(R.string.api_28_required_frame_processor),
+              style = MaterialTheme.typography.labelSmall,
+              color = MaterialTheme.colorScheme.outline,
+              modifier = Modifier.textPadding(),
+            )
+          }
+        }
         Switch(
-          checked = uiState.outputSettingsState.frameConsumerEnabled,
-          onCheckedChange = { isEnabled -> viewModel.onFrameConsumerEnabledChanged(isEnabled) },
+          checked = uiState.outputSettingsState.frameProcessorEnabled,
+          onCheckedChange = { isEnabled -> viewModel.onFrameProcessorEnabledChanged(isEnabled) },
+          enabled = SDK_INT >= 28,
         )
       }
 

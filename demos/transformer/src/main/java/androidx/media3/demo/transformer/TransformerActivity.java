@@ -369,9 +369,10 @@ public final class TransformerActivity extends AppCompatActivity {
   private Transformer createTransformer(@Nullable Bundle bundle, Uri inputUri, String filePath) {
     Transformer.Builder transformerBuilder;
 
-    if (bundle != null && bundle.getBoolean(ConfigurationActivity.ENABLE_PACKET_PROCESSOR)) {
+    if (bundle != null && bundle.getBoolean(ConfigurationActivity.ENABLE_FRAME_PROCESSOR)) {
       if (SDK_INT < 28) {
-        throw new UnsupportedOperationException("API28 required for using FrameProcessor");
+        throw new UnsupportedOperationException(
+            getString(R.string.api_28_required_frame_processor));
       }
       glExecutorService = listeningDecorator(newSingleThreadExecutor("Transformer:Effect"));
       glObjectsProvider = new DefaultGlObjectsProvider();

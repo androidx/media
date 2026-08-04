@@ -118,9 +118,9 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   val EXPORT_STARTED_MESSAGE = application.resources.getString(R.string.export_started)
   val FAILED_LOAD_MEDIA_MESSAGE = application.resources.getString(R.string.failed_load_media)
   val FAILED_GET_DURATION_MESSAGE = application.resources.getString(R.string.failed_get_duration)
-  val API_33_REQUIRED_MESSAGE =
-    application.resources.getString(R.string.api_33_required_packet_consumer)
-  internal var frameConsumerEnabled: Boolean = false
+  val API_28_REQUIRED_MESSAGE =
+    application.resources.getString(R.string.api_28_required_frame_processor)
+  internal var frameProcessorEnabled: Boolean = false
   internal var surfaceView: SurfaceView? = null
   private var transformer: Transformer? = null
   private var playbackGlExecutorService: ListeningExecutorService? = null
@@ -336,10 +336,10 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     DebugTraceUtil.enableTracing = enable
   }
 
-  fun onFrameConsumerEnabledChanged(isEnabled: Boolean) {
+  fun onFrameProcessorEnabledChanged(isEnabled: Boolean) {
     _uiState.update {
       it.copy(
-        outputSettingsState = it.outputSettingsState.copy(frameConsumerEnabled = isEnabled),
+        outputSettingsState = it.outputSettingsState.copy(frameProcessorEnabled = isEnabled),
         isCompositionSet = false,
       )
     }
@@ -588,10 +588,10 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
 
   fun setComposition() {
     val composition = prepareComposition() ?: return
-    val isFrameConsumerEnabled =
-      frameConsumerEnabled && uiState.value.outputSettingsState.frameConsumerEnabled
+    val isFrameProcessorEnabled =
+      frameProcessorEnabled && uiState.value.outputSettingsState.frameProcessorEnabled
     // Recreate the player if it isn't prepared or if the FrameProcessor is disabled.
-    if (!playerPrepared || !isFrameConsumerEnabled) {
+    if (!playerPrepared || !isFrameProcessorEnabled) {
       releaseAndRecreatePlayer()
     }
     preparedComposition = composition
@@ -639,12 +639,9 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     val filePath = outputFile!!.absolutePath
 
     val transformerBuilder =
-      if (uiState.value.outputSettingsState.frameConsumerEnabled) {
-        if (SDK_INT < 33) {
-          _uiState.update {
-            it.copy(snackbarMessage = API_33_REQUIRED_MESSAGE, isCompositionSet = false)
-          }
-          return
+      if (uiState.value.outputSettingsState.frameProcessorEnabled) {
+        if (SDK_INT < 28) {
+          throw UnsupportedOperationException(API_28_REQUIRED_MESSAGE)
         }
         if (exportGlExecutorService == null) {
           val glResources = setupGlResources("Export:Effect")
@@ -868,7 +865,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     }
 
     val compositionBuilder = Composition.Builder(sequences).setHdrMode(settings.hdrMode)
-    if (settings.frameConsumerEnabled) {
+    if (settings.frameProcessorEnabled) {
       val frameAggregationFpsStr = settings.frameAggregationFps.trim()
       if (frameAggregationFpsStr.isNotEmpty()) {
         val frameAggregationFps = frameAggregationFpsStr.toDoubleOrNull()
@@ -987,8 +984,11 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
 
   private fun createCompositionPlayer(): CompositionPlayer {
     val playerBuilder: CompositionPlayer.Builder
-    frameConsumerEnabled = uiState.value.outputSettingsState.frameConsumerEnabled
-    if (uiState.value.outputSettingsState.frameConsumerEnabled && SDK_INT >= 28) {
+    frameProcessorEnabled = uiState.value.outputSettingsState.frameProcessorEnabled
+    if (uiState.value.outputSettingsState.frameProcessorEnabled) {
+      if (SDK_INT < 28) {
+        throw UnsupportedOperationException(API_28_REQUIRED_MESSAGE)
+      }
       if (playbackGlExecutorService == null) {
         val glResources = setupGlResources("Preview:Effect")
         playbackGlExecutorService = glResources.first

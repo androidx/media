@@ -92,7 +92,7 @@ internal fun OutputSettings(
         },
       )
     }
-    if (outputSettings.frameConsumerEnabled) {
+    if (outputSettings.frameProcessorEnabled) {
       Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
