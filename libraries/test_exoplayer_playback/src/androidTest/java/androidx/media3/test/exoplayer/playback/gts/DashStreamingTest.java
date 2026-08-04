@@ -109,6 +109,18 @@ public final class DashStreamingTest {
           .clearVideoSurface()
           .delay(10000)
           .setVideoSurface()
+          // Wait 10 seconds, then detach and attach the surface 5 times in quick succession.
+          .delay(10000)
+          .clearVideoSurface()
+          .setVideoSurface()
+          .clearVideoSurface()
+          .setVideoSurface()
+          .clearVideoSurface()
+          .setVideoSurface()
+          .clearVideoSurface()
+          .setVideoSurface()
+          .clearVideoSurface()
+          .setVideoSurface()
           // Wait 10 seconds, then seek to near end.
           .delay(10000)
           .seek(120000)
