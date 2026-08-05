@@ -448,6 +448,20 @@ public final class BoxParser {
       GaplessInfoHolder gaplessInfoHolder,
       boolean omitTrackSampleTable)
       throws ParserException {
+    // Computed and applied to track up front, before any of the return paths below (including
+    // the sampleCount==0 and omitTrackSampleTable ones), so all of them carry the correct flag --
+    // this doesn't depend on anything computed later in this method. See the field's javadoc for
+    // what NO_VALUE-vs-0 means here.
+    boolean hasReliablePresentationTimestamps =
+        !(track.type == C.TRACK_TYPE_VIDEO
+            && stblBox.getLeafBoxOfType(Mp4Box.TYPE_ctts) == null
+            && track.format.maxNumReorderSamples != 0);
+    if (!hasReliablePresentationTimestamps) {
+      track =
+          track.copyWithFormat(
+              track.format.buildUpon().setHasReliablePresentationTimestamps(false).build());
+    }
+
     SampleSizeBox sampleSizeBox;
     @Nullable LeafBox stszAtom = stblBox.getLeafBoxOfType(Mp4Box.TYPE_stsz);
     if (stszAtom != null) {
@@ -961,23 +975,10 @@ public final class BoxParser {
     }
     long editedDurationUs =
         Util.scaleLargeTimestamp(pts, C.MICROS_PER_SECOND, track.movieTimescale);
-    // No ctts means no real per-sample composition time was ever recorded (see
-    // https://github.com/androidx/media/issues/3347) — every sample's timestamp is just decode
-    // time, which only matters if the bitstream actually reorders frames. maxNumReorderSamples
-    // (from the SPS, not the container) is 0 only when we positively know it doesn't; treat
-    // NO_VALUE (couldn't be determined) the same as "might reorder", not as "doesn't".
-    boolean hasReliablePresentationTimestamps =
-        !(track.type == C.TRACK_TYPE_VIDEO
-            && ctts == null
-            && track.format.maxNumReorderSamples != 0);
-    if (hasPrerollSamples || !hasReliablePresentationTimestamps) {
-      Format format =
-          track
-              .format
-              .buildUpon()
-              .setHasPrerollSamples(hasPrerollSamples || track.format.hasPrerollSamples)
-              .setHasReliablePresentationTimestamps(hasReliablePresentationTimestamps)
-              .build();
+    // hasReliablePresentationTimestamps was already applied to track's format at the top of this
+    // method; only hasPrerollSamples (which isn't known until now) remains to apply here.
+    if (hasPrerollSamples) {
+      Format format = track.format.buildUpon().setHasPrerollSamples(true).build();
       track = track.copyWithFormat(format);
     }
     return new TrackSampleTable(
