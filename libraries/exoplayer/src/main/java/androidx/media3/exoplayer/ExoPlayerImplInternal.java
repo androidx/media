@@ -1470,7 +1470,6 @@ import java.util.Objects;
 
     boolean renderersEnded = true;
     boolean renderersAllowPlayback = true;
-    boolean hasActiveVideoOrImageRenderer = false;
     if (playingPeriodHolder.prepared) {
       rendererPositionElapsedRealtimeUs = msToUs(clock.elapsedRealtime());
       playingPeriodHolder.mediaPeriod.discardBuffer(
@@ -1488,13 +1487,6 @@ import java.util.Objects;
         // getting stuck if tracks in the current period have uneven durations and are still being
         // read by another renderer. See: https://github.com/google/ExoPlayer/issues/1874.
         renderersEnded = renderersEnded && renderer.isEnded();
-        if (seekIsPendingWhileScrubbing
-            && renderer.isRendererEnabled()
-            && (renderer.getTrackType() == C.TRACK_TYPE_VIDEO
-                || renderer.getTrackType() == C.TRACK_TYPE_IMAGE)
-            && !renderer.isEnded()) {
-          hasActiveVideoOrImageRenderer = true;
-        }
         boolean allowsPlayback = renderer.allowsPlayback(playingPeriodHolder);
         maybeTriggerOnRendererReadyChanged(/* rendererIndex= */ i, allowsPlayback);
         renderersAllowPlayback = renderersAllowPlayback && allowsPlayback;
@@ -1502,11 +1494,7 @@ import java.util.Objects;
           maybeThrowRendererStreamError(/* rendererIndex= */ i);
         }
       }
-      if (seekIsPendingWhileScrubbing
-          && !hasActiveVideoOrImageRenderer
-          && !handler.hasMessages(MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE)) {
-        handler.obtainMessage(MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE).sendToTarget();
-      }
+      maybeEndPendingScrubbingSeek();
     } else {
       playingPeriodHolder.mediaPeriod.maybeThrowPrepareError();
     }
@@ -1607,6 +1595,24 @@ import java.util.Objects;
               analyticsCollector.onRendererReadyChanged(
                   rendererIndex, renderers[rendererIndex].getTrackType(), allowsPlayback));
     }
+  }
+
+  private void maybeEndPendingScrubbingSeek() {
+    if (!seekIsPendingWhileScrubbing || handler.hasMessages(MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE)) {
+      return;
+    }
+    for (RendererHolder renderer : renderers) {
+      if (renderer.isRendererEnabled()
+          && (renderer.getTrackType() == C.TRACK_TYPE_VIDEO
+              || renderer.getTrackType() == C.TRACK_TYPE_IMAGE)
+          && !renderer.isEnded()) {
+        return;
+      }
+    }
+    // A pending seek in scrubbing mode normally completes when the next video frame or image is
+    // rendered. If all relevant renderers have ended, no frame will be rendered, so complete the
+    // seek immediately to avoid stalling subsequent seeks.
+    handler.obtainMessage(MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE).sendToTarget();
   }
 
   private long getCurrentLiveOffsetUs() {
