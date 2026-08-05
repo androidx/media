@@ -116,26 +116,9 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
       if (currentFrame == null) {
         HardwareBuffer buffer = null;
         try {
-          if (SDK_INT >= 31) {
-            if (nextBitmap.getConfig() == Config.HARDWARE) {
-              // Input is HARDWARE and API >= 31: Direct access to HardwareBuffer is possible.
-              buffer = nextBitmap.getHardwareBuffer();
-            } else {
-              // Input is not HARDWARE and API >= 31: We can create a HARDWARE Bitmap copy
-              // and get its HardwareBuffer.
-              Bitmap hwCopy = nextBitmap.copy(Config.HARDWARE, /* isMutable= */ false);
-              if (hwCopy != null) {
-                buffer = hwCopy.getHardwareBuffer();
-                // Discard the buffer if the HARDWARE copy silently downgraded an HDR
-                // bitmap's bit depth. The CPU-copy fallback preserves the source pixel
-                // format.
-                if (buffer != null
-                    && buffer.getFormat() != getHardwareBufferPixelFormat(nextBitmap.getConfig())) {
-                  buffer.close();
-                  buffer = null;
-                }
-              }
-            }
+          if (SDK_INT >= 31 && nextBitmap.getConfig() == Config.HARDWARE) {
+            // Input is HARDWARE and API >= 31: Direct access to HardwareBuffer is possible.
+            buffer = nextBitmap.getHardwareBuffer();
           }
           // Fallback to the native helper when the HardwareBuffer retrieved from the Bitmap was
           // null, or SDK_INT < 31.
@@ -146,6 +129,7 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
               // and then copy that to a new HardwareBuffer via JNI.
               Bitmap softwareBitmap = nextBitmap.copy(Config.ARGB_8888, /* isMutable= */ false);
               buffer = copyCpuBitmapToHardwareBuffer(softwareBitmap, hardwareBufferJniWrapper);
+              softwareBitmap.recycle();
             } else {
               // Input is not HARDWARE: Copy the software Bitmap to a new HardwareBuffer via JNI.
               buffer = copyCpuBitmapToHardwareBuffer(nextBitmap, hardwareBufferJniWrapper);
@@ -239,15 +223,18 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
 
   /**
    * Returns the {@link HardwareBuffer} pixel format that matches the source bit depth of the given
-   * {@link Bitmap.Config}. Falls back to {@link HardwareBuffer#RGBA_8888} for configs whose bit
-   * depth is 8 bpc or unknown.
+   * {@link Bitmap.Config} on API 33+. Falls back to {@link HardwareBuffer#RGBA_8888} for configs
+   * whose bit depth is 8 bpc or unknown, or on API levels below 33.
    */
+  // TODO: b/545085046 - Investigate supporting RGBA_FP16 on API 30-32.
   private static int getHardwareBufferPixelFormat(@Nullable Config config) {
-    if (SDK_INT >= 33 && config == Config.RGBA_1010102) {
-      return HardwareBuffer.RGBA_1010102;
-    }
-    if (config == Config.RGBA_F16) {
-      return HardwareBuffer.RGBA_FP16;
+    if (SDK_INT >= 33) {
+      if (config == Config.RGBA_1010102) {
+        return HardwareBuffer.RGBA_1010102;
+      }
+      if (config == Config.RGBA_F16) {
+        return HardwareBuffer.RGBA_FP16;
+      }
     }
     return HardwareBuffer.RGBA_8888;
   }

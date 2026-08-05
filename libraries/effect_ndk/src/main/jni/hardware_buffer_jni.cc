@@ -156,10 +156,10 @@ jboolean nativeCopyBitmapToHardwareBuffer(JNIEnv* env, jobject /* this */,
   }
 
   if (bitmapInfo.format != ANDROID_BITMAP_FORMAT_RGBA_8888 &&
-      bitmapInfo.format != ANDROID_BITMAP_FORMAT_RGBA_1010102) {
+      bitmapInfo.format != ANDROID_BITMAP_FORMAT_RGBA_1010102 &&
+      bitmapInfo.format != ANDROID_BITMAP_FORMAT_RGBA_F16) {
     LOGE(
-        "Unsupported bitmap format: %d. Only RGBA_8888 and RGBA_1010102 are "
-        "supported.",
+        "Unsupported bitmap format: %d. Only RGBA_8888, RGBA_1010102, and RGBA_F16 are supported.",
         bitmapInfo.format);
     return JNI_FALSE;
   }
@@ -171,10 +171,18 @@ jboolean nativeCopyBitmapToHardwareBuffer(JNIEnv* env, jobject /* this */,
     return JNI_FALSE;
   }
 
-  uint32_t expectedHbFormat =
-      (bitmapInfo.format == ANDROID_BITMAP_FORMAT_RGBA_1010102)
-          ? AHARDWAREBUFFER_FORMAT_R10G10B10A2_UNORM
-          : AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM;
+  uint32_t expectedHbFormat;
+  int bpp;
+  if (bitmapInfo.format == ANDROID_BITMAP_FORMAT_RGBA_1010102) {
+    expectedHbFormat = AHARDWAREBUFFER_FORMAT_R10G10B10A2_UNORM;
+    bpp = 4;
+  } else if (bitmapInfo.format == ANDROID_BITMAP_FORMAT_RGBA_F16) {
+    expectedHbFormat = AHARDWAREBUFFER_FORMAT_R16G16B16A16_FLOAT;
+    bpp = 8;
+  } else {
+    expectedHbFormat = AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM;
+    bpp = 4;
+  }
 
   if (hbDesc.format != expectedHbFormat) {
     LOGE(
@@ -203,8 +211,6 @@ jboolean nativeCopyBitmapToHardwareBuffer(JNIEnv* env, jobject /* this */,
     uint8_t* src = static_cast<uint8_t*>(bitmapPixels);
     uint8_t* dst = static_cast<uint8_t*>(hbPixels);
 
-    // Both RGBA_8888 and RGBA_1010102 formats are 32-bit (4 bytes per pixel).
-    const int bpp = 4;
     const size_t rowSize = bitmapInfo.width * bpp;
 
     for (uint32_t y = 0; y < bitmapInfo.height; ++y) {
@@ -268,10 +274,12 @@ jboolean nativeCopyHardwareBufferToHardwareBuffer(JNIEnv* env,
   if (srcDesc.format == AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM ||
       srcDesc.format == AHARDWAREBUFFER_FORMAT_R10G10B10A2_UNORM) {
     bpp = 4;
+  } else if (srcDesc.format == AHARDWAREBUFFER_FORMAT_R16G16B16A16_FLOAT) {
+    bpp = 8;
   } else {
     LOGE(
-        "Unsupported hardware buffer format: %u. Only RGBA_8888 and "
-        "RGBA_1010102 are supported.",
+        "Unsupported hardware buffer format: %u. Only RGBA_8888, "
+        "RGBA_1010102, and RGBA_FP16 are supported.",
         srcDesc.format);
     return JNI_FALSE;
   }
