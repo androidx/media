@@ -1656,8 +1656,15 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     }
 
     if (getTrackType() == C.TRACK_TYPE_VIDEO
-        && inputFormat != null
-        && !inputFormat.hasReliablePresentationTimestamps) {
+        && codecInputFormat != null
+        && !codecInputFormat.hasReliablePresentationTimestamps
+        && !getConfiguration().tunneling) {
+      // codecInputFormat, not inputFormat: this must describe the format actually governing the
+      // buffer being queued right now, which during a full codec reinit can briefly lag behind
+      // inputFormat (see drainOutputBuffer's matching check). Skipped entirely in tunneling mode,
+      // where drainOutputBuffer -- and so the corresponding pop -- never runs at all; queueing
+      // here without ever draining would just grow this unboundedly.
+      //
       // Must run before the += skippedFlushOffsetUs below, to match the scale drainOutputBuffer
       // converts dequeued timestamps back to.
       arrivalOrderPtsQueue.addLast(presentationTimeUs);
@@ -2269,10 +2276,13 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       }
 
       if (getTrackType() == C.TRACK_TYPE_VIDEO
-          && inputFormat != null
-          && !inputFormat.hasReliablePresentationTimestamps
+          && codecInputFormat != null
+          && !codecInputFormat.hasReliablePresentationTimestamps
           && !arrivalOrderPtsQueue.isEmpty()) {
-        // See arrivalOrderPtsQueue's declaration.
+        // codecInputFormat, not inputFormat -- see the matching check in feedInputBuffer. No
+        // tunneling check needed here: in tunneling mode this method isn't called at all (see
+        // updateOutputFormatForTime's javadoc), so the push side already prevents anything from
+        // reaching this queue to begin with.
         outputBufferInfo.presentationTimeUs = arrivalOrderPtsQueue.removeFirst();
       }
 
