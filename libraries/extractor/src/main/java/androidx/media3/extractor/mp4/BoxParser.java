@@ -962,9 +962,14 @@ public final class BoxParser {
     long editedDurationUs =
         Util.scaleLargeTimestamp(pts, C.MICROS_PER_SECOND, track.movieTimescale);
     // No ctts means no real per-sample composition time was ever recorded (see
-    // https://github.com/androidx/media/issues/3347) — every sample's timestamp is just decode time.
+    // https://github.com/androidx/media/issues/3347) — every sample's timestamp is just decode
+    // time, which only matters if the bitstream actually reorders frames. maxNumReorderSamples
+    // (from the SPS, not the container) is 0 only when we positively know it doesn't; treat
+    // NO_VALUE (couldn't be determined) the same as "might reorder", not as "doesn't".
     boolean hasReliablePresentationTimestamps =
-        !(track.type == C.TRACK_TYPE_VIDEO && ctts == null);
+        !(track.type == C.TRACK_TYPE_VIDEO
+            && ctts == null
+            && track.format.maxNumReorderSamples != 0);
     if (hasPrerollSamples || !hasReliablePresentationTimestamps) {
       Format format =
           track
