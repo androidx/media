@@ -422,18 +422,18 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   // B-frame reordering but no ctts box, where every sample's presentationTimeUs is just its
   // decode time. MediaCodec faithfully echoes back whatever (unreliable) timestamp it was
   // queued with, so the codec's raw output can look non-monotonic even though its buffer
-  // *release order* is correct. Re-deriving each buffer's timestamp from its release order and
-  // the stream's known frame duration corrects this without reordering or holding buffers — this
-  // is a best-effort reconstruction for a source that has already told us it doesn't know the
-  // real answer, not a workaround for a specific decoder defect (see
-  // https://github.com/androidx/media/issues/3347).
-  // Kept unrounded and only rounded per-frame at the point of use (see below) — rounding this
-  // once and multiplying by a growing frame index would accumulate error linearly over the
-  // life of the stream (e.g. ~0.33us/frame for 24000/1001fps content is only 0.7ms over a 90s
-  // clip, but ~58ms over a 2-hour movie).
-  private double arrivalOrderPtsFrameDurationUs = -1;
-  private long arrivalOrderPtsBaseUs = C.TIME_UNSET;
-  private long arrivalOrderPtsFrameIndex;
+  // *release order* is correct.
+  //
+  // Re-associating each dequeued output buffer with the presentationTimeUs of the next
+  // input buffer *in queue order* (not the codec's own echoed value) corrects this without
+  // reordering or holding buffers. This mirrors what a completely independent player (VLC, via
+  // its MP4 demuxer + a FIFO of queued-but-not-yet-consumed timestamps) already does for exactly
+  // this situation. Queue order is always monotonic by construction (it's a direct echo of the
+  // container's decode-time-to-sample table), and — importantly — this preserves each sample's
+  // *real* duration exactly as declared by the container: unlike re-deriving from a single
+  // assumed constant frame rate, this does not corrupt genuinely variable-frame-rate content
+  // (where Format#frameRate is at best an average, not a true per-sample value).
+  private final ArrayDeque<Long> arrivalOrderPtsQueue = new ArrayDeque<>();
 
   /**
    * @param context A context.
@@ -1129,8 +1129,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         codecReconfigured ? RECONFIGURATION_STATE_WRITE_PENDING : RECONFIGURATION_STATE_NONE;
     hasSkippedFlushAndWaitingForQueueInputBuffer = false;
     skippedFlushOffsetUs = 0;
-    arrivalOrderPtsBaseUs = C.TIME_UNSET;
-    arrivalOrderPtsFrameIndex = 0;
+    arrivalOrderPtsQueue.clear();
   }
 
   /**
@@ -1668,6 +1667,14 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       hasSkippedFlushAndWaitingForQueueInputBuffer = false;
     }
 
+    if (getTrackType() == C.TRACK_TYPE_VIDEO
+        && inputFormat != null
+        && !inputFormat.hasReliablePresentationTimestamps) {
+      // Recorded in the same (pre skippedFlushOffsetUs) scale that drainOutputBuffer converts
+      // dequeued output timestamps back to, so it can be substituted directly for the codec's
+      // own echoed value there. See arrivalOrderPtsQueue's declaration for why.
+      arrivalOrderPtsQueue.addLast(presentationTimeUs);
+    }
     onQueueInputBuffer(buffer);
     int flags = getCodecBufferFlags(buffer);
     presentationTimeUs += skippedFlushOffsetUs;
@@ -2277,24 +2284,13 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       if (getTrackType() == C.TRACK_TYPE_VIDEO
           && inputFormat != null
           && !inputFormat.hasReliablePresentationTimestamps
-          && inputFormat.frameRate != Format.NO_VALUE
-          && inputFormat.frameRate > 0) {
-        if (arrivalOrderPtsFrameDurationUs < 0) {
-          arrivalOrderPtsFrameDurationUs = 1_000_000.0 / inputFormat.frameRate;
-        }
-        if (arrivalOrderPtsBaseUs == C.TIME_UNSET) {
-          // Anchor to the first real output buffer's own reported timestamp; only the spacing
-          // of subsequent buffers is re-derived, not the absolute position in the stream.
-          arrivalOrderPtsBaseUs = outputBufferInfo.presentationTimeUs;
-          arrivalOrderPtsFrameIndex = 0;
-        } else {
-          arrivalOrderPtsFrameIndex++;
-          // Round only the final offset, not the per-frame duration, so rounding error can't
-          // accumulate across the length of the stream.
-          outputBufferInfo.presentationTimeUs =
-              arrivalOrderPtsBaseUs
-                  + Math.round(arrivalOrderPtsFrameIndex * arrivalOrderPtsFrameDurationUs);
-        }
+          && !arrivalOrderPtsQueue.isEmpty()) {
+        // Replace the codec's own (unreliable, possibly-reordered) echoed timestamp with the
+        // presentationTimeUs of the next sample in queue order. Queue order is a direct echo of
+        // the container's decode-time-to-sample table, so it's always monotonic and always
+        // reflects each sample's true declared duration — including on genuinely
+        // variable-frame-rate content, where a single Format#frameRate value would not.
+        outputBufferInfo.presentationTimeUs = arrivalOrderPtsQueue.removeFirst();
       }
 
       this.outputIndex = outputIndex;
