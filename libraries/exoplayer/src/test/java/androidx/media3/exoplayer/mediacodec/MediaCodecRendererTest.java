@@ -939,6 +939,41 @@ public class MediaCodecRendererTest {
     assertThat(stringListCaptor.getValue()).containsExactly("key1", "key2");
   }
 
+  @Test
+  public void feedInputBuffer_withUnreliablePtsAndTunneling_doesNotGrowArrivalOrderPtsQueue()
+      throws Exception {
+    // In tunneling mode drainOutputBuffer -- and so the queue's pop side -- never runs (see its
+    // javadoc), so feedInputBuffer must skip pushing altogether or the queue grows unboundedly for
+    // the life of the session. Track type must be video: the guard is a no-op for other types.
+    Format unreliablePtsVideo =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setHasReliablePresentationTimestamps(false)
+            .build();
+    FakeSampleStream fakeSampleStream =
+        createFakeSampleStream(unreliablePtsVideo, /* sampleTimesUs...= */ 0, 100, 200);
+    VideoTestRenderer renderer = new VideoTestRenderer();
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    renderer.enable(
+        new RendererConfiguration(/* tunneling= */ true),
+        new Format[] {unreliablePtsVideo},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.start();
+    long positionUs = 0;
+    while (!renderer.hasReadStreamToEnd()) {
+      renderer.render(positionUs, SystemClock.elapsedRealtime());
+      positionUs += 100;
+    }
+
+    assertThat(renderer.getArrivalOrderPtsQueueSizeForTesting()).isEqualTo(0);
+  }
+
   private TestRenderer setUpAndEnableRenderer(Format format) throws Exception {
     MediaCodecAdapter mockCodecAdapter = mock(MediaCodecAdapter.class);
     MediaCodecAdapter.Factory mockCodecAdapterFactory = configuration -> mockCodecAdapter;
@@ -1064,6 +1099,107 @@ public class MediaCodecRendererTest {
       applyCodecParametersToMediaFormat(mediaFormat);
       return MediaCodecAdapter.Configuration.createForAudioDecoding(
           codecInfo, mediaFormat, format, crypto, /* loudnessCodecController= */ null);
+    }
+
+    @Override
+    protected boolean processOutputBuffer(
+        long positionUs,
+        long elapsedRealtimeUs,
+        @Nullable MediaCodecAdapter codec,
+        @Nullable ByteBuffer buffer,
+        int bufferIndex,
+        int bufferFlags,
+        int sampleCount,
+        long bufferPresentationTimeUs,
+        boolean isDecodeOnlyBuffer,
+        boolean isLastBuffer,
+        Format format)
+        throws ExoPlaybackException {
+      if (bufferPresentationTimeUs <= positionUs) {
+        // Only release buffers when the position advances far enough for realistic behavior where
+        // input of buffers to the codec is faster than output.
+        if (codec != null) {
+          codec.releaseOutputBuffer(bufferIndex, /* render= */ true);
+        }
+        return true;
+      }
+      return false;
+    }
+
+    @Override
+    protected void onCodecParametersChanged(CodecParameters codecParameters) {
+      // No-op for this test renderer.
+    }
+
+    @Override
+    protected DecoderReuseEvaluation canReuseCodec(
+        MediaCodecInfo codecInfo,
+        Format oldFormat,
+        Format newFormat,
+        boolean isAdaptiveFormatChange) {
+      return codecInfo.canReuseCodec(oldFormat, newFormat);
+    }
+  }
+
+  /** Same as {@link TestRenderer}, but with {@link C#TRACK_TYPE_VIDEO} for video-only guards. */
+  private static class VideoTestRenderer extends MediaCodecRenderer {
+
+    VideoTestRenderer() {
+      this(MediaCodecAdapter.Factory.getDefault(ApplicationProvider.getApplicationContext()));
+    }
+
+    VideoTestRenderer(MediaCodecAdapter.Factory mediaCodecAdapterFactory) {
+      super(
+          ApplicationProvider.getApplicationContext(),
+          C.TRACK_TYPE_VIDEO,
+          mediaCodecAdapterFactory,
+          /* mediaCodecSelector= */ (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) ->
+              Collections.singletonList(
+                  MediaCodecInfo.newInstance(
+                      /* name= */ "name",
+                      /* mimeType= */ mimeType,
+                      /* codecMimeType= */ mimeType,
+                      /* capabilities= */ null,
+                      /* hardwareAccelerated= */ false,
+                      /* softwareOnly= */ true,
+                      /* vendor= */ false,
+                      /* forceDisableAdaptive= */ false,
+                      /* forceSecure= */ false)),
+          /* enableDecoderFallback= */ false,
+          /* assumedMinimumCodecOperatingRate= */ 44100);
+      experimentalEnableProcessedStreamChangedAtStart();
+    }
+
+    @Override
+    public String getName() {
+      return "videoTest";
+    }
+
+    @Override
+    protected @Capabilities int supportsFormat(MediaCodecSelector mediaCodecSelector, Format format) {
+      return RendererCapabilities.create(C.FORMAT_HANDLED);
+    }
+
+    @Override
+    protected List<MediaCodecInfo> getDecoderInfos(
+        MediaCodecSelector mediaCodecSelector, Format format, boolean requiresSecureDecoder)
+        throws MediaCodecUtil.DecoderQueryException {
+      return mediaCodecSelector.getDecoderInfos(
+          format.sampleMimeType,
+          /* requiresSecureDecoder= */ false,
+          /* requiresTunnelingDecoder= */ false);
+    }
+
+    @Override
+    protected MediaCodecAdapter.Configuration getMediaCodecConfiguration(
+        MediaCodecInfo codecInfo,
+        Format format,
+        @Nullable MediaCrypto crypto,
+        float codecOperatingRate) {
+      MediaFormat mediaFormat = new MediaFormat();
+      applyCodecParametersToMediaFormat(mediaFormat);
+      return MediaCodecAdapter.Configuration.createForVideoDecoding(
+          codecInfo, mediaFormat, format, /* surface= */ null, crypto);
     }
 
     @Override

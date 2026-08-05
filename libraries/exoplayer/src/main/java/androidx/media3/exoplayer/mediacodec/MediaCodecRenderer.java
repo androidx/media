@@ -47,6 +47,7 @@ import androidx.annotation.CheckResult;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -422,6 +423,11 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   // (possibly non-monotonic) timestamp. Preserves true per-sample duration, unlike deriving from
   // a single assumed frame rate.
   private final ArrayDeque<Long> arrivalOrderPtsQueue = new ArrayDeque<>();
+
+  @VisibleForTesting
+  /* package */ int getArrivalOrderPtsQueueSizeForTesting() {
+    return arrivalOrderPtsQueue.size();
+  }
 
   /**
    * @param context A context.

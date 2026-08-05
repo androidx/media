@@ -1247,6 +1247,104 @@ public class MediaCodecVideoRendererTest {
     verify(eventListener, times(2)).onVideoDecoderInitialized(any(), anyLong(), anyLong());
   }
 
+  @Config(maxSdk = 29)
+  @Test
+  public void
+      render_withUnreliablePtsDuringIncompatibleFormatChange_stillFifoOrdersDrainingOldCodecOutput()
+          throws Exception {
+    // codecInputFormat (not inputFormat) must gate arrivalOrderPtsQueue, since inputFormat can
+    // advance to the new format before the old codec has finished draining its buffered output
+    // under the old format. Reuses render_withIncompatibleFrameRateChangeUpToSdk29_discardsCodec's
+    // 24fps->30fps trigger for a full codec reinit (REUSE_RESULT_NO) on SDK<=29, but the first
+    // format also has hasReliablePresentationTimestamps=false and out-of-order sample timestamps,
+    // and the codec adapter reorders dequeued output by ascending timestamp (simulating an
+    // untrustworthy decoder echo) so a wrong field choice is actually observable.
+    SystemClock.setCurrentTimeMillis(876_000_000);
+    Format unreliablePts24Fps =
+        VIDEO_H264_24FPS.buildUpon().setHasReliablePresentationTimestamps(false).build();
+    Format reliablePts30Fps =
+        VIDEO_H264_30FPS.buildUpon().setHasReliablePresentationTimestamps(true).build();
+    List<Long> processedTimestamps = new ArrayList<>();
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ unreliablePts24Fps,
+            ImmutableList.of(
+                // Deliberately out of order: with no ctts, these are decode-order values, not
+                // true presentation times, which is the whole point of hasReliablePresentationTimestamps.
+                oneByteSample(/* timeUs= */ 40_000, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 0)));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    MediaCodecVideoRenderer renderer =
+        new MediaCodecVideoRenderer(
+            new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
+                .setCodecAdapterFactory(
+                    new ForwardingSynchronousMediaCodecAdapterWithReordering.Factory())
+                .setMediaCodecSelector(mediaCodecSelector)
+                .setAllowedJoiningTimeMs(0)
+                .setEnableDecoderFallback(false)
+                .setEventHandler(new Handler(testMainLooper))
+                .setEventListener(eventListener)
+                .setMaxDroppedFramesToNotify(1)) {
+          @Override
+          protected @Capabilities int supportsFormat(
+              MediaCodecSelector mediaCodecSelector, Format format) {
+            return RendererCapabilities.create(C.FORMAT_HANDLED);
+          }
+
+          @Override
+          protected void onProcessedOutputBuffer(long presentationTimeUs) {
+            super.onProcessedOutputBuffer(presentationTimeUs);
+            processedTimestamps.add(presentationTimeUs);
+          }
+        };
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    renderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {unreliablePts24Fps, reliablePts30Fps},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.start();
+    // Render first sample to initialize codec.
+    renderer.render(/* positionUs= */ 0, msToUs(SystemClock.elapsedRealtime()));
+    codecAdapterFactory.idleQueueingAndCallbackThreads();
+    shadowOf(testMainLooper).idle();
+
+    // Feed format change from 24->30 fps, which is not generally compatible and should reset
+    // codec, while the old codec may still be draining its format-A output.
+    fakeSampleStream.append(
+        ImmutableList.of(
+            format(reliablePts30Fps),
+            oneByteSample(/* timeUs= */ 80_000, C.BUFFER_FLAG_KEY_FRAME),
+            END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 40_000);
+    renderer.setCurrentStreamFinal();
+    int positionUs = 40_000;
+    while (!renderer.isEnded()) {
+      ShadowSystemClock.advanceBy(Duration.ofMillis(40));
+      renderer.render(positionUs, msToUs(SystemClock.elapsedRealtime()));
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
+      positionUs += 40_000;
+    }
+    shadowOf(testMainLooper).idle();
+
+    verify(eventListener).onVideoDecoderReleased(any());
+    verify(eventListener, times(2)).onVideoDecoderInitialized(any(), anyLong(), anyLong());
+    // The reordering adapter would otherwise hand these back sorted ascending (0, 40_000). Seeing
+    // them in feed order proves codecInputFormat -- not the already-advanced inputFormat -- gated
+    // the FIFO replay while the old codec's format-A output was still draining.
+    assertThat(processedTimestamps.subList(0, 2)).containsExactly(40_000L, 0L).inOrder();
+  }
+
   @Config(minSdk = 30)
   @Test
   public void render_withIncompatibleFrameRateChangeFromSdk30_keepsCodec() throws Exception {
