@@ -417,22 +417,10 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private CodecParameters activeCodecParameters;
   private CodecParameters lastDispatchedCodecParameters;
   private ImmutableSet<String> subscribedCodecParameterKeys;
-  // Used only when Format#hasReliablePresentationTimestamps is false (see that field's javadoc):
-  // the source told us it has no real per-sample composition timing, e.g. an MP4 track with
-  // B-frame reordering but no ctts box, where every sample's presentationTimeUs is just its
-  // decode time. MediaCodec faithfully echoes back whatever (unreliable) timestamp it was
-  // queued with, so the codec's raw output can look non-monotonic even though its buffer
-  // *release order* is correct.
-  //
-  // Re-associating each dequeued output buffer with the presentationTimeUs of the next
-  // input buffer *in queue order* (not the codec's own echoed value) corrects this without
-  // reordering or holding buffers. This mirrors what a completely independent player (VLC, via
-  // its MP4 demuxer + a FIFO of queued-but-not-yet-consumed timestamps) already does for exactly
-  // this situation. Queue order is always monotonic by construction (it's a direct echo of the
-  // container's decode-time-to-sample table), and — importantly — this preserves each sample's
-  // *real* duration exactly as declared by the container: unlike re-deriving from a single
-  // assumed constant frame rate, this does not corrupt genuinely variable-frame-rate content
-  // (where Format#frameRate is at best an average, not a true per-sample value).
+  // Used only when Format#hasReliablePresentationTimestamps is false: replays each sample's own
+  // queued presentationTimeUs in output-arrival order instead of trusting MediaCodec's echoed
+  // (possibly non-monotonic) timestamp. Preserves true per-sample duration, unlike deriving from
+  // a single assumed frame rate.
   private final ArrayDeque<Long> arrivalOrderPtsQueue = new ArrayDeque<>();
 
   /**
@@ -1670,9 +1658,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     if (getTrackType() == C.TRACK_TYPE_VIDEO
         && inputFormat != null
         && !inputFormat.hasReliablePresentationTimestamps) {
-      // Recorded in the same (pre skippedFlushOffsetUs) scale that drainOutputBuffer converts
-      // dequeued output timestamps back to, so it can be substituted directly for the codec's
-      // own echoed value there. See arrivalOrderPtsQueue's declaration for why.
+      // Must run before the += skippedFlushOffsetUs below, to match the scale drainOutputBuffer
+      // converts dequeued timestamps back to.
       arrivalOrderPtsQueue.addLast(presentationTimeUs);
     }
     onQueueInputBuffer(buffer);
@@ -2285,11 +2272,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
           && inputFormat != null
           && !inputFormat.hasReliablePresentationTimestamps
           && !arrivalOrderPtsQueue.isEmpty()) {
-        // Replace the codec's own (unreliable, possibly-reordered) echoed timestamp with the
-        // presentationTimeUs of the next sample in queue order. Queue order is a direct echo of
-        // the container's decode-time-to-sample table, so it's always monotonic and always
-        // reflects each sample's true declared duration — including on genuinely
-        // variable-frame-rate content, where a single Format#frameRate value would not.
+        // See arrivalOrderPtsQueue's declaration.
         outputBufferInfo.presentationTimeUs = arrivalOrderPtsQueue.removeFirst();
       }
 

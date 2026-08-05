@@ -219,10 +219,7 @@ public final class Format {
       maxInputSize = NO_VALUE;
       maxNumReorderSamples = NO_VALUE;
       subsampleOffsetUs = OFFSET_SAMPLE_RELATIVE;
-      // Default to true: nearly every extractor/format provides trustworthy per-sample
-      // presentation timestamps. Only set to false where the source is known not to (see
-      // Format#hasReliablePresentationTimestamps).
-      hasReliablePresentationTimestamps = true;
+      hasReliablePresentationTimestamps = true; // most formats have accurate per-sample timestamps
       // Video specific.
       width = NO_VALUE;
       height = NO_VALUE;
@@ -1072,15 +1069,11 @@ public final class Format {
   @UnstableApi public final boolean hasPrerollSamples;
 
   /**
-   * Indicates whether per-sample presentation timestamps for this track are known to be
-   * accurate.
+   * Indicates whether per-sample presentation timestamps for this track are known to be accurate.
    *
-   * <p>When {@code false}, the source (typically a container demuxer) could not determine each
-   * sample's true composition/presentation time — for example an MP4 track with B-frame
-   * reordering but no {@code ctts} box, where every sample's timestamp collapses to its decode
-   * time. Renderers should not treat such timestamps as ground truth for scheduling decisions
-   * (e.g. dropping "late" output buffers); doing so can misread decoder-level reordering as
-   * lateness. Defaults to {@code true}.
+   * <p>When {@code false}, the source couldn't determine each sample's true presentation time
+   * (for example an MP4 track with no {@code ctts} box). Consumers shouldn't treat the
+   * timestamps as ground truth for scheduling decisions. Defaults to {@code true}.
    */
   @UnstableApi public final boolean hasReliablePresentationTimestamps;
 

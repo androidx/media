@@ -961,11 +961,8 @@ public final class BoxParser {
     }
     long editedDurationUs =
         Util.scaleLargeTimestamp(pts, C.MICROS_PER_SECOND, track.movieTimescale);
-    // A video track with no ctts box has no real per-sample composition-time information: every
-    // sample's timestamp is just its decode time. For content with B-frame reordering that's a
-    // silently-wrong presentation timestamp, not merely a missing optimization (see
-    // https://github.com/androidx/media/issues/3347) — flag it so renderers don't treat these
-    // timestamps as ground truth for lateness-based decisions.
+    // No ctts means no real per-sample composition time was ever recorded (see
+    // https://github.com/androidx/media/issues/3347) — every sample's timestamp is just decode time.
     boolean hasReliablePresentationTimestamps =
         !(track.type == C.TRACK_TYPE_VIDEO && ctts == null);
     if (hasPrerollSamples || !hasReliablePresentationTimestamps) {
