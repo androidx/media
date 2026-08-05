@@ -417,10 +417,16 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private CodecParameters activeCodecParameters;
   private CodecParameters lastDispatchedCodecParameters;
   private ImmutableSet<String> subscribedCodecParameterKeys;
-  // Some MediaCodec implementations (observed on c2.mtk.hevc.decoder) return output buffers
-  // whose presentationTimeUs is not monotonically increasing, while the codec's own buffer
-  // *release order* remains correct. Re-deriving each buffer's timestamp from its release order
-  // and the stream's known frame duration corrects this without reordering or holding buffers.
+  // Used only when Format#hasReliablePresentationTimestamps is false (see that field's javadoc):
+  // the source told us it has no real per-sample composition timing, e.g. an MP4 track with
+  // B-frame reordering but no ctts box, where every sample's presentationTimeUs is just its
+  // decode time. MediaCodec faithfully echoes back whatever (unreliable) timestamp it was
+  // queued with, so the codec's raw output can look non-monotonic even though its buffer
+  // *release order* is correct. Re-deriving each buffer's timestamp from its release order and
+  // the stream's known frame duration corrects this without reordering or holding buffers — this
+  // is a best-effort reconstruction for a source that has already told us it doesn't know the
+  // real answer, not a workaround for a specific decoder defect (see
+  // https://github.com/androidx/media/issues/3347).
   // Kept unrounded and only rounded per-frame at the point of use (see below) — rounding this
   // once and multiplying by a growing frame index would accumulate error linearly over the
   // life of the stream (e.g. ~0.33us/frame for 24000/1001fps content is only 0.7ms over a 90s
@@ -2270,6 +2276,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
       if (getTrackType() == C.TRACK_TYPE_VIDEO
           && inputFormat != null
+          && !inputFormat.hasReliablePresentationTimestamps
           && inputFormat.frameRate != Format.NO_VALUE
           && inputFormat.frameRate > 0) {
         if (arrivalOrderPtsFrameDurationUs < 0) {

@@ -172,6 +172,7 @@ public final class Format {
     @Nullable private DrmInitData drmInitData;
     private long subsampleOffsetUs;
     private boolean hasPrerollSamples;
+    private boolean hasReliablePresentationTimestamps;
 
     // Video specific.
 
@@ -218,6 +219,10 @@ public final class Format {
       maxInputSize = NO_VALUE;
       maxNumReorderSamples = NO_VALUE;
       subsampleOffsetUs = OFFSET_SAMPLE_RELATIVE;
+      // Default to true: nearly every extractor/format provides trustworthy per-sample
+      // presentation timestamps. Only set to false where the source is known not to (see
+      // Format#hasReliablePresentationTimestamps).
+      hasReliablePresentationTimestamps = true;
       // Video specific.
       width = NO_VALUE;
       height = NO_VALUE;
@@ -270,6 +275,7 @@ public final class Format {
       this.drmInitData = format.drmInitData;
       this.subsampleOffsetUs = format.subsampleOffsetUs;
       this.hasPrerollSamples = format.hasPrerollSamples;
+      this.hasReliablePresentationTimestamps = format.hasReliablePresentationTimestamps;
       // Video specific.
       this.width = format.width;
       this.height = format.height;
@@ -587,6 +593,20 @@ public final class Format {
     @CanIgnoreReturnValue
     public Builder setHasPrerollSamples(boolean hasPrerollSamples) {
       this.hasPrerollSamples = hasPrerollSamples;
+      return this;
+    }
+
+    /**
+     * Sets {@link Format#hasReliablePresentationTimestamps}. The default value is {@code true}.
+     *
+     * @param hasReliablePresentationTimestamps The {@link
+     *     Format#hasReliablePresentationTimestamps}.
+     * @return The builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setHasReliablePresentationTimestamps(
+        boolean hasReliablePresentationTimestamps) {
+      this.hasReliablePresentationTimestamps = hasReliablePresentationTimestamps;
       return this;
     }
 
@@ -1051,6 +1071,19 @@ public final class Format {
    */
   @UnstableApi public final boolean hasPrerollSamples;
 
+  /**
+   * Indicates whether per-sample presentation timestamps for this track are known to be
+   * accurate.
+   *
+   * <p>When {@code false}, the source (typically a container demuxer) could not determine each
+   * sample's true composition/presentation time — for example an MP4 track with B-frame
+   * reordering but no {@code ctts} box, where every sample's timestamp collapses to its decode
+   * time. Renderers should not treat such timestamps as ground truth for scheduling decisions
+   * (e.g. dropping "late" output buffers); doing so can misread decoder-level reordering as
+   * lateness. Defaults to {@code true}.
+   */
+  @UnstableApi public final boolean hasReliablePresentationTimestamps;
+
   // Video specific.
 
   /** The width of the video in pixels, or {@link #NO_VALUE} if unknown or not applicable. */
@@ -1218,6 +1251,7 @@ public final class Format {
     drmInitData = builder.drmInitData;
     subsampleOffsetUs = builder.subsampleOffsetUs;
     hasPrerollSamples = builder.hasPrerollSamples;
+    hasReliablePresentationTimestamps = builder.hasReliablePresentationTimestamps;
     // Video specific.
     width = builder.width;
     height = builder.height;

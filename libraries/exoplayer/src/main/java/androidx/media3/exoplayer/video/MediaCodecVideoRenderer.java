@@ -2165,6 +2165,16 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    */
   protected boolean shouldDropOutputBuffer(
       long earlyUs, long elapsedRealtimeUs, boolean isLastBuffer) {
+    @Nullable Format codecInputFormat = getCodecInputFormat();
+    if (codecInputFormat != null && !codecInputFormat.hasReliablePresentationTimestamps) {
+      // The source told us it has no real per-sample composition timing (see
+      // Format#hasReliablePresentationTimestamps), so presentationTimeUs here is at best a
+      // best-effort reconstruction, not ground truth. Treating it as ground truth for a "how
+      // late is this buffer" decision risks dropping buffers whose only real fault is a
+      // decoder-level or reconstruction-level ordering wobble, not genuine lateness — render
+      // everything and let it look approximately right instead.
+      return false;
+    }
     return earlyUs < MIN_EARLY_US_LATE_THRESHOLD && !isLastBuffer;
   }
 
@@ -2180,6 +2190,13 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    */
   protected boolean shouldDropBuffersToKeyframe(
       long earlyUs, long elapsedRealtimeUs, boolean isLastBuffer) {
+    @Nullable Format codecInputFormat = getCodecInputFormat();
+    if (codecInputFormat != null && !codecInputFormat.hasReliablePresentationTimestamps) {
+      // See shouldDropOutputBuffer: an apparent large "very late" reading can itself be a
+      // reconstruction artifact (e.g. before arrivalOrderPtsBaseUs has anchored) rather than
+      // genuinely falling behind, so don't act on it here either.
+      return false;
+    }
     return earlyUs < MIN_EARLY_US_VERY_LATE_THRESHOLD && !isLastBuffer;
   }
 
