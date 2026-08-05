@@ -130,8 +130,7 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
                 // bitmap's bit depth. The CPU-copy fallback preserves the source pixel
                 // format.
                 if (buffer != null
-                    && buffer.getFormat()
-                        != getHardwareBufferPixelFormat(nextBitmap.getConfig())) {
+                    && buffer.getFormat() != getHardwareBufferPixelFormat(nextBitmap.getConfig())) {
                   buffer.close();
                   buffer = null;
                 }
