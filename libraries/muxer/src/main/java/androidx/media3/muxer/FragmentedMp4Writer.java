@@ -19,6 +19,7 @@ import static androidx.media3.muxer.AnnexBUtils.doesSampleContainAnnexBNalUnits;
 import static androidx.media3.muxer.Av1ConfigUtil.createAv1CodecConfigurationRecord;
 import static androidx.media3.muxer.Boxes.BOX_HEADER_SIZE;
 import static androidx.media3.muxer.Boxes.MFHD_BOX_CONTENT_SIZE;
+import static androidx.media3.muxer.Boxes.TFDT_BOX_CONTENT_SIZE;
 import static androidx.media3.muxer.Boxes.TFHD_BOX_CONTENT_SIZE;
 import static androidx.media3.muxer.Boxes.getTrunBoxContentSize;
 import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
@@ -211,6 +212,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       trafBoxes.add(
           Boxes.traf(
               Boxes.tfhd(currentTrackInfo.trackId, /* baseDataOffset= */ moofBoxStartPosition),
+              Boxes.tfdt(currentTrackInfo.baseMediaDecodeTime),
               Boxes.trun(
                   currentTrackInfo.trackFormat,
                   currentTrackInfo.pendingSamplesMetadata,
@@ -227,15 +229,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         mfhd
         traf
            tfhd
+           tfdt
            trun
         traf
            tfhd
+           tfdt
            trun
      */
     int moofBoxHeaderSize = BOX_HEADER_SIZE;
     int mfhdBoxSize = BOX_HEADER_SIZE + MFHD_BOX_CONTENT_SIZE;
     int trafBoxHeaderSize = BOX_HEADER_SIZE;
     int tfhdBoxSize = BOX_HEADER_SIZE + TFHD_BOX_CONTENT_SIZE;
+    int tfdtBoxSize = BOX_HEADER_SIZE + TFDT_BOX_CONTENT_SIZE;
     int trunBoxHeaderFixedSize = BOX_HEADER_SIZE;
     int trafBoxesSize = 0;
     for (int i = 0; i < trackInfos.size(); i++) {
@@ -243,7 +248,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       int trunBoxSize =
           trunBoxHeaderFixedSize
               + getTrunBoxContentSize(trackInfo.pendingSamplesMetadata.size(), trackInfo.hasBFrame);
-      trafBoxesSize += trafBoxHeaderSize + tfhdBoxSize + trunBoxSize;
+      trafBoxesSize += trafBoxHeaderSize + tfhdBoxSize + tfdtBoxSize + trunBoxSize;
     }
 
     return moofBoxHeaderSize + mfhdBoxSize + trafBoxesSize;
@@ -427,10 +432,24 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               hasBFrame ? sampleCompositionTimeOffsets.get(i) : 0));
     }
 
+    BufferInfo firstPendingSample = checkNotNull(pendingSamplesBufferInfo.get(0));
+    // The baseMediaDecodeTime is scaled to the track's timescale (unit timebase) per
+    // ISO/IEC 14496-12 Section 8.8.8 and CMAF ISO/IEC 23000-19 Section 7.5.16. Initial
+    // presentation timestamps can be negative (e.g. audio pre-roll or encoder delay in Opus or
+    // IAMF streams). Since baseMediaDecodeTime in tfdt is an unsigned integer, it is clamped to 0.
+    long baseMediaDecodeTime =
+        max(
+            0L,
+            Util.scaleLargeTimestamp(
+                /* timestamp= */ firstPendingSample.presentationTimeUs,
+                /* multiplier= */ track.videoUnitTimebase(),
+                /* divisor= */ 1_000_000L));
+
     return new ProcessedTrackInfo(
         trackId,
         track.format,
         totalSamplesSize,
+        baseMediaDecodeTime,
         hasBFrame,
         pendingSamplesByteBuffer.build(),
         pendingSamplesMetadata.build());
@@ -440,6 +459,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public final int trackId;
     public final Format trackFormat;
     public final int totalSamplesSize;
+    public final long baseMediaDecodeTime;
     public final boolean hasBFrame;
     public final ImmutableList<ByteBuffer> pendingSamplesByteBuffer;
     public final ImmutableList<SampleMetadata> pendingSamplesMetadata;
@@ -448,12 +468,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         int trackId,
         Format trackFormat,
         int totalSamplesSize,
+        long baseMediaDecodeTime,
         boolean hasBFrame,
         ImmutableList<ByteBuffer> pendingSamplesByteBuffer,
         ImmutableList<SampleMetadata> pendingSamplesMetadata) {
       this.trackId = trackId;
       this.trackFormat = trackFormat;
       this.totalSamplesSize = totalSamplesSize;
+      this.baseMediaDecodeTime = baseMediaDecodeTime;
       this.hasBFrame = hasBFrame;
       this.pendingSamplesByteBuffer = pendingSamplesByteBuffer;
       this.pendingSamplesMetadata = pendingSamplesMetadata;

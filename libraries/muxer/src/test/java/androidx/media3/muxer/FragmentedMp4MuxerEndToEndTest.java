@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.container.Mp4TimestampData;
@@ -28,6 +29,7 @@ import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.DumpableMp4Box;
 import androidx.media3.test.utils.FakeExtractorOutput;
+import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -266,6 +268,53 @@ public class FragmentedMp4MuxerEndToEndTest {
         .isGreaterThan(0);
     assertThat(fakeExtractorOutput.seekMap.getSeekPoints(/* timeUs= */ 500_000L).first.position)
         .isGreaterThan(0);
+  }
+
+  @Test
+  public void write_fragmentedMp4_extractorParsesSampleTimestampsCorrectly() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+
+    try (FragmentedMp4Muxer fragmentedMp4Muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel()).build()) {
+      feedInputDataToMuxer(context, fragmentedMp4Muxer, MEDIA_ASSET_DIRECTORY + H264_MP4);
+    }
+
+    FragmentedMp4Extractor extractor =
+        new FragmentedMp4Extractor(new DefaultSubtitleParserFactory());
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(extractor, outputFilePath);
+
+    // 43990L is the initial sample presentation timestamp (in microseconds) extracted from
+    // sample_no_bframes.mp4 after FragmentedMp4Extractor parses the written tfdt box.
+    FakeTrackOutput trackOutput = fakeExtractorOutput.trackOutputs.get(0);
+    assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(43990L);
+  }
+
+  @Test
+  public void write_negativeInitialSampleTimestamp_clampsBaseMediaDecodeTimeToZero()
+      throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+
+    try (FragmentedMp4Muxer fragmentedMp4Muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel()).build()) {
+      int trackId = fragmentedMp4Muxer.addTrack(MuxerTestUtil.FAKE_AUDIO_FORMAT);
+      ByteBuffer sampleData = ByteBuffer.allocate(10);
+      fragmentedMp4Muxer.writeSampleData(
+          trackId,
+          sampleData,
+          new BufferInfo(
+              /* presentationTimeUs= */ -1000L,
+              /* size= */ sampleData.remaining(),
+              /* flags= */ C.BUFFER_FLAG_KEY_FRAME));
+    }
+
+    FragmentedMp4Extractor extractor =
+        new FragmentedMp4Extractor(new DefaultSubtitleParserFactory());
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(extractor, outputFilePath);
+
+    FakeTrackOutput trackOutput = fakeExtractorOutput.trackOutputs.get(0);
+    assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(0L);
   }
 
   @Test

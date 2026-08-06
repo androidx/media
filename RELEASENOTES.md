@@ -58,6 +58,8 @@
 *   Effect:
 *   Effect Lottie:
 *   Muxers:
+    *   Write `tfdt` (Track Fragment Base Media Decode Time) box by default in
+        `traf` boxes of fragmented MP4 files to provide media decode timestamps.
     *   Write `mfra` (Movie Fragment Random Access) box at the end of fragmented
         MP4 files to allow seeking via `FragmentedMp4Extractor` using
         `FLAG_READ_MFRA_FOR_SEEK_MAP`.

@@ -62,6 +62,9 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   /** Total number of bytes in an integer. */
   private static final int BYTES_PER_INTEGER = 4;
 
+  /** Total number of bytes in a long. */
+  private static final int BYTES_PER_LONG = 8;
+
   /** Box size (4 bytes) + Box name (4 bytes) */
   public static final int BOX_HEADER_SIZE = 8;
 
@@ -76,6 +79,9 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
   /** The size (in bytes) of the tfhd box content. */
   public static final int TFHD_BOX_CONTENT_SIZE = 4 * BYTES_PER_INTEGER;
+
+  /** The size (in bytes) of the tfdt box content. */
+  public static final int TFDT_BOX_CONTENT_SIZE = BYTES_PER_INTEGER + BYTES_PER_LONG;
 
   /** The maximum size (in bytes) of boxes that have fixed sizes. */
   private static final int MAX_FIXED_LEAF_BOX_SIZE = 200;
@@ -1316,8 +1322,17 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   }
 
   /** Returns a track fragment (traf) box. */
-  public static ByteBuffer traf(ByteBuffer tfhdBox, ByteBuffer trunBox) {
-    return BoxUtils.wrapBoxesIntoBox("traf", ImmutableList.of(tfhdBox, trunBox));
+  public static ByteBuffer traf(ByteBuffer tfhdBox, ByteBuffer tfdtBox, ByteBuffer trunBox) {
+    return BoxUtils.wrapBoxesIntoBox("traf", ImmutableList.of(tfhdBox, tfdtBox, trunBox));
+  }
+
+  /** Returns a track fragment base media decode time (tfdt) box. */
+  public static ByteBuffer tfdt(long baseMediaDecodeTime) {
+    ByteBuffer contents = ByteBuffer.allocate(TFDT_BOX_CONTENT_SIZE);
+    contents.putInt(0x01000000); // Version 1 (64-bit), flags = 0
+    contents.putLong(baseMediaDecodeTime);
+    contents.flip();
+    return BoxUtils.wrapIntoBox("tfdt", contents);
   }
 
   /** Returns a track fragment header (tfhd) box. */

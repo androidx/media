@@ -21,6 +21,7 @@ import static androidx.media3.muxer.MuxerTestUtil.FAKE_AUDIO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_CSD_0;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static org.junit.Assert.assertThrows;
 
@@ -1166,6 +1167,25 @@ public class BoxesTest {
         context,
         dumpableBox,
         MuxerTestUtil.getExpectedMp4DumpFilePath("tref_box_with_multiple_track_reference"));
+  }
+
+  @Test
+  public void tfdt_withBaseMediaDecodeTime_matchesExpected() {
+    long baseMediaDecodeTime = 90_000L;
+
+    ByteBuffer tfdtBox = Boxes.tfdt(baseMediaDecodeTime);
+
+    // Box size (8-byte header + 12-byte payload = 20 bytes total).
+    assertThat(tfdtBox.remaining()).isEqualTo(20);
+    assertThat(tfdtBox.getInt()).isEqualTo(20);
+    // Box header type ("tfdt").
+    byte[] boxType = new byte[4];
+    tfdtBox.get(boxType);
+    assertThat(new String(boxType, UTF_8)).isEqualTo("tfdt");
+    // FullBox version 1 (64-bit decode time support) and flags (0).
+    assertThat(tfdtBox.getInt()).isEqualTo(0x01000000);
+    // 64-bit baseMediaDecodeTime payload.
+    assertThat(tfdtBox.getLong()).isEqualTo(baseMediaDecodeTime);
   }
 
   private static List<Long> durationsVuToPresentationTimestamps(
