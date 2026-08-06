@@ -2167,8 +2167,13 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       long earlyUs, long elapsedRealtimeUs, boolean isLastBuffer) {
     @Nullable Format codecInputFormat = getCodecInputFormat();
     if (codecInputFormat != null && !codecInputFormat.hasReliablePresentationTimestamps) {
-      // earlyUs here is derived from a reconstructed timestamp, not ground truth — don't drop on it.
-      return false;
+      // earlyUs is derived from a reconstructed timestamp here, not ground truth, so the normal
+      // threshold is too trigger-happy: pipeline depth from the decoder's own reorder buffering
+      // can plausibly look this late even with no real backlog. But it's still a genuine
+      // pacing signal (see arrivalOrderPtsQueue's declaration), so don't disable dropping
+      // outright either -- that would leave no recovery path if the decoder is genuinely falling
+      // behind. Require VERY_LATE-level lateness instead of the normal threshold as a backstop.
+      return earlyUs < MIN_EARLY_US_VERY_LATE_THRESHOLD && !isLastBuffer;
     }
     return earlyUs < MIN_EARLY_US_LATE_THRESHOLD && !isLastBuffer;
   }
@@ -2187,7 +2192,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       long earlyUs, long elapsedRealtimeUs, boolean isLastBuffer) {
     @Nullable Format codecInputFormat = getCodecInputFormat();
     if (codecInputFormat != null && !codecInputFormat.hasReliablePresentationTimestamps) {
-      // See shouldDropOutputBuffer.
+      // Unlike shouldDropOutputBuffer, stays disabled here: this skips to a keyframe based on
+      // *how many* buffers to discard, which needs real per-sample identity we don't have in this
+      // case -- getting that wrong risks skipping past buffers that were never actually late.
       return false;
     }
     return earlyUs < MIN_EARLY_US_VERY_LATE_THRESHOLD && !isLastBuffer;
