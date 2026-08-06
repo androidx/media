@@ -16,6 +16,7 @@
 package androidx.media3.demo.compose.shortform
 
 import android.content.Context
+import androidx.annotation.GuardedBy
 import androidx.annotation.MainThread
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -58,16 +59,6 @@ internal class ShortFormState(
 
   private var playerCounter = 0
 
-  private val cacheDelegate = lazy {
-    val downloadDirectory = context.getExternalFilesDir(null) ?: context.filesDir
-    SimpleCache(
-      /* cacheDir = */ File(downloadDirectory, "precache"),
-      /* evictor = */ NoOpCacheEvictor(),
-      /* databaseProvider = */ StandaloneDatabaseProvider(context),
-    )
-  }
-  private val cache: Cache by cacheDelegate
-
   private val targetPreloadStatusControl =
     object : TargetPreloadStatusControl<Int, DefaultPreloadManager.PreloadStatus> {
       var currentPlayingIndex = C.INDEX_UNSET
@@ -99,7 +90,7 @@ internal class ShortFormState(
     val preloadManagerBuilder =
       DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
         .setLoadControl(loadControl)
-        .setCache(cache)
+        .setCache(getDownloadCache(context))
 
     playerPool =
       PlayerPool(playerPoolCapacity) {
@@ -149,6 +140,30 @@ internal class ShortFormState(
     if (::preloadManager.isInitialized) preloadManager.release()
     if (::playerPool.isInitialized) playerPool.release()
     isReady = false
+  }
+
+  private companion object {
+    private const val PRECACHE_CONTENT_DIRECTORY = "precache"
+    private val lock = Any()
+
+    @GuardedBy("lock") private var downloadCache: Cache? = null
+
+    private fun getDownloadCache(context: Context): Cache =
+      synchronized(lock) {
+        downloadCache
+          ?: run {
+            val appContext = context.applicationContext
+            val downloadDirectory =
+              appContext.getExternalFilesDir(/* type= */ null) ?: appContext.filesDir
+            val downloadContentDirectory = File(downloadDirectory, PRECACHE_CONTENT_DIRECTORY)
+            SimpleCache(
+                downloadContentDirectory,
+                NoOpCacheEvictor(),
+                StandaloneDatabaseProvider(appContext),
+              )
+              .also { downloadCache = it }
+          }
+      }
   }
 }
 
