@@ -76,12 +76,15 @@ import java.util.Objects;
 
   public void startPrewarming() {
     checkState(!isPrewarming());
-    prewarmingState =
-        isRendererEnabled(primaryRenderer)
-            ? RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY
-            : secondaryRenderer != null && isRendererEnabled(secondaryRenderer)
-                ? RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY
-                : RENDERER_PREWARMING_STATE_PREWARMING_PRIMARY;
+    if (isRendererEnabled(primaryRenderer)) {
+      prewarmingState = RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY;
+    } else if (secondaryRenderer != null && isRendererEnabled(secondaryRenderer)) {
+      prewarmingState = RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY;
+    } else if (prewarmingState == RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_PRIMARY) {
+      prewarmingState = RENDERER_PREWARMING_STATE_PREWARMING_PRIMARY;
+    } else {
+      prewarmingState = RENDERER_PREWARMING_STATE_PREWARMING_SECONDARY;
+    }
   }
 
   public boolean isPrewarming() {
@@ -94,7 +97,8 @@ import java.util.Objects;
   }
 
   private boolean isSecondaryRendererPrewarming() {
-    return prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY;
+    return prewarmingState == RENDERER_PREWARMING_STATE_PREWARMING_SECONDARY
+        || prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY;
   }
 
   public int getEnabledRendererCount() {
@@ -165,6 +169,7 @@ import java.util.Objects;
     boolean isPrimaryRenderer =
         secondaryRenderer == null
             || prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY
+            || prewarmingState == RENDERER_PREWARMING_STATE_PREWARMING_SECONDARY
             || prewarmingState == RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_PRIMARY;
     Renderer renderer = isPrimaryRenderer ? primaryRenderer : checkNotNull(secondaryRenderer);
     setCurrentStreamFinalInternal(renderer, streamEndPositionUs);
@@ -190,6 +195,7 @@ import java.util.Objects;
     boolean isPrimaryOldRenderer =
         secondaryRenderer == null
             || prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY
+            || prewarmingState == RENDERER_PREWARMING_STATE_PREWARMING_SECONDARY
             || (prewarmingState == RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_PRIMARY
                 && isRendererEnabled(primaryRenderer));
     Renderer oldRenderer = isPrimaryOldRenderer ? primaryRenderer : checkNotNull(secondaryRenderer);
@@ -226,7 +232,8 @@ import java.util.Objects;
     }
     if (secondaryRenderer != null
         && isRendererEnabled(secondaryRenderer)
-        && prewarmingState != RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY) {
+        && prewarmingState != RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY
+        && prewarmingState != RENDERER_PREWARMING_STATE_PREWARMING_SECONDARY) {
       setCurrentStreamFinalInternal(secondaryRenderer, streamEndPositionUs);
     }
   }
@@ -618,6 +625,8 @@ import java.util.Objects;
               : RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_SECONDARY;
     } else if (prewarmingState == RENDERER_PREWARMING_STATE_PREWARMING_PRIMARY) {
       prewarmingState = RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_PRIMARY;
+    } else if (prewarmingState == RENDERER_PREWARMING_STATE_PREWARMING_SECONDARY) {
+      prewarmingState = RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_SECONDARY;
     }
   }
 
@@ -637,7 +646,8 @@ import java.util.Objects;
         prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY
             || prewarmingState == RENDERER_PREWARMING_STATE_PREWARMING_PRIMARY;
     boolean isSecondaryActiveRenderer =
-        prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY;
+        prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY
+            || prewarmingState == RENDERER_PREWARMING_STATE_PREWARMING_SECONDARY;
     try {
       disableRenderer(
           isPrewarmingPrimary ? primaryRenderer : checkNotNull(secondaryRenderer), mediaClock);
@@ -847,6 +857,7 @@ import java.util.Objects;
       return;
     }
     if (prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY
+        || prewarmingState == RENDERER_PREWARMING_STATE_PREWARMING_SECONDARY
         || prewarmingState == RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_SECONDARY) {
       checkNotNull(secondaryRenderer).handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, videoOutput);
     } else {
@@ -949,6 +960,7 @@ import java.util.Objects;
     RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_PRIMARY,
     RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_SECONDARY,
     RENDERER_PREWARMING_STATE_PREWARMING_PRIMARY,
+    RENDERER_PREWARMING_STATE_PREWARMING_SECONDARY,
     RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY,
     RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY
   })
@@ -973,16 +985,22 @@ import java.util.Objects;
   /* package */ static final int RENDERER_PREWARMING_STATE_PREWARMING_PRIMARY = 2;
 
   /**
+   * ExoPlayer is currently pre-warming the secondary renderer that is not being used for the
+   * current media item for a subsequent media item.
+   */
+  /* package */ static final int RENDERER_PREWARMING_STATE_PREWARMING_SECONDARY = 3;
+
+  /**
    * Both a primary and secondary renderer are enabled and ExoPlayer is transitioning to a media
    * item using the secondary renderer.
    */
-  /* package */ static final int RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY = 3;
+  /* package */ static final int RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY = 4;
 
   /**
    * Both a primary and secondary renderer are enabled and ExoPlayer is transitioning to a media
    * item using the primary renderer.
    */
-  /* package */ static final int RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY = 4;
+  /* package */ static final int RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY = 5;
 
   /** Results for calls to {@link #replaceStreamsOrDisableRendererForTransition}. */
   @Documented
