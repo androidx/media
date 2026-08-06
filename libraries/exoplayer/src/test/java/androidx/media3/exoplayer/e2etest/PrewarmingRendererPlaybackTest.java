@@ -344,6 +344,43 @@ public class PrewarmingRendererPlaybackTest {
             + ".dump");
   }
 
+  @Test
+  public void playback_withMultipleVideoImagePlaylist_dumpsCorrectOutput() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    CapturingRenderersWithSecondaryVideoAndImageRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersWithSecondaryVideoAndImageRenderersFactory(applicationContext, clock);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(clock)
+            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+    player.addMediaItems(
+        ImmutableList.of(
+            new MediaItem.Builder().setUri(TEST_MP4_URI).build(),
+            new MediaItem.Builder().setUri(TEST_MP4_URI).build(),
+            new MediaItem.Builder().setUri(TEST_IMAGE_URI).setImageDurationMs(1000).build(),
+            new MediaItem.Builder().setUri(TEST_IMAGE_URI).setImageDurationMs(1000).build(),
+            new MediaItem.Builder().setUri(TEST_MP4_URI).build()));
+
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    DumpFileAsserts.assertOutput(
+        applicationContext,
+        playbackOutput,
+        /* dumpFile= */ "playbackdumps/prewarmingRenderer/"
+            + "multipleVideoImagePlaylist-withSecondaryRenderers"
+            + ".dump");
+  }
+
   /** This class extends {@link CapturingRenderersFactory} to provide a secondary video renderer. */
   private static final class CapturingRenderersWithSecondaryVideoRendererFactory
       extends CapturingRenderersFactory {

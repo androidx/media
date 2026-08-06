@@ -21,6 +21,8 @@
         work more accurately when not all tracks are selected. Note that this
         may cause additional buffering if unselected video or image tracks are
         newly enabled mid-playback.
+    *   Fix a playback stall caused when prewarming a non-transitioning
+        secondary renderer.
 *   CompositionPlayer:
 *   Transformer:
     *   Fix a segmentation fault during release by introducing

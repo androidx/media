@@ -180,7 +180,7 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             () -> secondaryVideoRenderer.getState() == Renderer.STATE_ENABLED);
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
-    // Play until until the primary renderer is being pre-warmed.
+    // Play until the primary renderer is being pre-warmed.
     advance(player)
         .untilBackgroundThreadCondition(() -> videoRenderer.getState() == Renderer.STATE_ENABLED);
     @Renderer.State int videoState2 = videoRenderer.getState();
@@ -198,6 +198,63 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     assertThat(secondaryVideoState1).isEqualTo(Renderer.STATE_ENABLED);
     assertThat(secondaryVideoState2).isEqualTo(Renderer.STATE_STARTED);
     assertThat(secondaryVideoState3).isEqualTo(Renderer.STATE_DISABLED);
+  }
+
+  @Test
+  public void
+      play_multipleItemPlaylistAndSecondaryRendererLastActive_prewarmsAndUsesSecondaryRenderer()
+          throws Exception {
+    Clock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(fakeClock)
+            .setRenderersFactory(
+                new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
+            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
+            .build();
+    Renderer videoRenderer = player.getRenderer(/* index= */ 0);
+    Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
+    // Set a playlist with 2 videos, 2 audio-only items, and 1 final video item.
+    // Secondary-renderer should be last used and therefore pre-warmed for final item.
+    player.setMediaSources(
+        ImmutableList.of(
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT),
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT),
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT),
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT),
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT)));
+    player.prepare();
+    player.play();
+    // Play until the secondary video renderer is started (playing the second video item).
+    advance(player)
+        .untilBackgroundThreadCondition(
+            () -> secondaryVideoRenderer.getState() == Renderer.STATE_STARTED);
+    // Play to the audio items.
+    advance(player)
+        .untilBackgroundThreadCondition(
+            () ->
+                secondaryVideoRenderer.getState() == Renderer.STATE_DISABLED
+                    && videoRenderer.getState() == Renderer.STATE_DISABLED);
+
+    // Play until the secondary video renderer is enabled for pre-warming the final video item.
+    advance(player)
+        .untilBackgroundThreadCondition(
+            () -> secondaryVideoRenderer.getState() == Renderer.STATE_ENABLED);
+    @Renderer.State int videoState1 = videoRenderer.getState();
+    @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
+    // Play until the final media item is started.
+    advance(player)
+        .untilBackgroundThreadCondition(
+            () -> secondaryVideoRenderer.getState() == Renderer.STATE_STARTED);
+    @Renderer.State int videoState2 = videoRenderer.getState();
+    @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
+
+    player.release();
+
+    assertThat(videoState1).isEqualTo(Renderer.STATE_DISABLED);
+    assertThat(secondaryVideoState1).isEqualTo(Renderer.STATE_ENABLED);
+    assertThat(videoState2).isEqualTo(Renderer.STATE_DISABLED);
+    assertThat(secondaryVideoState2).isEqualTo(Renderer.STATE_STARTED);
   }
 
   @Test
