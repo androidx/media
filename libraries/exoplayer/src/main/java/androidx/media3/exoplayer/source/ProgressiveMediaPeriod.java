@@ -87,7 +87,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -1455,26 +1455,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private static class ControlledTrackOutput extends ForwardingTrackOutput {
     private final SampleQueue sampleQueue;
     private final DiscardingTrackOutput discardingTrackOutput;
-    private final AtomicReference<OutputMode> outputMode;
-
-    /** The mode of operation for the controlled track output. */
-    static enum OutputMode {
-      /** Pass samples through to the downstream track output. */
-      PASS_THROUGH,
-      /**
-       * Pass samples through to the downstream track output, but discard after the next sample
-       * metadata is received.
-       */
-      DISCARD_AFTER_NEXT_SAMPLE_METADATA,
-      /** Discards all samples. */
-      DISCARDING,
-    };
+    private final AtomicBoolean isDiscarding;
 
     ControlledTrackOutput(SampleQueue sampleQueue) {
       super(sampleQueue);
       this.sampleQueue = sampleQueue;
       this.discardingTrackOutput = new DiscardingTrackOutput();
-      this.outputMode = new AtomicReference<>(OutputMode.PASS_THROUGH);
+      this.isDiscarding = new AtomicBoolean(false);
     }
 
     @Override
@@ -1508,10 +1495,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         int offset,
         @Nullable CryptoData cryptoData) {
       getCurrentOutput().sampleMetadata(timeUs, flags, size, offset, cryptoData);
-      if (outputMode.get() == OutputMode.DISCARD_AFTER_NEXT_SAMPLE_METADATA) {
-        sampleQueue.reset();
-        outputMode.set(OutputMode.DISCARDING);
-      }
     }
 
     /**
@@ -1520,10 +1503,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      * @param selected Whether the track is selected.
      */
     void updateSelectionState(boolean selected) {
-      // Since there could still be some samples within the internal SampleDataQueue, we will be
-      // confident about releasing them all after the next sample metadata is received.
-      outputMode.set(
-          selected ? OutputMode.PASS_THROUGH : OutputMode.DISCARD_AFTER_NEXT_SAMPLE_METADATA);
+      isDiscarding.set(!selected);
       // In case the existing samples are taking too much memory, preventing further load, release
       // them optimistically.
       if (!selected) {
@@ -1533,11 +1513,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     /** Returns whether the track is selected. */
     boolean isSelected() {
-      return outputMode.get() == OutputMode.PASS_THROUGH;
+      return !isDiscarding.get();
     }
 
     private TrackOutput getCurrentOutput() {
-      return outputMode.get() == OutputMode.DISCARDING ? discardingTrackOutput : sampleQueue;
+      return isDiscarding.get() ? discardingTrackOutput : sampleQueue;
     }
   }
 
