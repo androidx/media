@@ -368,6 +368,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   private boolean isSessionEnding;
   private int deviceVolume;
   private final StateHolder<Float> volume;
+  private float unmuteVolume;
   private final StateHolder<PlaybackParameters> playbackParameters;
   @Nullable private CastSession castSession;
   @Nullable private RemoteMediaClient remoteMediaClient;
@@ -444,6 +445,7 @@ public final class RemoteCastPlayer extends BasePlayer {
     repeatMode = new StateHolder<>(REPEAT_MODE_OFF);
     deviceVolume = MAX_VOLUME;
     volume = new StateHolder<>(1f);
+    unmuteVolume = 1f;
     playbackParameters = new StateHolder<>(PlaybackParameters.DEFAULT);
     playbackState = STATE_IDLE;
     currentTimeline = CastTimeline.EMPTY_CAST_TIMELINE;
@@ -1018,13 +1020,45 @@ public final class RemoteCastPlayer extends BasePlayer {
     return volume.value;
   }
 
-  /** This method is not supported and does nothing. */
   @Override
-  public void mute() {}
+  public void mute() {
+    if (volume.value != 0) {
+      setMute(true);
+    }
+  }
 
-  /** This method is not supported and does nothing. */
   @Override
-  public void unmute() {}
+  public void unmute() {
+    if (volume.value == 0 && unmuteVolume != 0) {
+      setMute(false);
+    }
+  }
+
+  private void setMute(boolean muted) {
+    if (!isCastSessionActive()) {
+      return;
+    }
+    float newVolume = muted ? 0f : unmuteVolume;
+    setVolumeAndNotifyIfChanged(newVolume);
+    listeners.flushEvents();
+    PendingResult<MediaChannelResult> pendingResult = remoteMediaClient.setStreamMute(muted);
+    if (!muted) {
+      // Always restore stream volume when unmuting to handle both mute() and organic setVolume(0)
+      // calls. Reassign pendingResult so the result callback attaches to the final async call.
+      pendingResult = remoteMediaClient.setStreamVolume(unmuteVolume);
+    }
+    this.volume.pendingResultCallback =
+        new ResultCallback<MediaChannelResult>() {
+          @Override
+          public void onResult(MediaChannelResult result) {
+            if (remoteMediaClient != null) {
+              updateVolumeAndNotifyIfChanged(this);
+              listeners.flushEvents();
+            }
+          }
+        };
+    pendingResult.setResultCallback(this.volume.pendingResultCallback);
+  }
 
   /** This method is not supported and does nothing. */
   @Override
@@ -1713,6 +1747,7 @@ public final class RemoteCastPlayer extends BasePlayer {
 
   private void setVolumeAndNotifyIfChanged(float volume) {
     if (this.volume.value != volume) {
+      unmuteVolume = volume != 0 ? volume : this.unmuteVolume;
       this.volume.value = volume;
       listeners.queueEvent(
           Player.EVENT_VOLUME_CHANGED, listener -> listener.onVolumeChanged(volume));
@@ -1926,6 +1961,10 @@ public final class RemoteCastPlayer extends BasePlayer {
     MediaStatus mediaStatus = remoteMediaClient.getMediaStatus();
     if (mediaStatus == null) {
       return 1f;
+    }
+    // Mute check should come first because getStreamVolume stores the previous volume when muted.
+    if (mediaStatus.isMute()) {
+      return 0f;
     }
     return (float) mediaStatus.getStreamVolume();
   }

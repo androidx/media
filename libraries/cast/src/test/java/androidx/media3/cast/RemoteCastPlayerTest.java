@@ -58,6 +58,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -590,6 +591,99 @@ public class RemoteCastPlayerTest {
     remoteMediaClientCallback.onStatusUpdated();
     verify(mockListener).onVolumeChanged(0.75f);
     assertThat(remoteCastPlayer.getVolume()).isEqualTo(0.75f);
+  }
+
+  @Test
+  public void mute_withNonZeroVolume_setsVolumeToZero() {
+    when(mockRemoteMediaClient.setStreamMute(anyBoolean())).thenReturn(mockPendingResult);
+    assertThat(remoteCastPlayer.getVolume()).isEqualTo(1f);
+
+    remoteCastPlayer.mute();
+
+    assertThat(remoteCastPlayer.getVolume()).isEqualTo(0f);
+    verify(mockListener).onVolumeChanged(0f);
+    verify(mockRemoteMediaClient).setStreamMute(true);
+  }
+
+  @Test
+  public void mute_withZeroVolume_isNoOp() {
+    when(mockRemoteMediaClient.setStreamVolume(anyDouble())).thenReturn(mockPendingResult);
+    remoteCastPlayer.setVolume(0f);
+    reset(mockRemoteMediaClient, mockListener);
+
+    remoteCastPlayer.mute();
+
+    assertThat(remoteCastPlayer.getVolume()).isEqualTo(0f);
+    verifyNoMoreInteractions(mockRemoteMediaClient, mockListener);
+  }
+
+  @Test
+  public void unmute_withMutedVolume_restoresPreviousVolume() {
+    when(mockRemoteMediaClient.setStreamVolume(anyDouble())).thenReturn(mockPendingResult);
+    when(mockRemoteMediaClient.setStreamMute(anyBoolean())).thenReturn(mockPendingResult);
+    remoteCastPlayer.setVolume(0.5f);
+    remoteCastPlayer.mute();
+    assertThat(remoteCastPlayer.getVolume()).isEqualTo(0f);
+    clearInvocations(mockRemoteMediaClient);
+
+    remoteCastPlayer.unmute();
+
+    assertThat(remoteCastPlayer.getVolume()).isEqualTo(0.5f);
+    verify(mockRemoteMediaClient).setStreamMute(false);
+    verify(mockRemoteMediaClient).setStreamVolume(0.5);
+  }
+
+  @Test
+  public void unmute_afterSetVolumeToZero_restoresPreviousVolume() {
+    when(mockRemoteMediaClient.setStreamVolume(anyDouble())).thenReturn(mockPendingResult);
+    when(mockRemoteMediaClient.setStreamMute(anyBoolean())).thenReturn(mockPendingResult);
+    remoteCastPlayer.setVolume(0.5f);
+    remoteCastPlayer.setVolume(0f);
+    when(mockMediaStatus.getStreamVolume()).thenReturn(0.0);
+    clearInvocations(mockRemoteMediaClient);
+
+    remoteCastPlayer.unmute();
+
+    assertThat(remoteCastPlayer.getVolume()).isEqualTo(0.5f);
+    verify(mockRemoteMediaClient).setStreamMute(false);
+    verify(mockRemoteMediaClient).setStreamVolume(0.5);
+  }
+
+  @Test
+  public void stressTest_rapidVolumeChangesAndMuteUnmute_stateStaysConsistent() {
+    when(mockRemoteMediaClient.setStreamVolume(anyDouble())).thenReturn(mockPendingResult);
+    when(mockRemoteMediaClient.setStreamMute(anyBoolean())).thenReturn(mockPendingResult);
+
+    float[] targetVolumes = new float[] {0.8f, 0.3f, 0.0f, 0.6f, 0.0f, 1.0f, 0.2f};
+    for (int i = 0; i < 50; i++) {
+      float targetVol = targetVolumes[i % targetVolumes.length];
+      remoteCastPlayer.setVolume(targetVol);
+
+      if (targetVol == 0f) {
+        assertThat(remoteCastPlayer.getVolume()).isEqualTo(0f);
+        remoteCastPlayer.unmute();
+        assertThat(remoteCastPlayer.getVolume()).isGreaterThan(0f);
+      } else if (i % 3 == 0) {
+        remoteCastPlayer.mute();
+        assertThat(remoteCastPlayer.getVolume()).isEqualTo(0f);
+        remoteCastPlayer.unmute();
+        assertThat(remoteCastPlayer.getVolume()).isEqualTo(targetVol);
+      } else {
+        assertThat(remoteCastPlayer.getVolume()).isEqualTo(targetVol);
+      }
+    }
+  }
+
+  @Test
+  public void unmute_withNonZeroVolume_isNoOp() {
+    when(mockRemoteMediaClient.setStreamVolume(anyDouble())).thenReturn(mockPendingResult);
+    remoteCastPlayer.setVolume(0.5f);
+    reset(mockRemoteMediaClient, mockListener);
+
+    remoteCastPlayer.unmute();
+
+    assertThat(remoteCastPlayer.getVolume()).isEqualTo(0.5f);
+    verifyNoMoreInteractions(mockRemoteMediaClient, mockListener);
   }
 
   @Test
