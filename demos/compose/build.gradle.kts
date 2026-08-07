@@ -43,6 +43,7 @@ dependencies {
   implementation(libs.material)
   implementation(libs.kotlinx.coroutines.guava)
 
+  implementation(project(":lib-cast"))
   implementation(project(":lib-exoplayer"))
   implementation(project(":lib-effect"))
   implementation(project(":lib-inspector"))

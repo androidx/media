@@ -37,6 +37,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.media3.cast.Cast
+import androidx.media3.cast.CastParams
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.demo.compose.layout.EditingPlayerScreen
 import androidx.media3.demo.compose.layout.LongFormPlayerScreen
 import androidx.media3.demo.compose.layout.PlayerFormatScreen
@@ -52,8 +55,11 @@ class MainActivity : ComponentActivity() {
   private val navigationViewModel: NavigationViewModel by viewModels()
   private val playerViewModel: PlayerLifecycleViewModel by viewModels()
 
+  @OptIn(UnstableApi::class)
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    Cast.getSingletonInstance(this)
+      .initialize(CastParams.Builder().setShowSystemOutputSwitcherOnCastButtonClick(true).build())
     enableEdgeToEdge()
     setContent {
       ComposeDemoApp(

@@ -54,6 +54,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.Util
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.indicators.ProgressIndicator
+import androidx.media3.ui.compose.material3.util.isScrubbingModeEnabled
 import androidx.media3.ui.compose.state.ProgressStateWithTickCount
 import kotlinx.coroutines.CoroutineScope
 
@@ -97,8 +98,7 @@ fun LabeledProgressSlider(
     },
 ) {
   var sliderWidthPx by remember { mutableIntStateOf(0) }
-  // Safely cast to ExoPlayer because we are in a demo app
-  val exoPlayer = remember(player) { player as ExoPlayer? }
+  val exoPlayer = remember(player) { player as? ExoPlayer }
   ProgressIndicator(player, totalTickCount = sliderWidthPx, scope) {
     var isDragging by remember { mutableStateOf(false) }
     var seekPosition by remember { mutableFloatStateOf(0f) }
@@ -110,14 +110,20 @@ fun LabeledProgressSlider(
         isDragging = false
       }
     }
+    // Cache the result to avoid repeated scrubbing mode checks
+    var scrubbingEnabledForThisPlayer by remember(player) { mutableStateOf(false) }
 
     Slider(
       value = if (isDragging) seekPosition else currentPositionProgress,
       onValueChange = {
-        if (!isDragging) exoPlayer?.setScrubbingModeEnabled(true)
+        if (!isDragging) {
+          exoPlayer?.setScrubbingModeEnabled(true)
+          scrubbingEnabledForThisPlayer = exoPlayer.isScrubbingModeEnabled()
+        }
         isDragging = true
         seekPosition = it
-        updateCurrentPositionProgress(it)
+        // Dispatch seeks only if they are less expensive (scrubbing mode enabled)
+        if (scrubbingEnabledForThisPlayer) updateCurrentPositionProgress(seekPosition)
         onValueChange?.invoke(it)
       },
       onValueChangeFinished = {

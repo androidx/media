@@ -50,12 +50,14 @@ internal fun rememberPlayerWithLifecycle(
   playerViewModel: PlayerLifecycleViewModel,
   mediaItems: List<MediaItem>,
   playlistName: String? = null,
+  useCast: Boolean = false,
 ): State<Player?> {
   val context = LocalContext.current
   val lifecycleOwner = LocalLifecycleOwner.current
   val player = playerViewModel.player.collectAsState()
   val currentMediaItems by rememberUpdatedState(mediaItems)
   val currentPlaylistName by rememberUpdatedState(playlistName)
+  val currentUseCast by rememberUpdatedState(useCast)
 
   DisposableEffect(lifecycleOwner) {
     val observer = LifecycleEventObserver { _, event ->
@@ -63,7 +65,7 @@ internal fun rememberPlayerWithLifecycle(
       if (Build.VERSION.SDK_INT > 23) {
         when (event) {
           Lifecycle.Event.ON_START -> {
-            playerViewModel.initializePlayer()
+            playerViewModel.initializePlayer(currentUseCast)
             playerViewModel.loadPlaylist(currentMediaItems, currentPlaylistName)
           }
           Lifecycle.Event.ON_STOP -> {
@@ -78,7 +80,7 @@ internal fun rememberPlayerWithLifecycle(
         // Call to onStop() is not guaranteed, hence we release the Player in onPause() instead
         when (event) {
           Lifecycle.Event.ON_RESUME -> {
-            playerViewModel.initializePlayer()
+            playerViewModel.initializePlayer(currentUseCast)
             playerViewModel.loadPlaylist(currentMediaItems, currentPlaylistName)
           }
           Lifecycle.Event.ON_PAUSE -> {
@@ -105,8 +107,8 @@ internal fun rememberPlayerWithLifecycle(
     }
   }
 
-  LaunchedEffect(mediaItems, playlistName) {
-    playerViewModel.initializePlayer()
+  LaunchedEffect(mediaItems, playlistName, useCast) {
+    playerViewModel.initializePlayer(useCast)
     playerViewModel.loadPlaylist(mediaItems, playlistName)
   }
 
@@ -118,7 +120,9 @@ internal fun rememberPlayerWithLifecycle(
   playerViewModel: PlayerLifecycleViewModel,
   mediaItem: MediaItem,
   playlistName: String? = null,
-): State<Player?> = rememberPlayerWithLifecycle(playerViewModel, listOf(mediaItem), playlistName)
+  useCast: Boolean = false,
+): State<Player?> =
+  rememberPlayerWithLifecycle(playerViewModel, listOf(mediaItem), playlistName, useCast)
 
 internal fun Context.findActivity(): Activity? =
   when (this) {

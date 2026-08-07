@@ -20,6 +20,7 @@ import android.app.Application
 import android.os.Bundle
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
+import androidx.media3.cast.CastPlayer
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -49,6 +50,9 @@ internal class PlayerLifecycleViewModel(
   application: Application,
   private val savedStateHandle: SavedStateHandle,
 ) : AndroidViewModel(application) {
+
+  private val _localPlayer = MutableStateFlow<ExoPlayer?>(null)
+  val localPlayer: StateFlow<ExoPlayer?> = _localPlayer.asStateFlow()
 
   private val _player = MutableStateFlow<Player?>(null)
   val player: StateFlow<Player?> = _player.asStateFlow()
@@ -87,19 +91,28 @@ internal class PlayerLifecycleViewModel(
     }
 
   /**
-   * Initializes the singleton [ExoPlayer] instance if it has not already been created.
+   * Initializes the singleton [Player] instance if it has not already been created.
+   *
+   * @param useCast Whether to wrap the local [ExoPlayer] in a [CastPlayer].
    *
    * Applies the saved [startTrackSelectionParameters], [startAutoPlay], and [startVolume] from
    * [SavedStateHandle].
    */
-  fun initializePlayer() {
+  fun initializePlayer(useCast: Boolean = false) {
     if (_player.value == null) {
-      _player.value =
+      val exoPlayer =
         ExoPlayer.Builder(getApplication()).build().apply {
           trackSelectionParameters = startTrackSelectionParameters
           playWhenReady = startAutoPlay
           volume = startVolume
         }
+      if (useCast) {
+        _localPlayer.value = exoPlayer
+        _player.value = CastPlayer.Builder(getApplication()).setLocalPlayer(exoPlayer).build()
+      } else {
+        _localPlayer.value = null
+        _player.value = exoPlayer
+      }
     }
   }
 
@@ -119,11 +132,7 @@ internal class PlayerLifecycleViewModel(
    */
   fun loadPlaylist(mediaItems: List<MediaItem>, playlistName: String? = null) {
     _player.value?.apply {
-      val isPlaylistDifferent =
-        mediaItemCount != mediaItems.size ||
-          mediaItems.indices.any { getMediaItemAt(it) != mediaItems[it] }
-
-      if (isPlaylistDifferent) {
+      if (isPlaylistDifferent(mediaItems)) {
         val wasEmpty = mediaItemCount == 0
         if (wasEmpty && startItemIndex != C.INDEX_UNSET) {
           setMediaItems(mediaItems, startItemIndex, startPosition)
@@ -134,9 +143,15 @@ internal class PlayerLifecycleViewModel(
           setPlaylistMetadata(MediaMetadata.Builder().setTitle(playlistName).build())
         }
         prepare()
+      } else if (!playlistName.isNullOrEmpty() && playlistMetadata.title == null) {
+        setPlaylistMetadata(MediaMetadata.Builder().setTitle(playlistName).build())
       }
     }
   }
+
+  private fun Player.isPlaylistDifferent(mediaItems: List<MediaItem>): Boolean =
+    mediaItemCount != mediaItems.size ||
+      mediaItems.indices.any { getMediaItemAt(it) != mediaItems[it] }
 
   /**
    * Saves the current playback state into [SavedStateHandle] and releases the hardware codecs and
@@ -153,7 +168,9 @@ internal class PlayerLifecycleViewModel(
       startVolume = player.volume
       startTrackSelectionParameters = player.trackSelectionParameters
     }
+    // Release standalone ExoPlayer OR CastPlayer (which auto-releases the underlying localPlayer)
     _player.value?.release()
+    _localPlayer.value = null
     _player.value = null
   }
 

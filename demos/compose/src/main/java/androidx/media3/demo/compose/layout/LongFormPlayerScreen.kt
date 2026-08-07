@@ -34,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +51,8 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.media3.cast.MediaRouteButton
+import androidx.media3.cast.rememberMediaRouteButtonState
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.ExperimentalApi
@@ -62,8 +65,10 @@ import androidx.media3.demo.compose.text.FastForwardOverlay
 import androidx.media3.demo.compose.text.PlaylistInfoBottomSheet
 import androidx.media3.demo.compose.text.SeekOverlay
 import androidx.media3.demo.compose.text.SeekOverlayState
+import androidx.media3.demo.compose.text.rememberCastState
 import androidx.media3.demo.compose.viewmodel.PlayerLifecycleViewModel
 import androidx.media3.demo.compose.viewmodel.rememberPlayerWithLifecycle
+import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.material3.Player
 import androidx.media3.ui.compose.material3.PlayerDefaults
 import androidx.media3.ui.compose.material3.buttons.MuteButton
@@ -84,16 +89,22 @@ internal fun LongFormPlayerScreen(
   playerViewModel: PlayerLifecycleViewModel,
   modifier: Modifier = Modifier,
 ) {
-  val player by rememberPlayerWithLifecycle(playerViewModel, mediaItems, playlistName)
+  val player by
+    rememberPlayerWithLifecycle(playerViewModel, mediaItems, playlistName, useCast = true)
+  val localPlayer by playerViewModel.localPlayer.collectAsState()
   CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.primary) {
-    LongFormPlayerScreen(player, modifier = modifier.fillMaxSize())
+    LongFormPlayerScreen(player, localPlayer, modifier = modifier.fillMaxSize())
   }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @androidx.annotation.OptIn(ExperimentalApi::class)
 @Composable
-internal fun LongFormPlayerScreen(player: Player?, modifier: Modifier = Modifier) {
+internal fun LongFormPlayerScreen(
+  player: Player?,
+  localPlayer: ExoPlayer?,
+  modifier: Modifier = Modifier,
+) {
   val density = LocalDensity.current
   val scope = rememberCoroutineScope()
   var currentContentScaleIndex by rememberSaveable { mutableIntStateOf(0) }
@@ -101,6 +112,8 @@ internal fun LongFormPlayerScreen(player: Player?, modifier: Modifier = Modifier
   var showCurrentMediaItemInfo by rememberSaveable { mutableStateOf(false) }
   var showSettings by rememberSaveable { mutableStateOf(false) }
   var bottomControlsHeight by remember { mutableStateOf(0.dp) }
+  val isRemotePlayback = rememberCastState(player).isRemotePlayback
+  val mediaRouteButtonState = rememberMediaRouteButtonState()
 
   var showControls by rememberSaveable { mutableStateOf(true) }
   var anyPointerDown by remember { mutableStateOf(false) }
@@ -117,8 +130,20 @@ internal fun LongFormPlayerScreen(player: Player?, modifier: Modifier = Modifier
     }
   }
 
-  LaunchedEffect(showControls, anyPointerDown, showSettings) {
-    if (showControls && !anyPointerDown && !showSettings) {
+  LaunchedEffect(
+    showControls,
+    anyPointerDown,
+    showSettings,
+    mediaRouteButtonState.isPickerVisible,
+    isRemotePlayback,
+  ) {
+    if (
+      showControls &&
+        !anyPointerDown &&
+        !showSettings &&
+        !mediaRouteButtonState.isPickerVisible &&
+        !isRemotePlayback
+    ) {
       scheduleHideControls()
     } else {
       hideJob.value?.cancel()
@@ -138,7 +163,7 @@ internal fun LongFormPlayerScreen(player: Player?, modifier: Modifier = Modifier
   ) {
     Player(
       player = player,
-      showControls = showControls,
+      showControls = if (isRemotePlayback) true else showControls,
       modifier =
         Modifier.onGloballyPositioned { coordinates -> size = coordinates.size }
           .playerGestures(
@@ -172,9 +197,14 @@ internal fun LongFormPlayerScreen(player: Player?, modifier: Modifier = Modifier
           ),
       contentScale = CONTENT_SCALES[currentContentScaleIndex].second,
       topControls = { player, showControls ->
-        PlayerDefaults.TopControls(player, showControls, Modifier.fillMaxWidth()) {
-          Row(Modifier.align(Alignment.CenterEnd).padding(horizontal = 15.dp)) {
+        PlayerDefaults.TopControls(
+          player,
+          showControls,
+          Modifier.fillMaxWidth().padding(horizontal = 15.dp),
+        ) {
+          Row(Modifier.align(Alignment.CenterEnd)) {
             CcButton(player = player)
+            MediaRouteButton(state = mediaRouteButtonState)
             SettingsButton(onSettingsClick = { showSettings = true })
           }
         }
@@ -190,7 +220,10 @@ internal fun LongFormPlayerScreen(player: Player?, modifier: Modifier = Modifier
           above = {
             Box(Modifier.fillMaxWidth()) { MuteButton(player, Modifier.align(Alignment.CenterEnd)) }
           },
-          progressSlider = { LabeledProgressSlider(it) },
+          progressSlider = {
+            val sliderPlayer = if (isRemotePlayback) player else localPlayer
+            LabeledProgressSlider(sliderPlayer)
+          },
         )
       },
     )
