@@ -48,6 +48,7 @@ public final class PlayerTransferState {
     private ImmutableList<MediaItem> mediaItems;
     private PlaybackParameters playbackParameters;
     private TrackSelectionParameters trackSelectionParameters;
+    private MediaMetadata playlistMetadata;
 
     /**
      * Constructs a new {@code Builder} with default values.
@@ -63,6 +64,7 @@ public final class PlayerTransferState {
       this.mediaItems = ImmutableList.of();
       this.playbackParameters = PlaybackParameters.DEFAULT;
       this.trackSelectionParameters = TrackSelectionParameters.DEFAULT;
+      this.playlistMetadata = MediaMetadata.EMPTY;
     }
 
     private Builder(PlayerTransferState state) {
@@ -74,6 +76,7 @@ public final class PlayerTransferState {
       this.mediaItems = state.mediaItems;
       this.playbackParameters = state.playbackParameters;
       this.trackSelectionParameters = state.trackSelectionParameters;
+      this.playlistMetadata = state.playlistMetadata;
     }
 
     /**
@@ -166,6 +169,18 @@ public final class PlayerTransferState {
       return this;
     }
 
+    /**
+     * Sets the {@link Player#getPlaylistMetadata() playlist metadata}.
+     *
+     * @param playlistMetadata The playlist metadata.
+     * @return This {@code Builder} instance for chaining.
+     */
+    @CanIgnoreReturnValue
+    public Builder setPlaylistMetadata(MediaMetadata playlistMetadata) {
+      this.playlistMetadata = Objects.requireNonNull(playlistMetadata);
+      return this;
+    }
+
     /** Builds a {@link PlayerTransferState} instance. */
     public PlayerTransferState build() {
       return new PlayerTransferState(this);
@@ -180,6 +195,7 @@ public final class PlayerTransferState {
   private final ImmutableList<MediaItem> mediaItems;
   private final PlaybackParameters playbackParameters;
   private final TrackSelectionParameters trackSelectionParameters;
+  private final MediaMetadata playlistMetadata;
 
   private PlayerTransferState(Builder builder) {
     this.playWhenReady = builder.playWhenReady;
@@ -190,6 +206,7 @@ public final class PlayerTransferState {
     this.mediaItems = builder.mediaItems;
     this.playbackParameters = builder.playbackParameters;
     this.trackSelectionParameters = builder.trackSelectionParameters;
+    this.playlistMetadata = builder.playlistMetadata;
   }
 
   /**
@@ -224,7 +241,8 @@ public final class PlayerTransferState {
         .setCurrentPosition(player.getCurrentPosition())
         .setMediaItems(mediaItems)
         .setPlaybackParameters(player.getPlaybackParameters())
-        .setTrackSelectionParameters(player.getTrackSelectionParameters());
+        .setTrackSelectionParameters(player.getTrackSelectionParameters())
+        .setPlaylistMetadata(player.getPlaylistMetadata());
   }
 
   /**
@@ -253,6 +271,9 @@ public final class PlayerTransferState {
     }
     if (player.getAvailableCommands().contains(Player.COMMAND_SET_TRACK_SELECTION_PARAMETERS)) {
       player.setTrackSelectionParameters(this.trackSelectionParameters);
+    }
+    if (player.getAvailableCommands().contains(Player.COMMAND_SET_PLAYLIST_METADATA)) {
+      player.setPlaylistMetadata(this.playlistMetadata);
     }
   }
 
@@ -301,6 +322,11 @@ public final class PlayerTransferState {
     return trackSelectionParameters;
   }
 
+  /** Returns the {@link Player#getPlaylistMetadata() playlist metadata}. */
+  public MediaMetadata getPlaylistMetadata() {
+    return playlistMetadata;
+  }
+
   @Override
   public boolean equals(@Nullable Object o) {
     if (o == null || getClass() != o.getClass()) {
@@ -314,7 +340,8 @@ public final class PlayerTransferState {
         && currentPosition == that.currentPosition
         && Objects.equals(mediaItems, that.mediaItems)
         && Objects.equals(playbackParameters, that.playbackParameters)
-        && Objects.equals(trackSelectionParameters, that.trackSelectionParameters);
+        && Objects.equals(trackSelectionParameters, that.trackSelectionParameters)
+        && Objects.equals(playlistMetadata, that.playlistMetadata);
   }
 
   @Override
@@ -327,6 +354,7 @@ public final class PlayerTransferState {
         currentPosition,
         mediaItems,
         playbackParameters,
-        trackSelectionParameters);
+        trackSelectionParameters,
+        playlistMetadata);
   }
 }
