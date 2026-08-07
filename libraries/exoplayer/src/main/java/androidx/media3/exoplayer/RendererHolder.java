@@ -601,8 +601,9 @@ import java.util.Objects;
     disableRenderer(primaryRenderer, mediaClock);
     if (secondaryRenderer != null) {
       boolean shouldTransferResources =
-          isRendererEnabled(secondaryRenderer)
-              && prewarmingState != RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY;
+          prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY
+              || prewarmingState == RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_SECONDARY
+              || prewarmingState == RENDERER_PREWARMING_STATE_PREWARMING_SECONDARY;
       disableRenderer(secondaryRenderer, mediaClock);
       maybeResetRenderer(/* resetPrimary= */ false);
       if (shouldTransferResources) {
