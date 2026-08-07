@@ -147,10 +147,11 @@ public final class ProgressiveMediaPeriodTest {
     assertThat(readProgressiveStream(mediaPeriod, /* trackIndex= */ 0, buffer))
         .isEqualTo(C.RESULT_BUFFER_READ);
     assertThat(buffer.isEndOfStream()).isFalse();
-    // Read from stream 1 (unselected) to check we get no samples.
-    assertThat(readProgressiveStream(mediaPeriod, /* trackIndex= */ 1, buffer))
-        .isEqualTo(C.RESULT_BUFFER_READ);
-    assertThat(buffer.isEndOfStream()).isTrue();
+    
+    // Audio track (unselected) returns no samples (or at most in-flight samples from before track
+    // selection).
+    assertThat(readProgressiveStreamUntilEndOfStream(mediaPeriod, /* trackIndex= */ 1, buffer))
+        .isAtMost(1);
 
     mediaPeriod.release();
   }
@@ -333,6 +334,19 @@ public final class ProgressiveMediaPeriodTest {
   private static @SampleStream.ReadDataResult int readProgressiveStream(
       ProgressiveMediaPeriod mediaPeriod, int trackIndex, DecoderInputBuffer buffer) {
     return mediaPeriod.readData(trackIndex, new FormatHolder(), buffer, /* readFlags= */ 0);
+  }
+
+  private static int readProgressiveStreamUntilEndOfStream(
+      ProgressiveMediaPeriod mediaPeriod, int trackIndex, DecoderInputBuffer buffer) {
+    int readResult;
+    int sampleCount = 0;
+    do {
+      readResult = readProgressiveStream(mediaPeriod, trackIndex, buffer);
+      if (readResult == C.RESULT_BUFFER_READ && !buffer.isEndOfStream()) {
+        sampleCount++;
+      }
+    } while (readResult != C.RESULT_BUFFER_READ || !buffer.isEndOfStream());
+    return sampleCount;
   }
 
   private static ProgressiveMediaPeriod createMediaPeriod(
