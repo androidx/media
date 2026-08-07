@@ -114,6 +114,14 @@ public final class AndroidTestUtil {
 
   private static final String TAG = "AndroidTestUtil";
 
+  /**
+   * The minimum SDK version required for the hardware buffer frame processor pipeline.
+   *
+   * <p>API 28 is required for Java {@link android.hardware.HardwareBuffer} operations such as
+   * {@link Image#getHardwareBuffer()} and {@link Bitmap#getHardwareBuffer()}.
+   */
+  public static final int HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK = 28;
+
   /** An {@link Effects} instance that forces video transcoding. */
   public static final Effects FORCE_TRANSCODE_VIDEO_EFFECTS =
       new Effects(

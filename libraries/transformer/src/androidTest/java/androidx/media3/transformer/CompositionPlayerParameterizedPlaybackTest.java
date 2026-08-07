@@ -15,33 +15,23 @@
  */
 package androidx.media3.transformer;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.CompositionAssetInfo.MULTI_SEQUENCE_CONFIGS;
 import static androidx.media3.test.utils.CompositionAssetInfo.MULTI_SEQUENCE_VIDEO_CONFIGS;
 import static androidx.media3.test.utils.CompositionAssetInfo.SINGLE_SEQUENCE_CONFIGS;
 import static androidx.media3.test.utils.EditedMediaItemAssetInfo.VIDEO_ONLY_CLIPPED_HALF_SPEED;
 import static androidx.media3.test.utils.EditedMediaItemAssetInfo.VIDEO_ONLY_CLIPPED_TWICE_SPEED;
-import static androidx.media3.transformer.GlFrameProcessorTestUtil.closeTestingGlResources;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.TruthJUnit.assume;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
 import android.view.SurfaceView;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
-import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoGraph;
-import androidx.media3.common.util.GlUtil;
-import androidx.media3.common.util.Util;
 import androidx.media3.common.video.FrameProcessor;
-import androidx.media3.effect.DefaultGlFrameProcessor;
-import androidx.media3.effect.DefaultGlObjectsProvider;
-import androidx.media3.effect.FrameProcessorUtils;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.MultipleInputVideoGraph;
 import androidx.media3.effect.SingleInputVideoGraph;
@@ -53,8 +43,6 @@ import androidx.media3.test.utils.PlayerFence;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -81,8 +69,10 @@ public class CompositionPlayerParameterizedPlaybackTest {
 
   private @MonotonicNonNull CompositionPlayer player;
   private @MonotonicNonNull SurfaceView surfaceView;
-  private @MonotonicNonNull ListeningExecutorService glExecutorService;
-  private @MonotonicNonNull GlObjectsProvider glObjectsProvider;
+
+  @Rule
+  public final GlFrameProcessorTestRule glFrameProcessorTestRule =
+      new GlFrameProcessorTestRule(TEST_TIMEOUT_MS);
 
   private static class SingleInputVideoGraphConfigsProvider extends TestParameterValuesProvider {
     @Override
@@ -129,23 +119,8 @@ public class CompositionPlayerParameterizedPlaybackTest {
   }
 
   @Before
-  public void setup() throws Exception {
+  public void setup() {
     rule.getScenario().onActivity(activity -> surfaceView = activity.getSurfaceView());
-    if (SDK_INT >= 26) {
-      glExecutorService =
-          MoreExecutors.listeningDecorator(Util.newSingleThreadExecutor("CompositionTest:GL"));
-      glObjectsProvider = new DefaultGlObjectsProvider();
-      glExecutorService
-          .submit(
-              () -> {
-                try {
-                  FrameProcessorUtils.setupOpenGl(glObjectsProvider);
-                } catch (GlUtil.GlException e) {
-                  throw new AssertionError(e);
-                }
-              })
-          .get(TEST_TIMEOUT_MS, MILLISECONDS);
-    }
   }
 
   @After
@@ -158,15 +133,6 @@ public class CompositionPlayerParameterizedPlaybackTest {
               }
             });
     rule.getScenario().close();
-    @Nullable Exception releasingException = null;
-    if (SDK_INT >= 26 && glExecutorService != null) {
-      releasingException =
-          closeTestingGlResources(glExecutorService, glObjectsProvider, TEST_TIMEOUT_MS);
-      glExecutorService.shutdown();
-    }
-    if (releasingException != null) {
-      throw new AssertionError(releasingException);
-    }
   }
 
   @Test
@@ -230,7 +196,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 28)
+  @SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public void playback_frameProcessor(
       @TestParameter(valuesProvider = FrameConsumerConfigsProvider.class)
           CompositionAssetInfo compositionAssetInfo)
@@ -242,8 +208,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
 
     CapturingFrameProcessor.Factory recordingFrameProcessorFactory =
         new CapturingFrameProcessor.Factory(
-            new DefaultGlFrameProcessor.Factory(
-                context, glObjectsProvider, HardwareBufferJni.INSTANCE, glExecutorService));
+            glFrameProcessorTestRule.createDefaultGlFrameProcessorFactory(context));
     Composition composition = compositionAssetInfo.getComposition();
     runCompositionPlayer(composition, recordingFrameProcessorFactory);
 
@@ -281,7 +246,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
     endedFuture.get();
   }
 
-  @RequiresApi(28)
+  @RequiresApi(AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   private void runCompositionPlayer(
       Composition composition, FrameProcessor.Factory frameProcessorFactory) throws Exception {
     SettableFuture<Void> endedFuture = SettableFuture.create();

@@ -19,32 +19,22 @@ import static androidx.media3.common.Player.STATE_ENDED;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S;
 import static androidx.media3.test.utils.PlayerFence.futureWhen;
-import static androidx.media3.transformer.GlFrameProcessorTestUtil.closeTestingGlResources;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.app.Instrumentation;
 import android.content.Context;
 import android.view.SurfaceView;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
-import androidx.media3.common.util.GlUtil;
-import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultGlFrameProcessor;
-import androidx.media3.effect.DefaultGlObjectsProvider;
-import androidx.media3.effect.FrameProcessorUtils;
-import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -58,7 +48,7 @@ import org.junit.runner.RunWith;
 
 /** Instrumentation tests for {@link CompositionPlayer} using {@link DefaultGlFrameProcessor}. */
 @RunWith(AndroidJUnit4.class)
-@SdkSuppress(minSdkVersion = 28)
+@SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
 public final class CompositionPlayerDefaultGlFrameProcessorTest {
 
   private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 10_000;
@@ -86,10 +76,12 @@ public final class CompositionPlayerDefaultGlFrameProcessorTest {
   private final Instrumentation instrumentation;
   private final Context context;
 
+  @Rule
+  public final GlFrameProcessorTestRule glFrameProcessorTestRule =
+      new GlFrameProcessorTestRule(TEST_TIMEOUT_MS);
+
   private @MonotonicNonNull CompositionPlayer compositionPlayer;
   private @MonotonicNonNull SurfaceView surfaceView;
-  private @MonotonicNonNull ListeningExecutorService glExecutorService;
-  private @MonotonicNonNull GlObjectsProvider glObjectsProvider;
 
   public CompositionPlayerDefaultGlFrameProcessorTest() {
     instrumentation = InstrumentationRegistry.getInstrumentation();
@@ -97,25 +89,12 @@ public final class CompositionPlayerDefaultGlFrameProcessorTest {
   }
 
   @Before
-  public void setupSurfacesAndExecutor() throws Exception {
+  public void setupSurfaces() {
     rule.getScenario()
         .onActivity(
             activity -> {
               surfaceView = activity.getSurfaceView();
             });
-    glExecutorService =
-        MoreExecutors.listeningDecorator(Util.newSingleThreadExecutor("CompositionTest:GL"));
-    glObjectsProvider = new DefaultGlObjectsProvider();
-    glExecutorService
-        .submit(
-            () -> {
-              try {
-                FrameProcessorUtils.setupOpenGl(glObjectsProvider);
-              } catch (GlUtil.GlException e) {
-                throw new AssertionError(e);
-              }
-            })
-        .get(TEST_TIMEOUT_MS, MILLISECONDS);
   }
 
   @After
@@ -127,15 +106,6 @@ public final class CompositionPlayerDefaultGlFrameProcessorTest {
           }
         });
     rule.getScenario().close();
-    @Nullable Exception releasingException = null;
-    if (glExecutorService != null) {
-      releasingException =
-          closeTestingGlResources(glExecutorService, glObjectsProvider, TEST_TIMEOUT_MS);
-      glExecutorService.shutdown();
-    }
-    if (releasingException != null) {
-      throw new AssertionError(releasingException);
-    }
   }
 
   @Test
@@ -199,12 +169,8 @@ public final class CompositionPlayerDefaultGlFrameProcessorTest {
   }
 
   private CompositionPlayer createCompositionPlayer() {
-    DefaultGlFrameProcessor.Factory frameProcessorFactory =
-        new DefaultGlFrameProcessor.Factory(
-            context, glObjectsProvider, HardwareBufferJni.INSTANCE, glExecutorService);
-    return new CompositionPlayer.Builder(context)
-        .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
-        .setFrameProcessorFactory(frameProcessorFactory)
+    return glFrameProcessorTestRule
+        .createCompositionPlayerBuilder(context)
         // Disable frame dropping.
         .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
         .build();

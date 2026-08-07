@@ -24,34 +24,20 @@ import static androidx.media3.test.utils.EditedMediaItemAssetInfo.VIDEO_ONLY_CLI
 import static androidx.media3.test.utils.EditedMediaItemAssetInfo.VIDEO_ONLY_CLIPPED_TWICE_SPEED;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeAllFormatsSupported;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_TRANSCODED;
-import static androidx.media3.transformer.GlFrameProcessorTestUtil.closeTestingGlResources;
 import static com.google.common.truth.Truth.assertThat;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.util.GlUtil;
-import androidx.media3.common.util.Util;
-import androidx.media3.effect.DefaultGlFrameProcessor;
-import androidx.media3.effect.DefaultGlObjectsProvider;
-import androidx.media3.effect.FrameProcessorUtils;
-import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.media3.test.utils.CompositionAssetInfo;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import java.io.File;
 import java.util.List;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -61,17 +47,19 @@ import org.junit.runner.RunWith;
 /** Parameterized end-to-end export tests for {@link Transformer}. */
 @RunWith(TestParameterInjector.class)
 // TODO: b/479415308 - Expand API versions below 28 once supported.
-@SdkSuppress(minSdkVersion = 28)
+@SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
 public final class TransformerParameterizedFrameProcessorAndroidTest {
 
-  private static final String DEFAULT_GL_FRAME_PROCESSOR = "default_gl_frame_processor";
   private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 10_000;
 
   @Rule public final TestName testName;
 
   private final Context context;
-  private @MonotonicNonNull ListeningExecutorService glExecutorService;
-  private @MonotonicNonNull GlObjectsProvider glObjectsProvider;
+
+  @Rule
+  public final GlFrameProcessorTestRule glFrameProcessorTestRule =
+      new GlFrameProcessorTestRule(TEST_TIMEOUT_MS);
+
   private String testId;
 
   private static class TestConfigProvider extends TestParameterValuesProvider {
@@ -105,34 +93,8 @@ public final class TransformerParameterizedFrameProcessorAndroidTest {
   }
 
   @Before
-  public void setUp() throws Exception {
+  public void setUp() {
     testId = testName.getMethodName();
-    glExecutorService =
-        MoreExecutors.listeningDecorator(Util.newSingleThreadExecutor("FrameProcessor:Effect"));
-    glObjectsProvider = new DefaultGlObjectsProvider();
-    glExecutorService
-        .submit(
-            () -> {
-              try {
-                FrameProcessorUtils.setupOpenGl(glObjectsProvider);
-              } catch (GlUtil.GlException e) {
-                throw new AssertionError(e);
-              }
-            })
-        .get(TEST_TIMEOUT_MS, MILLISECONDS);
-  }
-
-  @After
-  public void tearDown() {
-    @Nullable
-    Exception releasingException =
-        closeTestingGlResources(glExecutorService, glObjectsProvider, TEST_TIMEOUT_MS);
-    if (glExecutorService != null) {
-      glExecutorService.shutdown();
-    }
-    if (releasingException != null) {
-      throw new AssertionError(releasingException);
-    }
   }
 
   @Test
@@ -175,11 +137,6 @@ public final class TransformerParameterizedFrameProcessorAndroidTest {
   }
 
   private Transformer buildTransformer() {
-    return new Transformer.Builder(context)
-        .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
-        .setFrameProcessorFactory(
-            new DefaultGlFrameProcessor.Factory(
-                context, glObjectsProvider, HardwareBufferJni.INSTANCE, glExecutorService))
-        .build();
+    return glFrameProcessorTestRule.createTransformerBuilder(context).build();
   }
 }

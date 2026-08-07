@@ -98,6 +98,8 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
+import androidx.media3.common.GlObjectsProvider;
+import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.OnInputFrameProcessedListener;
@@ -116,18 +118,17 @@ import androidx.media3.common.util.NullableType;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.effect.Contrast;
 import androidx.media3.effect.DefaultGlObjectsProvider;
-import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.FrameCache;
 import androidx.media3.effect.FrameDropEffect;
 import androidx.media3.effect.GlEffect;
+import androidx.media3.effect.GlShaderProgram;
+import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.RgbFilter;
 import androidx.media3.effect.ScaleAndRotateTransformation;
-import androidx.media3.effect.SimpleGlFrameProcessor;
 import androidx.media3.effect.SpeedChangeEffect;
 import androidx.media3.effect.TimestampWrapper;
-import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.media3.exoplayer.audio.TeeAudioProcessor;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import androidx.media3.extractor.mp4.Mp4Extractor;
@@ -139,7 +140,6 @@ import androidx.media3.muxer.MuxerException;
 import androidx.media3.test.utils.AssetInfo;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
-import androidx.media3.test.utils.RecordingHardwareBufferEffectsPipeline;
 import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
 import androidx.test.core.app.ApplicationProvider;
@@ -185,6 +185,10 @@ public class TransformerEndToEndTest {
   @Rule public final TestName testName = new TestName();
 
   private String testId;
+
+  @Rule
+  public final GlFrameProcessorTestRule glFrameProcessorTestRule =
+      new GlFrameProcessorTestRule(TEST_TIMEOUT_MS);
 
   private volatile @MonotonicNonNull TextureAssetLoader textureAssetLoader;
 
@@ -869,7 +873,7 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 28)
+  @SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public void videoEditing_withAggregationFps60AndFrameProcessor_upsamplesTo60Fps()
       throws Exception {
     Composition composition =
@@ -891,7 +895,7 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 28)
+  @SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public void videoEditing_multiSequenceWithAggregationFps60AndFrameProcessor_upsamplesTo60Fps()
       throws Exception {
     Composition composition =
@@ -914,7 +918,7 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 28)
+  @SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public void videoEditing_multiSequenceWithNoAggregationFpsAndFrameProcessor_keepsIntrinsicFps()
       throws Exception {
     Composition composition =
@@ -934,7 +938,7 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 28)
+  @SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public void videoEditing_singleSequenceWithNoAggregationFpsAndFrameProcessor_keepsIntrinsicFps()
       throws Exception {
     Composition composition =
@@ -954,7 +958,7 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 28)
+  @SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public void videoEditing_withAggregationFps15AndFrameProcessor_downsamplesTo15Fps()
       throws Exception {
     // As defined in AssetInfo, MP4_ADVANCED_ASSET has a duration of 1024ms and
@@ -978,7 +982,7 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 28)
+  @SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public void videoEditing_withAggregationFpsHalfAndFrameProcessor_downsamplesToFpsHalf()
       throws Exception {
     // As defined in AssetInfo, MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S has a duration
@@ -2530,7 +2534,7 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 28)
+  @SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public void cancelExport_withPacketConsumerAndImageComposition_doesNotCrash() throws Exception {
     assumeFormatsSupported(
         context,
@@ -2540,22 +2544,31 @@ public class TransformerEndToEndTest {
     CountDownLatch firstFrameLatch = new CountDownLatch(1);
     AtomicReference<@NullableType ExportException> exceptionReference = new AtomicReference<>();
     AtomicBoolean completedReference = new AtomicBoolean(false);
+    GlEffect countingEffect =
+        new GlEffect() {
+          @Override
+          public GlShaderProgram toGlShaderProgram(Context context, boolean useHdr) {
+            return new PassthroughShaderProgram() {
+              @Override
+              public void queueInputFrame(
+                  GlObjectsProvider glObjectsProvider,
+                  GlTextureInfo inputTexture,
+                  long presentationTimeUs) {
+                super.queueInputFrame(glObjectsProvider, inputTexture, presentationTimeUs);
+                firstFrameLatch.countDown();
+              }
+            };
+          }
+        };
     EditedMediaItem imageItem =
         new EditedMediaItem.Builder(
                 new MediaItem.Builder().setUri(JPG_ASSET.uri).setImageDurationMs(50000).build())
             .setFrameRate(30)
+            .setEffects(new Effects(ImmutableList.of(), ImmutableList.of(countingEffect)))
             .build();
     Transformer transformer =
-        new Transformer.Builder(context)
-            .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
-            .setHardwareBufferEffectsPipeline(
-                RecordingHardwareBufferEffectsPipeline.create(
-                    context,
-                    HardwareBufferJni.INSTANCE,
-                    (frames) -> {
-                      firstFrameLatch.countDown();
-                      return frames;
-                    }))
+        glFrameProcessorTestRule
+            .createTransformerBuilder(context)
             .addListener(
                 new Transformer.Listener() {
                   @Override
@@ -2679,10 +2692,8 @@ public class TransformerEndToEndTest {
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ADVANCED_ASSET.uri));
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
     Transformer transformer =
-        new Transformer.Builder(context)
-            .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
-            .setHardwareBufferEffectsPipeline(
-                DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE))
+        glFrameProcessorTestRule
+            .createTransformerBuilder(context)
             .setVideoMimeType(MimeTypes.VIDEO_AV1)
             .build();
 
@@ -2702,13 +2713,8 @@ public class TransformerEndToEndTest {
 
   @Test
   @SdkSuppress(minSdkVersion = 33)
-  public void export_withHardwareBufferEffectsPipeline_forcesVideoTranscoding() throws Exception {
-    Transformer transformer =
-        new Transformer.Builder(context)
-            .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
-            .setHardwareBufferEffectsPipeline(
-                DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE))
-            .build();
+  public void export_withDefaultGlFrameProcessor_forcesVideoTranscoding() throws Exception {
+    Transformer transformer = buildTransformerWithFrameProcessorFactory(context);
     MediaItem mediaItem = MediaItem.fromUri(MP4_ADVANCED_ASSET.uri);
 
     ExportTestResult result =
@@ -3719,14 +3725,12 @@ public class TransformerEndToEndTest {
     return builder.build();
   }
 
-  @RequiresApi(26)
-  private static Transformer buildTransformerWithFrameProcessorFactory(Context context) {
-    return new Transformer.Builder(context)
+  @RequiresApi(AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
+  private Transformer buildTransformerWithFrameProcessorFactory(Context context) {
+    return glFrameProcessorTestRule
+        .createTransformerBuilder(context)
         .setEncoderFactory(
             new DefaultEncoderFactory.Builder(context).setEnableFallback(false).build())
-        .setFrameProcessorFactory(
-            new SimpleGlFrameProcessor.Factory(context, HardwareBufferJni.INSTANCE))
-        .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
         .build();
   }
 
