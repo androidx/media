@@ -28,6 +28,7 @@ import androidx.media3.common.DataReader;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
+import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.datasource.AssetDataSource;
@@ -492,8 +493,51 @@ public final class ProgressiveMediaPeriodTest {
 
   @Test
   public void selectTracks_disablingAllTracksWhenLoading_cancelsLoading() throws Exception {
+    ConditionVariable blockLoadingCondition = new ConditionVariable();
+    ConditionVariable loadingStartedCondition = new ConditionVariable();
+    blockLoadingCondition.open();
+    AssetDataSource assetDataSource =
+        new AssetDataSource(ApplicationProvider.getApplicationContext());
+    DataSource dataSource =
+        new DataSource() {
+          @Override
+          public void addTransferListener(TransferListener transferListener) {
+            assetDataSource.addTransferListener(transferListener);
+          }
+
+          @Override
+          public long open(DataSpec dataSpec) throws IOException {
+            return assetDataSource.open(dataSpec);
+          }
+
+          @Override
+          public int read(byte[] buffer, int offset, int length) throws IOException {
+            loadingStartedCondition.open();
+            blockLoadingCondition.blockUninterruptible();
+            return assetDataSource.read(buffer, offset, length);
+          }
+
+          @Nullable
+          @Override
+          public Uri getUri() {
+            return assetDataSource.getUri();
+          }
+
+          @Override
+          public Map<String, List<String>> getResponseHeaders() {
+            return assetDataSource.getResponseHeaders();
+          }
+
+          @Override
+          public void close() throws IOException {
+            assetDataSource.close();
+          }
+        };
     ProgressiveMediaPeriod mediaPeriod =
-        createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
+        createMediaPeriod(
+            Uri.parse("asset://android_asset/media/mp4/sample.mp4"),
+            dataSource,
+            new DefaultLoadErrorHandlingPolicy());
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
     @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
     @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
@@ -508,9 +552,11 @@ public final class ProgressiveMediaPeriodTest {
             streams,
             streamResetFlags,
             /* positionUs= */ 0);
+    blockLoadingCondition.close();
     assertThat(
             mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build()))
         .isTrue();
+    loadingStartedCondition.block();
     assertThat(mediaPeriod.isLoading()).isTrue();
 
     // Disabling all tracks while loading starts canceling.
@@ -527,6 +573,7 @@ public final class ProgressiveMediaPeriodTest {
             mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build()))
         .isFalse();
 
+    blockLoadingCondition.open();
     runMainLooperUntil(() -> !mediaPeriod.isLoading());
     selections[1] =
         new FakeTrackSelection(trackGroups.get(1), new int[] {0}, /* selectedIndex= */ 0);
