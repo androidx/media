@@ -347,7 +347,7 @@ class KtorDataSourceTest(
   @Test
   fun open_doesNotWaitForResponseBody() {
     val testData = "a".repeat(100)
-    val bodyDelayMs = 800L
+    val bodyDelayMs = 2000L
     mockWebServer.enqueue(
       MockResponse()
         .setResponseCode(200)
@@ -359,9 +359,9 @@ class KtorDataSourceTest(
     httpClient =
       HttpClient(httpClientEngineFactory) {
         install(HttpTimeout) {
-          requestTimeoutMillis = 3000
-          connectTimeoutMillis = 3000
-          socketTimeoutMillis = 3000
+          requestTimeoutMillis = 5000
+          connectTimeoutMillis = 5000
+          socketTimeoutMillis = 5000
         }
       }
     dataSource = KtorDataSource.Factory(httpClient).createDataSource()
@@ -372,7 +372,7 @@ class KtorDataSourceTest(
     val openDurationMs = SystemClock.elapsedRealtime() - startTimeMs
 
     // Verify that open() completed without waiting for the delayed response body.
-    assertThat(openDurationMs).isLessThan(400L)
+    assertThat(openDurationMs).isLessThan(1000L)
 
     val buffer = ByteArray(10)
     val bytesRead = dataSource.read(buffer, 0, buffer.size)
