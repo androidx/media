@@ -794,7 +794,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Nullable private VideoFrameMetadataListener frameMetadataListener;
     private long streamStartPositionUs;
     private long offsetToCompositionTimeUs;
-    private boolean hasOutputSurface = false;
+    private boolean hasOutputSurface;
+    private boolean canOutput;
 
     private HardwareBufferVideoRenderer(
         Context context,
@@ -824,6 +825,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     protected void onEnabled(boolean joining, boolean mayRenderStartOfStream)
         throws ExoPlaybackException {
+      if (mayRenderStartOfStream) {
+        canOutput = true;
+      }
       if (hardwareBufferFrameReader == null) {
         // Initialize hardwareBufferFrameReader on the first onEnabled() call.
         hardwareBufferFrameReader = checkNotNull(hardwareBufferFrameReaderSupplier.get());
@@ -833,7 +837,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     @Override
+    protected void onStarted() {
+      canOutput = true;
+      super.onStarted();
+    }
+
+    @Override
     protected void onDisabled() {
+      canOutput = false;
       super.onDisabled();
       checkNotNull(hardwareBufferFrameReader)
           .removeRendererWakeupListener(/* rendererWakeupListener= */ this);
@@ -901,8 +912,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
       // When prewarming is enabled this method will be called when the renderer is enabled, which
       // is well before item should be displayed. Frames should not be rendered until a Surface is
-      // set on this renderer.
-      if (!hasOutputSurface) {
+      // set on this renderer and this renderer is either started, or enabled with
+      // mayRenderStartOfStream.
+      if (!hasOutputSurface || !canOutput) {
         return false;
       }
       nextFormat = format;

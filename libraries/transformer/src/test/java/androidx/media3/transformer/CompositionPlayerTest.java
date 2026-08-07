@@ -106,6 +106,7 @@ import androidx.media3.exoplayer.audio.ForwardingAudioSink;
 import androidx.media3.exoplayer.audio.TrimmingAudioProcessor;
 import androidx.media3.test.utils.CapturingFrameProcessor;
 import androidx.media3.test.utils.CapturingFrameProcessor.FramesEvent;
+import androidx.media3.test.utils.EditedMediaItemAssetInfo;
 import androidx.media3.test.utils.FakeFrameProcessor;
 import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
@@ -117,10 +118,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
@@ -1386,6 +1389,33 @@ public class CompositionPlayerTest {
         .containsExactly(
             ImmutableList.of(0L, 0L), ImmutableList.of(0L, 0L, 0L), ImmutableList.of(0L))
         .inOrder();
+  }
+
+  @Test
+  public void frameProcessor_setCompositionWithImageVideo_rendersFirstFrameBeforeStarted()
+      throws PlaybackException, TimeoutException {
+    Composition composition1 =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        EditedMediaItemAssetInfo.IMAGE.editedMediaItem,
+                        EditedMediaItemAssetInfo.VIDEO.editedMediaItem)))
+            .build();
+    MaxPositionAudioSink customAudioSink =
+        new MaxPositionAudioSink(new DefaultAudioSink.Builder(getApplicationContext()).build());
+    customAudioSink.maxPositionUs.set(0);
+    player =
+        createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory)
+            .setAudioSink(customAudioSink)
+            .build();
+    player.setComposition(composition1);
+    player.prepare();
+
+    advance(player).withTimeoutMs(TEST_TIMEOUT_MS).untilState(STATE_READY);
+
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
+    assertThat(frameProcessor).isNotNull();
+    assertThat(frameProcessor.getQueuedContentTimesUs()).containsExactly(ImmutableList.of(0L));
   }
 
   @Test
@@ -3270,6 +3300,30 @@ public class CompositionPlayerTest {
       if (Looper.myLooper() != playbackLooper.get()) {
         threadViolations.incrementAndGet();
       }
+    }
+  }
+
+  /** An {@link AudioSink} that only allows buffers up to a set position to be consumed. */
+  private static class MaxPositionAudioSink extends ForwardingAudioSink {
+
+    private final AudioSink sink;
+    private final AtomicLong maxPositionUs;
+
+    MaxPositionAudioSink(AudioSink sink) {
+      super(sink);
+      this.sink = sink;
+      maxPositionUs = new AtomicLong(C.TIME_UNSET);
+    }
+
+    @Override
+    public boolean handleBuffer(
+        ByteBuffer buffer, long presentationTimeUs, int encodedAccessUnitCount)
+        throws InitializationException, WriteException {
+      long maxPositionUs = this.maxPositionUs.get();
+      if (maxPositionUs != C.TIME_UNSET && presentationTimeUs >= maxPositionUs) {
+        return false;
+      }
+      return sink.handleBuffer(buffer, presentationTimeUs, encodedAccessUnitCount);
     }
   }
 }
