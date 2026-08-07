@@ -27,7 +27,6 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
-import androidx.media3.common.C.DataType;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -166,7 +165,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private @MonotonicNonNull SeekMap seekMap;
   private long durationUs;
   private boolean isLive;
-  private @DataType int dataType;
+  private @C.DataType int dataType;
   private long endPositionUs;
   private int enabledTrackCount;
   private boolean isLengthKnown;
@@ -435,9 +434,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
     }
 
-    // TODO: b/474538573 - Use internal state instead of loader.isLoading() once loads are correctly
-    // canceled when the end position is reached.
-    loadingStateMachine.onTrackSelection(hasPreroll, enabledTrackCount, loader.isLoading());
+    loadingStateMachine.onTrackSelection(hasPreroll, enabledTrackCount);
+
+    boolean hasEnabledAudioVideoTracks = false;
+    for (int i = 0; i < tracks.length; i++) {
+      if (trackEnabledStates[i] && trackState.trackIsAudioVideoFlags[i]) {
+        hasEnabledAudioVideoTracks = true;
+        break;
+      }
+    }
+    trackState.hasEnabledAudioVideoTracks = hasEnabledAudioVideoTracks;
 
     if (loadOnlySelectedTracks) {
       boolean[] tracksSelectedForLoading = getTracksSelectedForLoading(trackEnabledStates, tracks);
@@ -493,10 +499,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public void reevaluateBuffer(long positionUs) {
-    loadingStateMachine.onReevaluateBuffer(
-        /* hasEnabledTracks= */ enabledTrackCount > 0,
-        /* haveSampleQueuesReachedEndTimeUs= */ haveSampleQueuesReachedEndTimeUs());
-    // TODO: b/474538573 - Actually cancel ongoing load and restart later if required.
+    if (enabledTrackCount > 0 && haveSampleQueuesReachedEndTimeUs()) {
+      loadingStateMachine.onEndPositionReached();
+      maybeCancelOrDiscardUpstreamBuffers();
+      // TODO: b/474538573 - Restart loading without reset when required after re-evaluating.
+    }
   }
 
   @Override
@@ -515,7 +522,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public boolean isLoading() {
-    return !loadingStateMachine.isFinished() && loader.isLoading() && loadCondition.isOpen();
+    return loadingStateMachine.isLoading() && loadCondition.isOpen();
   }
 
   @Override
@@ -575,14 +582,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     boolean wasPendingReset = loadingStateMachine.isPendingReset();
     boolean isSameAsLastSeekPosition = loadingStateMachine.isLastSeekPosition(positionUs);
     boolean canSeekInsideBuffer =
-        !wasPendingReset
-            && dataType != C.DATA_TYPE_MEDIA_PROGRESSIVE_LIVE
-            && (loadingStateMachine.isFinished() || loader.isLoading())
+        loadingStateMachine.canSeekInsideBuffer(dataType)
             && seekInsideBufferUs(trackIsAudioVideoFlags, positionUs, isSameAsLastSeekPosition);
 
-    // TODO: b/474538573 - Use internal state instead of loader.isLoading() once loads are correctly
-    // canceled when the end position is reached.
-    loadingStateMachine.onSeek(positionUs, canSeekInsideBuffer, loader.isLoading());
+    loadingStateMachine.onSeek(positionUs, canSeekInsideBuffer);
 
     if (canSeekInsideBuffer || wasPendingReset) {
       return positionUs;
@@ -618,9 +621,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public long setEndPositionUs(long endPositionUs) {
+    long oldEndPositionUs = this.endPositionUs;
     this.endPositionUs = endPositionUs;
     for (SampleQueue sampleQueue : sampleQueues) {
       sampleQueue.setReadEndTimeUs(endPositionUs);
+    }
+    if (!prepared) {
+      return endPositionUs;
+    }
+    if (endPositionUs < oldEndPositionUs && haveSampleQueuesReachedEndTimeUs()) {
+      loadingStateMachine.onEndPositionReached();
+      maybeCancelOrDiscardUpstreamBuffers();
     }
     return endPositionUs;
   }
@@ -674,19 +685,37 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private boolean haveSampleQueuesReachedEndTimeUs() {
-    if (endPositionUs == C.TIME_END_OF_SOURCE) {
+    if (endPositionUs == C.TIME_END_OF_SOURCE || enabledTrackCount == 0) {
       return false;
     }
     assertPrepared();
-    boolean endPositionReached = true;
     for (int i = 0; i < sampleQueues.length; i++) {
-      // Ignore non-AV tracks, which may be sparse or poorly interleaved.
+      // Ignore non-AV tracks if AV tracks are enabled, as they may be sparse or poorly interleaved.
       if (trackState.trackEnabledStates[i]
-          && (trackState.trackIsAudioVideoFlags[i] || !haveAudioVideoTracks)) {
-        endPositionReached &= sampleQueues[i].hasQueuedTimestampsUpToReadEndTimeUs();
+          && (trackState.trackIsAudioVideoFlags[i] || !trackState.hasEnabledAudioVideoTracks)) {
+        if (!sampleQueues[i].hasQueuedTimestampsUpToReadEndTimeUs()) {
+          return false;
+        }
       }
     }
-    return endPositionReached;
+    return true;
+  }
+
+  private void maybeCancelOrDiscardUpstreamBuffers() {
+    if (loadingStateMachine.isCancelingForClipping()) {
+      loader.cancelLoading();
+    } else if (loadingStateMachine.isClippedFinished()) {
+      for (SampleQueue sampleQueue : sampleQueues) {
+        long largestReadTimestampUs = sampleQueue.getLargestReadTimestampUs();
+        long discardFromUs = endPositionUs;
+        if (largestReadTimestampUs != Long.MIN_VALUE && largestReadTimestampUs >= endPositionUs) {
+          discardFromUs = largestReadTimestampUs + 1;
+        }
+        sampleQueue.discardUpstreamFrom(discardFromUs);
+        // TODO: b/474538573 - Call sampleQueue.expectResume() on the newly trimmed queue boundary
+        // right before resuming loading without reset.
+      }
+    }
   }
 
   private void maybeNotifyDownstreamFormat(int track) {
@@ -801,13 +830,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         /* mediaStartTimeUs= */ loadable.seekTimeUs,
         durationUs);
     loadingStateMachine.onLoadCanceled(released);
-    if (!released) {
+    if (!released && !loadingStateMachine.isFinished()) {
       for (SampleQueue sampleQueue : sampleQueues) {
         sampleQueue.reset();
       }
       if (enabledTrackCount > 0) {
         checkNotNull(callback).onContinueLoadingRequested(this);
       }
+    }
+    if (!released && loadingStateMachine.isClippedFinished()) {
+      maybeCancelOrDiscardUpstreamBuffers();
     }
   }
 
@@ -1353,10 +1385,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   /** Stores track state. */
   private static final class TrackState {
 
-    public final TrackGroupArray tracks;
-    public final boolean[] trackIsAudioVideoFlags;
-    public final boolean[] trackEnabledStates;
-    public final boolean[] trackNotifiedDownstreamFormats;
+    private final TrackGroupArray tracks;
+    private final boolean[] trackIsAudioVideoFlags;
+    private final boolean[] trackEnabledStates;
+    private final boolean[] trackNotifiedDownstreamFormats;
+    private boolean hasEnabledAudioVideoTracks;
 
     public TrackState(TrackGroupArray tracks, boolean[] trackIsAudioVideoFlags) {
       this.tracks = tracks;
@@ -1523,6 +1556,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       STATE_FINISHED,
       STATE_DEFERRED_RETRY_PENDING,
       STATE_ERROR,
+      STATE_CANCELING_FOR_CLIPPING,
+      STATE_CLIPPED_FINISHED,
     })
     public @interface State {}
 
@@ -1553,6 +1588,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     /** A fatal load error occurred that cannot be retried. */
     public static final int STATE_ERROR = 6;
 
+    /**
+     * An active load is being canceled specifically to trim upstream buffers after the clip end
+     * position was shortened ({@code endPositionUs < oldEndPositionUs}).
+     */
+    public static final int STATE_CANCELING_FOR_CLIPPING = 7;
+
+    /**
+     * Loading finished because the clip end position ({@code endPositionUs}) was reached or the
+     * buffer was trimmed to the clip end position.
+     */
+    public static final int STATE_CLIPPED_FINISHED = 8;
+
     private @State int state;
 
     /**
@@ -1582,7 +1629,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     /** Returns whether loading has finished (e.g. EOF or end position reached). */
     public boolean isFinished() {
-      return state == STATE_FINISHED;
+      return state == STATE_FINISHED || state == STATE_CLIPPED_FINISHED;
+    }
+
+    /** Returns whether loading has finished specifically due to clipping (end position reached). */
+    public boolean isClippedFinished() {
+      return state == STATE_CLIPPED_FINISHED;
+    }
+
+    /** Returns whether an active load is being canceled specifically for end position clipping. */
+    public boolean isCancelingForClipping() {
+      return state == STATE_CANCELING_FOR_CLIPPING;
     }
 
     /** Returns whether a load error is pending a deferred retry. */
@@ -1652,7 +1709,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     /** Returns whether an active load is currently being canceled. */
     public boolean isCanceling() {
-      return state == STATE_CANCELING;
+      return state == STATE_CANCELING || state == STATE_CANCELING_FOR_CLIPPING;
+    }
+
+    /** Returns whether the state machine is in a loading or canceling state. */
+    public boolean isLoading() {
+      return state == STATE_LOADING || isCanceling();
+    }
+
+    /** Returns whether seeking inside the sample queues buffer is permitted. */
+    public boolean canSeekInsideBuffer(@C.DataType int dataType) {
+      return !isPendingReset()
+          && dataType != C.DATA_TYPE_MEDIA_PROGRESSIVE_LIVE
+          && (isFinished()
+              || state == STATE_LOADING
+              || state == STATE_CANCELING_FOR_CLIPPING
+              || state == STATE_DEFERRED_RETRY_PENDING);
     }
 
     /** Returns whether loading can be started or continued by the caller. */
@@ -1668,8 +1740,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         return lastSeekPositionUs;
       }
       if (notifyDiscontinuity
-          && (state == STATE_FINISHED
-              || currentExtractedSamplesCount > extractedSamplesCountAtStartOfLoad)) {
+          && (isFinished() || currentExtractedSamplesCount > extractedSamplesCountAtStartOfLoad)) {
         notifyDiscontinuity = false;
         return lastSeekPositionUs;
       }
@@ -1684,12 +1755,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      * @param hasPreroll Whether any selected track has preroll samples.
      * @param enabledTrackCount Number of currently enabled tracks.
      */
-    public void onTrackSelection(
-        boolean hasPreroll, int enabledTrackCount, boolean loaderIsLoading) {
+    public void onTrackSelection(boolean hasPreroll, int enabledTrackCount) {
       if (enabledTrackCount == 0) {
         notifyDiscontinuity = false;
         pendingInitialDiscontinuity = false;
-        if (loaderIsLoading) {
+        if (state == STATE_LOADING
+            || state == STATE_CANCELING
+            || state == STATE_CANCELING_FOR_CLIPPING) {
           state = STATE_CANCELING;
         } else {
           state = STATE_IDLE;
@@ -1726,8 +1798,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     /** Called when an active load is canceled by the {@link Loader}. */
     public void onLoadCanceled(boolean released) {
-      if (!released && (state == STATE_CANCELING || state == STATE_LOADING)) {
-        state = STATE_IDLE;
+      if (!released) {
+        if (state == STATE_CANCELING_FOR_CLIPPING) {
+          state = STATE_CLIPPED_FINISHED;
+        } else if (state == STATE_CANCELING) {
+          state = STATE_IDLE;
+        }
       }
     }
 
@@ -1774,9 +1850,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      *
      * @param positionUs The seek target position in microseconds.
      * @param canSeekInsideBuffer Whether in-buffer seek succeeded on sample queues.
-     * @param loaderIsLoading Whether the loader is actively running a load task.
      */
-    public void onSeek(long positionUs, boolean canSeekInsideBuffer, boolean loaderIsLoading) {
+    public void onSeek(long positionUs, boolean canSeekInsideBuffer) {
       notifyDiscontinuity = false;
       lastSeekPositionUs = positionUs;
 
@@ -1791,18 +1866,27 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
       pendingResetPositionUs = positionUs;
       pendingInitialDiscontinuity = false;
-      if (loaderIsLoading) {
+      if (state == STATE_LOADING
+          || state == STATE_CANCELING
+          || state == STATE_CANCELING_FOR_CLIPPING) {
         state = STATE_CANCELING;
       } else {
         state = STATE_IDLE;
       }
     }
 
-    /** Evaluates state transition during buffer re-evaluation. */
-    public void onReevaluateBuffer(
-        boolean hasEnabledTracks, boolean haveSampleQueuesReachedEndTimeUs) {
-      if (hasEnabledTracks && !isPendingReset() && haveSampleQueuesReachedEndTimeUs) {
-        state = STATE_FINISHED;
+    /** Evaluates state transition upon reaching the clip end position. */
+    public void onEndPositionReached() {
+      if (state == STATE_CANCELING
+          || state == STATE_CANCELING_FOR_CLIPPING
+          || state == STATE_ERROR
+          || isPendingReset()) {
+        return;
+      }
+      if (state == STATE_LOADING) {
+        state = STATE_CANCELING_FOR_CLIPPING;
+      } else {
+        state = STATE_CLIPPED_FINISHED;
       }
     }
   }
