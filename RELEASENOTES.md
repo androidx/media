@@ -4,6 +4,8 @@
 
 *   Common Library:
 *   ExoPlayer:
+    *   Add support for ads in multi-period content (e.g., DASH) by splitting
+        and offsetting the `AdPlaybackState` for each period.
     *   Move the flag to enable/disable HAGC metadata for progressive media from
         `MediaSource.Factory` to `ExtractorsFactory`. The previous
         `setExperimentalEnableHagcPlayback` method is removed and replaced by

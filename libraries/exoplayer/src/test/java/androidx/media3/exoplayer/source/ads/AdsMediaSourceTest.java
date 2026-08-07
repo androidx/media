@@ -190,7 +190,7 @@ public final class AdsMediaSourceTest {
     verify(mockMediaSourceCaller)
         .onSourceInfoRefreshed(
             adsMediaSource,
-            new SinglePeriodAdTimeline(PLACEHOLDER_CONTENT_TIMELINE, PREROLL_AD_PLAYBACK_STATE));
+            new AdTimeline(PLACEHOLDER_CONTENT_TIMELINE, PREROLL_AD_PLAYBACK_STATE));
   }
 
   @Test
@@ -213,7 +213,7 @@ public final class AdsMediaSourceTest {
     verify(mockMediaSourceCaller)
         .onSourceInfoRefreshed(
             adsMediaSource,
-            new SinglePeriodAdTimeline(
+            new AdTimeline(
                 PLACEHOLDER_CONTENT_TIMELINE,
                 PREROLL_AD_PLAYBACK_STATE.withAdDurationsUs(
                     new long[][] {{PREROLL_AD_DURATION_US}})));
@@ -254,8 +254,7 @@ public final class AdsMediaSourceTest {
     verify(mockMediaSourceCaller, times(2))
         .onSourceInfoRefreshed(eq(adsMediaSource), adsTimelineCaptor.capture());
     TestUtil.timelinesAreSame(
-        adsTimelineCaptor.getValue(),
-        new SinglePeriodAdTimeline(CONTENT_TIMELINE, PREROLL_AD_PLAYBACK_STATE));
+        adsTimelineCaptor.getValue(), new AdTimeline(CONTENT_TIMELINE, PREROLL_AD_PLAYBACK_STATE));
   }
 
   @Test
@@ -1338,6 +1337,40 @@ public final class AdsMediaSourceTest {
                   new long[] {30L},
                 }))
         .inOrder();
+  }
+
+  @Test
+  public void
+      onChildSourceInfoRefreshed_liveStreamWithWindowOffset_adGroupTimesUnmodifiedInPeriod() {
+    Timeline liveTimeline =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition.Builder()
+                .setPeriodCount(1)
+                .setLive(true)
+                .setDynamic(true)
+                .setDurationUs(60_000_000L)
+                .setWindowPositionInFirstPeriodUs(10_000_000L)
+                .build());
+    AdPlaybackState adPlaybackState =
+        new AdPlaybackState("adsId", 15_000_000L)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1);
+
+    setAdPlaybackState(adPlaybackState);
+    contentMediaSource.setNewSourceInfo(liveTimeline);
+    adsMediaSource.createPeriod(
+        new MediaPeriodId(liveTimeline.getUidOfPeriod(0), /* windowSequenceNumber= */ 0),
+        mock(Allocator.class),
+        /* startPositionUs= */ 0);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    ArgumentCaptor<Timeline> timelineCaptor = ArgumentCaptor.forClass(Timeline.class);
+    verify(mockMediaSourceCaller, times(2))
+        .onSourceInfoRefreshed(eq(adsMediaSource), timelineCaptor.capture());
+
+    Timeline publishedTimeline = timelineCaptor.getValue();
+    Period period = new Period();
+    publishedTimeline.getPeriod(0, period);
+    assertThat(period.adPlaybackState.getAdGroup(0).timeUs).isEqualTo(15_000_000L);
   }
 
   private static class NoOpAdsLoader implements AdsLoader {
