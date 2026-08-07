@@ -31,6 +31,7 @@ import android.media.MediaRouter2.RouteCallback;
 import android.media.MediaRouter2.RoutingController;
 import android.media.MediaRouter2.TransferCallback;
 import android.media.RouteDiscoveryPreference;
+import android.media.RoutingSessionInfo;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Range;
@@ -38,6 +39,7 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
+import androidx.annotation.DoNotInline;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -473,7 +475,7 @@ public final class RemoteCastPlayer extends BasePlayer {
       deviceInfo = api30Impl.fetchDeviceInfo();
     } else {
       api30Impl = null;
-      deviceInfo = DEVICE_INFO_REMOTE_EMPTY;
+      deviceInfo = fetchDeviceInfoFallback();
     }
     if (trackSelector != null) {
       trackSelector.init(this::onTrackSelectionInvalidated);
@@ -1867,6 +1869,30 @@ public final class RemoteCastPlayer extends BasePlayer {
         internalSessionAvailabilityListener.onCastSessionUnavailable(sessionUnavailableReason);
       }
     }
+    updateDeviceInfo();
+  }
+
+  private void updateDeviceInfo() {
+    DeviceInfo oldDeviceInfo = deviceInfo;
+    DeviceInfo newDeviceInfo =
+        SDK_INT >= 30 && api30Impl != null
+            ? api30Impl.fetchDeviceInfo()
+            : fetchDeviceInfoFallback();
+    deviceInfo = newDeviceInfo;
+    if (!deviceInfo.equals(oldDeviceInfo)) {
+      listeners.sendEvent(
+          EVENT_DEVICE_INFO_CHANGED, listener -> listener.onDeviceInfoChanged(newDeviceInfo));
+    }
+  }
+
+  private DeviceInfo fetchDeviceInfoFallback() {
+    if (castSession != null && castSession.getCastDevice() != null) {
+      return new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE)
+          .setMaxVolume(MAX_VOLUME)
+          .setRoutingControllerName(castSession.getCastDevice().getFriendlyName())
+          .build();
+    }
+    return DEVICE_INFO_REMOTE_EMPTY;
   }
 
   private static @SessionAvailabilityListener.SessionUnavailableReason int mapDisconnectionReason(
@@ -2204,17 +2230,6 @@ public final class RemoteCastPlayer extends BasePlayer {
       handler.removeCallbacksAndMessages(/* token= */ null);
     }
 
-    /** Updates the device info with an up-to-date value and notifies the listeners. */
-    private void updateDeviceInfo() {
-      DeviceInfo oldDeviceInfo = deviceInfo;
-      DeviceInfo newDeviceInfo = fetchDeviceInfo();
-      deviceInfo = newDeviceInfo;
-      if (!deviceInfo.equals(oldDeviceInfo)) {
-        listeners.sendEvent(
-            EVENT_DEVICE_INFO_CHANGED, listener -> listener.onDeviceInfoChanged(newDeviceInfo));
-      }
-    }
-
     /**
      * Returns a {@link DeviceInfo} with the {@link RoutingController#getId() id} that corresponds
      * to the Cast session, or {@link #DEVICE_INFO_REMOTE_EMPTY} if not available.
@@ -2229,14 +2244,22 @@ public final class RemoteCastPlayer extends BasePlayer {
         // There's either no remote routing controller, or there's more than one. In either case we
         // don't populate the device info because either there's no Cast routing controller, or we
         // cannot safely identify the Cast routing controller.
-        return DEVICE_INFO_REMOTE_EMPTY;
+        return fetchDeviceInfoFallback();
       } else {
         // There's only one remote routing controller. It's safe to assume it's the Cast routing
         // controller.
         RoutingController remoteController = controllers.get(1);
+        @Nullable String controllerName = null;
+        if (SDK_INT >= 34) {
+          controllerName = Api34Impl.getRoutingControllerName(remoteController);
+        }
+        if (controllerName == null && !remoteController.getSelectedRoutes().isEmpty()) {
+          controllerName = remoteController.getSelectedRoutes().get(0).getName().toString();
+        }
         return new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE)
             .setMaxVolume(MAX_VOLUME)
             .setRoutingControllerId(remoteController.getId())
+            .setRoutingControllerName(controllerName)
             .build();
       }
     }
@@ -2265,6 +2288,19 @@ public final class RemoteCastPlayer extends BasePlayer {
       public void onStop(RoutingController controller) {
         updateDeviceInfo();
       }
+    }
+  }
+
+  @RequiresApi(34)
+  private static final class Api34Impl {
+    private Api34Impl() {}
+
+    @Nullable
+    @DoNotInline
+    public static String getRoutingControllerName(RoutingController controller) {
+      RoutingSessionInfo sessionInfo = controller.getRoutingSessionInfo();
+      CharSequence name = sessionInfo != null ? sessionInfo.getName() : null;
+      return name != null ? name.toString() : null;
     }
   }
 

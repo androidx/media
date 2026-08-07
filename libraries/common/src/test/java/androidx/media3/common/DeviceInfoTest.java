@@ -33,18 +33,22 @@ public class DeviceInfoTest {
             .setMinVolume(1)
             .setMaxVolume(9)
             .setRoutingControllerId("route")
+            .setRoutingControllerName("Living Room TV")
             .build();
 
     assertThat(DeviceInfo.fromBundle(deviceInfo.toBundle())).isEqualTo(deviceInfo);
   }
 
   @Test
-  public void build_playbackTypeLocalWithRoutingId_throwsIllegalStateException() {
+  public void setRoutingControllerId_playbackTypeLocal_throwsIllegalArgumentException() {
+    DeviceInfo.Builder builder = new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_LOCAL);
+    assertThrows(IllegalArgumentException.class, () -> builder.setRoutingControllerId("route"));
+  }
+
+  @Test
+  public void setRoutingControllerName_playbackTypeLocal_throwsIllegalArgumentException() {
+    DeviceInfo.Builder builder = new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_LOCAL);
     assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_LOCAL)
-                .setRoutingControllerId("route")
-                .build());
+        IllegalArgumentException.class, () -> builder.setRoutingControllerName("Living Room TV"));
   }
 }

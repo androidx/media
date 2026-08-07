@@ -44,6 +44,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -60,6 +61,7 @@ import androidx.media3.demo.compose.buttons.CcButton
 import androidx.media3.demo.compose.buttons.LabeledProgressSlider
 import androidx.media3.demo.compose.buttons.SettingsBottomSheet
 import androidx.media3.demo.compose.buttons.SettingsButton
+import androidx.media3.demo.compose.text.CastingOverlay
 import androidx.media3.demo.compose.text.CurrentItemInfo
 import androidx.media3.demo.compose.text.FastForwardOverlay
 import androidx.media3.demo.compose.text.PlaylistInfoBottomSheet
@@ -112,7 +114,8 @@ internal fun LongFormPlayerScreen(
   var showCurrentMediaItemInfo by rememberSaveable { mutableStateOf(false) }
   var showSettings by rememberSaveable { mutableStateOf(false) }
   var bottomControlsHeight by remember { mutableStateOf(0.dp) }
-  val isRemotePlayback = rememberCastState(player).isRemotePlayback
+  val castState = rememberCastState(player)
+  val isRemotePlayback = castState.isRemotePlayback
   val mediaRouteButtonState = rememberMediaRouteButtonState()
 
   var showControls by rememberSaveable { mutableStateOf(true) }
@@ -172,7 +175,7 @@ internal fun LongFormPlayerScreen(
               showControls = true
               scheduleHideControls()
             },
-            onToggleControls = { showControls = !showControls },
+            onToggleControls = { if (!isRemotePlayback) showControls = !showControls },
             playbackSpeedState = playbackSpeedState,
             seekBackButtonState = rememberSeekBackButtonState(player),
             seekForwardButtonState = rememberSeekForwardButtonState(player),
@@ -196,6 +199,10 @@ internal fun LongFormPlayerScreen(
             },
           ),
       contentScale = CONTENT_SCALES[currentContentScaleIndex].second,
+      shutter = {
+        Box(Modifier.fillMaxSize().background(Color.Black))
+        CastingOverlay(castState, Modifier.fillMaxSize())
+      },
       topControls = { player, showControls ->
         PlayerDefaults.TopControls(
           player,
@@ -209,6 +216,11 @@ internal fun LongFormPlayerScreen(
           }
         }
       },
+      centerControls = { player, showControls ->
+        if (!isRemotePlayback) {
+          PlayerDefaults.CenterControls(player, showControls, Modifier.fillMaxWidth())
+        }
+      },
       bottomControls = { player, showControls ->
         PlayerDefaults.BottomControls(
           player,
@@ -217,8 +229,14 @@ internal fun LongFormPlayerScreen(
             Modifier.fillMaxWidth().navigationBarsPadding().onSizeChanged {
               bottomControlsHeight = with(density) { it.height.toDp() }
             },
-          above = {
-            Box(Modifier.fillMaxWidth()) { MuteButton(player, Modifier.align(Alignment.CenterEnd)) }
+          above = { player ->
+            if (isRemotePlayback) {
+              PlayerDefaults.CenterControls(player, showControls, Modifier.fillMaxWidth())
+            } else {
+              Box(Modifier.fillMaxWidth()) {
+                MuteButton(player, Modifier.align(Alignment.CenterEnd))
+              }
+            }
           },
           progressSlider = {
             val sliderPlayer = if (isRemotePlayback) player else localPlayer
