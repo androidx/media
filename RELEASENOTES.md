@@ -23,6 +23,8 @@
         newly enabled mid-playback.
     *   Fix a playback stall caused when prewarming a non-transitioning
         secondary renderer.
+    *   Fix pre-warming issue where the `Surface` should be returned to the
+        primary renderer when a seek resets and disables both renderers.
 *   CompositionPlayer:
     *   Support configuring the frame rate of video frame aggregation via
         `Composition.Builder.setVideoFrameAggregationParameters` for playback
