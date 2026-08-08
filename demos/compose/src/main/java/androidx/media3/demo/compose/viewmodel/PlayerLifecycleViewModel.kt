@@ -177,7 +177,6 @@ internal class PlayerLifecycleViewModel(
   override fun onCleared() {
     releasePlayer()
     clearSavedState()
-    super.onCleared()
   }
 
   /**
