@@ -27,6 +27,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -49,7 +51,9 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.media3.cast.MediaRouteButton
@@ -57,12 +61,13 @@ import androidx.media3.cast.rememberMediaRouteButtonState
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.ExperimentalApi
+import androidx.media3.datasource.DataSourceBitmapLoader
+import androidx.media3.demo.compose.R
 import androidx.media3.demo.compose.buttons.CcButton
 import androidx.media3.demo.compose.buttons.LabeledProgressSlider
 import androidx.media3.demo.compose.buttons.SettingsBottomSheet
 import androidx.media3.demo.compose.buttons.SettingsButton
 import androidx.media3.demo.compose.text.CastingOverlay
-import androidx.media3.demo.compose.text.CurrentItemInfo
 import androidx.media3.demo.compose.text.FastForwardOverlay
 import androidx.media3.demo.compose.text.PlaylistInfoBottomSheet
 import androidx.media3.demo.compose.text.SeekOverlay
@@ -71,6 +76,7 @@ import androidx.media3.demo.compose.text.rememberCastState
 import androidx.media3.demo.compose.viewmodel.PlayerLifecycleViewModel
 import androidx.media3.demo.compose.viewmodel.rememberPlayerWithLifecycle
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.compose.material3.MiniController
 import androidx.media3.ui.compose.material3.Player
 import androidx.media3.ui.compose.material3.PlayerDefaults
 import androidx.media3.ui.compose.material3.buttons.MuteButton
@@ -78,7 +84,6 @@ import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
 import androidx.media3.ui.compose.state.rememberPlaybackSpeedState
 import androidx.media3.ui.compose.state.rememberSeekBackButtonState
 import androidx.media3.ui.compose.state.rememberSeekForwardButtonState
-import androidx.media3.ui.compose.text.CurrentMediaItemBox
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -111,7 +116,7 @@ internal fun LongFormPlayerScreen(
   val scope = rememberCoroutineScope()
   var currentContentScaleIndex by rememberSaveable { mutableIntStateOf(0) }
   var showPlaylist by rememberSaveable { mutableStateOf(false) }
-  var showCurrentMediaItemInfo by rememberSaveable { mutableStateOf(false) }
+  var showMiniController by rememberSaveable { mutableStateOf(false) }
   var showSettings by rememberSaveable { mutableStateOf(false) }
   var bottomControlsHeight by remember { mutableStateOf(0.dp) }
   val castState = rememberCastState(player)
@@ -247,10 +252,7 @@ internal fun LongFormPlayerScreen(
     )
     Column(Modifier.align(Alignment.TopStart)) {
       PlaylistButton(onClick = { showPlaylist = true })
-      PlayingNowButton(
-        showCurrentMediaItemInfo,
-        onClick = { showCurrentMediaItemInfo = !showCurrentMediaItemInfo },
-      )
+      PlayingNowButton(showMiniController, onClick = { showMiniController = !showMiniController })
     }
     SeekOverlay(
       state = seekOverlayState,
@@ -271,17 +273,18 @@ internal fun LongFormPlayerScreen(
           ),
       )
     }
-    if (showCurrentMediaItemInfo) {
-      CurrentMediaItemBox(player) {
-        Box(
-          Modifier.align(Alignment.BottomCenter)
-            .padding(bottom = bottomControlsHeight + 10.dp)
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
-        ) {
-          CurrentItemInfo(meta = mediaMetadata, Modifier.padding(8.dp))
-        }
-      }
+    if (showMiniController) {
+      val context = LocalContext.current
+      val bitmapLoader = remember(context) { DataSourceBitmapLoader.Builder(context).build() }
+      MiniController(
+        player = player,
+        modifier =
+          Modifier.fillMaxWidth()
+            .align(Alignment.BottomCenter)
+            .padding(bottom = bottomControlsHeight + 10.dp),
+        bitmapLoader = bitmapLoader,
+        defaultArtwork = painterResource(R.drawable.media3_icon_default_album_image),
+      )
     }
     if (showPlaylist) {
       PlaylistInfoBottomSheet(
@@ -311,7 +314,14 @@ private fun PlaylistButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
 
 @Composable
 private fun PlayingNowButton(visible: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
-  Button(onClick, modifier) { Text("Playing\nNow" + if (visible) " <<" else " >>") }
+  ElevatedButton(
+    onClick = onClick,
+    modifier = modifier,
+    elevation =
+      ButtonDefaults.elevatedButtonElevation(defaultElevation = if (visible) 0.dp else 8.dp),
+  ) {
+    Text("Playing Now")
+  }
 }
 
 private val CONTROLS_VISIBILITY_TIMEOUT = 3000.milliseconds

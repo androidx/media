@@ -56,7 +56,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.launch
 
-private val defaultPlayerControls: @Composable RowScope.(Player) -> Unit = { player ->
+private val defaultPlayerControls: @Composable RowScope.(Player?) -> Unit = { player ->
   Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
     PreviousButton(player, modifier = Modifier.size(MiniControllerTokens.ControlSize))
     PlayPauseButton(player, modifier = Modifier.size(MiniControllerTokens.ControlSize))
@@ -84,12 +84,12 @@ private val defaultPlayerControls: @Composable RowScope.(Player) -> Unit = { pla
 @Composable
 @UnstableApi
 fun MiniController(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   bitmapLoader: BitmapLoader? = null,
   defaultArtwork: Painter? = null,
   onClick: () -> Unit = {},
-  playerControls: @Composable RowScope.(Player) -> Unit = defaultPlayerControls,
+  playerControls: @Composable RowScope.(Player?) -> Unit = defaultPlayerControls,
 ) {
   Card(
     onClick = onClick,
@@ -170,7 +170,7 @@ private fun Artwork(
 }
 
 @Composable
-private fun MediaDescription(player: Player, modifier: Modifier = Modifier) {
+private fun MediaDescription(player: Player?, modifier: Modifier = Modifier) {
   CurrentMediaItemBox(player) {
     Column(modifier = modifier) {
       mediaMetadata.title?.toString()?.let { title ->

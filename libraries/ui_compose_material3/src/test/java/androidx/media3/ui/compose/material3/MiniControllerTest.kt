@@ -87,4 +87,13 @@ class MiniControllerTest {
     composeTestRule.onNodeWithText("Sample Title").assertIsDisplayed()
     composeTestRule.onNodeWithText("Sample Artist").assertIsDisplayed()
   }
+
+  @Test
+  fun miniController_withNullPlayer_isDisplayed() {
+    composeTestRule.setContent {
+      MiniController(player = null, modifier = Modifier.testTag(miniControllerTag))
+    }
+
+    composeTestRule.onNodeWithTag(miniControllerTag).assertIsDisplayed()
+  }
 }
