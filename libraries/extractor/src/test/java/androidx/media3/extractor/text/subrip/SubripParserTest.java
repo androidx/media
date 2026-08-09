@@ -28,6 +28,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Test;
@@ -81,6 +83,89 @@ public final class SubripParserTest {
     assertTypicalCue1(allCues.get(0));
     assertTypicalCue2(allCues.get(1));
     assertTypicalCue3(allCues.get(2));
+  }
+
+  @Test
+  public void parseGb18030WithCharsetDetector_outputsDecodedText() {
+    assertTextParsedWithCharsetDetector("起来 快起来", Charset.forName("GB18030"));
+  }
+
+  @Test
+  public void parseEucKrWithCharsetDetector_outputsDecodedText() {
+    assertTextParsedWithCharsetDetector("이것은 한국어 자막 테스트입니다.", Charset.forName("EUC-KR"));
+  }
+
+  @Test
+  public void parseShiftJisWithCharsetDetector_outputsDecodedText() {
+    assertTextParsedWithCharsetDetector("これは日本語の字幕テストです。", Charset.forName("Shift_JIS"));
+  }
+
+  @Test
+  public void parseUtf8WithCharsetDetector_outputsDecodedText() {
+    assertTextParsedWithCharsetDetector("This is a UTF-8 subtitle.", StandardCharsets.UTF_8);
+  }
+
+  @Test
+  public void parseUsAsciiWithCharsetDetector_outputsDecodedText() {
+    assertTextParsedWithCharsetDetector("This is an ASCII subtitle.", StandardCharsets.US_ASCII);
+  }
+
+  @Test
+  public void parseWithByteOrderMark_doesNotCallCharsetDetector() throws IOException {
+    SubripParser parser =
+        new SubripParser(
+            (data, offset, length) -> {
+              throw new AssertionError("Charset detector should not be called");
+            });
+    byte[] bytes =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), TYPICAL_WITH_BYTE_ORDER_MARK);
+
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
+
+    assertThat(allCues).hasSize(3);
+    assertTypicalCue1(allCues.get(0));
+    assertTypicalCue2(allCues.get(1));
+    assertTypicalCue3(allCues.get(2));
+  }
+
+  @Test
+  public void parseWithCharsetDetectorReturningNull_defaultsToUtf8() throws IOException {
+    SubripParser parser = new SubripParser((data, offset, length) -> null);
+    byte[] bytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL_FILE);
+
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
+
+    assertThat(allCues).hasSize(3);
+    assertTypicalCue1(allCues.get(0));
+    assertTypicalCue2(allCues.get(1));
+    assertTypicalCue3(allCues.get(2));
+  }
+
+  @Test
+  public void parseAtOffsetWithCharsetDetector_passesRequestedRangeToDetector() {
+    Charset charset = Charset.forName("GB18030");
+    String expectedText = "这是一个字幕测试。";
+    byte[] subtitleBytes =
+        ("1\r\n" + "00:00:00,000 --> 00:00:05,000\r\n" + expectedText + "\r\n").getBytes(charset);
+    int offset = 5;
+    byte[] bytes = new byte[offset + subtitleBytes.length + 7];
+    System.arraycopy(subtitleBytes, 0, bytes, offset, subtitleBytes.length);
+    SubripParser parser =
+        new SubripParser(
+            (data, detectorOffset, detectorLength) -> {
+              assertThat(data).isSameInstanceAs(bytes);
+              assertThat(detectorOffset).isEqualTo(offset);
+              assertThat(detectorLength).isEqualTo(subtitleBytes.length);
+              return charset;
+            });
+    ImmutableList.Builder<CuesWithTiming> cues = ImmutableList.builder();
+
+    parser.parse(bytes, offset, subtitleBytes.length, OutputOptions.allCues(), cues::add);
+
+    ImmutableList<CuesWithTiming> allCues = cues.build();
+    assertThat(allCues).hasSize(1);
+    assertThat(allCues.get(0).cues.get(0).text.toString()).isEqualTo(expectedText);
   }
 
   @Test
@@ -307,6 +392,17 @@ public final class SubripParserTest {
     ImmutableList.Builder<CuesWithTiming> cues = ImmutableList.builder();
     parser.parse(data, OutputOptions.allCues(), cues::add);
     return cues.build();
+  }
+
+  private static void assertTextParsedWithCharsetDetector(String expectedText, Charset charset) {
+    byte[] bytes =
+        ("1\r\n" + "00:00:00,000 --> 00:00:05,000\r\n" + expectedText + "\r\n").getBytes(charset);
+    SubripParser parser = new SubripParser((data, offset, length) -> charset);
+
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
+
+    assertThat(allCues).hasSize(1);
+    assertThat(allCues.get(0).cues.get(0).text.toString()).isEqualTo(expectedText);
   }
 
   private static void assertTypicalCue1(CuesWithTiming cuesWithTiming) {
