@@ -112,6 +112,10 @@
         be changed during playback with `Player.replaceMediaItem(int,
         MediaItem)` without interrupting playback
         ([#1976](https://github.com/androidx/media/issues/1976)).
+    *   SubRip: Add support for injecting a `CharsetDetector` into
+        `DefaultSubtitleParserFactory` to detect the character encoding of
+        standalone SubRip subtitles without a byte order mark
+        ([#2247](https://github.com/androidx/media/issues/2247)).
 *   Metadata:
 *   Image:
 *   DataSource:

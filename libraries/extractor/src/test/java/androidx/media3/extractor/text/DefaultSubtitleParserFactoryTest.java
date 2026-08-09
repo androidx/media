@@ -20,17 +20,80 @@ import static org.junit.Assert.assertThrows;
 
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.extractor.text.SubtitleParser.OutputOptions;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Tests for {@link DefaultSubtitleParserFactory}. */
 @RunWith(AndroidJUnit4.class)
 public class DefaultSubtitleParserFactoryTest {
+
+  @Test
+  public void createStandaloneSubripParser_usesCharsetDetector() {
+    Charset charset = Charset.forName("GB18030");
+    DefaultSubtitleParserFactory factory =
+        new DefaultSubtitleParserFactory((data, offset, length) -> charset);
+    Format format = new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_SUBRIP).build();
+    String expectedText = "起来 快起来";
+    byte[] bytes = createSubripBytes(expectedText, charset);
+
+    List<CuesWithTiming> cues = new ArrayList<>();
+    factory.create(format).parse(bytes, OutputOptions.allCues(), cues::add);
+
+    assertThat(cues).hasSize(1);
+    assertThat(cues.get(0).cues.get(0).text.toString()).isEqualTo(expectedText);
+  }
+
+  @Test
+  public void createStandaloneSubripParserWithTextContainerMimeType_usesCharsetDetector() {
+    Charset charset = Charset.forName("GB18030");
+    DefaultSubtitleParserFactory factory =
+        new DefaultSubtitleParserFactory((data, offset, length) -> charset);
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.APPLICATION_SUBRIP)
+            .setContainerMimeType(MimeTypes.APPLICATION_SUBRIP)
+            .build();
+    String expectedText = "起来 快起来";
+    byte[] bytes = createSubripBytes(expectedText, charset);
+
+    List<CuesWithTiming> cues = new ArrayList<>();
+    factory.create(format).parse(bytes, OutputOptions.allCues(), cues::add);
+
+    assertThat(cues).hasSize(1);
+    assertThat(cues.get(0).cues.get(0).text.toString()).isEqualTo(expectedText);
+  }
+
+  @Test
+  public void createEmbeddedSubripParser_doesNotUseCharsetDetector() {
+    DefaultSubtitleParserFactory factory =
+        new DefaultSubtitleParserFactory(
+            (data, offset, length) -> {
+              throw new AssertionError("Charset detector should not be called");
+            });
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.APPLICATION_SUBRIP)
+            .setContainerMimeType(MimeTypes.VIDEO_MATROSKA)
+            .build();
+    String expectedText = "This is an embedded subtitle.";
+    byte[] bytes = createSubripBytes(expectedText, StandardCharsets.UTF_8);
+
+    List<CuesWithTiming> cues = new ArrayList<>();
+    factory.create(format).parse(bytes, OutputOptions.allCues(), cues::add);
+
+    assertThat(cues).hasSize(1);
+    assertThat(cues.get(0).cues.get(0).text.toString()).isEqualTo(expectedText);
+  }
 
   /**
    * This test loops through all the public fields of {@link MimeTypes} and assumes all the static,
@@ -73,5 +136,9 @@ public class DefaultSubtitleParserFactoryTest {
         }
       }
     }
+  }
+
+  private static byte[] createSubripBytes(String text, Charset charset) {
+    return ("1\r\n" + "00:00:00,000 --> 00:00:05,000\r\n" + text + "\r\n").getBytes(charset);
   }
 }

@@ -31,6 +31,7 @@ import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.extractor.text.CharsetDetector;
 import androidx.media3.extractor.text.CuesWithTiming;
 import androidx.media3.extractor.text.SubtitleParser;
 import com.google.common.collect.ImmutableList;
@@ -82,11 +83,24 @@ public final class SubripParser implements SubtitleParser {
   private final StringBuilder textBuilder;
   private final ArrayList<String> tags;
   private final ParsableByteArray parsableByteArray;
+  @Nullable private final CharsetDetector charsetDetector;
 
   public SubripParser() {
+    this(/* charsetDetector= */ null);
+  }
+
+  /**
+   * Creates an instance that uses {@code charsetDetector} when the input doesn't contain a byte
+   * order mark.
+   *
+   * @param charsetDetector The detector to use, or {@code null} to default to UTF-8 when the input
+   *     doesn't contain a byte order mark.
+   */
+  public SubripParser(@Nullable CharsetDetector charsetDetector) {
     textBuilder = new StringBuilder();
     tags = new ArrayList<>();
     parsableByteArray = new ParsableByteArray();
+    this.charsetDetector = charsetDetector;
   }
 
   @Override
@@ -103,7 +117,7 @@ public final class SubripParser implements SubtitleParser {
       Consumer<CuesWithTiming> output) {
     parsableByteArray.reset(data, /* limit= */ offset + length);
     parsableByteArray.setPosition(offset);
-    Charset charset = detectUtfCharset(parsableByteArray);
+    Charset charset = detectCharset(data, offset, length);
 
     @Nullable
     List<CuesWithTiming> cuesWithTimingBeforeRequestedStartTimeUs =
@@ -188,12 +202,27 @@ public final class SubripParser implements SubtitleParser {
   }
 
   /**
-   * Determine UTF encoding of the byte array from a byte order mark (BOM), defaulting to UTF-8 if
-   * no BOM is found.
+   * Returns the charset to use for line parsing.
+   *
+   * <p>A byte order mark takes precedence. Otherwise, input detected as anything other than UTF-8
+   * or US-ASCII is transcoded to UTF-8 in {@link #parsableByteArray} first.
    */
-  private Charset detectUtfCharset(ParsableByteArray data) {
-    @Nullable Charset charset = data.readUtfCharsetFromBom();
-    return charset != null ? charset : StandardCharsets.UTF_8;
+  private Charset detectCharset(byte[] data, int offset, int length) {
+    @Nullable Charset utfCharset = parsableByteArray.readUtfCharsetFromBom();
+    if (utfCharset != null) {
+      return utfCharset;
+    }
+    @Nullable
+    Charset detectedCharset =
+        charsetDetector != null ? charsetDetector.detect(data, offset, length) : null;
+    Charset charset = detectedCharset != null ? detectedCharset : StandardCharsets.UTF_8;
+    if (charset.equals(StandardCharsets.UTF_8) || charset.equals(StandardCharsets.US_ASCII)) {
+      return charset;
+    }
+    // Normalize detected input to UTF-8 so line parsing uses a single code path.
+    parsableByteArray.reset(
+        new String(data, offset, length, charset).getBytes(StandardCharsets.UTF_8));
+    return StandardCharsets.UTF_8;
   }
 
   /**
