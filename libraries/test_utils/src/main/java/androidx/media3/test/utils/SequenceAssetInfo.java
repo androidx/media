@@ -54,7 +54,7 @@ public final class SequenceAssetInfo {
     EditedMediaItemSequence.Builder sequenceBuilder =
         new EditedMediaItemSequence.Builder(trackTypes);
     for (EditedMediaItemAssetInfo asset : assets) {
-      sequenceBuilder.addItem(checkNotNull(asset.editedMediaItem));
+      sequenceBuilder.addItem(checkNotNull(asset.getEditedMediaItem()));
     }
     sequenceBuilder.setIsLooping(isLooping);
     return sequenceBuilder.build();
@@ -70,7 +70,7 @@ public final class SequenceAssetInfo {
       expectedVideoTimestampsUs.addAll(
           Iterables.transform(
               videoTimestampsUs, timestampUs -> finalPreviousDuration + timestampUs));
-      previousDuration += checkNotNull(asset.editedMediaItem).getPresentationDurationUs();
+      previousDuration += checkNotNull(asset.getEditedMediaItem()).getPresentationDurationUs();
     }
     return expectedVideoTimestampsUs.build();
   }

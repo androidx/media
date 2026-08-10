@@ -1398,8 +1398,8 @@ public class CompositionPlayerTest {
         new Composition.Builder(
                 EditedMediaItemSequence.withAudioAndVideoFrom(
                     ImmutableList.of(
-                        EditedMediaItemAssetInfo.IMAGE.editedMediaItem,
-                        EditedMediaItemAssetInfo.VIDEO.editedMediaItem)))
+                        EditedMediaItemAssetInfo.IMAGE.getEditedMediaItem(),
+                        EditedMediaItemAssetInfo.VIDEO.getEditedMediaItem())))
             .build();
     MaxPositionAudioSink customAudioSink =
         new MaxPositionAudioSink(new DefaultAudioSink.Builder(getApplicationContext()).build());

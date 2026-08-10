@@ -235,7 +235,7 @@ public final class CompositionAssetInfo {
       return null;
     }
     // If the first asset is a gap, the encoder will be configured with [16, 16], HEVC.
-    if (firstAsset.editedMediaItem != null && firstAsset.editedMediaItem.removeVideo) {
+    if (firstAsset.getEditedMediaItem().removeVideo) {
       format =
           format
               .buildUpon()
