@@ -27,6 +27,9 @@
         secondary renderer.
     *   Fix pre-warming issue where the `Surface` should be returned to the
         primary renderer when a seek resets and disables both renderers.
+    *   Fix an issue where Player.getCurrentPosition() could return stale values
+        (updating only a few times per second) when dynamic scheduling is
+        enabled ([#3286](https://github.com/androidx/media/issues/3286)).
 *   CompositionPlayer:
     *   Support configuring the frame rate of video frame aggregation via
         `Composition.Builder.setVideoFrameAggregationParameters` for playback

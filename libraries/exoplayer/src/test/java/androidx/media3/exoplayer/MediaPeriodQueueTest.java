@@ -33,6 +33,7 @@ import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.os.Looper;
+import android.os.SystemClock;
 import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
@@ -1981,6 +1982,7 @@ public final class MediaPeriodQueueTest {
             /* requestedContentPositionUs= */ C.TIME_UNSET,
             /* discontinuityStartPositionUs= */ 0,
             /* totalBufferedDurationUs= */ 0,
+            SystemClock.elapsedRealtime(),
             /* trackGroups= */ null,
             /* trackSelectorResult= */ null,
             /* staticMetadata= */ ImmutableList.of());
@@ -2016,6 +2018,7 @@ public final class MediaPeriodQueueTest {
             /* requestedContentPositionUs= */ C.TIME_UNSET,
             /* discontinuityStartPositionUs= */ 0,
             /* totalBufferedDurationUs= */ 0,
+            SystemClock.elapsedRealtime(),
             /* trackGroups= */ null,
             /* trackSelectorResult= */ null,
             /* staticMetadata= */ ImmutableList.of());
@@ -2050,6 +2053,7 @@ public final class MediaPeriodQueueTest {
             /* requestedContentPositionUs= */ C.TIME_UNSET,
             /* discontinuityStartPositionUs= */ 0,
             /* totalBufferedDurationUs= */ 0,
+            SystemClock.elapsedRealtime(),
             /* trackGroups= */ null,
             /* trackSelectorResult= */ null,
             /* staticMetadata= */ ImmutableList.of());
@@ -2087,6 +2091,7 @@ public final class MediaPeriodQueueTest {
             /* requestedContentPositionUs= */ C.TIME_UNSET,
             /* discontinuityStartPositionUs= */ 0,
             /* totalBufferedDurationUs= */ 0,
+            SystemClock.elapsedRealtime(),
             /* trackGroups= */ null,
             /* trackSelectorResult= */ null,
             /* staticMetadata= */ ImmutableList.of());
@@ -2144,7 +2149,8 @@ public final class MediaPeriodQueueTest {
             /* totalBufferedDurationUs= */ 0,
             /* positionUs= */ 0,
             /* positionUpdateTimeMs= */ 0,
-            /* sleepingForOffload= */ false);
+            /* sleepingForOffload= */ false,
+            /* useEstimatedPosition= */ false);
 
     MediaPeriodId mediaPeriodId =
         mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
@@ -2579,7 +2585,8 @@ public final class MediaPeriodQueueTest {
             /* totalBufferedDurationUs= */ 0,
             /* positionUs= */ 0,
             /* positionUpdateTimeMs= */ 0,
-            /* sleepingForOffload= */ false);
+            /* sleepingForOffload= */ false,
+            /* useEstimatedPosition= */ false);
   }
 
   private void advance() {
@@ -2611,6 +2618,7 @@ public final class MediaPeriodQueueTest {
             /* requestedContentPositionUs= */ C.TIME_UNSET,
             /* discontinuityStartPositionUs= */ 0,
             /* totalBufferedDurationUs= */ 0,
+            SystemClock.elapsedRealtime(),
             /* trackGroups= */ null,
             /* trackSelectorResult= */ null,
             /* staticMetadata= */ ImmutableList.of());

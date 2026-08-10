@@ -193,7 +193,7 @@ import java.util.Objects;
 
   private static final long BUFFERING_MAXIMUM_INTERVAL_MS =
       Util.usToMs(Renderer.DEFAULT_DURATION_TO_PROGRESS_US);
-  private static final long READY_MAXIMUM_INTERVAL_MS = 1000;
+  /* package */ static final long READY_MAXIMUM_INTERVAL_MS = 1000;
 
   /**
    * Duration for which the player needs to appear stuck before the playback is failed on the
@@ -1398,7 +1398,7 @@ import java.util.Objects;
                 /* reportDiscontinuity= */ reportSilenceSkip,
                 Player.DISCONTINUITY_REASON_SILENCE_SKIP);
       } else {
-        playbackInfo.updatePositionUs(periodPositionUs);
+        playbackInfo.updatePositionUs(periodPositionUs, clock.elapsedRealtime());
       }
     }
 
@@ -1576,6 +1576,9 @@ import java.util.Objects;
     requestForRendererSleep = false; // A sleep request is only valid for the current doSomeWork.
 
     if (sleepingForOffload || playbackInfo.playbackState == Player.STATE_ENDED) {
+      if (sleepingForOffload && !playbackInfo.useEstimatedPosition) {
+        playbackInfo = playbackInfo.copyWithUseEstimatedPosition(true);
+      }
       // No need to schedule next work.
     } else if ((isPlaying || playbackInfo.playbackState == Player.STATE_BUFFERING)
         || (playbackInfo.playbackState == Player.STATE_READY && enabledRendererCount != 0)) {
@@ -1645,6 +1648,11 @@ import java.util.Objects;
         isDynamicSchedulingEnabled()
             ? getDynamicSchedulingWakeUpIntervalMs()
             : getStaticSchedulingWakeUpIntervalMs();
+    boolean useEstimatedPosition =
+        shouldPlayWhenReady() && wakeUpTimeIntervalMs > BUFFERING_MAXIMUM_INTERVAL_MS;
+    if (playbackInfo.useEstimatedPosition != useEstimatedPosition) {
+      playbackInfo = playbackInfo.copyWithUseEstimatedPosition(useEstimatedPosition);
+    }
     handler.sendEmptyMessageAtTime(
         MSG_DO_SOME_WORK, thisOperationStartTimeMs + wakeUpTimeIntervalMs);
   }
@@ -2081,6 +2089,9 @@ import java.util.Objects;
       boolean releaseMediaSourceList,
       boolean resetError) {
     handler.removeMessages(MSG_DO_SOME_WORK);
+    if (playbackInfo.useEstimatedPosition) {
+      playbackInfo = playbackInfo.copyWithEstimatedPosition(clock.elapsedRealtime());
+    }
     seekIsPendingWhileScrubbing = false;
     if (queuedSeekWhileScrubbing != null) {
       playbackInfoUpdate.incrementPendingOperationAcks(/* operationAcks= */ 1);
@@ -2169,7 +2180,8 @@ import java.util.Objects;
             /* totalBufferedDurationUs= */ 0,
             /* positionUs= */ startPositionUs,
             /* positionUpdateTimeMs= */ 0,
-            /* sleepingForOffload= */ false);
+            /* sleepingForOffload= */ false,
+            /* useEstimatedPosition= */ false);
     if (releaseMediaSourceList) {
       queue.releasePreloadPool();
       mediaSourceList.release();
@@ -3505,6 +3517,9 @@ import java.util.Objects;
       if (acknowledgeCommand) {
         playbackInfoUpdate.incrementPendingOperationAcks(1);
       }
+      if (playbackInfo.useEstimatedPosition) {
+        playbackInfo = playbackInfo.copyWithEstimatedPosition(clock.elapsedRealtime());
+      }
       playbackInfo = playbackInfo.copyWithPlaybackParameters(playbackParameters);
     }
     updateTrackSelectionPlaybackSpeed(playbackParameters.speed);
@@ -3635,6 +3650,7 @@ import java.util.Objects;
         requestedContentPositionUs,
         discontinuityStartPositionUs,
         getTotalBufferedDurationUs(),
+        clock.elapsedRealtime(),
         trackGroupArray,
         trackSelectorResult,
         staticMetadata);
