@@ -38,14 +38,14 @@ import java.util.concurrent.Executor;
  * Encapsulates N-to-1 frame aggregation logic.
  *
  * <p>It receives input via {@link GlTextureFrameConsumer} acquired via {@link #getInputConsumer},
- * and outputs aggregated frames to a {@link DefaultGlTextureFrameCompositingProcessor}.
+ * and outputs aggregated frames to a {@link GlTextureFrameCompositor}.
  *
  * <p>All methods must be called on a GL thread.
  */
 // TODO: b/524240959 - Consider sharing logic with FrameAggregator.
 @RequiresApi(26)
 /* package */ final class GlTextureFrameAggregator implements AutoCloseable {
-  private final DefaultGlTextureFrameCompositingProcessor compositingProcessor;
+  private final GlTextureFrameCompositor compositingProcessor;
   private final ListeningExecutorService glExecutorService;
   private final Consumer<VideoFrameProcessingException> errorConsumer;
   private final SparseArray<InputFrameConsumer> sequenceConsumers;
@@ -56,7 +56,7 @@ import java.util.concurrent.Executor;
   private boolean allInputStreamsEnded;
 
   public GlTextureFrameAggregator(
-      DefaultGlTextureFrameCompositingProcessor compositingProcessor,
+      GlTextureFrameCompositor compositingProcessor,
       ListeningExecutorService glExecutorService,
       Consumer<VideoFrameProcessingException> errorConsumer) {
     this.compositingProcessor = compositingProcessor;

@@ -25,6 +25,7 @@ import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
+import androidx.media3.effect.GlTextureFrameCompositor.CompositorGlProgram;
 import java.io.IOException;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -35,8 +36,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  *
  * <p>All methods must be called on a GL thread, unless otherwise stated.
  */
-/* package */ final class DefaultCompositorGlProgram
-    implements DefaultGlTextureFrameCompositingProcessor.CompositorGlProgram {
+/* package */ final class DefaultCompositorGlProgram implements CompositorGlProgram {
 
   private static final String TAG = "CompositorGlProgram";
 

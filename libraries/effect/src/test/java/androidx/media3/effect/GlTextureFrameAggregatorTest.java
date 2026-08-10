@@ -45,7 +45,7 @@ public final class GlTextureFrameAggregatorTest {
 
   private static final int FAKE_GL_TEXTURE_ID = 999;
 
-  private DefaultGlTextureFrameCompositingProcessor compositingProcessor;
+  private DefaultGlTextureFrameCompositor compositingProcessor;
   private FakeGlTextureFrameConsumer downstreamConsumer;
   private FakeCompositorGlProgram compositorGlProgram;
   private GlTextureFrameAggregator frameAggregator;
@@ -58,7 +58,7 @@ public final class GlTextureFrameAggregatorTest {
     compositorGlProgram = new FakeCompositorGlProgram();
     ListeningExecutorService glExecutorService = newDirectExecutorService();
     compositingProcessor =
-        new DefaultGlTextureFrameCompositingProcessor(
+        new DefaultGlTextureFrameCompositor(
             new FakeGlObjectsProvider(),
             new TexturePool(
                 /* textureAllocator= */ (width, height, useHighPrecisionColorComponents) ->

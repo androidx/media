@@ -39,17 +39,17 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Unit tests for {@link DefaultGlTextureFrameCompositingProcessor}. */
+/** Unit tests for {@link DefaultGlTextureFrameCompositor}. */
 @SdkSuppress(minSdkVersion = 26)
 @RunWith(AndroidJUnit4.class)
-public final class DefaultGlTextureFrameCompositingProcessorTest {
+public final class DefaultGlTextureFrameCompositorTest {
 
   private static final int WIDTH = 100;
   private static final int HEIGHT = 200;
   private static final int FAKE_GL_TEXTURE_ID = 999;
   private static final long TIMEOUT_MS = 1_000;
 
-  private DefaultGlTextureFrameCompositingProcessor compositingProcessor;
+  private DefaultGlTextureFrameCompositor compositingProcessor;
   private FakeGlTextureFrameConsumer downstreamConsumer;
   private AtomicReference<VideoFrameProcessingException> errorReference;
   private FakeCompositorGlProgram compositorGlProgram;
@@ -61,7 +61,7 @@ public final class DefaultGlTextureFrameCompositingProcessorTest {
     compositorGlProgram = new FakeCompositorGlProgram();
 
     compositingProcessor =
-        new DefaultGlTextureFrameCompositingProcessor(
+        new DefaultGlTextureFrameCompositor(
             new FakeGlObjectsProvider(),
             new TexturePool(
                 /* textureAllocator= */ (width, height, useHighPrecisionColorComponents) ->
@@ -108,8 +108,8 @@ public final class DefaultGlTextureFrameCompositingProcessorTest {
     GlTextureFrame frame1 = createGlTextureFrame(/* texId= */ 0, /* sequenceIndex= */ 0);
     GlTextureFrame frame2 = createGlTextureFrame(/* texId= */ 1, /* sequenceIndex= */ 1);
 
-    try (DefaultGlTextureFrameCompositingProcessor processor =
-        new DefaultGlTextureFrameCompositingProcessor(
+    try (DefaultGlTextureFrameCompositor processor =
+        new DefaultGlTextureFrameCompositor(
             new FakeGlObjectsProvider(),
             new TexturePool(
                 /* textureAllocator= */ (width, height, useHighPrecisionColorComponents) ->

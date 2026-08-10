@@ -45,8 +45,8 @@ import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.HardwareBufferFrame;
-import androidx.media3.effect.DefaultGlTextureFrameCompositingProcessor.CompositorGlProgram;
 import androidx.media3.effect.FrameProcessorUtils.ThrowingRunnable;
+import androidx.media3.effect.GlTextureFrameCompositor.CompositorGlProgram;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import java.util.Collections;
@@ -296,7 +296,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   private final Set<Integer> activeSequenceIndices;
 
   private @MonotonicNonNull GlTextureFrameAggregator frameAggregator;
-  private @MonotonicNonNull DefaultGlTextureFrameCompositingProcessor compositingProcessor;
+  private @MonotonicNonNull GlTextureFrameCompositor compositingProcessor;
   private @MonotonicNonNull GlTextureFrameProcessorChain postProcessingChain;
   private @MonotonicNonNull HardwareBufferConverter hardwareBufferConverter;
 
@@ -507,7 +507,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
             frameWriterGlTextureFrameConsumer,
             KEY_COMPOSITION_EFFECTS);
     compositingProcessor =
-        new DefaultGlTextureFrameCompositingProcessor(
+        new DefaultGlTextureFrameCompositor(
             glObjectsProvider,
             compositorTexturePoolFactory.create(outputColorInfo),
             errorConsumer,

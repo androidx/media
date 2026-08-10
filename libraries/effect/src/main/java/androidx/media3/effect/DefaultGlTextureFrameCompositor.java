@@ -45,23 +45,7 @@ import java.util.concurrent.Executor;
  * <p>Methods in this class must be called on a GL thread.
  */
 @RequiresApi(26)
-/* package */ final class DefaultGlTextureFrameCompositingProcessor implements AutoCloseable {
-
-  /** Draws multiple input frames onto one output texture using a GL program. */
-  public interface CompositorGlProgram {
-    /**
-     * Draws the input frames onto the output texture.
-     *
-     * @param framesToComposite The {@linkplain GlCompositionFrame input frames} to composite.
-     * @param outputTexture The {@link GlTextureInfo} to draw onto.
-     * @throws VideoFrameProcessingException If an error occurs during frame processing.
-     */
-    void drawFrame(List<GlCompositionFrame> framesToComposite, GlTextureInfo outputTexture)
-        throws GlException, VideoFrameProcessingException;
-
-    /** Releases all associated resources. */
-    void release() throws VideoFrameProcessingException;
-  }
+/* package */ final class DefaultGlTextureFrameCompositor implements GlTextureFrameCompositor {
 
   private final GlObjectsProvider glObjectsProvider;
   private final TexturePool outputTexturePool;
@@ -97,7 +81,7 @@ import java.util.concurrent.Executor;
    *     this thread.
    * @param downstreamConsumer The {@link GlTextureFrameConsumer} that consumes the output frames.
    */
-  public DefaultGlTextureFrameCompositingProcessor(
+  public DefaultGlTextureFrameCompositor(
       GlObjectsProvider glObjectsProvider,
       TexturePool outputTexturePool,
       Consumer<VideoFrameProcessingException> errorConsumer,
@@ -113,20 +97,7 @@ import java.util.concurrent.Executor;
     lock = new Object();
   }
 
-  /**
-   * Attempts to queue frames for compositing.
-   *
-   * <p>If the compositor is at capacity, it returns {@code false} and the {@code wakeupListener}
-   * will be invoked on the {@code listenerExecutor} when capacity becomes available.
-   *
-   * <p>If {@code frames} contains only a single frame, the compositor is bypassed and the frame is
-   * passed directly downstream.
-   *
-   * @param frames The input frames to composite.
-   * @param listenerExecutor The executor to run the {@code wakeupListener} on.
-   * @param wakeupListener The callback to run when capacity is freed.
-   * @return {@code true} if queued successfully, {@code false} otherwise.
-   */
+  @Override
   public boolean queue(
       List<GlTextureFrame> frames, Executor listenerExecutor, Runnable wakeupListener)
       throws VideoFrameProcessingException {
@@ -222,7 +193,7 @@ import java.util.concurrent.Executor;
     return true;
   }
 
-  /** Notifies the current stream has ended. */
+  @Override
   public void signalEndOfStream() {
     inputStreamEnded = true;
     if (pendingOutputFrame == null) {
