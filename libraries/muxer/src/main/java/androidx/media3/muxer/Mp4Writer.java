@@ -437,7 +437,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
     boolean newSamplesWritten = false;
     for (int i = 0; i < tracks.size(); i++) {
       Track track = tracks.get(i);
-      // TODO: b/270583563 - Check if we need to consider the global timestamp instead.
       if (track.pendingSamplesBufferInfo.size() > 2) {
         BufferInfo firstSampleInfo = checkNotNull(track.pendingSamplesBufferInfo.peekFirst());
         BufferInfo lastSampleInfo = checkNotNull(track.pendingSamplesBufferInfo.peekLast());
