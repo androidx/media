@@ -69,6 +69,7 @@ import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.SeekMap.SeekPoints;
 import androidx.media3.extractor.SeekMap.Unseekable;
+import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.metadata.icy.IcyHeaders;
 import com.google.common.collect.ImmutableMap;
@@ -502,7 +503,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (enabledTrackCount > 0 && haveSampleQueuesReachedEndTimeUs()) {
       loadingStateMachine.onEndPositionReached();
       maybeCancelOrDiscardUpstreamBuffers();
-      // TODO: b/474538573 - Restart loading without reset when required after re-evaluating.
     }
   }
 
@@ -629,9 +629,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (!prepared) {
       return endPositionUs;
     }
-    if (endPositionUs < oldEndPositionUs && haveSampleQueuesReachedEndTimeUs()) {
+    boolean isExtension =
+        oldEndPositionUs != C.TIME_END_OF_SOURCE
+            && (endPositionUs == C.TIME_END_OF_SOURCE || endPositionUs > oldEndPositionUs);
+    boolean haveSampleQueuesReachedEndTimeUs = haveSampleQueuesReachedEndTimeUs();
+    if (isExtension && !haveSampleQueuesReachedEndTimeUs) {
+      loadingStateMachine.onEndPositionExtended();
+      if (enabledTrackCount > 0) {
+        checkNotNull(callback).onContinueLoadingRequested(this);
+      }
+    } else if (haveSampleQueuesReachedEndTimeUs) {
       loadingStateMachine.onEndPositionReached();
-      maybeCancelOrDiscardUpstreamBuffers();
+      if (loadingStateMachine.isCancelingForClipping()) {
+        loader.cancelLoading();
+      } else if (loadingStateMachine.isClippedFinished()) {
+        maybeCancelOrDiscardUpstreamBuffers();
+      }
     }
     return endPositionUs;
   }
@@ -688,6 +701,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (endPositionUs == C.TIME_END_OF_SOURCE || enabledTrackCount == 0) {
       return false;
     }
+    if (loadingStateMachine.getState() == LoadingStateMachine.STATE_FINISHED) {
+      return true;
+    }
     assertPrepared();
     for (int i = 0; i < sampleQueues.length; i++) {
       // Ignore non-AV tracks if AV tracks are enabled, as they may be sparse or poorly interleaved.
@@ -712,8 +728,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           discardFromUs = largestReadTimestampUs + 1;
         }
         sampleQueue.discardUpstreamFrom(discardFromUs);
-        // TODO: b/474538573 - Call sampleQueue.expectResume() on the newly trimmed queue boundary
-        // right before resuming loading without reset.
       }
     }
   }
@@ -829,17 +843,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         /* trackSelectionData= */ null,
         /* mediaStartTimeUs= */ loadable.seekTimeUs,
         durationUs);
-    loadingStateMachine.onLoadCanceled(released);
-    if (!released && !loadingStateMachine.isFinished()) {
-      for (SampleQueue sampleQueue : sampleQueues) {
-        sampleQueue.reset();
+    loadingStateMachine.onLoadCanceled(released, haveSampleQueuesReachedEndTimeUs());
+    if (!released) {
+      if (loadingStateMachine.isClippedFinished()) {
+        maybeCancelOrDiscardUpstreamBuffers();
+      } else if (loadingStateMachine.isPendingReset()) {
+        for (SampleQueue sampleQueue : sampleQueues) {
+          sampleQueue.reset();
+        }
       }
-      if (enabledTrackCount > 0) {
+      if (enabledTrackCount > 0 && !loadingStateMachine.isFinished()) {
         checkNotNull(callback).onContinueLoadingRequested(this);
       }
-    }
-    if (!released && loadingStateMachine.isClippedFinished()) {
-      maybeCancelOrDiscardUpstreamBuffers();
     }
   }
 
@@ -1064,27 +1079,58 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private void startLoading() {
+    boolean wasPendingReset = loadingStateMachine.isPendingReset();
+    long loadPositionUs =
+        wasPendingReset ? loadingStateMachine.getPendingResetPositionUs() : C.TIME_UNSET;
+
+    loadingStateMachine.onStartLoading(
+        prepared, endPositionUs, durationUs, getExtractedSamplesCount());
+    if (loadingStateMachine.isFinished()) {
+      return;
+    }
+
     ExtractingLoadable loadable =
         new ExtractingLoadable(
             uri, dataSource, progressiveMediaExtractor, /* extractorOutput= */ this, loadCondition);
     if (prepared) {
-      checkState(loadingStateMachine.isPendingReset());
-      long pendingResetPositionUs = loadingStateMachine.getPendingResetPositionUs();
-      long maxLoadPositionUs = endPositionUs != C.TIME_END_OF_SOURCE ? endPositionUs : durationUs;
-      if (maxLoadPositionUs != C.TIME_UNSET && pendingResetPositionUs > maxLoadPositionUs) {
-        loadingStateMachine.onLoadCompleted();
-        return;
-      }
-      loadable.setLoadPosition(
-          checkNotNull(seekMap).getSeekPoints(pendingResetPositionUs).first.position,
-          pendingResetPositionUs);
-      for (SampleQueue sampleQueue : sampleQueues) {
-        sampleQueue.setStartTimeUs(pendingResetPositionUs);
+      if (wasPendingReset) {
+        loadable.setLoadPosition(
+            checkNotNull(seekMap).getSeekPoints(loadPositionUs).first.position, loadPositionUs);
+        for (SampleQueue sampleQueue : sampleQueues) {
+          sampleQueue.setStartTimeUs(loadPositionUs);
+        }
+      } else {
+        long resumePositionUs = calculateResumePositionUs();
+        SeekPoint seekPoint = checkNotNull(seekMap).getSeekPoints(resumePositionUs).first;
+        loadable.setLoadPosition(seekPoint.position, seekPoint.timeUs);
+        for (SampleQueue sampleQueue : sampleQueues) {
+          sampleQueue.expectResume();
+        }
       }
     }
-    loadingStateMachine.onStartLoading(getExtractedSamplesCount());
     loader.startLoading(
         loadable, this, loadErrorHandlingPolicy.getMinimumLoadableRetryCount(dataType));
+  }
+
+  private long calculateResumePositionUs() {
+    assertPrepared();
+    checkState(enabledTrackCount > 0);
+    long minLargestQueuedUs = Long.MAX_VALUE;
+    for (int i = 0; i < sampleQueues.length; i++) {
+      // Prioritize AV tracks to determine the resume point, preventing sparse non-AV tracks from
+      // causing unnecessary re-extraction from the start of the period.
+      if (trackState.trackEnabledStates[i]
+          && (trackState.trackIsAudioVideoFlags[i] || !trackState.hasEnabledAudioVideoTracks)) {
+        long largestQueuedUs = sampleQueues[i].getLargestQueuedTimestampUs();
+        if (largestQueuedUs == Long.MIN_VALUE) {
+          // An enabled track is empty, so resume from the last seek position.
+          return loadingStateMachine.getLastSeekPositionUs();
+        }
+        minLargestQueuedUs = min(minLargestQueuedUs, largestQueuedUs);
+      }
+    }
+    checkState(minLargestQueuedUs != Long.MAX_VALUE);
+    return minLargestQueuedUs;
   }
 
   /**
@@ -1760,11 +1806,25 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     /**
-     * Called when a load is started by the {@link Loader}.
+     * Called when a load attempt is initiated.
      *
+     * @param isPrepared Whether the period is prepared.
+     * @param endPositionUs The clip end position in microseconds, or {@link C#TIME_END_OF_SOURCE}
+     *     if not clipped.
+     * @param durationUs The stream duration in microseconds, or {@link C#TIME_UNSET} if unknown.
      * @param currentExtractedSamplesCount Current total sample count across all queues.
      */
-    public void onStartLoading(int currentExtractedSamplesCount) {
+    public void onStartLoading(
+        boolean isPrepared, long endPositionUs, long durationUs, int currentExtractedSamplesCount) {
+      if (isPrepared && isPendingReset()) {
+        boolean isClipped = endPositionUs != C.TIME_END_OF_SOURCE;
+        long maxLoadPositionUs = isClipped ? endPositionUs : durationUs;
+        if (maxLoadPositionUs != C.TIME_UNSET && pendingResetPositionUs > maxLoadPositionUs) {
+          pendingResetPositionUs = C.TIME_UNSET;
+          state = isClipped ? STATE_CLIPPED_FINISHED : STATE_FINISHED;
+          return;
+        }
+      }
       extractedSamplesCountAtStartOfLoad = currentExtractedSamplesCount;
       pendingResetPositionUs = C.TIME_UNSET;
       state = STATE_LOADING;
@@ -1777,10 +1837,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     /** Called when an active load is canceled by the {@link Loader}. */
-    public void onLoadCanceled(boolean released) {
+    public void onLoadCanceled(boolean released, boolean haveSampleQueuesReachedEndTimeUs) {
       if (!released) {
         if (state == STATE_CANCELING_FOR_CLIPPING) {
-          state = STATE_CLIPPED_FINISHED;
+          state =
+              haveSampleQueuesReachedEndTimeUs && !isPendingReset()
+                  ? STATE_CLIPPED_FINISHED
+                  : STATE_IDLE;
         } else if (state == STATE_CANCELING) {
           state = STATE_IDLE;
         }
@@ -1855,7 +1918,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
     }
 
-    /** Evaluates state transition upon reaching the clip end position. */
+    /** Evaluates state transitions upon reaching the clip end position. */
     public void onEndPositionReached() {
       if (state == STATE_CANCELING
           || state == STATE_CANCELING_FOR_CLIPPING
@@ -1867,6 +1930,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         state = STATE_CANCELING_FOR_CLIPPING;
       } else {
         state = STATE_CLIPPED_FINISHED;
+      }
+    }
+
+    /** Evaluates state transitions when the clip end position is extended. */
+    public void onEndPositionExtended() {
+      if (state == STATE_CLIPPED_FINISHED) {
+        state = STATE_IDLE;
       }
     }
   }
