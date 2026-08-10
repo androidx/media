@@ -164,6 +164,7 @@ public final class ClippingProgressivePlaybackTest {
             .setClippingConfiguration(
                 mediaItem.clippingConfiguration.buildUpon().setEndPositionMs(2000).build())
             .build());
+    advance(player).untilPendingCommandsAreFullyHandled();
     player.play();
     advance(player).untilState(Player.STATE_ENDED);
     player.release();
@@ -325,6 +326,15 @@ public final class ClippingProgressivePlaybackTest {
                 })
             .setClock(clock)
             .build();
+    player.addListener(
+        new Player.Listener() {
+          @Override
+          public void onPlaybackStateChanged(@Player.State int playbackState) {
+            if (playbackState == Player.STATE_READY || playbackState == Player.STATE_ENDED) {
+              capturingExtractorsFactory.startedPlayback();
+            }
+          }
+        });
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
@@ -334,10 +344,12 @@ public final class ClippingProgressivePlaybackTest {
   private static final class CapturingExtractorsFactory extends ForwardingExtractorsFactory
       implements Dumper.Dumpable {
 
-    private final ImmutableList.Builder<DumpableSampleMetadata> samples;
     @Nullable private final ConditionVariable blockLoadingCondition;
     @Nullable private final Predicate<DumpableSampleMetadata> blockLoadingFilter;
+
+    private ImmutableList.Builder<DumpableSampleMetadata> samples;
     private volatile boolean isBlocked;
+    private boolean startedPlayback;
 
     private int nextSampleIndex;
 
@@ -358,6 +370,10 @@ public final class ClippingProgressivePlaybackTest {
       return isBlocked;
     }
 
+    synchronized void startedPlayback() {
+      startedPlayback = true;
+    }
+
     @Override
     public Extractor[] createExtractors() {
       return wrapExtractors(super.createExtractors());
@@ -369,7 +385,7 @@ public final class ClippingProgressivePlaybackTest {
     }
 
     @Override
-    public void dump(Dumper dumper) {
+    public synchronized void dump(Dumper dumper) {
       dumper.startBlock("extracted samples");
       for (DumpableSampleMetadata sampleMetadata : samples.build()) {
         sampleMetadata.dump(dumper);
@@ -382,11 +398,23 @@ public final class ClippingProgressivePlaybackTest {
       for (int i = 0; i < extractors.length; i++) {
         extractors[i] =
             new ForwardingExtractor(extractors[i]) {
-              boolean seenClippedSeek = false;
+              private boolean seenInitialPreparationSeek;
 
               @Override
               public void seek(long position, long timeUs) {
-                seenClippedSeek |= timeUs != 0;
+                if (!seenInitialPreparationSeek) {
+                  seenInitialPreparationSeek = true;
+                } else if (timeUs != 0) {
+                  // A seek with non-zero timeUs before playback starts indicates that the initial
+                  // preparation load was cancelled and restarted for the clipped start position.
+                  // Clear the discarded samples from the aborted initial load.
+                  synchronized (CapturingExtractorsFactory.this) {
+                    if (!startedPlayback) {
+                      samples = ImmutableList.builder();
+                      nextSampleIndex = 0;
+                    }
+                  }
+                }
                 super.seek(position, timeUs);
               }
 
@@ -404,19 +432,18 @@ public final class ClippingProgressivePlaybackTest {
                               int size,
                               int offset,
                               @Nullable CryptoData cryptoData) {
-                            if (seenClippedSeek) {
-                              // Ignore samples from initial preparation before applying the seek to
-                              // the clipped start position.
-                              DumpableSampleMetadata metadata =
+                            DumpableSampleMetadata metadata;
+                            synchronized (CapturingExtractorsFactory.this) {
+                              metadata =
                                   new DumpableSampleMetadata(
                                       nextSampleIndex++, id, timeUs, flags, size);
                               samples.add(metadata);
-                              if (blockLoadingCondition != null
-                                  && blockLoadingFilter != null
-                                  && blockLoadingFilter.apply(metadata)) {
-                                isBlocked = true;
-                                blockLoadingCondition.block();
-                              }
+                            }
+                            if (blockLoadingCondition != null
+                                && blockLoadingFilter != null
+                                && blockLoadingFilter.apply(metadata)) {
+                              isBlocked = true;
+                              blockLoadingCondition.block();
                             }
                             super.sampleMetadata(timeUs, flags, size, offset, cryptoData);
                           }
