@@ -1096,6 +1096,27 @@ public class BoxesTest {
   }
 
   @Test
+  public void createDec3Box_withAudioEAc3Joc_matchesExpectedDec3Box() {
+    Format format =
+        FAKE_AUDIO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_E_AC3_JOC)
+            .setInitializationData(ImmutableList.of(new byte[] {0x00, 0x00, 0x00, 0x03, 0x00}))
+            .build();
+
+    ByteBuffer dec3Box = Boxes.codecSpecificBox(format);
+
+    int expectedTotalSize = 4 + 4 + 5;
+    assertThat(dec3Box.getInt()).isEqualTo(expectedTotalSize);
+    byte[] type = new byte[4];
+    dec3Box.get(type);
+    assertThat(type).isEqualTo(Util.getUtf8Bytes("dec3"));
+    byte[] payload = new byte[5];
+    dec3Box.get(payload);
+    assertThat(payload).isEqualTo(new byte[] {0x00, 0x00, 0x00, 0x03, 0x00});
+  }
+
+  @Test
   public void createAudioSampleEntryBox_forIamf_matchesExpected() {
     Format format =
         FAKE_AUDIO_FORMAT

@@ -29,6 +29,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
@@ -314,6 +315,23 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
     RobolectricUtil.runLooperUntil(
         transformer.getApplicationLooper(), videoTrackAddedCondition::isOpen);
     transformer.cancel();
+  }
+
+  @Test
+  public void transmux_withEAc3Joc_completesSuccessfully() throws Exception {
+    String eac3JocFilePath = "asset:///media/mp4/sample_eac3joc.mp4";
+    Transformer transformer =
+        new TestTransformerBuilder(context).setMuxerFactory(new InAppMp4Muxer.Factory()).build();
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(eac3JocFilePath));
+
+    transformer.start(mediaItem, outputPath);
+    TransformerTestRunner.runLooper(transformer);
+
+    Format audioFormat = retrieveTrackFormat(context, outputPath, C.TRACK_TYPE_AUDIO);
+    assertThat(audioFormat.sampleMimeType).isEqualTo(MimeTypes.AUDIO_E_AC3_JOC);
+    assertThat(audioFormat.initializationData).hasSize(1);
+    assertThat(audioFormat.initializationData.get(0))
+        .isEqualTo(new byte[] {0x14, 0x00, 0x20, 0x0F, 0x00, 0x01, 0x10});
   }
 
   /**

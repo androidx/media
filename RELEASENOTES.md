@@ -66,6 +66,8 @@
 *   Muxers:
     *   Write `tfdt` (Track Fragment Base Media Decode Time) box by default in
         `traf` boxes of fragmented MP4 files to provide media decode timestamps.
+    *   Support writing E-AC-3 and E-AC-3 JOC (Dolby Atmos) `dec3` container
+        boxes in `Mp4Muxer`.
     *   Write `mfra` (Movie Fragment Random Access) box at the end of fragmented
         MP4 files to allow seeking via `FragmentedMp4Extractor` using
         `FLAG_READ_MFRA_FOR_SEEK_MAP`.

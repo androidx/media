@@ -2251,9 +2251,15 @@ public final class BoxParser {
         out.format =
             Ac3Util.parseAc3AnnexFFormat(parent, Integer.toString(trackId), language, drmInitData);
       } else if (childAtomType == Mp4Box.TYPE_dec3) {
-        parent.setPosition(Mp4Box.HEADER_SIZE + childPosition);
-        out.format =
+        int childAtomBodySize = childAtomSize - Mp4Box.HEADER_SIZE;
+        byte[] dec3Payload = new byte[childAtomBodySize];
+        parent.setPosition(childPosition + Mp4Box.HEADER_SIZE);
+        parent.readBytes(dec3Payload, 0, childAtomBodySize);
+        parent.setPosition(childPosition + Mp4Box.HEADER_SIZE);
+        Format parsedFormat =
             Ac3Util.parseEAc3AnnexFFormat(parent, Integer.toString(trackId), language, drmInitData);
+        out.format =
+            parsedFormat.buildUpon().setInitializationData(ImmutableList.of(dec3Payload)).build();
       } else if (childAtomType == Mp4Box.TYPE_dac4) {
         parent.setPosition(Mp4Box.HEADER_SIZE + childPosition);
         out.format =

@@ -280,6 +280,33 @@ public class Mp4MuxerEndToEndTest {
   }
 
   @Test
+  public void createMp4File_withAudioEAc3Joc_createsDec3Box() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    byte[] expectedDec3Payload = new byte[] {0x00, 0x00, 0x00, 0x03, 0x00};
+    Format eac3JocFormat =
+        FAKE_AUDIO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_E_AC3_JOC)
+            .setInitializationData(ImmutableList.of(expectedDec3Payload))
+            .build();
+    Pair<ByteBuffer, BufferInfo> sampleAndInfo =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L, /* isVideo= */ false);
+
+    try (Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      int audioTrack = mp4Muxer.addTrack(eac3JocFormat);
+      mp4Muxer.writeSampleData(audioTrack, sampleAndInfo.first, sampleAndInfo.second);
+    }
+
+    FakeExtractorOutput extractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), outputFilePath);
+    Format extractedFormat = checkNotNull(extractorOutput.trackOutputs.valueAt(0).lastFormat);
+    assertThat(extractedFormat.sampleMimeType).isEqualTo(MimeTypes.AUDIO_E_AC3);
+    assertThat(extractedFormat.initializationData).hasSize(1);
+    assertThat(extractedFormat.initializationData.get(0)).isEqualTo(expectedDec3Payload);
+  }
+
+  @Test
   public void createMp4File_withNegativeTracksOffset_matchesExpected() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Pair<ByteBuffer, BufferInfo> track1Sample1 =

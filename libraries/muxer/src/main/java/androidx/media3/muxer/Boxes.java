@@ -785,6 +785,9 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         return damrBox(/* mode= */ (short) 0x83FF); // mode set: all enabled for AMR-WB
       case MimeTypes.AUDIO_OPUS:
         return dOpsBox(format);
+      case MimeTypes.AUDIO_E_AC3:
+      case MimeTypes.AUDIO_E_AC3_JOC:
+        return dec3Box(format);
       case MimeTypes.AUDIO_IAMF:
         return iacbBox(format);
       case MimeTypes.AUDIO_RAW:
@@ -1553,6 +1556,13 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return BoxUtils.wrapIntoBox("avcC", contents);
   }
 
+  private static ByteBuffer dec3Box(Format format) {
+    checkArgument(!format.initializationData.isEmpty(), "csd-0 not found in format for dec3 box.");
+    byte[] csd0 = format.initializationData.get(0);
+    checkArgument(csd0.length > 0, "csd-0 is empty for dec3 box.");
+    return BoxUtils.wrapIntoBox("dec3", ByteBuffer.wrap(csd0));
+  }
+
   /** Returns the hvcC box as per ISO/IEC 14496-15: 8.3.3.1.2. */
   private static ByteBuffer hvcCBox(Format format) {
     // For H.265, all three codec-specific NALUs (VPS, SPS, PPS) are packed into csd-0.
@@ -1875,6 +1885,9 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         return "s263";
       case MimeTypes.AUDIO_OPUS:
         return "Opus";
+      case MimeTypes.AUDIO_E_AC3:
+      case MimeTypes.AUDIO_E_AC3_JOC:
+        return "ec-3";
       case MimeTypes.AUDIO_IAMF:
         return "iamf";
       case MimeTypes.AUDIO_RAW:

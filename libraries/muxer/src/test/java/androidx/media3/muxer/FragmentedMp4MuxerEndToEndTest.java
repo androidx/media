@@ -33,6 +33,7 @@ import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 import org.junit.Rule;
@@ -387,5 +388,38 @@ public class FragmentedMp4MuxerEndToEndTest {
     assertThat(fakeExtractorOutput.seekMap.isSeekable()).isTrue();
     assertThat(fakeExtractorOutput.seekMap.getSeekPoints(/* timeUs= */ 0).first.position)
         .isGreaterThan(0);
+  }
+
+  @Test
+  public void createMp4File_withAudioEAc3Joc_createsDec3Box() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    byte[] expectedDec3Payload = new byte[] {0x00, 0x00, 0x00, 0x03, 0x00};
+    Format eac3JocFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_E_AC3_JOC)
+            .setInitializationData(ImmutableList.of(expectedDec3Payload))
+            .build();
+    byte[] sampleData = new byte[] {0x00, 0x01, 0x02, 0x03};
+
+    try (FragmentedMp4Muxer fragmentedMp4Muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel()).build()) {
+      int audioTrack = fragmentedMp4Muxer.addTrack(eac3JocFormat);
+      fragmentedMp4Muxer.writeSampleData(
+          audioTrack,
+          ByteBuffer.wrap(sampleData),
+          new BufferInfo(
+              /* presentationTimeUs= */ 0L,
+              /* size= */ sampleData.length,
+              /* flags= */ C.BUFFER_FLAG_KEY_FRAME));
+    }
+
+    FragmentedMp4Extractor extractor =
+        new FragmentedMp4Extractor(new DefaultSubtitleParserFactory());
+    FakeExtractorOutput extractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(extractor, outputFilePath);
+    Format extractedFormat = checkNotNull(extractorOutput.trackOutputs.valueAt(0).lastFormat);
+    assertThat(extractedFormat.sampleMimeType).isEqualTo(MimeTypes.AUDIO_E_AC3);
+    assertThat(extractedFormat.initializationData).hasSize(1);
+    assertThat(extractedFormat.initializationData.get(0)).isEqualTo(expectedDec3Payload);
   }
 }

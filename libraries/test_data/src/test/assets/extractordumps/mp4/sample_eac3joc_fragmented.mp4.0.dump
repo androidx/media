@@ -19,6 +19,8 @@ track 0:
     sampleRate = 48000
     language = und
     metadata = entries=[Mp4Timestamp: creation time=3662086977, modification time=3662086977, timescale=1000]
+    initializationData:
+      data = length 7, hash 8BA78FD3
   sample 0:
     time = 0
     flags = 1
