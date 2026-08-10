@@ -4033,7 +4033,9 @@ public final class Util {
         || context.getApplicationInfo().targetSdkVersion < 29
         || ((Build.VERSION.SDK_INT == 30
                 && (Ascii.equalsIgnoreCase(Build.MODEL, "moto g(20)")
+                    || Ascii.equalsIgnoreCase(Build.MODEL, "moto e20")
                     || Ascii.equalsIgnoreCase(Build.MODEL, "rmx3231")))
+            || (Ascii.equalsIgnoreCase(Build.MODEL, "sm-a032f"))
             || (Build.VERSION.SDK_INT == 34 && Ascii.equalsIgnoreCase(Build.MODEL, "sm-x200")));
   }
 
