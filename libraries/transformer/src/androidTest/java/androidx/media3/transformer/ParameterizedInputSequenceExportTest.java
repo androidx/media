@@ -157,7 +157,12 @@ public final class ParameterizedInputSequenceExportTest {
             .build()
             .run(testId, sequence.buildComposition(Effects.EMPTY));
 
-    assertThat(result.exportResult.videoFrameCount).isEqualTo(sequence.totalExpectedFrameCount);
+    // Rarely, MediaCodec decoders output frames in the wrong order.
+    // When the MediaCodec encoder sees frames in the wrong order, fewer output frames are produced.
+    // Use a tolerance when comparing frame counts. See b/343476417#comment5.
+    assertThat(result.exportResult.videoFrameCount)
+        .isWithin(2)
+        .of(sequence.totalExpectedFrameCount);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
@@ -189,7 +194,12 @@ public final class ParameterizedInputSequenceExportTest {
                                 /* height= */ 360,
                                 Presentation.LAYOUT_SCALE_TO_FIT)))));
 
-    assertThat(result.exportResult.videoFrameCount).isEqualTo(sequence.totalExpectedFrameCount);
+    // Rarely, MediaCodec decoders output frames in the wrong order.
+    // When the MediaCodec encoder sees frames in the wrong order, fewer output frames are produced.
+    // Use a tolerance when comparing frame counts. See b/343476417#comment5.
+    assertThat(result.exportResult.videoFrameCount)
+        .isWithin(2)
+        .of(sequence.totalExpectedFrameCount);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 }
