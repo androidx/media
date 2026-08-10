@@ -1032,19 +1032,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   /**
    * An {@link ImageRenderer} that outputs decoded images to a {@link HardwareBufferFrameReader}.
    */
-  private static final class HardwareBufferImageRenderer extends ImageRenderer {
+  private static final class HardwareBufferImageRenderer extends ImageRenderer
+      implements RendererWakeupListener {
 
     private final CompositionRendererListener compositionRendererListener;
     private final Supplier<@NullableType HardwareBufferFrameReader>
         hardwareBufferFrameReaderSupplier;
     private @MonotonicNonNull HardwareBufferFrameReader hardwareBufferFrameReader;
     private @MonotonicNonNull ConstantRateTimestampIterator timestampIterator;
+    private @MonotonicNonNull Format outputFormat;
     private MediaSource.@MonotonicNonNull MediaPeriodId mediaPeriodId;
     private long streamStartPositionUs;
     private long offsetToCompositionTimeUs;
-    @Nullable private ImageMetadataListener imageMetadataListener;
-    private @MonotonicNonNull Format outputFormat;
     private long streamOffsetUs;
+
+    @Nullable private ImageMetadataListener imageMetadataListener;
+    @Nullable private WakeupListener wakeupListener;
 
     HardwareBufferImageRenderer(
         ImageDecoder.Factory imageDecoderFactory,
@@ -1059,11 +1062,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     public void handleMessage(@Renderer.MessageType int messageType, @Nullable Object message)
         throws ExoPlaybackException {
-      if (messageType == Renderer.MSG_SET_IMAGE_METADATA_LISTENER) {
-        imageMetadataListener = (ImageMetadataListener) message;
-        return;
+      switch (messageType) {
+        case Renderer.MSG_SET_WAKEUP_LISTENER:
+          this.wakeupListener = (WakeupListener) checkNotNull(message);
+          break;
+        case Renderer.MSG_SET_IMAGE_METADATA_LISTENER:
+          imageMetadataListener = (ImageMetadataListener) message;
+          break;
+        default:
+          super.handleMessage(messageType, message);
+          break;
       }
-      super.handleMessage(messageType, message);
     }
 
     // ImageRenderer methods
@@ -1074,6 +1083,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (hardwareBufferFrameReader == null) {
         // Initialize hardwareBufferFrameReader on the first onEnabled() call.
         this.hardwareBufferFrameReader = checkNotNull(hardwareBufferFrameReaderSupplier.get());
+      }
+      hardwareBufferFrameReader.addRendererWakeupListener(/* rendererWakeupListener= */ this);
+    }
+
+    @Override
+    protected void onDisabled() {
+      super.onDisabled();
+      checkNotNull(hardwareBufferFrameReader)
+          .removeRendererWakeupListener(/* rendererWakeupListener= */ this);
+    }
+
+    @Override
+    public void onWakeup() {
+      if (wakeupListener != null) {
+        wakeupListener.onWakeup();
       }
     }
 
