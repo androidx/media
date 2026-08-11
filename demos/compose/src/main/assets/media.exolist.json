@@ -41,7 +41,7 @@
         ]
       },
       {
-        "name": "Audios (w/ artwork)",
+        "name": "Artwork",
         "playlist": [
           {
             "name": "The Way Of Waking Up",
@@ -58,18 +58,52 @@
             "artwork_uri": "asset:///artwork/album_kai_engel.png"
           },
           {
-            "name": "Jazz in Paris",
+            "name": "Audio and Asset URI Artwork",
             "album": "Jazz & Blues",
             "artist": "Media Right Productions",
             "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/Jazz_In_Paris.mp3",
             "artwork_uri": "asset:///artwork/album_sea.png"
           },
           {
-            "name": "On the Bach",
+            "name": "Audio and HTTPS Artwork",
             "album": "Cinematic",
             "artist": "Jingle Punks",
             "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/On_the_Bach.mp3",
-            "artwork_uri": "asset:///artwork/album_drinks.png"
+            "artwork_uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/album_art_3.jpg"
+          },
+          {
+            "name": "Audio and Embedded Artwork",
+            "album": "Google Play",
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-0/play.mp3"
+          },
+          {
+            "name": "Audio and Content URI Artwork",
+            "artist": "Jingle Punks",
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/On_the_Bach.mp3",
+            "artwork_uri": "content://androidx.media3.demo.compose/artwork/album_sea.png"
+          },
+          {
+            "name": "Video and Asset URI Artwork",
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4",
+            "artwork_uri": "asset:///artwork/album_road.png"
+          },
+          {
+            "name": "Audio and Resource URI Artwork",
+            "artist": "Jingle Punks",
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/On_the_Bach.mp3",
+            "artwork_uri": "android.resource://androidx.media3.demo.compose/mipmap/ic_launcher"
+          },
+          {
+            "name": "Audio and WebP Artwork",
+            "artist": "Jingle Punks",
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/On_the_Bach.mp3",
+            "artwork_uri": "asset:///artwork/ic_launcher_round.webp"
+          },
+          {
+            "name": "Audio and Invalid Artwork",
+            "artist": "Jingle Punks",
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/On_the_Bach.mp3",
+            "artwork_uri": "asset:///artwork/does_not_exist.png"
           }
         ]
       }
@@ -109,10 +143,6 @@
       {
         "name": "Screens audio (FMP4)",
         "uri": "https://storage.googleapis.com/exoplayer-test-media-1/gen-3/screens/dash-vod-single-segment/audio-141.mp4"
-      },
-      {
-        "name": "Google Play (MP3)",
-        "uri": "https://storage.googleapis.com/exoplayer-test-media-0/play.mp3"
       },
       {
         "name": "Google Play (Ogg, Vorbis)",

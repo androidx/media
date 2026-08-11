@@ -35,5 +35,11 @@
         <category android:name="android.intent.category.LAUNCHER" />
       </intent-filter>
     </activity>
+
+    <!-- Artwork provider for content:// URIs -->
+    <provider
+      android:name=".BitmapContentProvider"
+      android:authorities="androidx.media3.demo.compose"
+      android:exported="false" />
   </application>
 </manifest>

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package androidx.media3.demo.session.automotive
+package androidx.media3.demo.compose
 
 import android.content.ContentProvider
 import android.content.ContentValues
@@ -28,8 +28,9 @@ import java.io.File
  * Provides artwork for content URIs.
  *
  * <p>A bitmap file in the asset folder with path 'artwork/album1.png' can be referenced as artwork
- * URI with 'content://androidx.media3/artwork/album1.png'. 'androidx.media3' is the authority
- * declared for the content provider in 'AndroidManifest.xml'.
+ * URI with 'content://androidx.media3.demo.compose/artwork/album1.png'.
+ * 'androidx.media3.demo.compose' is the authority declared for the content provider in
+ * 'AndroidManifest.xml'.
  *
  * <p>For demo use only.
  */
