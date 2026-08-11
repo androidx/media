@@ -20,6 +20,8 @@ package androidx.media3.docsamples.exoplayer.preloadmanager
 import android.content.Context
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.preload.DefaultPreloadManager
 import androidx.media3.exoplayer.source.preload.TargetPreloadStatusControl
 import kotlin.math.abs
@@ -62,5 +64,35 @@ object PreloadManagerCreateKt {
     val preloadManagerBuilder = DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
     val preloadManager = preloadManagerBuilder.build()
     // [END android_defaultpreloadmanager_createPLM]
+  }
+
+  @OptIn(UnstableApi::class)
+  private fun createWithLoadControl(context: Context) {
+    // [START android_defaultpreloadmanager_createPLMWithLoadControl]
+    val targetPreloadStatusControl = MyTargetPreloadStatusControl()
+    val preloadManagerBuilder = DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
+
+    preloadManagerBuilder.setLoadControl(
+      DefaultLoadControl.Builder()
+        .setPlayerTargetBufferBytes("preload", 128 * 1024 * 1024) // 128 MiB
+        .build()
+    )
+    val preloadManager = preloadManagerBuilder.build()
+    // [END android_defaultpreloadmanager_createPLMWithLoadControl]
+  }
+
+  @OptIn(UnstableApi::class)
+  private fun buildExoPlayer(
+    context: Context,
+    preloadManagerBuilder: DefaultPreloadManager.Builder,
+  ) {
+    // [START android_defaultpreloadmanager_buildExoPlayer]
+    // Direct creation
+    val exoPlayer = preloadManagerBuilder.buildExoPlayer()
+
+    // Creation with custom playback specific configurations
+    val skipSilenceExoPlayerBuilder = ExoPlayer.Builder(context).setSkipSilenceEnabled(true)
+    val skipSilenceExoPlayer = preloadManagerBuilder.buildExoPlayer(skipSilenceExoPlayerBuilder)
+    // [END android_defaultpreloadmanager_buildExoPlayer]
   }
 }
