@@ -1307,12 +1307,13 @@ public final class DefaultGlFrameProcessorTest {
         glExecutorService,
         outputColorInfo -> fakeHardwareBufferConverter,
         fakeFrameWriterGlTextureFrameConsumer,
-        new FakeCompositorGlProgram(),
-        outputColorInfo ->
-            new TexturePool(
-                /* textureAllocator= */ (width, height, useHighPrecisionColorComponents) -> 100,
-                /* useHighPrecisionColorComponents= */ false,
-                /* capacity= */ COMPOSITOR_CAPACITY));
+        new DefaultGlTextureFrameCompositor.Factory(
+            /* compositorGlProgramFactory= */ FakeCompositorGlProgram::new,
+            /* texturePoolFactory= */ outputColorInfo ->
+                new TexturePool(
+                    /* textureAllocator= */ (width, height, useHighPrecisionColorComponents) -> 100,
+                    /* useHighPrecisionColorComponents= */ false,
+                    /* capacity= */ COMPOSITOR_CAPACITY)));
   }
 
   private DefaultGlFrameProcessor.Factory createCustomFactory(
@@ -1326,12 +1327,13 @@ public final class DefaultGlFrameProcessorTest {
           return fakeHardwareBufferConverter;
         },
         fakeFrameWriterGlTextureFrameConsumer,
-        new FakeCompositorGlProgram(),
-        /* compositorTexturePoolFactory= */ outputColorInfo ->
-            new TexturePool(
-                /* textureAllocator= */ (width, height, useHighPrecisionColorComponents) -> 100,
-                /* useHighPrecisionColorComponents= */ false,
-                /* capacity= */ COMPOSITOR_CAPACITY));
+        new DefaultGlTextureFrameCompositor.Factory(
+            /* compositorGlProgramFactory= */ FakeCompositorGlProgram::new,
+            /* texturePoolFactory= */ outputColorInfo ->
+                new TexturePool(
+                    /* textureAllocator= */ (width, height, useHighPrecisionColorComponents) -> 100,
+                    /* useHighPrecisionColorComponents= */ false,
+                    /* capacity= */ COMPOSITOR_CAPACITY)));
   }
 
   private static Frame createFakeHardwareBufferFrame(

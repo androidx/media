@@ -38,6 +38,28 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  */
 /* package */ final class DefaultCompositorGlProgram implements CompositorGlProgram {
 
+  /**
+   * A {@link CompositorGlProgram.Factory} that creates {@link DefaultCompositorGlProgram}
+   * instances.
+   */
+  public static final class Factory implements CompositorGlProgram.Factory {
+    private final Context context;
+
+    /**
+     * Creates an instance.
+     *
+     * @param context The {@link Context}.
+     */
+    public Factory(Context context) {
+      this.context = context.getApplicationContext();
+    }
+
+    @Override
+    public CompositorGlProgram create() {
+      return new DefaultCompositorGlProgram(context);
+    }
+  }
+
   private static final String TAG = "CompositorGlProgram";
 
   private final Context context;

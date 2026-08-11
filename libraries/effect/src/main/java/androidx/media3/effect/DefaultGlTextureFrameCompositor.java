@@ -24,6 +24,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.VisibleForTesting;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoCompositorSettings;
@@ -31,6 +33,7 @@ import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Size;
+import androidx.media3.effect.GlTextureFrameCompositor.CompositorGlProgram;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
@@ -46,6 +49,61 @@ import java.util.concurrent.Executor;
  */
 @RequiresApi(26)
 /* package */ final class DefaultGlTextureFrameCompositor implements GlTextureFrameCompositor {
+
+  private static final int DEFAULT_COMPOSITOR_CAPACITY = 2;
+
+  /**
+   * A {@link GlTextureFrameCompositor.Factory} that creates {@link DefaultGlTextureFrameCompositor}
+   * instances.
+   */
+  public static final class Factory implements GlTextureFrameCompositor.Factory {
+    private final CompositorGlProgram.Factory compositorGlProgramFactory;
+    private final TexturePool.Factory texturePoolFactory;
+
+    /**
+     * Creates an instance.
+     *
+     * @param compositorGlProgramFactory The {@link CompositorGlProgram.Factory}.
+     */
+    public Factory(CompositorGlProgram.Factory compositorGlProgramFactory) {
+      this(
+          compositorGlProgramFactory,
+          outputColorInfo ->
+              new TexturePool(
+                  /* useHighPrecisionColorComponents= */ ColorInfo.isTransferHdr(outputColorInfo),
+                  /* capacity= */ DEFAULT_COMPOSITOR_CAPACITY));
+    }
+
+    /**
+     * Creates an instance for testing only.
+     *
+     * @param compositorGlProgramFactory The {@link CompositorGlProgram.Factory}.
+     * @param texturePoolFactory The {@link TexturePool.Factory}.
+     */
+    @VisibleForTesting
+    /* package */ Factory(
+        CompositorGlProgram.Factory compositorGlProgramFactory,
+        TexturePool.Factory texturePoolFactory) {
+      this.compositorGlProgramFactory = compositorGlProgramFactory;
+      this.texturePoolFactory = texturePoolFactory;
+    }
+
+    @Override
+    public GlTextureFrameCompositor create(
+        GlObjectsProvider glObjectsProvider,
+        ColorInfo outputColorInfo,
+        Consumer<VideoFrameProcessingException> errorConsumer,
+        Executor glExecutor,
+        GlTextureFrameConsumer downstreamConsumer) {
+      return new DefaultGlTextureFrameCompositor(
+          glObjectsProvider,
+          texturePoolFactory.create(outputColorInfo),
+          errorConsumer,
+          compositorGlProgramFactory.create(),
+          glExecutor,
+          downstreamConsumer);
+    }
+  }
 
   private final GlObjectsProvider glObjectsProvider;
   private final TexturePool outputTexturePool;

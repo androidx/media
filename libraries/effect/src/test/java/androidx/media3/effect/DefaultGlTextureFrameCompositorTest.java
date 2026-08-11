@@ -21,6 +21,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -301,6 +302,53 @@ public final class DefaultGlTextureFrameCompositorTest {
 
     compositingProcessor.signalEndOfStream();
     assertThat(downstreamConsumer.signalEndOfStreamCalled).isTrue();
+  }
+
+  @Test
+  public void create_withDefaultTexturePool_createsInstance() throws Exception {
+    DefaultGlTextureFrameCompositor.Factory factory =
+        new DefaultGlTextureFrameCompositor.Factory(
+            /* compositorGlProgramFactory= */ () -> compositorGlProgram);
+
+    try (GlTextureFrameCompositor compositor =
+        factory.create(
+            new FakeGlObjectsProvider(),
+            /* outputColorInfo= */ ColorInfo.SDR_BT709_LIMITED,
+            /* errorConsumer= */ errorReference::set,
+            /* glExecutor= */ directExecutor(),
+            downstreamConsumer)) {
+      GlTextureFrame frame = createGlTextureFrame(/* texId= */ 0, /* sequenceIndex= */ 0);
+      assertThat(compositor.queue(ImmutableList.of(frame), directExecutor(), () -> {})).isTrue();
+      assertThat(downstreamConsumer.framesReceived).isEqualTo(1);
+    }
+  }
+
+  @Test
+  public void create_withCustomTexturePool_createsInstance() throws Exception {
+    DefaultGlTextureFrameCompositor.Factory factory =
+        new DefaultGlTextureFrameCompositor.Factory(
+            /* compositorGlProgramFactory= */ () -> compositorGlProgram,
+            /* texturePoolFactory= */ outputColorInfo ->
+                new TexturePool(
+                    /* textureAllocator= */ (width, height, useHighPrecisionColorComponents) ->
+                        FAKE_GL_TEXTURE_ID,
+                    /* useHighPrecisionColorComponents= */ false,
+                    /* capacity= */ 1));
+
+    try (GlTextureFrameCompositor compositor =
+        factory.create(
+            new FakeGlObjectsProvider(),
+            /* outputColorInfo= */ ColorInfo.SDR_BT709_LIMITED,
+            /* errorConsumer= */ errorReference::set,
+            /* glExecutor= */ directExecutor(),
+            downstreamConsumer)) {
+      GlTextureFrame frame1 = createGlTextureFrame(/* texId= */ 0, /* sequenceIndex= */ 0);
+      GlTextureFrame frame2 = createGlTextureFrame(/* texId= */ 1, /* sequenceIndex= */ 1);
+      assertThat(compositor.queue(ImmutableList.of(frame1, frame2), directExecutor(), () -> {}))
+          .isTrue();
+      assertThat(downstreamConsumer.lastReceivedFrame.glTextureInfo.texId)
+          .isEqualTo(FAKE_GL_TEXTURE_ID);
+    }
   }
 
   private static GlTextureFrame createGlTextureFrame(int texId, int sequenceIndex) {

@@ -15,8 +15,11 @@
  */
 package androidx.media3.effect;
 
+import androidx.media3.common.ColorInfo;
+import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
+import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.GlUtil.GlException;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -29,8 +32,35 @@ import java.util.concurrent.Executor;
  */
 /* package */ interface GlTextureFrameCompositor extends AutoCloseable {
 
+  /** A factory for {@link GlTextureFrameCompositor} instances. */
+  interface Factory {
+    /**
+     * Creates a {@link GlTextureFrameCompositor}.
+     *
+     * @param glObjectsProvider The {@link GlObjectsProvider} for OpenGL operations.
+     * @param outputColorInfo The {@link ColorInfo} for the output texture.
+     * @param errorConsumer A consumer for {@link VideoFrameProcessingException}.
+     * @param glExecutor The {@link Executor} running OpenGL tasks on the GL thread.
+     * @param downstreamConsumer The downstream {@link GlTextureFrameConsumer}.
+     * @return A new {@link GlTextureFrameCompositor}.
+     */
+    GlTextureFrameCompositor create(
+        GlObjectsProvider glObjectsProvider,
+        ColorInfo outputColorInfo,
+        Consumer<VideoFrameProcessingException> errorConsumer,
+        Executor glExecutor,
+        GlTextureFrameConsumer downstreamConsumer);
+  }
+
   /** Draws multiple input frames onto one output texture using a GL program. */
   interface CompositorGlProgram {
+
+    /** A factory for {@link CompositorGlProgram} instances. */
+    interface Factory {
+      /** Creates a new {@link CompositorGlProgram}. */
+      CompositorGlProgram create();
+    }
+
     /**
      * Draws the input frames onto the output texture.
      *

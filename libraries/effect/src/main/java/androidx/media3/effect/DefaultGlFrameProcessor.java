@@ -46,7 +46,6 @@ import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.effect.FrameProcessorUtils.ThrowingRunnable;
-import androidx.media3.effect.GlTextureFrameCompositor.CompositorGlProgram;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import java.util.Collections;
@@ -116,8 +115,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     @Nullable private final HardwareBufferConverter.Factory hardwareBufferConverterFactory;
     @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
     @Nullable private final GlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
-    private final CompositorGlProgram compositorGlProgram;
-    @Nullable private final TexturePool.Factory compositorTexturePoolFactory;
+    private final GlTextureFrameCompositor.Factory glTextureFrameCompositorFactory;
 
     // TODO: b/536810100 - Remove this constructor and make the testing constructor public so
     // callers can pass factories.
@@ -139,12 +137,9 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       this.glExecutorService = glExecutorService;
       hardwareBufferConverterFactory = null;
       frameWriterGlTextureFrameConsumer = null;
-      compositorGlProgram = new DefaultCompositorGlProgram(context);
-      compositorTexturePoolFactory =
-          outputColorInfo ->
-              new TexturePool(
-                  /* useHighPrecisionColorComponents= */ ColorInfo.isTransferHdr(outputColorInfo),
-                  DEFAULT_COMPOSITOR_CAPACITY);
+      glTextureFrameCompositorFactory =
+          new DefaultGlTextureFrameCompositor.Factory(
+              new DefaultCompositorGlProgram.Factory(context));
     }
 
     /**
@@ -161,15 +156,13 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
         ListeningExecutorService glExecutorService,
         HardwareBufferConverter.Factory hardwareBufferConverterFactory,
         GlTextureFrameConsumer frameWriterGlTextureFrameConsumer,
-        CompositorGlProgram compositorGlProgram,
-        TexturePool.Factory compositorTexturePoolFactory) {
+        GlTextureFrameCompositor.Factory glTextureFrameCompositorFactory) {
       this.context = context;
       this.glObjectsProvider = glObjectsProvider;
       this.glExecutorService = glExecutorService;
       this.hardwareBufferConverterFactory = hardwareBufferConverterFactory;
       this.frameWriterGlTextureFrameConsumer = frameWriterGlTextureFrameConsumer;
-      this.compositorGlProgram = compositorGlProgram;
-      this.compositorTexturePoolFactory = compositorTexturePoolFactory;
+      this.glTextureFrameCompositorFactory = glTextureFrameCompositorFactory;
       hardwareBufferJniWrapper = null;
     }
 
@@ -194,16 +187,13 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
                     outputColorInfo,
                     e -> listenerExecutor.execute(() -> listener.onError(e)));
       }
-      TexturePool.Factory compositorTexturePoolFactory =
-          checkNotNull(this.compositorTexturePoolFactory);
       return new DefaultGlFrameProcessor(
           context,
           listeningDecorator(glExecutorService),
           glObjectsProvider,
           checkNotNull(hardwareBufferConverterFactory),
           checkNotNull(frameWriterGlTextureFrameConsumer),
-          compositorGlProgram,
-          checkNotNull(compositorTexturePoolFactory),
+          glTextureFrameCompositorFactory,
           listenerExecutor,
           listener);
     }
@@ -275,15 +265,12 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
 
   private static final ColorInfo DEFAULT_COLOR_INFO = ColorInfo.SDR_BT709_LIMITED;
 
-  private static final int DEFAULT_COMPOSITOR_CAPACITY = 2;
-
   private final Context context;
   private final GlObjectsProvider glObjectsProvider;
   private final ListeningExecutorService glExecutorService;
   private final HardwareBufferConverter.Factory hardwareBufferConverterFactory;
-  private final TexturePool.Factory compositorTexturePoolFactory;
+  private final GlTextureFrameCompositor.Factory glTextureFrameCompositorFactory;
   private final GlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
-  private final CompositorGlProgram compositorGlProgram;
   private final Executor listenerExecutor;
   private final Listener listener;
   private final Consumer<VideoFrameProcessingException> errorConsumer;
@@ -322,8 +309,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       GlObjectsProvider glObjectsProvider,
       HardwareBufferConverter.Factory hardwareBufferConverterFactory,
       GlTextureFrameConsumer frameWriterGlTextureFrameConsumer,
-      CompositorGlProgram compositorGlProgram,
-      TexturePool.Factory compositorTexturePoolFactory,
+      GlTextureFrameCompositor.Factory glTextureFrameCompositorFactory,
       Executor listenerExecutor,
       Listener listener) {
     this.context = context;
@@ -331,8 +317,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     this.glExecutorService = glExecutorService;
     this.hardwareBufferConverterFactory = hardwareBufferConverterFactory;
     this.frameWriterGlTextureFrameConsumer = frameWriterGlTextureFrameConsumer;
-    this.compositorGlProgram = compositorGlProgram;
-    this.compositorTexturePoolFactory = compositorTexturePoolFactory;
+    this.glTextureFrameCompositorFactory = glTextureFrameCompositorFactory;
     this.listenerExecutor = listenerExecutor;
     this.listener = listener;
     this.errorConsumer = e -> listenerExecutor.execute(() -> listener.onError(e));
@@ -430,8 +415,6 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
           }
           if (compositingProcessor != null) {
             closeActions.add(compositingProcessor::close);
-          } else {
-            closeActions.add(compositorGlProgram::release);
           }
           if (postProcessingChain != null) {
             closeActions.add(postProcessingChain::close);
@@ -507,11 +490,10 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
             frameWriterGlTextureFrameConsumer,
             KEY_COMPOSITION_EFFECTS);
     compositingProcessor =
-        new DefaultGlTextureFrameCompositor(
+        glTextureFrameCompositorFactory.create(
             glObjectsProvider,
-            compositorTexturePoolFactory.create(outputColorInfo),
+            outputColorInfo,
             errorConsumer,
-            compositorGlProgram,
             glExecutorService,
             postProcessingChain);
     frameAggregator =
