@@ -435,8 +435,7 @@ class PlayerFenceTest {
       player.prepare()
       player.play()
 
-      val exception =
-        assertFailsWith(IllegalStateException::class) { player.awaitFirstFrameRendered() }
+      val exception = assertFailsWith<IllegalStateException> { player.awaitFirstFrameRendered() }
       assertThat(exception).hasMessageThat().contains("FailingAudioRenderer")
 
       player.clearVideoSurface()
@@ -559,7 +558,7 @@ class PlayerFenceTest {
       player.play()
 
       val exception =
-        assertFailsWith(IllegalStateException::class) { player.awaitContentPositionAtLeast(5_000) }
+        assertFailsWith<IllegalStateException> { player.awaitContentPositionAtLeast(5_000) }
       assertThat(exception).hasMessageThat().contains("Playback ended at position")
       assertThat(exception).hasMessageThat().contains("before target of 5000ms")
     }
@@ -578,7 +577,7 @@ class PlayerFenceTest {
       player.play()
 
       val exception =
-        assertFailsWith(IllegalStateException::class) { player.awaitContentPositionAtLeast(500) }
+        assertFailsWith<IllegalStateException> { player.awaitContentPositionAtLeast(500) }
       assertThat(exception)
         .hasMessageThat()
         .contains("Playback left item 0 before reaching position 500m")
@@ -596,7 +595,7 @@ class PlayerFenceTest {
       player.play()
 
       val throwable =
-        assertFailsWith(IllegalStateException::class) {
+        assertFailsWith<IllegalStateException> {
           player.awaitContentPositionAtLeast(targetPositionMs = 500)
         }
       assertThat(throwable).hasMessageThat().contains("FailingAudioRenderer")
