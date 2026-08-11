@@ -19,7 +19,6 @@ package androidx.media3.transformer;
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_AUTO_TRANSITION;
 import static androidx.media3.common.Player.REPEAT_MODE_ALL;
 import static androidx.media3.common.Player.REPEAT_MODE_OFF;
-import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S;
 import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
@@ -28,7 +27,6 @@ import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.media3.test.utils.PlayerFence.futureWhen;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
 import androidx.annotation.Nullable;
@@ -36,27 +34,27 @@ import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaItem.ClippingConfiguration;
-import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.audio.SpeedProvider;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.TeeAudioProcessor;
+import androidx.media3.test.utils.CountDownFuture;
 import androidx.media3.test.utils.PassthroughAudioProcessor;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
 import java.nio.ShortBuffer;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -70,7 +68,6 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class CompositionPlaybackTest {
 
-  private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 10_000;
   private static final MediaItem VIDEO_MEDIA_ITEM = MediaItem.fromUri(MP4_ADVANCED_ASSET.uri);
   private static final long VIDEO_DURATION_US = MP4_ADVANCED_ASSET.videoDurationUs;
   private static final ImmutableList<Long> VIDEO_TIMESTAMPS_US =
@@ -397,6 +394,7 @@ public class CompositionPlaybackTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 24) // For CountDownFuture.
   public void playback_withRepeatModeSet_succeeds() throws Exception {
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM).setDurationUs(VIDEO_DURATION_US).build();
@@ -404,9 +402,9 @@ public class CompositionPlaybackTest {
         new Composition.Builder(
                 EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(editedMediaItem)))
             .build();
-    CountDownLatch repetitionEndedLatch = new CountDownLatch(2);
-    AtomicReference<@NullableType PlaybackException> playbackException = new AtomicReference<>();
+    CountDownFuture twoRepetitions = new CountDownFuture(2);
 
+    AtomicReference<ListenableFuture<Void>> supervisedFuture = new AtomicReference<>();
     SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
         .runOnMainSync(
@@ -421,27 +419,18 @@ public class CompositionPlaybackTest {
                         Player.PositionInfo newPosition,
                         int reason) {
                       if (reason == DISCONTINUITY_REASON_AUTO_TRANSITION) {
-                        repetitionEndedLatch.countDown();
-                      }
-                    }
-
-                    @Override
-                    public void onPlayerError(PlaybackException error) {
-                      playbackException.set(error);
-                      while (repetitionEndedLatch.getCount() > 0) {
-                        repetitionEndedLatch.countDown();
+                        twoRepetitions.countDown();
                       }
                     }
                   });
+              supervisedFuture.set(futureWhen(player).withSupervision(twoRepetitions));
               player.setComposition(composition);
               player.setRepeatMode(REPEAT_MODE_ALL);
               player.prepare();
               player.play();
             });
-    boolean latchTimedOut = !repetitionEndedLatch.await(TEST_TIMEOUT_MS, MILLISECONDS);
+    supervisedFuture.get().get();
 
-    assertThat(playbackException.get()).isNull();
-    assertThat(latchTimedOut).isFalse();
     getInstrumentation().runOnMainSync(() -> player.setRepeatMode(REPEAT_MODE_OFF));
     endedFuture.get();
   }

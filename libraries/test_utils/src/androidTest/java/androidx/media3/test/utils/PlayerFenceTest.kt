@@ -34,6 +34,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.FormatHolder
 import androidx.media3.exoplayer.Renderer
 import androidx.media3.exoplayer.RenderersFactory
+import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.audio.AudioRendererEventListener
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer
@@ -46,8 +47,10 @@ import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.coroutines.resume
 import kotlin.test.assertFailsWith
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -56,9 +59,16 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.android.HandlerDispatcher
 import kotlinx.coroutines.android.asCoroutineDispatcher
 import kotlinx.coroutines.async
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.junit.After
 import org.junit.Test
@@ -606,6 +616,132 @@ class PlayerFenceTest {
       player.awaitContentPositionAtLeast(targetPositionMs = 500, failOnNonFatalErrors = false)
 
       assertThat(player.contentPosition).isAtLeast(500)
+    }
+
+  @Test
+  fun awaitSupervised_withOneShotDeferred() =
+    runBlocking(Dispatchers.Main) {
+      player = ExoPlayer.Builder(getInstrumentation().context.applicationContext).build()
+      val audioPlayoutStartSystemTimeMs = CompletableDeferred<Long>()
+      val listener =
+        object : AnalyticsListener {
+          override fun onAudioPositionAdvancing(
+            eventTime: AnalyticsListener.EventTime,
+            playoutStartSystemTimeMs: Long,
+          ) {
+            audioPlayoutStartSystemTimeMs.complete(playoutStartSystemTimeMs)
+          }
+        }
+      player.addAnalyticsListener(listener)
+
+      player.setMediaItem(SHORT_MP3_ITEM)
+      player.prepare()
+      player.play()
+
+      val advancingTime = player.awaitSupervised { audioPlayoutStartSystemTimeMs.await() }
+      assertThat(advancingTime).isGreaterThan(0)
+      // For completeness, we could remove the listener in a try-finally block, but the player
+      // will get released at the end of the test anyway, so no need. The other example tests below
+      // with suspendCancellableCoroutine and callbackFlow enforce/facilitate this clean-up more
+      // explicitly so we do it there as a demonstration.
+    }
+
+  /**
+   * This test shows how [Player.awaitSupervised] can be used with [suspendCancellableCoroutine].
+   */
+  @Test
+  fun awaitSupervised_withSuspendCancellableCoroutine_resolvesValue() =
+    runBlocking(Dispatchers.Main) {
+      val exoPlayer = ExoPlayer.Builder(getInstrumentation().context.applicationContext).build()
+      player = exoPlayer
+      exoPlayer.setMediaItem(SHORT_MP3_ITEM)
+      exoPlayer.prepare()
+      exoPlayer.play()
+
+      val audioPlayoutStartTimeSystemTimeMs = player.awaitSupervised {
+        suspendCancellableCoroutine { continuation ->
+          val listener =
+            object : AnalyticsListener {
+              override fun onAudioPositionAdvancing(
+                eventTime: AnalyticsListener.EventTime,
+                playoutStartSystemTimeMs: Long,
+              ) {
+                if (continuation.isActive) {
+                  continuation.resume(playoutStartSystemTimeMs)
+                }
+              }
+            }
+          exoPlayer.addAnalyticsListener(listener)
+          continuation.invokeOnCancellation { exoPlayer.removeAnalyticsListener(listener) }
+        }
+      }
+
+      assertThat(audioPlayoutStartTimeSystemTimeMs).isGreaterThan(0)
+    }
+
+  /**
+   * This test shows how to use a [callbackFlow] with [Player.awaitSupervised], which works well for
+   * use-cases that need to count multiple events or collect multiple values.
+   */
+  @Test
+  fun awaitSupervised_withCallbackFlow() =
+    runBlocking(Dispatchers.Main) {
+      player = ExoPlayer.Builder(getInstrumentation().context.applicationContext).build()
+      val flow = callbackFlow {
+        val listener =
+          object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+              trySend(playbackState).getOrThrow()
+            }
+          }
+        player.addListener(listener)
+        awaitClose { player.removeListener(listener) }
+      }
+
+      player.setMediaItem(SHORT_MP3_ITEM)
+      player.prepare()
+      player.play()
+
+      val transitions = player.awaitSupervised {
+        flow.filter { it == Player.STATE_READY || it == Player.STATE_ENDED }.take(2).toList()
+      }
+
+      assertThat(transitions).containsExactly(Player.STATE_READY, Player.STATE_ENDED).inOrder()
+    }
+
+  @Test
+  fun awaitSupervised_innerTimeout_timesOutAndCancelsFast() =
+    runBlocking(Dispatchers.Main) {
+      player = ExoPlayer.Builder(getInstrumentation().context.applicationContext).build()
+      player.setMediaItem(SHORT_MP3_ITEM)
+      player.prepare()
+      player.play()
+
+      val stopwatch = Stopwatch.createStarted(ElapsedRealtimeTicker())
+      assertFailsWith<TimeoutCancellationException> {
+        player.awaitSupervised(timeout = 10.seconds) {
+          withTimeout(100.milliseconds) {
+            CompletableDeferred<Unit>().await() // Never completes
+          }
+        }
+      }
+      // Should fail fast (~100ms), far before the outer 10s timeout
+      assertThat(stopwatch.elapsed(TimeUnit.MILLISECONDS)).isLessThan(1000)
+    }
+
+  @Test
+  fun awaitSupervised_playbackExceptionWhileSuspended_throwsPlaybackException(): Unit =
+    runBlocking(Dispatchers.Main) {
+      player = ExoPlayer.Builder(getInstrumentation().context.applicationContext).build()
+      player.setMediaItem(MediaItem.fromUri("file:///not/a/real/file"))
+
+      assertFailsWith<PlaybackException> {
+        player.awaitSupervised(failOnNonFatalErrors = false) {
+          player.prepare()
+          // Block forever to give a chance for the playback error to propagate.
+          CompletableDeferred<Nothing>().await()
+        }
+      }
     }
 
   private fun CoroutineScope.assertDoesntSuspend(block: suspend () -> Unit) {

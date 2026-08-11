@@ -267,4 +267,31 @@ public final class PlayerFenceJavaTest {
               player.get().release();
             });
   }
+
+  @Test
+  public void withSupervision_customFuture_completesWhenResolved() throws Exception {
+    SettableFuture<Void> trigger = SettableFuture.create();
+    SettableFuture<Void> playerReadyFuture = SettableFuture.create();
+    SettableFuture<Void> supervisedFuture = SettableFuture.create();
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player =
+                  new ExoPlayer.Builder(getInstrumentation().getContext().getApplicationContext())
+                      .build();
+              playerReadyFuture.setFuture(
+                  futureWhen(player).entersPlaybackState(Player.STATE_READY));
+              supervisedFuture.setFuture(futureWhen(player).withSupervision(trigger));
+
+              player.setMediaItem(SHORT_MP3_ITEM);
+              player.prepare();
+              player.play();
+            });
+
+    playerReadyFuture.get();
+    assertThat(supervisedFuture.isDone()).isFalse();
+
+    trigger.set(null);
+    supervisedFuture.get();
+  }
 }

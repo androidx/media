@@ -38,14 +38,17 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.android.asCoroutineDispatcher
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.guava.future
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
@@ -71,32 +74,25 @@ suspend fun Player.awaitPlaybackState(
   failOnNonFatalErrors: Boolean = true,
   timeout: Duration? = null,
 ) {
-  playerError?.let { throw it }
-
-  if (playbackState == targetState) {
-    return
-  }
-
   val stateSeen = CompletableDeferred<Unit>()
   val playerListener =
-    object : ErrorFailingPlayerListener(stateSeen::completeExceptionally) {
+    object : Player.Listener {
       override fun onPlaybackStateChanged(playbackState: @Player.State Int) {
         if (targetState == playbackState) {
           stateSeen.complete(Unit)
         }
       }
     }
-
   addListener(playerListener)
-  val analyticsListener =
-    maybeAddAnalyticsListener(failOnNonFatalErrors) {
-      NonFatalFailingAnalyticsListener(stateSeen::completeExceptionally)
-    }
   try {
-    withTimeout(timeout) { stateSeen.await() }
+    awaitSupervised(failOnNonFatalErrors, timeout) {
+      if (playbackState == targetState) {
+        return@awaitSupervised
+      }
+      stateSeen.await()
+    }
   } finally {
     removeListener(playerListener)
-    maybeRemoveAnalyticsListener(analyticsListener)
   }
 }
 
@@ -119,13 +115,9 @@ suspend fun Player.awaitIsPlaying(
   failOnNonFatalErrors: Boolean = true,
   timeout: Duration? = null,
 ) {
-  playerError?.let { throw it }
-
-  if (isPlaying == targetIsPlaying) return
-
   val conditionMet = CompletableDeferred<Unit>()
   val playerListener =
-    object : ErrorFailingPlayerListener(conditionMet::completeExceptionally) {
+    object : Player.Listener {
       override fun onIsPlayingChanged(isPlaying: Boolean) {
         if (targetIsPlaying == isPlaying) {
           conditionMet.complete(Unit)
@@ -134,15 +126,13 @@ suspend fun Player.awaitIsPlaying(
     }
 
   addListener(playerListener)
-  val analyticsListener =
-    maybeAddAnalyticsListener(failOnNonFatalErrors) {
-      NonFatalFailingAnalyticsListener(conditionMet::completeExceptionally)
-    }
   try {
-    withTimeout(timeout) { conditionMet.await() }
+    awaitSupervised(failOnNonFatalErrors, timeout) {
+      if (isPlaying == targetIsPlaying) return@awaitSupervised
+      conditionMet.await()
+    }
   } finally {
     removeListener(playerListener)
-    maybeRemoveAnalyticsListener(analyticsListener)
   }
 }
 
@@ -164,25 +154,18 @@ suspend fun Player.awaitFirstFrameRendered(
   failOnNonFatalErrors: Boolean = true,
   timeout: Duration? = null,
 ) {
-  playerError?.let { throw it }
-
   val renderedFirstFrame = CompletableDeferred<Unit>()
   val playerListener =
-    object : ErrorFailingPlayerListener(renderedFirstFrame::completeExceptionally) {
+    object : Player.Listener {
       override fun onRenderedFirstFrame() {
         renderedFirstFrame.complete(Unit)
       }
     }
   addListener(playerListener)
-  val analyticsListener =
-    maybeAddAnalyticsListener(failOnNonFatalErrors) {
-      NonFatalFailingAnalyticsListener(renderedFirstFrame::completeExceptionally)
-    }
   try {
-    withTimeout(timeout) { renderedFirstFrame.await() }
+    awaitSupervised(failOnNonFatalErrors, timeout) { renderedFirstFrame.await() }
   } finally {
     removeListener(playerListener)
-    maybeRemoveAnalyticsListener(analyticsListener)
   }
 }
 
@@ -212,21 +195,11 @@ suspend fun Player.awaitContentPositionAtLeast(
   timeout: Duration? = null,
 ) {
   require(targetPositionMs != C.TIME_UNSET)
-  playerError?.let { throw it }
-
-  if (contentPosition >= targetPositionMs) {
-    return
-  }
-  if (playbackState == Player.STATE_ENDED) {
-    throw IllegalStateException(
-      "Playback already ended at position ${contentPosition}ms, before target of ${targetPositionMs}ms"
-    )
-  }
   val currentMediaItemIndex = currentMediaItemIndex
 
   val speedChanges: Flow<Float?> = callbackFlow {
     val listener =
-      object : ErrorFailingPlayerListener(::close) {
+      object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: @Player.State Int) {
           if (playbackState == Player.STATE_ENDED) {
             val contentPositionMs = contentPosition
@@ -271,15 +244,9 @@ suspend fun Player.awaitContentPositionAtLeast(
       }
     addListener(listener)
 
-    val analyticsListener =
-      maybeAddAnalyticsListener(failOnNonFatalErrors) { NonFatalFailingAnalyticsListener(::close) }
-
     send(playbackParameters.speed)
 
-    awaitClose {
-      removeListener(listener)
-      maybeRemoveAnalyticsListener(analyticsListener)
-    }
+    awaitClose { removeListener(listener) }
   }
 
   val targetReachedEvents: Flow<Unit> = channelFlow {
@@ -301,7 +268,62 @@ suspend fun Player.awaitContentPositionAtLeast(
     }
   }
 
-  withTimeout(timeout) { targetReachedEvents.first() }
+  awaitSupervised(failOnNonFatalErrors, timeout) {
+    if (contentPosition >= targetPositionMs) {
+      return@awaitSupervised
+    }
+    if (playbackState == Player.STATE_ENDED) {
+      throw IllegalStateException(
+        "Playback already ended at position ${contentPosition}ms, before target of ${targetPositionMs}ms"
+      )
+    }
+    targetReachedEvents.first()
+  }
+}
+
+/**
+ * Suspends until [block] completes, or a playback error occurs, or [timeout] expires.
+ *
+ * If a fatal [Player.playerError] or non-fatal [AnalyticsListener] error occurs, or if [timeout]
+ * expires, the [block] coroutine is cancelled immediately and the exception is thrown.
+ *
+ * Must be called on the player's application looper thread.
+ *
+ * @param failOnNonFatalErrors Whether non-fatal errors (such as those from
+ *   [AnalyticsListener.onAudioCodecError]) cause an exception to be thrown immediately.
+ * @param timeout The max time to wait for, or `null` to use a default timeout of 10 seconds.
+ * @param block The suspending computation to execute within the supervision scope.
+ */
+@UnstableApi
+suspend fun <T> Player.awaitSupervised(
+  failOnNonFatalErrors: Boolean = true,
+  timeout: Duration? = null,
+  block: suspend CoroutineScope.() -> T,
+): T {
+  playerError?.let { throw it }
+
+  return coroutineScope {
+    val result = CompletableDeferred<T>()
+    val errorListener = ErrorFailingPlayerListener(result::completeExceptionally)
+    addListener(errorListener)
+    val analyticsListener =
+      maybeAddAnalyticsListener(failOnNonFatalErrors) {
+        NonFatalFailingAnalyticsListener(result::completeExceptionally)
+      }
+    launch(start = CoroutineStart.UNDISPATCHED) {
+      try {
+        result.complete(block())
+      } catch (t: Throwable) {
+        result.completeExceptionally(t)
+      }
+    }
+    try {
+      withTimeout(timeout ?: DEFAULT_TIMEOUT) { result.await() }
+    } finally {
+      removeListener(errorListener)
+      maybeRemoveAnalyticsListener(analyticsListener)
+    }
+  }
 }
 
 /**
@@ -379,6 +401,21 @@ private constructor(
     player.awaitContentPositionAtLeast(targetPositionMs, failOnNonFatalErrors, timeout)
   }
 
+  /**
+   * Returns a future that completes when the provided [future] completes, supervising it against
+   * [Player] playback errors and timeouts.
+   *
+   * Must be called on the player's application looper thread.
+   */
+  fun <T> withSupervision(future: ListenableFuture<T>): ListenableFuture<T> {
+    val looper = Looper.myLooper() ?: error("Must be called on a Looper thread")
+    val dispatcher = Handler(looper).asCoroutineDispatcher("JavaFenceDispatcher")
+
+    return CoroutineScope(dispatcher).future {
+      player.awaitSupervised(failOnNonFatalErrors, timeout) { future.await() }
+    }
+  }
+
   private fun createFuture(block: suspend () -> Unit): ListenableFuture<Void?> {
     val looper = Looper.myLooper() ?: error("Must be called on a Looper thread")
     val dispatcher = Handler(looper).asCoroutineDispatcher("JavaFenceDispatcher")
@@ -426,9 +463,6 @@ private fun Player.maybeRemoveAnalyticsListener(analyticsListener: AnalyticsList
     }
   }
 }
-
-private suspend fun <T> withTimeout(duration: Duration?, block: suspend CoroutineScope.() -> T): T =
-  withTimeout(duration ?: DEFAULT_TIMEOUT, block)
 
 private open class ErrorFailingPlayerListener(private val exceptionConsumer: (Exception) -> Unit) :
   Player.Listener {
