@@ -27,7 +27,7 @@ import java.util.Objects;
 
 /** Utility class for processing bitmaps, such as downsizing and re-compression. */
 @UnstableApi
-/* package */ final class BitmapProcessor {
+public final class BitmapProcessor {
 
   private BitmapProcessor() {}
 
