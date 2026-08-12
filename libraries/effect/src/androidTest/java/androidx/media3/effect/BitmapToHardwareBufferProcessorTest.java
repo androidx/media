@@ -47,6 +47,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
+import org.junit.AssumptionViolatedException;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -58,10 +59,11 @@ import org.junit.runner.RunWith;
 @SdkSuppress(minSdkVersion = 26)
 public final class BitmapToHardwareBufferProcessorTest {
 
-  // TODO: b/475511702 - Update with HDR bitmap formats once supported.
   private enum BitmapType {
     HARDWARE,
     ARGB_8888,
+    RGBA_1010102,
+    RGBA_F16,
   }
 
   private static final float MAX_AVG_PIXEL_DIFFERENCE = 1.0f;
@@ -104,6 +106,8 @@ public final class BitmapToHardwareBufferProcessorTest {
   @Test
   public void process_validBitmap_copiesPixelsCorrectly(@TestParameter BitmapType bitmapType)
       throws Exception {
+    checkBitmapTypeSupported(bitmapType);
+
     Bitmap inputBitmap = readBitmap(bitmapType);
     // The pixel comparison can only run on ARGB_8888 bitmaps, if the input is HARDWARE, copy it to
     // a ARGB_8888 for the assertion.
@@ -183,6 +187,8 @@ public final class BitmapToHardwareBufferProcessorTest {
   @Test
   public void process_repeatedBitmap_reusesSameBuffer(@TestParameter BitmapType bitmapType)
       throws IOException {
+    checkBitmapTypeSupported(bitmapType);
+
     Bitmap inputBitmap = readBitmap(bitmapType);
     HardwareBufferFrame inputFrame1 = createBitmapFrame(inputBitmap);
     HardwareBufferFrame inputFrame2 = createBitmapFrame(inputBitmap);
@@ -200,6 +206,8 @@ public final class BitmapToHardwareBufferProcessorTest {
   @Test
   public void process_repeatedBitmapAfterRelease_reusesSameBuffer(
       @TestParameter BitmapType bitmapType) throws IOException {
+    checkBitmapTypeSupported(bitmapType);
+
     Bitmap inputBitmap = readBitmap(bitmapType);
     HardwareBufferFrame inputFrame1 = createBitmapFrame(inputBitmap);
     HardwareBufferFrame inputFrame2 = createBitmapFrame(inputBitmap);
@@ -218,6 +226,8 @@ public final class BitmapToHardwareBufferProcessorTest {
   public void process_differentBitmap_createsNewBufferAndRemovesReferenceToOldBuffer(
       @TestParameter BitmapType bitmapType)
       throws IOException, ExecutionException, InterruptedException, TimeoutException {
+    checkBitmapTypeSupported(bitmapType);
+
     Bitmap bitmap1 = readBitmap(bitmapType);
     Bitmap bitmap2 = readBitmap(bitmapType);
 
@@ -278,6 +288,8 @@ public final class BitmapToHardwareBufferProcessorTest {
   @Test
   public void releaseOutputFrame_sharedBuffer_doesNotCloseSharedBuffer(
       @TestParameter BitmapType bitmapType) throws Exception {
+    checkBitmapTypeSupported(bitmapType);
+
     Bitmap inputBitmap = readBitmap(bitmapType);
     HardwareBufferFrame inputFrame1 = createBitmapFrame(inputBitmap);
     HardwareBufferFrame inputFrame2 = createBitmapFrame(inputBitmap);
@@ -387,8 +399,27 @@ public final class BitmapToHardwareBufferProcessorTest {
       case HARDWARE:
         return BitmapPixelTestUtil.readBitmap(INPUT_PATH)
             .copy(Config.HARDWARE, /* isMutable= */ false);
+      case RGBA_1010102:
+        if (Build.VERSION.SDK_INT >= 33) {
+          return BitmapPixelTestUtil.readBitmap(INPUT_PATH)
+              .copy(Config.RGBA_1010102, /* isMutable= */ false);
+        }
+        return BitmapPixelTestUtil.readBitmap(INPUT_PATH);
+      case RGBA_F16:
+        if (Build.VERSION.SDK_INT >= 33) {
+          return BitmapPixelTestUtil.readBitmap(INPUT_PATH)
+              .copy(Config.RGBA_F16, /* isMutable= */ false);
+        }
+        return BitmapPixelTestUtil.readBitmap(INPUT_PATH);
     }
     throw new IllegalArgumentException();
+  }
+
+  private static void checkBitmapTypeSupported(BitmapType bitmapType) {
+    if ((bitmapType == BitmapType.RGBA_1010102 || bitmapType == BitmapType.RGBA_F16)
+        && Build.VERSION.SDK_INT < 33) {
+      throw new AssumptionViolatedException("HDR bitmap formats require API level 33+");
+    }
   }
 
   private static HardwareBufferFrame createBitmapFrame(Bitmap bitmap) {

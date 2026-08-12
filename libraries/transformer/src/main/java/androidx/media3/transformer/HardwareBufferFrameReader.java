@@ -20,12 +20,15 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.graphics.Bitmap;
+import android.graphics.ColorSpace;
+import android.hardware.DataSpace;
 import android.hardware.HardwareBuffer;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Surface;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -228,7 +231,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             .setSampleMimeType(MimeTypes.IMAGE_RAW)
             .setWidth(bitmap.getWidth())
             .setHeight(bitmap.getHeight())
-            .setColorInfo(ColorInfo.SRGB_BT709_FULL)
+            .setColorInfo(resolveColorInfoFromBitmap(bitmap))
             .setFrameRate(/* frameRate= */ DEFAULT_FRAME_RATE)
             .build();
     synchronized (this) {
@@ -506,6 +509,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
+  private static ColorInfo resolveColorInfoFromBitmap(Bitmap bitmap) {
+    if (SDK_INT >= 33) {
+      return Api33.resolveColorInfoFromBitmap(bitmap);
+    }
+    return ColorInfo.SRGB_BT709_FULL;
+  }
+
   /**
    * A {@link Executor} which executes commands on a {@link Handler} and propagates {@linkplain
    * RuntimeException errors} to the {@link Listener}.
@@ -597,6 +607,42 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       this.sequenceOffsetUs = sequenceOffsetUs;
       this.itemIndex = itemIndex;
       this.format = format;
+    }
+  }
+
+  @RequiresApi(33)
+  private static final class Api33 {
+    private static final ColorInfo BT2020_HLG_FULL =
+        new ColorInfo.Builder()
+            .setColorSpace(C.COLOR_SPACE_BT2020)
+            .setColorRange(C.COLOR_RANGE_FULL)
+            .setColorTransfer(C.COLOR_TRANSFER_HLG)
+            .build();
+
+    private static final ColorInfo BT2020_PQ_FULL =
+        new ColorInfo.Builder()
+            .setColorSpace(C.COLOR_SPACE_BT2020)
+            .setColorRange(C.COLOR_RANGE_FULL)
+            .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+            .build();
+
+    private static ColorInfo resolveColorInfoFromBitmap(Bitmap bitmap) {
+      ColorSpace colorSpace = bitmap.getColorSpace();
+      if (colorSpace != null) {
+        return dataSpaceToColorInfo(colorSpace.getDataSpace());
+      }
+      return ColorInfo.SRGB_BT709_FULL;
+    }
+
+    private static ColorInfo dataSpaceToColorInfo(int dataSpace) {
+      switch (dataSpace) {
+        case DataSpace.STANDARD_BT2020 | DataSpace.TRANSFER_HLG | DataSpace.RANGE_FULL:
+          return BT2020_HLG_FULL;
+        case DataSpace.STANDARD_BT2020 | DataSpace.TRANSFER_ST2084 | DataSpace.RANGE_FULL:
+          return BT2020_PQ_FULL;
+        default:
+          return ColorInfo.SRGB_BT709_FULL;
+      }
     }
   }
 }

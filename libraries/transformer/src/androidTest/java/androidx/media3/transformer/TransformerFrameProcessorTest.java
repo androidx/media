@@ -16,18 +16,26 @@
  */
 package androidx.media3.transformer;
 
+import static android.graphics.Bitmap.Config.RGBA_1010102;
+import static androidx.media3.common.C.MICROS_PER_SECOND;
 import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
+import static androidx.media3.test.utils.AssetInfo.PNG_ASSET;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.hardware.HardwareBuffer;
+import android.net.Uri;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.VideoCompositorSettings;
+import androidx.media3.common.util.BitmapLoader;
+import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
+import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.effect.AlphaScale;
 import androidx.media3.effect.DefaultGlFrameProcessor;
 import androidx.media3.effect.HardwareBufferJniWrapper;
@@ -38,6 +46,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.ListenableFuture;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -114,6 +125,79 @@ public class TransformerFrameProcessorTest {
         .isEqualTo(composition.videoCompositorSettings);
     assertThat(metadata.get(DefaultGlFrameProcessor.KEY_COMPOSITION_EFFECTS))
         .isEqualTo(composition.effects.videoEffects);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 34)
+  public void export_withProgrammaticHdrImage_queuesHardwareBufferWithCorrectFormat()
+      throws Exception {
+    AtomicInteger receivedFormat = new AtomicInteger();
+    // Create a fake BitmapLoader that strictly outputs a true 10-bit SDR/HDR bitmap.
+    BitmapLoader fakeBitmapLoader =
+        new BitmapLoader() {
+          @Override
+          public boolean supportsMimeType(String mimeType) {
+            return true;
+          }
+
+          @Override
+          public ListenableFuture<Bitmap> decodeBitmap(byte[] data) {
+            return immediateFuture(Bitmap.createBitmap(1, 1, RGBA_1010102));
+          }
+
+          @Override
+          public ListenableFuture<Bitmap> loadBitmap(Uri uri) {
+            return immediateFuture(Bitmap.createBitmap(1, 1, RGBA_1010102));
+          }
+        };
+    FakeFrameProcessor.Factory fakeFrameProcessorFactory =
+        new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ true);
+    FrameProcessor.Factory interceptingFactory =
+        (output, listenerExecutor, listener) -> {
+          FrameProcessor realProcessor =
+              fakeFrameProcessorFactory.create(output, listenerExecutor, listener);
+
+          return new FrameProcessor() {
+            @Override
+            public boolean queue(List<AsyncFrame> frames) {
+              for (AsyncFrame asyncFrame : frames) {
+                if (asyncFrame.frame instanceof HardwareBufferFrame) {
+                  HardwareBufferFrame hardwareBufferFrame = (HardwareBufferFrame) asyncFrame.frame;
+                  // Safely capture the format synchronously before the buffer is closed later
+                  receivedFormat.set(hardwareBufferFrame.getHardwareBuffer().getFormat());
+                }
+              }
+              return realProcessor.queue(frames);
+            }
+
+            @Override
+            public void signalEndOfStream() {
+              realProcessor.signalEndOfStream();
+            }
+
+            @Override
+            public void close() {
+              realProcessor.close();
+            }
+          };
+        };
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setAssetLoaderFactory(new ImageAssetLoader.Factory(context, fakeBitmapLoader))
+            .setFrameProcessorFactory(interceptingFactory)
+            .setNativeHardwareBufferHelpers(new FakeHardwareBufferJniWrapper())
+            .build();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(PNG_ASSET.uri))
+            .setDurationUs(MICROS_PER_SECOND / 2)
+            .setFrameRate(30)
+            .build();
+
+    new TransformerAndroidTestRunner.Builder(context, transformer)
+        .build()
+        .run(testId, editedMediaItem);
+
+    assertThat(receivedFormat.get()).isEqualTo(HardwareBuffer.RGBA_1010102);
   }
 
   /** A no-op {@link HardwareBufferJniWrapper} that always succeeds. */

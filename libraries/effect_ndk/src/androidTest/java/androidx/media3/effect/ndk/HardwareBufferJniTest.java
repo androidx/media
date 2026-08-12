@@ -70,7 +70,7 @@ public final class HardwareBufferJniTest {
 
   @Test
   @SdkSuppress(minSdkVersion = 33)
-  public void nativeCopyBitmapToHardwareBuffer_hdr_matchesInputBitmap() throws Exception {
+  public void nativeCopyBitmapToHardwareBuffer_rgba1010102_matchesInputBitmap() throws Exception {
     Bitmap inputBitmap =
         BitmapPixelTestUtil.readBitmap(FILE_PATH)
             .copy(Bitmap.Config.RGBA_1010102, /* isMutable= */ false);
@@ -89,6 +89,35 @@ public final class HardwareBufferJniTest {
           Bitmap.wrapHardwareBuffer(hardwareBuffer, ColorSpace.get(ColorSpace.Named.SRGB));
       assertThat(hardwareBitmap).isNotNull();
       Bitmap outputBitmap = hardwareBitmap.copy(Bitmap.Config.RGBA_1010102, /* isMutable= */ false);
+      assertThat(
+              getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+                  inputBitmap, outputBitmap, testName.getMethodName()))
+          .isEqualTo(0);
+    }
+  }
+
+  // TODO: b/545085046 - Investigate supporting RGBA_FP16 on API 30-32.
+  @Test
+  @SdkSuppress(minSdkVersion = 33)
+  public void nativeCopyBitmapToHardwareBuffer_f16_matchesInputBitmap() throws Exception {
+    Bitmap inputBitmap =
+        BitmapPixelTestUtil.readBitmap(FILE_PATH)
+            .copy(Bitmap.Config.RGBA_F16, /* isMutable= */ false);
+    try (HardwareBuffer hardwareBuffer =
+        HardwareBuffer.create(
+            inputBitmap.getWidth(),
+            inputBitmap.getHeight(),
+            HardwareBuffer.RGBA_FP16,
+            /* layers= */ 1,
+            HardwareBuffer.USAGE_CPU_WRITE_OFTEN | HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE)) {
+      assertThat(
+              HardwareBufferJni.INSTANCE.nativeCopyBitmapToHardwareBuffer(
+                  inputBitmap, hardwareBuffer))
+          .isTrue();
+      Bitmap hardwareBitmap =
+          Bitmap.wrapHardwareBuffer(hardwareBuffer, ColorSpace.get(ColorSpace.Named.SRGB));
+      assertThat(hardwareBitmap).isNotNull();
+      Bitmap outputBitmap = hardwareBitmap.copy(Bitmap.Config.RGBA_F16, /* isMutable= */ false);
       assertThat(
               getBitmapAveragePixelAbsoluteDifferenceArgb8888(
                   inputBitmap, outputBitmap, testName.getMethodName()))
@@ -189,7 +218,7 @@ public final class HardwareBufferJniTest {
 
   @Test
   @SdkSuppress(maxSdkVersion = 32)
-  public void nativeCopyHardwareBufferToHardwareBuffer_hdrBelowApi33_returnsTrue()
+  public void nativeCopyHardwareBufferToHardwareBuffer_rgba1010102BelowApi33_returnsTrue()
       throws Exception {
     // The methods to access the HDR bitmap do not exist below API 33, so just assert copying the
     // buffer formats succeeds.
@@ -218,7 +247,8 @@ public final class HardwareBufferJniTest {
 
   @Test
   @SdkSuppress(minSdkVersion = 33)
-  public void nativeCopyHardwareBufferToHardwareBuffer_hdr_matchesInputBuffer() throws Exception {
+  public void nativeCopyHardwareBufferToHardwareBuffer_rgba1010102_matchesInputBuffer()
+      throws Exception {
     Bitmap inputBitmap =
         BitmapPixelTestUtil.readBitmap(FILE_PATH)
             .copy(Bitmap.Config.RGBA_1010102, /* isMutable= */ false);
@@ -249,6 +279,43 @@ public final class HardwareBufferJniTest {
           Bitmap.wrapHardwareBuffer(dstHb, ColorSpace.get(ColorSpace.Named.SRGB));
       assertThat(hardwareBitmap).isNotNull();
       Bitmap outputBitmap = hardwareBitmap.copy(Bitmap.Config.RGBA_1010102, /* isMutable= */ false);
+      assertThat(
+              getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+                  inputBitmap, outputBitmap, testName.getMethodName()))
+          .isEqualTo(0);
+    }
+  }
+
+  // TODO: b/545085046 - Investigate supporting RGBA_FP16 on API 30-32.
+  @Test
+  @SdkSuppress(minSdkVersion = 33)
+  public void nativeCopyHardwareBufferToHardwareBuffer_f16_matchesInputBuffer() throws Exception {
+    Bitmap inputBitmap =
+        BitmapPixelTestUtil.readBitmap(FILE_PATH)
+            .copy(Bitmap.Config.RGBA_F16, /* isMutable= */ false);
+    try (HardwareBuffer srcHb =
+            HardwareBuffer.create(
+                inputBitmap.getWidth(),
+                inputBitmap.getHeight(),
+                HardwareBuffer.RGBA_FP16,
+                /* layers= */ 1,
+                HardwareBuffer.USAGE_CPU_WRITE_OFTEN | HardwareBuffer.USAGE_CPU_READ_OFTEN);
+        HardwareBuffer dstHb =
+            HardwareBuffer.create(
+                inputBitmap.getWidth(),
+                inputBitmap.getHeight(),
+                HardwareBuffer.RGBA_FP16,
+                /* layers= */ 1,
+                HardwareBuffer.USAGE_CPU_WRITE_OFTEN | HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE)) {
+      assertThat(HardwareBufferJni.INSTANCE.nativeCopyBitmapToHardwareBuffer(inputBitmap, srcHb))
+          .isTrue();
+      assertThat(HardwareBufferJni.INSTANCE.nativeCopyHardwareBufferToHardwareBuffer(srcHb, dstHb))
+          .isTrue();
+
+      Bitmap hardwareBitmap =
+          Bitmap.wrapHardwareBuffer(dstHb, ColorSpace.get(ColorSpace.Named.SRGB));
+      assertThat(hardwareBitmap).isNotNull();
+      Bitmap outputBitmap = hardwareBitmap.copy(Bitmap.Config.RGBA_F16, /* isMutable= */ false);
       assertThat(
               getBitmapAveragePixelAbsoluteDifferenceArgb8888(
                   inputBitmap, outputBitmap, testName.getMethodName()))
