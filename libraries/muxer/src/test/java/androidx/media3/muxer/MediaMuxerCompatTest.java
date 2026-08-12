@@ -18,9 +18,11 @@ package androidx.media3.muxer;
 import static android.media.MediaFormat.KEY_CAPTURE_RATE;
 import static android.media.MediaFormat.KEY_MIME;
 import static androidx.media3.muxer.MediaMuxerCompat.OUTPUT_FORMAT_MP4;
+import static androidx.media3.muxer.MediaMuxerCompat.OUTPUT_FORMAT_WEBM;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
 import android.media.MediaCodec;
@@ -33,6 +35,7 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
+import androidx.media3.extractor.mkv.MatroskaExtractor;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.inspector.MediaExtractorCompat;
@@ -83,6 +86,57 @@ public final class MediaMuxerCompatTest {
             MdtaMetadataEntry.TYPE_INDICATOR_FLOAT32);
     @Nullable MdtaMetadataEntry actualCaptureFps = findCaptureFpsMetadata(videoTrackFormat);
     assertThat(actualCaptureFps).isEqualTo(expectedCaptureFps);
+  }
+
+  @Test
+  public void createWebmFile_withValidWebmAsset_writesSamplesSuccessfully() throws Exception {
+    String outputFilePath = tempFolder.newFile().getAbsolutePath();
+
+    MediaMuxerCompat mediaMuxerCompat = new MediaMuxerCompat(outputFilePath, OUTPUT_FORMAT_WEBM);
+    try {
+      // Calling setLocation and setOrientationHint are safe no-ops for WebM and do not throw.
+      mediaMuxerCompat.setLocation(/* latitude= */ 37.4220f, /* longitude= */ -122.0841f);
+      mediaMuxerCompat.setOrientationHint(90);
+      feedDataToMuxer(
+          context,
+          mediaMuxerCompat,
+          "asset:///media/mkv/bbb_960x540_60fps_vp8.webm",
+          /* captureFps= */ C.RATE_UNSET);
+    } finally {
+      mediaMuxerCompat.release();
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new MatroskaExtractor(new DefaultSubtitleParserFactory()),
+            checkNotNull(outputFilePath));
+    Format videoTrackFormat =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO))
+            .lastFormat;
+    assertThat(videoTrackFormat.sampleMimeType).isEqualTo(MimeTypes.VIDEO_VP9);
+    assertThat(videoTrackFormat.rotationDegrees).isEqualTo(0);
+  }
+
+  @Test
+  public void createWebmFile_withUnsupportedTrack_throws() throws Exception {
+    String outputFilePath = tempFolder.newFile().getAbsolutePath();
+    MediaMuxerCompat mediaMuxerCompat = new MediaMuxerCompat(outputFilePath, OUTPUT_FORMAT_WEBM);
+    MediaFormat unsupportedFormat =
+        MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, 1280, 720);
+
+    try {
+      assertThrows(
+          IllegalArgumentException.class, () -> mediaMuxerCompat.addTrack(unsupportedFormat));
+    } finally {
+      try {
+        mediaMuxerCompat.release();
+      } catch (RuntimeException exception) {
+        // TODO: b/544606733 - Gracefully handle closing empty WebM containers when no samples were
+        // written.
+        // Suppress finalization exception on uninitialized container to prevent teardown failures
+        // from masking the assertion error above.
+      }
+    }
   }
 
   private static MdtaMetadataEntry findCaptureFpsMetadata(Format format) {

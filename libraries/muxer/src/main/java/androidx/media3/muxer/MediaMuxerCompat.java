@@ -16,7 +16,6 @@
 package androidx.media3.muxer;
 
 import static androidx.media3.muxer.MuxerUtil.getMuxerBufferInfoFromMediaCodecBufferInfo;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -48,30 +47,47 @@ import java.nio.ByteBuffer;
  * A drop-in replacement for {@link MediaMuxer} that provides similar functionality, based on the
  * {@code media3.muxer} logic.
  *
- * <p>Currently only MP4 file format is supported.
+ * <p>Supported file formats are {@link #OUTPUT_FORMAT_MP4 MP4} and {@link #OUTPUT_FORMAT_WEBM
+ * WEBM}.
  *
  * <p>Supported codecs are:
  *
  * <ul>
- *   <li>Video Codecs:
+ *   <li>For MP4 file format:
  *       <ul>
- *         <li>AV1
- *         <li>MPEG-4
- *         <li>H.263
- *         <li>H.264 (AVC)
- *         <li>H.265 (HEVC)
- *         <li>VP9
- *         <li>APV
- *         <li>Dolby Vision
+ *         <li>Video Codecs:
+ *             <ul>
+ *               <li>AV1
+ *               <li>MPEG-4
+ *               <li>H.263
+ *               <li>H.264 (AVC)
+ *               <li>H.265 (HEVC)
+ *               <li>VP9
+ *               <li>APV
+ *               <li>Dolby Vision
+ *             </ul>
+ *         <li>Audio Codecs:
+ *             <ul>
+ *               <li>AAC
+ *               <li>AMR-NB (Narrowband AMR)
+ *               <li>AMR-WB (Wideband AMR)
+ *               <li>Opus
+ *               <li>Vorbis
+ *               <li>Raw Audio
+ *             </ul>
  *       </ul>
- *   <li>Audio Codecs:
+ *   <li>For WebM file format:
  *       <ul>
- *         <li>AAC
- *         <li>AMR-NB (Narrowband AMR)
- *         <li>AMR-WB (Wideband AMR)
- *         <li>Opus
- *         <li>Vorbis
- *         <li>Raw Audio
+ *         <li>Video Codecs:
+ *             <ul>
+ *               <li>VP8
+ *               <li>VP9
+ *             </ul>
+ *         <li>Audio Codecs:
+ *             <ul>
+ *               <li>Opus
+ *               <li>Vorbis
+ *             </ul>
  *       </ul>
  * </ul>
  *
@@ -84,13 +100,17 @@ public final class MediaMuxerCompat {
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
-  @IntDef({OUTPUT_FORMAT_MP4})
+  @IntDef({OUTPUT_FORMAT_MP4, OUTPUT_FORMAT_WEBM})
   @UnstableApi
   public @interface OutputFormat {}
 
   /** The MP4 file format. */
   public static final int OUTPUT_FORMAT_MP4 = MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4;
 
+  /** The WebM file format. */
+  public static final int OUTPUT_FORMAT_WEBM = MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM;
+
+  private final @OutputFormat int outputFormat;
   @Nullable private final FileDescriptor fileDescriptor;
   private final Muxer muxer;
 
@@ -110,6 +130,7 @@ public final class MediaMuxerCompat {
    */
   public MediaMuxerCompat(FileDescriptor fileDescriptor, @OutputFormat int outputFormat)
       throws IOException {
+    this.outputFormat = outputFormat;
     try {
       this.fileDescriptor = Os.dup(fileDescriptor);
     } catch (ErrnoException e) {
@@ -126,6 +147,7 @@ public final class MediaMuxerCompat {
    * @throws IOException If an error occurs while performing an I/O operation.
    */
   public MediaMuxerCompat(String filePath, @OutputFormat int outputFormat) throws IOException {
+    this.outputFormat = outputFormat;
     fileDescriptor = null;
     muxer = createMuxer(new FileOutputStream(filePath), outputFormat);
   }
@@ -160,17 +182,20 @@ public final class MediaMuxerCompat {
   public int addTrack(MediaFormat format) {
     checkState(!startedMuxer);
     try {
-      float captureFps =
-          MediaFormatUtil.getFloatFromIntOrFloat(
-              format, MediaFormat.KEY_CAPTURE_RATE, C.RATE_UNSET);
-      if (captureFps != C.RATE_UNSET) {
-        MdtaMetadataEntry captureFpsMetadata =
-            new MdtaMetadataEntry(
-                MdtaMetadataEntry.KEY_ANDROID_CAPTURE_FPS,
-                /* value= */ Util.toByteArray(captureFps),
-                MdtaMetadataEntry.TYPE_INDICATOR_FLOAT32);
-        muxer.addMetadataEntry(captureFpsMetadata);
+      if (outputFormat == OUTPUT_FORMAT_MP4) {
+        float captureFps =
+            MediaFormatUtil.getFloatFromIntOrFloat(
+                format, MediaFormat.KEY_CAPTURE_RATE, C.RATE_UNSET);
+        if (captureFps != C.RATE_UNSET) {
+          MdtaMetadataEntry captureFpsMetadata =
+              new MdtaMetadataEntry(
+                  MdtaMetadataEntry.KEY_ANDROID_CAPTURE_FPS,
+                  /* value= */ Util.toByteArray(captureFps),
+                  MdtaMetadataEntry.TYPE_INDICATOR_FLOAT32);
+          muxer.addMetadataEntry(captureFpsMetadata);
+        }
       }
+
       return muxer.addTrack(MediaFormatUtil.createFormatFromMediaFormat(format));
     } catch (MuxerException e) {
       throw new RuntimeException(e);
@@ -216,7 +241,9 @@ public final class MediaMuxerCompat {
       @FloatRange(from = -90.0, to = 90.0) float latitude,
       @FloatRange(from = -180.0, to = 180.0) float longitude) {
     checkState(!startedMuxer);
-    muxer.addMetadataEntry(new Mp4LocationData(latitude, longitude));
+    if (outputFormat == OUTPUT_FORMAT_MP4) {
+      muxer.addMetadataEntry(new Mp4LocationData(latitude, longitude));
+    }
   }
 
   /**
@@ -230,7 +257,9 @@ public final class MediaMuxerCompat {
    */
   public void setOrientationHint(int degrees) {
     checkState(!startedMuxer);
-    muxer.addMetadataEntry(new Mp4OrientationData(degrees));
+    if (outputFormat == OUTPUT_FORMAT_MP4) {
+      muxer.addMetadataEntry(new Mp4OrientationData(degrees));
+    }
   }
 
   /**
@@ -273,7 +302,14 @@ public final class MediaMuxerCompat {
 
   private static Muxer createMuxer(
       FileOutputStream fileOutputStream, @OutputFormat int outputFormat) {
-    checkArgument(outputFormat == OUTPUT_FORMAT_MP4);
-    return new Mp4Muxer.Builder(SeekableMuxerOutput.of(fileOutputStream)).build();
+    SeekableMuxerOutput muxerOutput = SeekableMuxerOutput.of(fileOutputStream);
+    switch (outputFormat) {
+      case OUTPUT_FORMAT_MP4:
+        return new Mp4Muxer.Builder(muxerOutput).build();
+      case OUTPUT_FORMAT_WEBM:
+        return new WebmMuxer.Builder(muxerOutput).build();
+      default:
+        throw new IllegalArgumentException("Unsupported output format: " + outputFormat);
+    }
   }
 }

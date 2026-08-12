@@ -1791,6 +1791,7 @@ package androidx.media3.muxer {
     method public stop(): void;
     method public writeSampleData(_: int, _: java.nio.ByteBuffer, _: android.media.MediaCodec.BufferInfo): void;
     field public static final OUTPUT_FORMAT_MP4: int = 0; // 0x0
+    field public static final OUTPUT_FORMAT_WEBM: int = 1; // 0x1
   }
 
 }

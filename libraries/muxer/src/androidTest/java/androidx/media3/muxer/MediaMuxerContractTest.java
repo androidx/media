@@ -21,6 +21,7 @@ import static android.media.MediaFormat.KEY_SAMPLE_RATE;
 import static androidx.media3.common.MimeTypes.AUDIO_AAC;
 import static androidx.media3.common.util.MediaFormatUtil.createMediaFormatFromFormat;
 import static androidx.media3.muxer.MediaMuxerCompat.OUTPUT_FORMAT_MP4;
+import static androidx.media3.muxer.MediaMuxerCompat.OUTPUT_FORMAT_WEBM;
 import static androidx.media3.test.utils.AssetInfo.AMR_NB_3GP_ASSET;
 import static androidx.media3.test.utils.AssetInfo.AMR_WB_3GP_ASSET;
 import static androidx.media3.test.utils.AssetInfo.H263_3GP_ASSET;
@@ -31,6 +32,7 @@ import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_DOLBY_VISION_HDR;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
 import static androidx.media3.test.utils.AssetInfo.MPEG4_MP4_ASSET;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
@@ -45,8 +47,10 @@ import android.system.Os;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.container.Mp4LocationData;
+import androidx.media3.extractor.mkv.MatroskaExtractor;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.inspector.MediaExtractorCompat;
@@ -57,7 +61,6 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.io.BaseEncoding;
 import com.google.errorprone.annotations.Immutable;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -172,9 +175,9 @@ public final class MediaMuxerContractTest {
             new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputFilePath));
     assertThat(fakeExtractorOutput.numberOfTracks)
         .isEqualTo(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.trackCount);
-    Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO))
+    getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO))
         .assertSampleCount(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFrameCount);
-    Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO))
+    getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO))
         .assertSampleCount(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.audioSampleCount);
   }
 
@@ -502,8 +505,7 @@ public final class MediaMuxerContractTest {
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputFilePath));
     Format videoTrackFormat =
-        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO))
-            .lastFormat;
+        getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO)).lastFormat;
     Mp4LocationData actualLocationData =
         videoTrackFormat.metadata.getFirstEntryOfType(Mp4LocationData.class);
     assertThat(actualLocationData.latitude).isEqualTo(latitude);
@@ -532,8 +534,7 @@ public final class MediaMuxerContractTest {
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputFilePath));
     Format videoTrackFormat =
-        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO))
-            .lastFormat;
+        getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO)).lastFormat;
     Mp4LocationData actualLocationData =
         videoTrackFormat.metadata.getFirstEntryOfType(Mp4LocationData.class);
     assertThat(actualLocationData.latitude).isEqualTo(latitude);
@@ -577,9 +578,29 @@ public final class MediaMuxerContractTest {
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputFilePath));
     Format videoTrackFormat =
-        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO))
-            .lastFormat;
+        getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO)).lastFormat;
     assertThat(videoTrackFormat.rotationDegrees).isEqualTo(orientation);
+  }
+
+  @Test
+  public void createWebmFile_withValidWebmAsset_writesCorrectTracksAndSamples() throws Exception {
+    String outputFilePath = tempFolder.newFile().getAbsolutePath();
+
+    MediaMuxerProxy mediaMuxerProxy =
+        muxerFactoryEnum.value.create(outputFilePath, OUTPUT_FORMAT_WEBM);
+    try {
+      feedDataToMuxer(context, mediaMuxerProxy, "asset:///media/mkv/bbb_960x540_60fps_vp8.webm");
+    } finally {
+      mediaMuxerProxy.release();
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new MatroskaExtractor(new DefaultSubtitleParserFactory()),
+            checkNotNull(outputFilePath));
+    Format videoTrackFormat =
+        getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO)).lastFormat;
+    assertThat(videoTrackFormat.sampleMimeType).isEqualTo(MimeTypes.VIDEO_VP9);
   }
 
   private static void feedDataToMuxer(Context context, MediaMuxerProxy muxer, String inputFilePath)
