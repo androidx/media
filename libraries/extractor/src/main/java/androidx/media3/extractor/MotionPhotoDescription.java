@@ -13,16 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.extractor.jpeg;
+package androidx.media3.extractor;
+
+import static androidx.annotation.RestrictTo.Scope.LIBRARY;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.extractor.metadata.MotionPhotoMetadata;
 import java.util.List;
 
 /** Describes the layout and metadata of a motion photo file. */
-/* package */ final class MotionPhotoDescription {
+@RestrictTo(LIBRARY)
+public final class MotionPhotoDescription {
 
   /** Describes a media item in the motion photo. */
   public static final class ContainerItem {

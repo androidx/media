@@ -8,5 +8,5 @@ track 1024:
   sample count = 0
   format 0:
     containerMimeType = image/heic
-    metadata = entries=[Motion photo metadata: photoStartPosition=0, photoSize=28853, photoPresentationTimestampUs=-9223372036854775807, videoStartPosition=28869, videoSize=28803]
+    metadata = entries=[Motion photo metadata: photoStartPosition=0, photoSize=28853, photoPresentationTimestampUs=0, videoStartPosition=28869, videoSize=28803]
 tracksEnded = true

@@ -13,9 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.extractor.jpeg;
+package androidx.media3.extractor;
+
+import static androidx.annotation.RestrictTo.Scope.LIBRARY;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
@@ -33,7 +36,8 @@ import org.xmlpull.v1.XmlPullParserFactory;
  * Parser for motion photo metadata, handling XMP following the Motion Photo V1 and Micro Video V1b
  * specifications.
  */
-/* package */ final class XmpMotionPhotoDescriptionParser {
+@RestrictTo(LIBRARY)
+public final class XmpMotionPhotoDescriptionParser {
 
   /**
    * Attempts to parse the specified XMP data describing the motion photo, returning the resulting

@@ -161,6 +161,8 @@ public final class MimeTypes {
 
   @UnstableApi public static final String APPLICATION_META = BASE_TYPE_APPLICATION + "/meta";
 
+  @UnstableApi public static final String APPLICATION_RDF_XML = BASE_TYPE_APPLICATION + "/rdf+xml";
+
   @UnstableApi
   public static final String APPLICATION_ITUT_T35 = BASE_TYPE_APPLICATION + "/x-itut-t35";
 

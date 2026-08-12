@@ -407,6 +407,15 @@ public abstract class Mp4Box {
   @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_meta = 0x6d657461;
 
+  @SuppressWarnings({"ConstantCaseForConstants", "IdentifierName"})
+  public static final int TYPE_iloc = 0x696c6f63;
+
+  @SuppressWarnings({"ConstantCaseForConstants", "IdentifierName"})
+  public static final int TYPE_iinf = 0x69696e66;
+
+  @SuppressWarnings({"ConstantCaseForConstants", "IdentifierName"})
+  public static final int TYPE_infe = 0x696e6665;
+
   @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_xyz = 0xa978797a;
 
