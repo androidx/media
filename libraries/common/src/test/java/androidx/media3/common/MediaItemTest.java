@@ -1025,6 +1025,17 @@ public class MediaItemTest {
   }
 
   @Test
+  public void roundTripViaBundleForLocalProcess_yieldsSameInstance() {
+    MediaItem mediaItem = new MediaItem.Builder().setUri(URI_STRING).build();
+    MediaItem unbundledItem =
+        MediaItem.fromBundle(
+            mediaItem.toBundleIncludeLocalConfigurationForLocalProcess(),
+            MediaLibraryInfo.INTERFACE_VERSION);
+
+    assertThat(mediaItem == unbundledItem).isTrue();
+  }
+
+  @Test
   public void roundTripViaBundle_withoutLocalConfiguration_yieldsEqualInstance() {
     MediaItem mediaItem =
         new MediaItem.Builder()
