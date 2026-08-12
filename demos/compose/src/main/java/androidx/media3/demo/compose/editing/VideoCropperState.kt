@@ -44,11 +44,13 @@ private const val BOUNDARY_EPSILON = 1e-3f
  *
  * @param player The [Player] whose video content to crop.
  * @param initialCropRect The initial crop rectangle normalized in [0..1] relative to the video
- *   dimensions. If [targetAspectRatio] is set and does not match the aspect ratio of
- *   [initialCropRect], the crop rectangle will automatically be re-centered and resized to the
- *   largest possible rectangle matching [targetAspectRatio] once video dimensions are available.
+ *   dimensions. Must have positive width and height within [0..1]. If [targetAspectRatio] is set
+ *   and does not match the aspect ratio of [initialCropRect], the crop rectangle will automatically
+ *   be re-centered and resized to the largest possible rectangle matching [targetAspectRatio] once
+ *   video dimensions are available.
  * @param targetAspectRatio The desired target aspect ratio for the crop frame (e.g. 1f for square,
- *   1.77f for 16:9). If null, the aspect ratio corresponding to [initialCropRect] is preserved.
+ *   1.77f for 16:9). Must be strictly positive and finite, or null to preserve the aspect ratio of
+ *   [initialCropRect].
  */
 @Composable
 fun rememberVideoCropperState(
@@ -75,11 +77,12 @@ fun rememberVideoCropperState(
  * Use [rememberVideoCropperState] to create an instance that survives recompositions.
  *
  * @property cropRect The current crop rectangle normalized in [0..1] relative to the video
- *   dimensions.
- * @property targetAspectRatio The desired target aspect ratio for the crop frame. If it does not
- *   match the aspect ratio of [cropRect], [cropRect] will automatically be re-centered and resized
- *   to the largest possible rectangle matching [targetAspectRatio] once video dimensions are
- *   available.
+ *   dimensions. Coordinates must be within [0..1] with positive width and height. If
+ *   [targetAspectRatio] is set and does not match the aspect ratio of [cropRect], the crop
+ *   rectangle will automatically be re-centered and resized to the largest possible rectangle
+ *   matching [targetAspectRatio] once video dimensions are available.
+ * @property targetAspectRatio The desired target aspect ratio for the crop frame. Must be strictly
+ *   positive and finite, or null to preserve the aspect ratio of [cropRect].
  * @property isInteracting Whether the user is currently interacting with the cropper (dragging or
  *   panning).
  */
@@ -90,18 +93,18 @@ class VideoCropperState(
   @FloatRange(from = 0.0, fromInclusive = false) targetAspectRatio: Float? = null,
 ) {
 
-  var cropRect by mutableStateOf(initialCropRect)
+  var cropRect: Rect
+    get() = _cropRect.value
+    set(newCropRect) {
+      validateCropRect(newCropRect)
+      _cropRect.value = newCropRect
+    }
 
   @setparam:FloatRange(from = 0.0, fromInclusive = false)
   var targetAspectRatio: Float?
     get() = _targetAspectRatio.value
     set(newTargetAspectRatio) {
-      require(
-        newTargetAspectRatio == null ||
-          (newTargetAspectRatio > 0f && newTargetAspectRatio.isFinite())
-      ) {
-        "targetAspectRatio must be positive and finite, but was $newTargetAspectRatio"
-      }
+      validateTargetAspectRatio(newTargetAspectRatio)
       _targetAspectRatio.value = newTargetAspectRatio
       updateCropRect()
     }
@@ -112,6 +115,7 @@ class VideoCropperState(
   internal var videoSize: Size by mutableStateOf(player?.videoSize?.toDisplaySize() ?: Size.Zero)
     private set
 
+  private val _cropRect = mutableStateOf(initialCropRect)
   private val _targetAspectRatio = mutableStateOf(targetAspectRatio)
 
   private val playerStateObserver: PlayerStateObserver? =
@@ -124,24 +128,32 @@ class VideoCropperState(
     }
 
   init {
-    require(
-      initialCropRect.left in 0f..1f &&
-        initialCropRect.top in 0f..1f &&
-        initialCropRect.right in 0f..1f &&
-        initialCropRect.bottom in 0f..1f &&
-        initialCropRect.left < initialCropRect.right &&
-        initialCropRect.top < initialCropRect.bottom
-    ) {
-      "initialCropRect coordinates must be within [0, 1] with positive width and height, but was $initialCropRect"
-    }
-    require(targetAspectRatio == null || (targetAspectRatio > 0f && targetAspectRatio.isFinite())) {
-      "targetAspectRatio must be positive and finite, but was $targetAspectRatio"
-    }
+    validateCropRect(initialCropRect)
+    validateTargetAspectRatio(targetAspectRatio)
     updateCropRect()
   }
 
   suspend fun observe() {
     playerStateObserver?.observe()
+  }
+
+  private fun validateCropRect(cropRect: Rect) {
+    require(
+      cropRect.left in 0f..1f &&
+        cropRect.top in 0f..1f &&
+        cropRect.right in 0f..1f &&
+        cropRect.bottom in 0f..1f &&
+        cropRect.left < cropRect.right &&
+        cropRect.top < cropRect.bottom
+    ) {
+      "cropRect coordinates must be within [0, 1] with positive width and height, but was $cropRect"
+    }
+  }
+
+  private fun validateTargetAspectRatio(targetAspectRatio: Float?) {
+    require(targetAspectRatio == null || (targetAspectRatio > 0f && targetAspectRatio.isFinite())) {
+      "targetAspectRatio must be positive and finite, but was $targetAspectRatio"
+    }
   }
 
   private fun updateCropRect() {
