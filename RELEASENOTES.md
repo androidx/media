@@ -3,6 +3,8 @@
 ### Unreleased changes
 
 *   Common Library:
+    *   Add `MediaMetadata.playlistId` and
+        `MediaMetadata.Builder.setPlaylistId(String)`.
 *   ExoPlayer:
     *   Add support for ads in multi-period content (e.g., DASH) by splitting
         and offsetting the `AdPlaybackState` for each period.
@@ -78,6 +80,8 @@
         samples are written.
 *   IMA extension:
 *   Session:
+    *   Add `MediaConstants.EXTRAS_KEY_PLAYLIST_ID` to populate
+        `MediaMetadata.playlistId` from legacy metadata and descriptions.
 *   UI:
     *   Introduce `PresentationState.videoAspectRatio` and make
         `Modifier.resizeWithContentScale` take `aspectRatio: Float?` instead of

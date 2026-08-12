@@ -19,6 +19,7 @@ import static androidx.media3.session.MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_I
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_URI_COMPAT;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_COMPLETION_STATUS;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT;
+import static androidx.media3.session.MediaConstants.EXTRAS_KEY_PLAYLIST_ID;
 import static androidx.media3.session.MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED;
 import static androidx.media3.session.MediaConstants.EXTRA_KEY_ROOT_CHILDREN_BROWSABLE_ONLY;
 import static androidx.media3.session.legacy.MediaBrowserCompat.MediaItem.FLAG_BROWSABLE;
@@ -163,6 +164,7 @@ public final class LegacyConversionsTest {
             .setAlbumTitle("testAlbumTitle")
             .setWriter("testWriter")
             .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
+            .setPlaylistId("testPlaylistId")
             .setDurationMs(10_000L)
             .setExtras(extras)
             .build();
@@ -180,6 +182,8 @@ public final class LegacyConversionsTest {
         .isEqualTo(MediaMetadata.MEDIA_TYPE_MUSIC);
     assertThat(descriptionCompat.getExtras().getInt(EXTRAS_KEY_COMPLETION_STATUS))
         .isEqualTo(EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED);
+    assertThat(descriptionCompat.getExtras().getString(EXTRAS_KEY_PLAYLIST_ID))
+        .isEqualTo("testPlaylistId");
   }
 
   @Test
@@ -520,6 +524,59 @@ public final class LegacyConversionsTest {
   }
 
   @Test
+  public void convertToMediaMetadata_withPlaylistIdInMediaMetadataCompat_assignedToPlaylistId() {
+    MediaMetadataCompat testMediaMetadataCompat =
+        new MediaMetadataCompat.Builder().putString(EXTRAS_KEY_PLAYLIST_ID, "playlist123").build();
+
+    MediaMetadata mediaMetadata =
+        LegacyConversions.convertToMediaMetadata(testMediaMetadataCompat, RatingCompat.RATING_NONE);
+
+    assertThat(mediaMetadata.playlistId).isEqualTo("playlist123");
+    assertThat(mediaMetadata.extras).isNull();
+  }
+
+  @Test
+  public void convertToMediaMetadata_withEmptyPlaylistIdInMediaMetadataCompat_ignoresPlaylistId() {
+    MediaMetadataCompat testMediaMetadataCompat =
+        new MediaMetadataCompat.Builder().putString(EXTRAS_KEY_PLAYLIST_ID, "").build();
+
+    MediaMetadata mediaMetadata =
+        LegacyConversions.convertToMediaMetadata(testMediaMetadataCompat, RatingCompat.RATING_NONE);
+
+    assertThat(mediaMetadata.playlistId).isNull();
+    assertThat(mediaMetadata.extras).isNull();
+  }
+
+  @Test
+  public void convertToMediaMetadata_withPlaylistIdInMediaDescriptionCompat_assignedToPlaylistId() {
+    Bundle extras = new Bundle();
+    extras.putString(EXTRAS_KEY_PLAYLIST_ID, "playlist123");
+    MediaDescriptionCompat descriptionCompat =
+        new MediaDescriptionCompat.Builder().setExtras(extras).build();
+
+    MediaMetadata mediaMetadata =
+        LegacyConversions.convertToMediaMetadata(descriptionCompat, RatingCompat.RATING_NONE);
+
+    assertThat(mediaMetadata.playlistId).isEqualTo("playlist123");
+    assertThat(mediaMetadata.extras).isNull();
+  }
+
+  @Test
+  public void
+      convertToMediaMetadata_withEmptyPlaylistIdInMediaDescriptionCompat_ignoresPlaylistId() {
+    Bundle extras = new Bundle();
+    extras.putString(EXTRAS_KEY_PLAYLIST_ID, "");
+    MediaDescriptionCompat descriptionCompat =
+        new MediaDescriptionCompat.Builder().setExtras(extras).build();
+
+    MediaMetadata mediaMetadata =
+        LegacyConversions.convertToMediaMetadata(descriptionCompat, RatingCompat.RATING_NONE);
+
+    assertThat(mediaMetadata.playlistId).isNull();
+    assertThat(mediaMetadata.extras).isNull();
+  }
+
+  @Test
   public void convertToMediaMetadataCompat_withMediaType_setsMediaType() {
     MediaItem mediaItem =
         new MediaItem.Builder()
@@ -537,6 +594,25 @@ public final class LegacyConversionsTest {
 
     assertThat(mediaMetadataCompat.getLong(EXTRAS_KEY_MEDIA_TYPE_COMPAT))
         .isEqualTo(MediaMetadata.MEDIA_TYPE_MUSIC);
+  }
+
+  @Test
+  public void convertToMediaMetadataCompat_withPlaylistId_setsPlaylistIdExtra() {
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setMediaMetadata(new MediaMetadata.Builder().setPlaylistId("playlistId-1").build())
+            .build();
+
+    MediaMetadataCompat mediaMetadataCompat =
+        LegacyConversions.convertToMediaMetadataCompat(
+            mediaItem.mediaMetadata,
+            "mediaId",
+            Uri.parse("http://www.example.com"),
+            /* durationMs= */ C.TIME_UNSET,
+            /* artworkBitmap= */ null);
+
+    assertThat(mediaMetadataCompat.getString(MediaConstants.EXTRAS_KEY_PLAYLIST_ID))
+        .isEqualTo("playlistId-1");
   }
 
   @Test

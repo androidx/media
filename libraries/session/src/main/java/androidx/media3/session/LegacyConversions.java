@@ -134,7 +134,8 @@ import java.util.concurrent.TimeoutException;
           MediaMetadataCompat.METADATA_KEY_BT_FOLDER_TYPE,
           MediaMetadataCompat.METADATA_KEY_ADVERTISEMENT,
           MediaMetadataCompat.METADATA_KEY_DOWNLOAD_STATUS,
-          MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT);
+          MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT,
+          MediaConstants.EXTRAS_KEY_PLAYLIST_ID);
 
   /** Exception thrown when the conversion between legacy and Media3 states fails. */
   public static class ConversionException extends Exception {
@@ -527,6 +528,14 @@ import java.util.concurrent.TimeoutException;
       extras.remove(MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT);
     }
 
+    if (extras != null && extras.containsKey(MediaConstants.EXTRAS_KEY_PLAYLIST_ID)) {
+      @Nullable String playlistId = extras.getString(MediaConstants.EXTRAS_KEY_PLAYLIST_ID);
+      if (!TextUtils.isEmpty(playlistId)) {
+        builder.setPlaylistId(playlistId);
+      }
+      extras.remove(MediaConstants.EXTRAS_KEY_PLAYLIST_ID);
+    }
+
     if (extras != null
         && extras.containsKey(DESCRIPTION_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID_LIST)) {
       builder.setSupportedCommands(
@@ -649,6 +658,13 @@ import java.util.concurrent.TimeoutException;
           (int) metadataCompat.getLong(MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT));
     }
 
+    if (metadataCompat.containsKey(MediaConstants.EXTRAS_KEY_PLAYLIST_ID)) {
+      @Nullable String playlistId = metadataCompat.getString(MediaConstants.EXTRAS_KEY_PLAYLIST_ID);
+      if (!TextUtils.isEmpty(playlistId)) {
+        builder.setPlaylistId(playlistId);
+      }
+    }
+
     builder.setIsPlayable(true);
 
     Bundle extras = metadataCompat.getBundle();
@@ -752,6 +768,10 @@ import java.util.concurrent.TimeoutException;
           convertToExtraBtFolderType(metadata.folderType));
     }
 
+    if (metadata.playlistId != null && !TextUtils.isEmpty(metadata.playlistId)) {
+      builder.putString(MediaConstants.EXTRAS_KEY_PLAYLIST_ID, metadata.playlistId);
+    }
+
     if (durationMs == C.TIME_UNSET && metadata.durationMs != null) {
       // If the actual media duration is unknown, use the manually declared value if available.
       durationMs = metadata.durationMs;
@@ -823,6 +843,14 @@ import java.util.concurrent.TimeoutException;
             MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT, checkNotNull(metadata.mediaType));
       }
     }
+
+    if (metadata.playlistId != null && !TextUtils.isEmpty(metadata.playlistId)) {
+      if (extras == null) {
+        extras = new Bundle();
+      }
+      extras.putString(MediaConstants.EXTRAS_KEY_PLAYLIST_ID, metadata.playlistId);
+    }
+
     if (!metadata.supportedCommands.isEmpty()) {
       if (extras == null) {
         extras = new Bundle();

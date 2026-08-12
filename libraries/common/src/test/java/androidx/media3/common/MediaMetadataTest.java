@@ -16,6 +16,7 @@
 package androidx.media3.common;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import android.net.Uri;
 import android.os.Bundle;
@@ -70,6 +71,7 @@ public class MediaMetadataTest {
     assertThat(mediaMetadata.compilation).isNull();
     assertThat(mediaMetadata.station).isNull();
     assertThat(mediaMetadata.mediaType).isNull();
+    assertThat(mediaMetadata.playlistId).isNull();
     assertThat(mediaMetadata.supportedCommands).isEmpty();
     assertThat(mediaMetadata.extras).isNull();
   }
@@ -98,6 +100,22 @@ public class MediaMetadataTest {
     MediaMetadata mediaMetadata = new MediaMetadata.Builder().setArtworkUri(uri).build();
 
     assertThat(mediaMetadata.artworkUri).isEqualTo(uri);
+  }
+
+  @Test
+  public void builderSetPlaylistId_withNonEmptyString_setsPlaylistId() {
+    String playlistId = "playlistId";
+
+    MediaMetadata mediaMetadata = new MediaMetadata.Builder().setPlaylistId(playlistId).build();
+
+    assertThat(mediaMetadata.playlistId).isEqualTo(playlistId);
+  }
+
+  @Test
+  public void builderSetPlaylistId_withEmptyString_throwsIllegalArgumentException() {
+    MediaMetadata.Builder builder = new MediaMetadata.Builder();
+
+    assertThrows(IllegalArgumentException.class, () -> builder.setPlaylistId(""));
   }
 
   @Test
@@ -335,6 +353,7 @@ public class MediaMetadataTest {
         .setCompilation("Amazing songs.")
         .setStation("radio station")
         .setMediaType(MediaMetadata.MEDIA_TYPE_MIXED)
+        .setPlaylistId("playlist_id")
         .setSupportedCommands(ImmutableList.of("command1", "command2"))
         .setExtras(extras)
         .build();
