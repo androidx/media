@@ -20,10 +20,10 @@ import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -53,11 +53,10 @@ import androidx.media3.demo.composition.ui.theme.CompositionDemoTheme
 import androidx.media3.demo.composition.ui.theme.spacing
 
 /**
- * An Activity ([AppCompatActivity]) that previews compositions, using
- * [androidx.media3.transformer.CompositionPlayer].
+ * An Activity that previews compositions, using [androidx.media3.transformer.CompositionPlayer].
  */
 @OptIn(ExperimentalMaterial3Api::class)
-class CompositionPreviewActivity : AppCompatActivity() {
+class CompositionPreviewActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()

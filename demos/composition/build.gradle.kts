@@ -38,7 +38,6 @@ android {
 }
 
 dependencies {
-  implementation(libs.androidx.appcompat)
   implementation(libs.material)
   implementation(project(":lib-effect"))
   implementation(project(":lib-effect-ndk"))
