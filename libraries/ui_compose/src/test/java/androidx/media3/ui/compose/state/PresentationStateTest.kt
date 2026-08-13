@@ -19,10 +19,12 @@ package androidx.media3.ui.compose.state
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runComposeUiTest
@@ -31,6 +33,7 @@ import androidx.media3.common.Format
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaLibraryInfo
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.MimeTypes.AUDIO_AAC
 import androidx.media3.common.MimeTypes.TEXT_VTT
 import androidx.media3.common.MimeTypes.VIDEO_VP9
@@ -62,6 +65,7 @@ class PresentationStateTest {
     assertThat(state.keepContentOnReset).isFalse()
     @Suppress("DEPRECATION") assertThat(state.videoSizeDp).isNull()
     assertThat(state.videoAspectRatio).isNull()
+    assertThat(state.showArtwork).isFalse()
   }
 
   @Test
@@ -616,5 +620,127 @@ class PresentationStateTest {
 
     // Audio and text -> shutter should be immediately open to show the subtitles over black
     assertThat(state.coverSurface).isFalse()
+    assertThat(state.showArtwork).isTrue()
+  }
+
+  @Test
+  fun showArtwork_videoTrackUnsupportedButSelected_isFalse() = runComposeUiTest {
+    val videoTrack =
+      Tracks.Group(
+        TrackGroup(Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build()),
+        /* adaptiveSupported= */ true,
+        /* trackSupport= */ intArrayOf(C.FORMAT_UNSUPPORTED_TYPE),
+        /* trackSelected= */ booleanArrayOf(true),
+      )
+    val player =
+      FakePlayer(
+        playlist =
+          listOf(MediaItemData.Builder("First").setTracks(Tracks(listOf(videoTrack))).build())
+      )
+
+    lateinit var state: PresentationState
+    setContent { state = rememberPresentationState(player) }
+
+    assertThat(state.showArtwork).isFalse()
+  }
+
+  @Test
+  fun showArtwork_videoTrackUnsupportedAndNotSelected_isTrue() = runComposeUiTest {
+    val videoTrack =
+      Tracks.Group(
+        TrackGroup(Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build()),
+        /* adaptiveSupported= */ true,
+        /* trackSupport= */ intArrayOf(C.FORMAT_UNSUPPORTED_TYPE),
+        /* trackSelected= */ booleanArrayOf(false),
+      )
+    val player =
+      FakePlayer(
+        playlist =
+          listOf(MediaItemData.Builder("First").setTracks(Tracks(listOf(videoTrack))).build())
+      )
+
+    lateinit var state: PresentationState
+    setContent { state = rememberPresentationState(player) }
+
+    assertThat(state.showArtwork).isTrue()
+  }
+
+  @Test
+  fun showArtwork_videoTrackSupportedAndSelected_isFalse() = runComposeUiTest {
+    val videoTrack =
+      Tracks.Group(
+        TrackGroup(Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build()),
+        /* adaptiveSupported= */ true,
+        /* trackSupport= */ intArrayOf(C.FORMAT_HANDLED),
+        /* trackSelected= */ booleanArrayOf(true),
+      )
+    val player =
+      FakePlayer(
+        playlist =
+          listOf(MediaItemData.Builder("First").setTracks(Tracks(listOf(videoTrack))).build())
+      )
+
+    lateinit var state: PresentationState
+    setContent { state = rememberPresentationState(player) }
+
+    assertThat(state.showArtwork).isFalse()
+  }
+
+  @Test
+  fun showArtwork_playerDetachedWithKeepContentOnReset_artworkStaysVisible() = runComposeUiTest {
+    val audioTrack =
+      Tracks.Group(
+        TrackGroup(Format.Builder().setSampleMimeType(AUDIO_AAC).build()),
+        /* adaptiveSupported= */ true,
+        /* trackSupport= */ intArrayOf(C.FORMAT_HANDLED),
+        /* trackSelected= */ booleanArrayOf(true),
+      )
+    val player =
+      FakePlayer(
+        playlist =
+          listOf(MediaItemData.Builder("First").setTracks(Tracks(listOf(audioTrack))).build())
+      )
+
+    var attachedPlayer by mutableStateOf<Player?>(player)
+    lateinit var state: PresentationState
+    setContent {
+      state = rememberPresentationState(player = attachedPlayer, keepContentOnReset = true)
+    }
+
+    assertThat(state.showArtwork).isTrue()
+
+    attachedPlayer = null
+    waitForIdle()
+
+    assertThat(state.showArtwork).isTrue()
+  }
+
+  @Test
+  fun showArtwork_playerDetachedWithoutKeepContentOnReset_artworkHidden() = runComposeUiTest {
+    val audioTrack =
+      Tracks.Group(
+        TrackGroup(Format.Builder().setSampleMimeType(AUDIO_AAC).build()),
+        /* adaptiveSupported= */ true,
+        /* trackSupport= */ intArrayOf(C.FORMAT_HANDLED),
+        /* trackSelected= */ booleanArrayOf(true),
+      )
+    val player =
+      FakePlayer(
+        playlist =
+          listOf(MediaItemData.Builder("First").setTracks(Tracks(listOf(audioTrack))).build())
+      )
+
+    var attachedPlayer by mutableStateOf<Player?>(player)
+    lateinit var state: PresentationState
+    setContent {
+      state = rememberPresentationState(player = attachedPlayer, keepContentOnReset = false)
+    }
+
+    assertThat(state.showArtwork).isTrue()
+
+    attachedPlayer = null
+    waitForIdle()
+
+    assertThat(state.showArtwork).isFalse()
   }
 }

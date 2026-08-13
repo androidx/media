@@ -69,6 +69,9 @@ fun rememberPresentationState(
  * @property[coverSurface] set to false when the Player emits [Player.EVENT_RENDERED_FIRST_FRAME]
  *   and reset back to true on [Player.EVENT_TRACKS_CHANGED] depending on the number and type of
  *   tracks.
+ * @property[showArtwork] set to true when artwork should be displayed. It does not guarantee that
+ *   the current media item actually contains artwork data; the caller is responsible for validating
+ *   the presence of artwork before rendering.
  */
 @UnstableApi
 class PresentationState(keepContentOnReset: Boolean = false) {
@@ -89,11 +92,14 @@ class PresentationState(keepContentOnReset: Boolean = false) {
   var coverSurface by mutableStateOf(true)
     private set
 
-  var keepContentOnReset: Boolean = keepContentOnReset
+  var showArtwork by mutableStateOf(false)
+    private set
+
+  internal var keepContentOnReset: Boolean = keepContentOnReset
     set(value) {
       if (value != field) {
         field = value
-        maybeHideSurface(player)
+        updateForCurrentTrackSelections(player)
       }
     }
 
@@ -105,7 +111,7 @@ class PresentationState(keepContentOnReset: Boolean = false) {
       if (value != null || !keepContentOnReset) {
         _adjustedVideoSize = getAdjustedVideoSize(value)
       }
-      maybeHideSurface(value)
+      updateForCurrentTrackSelections(value)
     }
 
   private var lastPeriodUidWithTracks: Any? = null
@@ -129,9 +135,14 @@ class PresentationState(keepContentOnReset: Boolean = false) {
           // open shutter, video available
           coverSurface = false
         }
-        if (events.contains(Player.EVENT_TRACKS_CHANGED)) {
+        if (
+          events.containsAny(
+            Player.EVENT_TRACKS_CHANGED,
+            Player.EVENT_TRACK_SELECTION_PARAMETERS_CHANGED,
+          )
+        ) {
           if (!shouldKeepSurfaceVisible(player)) {
-            maybeHideSurface(player)
+            updateForCurrentTrackSelections(player)
           }
         }
       }
@@ -154,12 +165,14 @@ class PresentationState(keepContentOnReset: Boolean = false) {
     return videoSize
   }
 
-  private fun maybeHideSurface(player: Player?) {
+  @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+  fun updateForCurrentTrackSelections(player: Player?) {
     if (player != null) {
       val hasTracks =
         player.isCommandAvailable(Player.COMMAND_GET_TRACKS) && !player.currentTracks.isEmpty
       if (!keepContentOnReset && !hasTracks) {
         coverSurface = true
+        showArtwork = false
       }
       if (hasTracks) {
         if (hasSelectedVideoTrack(player)) {
@@ -170,9 +183,11 @@ class PresentationState(keepContentOnReset: Boolean = false) {
         } else {
           coverSurface = true
         }
+        showArtwork = !hasSelectedVideoTrack(player)
       }
     } else {
       coverSurface = coverSurface || !keepContentOnReset
+      showArtwork = showArtwork && keepContentOnReset
     }
   }
 

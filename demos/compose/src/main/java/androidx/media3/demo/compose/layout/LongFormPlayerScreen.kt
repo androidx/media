@@ -67,6 +67,7 @@ import androidx.media3.demo.compose.buttons.CcButton
 import androidx.media3.demo.compose.buttons.LabeledProgressSlider
 import androidx.media3.demo.compose.buttons.SettingsBottomSheet
 import androidx.media3.demo.compose.buttons.SettingsButton
+import androidx.media3.demo.compose.text.Artwork
 import androidx.media3.demo.compose.text.CastingOverlay
 import androidx.media3.demo.compose.text.FastForwardOverlay
 import androidx.media3.demo.compose.text.PlaylistInfoBottomSheet
@@ -84,6 +85,7 @@ import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
 import androidx.media3.ui.compose.state.rememberPlaybackSpeedState
 import androidx.media3.ui.compose.state.rememberSeekBackButtonState
 import androidx.media3.ui.compose.state.rememberSeekForwardButtonState
+import androidx.media3.ui.compose.text.CurrentMediaItemBox
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -171,6 +173,7 @@ internal fun LongFormPlayerScreen(
   ) {
     Player(
       player = player,
+      artwork = { CurrentMediaItemBox(it) { Artwork(mediaMetadata, Modifier.fillMaxSize()) } },
       showControls = if (isRemotePlayback) true else showControls,
       modifier =
         Modifier.onGloballyPositioned { coordinates -> size = coordinates.size }

@@ -83,6 +83,7 @@ fun Player(player: Player?, modifier: Modifier = Modifier) {
  * @param modifier The [Modifier] to be applied to the outer [Box].
  * @param surfaceType The type of surface to use for video rendering. See [SurfaceType].
  * @param contentScale The scaling mode to apply to the content within the [ContentFrame].
+ * @param artwork Optional composable slot to render artwork for the current media item.
  * @param keepContentOnReset Whether to keep the content visible when the player is reset.
  * @param subtitleOverlay A composable for rendering subtitles.
  * @param shutter A composable to be displayed as a shutter over the content. The default shutter is
@@ -104,6 +105,7 @@ fun Player(
   modifier: Modifier = Modifier,
   surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
   contentScale: ContentScale = ContentScale.Fit,
+  artwork: (@Composable (Player?) -> Unit)? = null,
   keepContentOnReset: Boolean = false,
   subtitleOverlay: @Composable (Player?) -> Unit = { Subtitles(it) },
   shutter: @Composable () -> Unit = PlayerDefaults::Shutter,
@@ -124,6 +126,7 @@ fun Player(
     modifier,
     surfaceType,
     contentScale,
+    artwork,
     keepContentOnReset,
     subtitleOverlay,
     shutter,
@@ -141,6 +144,7 @@ private fun PlayerImpl(
   modifier: Modifier = Modifier,
   surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
   contentScale: ContentScale = ContentScale.Fit,
+  artwork: (@Composable (Player?) -> Unit)? = null,
   keepContentOnReset: Boolean = false,
   subtitleOverlay: @Composable (Player?) -> Unit = { Subtitles(it) },
   shutter: @Composable () -> Unit = PlayerDefaults::Shutter,
@@ -165,6 +169,7 @@ private fun PlayerImpl(
       player = player,
       surfaceType = surfaceType,
       contentScale = contentScale,
+      artwork = artwork,
       keepContentOnReset = keepContentOnReset,
       overlay = { subtitleOverlay(player) },
       shutter = shutter,

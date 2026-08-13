@@ -40,6 +40,12 @@ import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
+import androidx.media3.common.C
+import androidx.media3.common.Format
+import androidx.media3.common.MimeTypes
+import androidx.media3.common.SimpleBasePlayer.MediaItemData
+import androidx.media3.common.TrackGroup
+import androidx.media3.common.Tracks
 import androidx.media3.test.utils.FakePlayer
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -265,5 +271,27 @@ class PlayerTest {
     composeTestRule
       .onNodeWithTag("errorMessageWithoutPlayer", useUnmergedTree = true)
       .assertIsDisplayed()
+  }
+
+  @Test
+  fun player_customArtwork_displayedWhenAudioTrackSelected() {
+    val audioTrack =
+      Tracks.Group(
+        TrackGroup(Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build()),
+        /* adaptiveSupported= */ true,
+        /* trackSupport= */ intArrayOf(C.FORMAT_HANDLED),
+        /* trackSelected= */ booleanArrayOf(true),
+      )
+    val player =
+      FakePlayer(
+        playlist =
+          listOf(MediaItemData.Builder("First").setTracks(Tracks(listOf(audioTrack))).build())
+      )
+
+    composeTestRule.setContent {
+      Player(player, artwork = { Box(Modifier.fillMaxSize().testTag("CustomArtworkTag")) })
+    }
+
+    composeTestRule.onNodeWithTag("CustomArtworkTag").assertIsDisplayed()
   }
 }

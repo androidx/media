@@ -91,6 +91,9 @@
         `media3-ui-compose` module for listening to player's current cues.
     *   Add scrubbing mode support to `ProgressSlider` if it is based on
         `ExoPlayer` or `CompositionPlayer`.
+    *   Add `showArtwork` support to `PresentationState` and use it to time
+        rendering of the provided optional `artwork` Composable in
+        `ContentFrame` and `Player`.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:

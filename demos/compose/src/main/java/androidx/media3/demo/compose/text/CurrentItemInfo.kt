@@ -54,7 +54,7 @@ internal fun CurrentItemInfo(meta: MediaMetadata, modifier: Modifier = Modifier)
 }
 
 @Composable
-private fun Artwork(meta: MediaMetadata, modifier: Modifier = Modifier) {
+internal fun Artwork(meta: MediaMetadata, modifier: Modifier = Modifier) {
   val context = LocalContext.current
   val bitmapLoader = remember(context) { DataSourceBitmapLoader.Builder(context).build() }
   var bitmap by remember(meta) { mutableStateOf<Bitmap?>(null) }

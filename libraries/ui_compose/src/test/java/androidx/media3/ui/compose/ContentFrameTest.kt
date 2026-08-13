@@ -26,11 +26,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.height
 import androidx.compose.ui.unit.width
+import androidx.media3.common.C
+import androidx.media3.common.Format
+import androidx.media3.common.MimeTypes
+import androidx.media3.common.SimpleBasePlayer.MediaItemData
+import androidx.media3.common.TrackGroup
+import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.test.utils.FakePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -72,16 +79,20 @@ class ContentFrameTest {
   fun contentFrame_withIdlePlayer_shutterShown() {
     val player = FakePlayer()
 
-    composeTestRule.setContent { ContentFrame(player) { Box(Modifier.testTag("Shutter")) } }
+    composeTestRule.setContent {
+      ContentFrame(player) { Box(Modifier.fillMaxSize().testTag("Shutter")) }
+    }
 
-    composeTestRule.onNodeWithTag("Shutter").assertExists()
+    composeTestRule.onNodeWithTag("Shutter").assertIsDisplayed()
   }
 
   @Test
   fun contentFrame_withFirstFrameRendered_shutterOpens() {
     val player = FakePlayer()
-    composeTestRule.setContent { ContentFrame(player) { Box(Modifier.testTag("Shutter")) } }
-    composeTestRule.onNodeWithTag("Shutter").assertExists()
+    composeTestRule.setContent {
+      ContentFrame(player) { Box(Modifier.fillMaxSize().testTag("Shutter")) }
+    }
+    composeTestRule.onNodeWithTag("Shutter").assertIsDisplayed()
 
     player.renderFirstFrame(true)
     composeTestRule.waitForIdle()
@@ -116,5 +127,118 @@ class ContentFrameTest {
     assertThat(croppedBounds).isNotEqualTo(initialBounds)
     assertThat(abs(initialAspectRatio - aspectRatio) / aspectRatio).isLessThan(0.01f)
     assertThat(abs(croppedAspectRatio - aspectRatio) / aspectRatio).isLessThan(0.01f)
+  }
+
+  @Test
+  fun contentFrame_withAudioOnlyTrack_showsArtwork() {
+    val audioTrack =
+      Tracks.Group(
+        TrackGroup(Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build()),
+        /* adaptiveSupported= */ true,
+        /* trackSupport= */ intArrayOf(C.FORMAT_HANDLED),
+        /* trackSelected= */ booleanArrayOf(true),
+      )
+    val player =
+      FakePlayer(
+        playlist =
+          listOf(MediaItemData.Builder("First").setTracks(Tracks(listOf(audioTrack))).build())
+      )
+
+    composeTestRule.setContent {
+      ContentFrame(player, artwork = { Box(Modifier.fillMaxSize().testTag("ArtworkTag")) })
+    }
+
+    composeTestRule.onNodeWithTag("ArtworkTag").assertIsDisplayed()
+  }
+
+  @Test
+  fun contentFrame_withVideoTrack_hidesArtwork() {
+    val videoTrack =
+      Tracks.Group(
+        TrackGroup(Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build()),
+        /* adaptiveSupported= */ true,
+        /* trackSupport= */ intArrayOf(C.FORMAT_HANDLED),
+        /* trackSelected= */ booleanArrayOf(true),
+      )
+    val player =
+      FakePlayer(
+        playlist =
+          listOf(MediaItemData.Builder("First").setTracks(Tracks(listOf(videoTrack))).build())
+      )
+
+    composeTestRule.setContent {
+      ContentFrame(player, artwork = { Box(Modifier.fillMaxSize().testTag("ArtworkTag")) })
+    }
+
+    composeTestRule.onNodeWithTag("ArtworkTag").assertDoesNotExist()
+  }
+
+  @Test
+  fun contentFrame_withUnselectedVideoTrack_showsArtwork() {
+    val videoTrack =
+      Tracks.Group(
+        TrackGroup(Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build()),
+        /* adaptiveSupported= */ true,
+        /* trackSupport= */ intArrayOf(C.FORMAT_HANDLED),
+        /* trackSelected= */ booleanArrayOf(false),
+      )
+    val player =
+      FakePlayer(
+        playlist =
+          listOf(MediaItemData.Builder("First").setTracks(Tracks(listOf(videoTrack))).build())
+      )
+
+    composeTestRule.setContent {
+      ContentFrame(player, artwork = { Box(Modifier.fillMaxSize().testTag("ArtworkTag")) })
+    }
+
+    composeTestRule.onNodeWithTag("ArtworkTag").assertIsDisplayed()
+  }
+
+  @Test
+  fun contentFrame_withNullArtworkParam_doesNotDisplayArtwork() {
+    val audioTrack =
+      Tracks.Group(
+        TrackGroup(Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build()),
+        /* adaptiveSupported= */ true,
+        /* trackSupport= */ intArrayOf(C.FORMAT_HANDLED),
+        /* trackSelected= */ booleanArrayOf(true),
+      )
+    val player =
+      FakePlayer(
+        playlist =
+          listOf(MediaItemData.Builder("First").setTracks(Tracks(listOf(audioTrack))).build())
+      )
+
+    composeTestRule.setContent { ContentFrame(player) }
+
+    composeTestRule.onNodeWithTag("ArtworkTag").assertDoesNotExist()
+  }
+
+  @Test
+  fun contentFrame_withNoTracks_doesNotDisplayArtwork() {
+    val audioTrack =
+      Tracks.Group(
+        TrackGroup(Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build()),
+        /* adaptiveSupported= */ true,
+        /* trackSupport= */ intArrayOf(C.FORMAT_HANDLED),
+        /* trackSelected= */ booleanArrayOf(true),
+      )
+    val player =
+      FakePlayer(
+        playlist =
+          listOf(MediaItemData.Builder("First").setTracks(Tracks(listOf(audioTrack))).build())
+      )
+
+    composeTestRule.setContent {
+      ContentFrame(player, artwork = { Box(Modifier.fillMaxSize().testTag("ArtworkTag")) })
+    }
+
+    composeTestRule.onNodeWithTag("ArtworkTag").assertIsDisplayed()
+
+    player.setMediaItems(emptyList())
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("ArtworkTag").assertDoesNotExist()
   }
 }
