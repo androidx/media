@@ -16,7 +16,6 @@
 package androidx.media3.effect;
 
 import static androidx.media3.effect.FrameProcessorUtils.createAndBindEglImage;
-import static androidx.media3.effect.FrameProcessorUtils.generateSyncFences;
 import static androidx.media3.effect.FrameProcessorUtils.releaseEglImageTexture;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getFirst;
@@ -188,10 +187,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 // The GlTextureFrame is released by the first effect in the chain after it has
                 // finished reading from it. Generate a sync fence here to signal when the input
                 // frame is no longer needed.
-                @Nullable SyncFenceWrapper glReadFence = getFirst(generateSyncFences(1), null);
-                if (glReadFence == null) {
-                  GLES20.glFinish();
-                }
+                @Nullable SyncFenceWrapper glReadFence = getFirst(GlUtil.createSyncFences(1), null);
                 listenerExecutor.execute(
                     () -> listener.onFrameProcessed(hardwareBufferFrame, glReadFence));
               } catch (GlException e) {

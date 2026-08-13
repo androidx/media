@@ -15,18 +15,11 @@
  */
 package androidx.media3.effect;
 
-import static android.os.Build.VERSION.SDK_INT;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.hardware.HardwareBuffer;
-import android.hardware.SyncFence;
-import android.opengl.EGL14;
-import android.opengl.EGL15;
 import android.opengl.EGLDisplay;
-import android.opengl.EGLExt;
-import android.opengl.EGLSync;
 import android.opengl.GLES20;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -40,7 +33,6 @@ import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.SyncFenceWrapper;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -168,54 +160,6 @@ public final class FrameProcessorUtils {
     }
     GlUtil.deleteTexture(eglImageTextureWrapper.texId);
     boolean unused = jniWrapper.nativeDestroyEGLImage(eglDisplay, eglImageTextureWrapper.eglImage);
-  }
-
-  /** Generates the requested number of native sync fences. Must be called on the GL thread. */
-  public static ImmutableList<SyncFenceWrapper> generateSyncFences(int count) throws GlException {
-    // TODO: b/505721737 - Move to utility class.
-    EGLDisplay eglDisplay = GlUtil.getDefaultEglDisplay();
-    String extensions = EGL14.eglQueryString(eglDisplay, EGL14.EGL_EXTENSIONS);
-    if (SDK_INT < 33 || !extensions.contains("EGL_ANDROID_native_fence_sync")) {
-      return ImmutableList.of();
-    }
-    EGLSync eglSync = EGL15.EGL_NO_SYNC;
-    ImmutableList.Builder<SyncFenceWrapper> fences = new ImmutableList.Builder<>();
-    try {
-      eglSync =
-          EGL15.eglCreateSync(
-              eglDisplay,
-              EGLExt.EGL_SYNC_NATIVE_FENCE_ANDROID,
-              /* attrib_list= */ new long[] {EGL14.EGL_NONE},
-              /* offset= */ 0);
-      GlUtil.checkEglException("eglCreateSync failed");
-      if (eglSync == EGL15.EGL_NO_SYNC) {
-        return ImmutableList.of();
-      }
-      SyncFence syncFence = EGLExt.eglDupNativeFenceFDANDROID(eglDisplay, eglSync);
-      GlUtil.checkEglException("eglDupNativeFenceFDANDROID failed");
-      if (!syncFence.isValid()) {
-        // Calling eglDupNativeFenceAndroid may produce an invalid fence the first time it
-        // is called. See b/18052459.
-        GLES20.glFlush();
-        syncFence = EGLExt.eglDupNativeFenceFDANDROID(eglDisplay, eglSync);
-        GlUtil.checkEglException("eglDupNativeFenceFDANDROID failed after glFlush");
-      }
-      if (!syncFence.isValid()) {
-        return ImmutableList.of();
-      }
-      fences.add(SyncFenceWrapper.of(syncFence));
-      for (int i = 0; i < count - 1; i++) {
-        SyncFence duplicatedFence = EGLExt.eglDupNativeFenceFDANDROID(eglDisplay, eglSync);
-        GlUtil.checkEglException("eglDupNativeFenceFDANDROID failed for input frame");
-        checkState(duplicatedFence.isValid());
-        fences.add(SyncFenceWrapper.of(duplicatedFence));
-      }
-
-    } finally {
-      EGL15.eglDestroySync(eglDisplay, eglSync);
-      GlUtil.checkEglException("eglDestroySync failed");
-    }
-    return fences.build();
   }
 
   /**

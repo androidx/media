@@ -17,7 +17,6 @@ package androidx.media3.effect;
 
 import static androidx.media3.common.video.Frame.USAGE_GPU_COLOR_OUTPUT;
 import static androidx.media3.effect.FrameProcessorUtils.createAndBindEglImage;
-import static androidx.media3.effect.FrameProcessorUtils.generateSyncFences;
 import static androidx.media3.effect.FrameProcessorUtils.releaseEglImageTexture;
 import static androidx.media3.effect.FrameProcessorUtils.waitAndCloseFence;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -117,7 +116,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       checkNotNull(defaultShaderProgram)
           .drawFrame(inputFrame.glTextureInfo.texId, inputFrame.presentationTimeUs);
       GlUtil.checkGlError();
-      ImmutableList<SyncFenceWrapper> fences = generateSyncFences(/* count= */ 2);
+      ImmutableList<SyncFenceWrapper> fences = GlUtil.createSyncFences(/* count= */ 2);
       if (fences.size() == 2) {
         glReadCompleteFence = fences.get(0);
         glWriteCompleteFence = fences.get(1);

@@ -25,11 +25,15 @@ import static com.google.common.base.Preconditions.checkState;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.hardware.SyncFence;
 import android.opengl.EGL14;
+import android.opengl.EGL15;
 import android.opengl.EGLConfig;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
+import android.opengl.EGLExt;
 import android.opengl.EGLSurface;
+import android.opengl.EGLSync;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
 import android.opengl.GLES30;
@@ -41,6 +45,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
+import androidx.media3.common.video.SyncFenceWrapper;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -514,6 +519,76 @@ public final class GlUtil {
       return;
     }
     GLES30.glDeleteSync(syncObject);
+  }
+
+  /**
+   * Creates the requested number of native sync fences from the current OpenGL context.
+   *
+   * <p>Inserts a sync fence command into the GL command stream. The returned sync fences will
+   * signal when the GPU reaches the fence command in the stream - meaning all OpenGL operations
+   * enqueued on the current context before this call have completed execution on the GPU.
+   *
+   * <p>Must be called on the thread that owns the current OpenGL context.
+   *
+   * @param count The number of fences to generate.
+   * @return A list of {@link SyncFenceWrapper} instances, or an empty list if native sync fences
+   *     are unsupported on this device or the API level is less than 33. If an empty list is
+   *     returned, {@code glFinish()} is called to ensure synchronization.
+   * @throws GlException If creating or duplicating the sync fence fails.
+   */
+  public static ImmutableList<SyncFenceWrapper> createSyncFences(int count) throws GlException {
+    checkArgument(count > 0);
+    EGLDisplay eglDisplay = getDefaultEglDisplay();
+    String extensions = EGL14.eglQueryString(eglDisplay, EGL14.EGL_EXTENSIONS);
+    if (SDK_INT < 33
+        || extensions == null
+        || !extensions.contains("EGL_ANDROID_native_fence_sync")) {
+      GLES20.glFinish();
+      checkGlError();
+      return ImmutableList.of();
+    }
+    EGLSync eglSync = EGL15.EGL_NO_SYNC;
+    ImmutableList.Builder<SyncFenceWrapper> fences = new ImmutableList.Builder<>();
+    try {
+      eglSync =
+          EGL15.eglCreateSync(
+              eglDisplay,
+              EGLExt.EGL_SYNC_NATIVE_FENCE_ANDROID,
+              /* attrib_list= */ new long[] {EGL14.EGL_NONE},
+              /* offset= */ 0);
+      checkEglException("eglCreateSync failed");
+      if (eglSync == EGL15.EGL_NO_SYNC) {
+        GLES20.glFinish();
+        checkGlError();
+        return ImmutableList.of();
+      }
+      SyncFence syncFence = EGLExt.eglDupNativeFenceFDANDROID(eglDisplay, eglSync);
+      checkEglException("eglDupNativeFenceFDANDROID failed");
+      if (!syncFence.isValid()) {
+        // Calling eglDupNativeFenceAndroid may produce an invalid fence the first time it
+        // is called. See b/18052459.
+        GLES20.glFlush();
+        syncFence = EGLExt.eglDupNativeFenceFDANDROID(eglDisplay, eglSync);
+        checkEglException("eglDupNativeFenceFDANDROID failed after glFlush");
+      }
+      if (!syncFence.isValid()) {
+        GLES20.glFinish();
+        checkGlError();
+        return ImmutableList.of();
+      }
+      fences.add(SyncFenceWrapper.of(syncFence));
+      for (int i = 0; i < count - 1; i++) {
+        SyncFence duplicatedFence = EGLExt.eglDupNativeFenceFDANDROID(eglDisplay, eglSync);
+        checkEglException("eglDupNativeFenceFDANDROID failed for input frame");
+        checkState(duplicatedFence.isValid());
+        fences.add(SyncFenceWrapper.of(duplicatedFence));
+      }
+
+    } finally {
+      EGL15.eglDestroySync(eglDisplay, eglSync);
+      checkEglException("eglDestroySync failed");
+    }
+    return fences.build();
   }
 
   /**
