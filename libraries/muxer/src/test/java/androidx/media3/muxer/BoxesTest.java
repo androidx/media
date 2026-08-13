@@ -34,6 +34,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
+import androidx.media3.container.XmpData;
 import androidx.media3.muxer.FragmentedMp4Writer.SampleMetadata;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.DumpableMp4Box;
@@ -280,7 +281,7 @@ public class BoxesTest {
     ByteBuffer xmpData =
         ByteBuffer.wrap(TestUtil.getByteArray(context, "media/xmp/sample_datetime_xmp.xmp"));
 
-    ByteBuffer xmpUuidBox = Boxes.uuid(Boxes.XMP_UUID, xmpData);
+    ByteBuffer xmpUuidBox = Boxes.uuid(XmpData.XMP_UUID, xmpData);
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(xmpUuidBox);
     DumpFileAsserts.assertOutput(
@@ -291,7 +292,7 @@ public class BoxesTest {
   public void createuuidBox_withEmptyXmpData_throws() {
     ByteBuffer xmpData = ByteBuffer.allocate(0);
 
-    assertThrows(IllegalArgumentException.class, () -> Boxes.uuid(Boxes.XMP_UUID, xmpData));
+    assertThrows(IllegalArgumentException.class, () -> Boxes.uuid(XmpData.XMP_UUID, xmpData));
   }
 
   @Test

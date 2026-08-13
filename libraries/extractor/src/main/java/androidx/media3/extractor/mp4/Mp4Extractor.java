@@ -45,6 +45,7 @@ import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4Box;
 import androidx.media3.container.Mp4Box.ContainerBox;
 import androidx.media3.container.NalUnitUtil;
+import androidx.media3.container.XmpData;
 import androidx.media3.extractor.Ac3Util;
 import androidx.media3.extractor.Ac4Util;
 import androidx.media3.extractor.DtsUtil;
@@ -110,7 +111,8 @@ public final class Mp4Extractor implements Extractor {
         FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265,
         FLAG_OMIT_TRACK_SAMPLE_TABLE,
         FLAG_DISABLE_ARTWORK_METADATA,
-        FLAG_DISABLE_HAGC_METADATA
+        FLAG_DISABLE_HAGC_METADATA,
+        FLAG_READ_XMP_METADATA
       })
   public @interface Flags {}
 
@@ -179,6 +181,14 @@ public final class Mp4Extractor implements Extractor {
 
   /** Flag to disable parsing of HAGC (ST 2094-50) metadata. */
   public static final int FLAG_DISABLE_HAGC_METADATA = 1 << 10;
+
+  /**
+   * Flag to extract Adobe XMP metadata.
+   *
+   * <p>If set, the extractor will peek for a top-level uuid box containing XMP metadata immediately
+   * following the moov box, and expose it inside {@link Format#metadata} for all tracks.
+   */
+  public static final int FLAG_READ_XMP_METADATA = 1 << 11;
 
   /** The maximum number of sync samples to scan when searching for a thumbnail. */
   private static final int MAX_SYNC_SAMPLES_TO_SCAN_FOR_THUMBNAIL = 20;
@@ -259,6 +269,7 @@ public final class Mp4Extractor implements Extractor {
   private long atomSize;
   private int atomHeaderBytesRead;
   @Nullable private ParsableByteArray atomData;
+  @Nullable private XmpData xmpData;
 
   private int sampleTrackIndex;
   private int sampleBytesRead;
@@ -385,6 +396,7 @@ public final class Mp4Extractor implements Extractor {
     sampleCurrentNalBytesRemaining = 0;
     isSampleDependedOn = false;
     moovAtomProcessed = false;
+    xmpData = null;
     chapterTrackIndex = 0;
     chapterSampleIndex = 0;
     chapterSampleTables.clear();
@@ -513,7 +525,7 @@ public final class Mp4Extractor implements Extractor {
       }
       containerAtoms.push(new ContainerBox(atomType, endPosition));
       if (atomSize == atomHeaderBytesRead) {
-        processAtomEnded(endPosition);
+        processAtomEnded(input, endPosition);
       } else {
         // Start reading the first child atom.
         enterReadingAtomHeaderState();
@@ -569,7 +581,7 @@ public final class Mp4Extractor implements Extractor {
         seekRequired = true;
       }
     }
-    processAtomEnded(atomEndPosition);
+    processAtomEnded(input, atomEndPosition);
     if (seekToAxteAtom) {
       readingAuxiliaryTracks = true;
       positionHolder.position = axteAtomOffset;
@@ -588,10 +600,51 @@ public final class Mp4Extractor implements Extractor {
     return result;
   }
 
-  private void processAtomEnded(long atomEndPosition) throws ParserException {
+  private void maybePeekUuidXmpMetadata(ExtractorInput input, long moovEndPosition) {
+    if ((flags & FLAG_READ_XMP_METADATA) == 0 || input.getPosition() != moovEndPosition) {
+      return;
+    }
+    // We expect uuid immediately after moov.
+    try {
+      scratch.reset(/* limit= */ Mp4Box.HEADER_SIZE);
+      input.peekFully(scratch.getData(), /* offset= */ 0, /* length= */ Mp4Box.HEADER_SIZE);
+      long size = scratch.readUnsignedInt();
+      int type = scratch.readInt();
+      if (type == Mp4Box.TYPE_uuid) {
+        int headerSize = Mp4Box.HEADER_SIZE;
+        if (size == Mp4Box.DEFINES_LARGE_SIZE) {
+          scratch.reset(/* limit= */ 8);
+          input.peekFully(scratch.getData(), /* offset= */ 0, /* length= */ 8);
+          size = scratch.readUnsignedLongToLong();
+          headerSize = Mp4Box.LONG_HEADER_SIZE;
+        } else if (size == Mp4Box.EXTENDS_TO_END_SIZE) {
+          return;
+        }
+
+        long payloadSize = size - headerSize;
+        if (payloadSize > 16 && payloadSize <= 2 * 1024 * 1024) { // Only read up to 2MB.
+          scratch.reset(/* limit= */ 16);
+          input.peekFully(scratch.getData(), /* offset= */ 0, /* length= */ 16);
+          if (scratch.readLong() == XmpData.XMP_UUID.getMostSignificantBits()
+              && scratch.readLong() == XmpData.XMP_UUID.getLeastSignificantBits()) {
+            byte[] xmpDataBytes = new byte[(int) (payloadSize - 16)];
+            input.peekFully(xmpDataBytes, /* offset= */ 0, /* length= */ xmpDataBytes.length);
+            xmpData = new XmpData(xmpDataBytes);
+          }
+        }
+      }
+    } catch (IOException | RuntimeException e) {
+      // Ignore peek failures, we shouldn't fail moov parsing!
+    } finally {
+      input.resetPeekPosition();
+    }
+  }
+
+  private void processAtomEnded(ExtractorInput input, long atomEndPosition) throws ParserException {
     while (!containerAtoms.isEmpty() && containerAtoms.peek().endPosition == atomEndPosition) {
       ContainerBox containerAtom = containerAtoms.pop();
       if (containerAtom.type == Mp4Box.TYPE_moov) {
+        maybePeekUuidXmpMetadata(input, containerAtom.endPosition);
         // We've reached the end of the moov atom. Process it and prepare to read samples.
         processMoovAtom(containerAtom);
         containerAtoms.clear();
@@ -759,7 +812,8 @@ public final class Mp4Extractor implements Extractor {
           slowMotionMetadataEntries.isEmpty() ? null : new Metadata(slowMotionMetadataEntries),
           udtaMetadata,
           mvhdMetadata,
-          thumbnailMetadata);
+          thumbnailMetadata,
+          xmpData != null ? new Metadata(xmpData) : null);
       formatBuilder.setContainerMimeType(containerMimeType);
       Format format = formatBuilder.build();
       // The moov and esds boxes don't contain enough information to distinguish between MPEG

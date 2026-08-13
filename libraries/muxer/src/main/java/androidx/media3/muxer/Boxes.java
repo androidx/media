@@ -37,12 +37,12 @@ import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.NalUnitUtil;
+import androidx.media3.container.XmpData;
 import androidx.media3.muxer.FragmentedMp4Writer.SampleMetadata;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Ints;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
@@ -55,6 +55,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 
 /** Writes out various types of boxes as per MP4 (ISO/IEC 14496-12) standards. */
@@ -106,25 +107,6 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   private static final String TAG = "Boxes";
 
   private Boxes() {}
-
-  public static final ImmutableList<Byte> XMP_UUID =
-      ImmutableList.of(
-          (byte) 0xBE,
-          (byte) 0x7A,
-          (byte) 0xCF,
-          (byte) 0xCB,
-          (byte) 0x97,
-          (byte) 0xA9,
-          (byte) 0x42,
-          (byte) 0xE8,
-          (byte) 0x9C,
-          (byte) 0x71,
-          (byte) 0x99,
-          (byte) 0x94,
-          (byte) 0x91,
-          (byte) 0xE3,
-          (byte) 0xAF,
-          (byte) 0xAC);
 
   /** Returns the moov box. */
   @SuppressWarnings("InlinedApi")
@@ -324,7 +306,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
     if (metadataCollector.xmpData != null) {
       return BoxUtils.concatenateBuffers(
-          moovBox, uuid(XMP_UUID, ByteBuffer.wrap(metadataCollector.xmpData.data)));
+          moovBox, uuid(XmpData.XMP_UUID, ByteBuffer.wrap(metadataCollector.xmpData.data)));
     } else {
       // No need for another copy if there is no XMP to be appended.
       return moovBox;
@@ -734,10 +716,13 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
    *
    * <p>This box is used for XMP and other metadata.
    */
-  public static ByteBuffer uuid(List<Byte> uuid, ByteBuffer contents) {
+  public static ByteBuffer uuid(UUID uuid, ByteBuffer contents) {
     checkArgument(contents.remaining() > 0);
-    return BoxUtils.wrapBoxesIntoBox(
-        "uuid", ImmutableList.of(ByteBuffer.wrap(Bytes.toArray(uuid)), contents));
+    ByteBuffer uuidBuffer = ByteBuffer.allocate(16);
+    uuidBuffer.putLong(uuid.getMostSignificantBits());
+    uuidBuffer.putLong(uuid.getLeastSignificantBits());
+    uuidBuffer.flip();
+    return BoxUtils.wrapBoxesIntoBox("uuid", ImmutableList.of(uuidBuffer, contents));
   }
 
   /** Returns an audio sample entry box based on the MIME type. */

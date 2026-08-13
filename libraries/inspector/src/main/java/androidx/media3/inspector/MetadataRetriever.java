@@ -117,7 +117,9 @@ public final class MetadataRetriever implements AutoCloseable {
                 .setAdtsExtractorFlags(AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING)
                 .setAmrExtractorFlags(AmrExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING)
                 .setMp4ExtractorFlags(
-                    Mp4Extractor.FLAG_READ_SEF_DATA | Mp4Extractor.FLAG_OMIT_TRACK_SAMPLE_TABLE);
+                    Mp4Extractor.FLAG_READ_SEF_DATA
+                        | Mp4Extractor.FLAG_OMIT_TRACK_SAMPLE_TABLE
+                        | Mp4Extractor.FLAG_READ_XMP_METADATA);
         mediaSourceFactory = new DefaultMediaSourceFactory(context, extractorsFactory);
       }
       MetadataRetrieverInternal internalRetriever =

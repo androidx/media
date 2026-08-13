@@ -352,6 +352,20 @@ public final class Mp4ExtractorNonParameterizedTest {
     }
   }
 
+  @Test
+  public void extract_withUuidBox_extractsXmpMetadata() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    String inputFilePath = "media/mp4/sample_with_xmp_uuid.mp4";
+    Mp4Extractor mp4Extractor =
+        new Mp4Extractor(new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_XMP_METADATA);
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(mp4Extractor, context, inputFilePath);
+
+    String dumpFilePath = getDumpFilePath(inputFilePath, "_with_flag_read_xmp_metadata");
+    DumpFileAsserts.assertOutput(context, output, dumpFilePath);
+  }
+
   private static String getDumpFilePath(String inputFilePath, String suffix) {
     return inputFilePath.replaceFirst("media", "extractordumps") + suffix;
   }
