@@ -84,6 +84,37 @@ public final class TimeOffsetMediaPeriodTest {
   }
 
   @Test
+  public void updateTimeOffsetUs_appliesNewOffsetToExistingSampleStreamsAndSeeks() throws Exception {
+    FakeMediaPeriod fakeMediaPeriod =
+        createFakeMediaPeriod(
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 8000, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 12000, C.BUFFER_FLAG_KEY_FRAME),
+                END_OF_STREAM_ITEM));
+    MediaPeriod spyPeriod = spy(fakeMediaPeriod);
+    TimeOffsetMediaPeriod timeOffsetMediaPeriod =
+        new TimeOffsetMediaPeriod(spyPeriod, /* timeOffsetUs= */ -3000);
+    prepareMediaPeriodSync(timeOffsetMediaPeriod, /* positionUs= */ 0);
+    FormatHolder formatHolder = new FormatHolder();
+    DecoderInputBuffer inputBuffer =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
+    SampleStream sampleStream = selectTracksOnMediaPeriodAndTriggerLoading(timeOffsetMediaPeriod);
+    sampleStream.readData(formatHolder, inputBuffer, FLAG_REQUIRE_FORMAT);
+    sampleStream.readData(formatHolder, inputBuffer, /* readFlags= */ 0);
+    long firstReadBufferTimeUs = inputBuffer.timeUs;
+
+    timeOffsetMediaPeriod.updateTimeOffsetUs(/* timeOffsetUs= */ 2000);
+    sampleStream.readData(formatHolder, inputBuffer, /* readFlags= */ 0);
+    long secondReadBufferTimeUs = inputBuffer.timeUs;
+    long seekResultTimeUs = timeOffsetMediaPeriod.seekToUs(/* positionUs= */ 7000);
+
+    assertThat(firstReadBufferTimeUs).isEqualTo(5000);
+    assertThat(secondReadBufferTimeUs).isEqualTo(14000);
+    verify(spyPeriod).seekToUs(5000);
+    assertThat(seekResultTimeUs).isEqualTo(7000);
+  }
+
+  @Test
   public void setEndPositionUs_isForwardedWithTimeOffset() throws Exception {
     FakeMediaPeriod fakeMediaPeriod =
         createFakeMediaPeriod(
