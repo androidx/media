@@ -1288,8 +1288,13 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return BoxUtils.wrapBoxesIntoBox("stbl", Arrays.asList(subBoxes));
   }
 
-  /** Creates the ftyp box. */
-  public static ByteBuffer ftyp() {
+  /**
+   * Creates the ftyp box.
+   *
+   * @param additionalCompatibleBrands Additional compatible brands to declare, beyond the default
+   *     set ({@code isom}, {@code iso2}, {@code mp41}).
+   */
+  /* package */ static ByteBuffer ftyp(List<String> additionalCompatibleBrands) {
     List<ByteBuffer> boxBytes = new ArrayList<>();
 
     String majorVersion = "isom";
@@ -1301,9 +1306,15 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     minorBytes.flip();
     boxBytes.add(minorBytes);
 
-    String[] compatibleBrands = {"isom", "iso2", "mp41"};
+    List<String> compatibleBrands = new ArrayList<>(Arrays.asList("isom", "iso2", "mp41"));
+    compatibleBrands.addAll(additionalCompatibleBrands);
     for (String compatibleBrand : compatibleBrands) {
-      boxBytes.add(ByteBuffer.wrap(Util.getUtf8Bytes(compatibleBrand)));
+      byte[] compatibleBrandBytes = Util.getUtf8Bytes(compatibleBrand);
+      checkArgument(
+          compatibleBrandBytes.length == 4,
+          "Compatible brand must be 4 bytes: %s",
+          compatibleBrand);
+      boxBytes.add(ByteBuffer.wrap(compatibleBrandBytes));
     }
 
     return BoxUtils.wrapBoxesIntoBox("ftyp", boxBytes);

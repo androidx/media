@@ -255,7 +255,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private void createHeader() throws IOException {
-    outputChannel.write(Boxes.ftyp());
+    outputChannel.write(Boxes.ftyp(MuxerUtil.getFtypCompatibleBrands(tracks)));
     outputChannel.write(
         Boxes.moov(
             tracks, metadataCollector, /* isFragmentedMp4= */ true, lastSampleDurationBehavior));

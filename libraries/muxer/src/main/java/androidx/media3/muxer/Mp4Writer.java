@@ -231,7 +231,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
   private ByteBuffer getAxteBox() {
     // The axte box will have one ftyp and one moov box.
-    ByteBuffer ftypBox = Boxes.ftyp();
+    ByteBuffer ftypBox = Boxes.ftyp(MuxerUtil.getFtypCompatibleBrands(auxiliaryTracks));
     MetadataCollector auxiliaryTracksMetadataCollector = new MetadataCollector();
     populateAuxiliaryTracksMetadata(
         auxiliaryTracksMetadataCollector,
@@ -314,7 +314,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
   private void writeHeader() throws IOException {
     muxerOutput.setPosition(0L);
-    muxerOutput.write(Boxes.ftyp());
+    muxerOutput.write(Boxes.ftyp(MuxerUtil.getFtypCompatibleBrands(tracks)));
 
     if (freeSpaceAfterFtypInBytes > 0) {
       muxerOutput.write(
