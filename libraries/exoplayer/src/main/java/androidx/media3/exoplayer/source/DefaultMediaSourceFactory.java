@@ -600,8 +600,12 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     if (!subtitleConfigurations.isEmpty()) {
       MediaSource[] mediaSources = new MediaSource[subtitleConfigurations.size() + 1];
       mediaSources[0] = mediaSource;
+      TimeOffsetMediaSource[] subtitleSources =
+          parseSubtitlesDuringExtraction
+              ? new TimeOffsetMediaSource[subtitleConfigurations.size()]
+              : null;
       for (int i = 0; i < subtitleConfigurations.size(); i++) {
-        if (parseSubtitlesDuringExtraction) {
+        if (subtitleSources != null) {
           Format format =
               new Format.Builder()
                   .setSampleMimeType(subtitleConfigurations.get(i).mimeType)
@@ -636,9 +640,12 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
           if (loadErrorHandlingPolicy != null) {
             progressiveMediaSourceFactory.setLoadErrorHandlingPolicy(loadErrorHandlingPolicy);
           }
-          mediaSources[i + 1] =
-              progressiveMediaSourceFactory.createMediaSource(
-                  MediaItem.fromUri(subtitleConfigurations.get(i).uri.toString()));
+          subtitleSources[i] =
+              new TimeOffsetMediaSource(
+                  progressiveMediaSourceFactory.createMediaSource(
+                      MediaItem.fromUri(subtitleConfigurations.get(i).uri.toString())),
+                  subtitleConfigurations.get(i).timeOffsetUs);
+          mediaSources[i + 1] = subtitleSources[i];
         } else {
           SingleSampleMediaSource.Factory singleSampleMediaSourceFactory =
               new SingleSampleMediaSource.Factory(dataSourceFactory);
@@ -652,6 +659,10 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
       }
 
       mediaSource = new MergingMediaSource(mediaSources);
+      if (subtitleSources != null) {
+        mediaSource =
+            new SideloadedSubtitlesMediaSource(mediaSource, subtitleConfigurations, subtitleSources);
+      }
     }
     return maybeWrapWithAdsMediaSource(
         mediaItem, maybeClipMediaSource(mediaItem, mediaSource, enableClippingInMediaPeriod));

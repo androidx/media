@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.e2etest;
 
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
@@ -28,6 +29,7 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.Player;
+import androidx.media3.common.text.CueGroup;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
@@ -61,6 +63,198 @@ public class SubtitlePlaybackTest {
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
       ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
+
+  // https://github.com/androidx/media/issues/1976
+  @Test
+  public void sideloadedSubtitle_withPositiveTimeOffset_cuesShiftedLater() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext, clock);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(clock)
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    List<Long> cueChangeTimesUs = new ArrayList<>();
+    List<String> cueTexts = new ArrayList<>();
+    player.addListener(createNonEmptyCueGroupCollectingListener(cueChangeTimesUs, cueTexts));
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri("asset:///media/mp4/preroll-5s.mp4")
+            .setSubtitleConfigurations(
+                ImmutableList.of(
+                    new MediaItem.SubtitleConfiguration.Builder(
+                            Uri.parse("asset:///media/webvtt/typical"))
+                        .setMimeType(MimeTypes.TEXT_VTT)
+                        .setLanguage("en")
+                        .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+                        .setTimeOffsetUs(300_000)
+                        .build()))
+            .build();
+
+    player.setMediaItem(mediaItem);
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+    advance(player).untilFullyBuffered();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    assertThat(cueChangeTimesUs).containsExactly(300_000L, 2_645_000L).inOrder();
+    assertThat(cueTexts)
+        .containsExactly("This is the first subtitle.", "This is the second subtitle.")
+        .inOrder();
+  }
+
+  // https://github.com/androidx/media/issues/1976
+  @Test
+  public void sideloadedSubtitle_withNegativeTimeOffset_cuesShiftedEarlier() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext, clock);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(clock)
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    List<Long> cueChangeTimesUs = new ArrayList<>();
+    List<String> cueTexts = new ArrayList<>();
+    player.addListener(createNonEmptyCueGroupCollectingListener(cueChangeTimesUs, cueTexts));
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri("asset:///media/mp4/preroll-5s.mp4")
+            .setSubtitleConfigurations(
+                ImmutableList.of(
+                    new MediaItem.SubtitleConfiguration.Builder(
+                            Uri.parse("asset:///media/webvtt/typical"))
+                        .setMimeType(MimeTypes.TEXT_VTT)
+                        .setLanguage("en")
+                        .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+                        .setTimeOffsetUs(-2_000_000)
+                        .build()))
+            .build();
+
+    player.setMediaItem(mediaItem);
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+    advance(player).untilFullyBuffered();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    // The first cue ends before the start of the media, so only the second one is shown.
+    assertThat(cueChangeTimesUs).containsExactly(345_000L);
+    assertThat(cueTexts).containsExactly("This is the second subtitle.");
+  }
+
+  // https://github.com/androidx/media/issues/1976
+  @Test
+  public void sideloadedSubtitle_timeOffsetUpdatedDuringPlayback_playbackContinuesWithShiftedCues()
+      throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext, clock);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(clock)
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    List<Long> cueChangeTimesUs = new ArrayList<>();
+    List<String> cueTexts = new ArrayList<>();
+    player.addListener(createNonEmptyCueGroupCollectingListener(cueChangeTimesUs, cueTexts));
+    List<Integer> playbackStates = new ArrayList<>();
+    player.addListener(
+        new Player.Listener() {
+          @Override
+          public void onPlaybackStateChanged(@Player.State int playbackState) {
+            playbackStates.add(playbackState);
+          }
+        });
+    MediaItem.SubtitleConfiguration subtitleConfiguration =
+        new MediaItem.SubtitleConfiguration.Builder(Uri.parse("asset:///media/webvtt/typical"))
+            .setMimeType(MimeTypes.TEXT_VTT)
+            .setLanguage("en")
+            .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+            .build();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri("asset:///media/mp4/preroll-5s.mp4")
+            .setSubtitleConfigurations(ImmutableList.of(subtitleConfiguration))
+            .build();
+
+    player.setMediaItem(mediaItem);
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+    advance(player).untilFullyBuffered();
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 2000);
+    // Shift the subtitles two seconds later and re-enable the text track to apply the new offset
+    // to the cues around the current position.
+    player.replaceMediaItem(
+        /* index= */ 0,
+        mediaItem
+            .buildUpon()
+            .setSubtitleConfigurations(
+                ImmutableList.of(
+                    subtitleConfiguration.buildUpon().setTimeOffsetUs(2_000_000).build()))
+            .build());
+    player.setTrackSelectionParameters(
+        player
+            .getTrackSelectionParameters()
+            .buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, /* disabled= */ true)
+            .build());
+    player.setTrackSelectionParameters(
+        player
+            .getTrackSelectionParameters()
+            .buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, /* disabled= */ false)
+            .build());
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    long updatedTimeOffsetUs =
+        checkNotNull(player.getCurrentMediaItem().localConfiguration)
+            .subtitleConfigurations
+            .get(0)
+            .timeOffsetUs;
+    player.release();
+    surface.release();
+
+    assertThat(updatedTimeOffsetUs).isEqualTo(2_000_000);
+    // The first cue is shown with the initial zero offset, then again when the text track is
+    // re-enabled at two seconds with the new offset, followed by the shifted second cue.
+    assertThat(cueChangeTimesUs).containsExactly(0L, 2_000_000L, 4_345_000L).inOrder();
+    assertThat(cueTexts)
+        .containsExactly(
+            "This is the first subtitle.",
+            "This is the first subtitle.",
+            "This is the second subtitle.")
+        .inOrder();
+    // The media item update must not interrupt playback with a re-preparation.
+    assertThat(playbackStates)
+        .containsExactly(Player.STATE_BUFFERING, Player.STATE_READY, Player.STATE_ENDED)
+        .inOrder();
+  }
+
+  private static Player.Listener createNonEmptyCueGroupCollectingListener(
+      List<Long> cueChangeTimesUs, List<String> cueTexts) {
+    return new Player.Listener() {
+      @Override
+      public void onCues(CueGroup cueGroup) {
+        if (!cueGroup.cues.isEmpty()) {
+          cueChangeTimesUs.add(cueGroup.presentationTimeUs);
+          cueTexts.add(String.valueOf(cueGroup.cues.get(0).text));
+        }
+      }
+    };
+  }
 
   // https://github.com/androidx/media/issues/1721
   @Test
