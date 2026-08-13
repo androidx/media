@@ -32,17 +32,6 @@ object PreloadManagerManagePlayKt {
   }
 
   @OptIn(UnstableApi::class)
-  private fun addMedia(preloadManager: DefaultPreloadManager) {
-    // [START android_defaultpreloadmanager_addMedia]
-    val initialMediaItems = pullMediaItemsFromService(count = 20)
-    for (index in 0 until initialMediaItems.size) {
-      preloadManager.add(initialMediaItems[index], /* rankingData= */ index)
-    }
-    // items aren't actually loaded yet! need to call invalidate() after this
-    // [END android_defaultpreloadmanager_addMedia]
-  }
-
-  @OptIn(UnstableApi::class)
   private fun addMediaBatch(preloadManager: DefaultPreloadManager) {
     // [START android_defaultpreloadmanager_addMediaBatch]
     val initialMediaItems = pullMediaItemsFromService(count = 20)
@@ -66,7 +55,7 @@ object PreloadManagerManagePlayKt {
     currentIndex: Int,
   ) {
     // [START android_defaultpreloadmanager_getAndPlayMedia]
-    // When a media item is about to be displayed on the screen
+    // When a media item is about to display on the screen
     val mediaSource = preloadManager.getMediaSource(mediaItem)
     if (mediaSource != null) {
       player.setMediaSource(mediaSource)
@@ -77,7 +66,7 @@ object PreloadManagerManagePlayKt {
     }
     player.prepare()
 
-    // When the media item is being displayed at the center of the screen ("in focus")
+    // When the media item is displaying at the center of the screen
     player.play()
     preloadManager.setCurrentPlayingIndex(currentIndex)
 
@@ -111,13 +100,6 @@ object PreloadManagerManagePlayKt {
     // is in the carousel/pagination/list.
     preloadManager.setCurrentPlayingIndex(currentIndex)
     // [END android_defaultpreloadmanager_getAndPlayMediaAndUpdateIndex]
-  }
-
-  @OptIn(UnstableApi::class)
-  private fun removeMedia(mediaItem: MediaItem, preloadManager: DefaultPreloadManager) {
-    // [START android_defaultpreloadmanager_removeItem]
-    preloadManager.remove(mediaItem)
-    // [END android_defaultpreloadmanager_removeItem]
   }
 
   @OptIn(UnstableApi::class)
