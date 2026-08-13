@@ -1737,6 +1737,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     MediaCodecInfo codecInfo = getCodecInfo();
     if (videoSink != null
         && codecInfo != null
+        && MediaLibraryInfo.enableWorkarounds()
         && (codecInfo.name.equals("c2.mtk.avc.decoder")
             || codecInfo.name.equals("c2.mtk.hevc.decoder")
             || codecInfo.name.equals("c2.mtk.vp9.decoder"))) {
