@@ -547,21 +547,21 @@ public final class GlUtil {
       checkGlError();
       return ImmutableList.of();
     }
-    EGLSync eglSync = EGL15.EGL_NO_SYNC;
-    ImmutableList.Builder<SyncFenceWrapper> fences = new ImmutableList.Builder<>();
+    EGLSync eglSync =
+        EGL15.eglCreateSync(
+            eglDisplay,
+            EGLExt.EGL_SYNC_NATIVE_FENCE_ANDROID,
+            /* attrib_list= */ new long[] {EGL14.EGL_NONE},
+            /* offset= */ 0);
+    checkEglException("eglCreateSync failed");
+    if (Objects.equals(eglSync, EGL15.EGL_NO_SYNC)) {
+      GLES20.glFinish();
+      checkGlError();
+      return ImmutableList.of();
+    }
+    ImmutableList.Builder<SyncFenceWrapper> fences = ImmutableList.builderWithExpectedSize(count);
+    @Nullable Throwable pendingException = null;
     try {
-      eglSync =
-          EGL15.eglCreateSync(
-              eglDisplay,
-              EGLExt.EGL_SYNC_NATIVE_FENCE_ANDROID,
-              /* attrib_list= */ new long[] {EGL14.EGL_NONE},
-              /* offset= */ 0);
-      checkEglException("eglCreateSync failed");
-      if (eglSync == EGL15.EGL_NO_SYNC) {
-        GLES20.glFinish();
-        checkGlError();
-        return ImmutableList.of();
-      }
       SyncFence syncFence = EGLExt.eglDupNativeFenceFDANDROID(eglDisplay, eglSync);
       checkEglException("eglDupNativeFenceFDANDROID failed");
       if (!syncFence.isValid()) {
@@ -579,16 +579,33 @@ public final class GlUtil {
       fences.add(SyncFenceWrapper.of(syncFence));
       for (int i = 0; i < count - 1; i++) {
         SyncFence duplicatedFence = EGLExt.eglDupNativeFenceFDANDROID(eglDisplay, eglSync);
-        checkEglException("eglDupNativeFenceFDANDROID failed for input frame");
+        checkEglException("eglDupNativeFenceFDANDROID failed");
         checkState(duplicatedFence.isValid());
         fences.add(SyncFenceWrapper.of(duplicatedFence));
       }
-
+      return fences.build();
+    } catch (Throwable t) {
+      pendingException = t;
+      for (SyncFenceWrapper fence : fences.build()) {
+        try {
+          fence.close();
+        } catch (Throwable closeException) {
+          pendingException.addSuppressed(closeException);
+        }
+      }
+      throw t;
     } finally {
       EGL15.eglDestroySync(eglDisplay, eglSync);
-      checkEglException("eglDestroySync failed");
+      try {
+        checkEglException("eglDestroySync failed");
+      } catch (GlException e) {
+        if (pendingException != null) {
+          pendingException.addSuppressed(e);
+        } else {
+          throw e;
+        }
+      }
     }
-    return fences.build();
   }
 
   /**
