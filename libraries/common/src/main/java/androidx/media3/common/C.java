@@ -32,6 +32,7 @@ import android.media.MediaFormat;
 import android.net.Uri;
 import android.opengl.GLES20;
 import android.os.IBinder;
+import android.os.Process;
 import android.view.Surface;
 import androidx.annotation.IntDef;
 import androidx.media3.common.util.UnstableApi;
@@ -174,6 +175,16 @@ public final class C {
    */
   @UnstableApi
   public static final int AUDIO_SESSION_ID_UNSET = AudioManager.AUDIO_SESSION_ID_GENERATE;
+
+  // LINT.IfChange(thread_priority_no_op)
+  /**
+   * Represents a no-op thread priority to inherit the spawning thread's priority without overriding
+   * it. {@link Process#setThreadPriority} supports int values between -20 and 19, so this value
+   * must be outside that range.
+   */
+  @UnstableApi public static final int THREAD_PRIORITY_NO_OP = -99;
+
+  // LINT.ThenChange()
 
   /**
    * Represents an audio encoding, or an invalid or unset value. One of {@link Format#NO_VALUE},

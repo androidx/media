@@ -18,6 +18,7 @@ package androidx.media3.decoder.av1;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_YES_WITHOUT_RECONFIGURATION;
 
 import android.os.Handler;
+import android.os.Process;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -71,6 +72,8 @@ public class Libdav1dVideoRenderer extends DecoderVideoRenderer {
 
   private final boolean useCustomAllocator;
 
+  private final int threadPriority;
+
   @Nullable private Dav1dDecoder decoder;
 
   /**
@@ -98,7 +101,8 @@ public class Libdav1dVideoRenderer extends DecoderVideoRenderer {
         DEFAULT_MAX_FRAME_DELAY,
         DEFAULT_NUM_OF_INPUT_BUFFERS,
         DEFAULT_NUM_OF_OUTPUT_BUFFERS,
-        /* useCustomAllocator= */ false);
+        /* useCustomAllocator= */ false,
+        C.THREAD_PRIORITY_NO_OP);
   }
 
   /**
@@ -121,6 +125,11 @@ public class Libdav1dVideoRenderer extends DecoderVideoRenderer {
    * @param numInputBuffers Number of input buffers.
    * @param numOutputBuffers Number of output buffers.
    * @param useCustomAllocator Whether to use a custom allocator for libdav1d.
+   * @param threadPriority The thread priority for the decode thread and native worker threads.
+   *     {@link Process#setThreadPriority} expects a value between [-20, 19] or if the value is
+   *     {@link C#THREAD_PRIORITY_NO_OP}, then the thread priority will not be set. Values beyond
+   *     this range will be clamped to the nearest value in the range. Specific values can be found
+   *     in {@link Process} with the prefix {@code THREAD_PRIORITY_*}.
    */
   public Libdav1dVideoRenderer(
       long allowedJoiningTimeMs,
@@ -131,13 +140,15 @@ public class Libdav1dVideoRenderer extends DecoderVideoRenderer {
       int maxFrameDelay,
       int numInputBuffers,
       int numOutputBuffers,
-      boolean useCustomAllocator) {
+      boolean useCustomAllocator,
+      int threadPriority) {
     super(allowedJoiningTimeMs, eventHandler, eventListener, maxDroppedFramesToNotify);
     this.threads = threads;
     this.numInputBuffers = numInputBuffers;
     this.numOutputBuffers = numOutputBuffers;
     this.maxFrameDelay = maxFrameDelay;
     this.useCustomAllocator = useCustomAllocator;
+    this.threadPriority = threadPriority;
   }
 
   @Override
@@ -171,7 +182,8 @@ public class Libdav1dVideoRenderer extends DecoderVideoRenderer {
             initialInputBufferSize,
             threads,
             maxFrameDelay,
-            useCustomAllocator);
+            useCustomAllocator,
+            threadPriority);
     this.decoder = decoder;
     TraceUtil.endSection();
     return decoder;

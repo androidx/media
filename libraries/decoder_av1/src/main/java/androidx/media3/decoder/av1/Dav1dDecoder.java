@@ -18,6 +18,7 @@ package androidx.media3.decoder.av1;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
+import android.os.Process;
 import android.view.Surface;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
@@ -115,6 +116,11 @@ public final class Dav1dDecoder
    *     default decoder behavior for setting the threads.
    * @param maxFrameDelay Maximum amount of frames libdav1d can be behind on.
    * @param useCustomAllocator Whether to use a custom allocator for the decoder.
+   * @param threadPriority The thread priority for the decode thread and native worker threads.
+   *     {@link Process#setThreadPriority} expects a value between [-20, 19] or if the value is
+   *     {@link C#THREAD_PRIORITY_NO_OP}, then the thread priority will not be set. Values beyond
+   *     this range will be clamped to the nearest value in the range. Specific values can be found
+   *     in {@link Process} with the prefix {@code THREAD_PRIORITY_*}.
    * @throws Dav1dDecoderException Thrown if an exception occurs when initializing the decoder.
    */
   // Suppressing nulless for UnderInitialization and method.invocation.
@@ -125,7 +131,8 @@ public final class Dav1dDecoder
       int initialInputBufferSize,
       int threads,
       int maxFrameDelay,
-      boolean useCustomAllocator)
+      boolean useCustomAllocator,
+      int threadPriority)
       throws Dav1dDecoderException {
     if (!Dav1dLibrary.isAvailable()) {
       throw new Dav1dDecoderException("Failed to load decoder native library.");
@@ -152,6 +159,18 @@ public final class Dav1dDecoder
         new Thread("ExoPlayer:Dav1dDecoder") {
           @Override
           public void run() {
+            try {
+              if (threadPriority != C.THREAD_PRIORITY_NO_OP) {
+                Process.setThreadPriority(threadPriority);
+              }
+            } catch (RuntimeException e) {
+              synchronized (lock) {
+                Dav1dDecoder.this.exception =
+                    new Dav1dDecoderException("Failed to set thread priority", e);
+                lock.notify();
+                return;
+              }
+            }
             synchronized (lock) {
               Dav1dDecoder.this.dav1dDecoderContext =
                   dav1dInit(threads, maxFrameDelay, useCustomAllocator, numInputBuffers);

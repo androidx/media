@@ -18,6 +18,7 @@ package androidx.media3.test.proguard;
 import static androidx.annotation.VisibleForTesting.NONE;
 
 import androidx.annotation.VisibleForTesting;
+import androidx.media3.common.C;
 import androidx.media3.decoder.av1.Dav1dDecoder;
 
 /** Class exercising native code in the AV1 module that relies on a correct proguard config. */
@@ -38,7 +39,8 @@ public final class Av1ModuleProguard {
             /* initialInputBufferSize= */ 1024,
             /* threads= */ 1,
             /* maxFrameDelay= */ 2,
-            /* useCustomAllocator= */ false);
+            /* useCustomAllocator= */ false,
+            C.THREAD_PRIORITY_NO_OP);
     decoder.release();
   }
 }
