@@ -373,6 +373,54 @@ public final class TestPlayerRunHelper {
           player, playBeforeWaiting, /* throwNonFatalErrors= */ false, timeoutMs);
     }
 
+    /**
+     * Runs tasks of the main {@link Looper} until the specified condition becomes true independent
+     * of a message on the main {@link Looper}.
+     *
+     * <p>This method is useful for cases where the condition may change outside of a main {@link
+     * Looper} message, for example because it's checking a volatile variable or shared synchronized
+     * state that is updated on a background thread, or because checking the condition itself may
+     * cause it to become true.
+     *
+     * <p>This method ensures the condition is checked within artificially created main {@link
+     * Looper} messages. When using a {@link androidx.media3.test.utils.FakeClock}, this guarantees
+     * the remainder of the test method is not executed in parallel with other background thread
+     * messages.
+     *
+     * @param clock The {@link Clock} to create a {@link HandlerWrapper} from.
+     * @param backgroundThreadCondition The condition to wait for.
+     * @throws PlaybackException If a playback error occurs.
+     * @throws IllegalStateException If non-fatal playback errors occur, and aren't {@linkplain
+     *     #ignoringNonFatalErrors() ignored} (the non-fatal exceptions will be attached with {@link
+     *     Throwable#addSuppressed(Throwable)}).
+     * @throws TimeoutException If the timeout is exceeded. The timeout is {@link
+     *     RobolectricUtil#DEFAULT_TIMEOUT_MS} by default, or a specific value if this instance is
+     *     created via {@link #withTimeoutMs(long)}.
+     */
+    public void untilBackgroundThreadCondition(
+        Clock clock, Supplier<Boolean> backgroundThreadCondition)
+        throws PlaybackException, TimeoutException {
+      if (backgroundThreadCondition.get()) {
+        return;
+      }
+      AtomicBoolean conditionTrue = new AtomicBoolean();
+      HandlerWrapper handler =
+          clock.createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null);
+      Runnable checkCondition =
+          new Runnable() {
+            @Override
+            public void run() {
+              if (backgroundThreadCondition.get()) {
+                conditionTrue.set(true);
+              } else {
+                handler.postDelayed(this, /* delayMs= */ 1);
+              }
+            }
+          };
+      handler.post(checkCondition);
+      runUntil(conditionTrue::get);
+    }
+
     /** Runs the main {@link Looper} until {@code predicate} returns true or an error occurs. */
     protected final void runUntil(Supplier<Boolean> predicate)
         throws PlaybackException, TimeoutException {
@@ -639,25 +687,7 @@ public final class TestPlayerRunHelper {
      */
     public void untilBackgroundThreadCondition(Supplier<Boolean> backgroundThreadCondition)
         throws PlaybackException, TimeoutException {
-      if (backgroundThreadCondition.get()) {
-        return;
-      }
-      AtomicBoolean conditionTrue = new AtomicBoolean();
-      HandlerWrapper handler =
-          player.getClock().createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null);
-      Runnable checkCondition =
-          new Runnable() {
-            @Override
-            public void run() {
-              if (backgroundThreadCondition.get()) {
-                conditionTrue.set(true);
-              } else {
-                handler.postDelayed(this, /* delayMs= */ 1);
-              }
-            }
-          };
-      handler.post(checkCondition);
-      runUntil(conditionTrue::get);
+      this.untilBackgroundThreadCondition(player.getClock(), backgroundThreadCondition);
     }
 
     /**
@@ -732,6 +762,34 @@ public final class TestPlayerRunHelper {
     public void untilPendingCommandsAreFullyHandled() throws TimeoutException {
       this.untilPendingCommandsAreFullyHandled(
           player.getClock(), checkNotNull(player.getPlaybackLooper()));
+    }
+
+    /**
+     * Runs tasks of the main {@link Looper} until the specified condition becomes true independent
+     * of a message on the main {@link Looper}.
+     *
+     * <p>This method is useful for cases where the condition may change outside of a main {@link
+     * Looper} message, for example because it's checking a volatile variable or shared synchronized
+     * state that is updated on a background thread, or because checking the condition itself may
+     * cause it to become true.
+     *
+     * <p>This method ensures the condition is checked within artificially created main {@link
+     * Looper} messages. When using a {@link androidx.media3.test.utils.FakeClock}, this guarantees
+     * the remainder of the test method is not executed in parallel with other background thread
+     * messages.
+     *
+     * @param backgroundThreadCondition The condition to wait for.
+     * @throws PlaybackException If a playback error occurs.
+     * @throws IllegalStateException If non-fatal playback errors occur, and aren't {@linkplain
+     *     #ignoringNonFatalErrors() ignored} (the non-fatal exceptions will be attached with {@link
+     *     Throwable#addSuppressed(Throwable)}).
+     * @throws TimeoutException If the timeout is exceeded. The timeout is {@link
+     *     RobolectricUtil#DEFAULT_TIMEOUT_MS} by default, or a specific value if this instance is
+     *     created via {@link #withTimeoutMs(long)}.
+     */
+    public void untilBackgroundThreadCondition(Supplier<Boolean> backgroundThreadCondition)
+        throws PlaybackException, TimeoutException {
+      this.untilBackgroundThreadCondition(player.getClock(), backgroundThreadCondition);
     }
 
     @Override

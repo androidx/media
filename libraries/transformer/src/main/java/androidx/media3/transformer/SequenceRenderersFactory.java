@@ -119,6 +119,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Nullable private final CompositionRendererListener compositionRendererListener;
   private final Supplier<@NullableType HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier;
   private final long lateThresholdToDropInputUs;
+  private final RendererTracker rendererTracker;
+  private final OutputTracker outputTracker;
 
   private @MonotonicNonNull SequenceAudioRenderer audioRenderer;
   private @MonotonicNonNull SequenceVideoRenderer primaryVideoRenderer;
@@ -187,6 +189,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.compositionRendererListener = compositionRendererListener;
     this.hardwareBufferFrameReaderSupplier = hardwareBufferFrameReaderSupplier;
     this.lateThresholdToDropInputUs = lateThresholdToDropInputUs;
+    rendererTracker = new RendererTracker();
+    outputTracker = new OutputTracker();
   }
 
   public void setRequestMediaCodecToneMapping(boolean requestMediaCodecToneMapping) {
@@ -236,12 +240,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               videoRendererEventListener,
               checkNotNull(compositionRendererListener),
               hardwareBufferFrameReaderSupplier,
-              lateThresholdToDropInputUs));
+              lateThresholdToDropInputUs,
+              rendererTracker,
+              outputTracker));
       renderers.add(
           new HardwareBufferImageRenderer(
               checkNotNull(imageDecoderFactory),
               checkNotNull(compositionRendererListener),
-              hardwareBufferFrameReaderSupplier));
+              hardwareBufferFrameReaderSupplier,
+              rendererTracker));
     }
     return renderers.toArray(new Renderer[0]);
   }
@@ -273,7 +280,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           videoRendererEventListener,
           checkNotNull(compositionRendererListener),
           hardwareBufferFrameReaderSupplier,
-          lateThresholdToDropInputUs);
+          lateThresholdToDropInputUs,
+          rendererTracker,
+          outputTracker);
+    }
+    if (renderer instanceof HardwareBufferImageRenderer) {
+      return new HardwareBufferImageRenderer(
+          checkNotNull(imageDecoderFactory),
+          checkNotNull(compositionRendererListener),
+          hardwareBufferFrameReaderSupplier,
+          rendererTracker);
     }
     return null;
   }
@@ -780,8 +796,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * HardwareBufferFrameReader}.
    */
   private static final class HardwareBufferVideoRenderer extends MediaCodecVideoRenderer
-      implements RendererWakeupListener {
+      implements RendererWakeupListener, RendererTracker.TrackedRenderer {
     private final CompositionRendererListener compositionRendererListener;
+    private final RendererTracker rendererTracker;
+    private final OutputTracker outputTracker;
     private @MonotonicNonNull HardwareBufferFrameReader hardwareBufferFrameReader;
     private final long lateThresholdToDropInputUs;
     private final TargetFrameRateHelper targetFrameRateHelper;
@@ -789,13 +807,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private final Supplier<@NullableType HardwareBufferFrameReader>
         hardwareBufferFrameReaderSupplier;
 
-    private MediaSource.@MonotonicNonNull MediaPeriodId mediaPeriodId;
     private @MonotonicNonNull Format nextFormat;
     @Nullable private VideoFrameMetadataListener frameMetadataListener;
     private long streamStartPositionUs;
     private long offsetToCompositionTimeUs;
-    private boolean hasOutputSurface;
-    private boolean canOutput;
+
+    private boolean isReadyToRenderFirstFrame;
 
     private HardwareBufferVideoRenderer(
         Context context,
@@ -803,7 +820,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         VideoRendererEventListener videoRendererEventListener,
         CompositionRendererListener compositionRendererListener,
         Supplier<@NullableType HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier,
-        long lateThresholdToDropInputUs) {
+        long lateThresholdToDropInputUs,
+        RendererTracker rendererTracker,
+        OutputTracker outputTracker) {
       super(
           new Builder(context)
               .setMediaCodecSelector(MediaCodecSelector.DEFAULT)
@@ -820,34 +839,40 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       this.hardwareBufferFrameReaderSupplier = hardwareBufferFrameReaderSupplier;
       this.lateThresholdToDropInputUs = lateThresholdToDropInputUs;
       this.targetFrameRateHelper = new TargetFrameRateHelper();
+      this.rendererTracker = rendererTracker;
+      this.outputTracker = outputTracker;
+    }
+
+    @Override
+    @Nullable
+    public MediaPeriodId getTrackedMediaPeriodId() {
+      return getMediaPeriodId();
+    }
+
+    @Override
+    @Nullable
+    public Timeline getTrackedTimeline() {
+      return getTimeline();
     }
 
     @Override
     protected void onEnabled(boolean joining, boolean mayRenderStartOfStream)
         throws ExoPlaybackException {
-      if (mayRenderStartOfStream) {
-        canOutput = true;
-      }
       if (hardwareBufferFrameReader == null) {
         // Initialize hardwareBufferFrameReader on the first onEnabled() call.
         hardwareBufferFrameReader = checkNotNull(hardwareBufferFrameReaderSupplier.get());
       }
       hardwareBufferFrameReader.addRendererWakeupListener(/* rendererWakeupListener= */ this);
       super.onEnabled(joining, mayRenderStartOfStream);
-    }
-
-    @Override
-    protected void onStarted() {
-      canOutput = true;
-      super.onStarted();
+      rendererTracker.addRenderer(this);
     }
 
     @Override
     protected void onDisabled() {
-      canOutput = false;
       super.onDisabled();
       checkNotNull(hardwareBufferFrameReader)
           .removeRendererWakeupListener(/* rendererWakeupListener= */ this);
+      rendererTracker.removeRenderer(this);
     }
 
     @Override
@@ -867,6 +892,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         throws ExoPlaybackException {
       super.onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame);
       targetFrameRateHelper.onPositionReset();
+      isReadyToRenderFirstFrame = false;
     }
 
     @Override
@@ -877,9 +903,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         MediaSource.MediaPeriodId mediaPeriodId)
         throws ExoPlaybackException {
       checkState(getTimeline().getWindowCount() == 1);
-      this.mediaPeriodId = mediaPeriodId;
+
       // The media item might have been repeated in the sequence.
       EditedMediaItem editedMediaItem = getEditedMediaItem(getTimeline(), mediaPeriodId);
+      isReadyToRenderFirstFrame = false;
       // The renderer has started processing this item, VideoGraph might still be processing the
       // previous one.
       streamStartPositionUs = startPositionUs;
@@ -914,8 +941,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       // is well before item should be displayed. Frames should not be rendered until a Surface is
       // set on this renderer and this renderer is either started, or enabled with
       // mayRenderStartOfStream.
-      if (!hasOutputSurface || !canOutput) {
+      Renderer activeRenderer = rendererTracker.getActiveRenderer();
+      if (this != activeRenderer) {
         return false;
+      }
+      if (!outputTracker.hasOutput()) {
+        return false;
+      }
+      if (outputTracker.shouldTransferOutput(/* renderer= */ this)) {
+        // Transferring the Surface switches the producer of the shared reader BufferQueue; doing
+        // so while a buffer is still pending over the surface causes the Codec2 output BufferQueue
+        // to reject the next buffer on some devices below API 33.
+        // TODO: b/546521739 - Investigate allowing the early Surface transfer below API 33.
+        if (SDK_INT < 33) {
+          return false;
+        }
+        outputTracker.transferOutput(/* target= */ this);
       }
       nextFormat = format;
       long outputStreamOffsetUs = getOutputStreamOffsetUs();
@@ -924,6 +965,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
         return true;
       }
+      isReadyToRenderFirstFrame = true;
       if (!checkNotNull(hardwareBufferFrameReader).canAcceptFrameViaSurface()) {
         return false;
       }
@@ -939,6 +981,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       renderOutputBufferV21(codec, bufferIndex, presentationTimeUs, releaseTimeNs);
       targetFrameRateHelper.onOutputFrameRendered(presentationTimeUs);
       return true;
+    }
+
+    @Override
+    public boolean isReady() {
+      return isReadyForDecoding() && isReadyToRenderFirstFrame;
     }
 
     @Override
@@ -991,7 +1038,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       // Wait until the listener has also ended before ending the renderer, to avoid frames being
       // stuck between the renderer and listener if this renderer ends too early.
       return super.isEnded()
-          && (!isLastInSequence(getTimeline(), checkNotNull(mediaPeriodId))
+          && (!isLastInSequence(getTimeline(), checkNotNull(getMediaPeriodId()))
               || compositionRendererListener.isEnded());
     }
 
@@ -1000,10 +1047,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         throws ExoPlaybackException {
       switch (messageType) {
         case MSG_SET_VIDEO_OUTPUT:
-          hasOutputSurface = (message != null);
-          break;
+          super.handleMessage(messageType, message);
+          outputTracker.onPlayerSetOutput(this, message);
+          return;
         case MSG_TRANSFER_RESOURCES:
-          hasOutputSurface = false;
+          // TODO: b/546051614 - Investigate whether we can avoid having to transfer resources.
+          // The Surface may already have been manually transferred.
+          if (outputTracker.shouldTransferOutput(this)) {
+            return;
+          }
           break;
         case MSG_SET_VIDEO_FRAME_METADATA_LISTENER:
           frameMetadataListener = (VideoFrameMetadataListener) checkNotNull(message);
@@ -1033,15 +1085,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * An {@link ImageRenderer} that outputs decoded images to a {@link HardwareBufferFrameReader}.
    */
   private static final class HardwareBufferImageRenderer extends ImageRenderer
-      implements RendererWakeupListener {
+      implements RendererWakeupListener, RendererTracker.TrackedRenderer {
 
     private final CompositionRendererListener compositionRendererListener;
     private final Supplier<@NullableType HardwareBufferFrameReader>
         hardwareBufferFrameReaderSupplier;
+    private final RendererTracker rendererTracker;
     private @MonotonicNonNull HardwareBufferFrameReader hardwareBufferFrameReader;
     private @MonotonicNonNull ConstantRateTimestampIterator timestampIterator;
     private @MonotonicNonNull Format outputFormat;
-    private MediaSource.@MonotonicNonNull MediaPeriodId mediaPeriodId;
+    private @MonotonicNonNull MediaPeriodId mediaPeriodId;
+
     private long streamStartPositionUs;
     private long offsetToCompositionTimeUs;
     private long streamOffsetUs;
@@ -1052,11 +1106,25 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     HardwareBufferImageRenderer(
         ImageDecoder.Factory imageDecoderFactory,
         CompositionRendererListener compositionRendererListener,
-        Supplier<@NullableType HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier) {
+        Supplier<@NullableType HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier,
+        RendererTracker rendererTracker) {
       super(imageDecoderFactory, ImageOutput.NO_OP);
       this.compositionRendererListener = compositionRendererListener;
       this.hardwareBufferFrameReaderSupplier = hardwareBufferFrameReaderSupplier;
+      this.rendererTracker = rendererTracker;
       streamStartPositionUs = C.TIME_UNSET;
+    }
+
+    @Override
+    @Nullable
+    public MediaPeriodId getTrackedMediaPeriodId() {
+      return getMediaPeriodId();
+    }
+
+    @Override
+    @Nullable
+    public Timeline getTrackedTimeline() {
+      return getTimeline();
     }
 
     @Override
@@ -1079,12 +1147,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     protected void onEnabled(boolean joining, boolean mayRenderStartOfStream)
         throws ExoPlaybackException {
-      super.onEnabled(joining, mayRenderStartOfStream);
+      // Force enable mayRenderStartOfStream for the image renderer so processOutputBuffer is called
+      // when the renderer is enabled. If this is not set processOutputBuffer is only called once it
+      // is started and results in dropped frames at renderer transition.
+      super.onEnabled(joining, /* mayRenderStartOfStream= */ true);
       if (hardwareBufferFrameReader == null) {
         // Initialize hardwareBufferFrameReader on the first onEnabled() call.
         this.hardwareBufferFrameReader = checkNotNull(hardwareBufferFrameReaderSupplier.get());
       }
       hardwareBufferFrameReader.addRendererWakeupListener(/* rendererWakeupListener= */ this);
+      rendererTracker.addRenderer(this);
     }
 
     @Override
@@ -1092,6 +1164,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       super.onDisabled();
       checkNotNull(hardwareBufferFrameReader)
           .removeRendererWakeupListener(/* rendererWakeupListener= */ this);
+      rendererTracker.removeRenderer(this);
     }
 
     @Override
@@ -1145,12 +1218,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     protected boolean processOutputBuffer(
         long positionUs, long elapsedRealtimeUs, Bitmap outputImage, long timeUs) {
+      Renderer activeRenderer = rendererTracker.getActiveRenderer();
+      if (this != activeRenderer) {
+        return false;
+      }
       checkNotNull(timestampIterator);
       int indexOfItem = getTimeline().getIndexOfPeriod(checkNotNull(getMediaPeriodId()).periodUid);
       long sequenceOffsetUs = getStreamOffsetUs() + offsetToCompositionTimeUs;
       checkNotNull(hardwareBufferFrameReader)
           .outputBitmap(outputImage, timestampIterator, sequenceOffsetUs, indexOfItem);
-      if (isLastInSequence(getTimeline(), checkNotNull(mediaPeriodId))) {
+      if (isLastInSequence(getTimeline(), checkNotNull(getMediaPeriodId()))) {
         hardwareBufferFrameReader.queueEndOfStream();
       }
       if (imageMetadataListener != null) {
@@ -1248,6 +1325,38 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return shouldMaintainTargetFrameRate()
           && nextExpectedPresentationTimeUs != C.TIME_UNSET
           && presentationTimeUs < nextExpectedPresentationTimeUs;
+    }
+  }
+
+  /**
+   * Tracker for the renderer that currently holds the video output.
+   *
+   * <p>This class manages transferring the output between video renderers as the player transitions
+   * between different items in the sequence.
+   *
+   * <p>Methods in this class must be called from the ExoPlayer playback thread.
+   */
+  private static final class OutputTracker {
+    @Nullable private HardwareBufferVideoRenderer rendererWithOutput;
+
+    void onPlayerSetOutput(HardwareBufferVideoRenderer renderer, @Nullable Object output) {
+      if (output != null) {
+        this.rendererWithOutput = renderer;
+      } else if (this.rendererWithOutput == renderer) {
+        this.rendererWithOutput = null;
+      }
+    }
+
+    boolean hasOutput() {
+      return rendererWithOutput != null;
+    }
+
+    boolean shouldTransferOutput(HardwareBufferVideoRenderer renderer) {
+      return rendererWithOutput != renderer;
+    }
+
+    void transferOutput(HardwareBufferVideoRenderer target) throws ExoPlaybackException {
+      checkNotNull(rendererWithOutput).handleMessage(Renderer.MSG_TRANSFER_RESOURCES, target);
     }
   }
 }

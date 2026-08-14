@@ -23,6 +23,7 @@ import androidx.media3.transformer.EditedMediaItemSequence;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import java.util.List;
 import java.util.Set;
 
 /** Test assets that describe various {@link EditedMediaItemSequence} configurations. */
@@ -61,8 +62,13 @@ public final class SequenceAssetInfo {
   }
 
   public ImmutableList<Long> getExpectedVideoTimestampsUs() {
+    return getExpectedVideoTimestampsUs(assets, /* offsetUs= */ 0);
+  }
+
+  public static ImmutableList<Long> getExpectedVideoTimestampsUs(
+      List<EditedMediaItemAssetInfo> assets, long offsetUs) {
     ImmutableList.Builder<Long> expectedVideoTimestampsUs = new ImmutableList.Builder<>();
-    long previousDuration = 0;
+    long previousDuration = offsetUs;
     for (EditedMediaItemAssetInfo asset : assets) {
       long finalPreviousDuration = previousDuration;
       ImmutableList<Long> videoTimestampsUs =

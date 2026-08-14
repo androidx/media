@@ -192,6 +192,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
     private Supplier<ImageReaderAdapter.Factory> imageReaderAdapterFactorySupplier;
     @Nullable private AnalyticsListener sequencePlayerAnalyticsListener;
+    @Nullable private VideoFrameReleaseControl.FrameTimingEvaluator frameTimingEvaluator;
 
     private boolean videoPrewarmingEnabled;
     private boolean perStreamMediaProgressionEnabled;
@@ -583,6 +584,19 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     }
 
     /**
+     * Sets a {@link VideoFrameReleaseControl.FrameTimingEvaluator} for testing purposes.
+     *
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    @VisibleForTesting
+    /* package */ Builder setFrameTimingEvaluator(
+        VideoFrameReleaseControl.FrameTimingEvaluator frameTimingEvaluator) {
+      this.frameTimingEvaluator = frameTimingEvaluator;
+      return this;
+    }
+
+    /**
      * Builds the {@link CompositionPlayer} instance. Must be called at most once.
      *
      * <p>If no {@link Looper} has been called with {@link #setLooper(Looper)}, then this method
@@ -681,6 +695,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
   private final AnalyticsCollector analyticsCollector;
   @Nullable private final AnalyticsListener sequencePlayerAnalyticsListener;
+  @Nullable private final VideoFrameReleaseControl.FrameTimingEvaluator frameTimingEvaluator;
 
   private @MonotonicNonNull CompositionPlayerInternal compositionPlayerInternal;
   private @MonotonicNonNull ImmutableList<MediaItemData> playlist;
@@ -739,6 +754,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     lateThresholdToDropInputUs = builder.lateThresholdToDropInputUs;
     imageReaderAdapterFactory = builder.imageReaderAdapterFactorySupplier.get();
     sequencePlayerAnalyticsListener = builder.sequencePlayerAnalyticsListener;
+    frameTimingEvaluator = builder.frameTimingEvaluator;
     videoTracksSelected = new SparseBooleanArray();
     playerHolders = new ArrayList<>();
     compositionDurationUs = C.TIME_UNSET;
@@ -806,11 +822,13 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         VideoFrameReleaseControl videoFrameReleaseControl =
             new VideoFrameReleaseControl(
                 this.context,
-                /* frameTimingEvaluator= */ new CompositionFrameTimingEvaluator(
-                    // Convert lateThresholdToDropInputUs to early time.
-                    lateThresholdToDropInputUs != C.TIME_UNSET
-                        ? -lateThresholdToDropInputUs
-                        : C.TIME_UNSET),
+                /* frameTimingEvaluator= */ frameTimingEvaluator != null
+                    ? frameTimingEvaluator
+                    : new CompositionFrameTimingEvaluator(
+                        // Convert lateThresholdToDropInputUs to early time.
+                        lateThresholdToDropInputUs != C.TIME_UNSET
+                            ? -lateThresholdToDropInputUs
+                            : C.TIME_UNSET),
                 /* allowedJoiningTimeMs= */ 0,
                 /* skipBuffersWithIdenticalReleaseTime= */ false);
         videoFrameReleaseControl.setClock(clock);
@@ -1554,8 +1572,10 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     VideoFrameReleaseControl videoFrameReleaseControl =
         new VideoFrameReleaseControl(
             context,
-            new CompositionFrameTimingEvaluator(
-                CompositionFrameTimingEvaluator.DEFAULT_FRAME_LATE_THRESHOLD_US),
+            /* frameTimingEvaluator= */ frameTimingEvaluator != null
+                ? frameTimingEvaluator
+                : new CompositionFrameTimingEvaluator(
+                    CompositionFrameTimingEvaluator.DEFAULT_FRAME_LATE_THRESHOLD_US),
             /* allowedJoiningTimeMs= */ 0,
             /* skipBuffersWithIdenticalReleaseTime= */ false);
     playbackVideoGraphWrapper =

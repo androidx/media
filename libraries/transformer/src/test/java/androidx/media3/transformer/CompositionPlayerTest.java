@@ -84,7 +84,9 @@ import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
+import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
+import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.video.AsyncFrame;
@@ -104,10 +106,13 @@ import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.ForwardingAudioSink;
 import androidx.media3.exoplayer.audio.TrimmingAudioProcessor;
+import androidx.media3.exoplayer.video.VideoFrameReleaseControl.FrameTimingEvaluator;
 import androidx.media3.test.utils.CapturingFrameProcessor;
 import androidx.media3.test.utils.CapturingFrameProcessor.FramesEvent;
 import androidx.media3.test.utils.EditedMediaItemAssetInfo;
+import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeFrameProcessor;
+import androidx.media3.test.utils.SequenceAssetInfo;
 import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
@@ -1816,6 +1821,291 @@ public class CompositionPlayerTest {
         .isEqualTo(composition.effects.videoEffects);
   }
 
+  // TODO: b/546521739 - Remove min sdk once early Surface transfer is supported below API 33.
+  @Config(minSdk = 33)
+  @Test
+  public void
+      frameProcessorWithAutomaticFrameOutput_videoVideoAndPlayToEndOfFirstItem_outputsAllFramesFromFirstAndSecondItems()
+          throws Exception {
+    ImmutableList<EditedMediaItemAssetInfo> assetInfos =
+        ImmutableList.of(EditedMediaItemAssetInfo.VIDEO, EditedMediaItemAssetInfo.VIDEO);
+    long playToPositionUs =
+        assetInfos.get(0).getEditedMediaItem().getPresentationDurationUs() - 200_000;
+    runFrameProcessorWithAutomaticFrameOutputTest(
+        assetInfos,
+        playToPositionUs,
+        /* expectedTimestampsAtPlayToPositionUs= */ getTimestamps(assetInfos, /* withEos= */ false),
+        /* expectedTimestampsAtEnd= */ getTimestamps(assetInfos, /* withEos= */ true));
+  }
+
+  @Test
+  public void
+      frameProcessorWithAutomaticFrameOutput_videoImageAndPlayToEndOfFirstItem_outputsAllFramesFromFirstAndSecondItems()
+          throws Exception {
+    ImmutableList<EditedMediaItemAssetInfo> assetInfos =
+        ImmutableList.of(EditedMediaItemAssetInfo.VIDEO, EditedMediaItemAssetInfo.IMAGE);
+    long playToPositionUs =
+        assetInfos.get(0).getEditedMediaItem().getPresentationDurationUs() - 200_000;
+    runFrameProcessorWithAutomaticFrameOutputTest(
+        assetInfos,
+        playToPositionUs,
+        /* expectedTimestampsAtPlayToPositionUs= */ getTimestamps(assetInfos, /* withEos= */ false),
+        /* expectedTimestampsAtEnd= */ getTimestamps(assetInfos, /* withEos= */ true));
+  }
+
+  @Test
+  public void
+      frameProcessorWithAutomaticFrameOutput_imageVideoAndPlayToEndOfFirstItem_outputsAllFramesFromFirstAndSecondItems()
+          throws Exception {
+    ImmutableList<EditedMediaItemAssetInfo> assetInfos =
+        ImmutableList.of(EditedMediaItemAssetInfo.IMAGE, EditedMediaItemAssetInfo.VIDEO);
+    long playToPositionUs =
+        assetInfos.get(0).getEditedMediaItem().getPresentationDurationUs() - 200_000;
+    runFrameProcessorWithAutomaticFrameOutputTest(
+        assetInfos,
+        playToPositionUs,
+        /* expectedTimestampsAtPlayToPositionUs= */ getTimestamps(assetInfos, /* withEos= */ false),
+        /* expectedTimestampsAtEnd= */ getTimestamps(assetInfos, /* withEos= */ true));
+  }
+
+  @Test
+  public void
+      frameProcessorWithAutomaticFrameOutput_imageImageAndPlayToEndOfFirstItem_outputsAllFramesFromFirstAndSecondItems()
+          throws Exception {
+    ImmutableList<EditedMediaItemAssetInfo> assetInfos =
+        ImmutableList.of(EditedMediaItemAssetInfo.IMAGE, EditedMediaItemAssetInfo.IMAGE);
+    long playToPositionUs =
+        assetInfos.get(0).getEditedMediaItem().getPresentationDurationUs() - 200_000;
+    runFrameProcessorWithAutomaticFrameOutputTest(
+        assetInfos,
+        playToPositionUs,
+        /* expectedTimestampsAtPlayToPositionUs= */ getTimestamps(assetInfos, /* withEos= */ false),
+        /* expectedTimestampsAtEnd= */ getTimestamps(assetInfos, /* withEos= */ true));
+  }
+
+  // TODO: b/546521739 - Remove min sdk once early Surface transfer is supported below API 33.
+  @Config(minSdk = 33)
+  @Test
+  public void
+      frameProcessorWithAutomaticFrameOutput_videoVideoVideoAndPlayToEndOfFirstItem_outputsAllFramesFromFirstAndSecondItems()
+          throws Exception {
+    ImmutableList<EditedMediaItemAssetInfo> assetInfos =
+        ImmutableList.of(
+            EditedMediaItemAssetInfo.VIDEO,
+            EditedMediaItemAssetInfo.VIDEO,
+            EditedMediaItemAssetInfo.VIDEO);
+    long playToPositionUs =
+        assetInfos.get(0).getEditedMediaItem().getPresentationDurationUs() - 200_000;
+    runFrameProcessorWithAutomaticFrameOutputTest(
+        assetInfos,
+        playToPositionUs,
+        /* expectedTimestampsAtPlayToPositionUs= */ getTimestamps(
+            assetInfos.subList(0, 2), /* withEos= */ false),
+        /* expectedTimestampsAtEnd= */ getTimestamps(assetInfos, /* withEos= */ true));
+  }
+
+  // TODO: b/546521739 - Remove min sdk once early Surface transfer is supported below API 33.
+  @Config(minSdk = 33)
+  @Test
+  public void
+      frameProcessorWithAutomaticFrameOutput_videoVideoImageAndPlayToEndOfFirstItem_outputsAllFramesFromFirstAndSecondItems()
+          throws Exception {
+    ImmutableList<EditedMediaItemAssetInfo> assetInfos =
+        ImmutableList.of(
+            EditedMediaItemAssetInfo.VIDEO,
+            EditedMediaItemAssetInfo.VIDEO,
+            EditedMediaItemAssetInfo.IMAGE);
+    long playToPositionUs =
+        assetInfos.get(0).getEditedMediaItem().getPresentationDurationUs() - 200_000;
+    runFrameProcessorWithAutomaticFrameOutputTest(
+        assetInfos,
+        playToPositionUs,
+        /* expectedTimestampsAtPlayToPositionUs= */ getTimestamps(
+            assetInfos.subList(0, 2), /* withEos= */ false),
+        /* expectedTimestampsAtEnd= */ getTimestamps(assetInfos, /* withEos= */ true));
+  }
+
+  @Test
+  public void
+      frameProcessorWithAutomaticFrameOutput_videoImageVideoAndPlayToEndOfFirstItem_outputsAllFramesFromFirstAndSecondItems()
+          throws Exception {
+    ImmutableList<EditedMediaItemAssetInfo> assetInfos =
+        ImmutableList.of(
+            EditedMediaItemAssetInfo.VIDEO,
+            EditedMediaItemAssetInfo.IMAGE,
+            EditedMediaItemAssetInfo.VIDEO);
+    long playToPositionUs =
+        assetInfos.get(0).getEditedMediaItem().getPresentationDurationUs() - 200_000;
+    runFrameProcessorWithAutomaticFrameOutputTest(
+        assetInfos,
+        playToPositionUs,
+        /* expectedTimestampsAtPlayToPositionUs= */ getTimestamps(
+            assetInfos.subList(0, 2), /* withEos= */ false),
+        /* expectedTimestampsAtEnd= */ getTimestamps(assetInfos, /* withEos= */ true));
+  }
+
+  @Test
+  public void
+      frameProcessorWithAutomaticFrameOutput_videoImageImageAndPlayToEndOfFirstItem_outputsAllFramesFromFirstAndSecondItems()
+          throws Exception {
+    ImmutableList<EditedMediaItemAssetInfo> assetInfos =
+        ImmutableList.of(
+            EditedMediaItemAssetInfo.VIDEO,
+            EditedMediaItemAssetInfo.IMAGE,
+            EditedMediaItemAssetInfo.IMAGE);
+    long playToPositionUs =
+        assetInfos.get(0).getEditedMediaItem().getPresentationDurationUs() - 200_000;
+    runFrameProcessorWithAutomaticFrameOutputTest(
+        assetInfos,
+        playToPositionUs,
+        /* expectedTimestampsAtPlayToPositionUs= */ getTimestamps(
+            assetInfos.subList(0, 2), /* withEos= */ false),
+        /* expectedTimestampsAtEnd= */ getTimestamps(assetInfos, /* withEos= */ true));
+  }
+
+  @Test
+  public void
+      frameProcessorWithAutomaticFrameOutput_imageVideoVideoAndPlayToEndOfFirstItem_outputsAllFramesFromFirstAndSecondItems()
+          throws Exception {
+    ImmutableList<EditedMediaItemAssetInfo> assetInfos =
+        ImmutableList.of(
+            EditedMediaItemAssetInfo.IMAGE,
+            EditedMediaItemAssetInfo.VIDEO,
+            EditedMediaItemAssetInfo.VIDEO);
+    long playToPositionUs =
+        assetInfos.get(0).getEditedMediaItem().getPresentationDurationUs() - 200_000;
+    runFrameProcessorWithAutomaticFrameOutputTest(
+        assetInfos,
+        playToPositionUs,
+        /* expectedTimestampsAtPlayToPositionUs= */ getTimestamps(
+            assetInfos.subList(0, 2), /* withEos= */ false),
+        /* expectedTimestampsAtEnd= */ getTimestamps(assetInfos, /* withEos= */ true));
+  }
+
+  @Test
+  public void
+      frameProcessorWithAutomaticFrameOutput_imageVideoImageAndPlayToEndOfFirstItem_outputsAllFramesFromFirstAndSecondItems()
+          throws Exception {
+    ImmutableList<EditedMediaItemAssetInfo> assetInfos =
+        ImmutableList.of(
+            EditedMediaItemAssetInfo.IMAGE,
+            EditedMediaItemAssetInfo.VIDEO,
+            EditedMediaItemAssetInfo.IMAGE);
+    long playToPositionUs =
+        assetInfos.get(0).getEditedMediaItem().getPresentationDurationUs() - 200_000;
+    runFrameProcessorWithAutomaticFrameOutputTest(
+        assetInfos,
+        playToPositionUs,
+        /* expectedTimestampsAtPlayToPositionUs= */ getTimestamps(
+            assetInfos.subList(0, 2), /* withEos= */ false),
+        /* expectedTimestampsAtEnd= */ getTimestamps(assetInfos, /* withEos= */ true));
+  }
+
+  @Test
+  public void
+      frameProcessorWithAutomaticFrameOutput_imageImageVideoAndPlayToEndOfFirstItem_outputsAllFramesFromFirstAndSecondItems()
+          throws Exception {
+    ImmutableList<EditedMediaItemAssetInfo> assetInfos =
+        ImmutableList.of(
+            EditedMediaItemAssetInfo.IMAGE,
+            EditedMediaItemAssetInfo.IMAGE,
+            EditedMediaItemAssetInfo.VIDEO);
+    long playToPositionUs =
+        assetInfos.get(0).getEditedMediaItem().getPresentationDurationUs() - 200_000;
+    runFrameProcessorWithAutomaticFrameOutputTest(
+        assetInfos,
+        playToPositionUs,
+        /* expectedTimestampsAtPlayToPositionUs= */ getTimestamps(
+            assetInfos.subList(0, 2), /* withEos= */ false),
+        /* expectedTimestampsAtEnd= */ getTimestamps(assetInfos, /* withEos= */ true));
+  }
+
+  @Test
+  public void
+      frameProcessorWithAutomaticFrameOutput_imageImageImageAndPlayToEndOfFirstItem_outputsAllFramesFromFirstAndSecondItems()
+          throws Exception {
+    ImmutableList<EditedMediaItemAssetInfo> assetInfos =
+        ImmutableList.of(
+            EditedMediaItemAssetInfo.IMAGE,
+            EditedMediaItemAssetInfo.IMAGE,
+            EditedMediaItemAssetInfo.IMAGE);
+    long playToPositionUs =
+        assetInfos.get(0).getEditedMediaItem().getPresentationDurationUs() - 200_000;
+    runFrameProcessorWithAutomaticFrameOutputTest(
+        assetInfos,
+        playToPositionUs,
+        /* expectedTimestampsAtPlayToPositionUs= */ getTimestamps(
+            assetInfos.subList(0, 2), /* withEos= */ false),
+        /* expectedTimestampsAtEnd= */ getTimestamps(assetInfos, /* withEos= */ true));
+  }
+
+  @Test
+  public void frameProcessor_videoVideoImage_seekBackToFirstVideo_playsToEnd() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        EditedMediaItemAssetInfo.VIDEO.getEditedMediaItem(),
+                        EditedMediaItemAssetInfo.VIDEO.getEditedMediaItem(),
+                        EditedMediaItemAssetInfo.IMAGE.getEditedMediaItem())))
+            .build();
+    player =
+        createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory)
+            .setPerStreamMediaProgressionEnabled(true)
+            .build();
+
+    player.setComposition(composition);
+    player.prepare();
+    play(player).untilState(STATE_ENDED);
+
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 544);
+    player.setScrubbingModeEnabled(false);
+
+    advance(player).untilState(STATE_ENDED);
+
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
+    assertThat(frameProcessor).isNotNull();
+
+    // Construct expected timestamps
+    ImmutableList.Builder<ImmutableList<Long>> expectedTimestampsBuilder = ImmutableList.builder();
+    // First play: Video 1 (full), Video 2 (full), Image 1 (full)
+    ImmutableList<EditedMediaItemAssetInfo> firstPlayAssets =
+        ImmutableList.of(
+            EditedMediaItemAssetInfo.VIDEO,
+            EditedMediaItemAssetInfo.VIDEO,
+            EditedMediaItemAssetInfo.IMAGE);
+    expectedTimestampsBuilder.addAll(
+        SequenceAssetInfo.getExpectedVideoTimestampsUs(firstPlayAssets, /* offsetUs= */ 0).stream()
+            .map(ImmutableList::of)
+            .collect(toImmutableList()));
+    expectedTimestampsBuilder.add(ImmutableList.of(C.TIME_UNSET)); // EOS from first play
+
+    // Second play: Video 1 (partial, >= 544.5ms), Video 2 (full), Image 1 (full)
+    // Video 1 partial:
+    for (long t : EditedMediaItemAssetInfo.VIDEO.videoTimestampsUs) {
+      if (t >= 544_500L) {
+        expectedTimestampsBuilder.add(ImmutableList.of(t));
+      }
+    }
+    // Video 2 and Image 1:
+    ImmutableList<EditedMediaItemAssetInfo> postSeekRemainingAssets =
+        ImmutableList.of(EditedMediaItemAssetInfo.VIDEO, EditedMediaItemAssetInfo.IMAGE);
+    long video1DurationUs =
+        EditedMediaItemAssetInfo.VIDEO.getEditedMediaItem().getPresentationDurationUs();
+    expectedTimestampsBuilder.addAll(
+        SequenceAssetInfo.getExpectedVideoTimestampsUs(
+                postSeekRemainingAssets, /* offsetUs= */ video1DurationUs)
+            .stream()
+            .map(ImmutableList::of)
+            .collect(toImmutableList()));
+    expectedTimestampsBuilder.add(ImmutableList.of(C.TIME_UNSET)); // EOS from second play
+
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactlyElementsIn(expectedTimestampsBuilder.build())
+        .inOrder();
+  }
+
   @Test
   public void frameProcessor_imagePlayback_seekToMiddle_completesWithExpectedNumberOfFrames()
       throws Exception {
@@ -3073,6 +3363,93 @@ public class CompositionPlayerTest {
     runPlaybackAndAssertFps(composition, FPS_60);
   }
 
+  /**
+   * Plays {@link CompositionPlayer} to {@code playToPositionUs}, verifies the expected timestamps,
+   * then plays to the end.
+   */
+  private void runFrameProcessorWithAutomaticFrameOutputTest(
+      ImmutableList<EditedMediaItemAssetInfo> assetInfos,
+      long playToPositionUs,
+      ImmutableList<ImmutableList<Long>> expectedTimestampsAtPlayToPositionUs,
+      ImmutableList<ImmutableList<Long>> expectedTimestampsAtEnd)
+      throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    assetInfos.stream()
+                        .map(asset -> asset.getEditedMediaItem())
+                        .collect(toImmutableList())))
+            .build();
+    // Allow manually setting the audio position to control which frames are output from the
+    // release control.
+    MaxPositionAudioSink customAudioSink =
+        new MaxPositionAudioSink(new DefaultAudioSink.Builder(getApplicationContext()).build());
+    customAudioSink.maxPositionUs.set(0);
+    // Control the position of the clock to avoid deadlocks when the FakeClock increments time
+    // before frames are output.
+    ManualPositionClock clock = new ManualPositionClock(new FakeClock(/* isAutoAdvancing= */ true));
+    // Force release every frame.
+    AutomaticOutputFrameTimingEvaluator frameTimingEvaluator =
+        new AutomaticOutputFrameTimingEvaluator();
+    player =
+        createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory)
+            .setAudioSink(customAudioSink)
+            .setClock(clock)
+            .setPerStreamMediaProgressionEnabled(true)
+            .setFrameTimingEvaluator(frameTimingEvaluator)
+            .build();
+
+    player.setComposition(composition);
+    player.prepare();
+    advance(player).untilState(STATE_READY);
+
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
+    assertThat(frameProcessor).isNotNull();
+    advance(player)
+        .untilBackgroundThreadCondition(() -> !frameProcessor.getQueuedContentTimesUs().isEmpty());
+
+    assertThat(frameProcessor.getQueuedContentTimesUs()).containsExactly(ImmutableList.of(0L));
+
+    assertThat(player.getCurrentPosition()).isEqualTo(0);
+
+    // Start playback and wait until the player is actually playing and pending commands are handled
+    // so the internal media clock is deterministically started.
+    player.play();
+    advance(player).untilBackgroundThreadCondition(player::isPlaying);
+    advance(player).untilPendingCommandsAreFullyHandled();
+
+    // Advance position to playToPositionUs.
+    customAudioSink.maxPositionUs.set(playToPositionUs);
+    clock.advanceElapsedRealtime(playToPositionUs / 1000);
+
+    advance(player)
+        .untilBackgroundThreadCondition(
+            () ->
+                frameProcessor.getQueuedContentTimesUs().size()
+                    >= expectedTimestampsAtPlayToPositionUs.size());
+
+    // All frames should be rendered because FrameTimingEvaluator will ignore audio position and
+    // output all available decoded frames.
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsAtLeastElementsIn(expectedTimestampsAtPlayToPositionUs)
+        .inOrder();
+
+    // Allow the player to play to the end.
+    customAudioSink.maxPositionUs.set(C.TIME_UNSET);
+    clock.setManualMode(false);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    advance(player)
+        .untilBackgroundThreadCondition(
+            () ->
+                frameProcessor.getQueuedContentTimesUs().size() >= expectedTimestampsAtEnd.size());
+    advance(player).untilState(STATE_ENDED);
+
+    // There should be no more frames output when the player ends.
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactlyElementsIn(expectedTimestampsAtEnd)
+        .inOrder();
+  }
+
   private static EditedMediaItem getImageItem() {
     return new EditedMediaItem.Builder(
             new MediaItem.Builder()
@@ -3151,6 +3528,21 @@ public class CompositionPlayerTest {
           }
           return true;
         });
+  }
+
+  private static ImmutableList<ImmutableList<Long>> getTimestamps(
+      ImmutableList<EditedMediaItemAssetInfo> assetInfos, boolean withEos) {
+    ImmutableList.Builder<ImmutableList<Long>> contentTimesUsBuilder =
+        new ImmutableList.Builder<ImmutableList<Long>>()
+            .addAll(
+                SequenceAssetInfo.getExpectedVideoTimestampsUs(assetInfos, /* offsetUs= */ 0)
+                    .stream()
+                    .map(ImmutableList::of)
+                    .collect(ImmutableList.toImmutableList()));
+    if (withEos) {
+      contentTimesUsBuilder.add(ImmutableList.of(C.TIME_UNSET));
+    }
+    return contentTimesUsBuilder.build();
   }
 
   private static final class CustomLoadControl extends DefaultLoadControl {
@@ -3324,6 +3716,140 @@ public class CompositionPlayerTest {
         return false;
       }
       return sink.handleBuffer(buffer, presentationTimeUs, encodedAccessUnitCount);
+    }
+  }
+
+  /** A {@link FrameTimingEvaluator} that always force releases frames. */
+  private static final class AutomaticOutputFrameTimingEvaluator implements FrameTimingEvaluator {
+    @Override
+    public boolean shouldForceReleaseFrame(long earlyUs, long elapsedSinceLastReleaseUs) {
+      return true;
+    }
+
+    @Override
+    public boolean shouldDropFrame(long earlyUs, long elapsedRealtimeUs, boolean isLastFrame) {
+      return false;
+    }
+
+    @Override
+    public boolean shouldIgnoreFrame(
+        long earlyUs,
+        long positionUs,
+        long elapsedRealtimeUs,
+        boolean isLastFrame,
+        boolean treatDroppedBuffersAsSkipped) {
+      return false;
+    }
+  }
+
+  // TODO: b/545016809 - Consider moving this functionality into FakeClock.
+  /**
+   * A {@link Clock} implementation that allows manual control of the elapsed realtime, while
+   * delegating other clock operations to a {@link FakeClock}.
+   *
+   * <p>It can operate in either manual mode or auto-advancing mode.
+   *
+   * <ul>
+   *   <li>In manual mode, elapsed realtime only advances when explicitly requested via {@link
+   *       #advanceElapsedRealtime(long)}.
+   *   <li>In auto-advancing mode, elapsed realtime advances in sync with the underlying {@link
+   *       FakeClock}.
+   * </ul>
+   */
+  public static final class ManualPositionClock implements Clock {
+    private final FakeClock delegate;
+    private boolean isManualMode;
+    private long manualElapsedRealtimeMs;
+    private long delegateElapsedRealtimeAtSync;
+
+    /**
+     * Creates a new {@code ManualPositionClock} in manual mode.
+     *
+     * @param delegate The underlying {@link FakeClock} to delegate to.
+     */
+    public ManualPositionClock(FakeClock delegate) {
+      this(delegate, /* isManualMode= */ true);
+    }
+
+    /**
+     * Creates a new {@code ManualPositionClock}.
+     *
+     * @param delegate The underlying {@link FakeClock} to delegate to.
+     * @param isManualMode Whether the clock should start in manual mode.
+     */
+    public ManualPositionClock(FakeClock delegate, boolean isManualMode) {
+      this.delegate = delegate;
+      this.isManualMode = isManualMode;
+      this.manualElapsedRealtimeMs = delegate.elapsedRealtime();
+      this.delegateElapsedRealtimeAtSync = delegate.elapsedRealtime();
+    }
+
+    @Override
+    public synchronized long elapsedRealtime() {
+      if (isManualMode) {
+        return manualElapsedRealtimeMs;
+      }
+      return manualElapsedRealtimeMs + (delegate.elapsedRealtime() - delegateElapsedRealtimeAtSync);
+    }
+
+    @Override
+    public synchronized long nanoTime() {
+      return elapsedRealtime() * 1_000_000L;
+    }
+
+    @Override
+    public long uptimeMillis() {
+      return delegate.uptimeMillis();
+    }
+
+    @Override
+    public long currentTimeMillis() {
+      return delegate.currentTimeMillis();
+    }
+
+    @Override
+    public HandlerWrapper createHandler(Looper looper, @Nullable Handler.Callback callback) {
+      return delegate.createHandler(looper, callback);
+    }
+
+    @Override
+    public void onThreadBlocked() {
+      delegate.onThreadBlocked();
+    }
+
+    /**
+     * Advances the elapsed realtime by the specified duration.
+     *
+     * <p>This also advances the underlying {@link FakeClock} by the same duration.
+     *
+     * @param timeDiffMs The duration to advance by, in milliseconds.
+     */
+    public synchronized void advanceElapsedRealtime(long timeDiffMs) {
+      manualElapsedRealtimeMs += timeDiffMs;
+      delegate.advanceTime(timeDiffMs);
+    }
+
+    /**
+     * Sets whether the clock should operate in manual mode.
+     *
+     * <p>When switching from manual to auto-advancing mode, the current time of the delegate clock
+     * is recorded to sync future time advancement.
+     *
+     * <p>When switching from auto-advancing to manual mode, the manual elapsed realtime is updated
+     * to the current elapsed realtime.
+     *
+     * @param isManualMode Whether to enable manual mode.
+     */
+    public synchronized void setManualMode(boolean isManualMode) {
+      if (this.isManualMode == isManualMode) {
+        return;
+      }
+      if (!isManualMode) {
+        delegateElapsedRealtimeAtSync = delegate.elapsedRealtime();
+      } else {
+        manualElapsedRealtimeMs = elapsedRealtime();
+      }
+      this.isManualMode = isManualMode;
     }
   }
 }
