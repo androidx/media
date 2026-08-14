@@ -35,6 +35,7 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
+import androidx.media3.container.Mp4LocationData;
 import androidx.media3.extractor.mkv.MatroskaExtractor;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
@@ -139,16 +140,83 @@ public final class MediaMuxerCompatTest {
     }
   }
 
+  @Test
+  public void setLocation_withValidCoordinates_setsLocationDataOnOutput() throws Exception {
+    String outputFilePath = tempFolder.newFile().getAbsolutePath();
+    float latitude = 37.7749f;
+    float longitude = -122.4194f;
+
+    MediaMuxerCompat mediaMuxerCompat = new MediaMuxerCompat(outputFilePath, OUTPUT_FORMAT_MP4);
+    try {
+      mediaMuxerCompat.setLocation(latitude, longitude);
+      feedDataToMuxer(
+          context, mediaMuxerCompat, MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri, C.RATE_UNSET);
+    } finally {
+      mediaMuxerCompat.release();
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputFilePath));
+    Format videoTrackFormat =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO))
+            .lastFormat;
+    Mp4LocationData locationData = findMetadataEntry(videoTrackFormat, Mp4LocationData.class);
+    assertThat(locationData).isNotNull();
+    assertThat(locationData.latitude).isEqualTo(latitude);
+    assertThat(locationData.longitude).isEqualTo(longitude);
+  }
+
+  @Test
+  public void setOrientationHint_withValidOrientation_setsOrientationDataOnOutput()
+      throws Exception {
+    String outputFilePath = tempFolder.newFile().getAbsolutePath();
+    int orientation = 90;
+
+    MediaMuxerCompat mediaMuxerCompat = new MediaMuxerCompat(outputFilePath, OUTPUT_FORMAT_MP4);
+    try {
+      mediaMuxerCompat.setOrientationHint(orientation);
+      feedDataToMuxer(
+          context, mediaMuxerCompat, MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri, C.RATE_UNSET);
+    } finally {
+      mediaMuxerCompat.release();
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputFilePath));
+    Format videoTrackFormat =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO))
+            .lastFormat;
+    assertThat(videoTrackFormat.rotationDegrees).isEqualTo(orientation);
+  }
+
+  @Nullable
+  private static <T extends Metadata.Entry> T findMetadataEntry(Format format, Class<T> clazz) {
+    if (format.metadata == null) {
+      return null;
+    }
+    for (int i = 0; i < format.metadata.length(); i++) {
+      Metadata.Entry metadataEntry = format.metadata.get(i);
+      if (clazz.isInstance(metadataEntry)) {
+        return clazz.cast(metadataEntry);
+      }
+    }
+    return null;
+  }
+
+  @SuppressWarnings("PatternMatchingInstanceof")
   private static MdtaMetadataEntry findCaptureFpsMetadata(Format format) {
     if (format.metadata == null) {
       return null;
     }
     for (int i = 0; i < format.metadata.length(); i++) {
       Metadata.Entry metadataEntry = format.metadata.get(i);
-      if (metadataEntry instanceof MdtaMetadataEntry
-          && ((MdtaMetadataEntry) metadataEntry)
-              .key.equals(MdtaMetadataEntry.KEY_ANDROID_CAPTURE_FPS)) {
-        return (MdtaMetadataEntry) metadataEntry;
+      if (metadataEntry instanceof MdtaMetadataEntry) {
+        MdtaMetadataEntry mdtaMetadataEntry = (MdtaMetadataEntry) metadataEntry;
+        if (mdtaMetadataEntry.key.equals(MdtaMetadataEntry.KEY_ANDROID_CAPTURE_FPS)) {
+          return mdtaMetadataEntry;
+        }
       }
     }
     return null;
