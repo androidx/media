@@ -598,14 +598,9 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     List<MediaItem.SubtitleConfiguration> subtitleConfigurations =
         castNonNull(mediaItem.localConfiguration).subtitleConfigurations;
     if (!subtitleConfigurations.isEmpty()) {
-      MediaSource[] mediaSources = new MediaSource[subtitleConfigurations.size() + 1];
-      mediaSources[0] = mediaSource;
-      TimeOffsetMediaSource[] subtitleSources =
-          parseSubtitlesDuringExtraction
-              ? new TimeOffsetMediaSource[subtitleConfigurations.size()]
-              : null;
-      for (int i = 0; i < subtitleConfigurations.size(); i++) {
-        if (subtitleSources != null) {
+      if (parseSubtitlesDuringExtraction) {
+        MediaSource[] subtitleMediaSources = new MediaSource[subtitleConfigurations.size()];
+        for (int i = 0; i < subtitleConfigurations.size(); i++) {
           Format format =
               new Format.Builder()
                   .setSampleMimeType(subtitleConfigurations.get(i).mimeType)
@@ -640,13 +635,17 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
           if (loadErrorHandlingPolicy != null) {
             progressiveMediaSourceFactory.setLoadErrorHandlingPolicy(loadErrorHandlingPolicy);
           }
-          subtitleSources[i] =
-              new TimeOffsetMediaSource(
-                  progressiveMediaSourceFactory.createMediaSource(
-                      MediaItem.fromUri(subtitleConfigurations.get(i).uri.toString())),
-                  subtitleConfigurations.get(i).timeOffsetUs);
-          mediaSources[i + 1] = subtitleSources[i];
-        } else {
+          subtitleMediaSources[i] =
+              progressiveMediaSourceFactory.createMediaSource(
+                  MediaItem.fromUri(subtitleConfigurations.get(i).uri.toString()));
+        }
+        mediaSource =
+            new SideloadedSubtitlesMediaSource(
+                mediaSource, subtitleConfigurations, subtitleMediaSources);
+      } else {
+        MediaSource[] mediaSources = new MediaSource[subtitleConfigurations.size() + 1];
+        mediaSources[0] = mediaSource;
+        for (int i = 0; i < subtitleConfigurations.size(); i++) {
           SingleSampleMediaSource.Factory singleSampleMediaSourceFactory =
               new SingleSampleMediaSource.Factory(dataSourceFactory);
           if (loadErrorHandlingPolicy != null) {
@@ -656,12 +655,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
               singleSampleMediaSourceFactory.createMediaSource(
                   subtitleConfigurations.get(i), /* durationUs= */ C.TIME_UNSET);
         }
-      }
-
-      mediaSource = new MergingMediaSource(mediaSources);
-      if (subtitleSources != null) {
-        mediaSource =
-            new SideloadedSubtitlesMediaSource(mediaSource, subtitleConfigurations, subtitleSources);
+        mediaSource = new MergingMediaSource(mediaSources);
       }
     }
     return maybeWrapWithAdsMediaSource(
