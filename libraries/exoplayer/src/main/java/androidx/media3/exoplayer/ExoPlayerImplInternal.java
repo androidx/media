@@ -4096,14 +4096,16 @@ import java.util.Objects;
             && isOldAdGroupWithinNewPeriod
             && earliestAdGroupIsUnchangedOrLater;
     // Drop update if the change is from/to server-side inserted ads at the same content position to
-    // avoid any unintentional renderer reset.
+    // avoid any unintentional renderer reset. Note that the resolved period may be a period
+    // preceding newPeriodUid, because resolveMediaPeriodIdForAdsAfterPeriodPositionChange rolls
+    // back to unplayed ad periods, so the period has to be looked up by the resolved period uid.
     boolean isInStreamAdChange =
         isIgnorableServerSideAdInsertionPeriodChange(
             isUsingPlaceholderPeriod,
             oldPeriodId,
             oldContentPositionUs,
             periodIdWithAds,
-            timeline.getPeriodByUid(newPeriodUid, period),
+            timeline.getPeriodByUid(periodIdWithAds.periodUid, period),
             newContentPositionUs);
     MediaPeriodId newPeriodId =
         onlyNextAdGroupIndexIncreased || isInStreamAdChange ? oldPeriodId : periodIdWithAds;
