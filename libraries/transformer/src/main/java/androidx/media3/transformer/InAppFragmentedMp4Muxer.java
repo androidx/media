@@ -36,7 +36,6 @@ import java.nio.ByteBuffer;
 import java.util.Locale;
 
 /** {@link Muxer} implementation that uses a {@link FragmentedMp4Muxer}. */
-// TODO: b/372417042 - Add E2E tests for producing fragmented MP4 output.
 @UnstableApi
 public final class InAppFragmentedMp4Muxer implements Muxer {
   /** {@link Muxer.Factory} for {@link InAppFragmentedMp4Muxer}. */

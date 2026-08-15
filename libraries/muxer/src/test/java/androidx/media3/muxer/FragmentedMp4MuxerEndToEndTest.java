@@ -422,4 +422,21 @@ public class FragmentedMp4MuxerEndToEndTest {
     assertThat(extractedFormat.initializationData).hasSize(1);
     assertThat(extractedFormat.initializationData.get(0)).isEqualTo(expectedDec3Payload);
   }
+
+  @Test
+  public void writeFragmentedMp4File_onlyEndOfStreamSample_doesNotCrash() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Format format = new Format.Builder().setSampleMimeType("xyz").build();
+    try (FragmentedMp4Muxer muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel()).build()) {
+      int trackId = muxer.addTrack(format);
+      BufferInfo endOfStreamBufferInfo =
+          new BufferInfo(
+              /* presentationTimeUs= */ 2_000_000L, /* size= */ 0, C.BUFFER_FLAG_END_OF_STREAM);
+      muxer.writeSampleData(trackId, ByteBuffer.allocate(0), endOfStreamBufferInfo);
+    }
+
+    byte[] outputFileBytes = TestUtil.getByteArrayFromFilePath(outputFilePath);
+    assertThat(outputFileBytes).isEmpty();
+  }
 }

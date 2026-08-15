@@ -153,19 +153,23 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   public void writeSampleData(Track track, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws IOException {
-    if (Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_AV1)
+    if (bufferInfo.size > 0
+        && Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_AV1)
         && track.format.initializationData.isEmpty()
         && track.parsedCsd == null) {
       track.parsedCsd = createAv1CodecConfigurationRecord(byteBuffer.duplicate());
-    }
-    if (!headerCreated) {
-      createHeader();
-      headerCreated = true;
     }
     if (shouldFlushPendingSamples(track, bufferInfo)) {
       createFragment();
     }
     track.writeSampleData(byteBuffer, bufferInfo);
+    if (track.pendingSamplesBufferInfo.isEmpty()) {
+      return;
+    }
+    if (!headerCreated) {
+      createHeader();
+      headerCreated = true;
+    }
     BufferInfo firstPendingSample = checkNotNull(track.pendingSamplesBufferInfo.peekFirst());
     BufferInfo lastPendingSample = checkNotNull(track.pendingSamplesBufferInfo.peekLast());
     minInputPresentationTimeUs =
