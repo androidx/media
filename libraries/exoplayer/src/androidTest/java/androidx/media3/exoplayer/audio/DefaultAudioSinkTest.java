@@ -26,6 +26,7 @@ import android.os.HandlerThread;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.common.util.Util;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -327,7 +328,7 @@ public class DefaultAudioSinkTest {
     }
   }
 
-  private static void runOnHandlerSync(Handler handler, ThrowingRunnable runnable)
+  private static void runOnHandlerSync(Handler handler, ThrowingRunnable<?> runnable)
       throws Exception {
     AtomicReference<Exception> exceptionOnHandler = new AtomicReference<>();
     CountDownLatch latch = new CountDownLatch(1);
@@ -345,9 +346,5 @@ public class DefaultAudioSinkTest {
     if (exceptionOnHandler.get() != null) {
       throw exceptionOnHandler.get();
     }
-  }
-
-  private interface ThrowingRunnable {
-    void run() throws Exception;
   }
 }

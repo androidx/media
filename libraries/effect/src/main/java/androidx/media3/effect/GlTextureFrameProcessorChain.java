@@ -27,8 +27,8 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Consumer;
+import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.common.util.Util;
-import androidx.media3.effect.FrameProcessorUtils.ThrowingRunnable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import java.util.ArrayList;
@@ -156,7 +156,7 @@ import java.util.concurrent.Executor;
   }
 
   private void closeAllProcessors() throws VideoFrameProcessingException {
-    ThrowingRunnable[] closeActions = new ThrowingRunnable[effectProcessorChain.size()];
+    ThrowingRunnable<?>[] closeActions = new ThrowingRunnable<?>[effectProcessorChain.size()];
     for (int i = 0; i < effectProcessorChain.size(); i++) {
       closeActions[i] = effectProcessorChain.get(i)::close;
     }

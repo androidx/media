@@ -26,7 +26,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Consumer;
-import androidx.media3.effect.FrameProcessorUtils.ThrowingRunnable;
+import androidx.media3.common.util.ThrowingRunnable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -289,12 +289,12 @@ import java.util.concurrent.Executor;
   }
 
   private void releaseFrames(List<GlTextureFrame> frames) throws VideoFrameProcessingException {
-    ImmutableList.Builder<ThrowingRunnable> releaseActions = new ImmutableList.Builder<>();
+    ImmutableList.Builder<ThrowingRunnable<?>> releaseActions = new ImmutableList.Builder<>();
     for (int i = 0; i < frames.size(); i++) {
       GlTextureFrame frame = frames.get(i);
       releaseActions.add(() -> frame.release(/* releaseFence= */ null));
     }
-    runAllAndAccumulateExceptions(releaseActions.build().toArray(new ThrowingRunnable[0]));
+    runAllAndAccumulateExceptions(releaseActions.build().toArray(new ThrowingRunnable<?>[0]));
   }
 
   private final class InputFrameConsumer implements GlTextureFrameConsumer {

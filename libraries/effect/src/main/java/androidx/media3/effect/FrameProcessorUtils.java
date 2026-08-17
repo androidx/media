@@ -38,6 +38,7 @@ import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.SyncFenceWrapper;
 import com.google.common.collect.ImmutableList;
@@ -256,12 +257,6 @@ import java.util.concurrent.ExecutorService;
         directExecutor());
   }
 
-  /** A runnable that throws an exception. */
-  public interface ThrowingRunnable {
-    /** Runs the operation. */
-    void run() throws Exception;
-  }
-
   /**
    * Executes multiple throwing actions sequentially, ensuring all are run even if some fail.
    *
@@ -271,7 +266,7 @@ import java.util.concurrent.ExecutorService;
    * @param actions The throwing actions to execute.
    * @throws VideoFrameProcessingException If any of the actions fail.
    */
-  public static void runAllAndAccumulateExceptions(ThrowingRunnable... actions)
+  public static void runAllAndAccumulateExceptions(ThrowingRunnable<?>... actions)
       throws VideoFrameProcessingException {
     @Nullable
     VideoFrameProcessingException exception = runAllAndAccumulateExceptionInternal(actions);
@@ -291,7 +286,7 @@ import java.util.concurrent.ExecutorService;
    * @param actions The throwing actions to execute.
    */
   public static void runAllAndAccumulateExceptions(
-      Consumer<VideoFrameProcessingException> errorConsumer, ThrowingRunnable... actions) {
+      Consumer<VideoFrameProcessingException> errorConsumer, ThrowingRunnable<?>... actions) {
     @Nullable
     VideoFrameProcessingException exception = runAllAndAccumulateExceptionInternal(actions);
     if (exception != null) {
@@ -301,9 +296,9 @@ import java.util.concurrent.ExecutorService;
 
   @Nullable
   private static VideoFrameProcessingException runAllAndAccumulateExceptionInternal(
-      ThrowingRunnable... actions) {
+      ThrowingRunnable<?>... actions) {
     @Nullable VideoFrameProcessingException firstException = null;
-    for (ThrowingRunnable action : actions) {
+    for (ThrowingRunnable<?> action : actions) {
       if (action == null) {
         continue;
       }

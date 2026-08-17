@@ -37,13 +37,14 @@ import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.HardwareBufferFrame;
+import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.effect.DefaultGlTextureFrameCompositingProcessor.CompositorGlProgram;
-import androidx.media3.effect.FrameProcessorUtils.ThrowingRunnable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import java.util.Collections;
@@ -390,7 +391,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     }
     submitToGlExecutor(
         () -> {
-          ImmutableList.Builder<ThrowingRunnable> closeActions = ImmutableList.builder();
+          ImmutableList.Builder<ThrowingRunnable<?>> closeActions = ImmutableList.builder();
           closeActions.addAll(getReleaseUnqueuedFramesActions());
           closeActions.add(hardwareBufferConverter::close);
           for (int i = 0; i < preProcessingChains.size(); i++) {
@@ -402,7 +403,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
               .add(compositingProcessor::close)
               .add(postProcessingChain::close)
               .add(frameWriterGlTextureFrameConsumer::close);
-          runAllAndAccumulateExceptions(closeActions.build().toArray(new ThrowingRunnable[0]));
+          runAllAndAccumulateExceptions(closeActions.build().toArray(new ThrowingRunnable<?>[0]));
           return null;
         });
   }
@@ -478,7 +479,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     }
     runAllAndAccumulateExceptions(
         /* errorConsumer= */ exception::addSuppressed,
-        getReleaseUnqueuedFramesActions().toArray(new ThrowingRunnable[0]));
+        getReleaseUnqueuedFramesActions().toArray(new ThrowingRunnable<?>[0]));
     convertedGlTextureFrames.clear();
     glTextureFramesQueuedDownstream.clear();
     listenerExecutor.execute(() -> listener.onError(VideoFrameProcessingException.from(exception)));
@@ -524,8 +525,8 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     return (Integer) checkNotNull(frame.getMetadata().get(KEY_COMPOSITION_SEQUENCE_INDEX));
   }
 
-  private ImmutableList<ThrowingRunnable> getReleaseUnqueuedFramesActions() {
-    ImmutableList.Builder<ThrowingRunnable> actions = ImmutableList.builder();
+  private ImmutableList<ThrowingRunnable<?>> getReleaseUnqueuedFramesActions() {
+    ImmutableList.Builder<ThrowingRunnable<?>> actions = ImmutableList.builder();
     for (int i = 0; i < convertedGlTextureFrames.size(); i++) {
       GlTextureFrame glTextureFrame = convertedGlTextureFrames.valueAt(i);
       if (!glTextureFramesQueuedDownstream.contains(glTextureFrame)) {
