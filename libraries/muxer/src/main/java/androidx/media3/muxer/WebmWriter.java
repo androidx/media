@@ -114,6 +114,7 @@ import java.util.PriorityQueue;
   // sample.
   private final SparseArray<Long> prevPresentationTimeOfTrack;
 
+  private boolean isClosed;
   private boolean writtenSegmentHeader;
   private long trackElementStart;
   private long infoElementStart;
@@ -145,6 +146,7 @@ import java.util.PriorityQueue;
    * @return A unique {@link Track}. It should be used in {@link #writeSampleData}.
    */
   public Track addTrack(int trackId, Format format) {
+    checkState(!isClosed, "WebmWriter is closed.");
     // Tracks can only be added before writing any samples.
     checkArgument(!writtenSegmentHeader);
 
@@ -165,6 +167,7 @@ import java.util.PriorityQueue;
    */
   public void writeSampleData(Track track, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws IOException {
+    checkState(!isClosed, "WebmWriter is closed.");
     if (!writtenSegmentHeader) {
       writeSegmentHeader();
       writtenSegmentHeader = true;
@@ -302,11 +305,14 @@ import java.util.PriorityQueue;
   /**
    * Finalizes the output and closes WebmWriter.
    *
-   * <p>The WebmWriter cannot be used anymore once this method returns.
+   * <p>This method can be called only once. The {@link WebmWriter} cannot be used anymore once this
+   * method returns.
    *
    * @throws IOException If the WebmWriter fails to finish writing the output.
    */
   public void close() throws IOException {
+    checkState(!isClosed, "WebmWriter is closed.");
+    isClosed = true;
     if (!writtenSegmentHeader) {
       return;
     }

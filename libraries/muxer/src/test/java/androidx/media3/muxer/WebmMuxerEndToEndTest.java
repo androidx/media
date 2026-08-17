@@ -18,6 +18,7 @@ package androidx.media3.muxer;
 import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
 import androidx.media3.common.Format;
@@ -30,6 +31,7 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.FileOutputStream;
+import java.nio.ByteBuffer;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -97,5 +99,45 @@ public class WebmMuxerEndToEndTest {
 
     byte[] outputFileBytes = TestUtil.getByteArrayFromFilePath(outputFilePath);
     assertThat(outputFileBytes).isEmpty();
+  }
+
+  @Test
+  public void addTrack_afterClose_throws() throws Exception {
+    WebmMuxer muxer =
+        new WebmMuxer.Builder(
+                SeekableMuxerOutput.of(new FileOutputStream(temporaryFolder.newFile())))
+            .build();
+    muxer.close();
+    Format format = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_VP9).build();
+
+    assertThrows(IllegalStateException.class, () -> muxer.addTrack(format));
+  }
+
+  @Test
+  public void writeSampleData_afterClose_throws() throws Exception {
+    WebmMuxer muxer =
+        new WebmMuxer.Builder(
+                SeekableMuxerOutput.of(new FileOutputStream(temporaryFolder.newFile())))
+            .build();
+    Format format = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_VP9).build();
+    int trackId = muxer.addTrack(format);
+    muxer.close();
+    BufferInfo bufferInfo =
+        new BufferInfo(/* presentationTimeUs= */ 0, /* size= */ 0, /* flags= */ 0);
+    ByteBuffer sampleData = ByteBuffer.allocate(0);
+
+    assertThrows(
+        IllegalStateException.class, () -> muxer.writeSampleData(trackId, sampleData, bufferInfo));
+  }
+
+  @Test
+  public void close_afterClose_throws() throws Exception {
+    WebmMuxer muxer =
+        new WebmMuxer.Builder(
+                SeekableMuxerOutput.of(new FileOutputStream(temporaryFolder.newFile())))
+            .build();
+    muxer.close();
+
+    assertThrows(IllegalStateException.class, muxer::close);
   }
 }

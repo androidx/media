@@ -48,6 +48,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 import org.junit.Rule;
 import org.junit.Test;
@@ -1270,5 +1271,44 @@ public class Mp4MuxerEndToEndTest {
 
     assertThat(fakeExtractorOutput.numberOfTracks).isEqualTo(1);
     assertThat(fakeExtractorOutput.seekMap).isNotNull();
+  }
+
+  @Test
+  public void addTrack_afterClose_throws() throws Exception {
+    Mp4Muxer mp4Muxer =
+        new Mp4Muxer.Builder(
+                SeekableMuxerOutput.of(new FileOutputStream(temporaryFolder.newFile())))
+            .build();
+    mp4Muxer.close();
+
+    assertThrows(IllegalStateException.class, () -> mp4Muxer.addTrack(FAKE_AUDIO_FORMAT));
+  }
+
+  @Test
+  public void writeSampleData_afterClose_throws() throws Exception {
+    Mp4Muxer mp4Muxer =
+        new Mp4Muxer.Builder(
+                SeekableMuxerOutput.of(new FileOutputStream(temporaryFolder.newFile())))
+            .build();
+    int trackId = mp4Muxer.addTrack(FAKE_AUDIO_FORMAT);
+    mp4Muxer.close();
+    BufferInfo bufferInfo =
+        new BufferInfo(/* presentationTimeUs= */ 0, /* size= */ 0, /* flags= */ 0);
+    ByteBuffer sampleData = ByteBuffer.allocate(0);
+
+    assertThrows(
+        IllegalStateException.class,
+        () -> mp4Muxer.writeSampleData(trackId, sampleData, bufferInfo));
+  }
+
+  @Test
+  public void close_afterClose_throws() throws Exception {
+    Mp4Muxer mp4Muxer =
+        new Mp4Muxer.Builder(
+                SeekableMuxerOutput.of(new FileOutputStream(temporaryFolder.newFile())))
+            .build();
+    mp4Muxer.close();
+
+    assertThrows(IllegalStateException.class, mp4Muxer::close);
   }
 }

@@ -117,6 +117,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
     linearByteBufferAllocator = new LinearByteBufferAllocator(/* initialCapacity= */ 0);
   }
 
+  private boolean isClosed;
+
   /**
    * Adds a track of the given {@link Format}.
    *
@@ -126,6 +128,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
    * @return A unique {@link Track}. It should be used in {@link #writeSampleData}.
    */
   public Track addTrack(int trackId, int sortKey, Format format) {
+    checkState(!isClosed, "Mp4Writer is closed.");
     Track track = new Track(trackId, format, sortKey, sampleCopyEnabled);
     tracks.add(track);
     Collections.sort(tracks, (a, b) -> Integer.compare(a.sortKey, b.sortKey));
@@ -143,6 +146,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
    * @return A unique {@link Track}. It should be used in {@link #writeSampleData}.
    */
   public Track addAuxiliaryTrack(int trackId, int sortKey, Format format) {
+    checkState(!isClosed, "Mp4Writer is closed.");
     Track track = new Track(trackId, format, sortKey, sampleCopyEnabled);
     auxiliaryTracks.add(track);
     Collections.sort(auxiliaryTracks, (a, b) -> Integer.compare(a.sortKey, b.sortKey));
@@ -159,6 +163,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
    */
   public void writeSampleData(Track track, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws IOException {
+    checkState(!isClosed, "Mp4Writer is closed.");
     if (track.format.initializationData.isEmpty() && track.parsedCsd == null) {
       if (Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_AV1)) {
         track.parsedCsd = createAv1CodecConfigurationRecord(byteBuffer.duplicate());
@@ -187,10 +192,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
   /**
    * Writes all the pending samples and the final moov box to the output {@link FileChannel}.
    *
-   * <p>This should be done before closing the file. The output {@link FileChannel} can be closed
-   * after calling this method.
+   * <p>This method can be called only once, before closing the file. The {@link Mp4Writer} cannot
+   * be used anymore once this method is called. The output {@link FileChannel} can be closed after
+   * calling this method.
    */
   public void finishWritingSamplesAndFinalizeMoovBox() throws IOException {
+    checkState(!isClosed, "Mp4Writer is closed.");
+    isClosed = true;
     for (int i = 0; i < tracks.size(); i++) {
       writePendingTrackSamples(tracks.get(i));
     }

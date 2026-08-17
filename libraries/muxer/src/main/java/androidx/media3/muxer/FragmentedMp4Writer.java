@@ -105,6 +105,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final List<Track> tracks;
   private final LinearByteBufferAllocator linearByteBufferAllocator;
 
+  private boolean isClosed;
   private @MonotonicNonNull Track videoTrack;
   private int currentFragmentSequenceNumber;
   private boolean headerCreated;
@@ -143,6 +144,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   public Track addTrack(int sortKey, Format format) {
+    checkState(!isClosed, "FragmentedMp4Writer is closed.");
     Track track = new Track(nextTrackId++, format, sampleCopyEnabled);
     tracks.add(track);
     if (MimeTypes.isVideo(format.sampleMimeType)) {
@@ -153,6 +155,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   public void writeSampleData(Track track, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws IOException {
+    checkState(!isClosed, "FragmentedMp4Writer is closed.");
     if (bufferInfo.size > 0
         && Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_AV1)
         && track.format.initializationData.isEmpty()
@@ -180,7 +183,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             lastPendingSample.presentationTimeUs - firstPendingSample.presentationTimeUs);
   }
 
+  /**
+   * Finalizes output and closes the writer.
+   *
+   * <p>This method can be called only once. The {@link FragmentedMp4Writer} cannot be used anymore
+   * once this method returns.
+   *
+   * @throws IOException If an error occurs while finalizing output or closing the output channel.
+   */
   public void close() throws IOException {
+    checkState(!isClosed, "FragmentedMp4Writer is closed.");
+    isClosed = true;
     try {
       createFragment();
       writeMfraBox();
