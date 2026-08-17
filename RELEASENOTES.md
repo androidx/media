@@ -56,6 +56,9 @@
         samples are written.
 *   IMA extension:
 *   Session:
+    *   Fix `NullPointerException` when an in-process `MediaController` is
+        released from a `Player.Listener` callback
+        ([#3375](https://github.com/androidx/media/issues/3375)).
 *   UI:
     *   Introduce `PresentationState.videoAspectRatio` and make
         `Modifier.resizeWithContentScale` take `aspectRatio: Float?` instead of
