@@ -870,10 +870,10 @@ public class DefaultDashChunkSource implements DashChunkSource {
         CmcdData cmcdData = cmcdDataFactory.createCmcdData();
         dataSpec = cmcdData.addToDataSpec(dataSpec);
       }
-      long sampleOffsetUs = -representation.presentationTimeOffsetUs;
-      if (MimeTypes.isImage(trackFormat.sampleMimeType)) {
-        sampleOffsetUs += startTimeUs;
-      }
+      long sampleOffsetUs =
+          MimeTypes.isImage(trackFormat.sampleMimeType)
+              ? startTimeUs
+              : -representation.presentationTimeOffsetUs;
       return new ContainerMediaChunk(
           dataSource,
           dataSpec,

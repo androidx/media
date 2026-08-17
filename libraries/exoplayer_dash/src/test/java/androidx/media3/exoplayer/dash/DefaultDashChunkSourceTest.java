@@ -19,6 +19,7 @@ import static androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy.
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import android.net.Uri;
 import android.os.SystemClock;
@@ -36,6 +37,9 @@ import androidx.media3.exoplayer.dash.manifest.DashManifest;
 import androidx.media3.exoplayer.dash.manifest.DashManifestParser;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
+import androidx.media3.exoplayer.source.SampleQueue;
+import androidx.media3.exoplayer.source.chunk.BaseMediaChunk;
+import androidx.media3.exoplayer.source.chunk.BaseMediaChunkOutput;
 import androidx.media3.exoplayer.source.chunk.BundledChunkExtractor;
 import androidx.media3.exoplayer.source.chunk.Chunk;
 import androidx.media3.exoplayer.source.chunk.ChunkHolder;
@@ -43,10 +47,12 @@ import androidx.media3.exoplayer.source.chunk.MediaChunk;
 import androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection;
 import androidx.media3.exoplayer.trackselection.FixedTrackSelection;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
+import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoaderErrorThrower;
+import androidx.media3.test.utils.FakeDataSet;
 import androidx.media3.test.utils.FakeDataSource;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
@@ -54,6 +60,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -745,5 +752,73 @@ public class DefaultDashChunkSourceTest {
             new byte[0]);
     return new LoadErrorHandlingPolicy.LoadErrorInfo(
         loadEventInfo, mediaLoadData, invalidResponseCodeException, errorCount);
+  }
+
+  @Test
+  public void getNextChunk_imageTrackWithPresentationTimeOffset_setsCorrectSampleOffsetUs()
+      throws Exception {
+    String mpdXml =
+        "<MPD xmlns=\"urn:mpeg:dash:schema:mpd:2011\""
+            + " profiles=\"urn:mpeg:dash:profile:isoff-live:2011\" minBufferTime=\"PT1.5S\""
+            + " mediaPresentationDuration=\"PT10S\">\n"
+            + "  <Period id=\"0\" start=\"PT0S\">\n"
+            + "    <AdaptationSet contentType=\"image\" mimeType=\"image/jpeg\">\n"
+            + "      <SegmentTemplate timescale=\"1000\" presentationTimeOffset=\"50000000\""
+            + " media=\"https://example.com/thumb_$Time$.jpg\">\n"
+            + "        <SegmentTimeline>\n"
+            + "          <S t=\"50000000\" d=\"5000\" r=\"10\"/>\n"
+            + "        </SegmentTimeline>\n"
+            + "      </SegmentTemplate>\n"
+            + "      <Representation id=\"0\" bandwidth=\"10000\" width=\"192\" height=\"108\"/>\n"
+            + "    </AdaptationSet>\n"
+            + "  </Period>\n"
+            + "</MPD>";
+    DashManifest manifest =
+        new DashManifestParser()
+            .parse(
+                Uri.parse("https://example.com/test.mpd"),
+                new ByteArrayInputStream(mpdXml.getBytes(UTF_8)));
+    FakeDataSet fakeDataSet =
+        new FakeDataSet()
+            .newData("https://example.com/thumb_50000000.jpg")
+            .appendReadData(new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0})
+            .endData();
+    FakeDataSource fakeDataSource = new FakeDataSource(fakeDataSet);
+    Format trackFormat = manifest.getPeriod(0).adaptationSets.get(0).representations.get(0).format;
+    DefaultDashChunkSource chunkSource =
+        new DefaultDashChunkSource(
+            new BundledChunkExtractor.Factory(),
+            new LoaderErrorThrower.Placeholder(),
+            manifest,
+            new BaseUrlExclusionList(),
+            /* periodIndex= */ 0,
+            /* adaptationSetIndices= */ new int[] {0},
+            new FixedTrackSelection(new TrackGroup(trackFormat), /* track= */ 0),
+            C.TRACK_TYPE_IMAGE,
+            fakeDataSource,
+            /* elapsedRealtimeOffsetMs= */ 0,
+            /* maxSegmentsPerLoad= */ 1,
+            /* enableEventMessageTrack= */ false,
+            /* closedCaptionFormats= */ ImmutableList.of(),
+            /* playerTrackEmsgHandler= */ null,
+            PlayerId.UNSET,
+            /* cmcdConfiguration= */ null);
+    ChunkHolder output = new ChunkHolder();
+
+    chunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).build(),
+        /* loadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of(),
+        output);
+    BaseMediaChunk mediaChunk = (BaseMediaChunk) output.chunk;
+    SampleQueue sampleQueue =
+        SampleQueue.createWithoutDrm(
+            new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE));
+    BaseMediaChunkOutput chunkOutput =
+        new BaseMediaChunkOutput(new int[] {C.TRACK_TYPE_IMAGE}, new SampleQueue[] {sampleQueue});
+    mediaChunk.init(chunkOutput);
+    mediaChunk.load();
+
+    assertThat(sampleQueue.getLargestQueuedTimestampUs()).isEqualTo(0);
   }
 }
