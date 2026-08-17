@@ -48,6 +48,7 @@ import androidx.media3.common.util.GlRect;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Size;
+import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.ByteBufferGlEffect;
 import androidx.media3.effect.DefaultGlObjectsProvider;
@@ -190,7 +191,7 @@ public final class AndroidTestUtil {
     }
 
     /** Runs the given task and blocks until it completes, or timeoutSeconds has elapsed. */
-    public static void runAsyncTaskAndWait(ThrowingRunnable task, int timeoutSeconds)
+    public static void runAsyncTaskAndWait(ThrowingRunnable<?> task, int timeoutSeconds)
         throws TimeoutException, InterruptedException {
       CountDownLatch countDownLatch = new CountDownLatch(1);
       AtomicReference<@NullableType Exception> unexpectedExceptionReference =
@@ -272,11 +273,6 @@ public final class AndroidTestUtil {
         long earlyUs, long elapsedRealtimeUs, boolean isLastBuffer) {
       return false;
     }
-  }
-
-  /** A type that can be used to succinctly wrap throwing {@link Runnable} objects. */
-  public interface ThrowingRunnable {
-    void run() throws Exception;
   }
 
   /**
