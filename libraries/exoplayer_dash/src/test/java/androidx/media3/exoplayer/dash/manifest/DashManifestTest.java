@@ -257,7 +257,7 @@ public class DashManifestTest {
         ImmutableList.of(new Location(Uri.EMPTY)),
         new ContentSteering(
             Uri.parse("http://example.com/steer"),
-            /* defaultServiceLocation= */ null,
+            /* defaultServiceLocation= */ new String[0],
             /* queryBeforeStart= */ true));
   }
 

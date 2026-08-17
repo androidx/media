@@ -1179,7 +1179,7 @@ public class DashManifestParserTest {
     assertThat(manifest.contentSteering).isNotNull();
     assertThat(manifest.contentSteering.steeringServerUri)
         .isEqualTo(Uri.parse("http://steering-server.com/steering"));
-    assertThat(manifest.contentSteering.defaultServiceLocation).isEqualTo("loc1");
+    assertThat(manifest.contentSteering.defaultServiceLocation).containsExactly("loc1", "loc4");
     assertThat(manifest.contentSteering.queryBeforeStart).isTrue();
   }
 

@@ -368,7 +368,8 @@ public class DashManifestParser extends DefaultHandler
 
   protected ContentSteering parseContentSteering(XmlPullParser xpp, Uri documentBaseUri)
       throws XmlPullParserException, IOException {
-    String defaultServiceLocation = xpp.getAttributeValue(null, "defaultServiceLocation");
+    String[] defaultServiceLocation =
+        parseCommaSeparatedList(xpp, "defaultServiceLocation", new String[0]);
     boolean queryBeforeStart = "true".equals(xpp.getAttributeValue(null, "queryBeforeStart"));
     String serverUriString = parseText(xpp, "ContentSteering").trim();
     Uri serverUri = UriUtil.resolveToUri(documentBaseUri.toString(), serverUriString);
@@ -1791,11 +1792,7 @@ public class DashManifestParser extends DefaultHandler
   }
 
   protected String[] parseProfiles(XmlPullParser xpp, String attributeName, String[] defaultValue) {
-    @Nullable String attributeValue = xpp.getAttributeValue(/* namespace= */ null, attributeName);
-    if (attributeValue == null) {
-      return defaultValue;
-    }
-    return attributeValue.split(",");
+    return parseCommaSeparatedList(xpp, attributeName, defaultValue);
   }
 
   // Thumbnail tile information parsing
@@ -2109,6 +2106,15 @@ public class DashManifestParser extends DefaultHandler
   protected static String parseString(XmlPullParser xpp, String name, String defaultValue) {
     String value = xpp.getAttributeValue(null, name);
     return value == null ? defaultValue : value;
+  }
+
+  protected static String[] parseCommaSeparatedList(
+      XmlPullParser xpp, String attributeName, String[] defaultValue) {
+    @Nullable String attributeValue = xpp.getAttributeValue(/* namespace= */ null, attributeName);
+    if (attributeValue == null) {
+      return defaultValue;
+    }
+    return attributeValue.split(",");
   }
 
   /**

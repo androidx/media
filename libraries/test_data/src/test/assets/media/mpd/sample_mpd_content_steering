@@ -2,10 +2,19 @@
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="dynamic"
      availabilityStartTime="2026-05-14T12:00:00Z"
      minimumUpdatePeriod="PT1S" minBufferTime="PT1S">
-  <ContentSteering defaultServiceLocation="loc1" queryBeforeStart="true">http://steering-server.com/steering</ContentSteering>
+  <ContentSteering defaultServiceLocation="loc1,loc4" queryBeforeStart="true">http://steering-server.com/steering</ContentSteering>
   <Period id="1" start="PT0S">
+    <BaseURL serviceLocation="loc1">https://segments-loc1.com/</BaseURL>
+    <BaseURL serviceLocation="loc2">https://segments-loc2.com/</BaseURL>
     <AdaptationSet mimeType="video/mp4">
       <Representation id="1" bandwidth="1" width="1" height="1" />
+    </AdaptationSet>
+  </Period>
+  <Period id="2" start="PT10S">
+    <BaseURL serviceLocation="loc3">https://segments-loc3.com/</BaseURL>
+    <BaseURL serviceLocation="loc4">https://segments-loc4.com/</BaseURL>
+    <AdaptationSet mimeType="video/mp4">
+      <Representation id="2" bandwidth="1" width="1" height="1" />
     </AdaptationSet>
   </Period>
 </MPD>

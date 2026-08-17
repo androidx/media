@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.dash.manifest;
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
+import com.google.common.collect.ImmutableList;
 import java.util.Objects;
 
 /** A parsed Content Steering element. */
@@ -26,17 +27,17 @@ public final class ContentSteering {
   /** The steering server URI. */
   public final Uri steeringServerUri;
 
-  /** The default service location, or {@code null}. */
-  @Nullable public final String defaultServiceLocation;
+  /** The default service location. */
+  public final ImmutableList<String> defaultServiceLocation;
 
   /** Whether to resolve the response from the steering server prior to starting playback. */
   public final boolean queryBeforeStart;
 
   /** Creates an instance. */
   public ContentSteering(
-      Uri steeringServerUri, @Nullable String defaultServiceLocation, boolean queryBeforeStart) {
+      Uri steeringServerUri, String[] defaultServiceLocation, boolean queryBeforeStart) {
     this.steeringServerUri = steeringServerUri;
-    this.defaultServiceLocation = defaultServiceLocation;
+    this.defaultServiceLocation = ImmutableList.copyOf(defaultServiceLocation);
     this.queryBeforeStart = queryBeforeStart;
   }
 
