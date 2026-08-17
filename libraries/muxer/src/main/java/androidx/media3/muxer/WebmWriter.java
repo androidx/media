@@ -307,6 +307,9 @@ import java.util.PriorityQueue;
    * @throws IOException If the WebmWriter fails to finish writing the output.
    */
   public void close() throws IOException {
+    if (!writtenSegmentHeader) {
+      return;
+    }
     // Write the last cluster.
     createCluster();
     // Write Cues master element.

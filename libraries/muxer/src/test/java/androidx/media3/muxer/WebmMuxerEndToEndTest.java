@@ -17,8 +17,11 @@ package androidx.media3.muxer;
 
 import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
+import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.extractor.mkv.MatroskaExtractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
@@ -79,5 +82,20 @@ public class WebmMuxerEndToEndTest {
         context,
         fakeExtractorOutput,
         MuxerTestUtil.getExpectedDumpFilePath("webm/" + testFile.fileName));
+  }
+
+  @Test
+  public void close_noSamplesWritten_createsEmptyFile() throws Exception {
+    String outputFilePath = temporaryFolder.newFile("empty.webm").getPath();
+    Format format = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_VP9).build();
+
+    try (WebmMuxer muxer =
+        new WebmMuxer.Builder(SeekableMuxerOutput.of(new FileOutputStream(outputFilePath)))
+            .build()) {
+      int unusedTrackId = muxer.addTrack(format);
+    }
+
+    byte[] outputFileBytes = TestUtil.getByteArrayFromFilePath(outputFilePath);
+    assertThat(outputFileBytes).isEmpty();
   }
 }
