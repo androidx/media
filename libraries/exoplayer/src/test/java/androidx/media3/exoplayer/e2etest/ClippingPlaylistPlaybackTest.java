@@ -23,9 +23,9 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.ConcatenatingMediaSource2;
-import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
+import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
@@ -45,8 +45,8 @@ public final class ClippingPlaylistPlaybackTest {
 
   private static final String TEST_MP4_URI = "asset:///media/mp4/sample.mp4";
 
-  @ParameterizedRobolectricTestRunner.Parameters(name = "{0}_{1}")
-  public static List<ClippingConfig[]> configs() {
+  @ParameterizedRobolectricTestRunner.Parameters(name = "{0}_{1}_perStream={2}")
+  public static List<Object[]> configs() {
     return Sets.cartesianProduct(
             /* firstItemConfig */ ImmutableSet.of(
                 new ClippingConfig("start", /* startMs= */ 0, /* endMs= */ 500),
@@ -55,9 +55,10 @@ public final class ClippingPlaylistPlaybackTest {
             /* secondItemConfig */ ImmutableSet.of(
                 new ClippingConfig("start", /* startMs= */ 0, /* endMs= */ 500),
                 new ClippingConfig("middle", /* startMs= */ 300, /* endMs= */ 700),
-                new ClippingConfig("end", /* startMs= */ 500, /* endMs= */ C.TIME_END_OF_SOURCE)))
+                new ClippingConfig("end", /* startMs= */ 500, /* endMs= */ C.TIME_END_OF_SOURCE)),
+            /* perStreamMediaPeriodProgressionEnabled */ ImmutableSet.of(false, true))
         .stream()
-        .map(s -> s.toArray(new ClippingConfig[0]))
+        .map(List::toArray)
         .collect(Collectors.toList());
   }
 
@@ -67,6 +68,10 @@ public final class ClippingPlaylistPlaybackTest {
   @ParameterizedRobolectricTestRunner.Parameter(1)
   public ClippingConfig secondItemConfig;
 
+  // TODO: b/510217604 - Remove parameterization.
+  @ParameterizedRobolectricTestRunner.Parameter(2)
+  public boolean perStreamMediaPeriodProgressionEnabled;
+
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
       ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
@@ -74,11 +79,13 @@ public final class ClippingPlaylistPlaybackTest {
   @Test
   public void playbackWithClippingMediaSources() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
+            .enablePerStreamMediaProgression(perStreamMediaPeriodProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -111,17 +118,24 @@ public final class ClippingPlaylistPlaybackTest {
     DumpFileAsserts.assertOutput(
         applicationContext,
         playbackOutput,
-        "playbackdumps/clipping/" + firstItemConfig.name + "_" + secondItemConfig.name + ".dump");
+        "playbackdumps/clipping/"
+            + firstItemConfig.name
+            + "_"
+            + secondItemConfig.name
+            + (perStreamMediaPeriodProgressionEnabled ? "_perStreamProgression" : "")
+            + ".dump");
   }
 
   @Test
   public void playbackWithClippingMediaSourcesInConcatenatingMediaSource2() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
+            .enablePerStreamMediaProgression(perStreamMediaPeriodProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -166,7 +180,12 @@ public final class ClippingPlaylistPlaybackTest {
     DumpFileAsserts.assertOutput(
         applicationContext,
         playbackOutput,
-        "playbackdumps/clipping/" + firstItemConfig.name + "_" + secondItemConfig.name + ".dump");
+        "playbackdumps/clipping/"
+            + firstItemConfig.name
+            + "_"
+            + secondItemConfig.name
+            + (perStreamMediaPeriodProgressionEnabled ? "_perStreamProgression" : "")
+            + ".dump");
   }
 
   private static final class ClippingConfig {

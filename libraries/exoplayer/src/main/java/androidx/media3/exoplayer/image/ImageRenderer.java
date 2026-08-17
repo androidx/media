@@ -110,6 +110,7 @@ public class ImageRenderer extends BaseRenderer {
   @Nullable private ImageDecoder decoder;
   @Nullable private DecoderInputBuffer inputBuffer;
   private ImageOutput imageOutput;
+  @Nullable private ImageMetadataListener imageMetadataListener;
   @Nullable private Bitmap outputBitmap;
   private boolean readyToOutputTiles;
   @Nullable private TileInfo tileInfo;
@@ -236,7 +237,9 @@ public class ImageRenderer extends BaseRenderer {
   }
 
   @Override
-  protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
+  protected void onPositionReset(
+      long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+      throws ExoPlaybackException {
     lowerFirstFrameState(FIRST_FRAME_NOT_RENDERED);
     outputStreamEnded = false;
     inputStreamEnded = false;
@@ -279,6 +282,9 @@ public class ImageRenderer extends BaseRenderer {
         @Nullable
         ImageOutput imageOutput = message instanceof ImageOutput ? (ImageOutput) message : null;
         setImageOutput(imageOutput);
+        break;
+      case MSG_SET_IMAGE_METADATA_LISTENER:
+        imageMetadataListener = (ImageMetadataListener) message;
         break;
       default:
         super.handleMessage(messageType, message);
@@ -402,6 +408,10 @@ public class ImageRenderer extends BaseRenderer {
     // image.
     long earlyUs = bufferPresentationTimeUs - positionUs;
     if (shouldForceRender() || earlyUs < IMAGE_PRESENTATION_WINDOW_THRESHOLD_US) {
+      if (imageMetadataListener != null) {
+        imageMetadataListener.onImageAboutToBeAvailable(
+            bufferPresentationTimeUs - outputStreamInfo.streamOffsetUs, checkNotNull(inputFormat));
+      }
       imageOutput.onImageAvailable(
           bufferPresentationTimeUs - outputStreamInfo.streamOffsetUs, outputBitmap);
       return true;

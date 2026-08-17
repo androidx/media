@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_ALBUM_TITLE;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_ARTIST;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_ARTWORK_URI;
@@ -29,9 +30,12 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import android.os.Bundle;
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.support.v4.media.MediaBrowserCompat;
 import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.session.MediaSessionCompat;
+import android.util.ArrayMap;
 import androidx.annotation.Nullable;
 import androidx.media.MediaBrowserServiceCompat.BrowserRoot;
 import androidx.media3.common.C;
@@ -50,8 +54,10 @@ import androidx.media3.test.session.common.TestUtils;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 
 /** Utilities for tests. */
 public final class MediaTestUtils {
@@ -380,6 +386,154 @@ public final class MediaTestUtils {
                   + actualItem.mediaId)
           .that(actualItem)
           .isEqualTo(expectedItem);
+    }
+  }
+
+  /**
+   * Creates an invalid {@link Bundle} instance.
+   *
+   * <p>Accessing this {@link Bundle} after reading it from a {@link android.os.Parcel} will throw
+   * an exception.
+   *
+   * <p>Using this method may permanently corrupt {@link Bundle} and {@link ArrayMap} instances for
+   * this process on API 28 or below. Call {@link #cleanPotentiallyCorruptedArrayMapCache()} as a
+   * clean up step after using this method in a test.
+   */
+  public static Bundle createInvalidBundle() {
+    Bundle invalid = null;
+    while (invalid == null) {
+      invalid = tryCreateInvalidBundle();
+      cleanPotentiallyCorruptedArrayMapCache();
+    }
+    return invalid;
+  }
+
+  /**
+   * On API 28 or below, {@link ArrayMap} caches may be corrupted with no automatic clean-up and
+   * detection. Use this method to manually clean the caches to avoid unintended side effects.
+   *
+   * <p>This method should always be called as a clean up step after {@link #createInvalidBundle()}
+   * was used in a test.
+   */
+  public static void cleanPotentiallyCorruptedArrayMapCache() {
+    if (SDK_INT >= 29) {
+      // ArrayMap automatically detects and ignores invalid caches from API 29.
+      return;
+    }
+    try {
+      Class<?> arrayMapClass = ArrayMap.class;
+      setStaticField(arrayMapClass, "mBaseCache", null);
+      setStaticField(arrayMapClass, "mTwiceBaseCache", null);
+      setStaticField(arrayMapClass, "mBaseCacheSize", 0);
+      setStaticField(arrayMapClass, "mTwiceBaseCacheSize", 0);
+    } catch (ReflectiveOperationException e) {
+      throw new IllegalStateException(e); // Shouldn't happen, these fields exist on all versions
+    }
+  }
+
+  private static void setStaticField(Class<?> clazz, String fieldName, @Nullable Object value)
+      throws ReflectiveOperationException {
+    Field baseCacheField = clazz.getDeclaredField(fieldName);
+    baseCacheField.setAccessible(true);
+    baseCacheField.set(null, value);
+  }
+
+  private static final class ThrowingParcelable implements Parcelable {
+    public static final Parcelable.Creator<ThrowingParcelable> CREATOR =
+        new Parcelable.Creator<ThrowingParcelable>() {
+          @Override
+          public ThrowingParcelable createFromParcel(Parcel source) {
+            throw new RuntimeException("Intentional exception during unparcelling");
+          }
+
+          @Override
+          public ThrowingParcelable[] newArray(int size) {
+            return new ThrowingParcelable[size];
+          }
+        };
+
+    @Override
+    public int describeContents() {
+      return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel dest, int flags) {}
+  }
+
+  private static Bundle tryCreateInvalidBundle() {
+    if (SDK_INT < 33) {
+      Bundle bundle = new Bundle();
+      bundle.putParcelable("bad_key", new ThrowingParcelable());
+      return isBundleInvalid(bundle) ? bundle : null;
+    }
+    // On API 33+, lazy bundle unparcelling prevents ThrowingParcelable from throwing during
+    // isEmpty(). Therefore, we fall back to corrupting the ArrayMap data structure via
+    // concurrent modification.
+    Bundle bundle = new Bundle();
+    CountDownLatch waitForThreadCreation = new CountDownLatch(2);
+    Thread thread1 =
+        new Thread(
+            () -> {
+              waitForThreadCreation.countDown();
+              try {
+                waitForThreadCreation.await();
+              } catch (InterruptedException e) {
+                // Ignore.
+              }
+              for (int i = 0; i < 10; i++) {
+                try {
+                  bundle.putInt("key" + i, 1);
+                } catch (RuntimeException e) {
+                  // Attempt was detected.
+                }
+              }
+            });
+    Thread thread2 =
+        new Thread(
+            () -> {
+              waitForThreadCreation.countDown();
+              try {
+                waitForThreadCreation.await();
+              } catch (InterruptedException e) {
+                // Ignore.
+              }
+              for (int i = 0; i < 10; i++) {
+                try {
+                  bundle.putInt("key" + i, 1);
+                } catch (RuntimeException e) {
+                  // Attempt was detected.
+                }
+              }
+            });
+    thread1.start();
+    thread2.start();
+    try {
+      thread1.join();
+      thread2.join();
+    } catch (InterruptedException e) {
+      // Ignore.
+    }
+    return isBundleInvalid(bundle) ? bundle : null;
+  }
+
+  private static boolean isBundleInvalid(Bundle bundle) {
+    Parcel parcel = Parcel.obtain();
+    try {
+      parcel.writeBundle(bundle);
+      parcel.setDataPosition(0);
+      Bundle restoredBundle = parcel.readBundle(MediaTestUtils.class.getClassLoader());
+      // Access restored Bundle to verify it triggers an exception.
+      try {
+        restoredBundle.isEmpty();
+        return false;
+      } catch (RuntimeException e) {
+        return true;
+      }
+    } catch (RuntimeException e) {
+      return false; // Likely an invalid Bundle, but it fails too early to be useful for testing.
+    } finally {
+      parcel.recycle();
     }
   }
 }

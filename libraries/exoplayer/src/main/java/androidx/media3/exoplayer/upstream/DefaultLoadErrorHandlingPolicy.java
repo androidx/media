@@ -20,6 +20,7 @@ import static java.lang.Math.min;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
+import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSourceException;
 import androidx.media3.datasource.HttpDataSource.CleartextNotPermittedException;
@@ -84,8 +85,10 @@ public class DefaultLoadErrorHandlingPolicy implements LoadErrorHandlingPolicy {
    * <ul>
    *   <li>This policy will only specify a fallback if {@link #isEligibleForFallback} returns {@code
    *       true} for the error.
-   *   <li>This policy will always specify a location fallback rather than a track fallback if both
-   *       {@link FallbackOptions#isFallbackAvailable(int) are available}.
+   *   <li>If location steering is {@linkplain FallbackOptions#locationSteeringActive active}, this
+   *       policy will specify a track fallback rather than a location fallback if both {@link
+   *       FallbackOptions#isFallbackAvailable(int) are available}. Otherwise, this policy will
+   *       specify a location fallback rather than a track fallback if both are available.
    *   <li>When a fallback is specified, the duration for which the failing resource will be
    *       excluded is {@link #DEFAULT_LOCATION_EXCLUSION_MS} or {@link
    *       #DEFAULT_TRACK_EXCLUSION_MS}, depending on the fallback type.
@@ -98,30 +101,32 @@ public class DefaultLoadErrorHandlingPolicy implements LoadErrorHandlingPolicy {
     if (!isEligibleForFallback(loadErrorInfo.exception)) {
       return null;
     }
-    // Prefer location fallbacks to track fallbacks, when both are available.
-    if (fallbackOptions.isFallbackAvailable(FALLBACK_TYPE_LOCATION)) {
-      return new FallbackSelection(FALLBACK_TYPE_LOCATION, DEFAULT_LOCATION_EXCLUSION_MS);
-    } else if (fallbackOptions.isFallbackAvailable(FALLBACK_TYPE_TRACK)) {
-      return new FallbackSelection(FALLBACK_TYPE_TRACK, DEFAULT_TRACK_EXCLUSION_MS);
+    if (!fallbackOptions.locationSteeringActive) {
+      if (fallbackOptions.isFallbackAvailable(FALLBACK_TYPE_LOCATION)) {
+        return new FallbackSelection(FALLBACK_TYPE_LOCATION, DEFAULT_LOCATION_EXCLUSION_MS);
+      } else if (fallbackOptions.isFallbackAvailable(FALLBACK_TYPE_TRACK)) {
+        return new FallbackSelection(FALLBACK_TYPE_TRACK, DEFAULT_TRACK_EXCLUSION_MS);
+      }
+    } else {
+      if (fallbackOptions.isFallbackAvailable(FALLBACK_TYPE_TRACK)) {
+        return new FallbackSelection(FALLBACK_TYPE_TRACK, DEFAULT_TRACK_EXCLUSION_MS);
+      } else if (fallbackOptions.isFallbackAvailable(FALLBACK_TYPE_LOCATION)) {
+        return new FallbackSelection(FALLBACK_TYPE_LOCATION, DEFAULT_LOCATION_EXCLUSION_MS);
+      }
     }
     return null;
   }
 
   /**
-   * Retries for any exception that is not a subclass of {@link ParserException}, {@link
-   * FileNotFoundException}, {@link CleartextNotPermittedException} or {@link
-   * UnexpectedLoaderException}, and for which {@link
-   * DataSourceException#isCausedByPositionOutOfRange} returns {@code false}. The retry delay is
-   * calculated as {@code Math.min((errorCount - 1) * 1000, 5000)}.
+   * Retries for any exception or exception cause that is not a subclass of {@link ParserException},
+   * {@link FileNotFoundException}, {@link CleartextNotPermittedException} or {@link
+   * UnexpectedLoaderException}, and for {@link DataSourceException} with reasons other than {@link
+   * PlaybackException#ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE}. The retry delay is calculated as
+   * {@code Math.min((errorCount - 1) * 1000, 5000)}.
    */
   @Override
   public long getRetryDelayMsFor(LoadErrorInfo loadErrorInfo) {
-    IOException exception = loadErrorInfo.exception;
-    return exception instanceof ParserException
-            || exception instanceof FileNotFoundException
-            || exception instanceof CleartextNotPermittedException
-            || exception instanceof UnexpectedLoaderException
-            || DataSourceException.isCausedByPositionOutOfRange(exception)
+    return isAnyCauseNonRetriable(loadErrorInfo.exception)
         ? C.TIME_UNSET
         : min((loadErrorInfo.errorCount - 1) * 1000, 5000);
   }
@@ -154,5 +159,25 @@ public class DefaultLoadErrorHandlingPolicy implements LoadErrorHandlingPolicy {
         || invalidResponseCodeException.responseCode == 416 // HTTP 416 Range Not Satisfiable.
         || invalidResponseCodeException.responseCode == 500 // HTTP 500 Internal Server Error.
         || invalidResponseCodeException.responseCode == 503; // HTTP 503 Service Unavailable.
+  }
+
+  private boolean isAnyCauseNonRetriable(@Nullable Throwable exception) {
+    while (exception != null) {
+      if (isNonRetriableException(exception)) {
+        return true;
+      }
+      exception = exception.getCause();
+    }
+    return false;
+  }
+
+  private boolean isNonRetriableException(Throwable exception) {
+    return exception instanceof ParserException
+        || exception instanceof FileNotFoundException
+        || exception instanceof CleartextNotPermittedException
+        || exception instanceof UnexpectedLoaderException
+        || (exception instanceof DataSourceException
+            && ((DataSourceException) exception).reason
+                == PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE);
   }
 }

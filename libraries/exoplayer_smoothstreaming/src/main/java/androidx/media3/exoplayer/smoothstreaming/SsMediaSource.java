@@ -79,6 +79,7 @@ import java.util.List;
 import java.util.Objects;
 
 /** A SmoothStreaming {@link MediaSource}. */
+@SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 @UnstableApi
 public final class SsMediaSource extends BaseMediaSource
     implements Loader.Callback<ParsingLoadable<SsManifest>> {
@@ -528,32 +529,28 @@ public final class SsMediaSource extends BaseMediaSource
       long elapsedRealtimeMs,
       long loadDurationMs,
       int retryCount) {
-    LoadEventInfo loadEventInfo =
-        retryCount == 0
-            ? new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
-            : new LoadEventInfo(
-                loadable.loadTaskId,
-                loadable.dataSpec,
-                loadable.getUri(),
-                loadable.getResponseHeaders(),
-                elapsedRealtimeMs,
-                loadDurationMs,
-                loadable.bytesLoaded());
-    manifestEventDispatcher.loadStarted(loadEventInfo, loadable.type, retryCount);
+    LoadEventInfo.Builder loadEventInfo =
+        new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs);
+    if (retryCount != 0) {
+      loadEventInfo
+          .setUri(loadable.getUri())
+          .setResponseHeaders(loadable.getResponseHeaders())
+          .setLoadDurationMs(loadDurationMs)
+          .setBytesLoaded(loadable.bytesLoaded());
+    }
+    manifestEventDispatcher.loadStarted(loadEventInfo.build(), loadable.type, retryCount);
   }
 
   @Override
   public void onLoadCompleted(
       ParsingLoadable<SsManifest> loadable, long elapsedRealtimeMs, long loadDurationMs) {
     LoadEventInfo loadEventInfo =
-        new LoadEventInfo(
-            loadable.loadTaskId,
-            loadable.dataSpec,
-            loadable.getUri(),
-            loadable.getResponseHeaders(),
-            elapsedRealtimeMs,
-            loadDurationMs,
-            loadable.bytesLoaded());
+        new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+            .setUri(loadable.getUri())
+            .setResponseHeaders(loadable.getResponseHeaders())
+            .setLoadDurationMs(loadDurationMs)
+            .setBytesLoaded(loadable.bytesLoaded())
+            .build();
     loadErrorHandlingPolicy.onLoadTaskConcluded(loadable.loadTaskId);
     manifestEventDispatcher.loadCompleted(loadEventInfo, loadable.type);
     manifest = loadable.getResult();
@@ -569,14 +566,12 @@ public final class SsMediaSource extends BaseMediaSource
       long loadDurationMs,
       boolean released) {
     LoadEventInfo loadEventInfo =
-        new LoadEventInfo(
-            loadable.loadTaskId,
-            loadable.dataSpec,
-            loadable.getUri(),
-            loadable.getResponseHeaders(),
-            elapsedRealtimeMs,
-            loadDurationMs,
-            loadable.bytesLoaded());
+        new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+            .setUri(loadable.getUri())
+            .setResponseHeaders(loadable.getResponseHeaders())
+            .setLoadDurationMs(loadDurationMs)
+            .setBytesLoaded(loadable.bytesLoaded())
+            .build();
     loadErrorHandlingPolicy.onLoadTaskConcluded(loadable.loadTaskId);
     manifestEventDispatcher.loadCanceled(loadEventInfo, loadable.type);
   }
@@ -589,14 +584,12 @@ public final class SsMediaSource extends BaseMediaSource
       IOException error,
       int errorCount) {
     LoadEventInfo loadEventInfo =
-        new LoadEventInfo(
-            loadable.loadTaskId,
-            loadable.dataSpec,
-            loadable.getUri(),
-            loadable.getResponseHeaders(),
-            elapsedRealtimeMs,
-            loadDurationMs,
-            loadable.bytesLoaded());
+        new LoadEventInfo.Builder(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+            .setUri(loadable.getUri())
+            .setResponseHeaders(loadable.getResponseHeaders())
+            .setLoadDurationMs(loadDurationMs)
+            .setBytesLoaded(loadable.bytesLoaded())
+            .build();
     MediaLoadData mediaLoadData = new MediaLoadData(loadable.type);
     long retryDelayMs =
         loadErrorHandlingPolicy.getRetryDelayMsFor(
@@ -713,7 +706,9 @@ public final class SsMediaSource extends BaseMediaSource
       dataSpec = cmcdDataFactory.createCmcdData().addToDataSpec(dataSpec);
     }
     ParsingLoadable<SsManifest> loadable =
-        new ParsingLoadable<>(manifestDataSource, dataSpec, C.DATA_TYPE_MANIFEST, manifestParser);
+        new ParsingLoadable.Builder<SsManifest>(
+                manifestDataSource, dataSpec, C.DATA_TYPE_MANIFEST, manifestParser)
+            .build();
     manifestLoader.startLoading(
         loadable, this, loadErrorHandlingPolicy.getMinimumLoadableRetryCount(loadable.type));
   }

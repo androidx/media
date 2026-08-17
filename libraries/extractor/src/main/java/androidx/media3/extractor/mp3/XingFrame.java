@@ -17,12 +17,20 @@ package androidx.media3.extractor.mp3;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Metadata;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.MpegAudioUtil;
 
 /** Representation of a LAME Xing or Info frame. */
 /* package */ final class XingFrame {
+
+  /**
+   * Offset between LAME/Xing delay/padding fields and decoded PCM trim samples. FFmpeg's MP3 muxer
+   * subtracts this offset when writing LAME metadata, and its demuxer adds it back when exposing
+   * decoded PCM skip/discard samples.
+   */
+  private static final int LAME_TO_DECODED_PCM_TRIM_OFFSET_SAMPLES = 528 + 1;
 
   /** The header of the Xing or Info frame. */
   public final MpegAudioUtil.Header header;
@@ -34,6 +42,9 @@ import androidx.media3.extractor.MpegAudioUtil;
    * Data size, including the XING frame, or {@link C#LENGTH_UNSET} if not present in the header.
    */
   public final long dataSize;
+
+  /** ReplayGain data. Only present if this frame is an Info or the LAME variant of a Xing frame. */
+  @Nullable public final Mp3InfoReplayGain replayGain;
 
   /**
    * The number of samples to skip at the start of the stream, or {@link C#LENGTH_UNSET} if not
@@ -58,12 +69,14 @@ import androidx.media3.extractor.MpegAudioUtil;
       long frameCount,
       long dataSize,
       @Nullable long[] tableOfContents,
+      @Nullable Mp3InfoReplayGain replayGain,
       int encoderDelay,
       int encoderPadding) {
     this.header = new MpegAudioUtil.Header(header);
     this.frameCount = frameCount;
     this.dataSize = dataSize;
     this.tableOfContents = tableOfContents;
+    this.replayGain = replayGain;
     this.encoderDelay = encoderDelay;
     this.encoderPadding = encoderPadding;
   }
@@ -98,38 +111,81 @@ import androidx.media3.extractor.MpegAudioUtil;
       frame.skipBytes(4); // Quality indicator
     }
 
+    @Nullable Mp3InfoReplayGain replayGain;
     int encoderDelay;
     int encoderPadding;
-    // Skip: version string (9), revision & VBR method (1), lowpass filter (1), replay gain (8),
-    //       encoding flags & ATH type (1), bitrate (1).
-    int bytesToSkipBeforeEncoderDelayAndPadding = 9 + 1 + 1 + 8 + 1 + 1;
-    if (frame.bytesLeft() >= bytesToSkipBeforeEncoderDelayAndPadding + 3) {
-      frame.skipBytes(bytesToSkipBeforeEncoderDelayAndPadding);
+    // Skip: revision & VBR method (1), lowpass filter (1).
+    int bytesToSkipBeforeReplayGain = 1 + 1;
+    // Skip: encoding flags & ATH type (1), bitrate (1).
+    int bytesToSkipAfterReplayGain = 1 + 1;
+    // And account for values we parse: version string (9), ReplayGain (8) and encoder delay &
+    // padding (3).
+    if (frame.bytesLeft() >= 9 + bytesToSkipBeforeReplayGain + 8 + bytesToSkipAfterReplayGain + 3) {
+      String encoderIdentifier = frame.readString(9);
+      frame.skipBytes(bytesToSkipBeforeReplayGain);
+      float peak = frame.readFloat();
+      int field1 = frame.readUnsignedShort();
+      int field2 = frame.readUnsignedShort();
+      replayGain = Mp3InfoReplayGain.parse(peak, field1, field2);
+
+      frame.skipBytes(bytesToSkipAfterReplayGain);
       int encoderDelayAndPadding = frame.readUnsignedInt24();
       encoderDelay = (encoderDelayAndPadding & 0xFFF000) >> 12;
       encoderPadding = (encoderDelayAndPadding & 0xFFF);
+      if (usesLameGaplessEncoding(encoderIdentifier)) {
+        encoderDelay += LAME_TO_DECODED_PCM_TRIM_OFFSET_SAMPLES;
+        encoderPadding = Math.max(0, encoderPadding - LAME_TO_DECODED_PCM_TRIM_OFFSET_SAMPLES);
+      }
     } else {
+      replayGain = null;
       encoderDelay = C.LENGTH_UNSET;
       encoderPadding = C.LENGTH_UNSET;
     }
 
     return new XingFrame(
-        mpegAudioHeader, frameCount, dataSize, tableOfContents, encoderDelay, encoderPadding);
+        mpegAudioHeader,
+        frameCount,
+        dataSize,
+        tableOfContents,
+        replayGain,
+        encoderDelay,
+        encoderPadding);
   }
 
   /**
    * Compute the stream duration, in microseconds, represented by this frame. Returns {@link
-   * C#LENGTH_UNSET} if the frame doesn't contain enough information to compute a duration.
+   * C#TIME_UNSET} if the frame doesn't contain enough information to compute a duration. Encoder
+   * delay and padding are subtracted if present.
    */
-  // TODO: b/319235116 - Handle encoder delay and padding when calculating duration.
   public long computeDurationUs() {
     if (frameCount == C.LENGTH_UNSET || frameCount == 0) {
       // If the frame count is missing/invalid, the header can't be used to determine the duration.
       return C.TIME_UNSET;
     }
+    long sampleCount = frameCount * header.samplesPerFrame;
+    if (encoderDelay != C.LENGTH_UNSET && encoderPadding != C.LENGTH_UNSET) {
+      sampleCount -= encoderDelay + encoderPadding;
+    }
+    if (sampleCount <= 0) {
+      return C.TIME_UNSET;
+    }
     // Audio requires both a start and end PCM sample, so subtract one from the sample count before
     // calculating the duration.
-    return Util.sampleCountToDurationUs(
-        (frameCount * header.samplesPerFrame) - 1, header.sampleRate);
+    return Util.sampleCountToDurationUs(sampleCount - 1, header.sampleRate);
+  }
+
+  private static boolean usesLameGaplessEncoding(String encoderIdentifier) {
+    return encoderIdentifier.startsWith("LAME")
+        || encoderIdentifier.startsWith("Lavf")
+        || encoderIdentifier.startsWith("Lavc");
+  }
+
+  /** Provide the metadata derived from this Xing frame, such as ReplayGain data. */
+  @Nullable
+  public Metadata getMetadata() {
+    if (replayGain != null) {
+      return new Metadata(replayGain);
+    }
+    return null;
   }
 }

@@ -15,8 +15,12 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.session.DefaultMediaNotificationProvider.DEFAULT_CHANNEL_ID;
+import static androidx.media3.session.DefaultMediaNotificationProvider.DEFAULT_NOTIFICATION_ID;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -28,8 +32,11 @@ import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Looper;
@@ -48,16 +55,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import java.util.ArrayList;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InOrder;
-import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.robolectric.Robolectric;
+import org.robolectric.Shadows;
 import org.robolectric.shadows.ShadowLooper;
+import org.robolectric.shadows.ShadowNotificationManager;
 
 /** Tests for {@link DefaultMediaNotificationProvider}. */
 @RunWith(AndroidJUnit4.class)
@@ -91,7 +98,7 @@ public class DefaultMediaNotificationProviderTest {
    */
   private static final String EXTRA_SEMANTIC_ACTION = "android.support.action.semanticAction";
 
-  @Mock private MediaNotification.ActionFactory mockActionFactory;
+  private MediaNotification.ActionFactory mockActionFactory;
 
   @Before
   public void setUp() {
@@ -723,23 +730,11 @@ public class DefaultMediaNotificationProviderTest {
   }
 
   @Test
-  public void createNotification_invalidButtons_enabledSessionCommandsOnlyForGetMediaButtons() {
+  public void createNotification_withCustomButtons_showsCustomButtonsWhereApplicable() {
     DefaultActionFactory defaultActionFactory =
         new DefaultActionFactory(Robolectric.setupService(TestService.class));
-    List<CommandButton> filteredMediaButtonPreferences = new ArrayList<>();
     DefaultMediaNotificationProvider defaultMediaNotificationProvider =
-        new DefaultMediaNotificationProvider(ApplicationProvider.getApplicationContext()) {
-          @Override
-          protected ImmutableList<CommandButton> getMediaButtons(
-              MediaSession session,
-              Commands playerCommands,
-              ImmutableList<CommandButton> mediaButtonPreferences,
-              boolean showPauseButton) {
-            filteredMediaButtonPreferences.addAll(mediaButtonPreferences);
-            return super.getMediaButtons(
-                session, playerCommands, mediaButtonPreferences, showPauseButton);
-          }
-        };
+        new DefaultMediaNotificationProvider(ApplicationProvider.getApplicationContext());
     MediaSession mediaSession =
         new MediaSession.Builder(
                 ApplicationProvider.getApplicationContext(),
@@ -749,34 +744,34 @@ public class DefaultMediaNotificationProviderTest {
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("button1")
             .setCustomIconResId(R.drawable.media3_notification_small_icon)
-            .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+            .setSessionCommand(new SessionCommand("command1", Bundle.EMPTY))
             .build();
     CommandButton button2 =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("button2")
             .setCustomIconResId(R.drawable.media3_notification_small_icon)
-            .setSessionCommand(new SessionCommand("command2", Bundle.EMPTY))
-            .build()
-            .copyWithIsEnabled(true);
+            .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+            .build();
     CommandButton button3 =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("button3")
             .setCustomIconResId(R.drawable.media3_notification_small_icon)
             .setPlayerCommand(Player.COMMAND_PLAY_PAUSE)
-            .build()
-            .copyWithIsEnabled(true);
+            .build();
 
-    defaultMediaNotificationProvider.createNotification(
-        mediaSession,
-        /* mediaButtonPreferences= */ ImmutableList.of(button1, button2, button3),
-        defaultActionFactory,
-        notification -> {
-          /* Do nothing. */
-        });
-
-    assertThat(filteredMediaButtonPreferences).containsExactly(button2);
-    mediaSession.getPlayer().release();
+    MediaNotification mediaNotification =
+        defaultMediaNotificationProvider.createNotification(
+            mediaSession,
+            /* mediaButtonPreferences= */ ImmutableList.of(button1, button2, button3),
+            defaultActionFactory,
+            notification -> {});
     mediaSession.release();
+
+    assertThat(mediaNotification.notification.actions).hasLength(3);
+    assertThat(mediaNotification.notification.actions[0].title.toString()).isEqualTo("button2");
+    assertThat(mediaNotification.notification.actions[1].title.toString())
+        .isEqualTo(context.getString(R.string.media3_controls_play_description));
+    assertThat(mediaNotification.notification.actions[2].title.toString()).isEqualTo("button1");
   }
 
   @Test
@@ -1094,6 +1089,43 @@ public class DefaultMediaNotificationProviderTest {
   }
 
   @Test
+  public void createNotification_withMediaMetadataArtworkUrl_usedAsScaledLargeIcon() {
+    Context context = ApplicationProvider.getApplicationContext();
+    DefaultMediaNotificationProvider defaultMediaNotificationProvider =
+        new DefaultMediaNotificationProvider.Builder(context).build();
+    DefaultActionFactory defaultActionFactory =
+        new DefaultActionFactory(Robolectric.setupService(TestService.class));
+    Player player =
+        createPlayerWithMetadata(
+            new MediaMetadata.Builder().setArtworkUri(Uri.parse("http://test.test")).build());
+    Bitmap largeBitmap =
+        Bitmap.createBitmap(/* width= */ 1000, /* height= */ 2000, Bitmap.Config.ARGB_8888);
+    BitmapLoader mockBitmapLoader = mock(BitmapLoader.class);
+    when(mockBitmapLoader.loadBitmapFromMetadata(any())).thenReturn(immediateFuture(largeBitmap));
+    MediaSession mediaSession =
+        new MediaSession.Builder(context, player).setBitmapLoader(mockBitmapLoader).build();
+
+    MediaNotification notification =
+        defaultMediaNotificationProvider.createNotification(
+            mediaSession,
+            ImmutableList.of(),
+            defaultActionFactory,
+            mock(MediaNotification.Provider.Callback.class));
+    Drawable notificationIcon = notification.notification.getLargeIcon().loadDrawable(context);
+    int notificationIconWidth = notificationIcon.getIntrinsicWidth();
+    int notificationIconHeight = notificationIcon.getIntrinsicHeight();
+    mediaSession.release();
+    player.release();
+
+    // The notification should generally be smaller than the full media session artwork. So even if
+    // we can't assert a specific value, we can still check it has been scaled down.
+    int mediaSessionBitmapLimit = MediaSession.getBitmapDimensionLimit(context);
+    assertThat(notificationIconWidth).isLessThan(mediaSessionBitmapLimit);
+    assertThat(notificationIconHeight).isLessThan(mediaSessionBitmapLimit);
+    assertThat(notificationIconWidth * 2).isEqualTo(notificationIconHeight);
+  }
+
+  @Test
   public void provider_withCustomNotificationIdProvider_notificationsUseCustomId() {
     Context context = ApplicationProvider.getApplicationContext();
     DefaultMediaNotificationProvider defaultMediaNotificationProvider =
@@ -1288,6 +1320,119 @@ public class DefaultMediaNotificationProviderTest {
         };
   }
 
+  @Test
+  public void provider_idsNotSpecified_usesDefaultIds() {
+    Context context = ApplicationProvider.getApplicationContext();
+    DefaultMediaNotificationProvider defaultMediaNotificationProvider =
+        new DefaultMediaNotificationProvider.Builder(context).build();
+    BitmapLoader mockBitmapLoader = mock(BitmapLoader.class);
+    when(mockBitmapLoader.loadBitmapFromMetadata(any())).thenReturn(null);
+    Player player = new TestExoPlayerBuilder(context).build();
+    MediaSession mediaSession =
+        new MediaSession.Builder(context, player).setBitmapLoader(mockBitmapLoader).build();
+    DefaultActionFactory defaultActionFactory =
+        new DefaultActionFactory(Robolectric.setupService(TestService.class));
+
+    MediaNotification notification =
+        defaultMediaNotificationProvider.createNotification(
+            mediaSession,
+            ImmutableList.of(),
+            defaultActionFactory,
+            mock(MediaNotification.Provider.Callback.class));
+    mediaSession.release();
+    player.release();
+
+    assertThat(notification.notificationId).isEqualTo(DEFAULT_NOTIFICATION_ID);
+    if (SDK_INT >= 26) {
+      assertThat(notification.notification.getChannelId()).isEqualTo(DEFAULT_CHANNEL_ID);
+      ShadowNotificationManager shadowNotificationManager =
+          Shadows.shadowOf(
+              (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE));
+      assertHasNotificationChannel(
+          shadowNotificationManager.getNotificationChannels(),
+          /* channelId= */ DEFAULT_CHANNEL_ID,
+          /* channelName= */ context.getString(R.string.default_notification_channel_name));
+    }
+  }
+
+  @Test
+  public void provider_withCustomIds_notificationsUseCustomIds() {
+    Context context = ApplicationProvider.getApplicationContext();
+    DefaultMediaNotificationProvider defaultMediaNotificationProvider =
+        new DefaultMediaNotificationProvider.Builder(context)
+            .setNotificationId(/* notificationId= */ 2)
+            .setChannelId(/* channelId= */ "customChannelId")
+            .setChannelName(/* channelNameResourceId= */ R.string.media3_controls_play_description)
+            .build();
+    BitmapLoader mockBitmapLoader = mock(BitmapLoader.class);
+    when(mockBitmapLoader.loadBitmapFromMetadata(any())).thenReturn(null);
+    Player player = new TestExoPlayerBuilder(context).build();
+    MediaSession mediaSession =
+        new MediaSession.Builder(context, player).setBitmapLoader(mockBitmapLoader).build();
+    DefaultActionFactory defaultActionFactory =
+        new DefaultActionFactory(Robolectric.setupService(TestService.class));
+
+    MediaNotification notification =
+        defaultMediaNotificationProvider.createNotification(
+            mediaSession,
+            ImmutableList.of(),
+            defaultActionFactory,
+            mock(MediaNotification.Provider.Callback.class));
+    mediaSession.release();
+    player.release();
+
+    assertThat(notification.notificationId).isEqualTo(2);
+    if (SDK_INT >= 26) {
+      assertThat(notification.notification.getChannelId()).isEqualTo("customChannelId");
+      ShadowNotificationManager shadowNotificationManager =
+          Shadows.shadowOf(
+              (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE));
+      assertHasNotificationChannel(
+          shadowNotificationManager.getNotificationChannels(),
+          /* channelId= */ "customChannelId",
+          /* channelName= */ context.getString(R.string.media3_controls_play_description));
+    }
+  }
+
+  /**
+   * {@link DefaultMediaNotificationProvider} is designed to be extendable. Public constructor
+   * should not be removed.
+   */
+  @Test
+  public void createsProviderUsingConstructor_idsNotSpecified_usesDefaultIds() {
+    Context context = ApplicationProvider.getApplicationContext();
+    DefaultMediaNotificationProvider defaultMediaNotificationProvider =
+        new DefaultMediaNotificationProvider(context);
+    BitmapLoader mockBitmapLoader = mock(BitmapLoader.class);
+    when(mockBitmapLoader.loadBitmapFromMetadata(any())).thenReturn(null);
+    Player player = new TestExoPlayerBuilder(context).build();
+    MediaSession mediaSession =
+        new MediaSession.Builder(context, player).setBitmapLoader(mockBitmapLoader).build();
+    DefaultActionFactory defaultActionFactory =
+        new DefaultActionFactory(Robolectric.setupService(TestService.class));
+
+    MediaNotification notification =
+        defaultMediaNotificationProvider.createNotification(
+            mediaSession,
+            /* mediaButtonPreferences= */ ImmutableList.of(),
+            defaultActionFactory,
+            /* onNotificationChangedCallback= */ mock(MediaNotification.Provider.Callback.class));
+    mediaSession.release();
+    player.release();
+
+    assertThat(notification.notificationId).isEqualTo(DEFAULT_NOTIFICATION_ID);
+    if (SDK_INT >= 26) {
+      assertThat(notification.notification.getChannelId()).isEqualTo(DEFAULT_CHANNEL_ID);
+      ShadowNotificationManager shadowNotificationManager =
+          Shadows.shadowOf(
+              (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE));
+      assertHasNotificationChannel(
+          shadowNotificationManager.getNotificationChannels(),
+          /* channelId= */ DEFAULT_CHANNEL_ID,
+          /* channelName= */ context.getString(R.string.default_notification_channel_name));
+    }
+  }
+
   private Player createPlayerWithMetadata(MediaMetadata mediaMetadata) {
     return createPlayerWithMetadata(mediaMetadata, /* isMetadataCommandAvailable= */ true);
   }
@@ -1339,6 +1484,22 @@ public class DefaultMediaNotificationProviderTest {
         return Futures.immediateVoidFuture();
       }
     };
+  }
+
+  private static void assertHasNotificationChannel(
+      List<NotificationChannel> notificationChannels, String channelId, String channelName) {
+    boolean found = false;
+    for (NotificationChannel notificationChannel : notificationChannels) {
+      found =
+          notificationChannel.getId().equals(channelId)
+              // NotificationChannel.getName() is CharSequence. Use String#contentEquals instead
+              // because CharSequence.equals() has undefined behavior.
+              && channelName.contentEquals(notificationChannel.getName());
+      if (found) {
+        break;
+      }
+    }
+    assertThat(found).isTrue();
   }
 
   /** A test service for unit tests. */

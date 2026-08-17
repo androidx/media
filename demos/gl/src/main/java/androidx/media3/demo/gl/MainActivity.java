@@ -93,7 +93,7 @@ public final class MainActivity extends Activity {
         new VideoProcessingGLSurfaceView(
             context, requestSecureSurface, new BitmapOverlayVideoProcessor(context));
     checkNotNull(playerView);
-    FrameLayout contentFrame = playerView.findViewById(R.id.exo_content_frame);
+    FrameLayout contentFrame = playerView.findViewById(androidx.media3.ui.R.id.exo_content_frame);
     contentFrame.addView(videoProcessingGLSurfaceView);
     this.videoProcessingGLSurfaceView = videoProcessingGLSurfaceView;
   }

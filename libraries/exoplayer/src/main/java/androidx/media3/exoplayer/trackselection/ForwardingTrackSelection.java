@@ -133,6 +133,11 @@ public class ForwardingTrackSelection implements ExoTrackSelection {
   }
 
   @Override
+  public void clearTrackExclusions() {
+    trackSelection.clearTrackExclusions();
+  }
+
+  @Override
   public long getLatestBitrateEstimate() {
     return trackSelection.getLatestBitrateEstimate();
   }

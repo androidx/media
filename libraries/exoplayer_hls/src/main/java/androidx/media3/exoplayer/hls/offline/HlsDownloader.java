@@ -157,6 +157,8 @@ public final class HlsDownloader extends SegmentDownloader<HlsPlaylist> {
     }
   }
 
+  private final Parser<HlsPlaylist> manifestParser;
+
   /**
    * @deprecated Use {@link HlsDownloader.Factory#create(MediaItem)} instead.
    */
@@ -214,19 +216,26 @@ public final class HlsDownloader extends SegmentDownloader<HlsPlaylist> {
         maxMergedSegmentStartTimeDiffMs,
         startPositionUs,
         durationUs);
+    this.manifestParser = manifestParser;
   }
 
   @Override
   protected List<Segment> getSegments(DataSource dataSource, HlsPlaylist manifest, boolean removing)
       throws IOException, InterruptedException {
     ArrayList<DataSpec> mediaPlaylistDataSpecs = new ArrayList<>();
+    HlsMultivariantPlaylist multivariantPlaylist = HlsMultivariantPlaylist.EMPTY;
     if (manifest instanceof HlsMultivariantPlaylist) {
-      HlsMultivariantPlaylist multivariantPlaylist = (HlsMultivariantPlaylist) manifest;
+      multivariantPlaylist = (HlsMultivariantPlaylist) manifest;
       addMediaPlaylistDataSpecs(multivariantPlaylist.mediaPlaylistUrls, mediaPlaylistDataSpecs);
     } else {
       mediaPlaylistDataSpecs.add(
           SegmentDownloader.getCompressibleDataSpec(Uri.parse(manifest.baseUri)));
     }
+
+    Parser<HlsPlaylist> mediaPlaylistParser =
+        !multivariantPlaylist.variableDefinitions.isEmpty()
+            ? new HlsPlaylistParser(multivariantPlaylist, /* previousMediaPlaylist= */ null)
+            : manifestParser;
 
     ArrayList<Segment> segments = new ArrayList<>();
     HashSet<Uri> seenEncryptionKeyUris = new HashSet<>();
@@ -234,7 +243,9 @@ public final class HlsDownloader extends SegmentDownloader<HlsPlaylist> {
       segments.add(new Segment(/* startTimeUs= */ 0, mediaPlaylistDataSpec));
       HlsMediaPlaylist mediaPlaylist;
       try {
-        mediaPlaylist = (HlsMediaPlaylist) getManifest(dataSource, mediaPlaylistDataSpec, removing);
+        mediaPlaylist =
+            (HlsMediaPlaylist)
+                getManifest(dataSource, mediaPlaylistParser, mediaPlaylistDataSpec, removing);
       } catch (IOException e) {
         if (!removing) {
           throw e;

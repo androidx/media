@@ -72,6 +72,8 @@ public final class RawAssetLoader implements AssetLoader {
 
   // Read on app's thread and written on internal thread.
   private volatile boolean isStarted;
+  // Read on app's thread and written on internal thread.
+  private volatile boolean isStopped;
   // Read on internal thread and written on app's thread.
   private volatile long lastQueuedAudioPresentationTimeUs;
   // Read on internal thread and written on app's thread.
@@ -152,8 +154,19 @@ public final class RawAssetLoader implements AssetLoader {
   }
 
   @Override
+  public void stop() {
+    isStopped = true;
+  }
+
+  @Override
+  public boolean isStopped() {
+    return isStopped;
+  }
+
+  @Override
   public void release() {
     progressState = PROGRESS_STATE_NOT_STARTED;
+    isStopped = true;
   }
 
   /**
@@ -167,12 +180,12 @@ public final class RawAssetLoader implements AssetLoader {
    *     again later.
    */
   public boolean queueInputTexture(int texId, long presentationTimeUs) {
+    if (!isStarted || isStopped) {
+      return false;
+    }
     checkState(!isVideoEndOfStreamSignaled);
     try {
       if (!isVideoTrackAdded) {
-        if (!isStarted) {
-          return false;
-        }
         assetLoaderListener.onTrackAdded(checkNotNull(videoFormat), SUPPORTED_OUTPUT_TYPE_DECODED);
         isVideoTrackAdded = true;
       }
@@ -233,10 +246,10 @@ public final class RawAssetLoader implements AssetLoader {
    *     try again later.
    */
   public boolean queueAudioData(ByteBuffer audioData, long presentationTimeUs, boolean isLast) {
-    checkState(!isAudioEndOfStreamSignaled);
-    if (!isStarted) {
+    if (!isStarted || isStopped) {
       return false;
     }
+    checkState(!isAudioEndOfStreamSignaled);
     try {
       if (!isAudioTrackAdded) {
         assetLoaderListener.onTrackAdded(checkNotNull(audioFormat), SUPPORTED_OUTPUT_TYPE_DECODED);

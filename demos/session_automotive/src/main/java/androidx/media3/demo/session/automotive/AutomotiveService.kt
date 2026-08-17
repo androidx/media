@@ -16,16 +16,29 @@
 package androidx.media3.demo.session.automotive
 
 import androidx.annotation.OptIn
+import androidx.media3.common.AudioAttributes
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.demo.session.DemoMediaLibrarySessionCallback
 import androidx.media3.demo.session.DemoPlaybackService
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.util.EventLogger
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaConstants
 import androidx.media3.session.MediaSession.ControllerInfo
 import com.google.common.util.concurrent.ListenableFuture
 
 class AutomotiveService : DemoPlaybackService() {
+
+  override fun buildPlayer(): Player {
+    val exoPlayer =
+      ExoPlayer.Builder(this)
+        .setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true)
+        .build()
+    exoPlayer.addAnalyticsListener(EventLogger())
+    return exoPlayer
+  }
 
   override fun createLibrarySessionCallback(): MediaLibrarySession.Callback {
     return object : DemoMediaLibrarySessionCallback(this@AutomotiveService) {
@@ -34,7 +47,7 @@ class AutomotiveService : DemoPlaybackService() {
       override fun onGetLibraryRoot(
         session: MediaLibrarySession,
         browser: ControllerInfo,
-        params: LibraryParams?
+        params: LibraryParams?,
       ): ListenableFuture<LibraryResult<MediaItem>> {
         var responseParams = params
         if (session.isAutomotiveController(browser)) {
@@ -42,11 +55,11 @@ class AutomotiveService : DemoPlaybackService() {
           val rootHintParams = params ?: LibraryParams.Builder().build()
           rootHintParams.extras.putInt(
             MediaConstants.EXTRAS_KEY_CONTENT_STYLE_BROWSABLE,
-            MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM
+            MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM,
           )
           rootHintParams.extras.putInt(
             MediaConstants.EXTRAS_KEY_CONTENT_STYLE_PLAYABLE,
-            MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM
+            MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM,
           )
           // Tweaked params are propagated to Automotive browsers as root hints.
           responseParams = rootHintParams

@@ -94,6 +94,10 @@ interface IRemoteMediaController {
   void stop(String controllerId);
   void setTrackSelectionParameters(String controllerId, in Bundle parameters);
   void setMediaItemsPreparePlayAddItemsSeek(String controllerId, in List<Bundle> initialMediaItems, in List<Bundle> addedMediaItems, int seekIndex);
+  void executeCommandButtonAction(String controllerId, int buttonIndex);
+  void executeCustomLayoutAction(String controllerId, int buttonIndex);
+  int getTimelineWindowCount(String controllerId);
+  boolean hasQueueCommandsSupport(String controllerId);
 
   // MediaBrowser methods
   Bundle getLibraryRoot(String controllerId, in Bundle libraryParams);

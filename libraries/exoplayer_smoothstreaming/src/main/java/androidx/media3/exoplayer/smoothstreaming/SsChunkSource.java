@@ -19,6 +19,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.smoothstreaming.manifest.SsManifest;
@@ -82,6 +83,7 @@ public interface SsChunkSource extends ChunkSource {
      * @return This factory, for convenience.
      */
     @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/289983417 - Remove legacy subtitle decoding paths.
     default Factory experimentalParseSubtitlesDuringExtraction(
         boolean parseSubtitlesDuringExtraction) {
       return this;

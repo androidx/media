@@ -16,7 +16,6 @@
 package androidx.media3.exoplayer.source;
 
 import static androidx.media3.common.util.Util.msToUs;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
@@ -25,9 +24,11 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.upstream.Allocator;
@@ -38,6 +39,8 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.ArrayList;
+import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
+import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /**
  * {@link MediaSource} that wraps a source and clips its timeline based on specified start/end
@@ -50,13 +53,9 @@ public final class ClippingMediaSource extends WrappingMediaSource {
   public static final class Builder {
 
     private final MediaSource mediaSource;
+    private MediaItem.ClippingConfiguration.Builder config;
 
-    private long startPositionUs;
-    private long endPositionUs;
-    private boolean enableInitialDiscontinuity;
-    private boolean allowDynamicClippingUpdates;
-    private boolean relativeToDefaultPosition;
-    private boolean allowUnseekableMedia;
+    private boolean enableClippingInMediaPeriod;
     private boolean buildCalled;
 
     /**
@@ -66,8 +65,31 @@ public final class ClippingMediaSource extends WrappingMediaSource {
      */
     public Builder(MediaSource mediaSource) {
       this.mediaSource = checkNotNull(mediaSource);
-      this.enableInitialDiscontinuity = true;
-      this.endPositionUs = C.TIME_END_OF_SOURCE;
+      this.config = new MediaItem.ClippingConfiguration.Builder();
+    }
+
+    /**
+     * Sets the {@link MediaItem.ClippingConfiguration}.
+     *
+     * <p>Calling this method overwrites the following setters:
+     *
+     * <ul>
+     *   <li>{@link #setStartPositionUs(long)}
+     *   <li>{@link #setEndPositionUs(long)}
+     *   <li>{@link #setEnableInitialDiscontinuity(boolean)}
+     *   <li>{@link #setAllowDynamicClippingUpdates(boolean)}
+     *   <li>{@link #setRelativeToDefaultPosition(boolean)}
+     *   <li>{@link #setAllowUnseekableMedia(boolean)}
+     * </ul>
+     *
+     * @param clippingConfiguration The {@link MediaItem.ClippingConfiguration}.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setClippingConfiguration(MediaItem.ClippingConfiguration clippingConfiguration) {
+      checkState(!buildCalled);
+      this.config = clippingConfiguration.buildUpon();
+      return this;
     }
 
     /**
@@ -95,9 +117,8 @@ public final class ClippingMediaSource extends WrappingMediaSource {
      */
     @CanIgnoreReturnValue
     public Builder setStartPositionUs(long startPositionUs) {
-      checkArgument(startPositionUs >= 0);
       checkState(!buildCalled);
-      this.startPositionUs = startPositionUs;
+      config.setStartPositionUs(startPositionUs);
       return this;
     }
 
@@ -135,7 +156,7 @@ public final class ClippingMediaSource extends WrappingMediaSource {
     @CanIgnoreReturnValue
     public Builder setEndPositionUs(long endPositionUs) {
       checkState(!buildCalled);
-      this.endPositionUs = endPositionUs;
+      config.setEndPositionUs(endPositionUs);
       return this;
     }
 
@@ -156,7 +177,7 @@ public final class ClippingMediaSource extends WrappingMediaSource {
     @CanIgnoreReturnValue
     public Builder setEnableInitialDiscontinuity(boolean enableInitialDiscontinuity) {
       checkState(!buildCalled);
-      this.enableInitialDiscontinuity = enableInitialDiscontinuity;
+      config.setStartsAtKeyFrame(!enableInitialDiscontinuity);
       return this;
     }
 
@@ -174,7 +195,7 @@ public final class ClippingMediaSource extends WrappingMediaSource {
     @CanIgnoreReturnValue
     public Builder setAllowDynamicClippingUpdates(boolean allowDynamicClippingUpdates) {
       checkState(!buildCalled);
-      this.allowDynamicClippingUpdates = allowDynamicClippingUpdates;
+      config.setRelativeToLiveWindow(allowDynamicClippingUpdates);
       return this;
     }
 
@@ -191,7 +212,7 @@ public final class ClippingMediaSource extends WrappingMediaSource {
     @CanIgnoreReturnValue
     public Builder setRelativeToDefaultPosition(boolean relativeToDefaultPosition) {
       checkState(!buildCalled);
-      this.relativeToDefaultPosition = relativeToDefaultPosition;
+      config.setRelativeToDefaultPosition(relativeToDefaultPosition);
       return this;
     }
 
@@ -210,7 +231,25 @@ public final class ClippingMediaSource extends WrappingMediaSource {
     @CanIgnoreReturnValue
     public Builder setAllowUnseekableMedia(boolean allowUnseekableMedia) {
       checkState(!buildCalled);
-      this.allowUnseekableMedia = allowUnseekableMedia;
+      config.setAllowUnseekableMedia(allowUnseekableMedia);
+      return this;
+    }
+
+    /**
+     * Sets whether an experimental setting to delegate end position clipping to the wrapped {@link
+     * MediaPeriod} is enabled.
+     *
+     * <p>The default value is {@code false}.
+     *
+     * @param enableClippingInMediaPeriod Whether the end clipping should be delegated to the
+     *     wrapped {@link MediaPeriod}.
+     * @return This builder.
+     */
+    @ExperimentalApi // TODO: b/474538573 - Remove once clipping in media period is default.
+    @CanIgnoreReturnValue
+    public Builder setEnableClippingInMediaPeriod(boolean enableClippingInMediaPeriod) {
+      checkState(!buildCalled);
+      this.enableClippingInMediaPeriod = enableClippingInMediaPeriod;
       return this;
     }
 
@@ -273,15 +312,11 @@ public final class ClippingMediaSource extends WrappingMediaSource {
     }
   }
 
-  private final long startUs;
-  private final long endUs;
-  private final boolean enableInitialDiscontinuity;
-  private final boolean allowDynamicClippingUpdates;
-  private final boolean relativeToDefaultPosition;
-  private final boolean allowUnseekableMedia;
+  private final boolean enableClippingInMediaPeriod;
   private final ArrayList<ClippingMediaPeriod> mediaPeriods;
   private final Timeline.Window window;
 
+  private MediaItem.ClippingConfiguration config;
   @Nullable private ClippingTimeline clippingTimeline;
   @Nullable private IllegalClippingException clippingError;
   private long periodStartUs;
@@ -328,20 +363,42 @@ public final class ClippingMediaSource extends WrappingMediaSource {
 
   private ClippingMediaSource(Builder builder) {
     super(builder.mediaSource);
-    this.startUs = builder.startPositionUs;
-    this.endUs = builder.endPositionUs;
-    this.enableInitialDiscontinuity = builder.enableInitialDiscontinuity;
-    this.allowDynamicClippingUpdates = builder.allowDynamicClippingUpdates;
-    this.relativeToDefaultPosition = builder.relativeToDefaultPosition;
-    this.allowUnseekableMedia = builder.allowUnseekableMedia;
+    this.config = builder.config.build();
+    this.enableClippingInMediaPeriod = builder.enableClippingInMediaPeriod;
     mediaPeriods = new ArrayList<>();
     window = new Timeline.Window();
   }
 
   @Override
   public boolean canUpdateMediaItem(MediaItem mediaItem) {
-    return getMediaItem().clippingConfiguration.equals(mediaItem.clippingConfiguration)
-        && mediaSource.canUpdateMediaItem(mediaItem);
+    if (!mediaSource.canUpdateMediaItem(mediaItem)) {
+      return false;
+    }
+    return enableClippingInMediaPeriod
+        || getMediaItem().clippingConfiguration.equals(mediaItem.clippingConfiguration);
+  }
+
+  @SuppressWarnings("ReferenceEquality") // Intentional check for timeline identity.
+  @Override
+  public void updateMediaItem(MediaItem mediaItem) {
+    if (enableClippingInMediaPeriod) {
+      MediaItem.ClippingConfiguration oldConfig = config;
+      config = mediaItem.clippingConfiguration;
+      if (clippingTimeline != null && shouldKeepWindowFixed()) {
+        // If the window is not fixed, refreshClippedTimeline re-calculates the period clipping.
+        // If the window is fixed, we need to make adjustments for the new config directly.
+        updatePeriodClippingToNewConfig(oldConfig);
+      }
+    }
+    Timeline oldTimeline = clippingTimeline;
+    // Let the wrapped source update its internal state, which usually triggers a timeline refresh.
+    super.updateMediaItem(mediaItem);
+    if (enableClippingInMediaPeriod
+        && clippingTimeline != null
+        && clippingTimeline == oldTimeline) {
+      // If the timeline is unchanged, refresh it manually.
+      refreshClippedTimeline(clippingTimeline.timeline);
+    }
   }
 
   @Override
@@ -357,9 +414,10 @@ public final class ClippingMediaSource extends WrappingMediaSource {
     ClippingMediaPeriod mediaPeriod =
         new ClippingMediaPeriod(
             mediaSource.createPeriod(id, allocator, startPositionUs),
-            enableInitialDiscontinuity,
+            /* enableInitialDiscontinuity= */ !config.startsAtKeyFrame,
             periodStartUs,
-            periodEndUs);
+            periodEndUs,
+            enableClippingInMediaPeriod);
     mediaPeriods.add(mediaPeriod);
     return mediaPeriod;
   }
@@ -368,7 +426,7 @@ public final class ClippingMediaSource extends WrappingMediaSource {
   public void releasePeriod(MediaPeriod mediaPeriod) {
     checkState(mediaPeriods.remove(mediaPeriod));
     mediaSource.releasePeriod(((ClippingMediaPeriod) mediaPeriod).mediaPeriod);
-    if (mediaPeriods.isEmpty() && !allowDynamicClippingUpdates) {
+    if (mediaPeriods.isEmpty() && !config.relativeToLiveWindow) {
       refreshClippedTimeline(checkNotNull(clippingTimeline).timeline);
     }
   }
@@ -393,17 +451,19 @@ public final class ClippingMediaSource extends WrappingMediaSource {
     long windowEndUs;
     timeline.getWindow(/* windowIndex= */ 0, window);
     long windowPositionInPeriodUs = window.getPositionInFirstPeriodUs();
-    if (clippingTimeline == null || mediaPeriods.isEmpty() || allowDynamicClippingUpdates) {
-      windowStartUs = startUs;
-      windowEndUs = endUs;
-      if (relativeToDefaultPosition) {
+    if (!shouldKeepWindowFixed()) {
+      windowStartUs = config.startPositionUs;
+      windowEndUs = config.endPositionUs;
+      if (config.relativeToDefaultPosition) {
         long windowDefaultPositionUs = window.getDefaultPositionUs();
         windowStartUs += windowDefaultPositionUs;
-        windowEndUs += windowDefaultPositionUs;
+        if (windowEndUs != C.TIME_END_OF_SOURCE) {
+          windowEndUs += windowDefaultPositionUs;
+        }
       }
       periodStartUs = windowPositionInPeriodUs + windowStartUs;
       periodEndUs =
-          endUs == C.TIME_END_OF_SOURCE
+          config.endPositionUs == C.TIME_END_OF_SOURCE
               ? C.TIME_END_OF_SOURCE
               : windowPositionInPeriodUs + windowEndUs;
       int count = mediaPeriods.size();
@@ -414,13 +474,13 @@ public final class ClippingMediaSource extends WrappingMediaSource {
       // Keep window fixed at previous period position.
       windowStartUs = periodStartUs - windowPositionInPeriodUs;
       windowEndUs =
-          endUs == C.TIME_END_OF_SOURCE
+          periodEndUs == C.TIME_END_OF_SOURCE
               ? C.TIME_END_OF_SOURCE
               : periodEndUs - windowPositionInPeriodUs;
     }
     try {
       clippingTimeline =
-          new ClippingTimeline(timeline, windowStartUs, windowEndUs, allowUnseekableMedia);
+          new ClippingTimeline(timeline, windowStartUs, windowEndUs, config.allowUnseekableMedia);
     } catch (IllegalClippingException e) {
       clippingError = e;
       // The clipping error won't be propagated while we have existing MediaPeriods. Setting the
@@ -431,6 +491,29 @@ public final class ClippingMediaSource extends WrappingMediaSource {
       return;
     }
     refreshSourceInfo(clippingTimeline);
+  }
+
+  @RequiresNonNull("clippingTimeline")
+  private void updatePeriodClippingToNewConfig(MediaItem.ClippingConfiguration oldConfig) {
+    long windowDefaultOffset =
+        clippingTimeline.timeline.getWindow(/* windowIndex= */ 0, window).getDefaultPositionUs();
+    long defaultOffsetChange =
+        (oldConfig.relativeToDefaultPosition ? -windowDefaultOffset : 0)
+            + (config.relativeToDefaultPosition ? windowDefaultOffset : 0);
+    periodStartUs += defaultOffsetChange + config.startPositionUs - oldConfig.startPositionUs;
+    periodEndUs =
+        config.endPositionUs == C.TIME_END_OF_SOURCE
+            ? C.TIME_END_OF_SOURCE
+            : periodStartUs + config.endPositionUs - config.startPositionUs;
+    int count = mediaPeriods.size();
+    for (int i = 0; i < count; i++) {
+      mediaPeriods.get(i).updateClipping(periodStartUs, periodEndUs);
+    }
+  }
+
+  @EnsuresNonNullIf(result = true, expression = "clippingTimeline")
+  private boolean shouldKeepWindowFixed() {
+    return !mediaPeriods.isEmpty() && clippingTimeline != null && !config.relativeToLiveWindow;
   }
 
   /** Provides a clipped view of a specified timeline. */
@@ -514,7 +597,13 @@ public final class ClippingMediaSource extends WrappingMediaSource {
       long periodDurationUs =
           durationUs == C.TIME_UNSET ? C.TIME_UNSET : durationUs - positionInClippedWindowUs;
       return period.set(
-          period.id, period.uid, /* windowIndex= */ 0, periodDurationUs, positionInClippedWindowUs);
+          period.id,
+          period.uid,
+          /* windowIndex= */ 0,
+          periodDurationUs,
+          positionInClippedWindowUs,
+          AdPlaybackState.NONE,
+          period.isPlaceholder);
     }
   }
 }

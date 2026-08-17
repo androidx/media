@@ -23,8 +23,7 @@
 #include <cstdlib>
 #include <cstring>
 
-namespace gav1_jni {
-namespace {
+namespace dav1d_jni {
 
 // Note: The code in this file needs to use the 'long' type because it is the
 // return type of the Standard C Library function strtol(). The linter warnings
@@ -41,9 +40,6 @@ int GetNumberOfProcessorsOnline() {
   // the return value of get_nprocs(), which is an int.
   return static_cast<int>(num_cpus);
 }
-
-}  // namespace
-
 // These CPUs support heterogeneous multiprocessing.
 #if defined(__arm__) || defined(__aarch64__)
 
@@ -165,4 +161,4 @@ int GetNumberOfPerformanceCoresOnline() {
 
 #endif
 
-}  // namespace gav1_jni
+}  // namespace dav1d_jni

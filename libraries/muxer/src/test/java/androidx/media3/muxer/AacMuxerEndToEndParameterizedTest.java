@@ -26,10 +26,7 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -41,9 +38,11 @@ import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
 /** End to end parameterized tests for {@link AacMuxer}. */
 @RunWith(ParameterizedRobolectricTestRunner.class)
 public class AacMuxerEndToEndParameterizedTest {
-  private static final String AAC_M4A = "bbb_1ch_8kHz_aac_lc.m4a";
-  private static final String AAC_MP4 = "bbb_1ch_16kHz_aac.mp4";
-  private static final String RAW_AAC = "bbb_1ch_8kHz_aac_lc.aac";
+  private static final String AAC_M4A = "mp4/bbb_1ch_8kHz_aac_lc.m4a";
+  private static final String AAC_MP4 = "mp4/bbb_1ch_16kHz_aac.mp4";
+  private static final String RAW_AAC = "aac/bbb_1ch_8kHz_aac_lc.aac";
+
+  public static final String MEDIA_FILE_ASSET_DIRECTORY = "asset:///media/";
 
   @Parameters(name = "{0}")
   public static ImmutableList<String> mediaSamples() {
@@ -54,29 +53,21 @@ public class AacMuxerEndToEndParameterizedTest {
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
   private final Context context = ApplicationProvider.getApplicationContext();
-  private @MonotonicNonNull String outputPath;
-  private @MonotonicNonNull FileOutputStream outputStream;
-
-  @Before
-  public void setUp() throws Exception {
-    outputPath = temporaryFolder.newFile("muxeroutput.aac").getPath();
-    outputStream = new FileOutputStream(outputPath);
-  }
-
-  @After
-  public void tearDown() throws IOException {
-    checkNotNull(outputStream).close();
-  }
 
   @Test
   public void createAacFile_fromInputFileSampleData_matchesExpected() throws Exception {
-    try (AacMuxer muxer = new AacMuxer(checkNotNull(outputStream))) {
-      feedInputDataToMuxer(context, muxer, checkNotNull(inputFile));
+    String outputPath = temporaryFolder.newFile("muxeroutput.aac").getPath();
+
+    try (AacMuxer muxer = new AacMuxer(new FileOutputStream(outputPath))) {
+      feedInputDataToMuxer(context, muxer, checkNotNull(MEDIA_FILE_ASSET_DIRECTORY + inputFile));
     }
 
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(new AdtsExtractor(), checkNotNull(outputPath));
     DumpFileAsserts.assertOutput(
-        context, fakeExtractorOutput, MuxerTestUtil.getExpectedDumpFilePath(inputFile));
+        context,
+        fakeExtractorOutput,
+        MuxerTestUtil.getExpectedDumpFilePath(
+            MuxerTestUtil.getSubstitutedPath(checkNotNull(inputFile), "aac")));
   }
 }

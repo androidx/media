@@ -38,9 +38,9 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import androidx.media3.exoplayer.MediaExtractorCompat;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
+import androidx.media3.inspector.MediaExtractorCompat;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -135,7 +135,7 @@ public final class VideoDecodingWrapper implements AutoCloseable {
               sampleMimeType, /* secure= */ false, /* tunneling= */ false);
       Format format = MediaFormatUtil.createFormatFromMediaFormat(mediaFormat);
       for (MediaCodecInfo codecInfo : codecInfos) {
-        if (!codecInfo.hardwareAccelerated && codecInfo.isFormatSupported(format)) {
+        if (!codecInfo.hardwareAccelerated && codecInfo.isFormatSupported(context, format)) {
           softwareMediaCodec = MediaCodec.createByCodecName(codecInfo.name);
           break;
         }
@@ -211,10 +211,7 @@ public final class VideoDecodingWrapper implements AutoCloseable {
         sampleSize,
         mediaExtractor.getSampleTime(),
         mediaExtractor.getSampleFlags());
-    // MediaExtractor.advance does not reliably return false for end-of-stream, so check sample
-    // metadata instead as a more reliable signal. See [internal: b/121204004].
-    mediaExtractor.advance();
-    hasReadEndOfInputStream = mediaExtractor.getSampleTime() == -1;
+    hasReadEndOfInputStream = !mediaExtractor.advance();
     return true;
   }
 

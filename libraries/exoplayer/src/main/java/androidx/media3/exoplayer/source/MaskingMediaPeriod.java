@@ -21,6 +21,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.StreamKey;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.LoadingInfo;
@@ -29,6 +30,7 @@ import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
 import java.io.IOException;
+import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -66,6 +68,7 @@ public final class MaskingMediaPeriod implements MediaPeriod, MediaPeriod.Callba
   @Nullable private PrepareListener listener;
   private boolean notifiedPrepareError;
   private long preparePositionOverrideUs;
+  private boolean usesStreamPrerollFlags;
 
   /**
    * Creates a new masking media period. The media source must be set via {@link
@@ -129,6 +132,9 @@ public final class MaskingMediaPeriod implements MediaPeriod, MediaPeriod.Callba
   public void createPeriod(MediaPeriodId id) {
     long preparePositionUs = getPreparePositionWithOverride(this.preparePositionUs);
     mediaPeriod = checkNotNull(mediaSource).createPeriod(id, allocator, preparePositionUs);
+    if (usesStreamPrerollFlags) {
+      mediaPeriod.setUsesStreamPrerollFlags();
+    }
     if (callback != null) {
       mediaPeriod.prepare(/* callback= */ this, preparePositionUs);
     }
@@ -170,6 +176,11 @@ public final class MaskingMediaPeriod implements MediaPeriod, MediaPeriod.Callba
   }
 
   @Override
+  public List<StreamKey> getStreamKeys(List<ExoTrackSelection> trackSelections) {
+    return castNonNull(mediaPeriod).getStreamKeys(trackSelections);
+  }
+
+  @Override
   public TrackGroupArray getTrackGroups() {
     return castNonNull(mediaPeriod).getTrackGroups();
   }
@@ -192,6 +203,14 @@ public final class MaskingMediaPeriod implements MediaPeriod, MediaPeriod.Callba
   @Override
   public void discardBuffer(long positionUs, boolean toKeyframe) {
     castNonNull(mediaPeriod).discardBuffer(positionUs, toKeyframe);
+  }
+
+  @Override
+  public void setUsesStreamPrerollFlags() {
+    this.usesStreamPrerollFlags = true;
+    if (mediaPeriod != null) {
+      mediaPeriod.setUsesStreamPrerollFlags();
+    }
   }
 
   @Override
@@ -237,6 +256,11 @@ public final class MaskingMediaPeriod implements MediaPeriod, MediaPeriod.Callba
   @Override
   public void onContinueLoadingRequested(MediaPeriod source) {
     castNonNull(callback).onContinueLoadingRequested(this);
+  }
+
+  @Override
+  public long setEndPositionUs(long endPositionUs) {
+    return mediaPeriod != null ? mediaPeriod.setEndPositionUs(endPositionUs) : C.TIME_END_OF_SOURCE;
   }
 
   // MediaPeriod.Callback implementation

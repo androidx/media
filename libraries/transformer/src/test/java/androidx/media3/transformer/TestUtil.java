@@ -15,55 +15,65 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.TestUtil.extractAllSamplesFromFilePath;
+import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.truth.Truth.assertWithMessage;
 
+import android.graphics.Bitmap;
+import android.graphics.SurfaceTexture;
+import android.hardware.HardwareBuffer;
+import android.media.Image;
+import android.os.Handler;
+import android.util.Rational;
+import android.view.Surface;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.PlaybackException;
+import androidx.media3.common.Player;
 import androidx.media3.common.audio.AudioProcessor;
-import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingMatrix;
 import androidx.media3.common.audio.SonicAudioProcessor;
+import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
+import androidx.media3.common.video.FrameProcessor;
+import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.test.utils.AssetInfo;
+import androidx.media3.test.utils.CapturingFrameProcessor;
+import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
+import androidx.media3.test.utils.PassthroughAudioProcessor;
+import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
+import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
-import java.nio.ByteBuffer;
+import java.math.RoundingMode;
+import java.util.ArrayDeque;
 import java.util.List;
+import java.util.Queue;
 import java.util.StringJoiner;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** Utility class for {@link Transformer} unit tests */
 @UnstableApi
 public final class TestUtil {
 
-  /**
-   * A {@link BaseAudioProcessor} implementation that accepts all input formats and copies all input
-   * buffers onto the output without modifications.
-   */
-  public static class PassthroughAudioProcessor extends BaseAudioProcessor {
-    @Override
-    protected AudioFormat onConfigure(AudioFormat inputAudioFormat)
-        throws UnhandledAudioFormatException {
-      return inputAudioFormat;
-    }
-
-    @Override
-    public void queueInput(ByteBuffer inputBuffer) {
-      if (!inputBuffer.hasRemaining()) {
-        return;
-      }
-      replaceOutputBuffer(inputBuffer.remaining()).put(inputBuffer).flip();
-    }
-  }
-
   public static final String ASSET_URI_PREFIX = "asset:///media/";
   public static final String FILE_VIDEO_ONLY = "mp4/sample_18byte_nclx_colr.mp4";
-  public static final String FILE_AUDIO_ONLY = "mp3/test-cbr-info-header.mp3";
+  public static final String FILE_AUDIO_ONLY = "mp4/sample_audio_only.mp4";
   public static final String FILE_AUDIO_VIDEO = "mp4/sample.mp4";
+  public static final String FILE_AUDIO_RAW_AAC = "aac/bbb_1ch_8kHz_aac_lc.aac";
   public static final String FILE_AUDIO_VIDEO_STEREO = "mp4/testvid_1022ms.mp4";
   public static final String FILE_AUDIO_RAW_VIDEO = "mp4/sowt-with-video.mov";
   public static final String FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S =
@@ -89,8 +99,13 @@ public final class TestUtil {
       "mp4/internal_emulator_transformer_output_270_rotated.mp4";
   public static final String FILE_MP4_TRIM_OPTIMIZATION_180 =
       "mp4/internal_emulator_transformer_output_180_rotated.mp4";
+  public static final String FILE_PNG = "png/media3test.png";
   private static final String DUMP_FILE_OUTPUT_DIRECTORY = "transformerdumps";
   private static final String DUMP_FILE_EXTENSION = "dump";
+  public static final Rational FPS_10 = new Rational(10, 1);
+  public static final Rational FPS_30 = new Rational(30, 1);
+  public static final Rational FPS_60 = new Rational(60, 1);
+  public static final Rational FPS_HALF = new Rational(1, 2);
 
   private TestUtil() {}
 
@@ -148,6 +163,10 @@ public final class TestUtil {
     return fileName + '.' + DUMP_FILE_EXTENSION;
   }
 
+  public static String getSubstitutedPath(String originalAssetPath, String newSubDir) {
+    return originalAssetPath.replaceFirst("[^/]+/", newSubDir + "/");
+  }
+
   /**
    * Returns the file path of the sequence export dump file, based on the item summaries provided.
    *
@@ -183,7 +202,7 @@ public final class TestUtil {
    * @param filePath The {@link String filepath} to get video timestamps for.
    * @return The {@link List} of video timestamps.
    */
-  public static List<Long> getVideoSampleTimesUs(String filePath) throws IOException {
+  public static ImmutableList<Long> getVideoSampleTimesUs(String filePath) throws IOException {
     Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
     FakeExtractorOutput fakeExtractorOutput =
         extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(filePath));
@@ -197,11 +216,313 @@ public final class TestUtil {
    * @param filePath The {@link String filepath} to get audio timestamps for.
    * @return The {@link List} of audio timestamps.
    */
-  public static List<Long> getAudioSampleTimesUs(String filePath) throws IOException {
+  public static ImmutableList<Long> getAudioSampleTimesUs(String filePath) throws IOException {
     Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
     FakeExtractorOutput fakeExtractorOutput =
         extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(filePath));
     return Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO))
         .getSampleTimesUs();
+  }
+
+  /**
+   * Returns a new {@link CompositionPlayer} built using {@link
+   * #createTestCompositionPlayerBuilder()}.
+   */
+  public static CompositionPlayer createTestCompositionPlayer() {
+    return createTestCompositionPlayerBuilder().build();
+  }
+
+  /**
+   * Returns a new {@link CompositionPlayer.Builder} configured for unit tests.
+   *
+   * <p>This method sets an auto advancing {@link FakeClock} and {@link
+   * ApplicationProvider#getApplicationContext()} as context.
+   */
+  public static CompositionPlayer.Builder createTestCompositionPlayerBuilder() {
+    return new CompositionPlayer.Builder(getApplicationContext())
+        .setClock(new FakeClock(/* isAutoAdvancing= */ true));
+  }
+
+  /**
+   * Returns a new {@link CompositionPlayer.Builder} configured for unit tests that runs the {@link
+   * HardwareBuffer} based pipeline.
+   *
+   * <p>This method sets an auto advancing {@link FakeClock}, uses a fake {@link
+   * ImageReaderAdapter.Factory} to allow running unit tests on videos and sets fake {@link
+   * HardwareBufferJniWrapper}.
+   */
+  public static CompositionPlayer.Builder createTestHardwareBufferCompositionPlayerBuilder(
+      FrameProcessor.Factory factory) {
+    return new CompositionPlayer.Builder(getApplicationContext())
+        .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+        .setNativeHardwareBufferHelpers(new FakeHardwareBufferJniWrapper())
+        .setImageReaderAdapterFactory(new FakeImageReaderAdapterFactory())
+        .setFrameProcessorFactory(factory)
+        .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET);
+  }
+
+  /**
+   * Sets up a {@link CompositionPlayer} with fake hardware buffer components, sets the given {@link
+   * Composition}, and prepares the player, waiting for it to reach {@link Player#STATE_READY}.
+   *
+   * @param composition The {@link Composition} to set.
+   * @param frameProcessorFactory The {@link FrameProcessor.Factory} to use.
+   * @return The prepared {@link CompositionPlayer} in {@link Player#STATE_READY} state.
+   * @throws PlaybackException If a fatal playback error occurs during preparation.
+   * @throws TimeoutException If the player fails to reach {@link Player#STATE_READY} within the
+   *     timeout.
+   */
+  public static CompositionPlayer setupAndPrepareHardwareBufferPlayer(
+      Composition composition, FrameProcessor.Factory frameProcessorFactory)
+      throws PlaybackException, TimeoutException {
+    CompositionPlayer player =
+        createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+    TestPlayerRunHelper.advance(player).untilState(Player.STATE_READY);
+    return player;
+  }
+
+  /**
+   * Asserts that the deltas between consecutive timestamps match the expected frame rate.
+   *
+   * @param timestampsUs The list of timestamps in microseconds.
+   * @param expectedFps The expected frame rate.
+   */
+  public static void assertTimestampsMatchFrameRate(List<Long> timestampsUs, Rational expectedFps) {
+    assertWithMessage("Expected at least two timestamps to verify frame rate")
+        .that(timestampsUs.size())
+        .isAtLeast(2);
+    long expectedDeltaUs =
+        Util.scaleLargeValue(
+            1_000_000L,
+            expectedFps.getDenominator(),
+            expectedFps.getNumerator(),
+            RoundingMode.HALF_UP);
+    for (int i = 1; i < timestampsUs.size(); i++) {
+      long deltaUs = timestampsUs.get(i) - timestampsUs.get(i - 1);
+      // Absolute timestamps rounded to the nearest microsecond can cause
+      // deltas to fluctuate by 1us from the exact mathematical duration.
+      assertWithMessage(
+              "Time between frames %s (%s) and %s (%s) does not match expected %s fps",
+              i - 1, timestampsUs.get(i - 1), i, timestampsUs.get(i), expectedFps)
+          .that(deltaUs)
+          .isWithin(1L)
+          .of(expectedDeltaUs);
+    }
+  }
+
+  /**
+   * Extracts the first timestamp of each queued frame group from the {@link
+   * CapturingFrameProcessor}.
+   *
+   * @param frameProcessor The {@link CapturingFrameProcessor} to query.
+   * @return An {@link ImmutableList} of queued content timestamps in microseconds.
+   */
+  public static ImmutableList<Long> getQueuedContentTimesUs(
+      CapturingFrameProcessor frameProcessor) {
+    return frameProcessor.getQueuedContentTimesUs().stream()
+        .map(list -> Iterables.getFirst(list, C.TIME_UNSET))
+        .filter(timeUs -> timeUs != C.TIME_UNSET)
+        .collect(toImmutableList());
+  }
+
+  /**
+   * Builds a {@link Composition} from a list of asset sequences.
+   *
+   * <p>The composition is configured with the specified video frame aggregation frame rate.
+   *
+   * @param sequencesAssets A list of sequences, where each sequence is a list of {@link
+   *     AssetInfo}s.
+   * @param aggregationFrameRate The target frame rate for video frame aggregation, or {@code null}
+   *     to use the default aggregation behavior (follows the primary sequence's physical
+   *     timestamps).
+   * @return The constructed {@link Composition}.
+   */
+  public static Composition buildComposition(
+      List<List<AssetInfo>> sequencesAssets, @Nullable Rational aggregationFrameRate) {
+    ImmutableList.Builder<EditedMediaItemSequence> sequences = ImmutableList.builder();
+    for (List<AssetInfo> sequenceAssets : sequencesAssets) {
+      ImmutableList.Builder<EditedMediaItem> editedMediaItems = ImmutableList.builder();
+      for (AssetInfo asset : sequenceAssets) {
+        checkArgument(
+            asset.videoDurationUs != C.TIME_UNSET, "Asset duration is unset: %s", asset.uri);
+        editedMediaItems.add(
+            new EditedMediaItem.Builder(MediaItem.fromUri(asset.uri))
+                .setDurationUs(asset.videoDurationUs)
+                .build());
+      }
+      sequences.add(EditedMediaItemSequence.withAudioAndVideoFrom(editedMediaItems.build()));
+    }
+    return new Composition.Builder(sequences.build())
+        .setVideoFrameAggregationParameters(
+            new VideoFrameAggregationParameters.Builder()
+                .setFrameRate(aggregationFrameRate)
+                .build())
+        .build();
+  }
+
+  public static final class FormatCapturingAudioProcessor extends PassthroughAudioProcessor {
+    public final AtomicReference<AudioFormat> inputFormat = new AtomicReference<>();
+
+    @Override
+    protected AudioFormat onConfigure(AudioFormat inputAudioFormat)
+        throws UnhandledAudioFormatException {
+      inputFormat.set(inputAudioFormat);
+      return super.onConfigure(inputAudioFormat);
+    }
+  }
+
+  /**
+   * A fake implementation of {@link ImageAdapter} for testing.
+   *
+   * <p>This class simply holds a presentation timestamp and an optional {@link HardwareBuffer}
+   * without relying on a real platform {@link android.media.Image}.
+   */
+  public static final class FakeImageAdapter implements ImageAdapter {
+    private final long timestampNs;
+    @Nullable private final HardwareBuffer hardwareBuffer;
+
+    public FakeImageAdapter(long timestampNs, @Nullable HardwareBuffer hardwareBuffer) {
+      this.timestampNs = timestampNs;
+      this.hardwareBuffer = hardwareBuffer;
+    }
+
+    @Override
+    public long getTimestampNs() {
+      return timestampNs;
+    }
+
+    @Override
+    @Nullable
+    public HardwareBuffer getHardwareBuffer() {
+      return hardwareBuffer;
+    }
+
+    @Override
+    @Nullable
+    public Image getInternalImage() {
+      return null;
+    }
+
+    @Override
+    public void close() {
+      if (hardwareBuffer != null) {
+        hardwareBuffer.close();
+      }
+    }
+  }
+
+  /**
+   * A fake implementation of {@link ImageReaderAdapter} for testing.
+   *
+   * <p>Instead of receiving frames from a real hardware {@link Surface}, this fake manages an
+   * internal queue of {@link FakeImageAdapter} instances. Tests can simulate frames being queued by
+   * calling {@link #notifyFrameQueued(long)}.
+   */
+  public static final class FakeImageReaderAdapter implements ImageReaderAdapter {
+    private final Queue<ImageAdapter> images;
+    @Nullable private Consumer<ImageReaderAdapter> listener;
+    @Nullable private Handler handler;
+    @Nullable private SurfaceTexture surfaceTexture;
+    @Nullable private Surface surface;
+
+    public FakeImageReaderAdapter() {
+      images = new ArrayDeque<>();
+    }
+
+    @Override
+    @Nullable
+    public ImageAdapter acquireNextImage() {
+      return images.poll();
+    }
+
+    @Override
+    public Surface getSurface() {
+      if (surfaceTexture == null) {
+        surfaceTexture = new SurfaceTexture(/* texName= */ 0);
+        surface = new Surface(surfaceTexture);
+      }
+      return surface;
+    }
+
+    @Override
+    public void setOnImageAvailableListener(
+        Consumer<ImageReaderAdapter> listener, Handler handler) {
+      this.handler = handler;
+      this.listener = listener;
+    }
+
+    @Override
+    public void notifyFrameQueued(long presentationTimeUs) {
+      @Nullable HardwareBuffer hardwareBuffer = null;
+      if (SDK_INT >= 26) {
+        hardwareBuffer =
+            HardwareBuffer.create(
+                /* width= */ 16,
+                /* height= */ 16,
+                HardwareBuffer.RGBA_8888,
+                /* layers= */ 1,
+                HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
+      }
+      images.add(
+          new FakeImageAdapter(/* timestampNs= */ presentationTimeUs * 1000, hardwareBuffer));
+      if (handler != null && listener != null) {
+        handler.post(() -> listener.accept(this));
+      }
+    }
+
+    @Override
+    public void close() {
+      if (surface != null) {
+        surface.release();
+      }
+      if (surfaceTexture != null) {
+        surfaceTexture.release();
+      }
+      while (!images.isEmpty()) {
+        checkNotNull(images.poll()).close();
+      }
+    }
+  }
+
+  /** A factory that returns a pre-configured {@link FakeImageReaderAdapter}. */
+  public static final class FakeImageReaderAdapterFactory implements ImageReaderAdapter.Factory {
+    public FakeImageReaderAdapterFactory() {}
+
+    @Override
+    public ImageReaderAdapter create(int width, int height, int format, int maxImages, long usage) {
+      return new FakeImageReaderAdapter();
+    }
+  }
+
+  /** A no-op {@link HardwareBufferJniWrapper} that always succeeds. */
+  private static final class FakeHardwareBufferJniWrapper implements HardwareBufferJniWrapper {
+    @Override
+    public long nativeCreateEglImageFromHardwareBuffer(
+        long displayHandle, HardwareBuffer hardwareBuffer) {
+      return 1L;
+    }
+
+    @Override
+    public boolean nativeBindEGLImage(int target, long eglImageHandle) {
+      return true;
+    }
+
+    @Override
+    public boolean nativeDestroyEGLImage(long displayHandle, long imageHandle) {
+      return true;
+    }
+
+    @Override
+    public boolean nativeCopyBitmapToHardwareBuffer(Bitmap bitmap, HardwareBuffer hb) {
+      return true;
+    }
+
+    @Override
+    public boolean nativeCopyHardwareBufferToHardwareBuffer(
+        HardwareBuffer srcHb, HardwareBuffer dstHb) {
+      return true;
+    }
   }
 }

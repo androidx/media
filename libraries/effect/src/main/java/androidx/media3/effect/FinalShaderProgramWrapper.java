@@ -278,27 +278,20 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public void flush() {
     videoFrameProcessingTaskExecutor.verifyVideoFrameProcessingThread();
-    // The downstream consumer must already have been flushed, so the textureOutputListener
-    // implementation does not access its previously output textures, per its contract. However, the
-    // downstream consumer may not have called releaseOutputTexture on all these textures. Release
-    // all output textures that aren't already released.
-    if (textureOutputListener != null) {
-      outputTexturePool.freeAllTextures();
-      outputTextureTimestamps.clear();
-      syncObjects.clear();
-    }
-
     // Drops all frames that aren't rendered yet.
     availableFrames.clear();
     isInputStreamEndedWithPendingAvailableFrames = false;
+    redrawFramePresentationTimeUs = C.TIME_UNSET;
     if (defaultShaderProgram != null) {
       defaultShaderProgram.flush();
     }
 
     // Signal flush upstream.
     inputListener.onFlush();
-    for (int i = 0; i < getInputCapacity(); i++) {
-      inputListener.onReadyToAcceptInputFrame();
+    if (textureOutputListener == null) {
+      for (int i = 0; i < getInputCapacity(); i++) {
+        inputListener.onReadyToAcceptInputFrame();
+      }
     }
   }
 
@@ -307,6 +300,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     videoFrameProcessingTaskExecutor.verifyVideoFrameProcessingThread();
     if (defaultShaderProgram != null) {
       defaultShaderProgram.release();
+      defaultShaderProgram = null;
     }
     try {
       outputTexturePool.deleteAllTextures();
@@ -314,6 +308,35 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       GlUtil.checkGlError();
     } catch (GlUtil.GlException e) {
       throw new VideoFrameProcessingException(e);
+    } finally {
+      outputEglSurface = null;
+    }
+  }
+
+  /**
+   * Finishes the flushing process.
+   *
+   * <p>In {@link DefaultVideoFrameProcessor}, a {@link #flush()} travels from the last effect to
+   * the first - the opposite direction of queueing frames. It is possible that the final shader
+   * program wrapper produces an output frame after the call to {@link #flush()}.
+   */
+  public void flushFinished() {
+    // The downstream consumer must already have been flushed, so the textureOutputListener
+    // implementation does not access its previously output textures, per its contract. However, the
+    // downstream consumer may not have called releaseOutputTexture on all these textures. Release
+    // all output textures that aren't already released.
+    if (textureOutputListener != null) {
+      outputTexturePool.freeAllTextures();
+      outputTextureTimestamps.clear();
+      syncObjects.clear();
+      for (int i = 0; i < getInputCapacity(); i++) {
+        inputListener.onReadyToAcceptInputFrame();
+      }
+      try {
+        textureOutputListener.flush();
+      } catch (VideoFrameProcessingException e) {
+        videoFrameProcessorListenerExecutor.execute(() -> videoFrameProcessorListener.onError(e));
+      }
     }
   }
 
@@ -426,6 +449,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return;
     }
     try {
+      if (defaultShaderProgram != null) {
+        // Work around a bug where some devices crash if we first release the output EGLSurface,
+        // and then delete the GL program that was writing into it.
+        defaultShaderProgram.release();
+        defaultShaderProgram = null;
+      }
       // outputEglSurface will be destroyed only if it's not current.
       // See EGL docs. Make the placeholder surface current before destroying.
       GlUtil.focusEglSurface(
@@ -434,6 +463,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     } catch (GlUtil.GlException e) {
       videoFrameProcessorListenerExecutor.execute(
           () -> videoFrameProcessorListener.onError(VideoFrameProcessingException.from(e)));
+    } catch (VideoFrameProcessingException e) {
+      videoFrameProcessorListenerExecutor.execute(() -> videoFrameProcessorListener.onError(e));
     } finally {
       this.outputEglSurface = null;
     }
@@ -584,8 +615,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         && (outputSurfaceInfoChanged || inputSizeChanged || matrixTransformationsChanged)) {
       defaultShaderProgram.release();
       defaultShaderProgram = null;
-      outputSurfaceInfoChanged = false;
-      matrixTransformationsChanged = false;
     }
 
     if (defaultShaderProgram == null) {
@@ -595,6 +624,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               outputWidth,
               outputHeight);
       outputSurfaceInfoChanged = false;
+      matrixTransformationsChanged = false;
     }
     return true;
   }

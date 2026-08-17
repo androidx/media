@@ -49,13 +49,16 @@ import com.google.common.util.concurrent.ListenableFuture;
     remotePlayer.setInternalSessionAvailabilityListener(sessionAvailabilityListener);
   }
 
-  private void updateActivePlayer() {
+  private void updateActivePlayer(boolean shouldPauseOnTransfer) {
     Player previousPlayer = getPlayer();
     Player newPlayer = remotePlayer.isCastSessionAvailable() ? remotePlayer : localPlayer;
     if (previousPlayer == newPlayer) {
       return;
     }
     transferCallback.transferState(previousPlayer, newPlayer);
+    if (shouldPauseOnTransfer) {
+      newPlayer.setPlayWhenReady(false);
+    }
     if (previousPlayer.getPlaybackState() != STATE_IDLE) {
       newPlayer.prepare();
     }
@@ -95,12 +98,21 @@ import com.google.common.util.concurrent.ListenableFuture;
 
     @Override
     public void onCastSessionAvailable() {
-      updateActivePlayer();
+      updateActivePlayer(/* shouldPauseOnTransfer= */ false);
     }
 
     @Override
     public void onCastSessionUnavailable() {
-      updateActivePlayer();
+      // This should never be called as the overload that takes a reason is implemented.
+      throw new IllegalStateException(
+          "onCastSessionUnavailable() called when overload which takes reason is implemented.");
+    }
+
+    @Override
+    public void onCastSessionUnavailable(
+        @SessionAvailabilityListener.SessionUnavailableReason int reason) {
+      updateActivePlayer(
+          /* shouldPauseOnTransfer= */ reason != SESSION_UNAVAILABLE_REASON_ROUTE_CHANGED);
     }
   }
 }

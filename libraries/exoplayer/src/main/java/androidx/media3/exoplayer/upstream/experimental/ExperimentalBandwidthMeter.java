@@ -24,8 +24,8 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.BackgroundExecutor;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.NetworkTypeObserver;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
@@ -46,7 +46,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * <p>The initial estimate is based on the current operator's network country code or the locale of
  * the user, as well as the network connection type. This can be configured in the {@link Builder}.
  */
-@UnstableApi
+@ExperimentalApi // TODO: b/470375738 - Validate and release new bandwidth meter.
 public final class ExperimentalBandwidthMeter implements BandwidthMeter, TransferListener {
 
   /** Default initial Wifi bitrate estimate in bits per second. */

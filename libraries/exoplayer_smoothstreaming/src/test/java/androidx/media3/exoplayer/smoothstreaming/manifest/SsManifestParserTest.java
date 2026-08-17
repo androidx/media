@@ -16,11 +16,18 @@
 package androidx.media3.exoplayer.smoothstreaming.manifest;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import android.net.Uri;
+import androidx.media3.common.ParserException;
+import androidx.media3.datasource.DataSourceInputStream;
+import androidx.media3.datasource.DataSpec;
+import androidx.media3.test.utils.FakeDataSet;
+import androidx.media3.test.utils.FakeDataSource;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -30,6 +37,40 @@ public final class SsManifestParserTest {
 
   private static final String SAMPLE_ISMC_1 = "media/smooth-streaming/sample_ismc_1";
   private static final String SAMPLE_ISMC_2 = "media/smooth-streaming/sample_ismc_2";
+
+  @Test
+  public void parse_withUpstreamError_throwsUpstreamException() {
+    SsManifestParser parser = new SsManifestParser();
+    IOException expectedException = new IOException("expected");
+    Uri uri = Uri.parse("http://test.test");
+    DataSourceInputStream inputStream =
+        new DataSourceInputStream(
+            new FakeDataSource(
+                new FakeDataSet()
+                    .newData(uri)
+                    .appendReadError(expectedException)
+                    .appendReadData(/* length= */ 2)
+                    .endData()),
+            new DataSpec(uri));
+
+    IOException thrownException =
+        assertThrows(IOException.class, () -> parser.parse(uri, inputStream));
+    assertThat(thrownException).isEqualTo(expectedException);
+  }
+
+  @Test
+  public void parse_withMalformedManifest_throwsParserExceptionForMalformedContent() {
+    SsManifestParser parser = new SsManifestParser();
+    Uri uri = Uri.parse("http://test.test");
+    DataSourceInputStream inputStream =
+        new DataSourceInputStream(
+            new FakeDataSource(new FakeDataSet().setRandomData(uri, /* length= */ 100)),
+            new DataSpec(uri));
+
+    ParserException thrownException =
+        assertThrows(ParserException.class, () -> parser.parse(uri, inputStream));
+    assertThat(thrownException.contentIsMalformed).isTrue();
+  }
 
   /** Simple test to ensure the sample manifests parse without any exceptions being thrown. */
   @Test

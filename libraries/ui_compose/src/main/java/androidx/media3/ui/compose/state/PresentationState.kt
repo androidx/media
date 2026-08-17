@@ -16,7 +16,6 @@
 
 package androidx.media3.ui.compose.state
 
-import androidx.annotation.Nullable
 import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -26,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Size
 import androidx.media3.common.C
+import androidx.media3.common.MediaLibraryInfo
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.VideoSize
@@ -49,8 +49,11 @@ fun rememberPresentationState(
   player: Player?,
   keepContentOnReset: Boolean = false,
 ): PresentationState {
-  val presentationState = remember { PresentationState(keepContentOnReset) }
+  val presentationState = remember {
+    PresentationState(keepContentOnReset).apply { this.player = player }
+  }
   LaunchedEffect(player) { presentationState.observe(player) }
+  LaunchedEffect(keepContentOnReset) { presentationState.keepContentOnReset = keepContentOnReset }
   return presentationState
 }
 
@@ -60,34 +63,56 @@ fun rememberPresentationState(
  *
  * @param[keepContentOnReset] whether the currently displayed video frame or media artwork is kept
  *   visible when tracks change or player changes. Defaults to false.
- * @property[videoSizeDp] wraps [Player.getVideoSize] in Compose's [Size], becomes `null` when
- *   either height or width of the video is zero. Takes into account
- *   [VideoSize.pixelWidthHeightRatio] to return a Size in [Dp][androidx.compose.ui.unit.Dp], i.e.
- *   device-independent pixel. To use this measurement in Compose's Drawing and Layout stages,
- *   convert it into pixels using [Density.toPx][androidx.compose.ui.unit.Density.toPx]. Note that
- *   for cases where `pixelWidthHeightRatio` is not equal to 1, the rescaling will be down, i.e.
- *   reducing the width or the height to achieve the same aspect ratio in square pixels.
+ * @property[videoAspectRatio] the aspect ratio of the video (width / height), adjusted for
+ *   [VideoSize.pixelWidthHeightRatio]. Becomes `null` when either height or width of the video is
+ *   zero, or [player] is null.
  * @property[coverSurface] set to false when the Player emits [Player.EVENT_RENDERED_FIRST_FRAME]
  *   and reset back to true on [Player.EVENT_TRACKS_CHANGED] depending on the number and type of
  *   tracks.
+ * @property[showArtwork] set to true when artwork should be displayed. It does not guarantee that
+ *   the current media item actually contains artwork data; the caller is responsible for validating
+ *   the presence of artwork before rendering.
  */
 @UnstableApi
 class PresentationState(keepContentOnReset: Boolean = false) {
-  var videoSizeDp: Size? by mutableStateOf(null)
-    private set
+  private var _adjustedVideoSize by mutableStateOf<Size?>(null)
+
+  /**
+   * Wraps the video size in Compose's [Size].
+   *
+   * @deprecated Use [videoAspectRatio] instead.
+   */
+  @Deprecated("Use videoAspectRatio instead.")
+  val videoSizeDp: Size?
+    get() = _adjustedVideoSize
+
+  val videoAspectRatio: Float?
+    get() = _adjustedVideoSize?.run { width / height }
 
   var coverSurface by mutableStateOf(true)
     private set
 
-  var keepContentOnReset: Boolean = keepContentOnReset
+  var showArtwork by mutableStateOf(false)
+    private set
+
+  internal var keepContentOnReset: Boolean = keepContentOnReset
     set(value) {
       if (value != field) {
         field = value
-        maybeHideSurface(player)
+        updateForCurrentTrackSelections(player)
       }
     }
 
-  @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE) var player: Player? = null
+  @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+  var player: Player? = null
+    set(value) {
+      field = value
+      // Only update the size if we are attaching a player OR if we don't need to keep the content
+      if (value != null || !keepContentOnReset) {
+        _adjustedVideoSize = getAdjustedVideoSize(value)
+      }
+      updateForCurrentTrackSelections(value)
+    }
 
   private var lastPeriodUidWithTracks: Any? = null
 
@@ -100,21 +125,24 @@ class PresentationState(keepContentOnReset: Boolean = false) {
   suspend fun observe(player: Player?) {
     try {
       this@PresentationState.player = player
-      videoSizeDp = getVideoSizeDp(player)
-      maybeHideSurface(player)
       player?.listen { events ->
         if (events.contains(Player.EVENT_VIDEO_SIZE_CHANGED)) {
           if (videoSize != VideoSize.UNKNOWN && playbackState != Player.STATE_IDLE) {
-            this@PresentationState.videoSizeDp = getVideoSizeDp(player)
+            _adjustedVideoSize = getAdjustedVideoSize(player)
           }
         }
         if (events.contains(Player.EVENT_RENDERED_FIRST_FRAME)) {
           // open shutter, video available
           coverSurface = false
         }
-        if (events.contains(Player.EVENT_TRACKS_CHANGED)) {
+        if (
+          events.containsAny(
+            Player.EVENT_TRACKS_CHANGED,
+            Player.EVENT_TRACK_SELECTION_PARAMETERS_CHANGED,
+          )
+        ) {
           if (!shouldKeepSurfaceVisible(player)) {
-            maybeHideSurface(player)
+            updateForCurrentTrackSelections(player)
           }
         }
       }
@@ -123,8 +151,7 @@ class PresentationState(keepContentOnReset: Boolean = false) {
     }
   }
 
-  @Nullable
-  private fun getVideoSizeDp(player: Player?): Size? {
+  private fun getAdjustedVideoSize(player: Player?): Size? {
     player ?: return null
     var videoSize = Size(player.videoSize.width.toFloat(), player.videoSize.height.toFloat())
     if (videoSize.width == 0f || videoSize.height == 0f) return null
@@ -138,18 +165,29 @@ class PresentationState(keepContentOnReset: Boolean = false) {
     return videoSize
   }
 
-  private fun maybeHideSurface(player: Player?) {
+  @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+  fun updateForCurrentTrackSelections(player: Player?) {
     if (player != null) {
       val hasTracks =
         player.isCommandAvailable(Player.COMMAND_GET_TRACKS) && !player.currentTracks.isEmpty
       if (!keepContentOnReset && !hasTracks) {
         coverSurface = true
+        showArtwork = false
       }
-      if (hasTracks && !hasSelectedVideoTrack(player)) {
-        coverSurface = true
+      if (hasTracks) {
+        if (hasSelectedVideoTrack(player)) {
+          // We don't lift the shutter here; we wait for EVENT_RENDERED_FIRST_FRAME instead.
+        } else if (hasSelectedTextTrack(player)) {
+          // No video track, but text (subtitles) is selected, lift the shutter to show them
+          coverSurface = false
+        } else {
+          coverSurface = true
+        }
+        showArtwork = !hasSelectedVideoTrack(player)
       }
     } else {
       coverSurface = coverSurface || !keepContentOnReset
+      showArtwork = showArtwork && keepContentOnReset
     }
   }
 
@@ -189,4 +227,14 @@ class PresentationState(keepContentOnReset: Boolean = false) {
   private fun hasSelectedVideoTrack(player: Player): Boolean =
     player.isCommandAvailable(Player.COMMAND_GET_TRACKS) &&
       player.currentTracks.isTypeSelected(C.TRACK_TYPE_VIDEO)
+
+  private fun hasSelectedTextTrack(player: Player): Boolean =
+    player.isCommandAvailable(Player.COMMAND_GET_TRACKS) &&
+      player.currentTracks.isTypeSelected(C.TRACK_TYPE_TEXT)
+
+  companion object {
+    init {
+      MediaLibraryInfo.registerModule("media3.ui.compose")
+    }
+  }
 }

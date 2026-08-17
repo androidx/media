@@ -18,7 +18,7 @@ track 192:
     sampleRate = 44100
 track 224:
   total output bytes = 33949
-  sample count = 1
+  sample count = 2
   format 0:
     id = 224
     containerMimeType = video/mp2p
@@ -31,4 +31,8 @@ track 224:
     time = 80000
     flags = 0
     data = length 17831, hash 5C5A57F5
+  sample 1:
+    time = 120000
+    flags = 0
+    data = length 5579, hash 72A6C31F
 tracksEnded = true

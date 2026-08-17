@@ -44,7 +44,7 @@ public final class CronetEngineWrapper {
    * @param context A context.
    */
   public CronetEngineWrapper(Context context) {
-    this(context, /* userAgent= */ null, /* preferGMSCoreCronet= */ false);
+    this(context, /* userAgent= */ null, /* preferGooglePlayServices= */ false);
   }
 
   /**

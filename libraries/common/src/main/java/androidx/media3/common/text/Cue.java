@@ -274,9 +274,9 @@ public final class Cue {
   public final float size;
 
   /**
-   * The bitmap height as a fraction of the of the viewport size, or {@link #DIMEN_UNSET} if the
-   * bitmap should be displayed at its natural height given the bitmap dimensions and the specified
-   * {@link #size}.
+   * The bitmap height as a fraction of the viewport size, or {@link #DIMEN_UNSET} if the bitmap
+   * should be displayed at its natural height given the bitmap dimensions and the specified {@link
+   * #size}.
    */
   public final float bitmapHeight;
 

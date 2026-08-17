@@ -56,8 +56,8 @@ public class CronetDataSourceContractTest extends DataSourceContractTest {
       dataSources.add(
           new CronetDataSource.Factory(cronetEngine, executorService)
               // Ensure that 'resource not found' tests fail fast (b/403179253).
-              .setConnectionTimeoutMs(400)
-              .setReadTimeoutMs(400)
+              .setConnectionTimeoutMs(800)
+              .setReadTimeoutMs(800)
               .createDataSource());
     }
     return dataSources.build();

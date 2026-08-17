@@ -19,6 +19,7 @@ import static androidx.media3.common.util.Util.getFormatSupportString;
 import static androidx.media3.common.util.Util.getTrackTypeString;
 import static java.lang.Math.min;
 
+import android.media.AudioFormat;
 import android.os.SystemClock;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
@@ -36,17 +37,22 @@ import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.drm.DrmSession;
+import androidx.media3.exoplayer.drm.KeyRequestInfo;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.trackselection.MappingTrackSelector;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.text.NumberFormat;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 /** Logs events from {@link Player} and other core components using {@link Log}. */
@@ -55,6 +61,7 @@ public class EventLogger implements AnalyticsListener {
 
   private static final String DEFAULT_TAG = "EventLogger";
   private static final int MAX_TIMELINE_ITEM_LINES = 3;
+  private static final Joiner COMMA_JOINER = Joiner.on(", ");
   private static final NumberFormat TIME_FORMAT;
 
   static {
@@ -516,7 +523,7 @@ public class EventLogger implements AnalyticsListener {
 
   @UnstableApi
   @Override
-  public void onDrmKeysLoaded(EventTime eventTime) {
+  public void onDrmKeysLoaded(EventTime eventTime, KeyRequestInfo keyRequestInfo) {
     logd(eventTime, "drmKeysLoaded");
   }
 
@@ -759,16 +766,48 @@ public class EventLogger implements AnalyticsListener {
   }
 
   private static String getAudioTrackConfigString(AudioSink.AudioTrackConfig audioTrackConfig) {
-    return audioTrackConfig.encoding
-        + ","
-        + audioTrackConfig.channelConfig
-        + ","
-        + audioTrackConfig.sampleRate
-        + ","
-        + audioTrackConfig.tunneling
-        + ","
-        + audioTrackConfig.offload
-        + ","
-        + audioTrackConfig.bufferSize;
+    List<String> result = new ArrayList<>();
+    if (audioTrackConfig.encoding != Format.NO_VALUE) {
+      result.add("enc=" + Util.getEncodingString(audioTrackConfig.encoding));
+    }
+    result.add("channelConf=" + channelConfigAsString(audioTrackConfig.channelConfig));
+    result.add("sampleRate=" + audioTrackConfig.sampleRate);
+    result.add("bufferSize=" + audioTrackConfig.bufferSize);
+    if (audioTrackConfig.tunneling) {
+      result.add("tunneling");
+    }
+    if (audioTrackConfig.offload) {
+      result.add("offload");
+    }
+    return COMMA_JOINER.join(result);
+  }
+
+  private static String channelConfigAsString(int channelConfig) {
+    switch (channelConfig) {
+      case AudioFormat.CHANNEL_OUT_MONO:
+        return "mono";
+      case AudioFormat.CHANNEL_OUT_STEREO:
+        return "stereo";
+      case AudioFormat.CHANNEL_OUT_QUAD:
+        return "quad";
+      case AudioFormat.CHANNEL_OUT_5POINT1:
+        return "5.1";
+      case AudioFormat.CHANNEL_OUT_5POINT1POINT2:
+        return "5.1.2";
+      case AudioFormat.CHANNEL_OUT_5POINT1POINT4:
+        return "5.1.4";
+      case AudioFormat.CHANNEL_OUT_7POINT1_SURROUND:
+        return "7.1";
+      case AudioFormat.CHANNEL_OUT_7POINT1POINT2:
+        return "7.1.2";
+      case AudioFormat.CHANNEL_OUT_7POINT1POINT4:
+        return "7.1.4";
+      case AudioFormat.CHANNEL_OUT_9POINT1POINT4:
+        return "9.1.4";
+      case AudioFormat.CHANNEL_OUT_9POINT1POINT6:
+        return "9.1.6";
+      default:
+        return "0x" + Integer.toHexString(channelConfig);
+    }
   }
 }

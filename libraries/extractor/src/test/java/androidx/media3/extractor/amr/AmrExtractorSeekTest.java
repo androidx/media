@@ -25,8 +25,8 @@ import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
-import java.util.List;
 import java.util.Random;
 import org.junit.Before;
 import org.junit.Test;
@@ -392,7 +392,7 @@ public final class AmrExtractorSeekTest {
   }
 
   private int findTargetFrameInExpectedOutput(long seekTimeUs) {
-    List<Long> sampleTimes = expectedTrackOutput.getSampleTimesUs();
+    ImmutableList<Long> sampleTimes = expectedTrackOutput.getSampleTimesUs();
     for (int i = 0; i < sampleTimes.size() - 1; i++) {
       long currentSampleTime = sampleTimes.get(i);
       long nextSampleTime = sampleTimes.get(i + 1);

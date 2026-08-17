@@ -18,14 +18,18 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.sampleCountToDurationUs;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import androidx.annotation.Nullable;
+import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.audio.AudioSink;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -43,6 +47,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private final AudioSink finalAudioSink;
   private final AudioMixer.Factory mixerFactory;
+  private final Supplier<Thread> thread;
 
   private @MonotonicNonNull AudioGraph audioGraph;
   private int audioGraphInputsCreated;
@@ -66,10 +71,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.mixerFactory = mixerFactory;
     outputAudioFormat = AudioFormat.NOT_SET;
     effects = ImmutableList.of();
+    thread = Suppliers.memoize(Thread::currentThread);
   }
 
   /** Sets the composition-level audio effects that are applied after mixing. */
   public void setAudioProcessors(List<AudioProcessor> audioProcessors) {
+    checkThread();
     if (audioGraph != null) {
       throw new UnsupportedOperationException(
           "Setting AudioProcessors after creating the AudioGraph is not supported");
@@ -80,6 +87,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   /** Releases any underlying resources. */
   public void release() {
+    checkThread();
     if (audioGraph != null) {
       audioGraph.reset();
     }
@@ -91,6 +99,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   /** Returns an {@link AudioSink} for a single sequence of non-overlapping raw PCM audio. */
   public AudioGraphInputAudioSink createInput(int inputIndex) {
+    // TODO: b/458719147 - Add checkThread() once threading issues with this method are resolved.
     return new AudioGraphInputAudioSink(new SinkController(inputIndex));
   }
 
@@ -104,6 +113,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           AudioSink.WriteException,
           AudioSink.InitializationException,
           AudioSink.ConfigurationException {
+    checkThread();
     // Do not process any data until the input audio sinks have created audio graph inputs.
     if (inputAudioSinksCreated == 0 || inputAudioSinksCreated != audioGraphInputsCreated) {
       return false;
@@ -116,9 +126,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
 
       finalAudioSink.configure(
-          Util.getPcmFormat(audioGraphAudioFormat),
-          /* specifiedBufferSize= */ 0,
-          /* outputChannels= */ null);
+          new AudioSink.AudioSinkConfig.Builder(Util.getPcmFormat(audioGraphAudioFormat)).build());
       outputAudioFormat = audioGraphAudioFormat;
     }
 
@@ -150,11 +158,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   public void startRendering() {
+    checkThread();
     finalAudioSink.play();
     isRenderingStarted = true;
   }
 
   public void stopRendering() {
+    checkThread();
     if (!isRenderingStarted) {
       // The finalAudioSink cannot be paused more than once.
       return;
@@ -164,6 +174,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   public void setVolume(float volume) {
+    checkThread();
     finalAudioSink.setVolume(volume);
   }
 
@@ -173,6 +184,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param positionUs The seek position, in microseconds.
    */
   public void startSeek(long positionUs) {
+    checkThread();
     if (positionUs == C.TIME_UNSET) {
       positionUs = 0;
     }
@@ -186,11 +198,23 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   /** Handles the steps that need to be executed for a seek after seeking the upstream players. */
   public void endSeek() {
+    checkThread();
     checkNotNull(audioGraph).unblockInput();
+  }
+
+  /** Updates the {@link AudioAttributes} on the {@linkplain #finalAudioSink final audio sink}. */
+  public void setAudioAttributes(AudioAttributes attributes) {
+    checkThread();
+    finalAudioSink.setAudioAttributes(attributes);
+  }
+
+  private void checkThread() {
+    checkState(thread.get() == Thread.currentThread());
   }
 
   private final class SinkController implements AudioGraphInputAudioSink.Controller {
     private final boolean isSequencePrimary;
+    private boolean isAudioGraphInputActive;
 
     public SinkController(int inputIndex) {
       this.isSequencePrimary = inputIndex == PRIMARY_SEQUENCE_INDEX;
@@ -201,6 +225,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     public AudioGraphInput getAudioGraphInput(EditedMediaItem editedMediaItem, Format format)
         throws ExportException {
+      checkThread();
+      checkState(!isAudioGraphInputActive);
       if (!isSequencePrimary && !hasRegisteredPrimaryFormat) {
         // Make sure the format corresponding to the primary sequence is registered first to the
         // AudioGraph.
@@ -213,17 +239,35 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (isSequencePrimary) {
         hasRegisteredPrimaryFormat = true;
       }
+      isAudioGraphInputActive = true;
       return audioGraphInput;
     }
 
     @Override
+    public void onAudioGraphInputReleased() {
+      checkThread();
+      checkState(audioGraphInputsCreated > 0);
+      checkState(isAudioGraphInputActive);
+      audioGraphInputsCreated--;
+      isAudioGraphInputActive = false;
+    }
+
+    @Override
     public long getCurrentPositionUs(boolean sourceEnded) {
+      checkThread();
       return finalAudioSink.getCurrentPositionUs(sourceEnded);
     }
 
     @Override
-    public boolean hasPendingData() {
-      return finalAudioSink.hasPendingData();
+    public boolean shouldEnd() {
+      // TODO: b/487191706 - Investigate whether PlaybackAudioGraphWrapper can keep track of active
+      //  sinks and return based on whether the caller is the last active sink, instead of keeping
+      //  primary sequence renderer alive.
+      checkThread();
+      if (isSequencePrimary) {
+        return finalAudioSink.isEnded();
+      }
+      return true;
     }
   }
 }

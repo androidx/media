@@ -19,6 +19,7 @@ import static androidx.media3.muxer.AnnexBUtils.doesSampleContainAnnexBNalUnits;
 import static androidx.media3.muxer.Av1ConfigUtil.createAv1CodecConfigurationRecord;
 import static androidx.media3.muxer.Boxes.BOX_HEADER_SIZE;
 import static androidx.media3.muxer.Boxes.MFHD_BOX_CONTENT_SIZE;
+import static androidx.media3.muxer.Boxes.TFDT_BOX_CONTENT_SIZE;
 import static androidx.media3.muxer.Boxes.TFHD_BOX_CONTENT_SIZE;
 import static androidx.media3.muxer.Boxes.getTrunBoxContentSize;
 import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
@@ -104,6 +105,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final List<Track> tracks;
   private final LinearByteBufferAllocator linearByteBufferAllocator;
 
+  private boolean isClosed;
   private @MonotonicNonNull Track videoTrack;
   private int currentFragmentSequenceNumber;
   private boolean headerCreated;
@@ -142,6 +144,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   public Track addTrack(int sortKey, Format format) {
+    checkState(!isClosed, "FragmentedMp4Writer is closed.");
     Track track = new Track(nextTrackId++, format, sampleCopyEnabled);
     tracks.add(track);
     if (MimeTypes.isVideo(format.sampleMimeType)) {
@@ -152,19 +155,24 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   public void writeSampleData(Track track, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws IOException {
-    if (Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_AV1)
+    checkState(!isClosed, "FragmentedMp4Writer is closed.");
+    if (bufferInfo.size > 0
+        && Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_AV1)
         && track.format.initializationData.isEmpty()
         && track.parsedCsd == null) {
       track.parsedCsd = createAv1CodecConfigurationRecord(byteBuffer.duplicate());
-    }
-    if (!headerCreated) {
-      createHeader();
-      headerCreated = true;
     }
     if (shouldFlushPendingSamples(track, bufferInfo)) {
       createFragment();
     }
     track.writeSampleData(byteBuffer, bufferInfo);
+    if (track.pendingSamplesBufferInfo.isEmpty()) {
+      return;
+    }
+    if (!headerCreated) {
+      createHeader();
+      headerCreated = true;
+    }
     BufferInfo firstPendingSample = checkNotNull(track.pendingSamplesBufferInfo.peekFirst());
     BufferInfo lastPendingSample = checkNotNull(track.pendingSamplesBufferInfo.peekLast());
     minInputPresentationTimeUs =
@@ -175,11 +183,36 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             lastPendingSample.presentationTimeUs - firstPendingSample.presentationTimeUs);
   }
 
+  /**
+   * Finalizes output and closes the writer.
+   *
+   * <p>This method can be called only once. The {@link FragmentedMp4Writer} cannot be used anymore
+   * once this method returns.
+   *
+   * @throws IOException If an error occurs while finalizing output or closing the output channel.
+   */
   public void close() throws IOException {
+    checkState(!isClosed, "FragmentedMp4Writer is closed.");
+    isClosed = true;
     try {
       createFragment();
+      writeMfraBox();
     } finally {
       outputChannel.close();
+    }
+  }
+
+  private void writeMfraBox() throws IOException {
+    List<ByteBuffer> tfraBoxes = new ArrayList<>();
+    for (int i = 0; i < tracks.size(); i++) {
+      Track track = tracks.get(i);
+      if (!track.tfraEntries.isEmpty()) {
+        // TODO(b/538527053): Use 1-based track ID indices throughout and remove +1 logic.
+        tfraBoxes.add(Boxes.tfra(/* trackId= */ i + 1, track.tfraEntries));
+      }
+    }
+    if (!tfraBoxes.isEmpty()) {
+      outputChannel.write(Boxes.mfra(tfraBoxes));
     }
   }
 
@@ -196,6 +229,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       trafBoxes.add(
           Boxes.traf(
               Boxes.tfhd(currentTrackInfo.trackId, /* baseDataOffset= */ moofBoxStartPosition),
+              Boxes.tfdt(currentTrackInfo.baseMediaDecodeTime),
               Boxes.trun(
                   currentTrackInfo.trackFormat,
                   currentTrackInfo.pendingSamplesMetadata,
@@ -212,15 +246,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         mfhd
         traf
            tfhd
+           tfdt
            trun
         traf
            tfhd
+           tfdt
            trun
      */
     int moofBoxHeaderSize = BOX_HEADER_SIZE;
     int mfhdBoxSize = BOX_HEADER_SIZE + MFHD_BOX_CONTENT_SIZE;
     int trafBoxHeaderSize = BOX_HEADER_SIZE;
     int tfhdBoxSize = BOX_HEADER_SIZE + TFHD_BOX_CONTENT_SIZE;
+    int tfdtBoxSize = BOX_HEADER_SIZE + TFDT_BOX_CONTENT_SIZE;
     int trunBoxHeaderFixedSize = BOX_HEADER_SIZE;
     int trafBoxesSize = 0;
     for (int i = 0; i < trackInfos.size(); i++) {
@@ -228,7 +265,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       int trunBoxSize =
           trunBoxHeaderFixedSize
               + getTrunBoxContentSize(trackInfo.pendingSamplesMetadata.size(), trackInfo.hasBFrame);
-      trafBoxesSize += trafBoxHeaderSize + tfhdBoxSize + trunBoxSize;
+      trafBoxesSize += trafBoxHeaderSize + tfhdBoxSize + tfdtBoxSize + trunBoxSize;
     }
 
     return moofBoxHeaderSize + mfhdBoxSize + trafBoxesSize;
@@ -242,6 +279,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private boolean shouldFlushPendingSamples(Track track, BufferInfo nextSampleBufferInfo) {
+    // LINT.IfChange(fragmentation_logic)
     // If video track is present then fragment will be created based on group of pictures and
     // track's duration so far.
     if (videoTrack != null) {
@@ -258,6 +296,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     } else {
       return maxTrackDurationUs >= fragmentDurationUs;
     }
+    // LINT.ThenChange(:mfra_indexing_logic)
   }
 
   private void createFragment() throws IOException {
@@ -272,9 +311,33 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
            trun
      mdat
      */
+    long moofBoxStartPosition = outputChannel.getPosition();
+    // The 1-based index of the 'traf' box within the 'moof' box for the current track.
+    int activeTrafIndex = 1;
+    for (int i = 0; i < tracks.size(); i++) {
+      Track track = tracks.get(i);
+      if (!track.pendingSamplesBufferInfo.isEmpty()) {
+        BufferInfo firstPendingSample = checkNotNull(track.pendingSamplesBufferInfo.peekFirst());
+        // LINT.IfChange(mfra_indexing_logic)
+        // Index video keyframes, audio keyframes, and the first sample of metadata/text tracks.
+        boolean isRandomAccessPoint =
+            (firstPendingSample.flags & C.BUFFER_FLAG_KEY_FRAME) != 0
+                || (!MimeTypes.isVideo(track.format.sampleMimeType)
+                    && !MimeTypes.isAudio(track.format.sampleMimeType));
+        // LINT.ThenChange(:fragmentation_logic)
+        if (isRandomAccessPoint) {
+          long ptsInTimescale =
+              Util.scaleLargeTimestamp(
+                  firstPendingSample.presentationTimeUs, track.videoUnitTimebase(), 1_000_000L);
+          track.tfraEntries.add(
+              new Boxes.TfraEntry(ptsInTimescale, moofBoxStartPosition, activeTrafIndex));
+        }
+        activeTrafIndex++;
+      }
+    }
+
     ImmutableList<ProcessedTrackInfo> trackInfos = processAllTracks();
-    ImmutableList<ByteBuffer> trafBoxes =
-        createTrafBoxes(trackInfos, /* moofBoxStartPosition= */ outputChannel.getPosition());
+    ImmutableList<ByteBuffer> trafBoxes = createTrafBoxes(trackInfos, moofBoxStartPosition);
     if (trafBoxes.isEmpty()) {
       return;
     }
@@ -386,10 +449,24 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               hasBFrame ? sampleCompositionTimeOffsets.get(i) : 0));
     }
 
+    BufferInfo firstPendingSample = checkNotNull(pendingSamplesBufferInfo.get(0));
+    // The baseMediaDecodeTime is scaled to the track's timescale (unit timebase) per
+    // ISO/IEC 14496-12 Section 8.8.8 and CMAF ISO/IEC 23000-19 Section 7.5.16. Initial
+    // presentation timestamps can be negative (e.g. audio pre-roll or encoder delay in Opus or
+    // IAMF streams). Since baseMediaDecodeTime in tfdt is an unsigned integer, it is clamped to 0.
+    long baseMediaDecodeTime =
+        max(
+            0L,
+            Util.scaleLargeTimestamp(
+                /* timestamp= */ firstPendingSample.presentationTimeUs,
+                /* multiplier= */ track.videoUnitTimebase(),
+                /* divisor= */ 1_000_000L));
+
     return new ProcessedTrackInfo(
         trackId,
         track.format,
         totalSamplesSize,
+        baseMediaDecodeTime,
         hasBFrame,
         pendingSamplesByteBuffer.build(),
         pendingSamplesMetadata.build());
@@ -399,6 +476,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public final int trackId;
     public final Format trackFormat;
     public final int totalSamplesSize;
+    public final long baseMediaDecodeTime;
     public final boolean hasBFrame;
     public final ImmutableList<ByteBuffer> pendingSamplesByteBuffer;
     public final ImmutableList<SampleMetadata> pendingSamplesMetadata;
@@ -407,12 +485,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         int trackId,
         Format trackFormat,
         int totalSamplesSize,
+        long baseMediaDecodeTime,
         boolean hasBFrame,
         ImmutableList<ByteBuffer> pendingSamplesByteBuffer,
         ImmutableList<SampleMetadata> pendingSamplesMetadata) {
       this.trackId = trackId;
       this.trackFormat = trackFormat;
       this.totalSamplesSize = totalSamplesSize;
+      this.baseMediaDecodeTime = baseMediaDecodeTime;
       this.hasBFrame = hasBFrame;
       this.pendingSamplesByteBuffer = pendingSamplesByteBuffer;
       this.pendingSamplesMetadata = pendingSamplesMetadata;

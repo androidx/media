@@ -15,11 +15,11 @@
  */
 package androidx.media3.transformer;
 
-import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.test.utils.TestUtil.extractAllSamplesFromFilePath;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -31,7 +31,8 @@ import android.media.MediaCodecInfo;
 import android.media.metrics.LogSessionId;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
-import android.os.Build;
+import android.os.Handler;
+import android.util.Rational;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -45,9 +46,9 @@ import androidx.media3.common.VideoGraph;
 import androidx.media3.common.VideoGraph.Listener;
 import androidx.media3.common.util.GlRect;
 import androidx.media3.common.util.GlUtil;
-import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Size;
+import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.ByteBufferGlEffect;
 import androidx.media3.effect.DefaultGlObjectsProvider;
@@ -56,24 +57,32 @@ import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.SingleInputVideoGraph;
+import androidx.media3.exoplayer.DefaultRenderersFactory;
+import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
-import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
+import androidx.media3.exoplayer.video.VideoRendererEventListener;
+import androidx.media3.extractor.mp4.Mp4Extractor;
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.muxer.BufferInfo;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
+import androidx.media3.test.utils.AssetInfo;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
+import androidx.media3.test.utils.FakeExtractorOutput;
+import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.VideoDecodingWrapper;
 import androidx.test.platform.app.InstrumentationRegistry;
-import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -81,8 +90,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.json.JSONException;
-import org.json.JSONObject;
 import org.junit.AssumptionViolatedException;
 
 /** Utilities for instrumentation tests. */
@@ -107,6 +114,14 @@ public final class AndroidTestUtil {
   }
 
   private static final String TAG = "AndroidTestUtil";
+
+  /**
+   * The minimum SDK version required for the hardware buffer frame processor pipeline.
+   *
+   * <p>API 28 is required for Java {@link android.hardware.HardwareBuffer} operations such as
+   * {@link Image#getHardwareBuffer()} and {@link Bitmap#getHardwareBuffer()}.
+   */
+  public static final int HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK = 28;
 
   /** An {@link Effects} instance that forces video transcoding. */
   public static final Effects FORCE_TRANSCODE_VIDEO_EFFECTS =
@@ -176,7 +191,7 @@ public final class AndroidTestUtil {
     }
 
     /** Runs the given task and blocks until it completes, or timeoutSeconds has elapsed. */
-    public static void runAsyncTaskAndWait(ThrowingRunnable task, int timeoutSeconds)
+    public static void runAsyncTaskAndWait(ThrowingRunnable<?> task, int timeoutSeconds)
         throws TimeoutException, InterruptedException {
       CountDownLatch countDownLatch = new CountDownLatch(1);
       AtomicReference<@NullableType Exception> unexpectedExceptionReference =
@@ -216,9 +231,48 @@ public final class AndroidTestUtil {
     }
   }
 
-  /** A type that can be used to succinctly wrap throwing {@link Runnable} objects. */
-  public interface ThrowingRunnable {
-    void run() throws Exception;
+  /**
+   * A {@link DefaultRenderersFactory} implementation that returns a {@link
+   * NoFrameDroppingVideoRenderer} video renderer.
+   */
+  public static final class NoFrameDroppingRendererFactory extends DefaultRenderersFactory {
+
+    public NoFrameDroppingRendererFactory(Context context) {
+      super(context);
+    }
+
+    @Override
+    protected void buildVideoRenderers(
+        Context context,
+        @ExtensionRendererMode int extensionRendererMode,
+        MediaCodecSelector mediaCodecSelector,
+        boolean enableDecoderFallback,
+        Handler eventHandler,
+        VideoRendererEventListener eventListener,
+        long allowedVideoJoiningTimeMs,
+        ArrayList<Renderer> out) {
+      out.add(new NoFrameDroppingVideoRenderer(context));
+    }
+  }
+
+  /** A {@link MediaCodecVideoRenderer} implementation that doesn't drop frames. */
+  public static final class NoFrameDroppingVideoRenderer extends MediaCodecVideoRenderer {
+
+    public NoFrameDroppingVideoRenderer(Context context) {
+      super(new Builder(context).experimentalSetLateThresholdToDropDecoderInputUs(C.TIME_UNSET));
+    }
+
+    @Override
+    protected boolean shouldDropOutputBuffer(
+        long earlyUs, long elapsedRealtimeUs, boolean isLastBuffer) {
+      return false;
+    }
+
+    @Override
+    protected boolean shouldDropBuffersToKeyframe(
+        long earlyUs, long elapsedRealtimeUs, boolean isLastBuffer) {
+      return false;
+    }
   }
 
   /**
@@ -244,23 +298,6 @@ public final class AndroidTestUtil {
    */
   public static int generateTextureFromBitmap(Bitmap bitmap) throws GlUtil.GlException {
     return GlUtil.createTexture(bitmap);
-  }
-
-  /**
-   * Log in logcat and in an analysis file that this test was skipped.
-   *
-   * <p>Analysis file is a JSON summarising the test, saved to the application cache.
-   *
-   * <p>The analysis json will contain a {@code skipReason} key, with the reason for skipping the
-   * test case.
-   */
-  public static void recordTestSkipped(Context context, String testId, String reason)
-      throws JSONException, IOException {
-    Log.i(TAG, testId + ": " + reason);
-    JSONObject testJson = new JSONObject();
-    testJson.put("skipReason", reason);
-
-    writeTestSummaryToFile(context, testId, testJson);
   }
 
   public static void assertSdrColors(Context context, String filePath)
@@ -348,6 +385,11 @@ public final class AndroidTestUtil {
     public Codec createForVideoEncoding(Format format, @Nullable LogSessionId logSessionId)
         throws ExportException {
       return encoderFactory.createForVideoEncoding(format, logSessionId);
+    }
+
+    @Override
+    public boolean isVideoFormatSupported(Format format) {
+      return encoderFactory.isVideoFormatSupported(format);
     }
 
     @Override
@@ -553,92 +595,6 @@ public final class AndroidTestUtil {
   }
 
   /**
-   * Writes the summary of a test run to the application cache file.
-   *
-   * <p>The cache filename follows the pattern {@code <testId>-result.txt}.
-   *
-   * @param context The {@link Context}.
-   * @param testId A unique identifier for the transformer test run.
-   * @param testJson A {@link JSONObject} containing a summary of the test run.
-   */
-  public static void writeTestSummaryToFile(Context context, String testId, JSONObject testJson)
-      throws IOException, JSONException {
-    testJson.put("testId", testId).put("device", JsonUtil.getDeviceDetailsAsJsonObject());
-
-    String analysisContents = testJson.toString(/* indentSpaces= */ 2);
-
-    // Log contents as well as writing to file, for easier visibility on individual device testing.
-    for (String line : Util.split(analysisContents, "\n")) {
-      Log.i(TAG, testId + ": " + line);
-    }
-
-    File analysisFile =
-        createExternalCacheFile(
-            context, /* directoryName= */ "analysis", /* fileName= */ testId + "-result.txt");
-    try (FileWriter fileWriter = new FileWriter(analysisFile)) {
-      fileWriter.write(analysisContents);
-    }
-  }
-
-  /**
-   * Assumes that the device supports decoding the input format, and encoding/muxing the output
-   * format if needed.
-   *
-   * <p>This is equivalent to calling {@link #assumeFormatsSupported(Context, String, Format,
-   * Format, boolean)} with {@code isPortraitEncodingEnabled} set to {@code false}.
-   */
-  public static void assumeFormatsSupported(
-      Context context, String testId, @Nullable Format inputFormat, @Nullable Format outputFormat)
-      throws IOException, JSONException, MediaCodecUtil.DecoderQueryException {
-    assumeFormatsSupported(
-        context, testId, inputFormat, outputFormat, /* isPortraitEncodingEnabled= */ false);
-  }
-
-  /**
-   * Assumes that the device supports decoding the input format, and encoding/muxing the output
-   * format if needed.
-   *
-   * @param context The {@link Context context}.
-   * @param testId The test ID.
-   * @param inputFormat The {@link Format format} to decode, or the input is not produced by
-   *     MediaCodec, like an image.
-   * @param outputFormat The {@link Format format} to encode/mux or {@code null} if the output won't
-   *     be encoded or muxed.
-   * @param isPortraitEncodingEnabled Whether portrait encoding is enabled.
-   * @throws AssumptionViolatedException If the device does not support the formats. In this case,
-   *     the reason for skipping the test is logged.
-   */
-  public static void assumeFormatsSupported(
-      Context context,
-      String testId,
-      @Nullable Format inputFormat,
-      @Nullable Format outputFormat,
-      boolean isPortraitEncodingEnabled)
-      throws IOException, JSONException, MediaCodecUtil.DecoderQueryException {
-    boolean canDecode = inputFormat == null || canDecode(inputFormat);
-
-    boolean canEncode = outputFormat == null || canEncode(outputFormat, isPortraitEncodingEnabled);
-    boolean canMux = outputFormat == null || canMux(outputFormat);
-    if (canDecode && canEncode && canMux) {
-      return;
-    }
-
-    StringBuilder skipReasonBuilder = new StringBuilder();
-    if (!canDecode) {
-      skipReasonBuilder.append("Cannot decode ").append(inputFormat).append('\n');
-    }
-    if (!canEncode) {
-      skipReasonBuilder.append("Cannot encode ").append(outputFormat).append('\n');
-    }
-    if (!canMux) {
-      skipReasonBuilder.append("Cannot mux ").append(outputFormat);
-    }
-    String skipReason = skipReasonBuilder.toString();
-    recordTestSkipped(context, testId, skipReason);
-    throw new AssumptionViolatedException(skipReason);
-  }
-
-  /**
    * Assumes that the device supports encoding with the given MIME type and profile.
    *
    * @param mimeType The {@linkplain MimeTypes MIME type}.
@@ -660,123 +616,60 @@ public final class AndroidTestUtil {
     throw new AssumptionViolatedException("Profile not supported");
   }
 
-  /** Returns a {@link Muxer.Factory} depending upon the API level. */
-  public static Muxer.Factory getMuxerFactoryBasedOnApi() {
-    // MediaMuxer supports B-frame from API > 24.
-    return SDK_INT > 24 ? new DefaultMuxer.Factory() : new InAppMp4Muxer.Factory();
-  }
-
-  private static boolean canDecode(Format format) throws MediaCodecUtil.DecoderQueryException {
-    if (MimeTypes.isImage(format.sampleMimeType)) {
-      return Util.isBitmapFactorySupportedMimeType(format.sampleMimeType);
-    }
-
-    // Check decoding capability in the same way as the default decoder factory.
-    return findDecoderForFormat(format) != null && !deviceNeedsDisable8kWorkaround(format);
-  }
-
-  @Nullable
-  private static String findDecoderForFormat(Format format)
-      throws MediaCodecUtil.DecoderQueryException {
-    List<androidx.media3.exoplayer.mediacodec.MediaCodecInfo> decoderInfoList =
-        MediaCodecUtil.getDecoderInfosSortedByFullFormatSupport(
-            MediaCodecUtil.getDecoderInfosSoftMatch(
-                MediaCodecSelector.DEFAULT,
-                format,
-                /* requiresSecureDecoder= */ false,
-                /* requiresTunnelingDecoder= */ false),
-            format);
-
-    for (int i = 0; i < decoderInfoList.size(); i++) {
-      androidx.media3.exoplayer.mediacodec.MediaCodecInfo decoderInfo = decoderInfoList.get(i);
-      // On some devices this method can return false even when the format can be decoded. For
-      // example, Pixel 6a can decode an 8K video but this method returns false. The
-      // DefaultDecoderFactory does not rely on this method rather it directly initialize the
-      // decoder. See b/222095724#comment9.
-      if (decoderInfo.isFormatSupported(format)) {
-        return decoderInfo.name;
-      }
-    }
-
-    return null;
-  }
-
-  private static boolean deviceNeedsDisable8kWorkaround(Format format) {
-    // Fixed on API 31+. See http://b/278234847#comment40 for more information.
-    // Duplicate of DefaultDecoderFactory#deviceNeedsDisable8kWorkaround.
-    return SDK_INT < 31
-        && format.width >= 7680
-        && format.height >= 4320
-        && format.sampleMimeType != null
-        && format.sampleMimeType.equals(MimeTypes.VIDEO_H265)
-        && (Ascii.equalsIgnoreCase(Build.MODEL, "SM-F711U1")
-            || Ascii.equalsIgnoreCase(Build.MODEL, "SM-F926U1"));
-  }
-
-  private static boolean canEncode(Format format, boolean isPortraitEncodingEnabled) {
-    String mimeType = checkNotNull(format.sampleMimeType);
-    ImmutableList<android.media.MediaCodecInfo> supportedEncoders =
-        EncoderUtil.getSupportedEncoders(mimeType);
-    if (supportedEncoders.isEmpty()) {
-      return false;
-    }
-
-    android.media.MediaCodecInfo encoder = supportedEncoders.get(0);
-    // VideoSampleExporter rotates videos into landscape before encoding if portrait encoding is not
-    // enabled.
-    int width = format.width;
-    int height = format.height;
-    if (!isPortraitEncodingEnabled && width < height) {
-      width = format.height;
-      height = format.width;
-    }
-    boolean sizeSupported = EncoderUtil.isSizeSupported(encoder, mimeType, width, height);
-    boolean bitrateSupported =
-        format.averageBitrate == Format.NO_VALUE
-            || EncoderUtil.getSupportedBitrateRange(encoder, mimeType)
-                .contains(format.averageBitrate);
-    return sizeSupported && bitrateSupported;
-  }
-
-  private static boolean canMux(Format format) {
-    String mimeType = checkNotNull(format.sampleMimeType);
-    return new DefaultMuxer.Factory()
-        .getSupportedSampleMimeTypes(MimeTypes.getTrackType(mimeType))
-        .contains(mimeType);
+  /**
+   * Returns the video timestamps of the given file from the {@link FakeTrackOutput}.
+   *
+   * @param filePath The {@link String filepath} to get video timestamps for.
+   * @return The {@link List} of video timestamps.
+   */
+  public static ImmutableList<Long> getVideoSampleTimesUs(String filePath) throws IOException {
+    Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
+    FakeExtractorOutput fakeExtractorOutput =
+        extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(filePath));
+    return Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO))
+        .getSampleTimesUs();
   }
 
   /**
-   * Creates a {@link File} of the {@code fileName} in the application cache directory.
+   * Asserts that the exported video frames are paced at a constant frame rate.
    *
-   * <p>If a file of that name already exists, it is overwritten.
-   *
-   * @param context The {@link Context}.
-   * @param fileName The filename to save to the cache.
+   * @param filePath The {@link String filepath} of the exported video.
+   * @param expectedFps The expected {@link Rational frame rate}.
    */
-  /* package */ static File createExternalCacheFile(Context context, String fileName)
+  public static void assertExportedVideoFrameRateIsConstant(String filePath, Rational expectedFps)
       throws IOException {
-    return createExternalCacheFile(context, /* directoryName= */ "", fileName);
+    ImmutableList<Long> sampleTimesUs = getVideoSampleTimesUs(filePath);
+    long expectedDeltaUs =
+        Util.scaleLargeValue(
+            1_000_000L,
+            expectedFps.getDenominator(),
+            expectedFps.getNumerator(),
+            RoundingMode.HALF_UP);
+    for (int i = 1; i < sampleTimesUs.size(); i++) {
+      long deltaUs = sampleTimesUs.get(i) - sampleTimesUs.get(i - 1);
+      // Absolute timestamps rounded to the nearest microsecond can cause
+      // deltas to fluctuate by 1us from the exact mathematical duration.
+      assertWithMessage(
+              "Time between frames %s (%s) and %s (%s) does not match expected %s fps",
+              i - 1, sampleTimesUs.get(i - 1), i, sampleTimesUs.get(i), expectedFps)
+          .that(deltaUs)
+          .isWithin(1L)
+          .of(expectedDeltaUs);
+    }
   }
 
   /**
-   * Creates a {@link File} of the {@code fileName} in a directory {@code directoryName} within the
-   * application cache directory.
+   * Asserts that the exported video matches the original video's frame count and timestamps.
    *
-   * <p>If a file of that name already exists, it is overwritten.
-   *
-   * @param context The {@link Context}.
-   * @param directoryName The directory name within the external cache to save the file in.
-   * @param fileName The filename to save to the cache.
+   * @param result The {@link ExportTestResult} from the transformer.
+   * @param assetInfo The original {@link AssetInfo} to compare against.
    */
-  /* package */ static File createExternalCacheFile(
-      Context context, String directoryName, String fileName) throws IOException {
-    File fileDirectory = new File(context.getExternalCacheDir(), directoryName);
-    fileDirectory.mkdirs();
-    File file = new File(fileDirectory, fileName);
-    checkState(
-        !file.exists() || file.delete(), "Could not delete file: %s", file.getAbsolutePath());
-    checkState(file.createNewFile(), "Could not create file: %s", file.getAbsolutePath());
-    return file;
+  public static void assertExportResultHasOriginalVideoTimestamps(
+      ExportTestResult result, AssetInfo assetInfo) throws IOException {
+    assertThat(new File(checkNotNull(result.filePath)).length()).isGreaterThan(0);
+    assertThat(getVideoSampleTimesUs(result.filePath))
+        .containsExactlyElementsIn(assetInfo.videoTimestampsUs)
+        .inOrder();
   }
 
   private AndroidTestUtil() {}

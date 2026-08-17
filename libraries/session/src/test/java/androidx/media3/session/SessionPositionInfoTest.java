@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 import android.os.Bundle;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Player.PositionInfo;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Assert;
@@ -54,9 +55,10 @@ public class SessionPositionInfoTest {
             /* contentDurationMs= */ 400L,
             /* contentBufferedPositionMs= */ 223L);
     Bundle sessionPositionInfoBundle =
-        testSessionPositionInfo.toBundle(MediaControllerStub.VERSION_INT);
+        testSessionPositionInfo.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
     SessionPositionInfo sessionPositionInfo =
-        SessionPositionInfo.fromBundle(sessionPositionInfoBundle);
+        SessionPositionInfo.fromBundle(
+            sessionPositionInfoBundle, MediaLibraryInfo.INTERFACE_VERSION);
     assertThat(sessionPositionInfo).isEqualTo(testSessionPositionInfo);
   }
 
@@ -91,15 +93,15 @@ public class SessionPositionInfoTest {
   public void roundTripViaBundle_withDefaultValues_yieldsEqualInstance() {
     SessionPositionInfo roundTripValue =
         SessionPositionInfo.fromBundle(
-            SessionPositionInfo.DEFAULT.toBundle(MediaControllerStub.VERSION_INT));
+            SessionPositionInfo.DEFAULT.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(roundTripValue).isEqualTo(SessionPositionInfo.DEFAULT);
   }
 
   @Test
   public void toBundle_withDefaultValues_omitsAllData() {
-    Bundle bundle =
-        SessionPositionInfo.DEFAULT.toBundle(/* controllerInterfaceVersion= */ Integer.MAX_VALUE);
+    Bundle bundle = SessionPositionInfo.DEFAULT.toBundle(/* interfaceVersion= */ Integer.MAX_VALUE);
 
     assertThat(bundle.isEmpty()).isTrue();
   }
@@ -110,7 +112,7 @@ public class SessionPositionInfoTest {
     // Controller before version 3 uses invalid default values for indices in PositionInfo and for
     // the buffered positions. The Bundle should always include these fields to avoid using the
     // invalid defaults.
-    Bundle bundle = SessionPositionInfo.DEFAULT.toBundle(/* controllerInterfaceVersion= */ 2);
+    Bundle bundle = SessionPositionInfo.DEFAULT.toBundle(/* interfaceVersion= */ 2);
 
     assertThat(bundle.keySet())
         .containsAtLeast(

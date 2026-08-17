@@ -16,6 +16,7 @@
 package androidx.media3.effect;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import androidx.media3.common.C;
 import androidx.media3.common.util.Size;
@@ -147,5 +148,103 @@ public final class PresentationTest {
     assertThat(isNoOp).isTrue();
     assertThat(outputSize.getWidth()).isEqualTo(1280);
     assertThat(outputSize.getHeight()).isEqualTo(720);
+  }
+
+  @Test
+  public void configure_createForShortSideWithDivisor1_doesNotRoundOutput() {
+    int inputWidth = 1080;
+    int inputHeight = 1920;
+    Presentation presentation = Presentation.createForShortSide(480).copyWithUnsetSideRoundedTo(1);
+
+    Size outputSize = presentation.configure(inputWidth, inputHeight);
+    boolean isNoOp = presentation.isNoOp(inputWidth, inputHeight);
+
+    assertThat(isNoOp).isFalse();
+    assertThat(outputSize.getWidth()).isEqualTo(480);
+    assertThat(outputSize.getHeight()).isEqualTo(853);
+  }
+
+  @Test
+  public void configure_createForShortSideWithDivisor2_roundsOutput() {
+    int inputWidth = 1080;
+    int inputHeight = 1920;
+    Presentation presentation = Presentation.createForShortSide(480).copyWithUnsetSideRoundedTo(2);
+
+    Size outputSize = presentation.configure(inputWidth, inputHeight);
+    boolean isNoOp = presentation.isNoOp(inputWidth, inputHeight);
+
+    assertThat(isNoOp).isFalse();
+    assertThat(outputSize.getWidth()).isEqualTo(480);
+    assertThat(outputSize.getHeight()).isEqualTo(854);
+  }
+
+  @Test
+  public void configure_createForHeightWithDivisor1_doesNotRoundOutput() {
+    int inputWidth = 1920;
+    int inputHeight = 1080;
+    Presentation presentation = Presentation.createForHeight(480).copyWithUnsetSideRoundedTo(1);
+
+    Size outputSize = presentation.configure(inputWidth, inputHeight);
+    boolean isNoOp = presentation.isNoOp(inputWidth, inputHeight);
+
+    assertThat(isNoOp).isFalse();
+    assertThat(outputSize.getWidth()).isEqualTo(853);
+    assertThat(outputSize.getHeight()).isEqualTo(480);
+  }
+
+  @Test
+  public void configure_createForHeightWithDivisor2_roundsOutput() {
+    int inputWidth = 1920;
+    int inputHeight = 1080;
+    Presentation presentation = Presentation.createForHeight(480).copyWithUnsetSideRoundedTo(2);
+
+    Size outputSize = presentation.configure(inputWidth, inputHeight);
+    boolean isNoOp = presentation.isNoOp(inputWidth, inputHeight);
+
+    assertThat(isNoOp).isFalse();
+    assertThat(outputSize.getWidth()).isEqualTo(854);
+    assertThat(outputSize.getHeight()).isEqualTo(480);
+  }
+
+  @Test
+  public void configure_createForHeightWithDivisor3_doesNotRoundSetSideLength() {
+    int inputWidth = 4;
+    int inputHeight = 5;
+    Presentation presentation = Presentation.createForHeight(4).copyWithUnsetSideRoundedTo(3);
+
+    Size outputSize = presentation.configure(inputWidth, inputHeight);
+    boolean isNoOp = presentation.isNoOp(inputWidth, inputHeight);
+
+    assertThat(isNoOp).isFalse();
+    assertThat(outputSize.getWidth()).isEqualTo(3);
+    assertThat(outputSize.getHeight()).isEqualTo(4);
+  }
+
+  @Test
+  public void copyWithUnsetSideRoundedTo_withWidthAndHeightSet_throwsIllegalStateException() {
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            Presentation.createForWidthAndHeight(480, 854, Presentation.LAYOUT_SCALE_TO_FIT)
+                .copyWithUnsetSideRoundedTo(1));
+  }
+
+  @Test
+  public void copyWithUnsetSideRoundedTo_withAspectRatioSet_throwsIllegalStateException() {
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            Presentation.createForAspectRatio(1.5f, Presentation.LAYOUT_SCALE_TO_FIT)
+                .copyWithUnsetSideRoundedTo(1));
+  }
+
+  @Test
+  public void copyWithUnsetSideRoundedTo_withInvalidDivisor_throwsIllegalStateException() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> Presentation.createForHeight(10).copyWithUnsetSideRoundedTo(0));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> Presentation.createForHeight(10).copyWithUnsetSideRoundedTo(-1));
   }
 }

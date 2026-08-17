@@ -75,6 +75,12 @@ public abstract class Chunk implements Loadable {
    */
   public final long endTimeUs;
 
+  /**
+   * The ID of the steered pathway from which data is being loaded, or {@code null} if not
+   * applicable.
+   */
+  @Nullable public final String steeredPathwayId;
+
   protected final StatsDataSource dataSource;
 
   /**
@@ -86,6 +92,7 @@ public abstract class Chunk implements Loadable {
    * @param trackSelectionData See {@link #trackSelectionData}.
    * @param startTimeUs See {@link #startTimeUs}.
    * @param endTimeUs See {@link #endTimeUs}.
+   * @param steeredPathwayId See {@link #steeredPathwayId}.
    */
   public Chunk(
       DataSource dataSource,
@@ -95,7 +102,8 @@ public abstract class Chunk implements Loadable {
       @C.SelectionReason int trackSelectionReason,
       @Nullable Object trackSelectionData,
       long startTimeUs,
-      long endTimeUs) {
+      long endTimeUs,
+      @Nullable String steeredPathwayId) {
     this.dataSource = new StatsDataSource(dataSource);
     this.dataSpec = checkNotNull(dataSpec);
     this.type = type;
@@ -104,6 +112,7 @@ public abstract class Chunk implements Loadable {
     this.trackSelectionData = trackSelectionData;
     this.startTimeUs = startTimeUs;
     this.endTimeUs = endTimeUs;
+    this.steeredPathwayId = steeredPathwayId;
     loadTaskId = LoadEventInfo.getNewId();
   }
 

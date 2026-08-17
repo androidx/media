@@ -61,9 +61,7 @@ public final class CastPlayer extends ForwardingPlayer {
    */
   public interface TransferCallback {
 
-    TransferCallback DEFAULT =
-        (sourcePlayer, targetPlayer) ->
-            PlayerTransferState.fromPlayer(sourcePlayer).setToPlayer(targetPlayer);
+    TransferCallback DEFAULT = new DefaultCastPlayerTransferCallback();
 
     /**
      * Called immediately before changing the active {@link Player}, with the intended use of
@@ -189,7 +187,11 @@ public final class CastPlayer extends ForwardingPlayer {
    * seekForwardIncrementMs} is set to {@link C#DEFAULT_SEEK_FORWARD_INCREMENT_MS}.
    *
    * @param castContext The context from which the cast session is obtained.
+   * @deprecated Use {@link RemoteCastPlayer.Builder} to create a {@link Player} for playback
+   *     exclusively on Cast receivers, or {@link Builder} for a {@link Player} that works both on
+   *     Cast receivers and locally.
    */
+  @Deprecated
   public CastPlayer(CastContext castContext) {
     this(castContext, new DefaultMediaItemConverter());
   }
@@ -272,8 +274,9 @@ public final class CastPlayer extends ForwardingPlayer {
     this(
         new RemoteCastPlayer(
             context,
-            castContext,
+            Cast.getSingletonInstance(castContext),
             mediaItemConverter,
+            /* trackSelector= */ null,
             seekBackIncrementMs,
             seekForwardIncrementMs,
             maxSeekToPreviousPositionMs));

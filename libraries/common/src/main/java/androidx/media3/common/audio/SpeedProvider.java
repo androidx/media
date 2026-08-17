@@ -22,6 +22,20 @@ import androidx.media3.common.util.UnstableApi;
 @UnstableApi
 public interface SpeedProvider {
 
+  /** A speed provider with default values. */
+  SpeedProvider DEFAULT =
+      new SpeedProvider() {
+        @Override
+        public float getSpeed(long timeUs) {
+          return 1f;
+        }
+
+        @Override
+        public long getNextSpeedChangeTimeUs(long timeUs) {
+          return C.TIME_UNSET;
+        }
+      };
+
   /**
    * Returns the media speed from the provided timestamp.
    *

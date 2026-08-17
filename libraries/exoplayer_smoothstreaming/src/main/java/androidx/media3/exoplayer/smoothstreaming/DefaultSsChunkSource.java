@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.smoothstreaming;
 
-import static androidx.media3.exoplayer.trackselection.TrackSelectionUtil.createFallbackOptions;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 
@@ -47,6 +46,7 @@ import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.CmcdData;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.FallbackOptions;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.FallbackSelection;
 import androidx.media3.exoplayer.upstream.LoaderErrorThrower;
 import androidx.media3.extractor.Extractor;
@@ -197,19 +197,16 @@ public class DefaultSsChunkSource implements SsChunkSource {
               : null;
       int nalUnitLengthFieldLength = streamElement.type == C.TRACK_TYPE_VIDEO ? 4 : 0;
       Track track =
-          new Track(
-              manifestTrackIndex,
-              streamElement.type,
-              streamElement.timescale,
-              C.TIME_UNSET,
-              manifest.durationUs,
-              /* mediaDurationUs= */ manifest.durationUs,
-              format,
-              Track.TRANSFORMATION_NONE,
-              trackEncryptionBoxes,
-              nalUnitLengthFieldLength,
-              null,
-              null);
+          new Track.Builder()
+              .setId(manifestTrackIndex)
+              .setType(streamElement.type)
+              .setTimescale(streamElement.timescale)
+              .setDurationUs(manifest.durationUs)
+              .setMediaDurationUs(manifest.durationUs)
+              .setFormat(format)
+              .setSampleDescriptionEncryptionBoxes(trackEncryptionBoxes)
+              .setNalUnitLengthFieldLength(nalUnitLengthFieldLength)
+              .build();
       @FragmentedMp4Extractor.Flags
       int flags =
           FragmentedMp4Extractor.FLAG_WORKAROUND_EVERY_VIDEO_FRAME_IS_SYNC_FRAME
@@ -402,10 +399,24 @@ public class DefaultSsChunkSource implements SsChunkSource {
       boolean cancelable,
       LoadErrorHandlingPolicy.LoadErrorInfo loadErrorInfo,
       LoadErrorHandlingPolicy loadErrorHandlingPolicy) {
+    long nowMs = SystemClock.elapsedRealtime();
+    int numberOfTracks = trackSelection.length();
+    int numberOfExcludedTracks = 0;
+    for (int i = 0; i < numberOfTracks; i++) {
+      if (trackSelection.isTrackExcluded(i, nowMs)) {
+        numberOfExcludedTracks++;
+      }
+    }
+    FallbackOptions fallbackOptions =
+        new FallbackOptions(
+            /* numberOfLocations= */ 1,
+            /* numberOfExcludedLocations= */ 0,
+            numberOfTracks,
+            numberOfExcludedTracks,
+            /* locationSteeringActive= */ false);
     @Nullable
     FallbackSelection fallbackSelection =
-        loadErrorHandlingPolicy.getFallbackSelectionFor(
-            createFallbackOptions(trackSelection), loadErrorInfo);
+        loadErrorHandlingPolicy.getFallbackSelectionFor(fallbackOptions, loadErrorInfo);
     return cancelable
         && fallbackSelection != null
         && fallbackSelection.type == LoadErrorHandlingPolicy.FALLBACK_TYPE_TRACK

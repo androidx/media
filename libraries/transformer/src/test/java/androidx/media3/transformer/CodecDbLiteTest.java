@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import androidx.media3.common.Format;
@@ -49,5 +50,83 @@ public class CodecDbLiteTest {
         () ->
             CodecDbLite.getRecommendedVideoEncoderSettings(
                 new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build()));
+  }
+
+  @Test
+  public void getRecommendedVideoEncoderSettings_avc1080p30_returnsRecommendedBitrate() {
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setWidth(1920)
+            .setHeight(1080)
+            .setFrameRate(30)
+            .build();
+
+    VideoEncoderSettings settings = CodecDbLite.getRecommendedVideoEncoderSettings(format);
+
+    assertThat(settings.bitrate).isEqualTo(15_502_805);
+  }
+
+  @Test
+  public void getRecommendedVideoEncoderSettings_hevc1080p30_returnsRecommendedBitrate() {
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setWidth(1920)
+            .setHeight(1080)
+            .setFrameRate(30)
+            .build();
+
+    VideoEncoderSettings settings = CodecDbLite.getRecommendedVideoEncoderSettings(format);
+
+    assertThat(settings.bitrate).isEqualTo(12_116_617);
+  }
+
+  @Test
+  public void getRecommendedVideoEncoderSettings_av11080p30_returnsHevcRecommendedBitrate() {
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_AV1)
+            .setWidth(1920)
+            .setHeight(1080)
+            .setFrameRate(30)
+            .build();
+
+    VideoEncoderSettings settings = CodecDbLite.getRecommendedVideoEncoderSettings(format);
+
+    assertThat(settings.bitrate).isEqualTo(12_116_617);
+  }
+
+  @Test
+  public void getRecommendedVideoEncoderSettings_unsupportedVideoCodec_returnsNoBitrate() {
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_VP9)
+            .setWidth(1920)
+            .setHeight(1080)
+            .setFrameRate(30)
+            .build();
+
+    VideoEncoderSettings settings = CodecDbLite.getRecommendedVideoEncoderSettings(format);
+
+    assertThat(settings.bitrate).isEqualTo(VideoEncoderSettings.NO_VALUE);
+  }
+
+  @Test
+  public void getRecommendedVideoEncoderSettings_unknownChipset_returnsRecommendedBitrate() {
+    ShadowBuild.setSystemOnChipManufacturer("Unknown");
+    ShadowBuild.setSystemOnChipModel("Unknown");
+
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setWidth(1920)
+            .setHeight(1080)
+            .setFrameRate(30)
+            .build();
+
+    VideoEncoderSettings settings = CodecDbLite.getRecommendedVideoEncoderSettings(format);
+
+    assertThat(settings.bitrate).isEqualTo(15_502_805);
   }
 }

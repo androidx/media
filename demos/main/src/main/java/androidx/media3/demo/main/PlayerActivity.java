@@ -128,7 +128,7 @@ public class PlayerActivity extends AppCompatActivity
       startPosition = savedInstanceState.getLong(KEY_POSITION);
       restoreServerSideAdsLoaderState(savedInstanceState);
     } else {
-      trackSelectionParameters = new TrackSelectionParameters.Builder(/* context= */ this).build();
+      trackSelectionParameters = new TrackSelectionParameters.Builder().build();
       clearStartPosition();
     }
   }

@@ -13,8 +13,7 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="androidx.media3.demo.session">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
   <uses-sdk/>
   <uses-permission android:name="android.permission.INTERNET" />
@@ -22,6 +21,7 @@
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
   <application
+      android:name=".SessionDemoApplication"
       android:allowBackup="false"
       android:icon="@mipmap/ic_launcher"
       android:label="@string/app_name"
@@ -32,6 +32,8 @@
       android:name="com.google.android.gms.car.application"
       android:resource="@xml/auto_app_desc" />
 
+    <receiver android:name="androidx.mediarouter.media.MediaTransferReceiver" />
+
     <activity
         android:name=".MainActivity"
         android:exported="true">
@@ -41,11 +43,13 @@
       </intent-filter>
     </activity>
 
+    <!-- TODO: b/420631693 - Use Theme.AppCompat.NoActionBar once the player UI renders the Cast
+         button.
+    -->
     <activity
         android:name=".PlayerActivity"
         android:exported="true"
-        android:launchMode="singleTop"
-        android:theme="@style/Theme.AppCompat.NoActionBar"/>
+        android:launchMode="singleTop" />
 
     <activity
         android:name=".PlayableFolderActivity"

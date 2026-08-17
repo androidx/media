@@ -428,13 +428,13 @@
         "name": "Playlist: No ads - HLS live: Big Buck Bunny - No ads",
         "playlist": [
           {
-            "uri": "https://html5demos.com/assets/dizzy.mp4"
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4"
           },
           {
             "uri": "ssai://dai.google.com/?assetKey=sN_IYUG8STe1ZzhIIE_ksA&format=2&adsId=3"
           },
           {
-            "uri": "https://html5demos.com/assets/dizzy.mp4"
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4"
           }
         ]
       },
@@ -442,13 +442,13 @@
         "name": "Playlist: No ads - DASH live: Tears of Steel (mid) - No ads",
         "playlist": [
           {
-            "uri": "https://html5demos.com/assets/dizzy.mp4"
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4"
           },
           {
             "uri": "ssai://dai.google.com/?assetKey=PSzZMzAkSXCmlJOWDmRj8Q&format=0&adsId=1"
           },
           {
-            "uri": "https://html5demos.com/assets/dizzy.mp4"
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4"
           }
         ]
       },
@@ -460,13 +460,13 @@
         "name": "Playlist: No ads - HLS VOD: Demo (skippable pre/post) - No ads",
         "playlist": [
           {
-            "uri": "https://html5demos.com/assets/dizzy.mp4"
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4"
           },
           {
             "uri": "ssai://dai.google.com/?contentSourceId=2483977&videoId=ima-vod-skippable-test&format=2&adsId=1"
           },
           {
-            "uri": "https://html5demos.com/assets/dizzy.mp4"
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4"
           }
         ]
       },
@@ -474,13 +474,13 @@
         "name": "Playlist: No ads - HLS VOD: Tears of steel (pre/mid/mid/mid/post) - No ads",
         "playlist": [
           {
-            "uri": "https://html5demos.com/assets/dizzy.mp4"
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4"
           },
           {
             "uri": "ssai://dai.google.com/?contentSourceId=2528370&videoId=tears-of-steel&format=2&adsId=1"
           },
           {
-            "uri": "https://html5demos.com/assets/dizzy.mp4"
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4"
           }
         ]
       },
@@ -488,13 +488,13 @@
         "name": "Playlist: No ads - DASH VOD: Tears of Steel (11 periods, pre/mid/post) - No ads",
         "playlist": [
           {
-            "uri": "https://html5demos.com/assets/dizzy.mp4"
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4"
           },
           {
             "uri": "ssai://dai.google.com/?contentSourceId=2559737&videoId=tos-dash&format=0&adsId=1"
           },
           {
-            "uri": "https://html5demos.com/assets/dizzy.mp4"
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4"
           }
         ]
       },
@@ -509,7 +509,7 @@
             "uri": "ssai://dai.google.com/?contentSourceId=2559737&videoId=tos-dash&format=0&adsId=1"
           },
           {
-            "uri": "https://html5demos.com/assets/dizzy.mp4"
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4"
           }
         ]
       }
@@ -518,17 +518,6 @@
   {
     "name": "Playlists",
     "samples": [
-      {
-        "name": "Cats -> Dogs",
-        "playlist": [
-          {
-            "uri": "https://html5demos.com/assets/dizzy.mp4"
-          },
-          {
-            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mkv/android-screens-lavf-56.36.100-aac-avc-main-1280x720.mkv"
-          }
-        ]
-      },
       {
         "name": "Audio -> Video (MKV) -> Video (MKV) -> Audio -> Video (MKV) -> Video (DASH) -> Audio",
         "playlist": [
@@ -559,7 +548,7 @@
         "name": "Clear -> Enc -> Clear -> Enc -> Enc",
         "playlist": [
           {
-            "uri": "https://html5demos.com/assets/dizzy.mp4"
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4"
           },
           {
             "uri": "https://storage.googleapis.com/wvmedia/cenc/h264/tears/tears_sd.mpd",
@@ -567,7 +556,7 @@
             "drm_license_uri": "https://proxy.uat.widevine.com/proxy?provider=widevine_test"
           },
           {
-            "uri": "https://html5demos.com/assets/dizzy.mp4"
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4"
           },
           {
             "uri": "https://storage.googleapis.com/wvmedia/cenc/h264/tears/tears_sd.mpd",
@@ -585,7 +574,7 @@
         "name": "Manual ad insertion",
         "playlist": [
           {
-            "uri": "https://html5demos.com/assets/dizzy.mp4",
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/gen-3/screens/dash-vod-single-segment/video-avc-baseline-480.mp4",
             "clip_end_position_ms": 10000
           },
           {
@@ -593,7 +582,7 @@
             "clip_end_position_ms": 5000
           },
           {
-            "uri": "https://html5demos.com/assets/dizzy.mp4",
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/gen-3/screens/dash-vod-single-segment/video-avc-baseline-480.mp4",
             "clip_start_position_ms": 10000
           }
         ]
@@ -606,7 +595,7 @@
             "image_duration_ms": 2000
           },
           {
-            "uri": "https://html5demos.com/assets/dizzy.mp4",
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4",
             "clip_end_position_ms": 2000
           },
           {
@@ -623,10 +612,10 @@
         "name": "Change in crop b/409036359",
         "playlist": [
           {
-            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/bbb_760x480_1mbps_60fps_hevc.mp4"
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/bbb_760x480_1mbps_25fps_hevc.mp4"
           },
           {
-            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/bbb_760x480_1mbps_60fps_hevc_pad.mp4"
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/bbb_760x480_1mbps_25fps_hevc_pad.mp4"
           }
         ]
       }
@@ -664,14 +653,14 @@
     "samples": [
       {
         "name": "TTML positioning",
-        "uri": "https://html5demos.com/assets/dizzy.mp4",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/gen-3/screens/dash-vod-single-segment/video-avc-baseline-480.mp4",
         "subtitle_uri": "https://storage.googleapis.com/exoplayer-test-media-1/ttml/netflix_ttml_sample.xml",
         "subtitle_mime_type": "application/ttml+xml",
         "subtitle_language": "en"
       },
       {
         "name": "TTML Japanese features",
-        "uri": "https://html5demos.com/assets/dizzy.mp4",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/gen-3/screens/dash-vod-single-segment/video-avc-baseline-480.mp4",
         "subtitle_uri": "https://storage.googleapis.com/exoplayer-test-media-1/ttml/japanese-ttml.xml",
         "subtitle_mime_type": "application/ttml+xml",
         "subtitle_language": "ja"
@@ -685,14 +674,14 @@
       },
       {
         "name": "WebVTT positioning",
-        "uri": "https://html5demos.com/assets/dizzy.mp4",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/gen-3/screens/dash-vod-single-segment/video-avc-baseline-480.mp4",
         "subtitle_uri": "https://storage.googleapis.com/exoplayer-test-media-1/webvtt/numeric-lines.vtt",
         "subtitle_mime_type": "text/vtt",
         "subtitle_language": "en"
       },
       {
         "name": "WebVTT Japanese features",
-        "uri": "https://html5demos.com/assets/dizzy.mp4",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/gen-3/screens/dash-vod-single-segment/video-avc-baseline-480.mp4",
         "subtitle_uri": "https://storage.googleapis.com/exoplayer-test-media-1/webvtt/japanese.vtt",
         "subtitle_mime_type": "text/vtt",
         "subtitle_language": "ja"
@@ -781,10 +770,6 @@
         "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/frame-counter-one-hour.mp4"
       },
       {
-        "name": "Immersive Audio Format Sample (MP4, IAMF)",
-        "uri": "https://github.com/AOMediaCodec/libiamf/raw/main/tests/test_000036_s.mp4"
-      },
-      {
         "name": "MPEG-H HD (MP4, H265)",
         "uri": "https://media.githubusercontent.com/media/Fraunhofer-IIS/mpegh-test-content/main/TRI_Fileset_17_514H_D1_D2_D3_O1_24bit1080p50.mp4"
       }
@@ -821,6 +806,61 @@
         "name": "JPEG (Ultra HDR)",
         "uri": "https://storage.googleapis.com/exoplayer-test-media-1/jpg/ultra_hdr.jpg",
         "image_duration_ms": 2000
+      },
+      {
+        "name": "HEIC motion photo (still)",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/heif/sample_motion_photo.heic",
+        "image_duration_ms": 2000
+      },
+      {
+        "name": "HEIC motion photo (motion)",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/heif/sample_motion_photo.heic"
+      }
+    ]
+  },
+  {
+    "name": "IAMF (extension)",
+    "samples": [
+      {
+        "name": "7.1.4 AAC",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/iamf/7_1_4_AAC.mp4"
+      },
+      {
+        "name": "7.1.4 FLAC",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/iamf/7_1_4_FLAC.mp4"
+      },
+      {
+        "name": "7.1.4 Opus",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/iamf/7_1_4_Opus.mp4"
+      },
+      {
+        "name": "7.1.4 PCM",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/iamf/7_1_4_PCM16_48000.mp4"
+      }
+    ]
+  },
+  {
+    "name": "HAGC (ST 2094-50)",
+    "samples": [
+      {
+        "name": "AV1 Beach (Sparse T35)",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/hagc/beach_av1_t35track_v0.mp4"
+      },
+      {
+        "name": "HEVC Beach (Sparse T35)",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/hagc/beach_hevc_t35track_v0_20260603.mp4"
+      },
+      {
+        "name": "AV1 Rooftop (Everyframe T35)",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/hagc/rooftop_av1_t35track_everyframe_v0.mp4"
+      },
+      {
+        "name": "HEVC Rooftop (Everyframe T35)",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/hagc/rooftop_hevc_t35track_everyframe_v0.mp4"
+      },
+      {
+        "name": "HEVC Lights (SDR Base, Sparse T35)",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/hagc/lights_hevc_sdrbase_t35track_v0.mp4"
       }
     ]
   }

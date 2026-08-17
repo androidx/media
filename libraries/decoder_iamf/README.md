@@ -1,13 +1,13 @@
 # IAMF decoder module
 
-The IAMF module provides `LibiamfAudioRenderer`, which uses the libiamf native
+The IAMF module provides `IamfAudioRenderer`, which uses the iamf_tools native
 library to decode IAMF audio.
 
 ## License note
 
-Please note that whilst the code in this repository is licensed under
-[Apache 2.0][], using this module also requires building and including one or
-more external libraries as described below. These are licensed separately.
+Note that whilst the code in this repository is licensed under [Apache 2.0][],
+using this module also requires building and including one or more external
+libraries as described below. These are licensed separately.
 
 [Apache 2.0]: ../../LICENSE
 
@@ -17,29 +17,64 @@ To use the module you need to clone this GitHub project and depend on its
 modules locally. Instructions for doing this can be found in the
 [top level README][].
 
-In addition, it's necessary to fetch libiamf as follows:
+In addition, it's necessary to fetch iamf_tools with dependencies as follows:
 
-* Set the following environment variables:
+*   Install [bazelisk][] to manage bazel builds and dependencies.
 
+*   Download the [Android NDK][] and set its location in a shell variable. This
+    build configuration has been tested on NDK r29.
+
+```shell
+NDK_PATH="<path to Android NDK>"
 ```
+
+*   Set the following environment variables.
+
+```shell
 cd "<path to project checkout>"
-IAMF_MODULE_PATH="$(pwd)/libraries/decoder_iamf/src/main"
+export IAMF_MODULE_PATH="$(pwd)/libraries/decoder_iamf/src/main"
 ```
 
-* Fetch libiamf:
+*   Fetch iamf_tools. These build instructions have been tested at this
+    particular commit but may work fine at head.
 
-```
+    ```shell
+    cd "${IAMF_MODULE_PATH}/jni" && \
+    git clone https://github.com/AOMediaCodec/iamf-tools.git \
+        --depth=1 \
+        --revision=e552e7d6d8b55530d201fd2764ca7e12d2c66cd6 \
+        iamf_tools
+    ```
+
+    *   If you are using an old version of `git` without the `--revision` flag
+        (added in 2.49), run this instead:
+
+    ```shell
+    cd "${IAMF_MODULE_PATH}/jni" && \
+    mkdir iamf_tools && \
+    cd iamf_tools && \
+    git init && \
+    git remote add origin https://github.com/AOMediaCodec/iamf-tools.git && \
+    git fetch --depth=1 origin e552e7d6d8b55530d201fd2764ca7e12d2c66cd6 && \
+    git checkout FETCH_HEAD
+    ```
+
+*   Build the library.
+
+```shell
 cd "${IAMF_MODULE_PATH}/jni" && \
-git clone https://github.com/AOMediaCodec/libiamf.git
+./build_iamf_tools.sh "${IAMF_MODULE_PATH}" "${NDK_PATH}"
 ```
 
-* [Install CMake][]
+*   [Install CMake][]
 
 Having followed these steps, gradle will build the module automatically when run
 on the command line or via Android Studio, using [CMake][] and [Ninja][] to
-configure and build libiamf and the module's [JNI wrapper library][].
+configure and build the module's [JNI wrapper library][].
 
 [top level README]: ../../README.md
+[bazelisk]: https://github.com/bazelbuild/bazelisk
+[Android NDK]: https://developer.android.com/ndk
 [Install CMake]: https://developer.android.com/studio/projects/install-ndk
 [CMake]: https://cmake.org/
 [Ninja]: https://ninja-build.org
@@ -55,31 +90,30 @@ be possible to follow the Linux instructions in [Windows PowerShell][].
 ## Using the module with ExoPlayer
 
 Once you've followed the instructions above to check out, build and depend on
-the module, the next step is to tell ExoPlayer to use `LibiamfAudioRenderer`.
-How you do this depends on which player API you're using:
+the module, the next step is to tell ExoPlayer to use `IamfAudioRenderer`. How
+you do this depends on which player API you're using:
 
 *   If you're passing a `DefaultRenderersFactory` to `ExoPlayer.Builder`, you
     can enable using the module by setting the `extensionRendererMode` parameter
     of the `DefaultRenderersFactory` constructor to
-    `EXTENSION_RENDERER_MODE_ON`. This will use `LibiamfAudioRenderer` for
-    playback if `MediaCodecAudioRenderer` doesn't support the input format. Pass
-    `EXTENSION_RENDERER_MODE_PREFER` to give `LibiamfAudioRenderer` priority
-    over `MediaCodecAudioRenderer`.
-*   If you've subclassed `DefaultRenderersFactory`, add a `LibiamfAudioRenderer`
-    to the output list in `buildAudioRenderers`. ExoPlayer will use the first
+    `EXTENSION_RENDERER_MODE_ON`. This will use `IamfAudioRenderer` for playback
+    if `MediaCodecAudioRenderer` doesn't support the input format. Pass
+    `EXTENSION_RENDERER_MODE_PREFER` to give `IamfAudioRenderer` priority over
+    `MediaCodecAudioRenderer`.
+*   If you've subclassed `DefaultRenderersFactory`, add a `IamfAudioRenderer` to
+    the output list in `buildAudioRenderers`. ExoPlayer will use the first
     `Renderer` in the list that supports the input media format.
 *   If you've implemented your own `RenderersFactory`, return a
-    `LibiamfAudioRenderer` instance from `createRenderers`. ExoPlayer will use
-    the first `Renderer` in the returned array that supports the input media
-    format.
-*   If you're using `ExoPlayer.Builder`, pass a `LibiamfAudioRenderer` in the
-    array of `Renderer`s. ExoPlayer will use the first `Renderer` in the list
-    that supports the input media format.
+    `IamfAudioRenderer` instance from `createRenderers`. ExoPlayer will use the
+    first `Renderer` in the returned array that supports the input media format.
+*   If you're using `ExoPlayer.Builder`, pass a `IamfAudioRenderer` in the array
+    of `Renderer`s. ExoPlayer will use the first `Renderer` in the list that
+    supports the input media format.
 
 Note: These instructions assume you're using `DefaultTrackSelector`. If you have
 a custom track selector the choice of `Renderer` is up to your implementation,
-so you need to make sure you are passing a `LibiamfAudioRenderer` to the
-player, then implement your own logic to use the renderer for a given track.
+so you need to make sure you are passing a `IamfAudioRenderer` to the player,
+then implement your own logic to use the renderer for a given track.
 
 ## Links
 

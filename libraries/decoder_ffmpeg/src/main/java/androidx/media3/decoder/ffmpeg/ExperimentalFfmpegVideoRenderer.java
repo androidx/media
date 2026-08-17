@@ -25,6 +25,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -38,13 +39,14 @@ import androidx.media3.exoplayer.video.DecoderVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import java.util.Objects;
 
+// TODO: Merge actual implementation in https://github.com/androidx/media/pull/1591.
 /**
  * <b>NOTE: This class if under development and is not yet functional.</b>
  *
  * <p>Decodes and renders video using FFmpeg.
  * <p>Merge actual implementation in https://github.com/google/ExoPlayer/pull/7132.
  */
-@UnstableApi
+@ExperimentalApi // TODO: b/470357054 - Merge pull request and publish FfmpegVideoRenderer.
 public final class ExperimentalFfmpegVideoRenderer extends DecoderVideoRenderer {
 
   private static final String TAG = "ExperimentalFfmpegVideoRenderer";

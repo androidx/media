@@ -36,6 +36,10 @@ add_library(opusV2JNI
             SHARED
             opus_jni.cc)
 
+set_target_properties(opusV2JNI PROPERTIES
+                      CXX_VISIBILITY_PRESET hidden
+                      VISIBILITY_INLINES_HIDDEN ON)
+
 # Locate NDK log library.
 find_library(android_log_lib log)
 
@@ -44,8 +48,4 @@ target_link_libraries(opusV2JNI
                       PRIVATE android
                       PRIVATE opus
                       PRIVATE ${android_log_lib})
-
-# Enable 16 KB ELF alignment.
-target_link_options(opusV2JNI
-                    PRIVATE "-Wl,-z,max-page-size=16384")
 

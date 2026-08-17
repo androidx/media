@@ -16,9 +16,15 @@
 package androidx.media3.common.util;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.max;
 
 import android.annotation.SuppressLint;
+import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
+import android.media.MediaCodecInfo.CodecProfileLevel;
+import android.os.Build.VERSION;
 import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -26,9 +32,13 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.UnsignedBytes;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -36,6 +46,78 @@ import java.util.regex.Pattern;
 @SuppressLint("InlinedApi")
 @UnstableApi
 public final class CodecSpecificDataUtil {
+
+  /**
+   * A tuple of profile and level constants for {@link MediaCodec}.
+   *
+   * <p>This is similar to {@link MediaCodecInfo.CodecProfileLevel}, except it:
+   *
+   * <ul>
+   *   <li>Is immutable.
+   *   <li>Can be used to represent a profile and level that may be valid but isn't representable by
+   *       {@link MediaCodecInfo.CodecProfileLevel} constants.
+   * </ul>
+   */
+  public static final class MediaCodecProfileAndLevel {
+
+    /**
+     * An instance that represents a profile and level combination not representable with {@link
+     * MediaCodecInfo.CodecProfileLevel} constants.
+     */
+    public static final MediaCodecProfileAndLevel UNSUPPORTABLE =
+        new MediaCodecProfileAndLevel(
+            /* profile= */ 0, /* level= */ 0, /* isSupportableByMediaCodec= */ false);
+
+    private final int profile;
+    private final int level;
+    private final boolean isSupportableByMediaCodec;
+
+    /** Constructs an instance with values from {@link MediaCodecInfo.CodecProfileLevel}. */
+    public MediaCodecProfileAndLevel(int profile, int level) {
+      this(profile, level, /* isSupportableByMediaCodec= */ true);
+    }
+
+    private MediaCodecProfileAndLevel(int profile, int level, boolean isSupportableByMediaCodec) {
+      this.isSupportableByMediaCodec = isSupportableByMediaCodec;
+      this.profile = profile;
+      this.level = level;
+    }
+
+    /**
+     * Returns the profile value, which will be a constant from {@link
+     * MediaCodecInfo.CodecProfileLevel}.
+     *
+     * <p>Callers must check {@link #isSupportableByMediaCodec()} returns {@code true} before
+     * calling this method.
+     */
+    public int getProfile() {
+      checkState(isSupportableByMediaCodec);
+      return profile;
+    }
+
+    /**
+     * Returns the level value, which will be a constant from {@link
+     * MediaCodecInfo.CodecProfileLevel}.
+     *
+     * <p>Callers must check {@link #isSupportableByMediaCodec()} returns {@code true} before
+     * calling this method.
+     */
+    public int getLevel() {
+      checkState(isSupportableByMediaCodec);
+      return level;
+    }
+
+    /**
+     * Returns whether the profile and level represented by this instance can be represented by
+     * {@link MediaCodecInfo.CodecProfileLevel} constants.
+     *
+     * <p>This is based on the set of constants available when this library was compiled. It is not
+     * related to the {@link VERSION#SDK_INT} of the current device.
+     */
+    public boolean isSupportableByMediaCodec() {
+      return isSupportableByMediaCodec;
+    }
+  }
 
   private static final byte[] NAL_START_CODE = new byte[] {0, 0, 0, 1};
   private static final String[] HEVC_GENERAL_PROFILE_SPACE_STRINGS =
@@ -46,6 +128,20 @@ public final class CodecSpecificDataUtil {
   private static final int VISUAL_OBJECT_LAYER_START = 0x20;
   private static final int EXTENDED_PAR = 0x0F;
   private static final int RECTANGULAR = 0x00;
+
+  // VP9 constants from VP9 Bitstream Specification.
+  private static final int VP9_FRAME_MARKER = 0b10;
+  private static final int VP9_FRAME_TYPE_KEY_FRAME = 0;
+  private static final int VP9_SYNC_CODE = 0x498342;
+  private static final int VP9_COLOR_SPACE_RGB = 7;
+  private static final int VP9_CHROMA_SUBSAMPLING_420 = 0;
+  private static final int VP9_CHROMA_SUBSAMPLING_422 = 2;
+  private static final int VP9_CHROMA_SUBSAMPLING_444 = 3;
+  private static final int VP9_MAX_UNCOMPRESSED_HEADER_SIZE_BYTES = 128;
+
+  // IAMF OBU types.
+  private static final int OBU_IA_CODEC_CONFIG = 0x00;
+  private static final int OBU_IA_SEQUENCE_HEADER = 0x1F;
 
   // Codecs to constant mappings.
   // H263
@@ -58,6 +154,9 @@ public final class CodecSpecificDataUtil {
   // HEVC.
   private static final String CODEC_ID_HEV1 = "hev1";
   private static final String CODEC_ID_HVC1 = "hvc1";
+  // VVC.
+  private static final String CODEC_ID_VVC1 = "vvc1";
+  private static final String CODEC_ID_VVI1 = "vvi1";
   // AV1.
   private static final String CODEC_ID_AV01 = "av01";
   // APV.
@@ -78,15 +177,17 @@ public final class CodecSpecificDataUtil {
    * href="https://github.com/macosforge/alac/blob/master/ALACMagicCookieDescription.txt">ALACSpecificConfig</a>).
    *
    * @param audioSpecificConfig A byte array containing the AudioSpecificConfig to parse.
-   * @return A pair consisting of the sample rate in Hz and the channel count.
+   * @return An int array consisting of the sample rate in Hz, the channel count and the bit depth.
    */
-  public static Pair<Integer, Integer> parseAlacAudioSpecificConfig(byte[] audioSpecificConfig) {
+  public static int[] parseAlacAudioSpecificConfig(byte[] audioSpecificConfig) {
     ParsableByteArray byteArray = new ParsableByteArray(audioSpecificConfig);
+    byteArray.setPosition(5);
+    int bitDepth = byteArray.readUnsignedByte();
     byteArray.setPosition(9);
     int channelCount = byteArray.readUnsignedByte();
     byteArray.setPosition(20);
     int sampleRate = byteArray.readUnsignedIntToInt();
-    return Pair.create(sampleRate, channelCount);
+    return new int[] {sampleRate, channelCount, bitDepth};
   }
 
   /**
@@ -110,48 +211,70 @@ public final class CodecSpecificDataUtil {
   @Nullable
   public static String buildIamfCodecString(byte[] initializationData) {
     ParsableByteArray parsableByteArray = new ParsableByteArray(initializationData);
-    if (!skipObuHeader(parsableByteArray, /* expectedObuType= */ 0x1F)) { // OBU_IA_Sequence_Header
-      return null;
-    }
-    // IASequenceHeaderOBU
-    parsableByteArray.skipBytes(4); // ia_code (4 bytes)
-    int primaryProfile = parsableByteArray.readUnsignedByte(); // primary_profile (1 byte)
-    int additionalProfile = parsableByteArray.readUnsignedByte(); // additional_profile (1 byte)
 
-    if (!skipObuHeader(parsableByteArray, /* expectedObuType= */ 0x00)) { // OBU_IA_Codec_Config
-      return null;
-    }
+    @Nullable String iaSequenceHeader = null;
+    @Nullable String codecConfigCodecId = null;
 
-    // CodecConfigOBU
-    parsableByteArray.skipLeb128(); // codec_config_id
-    String codecId = parsableByteArray.readString(4); // codec_id (4 bytes)
+    while (parsableByteArray.bytesLeft() > 0
+        && (iaSequenceHeader == null || codecConfigCodecId == null)) {
+      // OBUHeader
+      // obu_type (5 bits) + obu_redundant_copy (1 bit) + obu_trimming_status_flag  (1 bit) +
+      // obu_extension_flag (1 bit)
+      int obuHeaderByte = parsableByteArray.readUnsignedByte();
+      int obuType = obuHeaderByte >> 3; // obu_type (5 bits)
+      // skip obu_redundant_copy (1 bit)
+      boolean obuTrimmingStatusFlag = (obuHeaderByte & 0x2) != 0; // obu_trimming_status (1 bit)
+      boolean obuExtensionFlag = (obuHeaderByte & 0x1) != 0; // obu_extension (1 bit)
 
-    if (codecId.equals("mp4a")) {
-      parsableByteArray.skipLeb128(); // num_samples_per_frame
-      parsableByteArray.skipBytes(2); // audio_roll_distance (2 bytes)
+      int obuSize = parsableByteArray.readUnsignedLeb128ToInt(); // obu_size
 
-      ParsableBitArray decoderConfigBitArray = new ParsableBitArray();
-      decoderConfigBitArray.reset(parsableByteArray);
-      int audioObjectType = decoderConfigBitArray.readBits(5);
-      // If audioObjectType is an escape value, then we need to read 6 bits.
-      if (audioObjectType == 0x1F) {
-        audioObjectType = 32 + decoderConfigBitArray.readBits(6);
+      if ((obuType > 4 && obuType < 24) && obuTrimmingStatusFlag) {
+        parsableByteArray.skipLeb128(); // num_samples_to_trim_at_end
+        parsableByteArray.skipLeb128(); // num_samples_to_trim_at_start
       }
-      codecId += ".40." + audioObjectType;
-    }
-    return Util.formatInvariant("iamf.%03X.%03X.%s", primaryProfile, additionalProfile, codecId);
-  }
+      if (obuExtensionFlag) {
+        int extensionHeaderSize =
+            parsableByteArray.readUnsignedLeb128ToInt(); // extension_header_size
+        parsableByteArray.skipBytes(extensionHeaderSize); // extension_header_bytes
+      }
 
-  private static boolean skipObuHeader(ParsableByteArray parsableByteArray, int expectedObuType) {
-    // OBUHeader
-    // obu_type (5 bits) + obu_redundant_copy (1 bit) + obu_trimming_status_flag  (1 bit) +
-    // obu_extension_flag (1 bit)
-    int obuHeaderByte = parsableByteArray.readUnsignedByte();
-    if (obuHeaderByte >> 3 != expectedObuType) {
-      return false;
+      int nextObuPosition = parsableByteArray.getPosition() + obuSize;
+      if (obuType == OBU_IA_SEQUENCE_HEADER) { // OBU_IA_Sequence_Header
+        // IASequenceHeaderOBU
+        parsableByteArray.skipBytes(4); // ia_code (4 bytes)
+        int primaryProfile = parsableByteArray.readUnsignedByte(); // primary_profile (1 byte)
+        int additionalProfile = parsableByteArray.readUnsignedByte(); // additional_profile (1 byte)
+        iaSequenceHeader =
+            Util.formatInvariant("iamf.%03X.%03X", primaryProfile, additionalProfile);
+      } else if (obuType == OBU_IA_CODEC_CONFIG) { // OBU_IA_Codec_Config
+        // CodecConfigOBU
+        parsableByteArray.skipLeb128(); // codec_config_id
+        codecConfigCodecId = parsableByteArray.readString(4); // codec_id (4 bytes)
+
+        if (codecConfigCodecId.equals(CODEC_ID_MP4A)) {
+          parsableByteArray.skipLeb128(); // num_samples_per_frame
+          parsableByteArray.skipBytes(2); // audio_roll_distance (2 bytes)
+
+          ParsableBitArray decoderConfigBitArray = new ParsableBitArray();
+          decoderConfigBitArray.reset(parsableByteArray);
+          int audioObjectType = decoderConfigBitArray.readBits(5);
+          // If audioObjectType is an escape value, then we need to read extra 6 bits.
+          // Refer to ISO/IEC 14496-3 (2005) Table 1.14 for more details.
+          if (audioObjectType == 0x1F) {
+            audioObjectType = 32 + decoderConfigBitArray.readBits(6);
+          }
+          codecConfigCodecId += ".40." + audioObjectType;
+        }
+      }
+
+      parsableByteArray.setPosition(nextObuPosition);
     }
-    parsableByteArray.skipLeb128(); // obu_size
-    return true;
+
+    if (iaSequenceHeader != null && codecConfigCodecId != null) {
+      return iaSequenceHeader + "." + codecConfigCodecId;
+    } else {
+      return null;
+    }
   }
 
   /**
@@ -198,12 +321,252 @@ public final class CodecSpecificDataUtil {
   }
 
   /**
+   * Builds VP9 CodecPrivate from the uncompressed header of the first frame.
+   *
+   * <p>This method parses the uncompressed header of the first frame to extract the VP9 profile,
+   * bit depth, and chroma subsampling.
+   *
+   * <p>Refer to <a
+   * href="https://storage.googleapis.com/downloads.webmproject.org/docs/vp9/vp9-bitstream-specification-v0.7-20170222-draft.pdf">6.2
+   * of the VP9 bitstream specification</a> and <a
+   * href="https://www.webmproject.org/vp9/mp4/#Semantics">VP9 in ISO Media File Format</a> for more
+   * details.
+   *
+   * @param sample The first frame's data.
+   * @return The CodecPrivate data for VP9 if parsing is successful, {@code null} otherwise.
+   */
+  @Nullable
+  public static byte[] buildVp9CodecPrivateFromUncompressedHeader(ByteBuffer sample) {
+    int headerSize = Math.min(sample.remaining(), VP9_MAX_UNCOMPRESSED_HEADER_SIZE_BYTES);
+    byte[] data = new byte[headerSize];
+    sample.get(data, /* offset= */ 0, headerSize);
+    ParsableBitArray bits = new ParsableBitArray(data);
+    // The uncompressed header should be at least 5 bytes to contain the profile, bit depth,
+    // and chroma subsampling.
+    checkState(sample.remaining() >= 5);
+
+    // First 2 bits of the uncompressed header should be the frame_marker.
+    if (bits.readBits(2) != VP9_FRAME_MARKER) {
+      return null;
+    }
+
+    // profile_low_bit (1 bit), profile_high_bit (1 bit)
+    int profileLowBit = bits.readBits(1);
+    int profileHighBit = bits.readBits(1);
+    int profile = (profileHighBit << 1) | profileLowBit;
+
+    // One reserved '0' bit if profile is 3.
+    if (profile == 3) {
+      if (bits.bitsLeft() < 1 || bits.readBit()) {
+        return null;
+      }
+    }
+
+    // If show_existing_frame is set, we get no more data. Since this is
+    // expected to be the first frame, we can return null, indicating a malformed stream.
+    if (bits.readBit()) { // show_existing_frame
+      return null;
+    }
+
+    int frameType = bits.readBits(1);
+    boolean showFrame = bits.readBit();
+    boolean errorResilientMode = bits.readBit();
+
+    int bitDepth = 8;
+    int chromaSubsampling = VP9_CHROMA_SUBSAMPLING_420;
+
+    boolean isKeyFrame = frameType == VP9_FRAME_TYPE_KEY_FRAME;
+    boolean canParseHeader = isKeyFrame;
+    boolean colorConfigPresent = isKeyFrame;
+
+    if (!isKeyFrame) {
+      int intraOnly = 0;
+      if (!showFrame) {
+        intraOnly = bits.readBits(1);
+      }
+      if (!errorResilientMode) {
+        bits.skipBits(2); // reset_frame_context
+      }
+
+      if (intraOnly != 0) {
+        canParseHeader = true;
+        // color_config() is only present for intra-only frames if profile > 0.
+        colorConfigPresent = profile > 0;
+      }
+    }
+
+    if (!canParseHeader) {
+      return null;
+    }
+
+    if (bits.readBits(24) != VP9_SYNC_CODE) {
+      return null;
+    }
+
+    if (colorConfigPresent) {
+      Pair<Integer, Integer> results = getVp9BitdepthChromaSubSampling(bits, profile);
+      if (results == null) {
+        return null;
+      }
+      bitDepth = results.first;
+      chromaSubsampling = results.second;
+    } else {
+      // For intra-only, profile 0 frames, color config is not present. The default
+      // bitDepth (8) and chromaSubsampling (4:2:0) are used.
+      bitDepth = 8;
+      chromaSubsampling = VP9_CHROMA_SUBSAMPLING_420;
+    }
+
+    // Level 0 signals that the level is unknown/unspecified.
+    return CodecSpecificDataUtil.buildVp9CodecPrivateInitializationData(
+            (byte) profile, /* level= */ (byte) 0, (byte) bitDepth, (byte) chromaSubsampling)
+        .get(0);
+  }
+
+  /**
+   * Gets the bitdepth and subsampling from a VP9 uncompressed header.
+   *
+   * <p>Refer to <a
+   * href="https://storage.googleapis.com/downloads.webmproject.org/docs/vp9/vp9-bitstream-specification-v0.7-20170222-draft.pdf">6.2
+   * of the VP9 bitstream specification</a> and <a
+   * href="https://www.webmproject.org/vp9/mp4/#Semantics">VP9 in ISO Media File Format</a> for more
+   * details.
+   *
+   * @param bits The bitstream to parse.
+   * @param profile The VP9 codec profile.
+   * @return A {@link Pair} containing the bitdepth and subsampling, or {@code null} if parsing
+   *     fails.
+   */
+  @Nullable
+  private static Pair<Integer, Integer> getVp9BitdepthChromaSubSampling(
+      ParsableBitArray bits, int profile) {
+    int bitDepth;
+    if (profile >= 2) {
+      bitDepth = bits.readBit() ? 12 : 10;
+    } else {
+      bitDepth = 8;
+    }
+    int colorSpace = bits.readBits(3);
+    int chromaSubsampling = VP9_CHROMA_SUBSAMPLING_420;
+
+    if (colorSpace != VP9_COLOR_SPACE_RGB) {
+      bits.skipBits(1); // yuv_range_flag
+      if (profile == 1 || profile == 3) {
+        int ssX = bits.readBits(1);
+        int ssY = bits.readBits(1);
+        // From bitstream chroma subsampling to MP4 equivalent chroma subsampling conversion.
+        if (ssX == 1 && ssY == 1) {
+          return null; // ERROR: 4:2:0 is invalid for Profiles 1 & 3
+        } else if (ssX == 1 && ssY == 0) {
+          chromaSubsampling = VP9_CHROMA_SUBSAMPLING_422;
+        } else if (ssX == 0 && ssY == 0) {
+          chromaSubsampling = VP9_CHROMA_SUBSAMPLING_444;
+        } else {
+          // ssX == 0 && ssY == 1 (4:4:0) is not supported in VP9 ISO MP4.
+          return null;
+        }
+      } else {
+        chromaSubsampling = VP9_CHROMA_SUBSAMPLING_420;
+      }
+    } else {
+      chromaSubsampling = VP9_CHROMA_SUBSAMPLING_444;
+    }
+    return Pair.create(bitDepth, chromaSubsampling);
+  }
+
+  /**
+   * Creates the Vorbis initialization data (CodecPrivate).
+   *
+   * <p>The format is as follows:
+   *
+   * <ul>
+   *   <li>Byte 1: The number of packets minus one. This is 2 for Vorbis, representing the
+   *       Identification, Comment, and Setup headers.
+   *   <li>Bytes 2..n: The lengths of the first two packets (Identification and Comment headers),
+   *       encoded using Xiph lacing. The length of the final packet (Setup header) is not
+   *       explicitly stored.
+   *   <li>Bytes n+1 onwards: The Vorbis identification header, Vorbis comment header and the codec
+   *       setup header.
+   * </ul>
+   *
+   * See <a href="https://www.matroska.org/technical/codec_specs.html">A_VORBIS</a> for CodecPrivate
+   * format of Vorbis.
+   *
+   * @param format The {@link Format}.
+   * @return A {@link ByteBuffer} containing the assembled Vorbis CodecPrivate data.
+   */
+  public static ByteBuffer getVorbisInitializationData(Format format) {
+    checkArgument(
+        format.initializationData.size() > 1, "csd-0 and csd-1 must be present for Vorbis.");
+
+    byte[] identificationHeader = format.initializationData.get(0);
+    byte[] setupHeader = format.initializationData.get(1);
+    byte[] commentHeader =
+        new byte[] {
+          3, 'v', 'o', 'r', 'b', 'i', 's', 7, 0, 0, 0, 'a', 'n', 'd', 'r', 'o', 'i', 'd', 0, 0, 0,
+          0, 1
+        };
+
+    int identificationHeaderSize = identificationHeader.length;
+    int commentHeaderSize = commentHeader.length;
+    int setupHeaderSize = setupHeader.length;
+
+    byte[] identificationHeaderLaced = xiphLaceEnc(identificationHeaderSize);
+    byte[] commentHeaderLaced = xiphLaceEnc(commentHeaderSize);
+
+    int codecPrivateSize =
+        /* headers count size */ 1
+            + identificationHeaderLaced.length
+            + commentHeaderLaced.length
+            + identificationHeaderSize
+            + commentHeaderSize
+            + setupHeaderSize;
+
+    ByteBuffer codecPrivateBuf = ByteBuffer.allocate(codecPrivateSize);
+
+    codecPrivateBuf.put((byte) 0x02); // Number of headers - 1 (Id, Comment, Setup)
+
+    // Encode and put Xiph laced lengths
+    codecPrivateBuf.put(identificationHeaderLaced);
+    codecPrivateBuf.put(commentHeaderLaced);
+
+    codecPrivateBuf.put(identificationHeader);
+    codecPrivateBuf.put(commentHeader);
+    codecPrivateBuf.put(setupHeader);
+
+    codecPrivateBuf.flip();
+
+    return codecPrivateBuf;
+  }
+
+  /**
+   * Encodes size into a byte array using Xiph lacing.
+   *
+   * <p>The lacing size is split into 255 values, stored as unsigned octets – for example, 500 is
+   * coded 255;245 or [0xFF 0xF5]. A frame with a size multiple of 255 is coded with a 0 at the end
+   * of the size – for example, 765 is coded 255;255;255;0 or [0xFF 0xFF 0xFF 0x00].
+   *
+   * @param size The size to encode.
+   * @return A byte array containing the Xiph-laced representation of {@code size}.
+   */
+  private static byte[] xiphLaceEnc(int size) {
+    byte[] xiphLacedSizeArray = new byte[(size / 255) + 1];
+
+    Arrays.fill(xiphLacedSizeArray, (byte) 0xFF);
+
+    xiphLacedSizeArray[xiphLacedSizeArray.length - 1] = (byte) (size % 255);
+    return xiphLacedSizeArray;
+  }
+
+  /**
    * Returns initialization data for Dolby Vision according to <a
    * href="https://dolby.my.salesforce.com/sfc/p/#700000009YuG/a/4u000000l6FB/076wHYEmyEfz09m0V1bo85_25hlUJjaiWTbzorNmYY4">Dolby
    * Vision ISO MediaFormat (section 2.2) specification</a>.
    *
-   * @param profile The Dolby Vision codec profile.
-   * @param level The Dolby Vision codec level.
+   * @param profile The Dolby Vision codec profile. This is the integer profile, not the {@link
+   *     MediaCodecInfo.CodecProfileLevel} constant.
+   * @param level The Dolby Vision codec level. This is the integer level, not the {@link
+   *     MediaCodecInfo.CodecProfileLevel} constant.
    */
   public static byte[] buildDolbyVisionInitializationData(int profile, int level) {
     byte[] dolbyVisionCsd = new byte[24];
@@ -229,6 +592,44 @@ public final class CodecSpecificDataUtil {
     dolbyVisionCsd[4] = (byte) (blCompatibilityId << 4); // dv_bl_signal_compatibility_id
     dolbyVisionCsd[4] = (byte) (dolbyVisionCsd[4] | (mdCompression << 2)); // dv_md_compression
     return dolbyVisionCsd;
+  }
+
+  /**
+   * Returns initialization data for Opus according to <a
+   * href="https://tools.ietf.org/html/rfc7845#section-5.1">RFC 7845: 5.1</a>.
+   *
+   * @param format The {@link Format}.
+   * @return A byte array containing the Opus initialization data.
+   */
+  public static byte[] getOpusInitializationData(Format format) {
+    checkArgument(!format.initializationData.isEmpty(), "csd-0 must be present for Opus.");
+    // If csd0 starts with "AOPUSHDR", it indicates a custom CSD structure of:
+    // Marker (AOPUSHDR) | Length (Length of OpusIdentificationHeader) |
+    // OpusIdentificationHeader("OpusHead" + data).
+    //     8 bytes       |                    8 bytes                  |   Length no. of bytes
+    // Reference:
+    // https://cs.android.com/android/platform/superproject/main/+/main:frameworks/av/media/module/foundation/include/media/stagefright/foundation/OpusHeader.h;l=28
+    int aopushdrSignatureLength = 8;
+    int opusHeadSignatureLength = 8;
+    byte[] csd0 = format.initializationData.get(0);
+    checkArgument(csd0.length >= opusHeadSignatureLength);
+    ParsableByteArray parsableCsd0 = new ParsableByteArray(csd0);
+    int payloadOffset = 0;
+    int payloadLength = csd0.length;
+    String csd0SignatureString = parsableCsd0.readString(aopushdrSignatureLength);
+    if (csd0SignatureString.equals("AOPUSHDR")) {
+      // The offset of the OpusIdentificationHeader data within the "AOPUSHDR" custom CSD.
+      int opusIdentificationHeaderOffset = 16;
+      checkArgument(csd0.length >= opusIdentificationHeaderOffset + opusHeadSignatureLength);
+      long identificationHeaderLength = parsableCsd0.readLittleEndianLong();
+      checkArgument(opusIdentificationHeaderOffset + identificationHeaderLength <= csd0.length);
+      payloadOffset = opusIdentificationHeaderOffset;
+      payloadLength = (int) identificationHeaderLength;
+    } else {
+      // Otherwise, the OpusIdentificationHeader must start with "OpusHead" signature.
+      checkArgument(csd0SignatureString.equals("OpusHead"));
+    }
+    return Arrays.copyOfRange(csd0, payloadOffset, payloadOffset + payloadLength);
   }
 
   /**
@@ -374,9 +775,9 @@ public final class CodecSpecificDataUtil {
         "Invalid APV CSD version: %s",
         initializationData[0]); // configurationVersion == 1
 
-    int profile = initializationData[5];
-    int level = initializationData[6];
-    int band = initializationData[7];
+    int profile = UnsignedBytes.toInt(initializationData[5]);
+    int level = UnsignedBytes.toInt(initializationData[6]);
+    int band = UnsignedBytes.toInt(initializationData[7]);
     return Util.formatInvariant("apv1.apvf%d.apvl%d.apvb%d", profile, level, band);
   }
 
@@ -406,12 +807,42 @@ public final class CodecSpecificDataUtil {
    * Returns profile and level (as defined by {@link MediaCodecInfo.CodecProfileLevel})
    * corresponding to the codec description string (as defined by RFC 6381) of the given format.
    *
+   * <p>Consider using {@link #getMediaCodecProfileAndLevel(Format)} instead in order to distinguish
+   * between:
+   *
+   * <ul>
+   *   <li>The {@code format} doesn't contain profile and level info, or it is malformed.
+   *   <li>The {@code format} contains profile and level info, but it cannot be represented with
+   *       constants from {@link MediaCodecInfo.CodecProfileLevel}.
+   * </ul>
+   *
    * @param format Media format with a codec description string, as defined by RFC 6381.
    * @return A pair (profile constant, level constant) if the codec of the {@code format} is
    *     well-formed and recognized, or null otherwise.
    */
+  // TODO: b/492523731 - Consider moving this and related methods back to MediaCodecUtil.
   @Nullable
   public static Pair<Integer, Integer> getCodecProfileAndLevel(Format format) {
+    MediaCodecProfileAndLevel mediaCodecProfileAndLevel = getMediaCodecProfileAndLevel(format);
+    if (mediaCodecProfileAndLevel != null
+        && mediaCodecProfileAndLevel.isSupportableByMediaCodec()) {
+      return new Pair<>(
+          mediaCodecProfileAndLevel.getProfile(), mediaCodecProfileAndLevel.getLevel());
+    } else {
+      return null;
+    }
+  }
+
+  /**
+   * Returns the profile and level corresponding to the codec description string (as defined by RFC
+   * 6381) of the given format.
+   *
+   * @param format Media format with a codec description string, as defined by RFC 6381.
+   * @return {@link MediaCodecProfileAndLevel} if the codec of the {@code format} is well-formed, or
+   *     null otherwise.
+   */
+  @Nullable
+  public static MediaCodecProfileAndLevel getMediaCodecProfileAndLevel(Format format) {
     if (format.codecs == null) {
       return null;
     }
@@ -431,6 +862,9 @@ public final class CodecSpecificDataUtil {
       case CODEC_ID_HEV1:
       case CODEC_ID_HVC1:
         return getHevcProfileAndLevel(format.codecs, parts, format.colorInfo);
+      case CODEC_ID_VVC1:
+      case CODEC_ID_VVI1:
+        return getVvcProfileAndLevel(format.codecs, parts, format.colorInfo);
       case CODEC_ID_AV01:
         return getAv1ProfileAndLevel(format.codecs, parts, format.colorInfo);
       case CODEC_ID_APV1:
@@ -447,6 +881,122 @@ public final class CodecSpecificDataUtil {
   }
 
   /**
+   * Returns VVC profile and level corresponding to the codec description string (as defined by
+   * ISO/IEC 14496-15:2021, Annex E.3) and its {@link ColorInfo}.
+   *
+   * @param codec The codec description string.
+   * @param parts The codec string split by ".".
+   * @param colorInfo The {@link ColorInfo}.
+   * @return A pair (profile constant, level constant) if profile and level are recognized, or
+   *     {@code null} otherwise.
+   */
+  @Nullable
+  private static MediaCodecProfileAndLevel getVvcProfileAndLevel(
+      String codec, String[] parts, @Nullable ColorInfo colorInfo) {
+    if (parts.length < 3) {
+      Log.w(TAG, "Ignoring malformed VVC codec string: " + codec);
+      return null;
+    }
+
+    int profileIdc;
+    try {
+      profileIdc = Integer.parseInt(parts[1]);
+    } catch (NumberFormatException e) {
+      Log.w(TAG, "Ignoring malformed VVC codec string: " + codec);
+      return null;
+    }
+
+    int profile;
+    if (profileIdc == 1) {
+      if (colorInfo != null && colorInfo.colorTransfer == C.COLOR_TRANSFER_ST2084) {
+        profile = CodecProfileLevel.VVCProfileMain10HDR10;
+      } else if (colorInfo != null && colorInfo.lumaBitdepth == 8) {
+        profile = CodecProfileLevel.VVCProfileMain8;
+      } else {
+        profile = CodecProfileLevel.VVCProfileMain10;
+      }
+    } else if (profileIdc == 65) {
+      profile = CodecProfileLevel.VVCProfileMain10Still;
+    } else {
+      Log.w(TAG, "Unknown VVC profile IDC: " + parts[1]);
+      return MediaCodecProfileAndLevel.UNSUPPORTABLE;
+    }
+
+    String levelString = parts[2];
+    @Nullable Integer level = vvcCodecStringToProfileLevel(levelString);
+    if (level == null) {
+      Log.w(TAG, "Unknown VVC level string: " + levelString);
+      return MediaCodecProfileAndLevel.UNSUPPORTABLE;
+    }
+    return new MediaCodecProfileAndLevel(profile, level);
+  }
+
+  /**
+   * Returns the VVC level constant corresponding to the tier and level string (as defined by
+   * ISO/IEC 14496-15:2021, Annex E.3).
+   *
+   * <p>The string consists of a tier indicator ('L' for Main, 'H' for High) followed by the
+   * general_level_idc.
+   *
+   * @param codecString The VVC tier and level string (e.g., "L16" or "H64").
+   * @return The VVC level constant, or {@code null} if the level is not recognized.
+   * @see <a href="https://www.itu.int/rec/T-REC-H.266">ITU-T Rec. H.266, Annex A</a>
+   */
+  @Nullable
+  private static Integer vvcCodecStringToProfileLevel(String codecString) {
+    switch (codecString) {
+      case "L16":
+        return CodecProfileLevel.VVCMainTierLevel10;
+      case "L32":
+        return CodecProfileLevel.VVCMainTierLevel20;
+      case "L35":
+        return CodecProfileLevel.VVCMainTierLevel21;
+      case "L48":
+        return CodecProfileLevel.VVCMainTierLevel30;
+      case "L51":
+        return CodecProfileLevel.VVCMainTierLevel31;
+      case "L64":
+        return CodecProfileLevel.VVCMainTierLevel40;
+      case "H64":
+        return CodecProfileLevel.VVCHighTierLevel40;
+      case "L67":
+        return CodecProfileLevel.VVCMainTierLevel41;
+      case "H67":
+        return CodecProfileLevel.VVCHighTierLevel41;
+      case "L80":
+        return CodecProfileLevel.VVCMainTierLevel50;
+      case "H80":
+        return CodecProfileLevel.VVCHighTierLevel50;
+      case "L83":
+        return CodecProfileLevel.VVCMainTierLevel51;
+      case "H83":
+        return CodecProfileLevel.VVCHighTierLevel51;
+      case "L86":
+        return CodecProfileLevel.VVCMainTierLevel52;
+      case "H86":
+        return CodecProfileLevel.VVCHighTierLevel52;
+      case "L96":
+        return CodecProfileLevel.VVCMainTierLevel60;
+      case "H96":
+        return CodecProfileLevel.VVCHighTierLevel60;
+      case "L112":
+        return CodecProfileLevel.VVCMainTierLevel61;
+      case "H112":
+        return CodecProfileLevel.VVCHighTierLevel61;
+      case "L128":
+        return CodecProfileLevel.VVCMainTierLevel62;
+      case "H128":
+        return CodecProfileLevel.VVCHighTierLevel62;
+      case "L144":
+        return CodecProfileLevel.VVCMainTierLevel63;
+      case "H144":
+        return CodecProfileLevel.VVCHighTierLevel63;
+      default:
+        return null;
+    }
+  }
+
+  /**
    * Returns Hevc profile and level corresponding to the codec description string (as defined by RFC
    * 6381) and it {@link ColorInfo}.
    *
@@ -457,7 +1007,7 @@ public final class CodecSpecificDataUtil {
    *     {@code null} otherwise.
    */
   @Nullable
-  public static Pair<Integer, Integer> getHevcProfileAndLevel(
+  public static MediaCodecProfileAndLevel getHevcProfileAndLevel(
       String codec, String[] parts, @Nullable ColorInfo colorInfo) {
     if (parts.length < 4) {
       // The codec has fewer parts than required by the HEVC codec string format.
@@ -484,20 +1034,17 @@ public final class CodecSpecificDataUtil {
         // Android versions, but we still map to Main10 for backwards compatibility.
         profile = MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10;
       }
-    } else if ("6".equals(profileString)) {
-      // Framework does not have profileLevel.HEVCProfileMultiviewMain defined.
-      profile = 6;
     } else {
       Log.w(TAG, "Unknown HEVC profile string: " + profileString);
-      return null;
+      return MediaCodecProfileAndLevel.UNSUPPORTABLE;
     }
     @Nullable String levelString = parts[3];
     @Nullable Integer level = hevcCodecStringToProfileLevel(levelString);
     if (level == null) {
       Log.w(TAG, "Unknown HEVC level string: " + levelString);
-      return null;
+      return MediaCodecProfileAndLevel.UNSUPPORTABLE;
     }
-    return new Pair<>(profile, level);
+    return new MediaCodecProfileAndLevel(profile, level);
   }
 
   /**
@@ -627,6 +1174,60 @@ public final class CodecSpecificDataUtil {
   }
 
   /**
+   * Calculates the Dolby Vision level based on resolution and frame rate.
+   *
+   * <p>Refer to <a
+   * href="https://professionalsupport.dolby.com/s/article/What-is-Dolby-Vision-Profile">Dolby
+   * Vision profiles and levels</a> for more details.
+   *
+   * @param width The video width in pixels.
+   * @param height The video height in pixels.
+   * @param frameRate The video frame rate in frames per second.
+   * @return The Android MediaCodec constants for the Dolby Vision level, or -1 if it could not be
+   *     determined.
+   */
+  public static int calculateMediaCodecDolbyVisionLevel(int width, int height, float frameRate) {
+    int maxWidthHeight = max(width, height);
+    checkState(maxWidthHeight <= 7680);
+    float pixelRate = width * height * frameRate;
+
+    int level = -1;
+    if (maxWidthHeight <= 1_280) {
+      if (pixelRate <= 22_118_400) {
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelHd24; // Level 01
+      } else { // pixelRate <= 27_648_000
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelHd30; // Level 02
+      }
+    } else if (maxWidthHeight <= 1_920 && pixelRate <= 49_766_400) {
+      level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelFhd24; // Level 03
+    } else if (maxWidthHeight <= 2_560 && pixelRate <= 62_208_000) {
+      level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelFhd30; // Level 04
+    } else if (maxWidthHeight <= 3_840) {
+      if (pixelRate <= 124_416_000) {
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelFhd60; // Level 05
+      } else if (pixelRate <= 199_065_600) {
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd24; // Level 06
+      } else if (pixelRate <= 248_832_000) {
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd30; // Level 07
+      } else if (pixelRate <= 398_131_200) {
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd48; // Level 08
+      } else if (pixelRate <= 497_664_000) {
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd60; // Level 09
+      } else { // pixelRate <= 995_328_000
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd120; // Level 10
+      }
+    } else if (maxWidthHeight <= 7_680) {
+      if (pixelRate <= 995_328_000) {
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevel8k30; // Level 11
+      } else { // pixelRate <= 1_990_656_000
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevel8k60; // Level 12
+      }
+    }
+
+    return level;
+  }
+
+  /**
    * Finds the next occurrence of the NAL start code from a given index.
    *
    * @param data The data in which to search.
@@ -663,7 +1264,7 @@ public final class CodecSpecificDataUtil {
   }
 
   @Nullable
-  private static Pair<Integer, Integer> getDolbyVisionProfileAndLevel(
+  private static MediaCodecProfileAndLevel getDolbyVisionProfileAndLevel(
       String codec, String[] parts) {
     if (parts.length < 3) {
       // The codec has fewer parts than required by the Dolby Vision codec string format.
@@ -676,11 +1277,11 @@ public final class CodecSpecificDataUtil {
       Log.w(TAG, "Ignoring malformed Dolby Vision codec string: " + codec);
       return null;
     }
-    @Nullable String profileString = matcher.group(1);
+    String profileString = checkNotNull(matcher.group(1));
     @Nullable Integer profile = dolbyVisionStringToProfile(profileString);
     if (profile == null) {
       Log.w(TAG, "Unknown Dolby Vision profile string: " + profileString);
-      return null;
+      return MediaCodecProfileAndLevel.UNSUPPORTABLE;
     }
     String levelString = parts[2];
     @Nullable Integer level = dolbyVisionStringToLevel(levelString);
@@ -688,32 +1289,71 @@ public final class CodecSpecificDataUtil {
       Log.w(TAG, "Unknown Dolby Vision level string: " + levelString);
       return null;
     }
-    return new Pair<>(profile, level);
+    return new MediaCodecProfileAndLevel(profile, level);
+  }
+
+  /**
+   * Returns a Dolby Vision base layer codec MIME type of the provided {@link Format}.
+   *
+   * @param format The media format.
+   * @return A Dolby Vision base layer MIME type, or {@code null} if a Dolby Vision profile is not
+   *     identified.
+   */
+  @Nullable
+  public static String getDolbyVisionBaseLayerMimeType(Format format) {
+    if (!Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_DOLBY_VISION)) {
+      return null;
+    }
+    @Nullable Pair<Integer, Integer> codecProfileAndLevel = getCodecProfileAndLevel(format);
+    if (codecProfileAndLevel == null) {
+      return null;
+    }
+    switch (codecProfileAndLevel.first) {
+      case CodecProfileLevel.DolbyVisionProfileDvheDtr: // profile 4
+      case CodecProfileLevel.DolbyVisionProfileDvheStn: // profile 5
+      case CodecProfileLevel.DolbyVisionProfileDvheSt: // profile 8
+        return MimeTypes.VIDEO_H265;
+      case CodecProfileLevel.DolbyVisionProfileDvavSe: // profile 9
+        return MimeTypes.VIDEO_H264;
+      case CodecProfileLevel.DolbyVisionProfileDvav110: // profile 10
+        return MimeTypes.VIDEO_AV1;
+      default:
+        return null;
+    }
   }
 
   /** Returns H263 profile and level from codec string. */
-  private static Pair<Integer, Integer> getH263ProfileAndLevel(String codec, String[] parts) {
-    Pair<Integer, Integer> defaultProfileAndLevel =
-        new Pair<>(
-            MediaCodecInfo.CodecProfileLevel.H263ProfileBaseline,
-            MediaCodecInfo.CodecProfileLevel.H263Level10);
+  @Nullable
+  private static MediaCodecProfileAndLevel getH263ProfileAndLevel(String codec, String[] parts) {
     if (parts.length < 3) {
       Log.w(TAG, "Ignoring malformed H263 codec string: " + codec);
-      return defaultProfileAndLevel;
+      return null;
     }
 
+    int profileInteger;
+    int levelInteger;
     try {
-      int profile = Integer.parseInt(parts[1]);
-      int level = Integer.parseInt(parts[2]);
-      return new Pair<>(profile, level);
+      profileInteger = Integer.parseInt(parts[1]);
+      levelInteger = Integer.parseInt(parts[2]);
     } catch (NumberFormatException e) {
       Log.w(TAG, "Ignoring malformed H263 codec string: " + codec);
-      return defaultProfileAndLevel;
+      return null;
     }
+    int profile = h263ProfileNumberToConst(profileInteger);
+    if (profile == -1) {
+      Log.w(TAG, "Unknown H263 profile: " + profileInteger);
+      return MediaCodecProfileAndLevel.UNSUPPORTABLE;
+    }
+    int level = h263LevelNumberToConst(levelInteger);
+    if (level == -1) {
+      Log.w(TAG, "Unknown H263 level: " + levelInteger);
+      return MediaCodecProfileAndLevel.UNSUPPORTABLE;
+    }
+    return new MediaCodecProfileAndLevel(profile, level);
   }
 
   @Nullable
-  private static Pair<Integer, Integer> getAvcProfileAndLevel(String codec, String[] parts) {
+  private static MediaCodecProfileAndLevel getAvcProfileAndLevel(String codec, String[] parts) {
     if (parts.length < 2) {
       // The codec has fewer parts than required by the AVC codec string format.
       Log.w(TAG, "Ignoring malformed AVC codec string: " + codec);
@@ -743,18 +1383,18 @@ public final class CodecSpecificDataUtil {
     int profile = avcProfileNumberToConst(profileInteger);
     if (profile == -1) {
       Log.w(TAG, "Unknown AVC profile: " + profileInteger);
-      return null;
+      return MediaCodecProfileAndLevel.UNSUPPORTABLE;
     }
     int level = avcLevelNumberToConst(levelInteger);
     if (level == -1) {
       Log.w(TAG, "Unknown AVC level: " + levelInteger);
-      return null;
+      return MediaCodecProfileAndLevel.UNSUPPORTABLE;
     }
-    return new Pair<>(profile, level);
+    return new MediaCodecProfileAndLevel(profile, level);
   }
 
   @Nullable
-  private static Pair<Integer, Integer> getVp9ProfileAndLevel(String codec, String[] parts) {
+  private static MediaCodecProfileAndLevel getVp9ProfileAndLevel(String codec, String[] parts) {
     if (parts.length < 3) {
       Log.w(TAG, "Ignoring malformed VP9 codec string: " + codec);
       return null;
@@ -772,18 +1412,18 @@ public final class CodecSpecificDataUtil {
     int profile = vp9ProfileNumberToConst(profileInteger);
     if (profile == -1) {
       Log.w(TAG, "Unknown VP9 profile: " + profileInteger);
-      return null;
+      return MediaCodecProfileAndLevel.UNSUPPORTABLE;
     }
     int level = vp9LevelNumberToConst(levelInteger);
     if (level == -1) {
       Log.w(TAG, "Unknown VP9 level: " + levelInteger);
-      return null;
+      return MediaCodecProfileAndLevel.UNSUPPORTABLE;
     }
-    return new Pair<>(profile, level);
+    return new MediaCodecProfileAndLevel(profile, level);
   }
 
   @Nullable
-  private static Pair<Integer, Integer> getAv1ProfileAndLevel(
+  private static MediaCodecProfileAndLevel getAv1ProfileAndLevel(
       String codec, String[] parts, @Nullable ColorInfo colorInfo) {
     if (parts.length < 4) {
       Log.w(TAG, "Ignoring malformed AV1 codec string: " + codec);
@@ -803,11 +1443,11 @@ public final class CodecSpecificDataUtil {
 
     if (profileInteger != 0) {
       Log.w(TAG, "Unknown AV1 profile: " + profileInteger);
-      return null;
+      return MediaCodecProfileAndLevel.UNSUPPORTABLE;
     }
     if (bitDepthInteger != 8 && bitDepthInteger != 10) {
       Log.w(TAG, "Unknown AV1 bit depth: " + bitDepthInteger);
-      return null;
+      return MediaCodecProfileAndLevel.UNSUPPORTABLE;
     }
     int profile;
     if (bitDepthInteger == 8) {
@@ -824,13 +1464,13 @@ public final class CodecSpecificDataUtil {
     int level = av1LevelNumberToConst(levelInteger);
     if (level == -1) {
       Log.w(TAG, "Unknown AV1 level: " + levelInteger);
-      return null;
+      return MediaCodecProfileAndLevel.UNSUPPORTABLE;
     }
-    return new Pair<>(profile, level);
+    return new MediaCodecProfileAndLevel(profile, level);
   }
 
   @Nullable
-  private static Pair<Integer, Integer> getApvProfileAndLevel(String codec, String[] parts) {
+  private static MediaCodecProfileAndLevel getApvProfileAndLevel(String codec, String[] parts) {
     if (parts.length < 4) {
       Log.w(TAG, "Ignoring malformed APV codec string: " + codec);
       return null;
@@ -847,31 +1487,231 @@ public final class CodecSpecificDataUtil {
       return null;
     }
 
-    int profile = 0;
+    int profile;
     if (profileInteger == 33) {
-      // TODO(b/426125651): Replace apv profile value with
-      // MediaCodecInfo.CodecProfileLevel.APVProfile422_10 when compile SDK is updated to 36.
-      profile = 0x01;
+      profile = MediaCodecInfo.CodecProfileLevel.APVProfile422_10;
     } else if (profileInteger == 44) {
-      // TODO(b/426125651): Replace apv profile value with
-      // MediaCodecInfo.CodecProfileLevel.APVProfile422_10HDR10Plus when compile SDK is updated
-      // to 36.
-      profile = 0x2000;
+      profile = MediaCodecInfo.CodecProfileLevel.APVProfile422_10HDR10Plus;
     } else {
-      Log.w(TAG, "Ignoring invalid APV profile: " + profileInteger);
-      return null;
+      Log.w(TAG, "Unrecognized APV profile: " + profileInteger);
+      return MediaCodecProfileAndLevel.UNSUPPORTABLE;
     }
-    int levelNum = (levelInteger / 30) * 2;
-    if (levelInteger % 30 == 0) {
-      levelNum -= 1;
+    int level = apvLevelAndBandNumberToConst(levelInteger, bandInteger);
+    if (level == -1) {
+      return MediaCodecProfileAndLevel.UNSUPPORTABLE;
     }
-    int level = ((0x100 << (levelNum - 1)) | (1 << bandInteger));
+    return new MediaCodecProfileAndLevel(profile, level);
+  }
 
-    return new Pair<>(profile, level);
+  private static int apvLevelAndBandNumberToConst(int levelNumber, int bandNumber) {
+    // levelInteger is 30x larger than the decimal level value, as defined by
+    // https://www.ietf.org/archive/id/draft-lim-apv-02.html#_table-levels
+    switch (levelNumber) {
+      case 30:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel1Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel1Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel1Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel1Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 33:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel11Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel11Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel11Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel11Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 60:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel2Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel2Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel2Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel2Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 63:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel21Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel21Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel21Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel21Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 90:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel3Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel3Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel3Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel3Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 93:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel31Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel31Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel31Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel31Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 120:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel4Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel4Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel4Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel4Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 123:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel41Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel41Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel41Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel41Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 150:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel5Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel5Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel5Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel5Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 153:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel51Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel51Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel51Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel51Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 180:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel6Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel6Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel6Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel6Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 183:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel61Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel61Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel61Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel61Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 210:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel7Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel7Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel7Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel7Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 213:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel71Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel71Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel71Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel71Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      default:
+        Log.w(TAG, "Unrecognized APV level index: " + levelNumber);
+        return -1;
+    }
   }
 
   @Nullable
-  private static Pair<Integer, Integer> getAacCodecProfileAndLevel(String codec, String[] parts) {
+  private static MediaCodecProfileAndLevel getAacCodecProfileAndLevel(
+      String codec, String[] parts) {
     if (parts.length != 3) {
       Log.w(TAG, "Ignoring malformed MP4A codec string: " + codec);
       return null;
@@ -884,10 +1724,12 @@ public final class CodecSpecificDataUtil {
         // For MPEG-4 audio this is followed by an audio object type indication as a decimal number.
         int audioObjectTypeIndication = Integer.parseInt(parts[2]);
         int profile = mp4aAudioObjectTypeToProfile(audioObjectTypeIndication);
-        if (profile != -1) {
-          // Level is set to zero in AAC decoder CodecProfileLevels.
-          return new Pair<>(profile, 0);
+        if (profile == -1) {
+          Log.w(TAG, "Unrecognized MP4A profile: " + profile);
+          return MediaCodecProfileAndLevel.UNSUPPORTABLE;
         }
+        // Level is set to zero in AAC decoder CodecProfileLevels.
+        return new MediaCodecProfileAndLevel(profile, 0);
       }
     } catch (NumberFormatException e) {
       Log.w(TAG, "Ignoring malformed MP4A codec string: " + codec);
@@ -896,7 +1738,8 @@ public final class CodecSpecificDataUtil {
   }
 
   @Nullable
-  private static Pair<Integer, Integer> getAc4CodecProfileAndLevel(String codec, String[] parts) {
+  private static MediaCodecProfileAndLevel getAc4CodecProfileAndLevel(
+      String codec, String[] parts) {
     if (parts.length != 4) {
       Log.w(TAG, "Ignoring malformed AC-4 codec string: " + codec);
       return null;
@@ -920,57 +1763,92 @@ public final class CodecSpecificDataUtil {
       Log.w(
           TAG,
           "Unknown AC-4 profile: " + bitstreamVersionInteger + "." + presentationVersionInteger);
-      return null;
+      return MediaCodecProfileAndLevel.UNSUPPORTABLE;
     }
     int level = ac4LevelNumberToConst(levelInteger);
     if (level == -1) {
       Log.w(TAG, "Unknown AC-4 level: " + levelInteger);
-      return null;
+      return MediaCodecProfileAndLevel.UNSUPPORTABLE;
     }
-    return new Pair<>(profile, level);
+    return new MediaCodecProfileAndLevel(profile, level);
   }
 
   @Nullable
-  private static Pair<Integer, Integer> getIamfCodecProfileAndLevel(String codec, String[] parts) {
+  private static MediaCodecProfileAndLevel getIamfCodecProfileAndLevel(
+      String codec, String[] parts) {
     if (parts.length < 4) {
       Log.w(TAG, "Ignoring malformed IAMF codec string: " + codec);
       return null;
     }
 
-    int primaryProfileValue;
+    int profileNumber;
     try {
-      primaryProfileValue = Integer.parseInt(parts[1]);
+      profileNumber = Integer.parseInt(parts[1]);
     } catch (NumberFormatException e) {
       Log.w(TAG, "Ignoring malformed primary profile in IAMF codec string: " + parts[1], e);
       return null;
     }
-
-    int profileBitmask = 0x1 << (16 + primaryProfileValue);
-    int versionBitmask = 0x1 << 24;
-    int auxiliaryProfileValue = 0;
-
-    switch (parts[3]) {
-      case "Opus":
-        auxiliaryProfileValue = 0x1; // Bit 0
-        break;
-      case "mp4a":
-        auxiliaryProfileValue = 0x1 << 1; // Bit 1
-        break;
-      case "fLaC":
-        auxiliaryProfileValue = 0x1 << 2; // Bit 2
-        break;
-      case "ipcm":
-        auxiliaryProfileValue = 0x1 << 3; // Bit 3
-        break;
-      default:
-        Log.w(TAG, "Ignoring unknown codec identifier for IAMF auxiliary profile: " + parts[3]);
-        return null;
+    int profile = iamfProfileNumberToConst(/* codec= */ parts[3], profileNumber);
+    if (profile == -1) {
+      return MediaCodecProfileAndLevel.UNSUPPORTABLE;
     }
-    // IAMF profiles are defined as the combination of (listed from LSB to MSB):
-    //  - audio codec (2 bytes)
-    //  - profile (1 byte, offset 16)
-    //  - specification version (1 byte, offset 24)
-    return new Pair<>(versionBitmask | profileBitmask | auxiliaryProfileValue, /* level= */ 0);
+    return new MediaCodecProfileAndLevel(profile, /* level= */ 0);
+  }
+
+  private static int iamfProfileNumberToConst(String codec, int profileNumber) {
+    switch (codec) {
+      case "Opus":
+        switch (profileNumber) {
+          case 0:
+            return CodecProfileLevel.IAMFProfileSimpleOpus;
+          case 1:
+            return CodecProfileLevel.IAMFProfileBaseOpus;
+          case 2:
+            return CodecProfileLevel.IAMFProfileBaseEnhancedOpus;
+          default:
+            Log.w(TAG, "Unrecognized IAMF Opus profile: " + profileNumber);
+            return -1;
+        }
+      case "mp4a":
+        switch (profileNumber) {
+          case 0:
+            return CodecProfileLevel.IAMFProfileSimpleAac;
+          case 1:
+            return CodecProfileLevel.IAMFProfileBaseAac;
+          case 2:
+            return CodecProfileLevel.IAMFProfileBaseEnhancedAac;
+          default:
+            Log.w(TAG, "Unrecognized IAMF AAC profile: " + profileNumber);
+            return -1;
+        }
+      case "fLaC":
+        switch (profileNumber) {
+          case 0:
+            return CodecProfileLevel.IAMFProfileSimpleFlac;
+          case 1:
+            return CodecProfileLevel.IAMFProfileBaseFlac;
+          case 2:
+            return CodecProfileLevel.IAMFProfileBaseEnhancedFlac;
+          default:
+            Log.w(TAG, "Unrecognized IAMF FLAC profile: " + profileNumber);
+            return -1;
+        }
+      case "ipcm":
+        switch (profileNumber) {
+          case 0:
+            return CodecProfileLevel.IAMFProfileSimplePcm;
+          case 1:
+            return CodecProfileLevel.IAMFProfileBasePcm;
+          case 2:
+            return CodecProfileLevel.IAMFProfileBaseEnhancedPcm;
+          default:
+            Log.w(TAG, "Unrecognized IAMF PCM profile: " + profileNumber);
+            return -1;
+        }
+      default:
+        Log.w(TAG, "Unrecognized codec identifier for IAMF auxiliary profile: " + codec);
+        return -1;
+    }
   }
 
   private static int avcProfileNumberToConst(int profileNumber) {
@@ -1083,10 +1961,7 @@ public final class CodecSpecificDataUtil {
   }
 
   @Nullable
-  private static Integer hevcCodecStringToProfileLevel(@Nullable String codecString) {
-    if (codecString == null) {
-      return null;
-    }
+  private static Integer hevcCodecStringToProfileLevel(String codecString) {
     switch (codecString) {
       case "L30":
         return MediaCodecInfo.CodecProfileLevel.HEVCMainTierLevel1;
@@ -1146,7 +2021,7 @@ public final class CodecSpecificDataUtil {
   }
 
   @Nullable
-  private static Integer dolbyVisionStringToProfile(@Nullable String profileString) {
+  private static Integer dolbyVisionStringToProfile(String profileString) {
     if (profileString == null) {
       return null;
     }
@@ -1179,10 +2054,7 @@ public final class CodecSpecificDataUtil {
   }
 
   @Nullable
-  private static Integer dolbyVisionStringToLevel(@Nullable String levelString) {
-    if (levelString == null) {
-      return null;
-    }
+  private static Integer dolbyVisionStringToLevel(String levelString) {
     // TODO (Internal: b/179261323): use framework constant for level 13.
     switch (levelString) {
       case "01":
@@ -1348,6 +2220,227 @@ public final class CodecSpecificDataUtil {
       default:
         return -1;
     }
+  }
+
+  /** Maps H.263 Profile numbers to Android MediaCodec constants. */
+  private static int h263ProfileNumberToConst(int profileNumber) {
+    switch (profileNumber) {
+      case 0:
+        return MediaCodecInfo.CodecProfileLevel.H263ProfileBaseline;
+      case 1:
+        return MediaCodecInfo.CodecProfileLevel.H263ProfileH320Coding;
+      case 2:
+        return MediaCodecInfo.CodecProfileLevel.H263ProfileBackwardCompatible;
+      case 3:
+        return MediaCodecInfo.CodecProfileLevel.H263ProfileISWV2;
+      case 4:
+        return MediaCodecInfo.CodecProfileLevel.H263ProfileISWV3;
+      case 5:
+        return MediaCodecInfo.CodecProfileLevel.H263ProfileHighCompression;
+      case 6:
+        return MediaCodecInfo.CodecProfileLevel.H263ProfileInternet;
+      case 7:
+        return MediaCodecInfo.CodecProfileLevel.H263ProfileInterlace;
+      case 8:
+        return MediaCodecInfo.CodecProfileLevel.H263ProfileHighLatency;
+      default:
+        return -1;
+    }
+  }
+
+  /** Maps H.263 Level numbers to Android MediaCodec constants. */
+  private static int h263LevelNumberToConst(int levelNumber) {
+    switch (levelNumber) {
+      case 10:
+        return MediaCodecInfo.CodecProfileLevel.H263Level10;
+      case 20:
+        return MediaCodecInfo.CodecProfileLevel.H263Level20;
+      case 30:
+        return MediaCodecInfo.CodecProfileLevel.H263Level30;
+      case 40:
+        return MediaCodecInfo.CodecProfileLevel.H263Level40;
+      case 45:
+        return MediaCodecInfo.CodecProfileLevel.H263Level45;
+      case 50:
+        return MediaCodecInfo.CodecProfileLevel.H263Level50;
+      case 60:
+        return MediaCodecInfo.CodecProfileLevel.H263Level60;
+      case 70:
+        return MediaCodecInfo.CodecProfileLevel.H263Level70;
+      default:
+        return -1;
+    }
+  }
+
+  /**
+   * Maps Android MediaCodec constants to H.263 Profile numbers.
+   *
+   * @param profileConst The MediaCodec H.263 profile constant.
+   * @return The H.263 profile number, or -1 if the constant is not recognized.
+   */
+  public static int h263ConstToProfileNumber(int profileConst) {
+    switch (profileConst) {
+      case MediaCodecInfo.CodecProfileLevel.H263ProfileBaseline:
+        return 0;
+      case MediaCodecInfo.CodecProfileLevel.H263ProfileH320Coding:
+        return 1;
+      case MediaCodecInfo.CodecProfileLevel.H263ProfileBackwardCompatible:
+        return 2;
+      case MediaCodecInfo.CodecProfileLevel.H263ProfileISWV2:
+        return 3;
+      case MediaCodecInfo.CodecProfileLevel.H263ProfileISWV3:
+        return 4;
+      case MediaCodecInfo.CodecProfileLevel.H263ProfileHighCompression:
+        return 5;
+      case MediaCodecInfo.CodecProfileLevel.H263ProfileInternet:
+        return 6;
+      case MediaCodecInfo.CodecProfileLevel.H263ProfileInterlace:
+        return 7;
+      case MediaCodecInfo.CodecProfileLevel.H263ProfileHighLatency:
+        return 8;
+      default:
+        return -1;
+    }
+  }
+
+  /**
+   * Maps Android MediaCodec constants to H.263 Level numbers.
+   *
+   * @param levelConst The MediaCodec H.263 level constant.
+   * @return The H.263 level number, or -1 if the constant is not recognized.
+   */
+  public static int h263ConstToLevelNumber(int levelConst) {
+    switch (levelConst) {
+      case MediaCodecInfo.CodecProfileLevel.H263Level10:
+        return 10;
+      case MediaCodecInfo.CodecProfileLevel.H263Level20:
+        return 20;
+      case MediaCodecInfo.CodecProfileLevel.H263Level30:
+        return 30;
+      case MediaCodecInfo.CodecProfileLevel.H263Level40:
+        return 40;
+      case MediaCodecInfo.CodecProfileLevel.H263Level45:
+        return 45;
+      case MediaCodecInfo.CodecProfileLevel.H263Level50:
+        return 50;
+      case MediaCodecInfo.CodecProfileLevel.H263Level60:
+        return 60;
+      case MediaCodecInfo.CodecProfileLevel.H263Level70:
+        return 70;
+      default:
+        return -1;
+    }
+  }
+
+  // Expected magic bytes for HDR10+ metadata in AV1 OBU or HEVC SEI. Spec:
+  // https://aomediacodec.github.io/av1-hdr10plus/#hdr10plus-metadata
+  private static final byte[] expectedHdr10PlusPayloadPrefix = {
+    // itu_t_t35_country_code == 0xB5
+    (byte) 0xB5,
+    // itu_t_t35_terminal_provider_code == 0x003C
+    (byte) 0x00,
+    (byte) 0x3C,
+    // itu_t_t35_terminal_provider_oriented_code == 0x0001
+    (byte) 0x00,
+    (byte) 0x01,
+    // application_identifier == 0x04
+    (byte) 0x04,
+  };
+
+  // Expected magic bytes for HAGC (ST 2094-50) metadata in AV1 OBU or HEVC SEI.
+  private static final byte[] expectedHagcPayloadPrefix = {
+    // itu_t_t35_country_code == 0xB5
+    (byte) 0xB5,
+    // itu_t_t35_terminal_provider_code == 0x0090
+    (byte) 0x00,
+    (byte) 0x90,
+    // itu_t_t35_terminal_provider_oriented_code == 0x0001
+    (byte) 0x00,
+    (byte) 0x01,
+  };
+
+  /**
+   * Returns whether the given {@link ByteBuffer} contains HDR10+ metadata at the current position.
+   *
+   * @param payload The {@link ByteBuffer} to check.
+   * @return Whether the payload contains HDR10+ metadata.
+   */
+  public static boolean isHdr10PlusMetadata(ByteBuffer payload) {
+    return isHdr10PlusMetadata(payload, payload.position(), payload.limit());
+  }
+
+  /**
+   * Returns whether the given {@link ByteBuffer} contains HDR10+ metadata at the given offset.
+   *
+   * @param buffer The {@link ByteBuffer} to check.
+   * @param offset The offset in the buffer to start checking from.
+   * @param limit The limit in the buffer to stop checking at.
+   * @return Whether the payload contains HDR10+ metadata.
+   */
+  public static boolean isHdr10PlusMetadata(ByteBuffer buffer, int offset, int limit) {
+    if (limit - offset < expectedHdr10PlusPayloadPrefix.length) {
+      return false;
+    }
+    for (int i = 0; i < expectedHdr10PlusPayloadPrefix.length; i++) {
+      if (buffer.get(offset + i) != expectedHdr10PlusPayloadPrefix[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Returns whether the given {@code data} contains HAGC (ST 2094-50) ITU-T T.35 metadata.
+   *
+   * @param data The payload data.
+   * @param length The length of the payload data.
+   */
+  public static boolean isHagcMetadata(byte[] data, int length) {
+    if (length < expectedHagcPayloadPrefix.length) {
+      return false;
+    }
+    for (int i = 0; i < expectedHagcPayloadPrefix.length; i++) {
+      if (data[i] != expectedHagcPayloadPrefix[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Returns whether the given {@link ByteBuffer} contains HAGC (ST 2094-50) ITU-T T.35 metadata,
+   * without consuming any bytes.
+   *
+   * @param buffer The payload data.
+   */
+  public static boolean isHagcMetadata(ByteBuffer buffer) {
+    if (buffer.remaining() < expectedHagcPayloadPrefix.length) {
+      return false;
+    }
+    int pos = buffer.position();
+    for (int i = 0; i < expectedHagcPayloadPrefix.length; i++) {
+      if (buffer.get(pos + i) != expectedHagcPayloadPrefix[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Returns whether the given {@link Format} represents an HAGC (ST 2094-50) metadata track.
+   *
+   * @param format The format of the track.
+   */
+  public static boolean isHagcTrack(Format format) {
+    if (!Objects.equals(format.sampleMimeType, MimeTypes.APPLICATION_ITUT_T35)) {
+      return false;
+    }
+    for (byte[] initData : format.initializationData) {
+      if (isHagcMetadata(initData, initData.length)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private CodecSpecificDataUtil() {}

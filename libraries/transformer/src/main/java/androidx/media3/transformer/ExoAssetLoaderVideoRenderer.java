@@ -25,6 +25,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.decoder.DecoderInputBuffer;
+import androidx.media3.exoplayer.source.SampleStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,10 +40,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private final Codec.DecoderFactory decoderFactory;
   private final @Composition.HdrMode int hdrMode;
   private final List<Long> decodeOnlyPresentationTimestamps;
+  private final long expectedTimestampDeltaUs;
   @Nullable private final LogSessionId logSessionId;
 
   private @MonotonicNonNull SefSlowMotionFlattener sefVideoSlowMotionFlattener;
   private int maxDecoderPendingFrameCount;
+  private long nextDecoderOutputExpectedTimestampUs;
 
   public ExoAssetLoaderVideoRenderer(
       boolean flattenForSlowMotion,
@@ -50,7 +53,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       @Composition.HdrMode int hdrMode,
       TransformerMediaClock mediaClock,
       AssetLoader.Listener assetLoaderListener,
-      @Nullable LogSessionId logSessionId) {
+      @Nullable LogSessionId logSessionId,
+      int targetFrameRate) {
     super(C.TRACK_TYPE_VIDEO, mediaClock, assetLoaderListener);
     this.flattenForSlowMotion = flattenForSlowMotion;
     this.decoderFactory = decoderFactory;
@@ -58,6 +62,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     this.logSessionId = logSessionId;
     decodeOnlyPresentationTimestamps = new ArrayList<>();
     maxDecoderPendingFrameCount = C.INDEX_UNSET;
+    nextDecoderOutputExpectedTimestampUs = C.TIME_UNSET;
+    expectedTimestampDeltaUs =
+        targetFrameRate == C.RATE_UNSET_INT ? C.TIME_UNSET : C.MICROS_PER_SECOND / targetFrameRate;
   }
 
   @Override
@@ -157,7 +164,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   @Override
   protected void onDecoderInputReady(DecoderInputBuffer inputBuffer) {
-    if (inputBuffer.timeUs < getLastResetPositionUs()) {
+    long streamEndPositionUs = getStreamEndPositionUs();
+    boolean exceedsStrictDuration =
+        ((checkNotNull(getStream()).getFlags() & SampleStream.FLAG_STRICT_DURATION) != 0)
+            && streamEndPositionUs != C.TIME_UNSET
+            && (inputBuffer.timeUs - getStreamOffsetUs()) >= streamEndPositionUs;
+    if (inputBuffer.timeUs < getLastResetPositionUs() || exceedsStrictDuration) {
       decodeOnlyPresentationTimestamps.add(inputBuffer.timeUs);
     }
   }
@@ -183,6 +195,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       return true;
     }
 
+    if (shouldDropFrameToMaintainTargetFrameRate(
+        presentationTimeUs, nextDecoderOutputExpectedTimestampUs)) {
+      decoder.releaseOutputBuffer(/* render= */ false);
+      return true;
+    }
+
     if (sampleConsumer.getPendingVideoFrameCount() == maxDecoderPendingFrameCount) {
       return false;
     }
@@ -192,7 +210,31 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     }
 
     decoder.releaseOutputBuffer(presentationTimeUs);
+    if (shouldMaintainTargetFrameRate()) {
+      nextDecoderOutputExpectedTimestampUs =
+          (nextDecoderOutputExpectedTimestampUs == C.TIME_UNSET)
+              ? (presentationTimeUs + expectedTimestampDeltaUs)
+              : (nextDecoderOutputExpectedTimestampUs + expectedTimestampDeltaUs);
+    }
     return true;
+  }
+
+  private boolean shouldMaintainTargetFrameRate() {
+    return expectedTimestampDeltaUs != C.TIME_UNSET;
+  }
+
+  private boolean shouldDropFrameToMaintainTargetFrameRate(
+      long presentationTimeUs, long nextExpectedPresentationTimeUs) {
+    // This algorithm will always pick the first sample that is after desired timestamp and then
+    // it will start looking for the next desired timestamp.
+    // For example, for a 30 fps, the desired timestamps are 0, 33_333, 66_666....
+    // When seeking is performed, the desired timestamps are shifted accordingly.
+    // For example, when seeking to 1 sec, the desired timestamps are 1_000_000, 1_033_333,
+    // 1_066_666....
+    // This algorithm has no impact if the target frame rate is greater that input frame rate.
+    return shouldMaintainTargetFrameRate()
+        && nextExpectedPresentationTimeUs != C.TIME_UNSET
+        && presentationTimeUs < nextExpectedPresentationTimeUs;
   }
 
   private boolean isDecodeOnlyBuffer(long presentationTimeUs) {

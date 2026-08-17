@@ -15,9 +15,15 @@
  */
 package androidx.media3.extractor.heif;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static java.lang.annotation.ElementType.TYPE_USE;
+
+import android.util.Pair;
+import androidx.annotation.IntDef;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
@@ -25,57 +31,115 @@ import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SingleSampleExtractor;
 import java.io.IOException;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
-/** Extracts data from the HEIF (.heic) container format. */
+/** Extracts data from the HEIF/HEIC container format. */
 @UnstableApi
 public final class HeifExtractor implements Extractor {
+  /**
+   * Flags controlling the behavior of the extractor. Possible flag value is {@link
+   * #FLAG_READ_IMAGE}.
+   */
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef(
+      flag = true,
+      value = {
+        FLAG_READ_IMAGE,
+      })
+  public @interface Flags {}
 
-  // Specification reference: ISO/IEC 23008-12:2022
-  private static final int HEIF_FILE_SIGNATURE_PART_1 = 0x66747970;
-  private static final int HEIF_FILE_SIGNATURE_PART_2 = 0x68656963;
-  private static final int FILE_SIGNATURE_SEGMENT_LENGTH = 4;
+  /** Flag to load the image track instead of the video and metadata track. */
+  public static final int FLAG_READ_IMAGE = 1;
 
-  private final ParsableByteArray scratch;
-  private final SingleSampleExtractor imageExtractor;
+  private final Extractor imageExtractor;
+  @Nullable private final Extractor videoExtractor;
 
-  /** Creates an instance. */
+  private @MonotonicNonNull ExtractorOutput extractorOutput;
+  private @MonotonicNonNull Extractor activeExtractor;
+
+  /** Holds a seek that arrives before {@link #activeExtractor} is assigned. */
+  @Nullable private Pair<Long, Long> pendingSeek;
+
+  /** Creates an instance reading the video and metadata track. */
   public HeifExtractor() {
-    scratch = new ParsableByteArray(FILE_SIGNATURE_SEGMENT_LENGTH);
+    this(/* flags= */ 0);
+  }
+
+  /**
+   * Creates an instance, configured to extract either the still image or the motion photo content
+   * based on the provided flags.
+   *
+   * @param flags The {@link Flags} to control extractor behavior. Use {@link #FLAG_READ_IMAGE} to
+   *     extract only the still image, otherwise it defaults to extracting motion photo content
+   *     (video and audio tracks).
+   */
+  public HeifExtractor(@Flags int flags) {
     imageExtractor = new SingleSampleExtractor(C.INDEX_UNSET, C.LENGTH_UNSET, MimeTypes.IMAGE_HEIF);
+    videoExtractor = (flags & FLAG_READ_IMAGE) != 0 ? null : new HeicMotionPhotoExtractor();
   }
 
   @Override
   public boolean sniff(ExtractorInput input) throws IOException {
-    input.advancePeekPosition(4);
-    return readAndCompareFourBytes(input, HEIF_FILE_SIGNATURE_PART_1)
-        && readAndCompareFourBytes(input, HEIF_FILE_SIGNATURE_PART_2);
+    if (videoExtractor != null && videoExtractor.sniff(input)) {
+      return true;
+    }
+    input.resetPeekPosition();
+    return HeifSniffer.sniff(input, /* sniffMotionPhoto= */ false);
   }
 
   @Override
   public void init(ExtractorOutput output) {
-    imageExtractor.init(output);
+    this.extractorOutput = output;
+    if (videoExtractor == null) {
+      activeExtractor = imageExtractor;
+      activeExtractor.init(output);
+    }
   }
 
   @Override
   public @ReadResult int read(ExtractorInput input, PositionHolder seekPosition)
       throws IOException {
-    return imageExtractor.read(input, seekPosition);
+    if (activeExtractor == null) {
+      assignActiveExtractor(input);
+    }
+    return activeExtractor.read(input, seekPosition);
   }
 
   @Override
   public void seek(long position, long timeUs) {
-    imageExtractor.seek(position, timeUs);
+    if (activeExtractor != null) {
+      activeExtractor.seek(position, timeUs);
+    } else {
+      pendingSeek = Pair.create(position, timeUs);
+    }
   }
 
   @Override
   public void release() {
-    // Do nothing.
+    if (videoExtractor != null) {
+      videoExtractor.release();
+    }
+    imageExtractor.release();
   }
 
-  private boolean readAndCompareFourBytes(ExtractorInput input, int bytesToCompare)
-      throws IOException {
-    scratch.reset(/* limit= */ FILE_SIGNATURE_SEGMENT_LENGTH);
-    input.peekFully(scratch.getData(), /* offset= */ 0, FILE_SIGNATURE_SEGMENT_LENGTH);
-    return scratch.readUnsignedInt() == bytesToCompare;
+  @EnsuresNonNull("this.activeExtractor")
+  private void assignActiveExtractor(ExtractorInput input) throws IOException {
+    checkState(activeExtractor == null);
+    // If activeExtractor is null it means it wasn't assigned in init(), which only happens if
+    // videoExtractor is non-null (which means FLAG_READ_IMAGE wasn't set).
+    activeExtractor = checkNotNull(videoExtractor).sniff(input) ? videoExtractor : imageExtractor;
+    input.resetPeekPosition();
+    if (pendingSeek != null) {
+      activeExtractor.seek(pendingSeek.first, pendingSeek.second);
+      pendingSeek = null;
+    }
+    activeExtractor.init(checkNotNull(extractorOutput));
   }
 }

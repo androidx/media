@@ -17,8 +17,9 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET;
-import static androidx.media3.test.utils.TestUtil.WAV_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
+import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
+import static androidx.media3.test.utils.PlayerFence.futureWhen;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -33,13 +34,15 @@ import androidx.media3.common.MediaItem.ClippingConfiguration;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.audio.AudioProcessor;
-import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
+import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Util;
-import androidx.media3.test.utils.TestUtil.AssetInfo;
+import androidx.media3.test.utils.AssetInfo;
+import androidx.media3.test.utils.PassthroughAudioProcessor;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.SettableFuture;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
@@ -70,12 +73,10 @@ public class CompositionPlayerSetCompositionTest {
   private final Instrumentation instrumentation = getInstrumentation();
   private final Context context = instrumentation.getContext().getApplicationContext();
 
-  private PlayerTestListener playerTestListener;
   private SurfaceView surfaceView;
 
   @Before
   public void setUp() {
-    playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
     rule.getScenario().onActivity(activity -> surfaceView = activity.getSurfaceView());
   }
 
@@ -89,10 +90,10 @@ public class CompositionPlayerSetCompositionTest {
 
   @Test
   public void composition_changeNumberOfItemsInAComposition_playbackCompletes() throws Exception {
-    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     EditedMediaItem video =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .build();
     AtomicBoolean firstTimelineUpdated = new AtomicBoolean();
     AtomicInteger numberOfTimelineUpdates = new AtomicInteger();
@@ -103,31 +104,34 @@ public class CompositionPlayerSetCompositionTest {
           // Set a surface on the player even though there is no UI on this test. We need a surface
           // otherwise the player will skip/drop video frames.
           compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.addListener(listener);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.addListener(
               new Player.Listener() {
                 @Override
                 public void onTimelineChanged(Timeline timeline, int reason) {
                   if (firstTimelineUpdated.compareAndSet(false, true)) {
-                    compositionPlayer.setComposition(createSingleSequenceComposition(video, video));
+                    compositionPlayer.setComposition(
+                        createSingleAudioVideoSequenceComposition(video, video));
                     compositionPlayer.play();
                   }
                   numberOfTimelineUpdates.incrementAndGet();
                 }
               });
-          compositionPlayer.setComposition(createSingleSequenceComposition(video));
+          compositionPlayer.setComposition(createSingleAudioVideoSequenceComposition(video));
           compositionPlayer.prepare();
         });
 
-    listener.waitUntilPlayerEnded();
+    endedFuture.get();
     // Played two compositions so should update the timeline twice.
     assertThat(numberOfTimelineUpdates.get()).isEqualTo(2);
   }
 
   @Test
   public void setComposition_withChangedSpeed_playbackCompletes() throws Exception {
-    EditedMediaItem fastMediaItem = createEditedMediaItemWithSpeed(MP4_ASSET, 3.f);
-    EditedMediaItem slowMediaItem = createEditedMediaItemWithSpeed(MP4_ASSET, 1 / 3.f);
+    SettableFuture<Void> endedFuture = SettableFuture.create();
+    EditedMediaItem fastMediaItem = createEditedMediaItemWithSpeed(MP4_ADVANCED_ASSET, 3.f);
+    EditedMediaItem slowMediaItem = createEditedMediaItemWithSpeed(MP4_ADVANCED_ASSET, 1 / 3.f);
     AtomicBoolean firstTimelineUpdated = new AtomicBoolean();
     CopyOnWriteArrayList<Long> playerDurations = new CopyOnWriteArrayList<>();
 
@@ -135,7 +139,8 @@ public class CompositionPlayerSetCompositionTest {
         () -> {
           compositionPlayer = new CompositionPlayer.Builder(context).build();
           compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.addListener(playerTestListener);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.addListener(
               new Player.Listener() {
                 @Override
@@ -144,17 +149,18 @@ public class CompositionPlayerSetCompositionTest {
                       timeline.getWindow(/* windowIndex= */ 0, new Timeline.Window()).durationUs);
                   if (!firstTimelineUpdated.get()) {
                     compositionPlayer.setComposition(
-                        createSingleSequenceComposition(slowMediaItem));
+                        createSingleAudioVideoSequenceComposition(slowMediaItem));
                     compositionPlayer.play();
                     firstTimelineUpdated.set(true);
                   }
                 }
               });
-          compositionPlayer.setComposition(createSingleSequenceComposition(fastMediaItem));
+          compositionPlayer.setComposition(
+              createSingleAudioVideoSequenceComposition(fastMediaItem));
           compositionPlayer.prepare();
         });
 
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture.get();
     // 1024ms scaled by 3 and 1/3.
     assertThat(playerDurations).containsExactly(341333L, 3071999L).inOrder();
   }
@@ -163,10 +169,11 @@ public class CompositionPlayerSetCompositionTest {
   public void
       setComposition_withClippingEndPositionAndRemovingAudioStartAtEndPosition_playbackCompletes()
           throws Exception {
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     long trimEndPositionMs = 600;
     EditedMediaItem clippedEditedMediaItem =
         createEditedMediaItemWithClippingConfiguration(
-                MP4_ASSET,
+                MP4_ADVANCED_ASSET,
                 new ClippingConfiguration.Builder().setEndPositionMs(trimEndPositionMs).build())
             .buildUpon()
             .setRemoveAudio(true)
@@ -176,30 +183,34 @@ public class CompositionPlayerSetCompositionTest {
         () -> {
           compositionPlayer = new CompositionPlayer.Builder(context).build();
           compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.addListener(playerTestListener);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.setComposition(
-              createSingleSequenceComposition(clippedEditedMediaItem),
+              createSingleAudioVideoSequenceComposition(clippedEditedMediaItem),
               /* startPositionMs= */ trimEndPositionMs);
           compositionPlayer.prepare();
           compositionPlayer.play();
         });
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture.get();
   }
 
   @Test
   public void setComposition_withSameComposition_playbackCompletes() throws Exception {
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .build();
-    Composition composition = createSingleSequenceComposition(ImmutableList.of(editedMediaItem));
+    Composition composition =
+        createSingleAudioVideoSequenceComposition(ImmutableList.of(editedMediaItem));
     AtomicBoolean firstTimelineUpdated = new AtomicBoolean();
 
     instrumentation.runOnMainSync(
         () -> {
           compositionPlayer = new CompositionPlayer.Builder(context).build();
           compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.addListener(playerTestListener);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.addListener(
               new Player.Listener() {
                 @Override
@@ -213,15 +224,16 @@ public class CompositionPlayerSetCompositionTest {
           compositionPlayer.setComposition(composition);
           compositionPlayer.prepare();
         });
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture.get();
   }
 
   @Test
   public void setComposition_withSameCompositionDifferentStartPosition_playbackCompletes()
       throws Exception {
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .build();
     CopyOnWriteArraySet<Object> audioProcessorFlushOffsets = new CopyOnWriteArraySet<>();
     PassthroughAudioProcessor passthroughAudioProcessor =
@@ -234,7 +246,7 @@ public class CompositionPlayerSetCompositionTest {
           }
         };
     Composition composition =
-        createSingleSequenceComposition(ImmutableList.of(editedMediaItem))
+        createSingleAudioVideoSequenceComposition(ImmutableList.of(editedMediaItem))
             .buildUpon()
             .setEffects(
                 new Effects(ImmutableList.of(passthroughAudioProcessor), ImmutableList.of()))
@@ -245,7 +257,8 @@ public class CompositionPlayerSetCompositionTest {
         () -> {
           compositionPlayer = new CompositionPlayer.Builder(context).build();
           compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.addListener(playerTestListener);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.addListener(
               new Player.Listener() {
                 @Override
@@ -259,18 +272,21 @@ public class CompositionPlayerSetCompositionTest {
           compositionPlayer.setComposition(composition);
           compositionPlayer.prepare();
         });
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture.get();
     assertThat(audioProcessorFlushOffsets).containsExactly(0L, 500_000L).inOrder();
   }
 
   @Test
   public void setComposition_twiceWithClippingConfigurationChange_playbackCompletes()
       throws Exception {
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     EditedMediaItem fullMediaItem =
-        createEditedMediaItemWithClippingConfiguration(MP4_ASSET, ClippingConfiguration.UNSET);
+        createEditedMediaItemWithClippingConfiguration(
+            MP4_ADVANCED_ASSET, ClippingConfiguration.UNSET);
     EditedMediaItem clippedMediaItem =
         createEditedMediaItemWithClippingConfiguration(
-            MP4_ASSET, new ClippingConfiguration.Builder().setStartPositionMs(1_000).build());
+            MP4_ADVANCED_ASSET,
+            new ClippingConfiguration.Builder().setStartPositionMs(1_000).build());
     AtomicBoolean firstTimelineUpdated = new AtomicBoolean();
     AtomicBoolean secondTimelineUpdated = new AtomicBoolean();
 
@@ -278,19 +294,20 @@ public class CompositionPlayerSetCompositionTest {
         () -> {
           compositionPlayer = new CompositionPlayer.Builder(context).build();
           compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.addListener(playerTestListener);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.addListener(
               new Player.Listener() {
                 @Override
                 public void onTimelineChanged(Timeline timeline, int reason) {
                   if (!firstTimelineUpdated.get()) {
                     compositionPlayer.setComposition(
-                        createSingleSequenceComposition(clippedMediaItem));
+                        createSingleAudioVideoSequenceComposition(clippedMediaItem));
                     firstTimelineUpdated.set(true);
                   }
                   if (firstTimelineUpdated.get() && !secondTimelineUpdated.get()) {
                     compositionPlayer.setComposition(
-                        createSingleSequenceComposition(clippedMediaItem));
+                        createSingleAudioVideoSequenceComposition(clippedMediaItem));
                     secondTimelineUpdated.set(true);
                   }
                   if (firstTimelineUpdated.get() && secondTimelineUpdated.get()) {
@@ -298,48 +315,55 @@ public class CompositionPlayerSetCompositionTest {
                   }
                 }
               });
-          compositionPlayer.setComposition(createSingleSequenceComposition(fullMediaItem));
+          compositionPlayer.setComposition(
+              createSingleAudioVideoSequenceComposition(fullMediaItem));
           compositionPlayer.prepare();
         });
 
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture.get();
   }
 
   @Test
   public void setComposition_sameMediaItemAndChangedClipping_playbackCompletes() throws Exception {
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     EditedMediaItem fullMediaItem =
-        createEditedMediaItemWithClippingConfiguration(MP4_ASSET, ClippingConfiguration.UNSET);
+        createEditedMediaItemWithClippingConfiguration(
+            MP4_ADVANCED_ASSET, ClippingConfiguration.UNSET);
     AtomicBoolean firstTimelineUpdated = new AtomicBoolean();
 
     instrumentation.runOnMainSync(
         () -> {
           compositionPlayer = new CompositionPlayer.Builder(context).build();
           compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.addListener(playerTestListener);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.addListener(
               new Player.Listener() {
                 @Override
                 public void onTimelineChanged(Timeline timeline, int reason) {
                   if (!firstTimelineUpdated.get()) {
                     compositionPlayer.setComposition(
-                        createSingleSequenceComposition(fullMediaItem));
+                        createSingleAudioVideoSequenceComposition(fullMediaItem));
                     firstTimelineUpdated.set(true);
                     compositionPlayer.play();
                   }
                 }
               });
-          compositionPlayer.setComposition(createSingleSequenceComposition(fullMediaItem));
+          compositionPlayer.setComposition(
+              createSingleAudioVideoSequenceComposition(fullMediaItem));
           compositionPlayer.prepare();
         });
 
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture.get();
   }
 
   @Test
   public void setComposition_twiceAndSettingVideoFrameMetadataListenerAfter_playbackCompletes()
       throws Exception {
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     EditedMediaItem fullMediaItem =
-        createEditedMediaItemWithClippingConfiguration(MP4_ASSET, ClippingConfiguration.UNSET);
+        createEditedMediaItemWithClippingConfiguration(
+            MP4_ADVANCED_ASSET, ClippingConfiguration.UNSET);
     AtomicBoolean firstTimelineUpdated = new AtomicBoolean();
     AtomicBoolean videoFrameMetadataListenerCalled = new AtomicBoolean();
 
@@ -347,19 +371,21 @@ public class CompositionPlayerSetCompositionTest {
         () -> {
           compositionPlayer = new CompositionPlayer.Builder(context).build();
           compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.addListener(playerTestListener);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.addListener(
               new Player.Listener() {
                 @Override
                 public void onTimelineChanged(Timeline timeline, int reason) {
                   if (firstTimelineUpdated.compareAndSet(false, true)) {
                     compositionPlayer.setComposition(
-                        createSingleSequenceComposition(fullMediaItem));
+                        createSingleAudioVideoSequenceComposition(fullMediaItem));
                     compositionPlayer.play();
                   }
                 }
               });
-          compositionPlayer.setComposition(createSingleSequenceComposition(fullMediaItem));
+          compositionPlayer.setComposition(
+              createSingleAudioVideoSequenceComposition(fullMediaItem));
           compositionPlayer.setVideoFrameMetadataListener(
               (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
                 videoFrameMetadataListenerCalled.set(true);
@@ -367,7 +393,7 @@ public class CompositionPlayerSetCompositionTest {
           compositionPlayer.prepare();
         });
 
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture.get();
     assertThat(videoFrameMetadataListenerCalled.get()).isTrue();
   }
 
@@ -419,6 +445,7 @@ public class CompositionPlayerSetCompositionTest {
   public void
       setComposition_withStartPositionSingleItemAudioSequence_reportsCorrectAudioProcessorPositionOffset()
           throws Exception {
+    SettableFuture<Void> readyFuture = SettableFuture.create();
     AtomicLong lastItemPositionOffsetUs = new AtomicLong(C.TIME_UNSET);
     AtomicLong lastCompositionPositionOffsetUs = new AtomicLong(C.TIME_UNSET);
     PassthroughAudioProcessor itemAudioProcessor =
@@ -444,7 +471,8 @@ public class CompositionPlayerSetCompositionTest {
                     /* videoEffects= */ ImmutableList.of()))
             .build();
     final Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioFrom(ImmutableList.of(editedMediaItem)))
             .setEffects(
                 new Effects(
                     /* audioProcessors= */ ImmutableList.of(compositionAudioProcessor),
@@ -455,11 +483,12 @@ public class CompositionPlayerSetCompositionTest {
         .runOnMainSync(
             () -> {
               compositionPlayer = new CompositionPlayer.Builder(context).build();
-              compositionPlayer.addListener(playerTestListener);
+              readyFuture.setFuture(
+                  futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_READY));
               compositionPlayer.setComposition(composition, Util.usToMs(500_000L));
               compositionPlayer.prepare();
             });
-    playerTestListener.waitUntilPlayerReady();
+    readyFuture.get();
 
     assertThat(lastItemPositionOffsetUs.get()).isEqualTo(500_000);
     assertThat(lastCompositionPositionOffsetUs.get()).isEqualTo(500_000);
@@ -469,6 +498,7 @@ public class CompositionPlayerSetCompositionTest {
   public void
       setComposition_withStartPositionTwoItemsAudioSequence_reportsCorrectAudioProcessorPositionOffset()
           throws Exception {
+    SettableFuture<Void> readyFuture = SettableFuture.create();
     AtomicLong lastItemPositionOffsetUs = new AtomicLong(C.TIME_UNSET);
     AtomicLong lastCompositionPositionOffsetUs = new AtomicLong(C.TIME_UNSET);
     PassthroughAudioProcessor itemAudioProcessor =
@@ -495,7 +525,8 @@ public class CompositionPlayerSetCompositionTest {
             .setEffects(new Effects(ImmutableList.of(itemAudioProcessor), ImmutableList.of()))
             .build();
     final Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(item1, item2).build())
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item1, item2)))
             .setEffects(
                 new Effects(ImmutableList.of(compositionAudioProcessor), ImmutableList.of()))
             .build();
@@ -504,11 +535,12 @@ public class CompositionPlayerSetCompositionTest {
         .runOnMainSync(
             () -> {
               compositionPlayer = new CompositionPlayer.Builder(context).build();
-              compositionPlayer.addListener(playerTestListener);
+              readyFuture.setFuture(
+                  futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_READY));
               compositionPlayer.setComposition(composition, Util.usToMs(1_500_000L));
               compositionPlayer.prepare();
             });
-    playerTestListener.waitUntilPlayerReady();
+    readyFuture.get();
 
     assertThat(lastItemPositionOffsetUs.get()).isEqualTo(500_000);
     assertThat(lastCompositionPositionOffsetUs.get()).isEqualTo(1_500_000);
@@ -517,22 +549,14 @@ public class CompositionPlayerSetCompositionTest {
   @Test
   public void setComposition_withNewCompositionAudioProcessor_recreatesAudioPipeline()
       throws Exception {
-    AtomicBoolean firstCompositionSentDataToAudioPipeline = new AtomicBoolean();
-    AtomicBoolean secondCompositionSentDataToAudioPipeline = new AtomicBoolean();
-    PassthroughAudioProcessor firstCompositionAudioProcessor =
-        new PassthroughAudioProcessor() {
-          @Override
-          public void queueInput(ByteBuffer inputBuffer) {
-            super.queueInput(inputBuffer);
-            firstCompositionSentDataToAudioPipeline.set(true);
-          }
-        };
+    SettableFuture<Void> readyFuture = SettableFuture.create();
+    ConditionVariable secondCompositionSentDataToAudioPipeline = new ConditionVariable();
     PassthroughAudioProcessor secondCompositionAudioProcessor =
         new PassthroughAudioProcessor() {
           @Override
           public void queueInput(ByteBuffer inputBuffer) {
             super.queueInput(inputBuffer);
-            secondCompositionSentDataToAudioPipeline.set(true);
+            secondCompositionSentDataToAudioPipeline.open();
           }
         };
     EditedMediaItem editedMediaItem =
@@ -541,17 +565,11 @@ public class CompositionPlayerSetCompositionTest {
             .build();
     Composition firstComposition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(Collections.nCopies(5, editedMediaItem))
-                    .build())
-            .setEffects(
-                new Effects(
-                    /* audioProcessors= */ ImmutableList.of(firstCompositionAudioProcessor),
-                    /* videoEffects= */ ImmutableList.of()))
+                EditedMediaItemSequence.withAudioFrom(Collections.nCopies(5, editedMediaItem)))
             .build();
     Composition secondComposition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(Collections.nCopies(5, editedMediaItem))
-                    .build())
+                EditedMediaItemSequence.withAudioFrom(Collections.nCopies(5, editedMediaItem)))
             .setEffects(
                 new Effects(
                     /* audioProcessors= */ ImmutableList.of(secondCompositionAudioProcessor),
@@ -562,31 +580,34 @@ public class CompositionPlayerSetCompositionTest {
         .runOnMainSync(
             () -> {
               compositionPlayer = new CompositionPlayer.Builder(context).build();
-              compositionPlayer.addListener(playerTestListener);
+              readyFuture.setFuture(
+                  futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_READY));
               compositionPlayer.setComposition(firstComposition);
               compositionPlayer.prepare();
             });
-    playerTestListener.waitUntilPlayerReady();
-    assertThat(firstCompositionSentDataToAudioPipeline.get()).isTrue();
-    assertThat(secondCompositionSentDataToAudioPipeline.get()).isFalse();
+    readyFuture.get();
+    assertThat(secondCompositionSentDataToAudioPipeline.isOpen()).isFalse();
 
-    playerTestListener.resetStatus();
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
         .runOnMainSync(
             () -> {
+              endedFuture.setFuture(
+                  futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
               compositionPlayer.setComposition(secondComposition);
               compositionPlayer.play();
             });
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture.get();
 
-    assertThat(secondCompositionSentDataToAudioPipeline.get()).isTrue();
+    assertThat(secondCompositionSentDataToAudioPipeline.block(TEST_TIMEOUT_MS)).isTrue();
   }
 
   private long getFirstVideoFrameTimestampUsWithStartPosition(
       long startPositionUs, int numberOfItemsInSequence) throws Exception {
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .build();
     AtomicLong firstFrameTimestampUs = new AtomicLong(C.TIME_UNSET);
 
@@ -594,7 +615,8 @@ public class CompositionPlayerSetCompositionTest {
         () -> {
           compositionPlayer = new CompositionPlayer.Builder(context).build();
           compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.addListener(playerTestListener);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.setVideoFrameMetadataListener(
               (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
                 if (firstFrameTimestampUs.compareAndSet(C.TIME_UNSET, presentationTimeUs)) {
@@ -602,13 +624,13 @@ public class CompositionPlayerSetCompositionTest {
                 }
               });
           compositionPlayer.setComposition(
-              createSingleSequenceComposition(
+              createSingleAudioVideoSequenceComposition(
                   Collections.nCopies(numberOfItemsInSequence, editedMediaItem)),
               Util.usToMs(startPositionUs));
           compositionPlayer.prepare();
         });
 
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture.get();
     return firstFrameTimestampUs.get();
   }
 
@@ -624,9 +646,9 @@ public class CompositionPlayerSetCompositionTest {
         .build();
   }
 
-  private static Composition createSingleSequenceComposition(
+  private static Composition createSingleAudioVideoSequenceComposition(
       List<EditedMediaItem> editedMediaItems) {
-    return new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItems).build())
+    return new Composition.Builder(EditedMediaItemSequence.withAudioAndVideoFrom(editedMediaItems))
         .build();
   }
 
@@ -641,9 +663,9 @@ public class CompositionPlayerSetCompositionTest {
         .build();
   }
 
-  private static Composition createSingleSequenceComposition(
+  private static Composition createSingleAudioVideoSequenceComposition(
       EditedMediaItem editedMediaItem, EditedMediaItem... moreEditedMediaItems) {
-    return createSingleSequenceComposition(
+    return createSingleAudioVideoSequenceComposition(
         new ImmutableList.Builder<EditedMediaItem>()
             .add(editedMediaItem)
             .add(moreEditedMediaItems)
@@ -667,22 +689,6 @@ public class CompositionPlayerSetCompositionTest {
     public long getNextSpeedChangeTimeUs(long timeUs) {
       // Adjust speed for all timestamps.
       return C.TIME_UNSET;
-    }
-  }
-
-  private static class PassthroughAudioProcessor extends BaseAudioProcessor {
-    @Override
-    public void queueInput(ByteBuffer inputBuffer) {
-      if (!inputBuffer.hasRemaining()) {
-        return;
-      }
-      ByteBuffer buffer = this.replaceOutputBuffer(inputBuffer.remaining());
-      buffer.put(inputBuffer).flip();
-    }
-
-    @Override
-    protected AudioFormat onConfigure(AudioFormat inputAudioFormat) {
-      return inputAudioFormat;
     }
   }
 }

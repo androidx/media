@@ -15,8 +15,10 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.companion.virtual.VirtualDevice;
 import android.media.AudioDeviceInfo;
 import android.media.AudioTrack;
 import androidx.annotation.IntDef;
@@ -29,28 +31,33 @@ import androidx.media3.common.Format;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
+import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.analytics.PlayerId;
+import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
+import com.google.common.primitives.ImmutableIntArray;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.nio.ByteBuffer;
+import java.util.Objects;
 
 /**
  * A sink that consumes audio data.
  *
- * <p>Before starting playback, specify the input audio format by calling {@link #configure(Format,
- * int, int[])}.
+ * <p>Before starting playback, specify the input audio format by calling {@link
+ * #configure(AudioSinkConfig)}.
  *
  * <p>Call {@link #handleBuffer(ByteBuffer, long, int)} to write data, and {@link
  * #handleDiscontinuity()} when the data being fed is discontinuous. Call {@link #play()} to start
  * playing the written data.
  *
- * <p>Call {@link #configure(Format, int, int[])} whenever the input format changes. The sink will
- * be reinitialized on the next call to {@link #handleBuffer(ByteBuffer, long, int)}.
+ * <p>Call {@link #configure(AudioSinkConfig)} whenever the input format changes. The sink will be
+ * reinitialized on the next call to {@link #handleBuffer(ByteBuffer, long, int)}.
  *
  * <p>Call {@link #flush()} to prepare the sink to receive audio data from a new playback position.
  *
@@ -167,6 +174,198 @@ public interface AudioSink {
     default void onAudioSessionIdChanged(int audioSessionId) {}
   }
 
+  /**
+   * Configuration parameters for {@linkplain #configure(AudioSinkConfig) configuring} the audio
+   * sink.
+   */
+  final class AudioSinkConfig {
+    /** The format of audio data provided in the input buffers. */
+    public final Format format;
+
+    /**
+     * A specific size for the playback buffer in bytes, or 0 to infer a suitable buffer size
+     * automatically.
+     *
+     * @deprecated Use similar config values on lower-level components like {@link
+     *     AudioOutputProvider.FormatConfig#preferredBufferSize} instead.
+     */
+    @Deprecated public final int preferredBufferSizeOverride;
+
+    /**
+     * A mapping from input to output channels that is applied to this sink's input as a
+     * preprocessing step, if handling PCM input. {@code null} leaves the input unchanged.
+     * Otherwise, the element at index {@code i} specifies index of the input channel to map to
+     * output channel {@code i} when preprocessing input buffers. After the map is applied the audio
+     * data will have {@code outputChannels.length} channels.
+     */
+    @Nullable public final ImmutableIntArray outputChannelMapping;
+
+    /**
+     * The {@link Timeline} of the playback this audio sink is configured for, or {@link
+     * Timeline#EMPTY} if undefined.
+     *
+     * <p>Can be used together with the {@link MediaPeriodId} to identify the concrete item in the
+     * playlist.
+     */
+    public final Timeline timeline;
+
+    /**
+     * The {@link MediaPeriodId} of the playback this audio sink is configured for, or {@code null}
+     * if undefined.
+     *
+     * <p>Can be used together with the {@link Timeline} to identify the concrete item in the
+     * playlist.
+     */
+    @Nullable public final MediaPeriodId mediaPeriodId;
+
+    private AudioSinkConfig(Builder builder) {
+      format = builder.format;
+      preferredBufferSizeOverride = builder.preferredBufferSizeOverride;
+      outputChannelMapping = builder.outputChannelMapping;
+      timeline = builder.timeline;
+      mediaPeriodId = builder.mediaPeriodId;
+    }
+
+    /** Creates a {@link Builder} from the current values. */
+    public Builder buildUpon() {
+      return new Builder(this);
+    }
+
+    @Override
+    public boolean equals(@Nullable Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof AudioSinkConfig)) {
+        return false;
+      }
+      AudioSinkConfig that = (AudioSinkConfig) o;
+      return preferredBufferSizeOverride == that.preferredBufferSizeOverride
+          && format.equals(that.format)
+          && Objects.equals(outputChannelMapping, that.outputChannelMapping)
+          && timeline.equals(that.timeline)
+          && Objects.equals(mediaPeriodId, that.mediaPeriodId);
+    }
+
+    @Override
+    public int hashCode() {
+      int result = format.hashCode();
+      result = 31 * result + preferredBufferSizeOverride;
+      result = 31 * result + (outputChannelMapping == null ? 0 : outputChannelMapping.hashCode());
+      result = 31 * result + timeline.hashCode();
+      result = 31 * result + (mediaPeriodId == null ? 0 : mediaPeriodId.hashCode());
+      return result;
+    }
+
+    /** Builder for {@link AudioSinkConfig}. */
+    public static final class Builder {
+      private final Format format;
+      private int preferredBufferSizeOverride;
+      @Nullable private ImmutableIntArray outputChannelMapping;
+      private Timeline timeline;
+      @Nullable private MediaPeriodId mediaPeriodId;
+
+      /**
+       * Creates a new builder.
+       *
+       * @param format The format of audio data provided in the input buffers.
+       */
+      public Builder(Format format) {
+        this.format = format;
+        this.preferredBufferSizeOverride = 0;
+        this.outputChannelMapping = null;
+        this.timeline = Timeline.EMPTY;
+        this.mediaPeriodId = null;
+      }
+
+      @SuppressWarnings("deprecation") // Copying deprecated value.
+      private Builder(AudioSinkConfig audioSinkConfig) {
+        this.format = audioSinkConfig.format;
+        this.preferredBufferSizeOverride = audioSinkConfig.preferredBufferSizeOverride;
+        this.outputChannelMapping = audioSinkConfig.outputChannelMapping;
+        this.timeline = audioSinkConfig.timeline;
+        this.mediaPeriodId = audioSinkConfig.mediaPeriodId;
+      }
+
+      /**
+       * Sets a specific size for the playback buffer in bytes.
+       *
+       * <p>This method should not be needed as the buffer size is only applicable to lower-level
+       * components like the {@link AudioOutput} and should be set there.
+       *
+       * @param preferredBufferSizeOverride A specific size for the playback buffer in bytes, or 0
+       *     to infer a suitable buffer size automatically.
+       * @return This builder.
+       * @deprecated Use similar setters on lower-level components like {@link AudioOutput} instead,
+       *     e.g. by modifying {@link AudioOutputProvider.FormatConfig#preferredBufferSize}.
+       */
+      @Deprecated
+      @CanIgnoreReturnValue
+      public Builder setPreferredBufferSizeOverride(int preferredBufferSizeOverride) {
+        this.preferredBufferSizeOverride = preferredBufferSizeOverride;
+        return this;
+      }
+
+      /**
+       * Sets a mapping from input to output channels.
+       *
+       * @param outputChannelMapping A mapping from input to output channels that is applied to this
+       *     sink's input as a preprocessing step, if handling PCM input. Specify {@code null} to
+       *     leave the input unchanged. Otherwise, the element at index {@code i} specifies index of
+       *     the input channel to map to output channel {@code i} when preprocessing input buffers.
+       *     After the map is applied the audio data will have {@code outputChannels.length}
+       *     channels.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setOutputChannelMapping(@Nullable ImmutableIntArray outputChannelMapping) {
+        this.outputChannelMapping = outputChannelMapping;
+        return this;
+      }
+
+      /**
+       * Sets the {@link Timeline} of the playback this audio sink is configured for.
+       *
+       * <p>Can be used together with the {@link MediaPeriodId} to identify the concrete item in the
+       * playlist.
+       *
+       * @param timeline The {@link Timeline}.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setTimeline(Timeline timeline) {
+        this.timeline = timeline;
+        return this;
+      }
+
+      /**
+       * Sets the {@link MediaPeriodId} of the playback this audio sink is configured for.
+       *
+       * <p>Can be used together with the {@link Timeline} to identify the concrete item in the
+       * playlist.
+       *
+       * <p>If the {@link MediaPeriodId} is non-null and the provided {@link Timeline} non-empty,
+       * the value must refer to a valid period in the provided {@link Timeline}.
+       *
+       * @param mediaPeriodId The {@link MediaPeriodId}, or null to leave it undefined.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setMediaPeriodId(@Nullable MediaPeriodId mediaPeriodId) {
+        this.mediaPeriodId = mediaPeriodId;
+        return this;
+      }
+
+      /** Builds an {@link AudioSinkConfig} instance. */
+      public AudioSinkConfig build() {
+        if (!timeline.isEmpty() && mediaPeriodId != null) {
+          checkArgument(timeline.getIndexOfPeriod(mediaPeriodId.periodUid) != C.INDEX_UNSET);
+        }
+        return new AudioSinkConfig(this);
+      }
+    }
+  }
+
   /** Configuration parameters used for an {@link AudioTrack}. */
   final class AudioTrackConfig {
 
@@ -194,7 +393,8 @@ public interface AudioSink {
      * @param encoding The {@link C.Encoding} of the audio data
      * @param sampleRate The sample rate of the audio data.
      * @param channelConfig The channel configuration of the track. See {@code
-     *     AudioTrack.CHANNEL_OUT_XXX} constants.
+     *     AudioFormat.CHANNEL_OUT_XXX} constants like {@link
+     *     android.media.AudioFormat#CHANNEL_OUT_5POINT1}.
      * @param tunneling Whether tunneling is enabled for this track.
      * @param offload Whether offload is enabled for this track.
      * @param bufferSize The buffer size of the track in bytes.
@@ -386,16 +586,17 @@ public interface AudioSink {
   @interface SinkFormatSupport {}
 
   /** The sink supports the format directly, without the need for internal transcoding. */
-  int SINK_FORMAT_SUPPORTED_DIRECTLY = 2;
+  int SINK_FORMAT_SUPPORTED_DIRECTLY = AudioOutputProvider.FORMAT_SUPPORTED_DIRECTLY;
 
   /**
    * The sink supports the format, but needs to transcode it internally to do so. Internal
    * transcoding may result in lower quality and higher CPU load in some cases.
    */
-  int SINK_FORMAT_SUPPORTED_WITH_TRANSCODING = 1;
+  int SINK_FORMAT_SUPPORTED_WITH_TRANSCODING =
+      AudioOutputProvider.FORMAT_SUPPORTED_WITH_TRANSCODING;
 
   /** The sink does not support the format. */
-  int SINK_FORMAT_UNSUPPORTED = 0;
+  int SINK_FORMAT_UNSUPPORTED = AudioOutputProvider.FORMAT_UNSUPPORTED;
 
   /** Returned by {@link #getCurrentPositionUs(boolean)} when the position is not set. */
   long CURRENT_POSITION_NOT_SET = Long.MIN_VALUE;
@@ -493,20 +694,34 @@ public interface AudioSink {
   long getCurrentPositionUs(boolean sourceEnded);
 
   /**
+   * @deprecated Call and implement {@link #configure(AudioSinkConfig)} instead.
+   */
+  @Deprecated
+  default void configure(
+      Format inputFormat, int specifiedBufferSize, @Nullable int[] outputChannels)
+      throws ConfigurationException {
+    configure(
+        new AudioSinkConfig.Builder(inputFormat)
+            .setPreferredBufferSizeOverride(specifiedBufferSize)
+            .setOutputChannelMapping(
+                outputChannels == null ? null : ImmutableIntArray.copyOf(outputChannels))
+            .build());
+  }
+
+  /**
    * Configures (or reconfigures) the sink.
    *
-   * @param inputFormat The format of audio data provided in the input buffers.
-   * @param specifiedBufferSize A specific size for the playback buffer in bytes, or 0 to infer a
-   *     suitable buffer size.
-   * @param outputChannels A mapping from input to output channels that is applied to this sink's
-   *     input as a preprocessing step, if handling PCM input. Specify {@code null} to leave the
-   *     input unchanged. Otherwise, the element at index {@code i} specifies index of the input
-   *     channel to map to output channel {@code i} when preprocessing input buffers. After the map
-   *     is applied the audio data will have {@code outputChannels.length} channels.
+   * @param audioSinkConfig The {@link AudioSinkConfig}.
    * @throws ConfigurationException If an error occurs configuring the sink.
    */
-  void configure(Format inputFormat, int specifiedBufferSize, @Nullable int[] outputChannels)
-      throws ConfigurationException;
+  default void configure(AudioSinkConfig audioSinkConfig) throws ConfigurationException {
+    configure(
+        audioSinkConfig.format,
+        audioSinkConfig.preferredBufferSizeOverride,
+        audioSinkConfig.outputChannelMapping == null
+            ? null
+            : audioSinkConfig.outputChannelMapping.toArray());
+  }
 
   /** Starts or resumes consuming audio if initialized. */
   void play();
@@ -522,8 +737,8 @@ public interface AudioSink {
    *
    * <p>Returns whether the data was handled in full. If the data was not handled in full then the
    * same {@link ByteBuffer} must be provided to subsequent calls until it has been fully consumed,
-   * except in the case of an intervening call to {@link #flush()} (or to {@link #configure(Format,
-   * int, int[])} that causes the sink to be flushed).
+   * except in the case of an intervening call to {@link #flush()} (or to {@link
+   * #configure(AudioSinkConfig)} that causes the sink to be flushed).
    *
    * @param buffer The buffer containing audio data.
    * @param presentationTimeUs The presentation timestamp of the buffer in microseconds.
@@ -588,6 +803,12 @@ public interface AudioSink {
   @Nullable
   AudioAttributes getAudioAttributes();
 
+  /** Returns the AudioCapabilities of the sink, if supported by the sink implementation. */
+  @Nullable
+  default AudioCapabilities getAudioCapabilities() {
+    return null;
+  }
+
   /** Sets the audio session id. */
   void setAudioSessionId(int audioSessionId);
 
@@ -601,6 +822,14 @@ public interface AudioSink {
    *     restore the default.
    */
   default void setPreferredDevice(@Nullable AudioDeviceInfo audioDeviceInfo) {}
+
+  /**
+   * Sets the virtual device id.
+   *
+   * @param virtualDeviceId The {@linkplain VirtualDevice#getDeviceId() virtual device id}, or
+   *     {@link C#INDEX_UNSET} if unspecified.
+   */
+  default void setVirtualDeviceId(int virtualDeviceId) {}
 
   /**
    * Sets the offset that is added to the media timestamp before it is passed as {@code
@@ -648,6 +877,11 @@ public interface AudioSink {
    */
   @RequiresApi(29)
   default void setOffloadDelayPadding(int delayInFrames, int paddingInFrames) {}
+
+  /** Sets the {@link AudioOutputProvider} to use as the output path. */
+  default void setAudioOutputProvider(AudioOutputProvider audioOutputProvider) {
+    throw new UnsupportedOperationException("AudioSink doesn't support setAudioOutputProvider");
+  }
 
   /**
    * Sets the playback volume.

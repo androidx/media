@@ -16,7 +16,7 @@
 package androidx.media3.datasource;
 
 import static com.google.common.truth.Truth.assertThat;
-import static junit.framework.Assert.fail;
+import static org.junit.Assert.fail;
 
 import android.net.Uri;
 import androidx.media3.common.C;

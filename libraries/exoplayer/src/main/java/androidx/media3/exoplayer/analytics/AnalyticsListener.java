@@ -57,6 +57,7 @@ import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.drm.DrmSession;
+import androidx.media3.exoplayer.drm.KeyRequestInfo;
 import androidx.media3.exoplayer.metadata.MetadataOutput;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
@@ -1364,12 +1365,20 @@ public interface AnalyticsListener {
   default void onDrmSessionAcquired(EventTime eventTime, @DrmSession.State int state) {}
 
   /**
+   * @deprecated Implement {@link #onDrmKeysLoaded(EventTime, KeyRequestInfo)} instead.
+   */
+  @UnstableApi
+  @Deprecated
+  default void onDrmKeysLoaded(EventTime eventTime) {}
+
+  /**
    * Called each time drm keys are loaded.
    *
    * @param eventTime The event time.
+   * @param keyRequestInfo information for any required load operation, null if none
    */
   @UnstableApi
-  default void onDrmKeysLoaded(EventTime eventTime) {}
+  default void onDrmKeysLoaded(EventTime eventTime, KeyRequestInfo keyRequestInfo) {}
 
   /**
    * Called when a drm error occurs.

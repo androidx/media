@@ -17,9 +17,11 @@ package androidx.media3.demo.transformer;
 
 import static android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION;
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.common.util.Util.newSingleThreadExecutor;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 
 import android.app.Activity;
 import android.app.Notification;
@@ -44,6 +46,7 @@ import android.os.IBinder;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.style.ForegroundColorSpan;
+import android.util.Rational;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
@@ -54,6 +57,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
+import androidx.annotation.OptIn;
+import androidx.annotation.RequiresApi;
 import androidx.annotation.StringRes;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.NotificationCompat;
@@ -62,6 +67,7 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.media3.common.C;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
+import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
@@ -69,15 +75,20 @@ import androidx.media3.common.audio.ChannelMixingMatrix;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.ElapsedRealtimeTicker;
+import androidx.media3.common.util.ExperimentalApi;
+import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.effect.BitmapOverlay;
 import androidx.media3.effect.Contrast;
 import androidx.media3.effect.DebugTraceUtil;
+import androidx.media3.effect.DefaultGlFrameProcessor;
+import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DrawableOverlay;
+import androidx.media3.effect.FrameProcessorUtils;
 import androidx.media3.effect.GlEffect;
-import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.HslAdjustment;
 import androidx.media3.effect.LanczosResample;
 import androidx.media3.effect.OverlayEffect;
@@ -90,6 +101,7 @@ import androidx.media3.effect.SingleColorLut;
 import androidx.media3.effect.StaticOverlaySettings;
 import androidx.media3.effect.TextOverlay;
 import androidx.media3.effect.TextureOverlay;
+import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor;
 import androidx.media3.exoplayer.util.DebugTextViewHelper;
@@ -102,26 +114,26 @@ import androidx.media3.transformer.ExperimentalAnalyzerModeFactory;
 import androidx.media3.transformer.ExportException;
 import androidx.media3.transformer.ExportResult;
 import androidx.media3.transformer.InAppFragmentedMp4Muxer;
-import androidx.media3.transformer.InAppMp4Muxer;
 import androidx.media3.transformer.JsonUtil;
 import androidx.media3.transformer.MediaProjectionAssetLoader;
 import androidx.media3.transformer.ProgressHolder;
 import androidx.media3.transformer.Transformer;
 import androidx.media3.transformer.VideoEncoderSettings;
+import androidx.media3.transformer.VideoFrameAggregationParameters;
 import androidx.media3.ui.AspectRatioFrameLayout;
 import androidx.media3.ui.PlayerView;
 import androidx.window.layout.WindowMetricsCalculator;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
 import com.google.common.base.Stopwatch;
-import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.lang.reflect.Constructor;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -160,6 +172,8 @@ public final class TransformerActivity extends AppCompatActivity {
   @Nullable private ExoPlayer inputPlayer;
   @Nullable private ExoPlayer outputPlayer;
   @Nullable private Transformer transformer;
+  @Nullable private ListeningExecutorService glExecutorService;
+  @Nullable private GlObjectsProvider glObjectsProvider;
   @Nullable private File outputFile;
   @Nullable private File oldOutputFile;
 
@@ -189,14 +203,7 @@ public final class TransformerActivity extends AppCompatActivity {
     displayInputButton = findViewById(R.id.display_input_button);
     displayInputButton.setOnClickListener(view -> toggleInputVideoDisplay());
 
-    exportStopwatch =
-        Stopwatch.createUnstarted(
-            new Ticker() {
-              @Override
-              public long read() {
-                return android.os.SystemClock.elapsedRealtimeNanos();
-              }
-            });
+    exportStopwatch = Stopwatch.createUnstarted(new ElapsedRealtimeTicker());
   }
 
   @Override
@@ -292,8 +299,8 @@ public final class TransformerActivity extends AppCompatActivity {
     @Nullable Bundle bundle = intent.getExtras();
     MediaItem mediaItem = createMediaItem(bundle, inputUri);
     Util.maybeRequestReadStoragePermission(/* activity= */ this, mediaItem);
-    Transformer transformer = createTransformer(bundle, inputUri, outputFilePath);
     Composition composition = createComposition(mediaItem, bundle);
+    Transformer transformer = createTransformer(bundle, inputUri, outputFilePath);
     exportStopwatch.reset();
     exportStopwatch.start();
     if (oldOutputFile == null) {
@@ -358,24 +365,58 @@ public final class TransformerActivity extends AppCompatActivity {
     return mediaItemBuilder.build();
   }
 
+  @OptIn(markerClass = ExperimentalApi.class)
   private Transformer createTransformer(@Nullable Bundle bundle, Uri inputUri, String filePath) {
-    Transformer.Builder transformerBuilder =
-        new Transformer.Builder(/* context= */ this)
-            .addListener(
-                new Transformer.Listener() {
-                  @Override
-                  public void onCompleted(Composition composition, ExportResult exportResult) {
-                    TransformerActivity.this.onCompleted(inputUri, filePath, exportResult);
-                  }
+    Transformer.Builder transformerBuilder;
 
-                  @Override
-                  public void onError(
-                      Composition composition,
-                      ExportResult exportResult,
-                      ExportException exportException) {
-                    TransformerActivity.this.onError(exportException);
-                  }
-                });
+    if (bundle != null && bundle.getBoolean(ConfigurationActivity.ENABLE_FRAME_PROCESSOR)) {
+      if (SDK_INT < 28) {
+        throw new UnsupportedOperationException(
+            getString(R.string.api_28_required_frame_processor));
+      }
+      glExecutorService = listeningDecorator(newSingleThreadExecutor("Transformer:Effect"));
+      glObjectsProvider = new DefaultGlObjectsProvider();
+      // Do not wait for the GL setup to complete before continuing because the same single-thread
+      // executor will be used for all subsequent GL operations, ensuring correct ordering.
+      glExecutorService.execute(
+          () -> {
+            try {
+              FrameProcessorUtils.setupOpenGl(glObjectsProvider);
+            } catch (GlException | RuntimeException e) {
+              Log.e(TAG, "Failed to setup OpenGL", e);
+              runOnUiThread(
+                  () ->
+                      Toast.makeText(
+                              TransformerActivity.this, "Failed to setup OpenGL", Toast.LENGTH_LONG)
+                          .show());
+            }
+          });
+
+      transformerBuilder =
+          new Transformer.Builder(/* context= */ this)
+              .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
+              .setFrameProcessorFactory(
+                  new DefaultGlFrameProcessor.Factory(
+                      /* context= */ this,
+                      glObjectsProvider,
+                      HardwareBufferJni.INSTANCE,
+                      glExecutorService));
+    } else {
+      transformerBuilder = new Transformer.Builder(/* context= */ this);
+    }
+    transformerBuilder.addListener(
+        new Transformer.Listener() {
+          @Override
+          public void onCompleted(Composition composition, ExportResult exportResult) {
+            TransformerActivity.this.onCompleted(inputUri, filePath, exportResult);
+          }
+
+          @Override
+          public void onError(
+              Composition composition, ExportResult exportResult, ExportException exportException) {
+            TransformerActivity.this.onError(exportException);
+          }
+        });
 
     if (bundle != null) {
       @Nullable String audioMimeType = bundle.getString(ConfigurationActivity.AUDIO_MIME_TYPE);
@@ -391,11 +432,7 @@ public final class TransformerActivity extends AppCompatActivity {
         transformerBuilder.setMaxDelayBetweenMuxerSamplesMs(C.TIME_UNSET);
       }
 
-      if (bundle.getBoolean(ConfigurationActivity.USE_MEDIA3_MP4_MUXER)) {
-        transformerBuilder.setMuxerFactory(new InAppMp4Muxer.Factory());
-      }
-
-      if (bundle.getBoolean(ConfigurationActivity.USE_MEDIA3_FRAGMENTED_MP4_MUXER)) {
+      if (bundle.getBoolean(ConfigurationActivity.PRODUCE_FRAGMENTED_MP4)) {
         transformerBuilder.setMuxerFactory(new InAppFragmentedMp4Muxer.Factory());
       }
 
@@ -459,9 +496,10 @@ public final class TransformerActivity extends AppCompatActivity {
     return file;
   }
 
+  @OptIn(markerClass = ExperimentalApi.class)
   private Composition createComposition(MediaItem mediaItem, @Nullable Bundle bundle) {
     EditedMediaItem.Builder editedMediaItemBuilder = new EditedMediaItem.Builder(mediaItem);
-    // For image inputs. Automatically ignored if input is audio/video.
+    // Required for image inputs. For video inputs, it sets the target FPS.
     editedMediaItemBuilder.setFrameRate(DEFAULT_FRAME_RATE_FPS);
     if (bundle != null) {
       ImmutableList<AudioProcessor> audioProcessors = createAudioProcessorsFromBundle(bundle);
@@ -473,16 +511,31 @@ public final class TransformerActivity extends AppCompatActivity {
               bundle.getBoolean(ConfigurationActivity.SHOULD_FLATTEN_FOR_SLOW_MOTION))
           .setEffects(new Effects(audioProcessors, videoEffects));
     }
-    EditedMediaItemSequence.Builder editedMediaItemSequenceBuilder =
-        new EditedMediaItemSequence.Builder(editedMediaItemBuilder.build());
-    if (bundle != null) {
-      editedMediaItemSequenceBuilder.experimentalSetForceAudioTrack(
-          bundle.getBoolean(ConfigurationActivity.FORCE_AUDIO_TRACK));
+    ImmutableSet.Builder<Integer> sequenceTrackTypesBuilder = new ImmutableSet.Builder<>();
+    if (bundle == null || bundle.getBoolean(ConfigurationActivity.ENABLE_AUDIO_TRACK, true)) {
+      sequenceTrackTypesBuilder.add(C.TRACK_TYPE_AUDIO);
     }
+    if (bundle == null || bundle.getBoolean(ConfigurationActivity.ENABLE_VIDEO_TRACK, true)) {
+      sequenceTrackTypesBuilder.add(C.TRACK_TYPE_VIDEO);
+    }
+    EditedMediaItemSequence.Builder editedMediaItemSequenceBuilder =
+        new EditedMediaItemSequence.Builder(sequenceTrackTypesBuilder.build())
+            .addItem(editedMediaItemBuilder.build());
+
     Composition.Builder compositionBuilder =
         new Composition.Builder(editedMediaItemSequenceBuilder.build());
     if (bundle != null) {
       compositionBuilder.setHdrMode(bundle.getInt(ConfigurationActivity.HDR_MODE));
+      if (bundle.containsKey(ConfigurationActivity.FRAME_AGGREGATION_FPS)) {
+        float fps = bundle.getFloat(ConfigurationActivity.FRAME_AGGREGATION_FPS);
+        int numerator = Math.round(fps * 1000f);
+        if (numerator > 0) {
+          compositionBuilder.setVideoFrameAggregationParameters(
+              new VideoFrameAggregationParameters.Builder()
+                  .setFrameRate(new Rational(numerator, 1000))
+                  .build());
+        }
+      }
     }
     return compositionBuilder.build();
   }
@@ -551,38 +604,6 @@ public final class TransformerActivity extends AppCompatActivity {
     ImmutableList.Builder<Effect> effects = new ImmutableList.Builder<>();
     if (selectedEffects[ConfigurationActivity.DIZZY_CROP_INDEX]) {
       effects.add(MatrixTransformationFactory.createDizzyCropEffect());
-    }
-    if (selectedEffects[ConfigurationActivity.EDGE_DETECTOR_INDEX]) {
-      try {
-        Class<?> clazz = Class.forName("androidx.media3.demo.transformer.MediaPipeShaderProgram");
-        Constructor<?> constructor =
-            clazz.getConstructor(
-                Context.class,
-                boolean.class,
-                String.class,
-                boolean.class,
-                String.class,
-                String.class);
-        effects.add(
-            (GlEffect)
-                (Context context, boolean useHdr) -> {
-                  try {
-                    return (GlShaderProgram)
-                        constructor.newInstance(
-                            context,
-                            useHdr,
-                            /* graphName= */ "edge_detector_mediapipe_graph.binarypb",
-                            /* isSingleFrameGraph= */ true,
-                            /* inputStreamName= */ "input_video",
-                            /* outputStreamName= */ "output_video");
-                  } catch (Exception e) {
-                    runOnUiThread(() -> showToast(R.string.no_media_pipe_error));
-                    throw new RuntimeException("Failed to load MediaPipeShaderProgram", e);
-                  }
-                });
-      } catch (Exception e) {
-        showToast(R.string.no_media_pipe_error);
-      }
     }
     if (selectedEffects[ConfigurationActivity.COLOR_FILTERS_INDEX]) {
       switch (bundle.getInt(ConfigurationActivity.COLOR_FILTER_SELECTION)) {
@@ -746,12 +767,6 @@ public final class TransformerActivity extends AppCompatActivity {
       TextOverlay textOverlay = TextOverlay.createStaticTextOverlay(overlayText, overlaySettings);
       overlaysBuilder.add(textOverlay);
     }
-    if (selectedEffects[ConfigurationActivity.CLOCK_OVERLAY_INDEX]) {
-      overlaysBuilder.add(new ClockOverlay());
-    }
-    if (selectedEffects[ConfigurationActivity.CONFETTI_OVERLAY_INDEX]) {
-      overlaysBuilder.add(new ConfettiOverlay());
-    }
     if (selectedEffects[ConfigurationActivity.ANIMATING_LOGO_OVERLAY]) {
       overlaysBuilder.add(new AnimatedLogoOverlay(this.getApplicationContext()));
     }
@@ -777,7 +792,17 @@ public final class TransformerActivity extends AppCompatActivity {
     exportStopwatch.stop();
     long elapsedTimeMs = exportStopwatch.elapsed(TimeUnit.MILLISECONDS);
     informationTextView.setText(
-        getString(R.string.export_completed, elapsedTimeMs / 1000.f, filePath));
+        getString(R.string.export_completed, elapsedTimeMs / 1000f, filePath));
+    if (exportResult.approximateDurationMs > 0 && exportResult.videoFrameCount > 0) {
+      informationTextView.append("\n");
+      // This calculates the average frame rate of the exported video (e.g. 30fps),
+      // which is useful for verifying frame rate changes during export.
+      // It does not represent the processing/export throughput.
+      informationTextView.append(
+          getString(
+              R.string.average_fps,
+              exportResult.videoFrameCount * 1000f / exportResult.approximateDurationMs));
+    }
     progressViewGroup.setVisibility(View.GONE);
     debugFrame.removeAllViews();
     inputCardView.setVisibility(View.VISIBLE);
@@ -788,7 +813,7 @@ public final class TransformerActivity extends AppCompatActivity {
     Log.d(TAG, DebugTraceUtil.generateTraceSummary());
     File file = new File(getExternalFilesDir(null), "trace.tsv");
     try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
-      DebugTraceUtil.dumpTsv(writer);
+      writer.write(DebugTraceUtil.generateTraceSummary());
       Log.d(TAG, file.getAbsolutePath());
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -827,7 +852,8 @@ public final class TransformerActivity extends AppCompatActivity {
       inputImageView.setVisibility(View.VISIBLE);
       inputTextView.setText(getString(R.string.input_image));
 
-      BitmapLoader bitmapLoader = new DataSourceBitmapLoader(getApplicationContext());
+      BitmapLoader bitmapLoader =
+          new DataSourceBitmapLoader.Builder(getApplicationContext()).build();
       ListenableFuture<Bitmap> future = bitmapLoader.loadBitmap(uri);
       try {
         Bitmap bitmap = future.get();
@@ -896,10 +922,34 @@ public final class TransformerActivity extends AppCompatActivity {
     }
   }
 
+  @RequiresApi(26)
+  @OptIn(markerClass = ExperimentalApi.class)
+  private void cleanUpGlResources() {
+    if (glExecutorService == null) {
+      return;
+    }
+    GlObjectsProvider finalGlObjectsProvider = checkNotNull(glObjectsProvider);
+    glExecutorService.execute(
+        () -> {
+          try {
+            FrameProcessorUtils.releaseOpenGl(finalGlObjectsProvider);
+          } catch (GlException e) {
+            Log.e(TAG, "Failed to release OpenGL", e);
+          }
+        });
+    FrameProcessorUtils.shutdownGlExecutorService(glExecutorService);
+    glExecutorService = null;
+    glObjectsProvider = null;
+  }
+
   private void cleanUpExport() {
     if (transformer != null) {
       transformer.cancel();
       transformer = null;
+    }
+
+    if (glExecutorService != null && SDK_INT >= 26) {
+      cleanUpGlResources();
     }
     if (outputFile != null) {
       outputFile.delete();
@@ -970,7 +1020,7 @@ public final class TransformerActivity extends AppCompatActivity {
         Notification notification =
             new NotificationCompat.Builder(context, CHANNEL_ID)
                 .setOngoing(true)
-                .setSmallIcon(R.drawable.exo_icon_play)
+                .setSmallIcon(androidx.media3.ui.R.drawable.exo_icon_play)
                 .build();
         if (SDK_INT >= 26) {
           NotificationChannel channel =

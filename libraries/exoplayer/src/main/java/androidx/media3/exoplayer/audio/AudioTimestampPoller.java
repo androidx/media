@@ -141,10 +141,15 @@ import java.lang.annotation.Target;
    * @param audioTrackPlaybackSpeed The playback speed of the audio track.
    * @param playbackHeadPositionEstimateUs The current position estimate using the playback head
    *     position, in microseconds.
+   * @param forceUpdate Whether to force an update, for example if some external signal implies a
+   *     potential change.
    */
   public void maybePollTimestamp(
-      long systemTimeUs, float audioTrackPlaybackSpeed, long playbackHeadPositionEstimateUs) {
-    if ((systemTimeUs - lastTimestampSampleTimeUs) < sampleIntervalUs) {
+      long systemTimeUs,
+      float audioTrackPlaybackSpeed,
+      long playbackHeadPositionEstimateUs,
+      boolean forceUpdate) {
+    if (!forceUpdate && (systemTimeUs - lastTimestampSampleTimeUs) < sampleIntervalUs) {
       return;
     }
     lastTimestampSampleTimeUs = systemTimeUs;

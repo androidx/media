@@ -15,41 +15,42 @@
  */
 package androidx.media3.test.exoplayer.playback.gts;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static java.lang.Math.max;
 
 import android.content.Context;
-import android.media.MediaCrypto;
-import android.media.MediaFormat;
 import android.os.Handler;
 import androidx.annotation.Nullable;
-import androidx.media3.common.C;
-import androidx.media3.common.Format;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.Renderer;
+import androidx.media3.exoplayer.mediacodec.DefaultMediaCodecAdapterFactory;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
-import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
-import java.nio.ByteBuffer;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 
 /**
  * A debug extension of {@link DefaultRenderersFactory}. Provides a video renderer that performs
- * video buffer timestamp assertions, and modifies the default value for {@link
- * #setAllowedVideoJoiningTimeMs(long)} to be {@code 0}.
+ * video buffer timestamp assertions.
  */
 // TODO: Move this class to `testutils` and add basic tests.
 /* package */ final class DebugRenderersFactory extends DefaultRenderersFactory {
 
+  private final DefaultMediaCodecAdapterFactory codecAdapterFactory;
+
   public DebugRenderersFactory(Context context) {
     super(context);
-    setAllowedVideoJoiningTimeMs(0);
+    codecAdapterFactory = new DefaultMediaCodecAdapterFactory(context);
+    if (SDK_INT == 36) {
+      // Flag disabled for the test due to b/482020055. The impact on playback is minor and can
+      // stay enabled for API 36 devices.
+      codecAdapterFactory.setAsyncCryptoFlagEnabled(false);
+    }
   }
 
   @Override
@@ -69,7 +70,13 @@ import java.util.ArrayList;
             allowedVideoJoiningTimeMs,
             eventHandler,
             eventListener,
-            MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY));
+            MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
+            codecAdapterFactory));
+  }
+
+  @Override
+  protected MediaCodecAdapter.Factory getCodecAdapterFactory() {
+    return codecAdapterFactory;
   }
 
   /**
@@ -82,19 +89,11 @@ import java.util.ArrayList;
     private static final int ARRAY_SIZE = 1000;
 
     private final long[] timestampsList;
-    private final ArrayDeque<Long> inputFormatChangeTimesUs;
-    private final boolean shouldMediaFormatChangeTimesBeChecked;
-
-    private boolean skipToPositionBeforeRenderingFirstFrame;
 
     private int startIndex;
     private int queueSize;
     private int bufferCount;
     private int minimumInsertIndex;
-    private boolean inputFormatChanged;
-    private boolean outputMediaFormatChanged;
-
-    @Nullable private MediaFormat currentMediaFormat;
 
     public DebugMediaCodecVideoRenderer(
         Context context,
@@ -102,26 +101,17 @@ import java.util.ArrayList;
         long allowedJoiningTimeMs,
         Handler eventHandler,
         VideoRendererEventListener eventListener,
-        int maxDroppedFrameCountToNotify) {
+        int maxDroppedFrameCountToNotify,
+        MediaCodecAdapter.Factory codecAdapterFactory) {
       super(
           new Builder(context)
               .setMediaCodecSelector(mediaCodecSelector)
               .setAllowedJoiningTimeMs(allowedJoiningTimeMs)
               .setEventHandler(eventHandler)
               .setEventListener(eventListener)
-              .setMaxDroppedFramesToNotify(maxDroppedFrameCountToNotify));
+              .setMaxDroppedFramesToNotify(maxDroppedFrameCountToNotify)
+              .setCodecAdapterFactory(codecAdapterFactory));
       timestampsList = new long[ARRAY_SIZE];
-      inputFormatChangeTimesUs = new ArrayDeque<>();
-
-      /*
-      // Output MediaFormat changes are known to occur too early until API 30 (see [internal:
-      // b/149818050, b/149751672]).
-      shouldMediaFormatChangeTimesBeChecked = Util.SDK_INT > 30;
-      */
-
-      // [Internal ref: b/149751672] Seeking currently causes an unexpected MediaFormat change, so
-      // this check is disabled until that is deemed fixed.
-      shouldMediaFormatChangeTimesBeChecked = false;
     }
 
     @Override
@@ -130,42 +120,9 @@ import java.util.ArrayList;
     }
 
     @Override
-    protected MediaCodecAdapter.Configuration getMediaCodecConfiguration(
-        MediaCodecInfo codecInfo, Format format, MediaCrypto crypto, float operatingRate) {
-      return super.getMediaCodecConfiguration(codecInfo, format, crypto, operatingRate);
-    }
-
-    @Override
     protected void resetCodecStateForFlush() {
       super.resetCodecStateForFlush();
       clearTimestamps();
-      // Check if there is a format change on the input side still pending propagation to the
-      // output.
-      inputFormatChanged = !inputFormatChangeTimesUs.isEmpty();
-      inputFormatChangeTimesUs.clear();
-      outputMediaFormatChanged = false;
-    }
-
-    @Override
-    protected void onCodecInitialized(
-        String name,
-        MediaCodecAdapter.Configuration configuration,
-        long initializedTimestampMs,
-        long initializationDurationMs) {
-      // If the codec was initialized whilst the renderer is started, default behavior is to
-      // render the first frame (i.e. the keyframe before the current position), then drop frames up
-      // to the current playback position. For test runs that place a maximum limit on the number of
-      // dropped frames allowed, this is not desired behavior. Hence we skip (rather than drop)
-      // frames up to the current playback position [Internal: b/66494991].
-      skipToPositionBeforeRenderingFirstFrame = getState() == Renderer.STATE_STARTED;
-      super.onCodecInitialized(
-          name, configuration, initializedTimestampMs, initializationDurationMs);
-    }
-
-    @Override
-    protected void resetCodecStateForRelease() {
-      super.resetCodecStateForRelease();
-      skipToPositionBeforeRenderingFirstFrame = false;
     }
 
     @Override
@@ -176,7 +133,6 @@ import java.util.ArrayList;
       // Ensure timestamps of buffers queued after this format change are never inserted into the
       // queue of expected output timestamps before those of buffers that have already been queued.
       minimumInsertIndex = startIndex + queueSize;
-      inputFormatChanged = true;
       return evaluation;
     }
 
@@ -185,68 +141,6 @@ import java.util.ArrayList;
       super.onQueueInputBuffer(buffer);
       insertTimestamp(buffer.timeUs);
       maybeShiftTimestampsList();
-      if (inputFormatChanged) {
-        inputFormatChangeTimesUs.add(buffer.timeUs);
-        inputFormatChanged = false;
-      }
-    }
-
-    @Override
-    protected void onOutputFormatChanged(Format format, @Nullable MediaFormat mediaFormat) {
-      super.onOutputFormatChanged(format, mediaFormat);
-      if (mediaFormat != null && !mediaFormat.equals(currentMediaFormat)) {
-        outputMediaFormatChanged = true;
-        currentMediaFormat = mediaFormat;
-      } else {
-        inputFormatChangeTimesUs.remove();
-      }
-    }
-
-    @Override
-    protected boolean processOutputBuffer(
-        long positionUs,
-        long elapsedRealtimeUs,
-        @Nullable MediaCodecAdapter codec,
-        ByteBuffer buffer,
-        int bufferIndex,
-        int bufferFlags,
-        int sampleCount,
-        long bufferPresentationTimeUs,
-        boolean isDecodeOnlyBuffer,
-        boolean isLastBuffer,
-        Format format)
-        throws ExoPlaybackException {
-      if (skipToPositionBeforeRenderingFirstFrame && bufferPresentationTimeUs < positionUs) {
-        // After the codec has been initialized, don't render the first frame until we've caught up
-        // to the playback position. Else test runs on devices that do not support dummy surface
-        // will drop frames between rendering the first one and catching up [Internal: b/66494991].
-        isDecodeOnlyBuffer = true;
-      }
-      return super.processOutputBuffer(
-          positionUs,
-          elapsedRealtimeUs,
-          codec,
-          buffer,
-          bufferIndex,
-          bufferFlags,
-          sampleCount,
-          bufferPresentationTimeUs,
-          isDecodeOnlyBuffer,
-          isLastBuffer,
-          format);
-    }
-
-    @Override
-    protected void renderOutputBuffer(MediaCodecAdapter codec, int index, long presentationTimeUs) {
-      skipToPositionBeforeRenderingFirstFrame = false;
-      super.renderOutputBuffer(codec, index, presentationTimeUs);
-    }
-
-    @Override
-    protected void renderOutputBufferV21(
-        MediaCodecAdapter codec, int index, long presentationTimeUs, long releaseTimeNs) {
-      skipToPositionBeforeRenderingFirstFrame = false;
-      super.renderOutputBufferV21(codec, index, presentationTimeUs, releaseTimeNs);
     }
 
     @Override
@@ -265,35 +159,6 @@ import java.util.ArrayList;
                 + bufferCount
                 + ").");
       }
-
-      if (outputMediaFormatChanged) {
-        long inputFormatChangeTimeUs =
-            inputFormatChangeTimesUs.isEmpty() ? C.TIME_UNSET : inputFormatChangeTimesUs.remove();
-        outputMediaFormatChanged = false;
-
-        if (shouldMediaFormatChangeTimesBeChecked
-            && presentationTimeUs != inputFormatChangeTimeUs) {
-          throw new IllegalStateException(
-              "Expected output MediaFormat change timestamp ("
-                  + presentationTimeUs
-                  + " us) to match input Format change timestamp ("
-                  + inputFormatChangeTimeUs
-                  + " us).");
-        }
-      }
-    }
-
-    @Override
-    protected boolean codecNeedsSetOutputSurfaceWorkaround(String name) {
-      // Disable all workarounds for testing - devices that require the workaround should fail GTS.
-      return false;
-    }
-
-    // TODO: b/321230611 - Remove this override when 'late' buffers that result in identical release
-    //  timestamps are reported as 'dropped' instead of 'skipped'.
-    @Override
-    protected boolean shouldSkipBuffersWithIdenticalReleaseTime() {
-      return false;
     }
 
     private void clearTimestamps() {

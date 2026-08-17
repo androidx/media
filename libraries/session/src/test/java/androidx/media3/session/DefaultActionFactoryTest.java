@@ -22,9 +22,12 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Parcel;
+import android.view.KeyEvent;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.media3.common.Player;
+import androidx.media3.test.utils.MalformedParcelable;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -34,6 +37,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
+import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowPendingIntent;
 
 /** Tests for {@link DefaultActionFactory}. */
@@ -70,6 +74,25 @@ public class DefaultActionFactoryTest {
   }
 
   @Test
+  public void createMediaPendingIntent_withCustomSessionId_intentIsMediaAction() {
+    DefaultActionFactory actionFactory =
+        new DefaultActionFactory(Robolectric.setupService(TestService.class));
+    MediaSession mediaSessionWithDefaultId =
+        new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player)
+            .setId("session-id")
+            .build();
+
+    PendingIntent pendingIntent =
+        actionFactory.createMediaActionPendingIntent(
+            mediaSessionWithDefaultId, Player.COMMAND_SEEK_FORWARD);
+
+    assertThat(actionFactory.isMediaAction(shadowOf(pendingIntent).getSavedIntent())).isTrue();
+    assertThat(shadowOf(pendingIntent).getSavedIntent().getData().toString())
+        .isEqualTo("androidx://media3.session/session-id");
+  }
+
+  @Test
+  @Config(minSdk = 26) // Context.startForegroundService is only available on API 26+
   public void createMediaPendingIntent_commandPlayPauseWhenNotPlayWhenReady_isForegroundService() {
     DefaultActionFactory actionFactory =
         new DefaultActionFactory(Robolectric.setupService(TestService.class));
@@ -82,6 +105,7 @@ public class DefaultActionFactoryTest {
   }
 
   @Test
+  @Config(minSdk = 26) // Context.startForegroundService is only available on API 26+
   public void createMediaPendingIntent_commandPlayPauseWhenPlayWhenReady_notAForegroundService() {
     DefaultActionFactory actionFactory =
         new DefaultActionFactory(Robolectric.setupService(TestService.class));
@@ -143,6 +167,22 @@ public class DefaultActionFactoryTest {
   }
 
   @Test
+  public void createNotificationDismissalIntent_containsDismissedEventFlagSetToTrue() {
+    DefaultActionFactory actionFactory =
+        new DefaultActionFactory(Robolectric.setupService(TestService.class));
+
+    ShadowPendingIntent pendingIntent =
+        shadowOf(actionFactory.createNotificationDismissalIntent(mediaSession));
+
+    assertThat(
+            pendingIntent
+                .getSavedIntent()
+                .getBooleanExtra(
+                    MediaNotification.NOTIFICATION_DISMISSED_EVENT_KEY, /* defaultValue= */ false))
+        .isTrue();
+  }
+
+  @Test
   public void
       createCustomActionFromCustomCommandButton_notACustomAction_throwsIllegalArgumentException() {
     DefaultActionFactory actionFactory =
@@ -158,6 +198,49 @@ public class DefaultActionFactoryTest {
         () ->
             actionFactory.createCustomActionFromCustomCommandButton(
                 mediaSession, customSessionCommand));
+  }
+
+  @Test
+  public void getKeyEvent_validIntent_returnsKeyEvent() {
+    Intent intent = new Intent();
+    KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY);
+    intent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
+
+    assertThat(DefaultActionFactory.getKeyEvent(intent)).isEqualTo(keyEvent);
+  }
+
+  @Test
+  public void getKeyEvent_noExtras_returnsNull() {
+    Intent intent = new Intent();
+    assertThat(DefaultActionFactory.getKeyEvent(intent)).isNull();
+  }
+
+  @Test
+  public void getKeyEvent_noKeyEventInExtras_returnsNull() {
+    Intent intent = new Intent();
+    intent.putExtra("other_extra", "value");
+    assertThat(DefaultActionFactory.getKeyEvent(intent)).isNull();
+  }
+
+  @Test
+  public void getKeyEvent_malformedParcelable_returnsNull() {
+    Intent intent = new Intent();
+    Bundle bundle = new Bundle();
+    bundle.putParcelable(Intent.EXTRA_KEY_EVENT, new MalformedParcelable());
+    intent.replaceExtras(cloneBundle(bundle));
+
+    assertThat(DefaultActionFactory.getKeyEvent(intent)).isNull();
+  }
+
+  private static Bundle cloneBundle(Bundle bundle) {
+    Parcel parcel = Parcel.obtain();
+    try {
+      bundle.writeToParcel(parcel, 0);
+      parcel.setDataPosition(0);
+      return parcel.readBundle(DefaultActionFactoryTest.class.getClassLoader());
+    } finally {
+      parcel.recycle();
+    }
   }
 
   /** A test service for unit tests. */

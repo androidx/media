@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.hls.playlist;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import android.net.Uri;
@@ -24,6 +25,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
+import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.hls.HlsTrackMetadataEntry;
 import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist.Variant;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -36,13 +38,13 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Test for {@link HlsMultivariantPlaylist}. */
+/** Test for {@link HlsPlaylistParser} to parse {@link HlsMultivariantPlaylist}. */
 // This is an instrumentation test to provide realistic regex behaviour for regression tests for
 // https://github.com/androidx/media/issues/2420.
 @RunWith(AndroidJUnit4.class)
 public class HlsMultivariantPlaylistParserTest {
 
-  private static final String PLAYLIST_URI = "https://example.com/test.m3u8";
+  private static final Uri PLAYLIST_URI = Uri.parse("https://example.com/test.m3u8");
 
   private static final String PLAYLIST_SIMPLE =
       " #EXTM3U \n"
@@ -73,6 +75,108 @@ public class HlsMultivariantPlaylistParserTest {
           + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,AVERAGE-BANDWIDTH=1270000,"
           + "CODECS=\"mp4a.40.2 , avc1.66.30 \"\n"
           + "http://example.com/spaces_in_codecs.m3u8\n";
+
+  private static final String PLAYLIST_WITH_SCORE =
+      " #EXTM3U \n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,CODECS=\"avc1.66.30\","
+          + "RESOLUTION=304x128,SCORE=1.5\n"
+          + "http://example.com/low.m3u8\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=8940000,CODECS=\"avc1.66.30\","
+          + "RESOLUTION=1920x1080,SCORE=2.0\n"
+          + "http://example.com/high.m3u8\n";
+
+  private static final String PLAYLIST_WITH_DOLBY_VISION =
+      " #EXTM3U \n"
+          + "\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=8500000,AVERAGE-BANDWIDTH=6000000,"
+          + "CODECS=\"dvh1.10.05\",RESOLUTION=1920x1080,VIDEO-RANGE=PQ\n"
+          + "http://example.com/high_hdr.m3u8\n";
+
+  private static final String PLAYLIST_WITH_CONTENT_STEERING_INFO_ABSOLUTE_SERVER_URI =
+      " #EXTM3U \n"
+          + "\n"
+          + "#EXT-X-CONTENT-STEERING:SERVER-URI=\"https://test.com/steering?video=001\",PATHWAY-ID=\"CDN-A\"\n"
+          + "\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,CODECS=\"mp4a.40.2,avc1.66.30\",RESOLUTION=304x128,PATHWAY-ID=\"CDN-A\",STABLE-VARIANT-ID=\"Video1\"\n"
+          + "http://example.com/low.m3u8\n"
+          + "\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,CODECS=\"mp4a.40.2,avc1.66.30\",RESOLUTION=304x128,PATHWAY-ID=\"CDN-B\",STABLE-VARIANT-ID=\"Video1\"\n"
+          + "http://backup.example.com/low.m3u8\n";
+
+  private static final String PLAYLIST_WITH_CONTENT_STEERING_INFO_RELATIVE_SERVER_URI =
+      " #EXTM3U \n"
+          + "\n"
+          + "#EXT-X-CONTENT-STEERING:SERVER-URI=\"/steering?video=001\",PATHWAY-ID=\"CDN-A\"\n"
+          + "\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,CODECS=\"mp4a.40.2,avc1.66.30\",RESOLUTION=304x128,PATHWAY-ID=\"CDN-A\",STABLE-VARIANT-ID=\"Video1\"\n"
+          + "http://example.com/low.m3u8\n"
+          + "\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,CODECS=\"mp4a.40.2,avc1.66.30\",RESOLUTION=304x128,PATHWAY-ID=\"CDN-B\",STABLE-VARIANT-ID=\"Video1\"\n"
+          + "http://backup.example.com/low.m3u8\n";
+
+  private static final String PLAYLIST_WITH_CONTENT_STEERING_AND_VARIABLE_SUBSTITUTION =
+      " #EXTM3U \n"
+          + "\n"
+          + "#EXT-X-DEFINE:NAME=\"steering_path\",VALUE=\"/steering?video=001\"\n"
+          + "#EXT-X-DEFINE:NAME=\"cdn_id\",VALUE=\"CDN-A\"\n"
+          + "\n"
+          + "#EXT-X-CONTENT-STEERING:SERVER-URI=\"{$steering_path}\",PATHWAY-ID=\"{$cdn_id}\"\n"
+          + "\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,CODECS=\"mp4a.40.2,avc1.66.30\",RESOLUTION=304x128,PATHWAY-ID=\"CDN-A\",STABLE-VARIANT-ID=\"Video1\"\n"
+          + "http://example.com/low.m3u8\n"
+          + "\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,CODECS=\"mp4a.40.2,avc1.66.30\",RESOLUTION=304x128,PATHWAY-ID=\"CDN-B\",STABLE-VARIANT-ID=\"Video1\"\n"
+          + "http://backup.example.com/low.m3u8\n";
+
+  private static final String PLAYLIST_WITH_CONTENT_STEERING_INFO_NO_INITIAL_PATHWAY_ID =
+      " #EXTM3U \n"
+          + "\n"
+          + "#EXT-X-CONTENT-STEERING:SERVER-URI=\"/steering?video=001\"\n"
+          + "\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,CODECS=\"mp4a.40.2,avc1.66.30\",RESOLUTION=304x128,PATHWAY-ID=\"CDN-A\",STABLE-VARIANT-ID=\"Video1\"\n"
+          + "http://example.com/low.m3u8\n"
+          + "\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,CODECS=\"mp4a.40.2,avc1.66.30\",RESOLUTION=304x128,PATHWAY-ID=\"CDN-B\",STABLE-VARIANT-ID=\"Video1\"\n"
+          + "http://backup.example.com/low.m3u8\n";
+
+  private static final String PLAYLIST_WITH_CONTENT_STEERING_INFO_NO_SERVER_URI =
+      " #EXTM3U \n"
+          + "\n"
+          + "#EXT-X-CONTENT-STEERING:PATHWAY-ID=\"CDN-A\"\n"
+          + "\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,CODECS=\"mp4a.40.2,avc1.66.30\",RESOLUTION=304x128,PATHWAY-ID=\"CDN-A\",STABLE-VARIANT-ID=\"Video1\"\n"
+          + "http://example.com/low.m3u8\n"
+          + "\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,CODECS=\"mp4a.40.2,avc1.66.30\",RESOLUTION=304x128,PATHWAY-ID=\"CDN-B\",STABLE-VARIANT-ID=\"Video1\"\n"
+          + "http://backup.example.com/low.m3u8\n";
+
+  private static final String PLAYLIST_WITH_CONTENT_STEERING_INFO_APPEARING_TWICE =
+      " #EXTM3U \n"
+          + "\n"
+          + "#EXT-X-CONTENT-STEERING:SERVER-URI=\"/steering?video=001\",PATHWAY-ID=\"CDN-A\"\n"
+          + "\n"
+          + "#EXT-X-CONTENT-STEERING:SERVER-URI=\"/steering?video=001\",PATHWAY-ID=\"CDN-B\"\n"
+          + "\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,CODECS=\"mp4a.40.2,avc1.66.30\",RESOLUTION=304x128,PATHWAY-ID=\"CDN-A\",STABLE-VARIANT-ID=\"Video1\"\n"
+          + "http://example.com/low.m3u8\n"
+          + "\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,CODECS=\"mp4a.40.2,avc1.66.30\",RESOLUTION=304x128,PATHWAY-ID=\"CDN-B\",STABLE-VARIANT-ID=\"Video1\"\n"
+          + "http://backup.example.com/low.m3u8\n";
+
+  private static final String PLAYLIST_WITH_PATHWAY_ID_AND_STABLE_VARIANT_ID =
+      " #EXTM3U \n"
+          + "\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,CODECS=\"mp4a.40.2,avc1.66.30\",RESOLUTION=304x128,PATHWAY-ID=\"CDN-A\",STABLE-VARIANT-ID=\"Video1\"\n"
+          + "http://example.com/low.m3u8\n"
+          + "\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=8940000,CODECS=\"mp4a.40.2,avc1.66.30\",RESOLUTION=1920x1080,PATHWAY-ID=\"CDN-A\",STABLE-VARIANT-ID=\"Video2\"\n"
+          + "http://example.com/high.m3u8\n"
+          + "\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,CODECS=\"mp4a.40.2,avc1.66.30\",RESOLUTION=304x128,PATHWAY-ID=\"CDN-B\",STABLE-VARIANT-ID=\"Video1\"\n"
+          + "http://backup.example.com/low.m3u8\n"
+          + "\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=8940000,CODECS=\"mp4a.40.2,avc1.66.30\",RESOLUTION=1920x1080,PATHWAY-ID=\"CDN-B\",STABLE-VARIANT-ID=\"Video2\"\n"
+          + "http://backup.example.com/high.m3u8\n";
 
   private static final String PLAYLIST_WITH_INVALID_HEADER =
       "#EXTMU3\n"
@@ -126,6 +230,16 @@ public class HlsMultivariantPlaylistParserTest {
           + "CODECS=\"mp4a.40.2,avc1.66.30\",RESOLUTION=304x128\n"
           + "http://example.com/low.m3u8\n";
 
+  private static final String PLAYLIST_WITH_SUBTITLES_STABLE_RENDITION_ID =
+      " #EXTM3U \n"
+          + "#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"sub1\",URI=\"s1/en/prog_index.m3u8\","
+          + "LANGUAGE=\"es\",NAME=\"Eng\",STABLE-RENDITION-ID=\"Subtitles-Eng\"\n"
+          + "#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"sub1\",URI=\"s1/fr/prog_index.m3u8\","
+          + "LANGUAGE=\"fr\",NAME=\"Fra\",STABLE-RENDITION-ID=\"Subtitles-Fra\"\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,"
+          + "CODECS=\"mp4a.40.2,avc1.66.30\",RESOLUTION=304x128,STABLE-VARIANT-ID=\"Video\"\n"
+          + "http://example.com/low.m3u8\n";
+
   private static final String PLAYLIST_WITH_AUDIO_MEDIA_TAG =
       "#EXTM3U\n"
           + "#EXT-X-STREAM-INF:BANDWIDTH=2227464,CODECS=\"avc1.640020,mp4a.40.2\",AUDIO=\"aud1\"\n"
@@ -140,6 +254,15 @@ public class HlsMultivariantPlaylistParserTest {
           + "AUTOSELECT=YES,DEFAULT=YES,CHANNELS=\"2\",URI=\"a1/prog_index.m3u8\"\n"
           + "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"aud2\",LANGUAGE=\"en\",NAME=\"English\","
           + "AUTOSELECT=YES,DEFAULT=YES,CHANNELS=\"6\",URI=\"a2/prog_index.m3u8\"\n";
+
+  private static final String PLAYLIST_WITH_AUDIO_STABLE_RENDITION_ID =
+      "#EXTM3U\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=8178040,CODECS=\"avc1.64002a,mp4a.40.2\",AUDIO=\"aud1\",STABLE-VARIANT-ID=\"Video1\"\n"
+          + "uri1.m3u8\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=2448841,CODECS=\"avc1.640020,ac-3\",AUDIO=\"aud2\",STABLE-VARIANT-ID=\"Video2\"\n"
+          + "uri2.m3u8\n"
+          + "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"aud1\",LANGUAGE=\"en\",NAME=\"English\",STABLE-RENDITION-ID=\"Audio1\",AUTOSELECT=YES,DEFAULT=YES,CHANNELS=\"2\",URI=\"a1/prog_index.m3u8\"\n"
+          + "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"aud2\",LANGUAGE=\"en\",NAME=\"English\",STABLE-RENDITION-ID=\"Audio2\",AUTOSELECT=YES,DEFAULT=YES,CHANNELS=\"6\",URI=\"a2/prog_index.m3u8\"\n";
 
   private static final String PLAYLIST_WITH_INDEPENDENT_SEGMENTS =
       " #EXTM3U\n"
@@ -161,6 +284,38 @@ public class HlsMultivariantPlaylistParserTest {
           + "#EXT-X-DEFINE:NAME=\"nested\",VALUE=\"This should not be inserted\"\n"
           + "#EXT-X-STREAM-INF:BANDWIDTH=65000,CODECS=\"{$codecs}\"\n"
           + "http://example.com/{$tricky}\n";
+
+  private static final String PLAYLIST_WITH_QUERY_PARAM_SUBSTITUTION =
+      " #EXTM3U \n"
+          + "\n"
+          + "#EXT-X-DEFINE:QUERYPARAM=\"path\",VALUE=\"\"\n"
+          + "#EXT-X-DEFINE:QUERYPARAM=\"codecs\",VALUE=\"\"\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=65000,CODECS=\"{$codecs}\"\n"
+          + "http://example.com/{$path}\n";
+
+  private static final String PLAYLIST_WITH_DUPLICATE_VARIABLE_AND_QUERY_PARAM_NAMES =
+      " #EXTM3U \n"
+          + "\n"
+          + "#EXT-X-DEFINE:NAME=\"path\",VALUE=\"path/to/glory\"\n"
+          + "#EXT-X-DEFINE:QUERYPARAM=\"path\",VALUE=\"\"\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=65000,CODECS=\"mp4a.40.5\"\n"
+          + "http://example.com/{$path}\n";
+
+  private static final String PLAYLIST_WITH_DUPLICATE_VARIABLE_NAMES =
+      " #EXTM3U \n"
+          + "\n"
+          + "#EXT-X-DEFINE:NAME=\"var_name\",VALUE=\"path/to/glory\"\n"
+          + "#EXT-X-DEFINE:NAME=\"var_name\",VALUE=\"\"\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=65000,CODECS=\"mp4a.40.5\"\n"
+          + "http://example.com/{$path}\n";
+
+  private static final String PLAYLIST_WITH_DUPLICATE_QUERY_PARAM_NAMES =
+      " #EXTM3U \n"
+          + "\n"
+          + "#EXT-X-DEFINE:QUERYPARAM=\"query_param\",VALUE=\"\"\n"
+          + "#EXT-X-DEFINE:QUERYPARAM=\"query_param\",VALUE=\"\"\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=65000,CODECS=\"mp4a.40.5\"\n"
+          + "http://example.com/{$path}\n";
 
   private static final String PLAYLIST_WITH_MATCHING_STREAM_INF_URLS =
       "#EXTM3U\n"
@@ -235,6 +390,15 @@ public class HlsMultivariantPlaylistParserTest {
           + "8940000/index.m3u8\n"
           + "#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=1313400,RESOLUTION=1920x1080,CODECS=\"avc1.640028\",URI=\"iframe_1313400/index.m3u8\"\n";
 
+  private static final String PLAYLIST_WITH_IFRAME_VARIANT_SCORE =
+      "#EXTM3U\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=8940000,RESOLUTION=1920x1080,"
+          + "CODECS=\"avc1.640028\"\n"
+          + "8940000/index.m3u8\n"
+          + "#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=1313400,SCORE=4.5,"
+          + "RESOLUTION=1920x1080,CODECS=\"avc1.640028\","
+          + "URI=\"iframe_1313400/index.m3u8\"\n";
+
   @Test
   public void parseMultivariantPlaylist_withSimple_success() throws IOException {
     HlsMultivariantPlaylist multivariantPlaylist =
@@ -249,11 +413,15 @@ public class HlsMultivariantPlaylistParserTest {
     assertThat(variants.get(0).format.width).isEqualTo(304);
     assertThat(variants.get(0).format.height).isEqualTo(128);
     assertThat(variants.get(0).url).isEqualTo(Uri.parse("http://example.com/low.m3u8"));
+    assertThat(variants.get(0).pathwayId).isNull();
+    assertThat(variants.get(0).stableVariantId).isNull();
 
     assertThat(variants.get(1).format.bitrate).isEqualTo(1280000);
     assertThat(variants.get(1).format.codecs).isEqualTo("mp4a.40.2 , avc1.66.30 ");
     assertThat(variants.get(1).url)
         .isEqualTo(Uri.parse("http://example.com/spaces_in_codecs.m3u8"));
+    assertThat(variants.get(1).pathwayId).isNull();
+    assertThat(variants.get(1).stableVariantId).isNull();
 
     assertThat(variants.get(2).format.bitrate).isEqualTo(2560000);
     assertThat(variants.get(2).format.codecs).isNull();
@@ -261,6 +429,8 @@ public class HlsMultivariantPlaylistParserTest {
     assertThat(variants.get(2).format.height).isEqualTo(160);
     assertThat(variants.get(2).format.frameRate).isEqualTo(25.0f);
     assertThat(variants.get(2).url).isEqualTo(Uri.parse("http://example.com/mid.m3u8"));
+    assertThat(variants.get(2).pathwayId).isNull();
+    assertThat(variants.get(2).stableVariantId).isNull();
 
     assertThat(variants.get(3).format.bitrate).isEqualTo(7680000);
     assertThat(variants.get(3).format.codecs).isNull();
@@ -268,6 +438,8 @@ public class HlsMultivariantPlaylistParserTest {
     assertThat(variants.get(3).format.height).isEqualTo(Format.NO_VALUE);
     assertThat(variants.get(3).format.frameRate).isEqualTo(29.997f);
     assertThat(variants.get(3).url).isEqualTo(Uri.parse("http://example.com/hi.m3u8"));
+    assertThat(variants.get(3).pathwayId).isNull();
+    assertThat(variants.get(3).stableVariantId).isNull();
 
     assertThat(variants.get(4).format.bitrate).isEqualTo(65000);
     assertThat(variants.get(4).format.codecs).isEqualTo("mp4a.40.5");
@@ -275,6 +447,21 @@ public class HlsMultivariantPlaylistParserTest {
     assertThat(variants.get(4).format.height).isEqualTo(Format.NO_VALUE);
     assertThat(variants.get(4).format.frameRate).isEqualTo((float) Format.NO_VALUE);
     assertThat(variants.get(4).url).isEqualTo(Uri.parse("http://example.com/audio-only.m3u8"));
+    assertThat(variants.get(4).pathwayId).isNull();
+    assertThat(variants.get(4).stableVariantId).isNull();
+
+    assertThat(multivariantPlaylist.contentSteeringInfo).isNull();
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_withoutScore_setsSelectionPriorityToNoValue()
+      throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_SIMPLE);
+
+    for (HlsMultivariantPlaylist.Variant variant : multivariantPlaylist.variants) {
+      assertThat(variant.format.selectionPriority).isEqualTo((float) Format.NO_VALUE);
+    }
   }
 
   @Test
@@ -286,6 +473,132 @@ public class HlsMultivariantPlaylistParserTest {
 
     assertThat(variants.get(0).format.bitrate).isEqualTo(1280000);
     assertThat(variants.get(1).format.bitrate).isEqualTo(1280000);
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_withScore_success() throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_WITH_SCORE);
+
+    List<HlsMultivariantPlaylist.Variant> variants = multivariantPlaylist.variants;
+    assertThat(variants.get(0).format.selectionPriority).isEqualTo(1.5f);
+    assertThat(variants.get(1).format.selectionPriority).isEqualTo(2.0f);
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_withDolbyVisionProfile10_success() throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_WITH_DOLBY_VISION);
+
+    List<HlsMultivariantPlaylist.Variant> variants = multivariantPlaylist.variants;
+
+    assertThat(variants.get(0).format.colorInfo).isNotNull();
+    assertThat(variants.get(0).format.colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_BT2020);
+    assertThat(variants.get(0).format.colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_ST2084);
+    assertThat(variants.get(0).format.colorInfo.colorRange).isEqualTo(C.COLOR_RANGE_FULL);
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_hasContentSteeringInfoWithAbsoluteServerUri_success()
+      throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(
+            PLAYLIST_URI, PLAYLIST_WITH_CONTENT_STEERING_INFO_ABSOLUTE_SERVER_URI);
+
+    assertThat(multivariantPlaylist.contentSteeringInfo).isNotNull();
+    HlsMultivariantPlaylist.ContentSteeringInfo contentSteeringInfo =
+        multivariantPlaylist.contentSteeringInfo;
+    assertThat(contentSteeringInfo.serverUri)
+        .isEqualTo(Uri.parse("https://test.com/steering?video=001"));
+    assertThat(contentSteeringInfo.pathwayId).isEqualTo("CDN-A");
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_hasContentSteeringInfoWithRelativeServerUri_success()
+      throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(
+            PLAYLIST_URI, PLAYLIST_WITH_CONTENT_STEERING_INFO_RELATIVE_SERVER_URI);
+
+    assertThat(multivariantPlaylist.contentSteeringInfo).isNotNull();
+    HlsMultivariantPlaylist.ContentSteeringInfo contentSteeringInfo =
+        multivariantPlaylist.contentSteeringInfo;
+    assertThat(contentSteeringInfo.serverUri)
+        .isEqualTo(Uri.parse("https://example.com/steering?video=001"));
+    assertThat(contentSteeringInfo.pathwayId).isEqualTo("CDN-A");
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_contentSteeringWithVariableSubstitution_success()
+      throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(
+            PLAYLIST_URI, PLAYLIST_WITH_CONTENT_STEERING_AND_VARIABLE_SUBSTITUTION);
+
+    assertThat(multivariantPlaylist.contentSteeringInfo).isNotNull();
+    HlsMultivariantPlaylist.ContentSteeringInfo contentSteeringInfo =
+        multivariantPlaylist.contentSteeringInfo;
+    assertThat(contentSteeringInfo.serverUri)
+        .isEqualTo(Uri.parse("https://example.com/steering?video=001"));
+    assertThat(contentSteeringInfo.pathwayId).isEqualTo("CDN-A");
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_hasContentSteeringInfoNoInitialPathwayId_success()
+      throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(
+            PLAYLIST_URI, PLAYLIST_WITH_CONTENT_STEERING_INFO_NO_INITIAL_PATHWAY_ID);
+
+    assertThat(multivariantPlaylist.contentSteeringInfo).isNotNull();
+    HlsMultivariantPlaylist.ContentSteeringInfo contentSteeringInfo =
+        multivariantPlaylist.contentSteeringInfo;
+    assertThat(contentSteeringInfo.serverUri)
+        .isEqualTo(Uri.parse("https://example.com/steering?video=001"));
+    assertThat(contentSteeringInfo.pathwayId).isNull();
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_contentSteeringInfoNoServerUri_throwsException() {
+    assertThrows(
+        ParserException.class,
+        () ->
+            parseMultivariantPlaylist(
+                PLAYLIST_URI, PLAYLIST_WITH_CONTENT_STEERING_INFO_NO_SERVER_URI));
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_contentSteeringInfoAppearingTwice_throwsException() {
+    ParserException exception =
+        assertThrows(
+            ParserException.class,
+            () ->
+                parseMultivariantPlaylist(
+                    PLAYLIST_URI, PLAYLIST_WITH_CONTENT_STEERING_INFO_APPEARING_TWICE));
+    assertThat(exception)
+        .hasMessageThat()
+        .contains("#EXT-X-CONTENT-STEERING tag must not appear more than once");
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_withPathwayIdAndStableVariantId_success()
+      throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_WITH_PATHWAY_ID_AND_STABLE_VARIANT_ID);
+
+    List<HlsMultivariantPlaylist.Variant> variants = multivariantPlaylist.variants;
+
+    assertThat(variants.get(0).pathwayId).isEqualTo("CDN-A");
+    assertThat(variants.get(0).stableVariantId).isEqualTo("Video1");
+
+    assertThat(variants.get(1).pathwayId).isEqualTo("CDN-A");
+    assertThat(variants.get(1).stableVariantId).isEqualTo("Video2");
+
+    assertThat(variants.get(2).pathwayId).isEqualTo("CDN-B");
+    assertThat(variants.get(2).stableVariantId).isEqualTo("Video1");
+
+    assertThat(variants.get(3).pathwayId).isEqualTo("CDN-B");
+    assertThat(variants.get(3).stableVariantId).isEqualTo("Video2");
   }
 
   @Test
@@ -344,11 +657,24 @@ public class HlsMultivariantPlaylistParserTest {
     HlsMultivariantPlaylist playlist =
         parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_WITH_AUDIO_MEDIA_TAG);
 
-    Format firstAudioFormat = playlist.audios.get(0).format;
+    HlsMultivariantPlaylist.Rendition firstAudioRendition = playlist.audios.get(0);
+    Format firstAudioFormat = firstAudioRendition.format;
     assertThat(firstAudioFormat.id).isEqualTo("aud1:English");
+    assertThat(firstAudioRendition.stableRenditionId).isNull();
 
-    Format secondAudioFormat = playlist.audios.get(1).format;
+    HlsMultivariantPlaylist.Rendition secondAudioRendition = playlist.audios.get(1);
+    Format secondAudioFormat = secondAudioRendition.format;
     assertThat(secondAudioFormat.id).isEqualTo("aud2:English");
+    assertThat(secondAudioRendition.stableRenditionId).isNull();
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_withAudio_stableRenditionIdPropagated() throws IOException {
+    HlsMultivariantPlaylist playlist =
+        parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_WITH_AUDIO_STABLE_RENDITION_ID);
+
+    assertThat(playlist.audios.get(0).stableRenditionId).isEqualTo("Audio1");
+    assertThat(playlist.audios.get(1).stableRenditionId).isEqualTo("Audio2");
   }
 
   @Test
@@ -364,9 +690,21 @@ public class HlsMultivariantPlaylistParserTest {
     HlsMultivariantPlaylist playlist =
         parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_WITH_SUBTITLES);
 
-    Format firstTextFormat = playlist.subtitles.get(0).format;
+    HlsMultivariantPlaylist.Rendition firstSubtitlesRendition = playlist.subtitles.get(0);
+    Format firstTextFormat = firstSubtitlesRendition.format;
     assertThat(firstTextFormat.id).isEqualTo("sub1:Eng");
     assertThat(firstTextFormat.sampleMimeType).isEqualTo(MimeTypes.TEXT_VTT);
+    assertThat(firstSubtitlesRendition.stableRenditionId).isNull();
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_withSubtitles_stableRenditionIdPropagated()
+      throws IOException {
+    HlsMultivariantPlaylist playlist =
+        parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_WITH_SUBTITLES_STABLE_RENDITION_ID);
+
+    assertThat(playlist.subtitles.get(0).stableRenditionId).isEqualTo("Subtitles-Eng");
+    assertThat(playlist.subtitles.get(1).stableRenditionId).isEqualTo("Subtitles-Fra");
   }
 
   @Test
@@ -387,6 +725,138 @@ public class HlsMultivariantPlaylistParserTest {
     HlsMultivariantPlaylist playlistWithoutIndependentSegments =
         parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_SIMPLE);
     assertThat(playlistWithoutIndependentSegments.hasIndependentSegments).isFalse();
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_withQueryParams_placeholderSubstituted()
+      throws IOException {
+    Uri playlistUri = Uri.parse("http://example.com/?path=appended/path&codecs=mp4a.40.5");
+
+    HlsMultivariantPlaylist playlistWithSubstitutions =
+        parseMultivariantPlaylist(playlistUri, PLAYLIST_WITH_QUERY_PARAM_SUBSTITUTION);
+
+    HlsMultivariantPlaylist.Variant variant = playlistWithSubstitutions.variants.get(0);
+    assertThat(variant.format.codecs).isEqualTo("mp4a.40.5");
+    assertThat(variant.url).isEqualTo(Uri.parse("http://example.com/appended/path"));
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_withDuplicateVariableNameAndQueryParam_throws() {
+    ParserException parserException =
+        assertThrows(
+            ParserException.class,
+            () ->
+                parseMultivariantPlaylist(
+                    Uri.parse("http://example.com/?path=appended/path&codecs=mp4a.40.5"),
+                    PLAYLIST_WITH_DUPLICATE_VARIABLE_AND_QUERY_PARAM_NAMES));
+    assertThat(parserException).hasMessageThat().contains("duplicate variable name \"path\"");
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_withDuplicateVariableName_throws() {
+    ParserException parserException =
+        assertThrows(
+            ParserException.class,
+            () ->
+                parseMultivariantPlaylist(
+                    Uri.parse("http://example.com/?path=appended/path&codecs=mp4a.40.5"),
+                    PLAYLIST_WITH_DUPLICATE_VARIABLE_NAMES));
+    assertThat(parserException).hasMessageThat().contains("duplicate variable name \"var_name\"");
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_withDuplicateQueryParamName_throws() {
+    ParserException parserException =
+        assertThrows(
+            ParserException.class,
+            () ->
+                parseMultivariantPlaylist(
+                    Uri.parse("http://example.com/?query_param=value_1"),
+                    PLAYLIST_WITH_DUPLICATE_QUERY_PARAM_NAMES));
+    assertThat(parserException)
+        .hasMessageThat()
+        .contains("duplicate variable name \"query_param\"");
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_missingQueryParam_throws() {
+    ParserException parserException =
+        assertThrows(
+            ParserException.class,
+            () -> parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_WITH_QUERY_PARAM_SUBSTITUTION));
+    assertThat(parserException)
+        .hasMessageThat()
+        .contains("QUERYPARAM \"path\" not found in playlist URI");
+  }
+
+  @Test
+  public void
+      parseMultivariantPlaylist_dependentPlaylistWithImportedQueryParam_placeholderSubstituted()
+          throws IOException {
+    String mediaPlaylistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXT-X-DEFINE:IMPORT=\"path\"\n"
+            + "#EXTINF:5.005,\n"
+            + "relative/from/{$path}/1.ts\n"
+            + "#EXTINF:5.005,\n"
+            + "relative/from/{$path}/2.ts\n"
+            + "#EXTINF:5.005,\n"
+            + "relative/from/{$path}/3.ts\n"
+            + "#EXTINF:5.005,\n"
+            + "relative/from/{$path}/4.ts\n";
+    Uri multivariantPlaylistUri =
+        Uri.parse("http://example.com/?path=appended/path&codecs=mp4a.40.5");
+    HlsMultivariantPlaylist playlistWithSubstitutions =
+        parseMultivariantPlaylist(multivariantPlaylistUri, PLAYLIST_WITH_QUERY_PARAM_SUBSTITUTION);
+    ByteArrayInputStream inputStream =
+        new ByteArrayInputStream(Util.getUtf8Bytes(mediaPlaylistString));
+
+    HlsMediaPlaylist mediaPlaylist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser(playlistWithSubstitutions, /* previousMediaPlaylist= */ null)
+                .parse(Uri.parse("http://example.com/"), inputStream);
+
+    for (int i = 0; i < mediaPlaylist.segments.size(); i++) {
+      assertThat(mediaPlaylist.segments.get(i).url)
+          .isEqualTo("relative/from/appended/path/" + (i + 1) + ".ts");
+    }
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_dependentPlaylistWithoutImport_placeholderNotSubstituted()
+      throws IOException {
+    String mediaPlaylistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXTINF:5.005,\n"
+            + "relative/from/{$path}/1.ts\n"
+            + "#EXTINF:5.005,\n"
+            + "relative/from/{$path}/2.ts\n"
+            + "#EXTINF:5.005,\n"
+            + "relative/from/{$path}/3.ts\n"
+            + "#EXTINF:5.005,\n"
+            + "relative/from/{$path}/4.ts\n";
+    Uri multivariantPlaylistUri =
+        Uri.parse("http://example.com/?path=appended/path&codecs=mp4a.40.5");
+    HlsMultivariantPlaylist playlistWithSubstitutions =
+        parseMultivariantPlaylist(multivariantPlaylistUri, PLAYLIST_WITH_QUERY_PARAM_SUBSTITUTION);
+    ByteArrayInputStream inputStream =
+        new ByteArrayInputStream(Util.getUtf8Bytes(mediaPlaylistString));
+
+    HlsMediaPlaylist mediaPlaylist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser(playlistWithSubstitutions, /* previousMediaPlaylist= */ null)
+                .parse(Uri.parse("http://example.com/"), inputStream);
+
+    for (int i = 0; i < mediaPlaylist.segments.size(); i++) {
+      assertThat(mediaPlaylist.segments.get(i).url)
+          .isEqualTo("relative/from/{$path}/" + (i + 1) + ".ts");
+    }
   }
 
   @Test
@@ -461,6 +931,17 @@ public class HlsMultivariantPlaylistParserTest {
         .isEqualTo(C.ROLE_FLAG_TRICK_PLAY);
   }
 
+  @Test
+  public void parseMultivariantPlaylist_withIFrameStreamInfScore_success() throws IOException {
+    HlsMultivariantPlaylist playlist =
+        parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_WITH_IFRAME_VARIANT_SCORE);
+
+    assertThat(playlist.variants).hasSize(2);
+    assertThat(playlist.variants.get(0).format.selectionPriority)
+        .isEqualTo((float) Format.NO_VALUE);
+    assertThat(playlist.variants.get(1).format.selectionPriority).isEqualTo(4.5f);
+  }
+
   private static Metadata createExtXStreamInfMetadata(HlsTrackMetadataEntry.VariantInfo... infos) {
     return new Metadata(
         new HlsTrackMetadataEntry(/* groupId= */ null, /* name= */ null, Arrays.asList(infos)));
@@ -482,8 +963,7 @@ public class HlsMultivariantPlaylistParserTest {
   }
 
   private static HlsMultivariantPlaylist parseMultivariantPlaylist(
-      String uri, String playlistString) throws IOException {
-    Uri playlistUri = Uri.parse(uri);
+      Uri playlistUri, String playlistString) throws IOException {
     ByteArrayInputStream inputStream =
         new ByteArrayInputStream(playlistString.getBytes(StandardCharsets.UTF_8));
     return (HlsMultivariantPlaylist) new HlsPlaylistParser().parse(playlistUri, inputStream);

@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.rtsp.reader;
 
-import static androidx.media3.common.util.Util.getBytesFromHexString;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
@@ -30,10 +29,9 @@ import androidx.media3.exoplayer.rtsp.RtpPacket;
 import androidx.media3.exoplayer.rtsp.RtpPayloadFormat;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
+import androidx.media3.test.utils.ImmutableByteArray;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.Bytes;
-import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -48,30 +46,47 @@ public class RtpH265ReaderTest {
   private static final long AP_PACKET_2_RTP_TIMESTAMP = 9_000_040;
   private static final long SINGLE_NALU_PACKET_1_RTP_TIMESTAMP = 9_000_040;
   private static final long SINGLE_NALU_PACKET_2_RTP_TIMESTAMP = 9_000_080;
-  private static final byte[] AP_NALU_HEADER = getBytesFromHexString("6001");
-  private static final byte[] NALU_1_LENGTH = getBytesFromHexString("000c");
-  private static final byte[] NALU_1_INVALID_LENGTH = getBytesFromHexString("00ff");
-  private static final byte[] NALU_1_HEADER = getBytesFromHexString("4001");
-  private static final byte[] NALU_1_PAYLOAD = getBytesFromHexString("0102030405060708090a");
-  private static final byte[] NALU_2_LENGTH = getBytesFromHexString("000e");
-  private static final byte[] NALU_2_HEADER = getBytesFromHexString("4201");
-  private static final byte[] NALU_2_PAYLOAD = getBytesFromHexString("1112131415161718191a1b1c");
+  public static final ImmutableByteArray NALU_START_CODE =
+      ImmutableByteArray.copyOf(NalUnitUtil.NAL_START_CODE);
+  private static final ImmutableByteArray AP_NALU_HEADER = ImmutableByteArray.ofHexString("6001");
+  private static final ImmutableByteArray NALU_1_LENGTH = ImmutableByteArray.ofHexString("000c");
+  private static final ImmutableByteArray NALU_1_INVALID_LENGTH =
+      ImmutableByteArray.ofHexString("00ff");
+  private static final ImmutableByteArray NALU_1_HEADER = ImmutableByteArray.ofHexString("4001");
+  private static final ImmutableByteArray NALU_1_PAYLOAD =
+      ImmutableByteArray.ofHexString("0102030405060708090a");
+  private static final ImmutableByteArray NALU_1_START_DELIMITED =
+      ImmutableByteArray.concat(NALU_START_CODE, NALU_1_HEADER, NALU_1_PAYLOAD);
+  private static final ImmutableByteArray NALU_2_LENGTH = ImmutableByteArray.ofHexString("000e");
+  private static final ImmutableByteArray NALU_2_HEADER = ImmutableByteArray.ofHexString("4201");
+  private static final ImmutableByteArray NALU_2_PAYLOAD =
+      ImmutableByteArray.ofHexString("1112131415161718191a1b1c");
+  private static final ImmutableByteArray NALU_2_START_DELIMITED =
+      ImmutableByteArray.concat(NALU_START_CODE, NALU_2_HEADER, NALU_2_PAYLOAD);
+  private static final ImmutableByteArray NALU_1_AND_2_START_DELIMITED =
+      ImmutableByteArray.concat(NALU_1_START_DELIMITED, NALU_2_START_DELIMITED);
   private static final int FU_PACKET_SEQUENCE_NUMBER = 12342;
   private static final long FU_PACKET_RTP_TIMESTAMP = 9_000_000;
-  private static final byte[] FU_NALU_HEADER = getBytesFromHexString("6201");
-  private static final byte[] FU_1_PACKET_1_FU_HEADER = getBytesFromHexString("a0");
-  private static final byte[] FU_1_PACKET_2_FU_HEADER = getBytesFromHexString("20");
-  private static final byte[] FU_1_PACKET_3_FU_HEADER = getBytesFromHexString("60");
-  private static final byte[] FU_1_PACKET_1_NALU_PAYLOAD = getBytesFromHexString("010203");
-  private static final byte[] FU_1_PACKET_2_NALU_PAYLOAD = getBytesFromHexString("040506");
-  private static final byte[] FU_1_PACKET_3_NALU_PAYLOAD = getBytesFromHexString("0708090a");
+  private static final ImmutableByteArray FU_NALU_HEADER = ImmutableByteArray.ofHexString("6201");
+  private static final ImmutableByteArray FU_1_PACKET_1_FU_HEADER =
+      ImmutableByteArray.ofHexString("a0");
+  private static final ImmutableByteArray FU_1_PACKET_2_FU_HEADER =
+      ImmutableByteArray.ofHexString("20");
+  private static final ImmutableByteArray FU_1_PACKET_3_FU_HEADER =
+      ImmutableByteArray.ofHexString("60");
+  private static final ImmutableByteArray FU_1_PACKET_1_NALU_PAYLOAD =
+      ImmutableByteArray.ofHexString("010203");
+  private static final ImmutableByteArray FU_1_PACKET_2_NALU_PAYLOAD =
+      ImmutableByteArray.ofHexString("040506");
+  private static final ImmutableByteArray FU_1_PACKET_3_NALU_PAYLOAD =
+      ImmutableByteArray.ofHexString("0708090a");
 
   private static final RtpPacket SINGLE_NALU_PACKET_1 =
       new RtpPacket.Builder()
           .setTimestamp(SINGLE_NALU_PACKET_1_RTP_TIMESTAMP)
           .setSequenceNumber(PACKET_SEQUENCE_NUMBER + 1)
           .setMarker(true)
-          .setPayloadData(Bytes.concat(NALU_1_HEADER, NALU_1_PAYLOAD))
+          .setPayloadData(ImmutableByteArray.concatToArray(NALU_1_HEADER, NALU_1_PAYLOAD))
           .build();
 
   private static final RtpPacket SINGLE_NALU_PACKET_2 =
@@ -79,7 +94,7 @@ public class RtpH265ReaderTest {
           .setTimestamp(SINGLE_NALU_PACKET_2_RTP_TIMESTAMP)
           .setSequenceNumber(PACKET_SEQUENCE_NUMBER + 2)
           .setMarker(true)
-          .setPayloadData(Bytes.concat(NALU_2_HEADER, NALU_2_PAYLOAD))
+          .setPayloadData(ImmutableByteArray.concatToArray(NALU_2_HEADER, NALU_2_PAYLOAD))
           .build();
 
   private static final RtpPacket VALID_AP_PACKET =
@@ -114,7 +129,7 @@ public class RtpH265ReaderTest {
           NALU_2_LENGTH,
           NALU_2_HEADER,
           NALU_2_PAYLOAD,
-          new byte[] {0x0a});
+          ImmutableByteArray.ofUnsigned(0x0a));
 
   private static final RtpPacket INVALID_AP_PACKET_MISSING_BYTE =
       createAggregationPacket(
@@ -125,7 +140,7 @@ public class RtpH265ReaderTest {
           NALU_1_PAYLOAD,
           NALU_2_LENGTH,
           NALU_2_HEADER,
-          Arrays.copyOf(NALU_2_PAYLOAD, NALU_2_PAYLOAD.length - 1));
+          NALU_2_PAYLOAD.subArray(0, NALU_2_PAYLOAD.length() - 1));
 
   private static final RtpPacket INVALID_AP_PACKET_INVALID_NALU_LENGTH =
       createAggregationPacket(
@@ -204,6 +219,21 @@ public class RtpH265ReaderTest {
   }
 
   @Test
+  public void consume_unsupportedPayloadType_throwsParserException() {
+    // Payload type 63 (0x3F) is reserved/unsupported in RFC7798.
+    // The type is in bits 1-6 of the first byte: (0x3F << 1) = 0x7E.
+    RtpPacket packet =
+        new RtpPacket.Builder()
+            .setTimestamp(9000)
+            .setSequenceNumber(PACKET_SEQUENCE_NUMBER)
+            .setPayloadData(new byte[] {(byte) 0x7E, 0x01})
+            .build();
+    rtpH265Reader.createTracks(extractorOutput, /* trackId= */ 0);
+
+    assertThrows(ParserException.class, () -> consume(rtpH265Reader, packet));
+  }
+
+  @Test
   public void consume_validPackets() throws ParserException {
     rtpH265Reader.createTracks(extractorOutput, /* trackId= */ 0);
     rtpH265Reader.onReceivingFirstPacket(VALID_AP_PACKET.timestamp, VALID_AP_PACKET.sequenceNumber);
@@ -212,25 +242,9 @@ public class RtpH265ReaderTest {
 
     FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);
     assertThat(trackOutput.getSampleCount()).isEqualTo(2);
-    assertThat(trackOutput.getSampleData(0))
-        .isEqualTo(
-            Bytes.concat(
-                NalUnitUtil.NAL_START_CODE,
-                NALU_1_HEADER,
-                NALU_1_PAYLOAD,
-                NalUnitUtil.NAL_START_CODE,
-                NALU_2_HEADER,
-                NALU_2_PAYLOAD));
+    assertThat(trackOutput.getSampleData(0)).isEqualTo(NALU_1_AND_2_START_DELIMITED.toArray());
     assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(0);
-    assertThat(trackOutput.getSampleData(1))
-        .isEqualTo(
-            Bytes.concat(
-                NalUnitUtil.NAL_START_CODE,
-                NALU_1_HEADER,
-                NALU_1_PAYLOAD,
-                NalUnitUtil.NAL_START_CODE,
-                NALU_2_HEADER,
-                NALU_2_PAYLOAD));
+    assertThat(trackOutput.getSampleData(1)).isEqualTo(NALU_1_AND_2_START_DELIMITED.toArray());
     assertThat(trackOutput.getSampleTimeUs(1))
         .isEqualTo(
             Util.scaleLargeTimestamp(
@@ -259,21 +273,11 @@ public class RtpH265ReaderTest {
 
     FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);
     assertThat(trackOutput.getSampleCount()).isEqualTo(3);
-    assertThat(trackOutput.getSampleData(0))
-        .isEqualTo(
-            Bytes.concat(
-                NalUnitUtil.NAL_START_CODE,
-                NALU_1_HEADER,
-                NALU_1_PAYLOAD,
-                NalUnitUtil.NAL_START_CODE,
-                NALU_2_HEADER,
-                NALU_2_PAYLOAD));
+    assertThat(trackOutput.getSampleData(0)).isEqualTo(NALU_1_AND_2_START_DELIMITED.toArray());
     assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(0);
-    assertThat(trackOutput.getSampleData(1))
-        .isEqualTo(Bytes.concat(NalUnitUtil.NAL_START_CODE, NALU_1_HEADER, NALU_1_PAYLOAD));
+    assertThat(trackOutput.getSampleData(1)).isEqualTo(NALU_1_START_DELIMITED.toArray());
     assertThat(trackOutput.getSampleTimeUs(1)).isEqualTo(naluPacket1PresentationTimestampUs);
-    assertThat(trackOutput.getSampleData(2))
-        .isEqualTo(Bytes.concat(NalUnitUtil.NAL_START_CODE, NALU_2_HEADER, NALU_2_PAYLOAD));
+    assertThat(trackOutput.getSampleData(2)).isEqualTo(NALU_2_START_DELIMITED.toArray());
     assertThat(trackOutput.getSampleTimeUs(2)).isEqualTo(naluPacket2PresentationTimestampUs);
   }
 
@@ -336,14 +340,11 @@ public class RtpH265ReaderTest {
 
     FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);
     assertThat(trackOutput.getSampleCount()).isEqualTo(3);
-    assertThat(trackOutput.getSampleData(0))
-        .isEqualTo(Bytes.concat(NalUnitUtil.NAL_START_CODE, NALU_1_HEADER, NALU_1_PAYLOAD));
+    assertThat(trackOutput.getSampleData(0)).isEqualTo(NALU_1_START_DELIMITED.toArray());
     assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(0);
-    assertThat(trackOutput.getSampleData(1))
-        .isEqualTo(Bytes.concat(NalUnitUtil.NAL_START_CODE, NALU_1_HEADER, NALU_1_PAYLOAD));
+    assertThat(trackOutput.getSampleData(1)).isEqualTo(NALU_1_START_DELIMITED.toArray());
     assertThat(trackOutput.getSampleTimeUs(1)).isEqualTo(naluPacket1PresentationTimestampUs);
-    assertThat(trackOutput.getSampleData(2))
-        .isEqualTo(Bytes.concat(NalUnitUtil.NAL_START_CODE, NALU_2_HEADER, NALU_2_PAYLOAD));
+    assertThat(trackOutput.getSampleData(2)).isEqualTo(NALU_2_START_DELIMITED.toArray());
     assertThat(trackOutput.getSampleTimeUs(2)).isEqualTo(naluPacket2PresentationTimestampUs);
   }
 
@@ -369,11 +370,9 @@ public class RtpH265ReaderTest {
     consume(rtpH265Reader, SINGLE_NALU_PACKET_2);
 
     FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);
-    assertThat(trackOutput.getSampleData(0))
-        .isEqualTo(Bytes.concat(NalUnitUtil.NAL_START_CODE, NALU_1_HEADER, NALU_1_PAYLOAD));
+    assertThat(trackOutput.getSampleData(0)).isEqualTo(NALU_1_START_DELIMITED.toArray());
     assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(naluPacket1PresentationTimestampUs);
-    assertThat(trackOutput.getSampleData(1))
-        .isEqualTo(Bytes.concat(NalUnitUtil.NAL_START_CODE, NALU_2_HEADER, NALU_2_PAYLOAD));
+    assertThat(trackOutput.getSampleData(1)).isEqualTo(NALU_2_START_DELIMITED.toArray());
     assertThat(trackOutput.getSampleTimeUs(1)).isEqualTo(naluPacket2PresentationTimestampUs);
   }
 
@@ -399,31 +398,240 @@ public class RtpH265ReaderTest {
     consume(rtpH265Reader, SINGLE_NALU_PACKET_2);
 
     FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);
-    assertThat(trackOutput.getSampleData(0))
-        .isEqualTo(Bytes.concat(NalUnitUtil.NAL_START_CODE, NALU_1_HEADER, NALU_1_PAYLOAD));
+    assertThat(trackOutput.getSampleData(0)).isEqualTo(NALU_1_START_DELIMITED.toArray());
     assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(naluPacket1PresentationTimestampUs);
-    assertThat(trackOutput.getSampleData(1))
-        .isEqualTo(Bytes.concat(NalUnitUtil.NAL_START_CODE, NALU_2_HEADER, NALU_2_PAYLOAD));
+    assertThat(trackOutput.getSampleData(1)).isEqualTo(NALU_2_START_DELIMITED.toArray());
     assertThat(trackOutput.getSampleTimeUs(1)).isEqualTo(naluPacket2PresentationTimestampUs);
   }
 
+  @Test
+  public void consume_multipleSingleNalUnitsInSingleAccessUnit_reportsCorrectCombinedSize()
+      throws ParserException {
+    // Both packets share the same timestamp, forming a single Access Unit.
+    long accessUnitTimestamp = 9_000_000;
+    // Packet 1: Single NAL unit, marker = false (more NAL units follow in this Access Unit).
+    RtpPacket packet1 =
+        new RtpPacket.Builder()
+            .setTimestamp(accessUnitTimestamp)
+            .setSequenceNumber(PACKET_SEQUENCE_NUMBER)
+            .setMarker(false)
+            .setPayloadData(ImmutableByteArray.concatToArray(NALU_1_HEADER, NALU_1_PAYLOAD))
+            .build();
+    // Packet 2: Single NAL unit, marker = true (last packet in the Access Unit).
+    RtpPacket packet2 =
+        new RtpPacket.Builder()
+            .setTimestamp(accessUnitTimestamp)
+            .setSequenceNumber(PACKET_SEQUENCE_NUMBER + 1)
+            .setMarker(true)
+            .setPayloadData(ImmutableByteArray.concatToArray(NALU_2_HEADER, NALU_2_PAYLOAD))
+            .build();
+    rtpH265Reader.createTracks(extractorOutput, /* trackId= */ 0);
+    rtpH265Reader.onReceivingFirstPacket(packet1.timestamp, packet1.sequenceNumber);
+
+    consume(rtpH265Reader, packet1);
+    consume(rtpH265Reader, packet2);
+
+    FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);
+    assertThat(trackOutput.getSampleCount()).isEqualTo(1);
+    int expectedSize = NALU_1_START_DELIMITED.length() + NALU_2_START_DELIMITED.length();
+    assertThat(trackOutput.getSampleData(0).length).isEqualTo(expectedSize);
+    assertThat(trackOutput.getSampleData(0))
+        .isEqualTo(
+            ImmutableByteArray.concat(NALU_1_START_DELIMITED, NALU_2_START_DELIMITED).toArray());
+  }
+
+  @Test
+  public void consume_multipleMixedNalUnitsInSingleAccessUnit_aggregatesCorrectly()
+      throws ParserException {
+    long accessUnitTimestamp = 9_000_000;
+    RtpPacket fu1Packet1 =
+        createFragmentedPacket(
+            /* sequenceNumber= */ 100,
+            accessUnitTimestamp,
+            /* marker= */ false,
+            FU_1_PACKET_1_FU_HEADER,
+            FU_1_PACKET_1_NALU_PAYLOAD);
+    RtpPacket fu1Packet2 =
+        createFragmentedPacket(
+            /* sequenceNumber= */ 101,
+            accessUnitTimestamp,
+            /* marker= */ false,
+            FU_1_PACKET_2_FU_HEADER,
+            FU_1_PACKET_2_NALU_PAYLOAD);
+    RtpPacket fu1Packet3 =
+        createFragmentedPacket(
+            /* sequenceNumber= */ 102,
+            accessUnitTimestamp,
+            /* marker= */ false,
+            FU_1_PACKET_3_FU_HEADER,
+            FU_1_PACKET_3_NALU_PAYLOAD);
+    RtpPacket singleNaluPacket =
+        new RtpPacket.Builder()
+            .setTimestamp(accessUnitTimestamp)
+            .setSequenceNumber(103)
+            .setMarker(true) // Only the final packet in the AU has the marker
+            .setPayloadData(ImmutableByteArray.concatToArray(NALU_1_HEADER, NALU_1_PAYLOAD))
+            .build();
+    rtpH265Reader.createTracks(extractorOutput, /* trackId= */ 0);
+
+    consume(rtpH265Reader, fu1Packet1);
+    consume(rtpH265Reader, fu1Packet2);
+    consume(rtpH265Reader, fu1Packet3);
+    consume(rtpH265Reader, singleNaluPacket);
+
+    FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);
+    assertThat(trackOutput.getSampleCount()).isEqualTo(1);
+    int expectedSize = NALU_1_START_DELIMITED.length() + NALU_1_START_DELIMITED.length();
+    assertThat(trackOutput.getSampleData(0).length).isEqualTo(expectedSize);
+  }
+
+  @Test
+  public void
+      consume_corruptedFragmentationUnitFollowedByValidSingleNALUInSameAccessUnit_discardsWholeSample()
+          throws ParserException {
+    long accessUnitTimestamp = 9_000_000;
+    // Packet 1: FU-A Start (TS 100).
+    RtpPacket fuStart =
+        createFragmentedPacket(
+            PACKET_SEQUENCE_NUMBER,
+            accessUnitTimestamp,
+            /* marker= */ false,
+            FU_1_PACKET_1_FU_HEADER,
+            FU_1_PACKET_1_NALU_PAYLOAD);
+    // Packet 2: MISSING (Simulated loss)
+    // Packet 3: Valid Single NALU (TS 100, Marker True).
+    RtpPacket singleNalu =
+        new RtpPacket.Builder()
+            .setTimestamp(accessUnitTimestamp)
+            .setSequenceNumber(PACKET_SEQUENCE_NUMBER + 2) // Gap of 1
+            .setMarker(true)
+            .setPayloadData(ImmutableByteArray.concatToArray(NALU_1_HEADER, NALU_1_PAYLOAD))
+            .build();
+    rtpH265Reader.createTracks(extractorOutput, /* trackId= */ 0);
+    rtpH265Reader.onReceivingFirstPacket(fuStart.timestamp, fuStart.sequenceNumber);
+
+    consume(rtpH265Reader, fuStart);
+    consume(rtpH265Reader, singleNalu);
+
+    FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);
+    assertThat(trackOutput.getSampleCount()).isEqualTo(0);
+  }
+
+  @Test
+  public void consume_fragmentationUnitContinuationAtAccessUnitStart_discardsWholeSample()
+      throws ParserException {
+    long auTimestamp = 9_000_000;
+    // Packet 1: Fragmentation Unit Continuation (NOT a start packet) at the very beginning of the
+    // Access Unit.
+    RtpPacket fuContinuation =
+        createFragmentedPacket(
+            PACKET_SEQUENCE_NUMBER,
+            auTimestamp,
+            /* marker= */ false,
+            FU_1_PACKET_2_FU_HEADER, // '0x20' -> S=0, E=0
+            FU_1_PACKET_2_NALU_PAYLOAD);
+
+    // Packet 2: Valid Single NALU in the same AU (Marker = True)
+    RtpPacket singleNalu =
+        new RtpPacket.Builder()
+            .setTimestamp(auTimestamp)
+            .setSequenceNumber(PACKET_SEQUENCE_NUMBER + 1)
+            .setMarker(true)
+            .setPayloadData(ImmutableByteArray.concatToArray(NALU_1_HEADER, NALU_1_PAYLOAD))
+            .build();
+
+    rtpH265Reader.createTracks(extractorOutput, /* trackId= */ 0);
+    consume(rtpH265Reader, fuContinuation);
+    consume(rtpH265Reader, singleNalu);
+
+    FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);
+    assertThat(trackOutput.getSampleCount()).isEqualTo(0);
+  }
+
+  @Test
+  public void consume_timestampRollover_resetsCorrectly() throws ParserException {
+    long maxTimestamp = 0xFFFFFFFFL;
+    long nextTimestamp = 0x00000000L;
+    RtpPacket p1 =
+        createFragmentedPacket(
+            /* sequenceNumber= */ 100,
+            maxTimestamp,
+            /* marker= */ true,
+            FU_1_PACKET_1_FU_HEADER,
+            FU_1_PACKET_1_NALU_PAYLOAD);
+    RtpPacket p2 =
+        createFragmentedPacket(
+            /* sequenceNumber= */ 101,
+            nextTimestamp,
+            /* marker= */ true,
+            FU_1_PACKET_1_FU_HEADER,
+            FU_1_PACKET_1_NALU_PAYLOAD);
+
+    rtpH265Reader.createTracks(extractorOutput, /* trackId= */ 0);
+    consume(rtpH265Reader, p1);
+    consume(rtpH265Reader, p2);
+
+    FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);
+    assertThat(trackOutput.getSampleCount()).isEqualTo(2);
+    assertThat(trackOutput.getSampleTimeUs(1)).isGreaterThan(trackOutput.getSampleTimeUs(0));
+  }
+
+  @Test
+  public void seek_resetsStateCorrectly() throws ParserException {
+    long seekTimeUs = 1_000_000;
+    RtpPacket fuContinuation =
+        createFragmentedPacket(
+            PACKET_SEQUENCE_NUMBER,
+            9000,
+            /* marker= */ false,
+            FU_1_PACKET_2_FU_HEADER, // S=0, E=0
+            FU_1_PACKET_2_NALU_PAYLOAD);
+    RtpPacket singleNalu =
+        new RtpPacket.Builder()
+            .setTimestamp(18000)
+            .setSequenceNumber(PACKET_SEQUENCE_NUMBER + 1)
+            .setMarker(true)
+            .setPayloadData(ImmutableByteArray.concatToArray(NALU_1_HEADER, NALU_1_PAYLOAD))
+            .build();
+    rtpH265Reader.createTracks(extractorOutput, /* trackId= */ 0);
+    consume(rtpH265Reader, fuContinuation);
+
+    rtpH265Reader.seek(/* nextRtpTimestamp= */ 18000, /* timeUs= */ seekTimeUs);
+    consume(rtpH265Reader, singleNalu);
+
+    FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);
+    assertThat(trackOutput.getSampleCount()).isEqualTo(1);
+    assertThat(trackOutput.getSampleData(0).length).isEqualTo(NALU_1_START_DELIMITED.length());
+    assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(seekTimeUs);
+  }
+
   private static RtpPacket createAggregationPacket(
-      int sequenceNumber, long timeStamp, byte[]... nalUnits) {
+      int sequenceNumber, long timeStamp, ImmutableByteArray... nalUnits) {
+    ImmutableByteArray.Builder payloadData =
+        new ImmutableByteArray.Builder().addAll(AP_NALU_HEADER);
+    for (ImmutableByteArray nalUnit : nalUnits) {
+      payloadData.addAll(nalUnit);
+    }
     return new RtpPacket.Builder()
         .setTimestamp(timeStamp)
         .setSequenceNumber(sequenceNumber)
         .setMarker(true)
-        .setPayloadData(Bytes.concat(AP_NALU_HEADER, Bytes.concat(nalUnits)))
+        .setPayloadData(payloadData.build().toArray())
         .build();
   }
 
   private static RtpPacket createFragmentedPacket(
-      int sequenceNumber, long timeStamp, boolean marker, byte[]... nalUnits) {
+      int sequenceNumber, long timeStamp, boolean marker, ImmutableByteArray... nalUnits) {
+    ImmutableByteArray.Builder payloadData =
+        new ImmutableByteArray.Builder().addAll(FU_NALU_HEADER);
+    for (ImmutableByteArray nalUnit : nalUnits) {
+      payloadData.addAll(nalUnit);
+    }
     return new RtpPacket.Builder()
         .setTimestamp(timeStamp)
         .setSequenceNumber(sequenceNumber)
         .setMarker(marker)
-        .setPayloadData(Bytes.concat(FU_NALU_HEADER, Bytes.concat(nalUnits)))
+        .setPayloadData(payloadData.build().toArray())
         .build();
   }
 

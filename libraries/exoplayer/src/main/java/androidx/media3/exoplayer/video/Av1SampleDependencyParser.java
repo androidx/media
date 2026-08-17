@@ -21,6 +21,7 @@ import static androidx.media3.container.ObuParser.OBU_PADDING;
 import static androidx.media3.container.ObuParser.OBU_SEQUENCE_HEADER;
 import static androidx.media3.container.ObuParser.OBU_TEMPORAL_DELIMITER;
 import static androidx.media3.container.ObuParser.split;
+import static java.lang.Math.min;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
@@ -43,7 +44,31 @@ public final class Av1SampleDependencyParser {
    */
   private static final int MAX_OBU_COUNT_FOR_PARTIAL_SKIP = 8;
 
+  /**
+   * Number of bytes at the beginning of a keyframe input buffer that are guaranteed to hold the
+   * full sequence header OBU.
+   *
+   * <p>Key frame packets start with an optional temporal delimiter, and an optional sequence
+   * header. The largest possible temporal delimiter is 10 bytes, and the largest possible sequence
+   * header is 393 bytes.
+   *
+   * <p>See <a href=https://aomediacodec.github.io/av1-spec/#ordering-of-obus>Ordering of OBUs</a>.
+   */
+  private static final int MAX_BYTES_FROM_KEYFRAME_TO_READ = 500;
+
+  /**
+   * Buffer that holds truncated sample data passed to {@link #queueInputBuffer}.
+   *
+   * <p>Use this buffer to delay expensive parsing of data until it's needed, in {@link
+   * #sampleLimitAfterSkippingNonReferenceFrame}.
+   */
+  private final ByteBuffer delayedKeyFrameTruncatedSample;
+
   @Nullable private SequenceHeader sequenceHeader;
+
+  public Av1SampleDependencyParser() {
+    delayedKeyFrameTruncatedSample = ByteBuffer.allocateDirect(MAX_BYTES_FROM_KEYFRAME_TO_READ);
+  }
 
   /**
    * Returns the new sample {@linkplain ByteBuffer#limit() limit} after deleting any frames that are
@@ -64,6 +89,10 @@ public final class Av1SampleDependencyParser {
    */
   public int sampleLimitAfterSkippingNonReferenceFrame(
       ByteBuffer sample, boolean skipFrameHeaders) {
+    if (delayedKeyFrameTruncatedSample.hasRemaining()) {
+      updateSequenceHeaders(split(delayedKeyFrameTruncatedSample));
+      emptyDelayedKeyFrameTruncatedSample();
+    }
     List<ObuParser.Obu> obuList = split(sample);
     updateSequenceHeaders(obuList);
     int skippedFramesCount = 0;
@@ -83,14 +112,40 @@ public final class Av1SampleDependencyParser {
     return sample.position();
   }
 
-  /** Updates the parser state with the next sample data. */
+  /**
+   * Updates the parser state with the next sample data from a random access temporal unit.
+   *
+   * <p>In order to identify non-reference frames, the parser needs a sequence header. The relevant
+   * sequence headers fields cannot change within a coded video sequence. And a new coded video
+   * sequence is defined to begin with a temporal unit where:
+   *
+   * <ul>
+   *   <li>A sequence header OBU appears before the first frame header.
+   *   <li>The first frame header has frame_type equal to KEY_FRAME.
+   * </ul>
+   *
+   * <p>These requirements are the same as the requirements for random access points. See <a
+   * href=https://aomediacodec.github.io/av1-spec/#ordering-of-obus>Ordering of OBUs</a>
+   */
   public void queueInputBuffer(ByteBuffer sample) {
-    updateSequenceHeaders(split(sample));
+    // Copy a prefix of sample data into delayedKeyFrameTruncatedSample, preserving the sample
+    // position and limit.
+    int samplePosition = sample.position();
+    int sampleLimit = sample.limit();
+    sample.limit(min(sampleLimit, samplePosition + MAX_BYTES_FROM_KEYFRAME_TO_READ));
+
+    delayedKeyFrameTruncatedSample.clear();
+    delayedKeyFrameTruncatedSample.put(sample);
+    delayedKeyFrameTruncatedSample.flip();
+
+    sample.position(samplePosition);
+    sample.limit(sampleLimit);
   }
 
   /** Resets the parser state. */
   public void reset() {
     sequenceHeader = null;
+    emptyDelayedKeyFrameTruncatedSample();
   }
 
   private boolean canSkipObu(ObuParser.Obu obu, boolean skipFrameHeaders) {
@@ -113,5 +168,13 @@ public final class Av1SampleDependencyParser {
         sequenceHeader = SequenceHeader.parse(obuList.get(i));
       }
     }
+  }
+
+  /**
+   * Modify the {@code delayedKeyFrameSample} position to ensure {@link ByteBuffer#hasRemaining()}
+   * returns false.
+   */
+  private void emptyDelayedKeyFrameTruncatedSample() {
+    delayedKeyFrameTruncatedSample.position(delayedKeyFrameTruncatedSample.limit());
   }
 }

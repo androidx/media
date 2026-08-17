@@ -23,8 +23,8 @@ import static androidx.media3.test.session.common.CommonConstants.SUPPORT_APP_PA
 import static androidx.media3.test.session.common.TestUtils.LONG_TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.content.Intent;
@@ -42,9 +42,12 @@ import androidx.media3.test.session.common.MainLooperTestRule;
 import androidx.media3.test.session.common.R;
 import androidx.media3.test.session.common.TestHandler;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
+import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -59,7 +62,7 @@ import org.junit.runner.RunWith;
  * Tests for key event handling of {@link MediaSession}. In order to get the media key events, the
  * player state is set to 'Playing' before every test method.
  */
-@RunWith(AndroidJUnit4.class)
+@RunWith(TestParameterInjector.class)
 @LargeTest
 public class MediaSessionKeyEventTest {
 
@@ -270,52 +273,52 @@ public class MediaSessionKeyEventTest {
     player.awaitMethodCalled(MockPlayer.METHOD_STOP, TIMEOUT_MS);
   }
 
+  // We don't receive media key events when we are not playing on API < 26, so we can't test this
+  // case as it's not supported.
+  @SdkSuppress(minSdkVersion = 26)
   @Test
-  public void playPauseKeyEvent_paused_play() throws Exception {
-    // We don't receive media key events when we are not playing on API < 26, so we can't test this
-    // case as it's not supported.
-    assumeTrue(SDK_INT >= 26);
-
+  public void playPauseKeyEvent_paused_play(@TestParameter PlayPauseEvent playPauseEvent)
+      throws Exception {
     handler.postAndSync(
         () -> {
           player.playbackState = Player.STATE_READY;
         });
 
-    dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, false);
+    dispatchMediaKeyEvent(playPauseEvent.keyCode, /* doubleTap= */ false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
   }
 
+  // We don't receive media key events when we are not playing on API < 26, so we can't test this
+  // case as it's not supported.
+  @SdkSuppress(minSdkVersion = 26)
   @Test
-  public void playPauseKeyEvent_fromIdle_prepareAndPlay() throws Exception {
-    // We don't receive media key events when we are not playing on API < 26, so we can't test this
-    // case as it's not supported.
-    assumeTrue(SDK_INT >= 26);
-
+  public void playPauseKeyEvent_fromIdle_prepareAndPlay(
+      @TestParameter PlayPauseEvent playPauseEvent) throws Exception {
     handler.postAndSync(
         () -> {
           player.playbackState = Player.STATE_IDLE;
         });
 
-    dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, false);
+    dispatchMediaKeyEvent(playPauseEvent.keyCode, /* doubleTap= */ false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_PREPARE, TIMEOUT_MS);
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
   }
 
+  // We don't receive media key events when we are not playing on API < 26, so we can't test this
+  // case as it's not supported.
+  @SdkSuppress(minSdkVersion = 26)
   @Test
-  public void playPauseKeyEvent_playWhenReadyAndEnded_seekAndPlay() throws Exception {
-    // We don't receive media key events when we are not playing on API < 26, so we can't test this
-    // case as it's not supported.
-    assumeTrue(SDK_INT >= 26);
-
+  public void playPauseKeyEvent_playWhenReadyAndEnded_seekAndPlay(
+      @TestParameter PlayPauseEvent playPauseEvent) throws Exception {
     handler.postAndSync(
         () -> {
           player.playWhenReady = true;
           player.playbackState = STATE_ENDED;
         });
 
-    dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, false);
+    dispatchMediaKeyEvent(playPauseEvent.keyCode, /* doubleTap= */ false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_DEFAULT_POSITION, TIMEOUT_MS);
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
@@ -329,7 +332,20 @@ public class MediaSessionKeyEventTest {
           player.playbackState = Player.STATE_READY;
         });
 
-    dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, false);
+    dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, /* doubleTap= */ false);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_PAUSE, TIMEOUT_MS);
+  }
+
+  @Test
+  public void headsetHookKeyEvent_playing_pause() throws Exception {
+    handler.postAndSync(
+        () -> {
+          player.playWhenReady = true;
+          player.playbackState = Player.STATE_READY;
+        });
+
+    dispatchMediaKeyEvent(KeyEvent.KEYCODE_HEADSETHOOK, /* doubleTap= */ false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_PAUSE, TIMEOUT_MS);
   }
@@ -348,7 +364,7 @@ public class MediaSessionKeyEventTest {
   }
 
   @Test
-  public void playPauseKeyEvent_doubleTapOnHeadsetHook_seekNext() throws Exception {
+  public void headsetHookKeyEvent_doubleTapOnPlayPause_seekNext() throws Exception {
     handler.postAndSync(
         () -> {
           player.playWhenReady = true;
@@ -476,13 +492,13 @@ public class MediaSessionKeyEventTest {
     }
 
     @Override
-    public MediaSession.ConnectionResult onConnect(
+    public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
         MediaSession session, ControllerInfo controller) {
       if (session.isMediaNotificationController(controller)
           || getExpectedControllerPackageName(controller).equals(controller.getPackageName())) {
-        return MediaSession.Callback.super.onConnect(session, controller);
+        return MediaSession.Callback.super.onConnectAsync(session, controller);
       }
-      return MediaSession.ConnectionResult.reject();
+      return immediateFuture(MediaSession.ConnectionResult.reject());
     }
 
     @Override
@@ -514,6 +530,18 @@ public class MediaSessionKeyEventTest {
     public void seekBack() {
       callers.add(session.getControllerForCurrentRequest());
       super.seekBack();
+    }
+  }
+
+  private enum PlayPauseEvent {
+    MEDIA_PLAY_PAUSE(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE),
+    MEDIA_PLAY(KeyEvent.KEYCODE_MEDIA_PLAY),
+    HEADSETHOOK(KeyEvent.KEYCODE_HEADSETHOOK);
+
+    final int keyCode;
+
+    PlayPauseEvent(int keyCode) {
+      this.keyCode = keyCode;
     }
   }
 }

@@ -285,6 +285,25 @@ public interface ShuffleOrder {
   }
 
   /**
+   * Returns a copy of the shuffle order with all elements replaced.
+   *
+   * <p>The default implementation uses {@link #cloneAndClear} and {@link #cloneAndInsert(int, int)}
+   * to replace all elements in the shuffle order. Custom implementations can override this method
+   * if the first element in the shuffled order should be set to the one whose index in the
+   * unshuffled order is {@code startIndex}.
+   *
+   * @param insertionCount The number of elements.
+   * @param startIndex The index of the new element in the unshuffled order that should be the first
+   *     in the shuffled order or {@link C#INDEX_UNSET} if the the first element in the shuffled
+   *     order is not specified. It should be ignored if the new list is empty, or if it is larger
+   *     than the last index (inclusive) of the new list.
+   * @return A copy of this {@link ShuffleOrder} with the elements replaced.
+   */
+  default ShuffleOrder cloneAndSet(int insertionCount, int startIndex) {
+    return cloneAndClear().cloneAndInsert(0, insertionCount);
+  }
+
+  /**
    * Returns a copy of the shuffle order with a range of elements removed.
    *
    * @param indexFrom The starting index in the unshuffled order of the range to remove.

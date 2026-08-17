@@ -23,13 +23,10 @@ import static androidx.media3.test.utils.CacheAsserts.assertCachedData;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-import android.content.Context;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.StreamKey;
-import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource.Factory;
 import androidx.media3.datasource.cache.CacheDataSource;
-import androidx.media3.datasource.cache.NoOpCacheEvictor;
 import androidx.media3.datasource.cache.SimpleCache;
 import androidx.media3.exoplayer.offline.DefaultDownloadIndex;
 import androidx.media3.exoplayer.offline.DefaultDownloaderFactory;
@@ -41,29 +38,29 @@ import androidx.media3.test.utils.DummyMainThread;
 import androidx.media3.test.utils.DummyMainThread.TestRunnable;
 import androidx.media3.test.utils.FakeDataSet;
 import androidx.media3.test.utils.FakeDataSource;
+import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.media3.test.utils.TestUtil;
 import androidx.media3.test.utils.robolectric.TestDownloadManagerListener;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.MockitoAnnotations;
 
 /** Tests {@link DownloadManager}. */
 @RunWith(AndroidJUnit4.class)
 public class DownloadManagerDashTest {
 
+  @Rule public final InMemoryDatabaseRule cacheRule = InMemoryDatabaseRule.create();
+
   private static final int ASSERT_TRUE_TIMEOUT_MS = 5000;
 
-  private SimpleCache cache;
-  private File tempFolder;
   private FakeDataSet fakeDataSet;
   private DownloadManager downloadManager;
   private StreamKey fakeStreamKey1;
@@ -71,18 +68,12 @@ public class DownloadManagerDashTest {
   private TestDownloadManagerListener downloadManagerListener;
   private DefaultDownloadIndex downloadIndex;
   private DummyMainThread testThread;
+  private SimpleCache cache;
 
   @Before
   public void setUp() throws Exception {
+    cache = cacheRule.createSimpleCache();
     testThread = new DummyMainThread();
-    Context context = ApplicationProvider.getApplicationContext();
-    tempFolder = Util.createTempDirectory(context, "ExoPlayerTest");
-    File cacheFolder = new File(tempFolder, "cache");
-    cacheFolder.mkdir();
-    cache =
-        new SimpleCache(
-            cacheFolder, new NoOpCacheEvictor(), TestUtil.getInMemoryDatabaseProvider());
-    MockitoAnnotations.initMocks(this);
     fakeDataSet =
         new FakeDataSet()
             .setData(TEST_MPD_URI, TEST_MPD)
@@ -96,14 +87,13 @@ public class DownloadManagerDashTest {
 
     fakeStreamKey1 = new StreamKey(0, 0, 0);
     fakeStreamKey2 = new StreamKey(0, 1, 0);
-    downloadIndex = new DefaultDownloadIndex(TestUtil.getInMemoryDatabaseProvider());
+    downloadIndex = new DefaultDownloadIndex(cacheRule.createDatabaseProvider());
     createDownloadManager();
   }
 
   @After
   public void tearDown() {
     runOnMainThread(() -> downloadManager.release());
-    Util.recursiveDelete(tempFolder);
     testThread.release();
   }
 

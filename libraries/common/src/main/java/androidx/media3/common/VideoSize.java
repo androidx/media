@@ -75,7 +75,6 @@ public final class VideoSize {
    *     square pixels this will be equal to 1.0. Different values are indicative of anamorphic
    *     content.
    */
-  @SuppressWarnings("deprecation") // Setting deprecated field
   @UnstableApi
   public VideoSize(
       @IntRange(from = 0) int width,

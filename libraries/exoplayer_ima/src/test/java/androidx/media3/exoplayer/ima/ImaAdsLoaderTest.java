@@ -72,6 +72,7 @@ import com.google.ads.interactivemedia.v3.api.AdsRenderingSettings;
 import com.google.ads.interactivemedia.v3.api.AdsRequest;
 import com.google.ads.interactivemedia.v3.api.FriendlyObstruction;
 import com.google.ads.interactivemedia.v3.api.ImaSdkSettings;
+import com.google.ads.interactivemedia.v3.api.VideoOrientation;
 import com.google.ads.interactivemedia.v3.api.player.AdMediaInfo;
 import com.google.ads.interactivemedia.v3.api.player.ContentProgressProvider;
 import com.google.ads.interactivemedia.v3.api.player.VideoAdPlayer;
@@ -113,7 +114,9 @@ public final class ImaAdsLoaderTest {
   private static final MediaItem TEST_MEDIA_ITEM = MediaItem.fromUri(TEST_URI);
   private static final DataSpec TEST_DATA_SPEC = new DataSpec(TEST_URI);
   private static final Object TEST_ADS_ID = new Object();
-  private static final AdMediaInfo TEST_AD_MEDIA_INFO = new AdMediaInfo("https://www.google.com");
+  private static final AdMediaInfo TEST_AD_MEDIA_INFO =
+      new AdMediaInfo(
+          "https://www.google.com", /* audioMimeType= */ null, /* videoMimeType= */ null);
   private static final long TEST_AD_DURATION_US = 5 * C.MICROS_PER_SECOND;
   private static final ImmutableList<Float> PREROLL_CUE_POINTS_SECONDS = ImmutableList.of(0f);
 
@@ -179,7 +182,8 @@ public final class ImaAdsLoaderTest {
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
             adViewProvider,
-            /* useLazyContentSourcePreparation= */ true);
+            /* useLazyContentSourcePreparation= */ true,
+            /* useAdMediaSourceClipping= */ false);
     timelineWindowDefinitions =
         new TimelineWindowDefinition[] {getInitialTimelineWindowDefinition(TEST_ADS_ID)};
     adsLoaderListener = new TestAdsLoaderListener(/* periodIndex= */ 0);
@@ -291,17 +295,18 @@ public final class ImaAdsLoaderTest {
   }
 
   @Test
-  public void loadAd_withAdContentTypeSet_setsMimeTypeInAdPlaybackState() {
-    // Load the preroll ad with content type set. Intentionally use all lower-case HLS MIME type as
-    // this is what the IMA SDK sets.
-    when(mockPrerollSingleAd.getContentType()).thenReturn("application/x-mpegurl");
+  public void loadAd_withMimeType_setMimeTypeInAdPlaybackState() {
     imaAdsLoader.start(
         adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, adViewProvider, adsLoaderListener);
 
+    videoAdPlayer.loadAd(
+        new AdMediaInfo(
+            "https://www.google.com", MimeTypes.APPLICATION_M3U8, MimeTypes.APPLICATION_M3U8),
+        mockAdPodInfo);
     adEventListener.onAdEvent(getAdEvent(AdEventType.LOADED, mockPrerollSingleAd));
-    videoAdPlayer.loadAd(TEST_AD_MEDIA_INFO, mockAdPodInfo);
 
-    // Verify that the preroll ad has been marked with the expected MIME type.
+    // Verify that the preroll ad has been marked with the expected MIME type. Provided in the ad
+    // media info.
     assertThat(getAdPlaybackState(/* periodIndex= */ 0))
         .isEqualTo(
             new AdPlaybackState(TEST_ADS_ID, /* adGroupTimesUs...= */ 0)
@@ -311,6 +316,29 @@ public final class ImaAdsLoaderTest {
                     /* adGroupIndex= */ 0,
                     /* adIndexInAdGroup= */ 0,
                     TEST_MEDIA_ITEM.buildUpon().setMimeType(MimeTypes.APPLICATION_M3U8).build())
+                .withAdDurationsUs(new long[][] {{TEST_AD_DURATION_US}})
+                .withAdResumePositionUs(/* adResumePositionUs= */ 0));
+  }
+
+  @Test
+  public void loadAd_withoutMimeType_doesNotSetMimeTypeInAdPlaybackState() {
+    imaAdsLoader.start(
+        adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, adViewProvider, adsLoaderListener);
+
+    videoAdPlayer.loadAd(TEST_AD_MEDIA_INFO, mockAdPodInfo);
+    adEventListener.onAdEvent(getAdEvent(AdEventType.LOADED, mockPrerollSingleAd));
+
+    // Verify that the preroll ad has not been marked with the MIME type. As it is not provided in
+    // the ad media info.
+    assertThat(getAdPlaybackState(/* periodIndex= */ 0))
+        .isEqualTo(
+            new AdPlaybackState(TEST_ADS_ID, /* adGroupTimesUs...= */ 0)
+                .withContentDurationUs(CONTENT_PERIOD_DURATION_US)
+                .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 0,
+                    TEST_MEDIA_ITEM.buildUpon().build())
                 .withAdDurationsUs(new long[][] {{TEST_AD_DURATION_US}})
                 .withAdResumePositionUs(/* adResumePositionUs= */ 0));
   }
@@ -532,7 +560,8 @@ public final class ImaAdsLoaderTest {
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
             adViewProvider,
-            /* useLazyContentSourcePreparation= */ true);
+            /* useLazyContentSourcePreparation= */ true,
+            /* useAdMediaSourceClipping= */ false);
 
     // Simulate an ad at 2 seconds.
     long adGroupPositionInWindowUs = 2 * C.MICROS_PER_SECOND;
@@ -582,7 +611,8 @@ public final class ImaAdsLoaderTest {
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
             adViewProvider,
-            /* useLazyContentSourcePreparation= */ true);
+            /* useLazyContentSourcePreparation= */ true,
+            /* useAdMediaSourceClipping= */ false);
 
     // Simulate an ad at 2 seconds.
     long adGroupPositionInWindowUs = 2 * C.MICROS_PER_SECOND;
@@ -910,7 +940,8 @@ public final class ImaAdsLoaderTest {
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
             adViewProvider,
-            /* useLazyContentSourcePreparation= */ true);
+            /* useLazyContentSourcePreparation= */ true,
+            /* useAdMediaSourceClipping= */ false);
     long midrollWindowTimeUs = 2 * C.MICROS_PER_SECOND;
     long midrollPeriodTimeUs =
         midrollWindowTimeUs + TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US;
@@ -953,7 +984,8 @@ public final class ImaAdsLoaderTest {
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
             adViewProvider,
-            /* useLazyContentSourcePreparation= */ true);
+            /* useLazyContentSourcePreparation= */ true,
+            /* useAdMediaSourceClipping= */ false);
     long midrollWindowTimeUs = 2 * C.MICROS_PER_SECOND;
     long midrollPeriodTimeUs =
         midrollWindowTimeUs + TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US;
@@ -995,7 +1027,8 @@ public final class ImaAdsLoaderTest {
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
             adViewProvider,
-            /* useLazyContentSourcePreparation= */ true);
+            /* useLazyContentSourcePreparation= */ true,
+            /* useAdMediaSourceClipping= */ false);
     long midrollWindowTimeUs = 2 * C.MICROS_PER_SECOND;
     long midrollPeriodTimeUs =
         midrollWindowTimeUs + TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US;
@@ -1035,7 +1068,8 @@ public final class ImaAdsLoaderTest {
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
             adViewProvider,
-            /* useLazyContentSourcePreparation= */ true);
+            /* useLazyContentSourcePreparation= */ true,
+            /* useAdMediaSourceClipping= */ false);
     long firstMidrollWindowTimeUs = 2 * C.MICROS_PER_SECOND;
     long firstMidrollPeriodTimeUs =
         firstMidrollWindowTimeUs
@@ -1085,7 +1119,8 @@ public final class ImaAdsLoaderTest {
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
             adViewProvider,
-            /* useLazyContentSourcePreparation= */ true);
+            /* useLazyContentSourcePreparation= */ true,
+            /* useAdMediaSourceClipping= */ false);
     long firstMidrollWindowTimeUs = 2 * C.MICROS_PER_SECOND;
     long firstMidrollPeriodTimeUs =
         firstMidrollWindowTimeUs
@@ -1143,6 +1178,33 @@ public final class ImaAdsLoaderTest {
   }
 
   @Test
+  public void requestAdTagWithImaAdTagUriBuilderUri_requestsWithAdTagUrlAndOrientation()
+      throws Exception {
+    DataSpec imaAdTagBuilderDataSpec =
+        new DataSpec(
+            new ImaAdTagUriBuilder(TEST_URI)
+                .setPreferredLinearOrientation(ImaAdTagUriBuilder.IMA_ORIENTATION_PORTRAIT)
+                .build());
+    imaAdsLoader.start(
+        adsMediaSource, imaAdTagBuilderDataSpec, TEST_ADS_ID, adViewProvider, adsLoaderListener);
+
+    verify(mockAdsRequest).setAdTagUrl(TEST_URI.toString());
+    verify(mockAdsRequest).setPreferredLinearOrientation(VideoOrientation.PORTRAIT);
+  }
+
+  @Test
+  public void requestAdTagWithJustVoParamInUri_requestsWithAdTagUrlWithoutOrientation()
+      throws Exception {
+    Uri voUri = TEST_URI.buildUpon().appendQueryParameter("vo", "1").build();
+    DataSpec csaiDataSpec = new DataSpec(voUri);
+    imaAdsLoader.start(
+        adsMediaSource, csaiDataSpec, TEST_ADS_ID, adViewProvider, adsLoaderListener);
+
+    verify(mockAdsRequest).setAdTagUrl(voUri.toString());
+    verify(mockAdsRequest, never()).setPreferredLinearOrientation(any());
+  }
+
+  @Test
   public void setsDefaultMimeTypes() throws Exception {
     imaAdsLoader.setSupportedContentTypes(C.CONTENT_TYPE_DASH, C.CONTENT_TYPE_OTHER);
     imaAdsLoader.start(
@@ -1157,6 +1219,30 @@ public final class ImaAdsLoaderTest {
                 MimeTypes.VIDEO_H263,
                 MimeTypes.AUDIO_MP4,
                 MimeTypes.AUDIO_MPEG));
+  }
+
+  @Test
+  public void buildWithoutSetEnableCustomTabs_defaultToFalse() throws Exception {
+    imaAdsLoader.start(
+        adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, adViewProvider, adsLoaderListener);
+
+    verify(mockAdsRenderingSettings).setEnableCustomTabs(false);
+  }
+
+  @Test
+  public void buildWithSetEnableCustomTabs_setsEnableCustomTabs() throws Exception {
+    ImaAdsLoader imaAdsLoaderWithCustomTabsEnabled =
+        new ImaAdsLoader.Builder(getApplicationContext())
+            .setEnableCustomTabs(true)
+            .setImaFactory(mockImaFactory)
+            .setImaSdkSettings(mockImaSdkSettings)
+            .build();
+    imaAdsLoaderWithCustomTabsEnabled.setPlayer(fakePlayer);
+    imaAdsLoaderWithCustomTabsEnabled.start(
+        adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, adViewProvider, adsLoaderListener);
+
+    verify(mockAdsRenderingSettings).setEnableCustomTabs(true);
+    imaAdsLoaderWithCustomTabsEnabled.release();
   }
 
   @Test
@@ -1176,7 +1262,8 @@ public final class ImaAdsLoaderTest {
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
             adViewProvider,
-            /* useLazyContentSourcePreparation= */ true);
+            /* useLazyContentSourcePreparation= */ true,
+            /* useAdMediaSourceClipping= */ false);
     when(mockAdsManager.getAdCuePoints()).thenReturn(PREROLL_CUE_POINTS_SECONDS);
 
     imaAdsLoader.setSupportedContentTypes(C.CONTENT_TYPE_OTHER);
@@ -1262,7 +1349,8 @@ public final class ImaAdsLoaderTest {
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
             adViewProvider,
-            /* useLazyContentSourcePreparation= */ true);
+            /* useLazyContentSourcePreparation= */ true,
+            /* useAdMediaSourceClipping= */ false);
     timelineWindowDefinitions =
         new TimelineWindowDefinition[] {
           getInitialTimelineWindowDefinition(TEST_ADS_ID),
@@ -1323,7 +1411,8 @@ public final class ImaAdsLoaderTest {
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
             adViewProvider,
-            /* useLazyContentSourcePreparation= */ true);
+            /* useLazyContentSourcePreparation= */ true,
+            /* useAdMediaSourceClipping= */ false);
     timelineWindowDefinitions =
         new TimelineWindowDefinition[] {
           getInitialTimelineWindowDefinition(TEST_ADS_ID),
@@ -1391,7 +1480,8 @@ public final class ImaAdsLoaderTest {
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
             adViewProvider,
-            /* useLazyContentSourcePreparation= */ true);
+            /* useLazyContentSourcePreparation= */ true,
+            /* useAdMediaSourceClipping= */ false);
     timelineWindowDefinitions =
         new TimelineWindowDefinition[] {
           getInitialTimelineWindowDefinition(TEST_ADS_ID),
@@ -1444,7 +1534,8 @@ public final class ImaAdsLoaderTest {
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
             adViewProvider,
-            /* useLazyContentSourcePreparation= */ true);
+            /* useLazyContentSourcePreparation= */ true,
+            /* useAdMediaSourceClipping= */ false);
     when(mockAdsManager.getAdCuePoints()).thenReturn(PREROLL_CUE_POINTS_SECONDS);
 
     imaAdsLoader.setSupportedContentTypes(C.CONTENT_TYPE_OTHER);
@@ -1471,7 +1562,8 @@ public final class ImaAdsLoaderTest {
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
             adViewProvider,
-            /* useLazyContentSourcePreparation= */ true);
+            /* useLazyContentSourcePreparation= */ true,
+            /* useAdMediaSourceClipping= */ false);
     when(mockAdsManager.getAdCuePoints()).thenReturn(PREROLL_CUE_POINTS_SECONDS);
 
     imaAdsLoader.setSupportedContentTypes(C.CONTENT_TYPE_OTHER);
@@ -1479,6 +1571,41 @@ public final class ImaAdsLoaderTest {
         adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, adViewProvider, adsLoaderListener);
 
     verify(mockAdsRequest).setContinuousPlayback(true);
+  }
+
+  @Test
+  public void contentErrorDuringAdPlayback_doesNotMarkAdAsFailed() throws IOException {
+    // Load and play a preroll ad.
+    imaAdsLoader.start(
+        adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, adViewProvider, adsLoaderListener);
+    adEventListener.onAdEvent(getAdEvent(AdEventType.LOADED, mockPrerollSingleAd));
+    videoAdPlayer.loadAd(TEST_AD_MEDIA_INFO, mockAdPodInfo);
+    adEventListener.onAdEvent(getAdEvent(AdEventType.CONTENT_PAUSE_REQUESTED, mockPrerollSingleAd));
+    videoAdPlayer.playAd(TEST_AD_MEDIA_INFO);
+    fakePlayer.setPlayingAdPosition(
+        /* periodIndex= */ 0,
+        /* adGroupIndex= */ 0,
+        /* adIndexInAdGroup= */ 0,
+        /* positionMs= */ 0,
+        /* contentPositionMs= */ 0);
+    fakePlayer.setState(Player.STATE_READY, /* playWhenReady= */ true);
+    adEventListener.onAdEvent(getAdEvent(AdEventType.STARTED, mockPrerollSingleAd));
+
+    // Simulate a content preparation error while the ad is playing.
+    // The player is not playing an ad from its perspective, so isPlayingAd() is false.
+    fakePlayer.setPlayingContentPosition(/* periodIndex= */ 0, /* positionMs= */ 0);
+    ExoPlaybackException error =
+        ExoPlaybackException.createForSource(
+            new IOException("Content preparation error"),
+            PlaybackException.ERROR_CODE_IO_UNSPECIFIED);
+    fakePlayer.setPlayerError(error);
+    shadowOf(Looper.getMainLooper()).runToEndOfTasks();
+
+    // Verify that the ad is not marked as failed.
+    AdPlaybackState adPlaybackState = getAdPlaybackState(0);
+    assertThat(adPlaybackState.getAdGroup(0).states[0])
+        .isNotEqualTo(AdPlaybackState.AD_STATE_ERROR);
+    verify(mockVideoAdPlayerCallback, never()).onError(any());
   }
 
   private void setupMocks() {
@@ -1629,6 +1756,155 @@ public final class ImaAdsLoaderTest {
     public void onAdTapped() {
       // Do nothing.
     }
+  }
+
+  @Test
+  public void getAdProgress_duringAdTransition_returnsVideoTimeNotReady() {
+    // Set up a 2-ad pod.
+    AdMediaInfo adMediaInfo1 = TEST_AD_MEDIA_INFO;
+    AdMediaInfo adMediaInfo2 =
+        new AdMediaInfo(
+            "https://www.google.com/2", /* audioMimeType= */ null, /* videoMimeType= */ null);
+
+    AdPodInfo adPodInfo1 =
+        new AdPodInfo() {
+          @Override
+          public int getTotalAds() {
+            return 2;
+          }
+
+          @Override
+          public int getAdPosition() {
+            return 1;
+          }
+
+          @Override
+          public int getPodIndex() {
+            return 0;
+          }
+
+          @Override
+          public double getTimeOffset() {
+            return 0;
+          }
+
+          @Override
+          public double getMaxDuration() {
+            return 5;
+          }
+
+          @Override
+          public boolean isBumper() {
+            return false;
+          }
+        };
+
+    AdPodInfo adPodInfo2 =
+        new AdPodInfo() {
+          @Override
+          public int getTotalAds() {
+            return 2;
+          }
+
+          @Override
+          public int getAdPosition() {
+            return 2;
+          }
+
+          @Override
+          public int getPodIndex() {
+            return 0;
+          }
+
+          @Override
+          public double getTimeOffset() {
+            return 0;
+          }
+
+          @Override
+          public double getMaxDuration() {
+            return 5;
+          }
+
+          @Override
+          public boolean isBumper() {
+            return false;
+          }
+        };
+
+    Ad mockAd1 = mock(Ad.class);
+    when(mockAd1.getAdPodInfo()).thenReturn(adPodInfo1);
+    Ad mockAd2 = mock(Ad.class);
+    when(mockAd2.getAdPodInfo()).thenReturn(adPodInfo2);
+
+    // Start loader and load 1st ad.
+    imaAdsLoader.start(
+        adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, adViewProvider, adsLoaderListener);
+    adEventListener.onAdEvent(getAdEvent(AdEventType.LOADED, mockAd1));
+    videoAdPlayer.loadAd(adMediaInfo1, adPodInfo1);
+    adEventListener.onAdEvent(getAdEvent(AdEventType.CONTENT_PAUSE_REQUESTED, mockAd1));
+
+    // Play 1st ad.
+    videoAdPlayer.playAd(adMediaInfo1);
+    fakePlayer.setPlayingAdPosition(
+        /* periodIndex= */ 0,
+        /* adGroupIndex= */ 0,
+        /* adIndexInAdGroup= */ 0,
+        /* positionMs= */ 0,
+        /* contentPositionMs= */ 0);
+    fakePlayer.setState(Player.STATE_READY, /* playWhenReady= */ true);
+    adEventListener.onAdEvent(getAdEvent(AdEventType.STARTED, mockAd1));
+
+    // Progress updates for 1st ad.
+    fakePlayer.setPlayingAdPosition(
+        /* periodIndex= */ 0,
+        /* adGroupIndex= */ 0,
+        /* adIndexInAdGroup= */ 0,
+        /* positionMs= */ 2_000,
+        /* contentPositionMs= */ 0);
+    shadowOf(Looper.getMainLooper()).runToEndOfTasks();
+    verify(mockVideoAdPlayerCallback, atLeastOnce())
+        .onAdProgress(adMediaInfo1, new VideoProgressUpdate(2_000, 5_000));
+
+    // 1st ad finishes. IMA calls stopAd.
+    videoAdPlayer.stopAd(adMediaInfo1);
+
+    // Load and play 2nd ad.
+    adEventListener.onAdEvent(getAdEvent(AdEventType.LOADED, mockAd2));
+    videoAdPlayer.loadAd(adMediaInfo2, adPodInfo2);
+
+    // Simulating the race condition:
+    // IMA calls playAd(adMediaInfo2), which triggers updateAdProgress() immediately.
+    // At this point, the player has NOT transitioned to the 2nd ad yet.
+    // It still reports playing 1st ad (group 0, index 0) at its end position (5000ms).
+    fakePlayer.setPlayingAdPosition(
+        /* periodIndex= */ 0,
+        /* adGroupIndex= */ 0,
+        /* adIndexInAdGroup= */ 0,
+        /* positionMs= */ 5_000,
+        /* contentPositionMs= */ 0);
+
+    videoAdPlayer.playAd(adMediaInfo2);
+
+    // Verify that the progress reported for adMediaInfo2 is NOT_READY (because of mismatch).
+    verify(mockVideoAdPlayerCallback)
+        .onAdProgress(adMediaInfo2, VideoProgressUpdate.VIDEO_TIME_NOT_READY);
+
+    // Now simulate player transitioning to 2nd ad (group 0, index 1) at position 0.
+    fakePlayer.setPlayingAdPosition(
+        /* periodIndex= */ 0,
+        /* adGroupIndex= */ 0,
+        /* adIndexInAdGroup= */ 1,
+        /* positionMs= */ 0,
+        /* contentPositionMs= */ 0);
+    adEventListener.onAdEvent(getAdEvent(AdEventType.STARTED, mockAd2));
+
+    // Force progress update.
+    shadowOf(Looper.getMainLooper()).runToEndOfTasks();
+
+    // Verify that it now reports correct progress for 2nd ad.
+    verify(mockVideoAdPlayerCallback, atLeastOnce())
+        .onAdProgress(adMediaInfo2, new VideoProgressUpdate(0, 5_000));
   }
 
   private static TimelineWindowDefinition getInitialTimelineWindowDefinition(Object adsId) {

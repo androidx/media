@@ -30,10 +30,11 @@ import android.util.Size;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
-import androidx.media3.transformer.AndroidTestUtil;
+import androidx.media3.test.utils.TestSummaryLogger;
 import androidx.media3.transformer.EncoderUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -48,6 +49,7 @@ import org.junit.runner.RunWith;
 
 /** An analysis test to log encoder capabilities on a device. */
 @RunWith(AndroidJUnit4.class)
+@SdkSuppress(minSdkVersion = 31)
 @Ignore(
     "Analysis tests are not used for confirming Transformer is running properly, and not configured"
         + " for this use as they're missing skip checks for unsupported devices.")
@@ -181,7 +183,7 @@ public class EncoderCapabilityAnalysisTest {
     JSONObject resultJson = new JSONObject();
     resultJson.put("encoder_capabilities", JSONObject.wrap(mimeTypeToEncoderInfo));
     resultJson.put("camcorder_profiles_supported", getSupportedCamcorderProfileConfigurations());
-    AndroidTestUtil.writeTestSummaryToFile(
+    TestSummaryLogger.writeTestSummaryToFile(
         ApplicationProvider.getApplicationContext(),
         /* testId= */ "encoderCapabilityAnalysisTest",
         resultJson);

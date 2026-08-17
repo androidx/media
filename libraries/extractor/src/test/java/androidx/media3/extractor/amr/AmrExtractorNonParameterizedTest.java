@@ -21,7 +21,7 @@ import static androidx.media3.extractor.amr.AmrExtractor.amrSignatureWb;
 import static androidx.media3.extractor.amr.AmrExtractor.frameSizeBytesByTypeNb;
 import static androidx.media3.extractor.amr.AmrExtractor.frameSizeBytesByTypeWb;
 import static com.google.common.truth.Truth.assertThat;
-import static junit.framework.Assert.fail;
+import static org.junit.Assert.fail;
 
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Util;

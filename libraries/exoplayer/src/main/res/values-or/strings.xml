@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+  <string name="exo_download_description">ଡାଉନଲୋଡ କରନ୍ତୁ</string>
+  <string name="exo_download_notification_channel_name">ଡାଉନଲୋଡ</string>
+  <string name="exo_download_downloading">ଡାଉନଲୋଡ ହେଉଛି</string>
+  <string name="exo_download_completed">ଡାଉନଲୋଡ ସମ୍ପୂର୍ଣ୍ଣ ହୋଇଛି</string>
+  <string name="exo_download_failed">ଡାଉନଲୋଡ ବିଫଳ ହୋଇଛି</string>
+  <string name="exo_download_removing">ଡାଉନଲୋଡଗୁଡ଼ିକୁ କାଢ଼ି ଦିଆଯାଉଛି</string>
+  <string name="exo_download_paused">ଡାଉନଲୋଡଗୁଡ଼ିକୁ ବିରତ କରାଯାଇଛି</string>
+  <string name="exo_download_paused_for_network">ଡାଉନଲୋଡଗୁଡ଼ିକ ନେଟୱାର୍କ ପାଇଁ ଅପେକ୍ଷା କରୁଛି</string>
+  <string name="exo_download_paused_for_wifi">ଡାଉନଲୋଡଗୁଡ଼ିକ ୱାଇଫାଇ ପାଇଁ ଅପେକ୍ଷା କରୁଛି</string>
+</resources>

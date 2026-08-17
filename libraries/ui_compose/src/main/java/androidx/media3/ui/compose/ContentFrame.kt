@@ -41,8 +41,10 @@ import androidx.media3.ui.compose.state.rememberPresentationState
  * @param surfaceType The type of surface to use for video playback. Can be either
  *   [SURFACE_TYPE_SURFACE_VIEW] or [SURFACE_TYPE_TEXTURE_VIEW].
  * @param contentScale The [ContentScale] strategy for the container.
+ * @param artwork Optional composable slot to render artwork for the current media item.
  * @param keepContentOnReset If `true`, the last rendered frame will remain visible when the player
  *   is reset. If `false`, the surface will be cleared.
+ * @param overlay A composable drawn on top of the media content, but under the shutter.
  * @param shutter A composable that is displayed when the video surface needs to be covered. By
  *   default, this is a black background.
  */
@@ -53,18 +55,31 @@ fun ContentFrame(
   modifier: Modifier = Modifier,
   surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
   contentScale: ContentScale = ContentScale.Fit,
+  artwork: (@Composable (Player?) -> Unit)? = null,
   keepContentOnReset: Boolean = false,
+  overlay: @Composable () -> Unit = {},
   shutter: @Composable () -> Unit = { Box(Modifier.fillMaxSize().background(Color.Black)) },
 ) {
   val presentationState: PresentationState = rememberPresentationState(player, keepContentOnReset)
-  val scaledModifier = modifier.resizeWithContentScale(contentScale, presentationState.videoSizeDp)
+  val scaledModifier =
+    Modifier.resizeWithContentScale(contentScale, presentationState.videoAspectRatio)
 
-  // Always leave PlayerSurface to be part of the Compose tree because it will be initialised in
-  // the process. If this composable is guarded by some condition, it might never become visible
-  // because the Player will not emit the relevant event, e.g. the first frame being ready.
-  PlayerSurface(player, scaledModifier, surfaceType)
+  Box(modifier) {
+    Box(scaledModifier) {
+      // Always leave PlayerSurface to be part of the Compose tree because it will be initialised in
+      // the process. If this composable is guarded by some condition, it might never become visible
+      // because the Player will not emit the relevant event, e.g. the first frame being ready.
+      PlayerSurface(player, Modifier.fillMaxSize(), surfaceType)
 
-  if (presentationState.coverSurface) {
-    shutter()
+      overlay()
+    }
+
+    if (presentationState.coverSurface) {
+      shutter()
+    }
+
+    if (presentationState.showArtwork) {
+      artwork?.invoke(player)
+    }
   }
 }

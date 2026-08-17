@@ -35,11 +35,14 @@ public class FakeDownloader implements Downloader {
   /** Timeout to use when blocking on conditions that we expect to become unblocked. */
   private static final int TIMEOUT_MS = 10_000;
 
+  private static final int NEGATIVE_TIMEOUT_MS = 500;
+
   private final DownloadRequest request;
   private final ConditionVariable downloadStarted;
   private final ConditionVariable removeStarted;
   private final ConditionVariable cancelStarted;
-  private final ConditionVariable finished;
+  private final ConditionVariable downloadFinished;
+  private final ConditionVariable removeFinished;
   private final ConditionVariable blocker;
   private final AtomicInteger downloadStartCount;
   private final AtomicInteger removeStartCount;
@@ -47,6 +50,13 @@ public class FakeDownloader implements Downloader {
 
   private volatile boolean canceled;
   private volatile boolean enableDownloadIoException;
+
+  /**
+   * Tracks whether the most recent operation on this downloader is {@link #remove()}. Used by
+   * {@link #finish()} and {@link #fail()} to determine which condition variable ({@link
+   * #downloadFinished} vs {@link #removeFinished}) to await.
+   */
+  private volatile boolean isRemoving;
 
   /**
    * Creates a {@link FakeDownloader}.
@@ -58,7 +68,8 @@ public class FakeDownloader implements Downloader {
     downloadStarted = createRobolectricConditionVariable();
     removeStarted = createRobolectricConditionVariable();
     cancelStarted = createRobolectricConditionVariable();
-    finished = createRobolectricConditionVariable();
+    downloadFinished = createRobolectricConditionVariable();
+    removeFinished = createRobolectricConditionVariable();
     blocker = createRobolectricConditionVariable();
     downloadStartCount = new AtomicInteger();
     removeStartCount = new AtomicInteger();
@@ -74,6 +85,7 @@ public class FakeDownloader implements Downloader {
 
   @Override
   public void download(@Nullable ProgressListener progressListener) throws IOException {
+    isRemoving = false;
     downloadStartCount.incrementAndGet();
     downloadStarted.open();
     try {
@@ -90,32 +102,41 @@ public class FakeDownloader implements Downloader {
         throw new IOException();
       }
     } finally {
-      finished.open();
+      downloadFinished.open();
     }
   }
 
   @Override
   public void remove() {
+    isRemoving = true;
     removeStartCount.incrementAndGet();
     removeStarted.open();
     try {
       block();
     } finally {
-      finished.open();
+      removeFinished.open();
     }
   }
 
   /** Finishes the {@link #download} or {@link #remove} without an error. */
   public void finish() throws InterruptedException {
     blocker.open();
-    blockUntilFinished();
+    if (isRemoving) {
+      blockUntilRemoveFinished();
+    } else {
+      blockUntilDownloadFinished();
+    }
   }
 
   /** Fails {@link #download} or {@link #remove} with an error. */
   public void fail() throws InterruptedException {
     enableDownloadIoException = true;
     blocker.open();
-    blockUntilFinished();
+    if (isRemoving) {
+      blockUntilRemoveFinished();
+    } else {
+      blockUntilDownloadFinished();
+    }
   }
 
   /** Increments the number of bytes that the fake downloader has downloaded. */
@@ -147,7 +168,7 @@ public class FakeDownloader implements Downloader {
       assertThat(removeStarted.block(TIMEOUT_MS)).isTrue();
       removeStarted.close();
     } else {
-      assertThat(removeStarted.block(TIMEOUT_MS)).isFalse();
+      assertThat(removeStarted.block(NEGATIVE_TIMEOUT_MS)).isFalse();
     }
   }
 
@@ -155,10 +176,10 @@ public class FakeDownloader implements Downloader {
   public void assertCanceled(boolean canceled) throws InterruptedException {
     if (canceled) {
       assertThat(cancelStarted.block(TIMEOUT_MS)).isTrue();
-      blockUntilFinished();
+      blockUntilDownloadFinished();
       cancelStarted.close();
     } else {
-      assertThat(cancelStarted.block(TIMEOUT_MS)).isFalse();
+      assertThat(cancelStarted.block(NEGATIVE_TIMEOUT_MS)).isFalse();
     }
   }
 
@@ -174,8 +195,13 @@ public class FakeDownloader implements Downloader {
     }
   }
 
-  private void blockUntilFinished() throws InterruptedException {
-    assertThat(finished.block(TIMEOUT_MS)).isTrue();
-    finished.close();
+  private void blockUntilDownloadFinished() throws InterruptedException {
+    assertThat(downloadFinished.block(TIMEOUT_MS)).isTrue();
+    downloadFinished.close();
+  }
+
+  private void blockUntilRemoveFinished() throws InterruptedException {
+    assertThat(removeFinished.block(TIMEOUT_MS)).isTrue();
+    removeFinished.close();
   }
 }

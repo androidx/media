@@ -60,6 +60,7 @@ public final class TextureAssetLoader implements AssetLoader {
   private boolean isEndOfStreamSignaled;
 
   private volatile boolean isStarted;
+  private volatile boolean isStopped;
   private volatile long lastQueuedPresentationTimeUs;
 
   /**
@@ -117,8 +118,19 @@ public final class TextureAssetLoader implements AssetLoader {
   }
 
   @Override
+  public void stop() {
+    isStopped = true;
+  }
+
+  @Override
+  public boolean isStopped() {
+    return isStopped;
+  }
+
+  @Override
   public void release() {
     progressState = PROGRESS_STATE_NOT_STARTED;
+    isStopped = true;
   }
 
   /**
@@ -132,11 +144,11 @@ public final class TextureAssetLoader implements AssetLoader {
    *     again later.
    */
   public boolean queueInputTexture(int texId, long presentationTimeUs) {
+    if (!isStarted || isStopped) {
+      return false;
+    }
     try {
       if (!isTrackAdded) {
-        if (!isStarted) {
-          return false;
-        }
         assetLoaderListener.onTrackAdded(format, SUPPORTED_OUTPUT_TYPE_DECODED);
         isTrackAdded = true;
       }

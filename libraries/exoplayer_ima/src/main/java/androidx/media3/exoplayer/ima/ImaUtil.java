@@ -52,6 +52,7 @@ import com.google.ads.interactivemedia.v3.api.AdError;
 import com.google.ads.interactivemedia.v3.api.AdErrorEvent;
 import com.google.ads.interactivemedia.v3.api.AdEvent;
 import com.google.ads.interactivemedia.v3.api.AdPodInfo;
+import com.google.ads.interactivemedia.v3.api.AdSlot;
 import com.google.ads.interactivemedia.v3.api.AdsLoader;
 import com.google.ads.interactivemedia.v3.api.AdsManager;
 import com.google.ads.interactivemedia.v3.api.AdsRenderingSettings;
@@ -124,6 +125,7 @@ import java.util.Set;
     public final int mediaLoadTimeoutMs;
     public final boolean focusSkipButtonWhenAvailable;
     public final boolean playAdBeforeStartPosition;
+    public final boolean enableCustomTabs;
     public final int mediaBitrate;
     @Nullable public final Boolean enableContinuousPlayback;
     @Nullable public final List<String> adMediaMimeTypes;
@@ -141,6 +143,7 @@ import java.util.Set;
         int mediaLoadTimeoutMs,
         boolean focusSkipButtonWhenAvailable,
         boolean playAdBeforeStartPosition,
+        boolean enableCustomTabs,
         int mediaBitrate,
         @Nullable Boolean enableContinuousPlayback,
         @Nullable List<String> adMediaMimeTypes,
@@ -166,6 +169,7 @@ import java.util.Set;
       this.applicationVideoAdPlayerCallback = applicationVideoAdPlayerCallback;
       this.imaSdkSettings = imaSdkSettings;
       this.debugModeEnabled = debugModeEnabled;
+      this.enableCustomTabs = enableCustomTabs;
     }
   }
 
@@ -178,7 +182,9 @@ import java.util.Set;
     @Nullable public final AdEvent.AdEventListener applicationAdEventListener;
     @Nullable public final AdErrorEvent.AdErrorListener applicationAdErrorListener;
     public final ImmutableList<CompanionAdSlot> companionAdSlots;
+    @Nullable public final AdSlot pauseAdSlot;
     public final boolean focusSkipButtonWhenAvailable;
+    public final boolean enableCustomTabs;
     public final boolean debugModeEnabled;
 
     public ServerSideAdInsertionConfiguration(
@@ -188,7 +194,9 @@ import java.util.Set;
         @Nullable AdEvent.AdEventListener applicationAdEventListener,
         @Nullable AdErrorEvent.AdErrorListener applicationAdErrorListener,
         List<CompanionAdSlot> companionAdSlots,
+        @Nullable AdSlot pauseAdSlot,
         boolean focusSkipButtonWhenAvailable,
+        boolean enableCustomTabs,
         boolean debugModeEnabled) {
       this.imaSdkSettings = imaSdkSettings;
       this.adViewProvider = adViewProvider;
@@ -196,7 +204,9 @@ import java.util.Set;
       this.applicationAdEventListener = applicationAdEventListener;
       this.applicationAdErrorListener = applicationAdErrorListener;
       this.companionAdSlots = ImmutableList.copyOf(companionAdSlots);
+      this.pauseAdSlot = pauseAdSlot;
       this.focusSkipButtonWhenAvailable = focusSkipButtonWhenAvailable;
+      this.enableCustomTabs = enableCustomTabs;
       this.debugModeEnabled = debugModeEnabled;
     }
   }
@@ -1035,9 +1045,9 @@ import java.util.Set;
       AdGroup adGroup, int adGroupIndex, int splitIndexExclusive, AdPlaybackState adPlaybackState) {
     checkArgument(splitIndexExclusive > 0 && splitIndexExclusive < adGroup.count);
     // Remove the ads from the ad group.
-    for (int i = 0; i < adGroup.count - splitIndexExclusive; i++) {
-      adPlaybackState = adPlaybackState.withLastAdRemoved(adGroupIndex);
-    }
+    adPlaybackState =
+        adPlaybackState.withRemovedAdsAfterIndex(
+            adGroupIndex, /* adIndexInAdGroup= */ splitIndexExclusive - 1);
     AdGroup previousAdGroup = adPlaybackState.getAdGroup(adGroupIndex);
     long newAdGroupTimeUs = previousAdGroup.timeUs + previousAdGroup.contentResumeOffsetUs;
     // Replicate ad events for each available ad that has been removed.

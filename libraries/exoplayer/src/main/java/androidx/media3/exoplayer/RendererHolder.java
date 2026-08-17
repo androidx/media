@@ -32,6 +32,8 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.util.Log;
+import androidx.media3.exoplayer.image.ImageMetadataListener;
 import androidx.media3.exoplayer.metadata.MetadataRenderer;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -49,6 +51,8 @@ import java.util.Objects;
 
 /** Holds a {@link Renderer renderer}. */
 /* package */ class RendererHolder {
+  private static final String TAG = "RendererHolder";
+
   private final Renderer primaryRenderer;
   // Index of renderer in renderer list held by the {@link Player}.
   private final int index;
@@ -72,12 +76,15 @@ import java.util.Objects;
 
   public void startPrewarming() {
     checkState(!isPrewarming());
-    prewarmingState =
-        isRendererEnabled(primaryRenderer)
-            ? RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY
-            : secondaryRenderer != null && isRendererEnabled(secondaryRenderer)
-                ? RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY
-                : RENDERER_PREWARMING_STATE_PREWARMING_PRIMARY;
+    if (isRendererEnabled(primaryRenderer)) {
+      prewarmingState = RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY;
+    } else if (secondaryRenderer != null && isRendererEnabled(secondaryRenderer)) {
+      prewarmingState = RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY;
+    } else if (prewarmingState == RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_PRIMARY) {
+      prewarmingState = RENDERER_PREWARMING_STATE_PREWARMING_PRIMARY;
+    } else {
+      prewarmingState = RENDERER_PREWARMING_STATE_PREWARMING_SECONDARY;
+    }
   }
 
   public boolean isPrewarming() {
@@ -90,7 +97,8 @@ import java.util.Objects;
   }
 
   private boolean isSecondaryRendererPrewarming() {
-    return prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY;
+    return prewarmingState == RENDERER_PREWARMING_STATE_PREWARMING_SECONDARY
+        || prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY;
   }
 
   public int getEnabledRendererCount() {
@@ -150,6 +158,24 @@ import java.util.Objects;
   }
 
   /**
+   * Signals to the renderer that the current {@link SampleStream} will be the final one supplied
+   * before it is next disabled or reset.
+   *
+   * @see Renderer#setCurrentStreamFinal()
+   * @param streamEndPositionUs The position to stop rendering at or {@link C#LENGTH_UNSET} to
+   *     render until the end of the current stream.
+   */
+  public void setCurrentStreamFinal(long streamEndPositionUs) {
+    boolean isPrimaryRenderer =
+        secondaryRenderer == null
+            || prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY
+            || prewarmingState == RENDERER_PREWARMING_STATE_PREWARMING_SECONDARY
+            || prewarmingState == RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_PRIMARY;
+    Renderer renderer = isPrimaryRenderer ? primaryRenderer : checkNotNull(secondaryRenderer);
+    setCurrentStreamFinalInternal(renderer, streamEndPositionUs);
+  }
+
+  /**
    * Maybe signal to the renderer that the old {@link SampleStream} will be the final one supplied
    * before it is next disabled or reset.
    *
@@ -169,6 +195,7 @@ import java.util.Objects;
     boolean isPrimaryOldRenderer =
         secondaryRenderer == null
             || prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY
+            || prewarmingState == RENDERER_PREWARMING_STATE_PREWARMING_SECONDARY
             || (prewarmingState == RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_PRIMARY
                 && isRendererEnabled(primaryRenderer));
     Renderer oldRenderer = isPrimaryOldRenderer ? primaryRenderer : checkNotNull(secondaryRenderer);
@@ -205,7 +232,8 @@ import java.util.Objects;
     }
     if (secondaryRenderer != null
         && isRendererEnabled(secondaryRenderer)
-        && prewarmingState != RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY) {
+        && prewarmingState != RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY
+        && prewarmingState != RENDERER_PREWARMING_STATE_PREWARMING_SECONDARY) {
       setCurrentStreamFinalInternal(secondaryRenderer, streamEndPositionUs);
     }
   }
@@ -353,10 +381,15 @@ import java.util.Objects;
                 && !hasReachedServerSideInsertedAdsTransition(renderer, readingPeriodHolder)))) {
       // The current reading period is still being read by at least one renderer.
       MediaPeriodHolder followingPeriod = readingPeriodHolder.getNext();
-      // If renderer is reading ahead as it was enabled early, then it is not 'reading' the
-      // current reading period.
-      return followingPeriod != null
-          && followingPeriod.sampleStreams[index] == renderer.getStream();
+      while (followingPeriod != null) {
+        // If renderer is reading ahead as it was enabled early, then it is not 'reading' the
+        // current reading period.
+        if (Objects.equals(followingPeriod.sampleStreams[index], renderer.getStream())) {
+          return true;
+        }
+        followingPeriod = followingPeriod.getNext();
+      }
+      return false;
     }
     return true;
   }
@@ -568,8 +601,9 @@ import java.util.Objects;
     disableRenderer(primaryRenderer, mediaClock);
     if (secondaryRenderer != null) {
       boolean shouldTransferResources =
-          isRendererEnabled(secondaryRenderer)
-              && prewarmingState != RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY;
+          prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY
+              || prewarmingState == RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_SECONDARY
+              || prewarmingState == RENDERER_PREWARMING_STATE_PREWARMING_SECONDARY;
       disableRenderer(secondaryRenderer, mediaClock);
       maybeResetRenderer(/* resetPrimary= */ false);
       if (shouldTransferResources) {
@@ -592,6 +626,8 @@ import java.util.Objects;
               : RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_SECONDARY;
     } else if (prewarmingState == RENDERER_PREWARMING_STATE_PREWARMING_PRIMARY) {
       prewarmingState = RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_PRIMARY;
+    } else if (prewarmingState == RENDERER_PREWARMING_STATE_PREWARMING_SECONDARY) {
+      prewarmingState = RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_SECONDARY;
     }
   }
 
@@ -611,10 +647,21 @@ import java.util.Objects;
         prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY
             || prewarmingState == RENDERER_PREWARMING_STATE_PREWARMING_PRIMARY;
     boolean isSecondaryActiveRenderer =
-        prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY;
-    disableRenderer(
-        isPrewarmingPrimary ? primaryRenderer : checkNotNull(secondaryRenderer), mediaClock);
-    maybeResetRenderer(/* resetPrimary= */ isPrewarmingPrimary);
+        prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY
+            || prewarmingState == RENDERER_PREWARMING_STATE_PREWARMING_SECONDARY;
+    try {
+      disableRenderer(
+          isPrewarmingPrimary ? primaryRenderer : checkNotNull(secondaryRenderer), mediaClock);
+    } catch (RuntimeException e) {
+      // There's nothing we can do.
+      Log.e(TAG, "Disable prewarming failed.", e);
+    }
+    try {
+      maybeResetRenderer(/* resetPrimary= */ isPrewarmingPrimary);
+    } catch (RuntimeException e) {
+      // There's nothing we can do.
+      Log.e(TAG, "Reset prewarming failed.", e);
+    }
     prewarmingState =
         isSecondaryActiveRenderer
             ? RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_SECONDARY
@@ -648,7 +695,7 @@ import java.util.Objects;
         disableRenderer(renderer, mediaClock);
       } else if (streamReset) {
         // The renderer will continue to consume from its current stream, but needs to be reset.
-        renderer.resetPosition(rendererPositionUs);
+        renderer.resetPosition(rendererPositionUs, /* sampleStreamIsResetToKeyFrame= */ true);
       }
     }
   }
@@ -680,12 +727,26 @@ import java.util.Objects;
    *
    * @see Renderer#resetPosition
    */
-  public void resetPosition(MediaPeriodHolder playingPeriod, long positionUs)
+  public void resetPosition(
+      MediaPeriodHolder playingPeriod, long positionUs, boolean sampleStreamIsResetToKeyFrame)
       throws ExoPlaybackException {
     Renderer renderer = getRendererReadingFromPeriod(playingPeriod);
     if (renderer != null) {
-      renderer.resetPosition(positionUs);
+      renderer.resetPosition(positionUs, sampleStreamIsResetToKeyFrame);
     }
+  }
+
+  /**
+   * Returns {@code true} if a {@link Renderer} is enabled on the provided {@link MediaPeriodHolder
+   * media period} and if it will support a {@link Renderer#resetPosition} invocation without
+   * resetting the sample stream to a key frame.
+   *
+   * @see Renderer#supportsResetPositionWithoutKeyFrameReset
+   */
+  public boolean supportsResetPositionWithoutKeyFrameReset(
+      MediaPeriodHolder playingPeriod, long positionUs) {
+    Renderer renderer = getRendererReadingFromPeriod(playingPeriod);
+    return renderer != null && renderer.supportsResetPositionWithoutKeyFrameReset(positionUs);
   }
 
   /**
@@ -797,6 +858,7 @@ import java.util.Objects;
       return;
     }
     if (prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY
+        || prewarmingState == RENDERER_PREWARMING_STATE_PREWARMING_SECONDARY
         || prewarmingState == RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_SECONDARY) {
       checkNotNull(secondaryRenderer).handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, videoOutput);
     } else {
@@ -806,6 +868,7 @@ import java.util.Objects;
 
   public void setVideoFrameMetadataListener(VideoFrameMetadataListener videoFrameMetadataListener)
       throws ExoPlaybackException {
+    // TODO: b/507835122 - Remove image track type once metadata listener handling is refined.
     if (getTrackType() != TRACK_TYPE_VIDEO && getTrackType() != TRACK_TYPE_IMAGE) {
       return;
     }
@@ -817,6 +880,18 @@ import java.util.Objects;
     }
   }
 
+  public void setImageMetadataListener(ImageMetadataListener imageMetadataListener)
+      throws ExoPlaybackException {
+    if (getTrackType() != TRACK_TYPE_IMAGE) {
+      return;
+    }
+    primaryRenderer.handleMessage(Renderer.MSG_SET_IMAGE_METADATA_LISTENER, imageMetadataListener);
+    if (secondaryRenderer != null) {
+      secondaryRenderer.handleMessage(
+          Renderer.MSG_SET_IMAGE_METADATA_LISTENER, imageMetadataListener);
+    }
+  }
+
   /** Sets the volume on the renderer. */
   public void setVolume(float volume) throws ExoPlaybackException {
     if (getTrackType() != TRACK_TYPE_AUDIO) {
@@ -825,6 +900,17 @@ import java.util.Objects;
     primaryRenderer.handleMessage(Renderer.MSG_SET_VOLUME, volume);
     if (secondaryRenderer != null) {
       secondaryRenderer.handleMessage(Renderer.MSG_SET_VOLUME, volume);
+    }
+  }
+
+  /** Sets the audio session ID on the renderer. */
+  public void setAudioSessionId(int audioSessionId) throws ExoPlaybackException {
+    if (getTrackType() != TRACK_TYPE_AUDIO && getTrackType() != TRACK_TYPE_VIDEO) {
+      return;
+    }
+    primaryRenderer.handleMessage(Renderer.MSG_SET_AUDIO_SESSION_ID, audioSessionId);
+    if (secondaryRenderer != null) {
+      secondaryRenderer.handleMessage(Renderer.MSG_SET_AUDIO_SESSION_ID, audioSessionId);
     }
   }
 
@@ -875,6 +961,7 @@ import java.util.Objects;
     RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_PRIMARY,
     RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_SECONDARY,
     RENDERER_PREWARMING_STATE_PREWARMING_PRIMARY,
+    RENDERER_PREWARMING_STATE_PREWARMING_SECONDARY,
     RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY,
     RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY
   })
@@ -899,16 +986,22 @@ import java.util.Objects;
   /* package */ static final int RENDERER_PREWARMING_STATE_PREWARMING_PRIMARY = 2;
 
   /**
+   * ExoPlayer is currently pre-warming the secondary renderer that is not being used for the
+   * current media item for a subsequent media item.
+   */
+  /* package */ static final int RENDERER_PREWARMING_STATE_PREWARMING_SECONDARY = 3;
+
+  /**
    * Both a primary and secondary renderer are enabled and ExoPlayer is transitioning to a media
    * item using the secondary renderer.
    */
-  /* package */ static final int RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY = 3;
+  /* package */ static final int RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY = 4;
 
   /**
    * Both a primary and secondary renderer are enabled and ExoPlayer is transitioning to a media
    * item using the primary renderer.
    */
-  /* package */ static final int RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY = 4;
+  /* package */ static final int RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY = 5;
 
   /** Results for calls to {@link #replaceStreamsOrDisableRendererForTransition}. */
   @Documented

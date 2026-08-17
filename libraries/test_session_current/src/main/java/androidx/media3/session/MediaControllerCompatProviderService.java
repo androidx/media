@@ -156,6 +156,12 @@ public class MediaControllerCompatProviderService extends Service {
       controller.sendCommand(command, params, cb);
     }
 
+    @Override
+    public String getPackageName(String controllerId) throws RemoteException {
+      MediaControllerCompat controller = mediaControllerCompatMap.get(controllerId);
+      return controller.getPackageName();
+    }
+
     ////////////////////////////////////////////////////////////////////////////////
     // MediaControllerCompat.TransportControls methods
     ////////////////////////////////////////////////////////////////////////////////
@@ -288,12 +294,14 @@ public class MediaControllerCompatProviderService extends Service {
     }
 
     @Override
-    public void sendCustomAction(String controllerId, Bundle customActionBundle, Bundle args)
+    public void sendCustomActionByIndex(String controllerId, int customActionIndex)
         throws RemoteException {
       MediaControllerCompat controller = mediaControllerCompatMap.get(controllerId);
       PlaybackStateCompat.CustomAction customAction =
-          (PlaybackStateCompat.CustomAction) getParcelable(customActionBundle);
-      controller.getTransportControls().sendCustomAction(customAction, args);
+          controller.getPlaybackState().getCustomActions().get(customActionIndex);
+      controller
+          .getTransportControls()
+          .sendCustomAction(customAction.getAction(), customAction.getExtras());
     }
 
     @Override

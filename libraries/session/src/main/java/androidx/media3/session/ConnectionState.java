@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.common.util.Util.convertToNullIfInvalid;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.app.PendingIntent;
@@ -24,6 +25,7 @@ import android.os.Bundle;
 import android.os.IBinder;
 import androidx.annotation.Nullable;
 import androidx.core.app.BundleCompat;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.Util;
@@ -64,6 +66,8 @@ import java.util.List;
 
   public final ImmutableList<CommandButton> commandButtonsForMediaItems;
 
+  @Nullable public final String packageNameOverride;
+
   public ConnectionState(
       int libraryVersion,
       int sessionInterfaceVersion,
@@ -78,7 +82,8 @@ import java.util.List;
       Bundle tokenExtras,
       Bundle sessionExtras,
       PlayerInfo playerInfo,
-      @Nullable Token platformToken) {
+      @Nullable Token platformToken,
+      @Nullable String packageNameOverride) {
     this.libraryVersion = libraryVersion;
     this.sessionInterfaceVersion = sessionInterfaceVersion;
     this.sessionBinder = sessionBinder;
@@ -93,6 +98,7 @@ import java.util.List;
     this.sessionExtras = sessionExtras;
     this.playerInfo = playerInfo;
     this.platformToken = platformToken;
+    this.packageNameOverride = packageNameOverride;
   }
 
   private static final String FIELD_LIBRARY_VERSION = Util.intToStringMaxRadix(0);
@@ -110,10 +116,11 @@ import java.util.List;
   private static final String FIELD_SESSION_INTERFACE_VERSION = Util.intToStringMaxRadix(8);
   private static final String FIELD_IN_PROCESS_BINDER = Util.intToStringMaxRadix(10);
   private static final String FIELD_PLATFORM_TOKEN = Util.intToStringMaxRadix(12);
+  private static final String FIELD_PACKAGE_NAME_OVERRIDE = Util.intToStringMaxRadix(15);
 
-  // Next field key = 15
+  // Next field key = 16
 
-  public Bundle toBundleForRemoteProcess(int controllerInterfaceVersion) {
+  public Bundle toBundleForRemoteProcess(int interfaceVersion) {
     Bundle bundle = new Bundle();
     bundle.putInt(FIELD_LIBRARY_VERSION, libraryVersion);
     BundleCompat.putBinder(bundle, FIELD_SESSION_BINDER, sessionBinder.asBinder());
@@ -121,14 +128,15 @@ import java.util.List;
     if (!customLayout.isEmpty()) {
       bundle.putParcelableArrayList(
           FIELD_CUSTOM_LAYOUT,
-          BundleCollectionUtil.toBundleArrayList(customLayout, CommandButton::toBundle));
+          BundleCollectionUtil.toBundleArrayList(
+              customLayout, button -> button.toBundle(interfaceVersion)));
     }
     if (!mediaButtonPreferences.isEmpty()) {
-      if (controllerInterfaceVersion >= 7) {
+      if (interfaceVersion >= 7) {
         bundle.putParcelableArrayList(
             FIELD_MEDIA_BUTTON_PREFERENCES,
             BundleCollectionUtil.toBundleArrayList(
-                mediaButtonPreferences, CommandButton::toBundle));
+                mediaButtonPreferences, button -> button.toBundle(interfaceVersion)));
       } else {
         // Controller doesn't support media button preferences, send the list as a custom layout.
         // TODO: b/332877990 - Improve this logic to take allowed command and session extras for
@@ -137,17 +145,19 @@ import java.util.List;
             CommandButton.getCustomLayoutFromMediaButtonPreferences(
                 mediaButtonPreferences,
                 /* backSlotAllowed= */ true,
-                /* forwardSlotAllowed= */ true);
+                /* forwardSlotAllowed= */ true,
+                MediaLibraryInfo.INTERFACE_VERSION);
         bundle.putParcelableArrayList(
             FIELD_CUSTOM_LAYOUT,
-            BundleCollectionUtil.toBundleArrayList(customLayout, CommandButton::toBundle));
+            BundleCollectionUtil.toBundleArrayList(
+                customLayout, button -> button.toBundle(interfaceVersion)));
       }
     }
     if (!commandButtonsForMediaItems.isEmpty()) {
       bundle.putParcelableArrayList(
           FIELD_COMMAND_BUTTONS_FOR_MEDIA_ITEMS,
           BundleCollectionUtil.toBundleArrayList(
-              commandButtonsForMediaItems, CommandButton::toBundle));
+              commandButtonsForMediaItems, button -> button.toBundle(interfaceVersion)));
     }
     bundle.putBundle(FIELD_SESSION_COMMANDS, sessionCommands.toBundle());
     bundle.putBundle(FIELD_PLAYER_COMMANDS_FROM_SESSION, playerCommandsFromSession.toBundle());
@@ -161,10 +171,13 @@ import java.util.List;
         playerInfo
             .filterByAvailableCommands(
                 intersectedCommands, /* excludeTimeline= */ false, /* excludeTracks= */ false)
-            .toBundleForRemoteProcess(controllerInterfaceVersion));
+            .toBundleForRemoteProcess(interfaceVersion));
     bundle.putInt(FIELD_SESSION_INTERFACE_VERSION, sessionInterfaceVersion);
     if (platformToken != null) {
       bundle.putParcelable(FIELD_PLATFORM_TOKEN, platformToken);
+    }
+    if (packageNameOverride != null) {
+      bundle.putString(FIELD_PACKAGE_NAME_OVERRIDE, packageNameOverride);
     }
     return bundle;
   }
@@ -232,14 +245,15 @@ import java.util.List;
         playerCommandsFromSessionBundle == null
             ? Player.Commands.EMPTY
             : Player.Commands.fromBundle(playerCommandsFromSessionBundle);
-    @Nullable Bundle tokenExtras = bundle.getBundle(FIELD_TOKEN_EXTRAS);
-    @Nullable Bundle sessionExtras = bundle.getBundle(FIELD_SESSION_EXTRAS);
+    @Nullable Bundle tokenExtras = convertToNullIfInvalid(bundle.getBundle(FIELD_TOKEN_EXTRAS));
+    @Nullable Bundle sessionExtras = convertToNullIfInvalid(bundle.getBundle(FIELD_SESSION_EXTRAS));
     @Nullable Bundle playerInfoBundle = bundle.getBundle(FIELD_PLAYER_INFO);
     PlayerInfo playerInfo =
         playerInfoBundle == null
             ? PlayerInfo.DEFAULT
             : PlayerInfo.fromBundle(playerInfoBundle, sessionInterfaceVersion);
     @Nullable Token platformToken = bundle.getParcelable(FIELD_PLATFORM_TOKEN);
+    @Nullable String packageNameOverride = bundle.getString(FIELD_PACKAGE_NAME_OVERRIDE);
     return new ConnectionState(
         libraryVersion,
         sessionInterfaceVersion,
@@ -254,7 +268,8 @@ import java.util.List;
         tokenExtras == null ? Bundle.EMPTY : tokenExtras,
         sessionExtras == null ? Bundle.EMPTY : sessionExtras,
         playerInfo,
-        platformToken);
+        platformToken,
+        packageNameOverride);
   }
 
   private final class InProcessBinder extends Binder {

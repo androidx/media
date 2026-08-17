@@ -17,6 +17,7 @@ package androidx.media3.session;
 
 import static androidx.media3.common.Player.COMMAND_CHANGE_MEDIA_ITEMS;
 import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
 import android.os.Parcel;
@@ -28,6 +29,8 @@ import androidx.media3.common.C;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.Command;
 import androidx.media3.common.Player.Commands;
+import androidx.media3.common.Timeline;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.PlayerInfo.BundlingExclusions;
@@ -130,6 +133,9 @@ import java.util.List;
    * @param newPlayerInfo The new {@link PlayerInfo}.
    * @param newBundlingExclusions The bundling exclusions in the new {@link PlayerInfo}.
    * @param availablePlayerCommands The available commands to take into account when merging.
+   * @param keepOldUnmuteVolumeForMutedSessions Whether the old unmute volume should be kept for
+   *     muted sessions.
+   * @param connectedToken The {@link SessionToken} of the connected session.
    * @return The resulting merged {@link PlayerInfo}.
    */
   public static PlayerInfo mergePlayerInfo(
@@ -137,12 +143,45 @@ import java.util.List;
       PlayerInfo newPlayerInfo,
       BundlingExclusions newBundlingExclusions,
       Commands availablePlayerCommands,
-      boolean keepOldUnmuteVolumeForMutedSessions) {
+      boolean keepOldUnmuteVolumeForMutedSessions,
+      SessionToken connectedToken) {
     PlayerInfo mergedPlayerInfo = newPlayerInfo;
     if (newBundlingExclusions.isTimelineExcluded
         && availablePlayerCommands.contains(Player.COMMAND_GET_TIMELINE)) {
-      // Use the previous timeline if it is excluded in the most recent update.
-      mergedPlayerInfo = mergedPlayerInfo.copyWithTimeline(oldPlayerInfo.timeline);
+      // Detect inconsistent/invalid update with detailed logging (see b/464438593).
+      int sessionInterfaceVersion = connectedToken.getInterfaceVersion();
+      boolean isOutOfBounds =
+          !oldPlayerInfo.timeline.isEmpty()
+              && mergedPlayerInfo.sessionPositionInfo.positionInfo.mediaItemIndex
+                  >= oldPlayerInfo.timeline.getWindowCount();
+
+      if (sessionInterfaceVersion < 10 && isOutOfBounds) {
+        Log.w(
+            TAG,
+            "Inconsistent update from legacy session (interface version="
+                + sessionInterfaceVersion
+                + "). Index "
+                + mergedPlayerInfo.sessionPositionInfo.positionInfo.mediaItemIndex
+                + " is out of bounds of timeline (size="
+                + oldPlayerInfo.timeline.getWindowCount()
+                + "). Discarding stale timeline to prevent crash.");
+        mergedPlayerInfo = mergedPlayerInfo.copyWithTimeline(Timeline.EMPTY);
+      } else {
+        checkState(
+            !isOutOfBounds,
+            "Invalid PlayerInfo update, old index: "
+                + oldPlayerInfo.sessionPositionInfo.positionInfo.mediaItemIndex
+                + " (count="
+                + oldPlayerInfo.timeline.getWindowCount()
+                + "), new index = "
+                + mergedPlayerInfo.sessionPositionInfo.positionInfo.mediaItemIndex
+                + ", sent from "
+                + connectedToken.getPackageName()
+                + ", interface version="
+                + connectedToken.getInterfaceVersion());
+        // Use the previous timeline if it is excluded in the most recent update.
+        mergedPlayerInfo = mergedPlayerInfo.copyWithTimeline(oldPlayerInfo.timeline);
+      }
     }
     if (newBundlingExclusions.areCurrentTracksExcluded
         && availablePlayerCommands.contains(Player.COMMAND_GET_TRACKS)) {

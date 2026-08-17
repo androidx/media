@@ -1,0 +1,740 @@
+/*
+ * Copyright 2026 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package androidx.media3.transformer.mh;
+
+import static android.os.Build.VERSION.SDK_INT;
+import static androidx.lifecycle.Lifecycle.State.CREATED;
+import static androidx.lifecycle.Lifecycle.State.RESUMED;
+import static androidx.media3.common.util.Util.isRunningOnEmulator;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_COLOR_TEST_1080P_HLG10;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S;
+import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
+import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
+import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
+import static androidx.media3.test.utils.PlayerFence.futureWhen;
+import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
+import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assume.assumeFalse;
+import static org.junit.Assume.assumeTrue;
+
+import android.app.Instrumentation;
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
+import android.graphics.Canvas;
+import android.graphics.PixelFormat;
+import android.graphics.Rect;
+import android.hardware.DataSpace;
+import android.media.Image;
+import android.media.ImageReader;
+import android.os.Handler;
+import android.os.Looper;
+import android.provider.Settings;
+import android.view.PixelCopy;
+import android.view.Surface;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
+import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
+import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
+import androidx.media3.common.Format;
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.Player;
+import androidx.media3.common.VideoSize;
+import androidx.media3.common.util.ConditionVariable;
+import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
+import androidx.media3.effect.SimpleGlFrameProcessor;
+import androidx.media3.effect.ndk.HardwareBufferJni;
+import androidx.media3.transformer.AndroidTestUtil;
+import androidx.media3.transformer.Composition;
+import androidx.media3.transformer.CompositionPlayer;
+import androidx.media3.transformer.EditedMediaItem;
+import androidx.media3.transformer.EditedMediaItemSequence;
+import androidx.media3.transformer.FrameWriterToHardwareBufferFrameQueueAdapter;
+import androidx.media3.transformer.GlFrameProcessorTestRule;
+import androidx.media3.transformer.PacketConsumerToFrameProcessorAdapter;
+import androidx.media3.transformer.SurfaceTestActivity;
+import androidx.test.core.app.ApplicationProvider;
+import androidx.test.ext.junit.rules.ActivityScenarioRule;
+import androidx.test.filters.SdkSuppress;
+import androidx.test.platform.app.InstrumentationRegistry;
+import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.SettableFuture;
+import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicReference;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Ignore;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TestName;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
+
+/**
+ * Pixel tests for {@link CompositionPlayer} when outputting to a {@link android.view.SurfaceView},
+ * parameterized to test different effects pipeline paths.
+ */
+@Ignore("Only intended to run on internal infra: b/396671260")
+@RunWith(Parameterized.class)
+@SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
+public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
+
+  private static final String PACKET_CONSUMER = "packet_consumer";
+  private static final String FRAME_PROCESSOR_ADAPTER = "frame_processor_adapter";
+  private static final String FRAME_PROCESSOR = "frame_processor";
+  private static final String DEFAULT_GL_FRAME_PROCESSOR = "default_gl_frame_processor";
+  private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 10_000;
+  private static final float PSNR_THRESHOLD = 23f;
+  private static final String GOLDEN_ASSET_FOLDER_PATH =
+      "test-generated-goldens/CompositionPlayerPacketConsumerSurfaceViewPixelTest/";
+
+  @Parameters(name = "{0}")
+  public static ImmutableList<String> params() {
+    return ImmutableList.of(
+        PACKET_CONSUMER, FRAME_PROCESSOR_ADAPTER, FRAME_PROCESSOR, DEFAULT_GL_FRAME_PROCESSOR);
+  }
+
+  @Parameter public String mode;
+
+  @Rule
+  public ActivityScenarioRule<SurfaceTestActivity> rule =
+      new ActivityScenarioRule<>(SurfaceTestActivity.class);
+
+  @Rule public final TestName testName = new TestName();
+
+  private final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+  private final Context context = ApplicationProvider.getApplicationContext();
+
+  private @MonotonicNonNull CompositionPlayer compositionPlayer;
+  private @MonotonicNonNull SurfaceView surfaceView;
+  private @MonotonicNonNull ImageReaderSurfaceHolder surfaceHolder;
+
+  @Rule
+  public final GlFrameProcessorTestRule glFrameProcessorTestRule =
+      new GlFrameProcessorTestRule(TEST_TIMEOUT_MS);
+
+  private String testId;
+
+  @Before
+  public void setUp() throws Exception {
+    testId = testName.getMethodName();
+    rule.getScenario().onActivity(activity -> surfaceView = activity.getSurfaceView());
+  }
+
+  @After
+  public void tearDown() {
+    instrumentation.runOnMainSync(
+        () -> {
+          if (compositionPlayer != null) {
+            compositionPlayer.release();
+          }
+        });
+    rule.getScenario().close();
+    if (surfaceHolder != null) {
+      surfaceHolder.release();
+    }
+  }
+
+  @Test
+  public void compositionPlayer_reportsVideoSizeChanged() throws InterruptedException {
+    ConditionVariable videoSizeReported = new ConditionVariable();
+    AtomicReference<VideoSize> videoSizeAtomicReference = new AtomicReference<>();
+
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer = createCompositionPlayerBuilder(context, mode).build();
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.addListener(
+              new Player.Listener() {
+                @Override
+                public void onVideoSizeChanged(VideoSize videoSize) {
+                  videoSizeAtomicReference.set(videoSize);
+                  videoSizeReported.open();
+                }
+              });
+          compositionPlayer.setComposition(
+              new Composition.Builder(
+                      EditedMediaItemSequence.withVideoFrom(
+                          ImmutableList.of(
+                              new EditedMediaItem.Builder(
+                                      MediaItem.fromUri(
+                                          MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
+                                  .setDurationUs(
+                                      MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S
+                                          .videoDurationUs)
+                                  .build())))
+                  .build());
+          compositionPlayer.prepare();
+          compositionPlayer.play();
+        });
+    videoSizeReported.block(TEST_TIMEOUT_MS);
+
+    VideoSize videoSize = videoSizeAtomicReference.get();
+    assertThat(videoSize.width)
+        .isEqualTo(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoFormat.width);
+    assertThat(videoSize.height)
+        .isEqualTo(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoFormat.height);
+  }
+
+  @Test
+  public void compositionPlayer_withPacketConsumer_rendersFirstFrameAndReturnsBitmap()
+      throws Exception {
+    SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
+
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer = createCompositionPlayerBuilder(context, mode).build();
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
+          compositionPlayer.setComposition(
+              new Composition.Builder(
+                      EditedMediaItemSequence.withVideoFrom(
+                          ImmutableList.of(
+                              new EditedMediaItem.Builder(
+                                      MediaItem.fromUri(
+                                          MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
+                                  .setDurationUs(
+                                      MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S
+                                          .videoDurationUs)
+                                  .build())))
+                  .build());
+          compositionPlayer.prepare();
+        });
+
+    firstFrameRenderedFuture.get();
+
+    Bitmap bitmap = Bitmap.createBitmap(/* width= */ 240, /* height= */ 270, Config.ARGB_8888);
+    ConditionVariable pixelCopyFinished = new ConditionVariable();
+
+    instrumentation.runOnMainSync(
+        () ->
+            PixelCopy.request(
+                surfaceView,
+                bitmap,
+                result -> {
+                  if (result == PixelCopy.SUCCESS) {
+                    pixelCopyFinished.open();
+                  }
+                },
+                surfaceView.getHandler()));
+    assertThat(pixelCopyFinished.block(TEST_TIMEOUT_MS)).isTrue();
+
+    Bitmap expectedBitmap =
+        readBitmap(
+            /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
+                + "compositionPlayer_withPacketConsumer_rendersFirstFrameAndReturnsBitmap.png");
+
+    maybeSaveTestBitmap(testId, "firstFrame", bitmap, /* path= */ null);
+    assertBitmapsAreSimilar(expectedBitmap, bitmap, PSNR_THRESHOLD);
+  }
+
+  @Test
+  public void compositionPlayer_withPacketConsumer_backsUpAndRestoresFrameOnLifecycleChange()
+      throws Exception {
+    SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
+    // rule.getScenario().moveToState(RESUMED); hangs if the device setup is not completed.
+    assumeTrue(isDeviceReady());
+    ConditionVariable surfaceDestroyed = new ConditionVariable();
+    ConditionVariable surfaceChanged = new ConditionVariable();
+
+    SurfaceHolder.Callback callback =
+        new SurfaceHolder.Callback() {
+          @Override
+          public void surfaceCreated(SurfaceHolder holder) {}
+
+          @Override
+          public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+            surfaceChanged.open();
+          }
+
+          @Override
+          public void surfaceDestroyed(SurfaceHolder holder) {
+            surfaceDestroyed.open();
+          }
+        };
+
+    instrumentation.runOnMainSync(
+        () -> {
+          surfaceView.getHolder().addCallback(callback);
+          compositionPlayer = createCompositionPlayerBuilder(context, mode).build();
+          firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.setComposition(
+              new Composition.Builder(
+                      EditedMediaItemSequence.withVideoFrom(
+                          ImmutableList.of(
+                              new EditedMediaItem.Builder(
+                                      MediaItem.fromUri(
+                                          MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
+                                  .setDurationUs(
+                                      MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S
+                                          .videoDurationUs)
+                                  .build())))
+                  .build());
+          compositionPlayer.prepare();
+          compositionPlayer.setPlayWhenReady(false);
+        });
+
+    firstFrameRenderedFuture.get();
+
+    // Move activity to stopped state (destroys surface, triggers backup).
+    rule.getScenario().moveToState(CREATED);
+
+    // Wait for surface destruction to complete.
+    assertThat(surfaceDestroyed.block(TEST_TIMEOUT_MS)).isTrue();
+
+    // Reset the condition variable to wait for the next recreation.
+    surfaceChanged.close();
+
+    // Move activity back to resumed state (re-creates surface, triggers restore).
+    rule.getScenario().moveToState(RESUMED);
+
+    // Wait for surface re-creation.
+    assertThat(surfaceChanged.block(TEST_TIMEOUT_MS)).isTrue();
+
+    Bitmap bitmap = Bitmap.createBitmap(/* width= */ 240, /* height= */ 270, Config.ARGB_8888);
+    ConditionVariable pixelCopyFinished = new ConditionVariable();
+
+    instrumentation.runOnMainSync(
+        () ->
+            PixelCopy.request(
+                surfaceView,
+                bitmap,
+                result -> {
+                  if (result == PixelCopy.SUCCESS) {
+                    pixelCopyFinished.open();
+                  }
+                },
+                surfaceView.getHandler()));
+    assertThat(pixelCopyFinished.block(TEST_TIMEOUT_MS)).isTrue();
+
+    Bitmap expectedBitmap =
+        readBitmap(
+            /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
+                + "compositionPlayer_withPacketConsumer_rendersFirstFrameAndReturnsBitmap.png");
+
+    maybeSaveTestBitmap(testId, "restoredFrame", bitmap, /* path= */ null);
+    assertBitmapsAreSimilar(expectedBitmap, bitmap, PSNR_THRESHOLD);
+  }
+
+  @Test
+  @SdkSuppress(
+      minSdkVersion = 34) // RGBA_1010102 only supported in ImageReader/SurfaceView from API 34.
+  public void compositionPlayer_withPacketConsumer_hdr_backsUpAndRestoresFrameOnLifecycleChange()
+      throws Exception {
+    assumeFalse(mode.equals(DEFAULT_GL_FRAME_PROCESSOR));
+    assumeTrue(isDeviceReady());
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat,
+        /* outputFormat= */ null);
+    SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
+    ConditionVariable surfaceDestroyed = new ConditionVariable();
+    ConditionVariable surfaceChanged = new ConditionVariable();
+
+    SurfaceHolder.Callback callback =
+        new SurfaceHolder.Callback() {
+          @Override
+          public void surfaceCreated(SurfaceHolder holder) {}
+
+          @Override
+          public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+            surfaceChanged.open();
+          }
+
+          @Override
+          public void surfaceDestroyed(SurfaceHolder holder) {
+            surfaceDestroyed.open();
+          }
+        };
+
+    instrumentation.runOnMainSync(
+        () -> {
+          surfaceView.getHolder().addCallback(callback);
+          compositionPlayer = createCompositionPlayerBuilder(context, mode).build();
+          firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.setComposition(
+              new Composition.Builder(
+                      EditedMediaItemSequence.withVideoFrom(
+                          ImmutableList.of(
+                              new EditedMediaItem.Builder(
+                                      MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri))
+                                  .setDurationUs(MP4_ASSET_COLOR_TEST_1080P_HLG10.videoDurationUs)
+                                  .build())))
+                  .build());
+          compositionPlayer.prepare();
+          compositionPlayer.setPlayWhenReady(false);
+        });
+
+    firstFrameRenderedFuture.get();
+
+    // Move activity to stopped state (destroys surface, triggers backup).
+    rule.getScenario().moveToState(CREATED);
+
+    // Wait for surface destruction to complete.
+    assertThat(surfaceDestroyed.block(TEST_TIMEOUT_MS)).isTrue();
+
+    // Reset the condition variable to wait for the next recreation.
+    surfaceChanged.close();
+
+    // Move activity back to resumed state (re-creates surface, triggers restore).
+    rule.getScenario().moveToState(RESUMED);
+
+    // Wait for surface re-creation.
+    assertThat(surfaceChanged.block(TEST_TIMEOUT_MS)).isTrue();
+
+    Bitmap bitmap = Bitmap.createBitmap(/* width= */ 1920, /* height= */ 1080, Config.RGBA_1010102);
+    ConditionVariable pixelCopyFinished = new ConditionVariable();
+
+    instrumentation.runOnMainSync(
+        () ->
+            PixelCopy.request(
+                surfaceView,
+                bitmap,
+                result -> {
+                  if (result == PixelCopy.SUCCESS) {
+                    pixelCopyFinished.open();
+                  }
+                },
+                surfaceView.getHandler()));
+    assertThat(pixelCopyFinished.block(TEST_TIMEOUT_MS)).isTrue();
+    assertThat(isBitmapBlackOrEmpty(bitmap)).isFalse();
+  }
+
+  @Test
+  public void compositionPlayer_withPacketConsumer_usesMetadataListener() throws Exception {
+    SettableFuture<Void> endedFuture = SettableFuture.create();
+    Queue<Long> videoTimestamps = new ConcurrentLinkedQueue<>();
+    AtomicReference<Format> formatAtomicReference = new AtomicReference<>();
+
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer =
+              createCompositionPlayerBuilder(context, mode)
+                  .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+                  .build();
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.setVideoFrameMetadataListener(
+              (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
+                videoTimestamps.add(presentationTimeUs);
+                if (formatAtomicReference.get() != null) {
+                  assertThat(formatAtomicReference.get()).isEqualTo(format);
+                } else {
+                  formatAtomicReference.set(format);
+                }
+              });
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+          compositionPlayer.setComposition(
+              new Composition.Builder(
+                      EditedMediaItemSequence.withVideoFrom(
+                          ImmutableList.of(
+                              new EditedMediaItem.Builder(
+                                      new MediaItem.Builder()
+                                          .setUri(
+                                              MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri)
+                                          .setClippingConfiguration(
+                                              new MediaItem.ClippingConfiguration.Builder()
+                                                  .setEndPositionMs(500)
+                                                  .build())
+                                          .build())
+                                  .setDurationUs(
+                                      MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S
+                                          .videoDurationUs)
+                                  .build())))
+                  .build());
+          compositionPlayer.prepare();
+          compositionPlayer.play();
+        });
+    endedFuture.get();
+
+    assertThat(videoTimestamps)
+        .containsExactly(
+            0L, 16666L, 33333L, 50000L, 66666L, 83333L, 100000L, 116666L, 133333L, 150000L, 166666L,
+            183333L, 200000L, 216666L, 233333L, 250000L, 266666L, 283333L, 300000L, 316666L,
+            333333L, 350000L, 366666L, 383333L, 400000L, 416666L, 433333L, 450000L, 466666L,
+            483333L)
+        .inOrder();
+    assertThat(formatAtomicReference.get().width).isEqualTo(320);
+    assertThat(formatAtomicReference.get().height).isEqualTo(240);
+    assertThat(formatAtomicReference.get().colorInfo)
+        .isEqualTo(
+            new ColorInfo.Builder()
+                .setColorRange(C.COLOR_RANGE_FULL)
+                .setColorSpace(C.COLOR_SPACE_BT601)
+                .setColorTransfer(C.COLOR_TRANSFER_SDR)
+                .setChromaBitdepth(8)
+                .setLumaBitdepth(8)
+                .build());
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 33)
+  public void compositionPlayer_withPacketConsumer_andSdrVideo_outputsCorrectDataSpace()
+      throws Exception {
+    SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
+    surfaceHolder = new ImageReaderSurfaceHolder();
+
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer = createCompositionPlayerBuilder(context, mode).build();
+          compositionPlayer.setVideoSurfaceHolder(surfaceHolder);
+          firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
+          compositionPlayer.setComposition(
+              new Composition.Builder(
+                      EditedMediaItemSequence.withVideoFrom(
+                          ImmutableList.of(
+                              new EditedMediaItem.Builder(
+                                      MediaItem.fromUri(
+                                          MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
+                                  .setDurationUs(
+                                      MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S
+                                          .videoDurationUs)
+                                  .build())))
+                  .build());
+          compositionPlayer.prepare();
+          compositionPlayer.setPlayWhenReady(true);
+        });
+    firstFrameRenderedFuture.get();
+
+    int actualDataSpace = surfaceHolder.getLatestDataSpace();
+    assertThat(DataSpace.getStandard(actualDataSpace)).isEqualTo(DataSpace.STANDARD_BT601_625);
+    assertThat(DataSpace.getTransfer(actualDataSpace)).isEqualTo(DataSpace.TRANSFER_SMPTE_170M);
+    assertThat(DataSpace.getRange(actualDataSpace)).isEqualTo(DataSpace.RANGE_FULL);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 34) // RGBA_1010102 only supported in ImageReader from API 34.
+  public void compositionPlayer_andHdrVideo_outputsCorrectDataSpace() throws Exception {
+    // TODO: b/505721737 - Support HDR.
+    // DefaultGlFrameProcessor doesn't support HDR yet.
+    assumeFalse(mode.equals(DEFAULT_GL_FRAME_PROCESSOR));
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat,
+        /* outputFormat= */ null);
+    SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
+    surfaceHolder = new ImageReaderSurfaceHolder();
+
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer = createCompositionPlayerBuilder(context, mode).build();
+          compositionPlayer.setVideoSurfaceHolder(surfaceHolder);
+          firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
+          compositionPlayer.setComposition(
+              new Composition.Builder(
+                      EditedMediaItemSequence.withVideoFrom(
+                          ImmutableList.of(
+                              new EditedMediaItem.Builder(
+                                      MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri))
+                                  .setDurationUs(MP4_ASSET_COLOR_TEST_1080P_HLG10.videoDurationUs)
+                                  .build())))
+                  .build());
+          compositionPlayer.prepare();
+          compositionPlayer.setPlayWhenReady(true);
+        });
+    firstFrameRenderedFuture.get();
+
+    int actualDataSpace = surfaceHolder.getLatestDataSpace();
+    assertThat(DataSpace.getStandard(actualDataSpace)).isEqualTo(DataSpace.STANDARD_BT2020);
+    assertThat(DataSpace.getTransfer(actualDataSpace)).isEqualTo(DataSpace.TRANSFER_HLG);
+    assertThat(DataSpace.getRange(actualDataSpace)).isEqualTo(DataSpace.RANGE_LIMITED);
+  }
+
+  private CompositionPlayer.Builder createCompositionPlayerBuilder(Context context, String mode) {
+    CompositionPlayer.Builder builder =
+        new CompositionPlayer.Builder(context)
+            .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE);
+    if (mode.equals(PACKET_CONSUMER)) {
+      return builder.setHardwareBufferEffectsPipeline(
+          DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE));
+    } else if (mode.equals(FRAME_PROCESSOR_ADAPTER)) {
+      DefaultHardwareBufferEffectsPipeline pipeline =
+          DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE);
+      return builder.setFrameProcessorFactory(
+          (output, listenerExecutor, listener) -> {
+            pipeline.setRenderOutput(new FrameWriterToHardwareBufferFrameQueueAdapter(output));
+            return new PacketConsumerToFrameProcessorAdapter(pipeline, listenerExecutor, listener);
+          });
+    } else if (mode.equals(FRAME_PROCESSOR)) {
+      return builder.setFrameProcessorFactory(
+          new SimpleGlFrameProcessor.Factory(context, HardwareBufferJni.INSTANCE));
+    } else if (mode.equals(DEFAULT_GL_FRAME_PROCESSOR)) {
+      return builder.setFrameProcessorFactory(
+          glFrameProcessorTestRule.createDefaultGlFrameProcessorFactory(context));
+    }
+    throw new IllegalArgumentException("Unknown mode: " + mode);
+  }
+
+  private static boolean isDeviceReady() {
+    Context context = ApplicationProvider.getApplicationContext();
+    boolean deviceProvisioned =
+        Settings.Global.getInt(context.getContentResolver(), Settings.Global.DEVICE_PROVISIONED, 1)
+            == 1;
+    boolean userSetupComplete =
+        Settings.Secure.getInt(context.getContentResolver(), "user_setup_complete", 1) == 1;
+    return deviceProvisioned && userSetupComplete;
+  }
+
+  private static boolean isBitmapBlackOrEmpty(Bitmap bitmap) {
+    int width = bitmap.getWidth();
+    int height = bitmap.getHeight();
+    for (int x = 0; x < width; x += 10) {
+      for (int y = 0; y < height; y += 10) {
+        if ((bitmap.getPixel(x, y) & 0xFFFFFF) != 0) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  /** An implementation of {@link SurfaceHolder} which is backed by an {@link ImageReader}. */
+  private static final class ImageReaderSurfaceHolder implements SurfaceHolder {
+    private final List<Callback> callbacks = new CopyOnWriteArrayList<>();
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private int width;
+    private int height;
+    private int format;
+    private @MonotonicNonNull ImageReader imageReader;
+
+    @Override
+    public void addCallback(Callback callback) {
+      callbacks.add(callback);
+    }
+
+    @Override
+    public void removeCallback(Callback callback) {
+      callbacks.remove(callback);
+    }
+
+    @Override
+    public boolean isCreating() {
+      return false;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @deprecated implements a {@link SurfaceHolder} method in a test.
+     */
+    @Override
+    @Deprecated
+    public void setType(int type) {}
+
+    @Override
+    public void setFixedSize(int width, int height) {
+      this.width = width;
+      this.height = height;
+      handler.post(this::triggerCallbacks);
+    }
+
+    @Override
+    public void setSizeFromLayout() {}
+
+    @Override
+    public void setFormat(int format) {
+      this.format = format;
+      handler.post(this::triggerCallbacks);
+    }
+
+    @Override
+    public void setKeepScreenOn(boolean screenOn) {}
+
+    @Override
+    @Nullable
+    public Canvas lockCanvas() {
+      return null;
+    }
+
+    @Override
+    @Nullable
+    public Canvas lockCanvas(Rect dirty) {
+      return null;
+    }
+
+    @Override
+    public void unlockCanvasAndPost(Canvas canvas) {}
+
+    @Override
+    public Rect getSurfaceFrame() {
+      return new Rect(0, 0, width, height);
+    }
+
+    @Override
+    public Surface getSurface() {
+      if (imageReader == null) {
+        if (format == PixelFormat.RGBA_8888) {
+          // Old API versions, use an ImageReader constructor which supports fewer pixel formats.
+          imageReader =
+              ImageReader.newInstance(
+                  width == 0 ? 1 : width,
+                  height == 0 ? 1 : height,
+                  PixelFormat.RGBA_8888,
+                  /* maxImages= */ 2);
+        } else {
+          if (SDK_INT < 33) {
+            throw new IllegalStateException("HDR is only supported on API 33+");
+          }
+          // HDR is only supported on newer API versions, where a different constructor, with wider
+          // range of supported pixel formats exists.
+          imageReader =
+              new ImageReader.Builder(width, height)
+                  .setDefaultHardwareBufferFormat(format)
+                  .setMaxImages(2)
+                  .build();
+        }
+      }
+      return imageReader.getSurface();
+    }
+
+    @RequiresApi(33)
+    int getLatestDataSpace() {
+      Image image = imageReader.acquireLatestImage();
+      int dataSpace = image.getDataSpace();
+      image.close();
+      return dataSpace;
+    }
+
+    void release() {
+      if (imageReader != null) {
+        imageReader.close();
+      }
+    }
+
+    private void triggerCallbacks() {
+      if (imageReader != null
+          && (imageReader.getWidth() != width || imageReader.getHeight() != height)) {
+        imageReader.close();
+        imageReader = null;
+      }
+      for (Callback callback : callbacks) {
+        callback.surfaceChanged(/* holder= */ this, format, width, height);
+      }
+    }
+  }
+}

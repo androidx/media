@@ -39,7 +39,9 @@ import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeDataSource;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -52,7 +54,6 @@ import org.robolectric.shadows.ShadowTelephonyManager;
 
 /** Unit test for {@link DefaultBandwidthMeter}. */
 @RunWith(AndroidJUnit4.class)
-@Config(sdk = Config.ALL_SDKS) // Test all SDKs because network detection logic changed over time.
 public final class DefaultBandwidthMeterTest {
 
   private static final String FAST_COUNTRY_ISO = "TW";
@@ -448,6 +449,61 @@ public final class DefaultBandwidthMeterTest {
   }
 
   @Test
+  public void initialBitrateSupplier_setsInitialEstimate() {
+    setActiveNetworkInfo(networkInfoWifi);
+    DefaultBandwidthMeter.InitialBitrateSupplier supplier = networkType -> 123456789L;
+    DefaultBandwidthMeter bandwidthMeter =
+        new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
+            .setInitialBitrateSupplier(supplier)
+            .build();
+    ShadowLooper.idleMainLooper();
+    long initialEstimate = bandwidthMeter.getBitrateEstimate();
+
+    assertThat(initialEstimate).isEqualTo(123456789);
+  }
+
+  @Test
+  public void initialBitrateSupplier_returnsTimeUnset_fallsBackToDefault() {
+    setActiveNetworkInfo(networkInfoWifi);
+    DefaultBandwidthMeter.InitialBitrateSupplier supplier = networkType -> C.TIME_UNSET;
+    DefaultBandwidthMeter bandwidthMeter =
+        new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
+            .setInitialBitrateSupplier(supplier)
+            .build();
+    ShadowLooper.idleMainLooper();
+    long initialEstimate = bandwidthMeter.getBitrateEstimate();
+
+    assertThat(initialEstimate).isNotEqualTo(C.TIME_UNSET);
+    assertThat(initialEstimate).isGreaterThan(0);
+  }
+
+  @Test
+  public void initialBitrateSupplier_onNetworkTypeOverride_setsInitialEstimate() {
+    setActiveNetworkInfo(networkInfoWifi);
+    long expected4gBitrate = 987654321L;
+    DefaultBandwidthMeter.InitialBitrateSupplier supplier =
+        networkType -> {
+          if (networkType == C.NETWORK_TYPE_4G) {
+            return expected4gBitrate;
+          }
+          return C.TIME_UNSET; // Fallback to default for other types
+        };
+    DefaultBandwidthMeter bandwidthMeter =
+        new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
+            .setInitialBitrateSupplier(supplier)
+            .build();
+    ShadowLooper.idleMainLooper();
+    long initialEstimateWifi = bandwidthMeter.getBitrateEstimate();
+    assertThat(initialEstimateWifi).isNotEqualTo(expected4gBitrate);
+
+    bandwidthMeter.setNetworkTypeOverride(C.NETWORK_TYPE_4G);
+    ShadowLooper.idleMainLooper();
+    long initialEstimate4g = bandwidthMeter.getBitrateEstimate();
+
+    assertThat(initialEstimate4g).isEqualTo(expected4gBitrate);
+  }
+
+  @Test
   public void initialBitrateEstimateOverwrite_whileOffline_setsInitialEstimate() {
     setActiveNetworkInfo(networkInfoOffline);
     DefaultBandwidthMeter bandwidthMeter =
@@ -765,26 +821,29 @@ public final class DefaultBandwidthMeterTest {
             .setClock(clock)
             .build();
 
+    AtomicBoolean bitrateEstimateUpdated = new AtomicBoolean();
     Thread thread =
         new Thread("backgroundTransfers") {
           @Override
           public void run() {
-            simulateTransfers(bandwidthMeter, clock, /* simulatedTransferCount= */ 10000);
+            Random random = new Random(/* seed= */ 0);
+            while (!bitrateEstimateUpdated.get()) {
+              simulateTransfers(bandwidthMeter, clock, /* simulatedTransferCount= */ 100, random);
+            }
           }
         };
     thread.start();
 
     long currentBitrateEstimate = bandwidthMeter.getBitrateEstimate();
-    boolean bitrateEstimateUpdated = false;
     while (thread.isAlive()) {
       long newBitrateEstimate = bandwidthMeter.getBitrateEstimate();
       if (newBitrateEstimate != currentBitrateEstimate) {
         currentBitrateEstimate = newBitrateEstimate;
-        bitrateEstimateUpdated = true;
+        bitrateEstimateUpdated.set(true);
       }
     }
 
-    assertThat(bitrateEstimateUpdated).isTrue();
+    assertThat(bitrateEstimateUpdated.get()).isTrue();
   }
 
   private void setActiveNetworkInfo(NetworkInfo networkInfo) {
@@ -817,10 +876,20 @@ public final class DefaultBandwidthMeterTest {
     Shadows.shadowOf(telephonyManager).setNetworkCountryIso(countryIso);
   }
 
+  @CanIgnoreReturnValue
   private static long[] simulateTransfers(
       DefaultBandwidthMeter bandwidthMeter, FakeClock clock, int simulatedTransferCount) {
-    long[] bitrateEstimates = new long[simulatedTransferCount];
     Random random = new Random(/* seed= */ 0);
+    return simulateTransfers(bandwidthMeter, clock, simulatedTransferCount, random);
+  }
+
+  @CanIgnoreReturnValue
+  private static long[] simulateTransfers(
+      DefaultBandwidthMeter bandwidthMeter,
+      FakeClock clock,
+      int simulatedTransferCount,
+      Random random) {
+    long[] bitrateEstimates = new long[simulatedTransferCount];
     DataSource dataSource = new FakeDataSource();
     DataSpec dataSpec = new DataSpec(Uri.parse("https://test.com"));
     for (int i = 0; i < simulatedTransferCount; i++) {

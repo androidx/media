@@ -35,6 +35,8 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.CodecSpecificDataUtil;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.UnstableApi;
@@ -183,6 +185,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
      * @param dynamicSchedulingEnabled Whether to enable dynamic scheduling.
      */
     @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/369523131 - Remove once feature is enabled by default.
     public Builder experimentalSetDynamicSchedulingEnabled(boolean dynamicSchedulingEnabled) {
       this.dynamicSchedulingEnabled = dynamicSchedulingEnabled;
       return this;
@@ -291,7 +294,8 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     }
 
     @Nullable
-    Pair<Integer, Integer> codecProfileAndLevel = MediaCodecUtil.getCodecProfileAndLevel(format);
+    Pair<Integer, Integer> codecProfileAndLevel =
+        CodecSpecificDataUtil.getCodecProfileAndLevel(format);
     if (codecProfileAndLevel != null) {
       MediaFormatUtil.maybeSetInteger(
           mediaFormat, MediaFormat.KEY_PROFILE, codecProfileAndLevel.first);
@@ -301,10 +305,6 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
 
     if (SDK_INT >= 35) {
       mediaFormat.setInteger(MediaFormat.KEY_IMPORTANCE, max(0, -codecPriority));
-    }
-
-    if (shouldConfigureOperatingRate) {
-      configureOperatingRate(mediaFormat);
     }
 
     return createCodecForMediaFormat(
@@ -323,6 +323,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     try {
       decoderInfos =
           MediaCodecUtil.getDecoderInfosSortedByFullFormatSupport(
+              context,
               MediaCodecUtil.getDecoderInfosSoftMatch(
                   mediaCodecSelector,
                   format,
@@ -380,7 +381,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     return dynamicSchedulingEnabled;
   }
 
-  private static DefaultCodec createCodecFromDecoderInfos(
+  private DefaultCodec createCodecFromDecoderInfos(
       Context context,
       List<MediaCodecInfo> decoderInfos,
       Format format,
@@ -394,6 +395,10 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
       // The MIME type of the selected decoder may differ from Format.sampleMimeType, for example,
       // video/hevc is used instead of video/dolby-vision for some specific DolbyVision videos.
       mediaFormat.setString(MediaFormat.KEY_MIME, codecMimeType);
+      if (shouldConfigureOperatingRate) {
+        configureOperatingRate(
+            mediaFormat, decoderInfo.getMaxSupportedFrameRate(format.width, format.height));
+      }
       try {
         return new DefaultCodec(
             context, format, mediaFormat, decoderInfo.name, /* isDecoder= */ true, outputSurface);
@@ -406,19 +411,18 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     throw codecInitExceptions.get(0);
   }
 
-  private static void configureOperatingRate(MediaFormat mediaFormat) {
+  private static void configureOperatingRate(MediaFormat mediaFormat, float maxSupportedFrameRate) {
     if (SDK_INT < 25) {
       // Not setting priority and operating rate achieves better decoding performance.
       return;
     }
 
     if (deviceNeedsPriorityWorkaround()) {
-      // Setting KEY_PRIORITY to 1 leads to worse performance on many devices.
-      mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, 1);
+      // Setting KEY_PRIORITY to non-realtime leads to worse performance on many devices.
+      mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, C.MEDIA_CODEC_PRIORITY_NON_REALTIME);
     }
 
-    // Setting KEY_OPERATING_RATE to Integer.MAX_VALUE leads to slower operation on some devices.
-    mediaFormat.setInteger(MediaFormat.KEY_OPERATING_RATE, 10000);
+    mediaFormat.setFloat(MediaFormat.KEY_OPERATING_RATE, maxSupportedFrameRate);
   }
 
   private static boolean deviceNeedsPriorityWorkaround() {

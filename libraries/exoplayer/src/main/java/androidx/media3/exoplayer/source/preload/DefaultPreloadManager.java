@@ -22,16 +22,19 @@ import static java.lang.Math.abs;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
-import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Process;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.cache.Cache;
 import androidx.media3.datasource.cache.CacheDataSource;
@@ -48,7 +51,6 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.SampleQueue;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.trackselection.TrackSelector;
-import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
 import com.google.common.base.Predicate;
@@ -74,6 +76,7 @@ public final class DefaultPreloadManager
   public static final class Builder extends BuilderBase<Integer, PreloadStatus> {
 
     private final Context context;
+    @Nullable private DataSource.Factory dataSourceFactory;
     private PlaybackLooperProvider preloadLooperProvider;
     private TrackSelector.Factory trackSelectorFactory;
     private Supplier<BandwidthMeter> bandwidthMeterSupplier;
@@ -81,6 +84,7 @@ public final class DefaultPreloadManager
     private Supplier<LoadControl> loadControlSupplier;
     @Nullable private Cache cache;
     private Executor cachingExecutor;
+    private Clock clock;
     private boolean buildCalled;
     private boolean buildExoPlayerCalled;
 
@@ -93,10 +97,24 @@ public final class DefaultPreloadManager
     public Builder(
         Context context,
         TargetPreloadStatusControl<Integer, PreloadStatus> targetPreloadStatusControl) {
+      this(context, new SimpleRankingDataComparator(), targetPreloadStatusControl);
+    }
+
+    /**
+     * Creates a builder.
+     *
+     * @param context A {@link Context}.
+     * @param rankingDataComparator A {@link SimpleRankingDataComparator}.
+     * @param targetPreloadStatusControl A {@link TargetPreloadStatusControl}.
+     */
+    public Builder(
+        Context context,
+        SimpleRankingDataComparator rankingDataComparator,
+        TargetPreloadStatusControl<Integer, PreloadStatus> targetPreloadStatusControl) {
       super(
-          new SimpleRankingDataComparator(),
+          rankingDataComparator,
           targetPreloadStatusControl,
-          new MediaSourceFactorySupplier(context));
+          new DefaultMediaSourceFactorySupplier(context));
       this.context = context;
       this.preloadLooperProvider = new PlaybackLooperProvider();
       this.trackSelectorFactory = DefaultTrackSelector::new;
@@ -104,24 +122,86 @@ public final class DefaultPreloadManager
       this.renderersFactorySupplier = Suppliers.memoize(() -> new DefaultRenderersFactory(context));
       this.loadControlSupplier = Suppliers.memoize(DefaultLoadControl::new);
       this.cachingExecutor = Runnable::run;
+      this.clock = Clock.DEFAULT;
     }
 
     /**
-     * Sets the {@link MediaSource.Factory} that will be used by the built {@link
-     * DefaultPreloadManager} and {@link ExoPlayer}.
+     * @deprecated Use {@link #setMediaSourceFactorySupplier(MediaSourceFactorySupplier)} instead.
+     *     If an app still uses this method, it should be aware that the set {@link
+     *     MediaSource.Factory} may not have the {@link #setCache(Cache) set Cache} and {@link
+     *     #setDataSourceFactory(DataSource.Factory) set DataSource.Factory} injected.
+     */
+    @Deprecated
+    @CanIgnoreReturnValue
+    public Builder setMediaSourceFactory(MediaSource.Factory mediaSourceFactory) {
+      checkState(!buildCalled && !buildExoPlayerCalled);
+      this.mediaSourceFactorySupplier =
+          new MediaSourceFactorySupplier() {
+            @Override
+            @CanIgnoreReturnValue
+            public MediaSourceFactorySupplier setCache(@Nullable Cache cache) {
+              return this;
+            }
+
+            @Override
+            @CanIgnoreReturnValue
+            public MediaSourceFactorySupplier setDataSourceFactory(
+                @Nullable DataSource.Factory dataSourceFactory) {
+              return this;
+            }
+
+            @Override
+            public MediaSource.Factory get() {
+              return mediaSourceFactory;
+            }
+          };
+      return this;
+    }
+
+    /**
+     * Sets the {@link MediaSourceFactorySupplier} which supplies the {@link MediaSource.Factory}
+     * that will be used by the built {@link DefaultPreloadManager} and {@link ExoPlayer}.
      *
-     * <p>The default is a {@link DefaultMediaSourceFactory}.
+     * <p>The default is a {@link MediaSourceFactorySupplier} that creates a {@link
+     * DefaultMediaSourceFactory} with the {@linkplain #setCache(Cache) set cache} and the
+     * {@linkplain #setDataSourceFactory(DataSource.Factory) set DataSource.Factory}.
      *
-     * @param mediaSourceFactory A {@link MediaSource.Factory}
+     * @param mediaSourceFactorySupplier A {@link MediaSourceFactorySupplier}.
      * @return This builder.
      * @throws IllegalStateException If {@link #build()}, {@link #buildExoPlayer()} or {@link
      *     #buildExoPlayer(ExoPlayer.Builder)} has already been called.
      */
     @CanIgnoreReturnValue
-    public Builder setMediaSourceFactory(MediaSource.Factory mediaSourceFactory) {
+    public Builder setMediaSourceFactorySupplier(
+        MediaSourceFactorySupplier mediaSourceFactorySupplier) {
       checkState(!buildCalled && !buildExoPlayerCalled);
-      ((MediaSourceFactorySupplier) this.mediaSourceFactorySupplier)
-          .setCustomMediaSourceFactory(mediaSourceFactory);
+      this.mediaSourceFactorySupplier =
+          mediaSourceFactorySupplier.setCache(cache).setDataSourceFactory(dataSourceFactory);
+      return this;
+    }
+
+    /**
+     * Sets the {@link DataSource.Factory} that will be used by the built {@link
+     * DefaultPreloadManager} and {@link ExoPlayer}.
+     *
+     * <p>The {@link DataSource.Factory} will be used as the upstream {@link DataSource.Factory} for
+     * caching the media items, and propagated to the {@link MediaSource.Factory} used by {@link
+     * DefaultPreloadManager} and {@link ExoPlayer} for media source creation. Once set, the {@link
+     * DataSource.Factory} will be passed into the existing {@linkplain
+     * MediaSourceFactorySupplier#setDataSourceFactory(DataSource.Factory)
+     * MediaSourceFactorySupplier} on this builder, and the {@link MediaSourceFactorySupplier} later
+     * set to this builder.
+     *
+     * @param dataSourceFactory A {@link DataSource.Factory}.
+     * @return This builder.
+     * @throws IllegalStateException If {@link #build()}, {@link #buildExoPlayer()} or {@link
+     *     #buildExoPlayer(ExoPlayer.Builder)} has already been called.
+     */
+    @CanIgnoreReturnValue
+    public Builder setDataSourceFactory(DataSource.Factory dataSourceFactory) {
+      checkState(!buildCalled && !buildExoPlayerCalled);
+      this.dataSourceFactory = dataSourceFactory;
+      this.mediaSourceFactorySupplier.setDataSourceFactory(dataSourceFactory);
       return this;
     }
 
@@ -190,10 +270,12 @@ public final class DefaultPreloadManager
      * @return This builder.
      * @throws IllegalStateException If {@link #build()}, {@link #buildExoPlayer()} or {@link
      *     #buildExoPlayer(ExoPlayer.Builder)} has already been called.
+     * @throws IllegalArgumentException If {@code bandwidthMeter} is {@link BandwidthMeter#NO_OP}.
      */
     @CanIgnoreReturnValue
     public Builder setBandwidthMeter(BandwidthMeter bandwidthMeter) {
       checkState(!buildCalled && !buildExoPlayerCalled);
+      checkArgument(bandwidthMeter != BandwidthMeter.NO_OP);
       this.bandwidthMeterSupplier = () -> bandwidthMeter;
       return this;
     }
@@ -220,7 +302,14 @@ public final class DefaultPreloadManager
     }
 
     /**
-     * Sets the {@link Cache} that will be used for caching the media items.
+     * Sets the {@link Cache} that will be used by the built {@link DefaultPreloadManager} and
+     * {@link ExoPlayer}.
+     *
+     * <p>The {@link Cache} will be used for caching the media items, and propagated to the {@link
+     * MediaSource.Factory} used by {@link DefaultPreloadManager} and {@link ExoPlayer} for media
+     * source creation. Once set, the {@link Cache} will be passed into the existing {@linkplain
+     * MediaSourceFactorySupplier#setCache(Cache) MediaSourceFactorySupplier} on this builder, and
+     * the {@link MediaSourceFactorySupplier} later set to this builder.
      *
      * <p>The default is {@code null}. If an app will return {@link
      * PreloadStatus#specifiedRangeCached(long, long)} or {@link
@@ -236,7 +325,7 @@ public final class DefaultPreloadManager
     public Builder setCache(@Nullable Cache cache) {
       checkState(!buildCalled && !buildExoPlayerCalled);
       this.cache = cache;
-      ((MediaSourceFactorySupplier) this.mediaSourceFactorySupplier).setCache(cache);
+      this.mediaSourceFactorySupplier.setCache(cache);
       return this;
     }
 
@@ -256,6 +345,19 @@ public final class DefaultPreloadManager
     public Builder setCachingExecutor(Executor executor) {
       checkState(!buildCalled && !buildExoPlayerCalled);
       this.cachingExecutor = executor;
+      return this;
+    }
+
+    /**
+     * Sets the {@link Clock} that will be used the {@link DefaultPreloadManager}. Should only be
+     * set for testing purposes.
+     *
+     * @return This builder.
+     */
+    @VisibleForTesting
+    @CanIgnoreReturnValue
+    public Builder setClock(Clock clock) {
+      this.clock = clock;
       return this;
     }
 
@@ -281,7 +383,7 @@ public final class DefaultPreloadManager
      * builder:
      *
      * <ul>
-     *   <li>{@link #setMediaSourceFactory(MediaSource.Factory) MediaSource.Factory}
+     *   <li>{@link #setMediaSourceFactorySupplier(MediaSourceFactorySupplier)} MediaSource.Factory}
      *   <li>{@link #setRenderersFactory(RenderersFactory) RenderersFactory}
      *   <li>{@link #setTrackSelectorFactory(TrackSelector.Factory) TrackSelector.Factory}
      *   <li>{@link #setLoadControl(LoadControl) LoadControl}
@@ -470,19 +572,74 @@ public final class DefaultPreloadManager
     }
   }
 
+  /**
+   * A {@link RankingDataComparator} which compares the ranks of the media items based on their
+   * distances to the {@linkplain #setCurrentPlayingIndex(int) index of current playing media item}.
+   */
+  public static class SimpleRankingDataComparator implements RankingDataComparator<Integer> {
+
+    private int currentPlayingIndex;
+    @Nullable private InvalidationListener invalidationListener;
+
+    /** Creates a {@link SimpleRankingDataComparator}. */
+    public SimpleRankingDataComparator() {
+      this.currentPlayingIndex = C.INDEX_UNSET;
+    }
+
+    @Override
+    public final void setInvalidationListener(@Nullable InvalidationListener invalidationListener) {
+      this.invalidationListener = invalidationListener;
+    }
+
+    /**
+     * Sets the index of the current playing media.
+     *
+     * @param currentPlayingIndex The index of current playing media.
+     */
+    public final void setCurrentPlayingIndex(int currentPlayingIndex) {
+      if (currentPlayingIndex != this.currentPlayingIndex) {
+        this.currentPlayingIndex = currentPlayingIndex;
+        if (invalidationListener != null) {
+          invalidationListener.onRankingDataComparatorInvalidated();
+        }
+      }
+    }
+
+    /**
+     * Compares the ranks of two media items based on their distances to the current playing index.
+     * The media item with lower rank will be preloaded earlier than the other. If the ranks of the
+     * two media items are equal, the relative preload order of them is arbitrary.
+     *
+     * <p>Apps can override this method if a more fine-tuned comparison logic is needed.
+     *
+     * @param o1 The index of the first media item to be compared.
+     * @param o2 The index of the second media item to be compared.
+     * @return A negative integer, zero, or a positive integer as the rank of the first media item
+     *     is less than, equal to, or greater than the second.
+     */
+    @Override
+    public int compare(Integer o1, Integer o2) {
+      return Integer.compare(abs(o1 - currentPlayingIndex), abs(o2 - currentPlayingIndex));
+    }
+
+    /** Returns the index of the current playing media, or {@link C#INDEX_UNSET} if not set. */
+    protected final int getCurrentPlayingIndex() {
+      return currentPlayingIndex;
+    }
+  }
+
   private final RendererCapabilitiesList rendererCapabilitiesList;
   private final TrackSelector trackSelector;
   private final PlaybackLooperProvider preloadLooperProvider;
   private final PreloadMediaSource.Factory preloadMediaSourceFactory;
   @Nullable private final HandlerThread preCacheThread;
   @Nullable private final PreCacheHelper.Factory preCacheHelperFactory;
-  private final Handler preloadHandler;
-  private final boolean deprecatedConstructorCalled;
+  private final HandlerWrapper preloadHandler;
   private boolean releaseCalled;
 
   private DefaultPreloadManager(Builder builder) {
     super(
-        new SimpleRankingDataComparator(),
+        builder.rankingDataComparator,
         builder.targetPreloadStatusControl,
         builder.mediaSourceFactorySupplier.get());
     rendererCapabilitiesList =
@@ -491,64 +648,36 @@ public final class DefaultPreloadManager
     preloadLooperProvider = builder.preloadLooperProvider;
     trackSelector = builder.trackSelectorFactory.createTrackSelector(builder.context);
     BandwidthMeter bandwidthMeter = builder.bandwidthMeterSupplier.get();
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(trackSelector::onParametersActivated, bandwidthMeter);
     Looper preloadLooper = preloadLooperProvider.obtainLooper();
     preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
-            builder.mediaSourceFactorySupplier.get(),
-            new PreloadMediaSourceControl(),
-            trackSelector,
-            bandwidthMeter,
-            rendererCapabilitiesList.getRendererCapabilities(),
-            builder.loadControlSupplier.get().getAllocator(),
-            preloadLooper);
+                builder.mediaSourceFactorySupplier.get(),
+                new PreloadMediaSourceControl(),
+                trackSelector,
+                bandwidthMeter,
+                rendererCapabilitiesList.getRendererCapabilities(),
+                builder.loadControlSupplier.get(),
+                preloadLooper)
+            .setClock(builder.clock);
     @Nullable Cache cache = builder.cache;
     if (cache != null) {
       preCacheThread = new HandlerThread("DefaultPreloadManager:PreCacheHelper");
       preCacheThread.start();
+      DataSource.Factory upstreamDataSourceFactory =
+          builder.dataSourceFactory != null
+              ? builder.dataSourceFactory
+              : new DefaultDataSource.Factory(builder.context);
       preCacheHelperFactory =
-          new PreCacheHelper.Factory(builder.context, cache, preCacheThread.getLooper())
+          new PreCacheHelper.Factory(
+                  builder.context, cache, upstreamDataSourceFactory, preCacheThread.getLooper())
               .setDownloadExecutor(builder.cachingExecutor)
               .setListener(new PreCacheHelperListener());
     } else {
       preCacheThread = null;
       preCacheHelperFactory = null;
     }
-    preloadHandler = Util.createHandler(preloadLooper, /* callback= */ null);
-    deprecatedConstructorCalled = false;
-  }
-
-  /**
-   * @deprecated Use {@link Builder} instead.
-   */
-  @Deprecated
-  public DefaultPreloadManager(
-      TargetPreloadStatusControl<Integer, PreloadStatus> targetPreloadStatusControl,
-      MediaSource.Factory mediaSourceFactory,
-      TrackSelector trackSelector,
-      BandwidthMeter bandwidthMeter,
-      RendererCapabilitiesList.Factory rendererCapabilitiesListFactory,
-      Allocator allocator,
-      Looper preloadLooper) {
-    super(new SimpleRankingDataComparator(), targetPreloadStatusControl, mediaSourceFactory);
-    this.rendererCapabilitiesList =
-        rendererCapabilitiesListFactory.createRendererCapabilitiesList();
-    this.preloadLooperProvider = new PlaybackLooperProvider(preloadLooper);
-    this.trackSelector = trackSelector;
-    Looper obtainedPreloadLooper = preloadLooperProvider.obtainLooper();
-    preloadMediaSourceFactory =
-        new PreloadMediaSource.Factory(
-            mediaSourceFactory,
-            new PreloadMediaSourceControl(),
-            trackSelector,
-            bandwidthMeter,
-            rendererCapabilitiesList.getRendererCapabilities(),
-            allocator,
-            obtainedPreloadLooper);
-    preloadHandler = Util.createHandler(obtainedPreloadLooper, /* callback= */ null);
-    preCacheThread = null;
-    preCacheHelperFactory = null;
-    deprecatedConstructorCalled = true;
+    preloadHandler = builder.clock.createHandler(preloadLooper, /* callback= */ null);
   }
 
   /**
@@ -642,11 +771,7 @@ public final class DefaultPreloadManager
     preloadHandler.post(
         () -> {
           rendererCapabilitiesList.release();
-          if (!deprecatedConstructorCalled) {
-            // TODO: Remove the property deprecatedConstructorCalled and release the TrackSelector
-            // anyway after the deprecated constructor is removed.
-            trackSelector.release();
-          }
+          trackSelector.release();
           preloadLooperProvider.releaseLooper();
         });
   }
@@ -654,35 +779,6 @@ public final class DefaultPreloadManager
   private void releasePreCacheUtils() {
     if (preCacheThread != null) {
       preCacheThread.quit();
-    }
-  }
-
-  private static final class SimpleRankingDataComparator implements RankingDataComparator<Integer> {
-
-    private int currentPlayingIndex;
-    @Nullable private InvalidationListener invalidationListener;
-
-    public SimpleRankingDataComparator() {
-      this.currentPlayingIndex = C.INDEX_UNSET;
-    }
-
-    @Override
-    public int compare(Integer o1, Integer o2) {
-      return Integer.compare(abs(o1 - currentPlayingIndex), abs(o2 - currentPlayingIndex));
-    }
-
-    @Override
-    public void setInvalidationListener(@Nullable InvalidationListener invalidationListener) {
-      this.invalidationListener = invalidationListener;
-    }
-
-    public void setCurrentPlayingIndex(int currentPlayingIndex) {
-      if (currentPlayingIndex != this.currentPlayingIndex) {
-        this.currentPlayingIndex = currentPlayingIndex;
-        if (invalidationListener != null) {
-          invalidationListener.onRankingDataComparatorInvalidated();
-        }
-      }
     }
   }
 
@@ -703,18 +799,15 @@ public final class DefaultPreloadManager
     }
 
     @Override
-    public void onPreCacheProgress(
-        MediaItem mediaItem, long contentLength, long bytesDownloaded, float percentageDownloaded) {
-      if (percentageDownloaded == 100f) {
-        PreloadStatus targetPreloadStatus = getTargetPreloadStatusIfCurrentlyPreloading(mediaItem);
-        if (targetPreloadStatus == null || !targetPreloadStatus.isPreCachingCategory()) {
-          // If the mediaItem is not the currently caching, skip silently as invalidate() must have
-          // been called, and a new sequence of preloading must have started.
-          return;
-        }
-        DefaultPreloadManager.this.onCompleted(
-            mediaItem, preloadStatus -> preloadStatus.equals(targetPreloadStatus));
+    public void onPreCacheCompleted(MediaItem mediaItem) {
+      PreloadStatus targetPreloadStatus = getTargetPreloadStatusIfCurrentlyPreloading(mediaItem);
+      if (targetPreloadStatus == null || !targetPreloadStatus.isPreCachingCategory()) {
+        // If the mediaItem is not the currently caching, skip silently as invalidate() must have
+        // been called, and a new sequence of preloading must have started.
+        return;
       }
+      DefaultPreloadManager.this.onCompleted(
+          mediaItem, preloadStatus -> preloadStatus.equals(targetPreloadStatus));
     }
 
     @Override
@@ -811,6 +904,19 @@ public final class DefaultPreloadManager
           error, mediaSource, preloadStatus -> preloadStatus.equals(targetPreloadStatus));
     }
 
+    @Override
+    public boolean onLoadingUnableToContinue(PreloadMediaSource mediaSource) {
+      @Nullable MediaSourceHolder sourceHolder = getMediaSourceHolderToClear();
+      if (sourceHolder != null) {
+        PreloadMediaSource lowestPriorityPreloadMediaSource =
+            (PreloadMediaSource) sourceHolder.getMediaSource();
+        lowestPriorityPreloadMediaSource.clear();
+        DefaultPreloadManager.this.onSourceCleared();
+        return true;
+      }
+      return false;
+    }
+
     private boolean continueOrCompletePreloading(
         PreloadMediaSource mediaSource, Predicate<PreloadStatus> continueLoadingPredicate) {
       PreloadStatus targetPreloadStatus = getTargetPreloadStatusIfCurrentlyPreloading(mediaSource);
@@ -827,42 +933,51 @@ public final class DefaultPreloadManager
     }
   }
 
-  private static class MediaSourceFactorySupplier implements Supplier<MediaSource.Factory> {
+  private static class DefaultMediaSourceFactorySupplier implements MediaSourceFactorySupplier {
 
     private final Context context;
     private final Supplier<DefaultMediaSourceFactory> defaultMediaSourceFactorySupplier;
-
-    @Nullable private MediaSource.Factory customMediaSourceFactory;
     @Nullable private Cache cache;
+    @Nullable private DataSource.Factory dataSourceFactory;
 
-    public MediaSourceFactorySupplier(Context context) {
+    private DefaultMediaSourceFactorySupplier(Context context) {
       this.context = context;
       defaultMediaSourceFactorySupplier =
           Suppliers.memoize(() -> new DefaultMediaSourceFactory(context));
     }
 
-    public void setCache(@Nullable Cache cache) {
+    @Override
+    @CanIgnoreReturnValue
+    public DefaultMediaSourceFactorySupplier setCache(@Nullable Cache cache) {
       this.cache = cache;
+      return this;
     }
 
-    public void setCustomMediaSourceFactory(@Nullable MediaSource.Factory mediaSourceFactory) {
-      this.customMediaSourceFactory = mediaSourceFactory;
+    @Override
+    @CanIgnoreReturnValue
+    public DefaultMediaSourceFactorySupplier setDataSourceFactory(
+        @Nullable DataSource.Factory dataSourceFactory) {
+      this.dataSourceFactory = dataSourceFactory;
+      return this;
     }
 
     @Override
     public MediaSource.Factory get() {
-      if (customMediaSourceFactory != null) {
-        return customMediaSourceFactory;
-      }
       DefaultMediaSourceFactory defaultMediaSourceFactory = defaultMediaSourceFactorySupplier.get();
+      DataSource.Factory dataSourceFactory =
+          this.dataSourceFactory != null
+              ? this.dataSourceFactory
+              : new DefaultDataSource.Factory(context);
       @Nullable Cache cache = this.cache;
       if (cache != null) {
         CacheDataSource.Factory cacheDataSourceFactory =
             new CacheDataSource.Factory()
-                .setUpstreamDataSourceFactory(new DefaultDataSource.Factory(context))
+                .setUpstreamDataSourceFactory(dataSourceFactory)
                 .setCache(cache)
                 .setCacheWriteDataSinkFactory(null);
         defaultMediaSourceFactory.setDataSourceFactory(cacheDataSourceFactory);
+      } else {
+        defaultMediaSourceFactory.setDataSourceFactory(dataSourceFactory);
       }
       return defaultMediaSourceFactory;
     }

@@ -19,7 +19,6 @@ import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.exoplayer.playback.gts.GtsTestUtil.shouldSkipWidevineTest;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeFalse;
-import static org.junit.Assume.assumeTrue;
 
 import android.content.pm.PackageManager;
 import androidx.media3.common.MimeTypes;
@@ -31,6 +30,7 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecUtil.DecoderQueryException
 import androidx.media3.test.utils.ActionSchedule;
 import androidx.media3.test.utils.HostActivity;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import androidx.test.rule.ActivityTestRule;
 import org.junit.After;
 import org.junit.Before;
@@ -109,12 +109,27 @@ public final class DashStreamingTest {
           .clearVideoSurface()
           .delay(10000)
           .setVideoSurface()
+          // Wait 10 seconds, then detach and attach the surface 5 times in quick succession.
+          .delay(10000)
+          .clearVideoSurface()
+          .setVideoSurface()
+          .clearVideoSurface()
+          .setVideoSurface()
+          .clearVideoSurface()
+          .setVideoSurface()
+          .clearVideoSurface()
+          .setVideoSurface()
+          .clearVideoSurface()
+          .setVideoSurface()
           // Wait 10 seconds, then seek to near end.
           .delay(10000)
           .seek(120000)
           .build();
 
-  @Rule public ActivityTestRule<HostActivity> testRule = new ActivityTestRule<>(HostActivity.class);
+  // TODO: b/464266190 - Migrate to ActivityScenarioRule
+  @SuppressWarnings("deprecation")
+  @Rule
+  public ActivityTestRule<HostActivity> testRule = new ActivityTestRule<>(HostActivity.class);
 
   private DashTestRunner testRunner;
 
@@ -196,7 +211,7 @@ public final class DashStreamingTest {
   // H265 CDD.
 
   @Test
-  public void h265Fixed() throws Exception {
+  public void h265FixedV23() throws Exception {
     if (isPc()) {
       // Pass.
       return;
@@ -263,7 +278,7 @@ public final class DashStreamingTest {
   // VP9 (CDD).
 
   @Test
-  public void vp9Fixed360p() throws Exception {
+  public void vp9Fixed360pV23() throws Exception {
     testRunner
         .setStreamName("test_vp9_fixed_360p")
         .setManifestUrl(DashTestData.VP9_MANIFEST)
@@ -328,7 +343,7 @@ public final class DashStreamingTest {
 
   // 23.976 fps.
   @Test
-  public void test23FpsH264Fixed() throws Exception {
+  public void test23FpsH264FixedV23() throws Exception {
     testRunner
         .setStreamName("test_23fps_h264_fixed")
         .setManifestUrl(DashTestData.H264_23_MANIFEST)
@@ -342,7 +357,7 @@ public final class DashStreamingTest {
 
   // 24 fps.
   @Test
-  public void test24FpsH264Fixed() throws Exception {
+  public void test24FpsH264FixedV23() throws Exception {
     testRunner
         .setStreamName("test_24fps_h264_fixed")
         .setManifestUrl(DashTestData.H264_24_MANIFEST)
@@ -356,7 +371,7 @@ public final class DashStreamingTest {
 
   // 29.97 fps.
   @Test
-  public void test29FpsH264Fixed() throws Exception {
+  public void test29FpsH264FixedV23() throws Exception {
     testRunner
         .setStreamName("test_29fps_h264_fixed")
         .setManifestUrl(DashTestData.H264_29_MANIFEST)
@@ -442,7 +457,7 @@ public final class DashStreamingTest {
   // H265 CDD.
 
   @Test
-  public void widevineH265Fixed() throws Exception {
+  public void widevineH265FixedV23() throws Exception {
     assumeFalse(shouldSkipWidevineTest(testRule.getActivity()));
     assumeFalse(isPc());
 
@@ -458,8 +473,8 @@ public final class DashStreamingTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 24)
   public void widevineH265AdaptiveV24() throws Exception {
-    assumeTrue(SDK_INT >= 24);
     assumeFalse(shouldSkipWidevineTest(testRule.getActivity()));
     assumeFalse(isPc());
 
@@ -476,8 +491,8 @@ public final class DashStreamingTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 24)
   public void widevineH265AdaptiveWithSeekingV24() throws Exception {
-    assumeTrue(SDK_INT >= 24);
     assumeFalse(shouldSkipWidevineTest(testRule.getActivity()));
     assumeFalse(isPc());
 
@@ -495,8 +510,8 @@ public final class DashStreamingTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 24)
   public void widevineH265AdaptiveWithRendererDisablingV24() throws Exception {
-    assumeTrue(SDK_INT >= 24);
     assumeFalse(shouldSkipWidevineTest(testRule.getActivity()));
     assumeFalse(isPc());
 
@@ -516,7 +531,7 @@ public final class DashStreamingTest {
   // VP9 (CDD).
 
   @Test
-  public void widevineVp9Fixed360p() throws Exception {
+  public void widevineVp9Fixed360pV23() throws Exception {
     assumeFalse(shouldSkipWidevineTest(testRule.getActivity()));
 
     testRunner
@@ -532,8 +547,8 @@ public final class DashStreamingTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 24)
   public void widevineVp9AdaptiveV24() throws Exception {
-    assumeTrue(SDK_INT >= 24);
     assumeFalse(shouldSkipWidevineTest(testRule.getActivity()));
 
     testRunner
@@ -549,8 +564,8 @@ public final class DashStreamingTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 24)
   public void widevineVp9AdaptiveWithSeekingV24() throws Exception {
-    assumeTrue(SDK_INT >= 24);
     assumeFalse(shouldSkipWidevineTest(testRule.getActivity()));
 
     testRunner
@@ -567,8 +582,8 @@ public final class DashStreamingTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 24)
   public void widevineVp9AdaptiveWithRendererDisablingV24() throws Exception {
-    assumeTrue(SDK_INT >= 24);
     assumeFalse(shouldSkipWidevineTest(testRule.getActivity()));
 
     testRunner
@@ -588,7 +603,7 @@ public final class DashStreamingTest {
 
   // 23.976 fps.
   @Test
-  public void widevine23FpsH264Fixed() throws Exception {
+  public void widevine23FpsH264FixedV23() throws Exception {
     assumeFalse(shouldSkipWidevineTest(testRule.getActivity()));
 
     testRunner
@@ -605,7 +620,7 @@ public final class DashStreamingTest {
 
   // 24 fps.
   @Test
-  public void widevine24FpsH264Fixed() throws Exception {
+  public void widevine24FpsH264FixedV23() throws Exception {
     assumeFalse(shouldSkipWidevineTest(testRule.getActivity()));
 
     testRunner
@@ -622,7 +637,7 @@ public final class DashStreamingTest {
 
   // 29.97 fps.
   @Test
-  public void widevine29FpsH264Fixed() throws Exception {
+  public void widevine29FpsH264FixedV23() throws Exception {
     assumeFalse(shouldSkipWidevineTest(testRule.getActivity()));
 
     testRunner
@@ -649,8 +664,8 @@ public final class DashStreamingTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 24)
   public void decoderInfoH265V24() throws Exception {
-    assumeTrue(SDK_INT >= 24);
     assumeFalse(isPc());
 
     assertThat(
@@ -661,8 +676,8 @@ public final class DashStreamingTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 24)
   public void decoderInfoVP9V24() throws Exception {
-    assumeTrue(SDK_INT >= 24);
 
     assertThat(
             MediaCodecUtil.getDecoderInfo(

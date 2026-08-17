@@ -16,168 +16,133 @@
 
 package androidx.media3.ui.compose.state
 
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.Player.COMMAND_GET_CURRENT_MEDIA_ITEM
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
-import androidx.media3.ui.compose.utils.TestPlayer
-import androidx.media3.ui.compose.utils.advanceTimeByInclusive
-import androidx.media3.ui.compose.utils.rememberCoroutineScopeWithBackgroundCancellation
+import androidx.media3.test.utils.FakePlayer
+import androidx.media3.ui.compose.testutils.advancePrecisely
+import androidx.media3.ui.compose.testutils.createReadyPlayerWithSingleItem
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.google.common.collect.ImmutableList
 import com.google.common.truth.Truth.assertThat
-import kotlin.time.Duration.Companion.milliseconds
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.TestCoroutineScheduler
-import kotlinx.coroutines.test.runTest
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Unit test for [ProgressStateWithTickInterval]. */
+@OptIn(ExperimentalTestApi::class)
 @RunWith(AndroidJUnit4::class)
 class ProgressStateWithTickIntervalTest {
 
-  private val testDispatcher = StandardTestDispatcher(TestCoroutineScheduler())
-  @OptIn(ExperimentalTestApi::class)
-  @get:Rule
-  val composeTestRule = createComposeRule(testDispatcher)
-
   @Test
-  fun progressUpdatingOnTheSecondMark_positionChangesByOneSecond() =
-    runTest(testDispatcher) {
-      val player =
-        TestPlayer(
-          playWhenReady = true,
-          playlist = listOf(MediaItemData.Builder("SingleItem").build()),
-        )
-      player.setPositionSupplierDrivenBy(testDispatcher.scheduler)
+  fun rememberProgressStateWithTickInterval_withNullPlayer_returnsDefaultValues() =
+    runComposeUiTest {
       lateinit var state: ProgressStateWithTickInterval
-      composeTestRule.setContent {
-        state =
-          rememberProgressStateWithTickInterval(
-            player,
-            tickIntervalMs = 1000,
-            scope = backgroundScope,
-          )
+      setContent {
+        state = rememberProgressStateWithTickInterval(player = null, tickIntervalMs = 1000)
       }
 
-      advanceTimeByInclusive(1000.milliseconds)
-
-      assertThat(player.currentPosition).isEqualTo(1000)
-      assertThat(state.currentPositionMs).isEqualTo(1000)
+      assertThat(state.currentPositionMs).isEqualTo(0L)
+      assertThat(state.bufferedPositionMs).isEqualTo(0L)
+      assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
     }
 
   @Test
-  fun progressUpdatingOnTheSecondMark_moveClockByFractionalSeconds_positionUpdatesOnTheGrid() =
-    runTest(testDispatcher) {
-      val player =
-        TestPlayer(
-          playWhenReady = true,
-          playlist = listOf(MediaItemData.Builder("SingleItem").build()),
-        )
-      player.setPositionSupplierDrivenBy(testDispatcher.scheduler)
-      lateinit var state: ProgressStateWithTickInterval
-      composeTestRule.setContent {
-        state =
-          rememberProgressStateWithTickInterval(
-            player,
-            tickIntervalMs = 1000,
-            scope = backgroundScope,
-          )
-      }
+  fun progressUpdatingOnTheSecondMark_positionChangesByOneSecond() = runComposeUiTest {
+    val player = createReadyPlayerWithSingleItem()
+    player.setPositionSupplierDrivenBy(mainClock.scheduler)
+    lateinit var state: ProgressStateWithTickInterval
+    setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
 
-      advanceTimeByInclusive(2345.milliseconds)
+    mainClock.advancePrecisely(1000)
+
+    assertThat(player.currentPosition).isEqualTo(1000)
+    assertThat(state.currentPositionMs).isEqualTo(1000)
+  }
+
+  @Test
+  fun progressUpdatingOnTheSecondMark_moveClockByFractionalSeconds_positionUpdatesOnTheGrid() =
+    runComposeUiTest {
+      val player = createReadyPlayerWithSingleItem()
+      player.setPositionSupplierDrivenBy(mainClock.scheduler)
+      lateinit var state: ProgressStateWithTickInterval
+      setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
+
+      mainClock.advancePrecisely(2345)
 
       assertThat(player.currentPosition).isEqualTo(2345)
       assertThat(state.currentPositionMs).isEqualTo(2000)
     }
 
   @Test
-  fun progressUpdatingOnTheSecondMark_moveClockByFractionalSeconds_positionRoundsUpToTheGrid() =
-    runTest(testDispatcher) {
-      val player =
-        TestPlayer(
-          playWhenReady = true,
-          playlist = listOf(MediaItemData.Builder("SingleItem").build()),
-        )
-      player.setPositionSupplierDrivenBy(testDispatcher.scheduler)
+  fun progressUpdatingOnTheSecondMark_moveClockByFractionalSecondsWholeFrames_positionUpdatesOnTheGrid() =
+    runComposeUiTest {
+      val player = createReadyPlayerWithSingleItem()
+      player.setPositionSupplierDrivenBy(mainClock.scheduler)
       lateinit var state: ProgressStateWithTickInterval
-      composeTestRule.setContent {
-        state =
-          rememberProgressStateWithTickInterval(
-            player,
-            tickIntervalMs = 500,
-            scope = backgroundScope,
-          )
-      }
+      setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
 
-      advanceTimeByInclusive(1800.milliseconds)
+      mainClock.advancePrecisely(2345, ignoreFrameDuration = false)
+
+      assertThat(player.currentPosition).isEqualTo(2352) // 147*16ms
+      assertThat(state.currentPositionMs).isEqualTo(2000)
+    }
+
+  @Test
+  fun progressUpdatingOnTheSecondMark_moveClockByFractionalSeconds_positionRoundsUpToTheGrid() =
+    runComposeUiTest {
+      val player = createReadyPlayerWithSingleItem()
+      player.setPositionSupplierDrivenBy(mainClock.scheduler)
+      lateinit var state: ProgressStateWithTickInterval
+      setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 500) }
+
+      mainClock.advancePrecisely(1800)
       player.setDuration("SingleItem", 5000)
-      composeTestRule.waitForIdle()
+      waitForIdle()
 
       assertThat(player.currentPosition).isEqualTo(1800)
       assertThat(state.currentPositionMs).isEqualTo(1500)
 
-      advanceTimeByInclusive(195.milliseconds)
+      mainClock.advancePrecisely(195)
       player.setDuration("SingleItem", 7000)
-      composeTestRule.waitForIdle()
+      waitForIdle()
 
       assertThat(player.currentPosition).isEqualTo(1995)
       assertThat(state.currentPositionMs).isEqualTo(2000)
     }
 
   @Test
-  fun progressUpdatingContinuouslyEveryFrame_positionChangesByOneFrame() =
-    runTest(testDispatcher) {
-      val player =
-        TestPlayer(
-          playWhenReady = true,
-          playlist = listOf(MediaItemData.Builder("SingleItem").build()),
-        )
-      player.setPositionSupplierDrivenBy(testDispatcher.scheduler)
-      lateinit var state: ProgressStateWithTickInterval
-      // Prevent infinite scheduling loop for withFrameMillis, override here before setContent
-      composeTestRule.mainClock.autoAdvance = false
-      composeTestRule.setContent {
-        state =
-          rememberProgressStateWithTickInterval(
-            player,
-            tickIntervalMs = 0,
-            scope = rememberCoroutineScopeWithBackgroundCancellation(),
-          )
-      }
+  fun progressUpdatingContinuouslyEveryFrame_positionChangesByOneFrame() = runComposeUiTest {
+    val player = createReadyPlayerWithSingleItem()
+    player.setPositionSupplierDrivenBy(mainClock.scheduler)
+    lateinit var state: ProgressStateWithTickInterval
+    // Prevent infinite scheduling loop for withFrameMillis, override here before setContent
+    mainClock.autoAdvance = false
+    setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 0) }
 
-      composeTestRule.mainClock.advanceTimeByFrame()
+    mainClock.advanceTimeByFrame()
 
-      assertThat(player.currentPosition).isEqualTo(16)
-      assertThat(state.currentPositionMs).isEqualTo(16)
-    }
+    assertThat(player.currentPosition).isEqualTo(16)
+    assertThat(state.currentPositionMs).isEqualTo(16)
+  }
 
   @Test
   fun progressUpdatingContinuouslyEveryFrame_moveClockByFractionalFrames_positionUpdatesOnTheGrid() =
-    runTest(testDispatcher) {
-      val player =
-        TestPlayer(
-          playWhenReady = true,
-          playlist = listOf(MediaItemData.Builder("SingleItem").build()),
-        )
-      player.setPositionSupplierDrivenBy(testDispatcher.scheduler)
+    runComposeUiTest {
+      val player = createReadyPlayerWithSingleItem()
+      player.setPositionSupplierDrivenBy(mainClock.scheduler)
       lateinit var state: ProgressStateWithTickInterval
       // Prevent infinite scheduling loop for withFrameMillis, override here before setContent
-      composeTestRule.mainClock.autoAdvance = false
-      composeTestRule.setContent {
-        state =
-          rememberProgressStateWithTickInterval(
-            player,
-            tickIntervalMs = 0,
-            scope = rememberCoroutineScopeWithBackgroundCancellation(),
-          )
-      }
+      mainClock.autoAdvance = false
+      setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 0) }
 
-      advanceTimeByInclusive(30.milliseconds)
+      mainClock.advancePrecisely(30)
 
       assertThat(player.currentPosition).isEqualTo(30)
       assertThat(state.currentPositionMs).isEqualTo(16)
@@ -185,30 +150,24 @@ class ProgressStateWithTickIntervalTest {
 
   @Test
   fun progressUpdateWithCoPrimeDeltaAndSpeedNumerator_positionDriftsThenEvensOut() =
-    runTest(testDispatcher) {
+    runComposeUiTest {
       val player =
-        TestPlayer(
+        FakePlayer(
+          playbackState = Player.STATE_READY,
           playWhenReady = true,
           playlist = listOf(MediaItemData.Builder("SingleItem").build()),
           playbackSpeed = 1.5f, // Awkward division of 1000 by 3/2 where 1000 and 3 are coprime.
         )
-      player.setPositionSupplierDrivenBy(testDispatcher.scheduler)
+      player.setPositionSupplierDrivenBy(mainClock.scheduler)
       lateinit var state: ProgressStateWithTickInterval
-      composeTestRule.setContent {
-        state =
-          rememberProgressStateWithTickInterval(
-            player,
-            tickIntervalMs = 1000,
-            scope = backgroundScope,
-          )
-      }
+      setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
 
-      advanceTimeByInclusive(3000.milliseconds)
+      mainClock.advancePrecisely(3000)
 
       assertThat(player.currentPosition).isEqualTo(4500)
       assertThat(state.currentPositionMs).isWithin(1).of(4000)
 
-      advanceTimeByInclusive(1000.milliseconds)
+      mainClock.advancePrecisely(1000)
 
       assertThat(player.currentPosition).isEqualTo(6000)
       assertThat(state.currentPositionMs).isEqualTo(6000)
@@ -216,131 +175,97 @@ class ProgressStateWithTickIntervalTest {
 
   @Test
   fun progressUpdatesSlightlyOffTheGrid_preventUnnecessaryUpdatesSinceAlreadyCloseEnough() =
-    runTest(testDispatcher) {
+    runComposeUiTest {
       val player =
-        TestPlayer(
+        FakePlayer(
+          playbackState = Player.STATE_READY,
           playWhenReady = true,
           playlist = listOf(MediaItemData.Builder("SingleItem").build()),
           playbackSpeed = 1.5f, // Awkward division of 1000 by 3/2 where 1000 and 3 are coprime.
         )
-      player.setPositionSupplierDrivenBy(testDispatcher.scheduler)
+      player.setPositionSupplierDrivenBy(mainClock.scheduler)
       lateinit var state: ProgressStateWithTickInterval
-      composeTestRule.setContent {
-        state =
-          rememberProgressStateWithTickInterval(
-            player,
-            tickIntervalMs = 1000,
-            scope = rememberCoroutineScopeWithBackgroundCancellation(),
-          )
-      }
+      setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
 
-      advanceTimeByInclusive(666.milliseconds)
+      mainClock.advancePrecisely(666)
 
       assertThat(player.currentPosition).isEqualTo(999)
       assertThat(state.currentPositionMs).isEqualTo(1000)
 
-      advanceTimeByInclusive(400.milliseconds)
+      mainClock.advancePrecisely(400)
 
       assertThat(player.currentPosition).isEqualTo(1599)
       assertThat(state.currentPositionMs).isEqualTo(1000)
 
-      advanceTimeByInclusive(267.milliseconds)
+      mainClock.advancePrecisely(267)
 
       assertThat(player.currentPosition).isEqualTo(1999)
       assertThat(state.currentPositionMs).isEqualTo(2000)
 
-      advanceTimeByInclusive(667.milliseconds)
+      mainClock.advancePrecisely(667)
 
       assertThat(player.currentPosition).isEqualTo(3000)
       assertThat(state.currentPositionMs).isEqualTo(3000) // catches up with the grid
     }
 
   @Test
-  fun playerWithAndWithoutRelevantCommand_stateGetsTrueAndDefaultValues() =
-    runTest(testDispatcher) {
-      val player =
-        TestPlayer(
-          playWhenReady = true,
-          playlist = listOf(MediaItemData.Builder("SingleItem").setDurationUs(10_000_000).build()),
-        )
-      player.setPositionSupplierDrivenBy(testDispatcher.scheduler)
-      player.removeCommands(COMMAND_GET_CURRENT_MEDIA_ITEM)
-      lateinit var state: ProgressStateWithTickInterval
-      composeTestRule.setContent {
-        state =
-          rememberProgressStateWithTickInterval(
-            player,
-            tickIntervalMs = 1000,
-            scope = backgroundScope,
-          )
-      }
+  fun playerWithAndWithoutRelevantCommand_stateGetsTrueAndDefaultValues() = runComposeUiTest {
+    val player = createReadyPlayerWithSingleItem()
+    player.setPositionSupplierDrivenBy(mainClock.scheduler)
+    player.removeCommands(COMMAND_GET_CURRENT_MEDIA_ITEM)
+    lateinit var state: ProgressStateWithTickInterval
+    setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
 
-      advanceTimeByInclusive(2345.milliseconds)
+    mainClock.advancePrecisely(2345)
 
-      assertThat(state.currentPositionMs).isEqualTo(0)
-      assertThat(state.bufferedPositionMs).isEqualTo(0)
-      assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
+    assertThat(state.currentPositionMs).isEqualTo(0)
+    assertThat(state.bufferedPositionMs).isEqualTo(0)
+    assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
 
-      player.addCommands(COMMAND_GET_CURRENT_MEDIA_ITEM)
-      advanceTimeByInclusive(2345.milliseconds)
+    player.addCommands(COMMAND_GET_CURRENT_MEDIA_ITEM)
+    waitForIdle()
+    mainClock.advancePrecisely(2345)
 
-      assertThat(state.currentPositionMs).isEqualTo(4000)
-      assertThat(state.bufferedPositionMs).isEqualTo(4000)
-      assertThat(state.durationMs).isEqualTo(10_000)
+    assertThat(state.currentPositionMs).isEqualTo(4000)
+    assertThat(state.bufferedPositionMs).isEqualTo(4000)
+    assertThat(state.durationMs).isEqualTo(10_000)
 
-      player.removeCommands(COMMAND_GET_CURRENT_MEDIA_ITEM)
-      advanceTimeByInclusive(2345.milliseconds)
+    player.removeCommands(COMMAND_GET_CURRENT_MEDIA_ITEM)
+    waitForIdle()
+    mainClock.advancePrecisely(2345)
 
-      assertThat(state.currentPositionMs).isEqualTo(0)
-      assertThat(state.bufferedPositionMs).isEqualTo(0)
-      assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
-    }
+    assertThat(state.currentPositionMs).isEqualTo(0)
+    assertThat(state.bufferedPositionMs).isEqualTo(0)
+    assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
+  }
 
   @Test
-  fun durationKnownStraightAway() =
-    runTest(testDispatcher) {
-      val player =
-        TestPlayer(
-          playlist =
-            ImmutableList.of(MediaItemData.Builder("SingleItem").setDurationUs(10_000_000).build())
-        )
-      lateinit var state: ProgressStateWithTickInterval
-      composeTestRule.setContent {
-        state =
-          rememberProgressStateWithTickInterval(
-            player,
-            tickIntervalMs = 1000,
-            scope = backgroundScope,
-          )
-      }
+  fun durationKnownStraightAway() = runComposeUiTest {
+    val player = createReadyPlayerWithSingleItem()
+    lateinit var state: ProgressStateWithTickInterval
+    setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
 
-      assertThat(state.durationMs).isEqualTo(10_000)
-      assertThat(player.duration).isEqualTo(10_000)
-    }
+    assertThat(state.durationMs).isEqualTo(10_000)
+    assertThat(player.duration).isEqualTo(10_000)
+  }
 
   @Test
   fun playerReadyAndPlaying_durationKnownLater_updatePropagatesImmediatelyAsEvent() =
-    runTest(testDispatcher) {
+    runComposeUiTest {
       val player =
-        TestPlayer(
+        FakePlayer(
+          playbackState = Player.STATE_READY,
           playWhenReady = true,
           playlist = listOf(MediaItemData.Builder("SingleItem").build()),
         )
-      player.setPositionSupplierDrivenBy(testScheduler)
+      player.setPositionSupplierDrivenBy(mainClock.scheduler)
       lateinit var state: ProgressStateWithTickInterval
-      composeTestRule.setContent {
-        state =
-          rememberProgressStateWithTickInterval(
-            player,
-            tickIntervalMs = 1000,
-            scope = backgroundScope,
-          )
-      }
+      setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
       assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
 
-      advanceTimeByInclusive(2345.milliseconds)
+      mainClock.advancePrecisely(2345)
       player.setDuration("SingleItem", 10_000)
-      composeTestRule.waitForIdle()
+      waitForIdle()
 
       assertThat(state.durationMs).isEqualTo(10_000)
       assertThat(player.duration).isEqualTo(10_000)
@@ -349,102 +274,105 @@ class ProgressStateWithTickIntervalTest {
 
   @Test
   fun playerReadyAndPaused_bufferedPositionIncreases_updatePropagatesAfterOneSecond() =
-    runTest(testDispatcher) {
-      val player = TestPlayer(playlist = listOf(MediaItemData.Builder("SingleItem").build()))
+    runComposeUiTest {
+      val player =
+        FakePlayer(
+          playbackState = Player.STATE_READY,
+          playWhenReady = false,
+          playlist = listOf(MediaItemData.Builder("SingleItem").build()),
+        )
       lateinit var state: ProgressStateWithTickInterval
-      composeTestRule.setContent {
-        state =
-          rememberProgressStateWithTickInterval(
-            player,
-            tickIntervalMs = 100,
-            scope = backgroundScope,
-          )
-      }
+      setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 100) }
       assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
-      advanceTimeByInclusive(200.milliseconds)
+      mainClock.advancePrecisely(200)
       player.setBufferedPositionMs(123)
 
-      advanceTimeByInclusive(300.milliseconds)
+      mainClock.advancePrecisely(300)
 
       assertThat(player.bufferedPosition).isEqualTo(123)
       assertThat(state.bufferedPositionMs).isEqualTo(0)
 
-      advanceTimeByInclusive((FALLBACK_UPDATE_INTERVAL_MS - 500).milliseconds)
+      mainClock.advancePrecisely(FALLBACK_UPDATE_INTERVAL_MS - 500)
 
       assertThat(player.bufferedPosition).isEqualTo(123)
       assertThat(state.bufferedPositionMs).isEqualTo(100)
     }
 
   @Test
-  fun playerIdle_reportsInitialPlaceholderDataAndDoesNotBlockMainThread() =
-    runTest(testDispatcher) {
-      val player = TestPlayer(playbackState = Player.STATE_IDLE, playlist = listOf())
-      lateinit var state: ProgressStateWithTickInterval
-      composeTestRule.setContent {
-        state =
-          rememberProgressStateWithTickInterval(
-            player,
-            tickIntervalMs = 100,
-            scope = backgroundScope,
-          )
-      }
-      assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
-      assertThat(state.currentPositionMs).isEqualTo(0)
-      assertThat(state.bufferedPositionMs).isEqualTo(0)
+  fun playerIdle_reportsInitialPlaceholderDataAndDoesNotBlockMainThread() = runComposeUiTest {
+    val player = FakePlayer(playbackState = Player.STATE_IDLE, playlist = listOf())
+    lateinit var state: ProgressStateWithTickInterval
+    setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 100) }
+    assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
+    assertThat(state.currentPositionMs).isEqualTo(0)
+    assertThat(state.bufferedPositionMs).isEqualTo(0)
 
-      // Wait for any pending updates to verify the state stays the same and is not blocked on the
-      // main thread.
-      advanceTimeByInclusive(200.milliseconds)
+    // Wait for any pending updates to verify the state stays the same and is not blocked on the
+    // main thread.
+    mainClock.advancePrecisely(200)
 
-      assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
-      assertThat(state.currentPositionMs).isEqualTo(0)
-      assertThat(state.bufferedPositionMs).isEqualTo(0)
-    }
+    assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
+    assertThat(state.currentPositionMs).isEqualTo(0)
+    assertThat(state.bufferedPositionMs).isEqualTo(0)
+  }
 
   @Test
-  fun playerEnded_reportsFinalStateAndDoesNotBlockMainThread() =
-    runTest(testDispatcher) {
-      val player =
-        TestPlayer(
-          playbackState = Player.STATE_READY,
-          playlist = listOf(MediaItemData.Builder("SingleItem").setDurationUs(10_000_000).build()),
-        )
-      lateinit var state: ProgressStateWithTickInterval
-      composeTestRule.setContent {
-        state =
-          rememberProgressStateWithTickInterval(
-            player,
-            tickIntervalMs = 100,
-            scope = backgroundScope,
-          )
+  fun playerEnded_reportsFinalStateAndDoesNotBlockMainThread() = runComposeUiTest {
+    val player = createReadyPlayerWithSingleItem()
+    lateinit var state: ProgressStateWithTickInterval
+    setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 100) }
+    player.setPosition(10_000)
+    player.setBufferedPositionMs(10_000)
+    waitForIdle()
+
+    // Check state before change to ENDED
+    assertThat(state.durationMs).isEqualTo(10_000)
+    assertThat(state.currentPositionMs).isEqualTo(10_000)
+    assertThat(state.bufferedPositionMs).isEqualTo(10_000)
+
+    player.setPlaybackState(Player.STATE_ENDED)
+
+    // Immediately after the change before running the playback state update
+    assertThat(state.durationMs).isEqualTo(10_000)
+    assertThat(state.currentPositionMs).isEqualTo(10_000)
+    assertThat(state.bufferedPositionMs).isEqualTo(10_000)
+
+    waitForIdle()
+
+    // After completing any pending updates to ensure the main thread is not blocked.
+    assertThat(state.durationMs).isEqualTo(10_000)
+    assertThat(state.currentPositionMs).isEqualTo(10_000)
+    assertThat(state.bufferedPositionMs).isEqualTo(10_000)
+  }
+
+  @Test
+  fun observe_goesOutOfScope_stopsUpdatingRegularly() = runComposeUiTest {
+    val player = createReadyPlayerWithSingleItem()
+    player.setPositionSupplierDrivenBy(mainClock.scheduler)
+    lateinit var state: ProgressStateWithTickInterval
+    lateinit var observeEnabled: MutableState<Boolean>
+    setContent {
+      observeEnabled = remember { mutableStateOf(true) }
+      val testScope = rememberCoroutineScope()
+      state = remember { ProgressStateWithTickInterval(player, tickIntervalMs = 1000, testScope) }
+      LaunchedEffect(observeEnabled.value) {
+        if (observeEnabled.value) {
+          state.observe()
+        }
       }
-      player.setPosition(10_000)
-      player.setBufferedPositionMs(10_000)
-      composeTestRule.waitForIdle()
-      // TODO: b/436159565 - Remove runCurrent() when `compose.ui:ui-test` is updated to include
-      //    aosp/3208355, which makes waitForIdle() sufficient. Will require composeBom upgrade.
-      testScheduler.runCurrent()
-
-      // Check state before change to ENDED
-      assertThat(state.durationMs).isEqualTo(10_000)
-      assertThat(state.currentPositionMs).isEqualTo(10_000)
-      assertThat(state.bufferedPositionMs).isEqualTo(10_000)
-
-      player.setPlaybackState(Player.STATE_ENDED)
-
-      // Immediately after the change before running the playback state update
-      assertThat(state.durationMs).isEqualTo(10_000)
-      assertThat(state.currentPositionMs).isEqualTo(10_000)
-      assertThat(state.bufferedPositionMs).isEqualTo(10_000)
-
-      composeTestRule.waitForIdle()
-      // TODO: b/436159565 - Remove runCurrent() when `compose.ui:ui-test` is updated to include
-      //    aosp/3208355, which makes waitForIdle() sufficient. Will require composeBom upgrade.
-      testScheduler.runCurrent()
-
-      // After completing any pending updates to ensure the main thread is not blocked.
-      assertThat(state.durationMs).isEqualTo(10_000)
-      assertThat(state.currentPositionMs).isEqualTo(10_000)
-      assertThat(state.bufferedPositionMs).isEqualTo(10_000)
     }
+
+    // Assert progress if clock advances.
+    mainClock.advancePrecisely(1000)
+    assertThat(player.currentPosition).isEqualTo(1000)
+    assertThat(state.currentPositionMs).isEqualTo(1000)
+
+    // Stop observing and verify no further updates.
+    observeEnabled.value = false
+    waitForIdle()
+    mainClock.advancePrecisely(1000)
+
+    assertThat(player.currentPosition).isAtLeast(2000)
+    assertThat(state.currentPositionMs).isEqualTo(1000)
+  }
 }

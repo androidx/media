@@ -87,7 +87,7 @@ public final class MaskingMediaSource extends WrappingMediaSource {
     if (hasRealTimeline) {
       timeline =
           timeline.cloneWithUpdatedTimeline(
-              new TimelineWithUpdatedMediaItem(timeline.timeline, mediaItem));
+              TimelineWithUpdatedMediaItem.create(timeline.timeline, mediaItem));
     } else {
       timeline = MaskingTimeline.createWithPlaceholderTimeline(mediaItem);
     }

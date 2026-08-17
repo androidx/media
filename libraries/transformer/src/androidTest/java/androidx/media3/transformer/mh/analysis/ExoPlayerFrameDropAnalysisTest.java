@@ -16,28 +16,34 @@
 package androidx.media3.transformer.mh.analysis;
 
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import android.content.Context;
 import android.net.Uri;
 import android.view.SurfaceView;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.Player;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
-import androidx.media3.transformer.AndroidTestUtil;
-import androidx.media3.transformer.PlayerTestListener;
+import androidx.media3.test.utils.PlayerFence;
+import androidx.media3.test.utils.TestSummaryLogger;
+import androidx.media3.transformer.DecoderCountersListener;
 import androidx.media3.transformer.SurfaceTestActivity;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.SettableFuture;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.json.JSONException;
@@ -78,6 +84,7 @@ public class ExoPlayerFrameDropAnalysisTest {
   public TestConfig testConfig;
 
   @Parameters(name = "{0}")
+  @RequiresApi(24)
   public static List<TestConfig> parameters() {
     return Sets.cartesianProduct(
             INPUT_ASSETS,
@@ -115,7 +122,7 @@ public class ExoPlayerFrameDropAnalysisTest {
 
   @Test
   public void analyzeExoPlayerFrameDrops() throws Exception {
-    PlayerTestListener playerTestListener = new PlayerTestListener(TIMEOUT_MS);
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setUri(testConfig.uri)
@@ -124,8 +131,8 @@ public class ExoPlayerFrameDropAnalysisTest {
                     .setEndPositionMs((long) (TEST_PLAYBACK_DURATION_MS * testConfig.playbackSpeed))
                     .build())
             .build();
+    DecoderCountersListener decoderCountersListener = new DecoderCountersListener();
     AtomicReference<String> decoderName = new AtomicReference<>();
-    AtomicReference<DecoderCounters> decoderCounters = new AtomicReference<>();
     AnalyticsListener videoDecoderListener =
         new AnalyticsListener() {
           @Override
@@ -135,12 +142,6 @@ public class ExoPlayerFrameDropAnalysisTest {
               long initializedTimestampMs,
               long initializationDurationMs) {
             checkState(decoderName.compareAndSet(/* expectedValue= */ null, newDecoderName));
-          }
-
-          @Override
-          public void onVideoEnabled(EventTime eventTime, DecoderCounters newDecoderCounters) {
-            checkState(
-                decoderCounters.compareAndSet(/* expectedValue= */ null, newDecoderCounters));
           }
         };
     getInstrumentation()
@@ -163,23 +164,26 @@ public class ExoPlayerFrameDropAnalysisTest {
               player.setMediaItem(mediaItem);
               player.setPlaybackSpeed(testConfig.playbackSpeed);
               player.setVideoSurfaceView(surfaceView);
-              player.addListener(playerTestListener);
+              endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
+              player.addAnalyticsListener(decoderCountersListener);
               player.addAnalyticsListener(videoDecoderListener);
               player.prepare();
               player.setPlayWhenReady(true);
             });
 
-    playerTestListener.waitUntilPlayerEnded();
+    endedFuture.get();
 
     JSONObject resultJson = testConfig.toJsonObject();
     resultJson.put("decoderName", decoderName.get());
-    resultJson.put("queuedInputBufferCount", decoderCounters.get().queuedInputBufferCount);
-    resultJson.put("droppedBufferCount", decoderCounters.get().droppedBufferCount);
-    resultJson.put("droppedInputBufferCount", decoderCounters.get().droppedInputBufferCount);
+    DecoderCounters videoDecoderCounters =
+        checkNotNull(decoderCountersListener.getVideoDecoderCounters());
+    resultJson.put("queuedInputBufferCount", videoDecoderCounters.queuedInputBufferCount);
+    resultJson.put("droppedBufferCount", videoDecoderCounters.droppedBufferCount);
+    resultJson.put("droppedInputBufferCount", videoDecoderCounters.droppedInputBufferCount);
     resultJson.put(
-        "maxConsecutiveDroppedBufferCount", decoderCounters.get().maxConsecutiveDroppedBufferCount);
-    resultJson.put("droppedToKeyframeCount", decoderCounters.get().droppedToKeyframeCount);
-    AndroidTestUtil.writeTestSummaryToFile(
+        "maxConsecutiveDroppedBufferCount", videoDecoderCounters.maxConsecutiveDroppedBufferCount);
+    resultJson.put("droppedToKeyframeCount", videoDecoderCounters.droppedToKeyframeCount);
+    TestSummaryLogger.writeTestSummaryToFile(
         ApplicationProvider.getApplicationContext(),
         /* testId= */ testName.getMethodName(),
         resultJson);
@@ -199,8 +203,11 @@ public class ExoPlayerFrameDropAnalysisTest {
     @Override
     public String toString() {
       return String.format(
+          Locale.US,
           "%s_sp_%f_lateUs_%d",
-          Uri.parse(uri).getLastPathSegment(), playbackSpeed, lateThresholdUs);
+          Uri.parse(uri).getLastPathSegment(),
+          playbackSpeed,
+          lateThresholdUs);
     }
 
     public JSONObject toJsonObject() throws JSONException {
@@ -231,5 +238,9 @@ public class ExoPlayerFrameDropAnalysisTest {
 
       return clockTimeMs + offsetMs;
     }
+  }
+
+  private static PlayerFence futureWhen(Player player) {
+    return PlayerFence.futureWhen(player).withTimeoutMs(TIMEOUT_MS);
   }
 }

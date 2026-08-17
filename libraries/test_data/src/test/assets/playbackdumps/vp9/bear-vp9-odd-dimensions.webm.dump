@@ -217,3 +217,7 @@ MediaCodecAdapter (media3.video.vp9):
       timeUs = 1000000968000
       size = 547
       rendered = true
+  setParameters:
+    count = 1
+    set parameters:
+      operating-rate = 29.94

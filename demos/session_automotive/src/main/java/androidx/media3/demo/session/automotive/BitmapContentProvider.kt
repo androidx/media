@@ -38,28 +38,21 @@ class BitmapContentProvider : ContentProvider() {
   override fun onCreate() = true
 
   override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor? {
-    context?.let { ctx ->
-      getAssetPath(uri)?.let {
-        return ParcelFileDescriptor.open(
-          copyAssetFileToCacheDirectory(ctx, it),
-          ParcelFileDescriptor.MODE_READ_ONLY
-        )
-      }
-    }
-    return super.openFile(uri, mode)
-  }
+    val ctx = context ?: return super.openFile(uri, mode)
+    val assetPath = uri.path?.drop(1) ?: return super.openFile(uri, mode)
 
-  private fun getAssetPath(contentUri: Uri): String? {
-    contentUri.path?.let {
-      return it.substring(1)
-    }
-    return null
+    val file = copyAssetFileToCacheDirectory(ctx, assetPath)
+    return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
   }
 
   private fun copyAssetFileToCacheDirectory(context: Context, assetPath: String): File {
     val publicFile = File(context.cacheDir, assetPath.replace("/", "_"))
-    if (!publicFile.exists()) {
-      context.assets.open(assetPath).copyTo(publicFile.outputStream())
+    synchronized(this) {
+      if (!publicFile.exists()) {
+        context.assets.open(assetPath).use { input ->
+          publicFile.outputStream().use { output -> input.copyTo(output) }
+        }
+      }
     }
     return publicFile
   }
@@ -73,14 +66,14 @@ class BitmapContentProvider : ContentProvider() {
     projection: Array<String>?,
     selection: String?,
     selectionArgs: Array<String>?,
-    sortOrder: String?
+    sortOrder: String?,
   ): Cursor? = null
 
   override fun update(
     uri: Uri,
     values: ContentValues?,
     selection: String?,
-    selectionArgs: Array<String>?
+    selectionArgs: Array<String>?,
   ) = 0
 
   override fun delete(uri: Uri, selection: String?, selectionArgs: Array<String>?) = 0

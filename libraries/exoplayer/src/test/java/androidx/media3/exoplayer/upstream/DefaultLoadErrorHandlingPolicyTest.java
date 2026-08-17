@@ -25,13 +25,18 @@ import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
+import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.Util;
+import androidx.media3.datasource.DataSourceException;
 import androidx.media3.datasource.DataSpec;
+import androidx.media3.datasource.HttpDataSource.CleartextNotPermittedException;
 import androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo;
+import androidx.media3.exoplayer.upstream.Loader.UnexpectedLoaderException;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Collections;
 import org.junit.Test;
@@ -42,14 +47,10 @@ import org.junit.runner.RunWith;
 public final class DefaultLoadErrorHandlingPolicyTest {
 
   private static final LoadEventInfo PLACEHOLDER_LOAD_EVENT_INFO =
-      new LoadEventInfo(
-          LoadEventInfo.getNewId(),
-          new DataSpec(Uri.EMPTY),
-          Uri.EMPTY,
-          /* responseHeaders= */ Collections.emptyMap(),
-          /* elapsedRealtimeMs= */ 5000,
-          /* loadDurationMs= */ 1000,
-          /* bytesLoaded= */ 0);
+      new LoadEventInfo.Builder(
+              LoadEventInfo.getNewId(), new DataSpec(Uri.EMPTY), /* elapsedRealtimeMs= */ 5000)
+          .setLoadDurationMs(1000)
+          .build();
   private static final MediaLoadData PLACEHOLDER_MEDIA_LOAD_DATA =
       new MediaLoadData(/* dataType= */ C.DATA_TYPE_UNKNOWN);
 
@@ -64,7 +65,8 @@ public final class DefaultLoadErrorHandlingPolicyTest {
             /* numberOfLocations= */ 1,
             /* numberOfExcludedLocations= */ 0,
             /* numberOfTracks= */ 10,
-            /* numberOfExcludedTracks= */ 0);
+            /* numberOfExcludedTracks= */ 0,
+            /* locationSteeringActive= */ false);
     assertThat(defaultPolicyFallbackSelection.type).isEqualTo(FALLBACK_TYPE_TRACK);
     assertThat(defaultPolicyFallbackSelection.exclusionDurationMs)
         .isEqualTo(DEFAULT_TRACK_EXCLUSION_MS);
@@ -75,7 +77,8 @@ public final class DefaultLoadErrorHandlingPolicyTest {
             /* numberOfLocations= */ 2,
             /* numberOfExcludedLocations= */ 0,
             /* numberOfTracks= */ 4,
-            /* numberOfExcludedTracks= */ 1);
+            /* numberOfExcludedTracks= */ 1,
+            /* locationSteeringActive= */ false);
     assertThat(defaultPolicyFallbackSelection.type).isEqualTo(FALLBACK_TYPE_LOCATION);
     assertThat(defaultPolicyFallbackSelection.exclusionDurationMs)
         .isEqualTo(DEFAULT_LOCATION_EXCLUSION_MS);
@@ -92,7 +95,8 @@ public final class DefaultLoadErrorHandlingPolicyTest {
             /* numberOfLocations= */ 1,
             /* numberOfExcludedLocations= */ 0,
             /* numberOfTracks= */ 10,
-            /* numberOfExcludedTracks= */ 0);
+            /* numberOfExcludedTracks= */ 0,
+            /* locationSteeringActive= */ false);
 
     assertThat(defaultPolicyFallbackSelection.type).isEqualTo(FALLBACK_TYPE_TRACK);
     assertThat(defaultPolicyFallbackSelection.exclusionDurationMs)
@@ -104,7 +108,8 @@ public final class DefaultLoadErrorHandlingPolicyTest {
             /* numberOfLocations= */ 2,
             /* numberOfExcludedLocations= */ 0,
             /* numberOfTracks= */ 4,
-            /* numberOfExcludedTracks= */ 1);
+            /* numberOfExcludedTracks= */ 1,
+            /* locationSteeringActive= */ false);
     assertThat(defaultPolicyFallbackSelection.type).isEqualTo(FALLBACK_TYPE_LOCATION);
     assertThat(defaultPolicyFallbackSelection.exclusionDurationMs)
         .isEqualTo(DEFAULT_LOCATION_EXCLUSION_MS);
@@ -121,7 +126,8 @@ public final class DefaultLoadErrorHandlingPolicyTest {
             /* numberOfLocations= */ 1,
             /* numberOfExcludedLocations= */ 0,
             /* numberOfTracks= */ 10,
-            /* numberOfExcludedTracks= */ 0);
+            /* numberOfExcludedTracks= */ 0,
+            /* locationSteeringActive= */ false);
 
     assertThat(defaultPolicyFallbackSelection.type).isEqualTo(FALLBACK_TYPE_TRACK);
     assertThat(defaultPolicyFallbackSelection.exclusionDurationMs)
@@ -133,7 +139,8 @@ public final class DefaultLoadErrorHandlingPolicyTest {
             /* numberOfLocations= */ 2,
             /* numberOfExcludedLocations= */ 0,
             /* numberOfTracks= */ 4,
-            /* numberOfExcludedTracks= */ 1);
+            /* numberOfExcludedTracks= */ 1,
+            /* locationSteeringActive= */ false);
     assertThat(defaultPolicyFallbackSelection.type).isEqualTo(FALLBACK_TYPE_LOCATION);
     assertThat(defaultPolicyFallbackSelection.exclusionDurationMs)
         .isEqualTo(DEFAULT_LOCATION_EXCLUSION_MS);
@@ -151,7 +158,8 @@ public final class DefaultLoadErrorHandlingPolicyTest {
             /* numberOfLocations= */ 1,
             /* numberOfExcludedLocations= */ 0,
             /* numberOfTracks= */ 10,
-            /* numberOfExcludedTracks= */ 0);
+            /* numberOfExcludedTracks= */ 0,
+            /* locationSteeringActive= */ false);
 
     assertThat(defaultPolicyFallbackSelection.type).isEqualTo(FALLBACK_TYPE_TRACK);
     assertThat(defaultPolicyFallbackSelection.exclusionDurationMs)
@@ -163,7 +171,8 @@ public final class DefaultLoadErrorHandlingPolicyTest {
             /* numberOfLocations= */ 2,
             /* numberOfExcludedLocations= */ 0,
             /* numberOfTracks= */ 4,
-            /* numberOfExcludedTracks= */ 1);
+            /* numberOfExcludedTracks= */ 1,
+            /* locationSteeringActive= */ false);
     assertThat(defaultPolicyFallbackSelection.type).isEqualTo(FALLBACK_TYPE_LOCATION);
     assertThat(defaultPolicyFallbackSelection.exclusionDurationMs)
         .isEqualTo(DEFAULT_LOCATION_EXCLUSION_MS);
@@ -181,7 +190,8 @@ public final class DefaultLoadErrorHandlingPolicyTest {
             /* numberOfLocations= */ 1,
             /* numberOfExcludedLocations= */ 0,
             /* numberOfTracks= */ 10,
-            /* numberOfExcludedTracks= */ 0);
+            /* numberOfExcludedTracks= */ 0,
+            /* locationSteeringActive= */ false);
 
     assertThat(defaultPolicyFallbackSelection.type).isEqualTo(FALLBACK_TYPE_TRACK);
     assertThat(defaultPolicyFallbackSelection.exclusionDurationMs)
@@ -193,7 +203,8 @@ public final class DefaultLoadErrorHandlingPolicyTest {
             /* numberOfLocations= */ 2,
             /* numberOfExcludedLocations= */ 0,
             /* numberOfTracks= */ 4,
-            /* numberOfExcludedTracks= */ 1);
+            /* numberOfExcludedTracks= */ 1,
+            /* locationSteeringActive= */ false);
     assertThat(defaultPolicyFallbackSelection.type).isEqualTo(FALLBACK_TYPE_LOCATION);
     assertThat(defaultPolicyFallbackSelection.exclusionDurationMs)
         .isEqualTo(DEFAULT_LOCATION_EXCLUSION_MS);
@@ -210,7 +221,8 @@ public final class DefaultLoadErrorHandlingPolicyTest {
             /* numberOfLocations= */ 1,
             /* numberOfExcludedLocations= */ 0,
             /* numberOfTracks= */ 10,
-            /* numberOfExcludedTracks= */ 0);
+            /* numberOfExcludedTracks= */ 0,
+            /* locationSteeringActive= */ false);
 
     assertThat(defaultPolicyFallbackSelection).isNull();
 
@@ -220,7 +232,8 @@ public final class DefaultLoadErrorHandlingPolicyTest {
             /* numberOfLocations= */ 2,
             /* numberOfExcludedLocations= */ 0,
             /* numberOfTracks= */ 4,
-            /* numberOfExcludedTracks= */ 1);
+            /* numberOfExcludedTracks= */ 1,
+            /* locationSteeringActive= */ false);
     assertThat(defaultPolicyFallbackSelection).isNull();
   }
 
@@ -235,7 +248,8 @@ public final class DefaultLoadErrorHandlingPolicyTest {
             /* numberOfLocations= */ 1,
             /* numberOfExcludedLocations= */ 0,
             /* numberOfTracks= */ 10,
-            /* numberOfExcludedTracks= */ 0);
+            /* numberOfExcludedTracks= */ 0,
+            /* locationSteeringActive= */ false);
 
     assertThat(defaultPolicyFallbackSelection).isNull();
 
@@ -245,7 +259,79 @@ public final class DefaultLoadErrorHandlingPolicyTest {
             /* numberOfLocations= */ 2,
             /* numberOfExcludedLocations= */ 0,
             /* numberOfTracks= */ 4,
-            /* numberOfExcludedTracks= */ 1);
+            /* numberOfExcludedTracks= */ 1,
+            /* locationSteeringActive= */ false);
+    assertThat(defaultPolicyFallbackSelection).isNull();
+  }
+
+  @Test
+  public void getFallbackSelectionFor_locationSteeringActive_prefersTrackFallback() {
+    InvalidResponseCodeException exception = buildInvalidResponseCodeException(403, "Forbidden");
+
+    @Nullable
+    LoadErrorHandlingPolicy.FallbackSelection defaultPolicyFallbackSelection =
+        getDefaultPolicyFallbackSelection(
+            exception,
+            /* numberOfLocations= */ 2,
+            /* numberOfExcludedLocations= */ 0,
+            /* numberOfTracks= */ 2,
+            /* numberOfExcludedTracks= */ 0,
+            /* locationSteeringActive= */ true);
+
+    assertThat(defaultPolicyFallbackSelection.type)
+        .isEqualTo(LoadErrorHandlingPolicy.FALLBACK_TYPE_TRACK);
+  }
+
+  @Test
+  public void getFallbackSelectionFor_locationSteeringActive_onlyLocationFallbackAvailable() {
+    InvalidResponseCodeException exception = buildInvalidResponseCodeException(403, "Forbidden");
+
+    @Nullable
+    LoadErrorHandlingPolicy.FallbackSelection defaultPolicyFallbackSelection =
+        getDefaultPolicyFallbackSelection(
+            exception,
+            /* numberOfLocations= */ 2,
+            /* numberOfExcludedLocations= */ 0,
+            /* numberOfTracks= */ 1,
+            /* numberOfExcludedTracks= */ 0,
+            /* locationSteeringActive= */ true);
+
+    assertThat(defaultPolicyFallbackSelection.type)
+        .isEqualTo(LoadErrorHandlingPolicy.FALLBACK_TYPE_LOCATION);
+  }
+
+  @Test
+  public void getFallbackSelectionFor_locationSteeringActive_onlyTrackFallbackAvailable() {
+    InvalidResponseCodeException exception = buildInvalidResponseCodeException(403, "Forbidden");
+
+    @Nullable
+    LoadErrorHandlingPolicy.FallbackSelection defaultPolicyFallbackSelection =
+        getDefaultPolicyFallbackSelection(
+            exception,
+            /* numberOfLocations= */ 1,
+            /* numberOfExcludedLocations= */ 0,
+            /* numberOfTracks= */ 2,
+            /* numberOfExcludedTracks= */ 0,
+            /* locationSteeringActive= */ true);
+
+    assertThat(defaultPolicyFallbackSelection.type)
+        .isEqualTo(LoadErrorHandlingPolicy.FALLBACK_TYPE_TRACK);
+  }
+
+  @Test
+  public void getFallbackSelectionFor_locationSteeringActive_noFallbackAvailable() {
+    InvalidResponseCodeException exception = buildInvalidResponseCodeException(403, "Forbidden");
+
+    @Nullable
+    LoadErrorHandlingPolicy.FallbackSelection defaultPolicyFallbackSelection =
+        getDefaultPolicyFallbackSelection(
+            exception,
+            /* numberOfLocations= */ 1,
+            /* numberOfExcludedLocations= */ 0,
+            /* numberOfTracks= */ 1,
+            /* numberOfExcludedTracks= */ 0,
+            /* locationSteeringActive= */ true);
+
     assertThat(defaultPolicyFallbackSelection).isNull();
   }
 
@@ -254,6 +340,82 @@ public final class DefaultLoadErrorHandlingPolicyTest {
     assertThat(
             getDefaultPolicyRetryDelayOutputFor(
                 ParserException.createForMalformedContainer(/* message= */ null, /* cause= */ null),
+                1))
+        .isEqualTo(C.TIME_UNSET);
+  }
+
+  @Test
+  public void getRetryDelayMsFor_dontRetryFileNotFoundException() {
+    assertThat(getDefaultPolicyRetryDelayOutputFor(new FileNotFoundException(), 1))
+        .isEqualTo(C.TIME_UNSET);
+  }
+
+  @Test
+  public void getRetryDelayMsFor_dontRetryCleartextNotPermittedException() {
+    assertThat(
+            getDefaultPolicyRetryDelayOutputFor(
+                new CleartextNotPermittedException(new IOException(), new DataSpec(Uri.EMPTY)), 1))
+        .isEqualTo(C.TIME_UNSET);
+  }
+
+  @Test
+  public void getRetryDelayMsFor_dontRetryUnexpectedLoaderException() {
+    assertThat(
+            getDefaultPolicyRetryDelayOutputFor(new UnexpectedLoaderException(new Exception()), 1))
+        .isEqualTo(C.TIME_UNSET);
+  }
+
+  @Test
+  public void getRetryDelayMsFor_dontRetryDataSourceExceptionWithOutOfRange() {
+    assertThat(
+            getDefaultPolicyRetryDelayOutputFor(
+                new DataSourceException(PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE),
+                1))
+        .isEqualTo(C.TIME_UNSET);
+  }
+
+  @Test
+  public void getRetryDelayMsFor_dontRetryCausedByParserException() {
+    assertThat(
+            getDefaultPolicyRetryDelayOutputFor(
+                new IOException(
+                    ParserException.createForMalformedContainer(
+                        /* message= */ null, /* cause= */ null)),
+                1))
+        .isEqualTo(C.TIME_UNSET);
+  }
+
+  @Test
+  public void getRetryDelayMsFor_dontRetryCausedByFileNotFoundException() {
+    assertThat(getDefaultPolicyRetryDelayOutputFor(new IOException(new FileNotFoundException()), 1))
+        .isEqualTo(C.TIME_UNSET);
+  }
+
+  @Test
+  public void getRetryDelayMsFor_dontRetryCausedByCleartextNotPermittedException() {
+    assertThat(
+            getDefaultPolicyRetryDelayOutputFor(
+                new IOException(
+                    new CleartextNotPermittedException(new IOException(), new DataSpec(Uri.EMPTY))),
+                1))
+        .isEqualTo(C.TIME_UNSET);
+  }
+
+  @Test
+  public void getRetryDelayMsFor_dontRetryCausedByUnexpectedLoaderException() {
+    assertThat(
+            getDefaultPolicyRetryDelayOutputFor(
+                new IOException(new UnexpectedLoaderException(new Exception())), 1))
+        .isEqualTo(C.TIME_UNSET);
+  }
+
+  @Test
+  public void getRetryDelayMsFor_dontRetryCausedByDataSourceExceptionWithOutOfRange() {
+    assertThat(
+            getDefaultPolicyRetryDelayOutputFor(
+                new IOException(
+                    new DataSourceException(
+                        PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE)),
                 1))
         .isEqualTo(C.TIME_UNSET);
   }
@@ -271,7 +433,8 @@ public final class DefaultLoadErrorHandlingPolicyTest {
       int numberOfLocations,
       int numberOfExcludedLocations,
       int numberOfTracks,
-      int numberOfExcludedTracks) {
+      int numberOfExcludedTracks,
+      boolean locationSteeringActive) {
     LoadErrorInfo loadErrorInfo =
         new LoadErrorInfo(
             PLACEHOLDER_LOAD_EVENT_INFO,
@@ -280,7 +443,11 @@ public final class DefaultLoadErrorHandlingPolicyTest {
             /* errorCount= */ 1);
     LoadErrorHandlingPolicy.FallbackOptions fallbackOptions =
         new LoadErrorHandlingPolicy.FallbackOptions(
-            numberOfLocations, numberOfExcludedLocations, numberOfTracks, numberOfExcludedTracks);
+            numberOfLocations,
+            numberOfExcludedLocations,
+            numberOfTracks,
+            numberOfExcludedTracks,
+            locationSteeringActive);
     return new DefaultLoadErrorHandlingPolicy()
         .getFallbackSelectionFor(fallbackOptions, loadErrorInfo);
   }

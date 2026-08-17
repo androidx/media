@@ -57,6 +57,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private @MonotonicNonNull Handler handler;
   private final AtomicReference<@NullableType RuntimeException> pendingRuntimeException;
   private final ConditionVariable conditionVariable;
+  private final boolean asyncCryptoSynchronizationEnabled;
   private boolean started;
 
   /**
@@ -65,16 +66,25 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param codec The {@link MediaCodec} to submit input buffers to.
    * @param queueingThread The {@link HandlerThread} to use for queueing buffers.
    */
-  public AsynchronousMediaCodecBufferEnqueuer(MediaCodec codec, HandlerThread queueingThread) {
-    this(codec, queueingThread, /* conditionVariable= */ new ConditionVariable());
+  public AsynchronousMediaCodecBufferEnqueuer(
+      MediaCodec codec, HandlerThread queueingThread, boolean enableAsyncCryptoSynchronization) {
+    this(
+        codec,
+        queueingThread,
+        /* conditionVariable= */ new ConditionVariable(),
+        enableAsyncCryptoSynchronization);
   }
 
   @VisibleForTesting
   /* package */ AsynchronousMediaCodecBufferEnqueuer(
-      MediaCodec codec, HandlerThread handlerThread, ConditionVariable conditionVariable) {
+      MediaCodec codec,
+      HandlerThread handlerThread,
+      ConditionVariable conditionVariable,
+      boolean enableAsyncCryptoSynchronization) {
     this.codec = codec;
     this.handlerThread = handlerThread;
     this.conditionVariable = conditionVariable;
+    this.asyncCryptoSynchronizationEnabled = enableAsyncCryptoSynchronization;
     pendingRuntimeException = new AtomicReference<>();
   }
 
@@ -224,11 +234,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private void doQueueSecureInputBuffer(
       int index, int offset, MediaCodec.CryptoInfo info, long presentationTimeUs, int flags) {
     try {
-      // Synchronize calls to MediaCodec.queueSecureInputBuffer() to avoid race conditions inside
-      // the crypto module when audio and video are sharing the same DRM session
+      // Below 31, synchronize calls to MediaCodec.queueSecureInputBuffer() to avoid race conditions
+      // inside the crypto module when audio and video are sharing the same DRM session
       // (see [Internal: b/149908061]).
-      synchronized (QUEUE_SECURE_LOCK) {
+      if (SDK_INT >= 31 && !asyncCryptoSynchronizationEnabled) {
         codec.queueSecureInputBuffer(index, offset, info, presentationTimeUs, flags);
+      } else {
+        synchronized (QUEUE_SECURE_LOCK) {
+          codec.queueSecureInputBuffer(index, offset, info, presentationTimeUs, flags);
+        }
       }
     } catch (RuntimeException e) {
       pendingRuntimeException.compareAndSet(null, e);

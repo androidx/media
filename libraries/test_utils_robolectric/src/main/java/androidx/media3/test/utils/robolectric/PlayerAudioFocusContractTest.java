@@ -16,6 +16,7 @@
 
 package androidx.media3.test.utils.robolectric;
 
+import static androidx.media3.test.utils.FakeMediaSource.FAKE_MEDIA_ITEM;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.play;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
@@ -31,16 +32,18 @@ import android.media.AudioManager;
 import android.os.Handler;
 import android.os.Looper;
 import androidx.media3.common.AudioAttributes;
+import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.Listener;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.test.utils.FakeMediaSource;
+import androidx.media3.common.util.Util;
 import com.google.errorprone.annotations.ForOverride;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Test;
 import org.mockito.InOrder;
+import org.robolectric.annotation.Config;
 
 /**
  * A collection of contract tests for {@link Player} implementations that support {@link
@@ -66,6 +69,19 @@ public abstract class PlayerAudioFocusContractTest {
     Clock getClock();
 
     Looper getPlaybackLooper();
+
+    Looper getAudioFocusListenerLooper();
+
+    /**
+     * Sets a {@link MediaItem} on the {@link Player}.
+     *
+     * <p>Only implement this method if the {@link Player} implementation does not support {@link
+     * Player#COMMAND_SET_MEDIA_ITEM}.
+     */
+    default void setMediaItem(MediaItem item) {
+      throw new UnsupportedOperationException(
+          "Subclasses must implement this method if they don't support COMMAND_SET_MEDIA_ITEM");
+    }
   }
 
   private final AudioManager audioManager;
@@ -96,7 +112,6 @@ public abstract class PlayerAudioFocusContractTest {
     player = createPlayerInfo().getPlayer();
     assertThat(player.isCommandAvailable(Player.COMMAND_SET_AUDIO_ATTRIBUTES)).isTrue();
     assertThat(player.isCommandAvailable(Player.COMMAND_PREPARE)).isTrue();
-    assertThat(player.isCommandAvailable(Player.COMMAND_SET_MEDIA_ITEM)).isTrue();
   }
 
   @Test
@@ -114,7 +129,7 @@ public abstract class PlayerAudioFocusContractTest {
     player = playerInfo.getPlayer();
     player.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true);
     player.addListener(listener);
-    player.setMediaItem(FakeMediaSource.FAKE_MEDIA_ITEM);
+    setMediaItem(playerInfo, FAKE_MEDIA_ITEM);
     player.prepare();
 
     play(player)
@@ -137,7 +152,7 @@ public abstract class PlayerAudioFocusContractTest {
     player = playerInfo.getPlayer();
     player.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true);
     player.addListener(listener);
-    player.setMediaItem(FakeMediaSource.FAKE_MEDIA_ITEM);
+    setMediaItem(playerInfo, FAKE_MEDIA_ITEM);
     player.prepare();
 
     play(player)
@@ -160,7 +175,7 @@ public abstract class PlayerAudioFocusContractTest {
     PlayerInfo playerInfo = createPlayerInfo();
     player = playerInfo.getPlayer();
     player.addListener(listener);
-    player.setMediaItem(FakeMediaSource.FAKE_MEDIA_ITEM);
+    setMediaItem(playerInfo, FAKE_MEDIA_ITEM);
     player.prepare();
 
     play(player)
@@ -183,12 +198,13 @@ public abstract class PlayerAudioFocusContractTest {
     player = playerInfo.getPlayer();
     player.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true);
     player.addListener(listener);
-    player.setMediaItem(FakeMediaSource.FAKE_MEDIA_ITEM);
+    setMediaItem(playerInfo, FAKE_MEDIA_ITEM);
     player.prepare();
     play(player)
         .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
 
-    triggerAudioFocusChangeListener(playerInfo.getPlaybackLooper(), AudioManager.AUDIOFOCUS_LOSS);
+    triggerAudioFocusChangeListener(
+        playerInfo.getAudioFocusListenerLooper(), AudioManager.AUDIOFOCUS_LOSS);
     advance(player)
         .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
 
@@ -215,18 +231,19 @@ public abstract class PlayerAudioFocusContractTest {
     player = playerInfo.getPlayer();
     player.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true);
     player.addListener(listener);
-    player.setMediaItem(FakeMediaSource.FAKE_MEDIA_ITEM);
+    setMediaItem(playerInfo, FAKE_MEDIA_ITEM);
     player.prepare();
     play(player)
         .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
 
     triggerAudioFocusChangeListener(
-        playerInfo.getPlaybackLooper(), AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
+        playerInfo.getAudioFocusListenerLooper(), AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
     advance(player)
         .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
     boolean playWhenReady = player.getPlayWhenReady();
     @Player.PlaybackSuppressionReason int suppressionReason = player.getPlaybackSuppressionReason();
-    triggerAudioFocusChangeListener(playerInfo.getPlaybackLooper(), AudioManager.AUDIOFOCUS_GAIN);
+    triggerAudioFocusChangeListener(
+        playerInfo.getAudioFocusListenerLooper(), AudioManager.AUDIOFOCUS_GAIN);
     advance(player)
         .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
     boolean playWhenReadyAfterGain = player.getPlayWhenReady();
@@ -264,13 +281,13 @@ public abstract class PlayerAudioFocusContractTest {
     player = playerInfo.getPlayer();
     player.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true);
     player.addListener(listener);
-    player.setMediaItem(FakeMediaSource.FAKE_MEDIA_ITEM);
+    setMediaItem(playerInfo, FAKE_MEDIA_ITEM);
     player.prepare();
     play(player)
         .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
 
     triggerAudioFocusChangeListener(
-        playerInfo.getPlaybackLooper(), AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
+        playerInfo.getAudioFocusListenerLooper(), AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
     advance(player)
         .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
     player.pause();
@@ -315,13 +332,14 @@ public abstract class PlayerAudioFocusContractTest {
     player = playerInfo.getPlayer();
     player.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true);
     player.addListener(listener);
-    player.setMediaItem(FakeMediaSource.FAKE_MEDIA_ITEM);
+    setMediaItem(playerInfo, FAKE_MEDIA_ITEM);
     player.prepare();
     play(player)
         .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
 
     player.pause();
-    triggerAudioFocusChangeListener(playerInfo.getPlaybackLooper(), AudioManager.AUDIOFOCUS_LOSS);
+    triggerAudioFocusChangeListener(
+        playerInfo.getAudioFocusListenerLooper(), AudioManager.AUDIOFOCUS_LOSS);
     advance(player)
         .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
 
@@ -352,19 +370,20 @@ public abstract class PlayerAudioFocusContractTest {
     player = playerInfo.getPlayer();
     player.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true);
     player.addListener(listener);
-    player.setMediaItem(FakeMediaSource.FAKE_MEDIA_ITEM);
+    setMediaItem(playerInfo, FAKE_MEDIA_ITEM);
     player.prepare();
     play(player)
         .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
 
     player.pause();
     triggerAudioFocusChangeListener(
-        playerInfo.getPlaybackLooper(), AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
+        playerInfo.getAudioFocusListenerLooper(), AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
     advance(player)
         .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
     boolean playWhenReady = player.getPlayWhenReady();
     @Player.PlaybackSuppressionReason int suppressionReason = player.getPlaybackSuppressionReason();
-    triggerAudioFocusChangeListener(playerInfo.getPlaybackLooper(), AudioManager.AUDIOFOCUS_GAIN);
+    triggerAudioFocusChangeListener(
+        playerInfo.getAudioFocusListenerLooper(), AudioManager.AUDIOFOCUS_GAIN);
     advance(player)
         .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
     boolean playWhenReadyAfterGain = player.getPlayWhenReady();
@@ -405,14 +424,14 @@ public abstract class PlayerAudioFocusContractTest {
     player = playerInfo.getPlayer();
     player.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true);
     player.addListener(listener);
-    player.setMediaItem(FakeMediaSource.FAKE_MEDIA_ITEM);
+    setMediaItem(playerInfo, FAKE_MEDIA_ITEM);
     player.prepare();
     play(player)
         .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
 
     player.pause();
     triggerAudioFocusChangeListener(
-        playerInfo.getPlaybackLooper(), AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
+        playerInfo.getAudioFocusListenerLooper(), AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
     advance(player)
         .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
     player.play();
@@ -455,22 +474,24 @@ public abstract class PlayerAudioFocusContractTest {
   }
 
   @Test
-  public void play_duringTransientLossWhilePlaying_continuesPlayback() throws Exception {
+  public void play_duringTransientLossWhilePlayingWithRegularGain_continuesPlayback()
+      throws Exception {
     shadowOf(audioManager).setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
     Listener listener = mock(Player.Listener.class);
     PlayerInfo playerInfo = createPlayerInfo();
     player = playerInfo.getPlayer();
     player.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true);
     player.addListener(listener);
-    player.setMediaItem(FakeMediaSource.FAKE_MEDIA_ITEM);
+    setMediaItem(playerInfo, FAKE_MEDIA_ITEM);
     player.prepare();
     play(player)
         .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
 
     triggerAudioFocusChangeListener(
-        playerInfo.getPlaybackLooper(), AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
+        playerInfo.getAudioFocusListenerLooper(), AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
     advance(player)
         .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
+    shadowOf(audioManager).setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
     player.play();
     boolean playWhenReadyInitial = player.getPlayWhenReady();
     @Player.PlaybackSuppressionReason
@@ -502,13 +523,195 @@ public abstract class PlayerAudioFocusContractTest {
             /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS);
   }
 
-  private void triggerAudioFocusChangeListener(Looper playbackLooper, int focusChange) {
-    new Handler(playbackLooper)
-        .post(
-            () ->
-                shadowOf(audioManager)
-                    .getLastAudioFocusRequest()
-                    .listener
-                    .onAudioFocusChange(focusChange));
+  @Config(minSdk = 26)
+  @Test
+  public void play_duringTransientLossWhilePlayingWithDelayedGainAndRegularGain_continuesPlayback()
+      throws Exception {
+    shadowOf(audioManager).setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
+    Listener listener = mock(Player.Listener.class);
+    PlayerInfo playerInfo = createPlayerInfo();
+    player = playerInfo.getPlayer();
+    player.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true);
+    player.addListener(listener);
+    setMediaItem(playerInfo, FAKE_MEDIA_ITEM);
+    player.prepare();
+    play(player)
+        .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
+
+    triggerAudioFocusChangeListener(
+        playerInfo.getAudioFocusListenerLooper(), AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
+    advance(player)
+        .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
+    shadowOf(audioManager).setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_DELAYED);
+    player.play();
+    boolean playWhenReadyInitial = player.getPlayWhenReady();
+    @Player.PlaybackSuppressionReason
+    int suppressionReasonInitial = player.getPlaybackSuppressionReason();
+    advance(player)
+        .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
+    boolean playWhenReadyFinal = player.getPlayWhenReady();
+    @Player.PlaybackSuppressionReason
+    int suppressionReasonFinal = player.getPlaybackSuppressionReason();
+    triggerAudioFocusChangeListener(
+        playerInfo.getAudioFocusListenerLooper(), AudioManager.AUDIOFOCUS_GAIN);
+    advance(player)
+        .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
+    boolean playWhenReadyAfterDelayedGain = player.getPlayWhenReady();
+    @Player.PlaybackSuppressionReason
+    int suppressionReasonAfterDelayedGain = player.getPlaybackSuppressionReason();
+
+    assertThat(playWhenReadyInitial).isTrue();
+    assertThat(suppressionReasonInitial).isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    assertThat(playWhenReadyFinal).isTrue();
+    assertThat(suppressionReasonFinal).isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    assertThat(playWhenReadyAfterDelayedGain).isTrue();
+    assertThat(suppressionReasonAfterDelayedGain)
+        .isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    InOrder inOrder = inOrder(listener);
+    inOrder
+        .verify(listener)
+        .onPlayWhenReadyChanged(
+            /* playWhenReady= */ true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
+    inOrder
+        .verify(listener)
+        .onPlaybackSuppressionReasonChanged(
+            Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
+    inOrder
+        .verify(listener)
+        .onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    verify(listener, never())
+        .onPlayWhenReadyChanged(
+            /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS);
+  }
+
+  @Config(minSdk = 26)
+  @Test
+  public void
+      play_duringTransientLossWhilePlayingWithDelayedGainAndLoss_continuesAndPausesPlayback()
+          throws Exception {
+    shadowOf(audioManager).setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
+    Listener listener = mock(Player.Listener.class);
+    PlayerInfo playerInfo = createPlayerInfo();
+    player = playerInfo.getPlayer();
+    player.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true);
+    player.addListener(listener);
+    setMediaItem(playerInfo, FAKE_MEDIA_ITEM);
+    player.prepare();
+    play(player)
+        .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
+
+    triggerAudioFocusChangeListener(
+        playerInfo.getAudioFocusListenerLooper(), AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
+    advance(player)
+        .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
+    shadowOf(audioManager).setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_DELAYED);
+    player.play();
+    boolean playWhenReadyInitial = player.getPlayWhenReady();
+    @Player.PlaybackSuppressionReason
+    int suppressionReasonInitial = player.getPlaybackSuppressionReason();
+    advance(player)
+        .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
+    boolean playWhenReadyFinal = player.getPlayWhenReady();
+    @Player.PlaybackSuppressionReason
+    int suppressionReasonFinal = player.getPlaybackSuppressionReason();
+    triggerAudioFocusChangeListener(
+        playerInfo.getAudioFocusListenerLooper(), AudioManager.AUDIOFOCUS_LOSS);
+    advance(player)
+        .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
+    boolean playWhenReadyAfterDelayedLoss = player.getPlayWhenReady();
+    @Player.PlaybackSuppressionReason
+    int suppressionReasonAfterDelayedLoss = player.getPlaybackSuppressionReason();
+
+    assertThat(playWhenReadyInitial).isTrue();
+    assertThat(suppressionReasonInitial).isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    assertThat(playWhenReadyFinal).isTrue();
+    assertThat(suppressionReasonFinal).isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    assertThat(playWhenReadyAfterDelayedLoss).isFalse();
+    assertThat(suppressionReasonAfterDelayedLoss)
+        .isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    InOrder inOrder = inOrder(listener);
+    inOrder
+        .verify(listener)
+        .onPlayWhenReadyChanged(
+            /* playWhenReady= */ true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
+    inOrder
+        .verify(listener)
+        .onPlaybackSuppressionReasonChanged(
+            Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
+    inOrder
+        .verify(listener)
+        .onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    inOrder
+        .verify(listener)
+        .onPlayWhenReadyChanged(
+            /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS);
+  }
+
+  @Test
+  public void play_duringTransientLossWhilePlayingWithLoss_pausesPlayback() throws Exception {
+    shadowOf(audioManager).setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
+    Listener listener = mock(Player.Listener.class);
+    PlayerInfo playerInfo = createPlayerInfo();
+    player = playerInfo.getPlayer();
+    player.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true);
+    player.addListener(listener);
+    setMediaItem(playerInfo, FAKE_MEDIA_ITEM);
+    player.prepare();
+    play(player)
+        .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
+
+    triggerAudioFocusChangeListener(
+        playerInfo.getAudioFocusListenerLooper(), AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
+    advance(player)
+        .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
+    shadowOf(audioManager).setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_FAILED);
+    player.play();
+    boolean playWhenReadyInitial = player.getPlayWhenReady();
+    @Player.PlaybackSuppressionReason
+    int suppressionReasonInitial = player.getPlaybackSuppressionReason();
+    advance(player)
+        .untilPendingCommandsAreFullyHandled(playerInfo.getClock(), playerInfo.getPlaybackLooper());
+    boolean playWhenReadyFinal = player.getPlayWhenReady();
+    @Player.PlaybackSuppressionReason
+    int suppressionReasonFinal = player.getPlaybackSuppressionReason();
+
+    assertThat(playWhenReadyInitial).isTrue();
+    assertThat(suppressionReasonInitial).isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    assertThat(playWhenReadyFinal).isFalse();
+    assertThat(suppressionReasonFinal).isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    InOrder inOrder = inOrder(listener);
+    inOrder
+        .verify(listener)
+        .onPlayWhenReadyChanged(
+            /* playWhenReady= */ true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
+    inOrder
+        .verify(listener)
+        .onPlaybackSuppressionReasonChanged(
+            Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
+    inOrder
+        .verify(listener)
+        .onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    inOrder
+        .verify(listener)
+        .onPlayWhenReadyChanged(
+            /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS);
+  }
+
+  private void triggerAudioFocusChangeListener(Looper listenerLooper, int focusChange) {
+    Util.postOrRun(
+        new Handler(listenerLooper),
+        () ->
+            shadowOf(audioManager)
+                .getLastAudioFocusRequest()
+                .listener
+                .onAudioFocusChange(focusChange));
+  }
+
+  private static void setMediaItem(PlayerInfo playerInfo, MediaItem item) {
+    if (playerInfo.getPlayer().isCommandAvailable(Player.COMMAND_SET_MEDIA_ITEM)) {
+      playerInfo.getPlayer().setMediaItem(item);
+    } else {
+      playerInfo.setMediaItem(item);
+    }
   }
 }

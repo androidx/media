@@ -15,6 +15,10 @@
  */
 package androidx.media3.test.utils;
 
+import static androidx.media3.common.util.Util.EMPTY_BYTE_ARRAY;
+import static androidx.media3.datasource.DataSpec.HTTP_METHOD_GET;
+import static androidx.media3.datasource.DataSpec.HTTP_METHOD_HEAD;
+import static androidx.media3.datasource.DataSpec.HTTP_METHOD_POST;
 import static androidx.media3.test.utils.WebServerDispatcher.Resource.GZIP_SUPPORT_DISABLED;
 import static androidx.media3.test.utils.WebServerDispatcher.Resource.GZIP_SUPPORT_FORCED;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -26,14 +30,18 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.util.Pair;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.datasource.DataSpec.HttpMethod;
+import androidx.media3.datasource.HttpUtil;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.net.HttpHeaders;
@@ -43,10 +51,13 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import okhttp3.Headers;
 import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -105,22 +116,35 @@ public final class WebServerDispatcher extends Dispatcher {
     /** Builder for {@link Resource}. */
     public static final class Builder {
       private @MonotonicNonNull String path;
+      private @HttpMethod int httpMethod;
+      private ImmutableListMultimap<String, String> requestHeaders;
+      private byte[] requestBody;
       private byte @MonotonicNonNull [] data;
       private boolean supportsRangeRequests;
+      private boolean includesContentLengthInRangeResponses;
       private boolean resolvesToUnknownLength;
       private @GzipSupport int gzipSupport;
       private ImmutableListMultimap<String, String> extraResponseHeaders;
 
       /** Constructs an instance. */
       public Builder() {
+        this.httpMethod = HTTP_METHOD_GET;
+        this.requestHeaders = ImmutableListMultimap.of();
+        this.requestBody = EMPTY_BYTE_ARRAY;
+        this.includesContentLengthInRangeResponses = true;
         this.gzipSupport = GZIP_SUPPORT_DISABLED;
         this.extraResponseHeaders = ImmutableListMultimap.of();
       }
 
       private Builder(Resource resource) {
         this.path = resource.getPath();
+        this.httpMethod = resource.getHttpMethod();
+        this.requestHeaders = resource.getRequestHeaders();
+        this.requestBody = resource.getRequestBody();
         this.data = resource.getData();
         this.supportsRangeRequests = resource.supportsRangeRequests();
+        this.includesContentLengthInRangeResponses =
+            resource.includesContentLengthInRangeResponses();
         this.resolvesToUnknownLength = resource.resolvesToUnknownLength();
         this.gzipSupport = resource.getGzipSupport();
         this.extraResponseHeaders = resource.getExtraResponseHeaders();
@@ -134,6 +158,52 @@ public final class WebServerDispatcher extends Dispatcher {
       @CanIgnoreReturnValue
       public Builder setPath(String path) {
         this.path = path.startsWith("/") ? path : "/" + path;
+        return this;
+      }
+
+      /**
+       * Sets the HTTP method that is expected to be used to access the resource.
+       *
+       * <p>Defaults to {@link androidx.media3.datasource.DataSpec#HTTP_METHOD_GET}.
+       *
+       * @return this builder, for convenience.
+       */
+      @CanIgnoreReturnValue
+      public Builder setHttpMethod(@HttpMethod int httpMethod) {
+        this.httpMethod = httpMethod;
+        return this;
+      }
+
+      /**
+       * Sets the request headers that are expected to be included in a request for the resource.
+       *
+       * <p>This is non-exhaustive, additional headers are permitted, but if any headers in this map
+       * are missing from a request (or have mismatched values), {@link WebServerDispatcher} will
+       * return a {@code 400 Bad Request} error response.
+       *
+       * <p>Defaults to an empty map.
+       *
+       * @return this builder, for convenience.
+       */
+      @CanIgnoreReturnValue
+      public Builder setRequestHeaders(ImmutableListMultimap<String, String> requestHeaders) {
+        this.requestHeaders = requestHeaders;
+        return this;
+      }
+
+      /**
+       * The request body that is expected to be included in a request for the resource.
+       *
+       * <p>If a request is made with a mismatched body, {@link WebServerDispatcher} will return a
+       * {@code 400 Bad Request} error response.
+       *
+       * <p>Defaults to an empty array.
+       *
+       * @return this builder, for convenience.
+       */
+      @CanIgnoreReturnValue
+      public Builder setRequestBody(byte[] requestBody) {
+        this.requestBody = requestBody;
         return this;
       }
 
@@ -156,6 +226,24 @@ public final class WebServerDispatcher extends Dispatcher {
       @CanIgnoreReturnValue
       public Builder supportsRangeRequests(boolean supportsRangeRequests) {
         this.supportsRangeRequests = supportsRangeRequests;
+        return this;
+      }
+
+      /**
+       * Sets if RFC 7233 HTTP 206 range responses should include a {@code Content-Length} header.
+       *
+       * <p>Setting this to false allows simulating servers or proxies that only include the {@code
+       * Content-Range} header and not {@code Content-Length}, as described in the comments in
+       * {@link HttpUtil#getContentLength(String, String)}.
+       *
+       * <p>Defaults to true.
+       *
+       * @return this builder, for convenience.
+       */
+      @CanIgnoreReturnValue
+      public Builder includesContentLengthInRangeResponses(
+          boolean includesContentLengthInRangeResponses) {
+        this.includesContentLengthInRangeResponses = includesContentLengthInRangeResponses;
         return this;
       }
 
@@ -198,14 +286,25 @@ public final class WebServerDispatcher extends Dispatcher {
 
       /** Builds the {@link Resource}. */
       public Resource build() {
+        if (requestBody.length > 0) {
+          checkState(httpMethod != HTTP_METHOD_GET, "requestBody must be empty for a GET request.");
+        }
         if (gzipSupport != GZIP_SUPPORT_DISABLED) {
           checkState(!supportsRangeRequests, "Can't enable compression & range requests.");
           checkState(!resolvesToUnknownLength, "Can't enable compression if length isn't known.");
         }
+        checkState(
+            supportsRangeRequests || includesContentLengthInRangeResponses,
+            "Can't exclude Content-Length from range responses if range requests aren't"
+                + " supported.");
         return new Resource(
             checkNotNull(path),
+            httpMethod,
+            requestHeaders,
+            requestBody,
             checkNotNull(data),
             supportsRangeRequests,
+            includesContentLengthInRangeResponses,
             resolvesToUnknownLength,
             gzipSupport,
             extraResponseHeaders);
@@ -213,22 +312,34 @@ public final class WebServerDispatcher extends Dispatcher {
     }
 
     private final String path;
+    private final @HttpMethod int httpMethod;
+    private final ImmutableListMultimap<String, String> requestHeaders;
+    private final byte[] requestBody;
     private final byte[] data;
     private final boolean supportsRangeRequests;
+    private final boolean includesContentLengthInRangeResponses;
     private final boolean resolvesToUnknownLength;
     private final @GzipSupport int gzipSupport;
     ImmutableListMultimap<String, String> extraResponseHeaders;
 
     private Resource(
         String path,
+        @HttpMethod int httpMethod,
+        ImmutableListMultimap<String, String> requestHeaders,
+        byte[] requestBody,
         byte[] data,
         boolean supportsRangeRequests,
+        boolean includesContentLengthInRangeResponses,
         boolean resolvesToUnknownLength,
         @GzipSupport int gzipSupport,
         ImmutableListMultimap<String, String> extraResponseHeaders) {
       this.path = path;
+      this.httpMethod = httpMethod;
+      this.requestHeaders = requestHeaders;
+      this.requestBody = requestBody;
       this.data = data;
       this.supportsRangeRequests = supportsRangeRequests;
+      this.includesContentLengthInRangeResponses = includesContentLengthInRangeResponses;
       this.resolvesToUnknownLength = resolvesToUnknownLength;
       this.gzipSupport = gzipSupport;
       this.extraResponseHeaders = extraResponseHeaders;
@@ -239,6 +350,21 @@ public final class WebServerDispatcher extends Dispatcher {
       return path;
     }
 
+    /** The HTTP method that should be used to request the resource. */
+    public @HttpMethod int getHttpMethod() {
+      return httpMethod;
+    }
+
+    /** The headers that should be included in a request for the resource. */
+    public ImmutableListMultimap<String, String> getRequestHeaders() {
+      return requestHeaders;
+    }
+
+    /** The body that should be included in a request for the resource. */
+    public byte[] getRequestBody() {
+      return requestBody.clone();
+    }
+
     /** Returns the data served by this resource. */
     public byte[] getData() {
       return data.clone();
@@ -247,6 +373,13 @@ public final class WebServerDispatcher extends Dispatcher {
     /** Returns true if RFC 7233 range requests should be supported for this resource. */
     public boolean supportsRangeRequests() {
       return supportsRangeRequests;
+    }
+
+    /**
+     * Returns true if RFC 7233 HTTP 206 responses should include a {@code Content-Length} header.
+     */
+    public boolean includesContentLengthInRangeResponses() {
+      return includesContentLengthInRangeResponses;
     }
 
     /** Returns true if the resource should resolve to an unknown length. */
@@ -269,6 +402,8 @@ public final class WebServerDispatcher extends Dispatcher {
       return new Builder(this);
     }
   }
+
+  private static final String TAG = "WebServerDispatcher";
 
   /** Matches an Accept-Encoding header value (format defined in RFC 2616 section 14.3). */
   private static final Pattern ACCEPT_ENCODING_PATTERN =
@@ -300,6 +435,42 @@ public final class WebServerDispatcher extends Dispatcher {
       return response.setBody(NOT_FOUND_BODY).setResponseCode(404);
     }
     Resource resource = checkNotNull(resourcesByPath.get(requestPath));
+    String expectedMethod = httpMethodString(resource.getHttpMethod());
+    if (!Objects.equals(request.getMethod(), expectedMethod)) {
+      Log.e(
+          TAG,
+          "Rejecting request for "
+              + requestPath
+              + "\nWrong method. Expected: "
+              + expectedMethod
+              + ", Received: "
+              + request.getMethod());
+      return response
+          .setResponseCode(405)
+          .setHeader(HttpHeaders.ALLOW, expectedMethod)
+          .setBody("Wrong method");
+    }
+
+    if (!expectedHeadersArePresent(request.getHeaders(), resource.getRequestHeaders())) {
+      return response
+          .setResponseCode(400)
+          .setBody("Request headers don't contain expected headers.");
+    }
+
+    if (resource.getHttpMethod() != HTTP_METHOD_GET) {
+      byte[] requestBody = request.getBody().readByteArray();
+      if (!Arrays.equals(requestBody, resource.getRequestBody())) {
+        String errorMessage =
+            "Request body doesn't match.\nReceived: "
+                + (requestBody.length > 0 ? "0x" + Util.toHexString(requestBody) : "<empty>")
+                + "\nExpected: "
+                + (resource.getRequestBody().length > 0
+                    ? "0x" + Util.toHexString(resource.getRequestBody())
+                    : "<empty>");
+        Log.e(TAG, "Rejecting request for " + requestPath + "\n" + errorMessage);
+        return response.setResponseCode(400).setBody(errorMessage);
+      }
+    }
     for (Map.Entry<String, String> extraHeader : resource.getExtraResponseHeaders().entries()) {
       response.addHeader(extraHeader.getKey(), extraHeader.getValue());
     }
@@ -326,19 +497,11 @@ public final class WebServerDispatcher extends Dispatcher {
 
     @Nullable String rangeHeader = request.getHeader(HttpHeaders.RANGE);
     if (!resource.supportsRangeRequests() || rangeHeader == null) {
-      switch (preferredContentCoding) {
-        case "gzip":
-          setResponseBody(
-              response, Util.gzip(resourceData), /* chunked= */ resource.resolvesToUnknownLength);
-          response.setHeader(HttpHeaders.CONTENT_ENCODING, "gzip");
-          break;
-        case "identity":
-          setResponseBody(response, resourceData, /* chunked= */ resource.resolvesToUnknownLength);
-          response.setHeader(HttpHeaders.CONTENT_ENCODING, "identity");
-          break;
-        default:
-          throw new IllegalStateException("Unexpected content coding: " + preferredContentCoding);
-      }
+      setResponseBody(
+          response,
+          preferredContentCoding,
+          resourceData,
+          /* chunked= */ resource.resolvesToUnknownLength());
       return response;
     }
 
@@ -364,22 +527,25 @@ public final class WebServerDispatcher extends Dispatcher {
         start = max(0, resourceData.length - checkNotNull(range.second));
       } else {
         // We're handling an unbounded range
+        if (resource.resolvesToUnknownLength()) {
+          // The Content-Range header requires defining the length of the returned data, which
+          // we can't fulfil for an unbounded range request to a resource with an unknown length, so
+          // we just return a 200 response instead.
+          setResponseBody(response, preferredContentCoding, resourceData, /* chunked= */ true);
+          return response;
+        }
         start = checkNotNull(range.first);
       }
+      // resource.resolvesToUnknownLength() == false
       response
           .setResponseCode(206)
           .setHeader(
               HttpHeaders.CONTENT_RANGE,
-              "bytes "
-                  + start
-                  + "-"
-                  + (resourceData.length - 1)
-                  + "/"
-                  + (resource.resolvesToUnknownLength() ? "*" : resourceData.length));
+              "bytes " + start + "-" + (resourceData.length - 1) + "/" + resourceData.length);
       setResponseBody(
           response,
           Arrays.copyOfRange(resourceData, start, resourceData.length),
-          /* chunked= */ resource.resolvesToUnknownLength);
+          /* chunked= */ !resource.includesContentLengthInRangeResponses);
       return response;
     }
 
@@ -403,8 +569,30 @@ public final class WebServerDispatcher extends Dispatcher {
                 + "/"
                 + (resource.resolvesToUnknownLength() ? "*" : resourceData.length));
     setResponseBody(
-        response, Arrays.copyOfRange(resourceData, range.first, end), /* chunked= */ false);
+        response,
+        Arrays.copyOfRange(resourceData, range.first, end),
+        /* chunked= */ !resource.includesContentLengthInRangeResponses());
     return response;
+  }
+
+  /**
+   * Sets the response body, considering the preferred encoding value from an {@code
+   * Accept-Encoding} request header.
+   */
+  private static void setResponseBody(
+      MockResponse response, String preferredContentCoding, byte[] body, boolean chunked) {
+    switch (preferredContentCoding) {
+      case "gzip":
+        setResponseBody(response, Util.gzip(body), chunked);
+        response.setHeader(HttpHeaders.CONTENT_ENCODING, "gzip");
+        break;
+      case "identity":
+        setResponseBody(response, body, chunked);
+        response.setHeader(HttpHeaders.CONTENT_ENCODING, "identity");
+        break;
+      default:
+        throw new IllegalStateException("Unexpected content coding: " + preferredContentCoding);
+    }
   }
 
   /**
@@ -519,5 +707,35 @@ public final class WebServerDispatcher extends Dispatcher {
       return null;
     }
     return result;
+  }
+
+  private static String httpMethodString(@HttpMethod int httpMethod) {
+    switch (httpMethod) {
+      case HTTP_METHOD_GET:
+        return "GET";
+      case HTTP_METHOD_HEAD:
+        return "HEAD";
+      case HTTP_METHOD_POST:
+        return "POST";
+      default:
+        throw new IllegalArgumentException("Unrecognized @HttpMethod value: " + httpMethod);
+    }
+  }
+
+  private static boolean expectedHeadersArePresent(
+      Headers actualHeaders, Multimap<String, String> expectedHeaders) {
+    for (String expectedHeaderName : expectedHeaders.keySet()) {
+      ImmutableSet<List<String>> actualValues =
+          ImmutableSet.of(actualHeaders.values(expectedHeaderName));
+      ImmutableSet<Collection<String>> expectedValues =
+          ImmutableSet.of(expectedHeaders.get(expectedHeaderName));
+      if (!actualValues.equals(expectedValues)) {
+        Log.e(
+            TAG,
+            "Mismatched headers.\nExpected: " + expectedValues + "\nReceived: " + actualValues);
+        return false;
+      }
+    }
+    return true;
   }
 }

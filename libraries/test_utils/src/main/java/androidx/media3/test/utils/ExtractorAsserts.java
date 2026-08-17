@@ -34,14 +34,30 @@ import androidx.test.core.app.ApplicationProvider;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Assertion methods for {@link Extractor}. */
 @UnstableApi
 public final class ExtractorAsserts {
+
+  /**
+   * A {@link TestParameterValuesProvider} that provides {@link SimulationConfig} objects from
+   * {@link #configs()} to exercise different extractor paths.
+   *
+   * <p>This is intended to be used from tests using either {@link TestParameterInjector} or {@code
+   * org.robolectric.RobolectricTestParameterInjector}.
+   */
+  public static final class ConfigProvider extends TestParameterValuesProvider {
+    @Override
+    protected ImmutableList<SimulationConfig> provideValues(
+        TestParameterValuesProvider.Context context) {
+      return ExtractorAsserts.configs();
+    }
+  }
 
   /**
    * Returns a list of arrays containing {@link SimulationConfig} objects to exercise different
@@ -148,11 +164,11 @@ public final class ExtractorAsserts {
 
     /** Builder for {@link AssertionConfig} instances. */
     public static class Builder {
-      private @MonotonicNonNull String dumpFilesPrefix;
+      @Nullable private String dumpFilesPrefix;
       private boolean deduplicateConsecutiveFormats;
 
       @CanIgnoreReturnValue
-      public Builder setDumpFilesPrefix(String dumpFilesPrefix) {
+      public Builder setDumpFilesPrefix(@Nullable String dumpFilesPrefix) {
         this.dumpFilesPrefix = dumpFilesPrefix;
         return this;
       }
@@ -178,6 +194,33 @@ public final class ExtractorAsserts {
 
   private static final String DUMP_EXTENSION = ".dump";
   private static final String UNKNOWN_LENGTH_EXTENSION = ".unknown_length" + DUMP_EXTENSION;
+
+  /**
+   * Asserts that {@link Extractor#sniff(ExtractorInput)} returns the {@code expectedResult} for a
+   * given {@code file}, retrying repeatedly when {@link SimulatedIOException} is thrown.
+   *
+   * @param extractor The extractor to test.
+   * @param file The path to the input sample.
+   * @param peekLimit The limit that {@link ExtractorInput#getPeekPosition()} is permitted to
+   *     advance ahead of {@link ExtractorInput#getPosition()}. {@link C#LENGTH_UNSET} disables
+   *     enforcement of this limit. {@link #PEEK_LIMIT_FAIL_WITH_MAX} forces the test to fail at the
+   *     end and print the max limit that was used (which can be helpful when setting this value).
+   * @param expectedResult The expected return value.
+   * @throws IOException If reading from the input fails.
+   */
+  public static void assertSniff(
+      Extractor extractor, String file, int peekLimit, boolean expectedResult) throws IOException {
+    byte[] fileData = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), file);
+    FakeExtractorInput input =
+        new FakeExtractorInput.Builder()
+            .setData(fileData)
+            .setPeekLimit(peekLimit != PEEK_LIMIT_FAIL_WITH_MAX ? peekLimit : C.LENGTH_UNSET)
+            .build();
+    assertSniff(extractor, input, expectedResult);
+    if (peekLimit == PEEK_LIMIT_FAIL_WITH_MAX) {
+      fail("maxPeekLimit=" + input.getMaxPeekLimit());
+    }
+  }
 
   /**
    * Asserts that {@link Extractor#sniff(ExtractorInput)} returns the {@code expectedResult} for a

@@ -341,8 +341,11 @@ public final class TrackSelectionDialog extends DialogFragment {
         @Nullable Bundle savedInstanceState) {
       View rootView =
           inflater.inflate(
-              R.layout.exo_track_selection_dialog, container, /* attachToRoot= */ false);
-      TrackSelectionView trackSelectionView = rootView.findViewById(R.id.exo_track_selection_view);
+              androidx.media3.ui.R.layout.exo_track_selection_dialog,
+              container,
+              /* attachToRoot= */ false);
+      TrackSelectionView trackSelectionView =
+          rootView.findViewById(androidx.media3.ui.R.id.exo_track_selection_view);
       trackSelectionView.setShowDisableOption(true);
       trackSelectionView.setAllowMultipleOverrides(allowMultipleOverrides);
       trackSelectionView.setAllowAdaptiveSelections(allowAdaptiveSelections);

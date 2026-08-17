@@ -21,6 +21,7 @@ import static java.lang.Math.min;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.UnstableApi;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -58,11 +59,15 @@ public final class ObuParser {
     /** The OBU type. See {@code obu_type} in the AV1 spec. */
     public final int type;
 
+    /** The OBU header. */
+    public final ByteBuffer header;
+
     /** The OBU data, excluding the header. */
     public final ByteBuffer payload;
 
-    private Obu(int type, ByteBuffer payload) {
+    private Obu(int type, ByteBuffer header, ByteBuffer payload) {
       this.type = type;
+      this.header = header;
       this.payload = payload;
     }
   }
@@ -75,6 +80,9 @@ public final class ObuParser {
    * Binding</a>. That is, each OBU has the {@code obu_has_size_field} set to 1 except for the last
    * OBU in the sample, for which {@code obu_has_size_field} may be set to 0.
    *
+   * <p>If the provided sample is truncated, only returns the OBUs that are fully contained in the
+   * sample.
+   *
    * @param sample The sample data.
    * @return The list of OBUs contained within the sample data.
    */
@@ -84,24 +92,38 @@ public final class ObuParser {
     ByteBuffer readOnlySample = sample.asReadOnlyBuffer();
     List<Obu> obuList = new ArrayList<>();
     while (readOnlySample.hasRemaining()) {
-      int headerByte = readOnlySample.get();
-      int obuType = (headerByte >> 3) & 0xF;
-      int extensionFlag = (headerByte >> 2) & 0x1;
-      if (extensionFlag != 0) {
-        readOnlySample.get(); // skip obu_extension_header()
-      }
-      int obuHasSizeField = (headerByte >> 1) & 0x1;
+      int obuType;
       int obuSize;
-      if (obuHasSizeField != 0) {
-        obuSize = leb128(readOnlySample);
-      } else {
-        // Only the last sample is allowed to have obu_has_size_field == 0, and the size is assumed
-        // to fill the remainder of the sample.
-        obuSize = readOnlySample.remaining();
+      ByteBuffer header = readOnlySample.duplicate();
+      try {
+        int headerByte = readOnlySample.get();
+        obuType = (headerByte >> 3) & 0xF;
+        int extensionFlag = (headerByte >> 2) & 0x1;
+        if (extensionFlag != 0) {
+          readOnlySample.get(); // skip obu_extension_header()
+        }
+        int obuHasSizeField = (headerByte >> 1) & 0x1;
+        if (obuHasSizeField != 0) {
+          obuSize = leb128(readOnlySample);
+        } else {
+          // Only the last sample is allowed to have obu_has_size_field == 0, and the size is
+          // assumed to fill the remainder of the sample.
+          obuSize = readOnlySample.remaining();
+        }
+      } catch (BufferUnderflowException ignored) {
+        // Intentionally ignoring this exception because this method supports truncated input
+        // which means the contents are cut off.
+        // ByteBuffer reading fails with underflow exception if the input sample is truncated.
+        break;
       }
+      if (readOnlySample.position() + obuSize > readOnlySample.limit()) {
+        // The input sample was truncated and doesn't hold the full OBU.
+        break;
+      }
+      header.limit(readOnlySample.position());
       ByteBuffer payload = readOnlySample.duplicate();
       payload.limit(readOnlySample.position() + obuSize);
-      obuList.add(new Obu(obuType, payload));
+      obuList.add(new Obu(obuType, header, payload));
       readOnlySample.position(readOnlySample.position() + obuSize);
     }
     return obuList;
@@ -483,6 +505,47 @@ public final class ObuParser {
         refreshFrameFlags = obuData.readBits(8);
       }
       isDependedOn = refreshFrameFlags != 0;
+    }
+  }
+
+  /** An AV1 Metadata OBU */
+  public static final class Metadata {
+    /** Metadata type HDR Content Light Level. */
+    public static final int METADATA_TYPE_HDR_CLL = 1;
+
+    /** Metadata type HDR Mastering Display Color Volume. */
+    public static final int METADATA_TYPE_HDR_MDCV = 2;
+
+    /** Metadata type Scalability. */
+    public static final int METADATA_TYPE_SCALABILITY = 3;
+
+    /** Metadata type ITUT T35. */
+    public static final int METADATA_TYPE_ITUT_T35 = 4;
+
+    /** Metadata type Timecode. */
+    public static final int METADATA_TYPE_TIMECODE = 5;
+
+    /** The Metadata type. See {@code metadata_type} in the AV1 spec. */
+    public final int type;
+
+    /** The Metadata payload. */
+    public final ByteBuffer payload;
+
+    /**
+     * Returns a {@link Metadata} parsed from the input OBU.
+     *
+     * @param obu The input OBU with type {@link #OBU_METADATA}.
+     */
+    public static Metadata parse(Obu obu) {
+      checkArgument(obu.type == OBU_METADATA);
+      ByteBuffer buffer = obu.payload.asReadOnlyBuffer();
+      int type = leb128(buffer);
+      return new Metadata(type, buffer);
+    }
+
+    private Metadata(int type, ByteBuffer payload) {
+      this.type = type;
+      this.payload = payload;
     }
   }
 

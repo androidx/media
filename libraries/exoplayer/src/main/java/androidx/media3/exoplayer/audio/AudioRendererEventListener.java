@@ -29,6 +29,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.DecoderException;
+import androidx.media3.exoplayer.CodecParameters;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.Renderer;
@@ -167,6 +168,13 @@ public interface AudioRendererEventListener {
    */
   default void onAudioSessionIdChanged(int audioSessionId) {}
 
+  /**
+   * Called when the audio codec parameters change.
+   *
+   * @param codecParameters The new codec parameters.
+   */
+  default void onAudioCodecParametersChanged(CodecParameters codecParameters) {}
+
   /** Dispatches events to an {@link AudioRendererEventListener}. */
   final class EventDispatcher {
 
@@ -291,6 +299,15 @@ public interface AudioRendererEventListener {
     public void audioSessionIdChanged(int audioSessionId) {
       if (handler != null) {
         handler.post(() -> castNonNull(listener).onAudioSessionIdChanged(audioSessionId));
+      }
+    }
+
+    /**
+     * Invokes {@link AudioRendererEventListener#onAudioCodecParametersChanged(CodecParameters)}.
+     */
+    public void audioCodecParametersChanged(CodecParameters codecParameters) {
+      if (handler != null) {
+        handler.post(() -> castNonNull(listener).onAudioCodecParametersChanged(codecParameters));
       }
     }
   }

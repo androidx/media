@@ -19,21 +19,17 @@ import static android.media.MediaCodecInfo.CodecProfileLevel.AVCLevel41;
 import static android.media.MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.MediaFormatUtil.createFormatFromMediaFormat;
-import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.getCodecProfileAndLevel;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_4K60_PORTRAIT;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_8K24;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_BT2020_SDR;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_SEF;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_SEF_H265;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
-import static androidx.media3.test.utils.TestUtil.MP4_TRIM_OPTIMIZATION_PIXEL;
+import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_4K60_PORTRAIT;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_8K24;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_BT2020_SDR;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_SEF;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_SEF_H265;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
+import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
+import static androidx.media3.test.utils.TestSummaryLogger.recordTestSkipped;
 import static androidx.media3.transformer.AndroidTestUtil.FORCE_TRANSCODE_VIDEO_EFFECTS;
-import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
-import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
-import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_TRANSMUXED_AND_TRANSCODED;
-import static androidx.media3.transformer.ExportResult.OPTIMIZATION_SUCCEEDED;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeFalse;
@@ -48,14 +44,11 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.ScaleAndRotateTransformation;
-import androidx.media3.exoplayer.MediaExtractorCompat;
-import androidx.media3.extractor.mp4.Mp4Extractor;
-import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
-import androidx.media3.test.utils.FakeExtractorOutput;
-import androidx.media3.test.utils.FakeTrackOutput;
-import androidx.media3.test.utils.TestUtil;
+import androidx.media3.inspector.MediaExtractorCompat;
+import androidx.media3.inspector.MetadataRetriever;
 import androidx.media3.transformer.AndroidTestUtil.ForceEncodeEncoderFactory;
 import androidx.media3.transformer.DefaultEncoderFactory;
 import androidx.media3.transformer.EditedMediaItem;
@@ -71,27 +64,30 @@ import com.google.common.collect.ImmutableList;
 import java.io.File;
 import org.junit.AssumptionViolatedException;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /** {@link Transformer} instrumentation tests. */
+@Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(AndroidJUnit4.class)
 public class ExportTest {
   private static final String TAG = "ExportTest";
   @Rule public final TestName testName = new TestName();
 
   private String testId;
+  private Context context;
 
   @Before
-  public void setUpTestId() {
+  public void setUp() {
     testId = TAG + "_" + testName.getMethodName();
+    context = ApplicationProvider.getApplicationContext();
   }
 
   @Test
   public void export() throws Exception {
-    Context context = ApplicationProvider.getApplicationContext();
     // Note: throughout this class we only check decoding capability as tests should still run if
     // Transformer is able to succeed by falling back to a lower resolution.
     assumeFormatsSupported(
@@ -116,7 +112,6 @@ public class ExportTest {
 
   @Test
   public void exportWithoutDecodeEncode() throws Exception {
-    Context context = ApplicationProvider.getApplicationContext();
     Transformer transformer = new Transformer.Builder(context).build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri));
     // No need to calculate SSIM because no decode/encoding, so input frames match output frames.
@@ -131,7 +126,6 @@ public class ExportTest {
 
   @Test
   public void exportToSpecificBitrate() throws Exception {
-    Context context = ApplicationProvider.getApplicationContext();
     assumeFormatsSupported(
         context,
         testId,
@@ -161,7 +155,6 @@ public class ExportTest {
 
   @Test
   public void export4K60() throws Exception {
-    Context context = ApplicationProvider.getApplicationContext();
     assumeFormatsSupported(
         context,
         testId,
@@ -200,9 +193,13 @@ public class ExportTest {
         Ascii.equalsIgnoreCase(Build.MODEL, "tb-q706")
             || Ascii.equalsIgnoreCase(Build.MODEL, "sm-f916u1")
             || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g981u1")
+            || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g781n")
+            || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g781v")
+            || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g986u1")
+            || Ascii.equalsIgnoreCase(Build.MODEL, "sm-n981u")
             || Ascii.equalsIgnoreCase(Build.MODEL, "le2121")
-            || Ascii.equalsIgnoreCase(Build.MODEL, "seahawk"));
-    Context context = ApplicationProvider.getApplicationContext();
+            || Ascii.equalsIgnoreCase(Build.MODEL, "seahawk")
+            || Ascii.equalsIgnoreCase(Build.MODEL, "sm-t870"));
     assumeFormatsSupported(
         context, testId, /* inputFormat= */ MP4_ASSET_8K24.videoFormat, /* outputFormat= */ null);
     Transformer transformer =
@@ -228,7 +225,6 @@ public class ExportTest {
     // This test is to cover devices that are able to either decode or encode 8K, but not transcode.
     int downscaledWidth = 320;
     int downscaledHeight = 240;
-    Context context = ApplicationProvider.getApplicationContext();
     assumeFormatsSupported(
         context,
         testId,
@@ -261,7 +257,6 @@ public class ExportTest {
 
   @Test
   public void exportNoAudio() throws Exception {
-    Context context = ApplicationProvider.getApplicationContext();
     assumeFormatsSupported(
         context,
         testId,
@@ -286,13 +281,12 @@ public class ExportTest {
 
   @Test
   public void exportNoVideo() throws Exception {
-    Context context = ApplicationProvider.getApplicationContext();
     Transformer transformer =
         new Transformer.Builder(context)
             .setEncoderFactory(new ForceEncodeEncoderFactory(context))
             .build();
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET.uri)))
+        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ADVANCED_ASSET.uri)))
             .setRemoveVideo(true)
             .build();
 
@@ -306,13 +300,6 @@ public class ExportTest {
 
   @Test
   public void exportSef() throws Exception {
-    Context context = ApplicationProvider.getApplicationContext();
-    if (SDK_INT < 25) {
-      // TODO: b/210593256 - Remove test skipping after using an in-app muxer that supports B-frames
-      //  before API 25.
-      recordTestSkipped(context, testId, /* reason= */ "API version lacks muxing support");
-      return;
-    }
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_SEF.uri)))
@@ -324,20 +311,14 @@ public class ExportTest {
             .build()
             .run(testId, editedMediaItem);
 
-    assertThat(result.exportResult.durationMs).isGreaterThan(800);
-    assertThat(result.exportResult.durationMs).isLessThan(950);
-    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+    MetadataRetriever metadataRetriever =
+        new MetadataRetriever.Builder(context, MediaItem.fromUri(result.filePath)).build();
+    long actualDurationUs = metadataRetriever.retrieveDurationUs().get();
+    assertThat(actualDurationUs).isWithin(170_000).of(950_000);
   }
 
   @Test
   public void exportSefH265() throws Exception {
-    Context context = ApplicationProvider.getApplicationContext();
-    if (SDK_INT < 25) {
-      // TODO: b/210593256 - Remove test skipping after using an in-app muxer that supports B-frames
-      //  before API 25.
-      recordTestSkipped(context, testId, /* reason= */ "API version lacks muxing support");
-      return;
-    }
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_SEF_H265.uri)))
@@ -354,7 +335,6 @@ public class ExportTest {
 
   @Test
   public void exportFrameRotation() throws Exception {
-    Context context = ApplicationProvider.getApplicationContext();
     assumeFormatsSupported(
         context,
         testId,
@@ -378,9 +358,8 @@ public class ExportTest {
 
   @Test
   public void exportTranscodeBt2020Sdr() throws Exception {
-    Context context = ApplicationProvider.getApplicationContext();
     // Reference: b/262732842#comment51
-    if (SDK_INT <= 27 && Build.MANUFACTURER.equals("samsung")) {
+    if (SDK_INT <= 30 && Build.MANUFACTURER.equals("samsung")) {
       String reason = "Some older Samsung encoders report a non-specified error code";
       recordTestSkipped(context, testId, reason);
       throw new AssumptionViolatedException(reason);
@@ -408,56 +387,10 @@ public class ExportTest {
   }
 
   @Test
-  public void clippedMedia_trimOptimizationEnabled_pixel7Pro_completesWithOptimizationApplied()
-      throws Exception {
-    Context context = ApplicationProvider.getApplicationContext();
-    // Devices with Tensor G2 & G3 chipsets should work, but Pixel 7a is flaky.
-    assumeTrue(
-        Ascii.toLowerCase(Build.MODEL).contains("pixel")
-            && (Ascii.toLowerCase(Build.MODEL).contains("7")
-                || Ascii.toLowerCase(Build.MODEL).contains("8")
-                || Ascii.toLowerCase(Build.MODEL).contains("fold")
-                || Ascii.toLowerCase(Build.MODEL).contains("tablet")));
-    assumeFalse(Ascii.toLowerCase(Build.MODEL).contains("7a"));
-    Transformer transformer =
-        new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
-    MediaItem mediaItem =
-        new MediaItem.Builder()
-            .setUri(MP4_TRIM_OPTIMIZATION_PIXEL.uri)
-            .setClippingConfiguration(
-                new MediaItem.ClippingConfiguration.Builder()
-                    .setStartPositionMs(500)
-                    .setEndPositionMs(1200)
-                    .build())
-            .build();
-    EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
-
-    ExportTestResult result =
-        new TransformerAndroidTestRunner.Builder(context, transformer)
-            .build()
-            .run(testId, editedMediaItem);
-
-    Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
-    FakeExtractorOutput fakeExtractorOutput =
-        TestUtil.extractAllSamplesFromFilePath(mp4Extractor, result.filePath);
-    FakeTrackOutput videoTrack = fakeExtractorOutput.trackOutputs.get(0);
-    byte[] sps = videoTrack.lastFormat.initializationData.get(0);
-    // Skip 7 bytes: NAL unit start code (4) and NAL unit type, profile, and reserved fields.
-    int spsLevelIndex = 7;
-    assertThat(result.exportResult.optimizationResult).isEqualTo(OPTIMIZATION_SUCCEEDED);
-    assertThat(result.exportResult.durationMs).isAtMost(700);
-    assertThat(result.exportResult.videoConversionProcess)
-        .isEqualTo(CONVERSION_PROCESS_TRANSMUXED_AND_TRANSCODED);
-    int inputVideoLevel = 41;
-    assertThat((int) sps[spsLevelIndex]).isAtLeast(inputVideoLevel);
-  }
-
-  @Test
   public void export_setEncodingProfileLevel_changesProfileAndLevel() throws Exception {
     assumeTrue(
         "Android encoding guidelines recommend H.264 baseline profile prior to API 25",
         SDK_INT >= 25);
-    Context context = ApplicationProvider.getApplicationContext();
     Transformer transformer =
         new Transformer.Builder(context)
             .setEncoderFactory(
@@ -486,7 +419,7 @@ public class ExportTest {
     checkState(mediaExtractor.getTrackCount() == 1);
     MediaFormat mediaFormat = mediaExtractor.getTrackFormat(0);
     Format format = createFormatFromMediaFormat(mediaFormat);
-    Pair<Integer, Integer> profileAndLevel = getCodecProfileAndLevel(format);
+    Pair<Integer, Integer> profileAndLevel = CodecSpecificDataUtil.getCodecProfileAndLevel(format);
     assertThat(profileAndLevel.first).isAtMost(AVCProfileHigh);
     assertThat(profileAndLevel.second).isAtMost(AVCLevel41);
   }

@@ -27,7 +27,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.MediaItem.LiveConfiguration;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.util.UnstableApi;
@@ -176,6 +175,7 @@ public final class HlsMediaSource extends BaseMediaSource
       metadataType = METADATA_TYPE_ID3;
       elapsedRealTimeOffsetMs = C.TIME_UNSET;
       allowChunklessPreparation = true;
+      codecsToParseWithinGopSampleDependencies = C.VIDEO_CODEC_FLAG_H264 | C.VIDEO_CODEC_FLAG_H265;
       experimentalParseSubtitlesDuringExtraction(true);
     }
 
@@ -545,7 +545,8 @@ public final class HlsMediaSource extends BaseMediaSource
     playlistTracker.start(
         checkNotNull(getMediaItem().localConfiguration).uri,
         eventDispatcher,
-        /* primaryPlaylistListener= */ this);
+        /* primaryPlaylistListener= */ this,
+        getBandwidthMeter());
   }
 
   @Override
@@ -731,7 +732,8 @@ public final class HlsMediaSource extends BaseMediaSource
             && playlist.serverControl.holdBackUs == C.TIME_UNSET
             && playlist.serverControl.partHoldBackUs == C.TIME_UNSET;
     liveConfiguration =
-        new LiveConfiguration.Builder()
+        liveConfiguration
+            .buildUpon()
             .setTargetOffsetMs(Util.usToMs(targetLiveOffsetUs))
             .setMinPlaybackSpeed(disableSpeedAdjustment ? 1f : liveConfiguration.minPlaybackSpeed)
             .setMaxPlaybackSpeed(disableSpeedAdjustment ? 1f : liveConfiguration.maxPlaybackSpeed)

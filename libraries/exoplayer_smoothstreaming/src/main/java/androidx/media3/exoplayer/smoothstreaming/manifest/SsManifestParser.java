@@ -55,6 +55,7 @@ import org.xmlpull.v1.XmlPullParserFactory;
  * <p>See the <a href="http://msdn.microsoft.com/en-us/library/ee673436(v=vs.90).aspx">IIS Smooth
  * Streaming Client Manifest Format</a>
  */
+@SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 @UnstableApi
 public class SsManifestParser implements ParsingLoadable.Parser<SsManifest> {
 
@@ -77,6 +78,10 @@ public class SsManifestParser implements ParsingLoadable.Parser<SsManifest> {
           new SmoothStreamingMediaParser(null, uri.toString());
       return (SsManifest) smoothStreamingMediaParser.parse(xmlParser);
     } catch (XmlPullParserException e) {
+      if (e.getDetail() instanceof IOException) {
+        // Forward IOException from input stream directly instead of wrapping in a ParserException
+        throw (IOException) e.getDetail();
+      }
       throw ParserException.createForMalformedManifest(/* message= */ null, /* cause= */ e);
     }
   }

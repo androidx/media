@@ -54,6 +54,7 @@ public class TestExoPlayerBuilder {
   @Nullable private MediaSource.Factory mediaSourceFactory;
   private boolean useLazyPreparation;
   private @MonotonicNonNull Looper looper;
+  @Nullable private Looper playbackLooper;
   @Nullable private SuitableOutputChecker suitableOutputChecker;
   private long seekBackIncrementMs;
   private long seekForwardIncrementMs;
@@ -62,6 +63,10 @@ public class TestExoPlayerBuilder {
   private boolean suppressPlaybackWhenUnsuitableOutput;
   @Nullable private ExoPlayer.PreloadConfiguration preloadConfiguration;
   private boolean dynamicSchedulingEnabled;
+  private boolean perStreamMediaProgressionEnabled;
+  private int stuckPlayingDetectionTimeoutMs;
+  private int stuckSuppressedDetectionTimeoutMs;
+  private boolean enforceAdPlaybackOnTimelineRefresh;
 
   public TestExoPlayerBuilder(Context context) {
     this.context = context;
@@ -77,6 +82,10 @@ public class TestExoPlayerBuilder {
     seekForwardIncrementMs = C.DEFAULT_SEEK_FORWARD_INCREMENT_MS;
     maxSeekToPreviousPositionMs = C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS;
     deviceVolumeControlEnabled = false;
+    stuckPlayingDetectionTimeoutMs = ExoPlayer.Builder.DEFAULT_STUCK_PLAYING_DETECTION_TIMEOUT_MS;
+    stuckSuppressedDetectionTimeoutMs =
+        ExoPlayer.Builder.DEFAULT_STUCK_SUPPRESSED_DETECTION_TIMEOUT_MS;
+    enforceAdPlaybackOnTimelineRefresh = true;
   }
 
   /**
@@ -247,6 +256,18 @@ public class TestExoPlayerBuilder {
   }
 
   /**
+   * Sets the {@link Looper} to be used for playback.
+   *
+   * @param playbackLooper The {@link Looper} to be used for playback.
+   * @return This builder.
+   */
+  @CanIgnoreReturnValue
+  public TestExoPlayerBuilder setPlaybackLooper(Looper playbackLooper) {
+    this.playbackLooper = playbackLooper;
+    return this;
+  }
+
+  /**
    * Sets the {@link SuitableOutputChecker} to check the suitability of the selected outputs for
    * playback.
    *
@@ -270,6 +291,15 @@ public class TestExoPlayerBuilder {
   @Nullable
   public Looper getLooper() {
     return looper;
+  }
+
+  /**
+   * Returns the {@link Looper} that will be used for playback, or null if no {@link Looper} has
+   * been set yet and no default is available.
+   */
+  @Nullable
+  public Looper getPlaybackLooper() {
+    return playbackLooper;
   }
 
   /**
@@ -383,6 +413,60 @@ public class TestExoPlayerBuilder {
     return this;
   }
 
+  /**
+   * See {@link ExoPlayer.Builder#setStuckPlayingDetectionTimeoutMs} for details.
+   *
+   * @param stuckPlayingDetectionTimeoutMs The timeout after which the player is assumed stuck
+   *     playing, in milliseconds.
+   * @return This builder.
+   */
+  @CanIgnoreReturnValue
+  public TestExoPlayerBuilder setStuckPlayingDetectionTimeoutMs(
+      int stuckPlayingDetectionTimeoutMs) {
+    this.stuckPlayingDetectionTimeoutMs = stuckPlayingDetectionTimeoutMs;
+    return this;
+  }
+
+  /**
+   * See {@link ExoPlayer.Builder#setStuckSuppressedDetectionTimeoutMs(int)} for details.
+   *
+   * @param stuckSuppressedDetectionTimeoutMs The timeout after which the player is assumed stuck in
+   *     a suppressed state, in milliseconds.
+   * @return This builder.
+   */
+  @CanIgnoreReturnValue
+  public TestExoPlayerBuilder setStuckSuppressedDetectionTimeoutMs(
+      int stuckSuppressedDetectionTimeoutMs) {
+    this.stuckSuppressedDetectionTimeoutMs = stuckSuppressedDetectionTimeoutMs;
+    return this;
+  }
+
+  /**
+   * See {@link ExoPlayer.Builder#setEnforceAdPlaybackOnTimelineRefresh(boolean)} for details.
+   *
+   * @param enforceAdPlaybackOnTimelineRefresh Whether to enforce ad playback on timeline refresh.
+   * @return This builder.
+   */
+  @CanIgnoreReturnValue
+  public TestExoPlayerBuilder setEnforceAdPlaybackOnTimelineRefresh(
+      boolean enforceAdPlaybackOnTimelineRefresh) {
+    this.enforceAdPlaybackOnTimelineRefresh = enforceAdPlaybackOnTimelineRefresh;
+    return this;
+  }
+
+  /**
+   * See {@link ExoPlayer.Builder#enablePerStreamMediaProgression} for details.
+   *
+   * @param perStreamMediaProgressionEnabled Whether to enable per stream media period progression.
+   * @return This builder.
+   */
+  @CanIgnoreReturnValue // TODO: b/510217604 - Remove this method.
+  public TestExoPlayerBuilder setPerStreamMediaProgressionEnabled(
+      boolean perStreamMediaProgressionEnabled) {
+    this.perStreamMediaProgressionEnabled = perStreamMediaProgressionEnabled;
+    return this;
+  }
+
   /** Builds an {@link ExoPlayer} using the provided values or their defaults. */
   public ExoPlayer build() {
     checkNotNull(
@@ -407,7 +491,7 @@ public class TestExoPlayerBuilder {
                 };
           };
     }
-
+    ExoPlayer.Builder.experimentalEnableStuckPlayingDetection = true;
     ExoPlayer.Builder builder =
         new ExoPlayer.Builder(context, playerRenderersFactory)
             .setTrackSelector(trackSelector)
@@ -422,12 +506,19 @@ public class TestExoPlayerBuilder {
             .setMaxSeekToPreviousPositionMs(maxSeekToPreviousPositionMs)
             .setDeviceVolumeControlEnabled(deviceVolumeControlEnabled)
             .setSuppressPlaybackOnUnsuitableOutput(suppressPlaybackWhenUnsuitableOutput)
-            .experimentalSetDynamicSchedulingEnabled(dynamicSchedulingEnabled);
+            .experimentalSetDynamicSchedulingEnabled(dynamicSchedulingEnabled)
+            .setStuckPlayingDetectionTimeoutMs(stuckPlayingDetectionTimeoutMs)
+            .setStuckSuppressedDetectionTimeoutMs(stuckSuppressedDetectionTimeoutMs)
+            .setEnforceAdPlaybackOnTimelineRefresh(enforceAdPlaybackOnTimelineRefresh)
+            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled);
     if (suitableOutputChecker != null) {
       builder.setSuitableOutputChecker(suitableOutputChecker);
     }
     if (mediaSourceFactory != null) {
       builder.setMediaSourceFactory(mediaSourceFactory);
+    }
+    if (playbackLooper != null) {
+      builder.setPlaybackLooper(playbackLooper);
     }
     ExoPlayer exoPlayer = builder.build();
     if (preloadConfiguration != null) {

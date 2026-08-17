@@ -15,12 +15,20 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.transformer.Effects.createExperimentalSpeedChangingEffect;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import android.util.Pair;
+import androidx.media3.common.C;
+import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.SpeedParameters;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedChangingAudioProcessor;
+import androidx.media3.common.audio.SpeedProvider;
+import androidx.media3.common.audio.ToInt16PcmAudioProcessor;
+import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -30,6 +38,38 @@ import org.junit.runner.RunWith;
 /** Unit test for {@link EditedMediaItem.Builder}. */
 @RunWith(AndroidJUnit4.class)
 public final class EditedMediaItemBuilderTest {
+
+  private static final SpeedProvider SPEED_PROVIDER_2X =
+      new SpeedProvider() {
+        @Override
+        public float getSpeed(long timeUs) {
+          return 2f;
+        }
+
+        @Override
+        public long getNextSpeedChangeTimeUs(long timeUs) {
+          return C.TIME_UNSET;
+        }
+      };
+
+  private static final SpeedProvider SPEED_PROVIDER_WITH_SPEED_UP_AND_SLOW_DOWN =
+      new SpeedProvider() {
+        @Override
+        public float getSpeed(long timeUs) {
+          if (timeUs >= 5_000_000) {
+            return 2f;
+          }
+          return 0.25f;
+        }
+
+        @Override
+        public long getNextSpeedChangeTimeUs(long timeUs) {
+          if (timeUs >= 5_000_000) {
+            return C.TIME_UNSET;
+          }
+          return 5_000_000;
+        }
+      };
 
   @Test
   public void build_removeAudioAndVideo_throws() {
@@ -182,5 +222,133 @@ public final class EditedMediaItemBuilderTest {
             .build();
 
     assertThat(editedMediaItem.getPresentationDurationUs()).isEqualTo(500_000);
+  }
+
+  @Test
+  public void getPresentationDurationUs_withSetSpeed_returnsSpeedAdjustedDuration() {
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.EMPTY)
+            .setDurationUs(10_000_000)
+            .setSpeed(SPEED_PROVIDER_WITH_SPEED_UP_AND_SLOW_DOWN)
+            .build();
+
+    assertThat(item.getPresentationDurationUs()).isEqualTo(22_500_000);
+  }
+
+  @Test
+  public void getPresentationDurationUs_withSetSpeedAndClipping_returnsSpeedAdjustedDuration() {
+    MediaItem.ClippingConfiguration clippingConfiguration =
+        new MediaItem.ClippingConfiguration.Builder()
+            .setStartPositionUs(1_000_000)
+            .setEndPositionUs(8_000_000)
+            .build();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(
+                MediaItem.EMPTY.buildUpon().setClippingConfiguration(clippingConfiguration).build())
+            .setDurationUs(10_000_000)
+            .setSpeed(SPEED_PROVIDER_WITH_SPEED_UP_AND_SLOW_DOWN)
+            .build();
+
+    assertThat(item.getPresentationDurationUs()).isEqualTo(21_000_000);
+  }
+
+  @Test
+  public void getPresentationDurationUs_withDurationUnset_throws() {
+    EditedMediaItem item = new EditedMediaItem.Builder(MediaItem.EMPTY).build();
+    assertThrows(IllegalStateException.class, item::getPresentationDurationUs);
+  }
+
+  @Test
+  public void setSpeed_withSpeedChangingAudioProcessor_throws() {
+    SpeedChangingAudioProcessor processor = new SpeedChangingAudioProcessor(SpeedProvider.DEFAULT);
+    Effects effects = new Effects(ImmutableList.of(processor), ImmutableList.of());
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            new EditedMediaItem.Builder(MediaItem.EMPTY)
+                .setSpeed(SPEED_PROVIDER_2X)
+                .setEffects(effects)
+                .build());
+  }
+
+  @Test
+  public void setSpeed_withTimestampAdjustment_throws() {
+    TimestampAdjustment timestampAdjustment =
+        new TimestampAdjustment((inputTimeUs, outputTimeConsumer) -> {}, SpeedProvider.DEFAULT);
+    Effects effects = new Effects(ImmutableList.of(), ImmutableList.of(timestampAdjustment));
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            new EditedMediaItem.Builder(MediaItem.EMPTY)
+                .setSpeed(SPEED_PROVIDER_2X)
+                .setEffects(effects)
+                .build());
+  }
+
+  @Test
+  public void setSpeed_withSpeedProvider_setsSpeedParametersWithoutMaintainingPitch() {
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.EMPTY).setSpeed(SPEED_PROVIDER_2X).build();
+    assertThat(item.speedParameters.speedProvider).isSameInstanceAs(SPEED_PROVIDER_2X);
+    assertThat(item.speedParameters.shouldMaintainPitch).isFalse();
+  }
+
+  @Test
+  public void setSpeed_withSpeedParameters_setsSpeedProviderAndParameters() {
+    SpeedParameters speedParameters =
+        new SpeedParameters(SPEED_PROVIDER_2X, /* shouldMaintainPitch= */ true);
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.EMPTY).setSpeed(speedParameters).build();
+    assertThat(item.speedProvider).isSameInstanceAs(SPEED_PROVIDER_2X);
+    assertThat(item.speedParameters).isSameInstanceAs(speedParameters);
+  }
+
+  @Test
+  public void setPreProcessingAudioProcessors_populatesPreProcessingAudioProcessors() {
+    ToInt16PcmAudioProcessor processor = new ToInt16PcmAudioProcessor();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.EMPTY)
+            .setPreProcessingAudioProcessors(ImmutableList.of(processor))
+            .build();
+
+    assertThat(item.preProcessingAudioProcessors).containsExactly(processor);
+
+    EditedMediaItem duplicateItem = item.buildUpon().build();
+
+    assertThat(duplicateItem.preProcessingAudioProcessors).containsExactly(processor);
+  }
+
+  @Test
+  public void getDurationAfterEffectsApplied_withoutEffects_returnsInputDuration() {
+    EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(MediaItem.EMPTY).build();
+    assertThat(editedMediaItem.getDurationAfterEffectsApplied(1_000_000)).isEqualTo(1_000_000);
+  }
+
+  @Test
+  public void getDurationAfterEffectsApplied_withSpeedChangingEffects_returnsAdjustedDuration() {
+    Pair<AudioProcessor, Effect> effects = createExperimentalSpeedChangingEffect(SPEED_PROVIDER_2X);
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.EMPTY)
+            .setEffects(
+                new Effects(ImmutableList.of(effects.first), ImmutableList.of(effects.second)))
+            .build();
+    assertThat(editedMediaItem.getDurationAfterEffectsApplied(1_000_000)).isEqualTo(500_000);
+  }
+
+  @Test
+  public void getDurationAfterEffectsApplied_withMismatchingDurations_returnsMaximumDuration() {
+    Pair<AudioProcessor, Effect> effects = createExperimentalSpeedChangingEffect(SPEED_PROVIDER_2X);
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.EMPTY)
+            .setEffects(new Effects(ImmutableList.of(), ImmutableList.of(effects.second)))
+            .build();
+    assertThat(editedMediaItem.getDurationAfterEffectsApplied(1_000_000)).isEqualTo(1_000_000);
+  }
+
+  @Test
+  public void getDurationAfterEffectsApplied_withSetSpeed_returnsInputDuration() {
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.EMPTY).setSpeed(SPEED_PROVIDER_2X).build();
+    assertThat(editedMediaItem.getDurationAfterEffectsApplied(1_000_000)).isEqualTo(1_000_000);
   }
 }

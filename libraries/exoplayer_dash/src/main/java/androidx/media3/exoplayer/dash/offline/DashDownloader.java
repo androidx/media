@@ -41,6 +41,7 @@ import androidx.media3.exoplayer.offline.DownloadException;
 import androidx.media3.exoplayer.offline.SegmentDownloader;
 import androidx.media3.exoplayer.upstream.ParsingLoadable.Parser;
 import androidx.media3.extractor.ChunkIndex;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
@@ -336,13 +337,14 @@ public final class DashDownloader extends SegmentDownloader<DashManifest> {
     if (index != null) {
       return index;
     }
-    RunnableFutureTask<@NullableType ChunkIndex, IOException> runnable =
-        new RunnableFutureTask<@NullableType ChunkIndex, IOException>() {
-          @Override
-          protected @NullableType ChunkIndex doWork() throws IOException {
-            return DashUtil.loadChunkIndex(dataSource, trackType, representation);
-          }
-        };
+    Supplier<RunnableFutureTask<@NullableType ChunkIndex, ?>> runnable =
+        () ->
+            new RunnableFutureTask<@NullableType ChunkIndex, IOException>() {
+              @Override
+              protected @NullableType ChunkIndex doWork() throws IOException {
+                return DashUtil.loadChunkIndex(dataSource, trackType, representation);
+              }
+            };
     @Nullable ChunkIndex seekMap = execute(runnable, removing);
     return seekMap == null
         ? null

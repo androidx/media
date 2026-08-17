@@ -67,9 +67,9 @@ import java.io.IOException;
    *     should be considered an error, causing an {@link EOFException} to be thrown.
    * @param removeLengthMask Removes the variable-length integer length mask from the value.
    * @param maximumAllowedLength Maximum allowed length of the variable integer to be read.
-   * @return The read value, or {@link C#RESULT_END_OF_INPUT} if {@code allowEndOfStream} is true
-   *     and the end of the input was encountered, or {@link C#RESULT_MAX_LENGTH_EXCEEDED} if the
-   *     length of the varint exceeded maximumAllowedLength.
+   * @return The read value, or {@link C#RESULT_END_OF_INPUT} if {@code allowEndOfInput} is true and
+   *     the end of the input was encountered, or {@link C#RESULT_MAX_LENGTH_EXCEEDED} if the length
+   *     of the varint exceeded maximumAllowedLength.
    * @throws IOException If an error occurs reading from the input.
    */
   public long readUnsignedVarint(

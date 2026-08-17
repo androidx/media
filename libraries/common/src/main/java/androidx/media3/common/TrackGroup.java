@@ -18,6 +18,7 @@ package androidx.media3.common;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import android.os.Bundle;
+import android.text.TextUtils;
 import androidx.annotation.CheckResult;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.BundleCollectionUtil;
@@ -88,11 +89,11 @@ public final class TrackGroup {
     this.id = id;
     this.formats = formats;
     this.length = formats.length;
-    @C.TrackType int type = MimeTypes.getTrackType(formats[0].sampleMimeType);
-    if (type == C.TRACK_TYPE_UNKNOWN) {
-      type = MimeTypes.getTrackType(formats[0].containerMimeType);
-    }
-    this.type = type;
+    @Nullable String sampleMimeType = formats[0].sampleMimeType;
+    this.type =
+        TextUtils.isEmpty(sampleMimeType)
+            ? MimeTypes.getTrackType(formats[0].containerMimeType)
+            : MimeTypes.getTrackType(sampleMimeType);
     verifyCorrectness();
   }
 

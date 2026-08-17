@@ -21,6 +21,7 @@ import static androidx.media3.exoplayer.ima.ImaUtil.BITRATE_UNSET;
 import static androidx.media3.exoplayer.ima.ImaUtil.TIMEOUT_UNSET;
 import static androidx.media3.exoplayer.ima.ImaUtil.getAdGroupTimesUsForCuePoints;
 import static androidx.media3.exoplayer.ima.ImaUtil.getImaLooper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
@@ -118,13 +119,13 @@ import java.util.Objects;
   private static final int IMA_AD_STATE_NONE = 0;
 
   /**
-   * The ad playback state when IMA has called {@link ComponentListener#playAd(AdMediaInfo)} and not
-   * {@link ComponentListener##pauseAd(AdMediaInfo)}.
+   * The ad playback state when IMA has called {@link VideoAdPlayer#playAd(AdMediaInfo)} and not
+   * {@link VideoAdPlayer#pauseAd(AdMediaInfo)}.
    */
   private static final int IMA_AD_STATE_PLAYING = 1;
 
   /**
-   * The ad playback state when IMA has called {@link ComponentListener#pauseAd(AdMediaInfo)} while
+   * The ad playback state when IMA has called {@link VideoAdPlayer#pauseAd(AdMediaInfo)} while
    * playing an ad.
    */
   private static final int IMA_AD_STATE_PAUSED = 2;
@@ -178,9 +179,6 @@ import java.util.Objects;
   /** Whether IMA has been notified that playback of content has finished. */
   private boolean sentContentComplete;
 
-  /** The MIME type of the ad pod that is next requested via an {@link AdEventType#LOADED} event. */
-  @Nullable private String pendingAdMimeType;
-
   // Fields tracking the player/loader state.
 
   /** Whether the player is playing an ad. */
@@ -203,9 +201,9 @@ import java.util.Objects;
 
   /**
    * If a content period has finished but IMA has not yet called {@link
-   * ComponentListener#playAd(AdMediaInfo)}, stores the value of {@link
-   * SystemClock#elapsedRealtime()} when the content stopped playing. This can be used to determine
-   * a fake, increasing content position. {@link C#TIME_UNSET} otherwise.
+   * VideoAdPlayer#playAd(AdMediaInfo)}, stores the value of {@link SystemClock#elapsedRealtime()}
+   * when the content stopped playing. This can be used to determine a fake, increasing content
+   * position. {@link C#TIME_UNSET} otherwise.
    */
   private long fakeContentProgressElapsedRealtimeMs;
 
@@ -219,7 +217,7 @@ import java.util.Objects;
   private long pendingContentPositionMs;
 
   /**
-   * Whether {@link ComponentListener#getContentProgress()} has sent {@link
+   * Whether {@link ContentProgressProvider#getContentProgress()} has sent {@link
    * #pendingContentPositionMs} to IMA.
    */
   private boolean sentPendingContentPositionMs;
@@ -391,7 +389,21 @@ import java.util.Objects;
   /** Deactivates playback. */
   public void deactivate() {
     Player player = checkNotNull(this.player);
-    if (!AdPlaybackState.NONE.equals(adPlaybackState) && imaPausedContent) {
+    // Post deactivation behind any already queued Player.Listener events to ensure that
+    // any pending events are processed before the listener is removed and the ads manager paused.
+    handler.post(() -> deactivateInternal(player));
+  }
+
+  /**
+   * Deactivates playback internally, after the Listener.onEvents() cycle completes so the complete
+   * state change picture is clear. For example, if an error caused the deactivation, the error
+   * callback can be handled first.
+   */
+  private void deactivateInternal(Player player) {
+    if (!adPlaybackState.equals(AdPlaybackState.NONE)
+        && imaPausedContent
+        && player.getPlayerError() == null) {
+      // Only need to pause and store resume position if not in error state.
       if (adsManager != null) {
         adsManager.pause();
       }
@@ -402,9 +414,7 @@ import java.util.Objects;
     lastVolumePercent = getPlayerVolumePercent();
     lastAdProgress = getAdVideoProgressUpdate();
     lastContentProgress = getContentVideoProgressUpdate();
-
-    // Post release of listener so that we can report any already pending errors via onPlayerError.
-    handler.post(() -> player.removeListener(this));
+    player.removeListener(this);
     this.player = null;
   }
 
@@ -481,7 +491,13 @@ import java.util.Objects;
     }
     Player player = this.player;
     this.timeline = timeline;
-    long contentDurationUs = timeline.getPeriod(player.getCurrentPeriodIndex(), period).durationUs;
+    int windowIndex = player.getCurrentMediaItemIndex();
+    Timeline.Window window = new Timeline.Window();
+    timeline.getWindow(windowIndex, window);
+    checkArgument(
+        window.firstPeriodIndex == window.lastPeriodIndex,
+        "Only single-period Timelines are supported.");
+    long contentDurationUs = timeline.getPeriod(window.firstPeriodIndex, period).durationUs;
     contentDurationMs = Util.usToMs(contentDurationUs);
     if (contentDurationUs != adPlaybackState.contentDurationUs) {
       adPlaybackState = adPlaybackState.withContentDurationUs(contentDurationUs);
@@ -539,7 +555,7 @@ import java.util.Objects;
 
   @Override
   public void onPlayerError(PlaybackException error) {
-    if (imaAdState != IMA_AD_STATE_NONE) {
+    if (imaAdState != IMA_AD_STATE_NONE && checkNotNull(player).isPlayingAd()) {
       AdMediaInfo adMediaInfo = checkNotNull(imaAdMediaInfo);
       for (int i = 0; i < adCallbacks.size(); i++) {
         adCallbacks.get(i).onError(adMediaInfo);
@@ -558,14 +574,19 @@ import java.util.Objects;
     }
     adsLoader.addAdsLoadedListener(componentListener);
     AdsRequest request;
-    try {
-      request = ImaUtil.getAdsRequestForAdTagDataSpec(imaFactory, adTagDataSpec);
-    } catch (IOException e) {
-      adPlaybackState = new AdPlaybackState(adsId);
-      updateAdPlaybackState();
-      pendingAdLoadError = AdLoadException.createForAllAds(e);
-      maybeNotifyPendingAdLoadError();
-      return adsLoader;
+    if (Objects.equals(adTagDataSpec.uri.getScheme(), C.CSAI_SCHEME)
+        && Objects.equals(adTagDataSpec.uri.getAuthority(), ImaAdTagUriBuilder.IMA_AUTHORITY)) {
+      request = ImaAdTagUriBuilder.createAdsRequest(imaFactory, adTagDataSpec.uri);
+    } else {
+      try {
+        request = ImaUtil.getAdsRequestForAdTagDataSpec(imaFactory, adTagDataSpec);
+      } catch (IOException e) {
+        adPlaybackState = new AdPlaybackState(adsId);
+        updateAdPlaybackState();
+        pendingAdLoadError = AdLoadException.createForAllAds(e);
+        maybeNotifyPendingAdLoadError();
+        return adsLoader;
+      }
     }
     pendingAdRequestContext = new Object();
     request.setUserRequestContext(pendingAdRequestContext);
@@ -609,6 +630,7 @@ import java.util.Objects;
   private AdsRenderingSettings setupAdsRendering(long contentPositionMs, long contentDurationMs) {
     AdsRenderingSettings adsRenderingSettings = imaFactory.createAdsRenderingSettings();
     adsRenderingSettings.setEnablePreloading(true);
+    adsRenderingSettings.setEnableCustomTabs(configuration.enableCustomTabs);
     adsRenderingSettings.setMimeTypes(
         configuration.adMediaMimeTypes != null
             ? configuration.adMediaMimeTypes
@@ -692,10 +714,29 @@ import java.util.Objects;
     if (player == null) {
       return lastAdProgress;
     } else if (imaAdState != IMA_AD_STATE_NONE && playingAd) {
-      long adDuration = player.getDuration();
-      return adDuration == C.TIME_UNSET
-          ? VideoProgressUpdate.VIDEO_TIME_NOT_READY
-          : new VideoProgressUpdate(player.getCurrentPosition(), adDuration);
+      int playerAdIndex = player.getCurrentAdIndexInAdGroup();
+      long adPosition = player.getCurrentPosition();
+      @Nullable AdInfo imaAdInfo = this.imaAdInfo;
+      if (player.isPlayingAd()
+          && imaAdInfo != null
+          && player.getCurrentAdGroupIndex() == imaAdInfo.adGroupIndex
+          && playerAdIndex == imaAdInfo.adIndexInAdGroup) {
+        long adDuration = player.getDuration();
+        return adDuration == C.TIME_UNSET
+            ? VideoProgressUpdate.VIDEO_TIME_NOT_READY
+            : new VideoProgressUpdate(adPosition, adDuration);
+      } else {
+        if (configuration.debugModeEnabled) {
+          Log.d(
+              TAG,
+              "getAdVideoProgressUpdate: player not at expected ad (group="
+                  + player.getCurrentAdGroupIndex()
+                  + ", index="
+                  + playerAdIndex
+                  + "), returning NOT_READY");
+        }
+        return VideoProgressUpdate.VIDEO_TIME_NOT_READY;
+      }
     } else {
       return VideoProgressUpdate.VIDEO_TIME_NOT_READY;
     }
@@ -775,9 +816,6 @@ import java.util.Objects;
         Map<String, String> adData = adEvent.getAdData();
         String message = "AdEvent: " + adData;
         Log.i(TAG, message);
-        break;
-      case LOADED:
-        pendingAdMimeType = adEvent.getAd().getContentType();
         break;
       default:
         break;
@@ -985,10 +1023,18 @@ import java.util.Objects;
     }
 
     MediaItem.Builder adMediaItem = new MediaItem.Builder().setUri(adMediaInfo.getUrl());
-    if (pendingAdMimeType != null) {
-      adMediaItem.setMimeType(pendingAdMimeType);
-      pendingAdMimeType = null;
+    // Use the video MIME type if it is provided.
+    // Demuxed streams may contain an audio MIME type, however it should only be used to set the
+    // audio MIME type or compose the audio codec string, when/if ExoPlayer introduces support for
+    // demuxed streams functionality. Even audio-only streams should only use the video MIME type as
+    // they are not demuxed. It is possible that the video MIME type is not provided, in which case,
+    // we do not set the MIME type of the MediaItem. However, if an audio MIME type is provided, it
+    // is most likely that the video MIME type is also provided (though not the other way around).
+    String videoMimeType = adMediaInfo.getVideoMimeType();
+    if (videoMimeType != null) {
+      adMediaItem.setMimeType(videoMimeType);
     }
+
     adPlaybackState =
         adPlaybackState.withAvailableAdMediaItem(
             adInfo.adGroupIndex, adInfo.adIndexInAdGroup, adMediaItem.build());
@@ -1392,7 +1438,14 @@ import java.util.Objects;
 
     @Override
     public void onAdsManagerLoaded(AdsManagerLoadedEvent adsManagerLoadedEvent) {
-      AdsManager adsManager = adsManagerLoadedEvent.getAdsManager();
+      @Nullable AdsManager adsManager = adsManagerLoadedEvent.getAdsManager();
+      if (adsManager == null) {
+        // The same AdsLoader may be used for both Client-side ads and SSAI ads at the same time.
+        // In this scenario, it may emit an `AdsManagerLoadedEvent` which should be handled by the
+        // `ImaServerSideAdInsertionMediaSource` instead of the `AdTagLoader`. It's safe to ignore
+        // that event.
+        return;
+      }
       if (!Objects.equals(pendingAdRequestContext, adsManagerLoadedEvent.getUserRequestContext())) {
         adsManager.destroy();
         return;

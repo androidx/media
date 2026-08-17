@@ -13,7 +13,7 @@
   <string name="exo_controls_pause_description">Pauzë</string>
   <string name="exo_controls_play_description">Luaj</string>
   <string name="exo_controls_stop_description">Ndalo</string>
-  <string name="exo_controls_rewind_description">Rikthe</string>
+  <string name="exo_controls_rewind_description">Kthe prapa</string>
   <plurals name="exo_controls_rewind_by_amount_description">
     <item quantity="one">Shko prapa %d sekondë</item>
     <item quantity="other">Shko prapa %d sekonda</item>

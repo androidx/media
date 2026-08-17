@@ -20,7 +20,6 @@ import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.withFrameMillis
 import androidx.media3.common.C
 import androidx.media3.common.Player
-import androidx.media3.common.listenTo
 import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -37,41 +36,49 @@ internal class ProgressStateJob(
   private val scheduledTask: () -> Unit,
 ) {
   private var updateJob: Job? = null
+  private var isObserving = false
 
-  /**
-   * Subscribes to updates from [Player.Events] to track changes of progress-related information in
-   * an asynchronous way.
-   */
-  internal suspend fun observeProgress(): Nothing = coroutineScope {
-    // otherwise we don't update on recomposition of UI, only on Player.Events
-    cancelPendingUpdatesAndMaybeRelaunch()
-    player.listenTo(
+  private val playerStateObserver =
+    player.observeState(
       Player.EVENT_IS_PLAYING_CHANGED,
       Player.EVENT_POSITION_DISCONTINUITY,
       Player.EVENT_TIMELINE_CHANGED,
       Player.EVENT_PLAYBACK_PARAMETERS_CHANGED,
       Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
     ) {
-      scheduledTask()
-      if (player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)) {
-        cancelPendingUpdatesAndMaybeRelaunch()
-      } else {
-        updateJob?.cancel()
-      }
+      cancelPendingUpdatesAndMaybeRelaunch()
+    }
+
+  /**
+   * Subscribes to updates from [Player.Events] to track changes of progress-related information in
+   * an asynchronous way.
+   */
+  internal suspend fun observeProgress(): Nothing = coroutineScope {
+    isObserving = true
+    try {
+      playerStateObserver.observe()
+    } finally {
+      isObserving = false
+      updateJob?.cancel()
     }
   }
 
+  /**
+   * Manually restarts the continuous progress update, for example if scheduling parameters changed.
+   */
   internal fun cancelPendingUpdatesAndMaybeRelaunch() {
-    updateJob?.cancel()
     scheduledTask()
-    if (shouldScheduleTask()) {
-      updateJob =
-        scope.launch {
-          while (isActive) {
-            smartDelay()
-            scheduledTask()
-          }
+    if (!isObserving) {
+      return
+    }
+    updateJob?.cancel()
+    if (player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM) && shouldScheduleTask()) {
+      updateJob = scope.launch {
+        while (isActive) {
+          smartDelay()
+          scheduledTask()
         }
+      }
     }
   }
 
@@ -131,5 +138,6 @@ internal fun isReadyOrBuffering(player: Player): Boolean =
 
 // Taking highest frame rate as 120fps, interval is 1000/120
 @UnstableApi const val MIN_UPDATE_INTERVAL_MS = 8L
+@UnstableApi
 @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
 const val FALLBACK_UPDATE_INTERVAL_MS = 1000L

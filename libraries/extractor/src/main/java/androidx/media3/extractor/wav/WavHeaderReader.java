@@ -15,7 +15,7 @@
  */
 package androidx.media3.extractor.wav;
 
-import static androidx.media3.extractor.WavUtil.TYPE_WAVE_FORMAT_EXTENSIBLE;
+import static androidx.media3.common.util.WavUtil.TYPE_WAVE_FORMAT_EXTENSIBLE;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.util.Pair;
@@ -24,8 +24,8 @@ import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
+import androidx.media3.common.util.WavUtil;
 import androidx.media3.extractor.ExtractorInput;
-import androidx.media3.extractor.WavUtil;
 import java.io.IOException;
 import java.util.Arrays;
 
@@ -124,6 +124,7 @@ import java.util.Arrays;
 
     int bytesLeft = (int) chunkHeader.size - 16;
     byte[] extraData;
+    int channelMask = 0;
     if (bytesLeft > 0) {
       extraData = new byte[bytesLeft];
       input.peekFully(extraData, 0, bytesLeft);
@@ -139,18 +140,13 @@ import java.util.Arrays;
                   + bitsPerSample
                   + ") are not supported");
         }
-        int channelMask = extensionScratch.readLittleEndianUnsignedIntToInt();
-        if ((channelMask >> 18) != 0) {
+        channelMask = extensionScratch.readLittleEndianUnsignedIntToInt();
+        if (!WavUtil.isChannelMaskValid(channelMask, numChannels)) {
           throw ParserException.createForUnsupportedContainerFeature(
-              "invalid channel mask " + channelMask);
-        }
-
-        if ((channelMask != 0) && (Integer.bitCount(channelMask) != numChannels)) {
-          throw ParserException.createForUnsupportedContainerFeature(
-              "invalid number of channels ("
-                  + Integer.bitCount(channelMask)
-                  + ") in channel mask "
-                  + channelMask);
+              "Channel mask "
+                  + channelMask
+                  + " is invalid or does not match channel count "
+                  + numChannels);
         }
         audioFormatType = extensionScratch.readLittleEndianUnsignedShort();
         byte[] extensionString = new byte[14];
@@ -173,7 +169,8 @@ import java.util.Arrays;
         averageBytesPerSecond,
         blockSize,
         bitsPerSample,
-        extraData);
+        extraData,
+        channelMask);
   }
 
   /**

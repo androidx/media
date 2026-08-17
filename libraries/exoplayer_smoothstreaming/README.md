@@ -6,7 +6,13 @@ Provides support for SmoothStreaming content in ExoPlayer.
 
 The easiest way to get the module is to add it as a gradle dependency:
 
-```gradle
+```kotlin
+implementation("androidx.media3:media3-exoplayer-smoothstreaming:1.X.X")
+```
+
+Or in Gradle Groovy DSL `build.gradle`:
+
+```groovy
 implementation 'androidx.media3:media3-exoplayer-smoothstreaming:1.X.X'
 ```
 

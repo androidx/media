@@ -522,10 +522,15 @@ public final class AviExtractor implements Extractor {
     int trackType = MimeTypes.getTrackType(streamFormat.sampleMimeType);
     if (trackType == C.TRACK_TYPE_AUDIO || trackType == C.TRACK_TYPE_VIDEO) {
       TrackOutput trackOutput = extractorOutput.track(streamId, trackType);
-      trackOutput.format(builder.build());
+      Format format = builder.build();
+      trackOutput.format(format);
       trackOutput.durationUs(durationUs);
       this.durationUs = max(this.durationUs, durationUs);
-      return new ChunkReader(streamId, aviStreamHeaderChunk, trackOutput);
+      return new ChunkReader(
+          streamId,
+          aviStreamHeaderChunk,
+          trackOutput,
+          MimeTypes.allSamplesAreSyncSamples(format.sampleMimeType, format.codecs));
     } else {
       // We don't currently support tracks other than video and audio.
       return null;

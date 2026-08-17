@@ -26,6 +26,7 @@ object MediaIntToString {
       Player.STATE_READY to "STATE_READY",
       Player.STATE_ENDED to "STATE_ENDED",
     )
+  @Suppress("DEPRECATION") // Using COMMAND_SET_DEVICE_VOLUME
   val playerCommandMap =
     mapOf(
       Player.COMMAND_INVALID to "COMMAND_INVALID",

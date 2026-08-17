@@ -20,6 +20,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.analytics.PlayerId;
@@ -67,6 +68,7 @@ public interface DashChunkSource extends ChunkSource {
      * @return This factory, for convenience.
      */
     @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/289983417 - Remove legacy subtitle decoding paths.
     default Factory experimentalParseSubtitlesDuringExtraction(
         boolean parseSubtitlesDuringExtraction) {
       return this;
@@ -74,7 +76,7 @@ public interface DashChunkSource extends ChunkSource {
 
     /**
      * Sets the set of video codecs for which within GOP sample dependency information should be
-     * parsed as part of extraction. Defaults to {@code 0} - empty set of codecs.
+     * parsed as part of extraction. Defaults to H.264 and H.265.
      *
      * <p>Having access to additional sample dependency information can speed up seeking. See {@link
      * Mp4Extractor#FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}.
@@ -86,6 +88,7 @@ public interface DashChunkSource extends ChunkSource {
      * @return This factory, for convenience.
      */
     @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/470365670 - Remove method once config is enabled by default.
     default Factory experimentalSetCodecsToParseWithinGopSampleDependencies(
         @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
       return this;

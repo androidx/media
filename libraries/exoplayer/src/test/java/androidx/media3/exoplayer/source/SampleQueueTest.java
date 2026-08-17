@@ -437,6 +437,106 @@ public final class SampleQueueTest {
   }
 
   @Test
+  public void readUnorderedSamplesWithEndBasedOnMaxNumReorder() {
+    Format sampleFormat =
+        new Format.Builder()
+            .setId(/* id= */ "withMaxNumReorderSamples")
+            .setMaxNumReorderSamples(2)
+            .build();
+    Format[] sampleFormats =
+        new Format[] {
+          sampleFormat,
+          sampleFormat,
+          sampleFormat,
+          sampleFormat,
+          sampleFormat,
+          sampleFormat,
+          sampleFormat,
+          sampleFormat
+        };
+    // These timestamps do not respect the value of maxNumReorderSamples to make sure the stream end
+    // is computed based on this value.
+    long[] sampleTimestamps = new long[] {0, 3000, 1000, 2000, 4000, 7000, 1300, 6000};
+    // Update the sample flags to make sure the last sample is computed based on the value of
+    // maxNumReorderSamples (and not because a keyframe is reached).
+    int[] sampleFlags = new int[] {C.BUFFER_FLAG_KEY_FRAME, 0, 0, 0, 0, 0, 0, 0};
+
+    sampleQueue.setReadEndTimeUs(1500);
+    writeTestData(DATA, SAMPLE_SIZES, SAMPLE_OFFSETS, sampleTimestamps, sampleFormats, sampleFlags);
+
+    assertReadTestData(
+        /* startFormat= */ null,
+        /* firstSampleIndex= */ 0,
+        /* sampleCount= */ 3,
+        /* sampleOffsetUs= */ 0,
+        sampleTimestamps,
+        sampleFormats,
+        sampleFlags);
+    assertReadEndOfStream(/* formatRequired= */ false, /* loadingFinished= */ false);
+  }
+
+  @Test
+  public void readUnorderedSamplesWithEndBasedOnKeyframe() {
+    // These timestamps are not legal because keyframes should be reordering boundaries, but we use
+    // them in this test to make sure the end of stream is based on the keyframe.
+    long[] sampleTimestamps = new long[] {0, 3000, 1000, 2000, 4000, 3300, 5000, 6000};
+
+    sampleQueue.setReadEndTimeUs(3500);
+    writeTestData(
+        DATA, SAMPLE_SIZES, SAMPLE_OFFSETS, sampleTimestamps, SAMPLE_FORMATS, SAMPLE_FLAGS);
+
+    assertReadTestData(
+        /* startFormat= */ null,
+        /* firstSampleIndex= */ 0,
+        /* sampleCount= */ 4,
+        /* sampleOffsetUs= */ 0,
+        sampleTimestamps,
+        SAMPLE_FORMATS,
+        SAMPLE_FLAGS);
+    assertReadEndOfStream(/* formatRequired= */ false, /* loadingFinished= */ false);
+  }
+
+  @Test
+  public void readUnorderedSamplesWithEndBasedOnLastSample() {
+    long[] sampleTimestamps = new long[] {0, 3000, 1000, 2000, 4000, 7000, 5000, 6000};
+    int[] sampleFlags =
+        new int[] {C.BUFFER_FLAG_KEY_FRAME, 0, 0, 0, 0, 0, 0, C.BUFFER_FLAG_LAST_SAMPLE};
+
+    sampleQueue.setReadEndTimeUs(5500);
+    writeTestData(
+        DATA, SAMPLE_SIZES, SAMPLE_OFFSETS, sampleTimestamps, SAMPLE_FORMATS, sampleFlags);
+
+    assertReadTestData(
+        /* startFormat= */ null,
+        /* firstSampleIndex= */ 0,
+        /* sampleCount= */ 7,
+        /* sampleOffsetUs= */ 0,
+        sampleTimestamps,
+        SAMPLE_FORMATS,
+        sampleFlags);
+    assertReadEndOfStream(/* formatRequired= */ false, /* loadingFinished= */ false);
+  }
+
+  @Test
+  public void readUnorderedSamplesWithEndMaybeReached() {
+    long[] sampleTimestamps = new long[] {0, 3000, 1000, 2000, 4000, 7000, 5000, 6000};
+
+    sampleQueue.setReadEndTimeUs(5500);
+    writeTestData(
+        DATA, SAMPLE_SIZES, SAMPLE_OFFSETS, sampleTimestamps, SAMPLE_FORMATS, SAMPLE_FLAGS);
+
+    assertReadTestData(
+        /* startFormat= */ null,
+        /* firstSampleIndex= */ 0,
+        /* sampleCount= */ 7,
+        /* sampleOffsetUs= */ 0,
+        sampleTimestamps,
+        SAMPLE_FORMATS,
+        SAMPLE_FLAGS);
+    assertReadNothing(/* formatRequired= */ false);
+  }
+
+  @Test
   public void emptyQueueReturnsLoadingFinished() {
     sampleQueue.sampleData(new ParsableByteArray(DATA), DATA.length);
     assertThat(sampleQueue.isReady(/* loadingFinished= */ false)).isFalse();
@@ -1491,7 +1591,561 @@ public final class SampleQueueTest {
   }
 
   @Test
-  public void setStartTime() {}
+  public void setReadEndTimeUsWithLastSampleInQueue() {
+    long[] sampleTimestamps = new long[] {0, 3000, 1000, 2000, 4000, 7000, 5000, 6000};
+
+    writeTestData(
+        DATA, SAMPLE_SIZES, SAMPLE_OFFSETS, sampleTimestamps, SAMPLE_FORMATS, SAMPLE_FLAGS);
+    sampleQueue.setReadEndTimeUs(3500);
+
+    assertReadTestData(
+        /* startFormat= */ null,
+        /* firstSampleIndex= */ 0,
+        /* sampleCount= */ 4,
+        /* sampleOffsetUs= */ 0,
+        sampleTimestamps,
+        SAMPLE_FORMATS,
+        SAMPLE_FLAGS);
+    assertReadEndOfStream(/* formatRequired= */ false, /* loadingFinished= */ false);
+  }
+
+  @Test
+  public void setReadEndTimeUsWithLastSampleNotInQueue() {
+    long[] sampleTimestamps = new long[] {0, 3000, 1000, 2000, 4000, 7000, 5000, 6000};
+
+    writeTestData(
+        DATA, SAMPLE_SIZES, SAMPLE_OFFSETS, sampleTimestamps, SAMPLE_FORMATS, SAMPLE_FLAGS);
+    sampleQueue.setReadEndTimeUs(8500);
+
+    assertReadTestData(
+        /* startFormat= */ null,
+        /* firstSampleIndex= */ 0,
+        /* sampleCount= */ 8,
+        /* sampleOffsetUs= */ 0,
+        sampleTimestamps,
+        SAMPLE_FORMATS,
+        SAMPLE_FLAGS);
+    long[] nextSampleTimestamps = new long[] {8000, 9000, 10_000, 11_000, 12_000, 13_000};
+    writeTestData(
+        DATA, SAMPLE_SIZES, SAMPLE_OFFSETS, nextSampleTimestamps, SAMPLE_FORMATS, SAMPLE_FLAGS);
+    assertReadTestData(
+        /* startFormat= */ FORMAT_2,
+        /* firstSampleIndex= */ 0,
+        /* sampleCount= */ 1,
+        /* sampleOffsetUs= */ 0,
+        nextSampleTimestamps,
+        SAMPLE_FORMATS,
+        SAMPLE_FLAGS);
+    assertReadEndOfStream(/* formatRequired= */ false, /* loadingFinished= */ false);
+  }
+
+  @Test
+  public void setReadEndTimeUsWithLastSampleMaybeInQueue() {
+    long[] sampleTimestamps = new long[] {0, 3000, 1000, 2000, 4000, 5000, 6000, 7000};
+    Format sampleFormat =
+        new Format.Builder()
+            .setId(/* id= */ "withMaxNumReorderSamples")
+            .setMaxNumReorderSamples(2)
+            .build();
+    Format[] sampleFormats =
+        new Format[] {
+          sampleFormat,
+          sampleFormat,
+          sampleFormat,
+          sampleFormat,
+          sampleFormat,
+          sampleFormat,
+          sampleFormat,
+          sampleFormat
+        };
+
+    writeTestData(
+        DATA, SAMPLE_SIZES, SAMPLE_OFFSETS, sampleTimestamps, sampleFormats, SAMPLE_FLAGS);
+    sampleQueue.setReadEndTimeUs(5500);
+
+    assertReadTestData(
+        /* startFormat= */ null,
+        /* firstSampleIndex= */ 0,
+        /* sampleCount= */ 6,
+        /* sampleOffsetUs= */ 0,
+        sampleTimestamps,
+        sampleFormats,
+        SAMPLE_FLAGS);
+    assertReadNothing(/* formatRequired= */ false);
+
+    writeSample(DATA, /* timestampUs= */ 8000, /* sampleFlags= */ 0);
+    assertReadEndOfStream(/* formatRequired= */ false, /* loadingFinished= */ false);
+  }
+
+  @Test
+  public void setReadEndTimeUsTwice() {
+    long[] sampleTimestamps = new long[] {0, 3000, 2000, 1000, 4000, 5000, 7000, 6000};
+    Format sampleFormat =
+        new Format.Builder()
+            .setId(/* id= */ "withMaxNumReorderSamples")
+            .setMaxNumReorderSamples(2)
+            .build();
+    Format[] sampleFormats =
+        new Format[] {
+          sampleFormat,
+          sampleFormat,
+          sampleFormat,
+          sampleFormat,
+          sampleFormat,
+          sampleFormat,
+          sampleFormat,
+          sampleFormat
+        };
+
+    sampleQueue.setReadEndTimeUs(5500); // Counter for frames after end time should be 2 after write
+    writeTestData(
+        DATA, SAMPLE_SIZES, SAMPLE_OFFSETS, sampleTimestamps, sampleFormats, SAMPLE_FLAGS);
+    assertReadTestData(
+        /* startFormat= */ null,
+        /* firstSampleIndex= */ 0,
+        /* sampleCount= */ 1,
+        /* sampleOffsetUs= */ 0,
+        sampleTimestamps,
+        sampleFormats,
+        SAMPLE_FLAGS);
+    sampleQueue.discardToRead();
+    sampleQueue.setReadEndTimeUs(1500);
+
+    // Check that the counter for frames after end time was reset and that end index is set
+    // properly.
+    assertReadTestData(
+        /* startFormat= */ sampleFormat,
+        /* firstSampleIndex= */ 1,
+        /* sampleCount= */ 3,
+        /* sampleOffsetUs= */ 0,
+        sampleTimestamps,
+        sampleFormats,
+        SAMPLE_FLAGS);
+    assertReadEndOfStream(/* formatRequired= */ false);
+  }
+
+  @Test
+  public void
+      sampleMetadata_droppedNonKeyframeOnEmptyQueueAfterDownstreamDiscard_unwindsCorrectlyWithoutCorruption() {
+    sampleQueue.format(FORMAT_SYNC_SAMPLE_ONLY_1);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 0,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertReadFormat(false, FORMAT_SYNC_SAMPLE_ONLY_1);
+    assertReadSample(
+        /* timeUs= */ 0,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+    sampleQueue.discardToRead();
+    sampleQueue.setStartTimeUs(2000);
+
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 1000,
+        /* flags= */ 0,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    assertAllocationCount(0);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 2000,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertReadSample(
+        /* timeUs= */ 2000,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+  }
+
+  @Test
+  public void sampleMetadata_droppedPrerollSample_unwindsSampleDataQueue() {
+    sampleQueue.format(FORMAT_SYNC_SAMPLE_ONLY_1);
+    sampleQueue.setStartTimeUs(1000);
+
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 0,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    assertAllocationCount(0);
+    assertReadFormat(false, FORMAT_SYNC_SAMPLE_ONLY_1);
+    assertNoSamplesToRead(FORMAT_SYNC_SAMPLE_ONLY_1);
+  }
+
+  @Test
+  public void sampleMetadata_droppedSpliceSample_unwindsSampleDataQueue() {
+    sampleQueue.format(FORMAT_1);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 1000,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertReadFormat(false, FORMAT_1);
+    assertReadSample(
+        /* timeUs= */ 1000,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+    sampleQueue.splice();
+
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 500,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    assertAllocationCount(1);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 2000,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertReadSample(
+        /* timeUs= */ 2000,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+  }
+
+  @Test
+  public void
+      sampleMetadata_droppedSampleSpanningMultipleAllocationNodes_freesAllocationsAndResetsWritePosition() {
+    sampleQueue.format(FORMAT_SYNC_SAMPLE_ONLY_1);
+    sampleQueue.setStartTimeUs(1000);
+
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE * 3);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 0,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE * 3,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    assertAllocationCount(0);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE * 2);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 1000,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE * 2,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertAllocationCount(2);
+    assertReadFormat(false, FORMAT_SYNC_SAMPLE_ONLY_1);
+    assertReadSample(
+        /* timeUs= */ 1000,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE * 2);
+  }
+
+  @Test
+  public void
+      sampleMetadata_droppedSampleWithNonZeroOffset_skipsUnwindingToPreserveTrailingBytes() {
+    sampleQueue.format(FORMAT_SYNC_SAMPLE_ONLY_1);
+    sampleQueue.setStartTimeUs(1000);
+
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE * 2);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 0,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ ALLOCATION_SIZE,
+        /* cryptoData= */ null);
+
+    assertAllocationCount(2);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 1000,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertReadFormat(false, FORMAT_SYNC_SAMPLE_ONLY_1);
+    assertReadSample(
+        /* timeUs= */ 1000,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ ALLOCATION_SIZE,
+        ALLOCATION_SIZE);
+  }
+
+  @Test
+  public void expectResume_traverseOverlap_unwindsOverlapBytesAndAppendsNewSamplesCleanly() {
+    sampleQueue.format(FORMAT_1);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 1000000,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 2000000,
+        /* flags= */ 0,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertAllocationCount(2);
+
+    sampleQueue.expectResume();
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 1000000,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertAllocationCount(2);
+
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 2000000,
+        /* flags= */ 0,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertAllocationCount(2);
+
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 3000000,
+        /* flags= */ 0,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    assertAllocationCount(3);
+    assertReadFormat(false, FORMAT_1);
+    assertReadSample(
+        /* timeUs= */ 1000000,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+    assertReadSample(
+        /* timeUs= */ 2000000,
+        /* isKeyFrame= */ false,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+    assertReadSample(
+        /* timeUs= */ 3000000,
+        /* isKeyFrame= */ false,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+  }
+
+  @Test
+  public void expectResume_audioTimestampDrift_clearsPendingResumeAndAppendsCleanly() {
+    sampleQueue.format(FORMAT_1);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 1000000,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    sampleQueue.expectResume();
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 1000001,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertAllocationCount(1);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 1020000,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    assertAllocationCount(2);
+    assertReadFormat(false, FORMAT_1);
+    assertReadSample(
+        /* timeUs= */ 1000000,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+    assertReadSample(
+        /* timeUs= */ 1020000,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+  }
+
+  @Test
+  public void expectResume_duplicateTimestampsAtTail_dropsExactDuplicateCountAndAppends() {
+    sampleQueue.format(FORMAT_1);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 1000000,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 2000000,
+        /* flags= */ 0,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 2000000,
+        /* flags= */ 0,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertAllocationCount(3);
+
+    sampleQueue.expectResume();
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 2000000,
+        /* flags= */ 0,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertAllocationCount(3);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 2000000,
+        /* flags= */ 0,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertAllocationCount(3);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 3000000,
+        /* flags= */ 0,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    assertAllocationCount(4);
+    assertReadFormat(false, FORMAT_1);
+    assertReadSample(
+        /* timeUs= */ 1000000,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+    assertReadSample(
+        /* timeUs= */ 2000000,
+        /* isKeyFrame= */ false,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+    assertReadSample(
+        /* timeUs= */ 2000000,
+        /* isKeyFrame= */ false,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+    assertReadSample(
+        /* timeUs= */ 3000000,
+        /* isKeyFrame= */ false,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+  }
+
+  @Test
+  public void expectResume_withNonZeroSampleOffset_unwindsOverlapAndAppendsCleanly() {
+    sampleQueue.format(FORMAT_1);
+    sampleQueue.setSampleOffsetUs(500000);
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 500000,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertAllocationCount(1);
+
+    sampleQueue.expectResume();
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 500000,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    assertAllocationCount(1);
+
+    sampleQueue.sampleData(new ParsableByteArray(DATA), ALLOCATION_SIZE);
+    sampleQueue.sampleMetadata(
+        /* timeUs= */ 1500000,
+        /* flags= */ 0,
+        /* size= */ ALLOCATION_SIZE,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    assertAllocationCount(2);
+    assertReadFormat(false, FORMAT_1.buildUpon().setSubsampleOffsetUs(500000).build());
+    assertReadSample(
+        /* timeUs= */ 1000000,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+    assertReadSample(
+        /* timeUs= */ 2000000,
+        /* isKeyFrame= */ false,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        ALLOCATION_SIZE);
+  }
 
   // Internal methods.
 
@@ -1590,6 +2244,7 @@ public final class SampleQueueTest {
         firstSampleIndex,
         sampleCount,
         /* sampleOffsetUs= */ 0,
+        SAMPLE_TIMESTAMPS,
         SAMPLE_FORMATS_SYNC_SAMPLES_ONLY,
         SAMPLE_FLAGS_SYNC_SAMPLES_ONLY);
   }
@@ -1640,7 +2295,13 @@ public final class SampleQueueTest {
   private void assertReadTestData(
       Format startFormat, int firstSampleIndex, int sampleCount, long sampleOffsetUs) {
     assertReadTestData(
-        startFormat, firstSampleIndex, sampleCount, sampleOffsetUs, SAMPLE_FORMATS, SAMPLE_FLAGS);
+        startFormat,
+        firstSampleIndex,
+        sampleCount,
+        sampleOffsetUs,
+        SAMPLE_TIMESTAMPS,
+        SAMPLE_FORMATS,
+        SAMPLE_FLAGS);
   }
 
   /**
@@ -1650,12 +2311,16 @@ public final class SampleQueueTest {
    * @param firstSampleIndex The index of the first sample that's expected to be read.
    * @param sampleCount The number of samples to read.
    * @param sampleOffsetUs The expected sample offset.
+   * @param sampleTimestampsUs The expected sample timestamps, in microseconds.
+   * @param sampleFormats The expected sample formats.
+   * @param sampleFlags The expected sample flags.
    */
   private void assertReadTestData(
       @Nullable Format startFormat,
       int firstSampleIndex,
       int sampleCount,
       long sampleOffsetUs,
+      long[] sampleTimestampsUs,
       Format[] sampleFormats,
       int[] sampleFlags) {
     Format format = adjustFormat(startFormat, sampleOffsetUs);
@@ -1671,7 +2336,7 @@ public final class SampleQueueTest {
       // If we require the format, we should always read it.
       assertReadFormat(true, testSampleFormat);
       // Assert the sample is as expected.
-      long expectedTimeUs = SAMPLE_TIMESTAMPS[i] + sampleOffsetUs;
+      long expectedTimeUs = sampleTimestampsUs[i] + sampleOffsetUs;
       assertReadSample(
           expectedTimeUs,
           (sampleFlags[i] & C.BUFFER_FLAG_KEY_FRAME) != 0,
@@ -1738,13 +2403,24 @@ public final class SampleQueueTest {
    * @param formatRequired The value of {@code formatRequired} passed to {@link SampleQueue#read}.
    */
   private void assertReadEndOfStream(boolean formatRequired) {
+    assertReadEndOfStream(formatRequired, /* loadingFinished= */ true);
+  }
+
+  /**
+   * Asserts {@link SampleQueue#read} returns {@link C#RESULT_BUFFER_READ} and that the {@link
+   * DecoderInputBuffer#isEndOfStream()} is set.
+   *
+   * @param formatRequired The value of {@code formatRequired} passed to {@link SampleQueue#read}.
+   * @param loadingFinished The value of {@code loadingFinished} passed to {@link SampleQueue#read}.
+   */
+  private void assertReadEndOfStream(boolean formatRequired, boolean loadingFinished) {
     clearFormatHolderAndInputBuffer();
     int result =
         sampleQueue.read(
             formatHolder,
             inputBuffer,
             formatRequired ? SampleStream.FLAG_REQUIRE_FORMAT : 0,
-            /* loadingFinished= */ true);
+            loadingFinished);
     assertThat(result).isEqualTo(RESULT_BUFFER_READ);
     // formatHolder should not be populated.
     assertThat(formatHolder.format).isNull();

@@ -66,6 +66,11 @@ public class Label {
     return result;
   }
 
+  @Override
+  public String toString() {
+    return "{ lang=" + language + ", '" + value + "' }";
+  }
+
   private static final String FIELD_LANGUAGE_INDEX = Util.intToStringMaxRadix(0);
   private static final String FIELD_VALUE_INDEX = Util.intToStringMaxRadix(1);
 

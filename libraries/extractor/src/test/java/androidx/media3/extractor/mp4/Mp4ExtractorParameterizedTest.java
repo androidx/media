@@ -33,28 +33,12 @@ import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
 @RunWith(ParameterizedRobolectricTestRunner.class)
 public final class Mp4ExtractorParameterizedTest {
 
-  @Parameters(name = "{0},subtitlesParsedDuringExtraction={1},readWithinGopSampleDependencies={2}")
+  @Parameters(name = "{0},subtitlesParsedDuringExtraction={1}")
   public static List<Object[]> params() {
     List<Object[]> parameterList = new ArrayList<>();
     for (ExtractorAsserts.SimulationConfig config : ExtractorAsserts.configs()) {
-      parameterList.add(
-          new Object[] {
-            config,
-            /* subtitlesParsedDuringExtraction */ true,
-            /* readWithinGopSampleDependencies */ false
-          });
-      parameterList.add(
-          new Object[] {
-            config,
-            /* subtitlesParsedDuringExtraction */ false,
-            /* readWithinGopSampleDependencies */ false
-          });
-      parameterList.add(
-          new Object[] {
-            config,
-            /* subtitlesParsedDuringExtraction */ true,
-            /* readWithinGopSampleDependencies */ true
-          });
+      parameterList.add(new Object[] {config, /* subtitlesParsedDuringExtraction */ true});
+      parameterList.add(new Object[] {config, /* subtitlesParsedDuringExtraction */ false});
     }
     return parameterList;
   }
@@ -64,9 +48,6 @@ public final class Mp4ExtractorParameterizedTest {
 
   @Parameter(1)
   public boolean subtitlesParsedDuringExtraction;
-
-  @Parameter(2)
-  public boolean readWithinGopSampleDependencies;
 
   @Test
   public void mp4Sample() throws Exception {
@@ -80,7 +61,7 @@ public final class Mp4ExtractorParameterizedTest {
 
   @Test
   public void mp4SampleWithMetadata() throws Exception {
-    assertExtractorBehavior("media/mp4/sample_with_metadata.mp4", /* peekLimit= */ 2700);
+    assertExtractorBehavior("media/mp4/sample_with_metadata.mp4", /* peekLimit= */ 2715);
   }
 
   @Test
@@ -160,6 +141,16 @@ public final class Mp4ExtractorParameterizedTest {
   @Test
   public void mp4SampleWithDolbyTrueHDTrack() throws Exception {
     assertExtractorBehavior("media/mp4/sample_dthd.mp4", /* peekLimit= */ 3450);
+  }
+
+  @Test
+  public void mp4SampleWithDtsExpress() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_dts_express.mp4", /* peekLimit= */ 4096);
+  }
+
+  @Test
+  public void mp4SampleWithDtsHdMa() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_dts_hd_ma.mp4", /* peekLimit= */ 4096);
   }
 
   @Test
@@ -270,6 +261,13 @@ public final class Mp4ExtractorParameterizedTest {
     assertExtractorBehavior("media/mp4/h265_bframes.mp4", /* peekLimit= */ 50);
   }
 
+  @Test
+  public void mp4SampleWithNonReferenceH265FramesAndEmulationPrevention() throws Exception {
+    // Regression test for b/489688575 and b/492381421.
+    assertExtractorBehavior(
+        "media/mp4/h265_4k_bframes_emulation_prevention.mp4", /* peekLimit= */ 50);
+  }
+
   // b/386847142
   @Test
   public void mp4SampleWithTwoByteNalLength() throws Exception {
@@ -296,6 +294,21 @@ public final class Mp4ExtractorParameterizedTest {
     assertExtractorBehavior("media/mp4/sample_fpcm_32le.mp4", /* peekLimit= */ 50);
   }
 
+  @Test
+  public void mp4SampleWith32beFpcm() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_fpcm_32be.mp4", /* peekLimit= */ 50);
+  }
+
+  @Test
+  public void mp4SampleWith64leFpcm() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_fpcm_64le.mp4", /* peekLimit= */ 50);
+  }
+
+  @Test
+  public void mp4SampleWith64beFpcm() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_fpcm_64be.mp4", /* peekLimit= */ 50);
+  }
+
   // Only the rotation part of the transformation matrix is resolved (b/390422593 tracks supporting
   // reflection too).
   @Test
@@ -303,16 +316,58 @@ public final class Mp4ExtractorParameterizedTest {
     assertExtractorBehavior("media/mp4/sample_rotate_and_reflect.mp4", /* peekLimit= */ 2300);
   }
 
+  @Test
+  public void mp4SampleWithAlac() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_alac.mp4", /* peekLimit= */ 50);
+  }
+
+  @Test
+  public void mp4SampleWithAlac20Bit() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_alac_20bit.mp4", /* peekLimit= */ 4096);
+  }
+
+  @Test
+  public void mp4SampleWithFixedRechunkAndNoElst() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_fixed_rechunk_no_elst.mp4", /* peekLimit= */ 44);
+  }
+
+  // Checks that an invalid file with a missing stsd results in only that track being skipped,
+  // instead of the whole file failing to parse (b/441971769).
+  @Test
+  public void mp4SampleWithMissingStsd() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_missing_stsd.mp4", /* peekLimit= */ 2300);
+  }
+
+  @Test
+  public void mp4SampleWithRawAudioAndZeroStszFixedSampleSize() throws Exception {
+    assertExtractorBehavior("media/mp4/sowt_pcm_variable_sample_size.mp4", /* peekLimit= */ 2300);
+  }
+
+  @Test
+  public void mp4SampleWithVvc() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_vvc.mp4", /* peekLimit= */ 44);
+  }
+
+  @Test
+  public void mp4SampleWithChapters() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_with_chapters.mp4", /* peekLimit= */ 48);
+  }
+
+  @Test
+  public void mp4SampleWithNeroChaptersOnly() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_with_nero_chapters_only.mp4", /* peekLimit= */ 2152);
+  }
+
+  @Test
+  public void mp4SampleWithIt35Track() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_with_it35_track.mp4", /* peekLimit= */ 1386);
+  }
+
   private void assertExtractorBehavior(String file, int peekLimit) throws IOException {
     ExtractorAsserts.AssertionConfig.Builder assertionConfigBuilder =
         new ExtractorAsserts.AssertionConfig.Builder();
-    if (readWithinGopSampleDependencies) {
-      String dumpFilesPrefix =
-          file.replaceFirst("media", "extractordumps") + ".reading_within_gop_sample_dependencies";
-      assertionConfigBuilder.setDumpFilesPrefix(dumpFilesPrefix);
-    }
     ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction, readWithinGopSampleDependencies),
+        getExtractorFactory(subtitlesParsedDuringExtraction),
         file,
         peekLimit,
         assertionConfigBuilder.build(),
@@ -320,21 +375,18 @@ public final class Mp4ExtractorParameterizedTest {
   }
 
   private static ExtractorAsserts.ExtractorFactory getExtractorFactory(
-      boolean subtitlesParsedDuringExtraction, boolean readWithinGopSampleDependencies) {
+      boolean subtitlesParsedDuringExtraction) {
     SubtitleParser.Factory subtitleParserFactory;
-    @Mp4Extractor.Flags int flags;
+    @Mp4Extractor.Flags
+    int flags =
+        Mp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES
+            | Mp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265;
     if (subtitlesParsedDuringExtraction) {
       subtitleParserFactory = new DefaultSubtitleParserFactory();
-      flags = 0;
     } else {
       subtitleParserFactory = SubtitleParser.Factory.UNSUPPORTED;
-      flags = FLAG_EMIT_RAW_SUBTITLE_DATA;
+      flags |= FLAG_EMIT_RAW_SUBTITLE_DATA;
     }
-    if (readWithinGopSampleDependencies) {
-      flags |= Mp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES;
-      flags |= Mp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265;
-    }
-
     @Mp4Extractor.Flags int finalFlags = flags;
     return () -> new Mp4Extractor(subtitleParserFactory, finalFlags);
   }

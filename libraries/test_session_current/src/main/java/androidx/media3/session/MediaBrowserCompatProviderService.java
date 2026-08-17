@@ -186,7 +186,7 @@ public class MediaBrowserCompatProviderService extends Service {
     public void sendCustomAction(String browserId, String action, Bundle extras)
         throws RemoteException {
       MediaBrowserCompat browser = mediaBrowserCompatMap.get(browserId);
-      browser.sendCustomAction(action, extras, /* customActionCallback= */ null);
+      browser.sendCustomAction(action, extras, /* callback= */ null);
     }
   }
 

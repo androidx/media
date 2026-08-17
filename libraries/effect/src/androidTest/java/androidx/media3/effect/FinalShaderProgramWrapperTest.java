@@ -142,6 +142,11 @@ public final class FinalShaderProgramWrapperTest {
               long presentationTimeUs, boolean isRedrawnFrame) {
             presentationTimesUsAvailableForRendering.add(presentationTimeUs);
           }
+
+          @Override
+          public void onError(VideoFrameProcessingException exception) {
+            videoFrameProcessingException = exception;
+          }
         };
     inputListener =
         new InputListener() {
@@ -284,6 +289,34 @@ public final class FinalShaderProgramWrapperTest {
     finalShaderProgramWrapper.renderOutputFrame(glObjectsProvider, 10003000);
 
     assertThat(endOfCurrentStreamPresentationTimesUs).containsExactly(3000L);
+  }
+
+  @Test
+  public void removeOutputSurface_afterRelease_doesNotThrow() throws Exception {
+    buildFinalShaderProgramWrapper(/* renderFramesAutomatically= */ false);
+
+    finalShaderProgramWrapper.queueInputFrame(glObjectsProvider, inputTextureInfos.get(0), 1000);
+    finalShaderProgramWrapper.renderOutputFrame(glObjectsProvider, 10001000);
+    assertThat(processedTextures).containsExactly(inputTextureInfos.get(0));
+
+    finalShaderProgramWrapper.release();
+    finalShaderProgramWrapper.setOutputSurfaceInfo(null);
+
+    assertThat(videoFrameProcessingException).isNull();
+  }
+
+  @Test
+  public void queueInputFrame_afterFlusingWhileRedrawing_rendersNewFrame() throws Exception {
+    buildFinalShaderProgramWrapper(/* renderFramesAutomatically= */ false);
+
+    finalShaderProgramWrapper.prepareToRedraw(/* redrawFramePresentationTimeUs= */ 1000);
+    // Simulate the user seeking before the redrawn frame arrives.
+    finalShaderProgramWrapper.flush();
+    finalShaderProgramWrapper.queueInputFrame(
+        glObjectsProvider, inputTextureInfos.get(0), /* presentationTimeUs= */ 2000);
+
+    // We should abort the redraw and accept the new frame.
+    assertThat(presentationTimesUsAvailableForRendering).containsExactly(2000L);
   }
 
   private void buildFinalShaderProgramWrapper(boolean renderFramesAutomatically) throws Exception {

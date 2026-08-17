@@ -19,6 +19,7 @@ import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.E
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.sample;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 import android.graphics.Bitmap;
 import android.graphics.Color;
@@ -55,27 +56,21 @@ public class ImageRendererTest {
       "Renderer not ended after " + DEFAULT_LOOP_TIMEOUT_MS + " milliseconds.";
   private static final String HAS_READ_STREAM_TO_END_TIMEOUT_MESSAGE =
       "Renderer has not read stream to end after " + DEFAULT_LOOP_TIMEOUT_MS + " milliseconds.";
-  private static final Format PNG_FORMAT =
+  private static final Format IMAGE_FORMAT =
       new Format.Builder()
-          .setSampleMimeType(MimeTypes.IMAGE_PNG)
+          .setSampleMimeType(MimeTypes.APPLICATION_EXTERNALLY_LOADED_IMAGE)
           .setTileCountVertical(1)
           .setTileCountHorizontal(1)
           .build();
-  private static final Format JPEG_FORMAT =
+  private static final Format FORMAT_WITH_FOUR_TILES =
       new Format.Builder()
-          .setSampleMimeType(MimeTypes.IMAGE_JPEG)
-          .setTileCountVertical(1)
-          .setTileCountHorizontal(1)
-          .build();
-  private static final Format JPEG_FORMAT_WITH_FOUR_TILES =
-      new Format.Builder()
-          .setSampleMimeType(MimeTypes.IMAGE_JPEG)
+          .setSampleMimeType(MimeTypes.APPLICATION_EXTERNALLY_LOADED_IMAGE)
           .setTileCountVertical(2)
           .setTileCountHorizontal(2)
           .build();
-  private static final Format JPEG_FORMAT_WITH_SIX_TILES =
+  private static final Format FORMAT_WITH_SIX_TILES =
       new Format.Builder()
-          .setSampleMimeType(MimeTypes.IMAGE_JPEG)
+          .setSampleMimeType(MimeTypes.APPLICATION_EXTERNALLY_LOADED_IMAGE)
           .setTileCountVertical(2)
           .setTileCountHorizontal(3)
           .build();
@@ -93,8 +88,9 @@ public class ImageRendererTest {
   public void setUp() throws Exception {
     decodeCallCount = 0;
     ImageDecoder.Factory fakeDecoderFactory =
-        new BitmapFactoryImageDecoder.Factory(
-            (data, length) -> ++decodeCallCount == 1 ? fakeDecodedBitmap1 : fakeDecodedBitmap2);
+        new ExternallyLoadedImageDecoder.Factory(
+            request ->
+                immediateFuture(++decodeCallCount == 1 ? fakeDecodedBitmap1 : fakeDecodedBitmap2));
     ImageOutput queuingImageOutput =
         new ImageOutput() {
           @Override
@@ -124,7 +120,7 @@ public class ImageRendererTest {
     fakeSampleStream.writeData(/* startPositionUs= */ 0);
     renderer.enable(
         RendererConfiguration.DEFAULT,
-        new Format[] {PNG_FORMAT},
+        new Format[] {IMAGE_FORMAT},
         fakeSampleStream,
         /* positionUs= */ 0,
         /* joining= */ false,
@@ -151,7 +147,7 @@ public class ImageRendererTest {
     fakeSampleStream.writeData(/* startPositionUs= */ 0);
     renderer.enable(
         RendererConfiguration.DEFAULT,
-        new Format[] {PNG_FORMAT},
+        new Format[] {IMAGE_FORMAT},
         fakeSampleStream,
         /* positionUs= */ 0,
         /* joining= */ false,
@@ -186,7 +182,7 @@ public class ImageRendererTest {
     fakeSampleStream2.writeData(/* startPositionUs= */ 10);
     renderer.enable(
         RendererConfiguration.DEFAULT,
-        new Format[] {PNG_FORMAT},
+        new Format[] {IMAGE_FORMAT},
         fakeSampleStream1,
         /* positionUs= */ 0,
         /* joining= */ false,
@@ -205,7 +201,7 @@ public class ImageRendererTest {
       renderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
     }
     renderer.replaceStream(
-        new Format[] {PNG_FORMAT},
+        new Format[] {IMAGE_FORMAT},
         fakeSampleStream2,
         /* startPositionUs= */ 10,
         /* offsetUs= */ 0,
@@ -230,7 +226,7 @@ public class ImageRendererTest {
           throws Exception {
     FakeSampleStream fakeSampleStream1 =
         createSampleStream(
-            JPEG_FORMAT_WITH_FOUR_TILES,
+            FORMAT_WITH_FOUR_TILES,
             ImmutableList.of(
                 oneByteSample(/* timeUs= */ 0L, /* flags= */ C.BUFFER_FLAG_KEY_FRAME),
                 emptySample(/* timeUs= */ 100_000L, /* flags= */ 0),
@@ -239,14 +235,14 @@ public class ImageRendererTest {
     fakeSampleStream1.writeData(/* startPositionUs= */ 0);
     FakeSampleStream fakeSampleStream2 =
         createSampleStream(
-            JPEG_FORMAT_WITH_FOUR_TILES,
+            FORMAT_WITH_FOUR_TILES,
             ImmutableList.of(
                 oneByteSample(/* timeUs= */ 10L, /* flags= */ C.BUFFER_FLAG_KEY_FRAME),
                 END_OF_STREAM_ITEM));
     fakeSampleStream2.writeData(/* startPositionUs= */ 10L);
     renderer.enable(
         RendererConfiguration.DEFAULT,
-        new Format[] {PNG_FORMAT},
+        new Format[] {IMAGE_FORMAT},
         fakeSampleStream1,
         /* positionUs= */ 0,
         /* joining= */ false,
@@ -263,7 +259,7 @@ public class ImageRendererTest {
     renderer.render(/* positionUs= */ 300_000L, /* elapsedRealtimeUs= */ 0);
 
     renderer.replaceStream(
-        new Format[] {PNG_FORMAT},
+        new Format[] {IMAGE_FORMAT},
         fakeSampleStream2,
         /* startPositionUs= */ 10,
         /* offsetUs= */ 450_000L,
@@ -287,7 +283,7 @@ public class ImageRendererTest {
       throws Exception {
     FakeSampleStream fakeSampleStream1 =
         createSampleStream(
-            JPEG_FORMAT_WITH_FOUR_TILES,
+            FORMAT_WITH_FOUR_TILES,
             ImmutableList.of(
                 oneByteSample(/* timeUs= */ 0L, /* flags= */ C.BUFFER_FLAG_KEY_FRAME),
                 emptySample(/* timeUs= */ 100_000L, /* flags= */ 0),
@@ -296,14 +292,14 @@ public class ImageRendererTest {
     fakeSampleStream1.writeData(/* startPositionUs= */ 0);
     FakeSampleStream fakeSampleStream2 =
         createSampleStream(
-            JPEG_FORMAT_WITH_FOUR_TILES,
+            FORMAT_WITH_FOUR_TILES,
             ImmutableList.of(
                 oneByteSample(/* timeUs= */ 10L, /* flags= */ C.BUFFER_FLAG_KEY_FRAME),
                 END_OF_STREAM_ITEM));
     fakeSampleStream2.writeData(/* startPositionUs= */ 10L);
     renderer.enable(
         RendererConfiguration.DEFAULT,
-        new Format[] {PNG_FORMAT},
+        new Format[] {IMAGE_FORMAT},
         fakeSampleStream1,
         /* positionUs= */ 0,
         /* joining= */ false,
@@ -319,7 +315,7 @@ public class ImageRendererTest {
     renderer.render(/* positionUs= */ 200_000L, /* elapsedRealtimeUs= */ 0);
     renderer.render(/* positionUs= */ 300_000L, /* elapsedRealtimeUs= */ 0);
     renderer.replaceStream(
-        new Format[] {PNG_FORMAT},
+        new Format[] {IMAGE_FORMAT},
         fakeSampleStream2,
         /* startPositionUs= */ 10,
         /* offsetUs= */ 400_000L,
@@ -330,7 +326,7 @@ public class ImageRendererTest {
     renderer.disable();
     renderer.enable(
         RendererConfiguration.DEFAULT,
-        new Format[] {PNG_FORMAT},
+        new Format[] {IMAGE_FORMAT},
         fakeSampleStream2,
         /* positionUs= */ 0,
         /* joining= */ false,
@@ -355,56 +351,10 @@ public class ImageRendererTest {
   }
 
   @Test
-  public void renderTwoStreams_differentFormat_rendersToImageOutput() throws Exception {
-    FakeSampleStream fakeSampleStream1 = createSampleStream(/* timeUs= */ 0);
-    fakeSampleStream1.writeData(/* startPositionUs= */ 0);
-    FakeSampleStream fakeSampleStream2 = createSampleStream(/* timeUs= */ 10);
-    fakeSampleStream2.writeData(/* startPositionUs= */ 10);
-    renderer.enable(
-        RendererConfiguration.DEFAULT,
-        new Format[] {PNG_FORMAT},
-        fakeSampleStream1,
-        /* positionUs= */ 0,
-        /* joining= */ false,
-        /* mayRenderStartOfStream= */ true,
-        /* startPositionUs= */ 0,
-        /* offsetUs= */ 0,
-        new MediaSource.MediaPeriodId(new Object()));
-
-    StopWatch isReadyStopWatch = new StopWatch(IS_READY_TIMEOUT_MESSAGE);
-    while (!renderer.isReady() && isReadyStopWatch.ensureNotExpired()) {
-      renderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
-    }
-    renderer.start();
-    StopWatch hasReadStreamToEndStopWatch = new StopWatch(HAS_READ_STREAM_TO_END_TIMEOUT_MESSAGE);
-    while (!renderer.hasReadStreamToEnd() && hasReadStreamToEndStopWatch.ensureNotExpired()) {
-      renderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
-    }
-    renderer.replaceStream(
-        new Format[] {JPEG_FORMAT},
-        fakeSampleStream2,
-        /* startPositionUs= */ 10,
-        /* offsetUs= */ 0,
-        new MediaSource.MediaPeriodId(new Object()));
-    renderer.setCurrentStreamFinal();
-    StopWatch isEndedStopWatch = new StopWatch(IS_ENDED_TIMEOUT_MESSAGE);
-    while (!renderer.isEnded() && isEndedStopWatch.ensureNotExpired()) {
-      renderer.render(/* positionUs= */ 10, /* elapsedRealtimeUs= */ 0);
-    }
-    renderer.stop();
-
-    assertThat(renderedBitmaps).hasSize(2);
-    assertThat(renderedBitmaps.get(0).first).isEqualTo(0L);
-    assertThat(renderedBitmaps.get(0).second).isSameInstanceAs(fakeDecodedBitmap1);
-    assertThat(renderedBitmaps.get(1).first).isEqualTo(10L);
-    assertThat(renderedBitmaps.get(1).second).isSameInstanceAs(fakeDecodedBitmap2);
-  }
-
-  @Test
   public void render_tiledImage_cropsAndRendersToImageOutput() throws Exception {
     FakeSampleStream fakeSampleStream =
         createSampleStream(
-            JPEG_FORMAT_WITH_FOUR_TILES,
+            FORMAT_WITH_FOUR_TILES,
             ImmutableList.of(
                 oneByteSample(/* timeUs= */ 0L, /* flags= */ C.BUFFER_FLAG_KEY_FRAME),
                 emptySample(/* timeUs= */ 100_000L, /* flags= */ 0),
@@ -414,7 +364,7 @@ public class ImageRendererTest {
     fakeSampleStream.writeData(/* startPositionUs= */ 0);
     renderer.enable(
         RendererConfiguration.DEFAULT,
-        new Format[] {JPEG_FORMAT_WITH_FOUR_TILES},
+        new Format[] {FORMAT_WITH_FOUR_TILES},
         fakeSampleStream,
         /* positionUs= */ 0,
         /* joining= */ false,
@@ -457,7 +407,7 @@ public class ImageRendererTest {
   public void render_tiledImageWithNonZeroStartPosition_rendersToImageOutput() throws Exception {
     FakeSampleStream fakeSampleStream =
         createSampleStream(
-            JPEG_FORMAT_WITH_FOUR_TILES,
+            FORMAT_WITH_FOUR_TILES,
             ImmutableList.of(
                 oneByteSample(/* timeUs= */ 0L, /* flags= */ C.BUFFER_FLAG_KEY_FRAME),
                 emptySample(/* timeUs= */ 100_000L, /* flags= */ 0),
@@ -467,7 +417,7 @@ public class ImageRendererTest {
     fakeSampleStream.writeData(/* startPositionUs= */ 0);
     renderer.enable(
         RendererConfiguration.DEFAULT,
-        new Format[] {JPEG_FORMAT_WITH_FOUR_TILES},
+        new Format[] {FORMAT_WITH_FOUR_TILES},
         fakeSampleStream,
         /* positionUs= */ 200_000,
         /* joining= */ false,
@@ -501,7 +451,7 @@ public class ImageRendererTest {
       throws Exception {
     FakeSampleStream fakeSampleStream =
         createSampleStream(
-            JPEG_FORMAT_WITH_FOUR_TILES,
+            FORMAT_WITH_FOUR_TILES,
             ImmutableList.of(
                 oneByteSample(/* timeUs= */ 0L, /* flags= */ C.BUFFER_FLAG_KEY_FRAME),
                 emptySample(/* timeUs= */ 100_000L, /* flags= */ 0),
@@ -511,7 +461,7 @@ public class ImageRendererTest {
     fakeSampleStream.writeData(/* startPositionUs= */ 0);
     renderer.enable(
         RendererConfiguration.DEFAULT,
-        new Format[] {JPEG_FORMAT_WITH_FOUR_TILES},
+        new Format[] {FORMAT_WITH_FOUR_TILES},
         fakeSampleStream,
         /* positionUs= */ 0,
         /* joining= */ false,
@@ -544,7 +494,7 @@ public class ImageRendererTest {
       throws Exception {
     FakeSampleStream fakeSampleStream =
         createSampleStream(
-            JPEG_FORMAT_WITH_FOUR_TILES,
+            FORMAT_WITH_FOUR_TILES,
             ImmutableList.of(
                 oneByteSample(/* timeUs= */ 0L, /* flags= */ C.BUFFER_FLAG_KEY_FRAME),
                 emptySample(/* timeUs= */ 100_000L, /* flags= */ 0),
@@ -554,7 +504,7 @@ public class ImageRendererTest {
     fakeSampleStream.writeData(/* startPositionUs= */ 0);
     renderer.enable(
         RendererConfiguration.DEFAULT,
-        new Format[] {JPEG_FORMAT_WITH_FOUR_TILES},
+        new Format[] {FORMAT_WITH_FOUR_TILES},
         fakeSampleStream,
         /* positionUs= */ 0,
         /* joining= */ false,
@@ -589,7 +539,7 @@ public class ImageRendererTest {
           throws Exception {
     FakeSampleStream fakeSampleStream =
         createSampleStream(
-            JPEG_FORMAT_WITH_FOUR_TILES,
+            FORMAT_WITH_FOUR_TILES,
             ImmutableList.of(
                 oneByteSample(/* timeUs= */ 0L, /* flags= */ C.BUFFER_FLAG_KEY_FRAME),
                 emptySample(/* timeUs= */ 100_000L, /* flags= */ 0),
@@ -599,7 +549,7 @@ public class ImageRendererTest {
     fakeSampleStream.writeData(/* startPositionUs= */ 0);
     renderer.enable(
         RendererConfiguration.DEFAULT,
-        new Format[] {JPEG_FORMAT_WITH_FOUR_TILES},
+        new Format[] {FORMAT_WITH_FOUR_TILES},
         fakeSampleStream,
         /* positionUs= */ 0,
         /* joining= */ false,
@@ -635,7 +585,7 @@ public class ImageRendererTest {
           throws Exception {
     FakeSampleStream fakeSampleStream =
         createSampleStream(
-            JPEG_FORMAT_WITH_FOUR_TILES,
+            FORMAT_WITH_FOUR_TILES,
             ImmutableList.of(
                 oneByteSample(/* timeUs= */ 0L, /* flags= */ C.BUFFER_FLAG_KEY_FRAME),
                 emptySample(/* timeUs= */ 100_000L, /* flags= */ 0),
@@ -645,7 +595,7 @@ public class ImageRendererTest {
     fakeSampleStream.writeData(/* startPositionUs= */ 0);
     renderer.enable(
         RendererConfiguration.DEFAULT,
-        new Format[] {JPEG_FORMAT_WITH_FOUR_TILES},
+        new Format[] {FORMAT_WITH_FOUR_TILES},
         fakeSampleStream,
         /* positionUs= */ 0,
         /* joining= */ false,
@@ -680,7 +630,7 @@ public class ImageRendererTest {
       throws Exception {
     FakeSampleStream fakeSampleStream =
         createSampleStream(
-            JPEG_FORMAT_WITH_FOUR_TILES,
+            FORMAT_WITH_FOUR_TILES,
             ImmutableList.of(
                 oneByteSample(/* timeUs= */ 0L, /* flags= */ C.BUFFER_FLAG_KEY_FRAME),
                 emptySample(/* timeUs= */ 100_000L, /* flags= */ 0),
@@ -690,7 +640,7 @@ public class ImageRendererTest {
     fakeSampleStream.writeData(/* startPositionUs= */ 0);
     renderer.enable(
         RendererConfiguration.DEFAULT,
-        new Format[] {JPEG_FORMAT_WITH_FOUR_TILES},
+        new Format[] {FORMAT_WITH_FOUR_TILES},
         fakeSampleStream,
         /* positionUs= */ 0,
         /* joining= */ false,
@@ -721,8 +671,8 @@ public class ImageRendererTest {
   @Test
   public void render_tiledImageNonSquare_rendersAllImagesToOutput() throws Exception {
     ImageDecoder.Factory fakeDecoderFactory =
-        new BitmapFactoryImageDecoder.Factory(
-            (data, length) -> {
+        new ExternallyLoadedImageDecoder.Factory(
+            request -> {
               /*
                * Thumbnail grid image is as depicted below.
                *    0 1 2 3 4 5 6 7 8
@@ -738,7 +688,7 @@ public class ImageRendererTest {
                   Bitmap.createBitmap(/* width= */ 9, /* height= */ 4, Bitmap.Config.ARGB_8888);
               bm.setPixel(1, 2, Color.rgb(100, 0, 0));
               bm.setPixel(4, 3, Color.rgb(0, 100, 0));
-              return bm;
+              return immediateFuture(bm);
             });
     ImageOutput queuingImageOutput =
         new ImageOutput() {
@@ -756,7 +706,7 @@ public class ImageRendererTest {
     renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
     FakeSampleStream fakeSampleStream =
         createSampleStream(
-            JPEG_FORMAT_WITH_SIX_TILES,
+            FORMAT_WITH_SIX_TILES,
             ImmutableList.of(
                 oneByteSample(/* timeUs= */ 0L, /* flags= */ C.BUFFER_FLAG_KEY_FRAME),
                 emptySample(/* timeUs= */ 100_000L, /* flags= */ 0),
@@ -768,7 +718,7 @@ public class ImageRendererTest {
     fakeSampleStream.writeData(/* startPositionUs= */ 0);
     renderer.enable(
         RendererConfiguration.DEFAULT,
-        new Format[] {JPEG_FORMAT_WITH_SIX_TILES},
+        new Format[] {FORMAT_WITH_SIX_TILES},
         fakeSampleStream,
         /* positionUs= */ 0,
         /* joining= */ false,
@@ -826,7 +776,7 @@ public class ImageRendererTest {
         /* mediaSourceEventDispatcher= */ null,
         DrmSessionManager.DRM_UNSUPPORTED,
         new DrmSessionEventListener.EventDispatcher(),
-        PNG_FORMAT,
+        IMAGE_FORMAT,
         ImmutableList.of(oneByteSample(timeUs, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
   }
 

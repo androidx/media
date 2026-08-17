@@ -38,9 +38,9 @@ import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.text.TextRenderer;
-import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
+import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.RobolectricUtil;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
@@ -73,11 +73,12 @@ public class WebvttPlaybackTest {
   @Test
   public void test() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -111,11 +112,12 @@ public class WebvttPlaybackTest {
   @Test
   public void test_withSeek() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .setLoadControl(
                 new DefaultLoadControl.Builder()
                     .setBackBuffer(
@@ -163,8 +165,9 @@ public class WebvttPlaybackTest {
   @Test
   public void test_legacyParseInRenderer() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext)
+        new CapturingRenderersFactory(applicationContext, clock)
             .setTextRendererFactory(
                 (textOutput, outputLooper) -> {
                   TextRenderer renderer = new TextRenderer(textOutput, outputLooper);
@@ -176,7 +179,7 @@ public class WebvttPlaybackTest {
             .experimentalParseSubtitlesDuringExtraction(false);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .setMediaSourceFactory(mediaSourceFactory)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
@@ -221,8 +224,9 @@ public class WebvttPlaybackTest {
   @Test
   public void test_legacyParseInRendererWithSeek() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext)
+        new CapturingRenderersFactory(applicationContext, clock)
             .setTextRendererFactory(
                 (textOutput, outputLooper) -> {
                   TextRenderer renderer = new TextRenderer(textOutput, outputLooper);
@@ -234,7 +238,7 @@ public class WebvttPlaybackTest {
             .experimentalParseSubtitlesDuringExtraction(false);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .setMediaSourceFactory(mediaSourceFactory)
             .setLoadControl(
                 new DefaultLoadControl.Builder()

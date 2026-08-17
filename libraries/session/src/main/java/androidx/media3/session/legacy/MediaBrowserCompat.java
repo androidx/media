@@ -16,6 +16,7 @@
 package androidx.media3.session.legacy;
 
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
+import static androidx.media3.common.util.Util.convertToNullIfInvalid;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.CLIENT_MSG_ADD_SUBSCRIPTION;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.CLIENT_MSG_GET_MEDIA_ITEM;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.CLIENT_MSG_REGISTER_CALLBACK_MESSENGER;
@@ -65,14 +66,13 @@ import android.os.Process;
 import android.os.RemoteException;
 import android.support.v4.os.ResultReceiver;
 import android.text.TextUtils;
-import android.util.Log;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.collection.ArrayMap;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.session.legacy.MediaControllerCompat.TransportControls;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -106,11 +106,9 @@ import java.util.List;
  * <p>For information about building your media application, read the <a
  * href="{@docRoot}guide/topics/media-apps/index.html">Media Apps</a> developer guide. </div>
  */
-@UnstableApi
 @RestrictTo(LIBRARY)
 public final class MediaBrowserCompat {
   static final String TAG = "MediaBrowserCompat";
-  static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
 
   /**
    * Used as an int extra field to denote the page number to subscribe. The value of {@code
@@ -721,15 +719,15 @@ public final class MediaBrowserCompat {
       @Override
       public void onChildrenLoaded(
           String parentId, List<MediaBrowser.MediaItem> children, Bundle options) {
-        MediaSessionCompat.ensureClassLoader(options);
+        Bundle optionsForCallback = convertToNullIfInvalid(options);
         SubscriptionCallback.this.onChildrenLoaded(
-            parentId, MediaItem.fromMediaItemList(children), options);
+            parentId, MediaItem.fromMediaItemList(children), optionsForCallback);
       }
 
       @Override
       public void onError(String parentId, Bundle options) {
-        MediaSessionCompat.ensureClassLoader(options);
-        SubscriptionCallback.this.onError(parentId, options);
+        Bundle optionsForCallback = convertToNullIfInvalid(options);
+        SubscriptionCallback.this.onError(parentId, optionsForCallback);
       }
     }
   }
@@ -933,7 +931,7 @@ public final class MediaBrowserCompat {
     @Override
     @Nullable
     public Bundle getExtras() {
-      return browserFwk.getExtras();
+      return convertToNullIfInvalid(browserFwk.getExtras());
     }
 
     @Override
@@ -1161,7 +1159,7 @@ public final class MediaBrowserCompat {
     public void onConnected() {
       Bundle extras;
       try {
-        extras = browserFwk.getExtras();
+        extras = convertToNullIfInvalid(browserFwk.getExtras());
       } catch (IllegalStateException e) {
         // Should not be here since onConnected() will be called in a connected state.
         Log.e(TAG, "Unexpected IllegalStateException", e);
@@ -1221,9 +1219,7 @@ public final class MediaBrowserCompat {
       // Check that the subscription is still subscribed.
       Subscription subscription = parentId == null ? null : subscriptions.get(parentId);
       if (subscription == null) {
-        if (DEBUG) {
-          Log.d(TAG, "onLoadChildren for id that isn't subscribed id=" + parentId);
-        }
+        Log.d(TAG, "onLoadChildren for id that isn't subscribed id=" + parentId);
         return;
       }
 
@@ -1368,12 +1364,10 @@ public final class MediaBrowserCompat {
         switch (msg.what) {
           case SERVICE_MSG_ON_LOAD_CHILDREN:
             {
-              Bundle options = data.getBundle(DATA_OPTIONS);
-              MediaSessionCompat.ensureClassLoader(options);
+              Bundle options = convertToNullIfInvalid(data.getBundle(DATA_OPTIONS));
 
               Bundle notifyChildrenChangedOptions =
-                  data.getBundle(DATA_NOTIFY_CHILDREN_CHANGED_OPTIONS);
-              MediaSessionCompat.ensureClassLoader(notifyChildrenChangedOptions);
+                  convertToNullIfInvalid(data.getBundle(DATA_NOTIFY_CHILDREN_CHANGED_OPTIONS));
 
               serviceCallback.onLoadChildren(
                   callbacksMessenger,
@@ -1488,6 +1482,9 @@ public final class MediaBrowserCompat {
 
     private void sendRequest(int what, @Nullable Bundle data, Messenger cbMessenger)
         throws RemoteException {
+      if (!messenger.getBinder().isBinderAlive()) {
+        return;
+      }
       Message msg = Message.obtain();
       msg.what = what;
       msg.arg1 = CLIENT_VERSION_CURRENT;
@@ -1512,19 +1509,26 @@ public final class MediaBrowserCompat {
 
     @Override
     protected void onReceiveResult(int resultCode, @Nullable Bundle resultData) {
-      if (resultData != null) {
-        resultData = MediaSessionCompat.unparcelWithClassLoader(resultData);
-      }
-      if (resultCode != MediaBrowserServiceCompat.RESULT_OK
-          || resultData == null
-          || !resultData.containsKey(MediaBrowserServiceCompat.KEY_MEDIA_ITEM)) {
+      resultData = convertToNullIfInvalid(resultData);
+      if (resultCode != MediaBrowserServiceCompat.RESULT_OK || resultData == null) {
         callback.onError(mediaId);
         return;
       }
-      MediaItem item =
-          LegacyParcelableUtil.convert(
-              resultData.getParcelable(MediaBrowserServiceCompat.KEY_MEDIA_ITEM),
-              MediaItem.CREATOR);
+      MediaItem item;
+      try {
+        if (!resultData.containsKey(MediaBrowserServiceCompat.KEY_MEDIA_ITEM)) {
+          callback.onError(mediaId);
+          return;
+        }
+        item =
+            LegacyParcelableUtil.convert(
+                resultData.getParcelable(MediaBrowserServiceCompat.KEY_MEDIA_ITEM),
+                MediaItem.CREATOR);
+      } catch (RuntimeException e) {
+        Log.w(TAG, "Failed to retrieve media item from parcelable", e);
+        callback.onError(mediaId);
+        return;
+      }
       callback.onItemLoaded(item);
     }
   }
@@ -1545,17 +1549,23 @@ public final class MediaBrowserCompat {
 
     @Override
     protected void onReceiveResult(int resultCode, @Nullable Bundle resultData) {
-      if (resultData != null) {
-        resultData = MediaSessionCompat.unparcelWithClassLoader(resultData);
-      }
-      if (resultCode != MediaBrowserServiceCompat.RESULT_OK
-          || resultData == null
-          || !resultData.containsKey(MediaBrowserServiceCompat.KEY_SEARCH_RESULTS)) {
+      resultData = convertToNullIfInvalid(resultData);
+      if (resultCode != MediaBrowserServiceCompat.RESULT_OK || resultData == null) {
         callback.onError(query, extras);
         return;
       }
-      Parcelable[] items =
-          resultData.getParcelableArray(MediaBrowserServiceCompat.KEY_SEARCH_RESULTS);
+      Parcelable[] items;
+      try {
+        if (!resultData.containsKey(MediaBrowserServiceCompat.KEY_SEARCH_RESULTS)) {
+          callback.onError(query, extras);
+          return;
+        }
+        items = resultData.getParcelableArray(MediaBrowserServiceCompat.KEY_SEARCH_RESULTS);
+      } catch (RuntimeException e) {
+        Log.w(TAG, "Failed to retrieve search results from parcelable", e);
+        callback.onError(query, extras);
+        return;
+      }
       if (items != null) {
         List<MediaItem> results = new ArrayList<>(items.length);
         for (Parcelable item : items) {
@@ -1590,7 +1600,7 @@ public final class MediaBrowserCompat {
       if (callback == null) {
         return;
       }
-      MediaSessionCompat.ensureClassLoader(resultData);
+      resultData = convertToNullIfInvalid(resultData);
       switch (resultCode) {
         case MediaBrowserServiceCompat.RESULT_PROGRESS_UPDATE:
           callback.onProgressUpdate(

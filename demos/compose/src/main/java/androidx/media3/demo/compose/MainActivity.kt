@@ -15,129 +15,129 @@
  */
 package androidx.media3.demo.compose
 
-import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
+import androidx.activity.viewModels
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.LifecycleResumeEffect
-import androidx.lifecycle.compose.LifecycleStartEffect
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
-import androidx.media3.demo.compose.buttons.ExtraControls
-import androidx.media3.demo.compose.buttons.MinimalControls
-import androidx.media3.demo.compose.data.videos
-import androidx.media3.demo.compose.indicator.HorizontalLinearProgressIndicator
-import androidx.media3.demo.compose.layout.CONTENT_SCALES
-import androidx.media3.demo.compose.layout.noRippleClickable
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.compose.ContentFrame
-import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
+import androidx.media3.demo.compose.layout.EditingPlayerScreen
+import androidx.media3.demo.compose.layout.LongFormPlayerScreen
+import androidx.media3.demo.compose.layout.PlayerFormatScreen
+import androidx.media3.demo.compose.layout.SampleChooserScreen
+import androidx.media3.demo.compose.layout.ShortFormPlayerScreen
+import androidx.media3.demo.compose.viewmodel.NavigationViewModel
+import androidx.media3.demo.compose.viewmodel.PlayerLifecycleViewModel
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 
 class MainActivity : ComponentActivity() {
+  private val navigationViewModel: NavigationViewModel by viewModels()
+  private val playerViewModel: PlayerLifecycleViewModel by viewModels()
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
-    setContent { ComposeDemoApp() }
+    setContent {
+      ComposeDemo(
+        navigationViewModel = navigationViewModel,
+        playerViewModel = playerViewModel,
+        modifier = Modifier.fillMaxSize(),
+      )
+    }
   }
 }
 
 @Composable
-fun ComposeDemoApp(modifier: Modifier = Modifier) {
+private fun ComposeDemo(
+  navigationViewModel: NavigationViewModel,
+  playerViewModel: PlayerLifecycleViewModel,
+  modifier: Modifier = Modifier,
+) {
   val context = LocalContext.current
-  var player by remember { mutableStateOf<Player?>(null) }
+  val isDarkTheme = isSystemInDarkTheme()
+  val supportsDynamicColor = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
-  // See the following resources
-  // https://developer.android.com/topic/libraries/architecture/lifecycle#onStop-and-savedState
-  // https://developer.android.com/develop/ui/views/layout/support-multi-window-mode#multi-window_mode_configuration
-  // https://developer.android.com/develop/ui/compose/layouts/adaptive/support-multi-window-mode#android_9
+  val activity = context as? ComponentActivity
+  LaunchedEffect(isDarkTheme) { activity?.enableEdgeToEdge() }
 
-  if (Build.VERSION.SDK_INT > 23) {
-    // Initialize/release in onStart()/onStop() only because in a multi-window environment multiple
-    // apps can be visible at the same time. The apps that are out-of-focus are paused, but video
-    // playback should continue.
-    LifecycleStartEffect(Unit) {
-      player = initializePlayer(context)
-      onStopOrDispose {
-        player?.apply { release() }
-        player = null
-      }
-    }
-  } else {
-    // Call to onStop() is not guaranteed, hence we release the Player in onPause() instead
-    LifecycleResumeEffect(Unit) {
-      player = initializePlayer(context)
-      onPauseOrDispose {
-        player?.apply { release() }
-        player = null
-      }
-    }
-  }
-
-  player?.let { MediaPlayerScreen(player = it, modifier = modifier.fillMaxSize()) }
-}
-
-private fun initializePlayer(context: Context): Player =
-  ExoPlayer.Builder(context).build().apply {
-    setMediaItems(
-      videos.mapIndexed { idx, uri ->
-        MediaItem.Builder().setUri(uri).setMediaId(idx.toString()).build()
-      }
-    )
-    prepare()
-  }
-
-@Composable
-private fun MediaPlayerScreen(player: Player, modifier: Modifier = Modifier) {
-  var showControls by remember { mutableStateOf(true) }
-  var currentContentScaleIndex by remember { mutableIntStateOf(0) }
-  val contentScale = CONTENT_SCALES[currentContentScaleIndex].second
-
-  // Only use MediaPlayerScreen's modifier once for the top level Composable
-  Box(modifier) {
-    ContentFrame(
-      player = player,
-      surfaceType = SURFACE_TYPE_SURFACE_VIEW,
-      modifier = Modifier.noRippleClickable { showControls = !showControls },
-      keepContentOnReset = true,
-      contentScale = contentScale,
-    )
-
-    if (showControls) {
-      // drawn on top of a potential shutter
-      MinimalControls(player, Modifier.fillMaxWidth().align(Alignment.Center))
-      Column(Modifier.fillMaxWidth().align(Alignment.BottomCenter)) {
-        HorizontalLinearProgressIndicator(player, Modifier.fillMaxWidth())
-        ExtraControls(player, Modifier.fillMaxWidth().background(Color.Gray.copy(alpha = 0.4f)))
-      }
+  val colorScheme =
+    when {
+      supportsDynamicColor && isDarkTheme -> dynamicDarkColorScheme(context)
+      supportsDynamicColor && !isDarkTheme -> dynamicLightColorScheme(context)
+      isDarkTheme -> darkColorScheme()
+      else -> lightColorScheme()
     }
 
-    Button(
-      onClick = { currentContentScaleIndex = currentContentScaleIndex.inc() % CONTENT_SCALES.size },
-      modifier = Modifier.align(Alignment.TopCenter).padding(top = 48.dp),
+  MaterialTheme(colorScheme) {
+    val navController = rememberNavController()
+    NavHost(
+      navController = navController,
+      startDestination = ROUTE_SAMPLE_CHOOSER,
+      enterTransition = { EnterTransition.None },
+      exitTransition = { ExitTransition.None },
     ) {
-      Text("ContentScale is ${CONTENT_SCALES[currentContentScaleIndex].first}")
+      composable(ROUTE_SAMPLE_CHOOSER) {
+        SampleChooserScreen(
+          onPlaylistClick = { selectedPlaylistName, selectedMedia ->
+            navigationViewModel.selectPlaylistName(selectedPlaylistName)
+            navigationViewModel.selectMediaItems(selectedMedia)
+            navController.navigate(ROUTE_PLAYER_FORMAT_CHOOSER)
+          },
+          modifier = modifier.statusBarsPadding(),
+        )
+      }
+      composable(ROUTE_PLAYER_FORMAT_CHOOSER) {
+        val mediaItems by navigationViewModel.mediaItems.collectAsState()
+        PlayerFormatScreen(
+          onLongFormClick = { navController.navigate(ROUTE_LONG_FORM_PLAYER) },
+          onShortFormClick = { navController.navigate(ROUTE_SHORT_FORM_PLAYER) },
+          onEditingClick =
+            if (mediaItems.size == 1) {
+              { navController.navigate(ROUTE_EDITING_PLAYER) }
+            } else null,
+          modifier = modifier.statusBarsPadding(),
+        )
+      }
+      composable(ROUTE_LONG_FORM_PLAYER) {
+        val mediaItems by navigationViewModel.mediaItems.collectAsState()
+        val playlistName by navigationViewModel.playlistName.collectAsState()
+        LongFormPlayerScreen(playlistName, mediaItems, playerViewModel)
+      }
+      composable(ROUTE_SHORT_FORM_PLAYER) {
+        val mediaItems by navigationViewModel.mediaItems.collectAsState()
+        val playlistName by navigationViewModel.playlistName.collectAsState()
+        ShortFormPlayerScreen(playlistName, mediaItems)
+      }
+      composable(ROUTE_EDITING_PLAYER) {
+        val mediaItems by navigationViewModel.mediaItems.collectAsState()
+        if (mediaItems.size == 1) {
+          EditingPlayerScreen(mediaItems.single(), playerViewModel)
+        }
+      }
     }
   }
 }
+
+private const val ROUTE_SAMPLE_CHOOSER = "sample_chooser"
+private const val ROUTE_PLAYER_FORMAT_CHOOSER = "player_format_chooser"
+private const val ROUTE_LONG_FORM_PLAYER = "long_form_player"
+private const val ROUTE_SHORT_FORM_PLAYER = "short_form_player"
+private const val ROUTE_EDITING_PLAYER = "editing_player"

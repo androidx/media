@@ -481,6 +481,15 @@ public final class MediaConstants {
       "androidx.media3.session.EXTRAS_KEY_MEDIA_TYPE_COMPAT";
 
   /**
+   * {@link Bundle} key used to indicate the {@link MediaMetadata#playlistId} in the legacy {@code
+   * android.support.v4.media.MediaDescriptionCompat} as a String extra and as a String value in
+   * {@code android.support.v4.media.MediaMetadataCompat}.
+   */
+  @UnstableApi
+  public static final String EXTRAS_KEY_PLAYLIST_ID =
+      "androidx.media3.session.EXTRAS_KEY_PLAYLIST_ID";
+
+  /**
    * {@link Bundle} key used to indicate the {@link CommandButton.Icon} in the extras of the
    * platform {@link android.media.session.PlaybackState.CustomAction}. The corresponding value
    * should be one of the {@code CommandButton.ICON_} integer constants.
@@ -509,7 +518,7 @@ public final class MediaConstants {
       "androidx.media3.session.SESSION_COMMAND_ON_CAPTIONING_ENABLED_CHANGED";
   /* package */ static final String SESSION_COMMAND_REQUEST_SESSION3_TOKEN =
       "androidx.media3.session.SESSION_COMMAND_REQUEST_SESSION3_TOKEN";
-  /* package */ static final String SESSION_COMMAND_MEDIA3_PLAY_REQUEST =
+  /* package */ static final String SESSION_COMMAND_MEDIA3_CHANGE_REQUEST =
       "androidx.media3.session.SESSION_COMMAND_MEDIA3_PLAY_REQUEST";
 
   /* package */ static final String ARGUMENT_CAPTIONING_ENABLED =

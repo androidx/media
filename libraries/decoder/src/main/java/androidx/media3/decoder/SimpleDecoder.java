@@ -23,6 +23,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import java.util.ArrayDeque;
+import java.util.concurrent.Executor;
 
 /**
  * Base class for {@link Decoder}s that use their own decode thread and decode each input buffer
@@ -51,6 +52,10 @@ public abstract class SimpleDecoder<
   private boolean released;
   private int skippedOutputBufferCount;
   private long outputStartTimeUs;
+
+  @Nullable private Executor executor;
+  @Nullable private Runnable onOutputBufferAvailableRunnable;
+  @Nullable private Runnable onInputBufferAvailableRunnable;
 
   /**
    * @param inputBuffers An array of nulls that will be used to store references to input buffers.
@@ -122,6 +127,17 @@ public abstract class SimpleDecoder<
   }
 
   @Override
+  public final void setCallback(Callback callback, Executor executor) {
+    synchronized (lock) {
+      this.executor = executor;
+      this.onOutputBufferAvailableRunnable =
+          callback != null ? callback::onOutputBufferAvailable : null;
+      this.onInputBufferAvailableRunnable =
+          callback != null ? callback::onInputBufferAvailable : null;
+    }
+  }
+
+  @Override
   @Nullable
   public final I dequeueInputBuffer() throws E {
     synchronized (lock) {
@@ -177,11 +193,11 @@ public abstract class SimpleDecoder<
       flushed = true;
       skippedOutputBufferCount = 0;
       if (dequeuedInputBuffer != null) {
-        releaseInputBufferInternal(dequeuedInputBuffer);
+        releaseInputBufferInternal(dequeuedInputBuffer, /* notifyCallback= */ false);
         dequeuedInputBuffer = null;
       }
       while (!queuedInputBuffers.isEmpty()) {
-        releaseInputBufferInternal(queuedInputBuffers.removeFirst());
+        releaseInputBufferInternal(queuedInputBuffers.removeFirst(), /* notifyCallback= */ false);
       }
       while (!queuedOutputBuffers.isEmpty()) {
         queuedOutputBuffers.removeFirst().release();
@@ -298,9 +314,14 @@ public abstract class SimpleDecoder<
         outputBuffer.skippedOutputBufferCount = skippedOutputBufferCount;
         skippedOutputBufferCount = 0;
         queuedOutputBuffers.addLast(outputBuffer);
+        Runnable currentOnOutputBufferAvailableRunnable = this.onOutputBufferAvailableRunnable;
+        Executor currentExecutor = this.executor;
+        if (currentOnOutputBufferAvailableRunnable != null && currentExecutor != null) {
+          currentExecutor.execute(currentOnOutputBufferAvailableRunnable);
+        }
       }
       // Make the input buffer available again.
-      releaseInputBufferInternal(inputBuffer);
+      releaseInputBufferInternal(inputBuffer, /* notifyCallback= */ true);
     }
 
     return true;
@@ -310,9 +331,16 @@ public abstract class SimpleDecoder<
     return !queuedInputBuffers.isEmpty() && availableOutputBufferCount > 0;
   }
 
-  private void releaseInputBufferInternal(I inputBuffer) {
+  private void releaseInputBufferInternal(I inputBuffer, boolean notifyCallback) {
     inputBuffer.clear();
     availableInputBuffers[availableInputBufferCount++] = inputBuffer;
+    Runnable currentOnInputBufferAvailableRunnable = this.onInputBufferAvailableRunnable;
+    Executor currentExecutor = this.executor;
+    if (notifyCallback
+        && currentOnInputBufferAvailableRunnable != null
+        && currentExecutor != null) {
+      currentExecutor.execute(currentOnInputBufferAvailableRunnable);
+    }
   }
 
   private void releaseOutputBufferInternal(O outputBuffer) {

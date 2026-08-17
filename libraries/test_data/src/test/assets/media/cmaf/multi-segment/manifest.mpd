@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:mpeg:dash:schema:mpd:2011 DASH-MPD.xsd" profiles="urn:mpeg:dash:profile:isoff-live:2011" minBufferTime="PT2S" type="static" mediaPresentationDuration="PT3S">
+  <Period id="0">
+    <AdaptationSet id="0" contentType="video" width="640" height="360" frameRate="15360/512" segmentAlignment="true" par="16:9">
+      <Representation id="0" bandwidth="1129338" codecs="avc1.4d401e" mimeType="video/mp4" sar="1:1">
+        <SegmentTemplate timescale="15360" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="4096"/>
+            <S t="4096" d="3584"/>
+            <S t="7680" d="4096"/>
+            <S t="11776" d="3584"/>
+            <S t="15360" d="4096"/>
+            <S t="19456" d="3584"/>
+            <S t="23040" d="4096"/>
+            <S t="27136" d="3584"/>
+            <S t="30720" d="4096"/>
+            <S t="34816" d="3584"/>
+            <S t="38400" d="4096"/>
+            <S t="42496" d="3584"/>
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+    <AdaptationSet id="1" contentType="audio" startWithSAP="1" segmentAlignment="true">
+      <Representation id="1" bandwidth="140560" codecs="mp4a.40.2" mimeType="audio/mp4" audioSamplingRate="44100">
+        <AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="1"/>
+        <SegmentTemplate timescale="44100" initialization="audio_init.mp4" media="audio_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="11264" r="3"/>
+            <S t="45056" d="10240"/>
+            <S t="55296" d="11264" r="2"/>
+            <S t="89088" d="10240"/>
+            <S t="99328" d="11264" r="1"/>
+            <S t="121856" d="10444"/>
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>

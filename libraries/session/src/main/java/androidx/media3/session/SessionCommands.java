@@ -124,13 +124,36 @@ public final class SessionCommands {
     }
 
     /**
+     * Adds all read-only session commands.
+     *
+     * @return This builder for chaining.
+     */
+    @CanIgnoreReturnValue
+    /* package */ Builder addAllReadOnlySessionCommands() {
+      addCommandCodes(SessionCommand.SESSION_READ_COMMANDS);
+      return this;
+    }
+
+    /**
      * Adds all session commands.
      *
      * @return This builder for chaining.
      */
-    /* package */ @CanIgnoreReturnValue
-    Builder addAllSessionCommands() {
-      addCommandCodes(SessionCommand.SESSION_COMMANDS);
+    @CanIgnoreReturnValue
+    /* package */ Builder addAllSessionCommands() {
+      addCommandCodes(SessionCommand.SESSION_READ_COMMANDS);
+      addCommandCodes(SessionCommand.SESSION_WRITE_COMMANDS);
+      return this;
+    }
+
+    /**
+     * Adds all read-only library commands.
+     *
+     * @return This builder for chaining.
+     */
+    @CanIgnoreReturnValue
+    /* package */ Builder addAllReadOnlyLibraryCommands() {
+      addCommandCodes(SessionCommand.LIBRARY_READ_COMMANDS);
       return this;
     }
 
@@ -139,9 +162,10 @@ public final class SessionCommands {
      *
      * @return This builder for chaining.
      */
-    /* package */ @CanIgnoreReturnValue
-    Builder addAllLibraryCommands() {
-      addCommandCodes(SessionCommand.LIBRARY_COMMANDS);
+    @CanIgnoreReturnValue
+    /* package */ Builder addAllLibraryCommands() {
+      addCommandCodes(SessionCommand.LIBRARY_READ_COMMANDS);
+      addCommandCodes(SessionCommand.LIBRARY_WRITE_COMMANDS);
       return this;
     }
 
@@ -150,8 +174,8 @@ public final class SessionCommands {
      *
      * @return This builder for chaining.
      */
-    /* package */ @CanIgnoreReturnValue
-    Builder addAllPredefinedCommands() {
+    @CanIgnoreReturnValue
+    /* package */ Builder addAllPredefinedCommands() {
       addAllSessionCommands();
       addAllLibraryCommands();
       return this;

@@ -19,16 +19,16 @@ import static androidx.media3.common.MimeTypes.VIDEO_H265;
 import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_ORIGINAL;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
-import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
+import static androidx.media3.test.utils.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
 import static androidx.media3.transformer.mh.UnoptimizedGlEffect.NO_OP_EFFECT;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.graphics.Bitmap;
 import android.os.Build;
-import android.util.Log;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
+import androidx.media3.common.util.Log;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.test.utils.VideoFrameProcessorTestRunner;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -37,6 +37,7 @@ import com.google.common.collect.ImmutableList;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -49,6 +50,7 @@ import org.junit.runner.RunWith;
  * output matches expected output, either from a golden file or from another edit.
  */
 // TODO: b/263395272 - Move this test to effects/mh tests.
+@Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(AndroidJUnit4.class)
 public final class ToneMapHdrToSdrUsingOpenGlPixelTest {
   private static final String TAG = "ToneMapHdrToSdrGl";

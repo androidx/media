@@ -16,13 +16,13 @@
 package androidx.media3.transformer.mh;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_720P_4_SECOND_HDR10;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_BT2020_SDR;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_COLOR_TEST_1080P_HLG10;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_720P_4_SECOND_HDR10;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_BT2020_SDR;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_COLOR_TEST_1080P_HLG10;
+import static androidx.media3.test.utils.HdrCapabilitiesUtil.assumeDeviceDoesNotSupportHdrColorTransfer;
+import static androidx.media3.test.utils.HdrCapabilitiesUtil.assumeDeviceSupportsHdrColorTransfer;
+import static androidx.media3.test.utils.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
 import static androidx.media3.transformer.AndroidTestUtil.TestVideoGraphFactory.runAsyncTaskAndWait;
-import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceDoesNotSupportHdrColorTransfer;
-import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsHdrColorTransfer;
-import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
@@ -38,12 +38,14 @@ import androidx.media3.transformer.AndroidTestUtil.TestVideoGraphFactory;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /** Instrumentation tests for {@link PlaybackVideoGraphWrapper}. */
+@Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(AndroidJUnit4.class)
 public class PlaybackVideoGraphWrapperTest {
 
@@ -170,6 +172,9 @@ public class PlaybackVideoGraphWrapperTest {
           }
         };
     return new VideoFrameReleaseControl(
-        context, frameTimingEvaluator, /* allowedJoiningTimeMs= */ 0);
+        context,
+        frameTimingEvaluator,
+        /* allowedJoiningTimeMs= */ 0,
+        /* skipBuffersWithIdenticalReleaseTime= */ true);
   }
 }

@@ -20,7 +20,14 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyFloat;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
@@ -35,12 +42,8 @@ import androidx.media3.common.ParserException;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DefaultDataSource;
-import androidx.media3.datasource.cache.Cache;
 import androidx.media3.datasource.cache.CacheDataSource;
-import androidx.media3.datasource.cache.NoOpCacheEvictor;
-import androidx.media3.datasource.cache.SimpleCache;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
@@ -59,45 +62,40 @@ import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.test.utils.FakeMediaPeriod;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeRenderer;
-import androidx.media3.test.utils.TestUtil;
+import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.media3.test.utils.robolectric.FakeDownloader;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import com.google.common.util.concurrent.AtomicDouble;
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 /** Unit tests for {@link PreCacheHelper}. */
 @RunWith(AndroidJUnit4.class)
 public class PreCacheHelperTest {
+  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
+  @Rule public final InMemoryDatabaseRule cacheRule = InMemoryDatabaseRule.create();
 
   private static final long TIMEOUT_MS = 10_000;
-  private File testDir;
-  private Cache downloadCache;
+  private static final long NEGATIVE_TIMEOUT_MS = 500;
   private HandlerThread preCacheThread;
   private Looper preCacheLooper;
-  private TestPreCacheHelperListener preCacheHelperListener;
+  @Mock private PreCacheHelper.Listener mockPreCacheHelperListener;
   private MediaItem testMediaItem;
 
   @Before
   public void setUp() throws Exception {
-    testDir =
-        Util.createTempFile(ApplicationProvider.getApplicationContext(), "PreCacheHelperTest");
-    assertThat(testDir.delete()).isTrue();
-    assertThat(testDir.mkdirs()).isTrue();
-    preCacheHelperListener = new TestPreCacheHelperListener();
-    downloadCache =
-        new SimpleCache(testDir, new NoOpCacheEvictor(), TestUtil.getInMemoryDatabaseProvider());
     preCacheThread = new HandlerThread("preCache");
     preCacheThread.start();
     preCacheLooper = preCacheThread.getLooper();
@@ -106,29 +104,39 @@ public class PreCacheHelperTest {
 
   @After
   public void tearDown() {
-    downloadCache.release();
-    Util.recursiveDelete(testDir);
+    shadowOf(Looper.getMainLooper()).idle();
     preCacheThread.quit();
   }
 
   @Test
   public void preCache_succeeds() throws Exception {
+    MediaItem mediaItem = MediaItem.fromUri("asset:///media/mp4/long_1080p_lowbitrate.mp4");
+    AtomicBoolean preCacheTerminated = new AtomicBoolean();
+    doAnswer(
+            invocation -> {
+              preCacheTerminated.set(true);
+              return null;
+            })
+        .when(mockPreCacheHelperListener)
+        .onPreCacheCompleted(any());
     PreCacheHelper preCacheHelper =
         new PreCacheHelper.Factory(
-                ApplicationProvider.getApplicationContext(), downloadCache, preCacheLooper)
-            .setListener(preCacheHelperListener)
-            .create(MediaItem.fromUri("asset:///media/mp4/long_1080p_lowbitrate.mp4"));
+                ApplicationProvider.getApplicationContext(),
+                cacheRule.createSimpleCache(),
+                preCacheLooper)
+            .setListener(mockPreCacheHelperListener)
+            .create(mediaItem);
 
     preCacheHelper.preCache(/* startPositionMs= */ 0, /* durationMs= */ 2000L);
     shadowOf(preCacheLooper).idle();
-    runMainLooperUntil(() -> preCacheHelperListener.percentageDownloaded.get() == 100.0);
+    runMainLooperUntil(() -> preCacheTerminated.get());
     shadowOf(Looper.getMainLooper()).idle();
 
-    assertThat(preCacheHelperListener.onPreparedCalled.get()).isTrue();
-    assertThat(preCacheHelperListener.prepareError.get()).isNull();
-    assertThat(preCacheHelperListener.downloadError.get()).isNull();
+    verify(mockPreCacheHelperListener).onPrepared(eq(mediaItem), any());
+    verify(mockPreCacheHelperListener, never()).onPrepareError(eq(mediaItem), any());
+    verify(mockPreCacheHelperListener, never()).onDownloadError(eq(mediaItem), any());
 
-    preCacheHelper.release(/* removeCachedContent= */ true);
+    preCacheHelper.release(/* removeCachedContent= */ false);
     shadowOf(preCacheLooper).idle();
   }
 
@@ -141,7 +149,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(downloadCache);
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
@@ -158,6 +166,14 @@ public class PreCacheHelperTest {
               fakeMediaSource.setAllowPreparation(false);
               return fakeMediaSource;
             });
+    AtomicBoolean preCacheTerminated = new AtomicBoolean();
+    doAnswer(
+            invocation -> {
+              preCacheTerminated.set(true);
+              return null;
+            })
+        .when(mockPreCacheHelperListener)
+        .onPrepareError(any(), any());
     PreCacheHelper preCacheHelper =
         new PreCacheHelper(
             testMediaItem,
@@ -165,18 +181,19 @@ public class PreCacheHelperTest {
             downloadHelperFactory,
             new FakeDownloaderFactory(),
             preCacheLooper,
-            preCacheHelperListener);
+            mockPreCacheHelperListener);
 
     preCacheHelper.preCache(/* startPositionMs= */ 0, /* durationMs= */ C.TIME_UNSET);
     shadowOf(preCacheLooper).idle();
-    runMainLooperUntil(() -> preCacheHelperListener.prepareError.get() != null);
+    runMainLooperUntil(() -> preCacheTerminated.get());
 
-    assertThat(preCacheHelperListener.onPreparedCalled.get()).isFalse();
-    assertThat(preCacheHelperListener.percentageDownloaded.get()).isEqualTo(0.0);
-    assertThat(preCacheHelperListener.prepareError.get()).isSameInstanceAs(fakeException);
-    assertThat(preCacheHelperListener.downloadError.get()).isNull();
+    verify(mockPreCacheHelperListener, never()).onPrepared(eq(testMediaItem), any());
+    verify(mockPreCacheHelperListener, never())
+        .onPreCacheProgress(eq(testMediaItem), anyLong(), anyLong(), anyFloat());
+    verify(mockPreCacheHelperListener).onPrepareError(eq(testMediaItem), eq(fakeException));
+    verify(mockPreCacheHelperListener, never()).onDownloadError(eq(testMediaItem), any());
 
-    preCacheHelper.release(/* removeCachedContent= */ true);
+    preCacheHelper.release(/* removeCachedContent= */ false);
     shadowOf(preCacheLooper).idle();
   }
 
@@ -189,10 +206,18 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(downloadCache);
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     FakeDownloaderFactory fakeDownloaderFactory = new FakeDownloaderFactory();
+    AtomicBoolean preCacheTerminated = new AtomicBoolean();
+    doAnswer(
+            invocation -> {
+              preCacheTerminated.set(true);
+              return null;
+            })
+        .when(mockPreCacheHelperListener)
+        .onDownloadError(any(), any());
     PreCacheHelper preCacheHelper =
         new PreCacheHelper(
             testMediaItem,
@@ -200,7 +225,7 @@ public class PreCacheHelperTest {
             downloadHelperFactory,
             fakeDownloaderFactory,
             preCacheLooper,
-            preCacheHelperListener);
+            mockPreCacheHelperListener);
 
     preCacheHelper.preCache(/* startPositionMs= */ 0, /* durationMs= */ C.TIME_UNSET);
     shadowOf(preCacheLooper).idle();
@@ -212,19 +237,22 @@ public class PreCacheHelperTest {
       downloader.fail();
     }
     shadowOf(preCacheLooper).idle();
-    runMainLooperUntil(() -> preCacheHelperListener.downloadError.get() != null);
+    runMainLooperUntil(() -> preCacheTerminated.get());
 
-    assertThat(preCacheHelperListener.onPreparedCalled.get()).isTrue();
-    assertThat(preCacheHelperListener.prepareError.get()).isNull();
-    assertThat(preCacheHelperListener.downloadError.get()).isNotNull();
+    verify(mockPreCacheHelperListener).onPrepared(eq(testMediaItem), any());
+    verify(mockPreCacheHelperListener, never())
+        .onPreCacheProgress(eq(testMediaItem), anyLong(), anyLong(), anyFloat());
+    verify(mockPreCacheHelperListener, never()).onPrepareError(eq(testMediaItem), any());
+    verify(mockPreCacheHelperListener).onDownloadError(eq(testMediaItem), any());
 
-    preCacheHelper.release(/* removeCachedContent= */ true);
+    preCacheHelper.release(/* removeCachedContent= */ false);
     shadowOf(preCacheLooper).idle();
   }
 
   @Test
   public void
-      preCacheAgainWithSameTimeRange_whilePreparationOngoing_reuseTheOngoingPreCacheRequest() {
+      preCacheAgainWithSameTimeRange_whilePreparationOngoing_reuseTheOngoingPreCacheRequest()
+          throws Exception {
     ArrayList<FakeMediaSource> createdMediaSources = new ArrayList<>();
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     when(mockMediaSourceFactory.createMediaSource(any()))
@@ -239,7 +267,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(downloadCache);
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     PreCacheHelper preCacheHelper =
@@ -249,7 +277,7 @@ public class PreCacheHelperTest {
             downloadHelperFactory,
             new FakeDownloaderFactory(),
             preCacheLooper,
-            preCacheHelperListener);
+            mockPreCacheHelperListener);
     preCacheHelper.preCache(/* startPositionMs= */ 0, /* durationMs= */ 1000L);
     shadowOf(preCacheLooper).idle();
 
@@ -262,7 +290,7 @@ public class PreCacheHelperTest {
     // request was reused.
     assertThat(createdMediaSources).hasSize(1);
 
-    preCacheHelper.release(/* removeCachedContent= */ true);
+    preCacheHelper.release(/* removeCachedContent= */ false);
     shadowOf(preCacheLooper).idle();
   }
 
@@ -282,7 +310,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(downloadCache);
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     FakeDownloaderFactory fakeDownloaderFactory = new FakeDownloaderFactory();
@@ -293,7 +321,7 @@ public class PreCacheHelperTest {
             downloadHelperFactory,
             fakeDownloaderFactory,
             preCacheLooper,
-            preCacheHelperListener);
+            mockPreCacheHelperListener);
     preCacheHelper.preCache(/* startPositionMs= */ 0, /* durationMs= */ 1000L);
     shadowOf(preCacheLooper).idle();
     runMainLooperUntil(() -> !fakeDownloaderFactory.createdDownloaders.isEmpty());
@@ -310,7 +338,7 @@ public class PreCacheHelperTest {
     // request was reused.
     assertThat(createdMediaSources).hasSize(1);
 
-    preCacheHelper.release(/* removeCachedContent= */ true);
+    preCacheHelper.release(/* removeCachedContent= */ false);
     shadowOf(preCacheLooper).idle();
   }
 
@@ -339,9 +367,17 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(downloadCache);
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
+    AtomicBoolean preCacheTerminated = new AtomicBoolean();
+    doAnswer(
+            invocation -> {
+              preCacheTerminated.set(true);
+              return null;
+            })
+        .when(mockPreCacheHelperListener)
+        .onPrepareError(any(), any());
     PreCacheHelper preCacheHelper =
         new PreCacheHelper(
             testMediaItem,
@@ -349,10 +385,10 @@ public class PreCacheHelperTest {
             downloadHelperFactory,
             new FakeDownloaderFactory(),
             preCacheLooper,
-            preCacheHelperListener);
+            mockPreCacheHelperListener);
     preCacheHelper.preCache(/* startPositionMs= */ 0, /* durationMs= */ 1000L);
     shadowOf(preCacheLooper).idle();
-    runMainLooperUntil(() -> preCacheHelperListener.prepareError.get() != null);
+    runMainLooperUntil(() -> preCacheTerminated.get());
 
     // While the preparation for the first pre-cache call failed, trigger the second call with the
     // same time range.
@@ -361,7 +397,7 @@ public class PreCacheHelperTest {
 
     assertThat(createMediaSourceLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
 
-    preCacheHelper.release(/* removeCachedContent= */ true);
+    preCacheHelper.release(/* removeCachedContent= */ false);
     shadowOf(preCacheLooper).idle();
   }
 
@@ -377,11 +413,19 @@ public class PreCacheHelperTest {
               createMediaSourceLatch.countDown();
               return fakeMediaSource;
             });
+    AtomicBoolean preCacheTerminated = new AtomicBoolean();
+    doAnswer(
+            invocation -> {
+              preCacheTerminated.set(true);
+              return null;
+            })
+        .when(mockPreCacheHelperListener)
+        .onPreCacheCompleted(any());
     CacheDataSource.Factory cacheDataSourceFactory =
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(downloadCache);
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     FakeDownloaderFactory fakeDownloaderFactory = new FakeDownloaderFactory();
@@ -392,7 +436,7 @@ public class PreCacheHelperTest {
             downloadHelperFactory,
             fakeDownloaderFactory,
             preCacheLooper,
-            preCacheHelperListener);
+            mockPreCacheHelperListener);
     preCacheHelper.preCache(/* startPositionMs= */ 0, /* durationMs= */ 1000L);
     shadowOf(preCacheLooper).idle();
     runMainLooperUntil(() -> !fakeDownloaderFactory.createdDownloaders.isEmpty());
@@ -401,13 +445,15 @@ public class PreCacheHelperTest {
     downloader.incrementBytesDownloaded();
     downloader.finish();
     shadowOf(preCacheLooper).idle();
+    runMainLooperUntil(() -> preCacheTerminated.get());
+    shadowOf(Looper.getMainLooper()).idle();
 
     preCacheHelper.preCache(/* startPositionMs= */ 0, /* durationMs= */ 1000L);
     shadowOf(preCacheLooper).idle();
 
     assertThat(createMediaSourceLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
 
-    preCacheHelper.release(/* removeCachedContent= */ true);
+    preCacheHelper.release(/* removeCachedContent= */ false);
     shadowOf(preCacheLooper).idle();
   }
 
@@ -427,10 +473,18 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(downloadCache);
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     FakeDownloaderFactory fakeDownloaderFactory = new FakeDownloaderFactory();
+    AtomicBoolean preCacheTerminated = new AtomicBoolean();
+    doAnswer(
+            invocation -> {
+              preCacheTerminated.set(true);
+              return null;
+            })
+        .when(mockPreCacheHelperListener)
+        .onDownloadError(any(), any());
     PreCacheHelper preCacheHelper =
         new PreCacheHelper(
             testMediaItem,
@@ -438,7 +492,7 @@ public class PreCacheHelperTest {
             downloadHelperFactory,
             fakeDownloaderFactory,
             preCacheLooper,
-            preCacheHelperListener);
+            mockPreCacheHelperListener);
     preCacheHelper.preCache(/* startPositionMs= */ 0, /* durationMs= */ 1000L);
     shadowOf(preCacheLooper).idle();
     runMainLooperUntil(() -> !fakeDownloaderFactory.createdDownloaders.isEmpty());
@@ -449,14 +503,15 @@ public class PreCacheHelperTest {
       downloader.fail();
     }
     shadowOf(preCacheLooper).idle();
-    runMainLooperUntil(() -> preCacheHelperListener.downloadError.get() != null);
+    runMainLooperUntil(() -> preCacheTerminated.get());
+    shadowOf(Looper.getMainLooper()).idle();
 
     preCacheHelper.preCache(/* startPositionMs= */ 0, /* durationMs= */ 1000L);
     shadowOf(preCacheLooper).idle();
 
     assertThat(createMediaSourceLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
 
-    preCacheHelper.release(/* removeCachedContent= */ true);
+    preCacheHelper.release(/* removeCachedContent= */ false);
     shadowOf(preCacheLooper).idle();
   }
 
@@ -476,7 +531,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(downloadCache);
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     PreCacheHelper preCacheHelper =
@@ -486,7 +541,7 @@ public class PreCacheHelperTest {
             downloadHelperFactory,
             new FakeDownloaderFactory(),
             preCacheLooper,
-            preCacheHelperListener);
+            mockPreCacheHelperListener);
     preCacheHelper.preCache(/* startPositionMs= */ 0, /* durationMs= */ 1000L);
     shadowOf(preCacheLooper).idle();
     preCacheHelper.stop();
@@ -498,7 +553,7 @@ public class PreCacheHelperTest {
 
     assertThat(createMediaSourceLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
 
-    preCacheHelper.release(/* removeCachedContent= */ true);
+    preCacheHelper.release(/* removeCachedContent= */ false);
     shadowOf(preCacheLooper).idle();
   }
 
@@ -510,7 +565,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(downloadCache);
+            .setCache(cacheRule.createSimpleCache());
     Format videoFormat =
         new Format.Builder()
             .setSampleMimeType(MimeTypes.VIDEO_H264)
@@ -598,15 +653,14 @@ public class PreCacheHelperTest {
             });
     ArrayList<MediaItem> updatedMediaItemsAfterPreparation = new ArrayList<>();
     CountDownLatch onPreparedCalledLatch = new CountDownLatch(2);
-    PreCacheHelper.Listener preCacheHelperListener =
-        new TestPreCacheHelperListener() {
-
-          @Override
-          public void onPrepared(MediaItem originalMediaItem, MediaItem updatedMediaItem) {
-            updatedMediaItemsAfterPreparation.add(updatedMediaItem);
-            onPreparedCalledLatch.countDown();
-          }
-        };
+    doAnswer(
+            invocation -> {
+              updatedMediaItemsAfterPreparation.add(invocation.getArgument(1));
+              onPreparedCalledLatch.countDown();
+              return null;
+            })
+        .when(mockPreCacheHelperListener)
+        .onPrepared(any(), any());
     PreCacheHelper preCacheHelper =
         new PreCacheHelper(
             testMediaItem,
@@ -614,7 +668,7 @@ public class PreCacheHelperTest {
             downloadHelperFactory,
             fakeDownloaderFactory,
             preCacheLooper,
-            preCacheHelperListener);
+            mockPreCacheHelperListener);
 
     preCacheHelper.preCache(/* startPositionMs= */ 0, /* durationMs= */ 100L);
     shadowOf(preCacheLooper).idle();
@@ -632,7 +686,7 @@ public class PreCacheHelperTest {
     // The onPreparedCalledLatch doesn't count down twice within the timeout, which means that we
     // got onPrepared called for 0 time or once after waiting long enough. In the later assertions
     // we will verify that we got onPrepared called exactly once.
-    assertThat(onPreparedCalledLatch.await(TIMEOUT_MS, MILLISECONDS)).isFalse();
+    assertThat(onPreparedCalledLatch.await(NEGATIVE_TIMEOUT_MS, MILLISECONDS)).isFalse();
     // The updated MediaItem that the PreCacheHelper.Listener received should just be the one
     // resulting from the second `preCache` call, and we can verify that it only contains the
     // StreamKey for the video track.
@@ -643,8 +697,9 @@ public class PreCacheHelperTest {
         .containsExactly(new StreamKey(/* groupIndex= */ 0, /* streamIndex= */ 0));
     FakeDownloader downloader = checkNotNull(fakeDownloaderFactory.createdDownloaders.get(0));
     downloader.assertStreamKeys(new StreamKey(/* groupIndex= */ 0, /* streamIndex= */ 0));
+    downloader.finish();
 
-    preCacheHelper.release(/* removeCachedContent= */ true);
+    preCacheHelper.release(/* removeCachedContent= */ false);
     shadowOf(preCacheLooper).idle();
   }
 
@@ -659,18 +714,18 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(downloadCache);
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     FakeDownloaderFactory fakeDownloaderFactory = new FakeDownloaderFactory();
     CountDownLatch onPreparedCalledLatch = new CountDownLatch(2);
-    TestPreCacheHelperListener preCacheHelperListener =
-        new TestPreCacheHelperListener() {
-          @Override
-          public void onPrepared(MediaItem originalMediaItem, MediaItem updatedMediaItem) {
-            onPreparedCalledLatch.countDown();
-          }
-        };
+    doAnswer(
+            invocation -> {
+              onPreparedCalledLatch.countDown();
+              return null;
+            })
+        .when(mockPreCacheHelperListener)
+        .onPrepared(any(), any());
     PreCacheHelper preCacheHelper =
         new PreCacheHelper(
             testMediaItem,
@@ -678,7 +733,7 @@ public class PreCacheHelperTest {
             downloadHelperFactory,
             fakeDownloaderFactory,
             preCacheLooper,
-            preCacheHelperListener);
+            mockPreCacheHelperListener);
     preCacheHelper.preCache(/* startPositionMs= */ 0, /* durationMs= */ 100L);
     shadowOf(preCacheLooper).idle();
     runMainLooperUntil(() -> !fakeDownloaderFactory.createdDownloaders.isEmpty());
@@ -697,9 +752,9 @@ public class PreCacheHelperTest {
     downloader2.assertDownloadStarted();
     downloader2.incrementBytesDownloaded();
     assertThat(onPreparedCalledLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(preCacheHelperListener.prepareError.get()).isNull();
+    verify(mockPreCacheHelperListener, never()).onPrepareError(eq(testMediaItem), any());
 
-    preCacheHelper.release(/* removeCachedContent= */ true);
+    preCacheHelper.release(/* removeCachedContent= */ false);
     shadowOf(preCacheLooper).idle();
   }
 
@@ -719,7 +774,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(downloadCache);
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     FakeDownloaderFactory fakeDownloaderFactory = new FakeDownloaderFactory();
@@ -730,7 +785,7 @@ public class PreCacheHelperTest {
             downloadHelperFactory,
             fakeDownloaderFactory,
             preCacheLooper,
-            preCacheHelperListener);
+            mockPreCacheHelperListener);
     preCacheHelper.preCache(/* startPositionMs= */ 0, /* durationMs= */ C.TIME_UNSET);
     shadowOf(preCacheLooper).idle();
     runMainLooperUntil(() -> createdMediaSource.get() != null);
@@ -741,10 +796,10 @@ public class PreCacheHelperTest {
     fakeMediaSource.setAllowPreparation(true);
     shadowOf(preCacheLooper).idle();
 
-    assertThat(preCacheHelperListener.onPreparedCalled.get()).isFalse();
-    assertThat(preCacheHelperListener.prepareError.get()).isNull();
+    verifyNoInteractions(mockPreCacheHelperListener);
+    assertThat(fakeDownloaderFactory.createdDownloaders).isEmpty();
 
-    preCacheHelper.release(/* removeCachedContent= */ true);
+    preCacheHelper.release(/* removeCachedContent= */ false);
     shadowOf(preCacheLooper).idle();
   }
 
@@ -757,7 +812,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(downloadCache);
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     FakeDownloaderFactory fakeDownloaderFactory = new FakeDownloaderFactory();
@@ -768,7 +823,7 @@ public class PreCacheHelperTest {
             downloadHelperFactory,
             fakeDownloaderFactory,
             preCacheLooper,
-            preCacheHelperListener);
+            mockPreCacheHelperListener);
     preCacheHelper.preCache(/* startPositionMs= */ 0, /* durationMs= */ C.TIME_UNSET);
     shadowOf(preCacheLooper).idle();
     runMainLooperUntil(() -> !fakeDownloaderFactory.createdDownloaders.isEmpty());
@@ -781,7 +836,7 @@ public class PreCacheHelperTest {
 
     downloader.assertCanceled(true);
 
-    preCacheHelper.release(/* removeCachedContent= */ true);
+    preCacheHelper.release(/* removeCachedContent= */ false);
     shadowOf(preCacheLooper).idle();
   }
 
@@ -802,7 +857,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(downloadCache);
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     FakeDownloaderFactory fakeDownloaderFactory = new FakeDownloaderFactory();
@@ -813,7 +868,7 @@ public class PreCacheHelperTest {
             downloadHelperFactory,
             fakeDownloaderFactory,
             preCacheLooper,
-            preCacheHelperListener);
+            mockPreCacheHelperListener);
     preCacheHelper.preCache(/* startPositionMs= */ 0, /* durationMs= */ C.TIME_UNSET);
     shadowOf(preCacheLooper).idle();
     runMainLooperUntil(() -> createdMediaSource.get() != null);
@@ -824,10 +879,10 @@ public class PreCacheHelperTest {
     fakeMediaSource.setAllowPreparation(true);
     shadowOf(preCacheLooper).idle();
 
-    assertThat(preCacheHelperListener.onPreparedCalled.get()).isFalse();
-    assertThat(preCacheHelperListener.prepareError.get()).isNull();
+    verifyNoInteractions(mockPreCacheHelperListener);
+    assertThat(fakeDownloaderFactory.createdDownloaders).isEmpty();
 
-    preCacheHelper.release(/* removeCachedContent= */ true);
+    preCacheHelper.release(/* removeCachedContent= */ false);
     shadowOf(preCacheLooper).idle();
   }
 
@@ -842,7 +897,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(downloadCache);
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     FakeDownloaderFactory fakeDownloaderFactory = new FakeDownloaderFactory();
@@ -853,7 +908,7 @@ public class PreCacheHelperTest {
             downloadHelperFactory,
             fakeDownloaderFactory,
             preCacheLooper,
-            preCacheHelperListener);
+            mockPreCacheHelperListener);
     preCacheHelper.preCache(/* startPositionMs= */ 0, /* durationMs= */ C.TIME_UNSET);
     shadowOf(preCacheLooper).idle();
     runMainLooperUntil(() -> !fakeDownloaderFactory.createdDownloaders.isEmpty());
@@ -888,7 +943,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(downloadCache);
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     FakeDownloaderFactory fakeDownloaderFactory = new FakeDownloaderFactory();
@@ -899,7 +954,7 @@ public class PreCacheHelperTest {
             downloadHelperFactory,
             fakeDownloaderFactory,
             preCacheLooper,
-            preCacheHelperListener);
+            mockPreCacheHelperListener);
     preCacheHelper.preCache(/* startPositionMs= */ 0, /* durationMs= */ C.TIME_UNSET);
     shadowOf(preCacheLooper).idle();
     runMainLooperUntil(() -> createdMediaSource.get() != null);
@@ -910,8 +965,8 @@ public class PreCacheHelperTest {
     fakeMediaSource.setAllowPreparation(true);
     shadowOf(preCacheLooper).idle();
 
-    assertThat(preCacheHelperListener.onPreparedCalled.get()).isFalse();
-    assertThat(preCacheHelperListener.prepareError.get()).isNull();
+    verifyNoInteractions(mockPreCacheHelperListener);
+    assertThat(fakeDownloaderFactory.createdDownloaders).isEmpty();
   }
 
   @Test
@@ -922,7 +977,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(downloadCache);
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     FakeDownloaderFactory fakeDownloaderFactory = new FakeDownloaderFactory();
@@ -933,7 +988,7 @@ public class PreCacheHelperTest {
             downloadHelperFactory,
             fakeDownloaderFactory,
             preCacheLooper,
-            preCacheHelperListener);
+            mockPreCacheHelperListener);
     preCacheHelper.preCache(/* startPositionMs= */ 0, /* durationMs= */ C.TIME_UNSET);
     shadowOf(preCacheLooper).idle();
     runMainLooperUntil(() -> !fakeDownloaderFactory.createdDownloaders.isEmpty());
@@ -946,6 +1001,7 @@ public class PreCacheHelperTest {
 
     downloader.assertCanceled(true);
     downloader.assertRemoveStarted(true);
+    downloader.finish();
   }
 
   @Test
@@ -956,7 +1012,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(downloadCache);
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     FakeDownloaderFactory fakeDownloaderFactory = new FakeDownloaderFactory();
@@ -967,7 +1023,7 @@ public class PreCacheHelperTest {
             downloadHelperFactory,
             fakeDownloaderFactory,
             preCacheLooper,
-            preCacheHelperListener);
+            mockPreCacheHelperListener);
     preCacheHelper.preCache(/* startPositionMs= */ 0, /* durationMs= */ C.TIME_UNSET);
     shadowOf(preCacheLooper).idle();
     runMainLooperUntil(() -> !fakeDownloaderFactory.createdDownloaders.isEmpty());
@@ -988,48 +1044,7 @@ public class PreCacheHelperTest {
 
     downloader.assertCanceled(false);
     downloader.assertRemoveStarted(false);
-  }
-
-  private static class TestPreCacheHelperListener implements PreCacheHelper.Listener {
-
-    public final AtomicBoolean onPreparedCalled;
-    public final AtomicLong bytesDownloaded;
-    public final AtomicDouble percentageDownloaded;
-    public final AtomicReference<Exception> prepareError;
-    public final AtomicReference<Exception> downloadError;
-
-    private TestPreCacheHelperListener() {
-      this.onPreparedCalled = new AtomicBoolean();
-      this.bytesDownloaded = new AtomicLong();
-      this.percentageDownloaded = new AtomicDouble();
-      this.prepareError = new AtomicReference<>();
-      this.downloadError = new AtomicReference<>();
-    }
-
-    @Override
-    public void onPrepared(MediaItem originalMediaItem, MediaItem updatedMediaItem) {
-      this.onPreparedCalled.set(true);
-    }
-
-    @Override
-    public void onPreCacheProgress(
-        MediaItem originalMediaItem,
-        long contentLength,
-        long bytesDownloaded,
-        float percentageDownloaded) {
-      this.bytesDownloaded.set(bytesDownloaded);
-      this.percentageDownloaded.set(percentageDownloaded);
-    }
-
-    @Override
-    public void onPrepareError(MediaItem mediaItem, IOException error) {
-      this.prepareError.set(error);
-    }
-
-    @Override
-    public void onDownloadError(MediaItem mediaItem, IOException error) {
-      this.downloadError.set(error);
-    }
+    downloader.finish();
   }
 
   private static class FakeDownloaderFactory implements DownloaderFactory {

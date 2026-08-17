@@ -16,6 +16,7 @@
 package androidx.media3.common;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import android.net.Uri;
 import android.os.Bundle;
@@ -63,12 +64,14 @@ public class MediaMetadataTest {
     assertThat(mediaMetadata.composer).isNull();
     assertThat(mediaMetadata.conductor).isNull();
     assertThat(mediaMetadata.writer).isNull();
+    assertThat(mediaMetadata.discSubtitle).isNull();
     assertThat(mediaMetadata.discNumber).isNull();
     assertThat(mediaMetadata.totalDiscCount).isNull();
     assertThat(mediaMetadata.genre).isNull();
     assertThat(mediaMetadata.compilation).isNull();
     assertThat(mediaMetadata.station).isNull();
     assertThat(mediaMetadata.mediaType).isNull();
+    assertThat(mediaMetadata.playlistId).isNull();
     assertThat(mediaMetadata.supportedCommands).isEmpty();
     assertThat(mediaMetadata.extras).isNull();
   }
@@ -97,6 +100,22 @@ public class MediaMetadataTest {
     MediaMetadata mediaMetadata = new MediaMetadata.Builder().setArtworkUri(uri).build();
 
     assertThat(mediaMetadata.artworkUri).isEqualTo(uri);
+  }
+
+  @Test
+  public void builderSetPlaylistId_withNonEmptyString_setsPlaylistId() {
+    String playlistId = "playlistId";
+
+    MediaMetadata mediaMetadata = new MediaMetadata.Builder().setPlaylistId(playlistId).build();
+
+    assertThat(mediaMetadata.playlistId).isEqualTo(playlistId);
+  }
+
+  @Test
+  public void builderSetPlaylistId_withEmptyString_throwsIllegalArgumentException() {
+    MediaMetadata.Builder builder = new MediaMetadata.Builder();
+
+    assertThrows(IllegalArgumentException.class, () -> builder.setPlaylistId(""));
   }
 
   @Test
@@ -143,12 +162,13 @@ public class MediaMetadataTest {
   public void toBundleSkipsDefaultValues_fromBundleRestoresThem() {
     MediaMetadata mediaMetadata = new MediaMetadata.Builder().build();
 
-    Bundle mediaMetadataBundle = mediaMetadata.toBundle();
+    Bundle mediaMetadataBundle = mediaMetadata.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
 
     // Check that default values are skipped when bundling.
     assertThat(mediaMetadataBundle.keySet()).isEmpty();
 
-    MediaMetadata mediaMetadataFromBundle = MediaMetadata.fromBundle(mediaMetadataBundle);
+    MediaMetadata mediaMetadataFromBundle =
+        MediaMetadata.fromBundle(mediaMetadataBundle, MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(mediaMetadataFromBundle).isEqualTo(mediaMetadata);
     // Extras is not implemented in MediaMetadata.equals(Object o).
@@ -159,7 +179,10 @@ public class MediaMetadataTest {
   public void createFullyPopulatedMediaMetadata_roundTripViaBundle_yieldsEqualInstance() {
     MediaMetadata mediaMetadata = getFullyPopulatedMediaMetadata();
 
-    MediaMetadata mediaMetadataFromBundle = MediaMetadata.fromBundle(mediaMetadata.toBundle());
+    MediaMetadata mediaMetadataFromBundle =
+        MediaMetadata.fromBundle(
+            mediaMetadata.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(mediaMetadataFromBundle).isEqualTo(mediaMetadata);
     // Extras is not implemented in MediaMetadata.equals(Object o).
@@ -173,11 +196,60 @@ public class MediaMetadataTest {
     extras.putString("key", "value");
     MediaMetadata mediaMetadata = new MediaMetadata.Builder().setExtras(extras).build();
 
-    MediaMetadata restoredMetadata = MediaMetadata.fromBundle(mediaMetadata.toBundle());
+    MediaMetadata restoredMetadata =
+        MediaMetadata.fromBundle(
+            mediaMetadata.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(restoredMetadata).isEqualTo(mediaMetadata);
     assertThat(restoredMetadata.extras).isNotNull();
     assertThat(restoredMetadata.extras.get("key")).isEqualTo("value");
+  }
+
+  @Test
+  public void roundTripViaBundle_withInterfaceVersionBelow9_restoresArtworkDataArray() {
+    byte[] artworkData = new byte[] {-88, 12, 3, 2, 124, -54, -33, 69};
+    MediaMetadata mediaMetadata =
+        new MediaMetadata.Builder()
+            .setArtworkData(artworkData, MediaMetadata.PICTURE_TYPE_MEDIA)
+            .build();
+
+    MediaMetadata restoredMetadata =
+        MediaMetadata.fromBundle(
+            mediaMetadata.toBundle(/* interfaceVersion= */ 8), /* interfaceVersion= */ 8);
+
+    assertThat(restoredMetadata).isEqualTo(mediaMetadata);
+  }
+
+  @Test
+  public void roundTripViaBundle_withLargeArtworkData_restoresArtworkDataArray() {
+    byte[] artworkData = new byte[4_000_000];
+    MediaMetadata mediaMetadata =
+        new MediaMetadata.Builder()
+            .setArtworkData(artworkData, MediaMetadata.PICTURE_TYPE_MEDIA)
+            .build();
+
+    MediaMetadata restoredMetadata =
+        MediaMetadata.fromBundle(
+            mediaMetadata.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
+
+    assertThat(restoredMetadata).isEqualTo(mediaMetadata);
+  }
+
+  @Test
+  public void roundTripViaBundle_withInterfaceVersionBelow9AndLargeArtworkData_doesNotCrash() {
+    byte[] artworkData = new byte[4_000_000];
+    MediaMetadata mediaMetadata =
+        new MediaMetadata.Builder()
+            .setArtworkData(artworkData, MediaMetadata.PICTURE_TYPE_MEDIA)
+            .build();
+
+    MediaMetadata restoredMetadata =
+        MediaMetadata.fromBundle(
+            mediaMetadata.toBundle(/* interfaceVersion= */ 8), /* interfaceVersion= */ 8);
+
+    assertThat(restoredMetadata.artworkData).isNull();
   }
 
   @SuppressWarnings("deprecation") // Testing deprecated setter.
@@ -274,12 +346,14 @@ public class MediaMetadataTest {
         .setComposer("Composer")
         .setConductor("Conductor")
         .setWriter("Writer")
+        .setDiscSubtitle("Disc Subtitle")
         .setDiscNumber(1)
         .setTotalDiscCount(3)
         .setGenre("Pop")
         .setCompilation("Amazing songs.")
         .setStation("radio station")
         .setMediaType(MediaMetadata.MEDIA_TYPE_MIXED)
+        .setPlaylistId("playlist_id")
         .setSupportedCommands(ImmutableList.of("command1", "command2"))
         .setExtras(extras)
         .build();

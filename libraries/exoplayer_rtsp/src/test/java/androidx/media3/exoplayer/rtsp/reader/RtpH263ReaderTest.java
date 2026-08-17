@@ -42,7 +42,7 @@ public final class RtpH263ReaderTest {
   private static final long MEDIA_CLOCK_FREQUENCY = 90_000;
 
   private static final byte[] FRAME_1_FRAGMENT_1_DATA =
-      getBytesFromHexString("80020c0419b7b7d9591f03023e0c37b");
+      getBytesFromHexString("80020c0419b7b7d9591f03023e0c37");
   private static final long PARTITION_1_RTP_TIMESTAMP = 2599168056L;
   private static final RtpPacket PACKET_FRAME_1_FRAGMENT_1 =
       new RtpPacket.Builder()
@@ -54,7 +54,7 @@ public final class RtpH263ReaderTest {
                   /*payload header */ getBytesFromHexString("0400"), FRAME_1_FRAGMENT_1_DATA))
           .build();
   private static final byte[] FRAME_1_FRAGMENT_2_DATA =
-      getBytesFromHexString("03140e0e77d5e83021a0c37");
+      getBytesFromHexString("03140e0e77d5e83021a0c3");
   private static final RtpPacket PACKET_FRAME_1_FRAGMENT_2 =
       new RtpPacket.Builder()
           .setTimestamp(PARTITION_1_RTP_TIMESTAMP)
@@ -69,7 +69,7 @@ public final class RtpH263ReaderTest {
       Bytes.concat(getBytesFromHexString("0000"), FRAME_1_FRAGMENT_1_DATA, FRAME_1_FRAGMENT_2_DATA);
 
   private static final byte[] FRAME_2_FRAGMENT_1_DATA =
-      getBytesFromHexString("800a0e023ffffffffffffffffff");
+      getBytesFromHexString("800a0e023fffffffffffffffff");
   private static final long PARTITION_2_RTP_TIMESTAMP = 2599168344L;
   private static final RtpPacket PACKET_FRAME_2_FRAGMENT_1 =
       new RtpPacket.Builder()

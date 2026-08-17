@@ -15,17 +15,10 @@
  */
 package androidx.media3.demo.effect
 
-import android.Manifest
-import android.net.Uri
-import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
-import android.text.Spannable
-import android.text.SpannableString
-import android.text.style.ForegroundColorSpan
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.annotation.OptIn
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
@@ -40,22 +33,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
@@ -63,58 +48,54 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
-import androidx.media3.common.Effect
-import androidx.media3.common.MediaItem
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.effect.Contrast
-import androidx.media3.effect.OverlayEffect
-import androidx.media3.effect.StaticOverlaySettings
-import androidx.media3.effect.TextOverlay
-import androidx.media3.effect.TextureOverlay
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.PlayerView
-import com.google.common.collect.ImmutableList
+import androidx.compose.ui.unit.dp
+import androidx.media3.common.Player
+import androidx.media3.common.util.ExperimentalApi
+import androidx.media3.demo.effect.ui.ColorsDropDownMenu
+import androidx.media3.demo.effect.ui.GenericExposedDropdownMenu
+import androidx.media3.demo.effect.ui.InputSelector
+import androidx.media3.ui.compose.material3.Player
 import java.util.Locale
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class EffectActivity : ComponentActivity() {
 
+  private val viewModel: EffectViewModel by viewModels()
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-    val playlistHolderList = mutableStateOf<List<PlaylistHolder>>(emptyList())
-    lifecycleScope.launch {
-      playlistHolderList.value =
-        loadPlaylistsFromJson(JSON_FILENAME, this@EffectActivity, "EffectActivity")
-    }
-    setContent { EffectDemo(playlistHolderList.value) }
+    setContent { EffectDemo(viewModel) }
   }
 
-  @OptIn(UnstableApi::class)
+  @OptIn(ExperimentalApi::class)
   @Composable
-  private fun EffectDemo(playlistHolderList: List<PlaylistHolder>) {
+  private fun EffectDemo(viewModel: EffectViewModel) {
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val exoPlayer by remember {
-      mutableStateOf(ExoPlayer.Builder(context).build().apply { playWhenReady = true })
+    val playlistHolderList by viewModel.playlistHolderList.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(uiState.errorMessage) {
+      uiState.errorMessage?.let { message ->
+        snackbarHostState.showSnackbar(message)
+        viewModel.clearErrorMessage()
+      }
     }
-    var effectsEnabled by remember { mutableStateOf(false) }
 
     Scaffold(
       modifier = Modifier.fillMaxSize(),
@@ -125,254 +106,103 @@ class EffectActivity : ComponentActivity() {
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally,
       ) {
-        InputChooser(
+        InputSelector(
           playlistHolderList,
           onException = { message ->
             coroutineScope.launch { snackbarHostState.showSnackbar(message) }
           },
         ) { mediaItems ->
-          effectsEnabled = true
-          exoPlayer.apply {
-            setMediaItems(mediaItems)
-            setVideoEffects(emptyList())
-            prepare()
-          }
+          viewModel.selectMediaItems(mediaItems)
         }
-        PlayerScreen(exoPlayer)
-        EffectControls(
-          effectsEnabled,
-          onApplyEffectsClicked = { videoEffects ->
-            exoPlayer.apply {
-              setVideoEffects(videoEffects)
-              prepare()
-            }
-          },
-        )
+        PlayerScreen(viewModel.exoPlayer)
+        EffectControls(viewModel, uiState)
       }
     }
   }
 
+  @OptIn(ExperimentalApi::class)
   @Composable
-  private fun InputChooser(
-    playlistHolderList: List<PlaylistHolder>,
-    onException: (String) -> Unit,
-    onNewMediaItems: (List<MediaItem>) -> Unit,
-  ) {
-    var showPresetInputChooser by remember { mutableStateOf(false) }
-    var showLocalFileChooser by remember { mutableStateOf(false) }
-    Row(
-      Modifier.padding(vertical = dimensionResource(id = R.dimen.regular_padding)),
-      horizontalArrangement = Arrangement.spacedBy(dimensionResource(id = R.dimen.regular_padding)),
-    ) {
-      Button(onClick = { showPresetInputChooser = true }) {
-        Text(text = stringResource(id = R.string.choose_preset_input))
-      }
-      Button(onClick = { showLocalFileChooser = true }) {
-        Text(text = stringResource(id = R.string.choose_local_file))
+  private fun PlayerScreen(player: Player?) {
+    var showControls by remember { mutableStateOf(true) }
+    var interactionCount by remember { mutableStateOf(0) }
+
+    fun resetControlsTimer() {
+      interactionCount++
+    }
+
+    LaunchedEffect(interactionCount, player) {
+      if (player != null) {
+        showControls = true
+        delay(CONTROLS_VISIBILITY_TIMEOUT_MS)
+        showControls = false
       }
     }
-    if (showPresetInputChooser) {
-      if (playlistHolderList.isNotEmpty()) {
-        PresetInputChooser(
-          playlistHolderList,
-          onDismissRequest = { showPresetInputChooser = false },
-        ) { mediaItems ->
-          onNewMediaItems(mediaItems)
-          showPresetInputChooser = false
-        }
-      } else {
-        onException(stringResource(id = R.string.no_loaded_playlists_error))
-        showPresetInputChooser = false
-      }
-    }
-    if (showLocalFileChooser) {
-      LocalFileChooser(
-        onException = { message ->
-          onException(message)
-          showLocalFileChooser = false
-        }
-      ) { mediaItems ->
-        onNewMediaItems(mediaItems)
-        showLocalFileChooser = false
-      }
-    }
-  }
 
-  @Composable
-  private fun PresetInputChooser(
-    playlistHolderList: List<PlaylistHolder>,
-    onDismissRequest: () -> Unit,
-    onInputSelected: (List<MediaItem>) -> Unit,
-  ) {
-    var selectedOption by remember { mutableStateOf(playlistHolderList.first()) }
-
-    AlertDialog(
-      onDismissRequest = onDismissRequest,
-      title = { Text(stringResource(id = R.string.choose_preset_input)) },
-      confirmButton = {
-        Button(onClick = { onInputSelected(selectedOption.mediaItems) }) {
-          Text(text = stringResource(id = R.string.ok))
-        }
-      },
-      text = {
-        Column {
-          playlistHolderList.forEach { playlistHolder ->
-            Row(
-              Modifier.fillMaxWidth()
-                .selectable(
-                  (playlistHolder == selectedOption),
-                  onClick = { selectedOption = playlistHolder },
-                ),
-              verticalAlignment = Alignment.CenterVertically,
-            ) {
-              RadioButton(
-                selected = (playlistHolder == selectedOption),
-                onClick = { selectedOption = playlistHolder },
-              )
-              Text(playlistHolder.title)
-            }
-          }
-        }
-      },
-    )
-  }
-
-  @OptIn(UnstableApi::class)
-  @Composable
-  private fun LocalFileChooser(
-    onException: (String) -> Unit,
-    onFileSelected: (List<MediaItem>) -> Unit,
-  ) {
-    val context = LocalContext.current
-    val localFileChooserLauncher =
-      rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-        onResult = { uri: Uri? ->
-          if (uri != null) {
-            onFileSelected(listOf(MediaItem.fromUri(uri)))
-          } else {
-            onException(getString(R.string.can_not_open_file_error))
-          }
-        },
-      )
-    val permissionLauncher =
-      rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { isGranted: Boolean ->
-          if (isGranted) {
-            localFileChooserLauncher.launch(arrayOf("video/*"))
-          } else {
-            onException(getString(R.string.permission_not_granted_error))
-          }
-        },
-      )
-    LaunchedEffect(Unit) {
-      val permission =
-        if (SDK_INT >= 33) Manifest.permission.READ_MEDIA_VIDEO
-        else Manifest.permission.READ_EXTERNAL_STORAGE
-      val permissionCheck = ContextCompat.checkSelfPermission(context, permission)
-      if (permissionCheck == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-        localFileChooserLauncher.launch(arrayOf("video/*"))
-      } else {
-        permissionLauncher.launch(permission)
-      }
-    }
-  }
-
-  @Composable
-  private fun PlayerScreen(exoPlayer: ExoPlayer) {
-    val context = LocalContext.current
-    AndroidView(
-      factory = { PlayerView(context).apply { player = exoPlayer } },
+    Box(
       modifier =
-        Modifier.height(dimensionResource(id = R.dimen.android_view_height))
-          .padding(all = dimensionResource(id = R.dimen.regular_padding)),
-    )
+        Modifier.fillMaxWidth()
+          .height(dimensionResource(id = R.dimen.android_view_height))
+          .padding(all = dimensionResource(id = R.dimen.regular_padding))
+          .clip(RoundedCornerShape(12.dp))
+          .background(Color.Black),
+      contentAlignment = Alignment.Center,
+    ) {
+      if (player != null) {
+        Player(
+          player = player,
+          showControls = showControls,
+          modifier =
+            Modifier.pointerInput(Unit) {
+              awaitPointerEventScope {
+                while (true) {
+                  // Using PointerEventPass.Initial is correct for a global "reset timer" behavior
+                  // as it allows this component to see pointer events even if child components
+                  // (like buttons in the Player UI) consume them.
+                  awaitPointerEvent(PointerEventPass.Initial)
+                  resetControlsTimer()
+                }
+              }
+            },
+          // Ensure that the internal Player composable doesn't have any gestures that might
+          // conflict with this early interception.
+        )
+      } else {
+        CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurface)
+      }
+    }
   }
 
-  @OptIn(UnstableApi::class)
   @Composable
-  private fun EffectControls(enabled: Boolean, onApplyEffectsClicked: (List<Effect>) -> Unit) {
-    var effectControlsState by remember { mutableStateOf(EffectControlsState()) }
-
+  private fun EffectControls(viewModel: EffectViewModel, uiState: EffectUiState) {
     Button(
-      enabled = enabled && effectControlsState.effectsChanged,
-      onClick = {
-        val effectsList = mutableListOf<Effect>()
-
-        if (effectControlsState.contrastValue != 0f) {
-          effectsList += Contrast(effectControlsState.contrastValue)
-        }
-
-        val overlaysBuilder = ImmutableList.builder<TextureOverlay>()
-        if (effectControlsState.confettiOverlayChecked) {
-          overlaysBuilder.add(ConfettiOverlay())
-        }
-        val textOverlayText = effectControlsState.textOverlayText
-        if (effectControlsState.textOverlayChecked && textOverlayText != null) {
-          val spannableOverlayText = SpannableString(textOverlayText)
-          spannableOverlayText.setSpan(
-            ForegroundColorSpan(effectControlsState.textOverlayColor.toArgb()),
-            /* start= */ 0,
-            textOverlayText.length,
-            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE,
-          )
-          val staticOverlaySettings =
-            StaticOverlaySettings.Builder()
-              .setAlphaScale(effectControlsState.textOverlayAlpha)
-              .build()
-          overlaysBuilder.add(
-            TextOverlay.createStaticTextOverlay(spannableOverlayText, staticOverlaySettings)
-          )
-        }
-        effectsList += OverlayEffect(overlaysBuilder.build())
-
-        onApplyEffectsClicked(effectsList)
-        effectControlsState = effectControlsState.copy(effectsChanged = false)
-      },
+      enabled = uiState.effectsEnabled && uiState.effectsChanged,
+      onClick = { viewModel.applyEffects() },
     ) {
       Text(text = stringResource(id = R.string.apply_effects))
     }
 
-    EffectControlsList(enabled, effectControlsState) { newEffectControlsState ->
-      effectControlsState = newEffectControlsState
-    }
+    EffectControlsList(viewModel, uiState)
   }
 
   @Composable
-  private fun EffectControlsList(
-    enabled: Boolean,
-    effectControlsState: EffectControlsState,
-    onEffectControlsStateChange: (EffectControlsState) -> Unit,
-  ) {
+  private fun EffectControlsList(viewModel: EffectViewModel, uiState: EffectUiState) {
     LazyColumn(Modifier.padding(vertical = dimensionResource(id = R.dimen.small_padding))) {
       item {
         EffectItem(
           name = stringResource(id = R.string.contrast),
-          enabled = enabled,
-          onCheckedChange = {
-            onEffectControlsStateChange(
-              effectControlsState.copy(effectsChanged = true, contrastValue = 0f)
-            )
-          },
+          enabled = uiState.effectsEnabled,
+          checked = uiState.contrastChecked,
+          onCheckedChange = { checked -> viewModel.updateContrastChecked(checked) },
         ) {
           Row {
             Text(
-              text = "%.2f".format(effectControlsState.contrastValue),
+              text = "%.2f".format(uiState.contrastValue),
               style = MaterialTheme.typography.bodyLarge,
               modifier = Modifier.padding(dimensionResource(id = R.dimen.large_padding)).weight(1f),
             )
             Slider(
-              value = effectControlsState.contrastValue,
-              onValueChange = { newContrastValue ->
-                val newRoundedContrastValue = "%.2f".format(Locale.ROOT, newContrastValue).toFloat()
-                onEffectControlsStateChange(
-                  effectControlsState.copy(
-                    effectsChanged = true,
-                    contrastValue = newRoundedContrastValue,
-                  )
-                )
-              },
+              value = uiState.contrastValue,
+              onValueChange = { viewModel.updateContrast(it) },
               valueRange = -1f..1f,
               modifier = Modifier.weight(4f),
             )
@@ -382,69 +212,74 @@ class EffectActivity : ComponentActivity() {
       item {
         EffectItem(
           name = stringResource(R.string.confetti_overlay),
-          enabled = enabled,
-          onCheckedChange = { checked ->
-            onEffectControlsStateChange(
-              effectControlsState.copy(effectsChanged = true, confettiOverlayChecked = checked)
-            )
-          },
+          enabled = uiState.effectsEnabled,
+          checked = uiState.confettiOverlayChecked,
+          onCheckedChange = { checked -> viewModel.updateConfetti(checked) },
         )
       }
       item {
         EffectItem(
+          name = stringResource(R.string.clock_overlay),
+          enabled = uiState.effectsEnabled,
+          checked = uiState.clockOverlayChecked,
+          onCheckedChange = { checked -> viewModel.updateClock(checked) },
+        )
+      }
+      item {
+        EffectItem(
+          name = stringResource(R.string.lottie_overlay),
+          enabled = uiState.effectsEnabled && uiState.lottieEffectsLoaded,
+          checked = uiState.lottieOverlayChecked,
+          onCheckedChange = { checked -> viewModel.updateLottieChecked(checked) },
+        ) {
+          Column {
+            Row {
+              GenericExposedDropdownMenu(
+                label = stringResource(R.string.lottie_asset),
+                selectedValue =
+                  uiState.lottieOverlayName ?: uiState.lottieOverlayOptions.firstOrNull() ?: "",
+                options = uiState.lottieOverlayOptions,
+                onOptionSelected = { viewModel.updateLottieName(it) },
+                modifier =
+                  Modifier.fillMaxWidth().padding(bottom = dimensionResource(R.dimen.large_padding)),
+              )
+            }
+          }
+        }
+      }
+      item {
+        EffectItem(
           name = stringResource(R.string.custom_text_overlay),
-          enabled = enabled,
-          onCheckedChange = { checked ->
-            onEffectControlsStateChange(
-              effectControlsState.copy(effectsChanged = !checked, textOverlayChecked = checked)
-            )
-          },
+          enabled = uiState.effectsEnabled,
+          checked = uiState.textOverlayChecked,
+          onCheckedChange = { checked -> viewModel.updateTextChecked(checked) },
         ) {
           Column {
             OutlinedTextField(
-              value = effectControlsState.textOverlayText ?: "",
-              onValueChange = { newTextOverlayText ->
-                onEffectControlsStateChange(
-                  effectControlsState.copy(
-                    effectsChanged = true,
-                    textOverlayText = newTextOverlayText.ifEmpty { null },
-                  )
-                )
-              },
+              value = uiState.textOverlayText ?: "",
+              onValueChange = { viewModel.updateText(it.ifEmpty { null }) },
               label = { Text(stringResource(R.string.text)) },
               singleLine = true,
               modifier =
                 Modifier.fillMaxWidth().padding(bottom = dimensionResource(R.dimen.large_padding)),
             )
             Row {
-              ColorsDropDownMenu(effectControlsState.textOverlayColor) { color ->
-                onEffectControlsStateChange(
-                  effectControlsState.copy(
-                    effectsChanged = effectControlsState.textOverlayText != null,
-                    textOverlayColor = color,
-                  )
-                )
+              ColorsDropDownMenu(uiState.textOverlayColor) { color ->
+                viewModel.updateTextColor(color)
               }
             }
             Row {
               Text(
-                text =
-                  stringResource(R.string.alpha) +
-                    " = %.2f".format(effectControlsState.textOverlayAlpha),
+                text = stringResource(R.string.alpha) + " = %.2f".format(uiState.textOverlayAlpha),
                 style = MaterialTheme.typography.bodyLarge,
                 modifier =
                   Modifier.padding(dimensionResource(id = R.dimen.large_padding)).weight(1f),
               )
               Slider(
-                value = effectControlsState.textOverlayAlpha,
+                value = uiState.textOverlayAlpha,
                 onValueChange = { newAlphaValue ->
                   val newRoundedAlphaValue = "%.2f".format(Locale.ROOT, newAlphaValue).toFloat()
-                  onEffectControlsStateChange(
-                    effectControlsState.copy(
-                      effectsChanged = effectControlsState.textOverlayText != null,
-                      textOverlayAlpha = newRoundedAlphaValue,
-                    )
-                  )
+                  viewModel.updateTextAlpha(newRoundedAlphaValue)
                 },
                 valueRange = 0f..1f,
                 modifier = Modifier.weight(2f),
@@ -456,70 +291,21 @@ class EffectActivity : ComponentActivity() {
     }
   }
 
-  @kotlin.OptIn(ExperimentalMaterial3Api::class)
-  @Composable
-  fun ColorsDropDownMenu(color: Color, onItemSelected: (Color) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(
-      expanded = expanded,
-      onExpandedChange = { expanded = it },
-      modifier = Modifier.fillMaxWidth().padding(bottom = dimensionResource(R.dimen.large_padding)),
-    ) {
-      OutlinedTextField(
-        modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
-        value = COLOR_NAMES[color] ?: stringResource(R.string.unknown_color),
-        onValueChange = {},
-        readOnly = true,
-        singleLine = true,
-        label = { Text(stringResource(R.string.text_color)) },
-        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-        colors = ExposedDropdownMenuDefaults.textFieldColors(),
-      )
-      ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-        for (color in COLORS) {
-          DropdownMenuItem(
-            text = {
-              Text(
-                COLOR_NAMES[color] ?: stringResource(R.string.unknown_color),
-                style = MaterialTheme.typography.bodyLarge,
-              )
-            },
-            onClick = {
-              onItemSelected(color)
-              expanded = false
-            },
-            contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
-            leadingIcon = {
-              Box(
-                modifier =
-                  Modifier.size(dimensionResource(R.dimen.color_circle_size))
-                    .background(color, CircleShape)
-              )
-            },
-          )
-        }
-      }
-    }
-  }
-
   @Composable
   fun EffectItem(
     name: String,
     enabled: Boolean,
-    onCheckedChange: (Boolean) -> Unit = {},
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
     content: @Composable () -> Unit = {},
   ) {
-    var checked by rememberSaveable { mutableStateOf(false) }
     Card(
       modifier =
         Modifier.padding(
             vertical = dimensionResource(id = R.dimen.small_padding),
             horizontal = dimensionResource(id = R.dimen.regular_padding),
           )
-          .clickable(enabled = enabled && !checked) {
-            checked = !checked
-            onCheckedChange(checked)
-          }
+          .clickable(enabled = enabled && !checked) { onCheckedChange(!checked) }
     ) {
       Column(
         Modifier.padding(dimensionResource(id = R.dimen.large_padding))
@@ -529,14 +315,7 @@ class EffectActivity : ComponentActivity() {
           Column(Modifier.weight(1f).padding(dimensionResource(id = R.dimen.large_padding))) {
             Text(text = name, style = MaterialTheme.typography.bodyLarge)
           }
-          Checkbox(
-            enabled = enabled,
-            checked = checked,
-            onCheckedChange = {
-              checked = !checked
-              onCheckedChange(checked)
-            },
-          )
+          Checkbox(enabled = enabled, checked = checked, onCheckedChange = onCheckedChange)
         }
         if (checked) {
           content()
@@ -544,46 +323,6 @@ class EffectActivity : ComponentActivity() {
       }
     }
   }
-
-  private data class EffectControlsState(
-    val effectsChanged: Boolean = false,
-    val contrastValue: Float = 0f,
-    val confettiOverlayChecked: Boolean = false,
-    val textOverlayChecked: Boolean = false,
-    val textOverlayText: String? = null,
-    val textOverlayColor: Color = COLORS[0],
-    val textOverlayAlpha: Float = 1f,
-  )
-
-  private companion object {
-    const val JSON_FILENAME = "media.playlist.json"
-    val COLORS =
-      listOf(
-        Color.Black,
-        Color.DarkGray,
-        Color.Gray,
-        Color.LightGray,
-        Color.White,
-        Color.Red,
-        Color.Green,
-        Color.Blue,
-        Color.Yellow,
-        Color.Cyan,
-        Color.Magenta,
-      )
-    val COLOR_NAMES =
-      mapOf(
-        Color.Black to "Black",
-        Color.DarkGray to "Dark Gray",
-        Color.Gray to "Gray",
-        Color.LightGray to "Light Gray",
-        Color.White to "White",
-        Color.Red to "Red",
-        Color.Green to "Green",
-        Color.Blue to "Blue",
-        Color.Yellow to "Yellow",
-        Color.Cyan to "Cyan",
-        Color.Magenta to "Magenta",
-      )
-  }
 }
+
+private const val CONTROLS_VISIBILITY_TIMEOUT_MS = 3000L

@@ -26,8 +26,6 @@ import java.io.IOException;
 
 /** Scales the alpha value for each pixel in the fragment shader. */
 /* package */ final class AlphaScaleShaderProgram extends BaseGlShaderProgram {
-  private static final String VERTEX_SHADER_PATH = "shaders/vertex_shader_transformation_es2.glsl";
-  private static final String FRAGMENT_SHADER_PATH = "shaders/fragment_shader_alpha_scale_es2.glsl";
 
   private final GlProgram glProgram;
 
@@ -45,7 +43,11 @@ import java.io.IOException;
     super(/* useHighPrecisionColorComponents= */ useHdr, /* texturePoolCapacity= */ 1);
 
     try {
-      glProgram = new GlProgram(context, VERTEX_SHADER_PATH, FRAGMENT_SHADER_PATH);
+      glProgram =
+          new GlProgram(
+              context,
+              /* vertexShaderResId= */ R.raw.vertex_shader_transformation_es2,
+              /* fragmentShaderResId= */ R.raw.fragment_shader_alpha_scale_es2);
     } catch (IOException | GlUtil.GlException e) {
       throw new VideoFrameProcessingException(e);
     }

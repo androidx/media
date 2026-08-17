@@ -16,12 +16,11 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.test.utils.TestUtil.BT601_MP4_ASSET;
-import static androidx.media3.test.utils.TestUtil.JPG_ASSET;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET;
-import static androidx.media3.test.utils.TestUtil.PNG_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
-import static androidx.media3.transformer.AndroidTestUtil.getMuxerFactoryBasedOnApi;
+import static androidx.media3.test.utils.AssetInfo.BT601_MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.JPG_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
+import static androidx.media3.test.utils.AssetInfo.PNG_ASSET;
+import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
@@ -77,10 +76,11 @@ public final class ParameterizedItemExportAndroidTest {
           /* effects= */ new Effects(
               /* audioProcessors= */ ImmutableList.of(),
               ImmutableList.of(RgbFilter.createGrayscaleFilter())));
-  private static final VideoItemConfig BT709_ITEM = new VideoItemConfig(MP4_ASSET, Effects.EMPTY);
+  private static final VideoItemConfig BT709_ITEM =
+      new VideoItemConfig(MP4_ADVANCED_ASSET, Effects.EMPTY);
   private static final VideoItemConfig BT709_ITEM_WITH_EFFECTS =
       new VideoItemConfig(
-          MP4_ASSET,
+          MP4_ADVANCED_ASSET,
           new Effects(
               /* audioProcessors= */ ImmutableList.of(),
               ImmutableList.of(
@@ -121,7 +121,6 @@ public final class ParameterizedItemExportAndroidTest {
     assumeFormatsSupported(context, testId, itemConfig.format, itemConfig.outputFormat);
     Transformer transformer =
         new Transformer.Builder(context)
-            .setMuxerFactory(getMuxerFactoryBasedOnApi())
             .setEncoderFactory(
                 new DefaultEncoderFactory.Builder(context).setEnableFallback(false).build())
             .build();

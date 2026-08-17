@@ -20,6 +20,7 @@ import android.content.pm.PackageManager
 import android.content.res.Resources
 import android.graphics.Bitmap
 import android.media.session.MediaController
+import android.os.Build
 import android.os.Bundle
 import androidx.media3.common.util.Util
 import androidx.media3.session.SessionToken
@@ -100,11 +101,18 @@ private constructor(
     private val SUPPORTS_AUTO = Util.intToStringMaxRadix(4)
     private val SUPPORTS_AUTOMOTIVE = Util.intToStringMaxRadix(5)
 
+    @Suppress("DEPRECATION")
     fun fromBundle(bundle: Bundle): MediaAppDetails {
+      val icon: Bitmap? =
+        if (Build.VERSION.SDK_INT >= 33) {
+          bundle.getParcelable(ICON, Bitmap::class.java)
+        } else {
+          bundle.getParcelable(ICON)
+        }
       return MediaAppDetails(
         bundle.getString(PACKAGE_NAME)!!,
         bundle.getString(APP_NAME)!!,
-        (bundle.getParcelable(ICON) as Bitmap?)!!,
+        icon!!,
         SessionToken.fromBundle(bundle.getBundle(SESSION_TOKEN)!!),
         bundle.getBoolean(SUPPORTS_AUTO),
         bundle.getBoolean(SUPPORTS_AUTOMOTIVE),

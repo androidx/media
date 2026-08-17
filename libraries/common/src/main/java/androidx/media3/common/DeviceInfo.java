@@ -62,6 +62,7 @@ public final class DeviceInfo {
     private int minVolume;
     private int maxVolume;
     @Nullable private String routingControllerId;
+    @Nullable private String routingControllerName;
 
     /**
      * Creates the builder.
@@ -120,6 +121,24 @@ public final class DeviceInfo {
       return this;
     }
 
+    /**
+     * Sets the display name of the routing controller or remote device (e.g. "Living Room TV").
+     *
+     * <p>The set value must be null if {@link DeviceInfo#playbackType} is {@link
+     * #PLAYBACK_TYPE_LOCAL}.
+     *
+     * @param routingControllerName The display name of the routing controller, or null to leave it
+     *     unspecified.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder setRoutingControllerName(@Nullable String routingControllerName) {
+      checkArgument(playbackType != PLAYBACK_TYPE_LOCAL || routingControllerName == null);
+      this.routingControllerName = routingControllerName;
+      return this;
+    }
+
     /** Builds the {@link DeviceInfo}. */
     public DeviceInfo build() {
       checkArgument(minVolume <= maxVolume);
@@ -149,6 +168,12 @@ public final class DeviceInfo {
   @Nullable public final String routingControllerId;
 
   /**
+   * The display name of the routing controller or remote device (e.g. "Living Room TV"), or null if
+   * unset or {@link #playbackType} is {@link #PLAYBACK_TYPE_LOCAL}.
+   */
+  @UnstableApi @Nullable public final String routingControllerName;
+
+  /**
    * @deprecated Use {@link Builder} instead.
    */
   @UnstableApi
@@ -165,6 +190,7 @@ public final class DeviceInfo {
     this.minVolume = builder.minVolume;
     this.maxVolume = builder.maxVolume;
     this.routingControllerId = builder.routingControllerId;
+    this.routingControllerName = builder.routingControllerName;
   }
 
   @Override
@@ -179,7 +205,8 @@ public final class DeviceInfo {
     return playbackType == other.playbackType
         && minVolume == other.minVolume
         && maxVolume == other.maxVolume
-        && Objects.equals(routingControllerId, other.routingControllerId);
+        && Objects.equals(routingControllerId, other.routingControllerId)
+        && Objects.equals(routingControllerName, other.routingControllerName);
   }
 
   @Override
@@ -189,6 +216,7 @@ public final class DeviceInfo {
     result = 31 * result + minVolume;
     result = 31 * result + maxVolume;
     result = 31 * result + (routingControllerId == null ? 0 : routingControllerId.hashCode());
+    result = 31 * result + (routingControllerName == null ? 0 : routingControllerName.hashCode());
     return result;
   }
 
@@ -196,6 +224,7 @@ public final class DeviceInfo {
   private static final String FIELD_MIN_VOLUME = Util.intToStringMaxRadix(1);
   private static final String FIELD_MAX_VOLUME = Util.intToStringMaxRadix(2);
   private static final String FIELD_ROUTING_CONTROLLER_ID = Util.intToStringMaxRadix(3);
+  private static final String FIELD_ROUTING_CONTROLLER_NAME = Util.intToStringMaxRadix(4);
 
   @UnstableApi
   public Bundle toBundle() {
@@ -212,6 +241,9 @@ public final class DeviceInfo {
     if (routingControllerId != null) {
       bundle.putString(FIELD_ROUTING_CONTROLLER_ID, routingControllerId);
     }
+    if (routingControllerName != null) {
+      bundle.putString(FIELD_ROUTING_CONTROLLER_NAME, routingControllerName);
+    }
     return bundle;
   }
 
@@ -222,10 +254,12 @@ public final class DeviceInfo {
     int minVolume = bundle.getInt(FIELD_MIN_VOLUME, /* defaultValue= */ 0);
     int maxVolume = bundle.getInt(FIELD_MAX_VOLUME, /* defaultValue= */ 0);
     @Nullable String routingControllerId = bundle.getString(FIELD_ROUTING_CONTROLLER_ID);
+    @Nullable String routingControllerName = bundle.getString(FIELD_ROUTING_CONTROLLER_NAME);
     return new DeviceInfo.Builder(playbackType)
         .setMinVolume(minVolume)
         .setMaxVolume(maxVolume)
         .setRoutingControllerId(routingControllerId)
+        .setRoutingControllerName(routingControllerName)
         .build();
   }
 }

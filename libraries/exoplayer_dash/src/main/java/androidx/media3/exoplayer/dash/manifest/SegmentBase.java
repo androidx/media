@@ -32,6 +32,7 @@ import java.util.List;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
 /** An approximate representation of a SegmentBase manifest element. */
+@SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 @UnstableApi
 public abstract class SegmentBase {
 
@@ -70,6 +71,12 @@ public abstract class SegmentBase {
   public long getPresentationTimeOffsetUs() {
     return Util.scaleLargeTimestamp(presentationTimeOffset, C.MICROS_PER_SECOND, timescale);
   }
+
+  /**
+   * Returns a copy of this {@link SegmentBase} with its presentation time offset replaced by {@code
+   * newPresentationTimeOffset}.
+   */
+  public abstract SegmentBase copyWithPresentationTimeOffset(long newPresentationTimeOffset);
 
   /** A {@link SegmentBase} that defines a single segment. */
   public static class SingleSegmentBase extends SegmentBase {
@@ -112,6 +119,12 @@ public abstract class SegmentBase {
           ? null
           : new RangedUri(/* referenceUri= */ null, indexStart, indexLength);
     }
+
+    @Override
+    public SingleSegmentBase copyWithPresentationTimeOffset(long newPresentationTimeOffset) {
+      return new SingleSegmentBase(
+          initialization, timescale, newPresentationTimeOffset, indexStart, indexLength);
+    }
   }
 
   /** A {@link SegmentBase} that consists of multiple segments. */
@@ -120,8 +133,8 @@ public abstract class SegmentBase {
     /* package */ final long startNumber;
     /* package */ final long duration;
     @Nullable /* package */ final List<SegmentTimelineElement> segmentTimeline;
-    private final long timeShiftBufferDepthUs;
-    private final long periodStartUnixTimeUs;
+    /* package */ final long timeShiftBufferDepthUs;
+    /* package */ final long periodStartUnixTimeUs;
 
     /**
      * Offset to the current realtime at which segments become available, in microseconds, or {@link
@@ -362,6 +375,21 @@ public abstract class SegmentBase {
     public boolean isExplicit() {
       return true;
     }
+
+    @Override
+    public SegmentList copyWithPresentationTimeOffset(long newPresentationTimeOffset) {
+      return new SegmentList(
+          initialization,
+          timescale,
+          newPresentationTimeOffset,
+          startNumber,
+          duration,
+          segmentTimeline,
+          availabilityTimeOffsetUs,
+          mediaSegments,
+          timeShiftBufferDepthUs,
+          periodStartUnixTimeUs);
+    }
   }
 
   /** A {@link MultiSegmentBase} that uses a SegmentTemplate to define its segments. */
@@ -468,6 +496,23 @@ public abstract class SegmentBase {
       } else {
         return INDEX_UNBOUNDED;
       }
+    }
+
+    @Override
+    public SegmentTemplate copyWithPresentationTimeOffset(long newPresentationTimeOffset) {
+      return new SegmentTemplate(
+          initialization,
+          timescale,
+          newPresentationTimeOffset,
+          startNumber,
+          endNumber,
+          duration,
+          segmentTimeline,
+          availabilityTimeOffsetUs,
+          initializationTemplate,
+          mediaTemplate,
+          timeShiftBufferDepthUs,
+          periodStartUnixTimeUs);
     }
   }
 

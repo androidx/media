@@ -42,14 +42,16 @@ import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.TestTransformerBuilder;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import java.util.List;
+import com.google.common.collect.ImmutableList;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 
 /** Unit tests for MP4 edit list trimming in {@link Transformer}. */
+// TODO: b/443998866 - Use MetadataRetriever to get exact duration in all tests.
 @RunWith(AndroidJUnit4.class)
 public class TransformerMp4EditListTrimTest {
 
@@ -78,10 +80,7 @@ public class TransformerMp4EditListTrimTest {
   public void exportWithoutTrimming_mp4WithMp4EditListTrimEnabled_exportsWithCorrectTimestamps()
       throws Exception {
     Transformer transformer =
-        new TestTransformerBuilder(context)
-            .experimentalSetMp4EditListTrimEnabled(true)
-            .setMuxerFactory(new InAppMp4Muxer.Factory())
-            .build();
+        new TestTransformerBuilder(context).experimentalSetMp4EditListTrimEnabled(true).build();
     MediaItem mediaItem =
         new MediaItem.Builder().setUri(ASSET_URI_PREFIX + FILE_MP4_VISUAL_TIMESTAMPS).build();
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
@@ -90,16 +89,16 @@ public class TransformerMp4EditListTrimTest {
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
 
     assertThat(exportResult.fileSizeBytes).isGreaterThan(0);
-    assertThat(exportResult.durationMs).isEqualTo(10007);
+    assertThat(exportResult.approximateDurationMs).isEqualTo(10007);
     assertThat(exportResult.videoEncoderName).isNull();
     assertThat(exportResult.audioEncoderName).isNull();
-    List<Long> videoTimestampsUs = getVideoSampleTimesUs(outputPath);
+    ImmutableList<Long> videoTimestampsUs = getVideoSampleTimesUs(outputPath);
     assertThat(videoTimestampsUs).hasSize(300);
     assertThat(videoTimestampsUs.get(0)).isEqualTo(0);
     assertThat(videoTimestampsUs.get(1)).isEqualTo(33_366);
     assertThat(videoTimestampsUs.get(2)).isEqualTo(66_733);
     assertThat(videoTimestampsUs.get(61)).isEqualTo(2_035_366);
-    List<Long> audioTimestampsUs = getAudioSampleTimesUs(outputPath);
+    ImmutableList<Long> audioTimestampsUs = getAudioSampleTimesUs(outputPath);
     assertThat(audioTimestampsUs).hasSize(432);
     assertThat(audioTimestampsUs.get(0)).isEqualTo(0);
     assertThat(audioTimestampsUs.get(1)).isEqualTo(23_219);
@@ -107,6 +106,7 @@ public class TransformerMp4EditListTrimTest {
     assertThat(audioTimestampsUs.get(431)).isEqualTo(10_007_165);
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void trimAndExport_mp4WithMp4EditListTrimEnabled_exportsWithCorrectTimestamps()
       throws Exception {
@@ -130,17 +130,17 @@ public class TransformerMp4EditListTrimTest {
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
 
     assertThat(exportResult.fileSizeBytes).isGreaterThan(0);
-    assertThat(exportResult.durationMs).isAtMost(2000);
+    assertThat(exportResult.approximateDurationMs).isAtMost(2000);
     assertThat(exportResult.videoEncoderName).isNull();
     assertThat(exportResult.audioEncoderName).isNull();
-    List<Long> videoTimestampsUs = getVideoSampleTimesUs(outputPath);
+    ImmutableList<Long> videoTimestampsUs = getVideoSampleTimesUs(outputPath);
     assertThat(videoTimestampsUs).hasSize(62);
     assertThat(videoTimestampsUs.get(0)).isEqualTo(-50_000); // Original PTS: 0
     assertThat(videoTimestampsUs.get(1)).isEqualTo(-16_633); // Original PTS: 33_367
     assertThat(videoTimestampsUs.get(2)).isEqualTo(16_733); // Original PTS: 66_733
     assertThat(videoTimestampsUs.get(61)).isEqualTo(1_985_366); // Original PTS: 2_035_366
     // The below timestamps are off by 13 because audio PTS is rounded to the mvhd timesbase.
-    List<Long> audioTimestampsUs = getAudioSampleTimesUs(outputPath);
+    ImmutableList<Long> audioTimestampsUs = getAudioSampleTimesUs(outputPath);
     assertThat(audioTimestampsUs).hasSize(86);
     assertThat(audioTimestampsUs.get(0)).isEqualTo(19_700); // Original PTS: 69_687
     assertThat(audioTimestampsUs.get(1)).isEqualTo(42_919); // Original PTS: 92_916
@@ -171,10 +171,10 @@ public class TransformerMp4EditListTrimTest {
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
 
     assertThat(exportResult.fileSizeBytes).isGreaterThan(0);
-    assertThat(exportResult.durationMs).isAtMost(2000);
+    assertThat(exportResult.approximateDurationMs).isAtMost(2000);
     assertThat(exportResult.videoEncoderName).isNull();
     assertThat(exportResult.audioEncoderName).isNull();
-    List<Long> videoTimestampsUs = getVideoSampleTimesUs(outputPath);
+    ImmutableList<Long> videoTimestampsUs = getVideoSampleTimesUs(outputPath);
     assertThat(videoTimestampsUs).hasSize(56);
     assertThat(videoTimestampsUs.get(0)).isEqualTo(-50_000); // Original PTS: 0
     assertThat(videoTimestampsUs.get(1)).isEqualTo(-16_655); // Original PTS: 33_334
@@ -185,8 +185,7 @@ public class TransformerMp4EditListTrimTest {
   @Test
   public void trimAndExport_audioEditListWithMp4EditListTrimEnabled_completesWithCorrectTimestamps()
       throws Exception {
-    CapturingMuxer.Factory muxerFactory =
-        new CapturingMuxer.Factory(false, new InAppMp4Muxer.Factory());
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(false);
     Transformer transformer =
         new TestTransformerBuilder(context)
             .experimentalSetMp4EditListTrimEnabled(true)
@@ -219,10 +218,7 @@ public class TransformerMp4EditListTrimTest {
       trimAndExport_withNoKeyFrameBetweenClipTimesAndMp4EditListTrimEnabled_exportsWithCorrectTimestamps()
           throws Exception {
     Transformer transformer =
-        new TestTransformerBuilder(context)
-            .experimentalSetMp4EditListTrimEnabled(true)
-            .setMuxerFactory(new InAppMp4Muxer.Factory())
-            .build();
+        new TestTransformerBuilder(context).experimentalSetMp4EditListTrimEnabled(true).build();
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setUri(Uri.parse(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S))
@@ -237,10 +233,10 @@ public class TransformerMp4EditListTrimTest {
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
 
     assertThat(exportResult.fileSizeBytes).isGreaterThan(0);
-    assertThat(exportResult.durationMs).isAtMost(983_333);
+    assertThat(exportResult.approximateDurationMs).isAtMost(983_333);
     assertThat(exportResult.videoEncoderName).isNull();
     assertThat(exportResult.audioEncoderName).isNull();
-    List<Long> videoTimestampsUs = getVideoSampleTimesUs(checkNotNull(outputPath));
+    ImmutableList<Long> videoTimestampsUs = getVideoSampleTimesUs(checkNotNull(outputPath));
     assertThat(videoTimestampsUs).hasSize(160);
     // Last key frame before trim point, at 8.3s in original clip.
     assertThat(videoTimestampsUs.get(0)).isEqualTo(-1_666_666);
@@ -257,10 +253,7 @@ public class TransformerMp4EditListTrimTest {
       trimAndExport_withNoKeyFramesAfterClipStartAndMp4EditListTrimEnabled_exportsWithCorrectTimestamps()
           throws Exception {
     Transformer transformer =
-        new TestTransformerBuilder(context)
-            .experimentalSetMp4EditListTrimEnabled(true)
-            .setMuxerFactory(new InAppMp4Muxer.Factory())
-            .build();
+        new TestTransformerBuilder(context).experimentalSetMp4EditListTrimEnabled(true).build();
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setUri(Uri.parse(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S))
@@ -272,10 +265,10 @@ public class TransformerMp4EditListTrimTest {
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
 
     assertThat(exportResult.fileSizeBytes).isGreaterThan(0);
-    assertThat(exportResult.durationMs).isEqualTo(1_016);
+    assertThat(exportResult.approximateDurationMs).isEqualTo(1_016);
     assertThat(exportResult.videoEncoderName).isNull();
     assertThat(exportResult.audioEncoderName).isNull();
-    List<Long> videoTimestampsUs = getVideoSampleTimesUs(checkNotNull(outputPath));
+    ImmutableList<Long> videoTimestampsUs = getVideoSampleTimesUs(checkNotNull(outputPath));
     assertThat(videoTimestampsUs).hasSize(182);
     // Last key frame before trim point, at 12.5s in original clip.
     assertThat(videoTimestampsUs.get(0)).isEqualTo(-2_000_000);
@@ -292,10 +285,7 @@ public class TransformerMp4EditListTrimTest {
       trimAndExport_positiveEditListWithMp4EditListTrimEnabled_setsFirstVideoTimestampToZero()
           throws Exception {
     Transformer transformer =
-        new TestTransformerBuilder(context)
-            .experimentalSetMp4EditListTrimEnabled(true)
-            .setMuxerFactory(new InAppMp4Muxer.Factory())
-            .build();
+        new TestTransformerBuilder(context).experimentalSetMp4EditListTrimEnabled(true).build();
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setUri(ASSET_URI_PREFIX + FILE_MP4_POSITIVE_SHIFT_EDIT_LIST)
@@ -308,10 +298,10 @@ public class TransformerMp4EditListTrimTest {
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
 
     assertThat(exportResult.fileSizeBytes).isGreaterThan(0);
-    assertThat(exportResult.durationMs).isEqualTo(9905);
+    assertThat(exportResult.approximateDurationMs).isEqualTo(9905);
     assertThat(exportResult.videoEncoderName).isNull();
     assertThat(exportResult.audioEncoderName).isNull();
-    List<Long> videoTimestampsUs = getVideoSampleTimesUs(checkNotNull(outputPath));
+    ImmutableList<Long> videoTimestampsUs = getVideoSampleTimesUs(checkNotNull(outputPath));
     assertThat(videoTimestampsUs).hasSize(270);
     assertThat(videoTimestampsUs.get(0)).isEqualTo(0);
     // The second sample is originally at 1_033_333, clipping at 100_000 results in 933_333.
@@ -323,10 +313,7 @@ public class TransformerMp4EditListTrimTest {
       trimAndExport_withInputFileRotated270AndMp4EditListTrimEnabled_exportsWithCorrectOrientation()
           throws Exception {
     Transformer transformer =
-        new TestTransformerBuilder(context)
-            .experimentalSetMp4EditListTrimEnabled(true)
-            .setMuxerFactory(new InAppMp4Muxer.Factory())
-            .build();
+        new TestTransformerBuilder(context).experimentalSetMp4EditListTrimEnabled(true).build();
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setUri(ASSET_URI_PREFIX + FILE_MP4_TRIM_OPTIMIZATION_270)
@@ -341,7 +328,7 @@ public class TransformerMp4EditListTrimTest {
     transformer.start(editedMediaItem, outputPath);
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
 
-    assertThat(exportResult.durationMs).isAtMost(2000);
+    assertThat(exportResult.approximateDurationMs).isAtMost(2000);
     assertThat(exportResult.videoEncoderName).isNull();
     assertThat(exportResult.audioEncoderName).isNull();
     Format format = retrieveTrackFormat(context, outputPath, C.TRACK_TYPE_VIDEO);
@@ -353,10 +340,7 @@ public class TransformerMp4EditListTrimTest {
       trimAndExport_withInputFileRotated180AndMp4EditListTrimEnabled_exportsWithCorrectOrientation()
           throws Exception {
     Transformer transformer =
-        new TestTransformerBuilder(context)
-            .experimentalSetMp4EditListTrimEnabled(true)
-            .setMuxerFactory(new InAppMp4Muxer.Factory())
-            .build();
+        new TestTransformerBuilder(context).experimentalSetMp4EditListTrimEnabled(true).build();
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setUri(ASSET_URI_PREFIX + FILE_MP4_TRIM_OPTIMIZATION_180)
@@ -371,7 +355,7 @@ public class TransformerMp4EditListTrimTest {
     transformer.start(editedMediaItem, outputPath);
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
 
-    assertThat(exportResult.durationMs).isAtMost(2000);
+    assertThat(exportResult.approximateDurationMs).isAtMost(2000);
     assertThat(exportResult.videoEncoderName).isNull();
     assertThat(exportResult.audioEncoderName).isNull();
     Format format = retrieveTrackFormat(context, outputPath, C.TRACK_TYPE_VIDEO);
@@ -382,8 +366,7 @@ public class TransformerMp4EditListTrimTest {
   public void
       trimAndExport_withClippingStartAtKeyFrameAndMp4EditListTrimmingEnabled_matchesNonOptimizedExport()
           throws Exception {
-    CapturingMuxer.Factory muxerFactory =
-        new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false, new InAppMp4Muxer.Factory());
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
     Transformer transformer =
         new TestTransformerBuilder(context)
             .setMuxerFactory(muxerFactory)

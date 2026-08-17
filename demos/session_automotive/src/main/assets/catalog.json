@@ -6,12 +6,13 @@
       "album": "Wake Up",
       "artist": "The Kyoto Connection",
       "genre": "Electronic",
-      "source": "https://storage.googleapis.com/uamp/The_Kyoto_Connection_-_Wake_Up/01_-_Intro_-_The_Way_Of_Waking_Up_feat_Alan_Watts.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/The_Kyoto_Connection_-_Wake_Up/01_-_Intro_-_The_Way_Of_Waking_Up_feat_Alan_Watts.mp3",
       "image": "content://androidx.media3/artwork/album_kyoto_connection.png",
       "trackNumber": 1,
       "totalTrackCount": 13,
       "duration": 90,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "wake_up_02",
@@ -19,12 +20,13 @@
       "album": "Wake Up",
       "artist": "The Kyoto Connection",
       "genre": "Electronic",
-      "source": "https://storage.googleapis.com/uamp/The_Kyoto_Connection_-_Wake_Up/02_-_Geisha.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/The_Kyoto_Connection_-_Wake_Up/02_-_Geisha.mp3",
       "image": "content://androidx.media3/artwork/album_kyoto_connection.png",
       "trackNumber": 2,
       "totalTrackCount": 13,
       "duration": 267,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "wake_up_03",
@@ -32,12 +34,13 @@
       "album": "Wake Up",
       "artist": "The Kyoto Connection",
       "genre": "Electronic",
-      "source": "https://storage.googleapis.com/uamp/The_Kyoto_Connection_-_Wake_Up/03_-_Voyage_I_-_Waterfall.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/The_Kyoto_Connection_-_Wake_Up/03_-_Voyage_I_-_Waterfall.mp3",
       "image": "content://androidx.media3/artwork/album_kyoto_connection.png",
       "trackNumber": 3,
       "totalTrackCount": 13,
       "duration": 264,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "wake_up_04",
@@ -45,12 +48,13 @@
       "album": "Wake Up",
       "artist": "The Kyoto Connection",
       "genre": "Electronic",
-      "source": "https://storage.googleapis.com/uamp/The_Kyoto_Connection_-_Wake_Up/04_-_The_Music_In_You.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/The_Kyoto_Connection_-_Wake_Up/04_-_The_Music_In_You.mp3",
       "image": "content://androidx.media3/artwork/album_kyoto_connection.png",
       "trackNumber": 4,
       "totalTrackCount": 13,
       "duration": 223,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "wake_up_05",
@@ -58,12 +62,13 @@
       "album": "Wake Up",
       "artist": "The Kyoto Connection",
       "genre": "Electronic",
-      "source": "https://storage.googleapis.com/uamp/The_Kyoto_Connection_-_Wake_Up/05_-_The_Calm_Before_The_Storm.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/The_Kyoto_Connection_-_Wake_Up/05_-_The_Calm_Before_The_Storm.mp3",
       "image": "content://androidx.media3/artwork/album_kyoto_connection.png",
       "trackNumber": 5,
       "totalTrackCount": 13,
       "duration": 229,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "wake_up_06",
@@ -71,12 +76,13 @@
       "album": "Wake Up",
       "artist": "The Kyoto Connection",
       "genre": "Electronic",
-      "source": "https://storage.googleapis.com/uamp/The_Kyoto_Connection_-_Wake_Up/06_-_No_Pain_No_Gain.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/The_Kyoto_Connection_-_Wake_Up/06_-_No_Pain_No_Gain.mp3",
       "image": "content://androidx.media3/artwork/album_kyoto_connection.png",
       "trackNumber": 6,
       "totalTrackCount": 13,
       "duration": 304,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "wake_up_07",
@@ -84,12 +90,13 @@
       "album": "Wake Up",
       "artist": "The Kyoto Connection",
       "genre": "Electronic",
-      "source": "https://storage.googleapis.com/uamp/The_Kyoto_Connection_-_Wake_Up/07_-_Voyage_II_-_Satori.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/The_Kyoto_Connection_-_Wake_Up/07_-_Voyage_II_-_Satori.mp3",
       "image": "content://androidx.media3/artwork/album_kyoto_connection.png",
       "trackNumber": 7,
       "totalTrackCount": 13,
       "duration": 256,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "wake_up_08",
@@ -97,12 +104,13 @@
       "album": "Wake Up",
       "artist": "The Kyoto Connection",
       "genre": "Electronic",
-      "source": "https://storage.googleapis.com/uamp/The_Kyoto_Connection_-_Wake_Up/08_-_Reveal_the_Magic.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/The_Kyoto_Connection_-_Wake_Up/08_-_Reveal_the_Magic.mp3",
       "image": "content://androidx.media3/artwork/album_kyoto_connection.png",
       "trackNumber": 8,
       "totalTrackCount": 13,
       "duration": 293,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "wake_up_09",
@@ -110,12 +118,13 @@
       "album": "Wake Up",
       "artist": "The Kyoto Connection",
       "genre": "Electronic",
-      "source": "https://storage.googleapis.com/uamp/The_Kyoto_Connection_-_Wake_Up/09_-_Hachiko_The_Faithtful_Dog.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/The_Kyoto_Connection_-_Wake_Up/09_-_Hachiko_The_Faithtful_Dog.mp3",
       "image": "content://androidx.media3/artwork/album_kyoto_connection.png",
       "trackNumber": 9,
       "totalTrackCount": 13,
       "duration": 185,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "wake_up_10",
@@ -123,12 +132,13 @@
       "album": "Wake Up",
       "artist": "The Kyoto Connection",
       "genre": "Electronic",
-      "source": "https://storage.googleapis.com/uamp/The_Kyoto_Connection_-_Wake_Up/10_-_Wake_Up.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/The_Kyoto_Connection_-_Wake_Up/10_-_Wake_Up.mp3",
       "image": "content://androidx.media3/artwork/album_kyoto_connection.png",
       "trackNumber": 10,
       "totalTrackCount": 13,
       "duration": 251,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "wake_up_11",
@@ -136,12 +146,13 @@
       "album": "Wake Up",
       "artist": "The Kyoto Connection",
       "genre": "Electronic",
-      "source": "https://storage.googleapis.com/uamp/The_Kyoto_Connection_-_Wake_Up/11_-_Voyage_III_-_The_Space_Between_Us.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/The_Kyoto_Connection_-_Wake_Up/11_-_Voyage_III_-_The_Space_Between_Us.mp3",
       "image": "content://androidx.media3/artwork/album_kyoto_connection.png",
       "trackNumber": 11,
       "totalTrackCount": 13,
       "duration": 290,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "wake_up_12",
@@ -149,12 +160,13 @@
       "album": "Wake Up",
       "artist": "The Kyoto Connection",
       "genre": "Electronic",
-      "source": "https://storage.googleapis.com/uamp/The_Kyoto_Connection_-_Wake_Up/12_-_Ume_No_Kaori_feat_Sunawai.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/The_Kyoto_Connection_-_Wake_Up/12_-_Ume_No_Kaori_feat_Sunawai.mp3",
       "image": "content://androidx.media3/artwork/album_kyoto_connection.png",
       "trackNumber": 12,
       "totalTrackCount": 13,
       "duration": 334,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "wake_up_13",
@@ -162,12 +174,13 @@
       "album": "Wake Up",
       "artist": "The Kyoto Connection",
       "genre": "Electronic",
-      "source": "https://storage.googleapis.com/uamp/The_Kyoto_Connection_-_Wake_Up/13_-_Outro_-_Totally_Here_and_Now_feat_Alan_Watts.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/The_Kyoto_Connection_-_Wake_Up/13_-_Outro_-_Totally_Here_and_Now_feat_Alan_Watts.mp3",
       "image": "content://androidx.media3/artwork/album_kyoto_connection.png",
       "trackNumber": 13,
       "totalTrackCount": 13,
       "duration": 242,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "irsens_tale_01",
@@ -175,12 +188,13 @@
       "album": "Irsen's Tale",
       "artist": "Kai Engel",
       "genre": "Ambient",
-      "source": "https://storage.googleapis.com/uamp/Kai_Engel_-_Irsens_Tale/01_-_Intro_udonthear.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/Kai_Engel_-_Irsens_Tale/01_-_Intro_udonthear.mp3",
       "image": "content://androidx.media3/artwork/album_kai_engel.png",
       "trackNumber": 1,
       "totalTrackCount": 9,
       "duration": 63,
-      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/"
+      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/",
+      "media_type": "music"
     },
     {
       "id": "irsens_tale_02",
@@ -188,12 +202,13 @@
       "album": "Irsen's Tale",
       "artist": "Kai Engel",
       "genre": "Ambient",
-      "source": "https://storage.googleapis.com/uamp/Kai_Engel_-_Irsens_Tale/02_-_Leaving.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/Kai_Engel_-_Irsens_Tale/02_-_Leaving.mp3",
       "image": "content://androidx.media3/artwork/album_kai_engel.png",
       "trackNumber": 2,
       "totalTrackCount": 9,
       "duration": 170,
-      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/"
+      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/",
+      "media_type": "music"
     },
     {
       "id": "irsens_tale_03",
@@ -201,12 +216,13 @@
       "album": "Irsen's Tale",
       "artist": "Kai Engel",
       "genre": "Ambient",
-      "source": "https://storage.googleapis.com/uamp/Kai_Engel_-_Irsens_Tale/03_-_Irsens_Tale.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/Kai_Engel_-_Irsens_Tale/03_-_Irsens_Tale.mp3",
       "image": "content://androidx.media3/artwork/album_kai_engel.png",
       "trackNumber": 3,
       "totalTrackCount": 9,
       "duration": 164,
-      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/"
+      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/",
+      "media_type": "music"
     },
     {
       "id": "irsens_tale_04",
@@ -214,12 +230,13 @@
       "album": "Irsen's Tale",
       "artist": "Kai Engel",
       "genre": "Ambient",
-      "source": "https://storage.googleapis.com/uamp/Kai_Engel_-_Irsens_Tale/04_-_Moonlight_Reprise.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/Kai_Engel_-_Irsens_Tale/04_-_Moonlight_Reprise.mp3",
       "image": "content://androidx.media3/artwork/album_kai_engel.png",
       "trackNumber": 4,
       "totalTrackCount": 9,
       "duration": 181,
-      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/"
+      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/",
+      "media_type": "music"
     },
     {
       "id": "irsens_tale_05",
@@ -227,12 +244,13 @@
       "album": "Irsen's Tale",
       "artist": "Kai Engel",
       "genre": "Ambient",
-      "source": "https://storage.googleapis.com/uamp/Kai_Engel_-_Irsens_Tale/05_-_Nothing_Lasts_Forever.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/Kai_Engel_-_Irsens_Tale/05_-_Nothing_Lasts_Forever.mp3",
       "image": "content://androidx.media3/artwork/album_kai_engel.png",
       "trackNumber": 5,
       "totalTrackCount": 9,
       "duration": 132,
-      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/"
+      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/",
+      "media_type": "music"
     },
     {
       "id": "irsens_tale_06",
@@ -240,12 +258,13 @@
       "album": "Irsen's Tale",
       "artist": "Kai Engel",
       "genre": "Ambient",
-      "source": "https://storage.googleapis.com/uamp/Kai_Engel_-_Irsens_Tale/06_-_The_Moments_of_Our_Mornings.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/Kai_Engel_-_Irsens_Tale/06_-_The_Moments_of_Our_Mornings.mp3",
       "image": "content://androidx.media3/artwork/album_kai_engel.png",
       "trackNumber": 6,
       "totalTrackCount": 9,
       "duration": 104,
-      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/"
+      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/",
+      "media_type": "music"
     },
     {
       "id": "irsens_tale_07",
@@ -253,12 +272,13 @@
       "album": "Irsen's Tale",
       "artist": "Kai Engel",
       "genre": "Ambient",
-      "source": "https://storage.googleapis.com/uamp/Kai_Engel_-_Irsens_Tale/07_-_Laceration.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/Kai_Engel_-_Irsens_Tale/07_-_Laceration.mp3",
       "image": "content://androidx.media3/artwork/album_kai_engel.png",
       "trackNumber": 7,
       "totalTrackCount": 9,
       "duration": 173,
-      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/"
+      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/",
+      "media_type": "music"
     },
     {
       "id": "irsens_tale_08",
@@ -266,12 +286,13 @@
       "album": "Irsen's Tale",
       "artist": "Kai Engel",
       "genre": "Ambient",
-      "source": "https://storage.googleapis.com/uamp/Kai_Engel_-_Irsens_Tale/08_-_Memories.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/Kai_Engel_-_Irsens_Tale/08_-_Memories.mp3",
       "image": "content://androidx.media3/artwork/album_kai_engel.png",
       "trackNumber": 8,
       "totalTrackCount": 9,
       "duration": 213,
-      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/"
+      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/",
+      "media_type": "music"
     },
     {
       "id": "irsens_tale_09",
@@ -279,12 +300,13 @@
       "album": "Irsen's Tale",
       "artist": "Kai Engel",
       "genre": "Ambient",
-      "source": "https://storage.googleapis.com/uamp/Kai_Engel_-_Irsens_Tale/09_-_Outro.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/Kai_Engel_-_Irsens_Tale/09_-_Outro.mp3",
       "image": "content://androidx.media3/artwork/album_kai_engel.png",
       "trackNumber": 9,
       "totalTrackCount": 9,
       "duration": 65,
-      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/"
+      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/",
+      "media_type": "music"
     },
     {
       "id": "jazz_in_paris",
@@ -292,12 +314,13 @@
       "album": "Jazz & Blues",
       "artist": "Media Right Productions",
       "genre": "Jazz & Blues",
-      "source": "https://storage.googleapis.com/automotive-media/Jazz_In_Paris.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/Jazz_In_Paris.mp3",
       "image": "content://androidx.media3/artwork/album_sea.png",
       "trackNumber": 1,
       "totalTrackCount": 6,
       "duration": 103,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "the_messenger",
@@ -305,12 +328,13 @@
       "album": "Jazz & Blues",
       "artist": "Silent Partner",
       "genre": "Jazz & Blues",
-      "source": "https://storage.googleapis.com/automotive-media/The_Messenger.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/The_Messenger.mp3",
       "image": "content://androidx.media3/artwork/album_sea.png",
       "trackNumber": 2,
       "totalTrackCount": 6,
       "duration": 132,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "talkies",
@@ -318,12 +342,13 @@
       "album": "Jazz & Blues",
       "artist": "Huma-Huma",
       "genre": "Jazz & Blues",
-      "source": "https://storage.googleapis.com/automotive-media/Talkies.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/Talkies.mp3",
       "image": "content://androidx.media3/artwork/album_sea.png",
       "trackNumber": 3,
       "totalTrackCount": 6,
       "duration": 162,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "on_the_bach",
@@ -331,12 +356,13 @@
       "album": "Cinematic",
       "artist": "Jingle Punks",
       "genre": "Cinematic",
-      "source": "https://storage.googleapis.com/automotive-media/On_the_Bach.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/On_the_Bach.mp3",
       "image": "content://androidx.media3/artwork/album_drinks.png",
       "trackNumber": 4,
       "totalTrackCount": 6,
       "duration": 66,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "the_story_unfolds",
@@ -344,12 +370,13 @@
       "album": "Cinematic",
       "artist": "Jingle Punks",
       "genre": "Cinematic",
-      "source": "https://storage.googleapis.com/automotive-media/The_Story_Unfolds.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/The_Story_Unfolds.mp3",
       "image": "content://androidx.media3/artwork/album_drinks.png",
       "trackNumber": 5,
       "totalTrackCount": 6,
       "duration": 91,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "drop_and_roll",
@@ -357,12 +384,13 @@
       "album": "Youtube Audio Library Rock",
       "artist": "Silent Partner",
       "genre": "Rock",
-      "source": "https://storage.googleapis.com/automotive-media/Drop_and_Roll.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/Drop_and_Roll.mp3",
       "image": "content://androidx.media3/artwork/album_road.png",
       "trackNumber": 1,
       "totalTrackCount": 7,
       "duration": 121,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "motocross",
@@ -370,12 +398,13 @@
       "album": "Youtube Audio Library Rock",
       "artist": "Topher Mohr and Alex Elena",
       "genre": "Rock",
-      "source": "https://storage.googleapis.com/automotive-media/Motocross.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/Motocross.mp3",
       "image": "content://androidx.media3/artwork/album_road.png",
       "trackNumber": 2,
       "totalTrackCount": 7,
       "duration": 182,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "wish_youd_come_true",
@@ -383,12 +412,13 @@
       "album": "Youtube Audio Library Rock",
       "artist": "The 126ers",
       "genre": "Rock",
-      "source": "https://storage.googleapis.com/automotive-media/Wish_You_d_Come_True.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/Wish_You_d_Come_True.mp3",
       "image": "content://androidx.media3/artwork/album_road.png",
       "trackNumber": 3,
       "totalTrackCount": 7,
       "duration": 169,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "awakening",
@@ -396,12 +426,13 @@
       "album": "Youtube Audio Library Rock",
       "artist": "Silent Partner",
       "genre": "Rock",
-      "source": "https://storage.googleapis.com/automotive-media/Awakening.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/Awakening.mp3",
       "image": "content://androidx.media3/artwork/album_road.png",
       "trackNumber": 4,
       "totalTrackCount": 7,
       "duration": 220,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "home",
@@ -409,12 +440,13 @@
       "album": "Youtube Audio Library Rock",
       "artist": "Letter Box",
       "genre": "Rock",
-      "source": "https://storage.googleapis.com/automotive-media/Home.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/Home.mp3",
       "image": "content://androidx.media3/artwork/album_road.png",
       "trackNumber": 5,
       "totalTrackCount": 7,
       "duration": 213,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "tell_the_angels",
@@ -422,12 +454,13 @@
       "album": "Youtube Audio Library Rock 2",
       "artist": "Letter Box",
       "genre": "Rock",
-      "source": "https://storage.googleapis.com/automotive-media/Tell_The_Angels.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/Tell_The_Angels.mp3",
       "image": "content://androidx.media3/artwork/album_skyline.png",
       "trackNumber": 6,
       "totalTrackCount": 7,
       "duration": 208,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "hey_sailor",
@@ -435,12 +468,13 @@
       "album": "Youtube Audio Library Rock 2",
       "artist": "Letter Box",
       "genre": "Rock",
-      "source": "https://storage.googleapis.com/automotive-media/Hey_Sailor.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/Hey_Sailor.mp3",
       "image": "content://androidx.media3/artwork/album_skyline.png",
       "trackNumber": 7,
       "totalTrackCount": 7,
       "duration": 193,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "keys_to_the_kingdom",
@@ -448,12 +482,13 @@
       "album": "Youtube Audio Library Rock 2",
       "artist": "The 126ers",
       "genre": "Rock",
-      "source": "https://storage.googleapis.com/automotive-media/Keys_To_The_Kingdom.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/Keys_To_The_Kingdom.mp3",
       "image": "content://androidx.media3/artwork/album_skyline.png",
       "trackNumber": 1,
       "totalTrackCount": 2,
       "duration": 221,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "the_coldest_shoulder",
@@ -461,12 +496,13 @@
       "album": "Youtube Audio Library Rock 2",
       "artist": "The 126ers",
       "genre": "Rock",
-      "source": "https://storage.googleapis.com/automotive-media/The_Coldest_Shoulder.mp3",
+      "source": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/The_Coldest_Shoulder.mp3",
       "image": "content://androidx.media3/artwork/album_skyline.png",
       "trackNumber": 2,
       "totalTrackCount": 2,
       "duration": 160,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     }
   ]
 }

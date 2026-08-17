@@ -17,6 +17,7 @@ package androidx.media3.session.legacy;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
+import static androidx.media3.common.util.Util.convertToNullIfInvalid;
 import static androidx.media3.session.legacy.MediaControllerCompat.PlaybackInfo.PLAYBACK_TYPE_LOCAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -39,14 +40,13 @@ import android.os.Message;
 import android.os.RemoteException;
 import android.os.ResultReceiver;
 import android.text.TextUtils;
-import android.util.Log;
 import android.view.KeyEvent;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.AudioAttributes;
-import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Log;
 import androidx.media3.session.legacy.MediaSessionCompat.QueueItem;
 import androidx.media3.session.legacy.PlaybackStateCompat.CustomAction;
 import androidx.versionedparcelable.ParcelUtils;
@@ -92,7 +92,6 @@ import java.util.Set;
  * <p>For information about building your media application, read the <a
  * href="{@docRoot}guide/topics/media-apps/index.html">Media Apps</a> developer guide. </div>
  */
-@UnstableApi
 @RestrictTo(LIBRARY)
 public final class MediaControllerCompat {
   static final String TAG = "MediaControllerCompat";
@@ -574,7 +573,7 @@ public final class MediaControllerCompat {
    */
   public abstract static class Callback implements IBinder.DeathRecipient {
     @Nullable final MediaController.Callback callbackFwk;
-    @Nullable MessageHandler handler;
+    @Nullable private MessageHandler handler;
     @Nullable IMediaControllerCallback iControllerCallback;
 
     // Sharing this in constructor
@@ -725,7 +724,7 @@ public final class MediaControllerCompat {
 
       @Override
       public void onSessionEvent(String event, @Nullable Bundle extras) {
-        MediaSessionCompat.ensureClassLoader(extras);
+        extras = convertToNullIfInvalid(extras);
         MediaControllerCompat.Callback callback = this.callback.get();
         if (callback != null) {
           callback.onSessionEvent(event, extras);
@@ -770,7 +769,7 @@ public final class MediaControllerCompat {
 
       @Override
       public void onExtrasChanged(@Nullable Bundle extras) {
-        MediaSessionCompat.ensureClassLoader(extras);
+        extras = convertToNullIfInvalid(extras);
         MediaControllerCompat.Callback callback = this.callback.get();
         if (callback != null) {
           callback.onExtrasChanged(extras);
@@ -859,7 +858,6 @@ public final class MediaControllerCompat {
       }
 
       @Override
-      @SuppressWarnings("unchecked")
       public void handleMessage(Message msg) {
         if (!registered) {
           return;
@@ -1303,14 +1301,16 @@ public final class MediaControllerCompat {
       synchronized (lock) {
         IMediaSession extraBinder = sessionToken.getExtraBinder();
         if (extraBinder != null) {
-          try {
-            Callback.CallbackStub callbackStub = callbackMap.remove(callback);
-            if (callbackStub != null) {
-              callback.iControllerCallback = null;
-              extraBinder.unregisterCallbackListener(callbackStub);
+          Callback.CallbackStub callbackStub = callbackMap.remove(callback);
+          if (callbackStub != null) {
+            callback.iControllerCallback = null;
+            if (extraBinder.asBinder().isBinderAlive()) {
+              try {
+                extraBinder.unregisterCallbackListener(callbackStub);
+              } catch (RemoteException | SecurityException e) {
+                Log.w(TAG, "Dead object in unregisterCallbackListener.", e);
+              }
             }
-          } catch (RemoteException | SecurityException e) {
-            Log.e(TAG, "Dead object in unregisterCallback.", e);
           }
         } else {
           pendingCallbacks.remove(callback);
@@ -1368,8 +1368,7 @@ public final class MediaControllerCompat {
     public void addQueueItem(MediaDescriptionCompat description) {
       long flags = getFlags();
       if ((flags & MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS) == 0) {
-        throw new UnsupportedOperationException(
-            "This session doesn't support queue management operations");
+        return;
       }
       Bundle params = new Bundle();
       params.putParcelable(
@@ -1383,8 +1382,7 @@ public final class MediaControllerCompat {
     public void addQueueItem(MediaDescriptionCompat description, int index) {
       long flags = getFlags();
       if ((flags & MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS) == 0) {
-        throw new UnsupportedOperationException(
-            "This session doesn't support queue management operations");
+        return;
       }
       Bundle params = new Bundle();
       params.putParcelable(
@@ -1399,8 +1397,7 @@ public final class MediaControllerCompat {
     public void removeQueueItem(MediaDescriptionCompat description) {
       long flags = getFlags();
       if ((flags & MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS) == 0) {
-        throw new UnsupportedOperationException(
-            "This session doesn't support queue management operations");
+        return;
       }
       Bundle params = new Bundle();
       params.putParcelable(
@@ -1419,7 +1416,7 @@ public final class MediaControllerCompat {
     @Nullable
     @Override
     public Bundle getExtras() {
-      return controllerFwk.getExtras();
+      return convertToNullIfInvalid(controllerFwk.getExtras());
     }
 
     @Override
@@ -1533,7 +1530,7 @@ public final class MediaControllerCompat {
         }
       }
 
-      sessionInfo = MediaSessionCompat.unparcelWithClassLoader(sessionInfo);
+      sessionInfo = convertToNullIfInvalid(sessionInfo);
       return sessionInfo == null ? Bundle.EMPTY : new Bundle(sessionInfo);
     }
 
@@ -1607,7 +1604,7 @@ public final class MediaControllerCompat {
         return new Bundle(sessionInfo);
       }
       sessionInfo = controllerFwk.getSessionInfo();
-      sessionInfo = MediaSessionCompat.unparcelWithClassLoader(sessionInfo);
+      sessionInfo = convertToNullIfInvalid(sessionInfo);
       return sessionInfo == null ? Bundle.EMPTY : new Bundle(sessionInfo);
     }
   }

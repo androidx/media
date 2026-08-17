@@ -15,8 +15,8 @@
  */
 package androidx.media3.transformer.mh;
 
-import static androidx.media3.test.utils.TestUtil.MP4_LONG_ASSET_WITH_AUDIO_AND_INCREASING_TIMESTAMPS;
-import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
+import static androidx.media3.test.utils.AssetInfo.MP4_LONG_ASSET_WITH_AUDIO_AND_INCREASING_TIMESTAMPS;
+import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeTrue;
 
@@ -47,12 +47,14 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /** Checks transcoding speed when running in foreground. */
+@Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(AndroidJUnit4.class)
 public class TranscodeForegroundSpeedTest {
   private final Context context = ApplicationProvider.getApplicationContext();
@@ -102,8 +104,7 @@ public class TranscodeForegroundSpeedTest {
       export1080pWithAudioTo720p_onLowerPerformanceDevicesWithDynamicScheduling_completesWithAtLeast60Fps()
           throws Exception {
     assumeTrue(
-        (Ascii.toLowerCase(Build.MODEL).contains("f-01l")
-            || Ascii.toLowerCase(Build.MODEL).contains("asus_x00td")
+        (Ascii.toLowerCase(Build.MODEL).contains("asus_x00td")
             || Ascii.toLowerCase(Build.MODEL).contains("redmi note 5")
             || Ascii.toLowerCase(Build.MODEL).contains("mha-l29")
             || Ascii.toLowerCase(Build.MODEL).contains("oneplus a6013")

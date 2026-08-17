@@ -15,21 +15,20 @@
  */
 package androidx.media3.transformer.mh;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_ORIGINAL;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_1080P_5_SECOND_HLG10;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_720P_4_SECOND_HDR10;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_AV1_2_SECOND_HDR10;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_DOLBY_VISION_HDR;
 import static androidx.media3.test.utils.DecodeOneFrameUtil.decodeOneMediaItemFrame;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_1080P_5_SECOND_HLG10;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_720P_4_SECOND_HDR10;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_AV1_2_SECOND_HDR10;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_DOLBY_VISION_HDR;
+import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
+import static androidx.media3.test.utils.HdrCapabilitiesUtil.assumeDeviceDoesNotSupportHdrEditing;
+import static androidx.media3.test.utils.HdrCapabilitiesUtil.assumeDeviceSupportsHdrEditing;
+import static androidx.media3.test.utils.TestSummaryLogger.recordTestSkipped;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static androidx.media3.transformer.AndroidTestUtil.FORCE_TRANSCODE_VIDEO_EFFECTS;
-import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
-import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static androidx.media3.transformer.Composition.HDR_MODE_KEEP_HDR;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
-import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceDoesNotSupportHdrEditing;
-import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsHdrEditing;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.Collections.max;
@@ -57,6 +56,7 @@ import androidx.media3.transformer.Transformer;
 import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -66,6 +66,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.AssumptionViolatedException;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -75,6 +76,7 @@ import org.junit.runner.RunWith;
  * {@link Transformer} instrumentation test for applying an {@linkplain
  * Composition#HDR_MODE_KEEP_HDR HDR frame edit}.
  */
+@Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(AndroidJUnit4.class)
 public final class HdrEditingTest {
 
@@ -98,13 +100,6 @@ public final class HdrEditingTest {
   @Test
   public void export_transmuxHdr10File() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-
-    if (SDK_INT < 24) {
-      // TODO: b/285543404 - Remove suppression once we can transmux H.265/HEVC before API 24.
-      recordTestSkipped(context, testId, /* reason= */ "Can't transmux H.265/HEVC before API 24");
-      return;
-    }
-
     assumeFormatsSupported(
         context,
         testId,
@@ -129,13 +124,6 @@ public final class HdrEditingTest {
   @Test
   public void export_transmuxHlg10File() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-
-    if (SDK_INT < 24) {
-      // TODO: b/285543404 - Remove suppression once we can transmux H.265/HEVC before API 24.
-      recordTestSkipped(context, testId, /* reason= */ "Can't transmux H.265/HEVC before API 24");
-      return;
-    }
-
     assumeFormatsSupported(
         context,
         testId,
@@ -158,6 +146,7 @@ public final class HdrEditingTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 33)
   public void exportAndTranscode_hdr10File_whenHdrEditingIsSupported() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     Format format = MP4_ASSET_720P_4_SECOND_HDR10.videoFormat;
@@ -295,6 +284,7 @@ public final class HdrEditingTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 33)
   public void
       exportAndTranscode_av1FileWithAv1HdrEditingUnsupportedAndHevcHdrEditingSupported_fallsBackToH265()
           throws Exception {

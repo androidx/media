@@ -22,6 +22,8 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Util;
+import androidx.media3.datasource.DataSpec;
+import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.SampleStream;
@@ -32,6 +34,7 @@ import androidx.media3.test.utils.robolectric.RobolectricUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -208,6 +211,45 @@ public final class RtspMediaPeriodTest {
     assertThat(mediaPeriod.isLoading()).isTrue();
   }
 
+  @Test
+  public void seekToUs_withRapidScrubbingAfterSuccessfulPlayResponse_doesNotTriggerTcpFallback()
+      throws Exception {
+    AtomicBoolean getPlayResponseReference = new AtomicBoolean();
+    rtspServer =
+        new RtspServer(
+            new TestResponseProvider(
+                rtpPacketStreamDump,
+                /* getPlayResponseReference= */ getPlayResponseReference,
+                /* isWwwAuthenticationMode= */ false));
+    mediaPeriod =
+        new RtspMediaPeriod(
+            new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE),
+            new FakeRtpDataChannelFactory(),
+            RtspTestUtils.getTestUri(rtspServer.startAndGetPortNumber()),
+            /* listener= */ timing -> {},
+            /* userAgent= */ "ExoPlayer:RtspPeriodTest",
+            /* socketFactory= */ SocketFactory.getDefault(),
+            /* debugLoggingEnabled= */ false);
+    mediaPeriod.prepare(mediaPeriodCallback, /* positionUs= */ 0);
+    RobolectricUtil.runMainLooperUntil(() -> trackGroupAtomicReference.get() != null);
+    SampleStream[] sampleStreams = new SampleStream[1];
+    mediaPeriod.selectTracks(
+        new ExoTrackSelection[] {
+          new FixedTrackSelection(trackGroupAtomicReference.get(), /* track= */ 0)
+        },
+        /* mayRetainStreamFlags= */ new boolean[] {false},
+        sampleStreams,
+        /* streamResetFlags= */ new boolean[] {true},
+        /* positionUs= */ 0);
+    RobolectricUtil.runMainLooperUntil(getPlayResponseReference::get);
+    long seekPositionUs = 5000000;
+
+    mediaPeriod.seekToUs(0);
+    mediaPeriod.seekToUs(seekPositionUs);
+
+    assertThat(mediaPeriod.getBufferedPositionUs()).isEqualTo(seekPositionUs);
+  }
+
   private static class TestResponseProvider implements RtspServer.ResponseProvider {
     private static final String SESSION_ID = "00000000";
 
@@ -288,6 +330,71 @@ public final class RtspMediaPeriodTest {
           new RtspHeaders.Builder()
               .add(RtspHeaders.RTP_INFO, RtspTestUtils.getRtpInfoForDumps(rtpPacketStreamDumps))
               .build());
+    }
+  }
+
+  private static final class FakeRtpDataChannel implements RtpDataChannel {
+    private final CountDownLatch blockReadLatch = new CountDownLatch(1);
+
+    @Override
+    public String getTransport() {
+      return "RTP/AVP;unicast;client_port=1234-1235";
+    }
+
+    @Override
+    public int getLocalPort() {
+      return 1234;
+    }
+
+    @Override
+    public boolean needsClosingOnLoadCompletion() {
+      return false;
+    }
+
+    @Nullable
+    @Override
+    public RtspMessageChannel.InterleavedBinaryDataListener getInterleavedBinaryDataListener() {
+      return null;
+    }
+
+    @Override
+    public void addTransferListener(TransferListener transferListener) {}
+
+    @Override
+    public long open(DataSpec dataSpec) {
+      return C.LENGTH_UNSET;
+    }
+
+    @Nullable
+    @Override
+    public Uri getUri() {
+      return null;
+    }
+
+    @Override
+    public void close() {}
+
+    @Override
+    public int read(byte[] buffer, int offset, int length) {
+      try {
+        // Block the read thread until interrupted, simulating a healthy, empty UDP socket.
+        blockReadLatch.await();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+      return C.RESULT_END_OF_INPUT;
+    }
+  }
+
+  private static final class FakeRtpDataChannelFactory implements RtpDataChannel.Factory {
+    @Override
+    public RtpDataChannel createAndOpenDataChannel(int trackId) {
+      return new FakeRtpDataChannel();
+    }
+
+    @Override
+    public RtpDataChannel.Factory createFallbackDataChannelFactory() {
+      return new TransferRtpDataChannelFactory(DEFAULT_TIMEOUT_MS);
     }
   }
 }

@@ -63,26 +63,6 @@ public final class ChannelMixingMatrix {
    * @param outputChannelCount Number of output channels.
    * @throws UnsupportedOperationException If no default coefficients are available for the given
    *     input and output channel counts.
-   * @deprecated Use {@link #createForConstantGain} instead.
-   */
-  @Deprecated
-  public static ChannelMixingMatrix create(
-      @IntRange(from = 1, to = 2) int inputChannelCount,
-      @IntRange(from = 1, to = 2) int outputChannelCount) {
-    return createForConstantGain(inputChannelCount, outputChannelCount);
-  }
-
-  /**
-   * Returns a default constant gain channel mixing matrix that mixes {@code inputChannelCount}
-   * channels into {@code outputChannelCount} channels.
-   *
-   * <p>This method returns an identity matrix if {@code inputChannelCount} and {@code
-   * outputChannelCount} are equal.
-   *
-   * @param inputChannelCount Number of input channels.
-   * @param outputChannelCount Number of output channels.
-   * @throws UnsupportedOperationException If no default coefficients are available for the given
-   *     input and output channel counts.
    */
   public static ChannelMixingMatrix createForConstantGain(
       @IntRange(from = 1, to = 2) int inputChannelCount,

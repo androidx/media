@@ -31,13 +31,13 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.common.util.WavUtil;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.ExtractorsFactory;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.TrackOutput;
-import androidx.media3.extractor.WavUtil;
 import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -327,6 +327,7 @@ public final class WavExtractor implements Extractor {
               .setPeakBitrate(constantBitrate)
               .setMaxInputSize(targetSampleSizeBytes)
               .setChannelCount(wavFormat.numChannels)
+              .setChannelMask(WavUtil.mapToAudioFormatChannelMask(wavFormat.channelMask))
               .setSampleRate(wavFormat.frameRateHz)
               .setPcmEncoding(pcmEncoding)
               .build();
@@ -482,6 +483,7 @@ public final class WavExtractor implements Extractor {
               .setPeakBitrate(constantBitrate)
               .setMaxInputSize(numOutputFramesToBytes(targetSampleSizeFrames, numChannels))
               .setChannelCount(wavFormat.numChannels)
+              .setChannelMask(WavUtil.mapToAudioFormatChannelMask(wavFormat.channelMask))
               .setSampleRate(wavFormat.frameRateHz)
               .setPcmEncoding(C.ENCODING_PCM_16BIT)
               .build();

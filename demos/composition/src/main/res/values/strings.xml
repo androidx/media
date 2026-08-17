@@ -1,4 +1,5 @@
-<?xml version="1.0" encoding="utf-8"?><!-- Copyright 2025 The Android Open Source Project
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright 2025 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -26,6 +27,7 @@
   <string name="export_completed" translatable="false">Export completed in %.3f seconds.\nOutput: %s</string>
   <string name="export_error" translatable="false">Export error</string>
   <string name="export_started" translatable="false">Export started</string>
+  <string name="frame_processor_enabled" translatable="false">Use FrameProcessor</string>
   <string name="add_background_audio" translatable="false">Add background audio</string>
   <string name="output_video_resolution" translatable="false">Output video resolution</string>
   <string name="hdr_mode" translatable="false">HDR mode</string>
@@ -33,18 +35,56 @@
   <string name="select" translatable="false">Select</string>
   <string name="select_effects" translatable="false">Select Effects</string>
   <string name="cancel" translatable="false">Cancel</string>
-  <string name="export_settings" translatable="false">Export Settings</string>
+  <string name="unset" translatable="false">Unset</string>
+  <string name="error_invalid_frame_aggregation_fps" translatable="false">Invalid frame aggregation FPS</string>
+  <string name="export_settings" translatable="false">Export</string>
   <string name="output_audio_mime_type" translatable="false">Output audio MIME type</string>
   <string name="output_video_mime_type" translatable="false">Output video MIME type</string>
   <string name="enable_debug_tracing" translatable="false">Enable debug tracing</string>
   <string name="use_media3_mp4_muxer" translatable="false">Use Media3 Mp4Muxer</string>
   <string name="use_media3_fragmented_mp4_muxer" translatable="false">Use Media3 FragmentedMp4Muxer</string>
+  <string name="frame_aggregation_fps" translatable="false">Frame Aggregation FPS</string>
   <string name="layout_preset" translatable="false">Choose a sequence layout preset</string>
   <string name="title_activity_main">MainActivity</string>
   <string name="effect_name_grayscale">Grayscale</string>
   <string name="effect_name_dizzy_crop">Dizzy Crop</string>
-  <string name="lottie_effect_name_counter">Lottie: 10s Counter</string>
-  <string name="lottie_effect_name_counter_fast">Lottie: 10s Counter (2x Speed)</string>
-  <string name="lottie_effect_name_swoosh">Lottie: Swoosh</string>
-  <string name="lottie_effect_name_heart">Lottie: Heart</string>
+  <string name="set_composition" translatable="false">Prepare</string>
+  <string name="play" translatable="false">Play</string>
+  <string name="add_item">Add Item</string>
+  <string name="add_remote_file">Add Remote</string>
+  <string name="add_local_file">Add Local</string>
+  <string name="add_gap">Add Gap</string>
+  <string name="gap_label" translatable="false">Gap</string>
+  <string name="duration_label">Duration: %.1f s</string>
+  <string name="gap_duration_title">Gap Duration</string>
+  <string name="seconds_label">%.1f seconds</string>
+  <string name="delete_sequence" translatable="false">Delete</string>
+  <string name="sequence_label" translatable="false">Sequence %d</string>
+  <string name="audio" translatable="false">Audio</string>
+  <string name="video" translatable="false">Video</string>
+  <string name="failed_load_media" translatable="false">Failed to load media item.</string>
+  <string name="failed_get_duration" translatable="false">Failed to get duration.</string>
+  <string name="abort_export_output_file" translatable="false">Aborting export! Unable to create output file: %s</string>
+  <string name="api_28_required_frame_processor" translatable="false">API 28+ required for using FrameProcessor</string>
+  <string name="export_error_msg" translatable="false">Export error: %s</string>
+  <string name="preview_error_msg" translatable="false">Preview error: %s</string>
+  <string name="preset_sequence" translatable="false">Sequential</string>
+  <string name="preset_grid" translatable="false">2x2 grid</string>
+  <string name="preset_pip" translatable="false">PiP overlay</string>
+  <string name="presets" translatable="false">Preset</string>
+  <string name="preview_composition_title" translatable="false">Preview: %s</string>
+  <string name="add_sequence" translatable="false">Add sequence</string>
+  <string name="item_index_label" translatable="false">%1$d. %2$s</string>
+  <string name="none" translatable="false">None</string>
+  <string name="effect_label" translatable="false">Effect: %s</string>
+  <string name="remove_item" translatable="false">Remove item %d</string>
+  <string name="item_with_duration" translatable="false">%1$s (%2$s)</string>
+  <string name="background_audio_track">Background audio track</string>
+  <string name="preset_custom" translatable="false">Custom</string>
+  <string name="playback_fps" translatable="false">Playback FPS: %1$.2f</string>
+  <string name="speed_label" translatable="false">Speed: %1$.2fx</string>
+  <string name="edit_media_item" translatable="false">Edit Media Item</string>
+  <string name="select_speed" translatable="false">Select Speed</string>
+  <string name="play_exported_video" translatable="false">Play Exported Video</string>
+  <string name="no_player_found" translatable="false">No video player application found</string>
 </resources>

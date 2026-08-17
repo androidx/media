@@ -17,20 +17,12 @@ To use the module you need to clone this GitHub project and depend on its
 modules locally. Instructions for doing this can be found in the
 [top level README][].
 
-In addition, it's necessary to fetch libflac as follows:
+In addition, it's necessary to fetch libflac as follows (starting at the root of
+your media3 check-out):
 
-* Set the following environment variables:
-
-```
-cd "<path to project checkout>"
-FLAC_MODULE_PATH="$(pwd)/libraries/decoder_flac/src/main"
-```
-
-* Fetch libflac:
-
-```
-cd "${FLAC_MODULE_PATH}/jni" && \
-git clone https://github.com/xiph/flac.git libflac
+```shell
+cd libraries/decoder_flac/src/main/jni && \
+git clone https://github.com/xiph/flac.git --depth=1 libflac
 ```
 
 * [Install CMake][]

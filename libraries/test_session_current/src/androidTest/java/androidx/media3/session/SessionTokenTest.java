@@ -117,7 +117,7 @@ public class SessionTokenTest {
     assertThat(token.getUid()).isEqualTo(Process.myUid());
     assertThat(token.getType()).isEqualTo(SessionToken.TYPE_SESSION);
     assertThat(token.getSessionVersion()).isEqualTo(MediaLibraryInfo.VERSION_INT);
-    assertThat(token.getInterfaceVersion()).isEqualTo(MediaSessionStub.VERSION_INT);
+    assertThat(token.getInterfaceVersion()).isEqualTo(MediaLibraryInfo.INTERFACE_VERSION);
     assertThat(TestUtils.equals(testTokenExtras, token.getExtras())).isTrue();
     assertThat(token.getServiceName()).isEmpty();
   }

@@ -90,6 +90,13 @@ public final class PreCacheHelper {
         float percentageDownloaded) {}
 
     /**
+     * Called from {@link PreCacheHelper} when the pre-caching has fully completed.
+     *
+     * @param mediaItem The {@link MediaItem} passed to create the {@link PreCacheHelper}.
+     */
+    default void onPreCacheCompleted(MediaItem mediaItem) {}
+
+    /**
      * Called from {@link PreCacheHelper} when error occurs during the preparation.
      *
      * @param mediaItem The {@link MediaItem} passed to create the {@link PreCacheHelper}.
@@ -485,6 +492,11 @@ public final class PreCacheHelper {
 
     public void maybeSubmitPendingDownloadRequest() {
       checkState(Looper.myLooper() == preCacheHandler.getLooper());
+      synchronized (lock) {
+        if (isCanceled) {
+          return;
+        }
+      }
       if (pendingDownloadRequest != null) {
         downloader = downloaderFactory.createDownloader(pendingDownloadRequest);
         downloaderTask =
@@ -508,6 +520,8 @@ public final class PreCacheHelper {
             @Nullable IOException finalException = task.finalException;
             if (!task.isRemove && finalException != null) {
               notifyListeners(listener -> listener.onDownloadError(mediaItem, finalException));
+            } else if (!task.isRemove) {
+              notifyListeners(listener -> listener.onPreCacheCompleted(mediaItem));
             }
           });
     }

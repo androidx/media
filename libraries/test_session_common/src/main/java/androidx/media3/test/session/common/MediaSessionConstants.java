@@ -38,14 +38,33 @@ public class MediaSessionConstants {
       "MediaControllerCompatCallbackWithMediaSessionTest";
   public static final String TEST_CUSTOM_ACTION_WITH_PROGRESS_UPDATE =
       "testCustomActionWithProgressUpdate";
+  public static final String TEST_SILENT_IPC_PARSING_FAILURE = "testSilentIpcParsingFailure";
+  public static final String TEST_REJECT_SEEK = "testRejectSeek";
   // Bundle keys
   public static final String KEY_AVAILABLE_SESSION_COMMANDS = "availableSessionCommands";
   public static final String KEY_CONTROLLER = "controllerKey";
   public static final String KEY_COMMAND_GET_TASKS_UNAVAILABLE = "commandGetTasksUnavailable";
 
+  public static final String KEY_CUSTOM_COMMAND_RECEIVED_CONFIRMATION =
+      "customSessionActionResultForTest";
+  public static final String VALUE_CUSTOM_COMMAND_RECEIVED_CONFIRMATION =
+      "custom session action default test result";
+
   public static final String KEY_IS_LEGACY_CONTROLLER = "isLegacyController";
 
   public static final String BOUNCING_CUSTOM_COMMAND = "bouncingCustomCommand";
+
+  /** Connection hint key for requesting an async connection with a delay in milliseconds. */
+  public static final String CONNECTION_HINT_KEY_ASYNC_CONNECTION_DELAY_MS =
+      "androidx.media3.session.async_connection_delay_ms";
+
+  /** Connection hint key for requesting an async rejection with a delay in milliseconds. */
+  public static final String CONNECTION_HINT_KEY_ASYNC_CONNECTION_REJECT_DELAY_MS =
+      "androidx.media3.session.async_connection_reject_delay_ms";
+
+  /** Session extra key to confirm that the connection was async. */
+  public static final String EXTRA_KEY_ASYNC_CONNECTION_CONFIRMATION =
+      "androidx.media3.session.async_connection_confirmation";
 
   /**
    * The key used to identify the notification controller in test-only methods like {@code

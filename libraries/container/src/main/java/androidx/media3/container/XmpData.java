@@ -20,10 +20,15 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.util.Arrays;
+import java.util.UUID;
 
 /** Stores XMP data. */
 @UnstableApi
 public final class XmpData implements Metadata.Entry {
+
+  /** The Adobe XMP UUID. */
+  public static final UUID XMP_UUID = new UUID(0xBE7ACFCB97A942E8L, 0x9C71999491E3AFACL);
+
   public final byte[] data;
 
   /** Creates an instance. */

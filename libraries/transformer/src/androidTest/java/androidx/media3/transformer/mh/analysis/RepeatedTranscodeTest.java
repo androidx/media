@@ -15,7 +15,7 @@
  */
 package androidx.media3.transformer.mh.analysis;
 
-import static androidx.media3.test.utils.TestUtil.MP4_REMOTE_10_SECONDS;
+import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_10_SECONDS;
 import static androidx.media3.transformer.AndroidTestUtil.FORCE_TRANSCODE_VIDEO_EFFECTS;
 import static com.google.common.truth.Truth.assertWithMessage;
 

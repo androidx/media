@@ -16,7 +16,6 @@
 package androidx.media3.common;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.robolectric.annotation.Config.ALL_SDKS;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Test;
@@ -24,7 +23,6 @@ import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
 
 /** Unit tests for {@link AudioAttributes}. */
-@Config(sdk = ALL_SDKS)
 @RunWith(AndroidJUnit4.class)
 public class AudioAttributesTest {
 
@@ -38,7 +36,15 @@ public class AudioAttributesTest {
             .setAllowedCapturePolicy(C.ALLOW_CAPTURE_BY_SYSTEM)
             .setSpatializationBehavior(C.SPATIALIZATION_BEHAVIOR_NEVER)
             .setIsContentSpatialized(true)
+            .setHapticChannelsMuted(false)
             .build();
+
+    assertThat(AudioAttributes.fromBundle(audioAttributes.toBundle())).isEqualTo(audioAttributes);
+  }
+
+  @Test
+  public void roundTripViaBundle_usingDefaultInstance_yieldsEqualInstance() {
+    AudioAttributes audioAttributes = new AudioAttributes.Builder().build();
 
     assertThat(AudioAttributes.fromBundle(audioAttributes.toBundle())).isEqualTo(audioAttributes);
   }
@@ -66,12 +72,14 @@ public class AudioAttributesTest {
     android.media.AudioAttributes platformAttributes =
         new android.media.AudioAttributes.Builder()
             .setAllowedCapturePolicy(android.media.AudioAttributes.ALLOW_CAPTURE_BY_SYSTEM)
+            .setHapticChannelsMuted(false)
             .build();
 
     AudioAttributes audioAttributes =
         AudioAttributes.fromPlatformAudioAttributes(platformAttributes);
 
     assertThat(audioAttributes.allowedCapturePolicy).isEqualTo(C.ALLOW_CAPTURE_BY_SYSTEM);
+    assertThat(audioAttributes.hapticChannelsMuted).isFalse();
   }
 
   @Config(minSdk = 32)
@@ -99,7 +107,8 @@ public class AudioAttributesTest {
             .setFlags(C.FLAG_AUDIBILITY_ENFORCED)
             .setAllowedCapturePolicy(C.ALLOW_CAPTURE_BY_SYSTEM)
             .setIsContentSpatialized(true)
-            .setSpatializationBehavior(C.SPATIALIZATION_BEHAVIOR_NEVER);
+            .setSpatializationBehavior(C.SPATIALIZATION_BEHAVIOR_NEVER)
+            .setHapticChannelsMuted(false);
 
     AudioAttributes audioAttributes = builder.build();
 
@@ -109,42 +118,48 @@ public class AudioAttributesTest {
     assertThat(audioAttributes.allowedCapturePolicy).isEqualTo(C.ALLOW_CAPTURE_BY_SYSTEM);
     assertThat(audioAttributes.spatializationBehavior).isEqualTo(C.SPATIALIZATION_BEHAVIOR_NEVER);
     assertThat(audioAttributes.isContentSpatialized).isTrue();
+    assertThat(audioAttributes.hapticChannelsMuted).isFalse();
   }
 
   @Test
-  public void getStreamType_defaultInstance_returnsMusic() {
-    assertThat(AudioAttributes.DEFAULT.getStreamType()).isEqualTo(C.STREAM_TYPE_MUSIC);
+  public void getVolumeControlStream_defaultInstance_returnsMusic() {
+    assertThat(AudioAttributes.DEFAULT.getVolumeControlStream()).isEqualTo(C.STREAM_TYPE_MUSIC);
   }
 
   @Test
-  public void getStreamType_withUsageNotification_returnsNotification() {
-    assertThat(new AudioAttributes.Builder().setUsage(C.USAGE_NOTIFICATION).build().getStreamType())
+  public void getVolumeControlStream_withUsageNotification_returnsNotification() {
+    assertThat(
+            new AudioAttributes.Builder()
+                .setUsage(C.USAGE_NOTIFICATION)
+                .build()
+                .getVolumeControlStream())
         .isEqualTo(C.STREAM_TYPE_NOTIFICATION);
   }
 
   @Test
-  public void getStreamType_withUsageAlarm_returnsAlarm() {
-    assertThat(new AudioAttributes.Builder().setUsage(C.USAGE_ALARM).build().getStreamType())
+  public void getVolumeControlStream_withUsageAlarm_returnsAlarm() {
+    assertThat(
+            new AudioAttributes.Builder().setUsage(C.USAGE_ALARM).build().getVolumeControlStream())
         .isEqualTo(C.STREAM_TYPE_ALARM);
   }
 
   @Test
-  public void getStreamType_withUsageAssistanceSonification_returnsSystem() {
+  public void getVolumeControlStream_withUsageAssistanceSonification_returnsSystem() {
     assertThat(
             new AudioAttributes.Builder()
                 .setUsage(C.USAGE_ASSISTANCE_SONIFICATION)
                 .build()
-                .getStreamType())
+                .getVolumeControlStream())
         .isEqualTo(C.STREAM_TYPE_SYSTEM);
   }
 
   @Test
-  public void getStreamType_withAudibilityEnforcedFlag_returnsSystem() {
+  public void getVolumeControlStream_withAudibilityEnforcedFlag_returnsSystem() {
     assertThat(
             new AudioAttributes.Builder()
                 .setFlags(C.FLAG_AUDIBILITY_ENFORCED)
                 .build()
-                .getStreamType())
+                .getVolumeControlStream())
         .isEqualTo(C.STREAM_TYPE_SYSTEM);
   }
 }

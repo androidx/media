@@ -15,6 +15,9 @@
  */
 package androidx.media3.exoplayer.dash.manifest;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Iterables.getLast;
+
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -22,6 +25,7 @@ import androidx.media3.common.StreamKey;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.offline.FilterableManifest;
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -83,14 +87,28 @@ public class DashManifest implements FilterableManifest<DashManifest> {
   /** The {@link ServiceDescriptionElement}, or null if not present. */
   @Nullable public final ServiceDescriptionElement serviceDescription;
 
-  /** The location of this manifest, or null if not present. */
-  @Nullable public final Uri location;
-
   /** The {@link ProgramInformation}, or null if not present. */
   @Nullable public final ProgramInformation programInformation;
 
   private final List<Period> periods;
 
+  /**
+   * @deprecated Use {@link #locations} instead.
+   */
+  @Deprecated @Nullable public final Uri location;
+
+  /** The locations to request future updates of the DASH media presentation description (mpd). */
+  public final ImmutableList<Location> locations;
+
+  /** The {@link ContentSteering}, or {@code null} if not present. */
+  @Nullable public final ContentSteering contentSteering;
+
+  /**
+   * @deprecated Use {@link #DashManifest(long, long, long, boolean, long, long, long, long,
+   *     ProgramInformation, UtcTimingElement, ServiceDescriptionElement, List, List,
+   *     ContentSteering)} instead.
+   */
+  @Deprecated
   public DashManifest(
       long availabilityStartTimeMs,
       long durationMs,
@@ -105,6 +123,75 @@ public class DashManifest implements FilterableManifest<DashManifest> {
       @Nullable ServiceDescriptionElement serviceDescription,
       @Nullable Uri location,
       List<Period> periods) {
+    this(
+        availabilityStartTimeMs,
+        durationMs,
+        minBufferTimeMs,
+        dynamic,
+        minUpdatePeriodMs,
+        timeShiftBufferDepthMs,
+        suggestedPresentationDelayMs,
+        publishTimeMs,
+        programInformation,
+        utcTiming,
+        serviceDescription,
+        periods,
+        location == null ? ImmutableList.of() : ImmutableList.of(new Location(location)),
+        /* contentSteering= */ null);
+  }
+
+  /**
+   * @deprecated Use {@link #DashManifest(long, long, long, boolean, long, long, long, long,
+   *     ProgramInformation, UtcTimingElement, ServiceDescriptionElement, List, List,
+   *     ContentSteering)} instead.
+   */
+  @Deprecated
+  public DashManifest(
+      long availabilityStartTimeMs,
+      long durationMs,
+      long minBufferTimeMs,
+      boolean dynamic,
+      long minUpdatePeriodMs,
+      long timeShiftBufferDepthMs,
+      long suggestedPresentationDelayMs,
+      long publishTimeMs,
+      @Nullable ProgramInformation programInformation,
+      @Nullable UtcTimingElement utcTiming,
+      @Nullable ServiceDescriptionElement serviceDescription,
+      List<Period> periods,
+      List<Location> locations) {
+    this(
+        availabilityStartTimeMs,
+        durationMs,
+        minBufferTimeMs,
+        dynamic,
+        minUpdatePeriodMs,
+        timeShiftBufferDepthMs,
+        suggestedPresentationDelayMs,
+        publishTimeMs,
+        programInformation,
+        utcTiming,
+        serviceDescription,
+        periods,
+        locations,
+        /* contentSteering= */ null);
+  }
+
+  public DashManifest(
+      long availabilityStartTimeMs,
+      long durationMs,
+      long minBufferTimeMs,
+      boolean dynamic,
+      long minUpdatePeriodMs,
+      long timeShiftBufferDepthMs,
+      long suggestedPresentationDelayMs,
+      long publishTimeMs,
+      @Nullable ProgramInformation programInformation,
+      @Nullable UtcTimingElement utcTiming,
+      @Nullable ServiceDescriptionElement serviceDescription,
+      List<Period> periods,
+      List<Location> locations,
+      @Nullable ContentSteering contentSteering) {
     this.availabilityStartTimeMs = availabilityStartTimeMs;
     this.durationMs = durationMs;
     this.minBufferTimeMs = minBufferTimeMs;
@@ -115,9 +202,11 @@ public class DashManifest implements FilterableManifest<DashManifest> {
     this.publishTimeMs = publishTimeMs;
     this.programInformation = programInformation;
     this.utcTiming = utcTiming;
-    this.location = location;
     this.serviceDescription = serviceDescription;
     this.periods = periods == null ? Collections.emptyList() : periods;
+    this.locations = locations == null ? ImmutableList.of() : ImmutableList.copyOf(locations);
+    this.location = locations == null || locations.isEmpty() ? null : getLast(locations).url;
+    this.contentSteering = contentSteering;
   }
 
   public final int getPeriodCount() {
@@ -147,7 +236,7 @@ public class DashManifest implements FilterableManifest<DashManifest> {
     ArrayList<Period> copyPeriods = new ArrayList<>();
     long shiftMs = 0;
     for (int periodIndex = 0; periodIndex < getPeriodCount(); periodIndex++) {
-      if (keys.peek().periodIndex != periodIndex) {
+      if (checkNotNull(keys.peek()).periodIndex != periodIndex) {
         // No representations selected in this period.
         long periodDurationMs = getPeriodDurationMs(periodIndex);
         if (periodDurationMs != C.TIME_UNSET) {
@@ -176,13 +265,14 @@ public class DashManifest implements FilterableManifest<DashManifest> {
         programInformation,
         utcTiming,
         serviceDescription,
-        location,
-        copyPeriods);
+        copyPeriods,
+        locations,
+        contentSteering);
   }
 
   private static ArrayList<AdaptationSet> copyAdaptationSets(
       List<AdaptationSet> adaptationSets, LinkedList<StreamKey> keys) {
-    StreamKey key = keys.poll();
+    StreamKey key = checkNotNull(keys.poll());
     int periodIndex = key.periodIndex;
     ArrayList<AdaptationSet> copyAdaptationSets = new ArrayList<>();
     do {
@@ -194,7 +284,7 @@ public class DashManifest implements FilterableManifest<DashManifest> {
       do {
         Representation representation = representations.get(key.streamIndex);
         copyRepresentations.add(representation);
-        key = keys.poll();
+        key = checkNotNull(keys.poll());
       } while (key.periodIndex == periodIndex && key.groupIndex == adaptationSetIndex);
 
       copyAdaptationSets.add(

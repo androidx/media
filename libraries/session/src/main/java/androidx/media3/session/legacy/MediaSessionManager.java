@@ -15,6 +15,7 @@
  */
 package androidx.media3.session.legacy;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
 
 import android.content.ComponentName;
@@ -22,16 +23,14 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
-import android.os.Build;
 import android.os.Process;
 import android.provider.Settings;
 import android.text.TextUtils;
-import android.util.Log;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.core.util.ObjectsCompat;
-import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Log;
 
 /**
  * Provides support for interacting with {@link MediaSessionCompat media sessions} that applications
@@ -40,11 +39,9 @@ import androidx.media3.common.util.UnstableApi;
  * @see MediaSessionCompat
  * @see MediaControllerCompat
  */
-@UnstableApi
 @RestrictTo(LIBRARY)
 public final class MediaSessionManager {
   static final String TAG = "MediaSessionManager";
-  static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
 
   private static final Object lock = new Object();
   @Nullable private static volatile MediaSessionManager sessionManager;
@@ -134,7 +131,7 @@ public final class MediaSessionManager {
       } else if (TextUtils.isEmpty(packageName)) {
         throw new IllegalArgumentException("packageName should be nonempty");
       }
-      if (Build.VERSION.SDK_INT >= 28) {
+      if (SDK_INT >= 28) {
         impl = new RemoteUserInfoImplApi28(packageName, pid, uid);
       } else {
         // Note: We need to include IBinder to distinguish controllers in a process.
@@ -220,7 +217,6 @@ public final class MediaSessionManager {
 
   private static class MediaSessionManagerImpl {
     private static final String TAG = MediaSessionManager.TAG;
-    private static final boolean DEBUG = MediaSessionManager.DEBUG;
 
     private static final String PERMISSION_STATUS_BAR_SERVICE =
         "android.permission.STATUS_BAR_SERVICE";
@@ -246,35 +242,32 @@ public final class MediaSessionManager {
       // In that case, this check will always fail.
       // Alternative way is to use Context#getOpPackageName() for sending the package name,
       // but it's hidden so we cannot use it.
-      if (hasMediaControlPermission(userInfo)) {
-        return true;
-      }
+      int remoteUserUid = userInfo.getUid();
       try {
+        if (SDK_INT == 23 && userInfo.getPackageName().equals(RemoteUserInfo.LEGACY_CONTROLLER)) {
+          // On API 23, there is no package name or caller propagation to allow caller checks for
+          // framework controllers, and the best we can do is to simply trust all controllers.
+          return true;
+        }
         ApplicationInfo applicationInfo =
             context.getPackageManager().getApplicationInfo(userInfo.getPackageName(), 0);
         if (applicationInfo == null) {
           return false;
         }
-      } catch (PackageManager.NameNotFoundException e) {
-        if (DEBUG) {
-          Log.d(TAG, "Package " + userInfo.getPackageName() + " doesn't exist");
+        if (SDK_INT < 28) {
+          // The UID isn't propagated via the framework before API 28, so we need to look it up
+          // based on the package name.
+          remoteUserUid = applicationInfo.uid;
         }
+      } catch (PackageManager.NameNotFoundException e) {
+        Log.d(TAG, "Package " + userInfo.getPackageName() + " doesn't exist");
         return false;
       }
-      return isPermissionGranted(userInfo, PERMISSION_STATUS_BAR_SERVICE)
+      return remoteUserUid == Process.SYSTEM_UID
+          || remoteUserUid == Process.myUid()
+          || isPermissionGranted(userInfo, PERMISSION_STATUS_BAR_SERVICE)
           || isPermissionGranted(userInfo, PERMISSION_MEDIA_CONTENT_CONTROL)
-          || userInfo.getUid() == Process.SYSTEM_UID
-          || userInfo.getUid() == Process.myUid()
           || isEnabledNotificationListener(userInfo);
-    }
-
-    /** Checks the caller has android.Manifest.permission.MEDIA_CONTENT_CONTROL permission. */
-    private boolean hasMediaControlPermission(MediaSessionManager.RemoteUserInfoImpl userInfo) {
-      return context.checkPermission(
-              android.Manifest.permission.MEDIA_CONTENT_CONTROL,
-              userInfo.getPid(),
-              userInfo.getUid())
-          == PackageManager.PERMISSION_GRANTED;
     }
 
     private boolean isPermissionGranted(

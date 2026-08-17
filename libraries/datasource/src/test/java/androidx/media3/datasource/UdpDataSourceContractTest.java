@@ -65,6 +65,7 @@ public class UdpDataSourceContractTest extends DataSourceContractTest {
             .setName("local-udp-unicast-socket")
             .setUri("udp://localhost:" + findFreeUdpPort())
             .setExpectedBytes(data)
+            .setMayResolveToUnknownLength(true)
             .build());
   }
 

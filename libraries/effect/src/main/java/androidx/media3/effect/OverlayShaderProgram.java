@@ -17,7 +17,7 @@ package androidx.media3.effect;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Util.formatInvariant;
-import static androidx.media3.common.util.Util.loadAsset;
+import static androidx.media3.common.util.Util.loadRawResource;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -51,9 +51,6 @@ import java.io.IOException;
   // The maximum number of samplers allowed in a single GL program is 16.
   // We use one for every overlay and one for the video.
   private static final int MAX_OVERLAY_SAMPLERS = 15;
-  private static final String ULTRA_HDR_INSERT = "shaders/insert_ultra_hdr.glsl";
-  private static final String FRAGMENT_SHADER_METHODS_INSERT =
-      "shaders/insert_overlay_fragment_shader_methods.glsl";
   private static final String TEXTURE_INDEX_FORMAT_SPECIFIER = "%";
 
   private final GlProgram glProgram;
@@ -273,10 +270,10 @@ import java.io.IOException;
             .append("varying vec2 vVideoTexSamplingCoord0;\n")
             .append("\n");
 
-    shader.append(loadAsset(context, FRAGMENT_SHADER_METHODS_INSERT));
+    shader.append(loadRawResource(context, R.raw.insert_overlay_fragment_shader_methods));
 
     if (hdrTypes != null) {
-      shader.append(loadAsset(context, ULTRA_HDR_INSERT));
+      shader.append(loadRawResource(context, R.raw.insert_ultra_hdr));
     }
 
     for (int texUnitIndex = 1; texUnitIndex <= numOverlays; texUnitIndex++) {

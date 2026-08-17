@@ -21,7 +21,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.util.LongSparseArray;
 import androidx.media3.common.util.Util;
-import androidx.media3.test.utils.TestUtil;
+import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.File;
@@ -30,12 +30,15 @@ import java.util.Set;
 import java.util.TreeSet;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Unit tests for {@link SimpleCacheSpan}. */
 @RunWith(AndroidJUnit4.class)
 public class SimpleCacheSpanTest {
+
+  @Rule public final InMemoryDatabaseRule inMemoryDatabaseRule = InMemoryDatabaseRule.create();
 
   private CachedContentIndex index;
   private File cacheDir;
@@ -44,7 +47,7 @@ public class SimpleCacheSpanTest {
   public void setUp() throws Exception {
     cacheDir =
         Util.createTempDirectory(ApplicationProvider.getApplicationContext(), "ExoPlayerTest");
-    index = new CachedContentIndex(TestUtil.getInMemoryDatabaseProvider());
+    index = new CachedContentIndex(inMemoryDatabaseRule.createDatabaseProvider());
   }
 
   @After

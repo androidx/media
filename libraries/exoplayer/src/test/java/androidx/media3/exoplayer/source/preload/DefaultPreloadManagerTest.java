@@ -20,8 +20,15 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.abs;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
@@ -41,8 +48,6 @@ import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.TransferListener;
-import androidx.media3.datasource.cache.Cache;
-import androidx.media3.datasource.cache.NoOpCacheEvictor;
 import androidx.media3.datasource.cache.SimpleCache;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.LoadControl;
@@ -58,22 +63,24 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.exoplayer.source.TrackGroupArray;
+import androidx.media3.exoplayer.source.preload.DefaultPreloadManager.SimpleRankingDataComparator;
 import androidx.media3.exoplayer.upstream.Allocator;
+import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.test.utils.FakeAudioRenderer;
+import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeMediaPeriod;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeMediaSourceFactory;
 import androidx.media3.test.utils.FakeRenderer;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeVideoRenderer;
-import androidx.media3.test.utils.TestUtil;
+import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -81,15 +88,23 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 /** Unit test for {@link DefaultPreloadManager}. */
 @RunWith(AndroidJUnit4.class)
 public class DefaultPreloadManagerTest {
+  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
+  @Rule public final InMemoryDatabaseRule cacheRule = InMemoryDatabaseRule.create();
 
   private static final int SMALL_LOADING_CHECK_INTERVAL_BYTES = 32;
+  private static final int TARGET_BUFFER_BYTES_FOR_PRELOAD =
+      DefaultLoadControl.DEFAULT_MIN_BUFFER_SIZE;
 
   private Context context;
 
@@ -100,11 +115,11 @@ public class DefaultPreloadManagerTest {
   private LoadControl loadControl;
   private RenderersFactory renderersFactory;
   private HandlerThread preloadThread;
-  private File testDir;
-  private Cache downloadCache;
+  private SimpleCache cache;
 
   @Before
   public void setUp() throws Exception {
+    cache = cacheRule.createSimpleCache();
     context = ApplicationProvider.getApplicationContext();
     renderersFactory =
         (handler, videoListener, audioListener, textOutput, metadataOutput) ->
@@ -116,22 +131,36 @@ public class DefaultPreloadManagerTest {
                   SystemClock.DEFAULT.createHandler(handler.getLooper(), /* callback= */ null),
                   audioListener)
             };
-    loadControl = new DefaultLoadControl();
+    loadControl =
+        new DefaultLoadControl.Builder()
+            .setPlayerTargetBufferBytes(PlayerId.PRELOAD.name, TARGET_BUFFER_BYTES_FOR_PRELOAD)
+            .build();
     preloadThread = new HandlerThread("DefaultPreloadManagerTest");
     preloadThread.start();
-    testDir =
-        Util.createTempFile(ApplicationProvider.getApplicationContext(), "PreCacheHelperTest");
-    assertThat(testDir.delete()).isTrue();
-    assertThat(testDir.mkdirs()).isTrue();
-    downloadCache =
-        new SimpleCache(testDir, new NoOpCacheEvictor(), TestUtil.getInMemoryDatabaseProvider());
   }
 
   @After
   public void tearDown() {
-    downloadCache.release();
-    Util.recursiveDelete(testDir);
     preloadThread.quit();
+  }
+
+  @Test
+  public void buildDefaultPreloadManager_useInjectedCustomSimpleRankingDataComparator() {
+    when(mockTargetPreloadStatusControl.getTargetPreloadStatus(anyInt()))
+        .thenReturn(DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_SOURCE_PREPARED);
+    SimpleRankingDataComparator customSimpleRankingDataComparator =
+        spy(new SimpleRankingDataComparator());
+    DefaultPreloadManager preloadManager =
+        new DefaultPreloadManager.Builder(
+                context, customSimpleRankingDataComparator, mockTargetPreloadStatusControl)
+            .build();
+    preloadManager.addMediaItems(
+        ImmutableList.of(
+            MediaItem.fromUri("http://exoplayer.dev/video1"),
+            MediaItem.fromUri("http://exoplayer.dev/video2")),
+        ImmutableList.of(0, 1));
+
+    verify(customSimpleRankingDataComparator, atLeastOnce()).compare(anyInt(), anyInt());
   }
 
   @Test
@@ -464,8 +493,8 @@ public class DefaultPreloadManagerTest {
             checkNotNull(preloadMediaSource0)
                 .prepareSource(
                     (source, timeline) -> {},
-                    DefaultBandwidthMeter.getSingletonInstance(context).getTransferListener(),
-                    PlayerId.UNSET));
+                    PlayerId.UNSET,
+                    DefaultBandwidthMeter.getSingletonInstance(context)));
     wrappedMediaSource0.setAllowPreparation(true);
     wrappedMediaSource1.setAllowPreparation(true);
     shadowOf(preloadThread.getLooper()).idle();
@@ -701,8 +730,11 @@ public class DefaultPreloadManagerTest {
         mediaItemBuilder.setMediaId("mediaId1").setUri("http://exoplayer.dev/video1").build();
     MediaItem mediaItem2 =
         mediaItemBuilder.setMediaId("mediaId2").setUri("http://exoplayer.dev/video2").build();
+    MediaItem mediaItem3 =
+        mediaItemBuilder.setMediaId("mediaId3").setUri("http://exoplayer.dev/video3").build();
     preloadManager.add(mediaItem1, /* rankingData= */ 1);
     preloadManager.add(mediaItem2, /* rankingData= */ 2);
+    preloadManager.add(mediaItem3, /* rankingData= */ 3);
 
     // Call `invalidate()` and then call `release()` in the `TargetPreloadStatusControl` to
     // simulate the situation that the preload manager is released during the transition of the
@@ -751,7 +783,7 @@ public class DefaultPreloadManagerTest {
             .setRenderersFactory(renderersFactory)
             .setPreloadLooper(preloadThread.getLooper())
             .setLoadControl(loadControl)
-            .setCache(downloadCache)
+            .setCache(cache)
             .build();
     TestPreloadManagerListener preloadManagerListener = new TestPreloadManagerListener();
     preloadManager.addListener(preloadManagerListener);
@@ -785,17 +817,11 @@ public class DefaultPreloadManagerTest {
         .containsExactly(mediaItem0, mediaItem1, mediaItem2)
         .inOrder();
     long expectedCachedBytes = getContentLength("asset:///media/mp4/sample.mp4");
-    assertThat(
-            downloadCache.getCachedBytes(
-                "mediaId0", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
+    assertThat(cache.getCachedBytes("mediaId0", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
         .isEqualTo(expectedCachedBytes);
-    assertThat(
-            downloadCache.getCachedBytes(
-                "mediaId1", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
+    assertThat(cache.getCachedBytes("mediaId1", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
         .isEqualTo(expectedCachedBytes);
-    assertThat(
-            downloadCache.getCachedBytes(
-                "mediaId2", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
+    assertThat(cache.getCachedBytes("mediaId2", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
         .isEqualTo(expectedCachedBytes);
   }
 
@@ -820,7 +846,7 @@ public class DefaultPreloadManagerTest {
             .setRenderersFactory(renderersFactory)
             .setPreloadLooper(preloadThread.getLooper())
             .setLoadControl(loadControl)
-            .setCache(downloadCache)
+            .setCache(cache)
             .build();
     TestPreloadManagerListener preloadManagerListener = new TestPreloadManagerListener();
     preloadManager.addListener(preloadManagerListener);
@@ -855,17 +881,11 @@ public class DefaultPreloadManagerTest {
         .containsExactly(mediaItem0, mediaItem1, mediaItem2)
         .inOrder();
     long expectedCachedBytes = getContentLength("asset:///media/mp4/sample.mp4");
-    assertThat(
-            downloadCache.getCachedBytes(
-                "mediaId0", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
+    assertThat(cache.getCachedBytes("mediaId0", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
         .isEqualTo(0);
-    assertThat(
-            downloadCache.getCachedBytes(
-                "mediaId1", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
+    assertThat(cache.getCachedBytes("mediaId1", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
         .isEqualTo(0);
-    assertThat(
-            downloadCache.getCachedBytes(
-                "mediaId2", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
+    assertThat(cache.getCachedBytes("mediaId2", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
         .isEqualTo(expectedCachedBytes);
   }
 
@@ -988,6 +1008,116 @@ public class DefaultPreloadManagerTest {
         .inOrder();
   }
 
+  @Ignore("Flaky b/521328147")
+  @Test
+  public void setCurrentPlayingIndexAgain_clearsLowPrioritySourceWhenLoadingUnableToContinue()
+      throws Exception {
+    ArrayList<Integer> targetPreloadStatusControlCallStates = new ArrayList<>();
+    AtomicInteger currentPlayingItemIndex = new AtomicInteger();
+    TargetPreloadStatusControl<Integer, DefaultPreloadManager.PreloadStatus>
+        targetPreloadStatusControl =
+            rankingData -> {
+              targetPreloadStatusControlCallStates.add(rankingData);
+              if (abs(rankingData - currentPlayingItemIndex.get()) <= 2) {
+                return DefaultPreloadManager.PreloadStatus.specifiedRangeLoaded(
+                    /* durationMs= */ 100L);
+              } else {
+                return DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_TRACKS_SELECTED;
+              }
+            };
+    MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
+    MediaItem mediaItem0 =
+        mediaItemBuilder
+            .setMediaId("mediaId0")
+            .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
+            .build();
+    MediaItem mediaItem1 =
+        mediaItemBuilder
+            .setMediaId("mediaId1")
+            .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
+            .build();
+    MediaItem mediaItem2 =
+        mediaItemBuilder
+            .setMediaId("mediaId2")
+            .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
+            .build();
+    MediaItem mediaItem3 =
+        mediaItemBuilder
+            .setMediaId("mediaId3")
+            .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
+            .build();
+    MediaSource.Factory underlyingMediaSourceFactory =
+        new ProgressiveMediaSource.Factory(
+                new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
+            .setContinueLoadingCheckIntervalBytes(SMALL_LOADING_CHECK_INTERVAL_BYTES);
+    MediaSource.Factory mediaSourceFactory = mock(MediaSource.Factory.class);
+    AtomicReference<MediaSource> mediaSource0 = new AtomicReference<>();
+    when(mediaSourceFactory.createMediaSource(any()))
+        .thenAnswer(
+            invocation -> {
+              MediaItem mediaItem = invocation.getArgument(0);
+              if (mediaItem.equals(mediaItem0)) {
+                MediaSource mediaSource =
+                    mock(
+                        MediaSource.class,
+                        delegatesTo(underlyingMediaSourceFactory.createMediaSource(mediaItem0)));
+                mediaSource0.set(mediaSource);
+                return mediaSource;
+              } else {
+                return underlyingMediaSourceFactory.createMediaSource(mediaItem);
+              }
+            });
+    DefaultAllocator allocator = new DefaultAllocator(true, C.DEFAULT_BUFFER_SEGMENT_SIZE);
+    LoadControl loadControl = mock(LoadControl.class);
+    when(loadControl.shouldContinueLoading(any())).thenReturn(true);
+    when(loadControl.getAllocator(PlayerId.PRELOAD)).thenReturn(allocator);
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    DefaultPreloadManager preloadManager =
+        new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .setRenderersFactory(renderersFactory)
+            .setPreloadLooper(preloadThread.getLooper())
+            .setLoadControl(loadControl)
+            .setClock(clock)
+            .build();
+    TestPreloadManagerListener preloadManagerListener = new TestPreloadManagerListener();
+    preloadManager.addListener(preloadManagerListener);
+    preloadManager.addMediaItems(
+        ImmutableList.of(mediaItem0, mediaItem1, mediaItem2, mediaItem3),
+        /* rankingDataList= */ ImmutableList.of(0, 1, 2, 3));
+
+    shadowOf(preloadThread.getLooper()).idle();
+    runMainLooperUntil(() -> preloadManagerListener.onCompletedMediaItemRecords.size() == 4);
+    assertThat(targetPreloadStatusControlCallStates).containsExactly(0, 1, 2, 3).inOrder();
+    assertThat(preloadManagerListener.onCompletedMediaItemRecords)
+        .containsExactly(mediaItem0, mediaItem1, mediaItem2, mediaItem3);
+
+    targetPreloadStatusControlCallStates.clear();
+    preloadManagerListener.reset();
+    AtomicInteger shouldContinueLoadingCount = new AtomicInteger();
+    when(loadControl.shouldContinueLoading(any()))
+        .thenAnswer(invocation -> shouldContinueLoadingCount.getAndIncrement() > 3);
+
+    currentPlayingItemIndex.set(4);
+    preloadManager.setCurrentPlayingIndex(4);
+    shadowOf(preloadThread.getLooper()).idle();
+    while (shouldContinueLoadingCount.get() <= 3) {
+      int previousShouldContinueLoadingCount = shouldContinueLoadingCount.get();
+      runMainLooperUntil(
+          () -> shouldContinueLoadingCount.get() > previousShouldContinueLoadingCount);
+      clock.advanceTime(1000);
+    }
+    runMainLooperUntil(() -> preloadManagerListener.onCompletedMediaItemRecords.size() == 4);
+
+    // The period of mediaItem0 got cleared once to make room for preloading higher priority item,
+    // thus when it preloads again, there is no period to reuse, and a new period should be created.
+    verify(mediaSource0.get(), times(2)).createPeriod(any(), any(), anyLong());
+    assertThat(targetPreloadStatusControlCallStates).containsExactly(3, 2, 1, 0).inOrder();
+    assertThat(preloadManagerListener.onCompletedMediaItemRecords)
+        .containsExactly(mediaItem3, mediaItem2, mediaItem1, mediaItem0)
+        .inOrder();
+  }
+
   @Test
   public void setCurrentPlayingIndexAgain_clearsDeprioritizedSources() throws Exception {
     final AtomicInteger currentPlayingIndex = new AtomicInteger();
@@ -1092,8 +1222,8 @@ public class DefaultPreloadManagerTest {
             checkNotNull(preloadMediaSource4)
                 .prepareSource(
                     (source, timeline) -> {},
-                    DefaultBandwidthMeter.getSingletonInstance(context).getTransferListener(),
-                    PlayerId.UNSET));
+                    PlayerId.UNSET,
+                    DefaultBandwidthMeter.getSingletonInstance(context)));
     shadowOf(preloadThread.getLooper()).idle();
 
     currentPlayingIndex.set(4);
@@ -1533,13 +1663,19 @@ public class DefaultPreloadManagerTest {
           MediaPeriod mediaPeriod =
               source.createPeriod(
                   new MediaSource.MediaPeriodId(periodPosition.first),
-                  loadControl.getAllocator(),
+                  loadControl.getAllocator(PlayerId.UNSET),
                   periodPosition.second);
           mediaPeriod.prepare(mediaPeriodCallback, periodPosition.second);
           shadowOf(preloadThread.getLooper()).idle();
         };
     Handler preloadHandler = Util.createHandler(preloadThread.getLooper(), /* callback= */ null);
-    preloadHandler.post(() -> mediaSource.prepareSource(mediaSourceCaller, null, PlayerId.UNSET));
+    preloadHandler.post(
+        () ->
+            mediaSource.prepareSource(
+                mediaSourceCaller,
+                PlayerId.UNSET,
+                DefaultBandwidthMeter.getSingletonInstance(
+                    ApplicationProvider.getApplicationContext())));
     shadowOf(preloadThread.getLooper()).idle();
   }
 

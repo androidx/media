@@ -25,7 +25,6 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import android.media.MediaCodecInfo;
 import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -34,18 +33,16 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
-import androidx.media3.container.DolbyVisionConfig;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.NalUnitUtil;
+import androidx.media3.container.XmpData;
 import androidx.media3.muxer.FragmentedMp4Writer.SampleMetadata;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Ints;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
@@ -53,15 +50,21 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 
 /** Writes out various types of boxes as per MP4 (ISO/IEC 14496-12) standards. */
 /* package */ final class Boxes {
   /** Total number of bytes in an integer. */
   private static final int BYTES_PER_INTEGER = 4;
+
+  /** Total number of bytes in a long. */
+  private static final int BYTES_PER_LONG = 8;
 
   /** Box size (4 bytes) + Box name (4 bytes) */
   public static final int BOX_HEADER_SIZE = 8;
@@ -77,6 +80,9 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
   /** The size (in bytes) of the tfhd box content. */
   public static final int TFHD_BOX_CONTENT_SIZE = 4 * BYTES_PER_INTEGER;
+
+  /** The size (in bytes) of the tfdt box content. */
+  public static final int TFDT_BOX_CONTENT_SIZE = BYTES_PER_INTEGER + BYTES_PER_LONG;
 
   /** The maximum size (in bytes) of boxes that have fixed sizes. */
   private static final int MAX_FIXED_LEAF_BOX_SIZE = 200;
@@ -96,28 +102,11 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
    */
   private static final int TRUN_BOX_NON_SYNC_SAMPLE_FLAGS = 0b00000001_00000001_00000000_00000000;
 
+  private static final Pair<Integer, Integer> DEFAULT_H263_PROFILE_AND_LEVEL = new Pair<>(0, 10);
+
   private static final String TAG = "Boxes";
 
   private Boxes() {}
-
-  public static final ImmutableList<Byte> XMP_UUID =
-      ImmutableList.of(
-          (byte) 0xBE,
-          (byte) 0x7A,
-          (byte) 0xCF,
-          (byte) 0xCB,
-          (byte) 0x97,
-          (byte) 0xA9,
-          (byte) 0x42,
-          (byte) 0xE8,
-          (byte) 0x9C,
-          (byte) 0x71,
-          (byte) 0x99,
-          (byte) 0x94,
-          (byte) 0x91,
-          (byte) 0xE3,
-          (byte) 0xAF,
-          (byte) 0xAC);
 
   /** Returns the moov box. */
   @SuppressWarnings("InlinedApi")
@@ -141,10 +130,22 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       return ByteBuffer.allocate(0);
     }
 
+    // The final track id depends on the order of tracks in List<Track>.
+    Map<Integer, Integer> trackIdToFinalTrackIdMap = new HashMap<>();
+    int nextTrackId = 1;
+    for (int i = 0; i < tracks.size(); i++) {
+      Track track = tracks.get(i);
+      // For a non fragmented MP4 file, empty track is skipped.
+      if (!isFragmentedMp4 && track.writtenSamples.isEmpty()) {
+        continue;
+      }
+      trackIdToFinalTrackIdMap.put(track.id, nextTrackId++);
+    }
+
     List<ByteBuffer> trakBoxes = new ArrayList<>();
     List<ByteBuffer> trexBoxes = new ArrayList<>();
 
-    int nextTrackId = 1;
+    nextTrackId = 1;
     long videoDurationUs = 0L;
     for (int i = 0; i < tracks.size(); i++) {
       Track track = tracks.get(i);
@@ -153,7 +154,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         continue;
       }
       Format format = track.format;
-      if (Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_AV1)
+      if ((Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_AV1)
+              || Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_VP9))
           && format.initializationData.isEmpty()) {
         format =
             format
@@ -224,13 +226,29 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
           handlerType = "meta";
           handlerName = "MetaHandle";
           mhdBox = nmhd();
-          sampleEntryBox = textMetaDataSampleEntry(format);
+          sampleEntryBox = getMetadataSampleEntry(format);
           stsdBox = stsd(sampleEntryBox);
           stblBox = stbl(stsdBox, stts, stsz, stsc, chunkOffsetBox);
           break;
         default:
           throw new IllegalArgumentException("Unsupported track type");
       }
+
+      Map<Integer, List<Integer>> trackReferences = new HashMap<>();
+      for (Map.Entry<Integer, List<Integer>> entry : track.trackReferences.entrySet()) {
+        List<Integer> newIds = new ArrayList<>();
+        for (Integer oldId : entry.getValue()) {
+          if (trackIdToFinalTrackIdMap.containsKey(oldId)) {
+            newIds.add(trackIdToFinalTrackIdMap.get(oldId));
+          }
+        }
+        if (!newIds.isEmpty()) {
+          trackReferences.put(entry.getKey(), newIds);
+        }
+      }
+
+      ByteBuffer trefBox =
+          trackReferences.isEmpty() ? ByteBuffer.allocate(0) : tref(trackReferences);
 
       ByteBuffer trakBox =
           trak(
@@ -241,6 +259,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
                   modificationTimestampSeconds,
                   metadataCollector.orientationData.orientation,
                   format),
+              trefBox,
               edts(
                   firstInputPtsUs,
                   minInputPtsUs,
@@ -287,7 +306,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
     if (metadataCollector.xmpData != null) {
       return BoxUtils.concatenateBuffers(
-          moovBox, uuid(XMP_UUID, ByteBuffer.wrap(metadataCollector.xmpData.data)));
+          moovBox, uuid(XmpData.XMP_UUID, ByteBuffer.wrap(metadataCollector.xmpData.data)));
     } else {
       // No need for another copy if there is no XMP to be appended.
       return moovBox;
@@ -459,16 +478,47 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return BoxUtils.wrapIntoBox("nmhd", contents);
   }
 
+  /** Returns the metadata sample entry box. */
+  public static ByteBuffer getMetadataSampleEntry(Format format) {
+    return MimeTypes.APPLICATION_ITUT_T35.equals(format.sampleMimeType)
+        ? t35MetadataSampleEntry(format)
+        : textMetadataSampleEntry(format);
+  }
+
+  private static ByteBuffer t35MetadataSampleEntry(Format format) {
+    checkArgument(format.initializationData.size() == 1);
+    ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
+
+    // SampleEntry fields
+    contents.putInt(0); // reserved
+    contents.putShort((short) 0); // reserved
+    contents.putShort((short) 1); // data_reference_index
+
+    // it35 specific fields
+    if (format.initializationData.get(0).length > 255) {
+      throw new IllegalArgumentException("t35_identifier cannot be longer than 255 bytes.");
+    }
+    contents.put((byte) format.initializationData.get(0).length); // t35_identifier_length
+    contents.put(format.initializationData.get(0)); // t35_identifier
+    contents.flip();
+    return BoxUtils.wrapIntoBox("it35", contents);
+  }
+
   /**
    * Returns a text metadata sample entry box as per ISO/IEC 14496-12: 8.5.2.2.
    *
    * <p>This contains the sample entry (to be placed within the sample description box) for the text
    * metadata tracks.
    */
-  public static ByteBuffer textMetaDataSampleEntry(Format format) {
+  private static ByteBuffer textMetadataSampleEntry(Format format) {
     ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
     String mimeType = checkNotNull(format.sampleMimeType);
     byte[] mimeBytes = Util.getUtf8Bytes(mimeType);
+
+    contents.putInt(0); // reserved
+    contents.putShort((short) 0); // reserved
+    contents.putShort((short) 1); // data_reference_index
+
     contents.put(mimeBytes); // content_encoding
     contents.put((byte) 0x0);
     contents.put(mimeBytes); // mime_format
@@ -666,10 +716,13 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
    *
    * <p>This box is used for XMP and other metadata.
    */
-  public static ByteBuffer uuid(List<Byte> uuid, ByteBuffer contents) {
+  public static ByteBuffer uuid(UUID uuid, ByteBuffer contents) {
     checkArgument(contents.remaining() > 0);
-    return BoxUtils.wrapBoxesIntoBox(
-        "uuid", ImmutableList.of(ByteBuffer.wrap(Bytes.toArray(uuid)), contents));
+    ByteBuffer uuidBuffer = ByteBuffer.allocate(16);
+    uuidBuffer.putLong(uuid.getMostSignificantBits());
+    uuidBuffer.putLong(uuid.getLeastSignificantBits());
+    uuidBuffer.flip();
+    return BoxUtils.wrapBoxesIntoBox("uuid", ImmutableList.of(uuidBuffer, contents));
   }
 
   /** Returns an audio sample entry box based on the MIME type. */
@@ -686,13 +739,14 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     contents.putInt(0x0); // reserved
     contents.putInt(0x0); // reserved
 
-    int channelCount = format.channelCount;
+    final boolean isIamf = Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_IAMF);
+    final int channelCount = isIamf ? 0 : format.channelCount;
     contents.putShort((short) channelCount);
     contents.putShort((short) 16); // sample size
     contents.putShort((short) 0x0); // predefined
     contents.putShort((short) 0x0); // reserved
 
-    int sampleRate = format.sampleRate;
+    final int sampleRate = isIamf ? 0 : format.sampleRate;
     contents.putInt(sampleRate << 16);
 
     contents.put(codecSpecificBox);
@@ -716,6 +770,11 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         return damrBox(/* mode= */ (short) 0x83FF); // mode set: all enabled for AMR-WB
       case MimeTypes.AUDIO_OPUS:
         return dOpsBox(format);
+      case MimeTypes.AUDIO_E_AC3:
+      case MimeTypes.AUDIO_E_AC3_JOC:
+        return dec3Box(format);
+      case MimeTypes.AUDIO_IAMF:
+        return iacbBox(format);
       case MimeTypes.AUDIO_RAW:
         return ByteBuffer.allocate(0); // No codec specific box for raw audio.
       case MimeTypes.VIDEO_H263:
@@ -905,8 +964,11 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     long currentSampleTimeUs = presentationTimestampsUs.get(0);
     for (int nextSampleId = 1; nextSampleId < presentationTimestampsUs.size(); nextSampleId++) {
       long nextSampleTimeUs = presentationTimestampsUs.get(nextSampleId);
+      // Convert timestamps in microseconds to VU first and then calculate the duration in VU to
+      // avoid error accumulation.
       long currentSampleDurationVu =
-          vuFromUs(nextSampleTimeUs - currentSampleTimeUs, videoUnitTimescale);
+          vuFromUs(nextSampleTimeUs, videoUnitTimescale)
+              - vuFromUs(currentSampleTimeUs, videoUnitTimescale);
       checkState(
           currentSampleDurationVu <= Integer.MAX_VALUE, "Only 32-bit sample duration is allowed");
       durationsVu.add((int) currentSampleDurationVu);
@@ -1064,19 +1126,34 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
   /** Returns the stsz (sample size) box. */
   public static ByteBuffer stsz(List<BufferInfo> writtenSamples) {
-    ByteBuffer contents = ByteBuffer.allocate(writtenSamples.size() * 4 + MAX_FIXED_LEAF_BOX_SIZE);
+    boolean sameSampleSize = !writtenSamples.isEmpty() && writtenSamples.get(0).size != 0;
+    int firstSampleSize = writtenSamples.isEmpty() ? 0 : writtenSamples.get(0).size;
+    if (sameSampleSize) {
+      for (int i = 1; i < writtenSamples.size(); i++) {
+        if (writtenSamples.get(i).size != firstSampleSize) {
+          sameSampleSize = false;
+          break;
+        }
+      }
+    }
+
+    int capacity =
+        sameSampleSize
+            ? MAX_FIXED_LEAF_BOX_SIZE
+            : (writtenSamples.size() * 4 + MAX_FIXED_LEAF_BOX_SIZE);
+    ByteBuffer contents = ByteBuffer.allocate(capacity);
 
     contents.putInt(0x0); // version and flags
 
-    // TODO: b/270583563 - Consider optimizing for identically-sized samples.
-    // sample_size: specifying the default sample size. Set to zero to indicate that the samples
-    // have different sizes and they are stored in the sample size table.
-    contents.putInt(0);
-
-    contents.putInt(writtenSamples.size()); // sample_count
-
-    for (int i = 0; i < writtenSamples.size(); i++) {
-      contents.putInt(writtenSamples.get(i).size);
+    if (sameSampleSize) {
+      contents.putInt(firstSampleSize); // sample_size
+      contents.putInt(writtenSamples.size()); // sample_count
+    } else {
+      contents.putInt(0); // sample_size
+      contents.putInt(writtenSamples.size()); // sample_count
+      for (int i = 0; i < writtenSamples.size(); i++) {
+        contents.putInt(writtenSamples.get(i).size); // entry_size
+      }
     }
 
     contents.flip();
@@ -1233,8 +1310,17 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   }
 
   /** Returns a track fragment (traf) box. */
-  public static ByteBuffer traf(ByteBuffer tfhdBox, ByteBuffer trunBox) {
-    return BoxUtils.wrapBoxesIntoBox("traf", ImmutableList.of(tfhdBox, trunBox));
+  public static ByteBuffer traf(ByteBuffer tfhdBox, ByteBuffer tfdtBox, ByteBuffer trunBox) {
+    return BoxUtils.wrapBoxesIntoBox("traf", ImmutableList.of(tfhdBox, tfdtBox, trunBox));
+  }
+
+  /** Returns a track fragment base media decode time (tfdt) box. */
+  public static ByteBuffer tfdt(long baseMediaDecodeTime) {
+    ByteBuffer contents = ByteBuffer.allocate(TFDT_BOX_CONTENT_SIZE);
+    contents.putInt(0x01000000); // Version 1 (64-bit), flags = 0
+    contents.putLong(baseMediaDecodeTime);
+    contents.flip();
+    return BoxUtils.wrapIntoBox("tfdt", contents);
   }
 
   /** Returns a track fragment header (tfhd) box. */
@@ -1288,7 +1374,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return BoxUtils.wrapIntoBox("trun", contents);
   }
 
-  /** Returns the size required for {@link #trun(int, List, int, boolean)} box content. */
+  /** Returns the size required for {@link #trun} box content. */
   public static int getTrunBoxContentSize(int sampleCount, boolean hasBFrame) {
     int trunBoxFixedSize = 3 * BYTES_PER_INTEGER;
     int intWrittenPerSample = hasBFrame ? 4 : 3;
@@ -1321,6 +1407,26 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     axteBoxHeader.putLong(LARGE_SIZE_BOX_HEADER_SIZE + payloadSize); // the actual length
     axteBoxHeader.flip();
     return axteBoxHeader;
+  }
+
+  /** Returns the tref (track reference) box. */
+  public static ByteBuffer tref(Map<Integer, List<Integer>> trackReferences) {
+    List<ByteBuffer> refBoxes = new ArrayList<>();
+    for (Map.Entry<Integer, List<Integer>> entry : trackReferences.entrySet()) {
+      refBoxes.add(trefTypeBox(entry.getKey(), entry.getValue()));
+    }
+    return BoxUtils.wrapBoxesIntoBox("tref", refBoxes);
+  }
+
+  /** Returns the track reference type box. */
+  private static ByteBuffer trefTypeBox(int referenceType, List<Integer> trackIds) {
+    ByteBuffer contents = ByteBuffer.allocate(trackIds.size() * BYTES_PER_INTEGER);
+    for (int i = 0; i < trackIds.size(); i++) {
+      contents.putInt(trackIds.get(i));
+    }
+    contents.flip();
+    byte[] typeBytes = Util.toByteArray(referenceType);
+    return BoxUtils.wrapIntoBox(typeBytes, contents);
   }
 
   /** Returns an ISO 639-2/T (ISO3) language code for the IETF BCP 47 language tag. */
@@ -1370,13 +1476,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     ByteBuffer d263Box = ByteBuffer.allocate(7);
     d263Box.put("    ".getBytes(UTF_8)); // 4 spaces (vendor)
     d263Box.put((byte) 0x00); // decoder version
-    Pair<Integer, Integer> profileAndLevel = CodecSpecificDataUtil.getCodecProfileAndLevel(format);
-    if (profileAndLevel == null) {
-      profileAndLevel =
-          new Pair<>(
-              MediaCodecInfo.CodecProfileLevel.H263ProfileBaseline,
-              MediaCodecInfo.CodecProfileLevel.H263Level10);
-    }
+    Pair<Integer, Integer> profileAndLevel = getH263ProfileAndLevel(format);
     d263Box.put(profileAndLevel.second.byteValue()); // level
     d263Box.put(profileAndLevel.first.byteValue()); // profile
 
@@ -1439,6 +1539,13 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
     contents.flip();
     return BoxUtils.wrapIntoBox("avcC", contents);
+  }
+
+  private static ByteBuffer dec3Box(Format format) {
+    checkArgument(!format.initializationData.isEmpty(), "csd-0 not found in format for dec3 box.");
+    byte[] csd0 = format.initializationData.get(0);
+    checkArgument(csd0.length > 0, "csd-0 is empty for dec3 box.");
+    return BoxUtils.wrapIntoBox("dec3", ByteBuffer.wrap(csd0));
   }
 
   /** Returns the hvcC box as per ISO/IEC 14496-15: 8.3.3.1.2. */
@@ -1564,28 +1671,24 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   /** Returns a dvcC/dvwC/dvvC vision box which will be included in dolby vision box. */
   private static ByteBuffer doviBox(int profile, byte[] csd) {
     checkArgument(csd.length > 0, "csd is empty for dovi box.");
-    if (profile <= 7) {
+    if (profile == 5) {
       return BoxUtils.wrapIntoBox("dvcC", ByteBuffer.wrap(csd));
-    } else if (profile <= 10) {
+    } else if (profile == 8 || profile == 9) {
       return BoxUtils.wrapIntoBox("dvvC", ByteBuffer.wrap(csd));
-    } else if (profile <= 19) {
-      return BoxUtils.wrapIntoBox("dvwC", ByteBuffer.wrap(csd));
-    } else if (profile == 20) {
-      return BoxUtils.wrapIntoBox("dvcC", ByteBuffer.wrap(csd));
     } else {
-      return BoxUtils.wrapIntoBox("dvwC", ByteBuffer.wrap(csd));
+      throw new IllegalArgumentException("Unsupported Dolby Vision profile " + profile);
     }
   }
 
   /** Returns a dolby vision box as per Dolby Vision ISO media format. */
   private static ByteBuffer doviSpecificBox(Format format) {
-    checkArgument(
-        !format.initializationData.isEmpty(), "csd is not found in the format for dolby vision");
-    byte[] dolbyVisionCsd = Iterables.getLast(format.initializationData);
-    DolbyVisionConfig dolbyVisionConfig = getDolbyVisionConfig(format);
-    checkNotNull(dolbyVisionConfig, "Dolby vision codec is not supported.");
-    ByteBuffer avcHevcBox = dolbyVisionConfig.profile <= 8 ? hvcCBox(format) : avcCBox(format);
-    ByteBuffer dolbyBox = doviBox(dolbyVisionConfig.profile, dolbyVisionCsd);
+    @Nullable Pair<Integer, Integer> profileAndLevel = getDolbyVisionProfileAndLevel(format);
+    checkNotNull(profileAndLevel, "Can't identify Dolby vision profile");
+    ByteBuffer avcHevcBox = profileAndLevel.first <= 8 ? hvcCBox(format) : avcCBox(format);
+    byte[] dolbyVisionCsd =
+        CodecSpecificDataUtil.buildDolbyVisionInitializationData(
+            profileAndLevel.first, profileAndLevel.second);
+    ByteBuffer dolbyBox = doviBox(profileAndLevel.first, dolbyVisionCsd);
     return BoxUtils.concatenateBuffers(avcHevcBox, dolbyBox);
   }
 
@@ -1732,31 +1835,11 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return BoxUtils.wrapIntoBox("colr", contents);
   }
 
-  @Nullable
-  private static DolbyVisionConfig getDolbyVisionConfig(Format format) {
-    @Nullable
-    DolbyVisionConfig dolbyVisionConfig =
-        DolbyVisionConfig.parse(
-            new ParsableByteArray(Iterables.getLast(format.initializationData)));
-    if (dolbyVisionConfig == null && format.codecs != null) {
-      Pair<Integer, Integer> profileAndLevel = getDolbyVisionProfileAndLevel(format);
-      checkNotNull(profileAndLevel, "Dolby Vision profile and level is not found.");
-      byte[] dolbyVisionCsd =
-          CodecSpecificDataUtil.buildDolbyVisionInitializationData(
-              /* profile= */ profileAndLevel.first, /* level= */ profileAndLevel.second);
-      dolbyVisionConfig = DolbyVisionConfig.parse(new ParsableByteArray(dolbyVisionCsd));
-    }
-    return dolbyVisionConfig;
-  }
-
   /** Returns codec specific fourcc for Dolby vision. */
   private static String getDoviFourcc(Format format) {
-    @Nullable DolbyVisionConfig dolbyVisionConfig = getDolbyVisionConfig(format);
-    checkNotNull(
-        dolbyVisionConfig,
-        "Dolby Vision Initialization data is not found for format: %s",
-        format.sampleMimeType);
-    switch (dolbyVisionConfig.profile) {
+    Pair<Integer, Integer> profileAndLevel = getDolbyVisionProfileAndLevel(format);
+    checkNotNull(profileAndLevel, "Dolby Vision profile and level is not found.");
+    switch (profileAndLevel.first) {
       case 5:
         return "dvh1";
       case 8:
@@ -1766,7 +1849,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       default:
         throw new IllegalArgumentException(
             "Unsupported profile "
-                + dolbyVisionConfig.profile
+                + profileAndLevel.first
                 + " for format: "
                 + format.sampleMimeType);
     }
@@ -1787,6 +1870,11 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         return "s263";
       case MimeTypes.AUDIO_OPUS:
         return "Opus";
+      case MimeTypes.AUDIO_E_AC3:
+      case MimeTypes.AUDIO_E_AC3_JOC:
+        return "ec-3";
+      case MimeTypes.AUDIO_IAMF:
+        return "iamf";
       case MimeTypes.AUDIO_RAW:
         if (format.pcmEncoding == C.ENCODING_PCM_16BIT) {
           return "sowt";
@@ -1825,7 +1913,9 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     String mimeType = checkNotNull(format.sampleMimeType);
     boolean isVorbis = mimeType.equals(MimeTypes.AUDIO_VORBIS);
     ByteBuffer csdByteBuffer =
-        isVorbis ? getVorbisInitializationData(format) : ByteBuffer.wrap(csd0);
+        isVorbis
+            ? CodecSpecificDataUtil.getVorbisInitializationData(format)
+            : ByteBuffer.wrap(csd0);
 
     int peakBitrate = format.peakBitrate;
     int averageBitrate = format.averageBitrate;
@@ -1894,35 +1984,6 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return sizeBuffer;
   }
 
-  /* Returns csd wrapped in ByteBuffer in vorbis codec initialization data format. */
-  private static ByteBuffer getVorbisInitializationData(Format format) {
-    checkArgument(
-        format.initializationData.size() > 1, "csd-1 should contain setup header for Vorbis.");
-    byte[] csd0 = format.initializationData.get(0); // identification Header
-
-    // csd0Size is represented using "Xiph lacing" style.
-    // The lacing size is split into 255 values, stored as unsigned octets – for example, 500 is
-    // coded 255;245 or [0xFF 0xF5]. A frame with a size multiple of 255 is coded with a 0 at the
-    // end of the size – for example, 765 is coded 255;255;255;0 or [0xFF 0xFF 0xFF 0x00].
-    byte[] csd0Size = new byte[csd0.length / 255 + 1];
-    Arrays.fill(csd0Size, (byte) 0xFF);
-    csd0Size[csd0Size.length - 1] = (byte) (csd0.length % 255);
-
-    byte[] csd1 = format.initializationData.get(1); // setUp Header
-    checkArgument(csd1.length > 0, "csd-1 should be present and contain setup header for Vorbis.");
-
-    // Add 2 bytes - 1 for Vorbis audio and 1 for comment header length.
-    ByteBuffer csd = ByteBuffer.allocate(csd0Size.length + csd0.length + csd1.length + 2);
-    csd.put((byte) 0x02); // Vorbis audio
-    csd.put(csd0Size); // Size of identification header
-    csd.put((byte) 0); // Length of comment header
-    csd.put(csd0);
-    csd.put(csd1);
-    csd.flip();
-
-    return csd;
-  }
-
   /** Returns the audio damr box. */
   private static ByteBuffer damrBox(short mode) {
 
@@ -1938,20 +1999,58 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return BoxUtils.wrapIntoBox("damr", contents);
   }
 
+  /**
+   * Returns the audio iacb box for IAMF codec.
+   *
+   * <p>Per the spec, the iacb box is a Box with the payload of:
+   *
+   * <ul>
+   *   <li>uint8 configurationVersion = 1;
+   *   <li>uleb128 configOBUs_size;
+   *   <li>(uint8 x configOBUs_size) configOBUs;
+   * </ul>
+   */
+  private static ByteBuffer iacbBox(Format format) {
+    checkArgument(
+        format.initializationData.size() == 1,
+        "Expected only 1 byte array of initialization data for IAMF codec, but found %s.",
+        format.initializationData.size());
+    ByteBuffer csd0 = ByteBuffer.wrap(format.initializationData.get(0));
+
+    int configObusSize = csd0.remaining();
+    byte[] leb128Bytes = BoxUtils.getUleb128Bytes(configObusSize);
+    ByteBuffer contents = ByteBuffer.allocate(1 + leb128Bytes.length + configObusSize);
+    contents.put((byte) 1); // configurationVersion = 1
+    contents.put(leb128Bytes);
+    contents.put(csd0);
+    contents.flip();
+    return BoxUtils.wrapIntoBox("iacb", contents);
+  }
+
   /** Returns the audio dOps box for Opus codec as per RFC-7845: 5.1. */
   private static ByteBuffer dOpsBox(Format format) {
     checkArgument(
         !format.initializationData.isEmpty(), "csd-0 not found in the format for dOps box.");
 
-    int opusHeaderLength = 8;
-    byte[] csd0 = format.initializationData.get(0);
-    checkArgument(
-        csd0.length >= opusHeaderLength,
-        "As csd0 contains 'OpusHead' in first 8 bytes, csd0 length should be greater than 8");
+    int opusHeadSignatureLength = 8;
+    byte[] csd0 = CodecSpecificDataUtil.getOpusInitializationData(format);
+    // As csd0 contains 'OpusHead' in first 8 bytes, csd0 length should be greater than 8.
+    checkArgument(csd0.length >= opusHeadSignatureLength);
     ByteBuffer contents = ByteBuffer.allocate(csd0.length);
     // Skip 8 bytes containing "OpusHead".
     contents.put(
-        /* src */ csd0, /* offset */ opusHeaderLength, /* length */ csd0.length - opusHeaderLength);
+        /* src */ csd0,
+        /* offset */ opusHeadSignatureLength,
+        /* length */ csd0.length - opusHeadSignatureLength);
+
+    // For encapsulation of OPUS in MP4, the version byte (byte 0) in dOps box should be 0.
+    // (See https://opus-codec.org/docs/opus_in_isobmff.html, Section 4.3.2 Opus Specific Box).
+    // And for Ogg containers, the version byte is
+    // expected to be 1 (See https://www.rfc-editor.org/rfc/rfc7845#section-5.1, Section 5.1.2).
+    // The contents are otherwise identical.
+    checkState(contents.get(0) == 0 || contents.get(0) == 1);
+    contents.put(0, (byte) 0);
+
     contents.flip();
 
     return BoxUtils.wrapIntoBox("dOps", contents);
@@ -2041,5 +2140,104 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     int profile = Integer.parseInt(parts.get(1));
     int level = Integer.parseInt(parts.get(2));
     return Pair.create(profile, level);
+  }
+
+  /** Returns H263 profile and level from codec string. */
+  private static Pair<Integer, Integer> getH263ProfileAndLevel(Format format) {
+    if (format.codecs == null) {
+      return DEFAULT_H263_PROFILE_AND_LEVEL;
+    }
+    List<String> parts = Splitter.on('.').splitToList(format.codecs);
+    if (parts.size() < 3) {
+      return DEFAULT_H263_PROFILE_AND_LEVEL;
+    }
+    int profile;
+    int level;
+    try {
+      profile = Integer.parseInt(parts.get(1));
+      level = Integer.parseInt(parts.get(2));
+      return new Pair<>(profile, level);
+    } catch (NumberFormatException e) {
+      return DEFAULT_H263_PROFILE_AND_LEVEL;
+    }
+  }
+
+  /** Represents an entry in the 'tfra' (Track Fragment Random Access) box. */
+  public static class TfraEntry {
+    public final long time;
+    public final long moofOffset;
+    public final int trafNumber;
+    public final int trunNumber;
+    public final int sampleNumber;
+
+    public TfraEntry(long time, long moofOffset, int trafNumber) {
+      this.time = time;
+      this.moofOffset = moofOffset;
+      this.trafNumber = trafNumber;
+      this.trunNumber = 1;
+      this.sampleNumber = 1;
+    }
+  }
+
+  /** Returns a 'tfra' (Track Fragment Random Access) box. */
+  public static ByteBuffer tfra(int trackId, List<TfraEntry> entries) {
+    int headerSize = 4; // version (1 byte) + flags (3 bytes)
+    int fixedFieldsSize =
+        4 // track_ID (4 bytes)
+            + 4 // length_size_of_traf_num (2 bits), length_size_of_trun_num (2 bits),
+            // length_size_of_sample_num (2 bits), reserved (26 bits)
+            + 4; // number_of_entry (4 bytes)
+
+    int entrySize = 8 + 8 + 1 + 1 + 1;
+    int contentSize = headerSize + fixedFieldsSize + (entries.size() * entrySize);
+
+    ByteBuffer contents = ByteBuffer.allocate(contentSize);
+    contents.putInt(1 << 24); // version 1 (byte 0 = 0x01), flags = 0 (bytes 1-3 = 0x000000)
+    contents.putInt(trackId);
+    // Reserved (26 bits = 0) + length_size_of_traf_num (2 bits = 0: 1 byte)
+    // + length_size_of_trun_num (2 bits = 0: 1 byte) + length_size_of_sample_num (2 bits = 0: 1
+    // byte).
+    contents.putInt(0x00000000);
+    contents.putInt(entries.size());
+
+    for (int i = 0; i < entries.size(); i++) {
+      TfraEntry entry = entries.get(i);
+      checkState(entry.trafNumber <= 255, "trafNumber must fit in 1 byte");
+      checkState(entry.trunNumber <= 255, "trunNumber must fit in 1 byte");
+      checkState(entry.sampleNumber <= 255, "sampleNumber must fit in 1 byte");
+      contents.putLong(entry.time);
+      contents.putLong(entry.moofOffset);
+      contents.put((byte) entry.trafNumber); // 1-based index of traf box in enclosing moof
+      contents.put((byte) entry.trunNumber); // 1-based index of trun box in enclosing traf
+      contents.put((byte) entry.sampleNumber); // 1-based index of sample in enclosing trun
+    }
+
+    contents.flip();
+    return BoxUtils.wrapIntoBox("tfra", contents);
+  }
+
+  /** Returns an 'mfro' (Movie Fragment Random Access Offset) box. */
+  public static ByteBuffer mfro(int mfraSize) {
+    ByteBuffer contents = ByteBuffer.allocate(8);
+    contents.putInt(0x00000000); // version 0, flags = 0
+    contents.putInt(mfraSize);
+    contents.flip();
+    return BoxUtils.wrapIntoBox("mfro", contents);
+  }
+
+  /** Returns an 'mfra' (Movie Fragment Random Access) box containing all tfra boxes and mfro. */
+  public static ByteBuffer mfra(List<ByteBuffer> tfraBoxes) {
+    int totalTfraSize = 0;
+    for (int i = 0; i < tfraBoxes.size(); i++) {
+      totalTfraSize += tfraBoxes.get(i).remaining();
+    }
+    int mfroBoxSize = BOX_HEADER_SIZE + 8; // 16 bytes total
+    int mfraBoxSize = BOX_HEADER_SIZE + totalTfraSize + mfroBoxSize;
+
+    List<ByteBuffer> allBoxes = new ArrayList<>(tfraBoxes.size() + 1);
+    allBoxes.addAll(tfraBoxes);
+    allBoxes.add(mfro(mfraBoxSize));
+
+    return BoxUtils.wrapBoxesIntoBox("mfra", allBoxes);
   }
 }

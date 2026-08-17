@@ -19,20 +19,15 @@ To use the module you need to clone this GitHub project and depend on its
 modules locally. Instructions for doing this can be found in the
 [top level README][].
 
-In addition, it's necessary to fetch libmpegh library as follows:
+In addition, it's necessary to fetch libmpegh library as follows (starting at
+the root of your media3 check-out):
 
-*   Set the following environment variables:
-
-```
-cd "<path to project checkout>"
-MPEGH_MODULE_PATH="$(pwd)/libraries/decoder_mpegh/src/main"
-```
-
-*   Fetch libmpegh library:
-
-```
-cd "${MPEGH_MODULE_PATH}/jni" && \
-git clone https://github.com/Fraunhofer-IIS/mpeghdec.git --branch r2.0.0 libmpegh
+```shell
+cd libraries/decoder_mpegh/src/main/jni && \
+git clone https://github.com/Fraunhofer-IIS/mpeghdec.git \
+     --branch r3.0.2 \
+     --depth=1 \
+     libmpegh
 ```
 
 *   [Install CMake][].
@@ -45,7 +40,7 @@ configure and build mpeghdec and the module's [JNI wrapper library][].
 [Install CMake]: https://developer.android.com/studio/projects/install-ndk
 [CMake]: https://cmake.org/
 [Ninja]: https://ninja-build.org
-[JNI wrapper library]: src/main/jni/mpeghdec_jni.cc
+[JNI wrapper library]: src/main/jni/mpegh_jni.cpp
 
 ## Build instructions (Windows)
 

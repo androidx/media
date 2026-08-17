@@ -18,7 +18,6 @@ package androidx.media3.exoplayer.image;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
-import static org.robolectric.annotation.GraphicsMode.Mode.NATIVE;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -36,11 +35,9 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
-import org.robolectric.annotation.GraphicsMode;
 
 /** Unit tests for {@link BitmapFactoryImageDecoder}. */
 @RunWith(AndroidJUnit4.class)
-@GraphicsMode(value = NATIVE)
 public class BitmapFactoryImageDecoderTest {
 
   private static final String PNG_TEST_IMAGE_PATH = "media/png/non-motion-photo-shortened.png";
@@ -159,6 +156,7 @@ public class BitmapFactoryImageDecoderTest {
   }
 
   @Test
+  @Config(minSdk = 26) // ShadowBitmapFactory produces non-null result for invalid data on API < 26.
   public void decodeBitmap_withInvalidData_throws() throws ImageDecoderException {
     assertThrows(
         ImageDecoderException.class, () -> decode(new Format.Builder().build(), new byte[1]));

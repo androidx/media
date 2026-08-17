@@ -16,6 +16,7 @@ track 0:
     id = 1
     containerMimeType = video/mp4
     sampleMimeType = video/av01
+    codecs = av01.0.09M.10
     maxInputSize = 144656
     width = 1920
     height = 1080
@@ -28,7 +29,7 @@ track 0:
       lumaBitdepth = 10
       chromaBitdepth = 10
     language = und
-    metadata = entries=[TSSE: description=null: values=[Lavf58.76.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
+    metadata = entries=[TSSE: description=null: values=[Lavf58.76.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000, ThumbnailMetadata: presentationTimeUs=0]
     initializationData:
       data = length 20, hash 4DF5B288
   sample 0:

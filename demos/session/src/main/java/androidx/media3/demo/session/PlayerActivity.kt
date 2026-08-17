@@ -32,6 +32,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.media3.cast.MediaRouteButtonViewProvider
 import androidx.media3.common.C.TRACK_TYPE_TEXT
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -58,7 +59,6 @@ class PlayerActivity : AppCompatActivity() {
   private lateinit var mediaItemListView: ListView
   private lateinit var mediaItemListAdapter: MediaItemListAdapter
   private val mediaItemList: MutableList<MediaItem> = mutableListOf()
-  private var lastMediaItemId: String? = null
 
   @OptIn(UnstableApi::class) // PlayerView.hideController
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -120,6 +120,7 @@ class PlayerActivity : AppCompatActivity() {
       return
     }
     playerView.player = controller
+    playerView.setMediaRouteButtonViewProvider(MediaRouteButtonViewProvider())
 
     updateCurrentPlaylistUI()
     updateMediaMetadataUI()

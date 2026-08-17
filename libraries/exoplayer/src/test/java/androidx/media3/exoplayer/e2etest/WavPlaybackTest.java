@@ -21,9 +21,9 @@ import android.content.Context;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
-import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
+import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
@@ -38,7 +38,11 @@ import org.robolectric.ParameterizedRobolectricTestRunner;
 public final class WavPlaybackTest {
   @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
   public static ImmutableList<String> mediaSamples() {
-    return ImmutableList.of("sample.wav", "sample_ima_adpcm.wav", "sample_with_trailing_bytes.wav");
+    return ImmutableList.of(
+        "sample.wav",
+        "sample_ima_adpcm.wav",
+        "sample_with_trailing_bytes.wav",
+        "sample_wav_format_extensible.wav");
   }
 
   @ParameterizedRobolectricTestRunner.Parameter public String inputFile;
@@ -50,11 +54,12 @@ public final class WavPlaybackTest {
   @Test
   public void test() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .build();
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
 

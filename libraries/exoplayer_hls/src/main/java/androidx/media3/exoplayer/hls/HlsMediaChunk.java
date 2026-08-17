@@ -25,6 +25,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.TimestampAdjuster;
 import androidx.media3.common.util.UriUtil;
@@ -58,30 +59,31 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   /**
    * Creates a new instance.
    *
-   * @param extractorFactory A {@link HlsExtractorFactory} from which the {@link
-   *     HlsMediaChunkExtractor} is obtained.
-   * @param dataSource The source from which the data should be loaded.
-   * @param format The chunk format.
-   * @param startOfPlaylistInPeriodUs The position of the playlist in the period in microseconds.
-   * @param mediaPlaylist The media playlist from which this chunk was obtained.
+   * @param extractorFactory An {@link HlsExtractorFactory} for creating {@link
+   *     HlsMediaChunkExtractor}s.
+   * @param dataSource The {@link DataSource} for loading the data.
+   * @param format The chunk {@link Format}.
+   * @param startOfPlaylistInPeriodUs The start time of the playlist in the period, in microseconds.
+   * @param mediaPlaylist The {@link HlsMediaPlaylist} from which this chunk was obtained.
    * @param segmentBaseHolder The segment holder.
    * @param playlistUrl The url of the playlist from which this chunk was obtained.
+   * @param steeredPathwayId The ID of the steered pathway from which data is being loaded, or
+   *     {@code null} if not applicable.
    * @param muxedCaptionFormats List of muxed caption {@link Format}s. Null if no closed caption
    *     information is available in the multivariant playlist.
    * @param trackSelectionReason See {@link #trackSelectionReason}.
    * @param trackSelectionData See {@link #trackSelectionData}.
-   * @param isPrimaryTimestampSource True if the chunk can initialize the timestamp adjuster.
-   * @param timestampAdjusterProvider The provider from which to obtain the {@link
-   *     TimestampAdjuster}.
-   * @param timestampAdjusterInitializationTimeoutMs The timeout for the loading thread to wait for
-   *     the timestamp adjuster to initialize, in milliseconds. A timeout of zero is interpreted as
-   *     an infinite timeout.
-   * @param previousChunk The {@link HlsMediaChunk} that preceded this one. May be null.
+   * @param isPrimaryTimestampSource Whether this chunk is providing the timestamp source.
+   * @param timestampAdjusterProvider A provider of {@link TimestampAdjuster}s.
+   * @param timestampAdjusterInitializationTimeoutMs The timeout for waiting for the timestamp
+   *     adjuster to be initialized, in milliseconds.
+   * @param previousChunk The previous chunk in the output, or null.
    * @param mediaSegmentKey The media segment decryption key, if fully encrypted. Null otherwise.
    * @param initSegmentKey The initialization segment decryption key, if fully encrypted. Null
    *     otherwise.
    * @param shouldSpliceIn Whether samples for this chunk should be spliced into existing samples.
    * @param isIndependent Whether the chunk starts with a keyframe.
+   * @param playerId The {@link PlayerId} of the player.
    * @param cmcdDataFactory The {@link CmcdData.Factory} for generating {@link CmcdData}.
    */
   public static HlsMediaChunk createInstance(
@@ -92,6 +94,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       HlsMediaPlaylist mediaPlaylist,
       HlsChunkSource.SegmentBaseHolder segmentBaseHolder,
       Uri playlistUrl,
+      @Nullable String steeredPathwayId,
       @Nullable List<Format> muxedCaptionFormats,
       @C.SelectionReason int trackSelectionReason,
       @Nullable Object trackSelectionData,
@@ -215,7 +218,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         scratchId3Data,
         shouldSpliceIn,
         isIndependent,
-        playerId);
+        playerId,
+        steeredPathwayId);
   }
 
   /**
@@ -334,7 +338,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       ParsableByteArray scratchId3Data,
       boolean shouldSpliceIn,
       boolean isIndependent,
-      PlayerId playerId) {
+      PlayerId playerId,
+      @Nullable String steeredPathwayId) {
     super(
         mediaDataSource,
         dataSpec,
@@ -343,7 +348,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         trackSelectionData,
         startTimeUs,
         endTimeUs,
-        chunkMediaSequence);
+        chunkMediaSequence,
+        steeredPathwayId);
     this.mediaSegmentEncrypted = mediaSegmentEncrypted;
     this.partIndex = partIndex;
     this.publishedDurationUs = isPublished ? endTimeUs - startTimeUs : C.TIME_UNSET;
@@ -539,6 +545,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
           // See onTruncatedSegmentParsed's javadoc for more info on why we are swallowing the EOF
           // exception for trick play tracks.
           extractor.onTruncatedSegmentParsed();
+        } else if (dataSpec.length != C.LENGTH_UNSET
+            && input.getPosition() >= dataSpec.position + dataSpec.length) {
+          // The chunk is fully loaded, but an EOFException was thrown. This can happen if the
+          // chunk is corrupted.
+          throw ParserException.createForMalformedContainer(/* message= */ null, e);
         } else {
           throw e;
         }
@@ -636,23 +647,19 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     if (metadata == null) {
       return C.TIME_UNSET;
     }
-    int metadataLength = metadata.length();
-    for (int i = 0; i < metadataLength; i++) {
-      Metadata.Entry frame = metadata.get(i);
-      if (frame instanceof PrivFrame) {
-        PrivFrame privFrame = (PrivFrame) frame;
-        if (PRIV_TIMESTAMP_FRAME_OWNER.equals(privFrame.owner)) {
-          System.arraycopy(
-              privFrame.privateData, 0, scratchId3Data.getData(), 0, 8 /* timestamp size */);
-          scratchId3Data.setPosition(0);
-          scratchId3Data.setLimit(8);
-          // The top 31 bits should be zeros, but explicitly zero them to wrap in the case that the
-          // streaming provider forgot. See: https://github.com/google/ExoPlayer/pull/3495.
-          return scratchId3Data.readLong() & 0x1FFFFFFFFL;
-        }
-      }
+    @Nullable
+    PrivFrame privFrame =
+        metadata.getFirstMatchingEntry(
+            PrivFrame.class, frame -> frame.owner.equals(HlsMediaChunk.PRIV_TIMESTAMP_FRAME_OWNER));
+    if (privFrame == null) {
+      return C.TIME_UNSET;
     }
-    return C.TIME_UNSET;
+    System.arraycopy(privFrame.privateData, 0, scratchId3Data.getData(), 0, 8 /* timestamp size */);
+    scratchId3Data.setPosition(0);
+    scratchId3Data.setLimit(8);
+    // The top 31 bits should be zeros, but explicitly zero them to wrap in the case that the
+    // streaming provider forgot. See: https://github.com/google/ExoPlayer/pull/3495.
+    return scratchId3Data.readLong() & 0x1FFFFFFFFL;
   }
 
   // Internal methods.

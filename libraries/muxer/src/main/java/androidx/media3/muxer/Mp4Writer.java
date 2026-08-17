@@ -15,6 +15,7 @@
  */
 package androidx.media3.muxer;
 
+import static androidx.media3.common.util.CodecSpecificDataUtil.buildVp9CodecPrivateFromUncompressedHeader;
 import static androidx.media3.muxer.AnnexBUtils.doesSampleContainAnnexBNalUnits;
 import static androidx.media3.muxer.Av1ConfigUtil.createAv1CodecConfigurationRecord;
 import static androidx.media3.muxer.Boxes.BOX_HEADER_SIZE;
@@ -106,10 +107,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     this.lastSampleDurationBehavior = lastSampleDurationBehavior;
     this.sampleCopyEnabled = sampleCopyEnabled;
     this.sampleBatchingEnabled = sampleBatchingEnabled;
-    this.freeSpaceAfterFtypInBytes =
-        freeSpaceAfterFtypInBytes > 0
-            ? freeSpaceAfterFtypInBytes
-            : (attemptStreamableOutputEnabled ? DEFAULT_MOOV_BOX_SIZE_BYTES : 0);
+    this.freeSpaceAfterFtypInBytes = freeSpaceAfterFtypInBytes;
     tracks = new ArrayList<>();
     auxiliaryTracks = new ArrayList<>();
     hasWrittenSamples = new AtomicBoolean(false);
@@ -118,6 +116,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
     lastMoovWrittenAtSampleTimestampUs = 0L;
     linearByteBufferAllocator = new LinearByteBufferAllocator(/* initialCapacity= */ 0);
   }
+
+  private boolean isClosed;
 
   /**
    * Adds a track of the given {@link Format}.
@@ -128,6 +128,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
    * @return A unique {@link Track}. It should be used in {@link #writeSampleData}.
    */
   public Track addTrack(int trackId, int sortKey, Format format) {
+    checkState(!isClosed, "Mp4Writer is closed.");
     Track track = new Track(trackId, format, sortKey, sampleCopyEnabled);
     tracks.add(track);
     Collections.sort(tracks, (a, b) -> Integer.compare(a.sortKey, b.sortKey));
@@ -145,6 +146,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
    * @return A unique {@link Track}. It should be used in {@link #writeSampleData}.
    */
   public Track addAuxiliaryTrack(int trackId, int sortKey, Format format) {
+    checkState(!isClosed, "Mp4Writer is closed.");
     Track track = new Track(trackId, format, sortKey, sampleCopyEnabled);
     auxiliaryTracks.add(track);
     Collections.sort(auxiliaryTracks, (a, b) -> Integer.compare(a.sortKey, b.sortKey));
@@ -161,10 +163,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
    */
   public void writeSampleData(Track track, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws IOException {
-    if (Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_AV1)
-        && track.format.initializationData.isEmpty()
-        && track.parsedCsd == null) {
-      track.parsedCsd = createAv1CodecConfigurationRecord(byteBuffer.duplicate());
+    checkState(!isClosed, "Mp4Writer is closed.");
+    if (track.format.initializationData.isEmpty() && track.parsedCsd == null) {
+      if (Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_AV1)) {
+        track.parsedCsd = createAv1CodecConfigurationRecord(byteBuffer.duplicate());
+      } else if (Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_VP9)) {
+        track.parsedCsd = buildVp9CodecPrivateFromUncompressedHeader(byteBuffer.duplicate());
+      }
     }
     track.writeSampleData(byteBuffer, bufferInfo);
     if (sampleBatchingEnabled) {
@@ -174,6 +179,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
       boolean primaryTrackSampleWritten = tracks.contains(track);
       long currentSampleTimestampUs = bufferInfo.presentationTimeUs;
       if (primaryTrackSampleWritten
+          && hasWrittenSamples.get()
           && canWriteMoovAtStart
           && (currentSampleTimestampUs - lastMoovWrittenAtSampleTimestampUs
               >= MOOV_BOX_UPDATE_INTERVAL_US)) {
@@ -186,10 +192,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
   /**
    * Writes all the pending samples and the final moov box to the output {@link FileChannel}.
    *
-   * <p>This should be done before closing the file. The output {@link FileChannel} can be closed
-   * after calling this method.
+   * <p>This method can be called only once, before closing the file. The {@link Mp4Writer} cannot
+   * be used anymore once this method is called. The output {@link FileChannel} can be closed after
+   * calling this method.
    */
   public void finishWritingSamplesAndFinalizeMoovBox() throws IOException {
+    checkState(!isClosed, "Mp4Writer is closed.");
+    isClosed = true;
     for (int i = 0; i < tracks.size(); i++) {
       writePendingTrackSamples(tracks.get(i));
     }
@@ -316,9 +325,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
     muxerOutput.write(Boxes.ftyp());
 
     if (freeSpaceAfterFtypInBytes > 0) {
-      reservedMoovSpaceStart = muxerOutput.getPosition();
       muxerOutput.write(
           BoxUtils.wrapIntoBox(FREE_BOX_TYPE, ByteBuffer.allocate(freeSpaceAfterFtypInBytes)));
+    }
+
+    if (canWriteMoovAtStart) {
+      reservedMoovSpaceStart = muxerOutput.getPosition();
+      muxerOutput.write(
+          BoxUtils.wrapIntoBox(FREE_BOX_TYPE, ByteBuffer.allocate(DEFAULT_MOOV_BOX_SIZE_BYTES)));
       reservedMoovSpaceEnd = muxerOutput.getPosition();
     }
 
@@ -431,7 +445,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
     boolean newSamplesWritten = false;
     for (int i = 0; i < tracks.size(); i++) {
       Track track = tracks.get(i);
-      // TODO: b/270583563 - Check if we need to consider the global timestamp instead.
       if (track.pendingSamplesBufferInfo.size() > 2) {
         BufferInfo firstSampleInfo = checkNotNull(track.pendingSamplesBufferInfo.peekFirst());
         BufferInfo lastSampleInfo = checkNotNull(track.pendingSamplesBufferInfo.peekLast());

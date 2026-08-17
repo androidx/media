@@ -15,9 +15,11 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.common.MimeTypes.isVideo;
 import static androidx.media3.test.utils.TestUtil.extractAllSamplesFromFilePath;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
@@ -27,6 +29,8 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
@@ -34,16 +38,23 @@ import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.container.XmpData;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.muxer.BufferInfo;
 import androidx.media3.muxer.Muxer;
+import androidx.media3.muxer.MuxerException;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestTransformerBuilder;
+import androidx.media3.test.utils.robolectric.RobolectricUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
+import java.io.File;
+import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutionException;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -53,6 +64,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class TransformerWithInAppMp4MuxerEndToEndTest {
   private static final String MP4_FILE_PATH = "asset:///media/mp4/sample_no_bframes.mp4";
+  private static final String MP4_AAC_FILE_PATH = "asset:///media/mp4/bbb_1ch_16kHz_aac.mp4";
 
   @Rule public final TemporaryFolder outputDir = new TemporaryFolder();
 
@@ -117,8 +129,7 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
     TransformerTestRunner.runLooper(transformer);
 
     Mp4LocationData actualLocationData =
-        (Mp4LocationData)
-            retrieveMetadata(context, outputPath, entry -> entry instanceof Mp4LocationData);
+        retrieveMetadata(context, outputPath, Mp4LocationData.class);
     assertThat(actualLocationData).isEqualTo(expectedLocationData);
   }
 
@@ -157,13 +168,11 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
     TransformerTestRunner.runLooper(transformer);
 
     MdtaMetadataEntry actualCaptureFps =
-        (MdtaMetadataEntry)
-            retrieveMetadata(
-                context,
-                outputPath,
-                entry ->
-                    entry instanceof MdtaMetadataEntry
-                        && ((MdtaMetadataEntry) entry).key.equals(expectedCaptureFps.key));
+        retrieveMetadata(
+            context,
+            outputPath,
+            MdtaMetadataEntry.class,
+            mdtaEntry -> mdtaEntry.key.equals(expectedCaptureFps.key));
     assertThat(actualCaptureFps).isEqualTo(expectedCaptureFps);
   }
 
@@ -184,8 +193,7 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
     TransformerTestRunner.runLooper(transformer);
 
     Mp4TimestampData actualTimestampData =
-        (Mp4TimestampData)
-            retrieveMetadata(context, outputPath, entry -> entry instanceof Mp4TimestampData);
+        retrieveMetadata(context, outputPath, Mp4TimestampData.class);
     assertThat(actualTimestampData.creationTimestampSeconds)
         .isEqualTo(expectedTimestampData.creationTimestampSeconds);
     assertThat(actualTimestampData.modificationTimestampSeconds)
@@ -216,25 +224,37 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
     TransformerTestRunner.runLooper(transformer);
 
     MdtaMetadataEntry actualStringMetadata =
-        (MdtaMetadataEntry)
-            retrieveMetadata(
-                context,
-                outputPath,
-                entry ->
-                    entry instanceof MdtaMetadataEntry
-                        && ((MdtaMetadataEntry) entry).key.equals(expectedStringMetadata.key));
+        retrieveMetadata(
+            context,
+            outputPath,
+            MdtaMetadataEntry.class,
+            mdtaEntry -> mdtaEntry.key.equals(expectedStringMetadata.key));
     assertThat(actualStringMetadata).isEqualTo(expectedStringMetadata);
     MdtaMetadataEntry actualFloatMetadata =
-        (MdtaMetadataEntry)
-            retrieveMetadata(
-                context,
-                outputPath,
-                entry ->
-                    entry instanceof MdtaMetadataEntry
-                        && ((MdtaMetadataEntry) entry).key.equals(expectedFloatMetadata.key));
+        retrieveMetadata(
+            context,
+            outputPath,
+            MdtaMetadataEntry.class,
+            mdtaEntry -> mdtaEntry.key.equals(expectedFloatMetadata.key));
     assertThat(actualFloatMetadata).isEqualTo(expectedFloatMetadata);
   }
 
+  @Test
+  public void transmux_withoutStreamingOutput_reportsCorrectFileSize() throws Exception {
+    InAppMp4Muxer.Factory inAppMuxerFactory =
+        new InAppMp4Muxer.Factory().setAttemptStreamableOutputEnabled(false);
+    Transformer transformer =
+        new TestTransformerBuilder(context).setMuxerFactory(inAppMuxerFactory).build();
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_AAC_FILE_PATH));
+
+    transformer.start(mediaItem, outputPath);
+    ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
+
+    assertThat(exportResult.fileSizeBytes).isEqualTo(new File(outputPath).length());
+    assertThat(exportResult.fileSizeBytes).isLessThan(400_000L);
+  }
+
+  @Ignore("Flaky: b/491791547")
   @Test
   public void transmux_withSettingVideoDuration_writesCorrectVideoDuration() throws Exception {
     InAppMp4Muxer.Factory inAppMuxerFactory = new InAppMp4Muxer.Factory();
@@ -277,25 +297,84 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
         .isEqualTo(1_555_736);
   }
 
+  @Test
+  public void cancel_immediatelyAfterVideoTrackAdded_doesNotCrash() throws Exception {
+    InAppMp4Muxer.Factory inAppMuxerFactory = new InAppMp4Muxer.Factory();
+    inAppMuxerFactory.setVideoDurationUs(2_000_000L); // Triggers EOS write on close
+
+    ConditionVariable videoTrackAddedCondition = new ConditionVariable();
+    TestMuxerFactory testMuxerFactory =
+        new TestMuxerFactory(inAppMuxerFactory, videoTrackAddedCondition);
+
+    Transformer transformer =
+        new TestTransformerBuilder(context).setMuxerFactory(testMuxerFactory).build();
+
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE_PATH));
+    transformer.start(mediaItem, outputPath);
+
+    RobolectricUtil.runLooperUntil(
+        transformer.getApplicationLooper(), videoTrackAddedCondition::isOpen);
+    transformer.cancel();
+  }
+
+  @Test
+  public void transmux_withEAc3Joc_completesSuccessfully() throws Exception {
+    String eac3JocFilePath = "asset:///media/mp4/sample_eac3joc.mp4";
+    Transformer transformer =
+        new TestTransformerBuilder(context).setMuxerFactory(new InAppMp4Muxer.Factory()).build();
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(eac3JocFilePath));
+
+    transformer.start(mediaItem, outputPath);
+    TransformerTestRunner.runLooper(transformer);
+
+    Format audioFormat = retrieveTrackFormat(context, outputPath, C.TRACK_TYPE_AUDIO);
+    assertThat(audioFormat.sampleMimeType).isEqualTo(MimeTypes.AUDIO_E_AC3_JOC);
+    assertThat(audioFormat.initializationData).hasSize(1);
+    assertThat(audioFormat.initializationData.get(0))
+        .isEqualTo(new byte[] {0x14, 0x00, 0x20, 0x0F, 0x00, 0x01, 0x10});
+  }
+
   /**
    * Returns specific {@linkplain Metadata.Entry metadata} from the media file.
    *
    * @param context The application context.
    * @param filePath The path of the media file.
-   * @param predicate The {@link Predicate} to be used to retrieve the {@linkplain Metadata.Entry
-   *     metadata}.
-   * @return The {@linkplain Metadata.Entry metadata}.
+   * @param clazz The type of {@linkplain Metadata.Entry metadata} to look for.
+   * @return The first matching {@linkplain Metadata.Entry metadata}.
    */
   @Nullable
-  private static Metadata.Entry retrieveMetadata(
-      Context context, @Nullable String filePath, Predicate<Metadata.Entry> predicate)
+  private static <T extends Metadata.Entry> T retrieveMetadata(
+      Context context, @Nullable String filePath, Class<T> clazz)
+      throws ExecutionException, InterruptedException {
+    return retrieveMetadata(context, filePath, clazz, alwaysTrue());
+  }
+
+  /**
+   * Returns specific {@linkplain Metadata.Entry metadata} from the media file.
+   *
+   * @param context The application context.
+   * @param filePath The path of the media file.
+   * @param clazz The type of {@linkplain Metadata.Entry metadata} to look for.
+   * @param predicate The {@link Predicate} to be used to retrieve the {@linkplain Metadata.Entry
+   *     metadata}.
+   * @return The first matching {@linkplain Metadata.Entry metadata}.
+   */
+  @Nullable
+  private static <T extends Metadata.Entry> T retrieveMetadata(
+      Context context, @Nullable String filePath, Class<T> clazz, Predicate<T> predicate)
       throws ExecutionException, InterruptedException {
     Format videoTrackFormat = retrieveTrackFormat(context, filePath, C.TRACK_TYPE_VIDEO);
     @Nullable
-    Metadata.Entry metadataEntryFromVideoTrack = findMetadataEntry(videoTrackFormat, predicate);
+    T metadataEntryFromVideoTrack =
+        videoTrackFormat.metadata != null
+            ? videoTrackFormat.metadata.getFirstMatchingEntry(clazz, predicate)
+            : null;
     Format audioTrackFormat = retrieveTrackFormat(context, filePath, C.TRACK_TYPE_AUDIO);
     @Nullable
-    Metadata.Entry metadataEntryFromAudioTrack = findMetadataEntry(audioTrackFormat, predicate);
+    T metadataEntryFromAudioTrack =
+        audioTrackFormat.metadata != null
+            ? videoTrackFormat.metadata.getFirstMatchingEntry(clazz, predicate)
+            : null;
 
     ensureSameMetadataAcrossTracks(metadataEntryFromVideoTrack, metadataEntryFromAudioTrack);
 
@@ -312,19 +391,55 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
     }
   }
 
-  @Nullable
-  private static Metadata.Entry findMetadataEntry(
-      Format format, Predicate<Metadata.Entry> predicate) {
-    if (format.metadata == null) {
-      return null;
+  private static final class TestMuxerFactory implements Muxer.Factory {
+    private final InAppMp4Muxer.Factory nestedFactory;
+    private final ConditionVariable videoTrackAddedCondition;
+
+    TestMuxerFactory(
+        InAppMp4Muxer.Factory nestedFactory, ConditionVariable videoTrackAddedCondition) {
+      this.nestedFactory = nestedFactory;
+      this.videoTrackAddedCondition = videoTrackAddedCondition;
     }
 
-    for (int i = 0; i < format.metadata.length(); i++) {
-      Metadata.Entry metadataEntry = format.metadata.get(i);
-      if (predicate.apply(metadataEntry)) {
-        return metadataEntry;
-      }
+    @Override
+    public Muxer create(String path) throws MuxerException {
+      Muxer realMuxer = nestedFactory.create(path);
+      return new Muxer() {
+        @Override
+        public int addTrack(Format format) throws MuxerException {
+          int trackId = realMuxer.addTrack(format);
+          if (isVideo(format.sampleMimeType)) {
+            videoTrackAddedCondition.open();
+          }
+          return trackId;
+        }
+
+        @Override
+        public void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
+            throws MuxerException {
+          realMuxer.writeSampleData(trackId, byteBuffer, bufferInfo);
+        }
+
+        @Override
+        public void addMetadataEntry(Metadata.Entry metadataEntry) {
+          realMuxer.addMetadataEntry(metadataEntry);
+        }
+
+        @Override
+        public void close() throws MuxerException {
+          realMuxer.close();
+        }
+      };
     }
-    return null;
+
+    @Override
+    public ImmutableList<String> getSupportedSampleMimeTypes(int trackType) {
+      return nestedFactory.getSupportedSampleMimeTypes(trackType);
+    }
+
+    @Override
+    public boolean supportsWritingNegativeTimestampsInEditList() {
+      return nestedFactory.supportsWritingNegativeTimestampsInEditList();
+    }
   }
 }

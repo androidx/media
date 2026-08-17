@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT1.5S" type="static"
+     mediaPresentationDuration="PT1S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
+    <Period>
+        <AdaptationSet mimeType="video/mp4" codecs="avc1.64001e" segmentAlignment="true" startWithSAP="1">
+            <InbandEventStream schemeIdUri="urn:test" value="1"/>
+            <Representation id="1" bandwidth="500000" width="640" height="360" frameRate="30">
+                <BaseURL>video.mp4</BaseURL>
+                <SegmentList timescale="30000" duration="15000">
+                    <Initialization range="0-928"/>
+                    <SegmentURL mediaRange="929-8113"/>
+                    <SegmentURL mediaRange="8114-14648"/>
+                </SegmentList>
+            </Representation>
+        </AdaptationSet>
+    </Period>
+</MPD>

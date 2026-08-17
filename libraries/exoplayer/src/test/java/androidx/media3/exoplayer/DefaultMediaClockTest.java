@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.MockitoAnnotations.initMocks;
 
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackParameters;
@@ -29,9 +28,12 @@ import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeMediaClockRenderer;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 /** Unit test for {@link DefaultMediaClock}. */
 @RunWith(AndroidJUnit4.class)
@@ -42,13 +44,13 @@ public class DefaultMediaClockTest {
   private static final PlaybackParameters TEST_PLAYBACK_PARAMETERS =
       new PlaybackParameters(/* speed= */ 2f);
 
+  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
   @Mock private PlaybackParametersListener listener;
   private FakeClock fakeClock;
   private DefaultMediaClock mediaClock;
 
   @Before
   public void initMediaClockWithFakeClock() {
-    initMocks(this);
     fakeClock = new FakeClock(0);
     mediaClock = new DefaultMediaClock(listener, fakeClock);
   }
@@ -430,7 +432,7 @@ public class DefaultMediaClockTest {
       this.isEnded = isEnded;
       this.positionUs = TEST_POSITION_US;
       if (!hasReadStreamToEnd) {
-        resetPosition(0);
+        resetPosition(0, /* sampleStreamIsResetToKeyFrame= */ true);
       }
     }
 

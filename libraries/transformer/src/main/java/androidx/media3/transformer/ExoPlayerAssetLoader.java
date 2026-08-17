@@ -17,10 +17,6 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.percentInt;
-import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS;
-import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS;
-import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_MAX_BUFFER_MS;
-import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_MIN_BUFFER_MS;
 import static androidx.media3.transformer.ExportException.ERROR_CODE_FAILED_RUNTIME_CHECK;
 import static androidx.media3.transformer.ExportException.ERROR_CODE_UNSPECIFIED;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
@@ -29,6 +25,8 @@ import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
 import static androidx.media3.transformer.TransformerUtil.isImage;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.abs;
 import static java.lang.Math.min;
 
 import android.content.Context;
@@ -41,6 +39,7 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Tracks;
+import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -59,7 +58,10 @@ import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.trackselection.TrackSelector;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.extractor.DefaultExtractorsFactory;
+import androidx.media3.extractor.amr.AmrExtractor;
 import androidx.media3.extractor.mp4.Mp4Extractor;
+import androidx.media3.extractor.ts.AdtsExtractor;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
 
@@ -74,9 +76,9 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
     private final Codec.DecoderFactory decoderFactory;
     private final Clock clock;
     @Nullable private final MediaSource.Factory mediaSourceFactory;
-    @Nullable private final TrackSelector.Factory trackSelectorFactory;
+    private final TrackSelector.Factory trackSelectorFactory;
     @Nullable private final LogSessionId logSessionId;
-    @Nullable private final LoadControl loadControl;
+    private final Supplier<LoadControl> loadControlSupplier;
 
     /**
      * Creates an instance using a {@link DefaultMediaSourceFactory}.
@@ -181,9 +183,29 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
       this.decoderFactory = decoderFactory;
       this.clock = clock;
       this.mediaSourceFactory = mediaSourceFactory;
+
+      if (trackSelectorFactory == null) {
+        DefaultTrackSelector.Parameters defaultTrackSelectorParameters =
+            new DefaultTrackSelector.Parameters.Builder()
+                .setForceHighestSupportedBitrate(true)
+                .setConstrainAudioChannelCountToDeviceCapabilities(false)
+                .build();
+        trackSelectorFactory =
+            ctx -> {
+              DefaultTrackSelector trackSelector = new DefaultTrackSelector(ctx);
+              trackSelector.setParameters(defaultTrackSelectorParameters);
+              return trackSelector;
+            };
+      }
       this.trackSelectorFactory = trackSelectorFactory;
       this.logSessionId = logSessionId;
-      this.loadControl = loadControl;
+      // We need a new LoadControl instance for every asset loader because these might run on
+      // different threads. Each TransformerInternal instance creates a new processing thread.
+      if (loadControl == null) {
+        this.loadControlSupplier = DefaultLoadControl::new;
+      } else {
+        this.loadControlSupplier = () -> loadControl;
+      }
     }
 
     @Override
@@ -192,45 +214,14 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
         Looper looper,
         Listener listener,
         CompositionSettings compositionSettings) {
-      MediaSource.Factory mediaSourceFactory = this.mediaSourceFactory;
-      if (mediaSourceFactory == null) {
-        DefaultExtractorsFactory defaultExtractorsFactory = new DefaultExtractorsFactory();
-        if (editedMediaItem.flattenForSlowMotion) {
-          defaultExtractorsFactory.setMp4ExtractorFlags(Mp4Extractor.FLAG_READ_SEF_DATA);
-        }
-        mediaSourceFactory = new DefaultMediaSourceFactory(context, defaultExtractorsFactory);
-      }
-      TrackSelector.Factory trackSelectorFactory = this.trackSelectorFactory;
-      if (trackSelectorFactory == null) {
-        DefaultTrackSelector.Parameters defaultTrackSelectorParameters =
-            new DefaultTrackSelector.Parameters.Builder(context)
-                .setForceHighestSupportedBitrate(true)
-                .setConstrainAudioChannelCountToDeviceCapabilities(false)
-                .build();
-        trackSelectorFactory =
-            context -> {
-              DefaultTrackSelector trackSelector = new DefaultTrackSelector(context);
-              trackSelector.setParameters(defaultTrackSelectorParameters);
-              return trackSelector;
-            };
-      }
-      @Nullable LoadControl loadControl = this.loadControl;
-      if (loadControl == null) {
-        // Arbitrarily decrease buffers for playback so that samples start being sent earlier to the
-        // exporters (rebuffers are less problematic for the export use case).
-        loadControl =
-            new DefaultLoadControl.Builder()
-                .setBufferDurationsMs(
-                    DEFAULT_MIN_BUFFER_MS,
-                    DEFAULT_MAX_BUFFER_MS,
-                    DEFAULT_BUFFER_FOR_PLAYBACK_MS / 10,
-                    DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS / 10)
-                .build();
-      }
+      // TODO: b/512407542 - Avoid creating a new factory for each EditedMediaItem and assert that
+      // SEF is not used more than once within a Composition.
       return new ExoPlayerAssetLoader(
           context,
           editedMediaItem,
-          mediaSourceFactory,
+          mediaSourceFactory != null
+              ? mediaSourceFactory
+              : createMediaSourceFactory(context, editedMediaItem.flattenForSlowMotion),
           decoderFactory,
           compositionSettings.hdrMode,
           looper,
@@ -238,18 +229,43 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
           clock,
           trackSelectorFactory,
           logSessionId,
-          loadControl);
+          loadControlSupplier.get());
+    }
+
+    private static MediaSource.Factory createMediaSourceFactory(
+        Context context, boolean shouldEnableSef) {
+      DefaultExtractorsFactory defaultExtractorsFactory =
+          new DefaultExtractorsFactory()
+              .setAdtsExtractorFlags(AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING)
+              .setAmrExtractorFlags(AmrExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING);
+      if (shouldEnableSef) {
+        defaultExtractorsFactory.setMp4ExtractorFlags(Mp4Extractor.FLAG_READ_SEF_DATA);
+      }
+      return new DefaultMediaSourceFactory(context, defaultExtractorsFactory)
+          .setEnableClippingInMediaPeriod(true);
     }
   }
 
   private static final String TAG = "ExoPlayerAssetLoader";
 
+  /**
+   * Maximum allowed {@link EditedMediaItem} duration update in microseconds.
+   *
+   * <p>20ms should cover the main known valid case of a duration update, which is an Mp3 file with
+   * a trailing ID3v1 tag. An ID3v1 tag is exactly 128 bytes, which at most can represent 16ms of
+   * audio at a constant bitrate of 64 kb/s.
+   */
+  private static final int MAX_ALLOWED_DURATION_DIFF_US = 20_000;
+
   private final Context context;
   private final EditedMediaItem editedMediaItem;
   private final CapturingDecoderFactory decoderFactory;
   private final ExoPlayer player;
+  private final MediaSource.Factory mediaSourceFactory;
 
   private @Transformer.ProgressState int progressState;
+  private long durationUs;
+  private volatile boolean isStopped;
 
   private ExoPlayerAssetLoader(
       Context context,
@@ -266,23 +282,21 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
     this.context = context;
     this.editedMediaItem = editedMediaItem;
     this.decoderFactory = new CapturingDecoderFactory(decoderFactory);
+    this.mediaSourceFactory = mediaSourceFactory;
 
     TrackSelector trackSelector = trackSelectorFactory.createTrackSelector(context);
     ExoPlayer.Builder playerBuilder =
         new ExoPlayer.Builder(
                 context,
                 new RenderersFactoryImpl(
-                    editedMediaItem.removeAudio,
-                    editedMediaItem.removeVideo,
-                    editedMediaItem.flattenForSlowMotion,
-                    this.decoderFactory,
-                    hdrMode,
-                    listener,
-                    logSessionId))
+                    editedMediaItem, this.decoderFactory, hdrMode, listener, logSessionId))
             .setMediaSourceFactory(mediaSourceFactory)
             .setTrackSelector(trackSelector)
             .setLoadControl(loadControl)
             .setLooper(looper)
+            .setStuckBufferingDetectionTimeoutMs(Integer.MAX_VALUE)
+            .setStuckPlayingDetectionTimeoutMs(Integer.MAX_VALUE)
+            .setStuckPlayingNotEndingTimeoutMs(Integer.MAX_VALUE)
             .setUsePlatformDiagnostics(false);
     if (decoderFactory instanceof DefaultDecoderFactory) {
       playerBuilder.experimentalSetDynamicSchedulingEnabled(
@@ -298,11 +312,12 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
     player.addListener(new PlayerListener(listener));
 
     progressState = PROGRESS_STATE_NOT_STARTED;
+    durationUs = C.TIME_UNSET;
   }
 
   @Override
   public void start() {
-    player.setMediaItem(editedMediaItem.mediaItem);
+    player.setMediaSource(createMediaSourceForEditedMediaItem(mediaSourceFactory, editedMediaItem));
     player.prepare();
     progressState = PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
   }
@@ -310,7 +325,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
   @Override
   public @Transformer.ProgressState int getProgress(ProgressHolder progressHolder) {
     if (progressState == PROGRESS_STATE_AVAILABLE) {
-      long durationMs = player.getDuration();
+      long durationMs = durationUs / 1_000;
       // The player position can become greater than the duration. This happens if the player is
       // using a StandaloneMediaClock because the renderers have ended.
       long positionMs = min(player.getCurrentPosition(), durationMs);
@@ -334,33 +349,61 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
   }
 
   @Override
+  public void stop() {
+    // We call player.pause() instead of player.stop() because player.stop() would release the
+    // codecs, which violates the AssetLoader.stop() contract.
+    player.pause();
+    isStopped = false;
+    player.createMessage((messageType, payload) -> isStopped = true).send();
+  }
+
+  @Override
+  public boolean isStopped() {
+    return isStopped || player.getPlaybackState() == Player.STATE_IDLE;
+  }
+
+  @Override
   public void release() {
     player.release();
+    isStopped = true;
     progressState = PROGRESS_STATE_NOT_STARTED;
+  }
+
+  /**
+   * Returns a {@link MediaSource} representing the provided {@link EditedMediaItem}.
+   *
+   * <p>This method creates the {@link MediaSource} using {@code factory} and optionally wraps the
+   * new source in a {@link SpeedChangingMediaSource}.
+   */
+  private static MediaSource createMediaSourceForEditedMediaItem(
+      MediaSource.Factory factory, EditedMediaItem editedMediaItem) {
+    MediaSource mediaSource = factory.createMediaSource(editedMediaItem.mediaItem);
+    if (editedMediaItem.speedProvider != SpeedProvider.DEFAULT) {
+      mediaSource =
+          new SpeedChangingMediaSource(
+              mediaSource,
+              editedMediaItem.speedProvider,
+              editedMediaItem.mediaItem.clippingConfiguration);
+    }
+    return mediaSource;
   }
 
   private static final class RenderersFactoryImpl implements RenderersFactory {
 
     private final TransformerMediaClock mediaClock;
-    private final boolean removeAudio;
-    private final boolean removeVideo;
-    private final boolean flattenForSlowMotion;
+    private final EditedMediaItem editedMediaItem;
     private final Codec.DecoderFactory decoderFactory;
     private final @Composition.HdrMode int hdrMode;
     private final Listener assetLoaderListener;
     @Nullable private final LogSessionId logSessionId;
 
     public RenderersFactoryImpl(
-        boolean removeAudio,
-        boolean removeVideo,
-        boolean flattenForSlowMotion,
+        EditedMediaItem editedMediaItem,
         Codec.DecoderFactory decoderFactory,
         @Composition.HdrMode int hdrMode,
         Listener assetLoaderListener,
         @Nullable LogSessionId logSessionId) {
-      this.removeAudio = removeAudio;
-      this.removeVideo = removeVideo;
-      this.flattenForSlowMotion = flattenForSlowMotion;
+      this.editedMediaItem = editedMediaItem;
       this.decoderFactory = decoderFactory;
       this.hdrMode = hdrMode;
       this.assetLoaderListener = assetLoaderListener;
@@ -376,20 +419,21 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
         TextOutput textRendererOutput,
         MetadataOutput metadataRendererOutput) {
       ArrayList<Renderer> renderers = new ArrayList<>();
-      if (!removeAudio) {
+      if (!editedMediaItem.removeAudio) {
         renderers.add(
             new ExoAssetLoaderAudioRenderer(
                 decoderFactory, mediaClock, assetLoaderListener, logSessionId));
       }
-      if (!removeVideo) {
+      if (!editedMediaItem.removeVideo) {
         renderers.add(
             new ExoAssetLoaderVideoRenderer(
-                flattenForSlowMotion,
+                editedMediaItem.flattenForSlowMotion,
                 decoderFactory,
                 hdrMode,
                 mediaClock,
                 assetLoaderListener,
-                logSessionId));
+                logSessionId,
+                editedMediaItem.frameRate));
       }
       return renderers.toArray(new Renderer[0]);
     }
@@ -406,21 +450,32 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
     @Override
     public void onTimelineChanged(Timeline timeline, int reason) {
       try {
-        if (progressState != PROGRESS_STATE_WAITING_FOR_AVAILABILITY) {
-          return;
-        }
         Timeline.Window window = new Timeline.Window();
         timeline.getWindow(/* windowIndex= */ 0, window);
         if (!window.isPlaceholder) {
-          long durationUs = window.durationUs;
-          // Make progress permanently unavailable if the duration is unknown, so that it doesn't
-          // jump to a high value at the end of the export if the duration is set once the media is
-          // entirely loaded.
-          progressState =
-              durationUs <= 0 || durationUs == C.TIME_UNSET
-                  ? PROGRESS_STATE_UNAVAILABLE
-                  : PROGRESS_STATE_AVAILABLE;
-          assetLoaderListener.onDurationUs(window.durationUs);
+          if (progressState == PROGRESS_STATE_WAITING_FOR_AVAILABILITY) {
+            durationUs = window.durationUs;
+            // Make progress permanently unavailable if the duration is unknown, so that it doesn't
+            // jump to a high value at the end of the export if the duration is set once the media
+            // is entirely loaded.
+            progressState =
+                durationUs <= 0 || durationUs == C.TIME_UNSET
+                    ? PROGRESS_STATE_UNAVAILABLE
+                    : PROGRESS_STATE_AVAILABLE;
+            assetLoaderListener.onDurationUs(window.durationUs);
+          } else if (durationUs != C.TIME_UNSET) {
+            // ExoPlayer will do a best effort duration estimation for media that does not expose
+            // an explicit duration in its container. On some cases, like with Mp3 files with
+            // trailing ID3v1 tags, ExoPlayer will update the Timeline's duration with the real
+            // duration once the file has been read completely. We should ignore these updates and
+            // let Transformer pad the stream with silence/blank frames. However, for duration
+            // updates that exceed the threshold, we should crash.
+            checkState(
+                abs(durationUs - window.durationUs) <= MAX_ALLOWED_DURATION_DIFF_US,
+                "Unexpected duration change: old=%s, new=%s",
+                durationUs,
+                window.durationUs);
+          }
         }
       } catch (RuntimeException e) {
         assetLoaderListener.onError(

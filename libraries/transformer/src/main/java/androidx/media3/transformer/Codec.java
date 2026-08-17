@@ -22,6 +22,7 @@ import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.DecoderInputBuffer;
 import java.nio.ByteBuffer;
@@ -79,10 +80,6 @@ public interface Codec {
      * <p>The caller should ensure the {@linkplain Format#sampleMimeType MIME type} is supported on
      * the device before calling this method.
      *
-     * <p>{@link Format#codecs} contains the codec string for the original input media that has been
-     * decoded and processed. This is provided only as a hint, and the factory may encode to a
-     * different format.
-     *
      * @param format The {@link Format} (of the output data) used to determine the underlying
      *     encoder and its configuration values. {@link Format#sampleMimeType}, {@link
      *     Format#sampleRate}, {@link Format#channelCount} and {@link Format#bitrate} are set to
@@ -103,10 +100,6 @@ public interface Codec {
      * the device before calling this method. If encoding to HDR, the caller should also ensure the
      * {@linkplain Format#colorInfo color characteristics} are supported.
      *
-     * <p>{@link Format#codecs} contains the codec string for the original input media that has been
-     * decoded and processed. This is provided only as a hint, and the factory may encode to a
-     * different format.
-     *
      * @param format The {@link Format} (of the output data) used to determine the underlying
      *     encoder and its configuration values. {@link Format#sampleMimeType}, {@link Format#width}
      *     and {@link Format#height} are set to those of the desired output video format. {@link
@@ -121,6 +114,17 @@ public interface Codec {
      */
     Codec createForVideoEncoding(Format format, @Nullable LogSessionId logSessionId)
         throws ExportException;
+
+    /**
+     * Returns whether the requested video {@link Format} is supported by the encoder factory.
+     *
+     * <p>This is an experimental API and is currently being used for {@code FrameWriter}
+     * specifically.
+     */
+    @ExperimentalApi // TODO: b/498176910 - Remove once FrameWriter is production ready.
+    default boolean isVideoFormatSupported(Format format) {
+      return true;
+    }
 
     /** Returns whether the audio needs to be encoded because of encoder specific configuration. */
     default boolean audioNeedsEncoding() {

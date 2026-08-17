@@ -40,6 +40,7 @@ public abstract class MediaChunk extends Chunk {
    * @param startTimeUs The start time of the media contained by the chunk, in microseconds.
    * @param endTimeUs The end time of the media contained by the chunk, in microseconds.
    * @param chunkIndex The index of the chunk, or {@link C#INDEX_UNSET} if it is not known.
+   * @param steeredPathwayId See {@link #steeredPathwayId}.
    */
   public MediaChunk(
       DataSource dataSource,
@@ -49,7 +50,8 @@ public abstract class MediaChunk extends Chunk {
       @Nullable Object trackSelectionData,
       long startTimeUs,
       long endTimeUs,
-      long chunkIndex) {
+      long chunkIndex,
+      @Nullable String steeredPathwayId) {
     super(
         dataSource,
         dataSpec,
@@ -58,7 +60,8 @@ public abstract class MediaChunk extends Chunk {
         trackSelectionReason,
         trackSelectionData,
         startTimeUs,
-        endTimeUs);
+        endTimeUs,
+        steeredPathwayId);
     checkNotNull(trackFormat);
     this.chunkIndex = chunkIndex;
   }

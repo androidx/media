@@ -111,6 +111,17 @@ public class FlacExtractorTest {
   }
 
   @Test
+  public void sampleWithVorbisCommentsInvalidMutf8() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        FlacExtractor::new,
+        "media/flac/bear_with_vorbis_comments_invalid_mutf8.flac",
+        new AssertionConfig.Builder()
+            .setDumpFilesPrefix("extractordumps/flac/bear_with_vorbis_comments_invalid_mutf8_raw")
+            .build(),
+        simulationConfig);
+  }
+
+  @Test
   public void sampleWithPicture() throws Exception {
     ExtractorAsserts.assertBehavior(
         FlacExtractor::new,

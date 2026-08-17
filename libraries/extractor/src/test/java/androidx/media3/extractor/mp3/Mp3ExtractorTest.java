@@ -15,74 +15,98 @@
  */
 package androidx.media3.extractor.mp3;
 
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeFalse;
 
+import androidx.annotation.Nullable;
+import androidx.media3.common.Format;
+import androidx.media3.common.Metadata;
+import androidx.media3.common.util.Util;
+import androidx.media3.extractor.Extractor;
+import androidx.media3.extractor.MpegAudioUtil;
+import androidx.media3.extractor.PositionHolder;
+import androidx.media3.extractor.SeekPoint;
+import androidx.media3.extractor.metadata.id3.ApicFrame;
+import androidx.media3.extractor.metadata.id3.TextInformationFrame;
 import androidx.media3.test.utils.ExtractorAsserts;
 import androidx.media3.test.utils.ExtractorAsserts.AssertionConfig;
+import androidx.media3.test.utils.FakeExtractorInput;
+import androidx.media3.test.utils.FakeExtractorOutput;
+import androidx.media3.test.utils.TestUtil;
+import androidx.test.core.app.ApplicationProvider;
+import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Bytes;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
+import java.nio.ByteBuffer;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.ParameterizedRobolectricTestRunner;
-import org.robolectric.ParameterizedRobolectricTestRunner.Parameter;
-import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
+import org.robolectric.RobolectricTestParameterInjector;
 
 /** Unit test for {@link Mp3Extractor}. */
-@RunWith(ParameterizedRobolectricTestRunner.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public final class Mp3ExtractorTest {
 
-  @Parameters(name = "{0}")
-  public static ImmutableList<ExtractorAsserts.SimulationConfig> params() {
-    return ExtractorAsserts.configs();
+  private enum XingHeaderFlagConfig {
+    NONE(/* flags= */ 0),
+    INDEX_SEEKING(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING);
+
+    private final @Mp3Extractor.Flags int flags;
+
+    XingHeaderFlagConfig(@Mp3Extractor.Flags int flags) {
+      this.flags = flags;
+    }
   }
 
-  @Parameter public ExtractorAsserts.SimulationConfig simulationConfig;
-
   @Test
-  public void mp3SampleWithXingHeader() throws Exception {
+  public void mp3SampleWithXingHeader(
+      @TestParameter XingHeaderFlagConfig flagConfig,
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
+          ExtractorAsserts.SimulationConfig simulationConfig)
+      throws Exception {
     ExtractorAsserts.assertBehavior(
-        Mp3Extractor::new,
+        () -> new Mp3Extractor(flagConfig.flags),
         "media/mp3/bear-vbr-xing-header.mp3",
         /* peekLimit= */ 1300,
         simulationConfig);
   }
 
+  private enum XingHeaderNoTocFlagConfig {
+    NONE(/* flags= */ 0),
+    INDEX_SEEKING(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING),
+    CBR_SEEKING(Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING),
+    CBR_SEEKING_ALWAYS(Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS);
+
+    private final @Mp3Extractor.Flags int flags;
+
+    XingHeaderNoTocFlagConfig(@Mp3Extractor.Flags int flags) {
+      this.flags = flags;
+    }
+  }
+
   @Test
-  public void mp3SampleWithXingHeader_noTableOfContents() throws Exception {
+  public void mp3SampleWithXingHeader_noTableOfContents(
+      @TestParameter XingHeaderNoTocFlagConfig flagConfig,
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
+          ExtractorAsserts.SimulationConfig simulationConfig)
+      throws Exception {
+    String file = "media/mp3/bear-vbr-xing-header-no-toc.mp3";
     ExtractorAsserts.assertBehavior(
-        Mp3Extractor::new,
-        "media/mp3/bear-vbr-xing-header-no-toc.mp3",
+        () -> new Mp3Extractor(flagConfig.flags),
+        file,
         /* peekLimit= */ 1300,
+        new AssertionConfig.Builder().setDumpFilesPrefix(getDumpFilePath(file, flagConfig)).build(),
         simulationConfig);
   }
 
   @Test
-  public void mp3SampleWithXingHeader_noTableOfContents_cbrSeeking() throws Exception {
-    String filename = "mp3/bear-vbr-xing-header-no-toc.mp3";
-    ExtractorAsserts.assertBehavior(
-        () -> new Mp3Extractor(Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING),
-        "media/" + filename,
-        /* peekLimit= */ 1300,
-        new AssertionConfig.Builder()
-            .setDumpFilesPrefix("extractordumps/" + filename + ".cbr-seeking")
-            .build(),
-        simulationConfig);
-  }
-
-  @Test
-  public void mp3SampleWithXingHeader_noTableOfContents_cbrSeekingAlways() throws Exception {
-    String filename = "mp3/bear-vbr-xing-header-no-toc.mp3";
-    ExtractorAsserts.assertBehavior(
-        () -> new Mp3Extractor(Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS),
-        "media/" + filename,
-        /* peekLimit= */ 1300,
-        new AssertionConfig.Builder()
-            .setDumpFilesPrefix("extractordumps/" + filename + ".cbr-seeking-always")
-            .build(),
-        simulationConfig);
-  }
-
-  @Test
-  public void mp3SampleWithInfoHeader() throws Exception {
+  public void mp3SampleWithInfoHeader(
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
+          ExtractorAsserts.SimulationConfig simulationConfig)
+      throws Exception {
     ExtractorAsserts.assertBehavior(
         Mp3Extractor::new,
         "media/mp3/test-cbr-info-header.mp3",
@@ -90,9 +114,44 @@ public final class Mp3ExtractorTest {
         simulationConfig);
   }
 
+  @Test
+  public void mp3SampleWithInfoHeader_usesGaplessDurationAndAverageBitrate() throws Exception {
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(
+            new Mp3Extractor(),
+            ApplicationProvider.getApplicationContext(),
+            "media/mp3/test-cbr-info-header.mp3");
+
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(999_977);
+    assertThat(output.trackOutputs.get(0).getDurationUs()).isEqualTo(999_977);
+    assertThat(output.trackOutputs.get(0).lastFormat.averageBitrate).isEqualTo(66_874);
+  }
+
+  @Test
+  public void mp3SampleWithInfoHeader_invalidDataSizeFallsBackToFrameBitrate() throws Exception {
+    byte[] fileBytes =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), "media/mp3/test-cbr-info-header.mp3");
+    int infoTagOffset = Bytes.indexOf(fileBytes, new byte[] {'I', 'n', 'f', 'o'});
+    checkState(infoTagOffset >= 0);
+    ByteBuffer fileBytesBuffer = ByteBuffer.wrap(fileBytes);
+    int infoFramePosition = findMpegFramePositionBeforeTag(fileBytesBuffer, infoTagOffset);
+    MpegAudioUtil.Header infoFrameHeader = new MpegAudioUtil.Header();
+    checkState(infoFrameHeader.setForHeaderData(fileBytesBuffer.getInt(infoFramePosition)));
+    fileBytesBuffer.putInt(infoTagOffset + 12, infoFrameHeader.frameSize);
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(new Mp3Extractor(), fileBytes, /* simulateUnknownLength= */ false);
+
+    assertThat(output.trackOutputs.get(0).lastFormat.averageBitrate).isEqualTo(64_000);
+  }
+
   // https://github.com/androidx/media/issues/1376#issuecomment-2117393653
   @Test
-  public void mp3SampleWithInfoHeaderAndPcutFrame() throws Exception {
+  public void mp3SampleWithInfoHeaderAndPcutFrame(
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
+          ExtractorAsserts.SimulationConfig simulationConfig)
+      throws Exception {
     ExtractorAsserts.assertBehavior(
         Mp3Extractor::new,
         "media/mp3/test-cbr-info-header-pcut-frame.mp3",
@@ -102,7 +161,10 @@ public final class Mp3ExtractorTest {
 
   // https://github.com/androidx/media/issues/1480
   @Test
-  public void mp3SampleWithInfoHeaderAndTrailingGarbage() throws Exception {
+  public void mp3SampleWithInfoHeaderAndTrailingGarbage(
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
+          ExtractorAsserts.SimulationConfig simulationConfig)
+      throws Exception {
     // This test file is test-cbr-info-header.mp3 with 150kB of 0xDEADBEEF garbage appended on the
     // end. The test asserts that the extracted samples are the same as for
     // test-cbr-info-header.mp3.
@@ -117,7 +179,10 @@ public final class Mp3ExtractorTest {
   }
 
   @Test
-  public void mp3SampleWithVbriHeader() throws Exception {
+  public void mp3SampleWithVbriHeader(
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
+          ExtractorAsserts.SimulationConfig simulationConfig)
+      throws Exception {
     ExtractorAsserts.assertBehavior(
         Mp3Extractor::new,
         "media/mp3/bear-vbr-vbri-header.mp3",
@@ -127,7 +192,10 @@ public final class Mp3ExtractorTest {
 
   // https://github.com/androidx/media/issues/1904
   @Test
-  public void mp3SampleWithVbriHeaderWithTruncatedToC() throws Exception {
+  public void mp3SampleWithVbriHeaderWithTruncatedToC(
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
+          ExtractorAsserts.SimulationConfig simulationConfig)
+      throws Exception {
     ExtractorAsserts.assertBehavior(
         Mp3Extractor::new,
         "media/mp3/bear-vbr-vbri-header-truncated-toc.mp3",
@@ -135,29 +203,47 @@ public final class Mp3ExtractorTest {
         simulationConfig);
   }
 
-  @Test
-  public void mp3SampleWithCbrSeeker() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        Mp3Extractor::new,
-        "media/mp3/bear-cbr-variable-frame-size-no-seek-table.mp3",
-        /* peekLimit= */ 1500,
-        simulationConfig);
+  private enum CbrSeekerFlagConfig {
+    NONE(/* flags= */ 0),
+    CBR_SEEKING_ALWAYS(Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS);
+
+    private final @Mp3Extractor.Flags int flags;
+
+    CbrSeekerFlagConfig(@Mp3Extractor.Flags int flags) {
+      this.flags = flags;
+    }
   }
 
   @Test
-  public void mp3SampleWithCbrSeekingAlwaysEnabled() throws Exception {
+  public void mp3SampleWithCbrSeeker(
+      @TestParameter CbrSeekerFlagConfig flagConfig,
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
+          ExtractorAsserts.SimulationConfig simulationConfig)
+      throws Exception {
+    String file = "media/mp3/bear-cbr-variable-frame-size-no-seek-table.mp3";
     ExtractorAsserts.assertBehavior(
-        () -> new Mp3Extractor(Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS),
-        "media/mp3/bear-cbr-variable-frame-size-no-seek-table.mp3",
+        () -> new Mp3Extractor(flagConfig.flags),
+        file,
         /* peekLimit= */ 1500,
-        new AssertionConfig.Builder()
-            .setDumpFilesPrefix("extractordumps/mp3/bear-cbr_cbr-seeking-always-enabled")
-            .build(),
+        new AssertionConfig.Builder().setDumpFilesPrefix(getDumpFilePath(file, flagConfig)).build(),
         simulationConfig);
   }
 
+  private static final class KnowLengthConfigProvider extends TestParameterValuesProvider {
+    @Override
+    protected ImmutableList<ExtractorAsserts.SimulationConfig> provideValues(
+        TestParameterValuesProvider.Context context) {
+      return ExtractorAsserts.configs().stream()
+          .filter(config -> !config.simulateUnknownLength)
+          .collect(toImmutableList());
+    }
+  }
+
   @Test
-  public void mp3SampleWithIndexSeeker() throws Exception {
+  public void mp3Sample_withIndexSeekingFlag_usesCbrSeekerForKnownLength(
+      @TestParameter(valuesProvider = KnowLengthConfigProvider.class)
+          ExtractorAsserts.SimulationConfig simulationConfig)
+      throws Exception {
     ExtractorAsserts.assertBehavior(
         () -> new Mp3Extractor(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING),
         "media/mp3/bear-vbr-no-seek-table.mp3",
@@ -165,9 +251,30 @@ public final class Mp3ExtractorTest {
         simulationConfig);
   }
 
+  @Test
+  public void mp3CbrSampleWithIndexSeekingFlagAndUnknownLength_reportsUnsetAverageBitrate()
+      throws Exception {
+    byte[] fileBytes =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(),
+            "media/mp3/bear-cbr-variable-frame-size-no-seek-table.mp3");
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(
+            new Mp3Extractor(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING),
+            fileBytes,
+            /* simulateUnknownLength= */ true);
+
+    assertThat(output.seekMap).isInstanceOf(IndexSeeker.class);
+    assertThat(output.trackOutputs.get(0).lastFormat.averageBitrate).isEqualTo(Format.NO_VALUE);
+  }
+
   // https://github.com/androidx/media/issues/1563
   @Test
-  public void mp3CbrSampleWithNoSeekTableAndTrailingGarbage() throws Exception {
+  public void mp3CbrSampleWithNoSeekTableAndTrailingGarbage(
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
+          ExtractorAsserts.SimulationConfig simulationConfig)
+      throws Exception {
     assumeFalse(
         "Skipping I/O error testing with unknown length due to b/362727473",
         simulationConfig.simulateIOErrors && simulationConfig.simulateUnknownLength);
@@ -179,41 +286,190 @@ public final class Mp3ExtractorTest {
   }
 
   @Test
-  public void trimmedMp3Sample() throws Exception {
+  public void trimmedMp3Sample(
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
+          ExtractorAsserts.SimulationConfig simulationConfig)
+      throws Exception {
     ExtractorAsserts.assertBehavior(
         Mp3Extractor::new, "media/mp3/play-trimmed.mp3", /* peekLimit= */ 1200, simulationConfig);
   }
 
+  private enum Id3FlagConfig {
+    ID3_ENABLED(/* flags= */ 0),
+    ID3_DISABLED(Mp3Extractor.FLAG_DISABLE_ID3_METADATA);
+
+    private final @Mp3Extractor.Flags int flags;
+
+    Id3FlagConfig(@Mp3Extractor.Flags int flags) {
+      this.flags = flags;
+    }
+  }
+
   @Test
-  public void mp3SampleWithId3Enabled() throws Exception {
+  public void mp3SampleWithId3(
+      @TestParameter Id3FlagConfig flagConfig,
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
+          ExtractorAsserts.SimulationConfig simulationConfig)
+      throws Exception {
+    String file = "media/mp3/bear-id3.mp3";
     ExtractorAsserts.assertBehavior(
-        Mp3Extractor::new,
-        "media/mp3/bear-id3.mp3",
+        () -> new Mp3Extractor(flagConfig.flags),
+        file,
         /* peekLimit= */ 41_000,
-        new AssertionConfig.Builder()
-            .setDumpFilesPrefix("extractordumps/mp3/bear-id3-enabled")
-            .build(),
+        new AssertionConfig.Builder().setDumpFilesPrefix(getDumpFilePath(file, flagConfig)).build(),
         simulationConfig);
   }
 
   @Test
-  public void mp3SampleWithId3Disabled() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        () -> new Mp3Extractor(Mp3Extractor.FLAG_DISABLE_ID3_METADATA),
-        "media/mp3/bear-id3.mp3",
-        /* peekLimit= */ 41_000,
-        new AssertionConfig.Builder()
-            .setDumpFilesPrefix("extractordumps/mp3/bear-id3-disabled")
-            .build(),
-        simulationConfig);
-  }
-
-  @Test
-  public void mp3SampleWithId3NumericGenre() throws Exception {
+  public void mp3SampleWithId3NumericGenre(
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
+          ExtractorAsserts.SimulationConfig simulationConfig)
+      throws Exception {
     ExtractorAsserts.assertBehavior(
         Mp3Extractor::new,
         "media/mp3/bear-id3-numeric-genre.mp3",
         /* peekLimit= */ 41_000,
         simulationConfig);
+  }
+
+  // https://github.com/androidx/media/issues/2818
+  @Test
+  public void cbrSeeker_seekToEndOfStreamAfterPartialRead_doesNotIncorrectlyShortenDuration()
+      throws Exception {
+    String fileName = "media/mp3/bear-cbr-variable-frame-size-no-seek-table.mp3";
+    byte[] fileBytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), fileName);
+    Mp3Extractor extractor = new Mp3Extractor();
+    FakeExtractorOutput output = new FakeExtractorOutput();
+    extractor.init(output);
+    FakeExtractorInput input = new FakeExtractorInput.Builder().setData(fileBytes).build();
+    PositionHolder positionHolder = new PositionHolder();
+    // Read until the seek map is initialized, which also ensures a sample is read in Mp3Extractor.
+    while (output.seekMap == null) {
+      int unused = extractor.read(input, positionHolder);
+    }
+    long durationBeforeSeekUs = output.seekMap.getDurationUs();
+    SeekPoint seekPoint = output.seekMap.getSeekPoints(durationBeforeSeekUs).first;
+
+    extractor.seek(seekPoint.position, seekPoint.timeUs);
+    input.setPosition((int) seekPoint.position);
+    while (extractor.read(input, positionHolder) != Extractor.RESULT_END_OF_INPUT) {}
+
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(durationBeforeSeekUs);
+  }
+
+  // https://github.com/androidx/media/issues/2713
+  @Test
+  public void sampleWith100kBGarbagePrefix_sniffsSuccessfully() throws Exception {
+    ExtractorAsserts.assertSniff(
+        new Mp3Extractor(),
+        "media/mp3/100kB-garbage-prefix.mp3",
+        /* peekLimit= */ 100_648,
+        /* expectedResult= */ true);
+  }
+
+  // https://github.com/androidx/media/issues/2713
+  @Test
+  public void sampleWith200kBGarbagePrefix_sniffingFailsAfterPeeking128kB() throws Exception {
+    ExtractorAsserts.assertSniff(
+        new Mp3Extractor(),
+        "media/mp3/200kB-garbage-prefix.mp3",
+        /* peekLimit= */ 131_082,
+        /* expectedResult= */ false);
+  }
+
+  @Test
+  public void sampleWithLameReplayGainFast(
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
+          ExtractorAsserts.SimulationConfig simulationConfig)
+      throws Exception {
+    ExtractorAsserts.assertBehavior(
+        Mp3Extractor::new,
+        "media/mp3/bear-vbr-xing-header-replaygain-fast.mp3",
+        /* peekLimit= */ 1201,
+        simulationConfig);
+  }
+
+  @Test
+  public void sampleWithLameReplayGainAccurate(
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
+          ExtractorAsserts.SimulationConfig simulationConfig)
+      throws Exception {
+    ExtractorAsserts.assertBehavior(
+        Mp3Extractor::new,
+        "media/mp3/bear-vbr-xing-header-replaygain-accurate.mp3",
+        /* peekLimit= */ 1201,
+        simulationConfig);
+  }
+
+  @Test
+  public void mp3SampleWithId3_withDisableArtworkFlag_parsesTextButOmitsArtwork() throws Exception {
+    byte[] fileBytes =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), "media/mp3/bear-id3.mp3");
+    Mp3Extractor extractor = new Mp3Extractor(Mp3Extractor.FLAG_DISABLE_ARTWORK_METADATA);
+    FakeExtractorOutput output = new FakeExtractorOutput();
+    extractor.init(output);
+    FakeExtractorInput input = new FakeExtractorInput.Builder().setData(fileBytes).build();
+    PositionHolder positionHolder = new PositionHolder();
+
+    while (output.seekMap == null) {
+      int unused = extractor.read(input, positionHolder);
+    }
+    Format audioFormat = output.trackOutputs.get(0).lastFormat;
+
+    assertThat(audioFormat.metadata).isNotNull();
+    assertThat(audioFormat.metadata.length()).isGreaterThan(0);
+    boolean foundText = false;
+    boolean foundArtwork = false;
+    for (int i = 0; i < audioFormat.metadata.length(); i++) {
+      Metadata.Entry entry = audioFormat.metadata.get(i);
+      if (entry instanceof TextInformationFrame) {
+        foundText = true;
+      } else if (entry instanceof ApicFrame) {
+        foundArtwork = true;
+      }
+    }
+    assertThat(foundText).isTrue();
+    assertThat(foundArtwork).isFalse();
+  }
+
+  @Nullable
+  private static String getDumpFilePath(String inputFilePath, Enum<?> flagConfig) {
+    String configName = flagConfig.name();
+    if (configName.equals("NONE")) {
+      return null;
+    }
+    String suffix = "." + Ascii.toLowerCase(configName).replace('_', '-');
+    return inputFilePath.replaceFirst("media", "extractordumps") + suffix;
+  }
+
+  private static FakeExtractorOutput extractUntilSeekMap(
+      Mp3Extractor extractor, byte[] fileBytes, boolean simulateUnknownLength) throws Exception {
+    FakeExtractorOutput output = new FakeExtractorOutput();
+    extractor.init(output);
+    FakeExtractorInput input =
+        new FakeExtractorInput.Builder()
+            .setData(fileBytes)
+            .setSimulateUnknownLength(simulateUnknownLength)
+            .build();
+    PositionHolder positionHolder = new PositionHolder();
+
+    while (output.seekMap == null) {
+      assertThat(extractor.read(input, positionHolder)).isNotEqualTo(Extractor.RESULT_END_OF_INPUT);
+    }
+    return output;
+  }
+
+  private static int findMpegFramePositionBeforeTag(ByteBuffer data, int tagOffset) {
+    for (int tagOffsetFromFrameStart : new int[] {13, 21, 36}) {
+      int framePosition = tagOffset - tagOffsetFromFrameStart;
+      if (framePosition >= 0
+          && framePosition + 4 <= data.remaining()
+          && new MpegAudioUtil.Header().setForHeaderData(data.getInt(framePosition))) {
+        return framePosition;
+      }
+    }
+    throw new IllegalArgumentException(
+        "No tag found in " + Util.toHexString(data.array(), data.arrayOffset(), data.limit()));
   }
 }

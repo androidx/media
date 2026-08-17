@@ -87,8 +87,25 @@
       app:layout_constraintStart_toStartOf="parent"
       app:layout_constraintTop_toTopOf="parent"
       app:layout_constraintBottom_toBottomOf="parent">
-      <TableRow
-        android:layout_weight="1">
+      <TableRow android:layout_weight="1">
+        <TextView
+            android:layout_gravity="center_vertical"
+            android:text="@string/enable_audio_track" />
+        <CheckBox
+            android:id="@+id/enable_audio_track_checkbox"
+            android:layout_gravity="end"
+            android:checked="true" />
+      </TableRow>
+      <TableRow android:layout_weight="1">
+        <TextView
+            android:layout_gravity="center_vertical"
+            android:text="@string/enable_video_track" />
+        <CheckBox
+            android:id="@+id/enable_video_track_checkbox"
+            android:layout_gravity="end"
+            android:checked="true" />
+      </TableRow>
+      <TableRow android:layout_weight="1">
         <TextView
           android:layout_gravity="center_vertical"
           android:text="@string/remove_audio" />
@@ -111,15 +128,6 @@
           android:text="@string/flatten_for_slow_motion"/>
         <CheckBox
           android:id="@+id/flatten_for_slow_motion_checkbox"
-          android:layout_gravity="end" />
-      </TableRow>
-      <TableRow
-        android:layout_weight="1">
-        <TextView
-          android:layout_gravity="center_vertical"
-          android:text="@string/force_audio_track" />
-        <CheckBox
-          android:id="@+id/force_audio_track_checkbox"
           android:layout_gravity="end" />
       </TableRow>
       <TableRow
@@ -240,18 +248,9 @@
         android:layout_weight="1">
         <TextView
           android:layout_gravity="center_vertical"
-          android:text="@string/use_media3_mp4_muxer" />
+          android:text="@string/produce_fragmented_mp4" />
         <CheckBox
-          android:id="@+id/use_media3_mp4_muxer_checkbox"
-          android:layout_gravity="end"/>
-      </TableRow>
-      <TableRow
-        android:layout_weight="1">
-        <TextView
-          android:layout_gravity="center_vertical"
-          android:text="@string/use_media3_fragmented_mp4_muxer" />
-        <CheckBox
-          android:id="@+id/use_media3_fragmented_mp4_muxer_checkbox"
+          android:id="@+id/produce_fragmented_mp4_checkbox"
           android:layout_gravity="end"/>
       </TableRow>
       <TableRow
@@ -273,6 +272,46 @@
         <CheckBox
             android:id="@+id/enable_trim_optimization"
             android:layout_gravity="end"/>
+      </TableRow>
+      <TableRow
+          android:layout_weight="1">
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_gravity="center_vertical">
+          <TextView
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:text="@string/enable_frame_processor" />
+          <TextView
+              android:id="@+id/enable_frame_processor_hint"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:text="@string/api_28_required_frame_processor"
+              android:textSize="10sp"
+              android:textColor="?android:attr/textColorSecondary"
+              android:visibility="gone" />
+        </LinearLayout>
+        <CheckBox
+            android:id="@+id/enable_frame_processor"
+            android:layout_gravity="end"/>
+      </TableRow>
+      <TableRow
+          android:id="@+id/frame_aggregation_fps_row"
+          android:layout_weight="1"
+          android:gravity="center_vertical"
+          android:visibility="gone">
+        <TextView
+            android:id="@+id/frame_aggregation_fps_text_view"
+            android:text="@string/frame_aggregation_fps" />
+        <EditText
+            android:id="@+id/frame_aggregation_fps_edit_text"
+            android:layout_width="wrap_content"
+            android:layout_gravity="end|center_vertical"
+            android:gravity="end"
+            android:hint="@string/frame_aggregation_fps_hint"
+            android:inputType="numberDecimal" />
       </TableRow>
       <TableRow
           android:layout_weight="1">

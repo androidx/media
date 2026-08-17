@@ -22,6 +22,7 @@ import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.getAlternative
 import static androidx.media3.transformer.Composition.HDR_MODE_KEEP_HDR;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
 import static androidx.media3.transformer.EncoderUtil.getSupportedEncodersForHdrEditing;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.round;
 
 import android.content.ContentResolver;
@@ -40,9 +41,17 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.Timeline;
+import androidx.media3.common.audio.AudioProcessor;
+import androidx.media3.common.audio.SpeedChangingAudioProcessor;
+import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.ScaleAndRotateTransformation;
+import androidx.media3.effect.SpeedChangeEffect;
+import androidx.media3.effect.TimestampAdjustment;
+import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.extractor.metadata.mp4.SlowMotionData;
 import androidx.media3.transformer.Composition.HdrMode;
 import com.google.common.base.Ascii;
@@ -81,7 +90,7 @@ public final class TransformerUtil {
   }
 
   /** Returns whether the audio track should be transcoded. */
-  public static boolean shouldTranscodeAudio(
+  /* package */ static boolean shouldTranscodeAudio(
       Format inputFormat,
       Composition composition,
       int sequenceIndex,
@@ -111,6 +120,9 @@ public final class TransformerUtil {
     if (firstEditedMediaItem.flattenForSlowMotion && containsSlowMotionData(inputFormat)) {
       return true;
     }
+    if (firstEditedMediaItem.speedProvider != SpeedProvider.DEFAULT) {
+      return true;
+    }
     if (!firstEditedMediaItem.effects.audioProcessors.isEmpty()) {
       return true;
     }
@@ -125,25 +137,18 @@ public final class TransformerUtil {
    */
   private static boolean containsSlowMotionData(Format format) {
     @Nullable Metadata metadata = format.metadata;
-    if (metadata == null) {
-      return false;
-    }
-    for (int i = 0; i < metadata.length(); i++) {
-      if (metadata.get(i) instanceof SlowMotionData) {
-        return true;
-      }
-    }
-    return false;
+    return metadata != null && metadata.getFirstEntryOfType(SlowMotionData.class) != null;
   }
 
   /** Returns whether the video track should be transcoded. */
-  public static boolean shouldTranscodeVideo(
+  /* package */ static boolean shouldTranscodeVideo(
       Format inputFormat,
       Composition composition,
       int sequenceIndex,
       TransformationRequest transformationRequest,
       Codec.EncoderFactory encoderFactory,
-      MuxerWrapper muxerWrapper) {
+      MuxerWrapper muxerWrapper,
+      boolean hasFrameProcessorFactory) {
     if (composition.sequences.size() > 1
         || composition.sequences.get(sequenceIndex).editedMediaItems.size() > 1) {
       return !composition.transmuxVideo;
@@ -171,6 +176,10 @@ public final class TransformerUtil {
     if (inputFormat.pixelWidthHeightRatio != 1f) {
       return true;
     }
+    if (hasFrameProcessorFactory) {
+      // A PacketProcessor processes video frames, which requires decoding and re-encoding.
+      return true;
+    }
     EditedMediaItem firstEditedMediaItem =
         composition.sequences.get(sequenceIndex).editedMediaItems.get(0);
     ImmutableList<Effect> combinedEffects =
@@ -178,6 +187,9 @@ public final class TransformerUtil {
             .addAll(firstEditedMediaItem.effects.videoEffects)
             .addAll(composition.effects.videoEffects)
             .build();
+    if (firstEditedMediaItem.speedProvider != SpeedProvider.DEFAULT) {
+      return true;
+    }
     return !combinedEffects.isEmpty()
         && maybeCalculateTotalRotationDegreesAppliedInEffects(combinedEffects, inputFormat) == -1;
   }
@@ -232,7 +244,7 @@ public final class TransformerUtil {
    * on the given {@link MuxerWrapper} if the given {@code videoEffects} only contains a mix of
    * regular rotations and no-ops. A regular rotation is a rotation divisible by 90 degrees.
    */
-  public static void maybeSetMuxerWrapperAdditionalRotationDegrees(
+  /* package */ static void maybeSetMuxerWrapperAdditionalRotationDegrees(
       MuxerWrapper muxerWrapper, ImmutableList<Effect> videoEffects, Format inputFormat) {
     float rotationDegrees =
         maybeCalculateTotalRotationDegreesAppliedInEffects(videoEffects, inputFormat);
@@ -331,6 +343,126 @@ public final class TransformerUtil {
       }
     }
     return mimeType;
+  }
+
+  /**
+   * Checks whether any speed changing effects at the first position of each pipeline match {@code
+   * speedProvider}.
+   *
+   * <p>The method verifies that any {@link TimestampAdjustment} or {@link
+   * SpeedChangingAudioProcessor} instance set as the first effect of its pipeline has a {@link
+   * SpeedProvider} equal to {@code speedProvider}.
+   *
+   * <p>If no speed changing effects are present, this method returns {@code true}.
+   */
+  @SuppressWarnings("deprecation") // Uses deprecated TimestampAdjustment.
+  public static boolean validateSpeedChangingEffects(Effects effects, SpeedProvider speedProvider) {
+    if (!effects.audioProcessors.isEmpty()) {
+      AudioProcessor firstProcessor = effects.audioProcessors.get(0);
+      if (firstProcessor instanceof SpeedChangingAudioProcessor) {
+        SpeedChangingAudioProcessor speedChangingAudioProcessor =
+            (SpeedChangingAudioProcessor) firstProcessor;
+        if (!speedChangingAudioProcessor.getSpeedProvider().equals(speedProvider)) {
+          return false;
+        }
+      }
+    }
+
+    if (!effects.videoEffects.isEmpty()) {
+      Effect firstEffect = effects.videoEffects.get(0);
+      if (firstEffect instanceof TimestampAdjustment) {
+        TimestampAdjustment timestampAdjustmentEffect = (TimestampAdjustment) firstEffect;
+        return timestampAdjustmentEffect.speedProvider.equals(speedProvider);
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Returns whether {@link Effects} contains speed changing effects.
+   *
+   * <p>{@code ignoreFirstEffect} controls whether {@link TimestampAdjustment} and {@link
+   * SpeedChangingAudioProcessor} are ignored as first elements of the video and audio pipelines,
+   * respectively.
+   */
+  @SuppressWarnings("deprecation") // Uses deprecated SpeedChangeEffect and TimestampAdjustment.
+  public static boolean containsSpeedChangingEffects(Effects effects, boolean ignoreFirstEffect) {
+    for (int i = ignoreFirstEffect ? 1 : 0; i < effects.audioProcessors.size(); i++) {
+      if (effects.audioProcessors.get(i) instanceof SpeedChangingAudioProcessor) {
+        return true;
+      }
+
+      // Use an arbitrarily large number as a best effort check.
+      if (effects.audioProcessors.get(i).getDurationAfterProcessorApplied(1_000_000_000L)
+          != 1_000_000_000L) {
+        return true;
+      }
+    }
+
+    for (int i = 0; i < effects.videoEffects.size(); i++) {
+      Effect effect = effects.videoEffects.get(i);
+      if (effect instanceof SpeedChangeEffect) {
+        return true;
+      }
+
+      if (effect instanceof TimestampAdjustment && (!ignoreFirstEffect || i > 0)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Returns the offset between a renderer timestamp and the start of the {@link Composition}.
+   *
+   * @param timeline The {@link Timeline} associated with this renderer.
+   * @param mediaPeriodId The {@link MediaSource.MediaPeriodId}.
+   * @param offsetUs The offset added to timestamps of buffers to ensure monotonically increasing
+   *     timestamps, in microseconds. This is the constant offset between the current MediaPeriod
+   *     timestamps and the renderer timestamp.
+   *     <p>See <a
+   *     href="https://developer.android.com/reference/androidx/media3/exoplayer/Renderer#timestamps-and-offsets">this
+   *     corresponding topic on timestamps</a>.
+   */
+  public static long getOffsetToCompositionTimeUs(
+      Timeline timeline, MediaPeriodId mediaPeriodId, long offsetUs) {
+    Timeline.Period period =
+        timeline.getPeriodByUid(mediaPeriodId.periodUid, new Timeline.Period());
+    return -offsetUs + period.positionInWindowUs;
+  }
+
+  /**
+   * Returns the {@link EditedMediaItemSequence} corresponding to {@code mediaPeriodId} within
+   * {@code timeline}.
+   *
+   * <p>If {@code mediaPeriodId} does not map to a sequence this method will throw a {@link
+   * IllegalStateException}.
+   *
+   * @param timeline The {@link Timeline} associated to the {@link EditedMediaItemSequence}.
+   * @param mediaPeriodId The {@link MediaPeriodId} associated to the {@link
+   *     EditedMediaItemSequence}.
+   */
+  public static EditedMediaItemSequence getEditedMediaItemSequence(
+      Timeline timeline, MediaPeriodId mediaPeriodId) {
+    Timeline.Period period =
+        timeline.getPeriodByUid(mediaPeriodId.periodUid, new Timeline.Period());
+    checkState(period.id instanceof EditedMediaItemSequence);
+    return (EditedMediaItemSequence) period.id;
+  }
+
+  /**
+   * Returns the {@link EditedMediaItem} corresponding to {@code mediaPeriodId} within {@code
+   * timeline}.
+   *
+   * @param timeline The {@link Timeline} associated to the {@link EditedMediaItem}.
+   * @param mediaPeriodId The {@link MediaPeriodId} associated to the {@link EditedMediaItem}.
+   */
+  public static EditedMediaItem getEditedMediaItem(Timeline timeline, MediaPeriodId mediaPeriodId) {
+    int index = timeline.getIndexOfPeriod(mediaPeriodId.periodUid);
+    EditedMediaItemSequence sequence = getEditedMediaItemSequence(timeline, mediaPeriodId);
+    return EditedMediaItemSequence.getEditedMediaItem(sequence, index);
   }
 
   @Nullable

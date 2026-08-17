@@ -15,9 +15,9 @@
  */
 package androidx.media3.exoplayer.e2etest;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static com.google.common.truth.Truth.assertThat;
-import static org.robolectric.annotation.GraphicsMode.Mode.NATIVE;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -43,9 +43,9 @@ import androidx.media3.exoplayer.image.ImageDecoder;
 import androidx.media3.exoplayer.image.ImageDecoderException;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
-import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
+import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
@@ -58,11 +58,9 @@ import java.util.ArrayList;
 import java.util.concurrent.Executors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.annotation.GraphicsMode;
 
 /** End-to-end tests using image content loaded from an injected image management framework. */
 @RunWith(AndroidJUnit4.class)
-@GraphicsMode(value = NATIVE)
 public final class ExternallyLoadedImagePlaybackTest {
 
   private static final String INPUT_FILE_1 = "png/non-motion-photo-shortened.png";
@@ -74,12 +72,12 @@ public final class ExternallyLoadedImagePlaybackTest {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     ListeningExecutorService listeningExecutorService =
         MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor());
+    Clock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory renderersFactory =
-        new CapturingRenderersFactory(applicationContext)
+        new CapturingRenderersFactory(applicationContext, clock)
             .setImageDecoderFactory(
                 new ExternallyLoadedImageDecoder.Factory(
                     request -> listeningExecutorService.submit(() -> decode(request.uri))));
-    Clock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ArrayList<Uri> externalLoaderUris = new ArrayList<>();
     MediaSource.Factory mediaSourceFactory =
         new DefaultMediaSourceFactory(applicationContext)
@@ -111,8 +109,12 @@ public final class ExternallyLoadedImagePlaybackTest {
 
     assertThat(externalLoaderUris).containsExactly(uri);
     assertThat(playbackDurationMs).isAtLeast(durationMs);
-    DumpFileAsserts.assertOutput(
-        applicationContext, playbackOutput, "playbackdumps/" + INPUT_FILE_1 + ".dump");
+
+    if (SDK_INT >= 26) {
+      // Bitmap decoding produces different hashes on earlier Robolectric SDKs.
+      DumpFileAsserts.assertOutput(
+          applicationContext, playbackOutput, "playbackdumps/" + INPUT_FILE_1 + ".dump");
+    }
   }
 
   @Test
@@ -120,8 +122,9 @@ public final class ExternallyLoadedImagePlaybackTest {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     ListeningExecutorService listeningExecutorService =
         MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor());
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory renderersFactory =
-        new CapturingRenderersFactory(applicationContext)
+        new CapturingRenderersFactory(applicationContext, clock)
             .setImageDecoderFactory(
                 new ExternallyLoadedImageDecoder.Factory(
                     request -> listeningExecutorService.submit(() -> decode(request.uri))));
@@ -136,7 +139,7 @@ public final class ExternallyLoadedImagePlaybackTest {
                         }));
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, renderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .setMediaSourceFactory(mediaSourceFactory)
             .build();
     player.setMediaItem(
@@ -158,8 +161,9 @@ public final class ExternallyLoadedImagePlaybackTest {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     ListeningExecutorService listeningExecutorService =
         MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor());
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory renderersFactory =
-        new CapturingRenderersFactory(applicationContext)
+        new CapturingRenderersFactory(applicationContext, clock)
             .setImageDecoderFactory(
                 new ExternallyLoadedImageDecoder.Factory(
                     request -> listeningExecutorService.submit(() -> decode(request.uri))));
@@ -171,7 +175,7 @@ public final class ExternallyLoadedImagePlaybackTest {
                     listeningExecutorService.submit(() -> loadingComplete.blockUninterruptible()));
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, renderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .setMediaSourceFactory(mediaSourceFactory)
             .build();
     player.setMediaItem(
@@ -244,8 +248,11 @@ public final class ExternallyLoadedImagePlaybackTest {
     player.release();
 
     assertThat(playbackDurationMs).isAtLeast(durationMs1 + durationMs2);
-    DumpFileAsserts.assertOutput(
-        applicationContext, playbackOutput, "playbackdumps/two_images_with_seek.dump");
+    if (SDK_INT >= 26) {
+      // Bitmap decoding produces different hashes on earlier Robolectric SDKs.)
+      DumpFileAsserts.assertOutput(
+          applicationContext, playbackOutput, "playbackdumps/two_images_with_seek.dump");
+    }
   }
 
   private static Bitmap decode(Uri uri) throws ImageDecoderException {

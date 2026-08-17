@@ -1,0 +1,46 @@
+MPEG-H ASI 0 = <?xml version="1.0" encoding="utf-8" ?>
+               <AudioSceneConfig uuid="BB0C0000-0000-0000-0000-000083610318" version="11.0" configChanged="false">
+               <DRCInfo>
+               <drcSetEffectAvailable index="0" />
+               <drcSetEffectAvailable index="6" />
+               </DRCInfo>
+               <presets>
+               <preset id="0" isActive="true" isDefault="true" isAvailable="true">
+               <customKind>
+               <description langCode="eng" isPreferred="true">p1</description>
+               </customKind>
+               <audioElementSwitch id="0" isAvailable="true" isActionAllowed="true">
+               <audioElements>
+               <audioElement id="0" isActive="true" isDefault="true" isAvailable="true">
+               <kind table="ContentKindTable" code="2"/>
+               <customKind langCode="ger">
+               <description langCode="eng" isPreferred="true">g1</description>
+               </customKind>
+               </audioElement>
+               <audioElement id="1" isActive="false" isDefault="false" isAvailable="true">
+               <kind table="ContentKindTable" code="2"/>
+               <customKind langCode="spa">
+               <description langCode="eng" isPreferred="true">g2</description>
+               </customKind>
+               </audioElement>
+               <audioElement id="3" isActive="false" isDefault="false" isAvailable="true">
+               <kind table="ContentKindTable" code="2"/>
+               <customKind langCode="eng">
+               <description langCode="eng" isPreferred="true">g4</description>
+               </customKind>
+               </audioElement>
+               <audioElement id="20" isActive="false" isDefault="false" isAvailable="true">
+               <kind table="ContentKindTable" code="2"/>
+               <customKind langCode="eng">
+               <description langCode="eng" isPreferred="true">g3</description>
+               </customKind>
+               </audioElement>
+               </audioElements>
+               <customKind>
+               <description langCode="eng" isPreferred="true">s1</description>
+               </customKind>
+               </audioElementSwitch>
+               </preset>
+               </presets>
+               </AudioSceneConfig>
+               

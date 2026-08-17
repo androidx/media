@@ -130,6 +130,10 @@ public class RemoteMediaControllerCompat {
     binder.sendCustomActionWithName(controllerId, customCommand.customAction, params);
   }
 
+  public String getPackageName() throws RemoteException {
+    return binder.getPackageName(controllerId);
+  }
+
   ////////////////////////////////////////////////////////////////////////////////
   // MediaControllerCompat.TransportControls methods
   ////////////////////////////////////////////////////////////////////////////////
@@ -218,13 +222,8 @@ public class RemoteMediaControllerCompat {
       binder.setShuffleMode(controllerId, shuffleMode);
     }
 
-    public void sendCustomAction(PlaybackStateCompat.CustomAction customAction, Bundle args)
-        throws RemoteException {
-      binder.sendCustomAction(controllerId, createBundleWithParcelable(customAction), args);
-    }
-
-    public void sendCustomAction(String action, Bundle args) throws RemoteException {
-      binder.sendCustomActionWithName(controllerId, action, args);
+    public void sendCustomActionByIndex(int customActionIndex) throws RemoteException {
+      binder.sendCustomActionByIndex(controllerId, customActionIndex);
     }
   }
 

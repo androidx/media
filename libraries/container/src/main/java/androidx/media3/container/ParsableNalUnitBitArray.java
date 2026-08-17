@@ -30,6 +30,8 @@ public final class ParsableNalUnitBitArray {
 
   private byte[] data;
   private int byteLimit;
+  // The start offset which defines the range of data to be considered.
+  private int startOffset;
 
   // The byte offset is never equal to the offset of the 3rd byte in a subsequence [0, 0, 3].
   private int byteOffset;
@@ -54,6 +56,7 @@ public final class ParsableNalUnitBitArray {
    */
   public void reset(byte[] data, int offset, int limit) {
     this.data = data;
+    startOffset = offset;
     byteOffset = offset;
     byteLimit = limit;
     bitOffset = 0;
@@ -116,7 +119,7 @@ public final class ParsableNalUnitBitArray {
       newByteOffset++;
       newBitOffset -= 8;
     }
-    for (int i = oldByteOffset + 1; i <= newByteOffset && newByteOffset < byteLimit; i++) {
+    for (int i = oldByteOffset + 1; i <= newByteOffset && newByteOffset <= byteLimit; i++) {
       if (shouldSkipByte(i)) {
         // Skip the byte and move forward to check three bytes ahead.
         newByteOffset++;
@@ -208,7 +211,8 @@ public final class ParsableNalUnitBitArray {
   }
 
   private boolean shouldSkipByte(int offset) {
-    return 2 <= offset
+    // Do not read outside of [startOffset, byteLimit) bounds.
+    return startOffset <= offset - 2
         && offset < byteLimit
         && data[offset] == (byte) 0x03
         && data[offset - 2] == (byte) 0x00

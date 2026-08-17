@@ -18,6 +18,7 @@ package androidx.media3.common;
 import static android.os.Build.VERSION.SDK_INT;
 
 import android.annotation.SuppressLint;
+import android.media.AudioManager;
 import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -66,12 +67,14 @@ public final class AudioAttributes {
     private @C.AudioAllowedCapturePolicy int allowedCapturePolicy;
     private @C.SpatializationBehavior int spatializationBehavior;
     private boolean isContentSpatialized;
+    private boolean hapticChannelsMuted;
 
     /**
      * Creates a new builder for {@link AudioAttributes}.
      *
      * <p>By default the content type is {@link C#AUDIO_CONTENT_TYPE_UNKNOWN}, usage is {@link
-     * C#USAGE_MEDIA}, capture policy is {@link C#ALLOW_CAPTURE_BY_ALL} and no flags are set.
+     * C#USAGE_MEDIA}, capture policy is {@link C#ALLOW_CAPTURE_BY_ALL}, no flags are set and haptic
+     * channels are muted.
      */
     public Builder() {
       contentType = C.AUDIO_CONTENT_TYPE_UNKNOWN;
@@ -80,6 +83,17 @@ public final class AudioAttributes {
       allowedCapturePolicy = C.ALLOW_CAPTURE_BY_ALL;
       spatializationBehavior = C.SPATIALIZATION_BEHAVIOR_AUTO;
       isContentSpatialized = false;
+      hapticChannelsMuted = true;
+    }
+
+    private Builder(AudioAttributes other) {
+      contentType = other.contentType;
+      flags = other.flags;
+      usage = other.usage;
+      allowedCapturePolicy = other.allowedCapturePolicy;
+      spatializationBehavior = other.spatializationBehavior;
+      isContentSpatialized = other.isContentSpatialized;
+      hapticChannelsMuted = other.hapticChannelsMuted;
     }
 
     /** See {@link android.media.AudioAttributes.Builder#setContentType(int)} */
@@ -125,6 +139,14 @@ public final class AudioAttributes {
       return this;
     }
 
+    /** See {@link android.media.AudioAttributes.Builder#setHapticChannelsMuted(boolean)}. */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder setHapticChannelsMuted(boolean hapticChannelsMuted) {
+      this.hapticChannelsMuted = hapticChannelsMuted;
+      return this;
+    }
+
     /** Creates an {@link AudioAttributes} instance from this builder. */
     public AudioAttributes build() {
       return new AudioAttributes(
@@ -133,7 +155,8 @@ public final class AudioAttributes {
           usage,
           allowedCapturePolicy,
           spatializationBehavior,
-          isContentSpatialized);
+          isContentSpatialized,
+          hapticChannelsMuted);
     }
   }
 
@@ -148,6 +171,7 @@ public final class AudioAttributes {
             .setUsage(audioAttributes.getUsage());
     if (SDK_INT >= 29) {
       builder.setAllowedCapturePolicy(audioAttributes.getAllowedCapturePolicy());
+      builder.setHapticChannelsMuted(audioAttributes.areHapticChannelsMuted());
     }
     if (SDK_INT >= 32) {
       builder.setSpatializationBehavior(audioAttributes.getSpatializationBehavior());
@@ -174,6 +198,15 @@ public final class AudioAttributes {
   /** Whether the content is spatialized. */
   @UnstableApi public final boolean isContentSpatialized;
 
+  /** Whether haptic channels are muted. */
+  @UnstableApi public final boolean hapticChannelsMuted;
+
+  /** Create new AudioAttributes based on an existing instance. */
+  @UnstableApi
+  public Builder buildUpon() {
+    return new Builder(this);
+  }
+
   @Nullable private android.media.AudioAttributes platformAudioAttributes;
 
   private AudioAttributes(
@@ -182,13 +215,15 @@ public final class AudioAttributes {
       @C.AudioUsage int usage,
       @C.AudioAllowedCapturePolicy int allowedCapturePolicy,
       @C.SpatializationBehavior int spatializationBehavior,
-      boolean isContentSpatialized) {
+      boolean isContentSpatialized,
+      boolean hapticChannelsMuted) {
     this.contentType = contentType;
     this.flags = flags;
     this.usage = usage;
     this.allowedCapturePolicy = allowedCapturePolicy;
     this.spatializationBehavior = spatializationBehavior;
     this.isContentSpatialized = isContentSpatialized;
+    this.hapticChannelsMuted = hapticChannelsMuted;
   }
 
   /**
@@ -216,6 +251,7 @@ public final class AudioAttributes {
               .setUsage(usage);
       if (SDK_INT >= 29) {
         Api29.setAllowedCapturePolicy(builder, allowedCapturePolicy);
+        Api29.setHapticChannelsMuted(builder, hapticChannelsMuted);
       }
       if (SDK_INT >= 32) {
         Api32.setSpatializationBehavior(builder, spatializationBehavior);
@@ -226,9 +262,127 @@ public final class AudioAttributes {
     return platformAudioAttributes;
   }
 
-  /** Returns the {@link C.StreamType} corresponding to these audio attributes. */
+  /** Returns the {@linkplain C.StreamType volume control stream} for these audio attributes. */
+  public @C.StreamType int getVolumeControlStream() {
+    return getStreamTypeInternal();
+  }
+
+  /**
+   * @deprecated Use {@link #getVolumeControlStream()} instead.
+   */
   @UnstableApi
+  @Deprecated
   public @C.StreamType int getStreamType() {
+    return getStreamTypeInternal();
+  }
+
+  @Override
+  public boolean equals(@Nullable Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (obj == null || getClass() != obj.getClass()) {
+      return false;
+    }
+    AudioAttributes other = (AudioAttributes) obj;
+    return this.contentType == other.contentType
+        && this.flags == other.flags
+        && this.usage == other.usage
+        && this.allowedCapturePolicy == other.allowedCapturePolicy
+        && this.spatializationBehavior == other.spatializationBehavior
+        && this.isContentSpatialized == other.isContentSpatialized
+        && this.hapticChannelsMuted == other.hapticChannelsMuted;
+  }
+
+  @Override
+  public int hashCode() {
+    int result = 17;
+    result = 31 * result + contentType;
+    result = 31 * result + flags;
+    result = 31 * result + usage;
+    result = 31 * result + allowedCapturePolicy;
+    result = 31 * result + spatializationBehavior;
+    result = 31 * result + (isContentSpatialized ? 1 : 0);
+    result = 31 * result + (hapticChannelsMuted ? 1 : 0);
+    return result;
+  }
+
+  private static final String FIELD_CONTENT_TYPE = Util.intToStringMaxRadix(0);
+  private static final String FIELD_FLAGS = Util.intToStringMaxRadix(1);
+  private static final String FIELD_USAGE = Util.intToStringMaxRadix(2);
+  private static final String FIELD_ALLOWED_CAPTURE_POLICY = Util.intToStringMaxRadix(3);
+  private static final String FIELD_SPATIALIZATION_BEHAVIOR = Util.intToStringMaxRadix(4);
+  private static final String FIELD_IS_CONTENT_SPATIALIZED = Util.intToStringMaxRadix(5);
+  private static final String FIELD_HAPTIC_CHANNELS_MUTED = Util.intToStringMaxRadix(6);
+
+  @UnstableApi
+  public Bundle toBundle() {
+    Bundle bundle = new Bundle();
+    if (contentType != C.AUDIO_CONTENT_TYPE_UNKNOWN) {
+      bundle.putInt(FIELD_CONTENT_TYPE, contentType);
+    }
+    if (flags != 0) {
+      bundle.putInt(FIELD_FLAGS, flags);
+    }
+    if (usage != C.USAGE_MEDIA) {
+      bundle.putInt(FIELD_USAGE, usage);
+    }
+    if (allowedCapturePolicy != C.ALLOW_CAPTURE_BY_ALL) {
+      bundle.putInt(FIELD_ALLOWED_CAPTURE_POLICY, allowedCapturePolicy);
+    }
+    if (spatializationBehavior != C.SPATIALIZATION_BEHAVIOR_AUTO) {
+      bundle.putInt(FIELD_SPATIALIZATION_BEHAVIOR, spatializationBehavior);
+    }
+    if (isContentSpatialized) {
+      bundle.putBoolean(FIELD_IS_CONTENT_SPATIALIZED, isContentSpatialized);
+    }
+    if (!hapticChannelsMuted) {
+      bundle.putBoolean(FIELD_HAPTIC_CHANNELS_MUTED, hapticChannelsMuted);
+    }
+    return bundle;
+  }
+
+  /** Restores a {@code AudioAttributes} from a {@link Bundle}. */
+  @UnstableApi
+  public static AudioAttributes fromBundle(Bundle bundle) {
+    Builder builder = new Builder();
+    if (bundle.containsKey(FIELD_CONTENT_TYPE)) {
+      builder.setContentType(bundle.getInt(FIELD_CONTENT_TYPE));
+    }
+    if (bundle.containsKey(FIELD_FLAGS)) {
+      builder.setFlags(bundle.getInt(FIELD_FLAGS));
+    }
+    if (bundle.containsKey(FIELD_USAGE)) {
+      builder.setUsage(bundle.getInt(FIELD_USAGE));
+    }
+    if (bundle.containsKey(FIELD_ALLOWED_CAPTURE_POLICY)) {
+      builder.setAllowedCapturePolicy(bundle.getInt(FIELD_ALLOWED_CAPTURE_POLICY));
+    }
+    if (bundle.containsKey(FIELD_SPATIALIZATION_BEHAVIOR)) {
+      builder.setSpatializationBehavior(bundle.getInt(FIELD_SPATIALIZATION_BEHAVIOR));
+    }
+    if (bundle.containsKey(FIELD_IS_CONTENT_SPATIALIZED)) {
+      builder.setIsContentSpatialized(bundle.getBoolean(FIELD_IS_CONTENT_SPATIALIZED));
+    }
+    if (bundle.containsKey(FIELD_HAPTIC_CHANNELS_MUTED)) {
+      builder.setHapticChannelsMuted(bundle.getBoolean(FIELD_HAPTIC_CHANNELS_MUTED));
+    }
+    return builder.build();
+  }
+
+  private @C.StreamType int getStreamTypeInternal() {
+    if (SDK_INT >= 26) {
+      int platformStreamType;
+      try {
+        platformStreamType = getPlatformAudioAttributes().getVolumeControlStream();
+      } catch (RuntimeException e) {
+        // The platform method may throw if it doesn't recognize the configured values.
+        return C.STREAM_TYPE_MUSIC;
+      }
+      return platformStreamType == AudioManager.USE_DEFAULT_STREAM_TYPE
+          ? C.STREAM_TYPE_MUSIC
+          : platformStreamType;
+    }
     // Flags to stream type mapping
     if ((flags & C.FLAG_AUDIBILITY_ENFORCED) == C.FLAG_AUDIBILITY_ENFORCED) {
       return C.STREAM_TYPE_SYSTEM;
@@ -263,79 +417,6 @@ public final class AudioAttributes {
     }
   }
 
-  @Override
-  public boolean equals(@Nullable Object obj) {
-    if (this == obj) {
-      return true;
-    }
-    if (obj == null || getClass() != obj.getClass()) {
-      return false;
-    }
-    AudioAttributes other = (AudioAttributes) obj;
-    return this.contentType == other.contentType
-        && this.flags == other.flags
-        && this.usage == other.usage
-        && this.allowedCapturePolicy == other.allowedCapturePolicy
-        && this.spatializationBehavior == other.spatializationBehavior
-        && this.isContentSpatialized == other.isContentSpatialized;
-  }
-
-  @Override
-  public int hashCode() {
-    int result = 17;
-    result = 31 * result + contentType;
-    result = 31 * result + flags;
-    result = 31 * result + usage;
-    result = 31 * result + allowedCapturePolicy;
-    result = 31 * result + spatializationBehavior;
-    result = 31 * result + (isContentSpatialized ? 1 : 0);
-    return result;
-  }
-
-  private static final String FIELD_CONTENT_TYPE = Util.intToStringMaxRadix(0);
-  private static final String FIELD_FLAGS = Util.intToStringMaxRadix(1);
-  private static final String FIELD_USAGE = Util.intToStringMaxRadix(2);
-  private static final String FIELD_ALLOWED_CAPTURE_POLICY = Util.intToStringMaxRadix(3);
-  private static final String FIELD_SPATIALIZATION_BEHAVIOR = Util.intToStringMaxRadix(4);
-  private static final String FIELD_IS_CONTENT_SPATIALIZED = Util.intToStringMaxRadix(5);
-
-  @UnstableApi
-  public Bundle toBundle() {
-    Bundle bundle = new Bundle();
-    bundle.putInt(FIELD_CONTENT_TYPE, contentType);
-    bundle.putInt(FIELD_FLAGS, flags);
-    bundle.putInt(FIELD_USAGE, usage);
-    bundle.putInt(FIELD_ALLOWED_CAPTURE_POLICY, allowedCapturePolicy);
-    bundle.putInt(FIELD_SPATIALIZATION_BEHAVIOR, spatializationBehavior);
-    bundle.putBoolean(FIELD_IS_CONTENT_SPATIALIZED, isContentSpatialized);
-    return bundle;
-  }
-
-  /** Restores a {@code AudioAttributes} from a {@link Bundle}. */
-  @UnstableApi
-  public static AudioAttributes fromBundle(Bundle bundle) {
-    Builder builder = new Builder();
-    if (bundle.containsKey(FIELD_CONTENT_TYPE)) {
-      builder.setContentType(bundle.getInt(FIELD_CONTENT_TYPE));
-    }
-    if (bundle.containsKey(FIELD_FLAGS)) {
-      builder.setFlags(bundle.getInt(FIELD_FLAGS));
-    }
-    if (bundle.containsKey(FIELD_USAGE)) {
-      builder.setUsage(bundle.getInt(FIELD_USAGE));
-    }
-    if (bundle.containsKey(FIELD_ALLOWED_CAPTURE_POLICY)) {
-      builder.setAllowedCapturePolicy(bundle.getInt(FIELD_ALLOWED_CAPTURE_POLICY));
-    }
-    if (bundle.containsKey(FIELD_SPATIALIZATION_BEHAVIOR)) {
-      builder.setSpatializationBehavior(bundle.getInt(FIELD_SPATIALIZATION_BEHAVIOR));
-    }
-    if (bundle.containsKey(FIELD_IS_CONTENT_SPATIALIZED)) {
-      builder.setIsContentSpatialized(bundle.getBoolean(FIELD_IS_CONTENT_SPATIALIZED));
-    }
-    return builder.build();
-  }
-
   @RequiresApi(29)
   private static final class Api29 {
     @SuppressLint("WrongConstant") // Setting C.AudioAllowedCapturePolicy to platform API.
@@ -343,6 +424,11 @@ public final class AudioAttributes {
         android.media.AudioAttributes.Builder builder,
         @C.AudioAllowedCapturePolicy int allowedCapturePolicy) {
       builder.setAllowedCapturePolicy(allowedCapturePolicy);
+    }
+
+    private static void setHapticChannelsMuted(
+        android.media.AudioAttributes.Builder builder, boolean hapticChannelsMuted) {
+      builder.setHapticChannelsMuted(hapticChannelsMuted);
     }
   }
 

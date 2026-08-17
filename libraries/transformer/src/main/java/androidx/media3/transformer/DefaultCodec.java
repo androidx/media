@@ -257,7 +257,9 @@ public final class DefaultCodec implements Codec {
       // devices, sometimes, the frame gets lost and an empty output is produced. Waiting before
       // signaling end of stream seems to resolve this issue. See b/301603935.
       try {
-        Thread.sleep(30);
+        // TODO: b/519512426 - Check if this delay can be reduced or eliminated when using other
+        //  MediaCodec APIs.
+        Thread.sleep(100);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
       }
@@ -402,17 +404,28 @@ public final class DefaultCodec implements Codec {
       if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
         outputFormat =
             convertToFormat(mediaCodec.getOutputFormat(), isDecoder, configurationFormat.metadata);
-        // The raw audio decoder incorrectly sets the channel count for output format to stereo.
-        if (isDecoder && Objects.equals(configurationFormat.sampleMimeType, MimeTypes.AUDIO_RAW)) {
-          outputFormat =
-              outputFormat
-                  .buildUpon()
-                  .setChannelCount(configurationFormat.channelCount)
-                  .setPcmEncoding(configurationFormat.pcmEncoding)
-                  .build();
-        }
-        if (!isDecoder && isVideo) {
-          videoOutputStarted.set(true);
+        if (isDecoder) {
+          // The raw audio decoder incorrectly sets the channel count for output format to stereo.
+          if (Objects.equals(configurationFormat.sampleMimeType, MimeTypes.AUDIO_RAW)) {
+            outputFormat =
+                outputFormat
+                    .buildUpon()
+                    .setChannelCount(configurationFormat.channelCount)
+                    .setPcmEncoding(configurationFormat.pcmEncoding)
+                    .build();
+          }
+        } else {
+          // Its encoder.
+          if (isVideo) {
+            videoOutputStarted.set(true);
+          } else {
+            if (Objects.equals(getName(), "c2.android.aac.encoder")) {
+              // Encoder delay value is take from the encoder's code.
+              // See:
+              // https://android.googlesource.com/platform/external/aac/+/master/libAACenc/src/aacenc_lib.cpp
+              outputFormat = outputFormat.buildUpon().setEncoderDelay(1600).build();
+            }
+          }
         }
         debugTraceLogEvent(
             EVENT_OUTPUT_FORMAT, outputBufferInfo.presentationTimeUs, "%s", outputFormat);

@@ -15,37 +15,61 @@
  */
 package androidx.media3.demo.composition
 
+import android.annotation.SuppressLint
 import android.app.Application
+import android.net.Uri
+import android.os.Build.VERSION.SDK_INT
 import android.os.SystemClock
-import androidx.compose.runtime.MutableState
+import android.provider.OpenableColumns
+import android.util.Rational
+import android.view.SurfaceView
+import androidx.annotation.GuardedBy
+import androidx.annotation.OptIn
+import androidx.annotation.RequiresApi
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Size as geometrySize
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.Effect
+import androidx.media3.common.GlObjectsProvider
 import androidx.media3.common.MediaItem
 import androidx.media3.common.OverlaySettings
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.SpeedParameters
 import androidx.media3.common.VideoCompositorSettings
-import androidx.media3.common.audio.SonicAudioProcessor
+import androidx.media3.common.audio.SpeedProvider
 import androidx.media3.common.util.Clock
+import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.Log
 import androidx.media3.common.util.Size
 import androidx.media3.common.util.Util
+import androidx.media3.common.util.Util.newSingleThreadExecutor
 import androidx.media3.common.util.Util.usToMs
 import androidx.media3.demo.composition.MatrixTransformationFactory.createDizzyCropEffect
-import androidx.media3.demo.composition.effect.LottieEffectFactory
+import androidx.media3.demo.composition.data.CompositionPreviewState
+import androidx.media3.demo.composition.data.ExportState
+import androidx.media3.demo.composition.data.Gap
+import androidx.media3.demo.composition.data.Item
+import androidx.media3.demo.composition.data.Media
+import androidx.media3.demo.composition.data.MediaState
+import androidx.media3.demo.composition.data.OutputSettingsState
+import androidx.media3.demo.composition.data.Preset
 import androidx.media3.effect.DebugTraceUtil
+import androidx.media3.effect.DefaultGlFrameProcessor
+import androidx.media3.effect.DefaultGlObjectsProvider
+import androidx.media3.effect.FrameProcessorUtils
 import androidx.media3.effect.LanczosResample
 import androidx.media3.effect.MultipleInputVideoGraph
 import androidx.media3.effect.Presentation
 import androidx.media3.effect.RgbFilter
 import androidx.media3.effect.StaticOverlaySettings
+import androidx.media3.effect.ndk.HardwareBufferJni
+import androidx.media3.inspector.MetadataRetriever
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.CompositionPlayer
 import androidx.media3.transformer.EditedMediaItem
@@ -57,51 +81,58 @@ import androidx.media3.transformer.InAppFragmentedMp4Muxer
 import androidx.media3.transformer.InAppMp4Muxer
 import androidx.media3.transformer.JsonUtil
 import androidx.media3.transformer.Transformer
+import androidx.media3.transformer.VideoFrameAggregationParameters
 import com.google.common.base.Stopwatch
 import com.google.common.base.Ticker
+import com.google.common.util.concurrent.ListeningExecutorService
+import com.google.common.util.concurrent.MoreExecutors.listeningDecorator
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
+import kotlin.math.ceil
 import kotlin.math.cos
+import kotlin.math.roundToInt
 import kotlin.math.sin
+import kotlin.math.sqrt
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.guava.await
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONException
 
-class CompositionPreviewViewModel(application: Application, val compositionLayout: String) :
-  AndroidViewModel(application) {
-  data class Item(
-    val title: String,
-    val uri: String,
-    val durationUs: Long,
-    var selectedEffects: MutableState<Set<String>>,
-  )
+@OptIn(ExperimentalApi::class)
+class CompositionPreviewViewModel(application: Application) : AndroidViewModel(application) {
 
-  var snackbarMessage by mutableStateOf<String?>(null)
+  val compositionLayouts = listOf(Preset.SEQUENCE, Preset.GRID, Preset.PIP)
+
+  private val _uiState = MutableStateFlow(createInitialState())
+  val uiState: StateFlow<CompositionPreviewState> = _uiState.asStateFlow()
 
   var compositionPlayer by mutableStateOf(createCompositionPlayer())
-
-  var mediaItemOptions = mutableStateListOf<Item>()
-  var selectedMediaItems = mutableStateListOf<Item>()
-
-  var includeBackgroundAudioTrack by mutableStateOf(false)
-  var outputResolution by mutableStateOf(RESOLUTION_HEIGHTS[0])
-  var outputHdrMode by mutableIntStateOf(Composition.HDR_MODE_KEEP_HDR)
-  var outputAudioMimeType by mutableStateOf(SAME_AS_INPUT_OPTION)
-  var outputVideoMimeType by mutableStateOf(SAME_AS_INPUT_OPTION)
-  var muxerOption by mutableStateOf(MUXER_OPTIONS[0])
-  var exportResultInformation by mutableStateOf<String?>(null)
-
   val EXPORT_ERROR_MESSAGE = application.resources.getString(R.string.export_error)
   val EXPORT_STARTED_MESSAGE = application.resources.getString(R.string.export_started)
-
-  private val _enableDebugTracing = MutableStateFlow(false)
-  val enableDebugTracing: StateFlow<Boolean> = _enableDebugTracing.asStateFlow()
-
+  val FAILED_LOAD_MEDIA_MESSAGE = application.resources.getString(R.string.failed_load_media)
+  val FAILED_GET_DURATION_MESSAGE = application.resources.getString(R.string.failed_get_duration)
+  val API_28_REQUIRED_MESSAGE =
+    application.resources.getString(R.string.api_28_required_frame_processor)
+  internal var frameProcessorEnabled: Boolean = false
+  internal var surfaceView: SurfaceView? = null
   private var transformer: Transformer? = null
+  private var playbackGlExecutorService: ListeningExecutorService? = null
+  private var playbackGlObjectsProvider: GlObjectsProvider? = null
+  private var exportGlExecutorService: ListeningExecutorService? = null
+  private var exportGlObjectsProvider: GlObjectsProvider? = null
   private var outputFile: File? = null
+  private var preparedComposition: Composition? = null
+  private var playerPrepared: Boolean = false
+  private val fpsLock = Any()
+  @GuardedBy("fpsLock")
+  private val frameRateCalculator = FrameRateCalculator(windowDurationMs = FPS_TRACKING_DURATION_MS)
   private var exportStopwatch: Stopwatch =
     Stopwatch.createUnstarted(
       object : Ticker() {
@@ -118,67 +149,463 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
         RgbFilter.createGrayscaleFilter(),
       )
       put(application.resources.getString(R.string.effect_name_dizzy_crop), createDizzyCropEffect())
-
-      LottieEffectFactory.buildAvailableEffects(getApplication()).forEach { (name, effect) ->
-        put(name, effect)
-      }
     }
   }
 
-  val availableEffectNames: List<String> = effectOptions.keys.toList()
+  private fun createInitialState(): CompositionPreviewState {
+    return CompositionPreviewState(
+      sequenceTrackTypes = listOf(setOf(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO)),
+      mediaState = MediaState(selectedItemsBySequence = listOf(emptyList())),
+      outputSettingsState =
+        OutputSettingsState(
+          resolutionHeight = SAME_AS_INPUT_OPTION,
+          hdrMode = Composition.HDR_MODE_KEEP_HDR,
+          audioMimeType = SAME_AS_INPUT_OPTION,
+          videoMimeType = SAME_AS_INPUT_OPTION,
+          frameAggregationFps = UNSET_OPTION,
+          muxerOption = MUXER_OPTIONS[0],
+        ),
+      exportState = ExportState(),
+      selectedPreset = Preset.SEQUENCE,
+      selectedSequenceIndex = 0,
+    )
+  }
 
   init {
     // Load media items
+    val initialMediaItems = mutableListOf<Media>()
     val titles = application.resources.getStringArray(/* id= */ R.array.preset_descriptions)
     val uris = application.resources.getStringArray(/* id= */ R.array.preset_uris)
     val durations = application.resources.getIntArray(/* id= */ R.array.preset_durations)
     for (i in titles.indices) {
-      mediaItemOptions.add(
-        Item(titles[i], uris[i], durations[i].toLong(), mutableStateOf(emptySet()))
+      initialMediaItems.add(
+        Media(
+          durationUs = durations[i].toLong(),
+          title = titles[i],
+          uri = uris[i],
+          selectedEffects = emptySet(),
+        )
       )
     }
-    // Load initial media item selections. No need to show the Snackbar message at this point
-    addItem(0, showSnackbarMessage = false)
-    addItem(0, showSnackbarMessage = false)
-    addItem(0, showSnackbarMessage = false)
-    addItem(0, showSnackbarMessage = false)
+    initialMediaItems.add(
+      Media(
+        durationUs = 59_000_000L,
+        title = application.resources.getString(R.string.background_audio_track),
+        uri = AUDIO_URI,
+        selectedEffects = emptySet(),
+      )
+    )
+
+    _uiState.update { currentState ->
+      val numSequences = 1
+      val firstItem = initialMediaItems.firstOrNull()
+      currentState.copy(
+        mediaState =
+          currentState.mediaState.copy(
+            availableItems = initialMediaItems,
+            selectedItemsBySequence = List(numSequences) { List(4) { firstItem!!.copy() } },
+            availableEffects = effectOptions.keys.toList(),
+          )
+      )
+    }
   }
 
   override fun onCleared() {
     super.onCleared()
-    releasePlayer()
+    releaseAndRecreatePlayer()
     cancelExport()
     exportStopwatch.reset()
   }
 
-  fun enableDebugTracing(enable: Boolean) {
-    _enableDebugTracing.update { _ -> enable }
-    DebugTraceUtil.enableTracing = enable
+  fun onSnackbarMessageShown() {
+    _uiState.update { currentState -> currentState.copy(snackbarMessage = null) }
   }
 
-  fun addItem(index: Int, showSnackbarMessage: Boolean = true) {
-    selectedMediaItems.add(
-      mediaItemOptions[index].copy(selectedEffects = mutableStateOf(emptySet()))
-    )
-    if (showSnackbarMessage) {
-      snackbarMessage = "Added item: ${mediaItemOptions[index].title}"
+  fun onPresetSelected(preset: Preset) {
+    _uiState.update { currentState ->
+      val numSequences =
+        when (preset) {
+          Preset.GRID -> 4 // 2x2 Grid
+          Preset.PIP -> 2 // PiP Overlay
+          else -> 1 // Sequence
+        }
+      val currentTrackTypes = currentState.sequenceTrackTypes
+      val newTrackTypes =
+        List(numSequences) { i ->
+          if (i < currentTrackTypes.size) currentTrackTypes[i]
+          else setOf(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO)
+        }
+      val firstItem = currentState.mediaState.availableItems.firstOrNull()?.copy()
+      val newItemsBySequence: List<List<Item>> =
+        when (preset) {
+          Preset.GRID -> {
+            List(4) { if (firstItem != null) listOf(firstItem.copy()) else emptyList() }
+          }
+          Preset.PIP -> {
+            List(2) {
+              if (firstItem != null) listOf(firstItem.copy(), firstItem.copy()) else emptyList()
+            }
+          }
+          Preset.SEQUENCE -> {
+            List(1) { if (firstItem != null) List(4) { firstItem.copy() } else emptyList() }
+          }
+          Preset.CUSTOM -> {
+            val currentItemsBySequence = currentState.mediaState.selectedItemsBySequence
+            List(numSequences) { i -> currentItemsBySequence[i] }
+          }
+        }
+      currentState.copy(
+        sequenceTrackTypes = newTrackTypes,
+        mediaState = currentState.mediaState.copy(selectedItemsBySequence = newItemsBySequence),
+        isCompositionSet = false,
+        selectedPreset = preset,
+        selectedSequenceIndex = 0,
+      )
+    }
+    setComposition()
+  }
+
+  fun onSequenceTrackTypeChanged(sequenceIndex: Int, newTrackTypes: Set<Int>) {
+    _uiState.update { currentState ->
+      val updatedTrackTypes = currentState.sequenceTrackTypes.toMutableList()
+      if (sequenceIndex < updatedTrackTypes.size) {
+        updatedTrackTypes[sequenceIndex] = newTrackTypes
+      }
+      currentState.copy(
+        sequenceTrackTypes = updatedTrackTypes,
+        isCompositionSet = false,
+        selectedPreset = Preset.CUSTOM,
+      )
     }
   }
 
-  fun removeItem(index: Int) {
-    selectedMediaItems.removeAt(index)
+  fun addSequence() {
+    _uiState.update { currentState ->
+      val newTrackTypes =
+        currentState.sequenceTrackTypes + listOf(setOf(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
+      val firstAvailableItem = currentState.mediaState.availableItems.firstOrNull()
+      val newSequenceItems =
+        if (firstAvailableItem is Media) listOf(firstAvailableItem.copy())
+        else if (firstAvailableItem != null) listOf(firstAvailableItem) else emptyList()
+      val newItemsBySequence =
+        currentState.mediaState.selectedItemsBySequence + listOf(newSequenceItems)
+      currentState.copy(
+        sequenceTrackTypes = newTrackTypes,
+        mediaState = currentState.mediaState.copy(selectedItemsBySequence = newItemsBySequence),
+        isCompositionSet = false,
+        selectedPreset = Preset.CUSTOM,
+        selectedSequenceIndex = newTrackTypes.size - 1,
+      )
+    }
   }
 
-  fun updateEffectsForItem(index: Int, newEffects: Set<String>) {
-    selectedMediaItems[index].selectedEffects.value = newEffects
+  fun removeSequence(sequenceIndex: Int) {
+    _uiState.update { currentState ->
+      val currentTrackTypes = currentState.sequenceTrackTypes
+      val currentItemsBySequence = currentState.mediaState.selectedItemsBySequence
+      if (currentTrackTypes.size <= 1) return@update currentState // Keep at least one sequence
+
+      val newTrackTypes = currentTrackTypes.filterIndexed { index, _ -> index != sequenceIndex }
+      val newItemsBySequence = currentItemsBySequence.filterIndexed { index, _ ->
+        index != sequenceIndex
+      }
+
+      val newSelectedSequenceIndex =
+        if (currentState.selectedSequenceIndex >= newTrackTypes.size) {
+          (newTrackTypes.size - 1).coerceAtLeast(0)
+        } else {
+          currentState.selectedSequenceIndex
+        }
+
+      currentState.copy(
+        sequenceTrackTypes = newTrackTypes,
+        mediaState = currentState.mediaState.copy(selectedItemsBySequence = newItemsBySequence),
+        isCompositionSet = false,
+        selectedPreset = Preset.CUSTOM,
+        selectedSequenceIndex = newSelectedSequenceIndex,
+      )
+    }
   }
 
-  fun previewComposition() {
-    releasePlayer()
-    val composition = prepareComposition()
+  fun onSequenceSelected(index: Int) {
+    _uiState.update { it.copy(selectedSequenceIndex = index) }
+  }
 
-    compositionPlayer.setComposition(composition)
+  fun enableDebugTracing(enable: Boolean) {
+    _uiState.update { it.copy(isDebugTracingEnabled = enable, isCompositionSet = false) }
+    DebugTraceUtil.enableTracing = enable
+  }
+
+  fun onFrameProcessorEnabledChanged(isEnabled: Boolean) {
+    _uiState.update {
+      it.copy(
+        outputSettingsState = it.outputSettingsState.copy(frameProcessorEnabled = isEnabled),
+        isCompositionSet = false,
+      )
+    }
+  }
+
+  fun onIncludeBackgroundAudioChanged(isEnabled: Boolean) {
+    _uiState.update {
+      it.copy(
+        outputSettingsState = it.outputSettingsState.copy(includeBackgroundAudio = isEnabled),
+        isCompositionSet = false,
+      )
+    }
+  }
+
+  fun onOutputResolutionChanged(resolution: String) {
+    _uiState.update {
+      it.copy(
+        outputSettingsState = it.outputSettingsState.copy(resolutionHeight = resolution),
+        isCompositionSet = false,
+      )
+    }
+  }
+
+  fun onHdrModeChanged(hdrMode: Int) {
+    _uiState.update {
+      it.copy(
+        outputSettingsState = it.outputSettingsState.copy(hdrMode = hdrMode),
+        isCompositionSet = false,
+      )
+    }
+  }
+
+  fun onAudioMimeTypeChanged(mimeType: String) {
+    _uiState.update {
+      it.copy(
+        outputSettingsState = it.outputSettingsState.copy(audioMimeType = mimeType),
+        isCompositionSet = false,
+      )
+    }
+  }
+
+  fun onVideoMimeTypeChanged(mimeType: String) {
+    _uiState.update {
+      it.copy(
+        outputSettingsState = it.outputSettingsState.copy(videoMimeType = mimeType),
+        isCompositionSet = false,
+      )
+    }
+  }
+
+  fun onMuxerOptionChanged(option: String) {
+    _uiState.update {
+      it.copy(
+        outputSettingsState = it.outputSettingsState.copy(muxerOption = option),
+        isCompositionSet = false,
+      )
+    }
+  }
+
+  fun onFrameAggregationFpsChanged(fps: String) {
+    _uiState.update {
+      it.copy(
+        outputSettingsState = it.outputSettingsState.copy(frameAggregationFps = fps),
+        isCompositionSet = false,
+      )
+    }
+  }
+
+  fun onRenderSizeChanged(newSize: geometrySize) {
+    _uiState.update {
+      it.copy(
+        outputSettingsState = it.outputSettingsState.copy(renderSize = newSize),
+        isCompositionSet = false,
+      )
+    }
+  }
+
+  fun addItem(sequenceIndex: Int, itemIndex: Int) {
+    _uiState.update { currentState ->
+      val item = currentState.mediaState.availableItems[itemIndex]
+      val itemToAdd = item.copy()
+      val currentItemsBySequence = currentState.mediaState.selectedItemsBySequence.toMutableList()
+      if (sequenceIndex < currentItemsBySequence.size) {
+        val updatedItems = currentItemsBySequence[sequenceIndex].toMutableList()
+        updatedItems.add(itemToAdd)
+        currentItemsBySequence[sequenceIndex] = updatedItems
+      }
+      currentState.copy(
+        mediaState = currentState.mediaState.copy(selectedItemsBySequence = currentItemsBySequence),
+        isCompositionSet = false,
+        selectedPreset = Preset.CUSTOM,
+      )
+    }
+  }
+
+  fun addGap(sequenceIndex: Int, durationUs: Long) {
+    _uiState.update { currentState ->
+      val gapItem = Gap(durationUs = durationUs)
+      val currentItemsBySequence = currentState.mediaState.selectedItemsBySequence.toMutableList()
+      if (sequenceIndex < currentItemsBySequence.size) {
+        val updatedItems = currentItemsBySequence[sequenceIndex].toMutableList()
+        updatedItems.add(gapItem)
+        currentItemsBySequence[sequenceIndex] = updatedItems
+        currentState.copy(
+          mediaState =
+            currentState.mediaState.copy(selectedItemsBySequence = currentItemsBySequence),
+          isCompositionSet = false,
+        )
+      } else {
+        currentState
+      }
+    }
+  }
+
+  /**
+   * Adds a local item represented by [uri] to the specified sequence.
+   *
+   * This method extracts the [display name][OpenableColumns.DISPLAY_NAME] of the file, and then
+   * uses [MetadataRetriever] to extract the file type and duration.
+   */
+  fun addLocalItem(sequenceIndex: Int, uri: Uri) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val context = getApplication<Application>()
+      // Use last path segment as default value if content resolver can't get one.
+      var displayName = uri.lastPathSegment!!
+
+      // Try to get display name.
+      try {
+        context.contentResolver
+          .query(
+            uri,
+            /* projection= */ arrayOf(OpenableColumns.DISPLAY_NAME),
+            /* selection= */ null,
+            /* selectionArgs= */ null,
+            /* sortOrder= */ null,
+          )
+          ?.use { cursor ->
+            val nameIndex = cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME)
+            if (cursor.moveToFirst()) {
+              displayName = cursor.getString(nameIndex)
+            }
+          }
+      } catch (e: IllegalArgumentException) {
+        Log.e(TAG, "Failed to get display name", e)
+      }
+
+      // Default duration for images.
+      var durationUs = DEFAULT_IMAGE_DURATION_US
+      val mediaItem = MediaItem.fromUri(uri)
+      try {
+        // Try to get file type and duration.
+        MetadataRetriever.Builder(context, mediaItem).build().use {
+          val trackGroups = it.retrieveTrackGroups().await()
+          // Don't retrieve duration for images.
+          if (trackGroups.length > 0 && trackGroups[0].type != C.TRACK_TYPE_IMAGE) {
+            durationUs = it.retrieveDurationUs().await()
+          }
+        }
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to retrieve metadata", e)
+        withContext(Dispatchers.Main) {
+          _uiState.update { currentState ->
+            currentState.copy(snackbarMessage = FAILED_LOAD_MEDIA_MESSAGE)
+          }
+        }
+        return@launch
+      }
+      if (durationUs == C.TIME_UNSET) {
+        _uiState.update { currentState ->
+          currentState.copy(snackbarMessage = FAILED_GET_DURATION_MESSAGE)
+        }
+        return@launch
+      }
+
+      val newItem =
+        Media(
+          durationUs = durationUs,
+          title = displayName,
+          uri = uri.toString(),
+          selectedEffects = emptySet(),
+        )
+
+      withContext(Dispatchers.Main) {
+        _uiState.update { currentState ->
+          val currentItemsBySequence =
+            currentState.mediaState.selectedItemsBySequence.toMutableList()
+          if (sequenceIndex < currentItemsBySequence.size) {
+            val updatedItems = currentItemsBySequence[sequenceIndex].toMutableList()
+            updatedItems.add(newItem)
+            currentItemsBySequence[sequenceIndex] = updatedItems
+          }
+          currentState.copy(
+            mediaState =
+              currentState.mediaState.copy(selectedItemsBySequence = currentItemsBySequence),
+            isCompositionSet = false,
+            selectedPreset = Preset.CUSTOM,
+          )
+        }
+      }
+    }
+  }
+
+  fun removeItem(sequenceIndex: Int, itemIndex: Int) {
+    _uiState.update { currentState ->
+      val currentItemsBySequence = currentState.mediaState.selectedItemsBySequence.toMutableList()
+      if (sequenceIndex < currentItemsBySequence.size) {
+        val updatedItems = currentItemsBySequence[sequenceIndex].toMutableList()
+        if (itemIndex < updatedItems.size) {
+          updatedItems.removeAt(itemIndex)
+          currentItemsBySequence[sequenceIndex] = updatedItems
+        }
+      }
+      currentState.copy(
+        mediaState = currentState.mediaState.copy(selectedItemsBySequence = currentItemsBySequence),
+        isCompositionSet = false,
+        selectedPreset = Preset.CUSTOM,
+      )
+    }
+  }
+
+  fun updateMediaItem(
+    sequenceIndex: Int,
+    itemIndex: Int,
+    newEffects: Set<String>,
+    newSpeed: Float,
+  ) {
+    _uiState.update { currentState ->
+      val currentItemsBySequence = currentState.mediaState.selectedItemsBySequence.toMutableList()
+      if (sequenceIndex < currentItemsBySequence.size) {
+        val updatedItems = currentItemsBySequence[sequenceIndex].toMutableList()
+        if (itemIndex < updatedItems.size) {
+          val item = updatedItems[itemIndex]
+          if (item is Media) {
+            updatedItems[itemIndex] = item.copy(selectedEffects = newEffects, speed = newSpeed)
+            currentItemsBySequence[sequenceIndex] = updatedItems
+          }
+        }
+      }
+      currentState.copy(
+        mediaState = currentState.mediaState.copy(selectedItemsBySequence = currentItemsBySequence),
+        isCompositionSet = false,
+        selectedPreset = Preset.CUSTOM,
+      )
+    }
+  }
+
+  fun setComposition() {
+    val composition = prepareComposition() ?: return
+    val isFrameProcessorEnabled =
+      frameProcessorEnabled && uiState.value.outputSettingsState.frameProcessorEnabled
+    // Recreate the player if it isn't prepared or if the FrameProcessor is disabled.
+    if (!playerPrepared || !isFrameProcessorEnabled) {
+      releaseAndRecreatePlayer()
+    }
+    preparedComposition = composition
+    // Maintain the current position when updating the Composition.
+    compositionPlayer.setComposition(
+      composition,
+      /* startPositionMs= */ compositionPlayer.currentPosition,
+    )
     compositionPlayer.prepare()
+    playerPrepared = true
+    _uiState.update { it.copy(isCompositionSet = true) }
+  }
+
+  fun play() {
     compositionPlayer.play()
   }
 
@@ -186,29 +613,64 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
     // Cancel and clean up files from any ongoing export.
     cancelExport()
 
-    val composition = prepareComposition()
+    val composition =
+      if (uiState.value.isCompositionSet) preparedComposition ?: prepareComposition()
+      else prepareComposition()
+    if (composition == null) {
+      return
+    }
+    val settings = uiState.value.outputSettingsState
 
     try {
       outputFile =
         createExternalCacheFile("composition-preview-" + Clock.DEFAULT.elapsedRealtime() + ".mp4")
     } catch (e: IOException) {
-      snackbarMessage = "Aborting export! Unable to create output file: $e"
+      _uiState.update { currentState ->
+        currentState.copy(
+          snackbarMessage =
+            getApplication<Application>()
+              .resources
+              .getString(R.string.abort_export_output_file, e.toString())
+        )
+      }
       Log.e(TAG, "Aborting export! Unable to create output file: ", e)
       return
     }
     val filePath = outputFile!!.absolutePath
 
-    val transformerBuilder = Transformer.Builder(/* context= */ getApplication())
+    val transformerBuilder =
+      if (uiState.value.outputSettingsState.frameProcessorEnabled) {
+        if (SDK_INT < 28) {
+          throw UnsupportedOperationException(API_28_REQUIRED_MESSAGE)
+        }
+        if (exportGlExecutorService == null) {
+          val glResources = setupGlResources("Export:Effect")
+          exportGlExecutorService = glResources.first
+          exportGlObjectsProvider = glResources.second
+        }
+        Transformer.Builder(getApplication())
+          .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
+          .setFrameProcessorFactory(
+            DefaultGlFrameProcessor.Factory(
+              getApplication(),
+              checkNotNull(exportGlObjectsProvider),
+              HardwareBufferJni.INSTANCE,
+              checkNotNull(exportGlExecutorService),
+            )
+          )
+      } else {
+        Transformer.Builder(/* context= */ getApplication())
+      }
 
-    if (SAME_AS_INPUT_OPTION != outputAudioMimeType) {
-      transformerBuilder.setAudioMimeType(outputAudioMimeType)
+    if (SAME_AS_INPUT_OPTION != settings.audioMimeType) {
+      transformerBuilder.setAudioMimeType(settings.audioMimeType)
     }
 
-    if (SAME_AS_INPUT_OPTION != outputVideoMimeType) {
-      transformerBuilder.setVideoMimeType(outputVideoMimeType)
+    if (SAME_AS_INPUT_OPTION != settings.videoMimeType) {
+      transformerBuilder.setVideoMimeType(settings.videoMimeType)
     }
 
-    when (muxerOption) {
+    when (settings.muxerOption) {
       MUXER_OPTIONS[0] -> {}
       MUXER_OPTIONS[1] -> {
         transformerBuilder.setMuxerFactory(InAppMp4Muxer.Factory())
@@ -232,7 +694,17 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
                   .getString(R.string.export_completed, elapsedTimeMs / 1000f, filePath)
               Log.d(TAG, DebugTraceUtil.generateTraceSummary())
               Log.i(TAG, details)
-              exportResultInformation = details
+
+              _uiState.update {
+                it.copy(
+                  exportState =
+                    it.exportState.copy(
+                      isExporting = false,
+                      exportResultInfo = details,
+                      outputFilePath = filePath,
+                    )
+                )
+              }
 
               try {
                 val resultJson =
@@ -245,6 +717,7 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
               } catch (e: JSONException) {
                 Log.w(TAG, "Unable to convert exportResult to JSON", e)
               }
+              cleanUpExportGlResources()
             }
 
             override fun onError(
@@ -253,209 +726,394 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
               exportException: ExportException,
             ) {
               exportStopwatch.stop()
-              snackbarMessage = "Export error: $exportException"
+              _uiState.update {
+                it.copy(
+                  snackbarMessage =
+                    getApplication<Application>()
+                      .resources
+                      .getString(R.string.export_error_msg, exportException.toString()),
+                  exportState =
+                    it.exportState.copy(
+                      isExporting = false,
+                      exportResultInfo = EXPORT_ERROR_MESSAGE,
+                      outputFilePath = null,
+                    ),
+                )
+              }
               Log.e(TAG, "Export error", exportException)
               Log.d(TAG, DebugTraceUtil.generateTraceSummary())
-              exportResultInformation = EXPORT_ERROR_MESSAGE
+              cleanUpExportGlResources()
             }
           }
         )
         .build()
 
-    exportResultInformation = EXPORT_STARTED_MESSAGE
+    _uiState.update {
+      it.copy(
+        exportState =
+          it.exportState.copy(
+            isExporting = true,
+            exportResultInfo = EXPORT_STARTED_MESSAGE,
+            outputFilePath = null,
+          )
+      )
+    }
     exportStopwatch.reset()
     exportStopwatch.start()
     transformer!!.start(composition, filePath)
     Log.i(TAG, "Export started")
   }
 
-  private fun prepareComposition(): Composition {
-    val editedMediaItems = mutableListOf<EditedMediaItem>()
+  /** Cancels any ongoing export operation, and deletes output file contents. */
+  fun cancelExport() {
+    transformer?.cancel()
+    transformer = null
+    cleanUpExportGlResources()
+    outputFile?.delete()
+    outputFile = null
+    _uiState.update { it.copy(exportState = ExportState()) }
+  }
+
+  private fun prepareComposition(): Composition? {
+    val settings = uiState.value.outputSettingsState
+    var compositionHasVideo = false
 
     val globalVideoEffects = mutableListOf<Effect>()
-    if (outputResolution != SAME_AS_INPUT_OPTION) {
-      val resolutionHeight = outputResolution.toInt()
+    if (settings.resolutionHeight != SAME_AS_INPUT_OPTION) {
+      val resolutionHeight = settings.resolutionHeight.toInt()
       globalVideoEffects.add(
         LanczosResample.scaleToFitWithFlexibleOrientation(10000, resolutionHeight)
       )
       globalVideoEffects.add(Presentation.createForShortSide(resolutionHeight))
     }
-    for (item in selectedMediaItems) {
-      val mediaItem =
-        MediaItem.Builder()
-          .setUri(item.uri)
-          .setImageDurationMs(usToMs(item.durationUs)) // Ignored for audio/video
-          .build()
-      val effectsForItem = mutableListOf<Effect>()
-      for (effectName in item.selectedEffects.value) {
-        // TODO(b/433484977): Order of applied effects should be more clear in the UI
-        effectOptions[effectName]?.let { effect -> effectsForItem.add(effect) }
-      }
-      val finalVideoEffects = globalVideoEffects + effectsForItem
-      val itemBuilder =
-        EditedMediaItem.Builder(mediaItem)
-          .setEffects(
-            Effects(/* audioProcessors= */ emptyList(), /* videoEffects= */ finalVideoEffects)
-          )
-          // For image inputs. Automatically ignored if input is audio/video.
-          .setFrameRate(DEFAULT_FRAME_RATE_FPS)
-          // Setting duration explicitly is only required for preview with CompositionPlayer, and
-          // is not needed for export with Transformer.
-          .setDurationUs(item.durationUs)
-      editedMediaItems.add(itemBuilder.build())
-    }
-    val numSequences =
-      when (compositionLayout) {
-        COMPOSITION_LAYOUT[1] -> 4 // 2x2 Grid
-        COMPOSITION_LAYOUT[2] -> 2 // PiP Overlay
-        else -> 1 // Sequence
-      }
-    // TODO(b/417365294): Improve how sequences are built
-    val videoSequenceBuilders = MutableList(numSequences) { EditedMediaItemSequence.Builder() }
-    val videoSequences = mutableListOf<EditedMediaItemSequence>()
+
+    val explicitTrackTypes = uiState.value.sequenceTrackTypes
+    val numSequences = explicitTrackTypes.size
+    val itemsBySequence = uiState.value.mediaState.selectedItemsBySequence
+
+    val sequences = mutableListOf<EditedMediaItemSequence>()
     for (sequenceIndex in 0 until numSequences) {
-      var hasItem = false
-      for (item in sequenceIndex until editedMediaItems.size step numSequences) {
-        hasItem = true
-        Log.d(TAG, "Adding item $item to sequence $sequenceIndex")
-        videoSequenceBuilders[sequenceIndex].addItem(editedMediaItems[item])
+      val sequenceItems =
+        if (sequenceIndex < itemsBySequence.size) itemsBySequence[sequenceIndex] else emptyList()
+      val trackTypes = explicitTrackTypes[sequenceIndex]
+      if (trackTypes.contains(C.TRACK_TYPE_VIDEO)) {
+        compositionHasVideo = true
       }
-      if (hasItem) {
-        videoSequences.add(videoSequenceBuilders[sequenceIndex].build())
-        Log.d(
-          TAG,
-          "Sequence #$sequenceIndex has ${videoSequences.last().editedMediaItems.size} item(s)",
+
+      val sequenceBuilder = EditedMediaItemSequence.Builder(trackTypes)
+
+      for (item in sequenceItems) {
+        when (item) {
+          is Gap -> {
+            sequenceBuilder.addGap(item.durationUs)
+          }
+          is Media -> {
+            val mediaItem =
+              MediaItem.Builder()
+                .setUri(item.uri)
+                .setImageDurationMs(usToMs(item.durationUs)) // Ignored for audio/video
+                .build()
+            val effectsForItem = mutableListOf<Effect>()
+            for (effectName in item.selectedEffects) {
+              // TODO(b/433484977): Order of applied effects should be more clear in the UI
+              effectOptions[effectName]?.let { effect -> effectsForItem.add(effect) }
+            }
+            val finalVideoEffects = globalVideoEffects + effectsForItem
+            val speedProvider =
+              object : SpeedProvider {
+                override fun getSpeed(timeUs: Long): Float = item.speed
+
+                override fun getNextSpeedChangeTimeUs(timeUs: Long): Long = C.TIME_UNSET
+              }
+            val speedParameters = SpeedParameters(speedProvider, /* shouldMaintainPitch= */ true)
+
+            val itemBuilder =
+              EditedMediaItem.Builder(mediaItem)
+                .setEffects(
+                  Effects(/* audioProcessors= */ emptyList(), /* videoEffects= */ finalVideoEffects)
+                )
+                .setSpeed(speedParameters)
+                // Required for image inputs. For video inputs, it sets the target FPS.
+                .setFrameRate(DEFAULT_FRAME_RATE_FPS)
+                // Setting duration explicitly is only required for preview with CompositionPlayer,
+                // and is not needed for export with Transformer.
+                .setDurationUs(item.durationUs)
+            sequenceBuilder.addItem(itemBuilder.build())
+          }
+        }
+      }
+      if (trackTypes.contains(C.TRACK_TYPE_VIDEO)) {
+        compositionHasVideo = true
+      }
+      sequences.add(sequenceBuilder.build())
+    }
+
+    if (settings.includeBackgroundAudio) {
+      sequences.add(getAudioBackgroundSequence())
+    }
+
+    val finalVideoEffects = globalVideoEffects.toMutableList()
+
+    if (settings.renderSize != geometrySize.Zero) {
+      val presentation =
+        Presentation.createForWidthAndHeight(
+          settings.renderSize.width.roundToInt(),
+          settings.renderSize.height.roundToInt(),
+          Presentation.LAYOUT_SCALE_TO_FIT,
         )
+      finalVideoEffects.add(presentation)
+    }
+
+    val compositionBuilder = Composition.Builder(sequences).setHdrMode(settings.hdrMode)
+    if (settings.frameProcessorEnabled) {
+      val frameAggregationFpsStr = settings.frameAggregationFps.trim()
+      if (frameAggregationFpsStr.isNotEmpty()) {
+        val frameAggregationFps = frameAggregationFpsStr.toDoubleOrNull()
+        val numerator = frameAggregationFps?.let { (it * 1000).roundToInt() }
+        if (numerator != null && numerator > 0) {
+          compositionBuilder.setVideoFrameAggregationParameters(
+            VideoFrameAggregationParameters.Builder()
+              .setFrameRate(Rational(numerator, 1000))
+              .build()
+          )
+        } else {
+          _uiState.update {
+            it.copy(
+              snackbarMessage =
+                getApplication<Application>()
+                  .resources
+                  .getString(R.string.error_invalid_frame_aggregation_fps)
+            )
+          }
+          return null
+        }
       }
     }
-    if (includeBackgroundAudioTrack) {
-      videoSequences.add(getAudioBackgroundSequence())
+
+    if (compositionHasVideo) {
+      compositionBuilder
+        .setEffects(
+          Effects(/* audioProcessors= */ emptyList(), /* videoEffects= */ finalVideoEffects)
+        )
+        .setVideoCompositorSettings(getVideoCompositorSettings())
     }
-    // TODO(b/417362434): Update audio processors showcased in this demo
-    val sampleRateChanger = SonicAudioProcessor()
-    sampleRateChanger.setOutputSampleRateHz(8000)
-    return Composition.Builder(videoSequences)
-      .setEffects(
-        Effects(/* audioProcessors= */ listOf(sampleRateChanger), /* videoEffects= */ emptyList())
-      )
-      .setVideoCompositorSettings(getVideoCompositorSettings())
-      .setHdrMode(outputHdrMode)
-      .build()
+
+    return compositionBuilder.build()
   }
 
   // TODO(b/417362922): Improve accuracy of VideoCompositorSettings implementation
   private fun getVideoCompositorSettings(): VideoCompositorSettings {
-    return when (compositionLayout) {
-      COMPOSITION_LAYOUT[1] -> {
-        // 2x2 Grid
-        object : VideoCompositorSettings {
-          override fun getOutputSize(inputSizes: List<Size>): Size {
-            return inputSizes[0]
-          }
-
-          override fun getOverlaySettings(inputId: Int, presentationTimeUs: Long): OverlaySettings {
-            return when (inputId) {
-              0 -> {
-                StaticOverlaySettings.Builder()
-                  .setScale(0.5f, 0.5f)
-                  .setOverlayFrameAnchor(0f, 0f) // Middle of overlay
-                  .setBackgroundFrameAnchor(-0.5f, 0.5f) // Top-left section of background
-                  .build()
-              }
-
-              1 -> {
-                StaticOverlaySettings.Builder()
-                  .setScale(0.5f, 0.5f)
-                  .setOverlayFrameAnchor(0f, 0f) // Middle of overlay
-                  .setBackgroundFrameAnchor(0.5f, 0.5f) // Top-right section of background
-                  .build()
-              }
-
-              2 -> {
-                StaticOverlaySettings.Builder()
-                  .setScale(0.5f, 0.5f)
-                  .setOverlayFrameAnchor(0f, 0f) // Middle of overlay
-                  .setBackgroundFrameAnchor(-0.5f, -0.5f) // Bottom-left section of background
-                  .build()
-              }
-
-              3 -> {
-                StaticOverlaySettings.Builder()
-                  .setScale(0.5f, 0.5f)
-                  .setOverlayFrameAnchor(0f, 0f) // Middle of overlay
-                  .setBackgroundFrameAnchor(0.5f, -0.5f) // Bottom-right section of background
-                  .build()
-              }
-
-              else -> {
-                StaticOverlaySettings.Builder().build()
-              }
-            }
-          }
-        }
+    val addedSequenceIndices =
+      uiState.value.sequenceTrackTypes.indices.filter { index ->
+        uiState.value.mediaState.selectedItemsBySequence.getOrNull(index)?.isNotEmpty() == true
       }
 
-      COMPOSITION_LAYOUT[2] -> {
-        // PiP Overlay
-        val cycleTimeUs = 3_000_000f // Time for overlay to complete a cycle in Us
-
-        object : VideoCompositorSettings {
-          override fun getOutputSize(inputSizes: List<Size>): Size {
-            return inputSizes[0]
-          }
-
-          override fun getOverlaySettings(inputId: Int, presentationTimeUs: Long): OverlaySettings {
-            return if (inputId == 0) {
-              val cycleRadians = 2 * Math.PI * (presentationTimeUs / cycleTimeUs)
-              StaticOverlaySettings.Builder()
-                .setScale(0.35f, 0.35f)
-                .setOverlayFrameAnchor(0f, 1f) // Top-middle of overlay
-                .setBackgroundFrameAnchor(sin(cycleRadians).toFloat() * 0.5f, -0.2f)
-                .setRotationDegrees(cos(cycleRadians).toFloat() * -10f)
-                .build()
-            } else {
-              StaticOverlaySettings.Builder().build()
-            }
-          }
-        }
+    val videoEnabledUIIndices =
+      uiState.value.sequenceTrackTypes.mapIndexedNotNull { index, trackTypes ->
+        if (trackTypes.contains(C.TRACK_TYPE_VIDEO)) index else null
       }
 
-      else -> {
-        VideoCompositorSettings.DEFAULT
+    val mapInputId = { inputId: Int -> videoEnabledUIIndices.indexOf(inputId) }
+    val totalVideoSlots = videoEnabledUIIndices.size
+    if (totalVideoSlots >= 3) {
+      return object : VideoCompositorSettings {
+        var outputSize: Size? = null
+
+        override fun getOutputSize(inputSizes: List<Size>): Size {
+          // Use a constant compositing size to avoid sudden layout shifts.
+          if (outputSize == null) {
+            outputSize = inputSizes[0]
+          }
+          return outputSize!!
+        }
+
+        override fun getOverlaySettings(inputId: Int, presentationTimeUs: Long): OverlaySettings {
+          val videoInputIndex = mapInputId(inputId)
+          if (videoInputIndex == -1) return StaticOverlaySettings.Builder().build()
+
+          val cols = ceil(sqrt(totalVideoSlots.toDouble())).toInt()
+          val rows = ceil(totalVideoSlots.toDouble() / cols).toInt()
+
+          val colIndex = videoInputIndex % cols
+          val rowIndex = videoInputIndex / cols
+
+          val scaleX = 1.0f / cols
+          val scaleY = 1.0f / rows
+
+          // x center in [-1, 1]
+          val anchorX = -1f + (colIndex + 0.5f) * (2.0f / cols)
+          // y center in [-1, 1], with 1 at top
+          val anchorY = 1f - (rowIndex + 0.5f) * (2.0f / rows)
+
+          return StaticOverlaySettings.Builder()
+            .setScale(scaleX, scaleY)
+            .setOverlayFrameAnchor(0f, 0f)
+            .setBackgroundFrameAnchor(anchorX, anchorY)
+            .build()
+        }
+      }
+    } else if (totalVideoSlots == 2) {
+      // PiP Overlay
+      val cycleTimeUs = 3_000_000f // Time for overlay to complete a cycle in Us
+
+      return object : VideoCompositorSettings {
+        override fun getOutputSize(inputSizes: List<Size>): Size {
+          return inputSizes[0]
+        }
+
+        override fun getOverlaySettings(inputId: Int, presentationTimeUs: Long): OverlaySettings {
+          val videoInputIndex = mapInputId(inputId)
+
+          return if (videoInputIndex == 0) {
+            val cycleRadians = 2 * Math.PI * (presentationTimeUs / cycleTimeUs)
+            StaticOverlaySettings.Builder()
+              .setScale(0.35f, 0.35f)
+              .setOverlayFrameAnchor(0f, 1f) // Top-middle of overlay
+              .setBackgroundFrameAnchor(sin(cycleRadians).toFloat() * 0.5f, -0.2f)
+              .setRotationDegrees(cos(cycleRadians).toFloat() * -10f)
+              .build()
+          } else {
+            StaticOverlaySettings.Builder().build()
+          }
+        }
       }
     }
+
+    return VideoCompositorSettings.DEFAULT
   }
 
   private fun createCompositionPlayer(): CompositionPlayer {
-    val playerBuilder = CompositionPlayer.Builder(getApplication())
-    if (compositionLayout != COMPOSITION_LAYOUT[0]) {
-      playerBuilder.setVideoGraphFactory(MultipleInputVideoGraph.Factory())
+    val playerBuilder: CompositionPlayer.Builder
+    frameProcessorEnabled = uiState.value.outputSettingsState.frameProcessorEnabled
+    if (uiState.value.outputSettingsState.frameProcessorEnabled) {
+      if (SDK_INT < 28) {
+        throw UnsupportedOperationException(API_28_REQUIRED_MESSAGE)
+      }
+      if (playbackGlExecutorService == null) {
+        val glResources = setupGlResources("Preview:Effect")
+        playbackGlExecutorService = glResources.first
+        playbackGlObjectsProvider = glResources.second
+      }
+      playerBuilder =
+        CompositionPlayer.Builder(getApplication())
+          .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
+          .setFrameProcessorFactory(
+            DefaultGlFrameProcessor.Factory(
+              getApplication(),
+              checkNotNull(playbackGlObjectsProvider),
+              HardwareBufferJni.INSTANCE,
+              checkNotNull(playbackGlExecutorService),
+            )
+          )
+    } else {
+      playerBuilder = CompositionPlayer.Builder(getApplication())
+      if (uiState.value.sequenceTrackTypes.size > 1) {
+        playerBuilder.setVideoGraphFactory(MultipleInputVideoGraph.Factory())
+      }
     }
+    playerBuilder.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true)
     val player = playerBuilder.build()
     player.addListener(
       object : Player.Listener {
         override fun onPlayerError(error: PlaybackException) {
-          snackbarMessage = "Preview error: $error"
+          _uiState.update { currentState ->
+            currentState.copy(
+              snackbarMessage =
+                getApplication<Application>()
+                  .resources
+                  .getString(R.string.preview_error_msg, error.toString())
+            )
+          }
           Log.e(TAG, "Preview error", error)
+        }
+
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+          if (!isPlaying) {
+            _uiState.update { it.copy(currentFps = null) }
+          }
+          synchronized(fpsLock) { frameRateCalculator.reset() }
+        }
+
+        override fun onPositionDiscontinuity(
+          oldPosition: Player.PositionInfo,
+          newPosition: Player.PositionInfo,
+          reason: Int,
+        ) {
+          if (reason == Player.DISCONTINUITY_REASON_SEEK) {
+            _uiState.update { it.copy(currentFps = null) }
+            synchronized(fpsLock) { frameRateCalculator.reset() }
+          }
         }
       }
     )
+    player.setVideoFrameMetadataListener { presentationTimeUs, releaseTimeNs, format, mediaFormat ->
+      val fps = synchronized(fpsLock) { frameRateCalculator.registerFrameAndGetFps() }
+      if (fps != null) {
+        _uiState.update { it.copy(currentFps = fps) }
+      }
+    }
     return player
   }
 
-  private fun releasePlayer() {
+  private fun releaseAndRecreatePlayer() {
+    releaseGlResources(
+      playbackGlObjectsProvider,
+      playbackGlExecutorService,
+      "Failed to release OpenGL",
+    )
+    playbackGlExecutorService = null
+    playbackGlObjectsProvider = null
     compositionPlayer.stop()
     compositionPlayer.release()
     compositionPlayer = createCompositionPlayer()
+    playerPrepared = false
   }
 
-  /** Cancels any ongoing export operation, and deletes output file contents. */
-  private fun cancelExport() {
-    transformer?.apply { cancel() }
-    transformer = null
-    outputFile?.apply { delete() }
-    outputFile = null
-    exportResultInformation = null
+  @RequiresApi(26)
+  private fun setupGlResources(
+    threadName: String
+  ): Pair<ListeningExecutorService, GlObjectsProvider> {
+    val glObjectsProvider = DefaultGlObjectsProvider()
+    val executorService = listeningDecorator(newSingleThreadExecutor(threadName))
+    // No need to wait for completion, as all subsequent GL operations are scheduled on the same
+    // thread.
+    executorService.execute {
+      try {
+        FrameProcessorUtils.setupOpenGl(glObjectsProvider)
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to setup OpenGL", e)
+        _uiState.update { it.copy(snackbarMessage = "Failed to setup OpenGL") }
+      }
+    }
+    return executorService to glObjectsProvider
+  }
+
+  @SuppressLint("NewApi")
+  private fun releaseGlResources(
+    glObjectsProvider: GlObjectsProvider?,
+    executorService: ExecutorService?,
+    errorMessage: String,
+  ) {
+    glObjectsProvider?.let {
+      executorService?.execute {
+        try {
+          FrameProcessorUtils.releaseOpenGl(it)
+        } catch (e: Exception) {
+          Log.e(TAG, errorMessage, e)
+        }
+      }
+    }
+    executorService?.let { FrameProcessorUtils.shutdownGlExecutorService(it) }
+  }
+
+  private fun cleanUpExportGlResources() {
+    releaseGlResources(
+      exportGlObjectsProvider,
+      exportGlExecutorService,
+      "Failed to release export OpenGL",
+    )
+    exportGlExecutorService = null
+    exportGlObjectsProvider = null
   }
 
   /**
@@ -477,11 +1135,16 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
   }
 
   companion object {
+    const val UNSET_OPTION = ""
     const val SAME_AS_INPUT_OPTION = "same as input"
-    const val LAYOUT_EXTRA = "composition_layout"
     private const val TAG = "CompPreviewVM"
     private const val AUDIO_URI = "https://storage.googleapis.com/exoplayer-test-media-0/play.mp3"
     private const val DEFAULT_FRAME_RATE_FPS = 30
+    // A 3-second moving average window (rather than 1s) is used to smooth out micro-stutters
+    // and provide a stable, readable real-time playback FPS value in the UI.
+    private const val FPS_TRACKING_DURATION_MS = 3000L
+    private const val DEFAULT_IMAGE_DURATION_US = 1_000_000L
+    val MEDIA_TYPES = arrayOf("video/*", "image/*", "audio/*")
     val HDR_MODE_DESCRIPTIONS =
       mapOf(
         Pair("Keep HDR", Composition.HDR_MODE_KEEP_HDR),
@@ -499,29 +1162,30 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
       listOf(SAME_AS_INPUT_OPTION, "144", "240", "360", "480", "720", "1080", "1440", "2160")
     val MUXER_OPTIONS =
       listOf("Use Platform MediaMuxer", "Use Media3 Mp4Muxer", "Use Media3 FragmentedMp4Muxer")
-    val COMPOSITION_LAYOUT = listOf("Sequential", "2x2 grid", "PiP overlay")
+    val FRAME_AGGREGATION_FPS_OPTIONS =
+      listOf(
+        UNSET_OPTION,
+        "0.5",
+        "1",
+        "15",
+        "23.976",
+        "24",
+        "25",
+        "29.97",
+        "30",
+        "48",
+        "50",
+        "59.94",
+        "60",
+      )
 
     fun getAudioBackgroundSequence(): EditedMediaItemSequence {
       val audioMediaItem: MediaItem = MediaItem.Builder().setUri(AUDIO_URI).build()
       val audioItem = EditedMediaItem.Builder(audioMediaItem).setDurationUs(59_000_000).build()
-      return EditedMediaItemSequence.Builder(audioItem).setIsLooping(true).build()
+      return EditedMediaItemSequence.Builder(setOf(C.TRACK_TYPE_AUDIO))
+        .addItem(audioItem)
+        .setIsLooping(true)
+        .build()
     }
-  }
-}
-
-class CompositionPreviewViewModelFactory(
-  private val application: Application,
-  private val compositionLayout: String,
-) : ViewModelProvider.Factory {
-  init {
-    Log.d(TAG, "Creating ViewModel with $compositionLayout")
-  }
-
-  override fun <T : ViewModel> create(modelClass: Class<T>): T {
-    return CompositionPreviewViewModel(application, compositionLayout) as T
-  }
-
-  companion object {
-    private const val TAG = "CPVMF"
   }
 }

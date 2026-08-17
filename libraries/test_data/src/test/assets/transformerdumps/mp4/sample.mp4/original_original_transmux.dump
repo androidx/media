@@ -27,7 +27,7 @@ format video:
     lumaBitdepth = 8
     chromaBitdepth = 8
   language = und
-  metadata = entries=[TSSE: description=null: values=[Lavf56.1.0], xyz: latitude=40.68, longitude=-74.5, Mp4Timestamp: creation time=3547558895, modification time=3547558895, timescale=1000]
+  metadata = entries=[TSSE: description=null: values=[Lavf56.1.0], xyz: latitude=40.68, longitude=-74.5, Mp4Timestamp: creation time=3547558895, modification time=3547558895, timescale=1000, ThumbnailMetadata: presentationTimeUs=0]
   initializationData:
     data = length 29, hash 4746B5D9
     data = length 10, hash 7A0D0F2B
@@ -37,6 +37,7 @@ container metadata:
   entry = Mp4Timestamp: creation time=3547558895, modification time=3547558895, timescale=1000
   entry = TSSE: description=null: values=[Lavf56.1.0]
   entry = TSSE: description=null: values=[Lavf56.1.0]
+  entry = ThumbnailMetadata: presentationTimeUs=0
   entry = xyz: latitude=40.68, longitude=-74.5
   entry = xyz: latitude=40.68, longitude=-74.5
 sample:
@@ -297,18 +298,6 @@ sample:
   size = 235
   isKeyFrame = true
   presentationTimeUs = 1019238
-sample:
-  trackType = audio
-  dataHashCode = -422416
-  size = 229
-  isKeyFrame = true
-  presentationTimeUs = 1042458
-sample:
-  trackType = audio
-  dataHashCode = 833757830
-  size = 6
-  isKeyFrame = true
-  presentationTimeUs = 1065678
 sample:
   trackType = audio
   dataHashCode = 1205768497

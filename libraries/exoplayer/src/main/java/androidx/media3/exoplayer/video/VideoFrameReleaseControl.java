@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.video;
 
 import static androidx.media3.common.util.Util.msToUs;
+import static androidx.media3.exoplayer.video.MediaCodecVideoRenderer.DEFAULT_EARLY_SCHEDULING_THRESHOLD_US;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_STARTED;
@@ -29,8 +30,10 @@ import android.view.Surface;
 import androidx.annotation.FloatRange;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.ExoPlaybackException;
@@ -45,10 +48,10 @@ public final class VideoFrameReleaseControl {
 
   /**
    * The frame release action returned by {@link #getFrameReleaseAction(long, long, long, long,
-   * boolean, boolean, FrameReleaseInfo)}.
+   * boolean, boolean, long, long, FrameReleaseInfo)}.
    *
    * <p>One of {@link #FRAME_RELEASE_IMMEDIATELY}, {@link #FRAME_RELEASE_SCHEDULED}, {@link
-   * #FRAME_RELEASE_DROP}, {@link #FRAME_RELEASE_IGNORE}, {@link ##FRAME_RELEASE_SKIP} or {@link
+   * #FRAME_RELEASE_DROP}, {@link #FRAME_RELEASE_IGNORE}, {@link #FRAME_RELEASE_SKIP} or {@link
    * #FRAME_RELEASE_TRY_AGAIN_LATER}.
    */
   @Documented
@@ -85,6 +88,17 @@ public final class VideoFrameReleaseControl {
 
   /** Signals that a frame should not be released and the caller should try again later. */
   public static final int FRAME_RELEASE_TRY_AGAIN_LATER = 5;
+
+  /**
+   * The fractional threshold of a vsync duration allowed when detecting frame starvation.
+   *
+   * <p>When checking if starvation caused a frame to miss its intended vsync, the gap between frame
+   * releases is expected to exceed the intended presentation gap by at least one vsync duration.
+   * Applying this threshold reduces the required gap to {@code STARVATION_TOLERANCE *
+   * vsyncDurationNs} to account for minor timing fluctuations in vsync arrival or release
+   * execution.
+   */
+  private static final float STARVATION_TOLERANCE = 0.85f;
 
   /** Per {@link FrameReleaseAction} metadata. */
   public static class FrameReleaseInfo {
@@ -166,18 +180,17 @@ public final class VideoFrameReleaseControl {
         throws ExoPlaybackException;
   }
 
-  /** The maximum earliest time, in microseconds, to release a frame on the surface. */
-  private static final long MAX_EARLY_US_THRESHOLD = 50_000;
+  private long earlySchedulingThresholdUs;
 
   private final FrameTimingEvaluator frameTimingEvaluator;
   private final VideoFrameReleaseHelper frameReleaseHelper;
   private final long allowedJoiningTimeMs;
+  private final boolean skipBuffersWithIdenticalReleaseTime;
 
   private boolean started;
   private @C.FirstFrameState int firstFrameState;
   private long initialPositionUs;
   private long lastReleaseRealtimeUs;
-  private long lastPresentationTimeUs;
   private long joiningDeadlineMs;
   private boolean joiningRenderNextFrameImmediately;
   private float playbackSpeed;
@@ -185,30 +198,59 @@ public final class VideoFrameReleaseControl {
   private boolean hasOutputSurface;
   private boolean frameReadyWithoutSurface;
   private boolean disableAdvancingTimestampChecks;
+  private boolean requiresOutputSurface;
+  private long lastFrameReleaseTimeNs;
+  private long prevFrameReleaseTimeNs;
+  private long lastFramePresentationTimeUs;
+  private long prevFramePresentationTimeUs;
 
   /**
    * Creates an instance.
    *
    * @param applicationContext The application context.
    * @param frameTimingEvaluator The {@link FrameTimingEvaluator} that will assist in {@linkplain
-   *     #getFrameReleaseAction(long, long, long, long, boolean, boolean, FrameReleaseInfo) frame
-   *     release actions}.
+   *     #getFrameReleaseAction(long, long, long, long, boolean, boolean, long, long,
+   *     FrameReleaseInfo) frame release actions}.
    * @param allowedJoiningTimeMs The maximum duration in milliseconds for which the caller can
    *     attempt to seamlessly join an ongoing playback.
+   * @param skipBuffersWithIdenticalReleaseTime Whether to skip buffers that have an identical
+   *     release time as the previous released buffer.
    */
   public VideoFrameReleaseControl(
       Context applicationContext,
       FrameTimingEvaluator frameTimingEvaluator,
-      long allowedJoiningTimeMs) {
+      long allowedJoiningTimeMs,
+      boolean skipBuffersWithIdenticalReleaseTime) {
     this.frameTimingEvaluator = frameTimingEvaluator;
     this.allowedJoiningTimeMs = allowedJoiningTimeMs;
+    this.skipBuffersWithIdenticalReleaseTime = skipBuffersWithIdenticalReleaseTime;
     frameReleaseHelper = new VideoFrameReleaseHelper(applicationContext);
     firstFrameState = C.FIRST_FRAME_NOT_RENDERED_ONLY_ALLOWED_IF_STARTED;
     initialPositionUs = C.TIME_UNSET;
-    lastPresentationTimeUs = C.TIME_UNSET;
     joiningDeadlineMs = C.TIME_UNSET;
     playbackSpeed = 1f;
     clock = Clock.DEFAULT;
+    requiresOutputSurface = true;
+    earlySchedulingThresholdUs = DEFAULT_EARLY_SCHEDULING_THRESHOLD_US;
+    resetReleasedFrameState();
+  }
+
+  /**
+   * Sets the threshold for how early a frame may be scheduled for release on the surface.
+   *
+   * <p>Frames that are earlier than this threshold will be held and 'release' will be tried again
+   * later.
+   *
+   * <p>This value is in microseconds. The default value is {@link
+   * MediaCodecVideoRenderer#DEFAULT_EARLY_SCHEDULING_THRESHOLD_US}.
+   *
+   * <p>This method is experimental and will be renamed or removed in a future release.
+   *
+   * @param earlySchedulingThresholdUs The maximum early time threshold in microseconds.
+   */
+  @ExperimentalApi // TODO: b/505688667 - Remove method once threshold is fine-tuned.
+  public void setEarlySchedulingThresholdUs(long earlySchedulingThresholdUs) {
+    this.earlySchedulingThresholdUs = earlySchedulingThresholdUs;
   }
 
   /**
@@ -231,6 +273,7 @@ public final class VideoFrameReleaseControl {
       default:
         throw new IllegalStateException();
     }
+    frameReleaseHelper.onPositionReset();
   }
 
   /** Called when rendering starts. */
@@ -245,6 +288,7 @@ public final class VideoFrameReleaseControl {
     started = false;
     joiningDeadlineMs = C.TIME_UNSET;
     frameReleaseHelper.onStopped();
+    resetReleasedFrameState();
   }
 
   /** Called when the display surface changed. */
@@ -255,9 +299,18 @@ public final class VideoFrameReleaseControl {
     lowerFirstFrameState(C.FIRST_FRAME_NOT_RENDERED);
   }
 
-  /** Sets the frame rate. */
-  public void setFrameRate(float frameRate) {
-    frameReleaseHelper.onFormatChanged(frameRate);
+  /** Sets the surface media frame rate. */
+  public void setSurfaceMediaFrameRate(float surfaceMediaFrameRate) {
+    frameReleaseHelper.setSurfaceMediaFrameRate(surfaceMediaFrameRate);
+  }
+
+  /**
+   * Sets whether an output surface is required for the release control to release frames.
+   *
+   * <p>The default value is {@code true}.
+   */
+  public void setRequiresOutputSurface(boolean requiresOutputSurface) {
+    this.requiresOutputSurface = requiresOutputSurface;
   }
 
   /**
@@ -296,7 +349,7 @@ public final class VideoFrameReleaseControl {
   public boolean isReady(boolean otherwiseReady) {
     if (otherwiseReady
         && (firstFrameState == C.FIRST_FRAME_RENDERED
-            || (!hasOutputSurface && frameReadyWithoutSurface))) {
+            || (frameReadyWithoutSurface && (!hasOutputSurface || !requiresOutputSurface)))) {
       // Ready. If we were joining then we've now joined, so clear the joining deadline.
       joiningDeadlineMs = C.TIME_UNSET;
       return true;
@@ -328,6 +381,11 @@ public final class VideoFrameReleaseControl {
         allowedJoiningTimeMs > 0 ? (clock.elapsedRealtime() + allowedJoiningTimeMs) : C.TIME_UNSET;
   }
 
+  /** Returns whether the release control is currently joining. */
+  public boolean isJoining() {
+    return joiningDeadlineMs != C.TIME_UNSET;
+  }
+
   /**
    * Returns a {@link FrameReleaseAction} for a video frame which instructs the caller what to do
    * with the frame.
@@ -340,6 +398,10 @@ public final class VideoFrameReleaseControl {
    * @param isDecodeOnlyFrame Whether the frame is decode-only because its presentation time is
    *     before the intended start time.
    * @param isLastFrame Whether the frame is known to contain the last frame of the current stream.
+   * @param frameDurationNs The estimated fixed frame duration in nanoseconds, or {@link
+   *     C#TIME_UNSET} if unknown.
+   * @param frameIndex A monotonically increasing index for the frame, or {@link C#INDEX_UNSET} if
+   *     unknown.
    * @param frameReleaseInfo A {@link FrameReleaseInfo} that will be filled with detailed data only
    *     if the method returns {@link #FRAME_RELEASE_IMMEDIATELY} or {@link
    *     #FRAME_RELEASE_SCHEDULED}.
@@ -353,16 +415,14 @@ public final class VideoFrameReleaseControl {
       long outputStreamStartPositionUs,
       boolean isDecodeOnlyFrame,
       boolean isLastFrame,
+      long frameDurationNs,
+      long frameIndex,
       FrameReleaseInfo frameReleaseInfo)
       throws ExoPlaybackException {
     frameReleaseInfo.reset();
 
     if (started && initialPositionUs == C.TIME_UNSET) {
       initialPositionUs = positionUs;
-    }
-    if (lastPresentationTimeUs != presentationTimeUs) {
-      frameReleaseHelper.onNextFrame(presentationTimeUs);
-      lastPresentationTimeUs = presentationTimeUs;
     }
 
     frameReleaseInfo.earlyUs =
@@ -371,8 +431,7 @@ public final class VideoFrameReleaseControl {
     if (isDecodeOnlyFrame && !isLastFrame) {
       return FRAME_RELEASE_SKIP;
     }
-    if (!hasOutputSurface) {
-      frameReadyWithoutSurface = true;
+    if (!hasOutputSurface && requiresOutputSurface) {
       // Skip frames in sync with playback, so we'll be at the right frame if a surface is set.
       if (frameTimingEvaluator.shouldIgnoreFrame(
           frameReleaseInfo.earlyUs,
@@ -382,11 +441,17 @@ public final class VideoFrameReleaseControl {
           /* treatDroppedBuffersAsSkipped= */ true)) {
         return FRAME_RELEASE_IGNORE;
       }
-      return started && frameReleaseInfo.earlyUs < 30_000
-          ? FRAME_RELEASE_SKIP
-          : FRAME_RELEASE_TRY_AGAIN_LATER;
+      if (started && frameReleaseInfo.earlyUs < 30_000) {
+        return FRAME_RELEASE_SKIP;
+      }
+      frameReadyWithoutSurface = true;
+      return FRAME_RELEASE_TRY_AGAIN_LATER;
+    }
+    if (!requiresOutputSurface) {
+      frameReadyWithoutSurface = true;
     }
     if (shouldForceRelease(positionUs, frameReleaseInfo.earlyUs, outputStreamStartPositionUs)) {
+      updateReleasedFrameState(clock.nanoTime(), presentationTimeUs);
       return FRAME_RELEASE_IMMEDIATELY;
     }
     if (!started || positionUs == initialPositionUs) {
@@ -396,7 +461,11 @@ public final class VideoFrameReleaseControl {
     // Calculate release time and adjust earlyUs to screen vsync.
     long systemTimeNs = clock.nanoTime();
     frameReleaseInfo.releaseTimeNs =
-        frameReleaseHelper.adjustReleaseTime(systemTimeNs + (frameReleaseInfo.earlyUs * 1_000));
+        frameReleaseHelper.adjustReleaseTime(
+            systemTimeNs + (frameReleaseInfo.earlyUs * 1_000),
+            presentationTimeUs,
+            frameDurationNs,
+            frameIndex);
     frameReleaseInfo.earlyUs = (frameReleaseInfo.releaseTimeNs - systemTimeNs) / 1_000;
     // While joining, late frames are skipped while we catch up with the playback position.
     boolean treatDropAsSkip =
@@ -408,19 +477,35 @@ public final class VideoFrameReleaseControl {
         frameReleaseInfo.earlyUs, elapsedRealtimeUs, isLastFrame)) {
       // While joining, dropped buffers are considered skipped.
       return treatDropAsSkip ? FRAME_RELEASE_SKIP : FRAME_RELEASE_DROP;
-    } else if (frameReleaseInfo.earlyUs > MAX_EARLY_US_THRESHOLD) {
+    } else if (frameReleaseInfo.earlyUs > earlySchedulingThresholdUs) {
       return FRAME_RELEASE_TRY_AGAIN_LATER;
+    } else if (skipBuffersWithIdenticalReleaseTime
+        && frameReleaseInfo.releaseTimeNs == lastFrameReleaseTimeNs) {
+      return treatSameReleaseTimeAsDropped() ? FRAME_RELEASE_DROP : FRAME_RELEASE_SKIP;
     }
+    updateReleasedFrameState(frameReleaseInfo.releaseTimeNs, presentationTimeUs);
     return FRAME_RELEASE_SCHEDULED;
   }
 
   /** Resets the release control. */
   public void reset() {
     frameReleaseHelper.onPositionReset();
-    lastPresentationTimeUs = C.TIME_UNSET;
     initialPositionUs = C.TIME_UNSET;
     lowerFirstFrameState(C.FIRST_FRAME_NOT_RENDERED);
     joiningDeadlineMs = C.TIME_UNSET;
+    frameReadyWithoutSurface = false;
+    resetReleasedFrameState();
+  }
+
+  /**
+   * Sets the vsync timing data.
+   *
+   * @param vsyncSampleTimeNs The vsync sample time in nanoseconds.
+   * @param vsyncDurationNs The vsync duration in nanoseconds.
+   */
+  @VisibleForTesting
+  public void setVsyncData(long vsyncSampleTimeNs, long vsyncDurationNs) {
+    frameReleaseHelper.setVsyncData(vsyncSampleTimeNs, vsyncDurationNs);
   }
 
   /**
@@ -506,5 +591,47 @@ public final class VideoFrameReleaseControl {
       default:
         throw new IllegalStateException();
     }
+  }
+
+  private void resetReleasedFrameState() {
+    lastFrameReleaseTimeNs = C.TIME_UNSET;
+    prevFrameReleaseTimeNs = C.TIME_UNSET;
+    lastFramePresentationTimeUs = C.TIME_UNSET;
+    prevFramePresentationTimeUs = C.TIME_UNSET;
+  }
+
+  private void updateReleasedFrameState(long releaseTimeNs, long presentationTimeUs) {
+    prevFrameReleaseTimeNs = lastFrameReleaseTimeNs;
+    lastFrameReleaseTimeNs = releaseTimeNs;
+    prevFramePresentationTimeUs = lastFramePresentationTimeUs;
+    lastFramePresentationTimeUs = presentationTimeUs;
+  }
+
+  /**
+   * Evaluates whether two buffers scheduled for identical release times collided because of slow
+   * decoding starvation (DROP) or intentional high-FPS subsampling (SKIP).
+   *
+   * <p>If the actual release timestamp gap between the previous two rendered frames exceeds the
+   * intended presentation timestamp gap by roughly a vsync duration, the renderer fell behind due
+   * to slow decoding and missed a vsync (return {@code true} -> DROP). Otherwise, the renderer is
+   * keeping up with playback speed and duplicate vsync assignments occur due to high content frame
+   * rate exceeding display refresh rate (return {@code false} -> SKIP).
+   */
+  private boolean treatSameReleaseTimeAsDropped() {
+    long vsyncDurationNs = frameReleaseHelper.getVsyncDurationNs();
+    if (lastFrameReleaseTimeNs == C.TIME_UNSET
+        || prevFrameReleaseTimeNs == C.TIME_UNSET
+        || lastFramePresentationTimeUs == C.TIME_UNSET
+        || prevFramePresentationTimeUs == C.TIME_UNSET
+        || vsyncDurationNs == C.TIME_UNSET) {
+      return true;
+    }
+
+    long actualReleaseGapNs = lastFrameReleaseTimeNs - prevFrameReleaseTimeNs;
+    long presentationTimeGapUs = lastFramePresentationTimeUs - prevFramePresentationTimeUs;
+    long intendedReleaseGapNs = (long) ((presentationTimeGapUs * 1000) / (double) playbackSpeed);
+    long toleranceNs = (long) (vsyncDurationNs * STARVATION_TOLERANCE);
+
+    return actualReleaseGapNs >= intendedReleaseGapNs + toleranceNs;
   }
 }

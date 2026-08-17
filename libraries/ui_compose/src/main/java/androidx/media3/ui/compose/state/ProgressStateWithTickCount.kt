@@ -21,13 +21,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import com.google.common.base.Preconditions.checkState
 import kotlinx.coroutines.CoroutineScope
 
 /**
@@ -58,7 +59,7 @@ import kotlinx.coroutines.CoroutineScope
 @UnstableApi
 @Composable
 fun rememberProgressStateWithTickCount(
-  player: Player,
+  player: Player?,
   @IntRange(from = 0) totalTickCount: Int = 0,
   scope: CoroutineScope = rememberCoroutineScope(),
 ): ProgressStateWithTickCount {
@@ -95,10 +96,12 @@ fun rememberProgressStateWithTickCount(
  *   0.0 (represents no progress) and 1.0 (represents full progress and reaching
  *   [Player.getDuration]). Values outside of this range are coerced into the range. Values are
  *   rounded to the nearest multiple of 1/totalTickCount.
+ * @property[durationMs] The duration of the current content or ad in milliseconds, matches
+ *   [Player.getDuration].
  */
 @UnstableApi
 class ProgressStateWithTickCount(
-  private val player: Player,
+  private val player: Player?,
   @IntRange(from = 0) private var totalTickCount: Int = 0,
   scope: CoroutineScope,
 ) {
@@ -108,17 +111,32 @@ class ProgressStateWithTickCount(
   var bufferedPositionProgress by mutableFloatStateOf(0f)
     private set
 
-  private val updateJob =
+  var durationMs by mutableLongStateOf(C.TIME_UNSET)
+    private set
+
+  /**
+   * Whether the user is allowed to change the progress of the player, for example by dragging or
+   * tapping a slider on the UI side or programmatically calling [updateCurrentPositionProgress].
+   *
+   * This value is derived from the underlying [Player] state. It will be `true` only if
+   * [Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM] is available and the duration of the current media
+   * item is known and strictly positive.
+   */
+  var changingProgressEnabled by mutableStateOf(false)
+    private set
+
+  private val updateJob = player?.let {
     ProgressStateJob(
-      player,
-      scope,
-      nextMediaTickMsSupplier = ::nextMediaWakeUpPositionMs,
+      player = it,
+      scope = scope,
+      nextMediaTickMsSupplier = { nextMediaWakeUpPositionMs(player = it) },
       shouldScheduleTask = {
-        isReadyOrBuffering(player) &&
-          canCalculateTicks(totalTickCount, getDurationMsOrDefault(player))
+        isReadyOrBuffering(player = it) &&
+          canCalculateTicks(totalTickCount, getDurationMsOrDefault(player = it))
       },
-      scheduledTask = ::updateProgress,
+      scheduledTask = { updateProgress(player = it) },
     )
+  }
 
   /**
    * Dynamically set [totalTickCount] to another value with the change taking effect immediately,
@@ -127,25 +145,42 @@ class ProgressStateWithTickCount(
   fun updateTotalTickCount(newTotalTickCount: Int) {
     if (totalTickCount != newTotalTickCount) {
       totalTickCount = newTotalTickCount
-      updateJob.cancelPendingUpdatesAndMaybeRelaunch()
+      updateJob?.cancelPendingUpdatesAndMaybeRelaunch()
     }
   }
 
+  /**
+   * Moves the player to a position represented by [progress] which is a value between 0..1,
+   * effectively updating [currentPositionProgress].
+   *
+   * This method does nothing if [Player.duration] is unknown or unset or if
+   * [Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM] is not available.
+   */
+  fun updateCurrentPositionProgress(progress: Float) {
+    val player = player ?: return
+    if (durationMs > 0L && player.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)) {
+      player.seekTo((progress * durationMs).toLong())
+    }
+  }
+
+  /** Converts a progress value (0.0 to 1.0) to a position in the current media in milliseconds. */
+  fun progressToPosition(progress: Float): Long =
+    if (durationMs > 0) (progress * durationMs).toLong() else 0L
+
   init {
     require(totalTickCount >= 0)
-    updateProgress()
+    player?.let { updateProgress(it) }
   }
 
   /**
    * Subscribes to updates from [Player.Events] to track changes of progress-related information in
    * an asynchronous way.
    */
-  suspend fun observe(): Nothing = updateJob.observeProgress()
+  suspend fun observe() = updateJob?.observeProgress()
 
-  private fun nextMediaWakeUpPositionMs(): Long {
-    checkState(totalTickCount != 0)
-    val durationMs = getDurationMsOrDefault(player)
-    checkState(durationMs != C.TIME_UNSET)
+  private fun nextMediaWakeUpPositionMs(player: Player): Long {
+    check(totalTickCount != 0)
+    check(durationMs > 0)
     val currentPositionTick =
       getPositionTick(getCurrentPositionMsOrDefault(player), durationMs, totalTickCount)
     val nextTickIndex = currentPositionTick + 1
@@ -153,12 +188,14 @@ class ProgressStateWithTickCount(
     return (nextTickIndex * durationMs) / totalTickCount - midInterval
   }
 
-  private fun updateProgress() {
-    val duration = getDurationMsOrDefault(player)
+  private fun updateProgress(player: Player) {
+    durationMs = getDurationMsOrDefault(player)
     currentPositionProgress =
-      positionToProgress(getCurrentPositionMsOrDefault(player), duration, totalTickCount)
+      positionToProgress(getCurrentPositionMsOrDefault(player), durationMs, totalTickCount)
     bufferedPositionProgress =
-      positionToProgress(getBufferedPositionMsOrDefault(player), duration, totalTickCount)
+      positionToProgress(getBufferedPositionMsOrDefault(player), durationMs, totalTickCount)
+    changingProgressEnabled =
+      player.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM) && durationMs > 0
   }
 
   private fun getPositionTick(position: Long, duration: Long, totalTickCount: Int): Int {
@@ -180,7 +217,7 @@ class ProgressStateWithTickCount(
   }
 
   private fun canCalculateTicks(totalTickCount: Int, durationMs: Long): Boolean =
-    totalTickCount != 0 && durationMs != C.TIME_UNSET && durationMs > 0L
+    totalTickCount != 0 && durationMs > 0L
 }
 
 private const val POSITION_CORRECTION_OFFSET_MS = 10

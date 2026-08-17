@@ -24,6 +24,7 @@ import android.os.HandlerThread;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -65,6 +66,7 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
 
   private @Mode int asynchronousMode;
   private boolean asyncCryptoFlagEnabled;
+  private boolean asyncCryptoSynchronizationEnabled;
 
   /**
    * @deprecated Use {@link #DefaultMediaCodecAdapterFactory(Context)} instead.
@@ -72,7 +74,6 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
   @Deprecated
   public DefaultMediaCodecAdapterFactory() {
     asynchronousMode = MODE_DEFAULT;
-    asyncCryptoFlagEnabled = false;
     context = null;
     callbackThreadSupplier = null;
     queueingThreadSupplier = null;
@@ -101,7 +102,7 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
       @Nullable Supplier<HandlerThread> queueingThreadSupplier) {
     this.context = context;
     asynchronousMode = MODE_DEFAULT;
-    asyncCryptoFlagEnabled = false;
+    asyncCryptoFlagEnabled = true;
     this.callbackThreadSupplier = callbackThreadSupplier;
     this.queueingThreadSupplier = queueingThreadSupplier;
   }
@@ -131,16 +132,35 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
   }
 
   /**
-   * Sets whether to enable {@link MediaCodec#CONFIGURE_FLAG_USE_CRYPTO_ASYNC} on API 34 and above
-   * for {@link AsynchronousMediaCodecAdapter} instances.
+   * Sets whether to enable {@link MediaCodec#CONFIGURE_FLAG_USE_CRYPTO_ASYNC} on API 36 and above
+   * for {@link AsynchronousMediaCodecAdapter} instances. The default is {@code true}.
    *
-   * <p>This method is experimental. Its default value may change, or it may be renamed or removed
-   * in a future release.
+   * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
-  public DefaultMediaCodecAdapterFactory experimentalSetAsyncCryptoFlagEnabled(
-      boolean enableAsyncCryptoFlag) {
+  public DefaultMediaCodecAdapterFactory setAsyncCryptoFlagEnabled(boolean enableAsyncCryptoFlag) {
     asyncCryptoFlagEnabled = enableAsyncCryptoFlag;
+    return this;
+  }
+
+  /**
+   * Sets whether to force synchronization for queuing input buffers on API 31 and above for {@link
+   * AsynchronousMediaCodecAdapter} instances.
+   *
+   * <p>A known bug in the Android framework (b/149908061) prior to API 31 can cause garbled video
+   * when audio and video are sharing the same DRM session. A workaround was implemented that forces
+   * synchronization for queuing input buffers. This workaround is disabled for devices with API
+   * level &gt;= 31 but can be enabled using this method.
+   *
+   * <p>The default is {@code false}.
+   *
+   * @return This factory, for convenience.
+   */
+  @CanIgnoreReturnValue
+  @ExperimentalApi // TODO: b/502930657 - Remove this method.
+  public DefaultMediaCodecAdapterFactory setAsyncCryptoSynchronizationEnabled(
+      boolean enableAsyncCryptoSynchronization) {
+    asyncCryptoSynchronizationEnabled = enableAsyncCryptoSynchronization;
     return this;
   }
 
@@ -159,7 +179,8 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
               ? new AsynchronousMediaCodecAdapter.Factory(
                   callbackThreadSupplier, queueingThreadSupplier)
               : new AsynchronousMediaCodecAdapter.Factory(trackType);
-      factory.experimentalSetAsyncCryptoFlagEnabled(asyncCryptoFlagEnabled);
+      factory.setAsyncCryptoFlagEnabled(asyncCryptoFlagEnabled);
+      factory.setAsyncCryptoSynchronizationEnabled(asyncCryptoSynchronizationEnabled);
       return factory.createAdapter(configuration);
     }
     return new SynchronousMediaCodecAdapter.Factory().createAdapter(configuration);

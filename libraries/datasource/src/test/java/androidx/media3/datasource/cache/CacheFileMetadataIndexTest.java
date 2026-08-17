@@ -18,16 +18,19 @@ package androidx.media3.datasource.cache;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.media3.database.DatabaseIOException;
-import androidx.media3.test.utils.TestUtil;
+import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.HashSet;
 import java.util.Map;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Tests {@link CacheFileMetadataIndex}. */
 @RunWith(AndroidJUnit4.class)
 public class CacheFileMetadataIndexTest {
+
+  @Rule public final InMemoryDatabaseRule inMemoryDatabaseRule = InMemoryDatabaseRule.create();
 
   @Test
   public void initiallyEmpty() throws DatabaseIOException {
@@ -126,9 +129,9 @@ public class CacheFileMetadataIndexTest {
     assertThat(metadata.lastTouchTimestamp).isEqualTo(123);
   }
 
-  private static CacheFileMetadataIndex newInitializedIndex() throws DatabaseIOException {
+  private CacheFileMetadataIndex newInitializedIndex() throws DatabaseIOException {
     CacheFileMetadataIndex index =
-        new CacheFileMetadataIndex(TestUtil.getInMemoryDatabaseProvider());
+        new CacheFileMetadataIndex(inMemoryDatabaseRule.createDatabaseProvider());
     index.initialize(/* uid= */ 1234);
     return index;
   }

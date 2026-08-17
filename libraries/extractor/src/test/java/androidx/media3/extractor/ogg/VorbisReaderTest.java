@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor.ogg;
 
-import static androidx.media3.extractor.ogg.VorbisReader.readBits;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
@@ -34,14 +33,6 @@ import org.junit.runner.RunWith;
 /** Unit test for {@link VorbisReader}. */
 @RunWith(AndroidJUnit4.class)
 public final class VorbisReaderTest {
-
-  @Test
-  public void readBits_returnsSignificantBitsFromIndex() {
-    assertThat(readBits((byte) 0x00, 2, 2)).isEqualTo(0);
-    assertThat(readBits((byte) 0x02, 1, 1)).isEqualTo(1);
-    assertThat(readBits((byte) 0xF0, 4, 4)).isEqualTo(15);
-    assertThat(readBits((byte) 0x80, 1, 7)).isEqualTo(1);
-  }
 
   @Test
   public void appendNumberOfSamples() {

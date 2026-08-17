@@ -969,7 +969,7 @@ MediaCodecAdapter (media3.audio.opus):
 AudioSink:
   buffer count = 137
   config:
-    pcmEncoding = 2
+    pcmEncoding = pcm-16
     channelCount = 2
     sampleRate = 48000
   buffer #0:

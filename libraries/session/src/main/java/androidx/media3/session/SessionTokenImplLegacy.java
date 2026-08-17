@@ -15,6 +15,8 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.common.util.Util.convertToNullIfInvalid;
 import static androidx.media3.session.SessionToken.TYPE_BROWSER_SERVICE_LEGACY;
 import static androidx.media3.session.SessionToken.TYPE_LIBRARY_SERVICE;
 import static androidx.media3.session.SessionToken.TYPE_SESSION;
@@ -24,6 +26,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.ComponentName;
 import android.media.session.MediaSession;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
@@ -74,7 +77,9 @@ import java.util.Objects;
       @Nullable ComponentName componentName,
       String packageName,
       Bundle extras) {
-    checkArgument(!TextUtils.isEmpty(packageName));
+    // packageName can be blank on some API 36 Samsung devices: b/450752936#comment5
+    checkArgument(
+        (Build.MANUFACTURER.equals("samsung") && SDK_INT == 36) || !TextUtils.isEmpty(packageName));
     this.legacyToken = legacyToken;
     this.uid = uid;
     this.type = type;
@@ -123,6 +128,11 @@ import java.util.Objects;
 
   @Override
   public String getPackageName() {
+    return packageName;
+  }
+
+  @Override
+  public String getOriginalPackageName() {
     return packageName;
   }
 
@@ -208,7 +218,7 @@ import java.util.Objects;
     @Nullable ComponentName componentName = bundle.getParcelable(FIELD_COMPONENT_NAME);
     String packageName = bundle.getString(FIELD_PACKAGE_NAME);
     checkArgument(!TextUtils.isEmpty(packageName), "package name should be set.");
-    @Nullable Bundle extras = bundle.getBundle(FIELD_EXTRAS);
+    @Nullable Bundle extras = convertToNullIfInvalid(bundle.getBundle(FIELD_EXTRAS));
     return new SessionTokenImplLegacy(
         legacyToken, uid, type, componentName, packageName, extras == null ? Bundle.EMPTY : extras);
   }

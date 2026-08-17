@@ -25,10 +25,12 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
 /** Tests for {@link ByteArrayUploadDataProvider}. */
@@ -38,13 +40,13 @@ public final class ByteArrayUploadDataProviderTest {
 
   private static final byte[] TEST_DATA = new byte[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
+  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
   @Mock private UploadDataSink mockUploadDataSink;
   private ByteBuffer byteBuffer;
   private ByteArrayUploadDataProvider byteArrayUploadDataProvider;
 
   @Before
   public void setUp() {
-    MockitoAnnotations.initMocks(this);
     byteBuffer = ByteBuffer.allocate(TEST_DATA.length);
     byteArrayUploadDataProvider = new ByteArrayUploadDataProvider(TEST_DATA);
   }

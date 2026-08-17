@@ -912,8 +912,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
     if (userAgent != null) {
       requestBuilder.addHeader(HttpHeaders.USER_AGENT, userAgent);
     }
-    // TODO: Uncomment when https://bugs.chromium.org/p/chromium/issues/detail?id=711810 is fixed
-    // (adjusting the code as necessary).
+    // TODO: crbug.com/41313195 - Uncomment when is fixed (adjusting the code as necessary).
     // Force identity encoding unless gzip is allowed.
     // if (!dataSpec.isFlagSet(DataSpec.FLAG_ALLOW_GZIP)) {
     //   requestBuilder.addHeader("Accept-Encoding", "identity");

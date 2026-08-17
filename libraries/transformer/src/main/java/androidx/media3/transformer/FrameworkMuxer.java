@@ -16,12 +16,12 @@
 package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.common.util.CodecSpecificDataUtil.calculateMediaCodecDolbyVisionLevel;
 import static androidx.media3.common.util.CodecSpecificDataUtil.getCodecProfileAndLevel;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.transformer.TransformerUtil.getMediaCodecFlags;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static java.lang.Integer.max;
 
 import android.annotation.SuppressLint;
 import android.media.MediaCodec;
@@ -37,6 +37,7 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.muxer.BufferInfo;
@@ -50,7 +51,8 @@ import java.nio.ByteBuffer;
 import java.util.Locale;
 
 /** {@link Muxer} implementation that uses a {@link MediaMuxer}. */
-/* package */ final class FrameworkMuxer implements Muxer {
+@UnstableApi
+public final class FrameworkMuxer implements Muxer {
   /** {@link Muxer.Factory} for {@link FrameworkMuxer}. */
   public static final class Factory implements Muxer.Factory {
     private long videoDurationUs;
@@ -122,6 +124,7 @@ import java.util.Locale;
 
   private boolean isStarted;
   private boolean isReleased;
+  private boolean suppressReleaseException;
 
   private FrameworkMuxer(MediaMuxer mediaMuxer, long videoDurationUs) {
     this.mediaMuxer = mediaMuxer;
@@ -169,6 +172,13 @@ import java.util.Locale;
     return trackIndex;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param trackId The track id, previously returned by {@link #addTrack(Format)}.
+   * @param data A buffer containing the sample data to write to the container.
+   * @param bufferInfo The {@link BufferInfo} of the sample.
+   */
   @Override
   public void writeSampleData(int trackId, ByteBuffer data, BufferInfo bufferInfo)
       throws MuxerException {
@@ -266,11 +276,25 @@ import java.util.Locale;
     try {
       stopMuxer(mediaMuxer);
     } catch (RuntimeException e) {
+      if (suppressReleaseException) {
+        // Suppress OS MediaMuxer.stop() errors on cancel.
+        // Platform muxer implementations throw if stopped without samples (b/488422335,
+        // b/243008015).
+        return;
+      }
       throw new MuxerException(MUXER_STOPPING_FAILED_ERROR_MESSAGE, e);
     } finally {
       mediaMuxer.release();
       isReleased = true;
     }
+  }
+
+  /**
+   * Configures the muxer to suppress stopping failures from the underlying {@link MediaMuxer} in
+   * {@link #close()}.
+   */
+  /* package */ void setSuppressReleaseException() {
+    this.suppressReleaseException = true;
   }
 
   private void startMuxer() throws MuxerException {
@@ -334,7 +358,7 @@ import java.util.Locale;
    *
    * <p>Refer to <a
    * href="https://professionalsupport.dolby.com/s/article/What-is-Dolby-Vision-Profile">Dolby
-   * Vision profiles and levels.</a>.
+   * Vision profiles and levels</a>.
    */
   @RequiresApi(33)
   private static int getDvProfile() {
@@ -342,56 +366,13 @@ import java.util.Locale;
     return MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheSt;
   }
 
-  /**
-   * Get Dolby Vision level
-   *
-   * <p>Refer to <a
-   * href="https://professionalsupport.dolby.com/s/article/What-is-Dolby-Vision-Profile">What are
-   * Dolby Vision profiles and levels</a>.
-   */
+  /** Get Dolby Vision level. */
   @RequiresApi(33)
   private static int getDvLevel(Format format) {
     if (format.codecs != null) {
       Pair<Integer, Integer> profileAndLevel = getCodecProfileAndLevel(format);
       return checkNotNull(profileAndLevel).second;
     }
-    int maxWidthHeight = max(format.width, format.height);
-    checkState(maxWidthHeight <= 7680);
-    float pps = format.width * format.height * format.frameRate;
-
-    int level = -1;
-    if (maxWidthHeight <= 1_280) {
-      if (pps <= 22_118_400) {
-        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelHd24; // Level 01
-      } else { // pps <= 27_648_000
-        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelHd30; // Level 02
-      }
-    } else if (maxWidthHeight <= 1_920 && pps <= 49_766_400) {
-      level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelFhd24; // Level 03
-    } else if (maxWidthHeight <= 2_560 && pps <= 62_208_000) {
-      level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelFhd30; // Level 04
-    } else if (maxWidthHeight <= 3_840) {
-      if (pps <= 124_416_000) {
-        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelFhd60; // Level 05
-      } else if (pps <= 199_065_600) {
-        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd24; // Level 06
-      } else if (pps <= 248_832_000) {
-        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd30; // Level 07
-      } else if (pps <= 398_131_200) {
-        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd48; // Level 08
-      } else if (pps <= 497_664_000) {
-        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd60; // Level 09
-      } else { // pps <= 995_328_000
-        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd120; // Level 10
-      }
-    } else if (maxWidthHeight <= 7_680) {
-      if (pps <= 995_328_000) {
-        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevel8k30; // Level 11
-      } else { // pps <= 1_990_656_000
-        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevel8k60; // Level 12
-      }
-    }
-
-    return level;
+    return calculateMediaCodecDolbyVisionLevel(format.width, format.height, format.frameRate);
   }
 }

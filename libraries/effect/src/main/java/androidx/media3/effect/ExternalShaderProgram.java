@@ -15,13 +15,18 @@
  */
 package androidx.media3.effect;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
+import androidx.annotation.RestrictTo;
+
 /**
  * Interface for a {@link GlShaderProgram} that samples from an external texture.
  *
  * <p>Use {@link #setTextureTransformMatrix(float[])} to provide the texture's transformation
  * matrix.
  */
-/* package */ interface ExternalShaderProgram extends GlShaderProgram {
+@RestrictTo(LIBRARY_GROUP)
+public interface ExternalShaderProgram extends GlShaderProgram {
 
   /**
    * Sets the texture transform matrix for converting an external surface texture's coordinates to

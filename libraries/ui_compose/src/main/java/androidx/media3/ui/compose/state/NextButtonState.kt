@@ -23,7 +23,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.media3.common.Player
-import androidx.media3.common.listenTo
 import androidx.media3.common.util.UnstableApi
 
 /**
@@ -33,7 +32,7 @@ import androidx.media3.common.util.UnstableApi
  */
 @UnstableApi
 @Composable
-fun rememberNextButtonState(player: Player): NextButtonState {
+fun rememberNextButtonState(player: Player?): NextButtonState {
   val nextButtonState = remember(player) { NextButtonState(player) }
   LaunchedEffect(player) { nextButtonState.observe() }
   return nextButtonState
@@ -45,15 +44,30 @@ fun rememberNextButtonState(player: Player): NextButtonState {
  *
  * This button has no internal state to maintain, it can only be enabled or disabled.
  *
- * @property[isEnabled] determined by `isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT)`
+ * @property[isEnabled] true if [player] is not `null` and [Player.COMMAND_SEEK_TO_NEXT] is
+ *   available.
  */
 @UnstableApi
-class NextButtonState(private val player: Player) {
-  var isEnabled by mutableStateOf(isNextEnabled(player))
+class NextButtonState(private val player: Player?) {
+  var isEnabled by mutableStateOf(false)
     private set
 
+  private val playerStateObserver: PlayerStateObserver? =
+    player?.observeState(Player.EVENT_AVAILABLE_COMMANDS_CHANGED) {
+      isEnabled = player.isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT)
+    }
+
+  /**
+   * Handles the interaction with the NextButton by seeking to the next MediaItem, if available, or
+   * to later position in the current MediaItem, if live.
+   *
+   * This method does nothing if [Player.COMMAND_SEEK_TO_NEXT] is not available.
+   *
+   * @see [Player.seekToNext]
+   * @see [Player.COMMAND_SEEK_TO_NEXT]
+   */
   fun onClick() {
-    player.seekToNext()
+    player?.let { if (it.isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT)) it.seekToNext() }
   }
 
   /**
@@ -61,10 +75,7 @@ class NextButtonState(private val player: Player) {
    * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED] in order to determine whether the button should be
    * enabled, i.e. respond to user input.
    */
-  suspend fun observe(): Nothing {
-    isEnabled = isNextEnabled(player)
-    player.listenTo(Player.EVENT_AVAILABLE_COMMANDS_CHANGED) { isEnabled = isNextEnabled(this) }
+  suspend fun observe() {
+    playerStateObserver?.observe()
   }
-
-  private fun isNextEnabled(player: Player) = player.isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT)
 }

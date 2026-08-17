@@ -2,13 +2,13 @@ AudioSink:
   buffer count = 137
   discontinuity:
   config:
-    pcmEncoding = 2
+    pcmEncoding = pcm-16
     channelCount = 2
     sampleRate = 48000
   buffer #0:
     time = 1000000000000
-    channel[0] = -1753516094
-    channel[1] = -1753516094
+    channel[0] = 2056505953
+    channel[1] = 2056505953
   buffer #1:
     time = 1000000021000
     channel[0] = 31500824
@@ -75,8 +75,8 @@ AudioSink:
     channel[1] = -443003472
   buffer #17:
     time = 1000000341000
-    channel[0] = 1177984278
-    channel[1] = 1177984278
+    channel[0] = 380793397
+    channel[1] = 380793397
   buffer #18:
     time = 1000000361000
     channel[0] = 305891024
@@ -91,8 +91,8 @@ AudioSink:
     channel[1] = -1697145383
   buffer #21:
     time = 1000000421000
-    channel[0] = 1407580178
-    channel[1] = 1407580178
+    channel[0] = 1722274801
+    channel[1] = 1722274801
   buffer #22:
     time = 1000000441000
     channel[0] = 180814993
@@ -551,5 +551,5 @@ AudioSink:
     channel[1] = 1326821356
   buffer #136:
     time = 1000002721000
-    channel[0] = 1454142017
-    channel[1] = 1454142017
+    channel[0] = 1546851393
+    channel[1] = 1546851393

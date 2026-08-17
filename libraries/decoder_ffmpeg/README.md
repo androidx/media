@@ -49,42 +49,31 @@ HOST_PLATFORM="linux-x86_64"
 ANDROID_ABI=21
 ```
 
-*   Fetch FFmpeg and checkout an appropriate branch. We cannot guarantee
-    compatibility with all versions of FFmpeg. We currently recommend version
-    6.0:
-
-```
-cd "<preferred location for ffmpeg>" && \
-git clone git://source.ffmpeg.org/ffmpeg && \
-cd ffmpeg && \
-git checkout release/6.0 && \
-FFMPEG_PATH="$(pwd)"
-```
-
-* Configure the decoders to include. See the [Supported formats][] page for
-  details of the available decoders, and which formats they support.
+*   Configure the decoders to include. See the [Supported formats][] page for
+    details of the available decoders, and which formats they support.
 
 ```
 ENABLED_DECODERS=(vorbis opus flac h264 hevc)
 ```
 
-*   Add a link to the FFmpeg source code in the FFmpeg module `jni` directory.
+*   Fetch FFmpeg and checkout an appropriate branch. We cannot guarantee
+    compatibility with all versions of FFmpeg. We currently recommend version
+    6.0:
 
-```
+```shell
 cd "${FFMPEG_MODULE_PATH}/jni" && \
-ln -s "$FFMPEG_PATH" ffmpeg
+git clone git://source.ffmpeg.org/ffmpeg --branch=release/6.0 --depth=1
 ```
 
-* Execute `build_ffmpeg.sh` to build FFmpeg for `armeabi-v7a`, `arm64-v8a`,
-  `x86` and `x86_64`. The script can be edited if you need to build for
-  different architectures:
+*   Execute `build_ffmpeg.sh` to build FFmpeg for `armeabi-v7a`, `arm64-v8a`,
+    `x86` and `x86_64`. The script can be edited if you need to build for
+    different architectures:
 
 ```
 cd "${FFMPEG_MODULE_PATH}/jni" && \
 ./build_ffmpeg.sh \
   "${FFMPEG_MODULE_PATH}" "${NDK_PATH}" "${HOST_PLATFORM}" "${ANDROID_ABI}" "${ENABLED_DECODERS[@]}"
 ```
-
 
 Attempt to Rotate ``AVPixelFormat::AV_PIX_FMT_YUV420P`` & Copy the Pixels to ``ANativeWindow`` Buffer. The `libyuv` is also required. 
 
@@ -112,6 +101,12 @@ cd "${FFMPEG_MODULE_PATH}/jni" && \
 ./build_yuv.sh \
   "${FFMPEG_MODULE_PATH}" "${NDK_PATH}" "${ANDROID_ABI}"
 ```
+
+* [Install CMake][]
+
+Having followed these steps, gradle will build the module automatically when run
+on the command line or via Android Studio, using [CMake][] and [Ninja][] to
+configure and build the module's [JNI wrapper library][].
 
 ## Build instructions (Windows)
 
@@ -151,6 +146,10 @@ then implement your own logic to use the renderer for a given track.
 
 [top level README]: ../../README.md
 [Android NDK]: https://developer.android.com/tools/sdk/ndk/index.html
+[Ninja]: https://ninja-build.org/
+[Install CMake]: https://developer.android.com/studio/projects/install-ndk
+[CMake]: https://cmake.org/
+[JNI wrapper library]: src/main/jni/ffmpeg_jni.cc
 [ExoPlayer issue 2781]: https://github.com/google/ExoPlayer/issues/2781
 [Supported formats]: https://developer.android.com/media/media3/exoplayer/supported-formats#ffmpeg-library
 

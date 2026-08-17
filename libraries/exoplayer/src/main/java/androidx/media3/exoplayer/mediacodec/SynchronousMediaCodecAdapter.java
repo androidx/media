@@ -34,6 +34,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.CryptoInfo;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.List;
 
 /**
  * A {@link MediaCodecAdapter} that operates the underlying {@link MediaCodec} in synchronous mode.
@@ -212,5 +213,17 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
   @RequiresApi(26)
   public PersistableBundle getMetrics() {
     return codec.getMetrics();
+  }
+
+  @Override
+  @RequiresApi(31)
+  public void subscribeToVendorParameters(List<String> names) {
+    codec.subscribeToVendorParameters(names);
+  }
+
+  @Override
+  @RequiresApi(31)
+  public void unsubscribeFromVendorParameters(List<String> names) {
+    codec.unsubscribeFromVendorParameters(names);
   }
 }

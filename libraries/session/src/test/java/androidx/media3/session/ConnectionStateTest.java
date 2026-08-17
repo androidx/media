@@ -46,7 +46,7 @@ public class ConnectionStateTest {
     ConnectionState connectionState =
         new ConnectionState(
             MediaLibraryInfo.VERSION_INT,
-            MediaSessionStub.VERSION_INT,
+            MediaLibraryInfo.INTERFACE_VERSION,
             new MediaSessionStub(session.getImpl()),
             /* sessionActivity= */ PendingIntent.getActivity(
                 context,
@@ -75,11 +75,12 @@ public class ConnectionStateTest {
             tokenExtras,
             sessionExtras,
             PlayerInfo.DEFAULT.copyWithIsPlaying(true),
-            session.getPlatformToken());
+            session.getPlatformToken(),
+            /* packageNameOverride= */ "com.example.session");
 
     ConnectionState restoredConnectionState =
         ConnectionState.fromBundle(
-            connectionState.toBundleForRemoteProcess(MediaControllerStub.VERSION_INT));
+            connectionState.toBundleForRemoteProcess(MediaLibraryInfo.INTERFACE_VERSION));
     session.release();
     player.release();
 
@@ -102,6 +103,7 @@ public class ConnectionStateTest {
     assertThat(restoredConnectionState.sessionExtras.getString("key")).isEqualTo("session");
     assertThat(restoredConnectionState.playerInfo.isPlaying).isTrue();
     assertThat(restoredConnectionState.platformToken).isEqualTo(connectionState.platformToken);
+    assertThat(restoredConnectionState.packageNameOverride).isEqualTo("com.example.session");
   }
 
   @Test
@@ -113,7 +115,7 @@ public class ConnectionStateTest {
     ConnectionState connectionState =
         new ConnectionState(
             MediaLibraryInfo.VERSION_INT,
-            MediaSessionStub.VERSION_INT,
+            MediaLibraryInfo.INTERFACE_VERSION,
             new MediaSessionStub(session.getImpl()),
             /* sessionActivity= */ null,
             /* customLayout= */ ImmutableList.of(),
@@ -128,11 +130,12 @@ public class ConnectionStateTest {
             /* tokenExtras= */ Bundle.EMPTY,
             /* sessionExtras= */ Bundle.EMPTY,
             PlayerInfo.DEFAULT,
-            session.getPlatformToken());
+            session.getPlatformToken(),
+            /* packageNameOverride= */ "androidx.media3.session");
 
     ConnectionState restoredConnectionState =
         ConnectionState.fromBundle(
-            connectionState.toBundleForRemoteProcess(/* controllerInterfaceVersion= */ 6));
+            connectionState.toBundleForRemoteProcess(/* interfaceVersion= */ 6));
     session.release();
     player.release();
 

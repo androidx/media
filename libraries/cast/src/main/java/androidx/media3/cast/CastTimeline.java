@@ -18,6 +18,7 @@ package androidx.media3.cast;
 import android.util.SparseArray;
 import android.util.SparseIntArray;
 import androidx.annotation.Nullable;
+import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
@@ -179,7 +180,14 @@ import java.util.Arrays;
   @Override
   public Period getPeriod(int periodIndex, Period period, boolean setIds) {
     int id = ids[periodIndex];
-    return period.set(id, id, periodIndex, durationsUs[periodIndex], 0);
+    return period.set(
+        id,
+        /* uid= */ id,
+        periodIndex,
+        durationsUs[periodIndex],
+        /* positionInWindowUs= */ 0,
+        AdPlaybackState.NONE,
+        /* isPlaceholder= */ false);
   }
 
   @Override
@@ -205,7 +213,8 @@ import java.util.Arrays;
     return Arrays.equals(ids, that.ids)
         && Arrays.equals(durationsUs, that.durationsUs)
         && Arrays.equals(defaultPositionsUs, that.defaultPositionsUs)
-        && Arrays.equals(isLive, that.isLive);
+        && Arrays.equals(isLive, that.isLive)
+        && Arrays.equals(mediaItems, that.mediaItems);
   }
 
   @Override
@@ -214,6 +223,7 @@ import java.util.Arrays;
     result = 31 * result + Arrays.hashCode(durationsUs);
     result = 31 * result + Arrays.hashCode(defaultPositionsUs);
     result = 31 * result + Arrays.hashCode(isLive);
+    result = 31 * result + Arrays.hashCode(mediaItems);
     return result;
   }
 }

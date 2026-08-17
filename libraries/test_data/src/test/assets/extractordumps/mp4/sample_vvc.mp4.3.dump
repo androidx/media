@@ -1,0 +1,128 @@
+seekMap:
+  isSeekable = true
+  duration = 5000000
+  getPosition(0) = [[timeUs=958333, position=44]]
+  getPosition(1) = [[timeUs=958333, position=44]]
+  getPosition(2500000) = [[timeUs=1958333, position=9220], [timeUs=2958333, position=53955]]
+  getPosition(5000000) = [[timeUs=4958333, position=146587]]
+numberOfTracks = 1
+track 0:
+  total output bytes = 80468
+  sample count = 24
+  track duration = 5000000
+  format 0:
+    averageBitrate = 348689
+    peakBitrate = 600000
+    id = 1
+    containerMimeType = video/mp4
+    sampleMimeType = video/vvc
+    codecs = vvc1.1.L32
+    maxInputSize = 16546
+    maxNumReorderSamples = 16
+    width = 320
+    height = 180
+    frameRate = 23.04
+    colorInfo:
+      lumaBitdepth = 10
+      chromaBitdepth = 10
+    language = und
+    metadata = entries=[TIT2: description=null: values=[Big Buck Bunny], TPE1: description=null: values=[Blender Foundation], TCOM: description=null: values=[Blender Foundation], TDRC: description=null: values=[2008], TSSE: description=null: values=[Lavf62.6.101], Mp4Timestamp: creation time=0, modification time=0, timescale=1000, ThumbnailMetadata: presentationTimeUs=4958333]
+    initializationData:
+      data = length 185, hash D461B74C
+  sample 0:
+    time = 4958333
+    flags = 1
+    data = length 16516, hash BA1C422B
+  sample 1:
+    time = 4625000
+    flags = 0
+    data = length 9838, hash 3531ED89
+  sample 2:
+    time = 4291666
+    flags = 0
+    data = length 8027, hash CF317FE8
+  sample 3:
+    time = 4125000
+    flags = 0
+    data = length 4333, hash 4C36FF1F
+  sample 4:
+    time = 4041666
+    flags = 0
+    data = length 3104, hash 8B907839
+  sample 5:
+    time = 4000000
+    flags = 0
+    data = length 2461, hash AA6376B5
+  sample 6:
+    time = 4083333
+    flags = 0
+    data = length 1125, hash FC33088A
+  sample 7:
+    time = 4208333
+    flags = 0
+    data = length 2717, hash 9E0259D3
+  sample 8:
+    time = 4166666
+    flags = 0
+    data = length 1049, hash FC1B1D43
+  sample 9:
+    time = 4250000
+    flags = 0
+    data = length 1139, hash 20D1B36C
+  sample 10:
+    time = 4458333
+    flags = 0
+    data = length 4341, hash FB09F37A
+  sample 11:
+    time = 4375000
+    flags = 0
+    data = length 2789, hash 24D27462
+  sample 12:
+    time = 4333333
+    flags = 0
+    data = length 976, hash 3D64D617
+  sample 13:
+    time = 4416666
+    flags = 0
+    data = length 1148, hash 5BB4061C
+  sample 14:
+    time = 4541666
+    flags = 0
+    data = length 2627, hash FFF06004
+  sample 15:
+    time = 4500000
+    flags = 0
+    data = length 2502, hash 23BA4A62
+  sample 16:
+    time = 4583333
+    flags = 0
+    data = length 1130, hash A23B3C81
+  sample 17:
+    time = 4791666
+    flags = 0
+    data = length 4589, hash B6E5DEB3
+  sample 18:
+    time = 4708333
+    flags = 0
+    data = length 2539, hash 6E2CC130
+  sample 19:
+    time = 4666666
+    flags = 0
+    data = length 1308, hash 3A7352D2
+  sample 20:
+    time = 4750000
+    flags = 0
+    data = length 1338, hash 557CACBD
+  sample 21:
+    time = 4875000
+    flags = 0
+    data = length 2305, hash 19348723
+  sample 22:
+    time = 4833333
+    flags = 0
+    data = length 1422, hash 4641FAD9
+  sample 23:
+    time = 4916666
+    flags = 536870912
+    data = length 1145, hash BFE8F765
+tracksEnded = true

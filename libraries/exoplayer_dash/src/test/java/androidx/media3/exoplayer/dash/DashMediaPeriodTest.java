@@ -15,8 +15,13 @@
  */
 package androidx.media3.exoplayer.dash;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.net.Uri;
@@ -34,7 +39,10 @@ import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.source.CompositeSequenceableLoaderFactory;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
+import androidx.media3.exoplayer.source.SampleStream;
 import androidx.media3.exoplayer.source.TrackGroupArray;
+import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
+import androidx.media3.exoplayer.trackselection.FixedTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoaderErrorThrower;
@@ -42,11 +50,13 @@ import androidx.media3.test.utils.MediaPeriodAsserts;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 
 /** Unit tests for {@link DashMediaPeriod}. */
 @RunWith(AndroidJUnit4.class)
@@ -144,6 +154,24 @@ public final class DashMediaPeriodTest {
   }
 
   @Test
+  public void trickPlayProperty_withMultipleIds_mergesTrackGroups() throws IOException {
+    DashManifest manifest = parseManifest("media/mpd/sample_mpd_trick_play_property_multiple_ids");
+    DashMediaPeriod dashMediaPeriod = createDashMediaPeriod(manifest, 0);
+    List<AdaptationSet> adaptationSets = manifest.getPeriod(0).adaptationSets;
+
+    TrackGroupArray expectedTrackGroups =
+        new TrackGroupArray(
+            new TrackGroup(
+                /* id= */ "3000000000",
+                adaptationSets.get(0).representations.get(0).format,
+                adaptationSets.get(0).representations.get(1).format,
+                adaptationSets.get(1).representations.get(0).format,
+                adaptationSets.get(2).representations.get(0).format));
+
+    MediaPeriodAsserts.assertTrackGroups(dashMediaPeriod, expectedTrackGroups);
+  }
+
+  @Test
   public void trickPlayProperty_withIncompatibleFormats_mergesOnlyCompatibleTrackGroups()
       throws IOException {
     DashManifest manifest = parseManifest("media/mpd/sample_mpd_trick_play_property_incompatible");
@@ -198,8 +226,8 @@ public final class DashMediaPeriodTest {
     DashMediaPeriod dashMediaPeriod = createDashMediaPeriod(manifest, 0);
     List<AdaptationSet> adaptationSets = manifest.getPeriod(0).adaptationSets;
 
-    // We expect two adaptation sets. The first containing the video representations, and the second
-    // containing the embedded CEA-608 tracks.
+    // We expect three track groups. The first containing the video representations,
+    // and the other two containing the embedded CEA-608 tracks.
     Format.Builder cea608FormatBuilder =
         new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_CEA608);
     TrackGroupArray expectedTrackGroups =
@@ -209,16 +237,20 @@ public final class DashMediaPeriodTest {
                 adaptationSets.get(0).representations.get(0).format,
                 adaptationSets.get(0).representations.get(1).format),
             new TrackGroup(
-                /* id= */ "123:cc",
+                /* id= */ "123:cc:0",
                 cea608FormatBuilder
                     .setId("123:cea608:1")
                     .setLanguage("eng")
                     .setAccessibilityChannel(1)
-                    .build(),
+                    .setPrimaryTrackGroupId("123")
+                    .build()),
+            new TrackGroup(
+                /* id= */ "123:cc:1",
                 cea608FormatBuilder
                     .setId("123:cea608:3")
                     .setLanguage("deu")
                     .setAccessibilityChannel(3)
+                    .setPrimaryTrackGroupId("123")
                     .build()));
 
     MediaPeriodAsserts.assertTrackGroups(dashMediaPeriod, expectedTrackGroups);
@@ -230,8 +262,8 @@ public final class DashMediaPeriodTest {
     DashMediaPeriod dashMediaPeriod = createDashMediaPeriod(manifest, 0);
     List<AdaptationSet> adaptationSets = manifest.getPeriod(0).adaptationSets;
 
-    // We expect two adaptation sets. The first containing the video representations, and the second
-    // containing the embedded CEA-708 tracks.
+    // We expect three track groups. The first containing the video representations,
+    // and the other two containing the embedded CEA-708 tracks.
     Format.Builder cea608FormatBuilder =
         new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_CEA708);
     TrackGroupArray expectedTrackGroups =
@@ -241,24 +273,138 @@ public final class DashMediaPeriodTest {
                 adaptationSets.get(0).representations.get(0).format,
                 adaptationSets.get(0).representations.get(1).format),
             new TrackGroup(
-                /* id= */ "123:cc",
+                /* id= */ "123:cc:0",
                 cea608FormatBuilder
                     .setId("123:cea708:1")
                     .setLanguage("eng")
                     .setAccessibilityChannel(1)
-                    .build(),
+                    .setPrimaryTrackGroupId("123")
+                    .build()),
+            new TrackGroup(
+                /* id= */ "123:cc:1",
                 cea608FormatBuilder
                     .setId("123:cea708:2")
                     .setLanguage("deu")
                     .setAccessibilityChannel(2)
+                    .setPrimaryTrackGroupId("123")
                     .build()));
 
     MediaPeriodAsserts.assertTrackGroups(dashMediaPeriod, expectedTrackGroups);
   }
 
+  @Test
+  public void inbandEventStream_createsEmsgTrackGroups() throws IOException {
+    DashManifest manifest = parseManifest("media/mpd/sample_mpd_inband_event_stream");
+    DashMediaPeriod dashMediaPeriod = createDashMediaPeriod(manifest, /* periodIndex= */ 0);
+    List<AdaptationSet> adaptationSets = manifest.getPeriod(0).adaptationSets;
+    // We expect 4 sets: 2 video sets, and 2 embedded EMSG tracks (one for each video set).
+    Format.Builder emsgFormatBuilder =
+        new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_EMSG);
+    TrackGroupArray expectedTrackGroups =
+        new TrackGroupArray(
+            new TrackGroup(
+                /* id= */ "100",
+                adaptationSets.get(0).representations.get(0).format,
+                adaptationSets.get(0).representations.get(1).format),
+            new TrackGroup(
+                /* id= */ "100:emsg",
+                emsgFormatBuilder.setId("100:emsg").setPrimaryTrackGroupId("100").build()),
+            new TrackGroup(/* id= */ "101", adaptationSets.get(1).representations.get(0).format),
+            new TrackGroup(
+                /* id= */ "101:emsg",
+                emsgFormatBuilder.setId("101:emsg").setPrimaryTrackGroupId("101").build()));
+
+    MediaPeriodAsserts.assertTrackGroups(dashMediaPeriod, expectedTrackGroups);
+  }
+
+  @Test
+  public void buildSampleStream_enclosesAllClosedCaptions() throws IOException {
+    DashManifest manifest = parseManifest("media/mpd/sample_mpd_cea_608_accessibility");
+    DashChunkSource.Factory factory = mock(DashChunkSource.Factory.class);
+    DashMediaPeriod dashMediaPeriod = createDashMediaPeriod(manifest, factory, 0);
+
+    ExoTrackSelection primaryTrackSelection =
+        new FixedTrackSelection(dashMediaPeriod.getTrackGroups().get(0), /* track= */ 0);
+
+    ImmutableList<Format> closedCaptionsFormats =
+        ImmutableList.of(
+            dashMediaPeriod
+                .getTrackGroups()
+                .get(1)
+                .getFormat(0)
+                .buildUpon()
+                .setPrimaryTrackGroupId(null)
+                .build(),
+            dashMediaPeriod
+                .getTrackGroups()
+                .get(2)
+                .getFormat(0)
+                .buildUpon()
+                .setPrimaryTrackGroupId(null)
+                .build());
+
+    SampleStream[] streams = new SampleStream[4];
+    long unused =
+        dashMediaPeriod.selectTracks(
+            new ExoTrackSelection[] {primaryTrackSelection},
+            new boolean[4],
+            streams,
+            new boolean[4],
+            /* positionUs= */ 0L);
+
+    // Mockito's ArgumentCaptor.forClass(List.class) erases the generic type List<Format>,
+    // so we must cast it and suppress the unchecked warning.
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<List<Format>> closedCaptionFormatsCaptor = ArgumentCaptor.forClass(List.class);
+
+    verify(factory)
+        .createDashChunkSource(
+            any(),
+            any(),
+            any(),
+            anyInt(),
+            any(),
+            any(),
+            anyInt(),
+            anyLong(),
+            anyBoolean(),
+            closedCaptionFormatsCaptor.capture(),
+            any(),
+            any(),
+            any(),
+            any());
+
+    assertThat(closedCaptionFormatsCaptor.getValue())
+        .containsExactlyElementsIn(closedCaptionsFormats)
+        .inOrder();
+  }
+
+  @Test
+  public void selectTracks_withEmptySegmentTimeline_doesNotCrash() throws IOException {
+    DashManifest manifest = parseManifest("media/dash/empty-segment-timeline/sample.mpd");
+    DashMediaPeriod dashMediaPeriod = createDashMediaPeriod(manifest, /* periodIndex= */ 0);
+    ExoTrackSelection trackSelection =
+        new FixedTrackSelection(dashMediaPeriod.getTrackGroups().get(0), /* track= */ 0);
+    SampleStream[] sampleStreams = new SampleStream[1];
+
+    long unused =
+        dashMediaPeriod.selectTracks(
+            new ExoTrackSelection[] {trackSelection},
+            new boolean[1],
+            sampleStreams,
+            new boolean[1],
+            /* positionUs= */ 0L);
+
+    assertThat(sampleStreams[0]).isNotNull();
+  }
+
   private static DashMediaPeriod createDashMediaPeriod(DashManifest manifest, int periodIndex) {
+    return createDashMediaPeriod(manifest, mock(DashChunkSource.Factory.class), periodIndex);
+  }
+
+  private static DashMediaPeriod createDashMediaPeriod(
+      DashManifest manifest, DashChunkSource.Factory chunkSourceFactory, int periodIndex) {
     MediaPeriodId mediaPeriodId = new MediaPeriodId(/* periodUid= */ new Object());
-    DashChunkSource.Factory chunkSourceFactory = mock(DashChunkSource.Factory.class);
     when(chunkSourceFactory.getOutputTextFormat(any()))
         .then(invocation -> invocation.getArguments()[0]);
     return new DashMediaPeriod(

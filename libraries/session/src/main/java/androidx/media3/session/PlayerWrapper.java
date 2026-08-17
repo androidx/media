@@ -26,6 +26,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
 import androidx.annotation.Nullable;
+import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
@@ -938,6 +939,7 @@ import java.util.List;
         getVolumeWithCommandCheck(),
         /* unmuteVolume= */ 1f,
         getAudioAttributesWithCommandCheck(),
+        C.AUDIO_SESSION_ID_UNSET,
         getCurrentCuesWithCommandCheck(),
         getDeviceInfo(),
         getDeviceVolumeWithCommandCheck(),
@@ -1019,8 +1021,9 @@ import java.util.List;
           /* uid= */ UID,
           /* windowIndex= */ 0,
           durationUs,
-          /* positionInWindowUs= */ 0);
-      period.isPlaceholder = isPlaceholder;
+          /* positionInWindowUs= */ 0,
+          AdPlaybackState.NONE,
+          isPlaceholder);
       return period;
     }
 

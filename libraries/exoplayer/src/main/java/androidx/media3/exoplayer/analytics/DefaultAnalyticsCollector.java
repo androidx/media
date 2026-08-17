@@ -53,6 +53,7 @@ import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.drm.DrmSession;
+import androidx.media3.exoplayer.drm.KeyRequestInfo;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
@@ -89,7 +90,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
    */
   public DefaultAnalyticsCollector(Clock clock) {
     this.clock = checkNotNull(clock);
-    listeners = new ListenerSet<>(Util.getCurrentOrMainLooper(), clock, (listener, flags) -> {});
+    listeners = new ListenerSet<>(Util.getCurrentOrMainLooper());
     period = new Period();
     window = new Window();
     mediaPeriodQueueTracker = new MediaPeriodQueueTracker(period);
@@ -132,6 +133,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
     listeners =
         listeners.copy(
             looper,
+            clock,
             (listener, flags) ->
                 listener.onEvents(player, new AnalyticsListener.Events(flags, eventTimes)));
   }
@@ -852,12 +854,17 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
   }
 
   @Override
-  public final void onDrmKeysLoaded(int windowIndex, @Nullable MediaPeriodId mediaPeriodId) {
+  @SuppressWarnings("deprecation") // Calls deprecated listener method.
+  public void onDrmKeysLoaded(
+      int windowIndex, @Nullable MediaPeriodId mediaPeriodId, KeyRequestInfo keyRequestInfo) {
     EventTime eventTime = generateMediaPeriodEventTime(windowIndex, mediaPeriodId);
     sendEvent(
         eventTime,
         AnalyticsListener.EVENT_DRM_KEYS_LOADED,
-        listener -> listener.onDrmKeysLoaded(eventTime));
+        listener -> {
+          listener.onDrmKeysLoaded(eventTime);
+          listener.onDrmKeysLoaded(eventTime, keyRequestInfo);
+        });
   }
 
   @Override

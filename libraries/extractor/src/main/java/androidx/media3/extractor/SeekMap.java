@@ -144,4 +144,15 @@ public interface SeekMap {
    * @return The corresponding seek points.
    */
   SeekPoints getSeekPoints(long timeUs);
+
+  /**
+   * Returns whether this {@link SeekMap} is based on estimations. The default value is {@code
+   * false}.
+   *
+   * <p>An example of this is depending on the declared byte length of a stream or file, rather than
+   * a media byte length derived from metadata from within the stream itself.
+   */
+  default boolean isEstimated() {
+    return false;
+  }
 }

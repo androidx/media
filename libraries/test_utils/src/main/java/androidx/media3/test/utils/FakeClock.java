@@ -16,7 +16,6 @@
 package androidx.media3.test.utils;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Build;
 import android.os.Handler;
@@ -28,6 +27,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.UnstableApi;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
@@ -174,7 +174,20 @@ public class FakeClock implements Clock {
   private long timeSinceBootMs;
 
   @GuardedBy("this")
-  private boolean waitingForMessage;
+  @Nullable
+  private Looper activeMessageLooper;
+
+  /**
+   * Tracks the looper of the active task being executed on the current thread.
+   *
+   * <p>Under Robolectric PAUSED looper mode, explicit calls to {@code shadowOf(looper).idle()} on
+   * background loopers will execute tasks inline on the calling thread (typically the main test
+   * thread). If those tasks block, {@link #onThreadBlocked()} is called. Without this thread-local
+   * tracking, {@link Looper#myLooper()} would return the calling thread's looper (e.g., the main
+   * looper) instead of the targeted background looper, breaking blocked thread tracking and causing
+   * deadlocks.
+   */
+  private static final ThreadLocal<Looper> activeThreadLocalLooper = new ThreadLocal<>();
 
   /**
    * Creates a fake clock that doesn't auto-advance and assumes that the system was booted exactly
@@ -281,30 +294,40 @@ public class FakeClock implements Clock {
 
   @Override
   public synchronized void onThreadBlocked() {
-    @Nullable Looper currentLooper = Looper.myLooper();
-    if (currentLooper == null || !waitingForMessage) {
+    if (activeMessageLooper == null) {
       // This isn't a looper message created by this class, so no need to handle the blocking.
       return;
     }
+    Looper threadLocalLooper = activeThreadLocalLooper.get();
+    @Nullable
+    Looper currentLooper = threadLocalLooper != null ? threadLocalLooper : Looper.myLooper();
+    if (currentLooper == null) {
+      return;
+    }
     busyLoopers.add(currentLooper);
-    ThreadTestUtil.unblockThreadsWaitingForProgressOnCurrentLooper();
-    waitingForMessage = false;
+    ThreadTestUtil.unblockThreadsWaitingForProgressOnLooper(currentLooper);
+    activeMessageLooper = null;
     maybeTriggerMessage();
   }
 
   /** Adds a message to the list of pending messages. */
   protected synchronized void addPendingHandlerMessage(HandlerMessage message) {
     handlerMessages.add(message);
-    if (!waitingForMessage) {
+    if (activeMessageLooper == null) {
       // This method isn't executed from inside a looper message created by this class.
-      @Nullable Looper currentLooper = Looper.myLooper();
+      Looper threadLocalLooper = activeThreadLocalLooper.get();
+      @Nullable
+      Looper currentLooper = threadLocalLooper != null ? threadLocalLooper : Looper.myLooper();
       if (currentLooper == null) {
         // This message is triggered from a non-looper thread, so just execute it directly.
         maybeTriggerMessage();
       } else {
         // Make sure the current looper message is finished before handling the new message.
-        waitingForMessage = true;
-        new Handler(checkNotNull(Looper.myLooper())).post(this::onMessageHandled);
+        activeMessageLooper = currentLooper;
+        // Prevent deadlocks when the current looper rejects the message without throwing.
+        if (!postOnMessageHandled(currentLooper, new Handler(currentLooper))) {
+          onMessageHandled(currentLooper);
+        }
       }
     }
   }
@@ -317,6 +340,16 @@ public class FakeClock implements Clock {
       }
     }
     handler.handler.removeMessages(what);
+  }
+
+  private synchronized void removePendingHandlerMessages(ClockHandler handler, Runnable runnable) {
+    for (int i = handlerMessages.size() - 1; i >= 0; i--) {
+      HandlerMessage message = handlerMessages.get(i);
+      if (message.handler.equals(handler) && message.runnable == runnable) {
+        handlerMessages.remove(i);
+      }
+    }
+    handler.handler.removeCallbacks(runnable);
   }
 
   private synchronized void removePendingHandlerMessages(
@@ -341,7 +374,7 @@ public class FakeClock implements Clock {
   }
 
   private synchronized void maybeTriggerMessage() {
-    if (waitingForMessage) {
+    if (activeMessageLooper != null) {
       return;
     }
     if (handlerMessages.isEmpty()) {
@@ -379,25 +412,37 @@ public class FakeClock implements Clock {
       }
     }
     handlerMessages.remove(messageIndex);
-    waitingForMessage = true;
-    boolean messageSent;
+    Looper targetLooper = message.handler.getLooper();
+    activeMessageLooper = targetLooper;
+    boolean messageSent = false;
     Handler realHandler = message.handler.handler;
-    if (message.runnable != null) {
-      messageSent = realHandler.post(message.runnable);
-    } else {
-      messageSent =
-          realHandler.sendMessage(
-              realHandler.obtainMessage(message.what, message.arg1, message.arg2, message.obj));
+    try {
+      if (message.runnable != null) {
+        Runnable targetRunnable = message.runnable;
+        messageSent =
+            realHandler.post(() -> executeWithLooperContext(targetLooper, targetRunnable));
+      } else {
+        messageSent =
+            realHandler.sendMessage(
+                realHandler.obtainMessage(message.what, message.arg1, message.arg2, message.obj));
+      }
+      if (messageSent) {
+        messageSent = postOnMessageHandled(targetLooper, message.handler.internalHandler);
+      }
+    } catch (IllegalStateException e) {
+      // In Robolectric PAUSED looper mode, sending a message to a Handler on a dead thread throws
+      // IllegalStateException instead of returning false.
+      messageSent = false;
     }
-    messageSent &= message.handler.internalHandler.post(this::onMessageHandled);
     if (!messageSent) {
-      onMessageHandled();
+      onMessageHandled(targetLooper);
     }
   }
 
-  private synchronized void onMessageHandled() {
-    busyLoopers.remove(Looper.myLooper());
-    waitingForMessage = false;
+  private synchronized void onMessageHandled(Looper looper) {
+    if (!busyLoopers.remove(looper)) {
+      activeMessageLooper = null;
+    }
     maybeTriggerMessage();
   }
 
@@ -405,6 +450,14 @@ public class FakeClock implements Clock {
     timeSinceBootMs += timeDiffMs;
     if (isRobolectric) {
       SystemClock.setCurrentTimeMillis(timeSinceBootMs);
+    }
+  }
+
+  private boolean postOnMessageHandled(Looper looper, Handler handler) {
+    try {
+      return handler.post(() -> onMessageHandled(looper));
+    } catch (IllegalStateException e) {
+      return false;
     }
   }
 
@@ -496,7 +549,11 @@ public class FakeClock implements Clock {
     public final Handler internalHandler;
 
     public ClockHandler(Looper looper, @Nullable Callback callback) {
-      handler = new Handler(looper, callback);
+      Callback wrappingCallback =
+          callback == null
+              ? null
+              : msg -> executeWithLooperContext(looper, () -> callback.handleMessage(msg));
+      handler = new Handler(looper, wrappingCallback);
       internalHandler = new Handler(looper);
     }
 
@@ -580,6 +637,11 @@ public class FakeClock implements Clock {
     }
 
     @Override
+    public void removeCallbacks(Runnable runnable) {
+      removePendingHandlerMessages(/* handler= */ this, runnable);
+    }
+
+    @Override
     public void removeCallbacksAndMessages(@Nullable Object token) {
       removePendingHandlerMessages(/* handler= */ this, token);
     }
@@ -611,6 +673,49 @@ public class FakeClock implements Clock {
               /* obj= */ null,
               runnable)
           .sendToTarget();
+    }
+  }
+
+  private void executeWithLooperContext(Looper looper, Runnable task) {
+    executeWithLooperContext(
+        looper,
+        () -> {
+          task.run();
+          return true;
+        });
+  }
+
+  @CanIgnoreReturnValue
+  private boolean executeWithLooperContext(Looper looper, Supplier<Boolean> task) {
+    Looper oldLooper = activeThreadLocalLooper.get();
+    activeThreadLocalLooper.set(looper);
+    try {
+      return task.get();
+    } finally {
+      activeThreadLocalLooper.set(oldLooper);
+      synchronized (this) {
+        if (!isLooperQueueActive(looper)) {
+          activeMessageLooper = null;
+          maybeTriggerMessage();
+        }
+      }
+    }
+  }
+
+  private static boolean isLooperQueueActive(Looper looper) {
+    if (!looper.getThread().isAlive()) {
+      return false;
+    }
+    Handler handler = new Handler(looper);
+    Runnable testMessage = () -> {};
+    try {
+      if (handler.post(testMessage)) {
+        handler.removeCallbacks(testMessage);
+        return true;
+      }
+      return false;
+    } catch (IllegalStateException e) {
+      return false;
     }
   }
 }

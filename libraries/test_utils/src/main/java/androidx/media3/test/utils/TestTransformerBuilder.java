@@ -17,11 +17,13 @@ package androidx.media3.test.utils;
 
 import android.content.Context;
 import android.os.Looper;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.muxer.BufferInfo;
@@ -30,10 +32,9 @@ import androidx.media3.muxer.MuxerException;
 import androidx.media3.transformer.AssetLoader;
 import androidx.media3.transformer.Codec;
 import androidx.media3.transformer.Composition;
-import androidx.media3.transformer.DefaultAssetLoaderFactory;
-import androidx.media3.transformer.DefaultDecoderFactory;
 import androidx.media3.transformer.DefaultEncoderFactory;
 import androidx.media3.transformer.DefaultMuxer;
+import androidx.media3.transformer.ExportException;
 import androidx.media3.transformer.ExportResult;
 import androidx.media3.transformer.Transformer;
 import com.google.common.collect.ImmutableList;
@@ -57,13 +58,13 @@ public final class TestTransformerBuilder {
 
   private final Context context;
   private final List<Transformer.Listener> listeners;
-  private final Clock clock;
 
+  private Clock clock;
   private @MonotonicNonNull String audioMimeType;
   private boolean trimOptimizationEnabled;
   private boolean mp4EditListTrimEnabled;
   private long maxDelayBetweenMuxerSamplesMs;
-  private AssetLoader.Factory assetLoaderFactory;
+  private AssetLoader.@MonotonicNonNull Factory assetLoaderFactory;
   private Muxer.Factory muxerFactory;
   private boolean fallbackEnabled;
   private Looper looper;
@@ -75,12 +76,6 @@ public final class TestTransformerBuilder {
     listeners = new ArrayList<>();
     clock = new FakeClock(/* isAutoAdvancing= */ true);
     maxDelayBetweenMuxerSamplesMs = Transformer.DEFAULT_MAX_DELAY_BETWEEN_MUXER_SAMPLES_MS;
-    assetLoaderFactory =
-        new DefaultAssetLoaderFactory(
-            context,
-            new DefaultDecoderFactory.Builder(context).build(),
-            clock,
-            /* logSessionId= */ null);
     muxerFactory = new DefaultMuxer.Factory();
     looper = Util.getCurrentOrMainLooper();
   }
@@ -106,6 +101,7 @@ public final class TestTransformerBuilder {
    * @see Transformer.Builder#experimentalSetTrimOptimizationEnabled(boolean)
    */
   @CanIgnoreReturnValue
+  @ExperimentalApi // TODO: b/289983417 - Remove legacy subtitle decoding paths.
   public TestTransformerBuilder experimentalSetTrimOptimizationEnabled(
       boolean trimOptimizationEnabled) {
     this.trimOptimizationEnabled = trimOptimizationEnabled;
@@ -120,6 +116,7 @@ public final class TestTransformerBuilder {
    * @see Transformer.Builder#experimentalSetMp4EditListTrimEnabled(boolean)
    */
   @CanIgnoreReturnValue
+  @ExperimentalApi // TODO: b/470388636 - Experiment with MP4 Edit list trimming.
   public TestTransformerBuilder experimentalSetMp4EditListTrimEnabled(boolean enabled) {
     this.mp4EditListTrimEnabled = enabled;
     return this;
@@ -226,6 +223,21 @@ public final class TestTransformerBuilder {
     return this;
   }
 
+  /**
+   * Sets the {@link Clock} that will be used by the transformer.
+   *
+   * <p>The default value is a {@link FakeClock} instance.
+   *
+   * @param clock The {@link Clock} instance.
+   * @return This builder.
+   */
+  @CanIgnoreReturnValue
+  @VisibleForTesting
+  public TestTransformerBuilder setClock(Clock clock) {
+    this.clock = clock;
+    return this;
+  }
+
   /** Builds a {@link Transformer} instance for testing with Robolectric. */
   public Transformer build() {
     Codec.EncoderFactory encoderFactory =
@@ -235,12 +247,14 @@ public final class TestTransformerBuilder {
             .experimentalSetTrimOptimizationEnabled(trimOptimizationEnabled)
             .experimentalSetMp4EditListTrimEnabled(mp4EditListTrimEnabled)
             .setMaxDelayBetweenMuxerSamplesMs(maxDelayBetweenMuxerSamplesMs)
-            .setAssetLoaderFactory(assetLoaderFactory)
             .setMuxerFactory(
                 forceTransformerToFail ? new FailingMuxer.Factory(muxerFactory) : muxerFactory)
             .setEncoderFactory(encoderFactory)
             .setLooper(looper)
             .setClock(clock);
+    if (assetLoaderFactory != null) {
+      transformerBuilder.setAssetLoaderFactory(assetLoaderFactory);
+    }
     if (audioMimeType != null) {
       transformerBuilder.setAudioMimeType(audioMimeType);
     }

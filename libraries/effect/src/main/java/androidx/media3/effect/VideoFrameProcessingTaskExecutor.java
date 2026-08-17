@@ -15,6 +15,7 @@
  */
 package androidx.media3.effect;
 
+import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -62,7 +63,7 @@ import java.util.concurrent.TimeoutException;
     void onError(VideoFrameProcessingException exception);
   }
 
-  private static final long EXECUTOR_SERVICE_TIMEOUT_MS = 500;
+  private static final long EXECUTOR_SERVICE_TIMEOUT_MS = isRunningOnEmulator() ? 5000 : 500;
 
   private final boolean shouldShutdownExecutorService;
   private final ExecutorService singleThreadExecutorService;

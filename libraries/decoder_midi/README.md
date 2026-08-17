@@ -8,7 +8,13 @@ MIDI commands and render the PCM output.
 
 The easiest way to get the module is to add it as a gradle dependency:
 
-```gradle
+```kotlin
+implementation("androidx.media3:media3-exoplayer-midi:1.X.X")
+```
+
+Or in Gradle Groovy DSL `build.gradle`:
+
+```groovy
 implementation 'androidx.media3:media3-exoplayer-midi:1.X.X'
 ```
 
@@ -22,7 +28,15 @@ The module depends on [JSyn][] as a maven dependency from
 [jitpack.io](https://jitpack.io) and you will need to define the maven
 repository in your build scripts. For example, add
 
-```gradle
+```kotlin
+repositories {
+    maven { url = uri("https://jitpack.io") }
+}
+```
+
+Or in Gradle Groovy DSL `build.gradle`:
+
+```groovy
 repositories {
     maven { url 'https://jitpack.io' }
 }

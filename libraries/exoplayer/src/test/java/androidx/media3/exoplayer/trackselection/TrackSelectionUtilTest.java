@@ -34,6 +34,7 @@ import android.graphics.Point;
 import androidx.media3.common.Format;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.Tracks;
+import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -63,8 +64,16 @@ public class TrackSelectionUtilTest {
             },
             new int[] {ADAPTIVE_SEAMLESS, ADAPTIVE_NOT_SUPPORTED},
             new int[][][] {
-              new int[][] {new int[] {FORMAT_HANDLED}, new int[] {FORMAT_UNSUPPORTED_SUBTYPE}},
-              new int[][] {new int[] {FORMAT_UNSUPPORTED_DRM, FORMAT_EXCEEDS_CAPABILITIES}}
+              new int[][] {
+                new int[] {RendererCapabilities.create(FORMAT_HANDLED)},
+                new int[] {RendererCapabilities.create(FORMAT_UNSUPPORTED_SUBTYPE)}
+              },
+              new int[][] {
+                new int[] {
+                  RendererCapabilities.create(FORMAT_UNSUPPORTED_DRM),
+                  RendererCapabilities.create(FORMAT_EXCEEDS_CAPABILITIES)
+                }
+              }
             },
             new TrackGroupArray(new TrackGroup(new Format.Builder().build())));
     TrackSelection[] selections =
@@ -119,7 +128,13 @@ public class TrackSelectionUtilTest {
             },
             new int[] {ADAPTIVE_SEAMLESS, ADAPTIVE_SEAMLESS},
             new int[][][] {
-              new int[][] {new int[] {FORMAT_HANDLED}, new int[] {FORMAT_HANDLED, FORMAT_HANDLED}},
+              new int[][] {
+                new int[] {RendererCapabilities.create(FORMAT_HANDLED)},
+                new int[] {
+                  RendererCapabilities.create(FORMAT_HANDLED),
+                  RendererCapabilities.create(FORMAT_HANDLED)
+                }
+              },
               new int[][] {new int[0]}
             },
             new TrackGroupArray());

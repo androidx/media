@@ -15,8 +15,8 @@
  */
 package androidx.media3.transformer.mh;
 
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_AV1_VIDEO;
-import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_AV1_VIDEO;
+import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
@@ -35,12 +35,14 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.io.File;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /** End-to-end instrumentation test for {@link Transformer} with {@link InAppMp4Muxer}. */
+@Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(AndroidJUnit4.class)
 public class TransformerWithInAppMp4MuxerEndToEndMhTest {
   @Rule public final TestName testName = new TestName();

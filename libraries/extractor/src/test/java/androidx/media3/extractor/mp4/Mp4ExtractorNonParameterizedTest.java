@@ -18,10 +18,18 @@ package androidx.media3.extractor.mp4;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
+import androidx.media3.common.C;
+import androidx.media3.common.DataReader;
 import androidx.media3.common.Format;
+import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.extractor.Extractor;
+import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.PositionHolder;
+import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.SniffFailure;
+import androidx.media3.extractor.TrackAwareSeekMap;
+import androidx.media3.extractor.TrackOutput;
+import androidx.media3.extractor.TrackOutput.CryptoData;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.test.utils.DumpFileAsserts;
@@ -34,6 +42,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -115,13 +125,14 @@ public final class Mp4ExtractorNonParameterizedTest {
       }
     }
     ImmutableList.Builder<Long> trackSeekTimesUs = ImmutableList.builder();
-    long testPositionUs = output.seekMap.getDurationUs() / 2;
+    TrackAwareSeekMap seekMap = (TrackAwareSeekMap) output.seekMap;
+    long testPositionUs = seekMap.getDurationUs() / 2;
 
     for (int i = 0; i < output.numberOfTracks; i++) {
       int trackId = output.trackOutputs.keyAt(i);
-      trackSeekTimesUs.add(extractor.getSeekPoints(testPositionUs, trackId).first.timeUs);
+      trackSeekTimesUs.add(seekMap.getSeekPoints(testPositionUs, trackId).first.timeUs);
     }
-    long extractorSeekTimeUs = extractor.getSeekPoints(testPositionUs).first.timeUs;
+    long extractorSeekTimeUs = seekMap.getSeekPoints(testPositionUs).first.timeUs;
 
     assertThat(output.numberOfTracks).isEqualTo(2);
     assertThat(extractorSeekTimeUs).isIn(trackSeekTimesUs.build());
@@ -210,6 +221,149 @@ public final class Mp4ExtractorNonParameterizedTest {
     // Importantly, check that no actual sample data was output
     assertThat(output.trackOutputs.get(0).getSampleCount()).isEqualTo(0);
     assertThat(output.trackOutputs.get(1).getSampleCount()).isEqualTo(0);
+  }
+
+  @Test
+  public void extract_withOmitTrackSampleTableFlagAndNoStssBox_extractsCorrectMetadata()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    String inputFilePath = "media/mp4/sample_without_stss.mp4";
+    Mp4Extractor mp4Extractor =
+        new Mp4Extractor(
+            new DefaultSubtitleParserFactory(),
+            /* flags= */ Mp4Extractor.FLAG_OMIT_TRACK_SAMPLE_TABLE);
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(mp4Extractor, context, inputFilePath);
+
+    assertThat(output.seekMap).isNotNull();
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(1001000);
+    assertThat(output.seekMap.isSeekable()).isTrue();
+    assertThat(output.numberOfTracks).isEqualTo(1);
+    // Check Video Track Format
+    Format videoFormat = output.trackOutputs.get(0).lastFormat;
+    assertThat(videoFormat.sampleMimeType).isEqualTo("video/avc");
+    assertThat(videoFormat.width).isEqualTo(1080);
+    assertThat(videoFormat.height).isEqualTo(720);
+    // Importantly, check that no actual sample data was output
+    assertThat(output.trackOutputs.get(0).getSampleCount()).isEqualTo(0);
+  }
+
+  @Test
+  public void extract_h264WithoutGopParsingFlags() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    String inputFilePath = "media/mp4/sample.mp4";
+    Mp4Extractor mp4Extractor =
+        new Mp4Extractor(new DefaultSubtitleParserFactory(), /* flags= */ 0);
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(mp4Extractor, context, inputFilePath);
+
+    String dumpFilePath = getDumpFilePath(inputFilePath, "_without_gop_parsing_flags");
+    DumpFileAsserts.assertOutput(context, output, dumpFilePath);
+  }
+
+  @Test
+  public void extract_h265WithoutGopParsingFlags() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    String inputFilePath = "media/mp4/h265_bframes.mp4";
+    Mp4Extractor mp4Extractor =
+        new Mp4Extractor(new DefaultSubtitleParserFactory(), /* flags= */ 0);
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(mp4Extractor, context, inputFilePath);
+
+    String dumpFilePath = getDumpFilePath(inputFilePath, "_without_gop_parsing_flags");
+    DumpFileAsserts.assertOutput(context, output, dumpFilePath);
+  }
+
+  @Test
+  public void extract_withPoorlyMuxedIt35Track_extractsMetadataBeforeVideo() throws Exception {
+    Mp4Extractor extractor = new Mp4Extractor(SubtitleParser.Factory.UNSUPPORTED);
+    FakeExtractorInput input = createInputForSample("sample_with_it35_track.mp4");
+
+    List<Integer> extractedTrackTypes = new ArrayList<>();
+    List<Long> extractedTimeUs = new ArrayList<>();
+    ExtractorOutput output =
+        new ExtractorOutput() {
+          @Override
+          public TrackOutput track(int id, int type) {
+            return new TrackOutput() {
+              private final byte[] scratch = new byte[4096];
+
+              @Override
+              public void format(Format format) {}
+
+              @Override
+              public int sampleData(
+                  DataReader input, int length, boolean allowEndOfInput, int sampleDataPart)
+                  throws IOException {
+                return input.read(scratch, 0, Math.min(length, scratch.length));
+              }
+
+              @Override
+              public void sampleData(ParsableByteArray data, int length, int sampleDataPart) {
+                data.skipBytes(length);
+              }
+
+              @Override
+              public void sampleMetadata(
+                  long timeUs, int flags, int size, int offset, CryptoData cryptoData) {
+                extractedTrackTypes.add(type);
+                extractedTimeUs.add(timeUs);
+              }
+            };
+          }
+
+          @Override
+          public void endTracks() {}
+
+          @Override
+          public void seekMap(SeekMap seekMap) {}
+        };
+
+    extractor.init(output);
+    PositionHolder seekPositionHolder = new PositionHolder();
+    int readResult = Extractor.RESULT_CONTINUE;
+
+    while (readResult != Extractor.RESULT_END_OF_INPUT) {
+      readResult = extractor.read(input, seekPositionHolder);
+      if (readResult == Extractor.RESULT_SEEK) {
+        input.setPosition((int) seekPositionHolder.position);
+      }
+    }
+
+    // There are 30 video samples and 30 metadata samples in sample_with_it35_track.mp4.
+    assertThat(extractedTrackTypes).hasSize(60);
+    // Verify that IT35 metadata samples are loaded BEFORE any video samples that share or
+    // exceed their timestamp.
+    // Which means: If a metadata sample is loaded AFTER a video sample, its timestamp
+    // must strictly EXCEED the video sample's timestamp.
+    for (int i = 0; i < extractedTrackTypes.size(); i++) {
+      if (extractedTrackTypes.get(i) == C.TRACK_TYPE_VIDEO) {
+        long videoTimeUs = extractedTimeUs.get(i);
+        for (int j = i + 1; j < extractedTrackTypes.size(); j++) {
+          if (extractedTrackTypes.get(j) == C.TRACK_TYPE_METADATA) {
+            long metadataTimeUs = extractedTimeUs.get(j);
+            assertThat(metadataTimeUs).isGreaterThan(videoTimeUs);
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  public void extract_withUuidBox_extractsXmpMetadata() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    String inputFilePath = "media/mp4/sample_with_xmp_uuid.mp4";
+    Mp4Extractor mp4Extractor =
+        new Mp4Extractor(new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_XMP_METADATA);
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(mp4Extractor, context, inputFilePath);
+
+    String dumpFilePath = getDumpFilePath(inputFilePath, "_with_flag_read_xmp_metadata");
+    DumpFileAsserts.assertOutput(context, output, dumpFilePath);
   }
 
   private static String getDumpFilePath(String inputFilePath, String suffix) {

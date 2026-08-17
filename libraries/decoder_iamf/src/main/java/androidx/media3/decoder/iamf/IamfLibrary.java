@@ -40,7 +40,7 @@ public final class IamfLibrary {
   /**
    * Override the names of the IAMF native libraries. If an application wishes to call this method,
    * it must do so before calling any other method defined by this class, and before instantiating a
-   * {@link LibiamfAudioRenderer} instance.
+   * {@link IamfAudioRenderer} instance.
    *
    * @param libraries The names of the IAMF native libraries.
    */

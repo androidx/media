@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.util.SparseArray;
+import android.util.SparseIntArray;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -43,6 +44,7 @@ import java.util.Comparator;
  * A {@link Dumpable} {@link Muxer} implementation that supports dumping information about all
  * interactions (for testing purposes) and forwards method calls to the underlying {@link Muxer}.
  */
+// TODO: b/445455798 - Delete CapturingMuxer and directly validate output file.
 public final class CapturingMuxer implements Muxer, Dumpable {
 
   /**
@@ -61,7 +63,7 @@ public final class CapturingMuxer implements Muxer, Dumpable {
      *     dumping}, where PCM audio is captured in batches of a fixed size.
      */
     public Factory(boolean handleAudioAsPcm) {
-      this(handleAudioAsPcm, new DefaultMuxer.Factory());
+      this(handleAudioAsPcm, new InAppMp4Muxer.Factory());
     }
 
     /**
@@ -102,7 +104,7 @@ public final class CapturingMuxer implements Muxer, Dumpable {
   private final boolean handleAudioAsPcm;
   private final SparseArray<DumpableFormat> dumpableFormatByTrackType;
   private final SparseArray<DumpableStream> dumpableStreamByTrackType;
-  private final SparseArray<Integer> trackIdToType;
+  private final SparseIntArray trackIdToType;
   private final ArrayList<Metadata.Entry> metadataList;
   private boolean released;
 
@@ -112,7 +114,7 @@ public final class CapturingMuxer implements Muxer, Dumpable {
     this.handleAudioAsPcm = handleAudioAsPcm;
     dumpableFormatByTrackType = new SparseArray<>();
     dumpableStreamByTrackType = new SparseArray<>();
-    trackIdToType = new SparseArray<>();
+    trackIdToType = new SparseIntArray();
     metadataList = new ArrayList<>();
   }
 
@@ -140,7 +142,7 @@ public final class CapturingMuxer implements Muxer, Dumpable {
   @Override
   public void writeSampleData(int trackId, ByteBuffer data, BufferInfo bufferInfo)
       throws MuxerException {
-    @C.TrackType int trackType = checkNotNull(trackIdToType.get(trackId));
+    @C.TrackType int trackType = trackIdToType.get(trackId);
     dumpableStreamByTrackType
         .get(trackType)
         .addSample(

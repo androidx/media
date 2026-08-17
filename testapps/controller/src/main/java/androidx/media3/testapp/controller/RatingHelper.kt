@@ -37,6 +37,7 @@ import androidx.media3.session.MediaController
 /** Helper class to manage displaying and setting different kinds of media ratings. */
 class RatingHelper(private val rootView: ViewGroup, private val mediaController: MediaController) {
   private var ratingUiHelper: RatingUiHelper?
+
   init {
     ratingUiHelper = ratingUiHelperFor(rootView, mediaController.mediaMetadata)
 
@@ -63,7 +64,7 @@ class RatingHelper(private val rootView: ViewGroup, private val mediaController:
 
   private fun ratingUiHelperFor(
     viewGroup: ViewGroup,
-    mediaMetadata: MediaMetadata
+    mediaMetadata: MediaMetadata,
   ): RatingUiHelper? {
     val rating: Rating? = mediaMetadata.userRating ?: mediaMetadata.overallRating
     viewGroup.visibility = View.VISIBLE
@@ -92,7 +93,7 @@ class RatingHelper(private val rootView: ViewGroup, private val mediaController:
 @SuppressWarnings("FutureReturnValueIgnored")
 private abstract class RatingUiHelper(
   private val rootView: ViewGroup,
-  mediaController: MediaController
+  mediaController: MediaController,
 ) {
   private var currentRating: Rating = unrated()
 

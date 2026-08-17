@@ -38,6 +38,7 @@ import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.source.BaseMediaSource;
+import androidx.media3.exoplayer.source.ClippingMediaPeriod;
 import androidx.media3.exoplayer.source.ForwardingTimeline;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
@@ -48,7 +49,6 @@ import androidx.media3.exoplayer.source.TimelineWithUpdatedMediaItem;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.test.utils.FakeMediaPeriod.TrackDataFactory;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ObjectArrays;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -338,7 +338,7 @@ public class FakeMediaSource extends BaseMediaSource {
     if (timeline == null) {
       return;
     }
-    timeline = new TimelineWithUpdatedMediaItem(timeline, mediaItem);
+    timeline = TimelineWithUpdatedMediaItem.create(timeline, mediaItem);
     if (preparedSource && preparationAllowed) {
       refreshSourceInfo(timeline);
     }
@@ -388,6 +388,10 @@ public class FakeMediaSource extends BaseMediaSource {
         createEventDispatcher(period.windowIndex, id);
     DrmSessionEventListener.EventDispatcher drmEventDispatcher =
         createDrmEventDispatcher(period.windowIndex, id);
+    long nextAdGroupTimeUs =
+        id.nextAdGroupIndex != C.INDEX_UNSET
+            ? period.getAdGroupTimeUs(id.nextAdGroupIndex)
+            : C.TIME_UNSET;
     MediaPeriod mediaPeriod =
         createMediaPeriod(
             id,
@@ -397,6 +401,14 @@ public class FakeMediaSource extends BaseMediaSource {
             drmSessionManager,
             drmEventDispatcher,
             transferListener);
+    if (nextAdGroupTimeUs != C.TIME_UNSET) {
+      mediaPeriod =
+          new ClippingMediaPeriod(
+              mediaPeriod,
+              /* enableInitialDiscontinuity= */ true,
+              /* startUs= */ 0,
+              /* endUs= */ nextAdGroupTimeUs);
+    }
     activeMediaPeriods.add(mediaPeriod);
     createdMediaPeriods.add(id);
     return mediaPeriod;
@@ -564,25 +576,13 @@ public class FakeMediaSource extends BaseMediaSource {
           createEventDispatcher(/* mediaPeriodId= */ null);
       long loadTaskId = LoadEventInfo.getNewId();
       eventDispatcher.loadStarted(
-          new LoadEventInfo(
-              loadTaskId,
-              FAKE_DATA_SPEC,
-              FAKE_DATA_SPEC.uri,
-              /* responseHeaders= */ ImmutableMap.of(),
-              elapsedRealTimeMs,
-              /* loadDurationMs= */ 0,
-              /* bytesLoaded= */ 0),
+          new LoadEventInfo.Builder(loadTaskId, FAKE_DATA_SPEC, elapsedRealTimeMs).build(),
           mediaLoadData,
           /* retryCount= */ 0);
       eventDispatcher.loadCompleted(
-          new LoadEventInfo(
-              loadTaskId,
-              FAKE_DATA_SPEC,
-              FAKE_DATA_SPEC.uri,
-              /* responseHeaders= */ ImmutableMap.of(),
-              elapsedRealTimeMs,
-              /* loadDurationMs= */ 0,
-              /* bytesLoaded= */ MANIFEST_LOAD_BYTES),
+          new LoadEventInfo.Builder(loadTaskId, FAKE_DATA_SPEC, elapsedRealTimeMs)
+              .setBytesLoaded(MANIFEST_LOAD_BYTES)
+              .build(),
           mediaLoadData);
     }
   }

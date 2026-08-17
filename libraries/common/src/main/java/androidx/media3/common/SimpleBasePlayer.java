@@ -43,6 +43,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -52,6 +53,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
@@ -116,6 +118,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       private PlaybackParameters playbackParameters;
       private TrackSelectionParameters trackSelectionParameters;
       private AudioAttributes audioAttributes;
+      private int audioSessionId;
       private float volume;
       private float unmuteVolume;
       private VideoSize videoSize;
@@ -162,6 +165,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
         playbackParameters = PlaybackParameters.DEFAULT;
         trackSelectionParameters = TrackSelectionParameters.DEFAULT;
         audioAttributes = AudioAttributes.DEFAULT;
+        audioSessionId = C.AUDIO_SESSION_ID_UNSET;
         volume = 1f;
         unmuteVolume = 1f;
         videoSize = VideoSize.UNKNOWN;
@@ -208,6 +212,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
         this.playbackParameters = state.playbackParameters;
         this.trackSelectionParameters = state.trackSelectionParameters;
         this.audioAttributes = state.audioAttributes;
+        this.audioSessionId = state.audioSessionId;
         this.volume = state.volume;
         this.unmuteVolume = state.unmuteVolume;
         this.videoSize = state.videoSize;
@@ -425,6 +430,18 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       @CanIgnoreReturnValue
       public Builder setAudioAttributes(AudioAttributes audioAttributes) {
         this.audioAttributes = audioAttributes;
+        return this;
+      }
+
+      /**
+       * Sets the current audio session ID.
+       *
+       * @param audioSessionId The current audio session ID.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setAudioSessionId(int audioSessionId) {
+        this.audioSessionId = audioSessionId;
         return this;
       }
 
@@ -876,6 +893,9 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     /** The current {@link AudioAttributes}. */
     public final AudioAttributes audioAttributes;
 
+    /** The current audio session ID. */
+    public final int audioSessionId;
+
     /** The current audio volume, with 0 being silence and 1 being unity gain (signal unchanged). */
     @FloatRange(from = 0, to = 1.0)
     public final float volume;
@@ -1094,6 +1114,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       this.playbackParameters = builder.playbackParameters;
       this.trackSelectionParameters = builder.trackSelectionParameters;
       this.audioAttributes = builder.audioAttributes;
+      this.audioSessionId = builder.audioSessionId;
       this.volume = builder.volume;
       this.unmuteVolume = builder.unmuteVolume;
       this.videoSize = builder.videoSize;
@@ -2197,7 +2218,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   private final ListenerSet<Listener> listeners;
   private final Looper applicationLooper;
   private final HandlerWrapper applicationHandler;
-  private final HashSet<ListenableFuture<?>> pendingOperations;
+  private final Set<ListenableFuture<?>> pendingOperations;
   private final Timeline.Period period;
 
   private @MonotonicNonNull State state;
@@ -2223,7 +2244,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   protected SimpleBasePlayer(Looper applicationLooper, Clock clock) {
     this.applicationLooper = applicationLooper;
     applicationHandler = clock.createHandler(applicationLooper, /* callback= */ null);
-    pendingOperations = new HashSet<>();
+    pendingOperations = Sets.newIdentityHashSet();
     period = new Timeline.Period();
     @SuppressWarnings("nullness:argument.type.incompatible") // Using this in constructor.
     ListenerSet<Player.Listener> listenerSet =
@@ -2786,6 +2807,12 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   public final AudioAttributes getAudioAttributes() {
     verifyApplicationThreadAndInitState();
     return state.audioAttributes;
+  }
+
+  @Override
+  public final int getAudioSessionId() {
+    verifyApplicationThreadAndInitState();
+    return state.audioSessionId;
   }
 
   @Override
@@ -3792,6 +3819,11 @@ public abstract class SimpleBasePlayer extends BasePlayer {
           Player.EVENT_AUDIO_ATTRIBUTES_CHANGED,
           listener -> listener.onAudioAttributesChanged(newState.audioAttributes));
     }
+    if (previousState.audioSessionId != newState.audioSessionId) {
+      listeners.queueEvent(
+          Player.EVENT_AUDIO_SESSION_ID,
+          listener -> listener.onAudioSessionIdChanged(newState.audioSessionId));
+    }
     if (!previousState.videoSize.equals(newState.videoSize)) {
       listeners.queueEvent(
           Player.EVENT_VIDEO_SIZE_CHANGED,
@@ -4071,10 +4103,9 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     @Nullable Object windowUid = null;
     @Nullable Object periodUid = null;
     int mediaItemIndex = getCurrentMediaItemIndexInternal(state);
-    int periodIndex = C.INDEX_UNSET;
+    int periodIndex = getCurrentPeriodIndexInternal(state, window, period);
     @Nullable MediaItem mediaItem = null;
     if (!state.timeline.isEmpty()) {
-      periodIndex = getCurrentPeriodIndexInternal(state, window, period);
       periodUid = state.timeline.getPeriod(periodIndex, period, /* setIds= */ true).uid;
       windowUid = state.timeline.getWindow(mediaItemIndex, window).uid;
       mediaItem = window.mediaItem;

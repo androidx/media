@@ -1,0 +1,196 @@
+/*
+ * Copyright 2026 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+@file:Suppress("unused_parameter", "unused_variable", "unused", "CheckReturnValue")
+
+package androidx.media3.docsamples.ui
+
+import androidx.annotation.OptIn
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.media3.common.Player
+import androidx.media3.common.Player.EVENT_AVAILABLE_COMMANDS_CHANGED
+import androidx.media3.common.listen
+import androidx.media3.common.util.Log
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.ui.compose.PlayerSurface
+import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
+import androidx.media3.ui.compose.SurfaceType
+import androidx.media3.ui.compose.buttons.PlayPauseButton
+import androidx.media3.ui.compose.material3.Player
+import androidx.media3.ui.compose.material3.PlayerDefaults
+import androidx.media3.ui.compose.material3.R
+import androidx.media3.ui.compose.material3.buttons.NextButton
+import androidx.media3.ui.compose.material3.buttons.PlayPauseButton as Material3PlayPauseButton
+import androidx.media3.ui.compose.material3.buttons.PreviousButton
+import androidx.media3.ui.compose.modifiers.resizeWithContentScale
+import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
+import androidx.media3.ui.compose.state.rememberPresentationState
+
+// Code snippets for the Compose customization guide.
+
+fun Player.actionA() {}
+
+var Player.someField
+  get() = 0
+  set(value) {}
+val COMMAND_ACTION_A = 0
+val EVENT_B_CHANGED = 0
+val EVENT_C_CHANGED = 0
+val someFieldDefault = 0
+
+@OptIn(UnstableApi::class)
+// [START android_compose_some_button_state]
+class SomeButtonState(private val player: Player) {
+  var isEnabled by mutableStateOf(player.isCommandAvailable(COMMAND_ACTION_A))
+    private set
+
+  var someFieldValue by mutableStateOf(someFieldDefault)
+    private set
+
+  fun onClick() {
+    player.actionA()
+  }
+
+  suspend fun observe(): Nothing = player.listen { events ->
+    if (events.containsAny(EVENT_B_CHANGED, EVENT_C_CHANGED, EVENT_AVAILABLE_COMMANDS_CHANGED)) {
+      someFieldValue = this.someField
+      isEnabled = this.isCommandAvailable(COMMAND_ACTION_A)
+    }
+  }
+}
+
+// [END android_compose_some_button_state]
+
+@OptIn(UnstableApi::class)
+class ComposeCustomization {
+
+  @Composable
+  fun CustomPlayPauseButton(player: Player, modifier: Modifier = Modifier) {
+    // [START android_compose_custom_play_pause_button]
+    val state = rememberPlayPauseButtonState(player)
+
+    IconButton(onClick = state::onClick, modifier = modifier, enabled = state.isEnabled) {
+      Icon(
+        imageVector = if (state.showPlay) Icons.Default.PlayArrow else Icons.Default.Pause,
+        contentDescription =
+          if (state.showPlay) stringResource(R.string.playpause_button_play)
+          else stringResource(R.string.playpause_button_pause),
+      )
+    }
+    // [END android_compose_custom_play_pause_button]
+  }
+
+  // [START android_compose_custom_content_frame]
+  @Composable
+  fun ContentFrame(
+    player: Player?,
+    modifier: Modifier = Modifier,
+    surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
+    contentScale: ContentScale = ContentScale.Fit,
+    keepContentOnReset: Boolean = false,
+    shutter: @Composable () -> Unit = { Box(Modifier.fillMaxSize().background(Color.Black)) },
+  ) {
+    val presentationState = rememberPresentationState(player, keepContentOnReset)
+    val scaledModifier =
+      modifier.resizeWithContentScale(contentScale, presentationState.videoAspectRatio)
+
+    // Always leave PlayerSurface to be part of the Compose tree because it will be initialized in
+    // the process. If this composable is guarded by some condition, it might never become visible
+    // because the Player won't emit the relevant event, e.g. the first frame being ready.
+    PlayerSurface(player, scaledModifier, surfaceType)
+
+    if (presentationState.coverSurface) {
+      // Cover the surface that is being prepared with a shutter
+      shutter()
+    }
+  }
+
+  // [END android_compose_custom_content_frame]
+
+  @Composable
+  fun MixedPlayerControls(player: Player) {
+    // [START android_compose_mixed_player_controls]
+    Row {
+      // Use prebuilt component from the Media3 UI Compose Material3 library
+      PreviousButton(player)
+      // Use the scaffold component from Media3 UI Compose library
+      PlayPauseButton(player) {
+        // `this` is PlayPauseButtonState
+        FilledTonalButton(
+          onClick = {
+            Log.d("PlayPauseButton", "Clicking on play-pause button")
+            this.onClick()
+          },
+          enabled = this.isEnabled,
+        ) {
+          Icon(
+            imageVector = if (showPlay) Icons.Default.PlayArrow else Icons.Default.Pause,
+            contentDescription = if (showPlay) "Play" else "Pause",
+          )
+        }
+      }
+      // Use prebuilt component from the Media3 UI Compose Material3 library
+      NextButton(player)
+    }
+    // [END android_compose_mixed_player_controls]
+  }
+
+  // [START android_compose_custom_player_slots]
+  @Composable
+  fun CustomPlayerSlots(player: Player, modifier: Modifier = Modifier) {
+    Player(
+      player = player,
+      modifier = modifier,
+      topControls = { p, visible ->
+        // Fully custom top controls
+        AnimatedVisibility(visible) { Text("My custom title") }
+      },
+      centerControls = { p, visible ->
+        // Use default CenterControls but override the central button
+        PlayerDefaults.CenterControls(
+          player = p,
+          visible = visible,
+          central = {
+            // A custom play/pause button
+            Material3PlayPauseButton(it, modifier = Modifier.size(64.dp))
+          },
+        )
+      },
+      // bottomControls are left as default
+    )
+  }
+  // [END android_compose_custom_player_slots]
+}

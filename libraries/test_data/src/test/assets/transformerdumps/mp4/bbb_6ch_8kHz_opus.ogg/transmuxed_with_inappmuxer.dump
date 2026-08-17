@@ -20,7 +20,7 @@ track 0:
     sampleRate = 48000
     metadata = entries=[Mp4Timestamp: creation time=3000000000, modification time=4000000000, timescale=10000]
     initializationData:
-      data = length 27, hash 9EE6F879
+      data = length 27, hash D13C96B8
       data = length 8, hash CA22068C
       data = length 8, hash 79C07075
   sample 0:

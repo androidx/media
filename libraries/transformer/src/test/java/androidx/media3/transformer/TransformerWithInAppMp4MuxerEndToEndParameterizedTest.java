@@ -44,15 +44,15 @@ import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
 @RunWith(ParameterizedRobolectricTestRunner.class)
 public class TransformerWithInAppMp4MuxerEndToEndParameterizedTest {
 
-  private static final String H263_3GP = "mp4/bbb_176x144_128kbps_15fps_h263.3gp";
+  private static final String H263_3GP = "3gp/bbb_176x144_128kbps_15fps_h263.3gp";
   private static final String H264_MP4 = "mp4/sample_no_bframes.mp4";
   private static final String H265_MP4 = "mp4/h265_with_metadata_track.mp4";
   private static final String AV1_MP4 = "mp4/sample_av1.mp4";
   private static final String MPEG4_MP4 = "mp4/bbb_176x144_192kbps_15fps_mpeg4.mp4";
-  private static final String AMR_NB_3GP = "mp4/bbb_mono_8kHz_12.2kbps_amrnb.3gp";
-  private static final String AMR_WB_3GP = "mp4/bbb_mono_16kHz_23.05kbps_amrwb.3gp";
-  private static final String OPUS_OGG = "mp4/bbb_6ch_8kHz_opus.ogg";
-  private static final String VORBIS_OGG = "mp4/bbb_1ch_16kHz_q10_vorbis.ogg";
+  private static final String AMR_NB_3GP = "3gp/bbb_mono_8kHz_12.2kbps_amrnb.3gp";
+  private static final String AMR_WB_3GP = "3gp/bbb_mono_16kHz_23.05kbps_amrwb.3gp";
+  private static final String OPUS_OGG = "ogg/bbb_6ch_8kHz_opus.ogg";
+  private static final String VORBIS_OGG = "ogg/bbb_1ch_16kHz_q10_vorbis.ogg";
   private static final String DOLBY_VISION_MOV = "mp4/dolbyVision-hdr.MOV";
 
   @Parameters(name = "{0}")
@@ -107,7 +107,7 @@ public class TransformerWithInAppMp4MuxerEndToEndParameterizedTest {
         context,
         fakeExtractorOutput,
         TestUtil.getDumpFileName(
-            /* originalFileName= */ checkNotNull(inputFile),
+            TestUtil.getSubstitutedPath(checkNotNull(inputFile), "mp4"),
             /* modifications...= */ "transmuxed_with_inappmuxer"));
   }
 }

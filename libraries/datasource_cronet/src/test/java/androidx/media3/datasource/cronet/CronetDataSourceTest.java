@@ -35,6 +35,7 @@ import static org.mockito.Mockito.when;
 import android.net.Uri;
 import android.os.ConditionVariable;
 import android.os.SystemClock;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSpec;
@@ -71,12 +72,14 @@ import org.chromium.net.UrlRequest;
 import org.chromium.net.UrlResponseInfo;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 import org.robolectric.shadows.ShadowLooper;
 
 /** Tests for {@link CronetDataSource}. */
@@ -92,6 +95,8 @@ public final class CronetDataSourceTest {
   private static final int TEST_CONNECTION_STATUS = 5;
   private static final int TEST_INVALID_CONNECTION_STATUS = -1;
 
+  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
+
   private DataSpec testDataSpec;
   private DataSpec testPostDataSpec;
   private DataSpec testHeadDataSpec;
@@ -106,11 +111,10 @@ public final class CronetDataSourceTest {
   private ExecutorService executorService;
   private CronetDataSource dataSourceUnderTest;
   private boolean redirectCalled;
+  @Nullable private MockWebServer mockWebServer;
 
   @Before
   public void setUp() {
-    MockitoAnnotations.initMocks(this);
-
     executorService = Executors.newSingleThreadExecutor();
     dataSourceUnderTest = (CronetDataSource) createCronetDataSourceFactory().createDataSource();
     dataSourceUnderTest.addTransferListener(mockTransferListener);
@@ -139,8 +143,11 @@ public final class CronetDataSourceTest {
   }
 
   @After
-  public void tearDown() {
+  public void tearDown() throws Exception {
     executorService.shutdown();
+    if (mockWebServer != null) {
+      mockWebServer.shutdown();
+    }
   }
 
   private UrlResponseInfo createUrlResponseInfo(int statusCode) {
@@ -1472,7 +1479,7 @@ public final class CronetDataSourceTest {
   @Test
   public void factorySetFallbackHttpDataSourceFactory_cronetNotAvailable_usesFallbackFactory()
       throws HttpDataSourceException, InterruptedException {
-    MockWebServer mockWebServer = new MockWebServer();
+    mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse());
     CronetEngineWrapper cronetEngineWrapper = new CronetEngineWrapper((CronetEngine) null);
     DefaultHttpDataSource.Factory fallbackFactory =
@@ -1494,7 +1501,7 @@ public final class CronetDataSourceTest {
   public void
       factory_noFallbackFactoryCronetNotAvailable_delegateTransferListenerToInternalFallbackFactory()
           throws HttpDataSourceException {
-    MockWebServer mockWebServer = new MockWebServer();
+    mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse());
     CronetEngineWrapper cronetEngineWrapper = new CronetEngineWrapper((CronetEngine) null);
     HttpDataSource dataSourceUnderTest =
@@ -1517,7 +1524,7 @@ public final class CronetDataSourceTest {
   public void
       factory_noFallbackFactoryCronetNotAvailable_delegateDefaultRequestPropertiesToInternalFallbackFactory()
           throws HttpDataSourceException, InterruptedException {
-    MockWebServer mockWebServer = new MockWebServer();
+    mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse());
     CronetEngineWrapper cronetEngineWrapper = new CronetEngineWrapper((CronetEngine) null);
     Map<String, String> defaultRequestProperties = new HashMap<>();
@@ -1540,7 +1547,7 @@ public final class CronetDataSourceTest {
   public void
       factory_noFallbackFactoryCronetNotAvailable_delegateDefaultRequestPropertiesToInternalFallbackFactoryAfterCreation()
           throws HttpDataSourceException, InterruptedException {
-    MockWebServer mockWebServer = new MockWebServer();
+    mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse());
     CronetEngineWrapper cronetEngineWrapper = new CronetEngineWrapper((CronetEngine) null);
     Map<String, String> defaultRequestProperties = new HashMap<>();

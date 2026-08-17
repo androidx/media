@@ -30,6 +30,7 @@ import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.AudioSink.SinkFormatSupport;
 import androidx.media3.exoplayer.audio.DecoderAudioRenderer;
 import androidx.media3.extractor.VorbisUtil;
+import com.google.common.primitives.ImmutableIntArray;
 
 /** Decodes and renders audio using the native Opus decoder. */
 @UnstableApi
@@ -98,11 +99,6 @@ public class LibopusAudioRenderer extends DecoderAudioRenderer<OpusDecoder> {
     }
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * @hide
-   */
   @Override
   protected final OpusDecoder createDecoder(Format format, @Nullable CryptoConfig cryptoConfig)
       throws OpusDecoderException {
@@ -123,17 +119,11 @@ public class LibopusAudioRenderer extends DecoderAudioRenderer<OpusDecoder> {
             format.initializationData,
             cryptoConfig,
             outputFloat);
-    decoder.experimentalSetDiscardPaddingEnabled(experimentalGetDiscardPaddingEnabled());
 
     TraceUtil.endSection();
     return decoder;
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * @hide
-   */
   @Override
   protected final Format getOutputFormat(OpusDecoder decoder) {
     @C.PcmEncoding
@@ -143,17 +133,7 @@ public class LibopusAudioRenderer extends DecoderAudioRenderer<OpusDecoder> {
 
   @Nullable
   @Override
-  protected int[] getChannelMapping(OpusDecoder decoder) {
+  protected ImmutableIntArray getChannelMapping(OpusDecoder decoder) {
     return VorbisUtil.getVorbisToAndroidChannelLayoutMapping(decoder.channelCount);
-  }
-
-  /**
-   * Returns true if support for padding removal from the end of decoder output buffer should be
-   * enabled.
-   *
-   * <p>This method is experimental, and will be renamed or removed in a future release.
-   */
-  protected boolean experimentalGetDiscardPaddingEnabled() {
-    return false;
   }
 }

@@ -35,46 +35,24 @@
   } while (0)
 #endif  //  __ANDROID__
 
-#define DECODER_FUNC(RETURN_TYPE, NAME, ...)                                  \
-  extern "C" {                                                                \
-  JNIEXPORT RETURN_TYPE Java_androidx_media3_decoder_opus_OpusDecoder_##NAME( \
-      JNIEnv* env, jobject thiz, ##__VA_ARGS__);                              \
-  }                                                                           \
-  JNIEXPORT RETURN_TYPE Java_androidx_media3_decoder_opus_OpusDecoder_##NAME( \
-      JNIEnv* env, jobject thiz, ##__VA_ARGS__)
-
-#define LIBRARY_FUNC(RETURN_TYPE, NAME, ...)                                  \
-  extern "C" {                                                                \
-  JNIEXPORT RETURN_TYPE Java_androidx_media3_decoder_opus_OpusLibrary_##NAME( \
-      JNIEnv* env, jobject thiz, ##__VA_ARGS__);                              \
-  }                                                                           \
-  JNIEXPORT RETURN_TYPE Java_androidx_media3_decoder_opus_OpusLibrary_##NAME( \
-      JNIEnv* env, jobject thiz, ##__VA_ARGS__)
-
 // JNI references for SimpleOutputBuffer class.
 static jmethodID outputBufferInit;
-
-jint JNI_OnLoad(JavaVM* vm, void* reserved) {
-  JNIEnv* env;
-  if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
-    return -1;
-  }
-  return JNI_VERSION_1_6;
-}
 
 static const int kBytesPerIntPcmSample = 2;
 static const int kBytesPerFloatSample = 4;
 static const int kMaxOpusOutputPacketSizeSamples = 960 * 6;
-static int channelCount;
-static int errorCode;
-static bool outputFloat = false;
 
-DECODER_FUNC(jlong, opusInit, jint sampleRate, jint channelCount,
-             jint numStreams, jint numCoupled, jint gain,
-             jbyteArray jStreamMap) {
+struct OpusDecoderContext {
+  OpusMSDecoder* decoder = nullptr;
+  int channelCount = 0;
+  bool outputFloat = false;
+  int errorCode = 0;
+};
+
+jlong opusInit(JNIEnv* env, jobject thiz, jint sampleRate, jint channelCount,
+               jint numStreams, jint numCoupled, jint gain,
+               jbyteArray jStreamMap) {
   int status = OPUS_INVALID_STATE;
-  ::channelCount = channelCount;
-  errorCode = 0;
   jbyte* streamMapBytes = env->GetByteArrayElements(jStreamMap, 0);
   uint8_t* streamMap = reinterpret_cast<uint8_t*>(streamMapBytes);
   OpusMSDecoder* decoder = opus_multistream_decoder_create(
@@ -87,6 +65,7 @@ DECODER_FUNC(jlong, opusInit, jint sampleRate, jint channelCount,
   status = opus_multistream_decoder_ctl(decoder, OPUS_SET_GAIN(gain));
   if (status != OPUS_OK) {
     LOGE("Failed to set Opus header gain; status=%s", opus_strerror(status));
+    opus_multistream_decoder_destroy(decoder);
     return 0;
   }
 
@@ -96,19 +75,26 @@ DECODER_FUNC(jlong, opusInit, jint sampleRate, jint channelCount,
   outputBufferInit =
       env->GetMethodID(outputBufferClass, "init", "(JI)Ljava/nio/ByteBuffer;");
 
-  return reinterpret_cast<intptr_t>(decoder);
+  OpusDecoderContext* context = new OpusDecoderContext();
+  context->decoder = decoder;
+  context->channelCount = channelCount;
+  context->outputFloat = false;
+  context->errorCode = 0;
+
+  return reinterpret_cast<intptr_t>(context);
 }
 
-DECODER_FUNC(jint, opusDecode, jlong jDecoder, jlong jTimeUs,
-             jobject jInputBuffer, jint inputSize, jobject jOutputBuffer) {
-  OpusMSDecoder* decoder = reinterpret_cast<OpusMSDecoder*>(jDecoder);
+jint opusDecode(JNIEnv* env, jobject thiz, jlong jContext, jlong jTimeUs,
+                jobject jInputBuffer, jint inputSize, jobject jOutputBuffer) {
+  OpusDecoderContext* context = reinterpret_cast<OpusDecoderContext*>(jContext);
+  OpusMSDecoder* decoder = context->decoder;
   const uint8_t* inputBuffer = reinterpret_cast<const uint8_t*>(
       env->GetDirectBufferAddress(jInputBuffer));
 
   const int byteSizePerSample =
-      outputFloat ? kBytesPerFloatSample : kBytesPerIntPcmSample;
-  const jint outputSize =
-      kMaxOpusOutputPacketSizeSamples * byteSizePerSample * channelCount;
+      context->outputFloat ? kBytesPerFloatSample : kBytesPerIntPcmSample;
+  const jint outputSize = kMaxOpusOutputPacketSizeSamples * byteSizePerSample *
+                          context->channelCount;
 
   env->CallObjectMethod(jOutputBuffer, outputBufferInit, jTimeUs, outputSize);
   if (env->ExceptionCheck()) {
@@ -123,7 +109,7 @@ DECODER_FUNC(jint, opusDecode, jlong jDecoder, jlong jTimeUs,
   }
 
   int sampleCount;
-  if (outputFloat) {
+  if (context->outputFloat) {
     float* outputBufferData = reinterpret_cast<float*>(
         env->GetDirectBufferAddress(jOutputBufferData));
     sampleCount = opus_multistream_decode_float(
@@ -138,16 +124,19 @@ DECODER_FUNC(jint, opusDecode, jlong jDecoder, jlong jTimeUs,
   }
 
   // record error code
-  errorCode = (sampleCount < 0) ? sampleCount : 0;
-  return (sampleCount < 0) ? sampleCount
-                           : sampleCount * byteSizePerSample * channelCount;
+  context->errorCode = (sampleCount < 0) ? sampleCount : 0;
+  return (sampleCount < 0)
+             ? sampleCount
+             : sampleCount * byteSizePerSample * context->channelCount;
 }
 
-DECODER_FUNC(jint, opusSecureDecode, jlong jDecoder, jlong jTimeUs,
-             jobject jInputBuffer, jint inputSize, jobject jOutputBuffer,
-             jint sampleRate, jobject mediaCrypto, jint inputMode,
-             jbyteArray key, jbyteArray javaIv, jint inputNumSubSamples,
-             jintArray numBytesOfClearData, jintArray numBytesOfEncryptedData) {
+jint opusSecureDecode(JNIEnv* env, jobject thiz, jlong jContext, jlong jTimeUs,
+                      jobject jInputBuffer, jint inputSize,
+                      jobject jOutputBuffer, jint sampleRate,
+                      jobject mediaCrypto, jint inputMode, jbyteArray key,
+                      jbyteArray javaIv, jint inputNumSubSamples,
+                      jintArray numBytesOfClearData,
+                      jintArray numBytesOfEncryptedData) {
   // Doesn't support
   // Java client should have checked vpxSupportSecureDecode
   // and avoid calling this
@@ -155,29 +144,108 @@ DECODER_FUNC(jint, opusSecureDecode, jlong jDecoder, jlong jTimeUs,
   return -2;
 }
 
-DECODER_FUNC(void, opusClose, jlong jDecoder) {
-  OpusMSDecoder* decoder = reinterpret_cast<OpusMSDecoder*>(jDecoder);
-  opus_multistream_decoder_destroy(decoder);
+void opusClose(JNIEnv* env, jobject thiz, jlong jContext) {
+  OpusDecoderContext* context = reinterpret_cast<OpusDecoderContext*>(jContext);
+  if (context) {
+    if (context->decoder) {
+      opus_multistream_decoder_destroy(context->decoder);
+    }
+    delete context;
+  }
 }
 
-DECODER_FUNC(void, opusReset, jlong jDecoder) {
-  OpusMSDecoder* decoder = reinterpret_cast<OpusMSDecoder*>(jDecoder);
-  opus_multistream_decoder_ctl(decoder, OPUS_RESET_STATE);
+void opusReset(JNIEnv* env, jobject thiz, jlong jContext) {
+  OpusDecoderContext* context = reinterpret_cast<OpusDecoderContext*>(jContext);
+  if (context && context->decoder) {
+    opus_multistream_decoder_ctl(context->decoder, OPUS_RESET_STATE);
+  }
 }
 
-DECODER_FUNC(jstring, opusGetErrorMessage, jlong jContext) {
+jstring opusGetErrorMessage(JNIEnv* env, jobject thiz, jlong jContext) {
+  OpusDecoderContext* context = reinterpret_cast<OpusDecoderContext*>(jContext);
+  int errorCode = context ? context->errorCode : OPUS_INVALID_STATE;
   return env->NewStringUTF(opus_strerror(errorCode));
 }
 
-DECODER_FUNC(jint, opusGetErrorCode, jlong jContext) { return errorCode; }
-
-DECODER_FUNC(void, opusSetFloatOutput) { outputFloat = true; }
-
-LIBRARY_FUNC(jstring, opusIsSecureDecodeSupported) {
-  // Doesn't support
-  return 0;
+jint opusGetErrorCode(JNIEnv* env, jobject thiz, jlong jContext) {
+  OpusDecoderContext* context = reinterpret_cast<OpusDecoderContext*>(jContext);
+  return context ? context->errorCode : OPUS_INVALID_STATE;
 }
 
-LIBRARY_FUNC(jstring, opusGetVersion) {
+void opusSetFloatOutput(JNIEnv* env, jobject thiz, jlong jContext) {
+  OpusDecoderContext* context = reinterpret_cast<OpusDecoderContext*>(jContext);
+  if (context) {
+    context->outputFloat = true;
+  }
+}
+
+jboolean opusIsSecureDecodeSupported(JNIEnv* env, jobject thiz) {
+  // Doesn't support
+  return JNI_FALSE;
+}
+
+jstring opusGetVersion(JNIEnv* env, jobject thiz) {
   return env->NewStringUTF(opus_get_version_string());
+}
+
+extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
+  JNIEnv* env;
+  if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
+    return -1;
+  }
+
+  static const JNINativeMethod kOpusDecoderMethods[] = {
+      {"opusInit", "(IIIII[B)J", reinterpret_cast<void*>(opusInit)},
+      {"opusClose", "(J)V", reinterpret_cast<void*>(opusClose)},
+      {"opusReset", "(J)V", reinterpret_cast<void*>(opusReset)},
+      {"opusDecode",
+       "(JJLjava/nio/ByteBuffer;ILandroidx/media3/decoder/"
+       "SimpleDecoderOutputBuffer;)I",
+       reinterpret_cast<void*>(opusDecode)},
+      {"opusSecureDecode",
+       "(JJLjava/nio/ByteBuffer;ILandroidx/media3/decoder/"
+       "SimpleDecoderOutputBuffer;ILandroidx/media3/decoder/"
+       "CryptoConfig;I[B[BI[I[I)I",
+       reinterpret_cast<void*>(opusSecureDecode)},
+      {"opusGetErrorMessage", "(J)Ljava/lang/String;",
+       reinterpret_cast<void*>(opusGetErrorMessage)},
+      {"opusGetErrorCode", "(J)I", reinterpret_cast<void*>(opusGetErrorCode)},
+      {"opusSetFloatOutput", "(J)V",
+       reinterpret_cast<void*>(opusSetFloatOutput)},
+  };
+
+  static const JNINativeMethod kOpusLibraryMethods[] = {
+      {"opusGetVersion", "()Ljava/lang/String;",
+       reinterpret_cast<void*>(opusGetVersion)},
+      {"opusIsSecureDecodeSupported", "()Z",
+       reinterpret_cast<void*>(opusIsSecureDecodeSupported)},
+  };
+
+  jclass decoderClazz =
+      env->FindClass("androidx/media3/decoder/opus/OpusDecoder");
+  if (!decoderClazz) {
+    LOGE("JNI_OnLoad: FindClass failed for OpusDecoder");
+    return -1;
+  }
+  if (env->RegisterNatives(
+          decoderClazz, kOpusDecoderMethods,
+          sizeof(kOpusDecoderMethods) / sizeof(kOpusDecoderMethods[0])) < 0) {
+    LOGE("JNI_OnLoad: RegisterNatives failed for OpusDecoder");
+    return -1;
+  }
+
+  jclass libraryClazz =
+      env->FindClass("androidx/media3/decoder/opus/OpusLibrary");
+  if (!libraryClazz) {
+    LOGE("JNI_OnLoad: FindClass failed for OpusLibrary");
+    return -1;
+  }
+  if (env->RegisterNatives(
+          libraryClazz, kOpusLibraryMethods,
+          sizeof(kOpusLibraryMethods) / sizeof(kOpusLibraryMethods[0])) < 0) {
+    LOGE("JNI_OnLoad: RegisterNatives failed for OpusLibrary");
+    return -1;
+  }
+
+  return JNI_VERSION_1_6;
 }

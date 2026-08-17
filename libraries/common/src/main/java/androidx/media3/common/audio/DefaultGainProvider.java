@@ -28,6 +28,7 @@ import androidx.media3.common.audio.GainProcessor.GainProvider;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.base.Function;
 import com.google.common.collect.Range;
+import com.google.common.collect.RangeMap;
 import com.google.common.collect.TreeRangeMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map.Entry;
@@ -103,7 +104,7 @@ public final class DefaultGainProvider implements GainProvider {
      * <p>You can implement a basic linear fade as follows:
      *
      * <pre>{@code
-     * @Override
+     * &#64;Override
      * public float getGainFactorAt(long index, long duration) {
      *   return (float) index / duration;
      * }

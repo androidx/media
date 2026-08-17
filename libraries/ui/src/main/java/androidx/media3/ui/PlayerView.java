@@ -71,6 +71,7 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.Timeline.Period;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
+import androidx.media3.common.ViewProvider;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.RepeatModeUtil;
 import androidx.media3.common.util.UnstableApi;
@@ -1265,6 +1266,26 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   public void setShowVrButton(boolean showVrButton) {
     checkNotNull(controller);
     controller.setShowVrButton(showVrButton);
+  }
+
+  /**
+   * Sets a {@link ViewProvider} to be used for creating the media route button view.
+   *
+   * <p>If a provider is set, this {@link PlayerView} will obtain the media route button view from
+   * the provider and display it.
+   *
+   * <p>If {@link ViewProvider} is {@code null}, any previously set media route button will be
+   * removed.
+   *
+   * @param mediaRouteButtonViewProvider The {@link ViewProvider} to be used for providing the media
+   *     route button view, or {@code null} to remove the media route button.
+   * @throws IllegalStateException if the media route button fails to display due to an unexpected
+   *     error.
+   */
+  @UnstableApi
+  public void setMediaRouteButtonViewProvider(@Nullable ViewProvider mediaRouteButtonViewProvider) {
+    checkNotNull(controller);
+    controller.setMediaRouteButtonViewProvider(mediaRouteButtonViewProvider);
   }
 
   /**

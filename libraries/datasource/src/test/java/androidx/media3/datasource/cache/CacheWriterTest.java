@@ -29,37 +29,26 @@ import androidx.media3.datasource.TransferListener;
 import androidx.media3.test.utils.FailOnCloseDataSink;
 import androidx.media3.test.utils.FakeDataSet;
 import androidx.media3.test.utils.FakeDataSource;
+import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.media3.test.utils.TestUtil;
-import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.MockitoAnnotations;
 
 /** Unit tests for {@link CacheWriter}. */
 @RunWith(AndroidJUnit4.class)
 public final class CacheWriterTest {
 
-  private File tempFolder;
+  @Rule public final InMemoryDatabaseRule cacheRule = InMemoryDatabaseRule.create();
   private SimpleCache cache;
 
   @Before
   public void setUp() throws Exception {
-    MockitoAnnotations.initMocks(this);
-    tempFolder =
-        Util.createTempDirectory(ApplicationProvider.getApplicationContext(), "ExoPlayerTest");
-    cache =
-        new SimpleCache(tempFolder, new NoOpCacheEvictor(), TestUtil.getInMemoryDatabaseProvider());
-  }
-
-  @After
-  public void tearDown() {
-    Util.recursiveDelete(tempFolder);
+    this.cache = cacheRule.createSimpleCache();
   }
 
   @Test

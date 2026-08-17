@@ -15,6 +15,9 @@
  */
 package androidx.media3.cast;
 
+import static androidx.media3.cast.CastTrackSelector.TRACK_SELECTION_REQUEST_REASON_INVALIDATION;
+import static androidx.media3.cast.CastTrackSelector.TRACK_SELECTION_REQUEST_REASON_PARAMETER_CHANGE;
+import static androidx.media3.cast.CastTrackSelector.TRACK_SELECTION_REQUEST_REASON_RECEIVER_UPDATE;
 import static androidx.media3.common.Player.COMMAND_ADJUST_DEVICE_VOLUME;
 import static androidx.media3.common.Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS;
 import static androidx.media3.common.Player.COMMAND_CHANGE_MEDIA_ITEMS;
@@ -51,24 +54,34 @@ import static androidx.media3.common.Player.DISCONTINUITY_REASON_REMOVE;
 import static androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED;
 import static androidx.media3.common.Player.STATE_IDLE;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
-import static org.mockito.MockitoAnnotations.initMocks;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.net.Uri;
+import android.os.Looper;
+import androidx.media3.cast.CastTrackSelector.CastTrackSelectorRequest;
+import androidx.media3.cast.CastTrackSelector.CastTrackSelectorResult;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.MimeTypes;
@@ -76,25 +89,35 @@ import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.Listener;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.TrackGroup;
+import androidx.media3.common.TrackSelectionParameters;
+import androidx.media3.common.Tracks;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import com.google.android.gms.cast.Cast;
 import com.google.android.gms.cast.MediaInfo;
+import com.google.android.gms.cast.MediaLoadRequestData;
+import com.google.android.gms.cast.MediaQueueData;
 import com.google.android.gms.cast.MediaQueueItem;
 import com.google.android.gms.cast.MediaStatus;
+import com.google.android.gms.cast.MediaTrack;
 import com.google.android.gms.cast.framework.CastContext;
 import com.google.android.gms.cast.framework.CastSession;
 import com.google.android.gms.cast.framework.SessionManager;
+import com.google.android.gms.cast.framework.SessionManagerListener;
 import com.google.android.gms.cast.framework.media.MediaQueue;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient;
 import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.primitives.Longs;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
@@ -102,15 +125,27 @@ import org.mockito.Captor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 /** Tests for {@link RemoteCastPlayer}. */
 @RunWith(AndroidJUnit4.class)
 public class RemoteCastPlayerTest {
+  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
+
+  private static final MediaTrack FAKE_MEDIA_TRACK_AUDIO =
+      new MediaTrack.Builder(0, MediaTrack.TYPE_AUDIO).build();
+  private static final MediaTrack FAKE_MEDIA_TRACK_VIDEO =
+      new MediaTrack.Builder(1, MediaTrack.TYPE_VIDEO).build();
 
   private RemoteCastPlayer remoteCastPlayer;
   private DefaultMediaItemConverter mediaItemConverter;
-  private Cast.Listener castListener;
+  private CastTrackSelector spyTrackSelector;
+  private com.google.android.gms.cast.Cast.Listener castListener;
+  private SessionManagerListener<CastSession> sessionManagerListener;
   private RemoteMediaClient.Callback remoteMediaClientCallback;
+  private MediaQueue.Callback mediaQueueCallback;
+  private RemoteMediaClient.ProgressListener progressListener;
 
   @Mock private RemoteMediaClient mockRemoteMediaClient;
   @Mock private MediaStatus mockMediaStatus;
@@ -120,20 +155,33 @@ public class RemoteCastPlayerTest {
   @Mock private CastSession mockCastSession;
   @Mock private Listener mockListener;
   @Mock private PendingResult<RemoteMediaClient.MediaChannelResult> mockPendingResult;
+  @Mock private SessionAvailabilityListener mockSessionAvailabilityListener;
+
+  @Captor private ArgumentCaptor<CastTrackSelectorRequest> trackSelectionArgumentCaptor;
+
+  @Captor private ArgumentCaptor<Tracks> tracksArgumentCaptor;
+  @Captor private ArgumentCaptor<long[]> trackIdsCaptor;
 
   @Captor
   private ArgumentCaptor<ResultCallback<RemoteMediaClient.MediaChannelResult>>
       setResultCallbackArgumentCaptor;
 
-  @Captor private ArgumentCaptor<Cast.Listener> castListenerArgumentCaptor;
-  @Captor private ArgumentCaptor<RemoteMediaClient.Callback> callbackArgumentCaptor;
+  @Captor
+  private ArgumentCaptor<com.google.android.gms.cast.Cast.Listener> castListenerArgumentCaptor;
+
+  @Captor private ArgumentCaptor<SessionManagerListener<CastSession>> sessionManagerListenerCaptor;
+
+  @Captor
+  private ArgumentCaptor<RemoteMediaClient.Callback> remoteMediaClientCallbackArgumentCaptor;
+
+  @Captor private ArgumentCaptor<MediaQueue.Callback> mediaQueueCallbackArgumentCaptor;
+  @Captor private ArgumentCaptor<MediaLoadRequestData> loadArgumentCaptor;
   @Captor private ArgumentCaptor<MediaQueueItem[]> queueItemsArgumentCaptor;
   @Captor private ArgumentCaptor<MediaItem> mediaItemCaptor;
+  @Captor private ArgumentCaptor<RemoteMediaClient.ProgressListener> progressListenerArgumentCaptor;
 
-  @SuppressWarnings("deprecation")
   @Before
   public void setUp() {
-    initMocks(this);
     when(mockCastContext.getSessionManager()).thenReturn(mockSessionManager);
     when(mockSessionManager.getCurrentCastSession()).thenReturn(mockCastSession);
     when(mockCastSession.getRemoteMediaClient()).thenReturn(mockRemoteMediaClient);
@@ -143,23 +191,50 @@ public class RemoteCastPlayerTest {
     when(mockMediaQueue.getItemIds()).thenReturn(new int[0]);
     // Make the remote media client present the same default values as ExoPlayer:
     when(mockRemoteMediaClient.isPaused()).thenReturn(true);
+    when(mockRemoteMediaClient.play()).thenReturn(mockPendingResult);
+    when(mockRemoteMediaClient.pause()).thenReturn(mockPendingResult);
     when(mockMediaStatus.getQueueRepeatMode()).thenReturn(MediaStatus.REPEAT_MODE_REPEAT_OFF);
     when(mockMediaStatus.getStreamVolume()).thenReturn(1.0);
     when(mockMediaStatus.getPlaybackRate()).thenReturn(1.0d);
     mediaItemConverter = new DefaultMediaItemConverter();
+    // We need a spy to invoke the default constructor, so that the invalidation listener works.
+    spyTrackSelector = spy(CastTrackSelector.class);
+    when(spyTrackSelector.evaluate(any()))
+        .thenAnswer(
+            invocation ->
+                invocation
+                    .getArgument(0, CastTrackSelectorRequest.class)
+                    .buildResultUpon()
+                    .build());
     remoteCastPlayer =
         new RemoteCastPlayer(
             /* context= */ null,
-            mockCastContext,
+            Cast.getSingletonInstance(mockCastContext),
             mediaItemConverter,
+            spyTrackSelector,
             C.DEFAULT_SEEK_BACK_INCREMENT_MS,
             C.DEFAULT_SEEK_FORWARD_INCREMENT_MS,
             C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS);
     remoteCastPlayer.addListener(mockListener);
+    verify(mockSessionManager)
+        .addSessionManagerListener(sessionManagerListenerCaptor.capture(), eq(CastSession.class));
+    sessionManagerListener = sessionManagerListenerCaptor.getValue();
     verify(mockCastSession).addCastListener(castListenerArgumentCaptor.capture());
     castListener = castListenerArgumentCaptor.getValue();
-    verify(mockRemoteMediaClient).registerCallback(callbackArgumentCaptor.capture());
-    remoteMediaClientCallback = callbackArgumentCaptor.getValue();
+    verify(mockRemoteMediaClient)
+        .registerCallback(remoteMediaClientCallbackArgumentCaptor.capture());
+    remoteMediaClientCallback = remoteMediaClientCallbackArgumentCaptor.getValue();
+    verify(mockMediaQueue).registerCallback(mediaQueueCallbackArgumentCaptor.capture());
+    mediaQueueCallback = mediaQueueCallbackArgumentCaptor.getValue();
+    verify(mockRemoteMediaClient)
+        .addProgressListener(progressListenerArgumentCaptor.capture(), anyLong());
+    progressListener = progressListenerArgumentCaptor.getValue();
+  }
+
+  @After
+  public void tearDown() {
+    remoteCastPlayer.release();
+    Cast.reset();
   }
 
   @SuppressWarnings("deprecation")
@@ -263,6 +338,17 @@ public class RemoteCastPlayerTest {
   }
 
   @Test
+  public void playWhenReady_whenNoMediaStatusAvailable_isMasked() {
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(null);
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isFalse(); // Verify we'll change the state.
+
+    remoteCastPlayer.play();
+
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isTrue();
+    verify(mockRemoteMediaClient, never()).play();
+  }
+
+  @Test
   public void playbackParameters_defaultPlaybackSpeed_isUnitSpeed() {
     assertThat(remoteCastPlayer.getPlaybackParameters()).isEqualTo(PlaybackParameters.DEFAULT);
   }
@@ -296,6 +382,46 @@ public class RemoteCastPlayerTest {
 
     assertThat(remoteCastPlayer.getCurrentTimeline().isEmpty()).isTrue();
     assertThat(remoteCastPlayer.getPlaybackState()).isEqualTo(STATE_IDLE);
+  }
+
+  @Test
+  public void mediaQueueChanged_updatesCurrentTimeline() {
+    List<MediaItem> firstPlaylist = new ArrayList<>();
+    String uri1 = "http://www.google.com/video1";
+    String uri2 = "http://www.google.com/video2";
+    int firstItemId = 33;
+    MediaItem firstMediaItem =
+        new MediaItem.Builder().setUri(uri1).setMimeType(MimeTypes.APPLICATION_MPD).build();
+    firstPlaylist.add(firstMediaItem);
+    firstPlaylist.add(
+        new MediaItem.Builder().setUri(uri2).setMimeType(MimeTypes.APPLICATION_MP4).build());
+    ImmutableList<MediaItem> secondPlaylist = ImmutableList.of(firstMediaItem);
+    remoteCastPlayer.setMediaItems(
+        firstPlaylist, /* startIndex= */ 1, /* startPositionMs= */ 2000L);
+    when(mockRemoteMediaClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_BUFFERING);
+    updateTimeLine(
+        firstPlaylist, /* mediaQueueItemIds= */ new int[] {firstItemId, 2}, /* currentItemId= */ 1);
+    clearInvocations(mockListener);
+    int[] streamTypes = new int[secondPlaylist.size()];
+    Arrays.fill(streamTypes, MediaInfo.STREAM_TYPE_BUFFERED);
+    long[] durationsMs = new long[secondPlaylist.size()];
+    updateTimeLine(
+        secondPlaylist,
+        /* mediaQueueItemIds= */ new int[] {firstItemId},
+        /* currentItemId= */ 1,
+        streamTypes,
+        durationsMs,
+        /* positionMs= */ 0,
+        /* notifyStatusUpdate= */ false);
+
+    mediaQueueCallback.mediaQueueChanged();
+
+    Timeline newTimeline = remoteCastPlayer.getCurrentTimeline();
+    verify(mockListener)
+        .onTimelineChanged(eq(newTimeline), eq(Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE));
+    assertThat(newTimeline.getPeriodCount()).isEqualTo(1);
+    Timeline.Period period = new Timeline.Period();
+    assertThat(newTimeline.getPeriod(/* periodIndex= */ 0, period).id).isEqualTo(firstItemId);
   }
 
   @Test
@@ -344,7 +470,7 @@ public class RemoteCastPlayerTest {
         .thenReturn(mockPendingResult);
     PlaybackParameters playbackParameters = new PlaybackParameters(/* speed= */ 1.234f);
 
-    // Change the playback speed and and capture the result callback.
+    // Change the playback speed and capture the result callback.
     remoteCastPlayer.setPlaybackParameters(playbackParameters);
     verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
     verify(mockListener).onPlaybackParametersChanged(new PlaybackParameters(/* speed= */ 1.234f));
@@ -468,6 +594,145 @@ public class RemoteCastPlayerTest {
   }
 
   @Test
+  public void mute_withNonZeroVolume_setsVolumeToZero() {
+    when(mockRemoteMediaClient.setStreamMute(anyBoolean())).thenReturn(mockPendingResult);
+    assertThat(remoteCastPlayer.getVolume()).isEqualTo(1f);
+
+    remoteCastPlayer.mute();
+
+    assertThat(remoteCastPlayer.getVolume()).isEqualTo(0f);
+    verify(mockListener).onVolumeChanged(0f);
+    verify(mockRemoteMediaClient).setStreamMute(true);
+  }
+
+  @Test
+  public void mute_withZeroVolume_isNoOp() {
+    when(mockRemoteMediaClient.setStreamVolume(anyDouble())).thenReturn(mockPendingResult);
+    remoteCastPlayer.setVolume(0f);
+    reset(mockRemoteMediaClient, mockListener);
+
+    remoteCastPlayer.mute();
+
+    assertThat(remoteCastPlayer.getVolume()).isEqualTo(0f);
+    verifyNoMoreInteractions(mockRemoteMediaClient, mockListener);
+  }
+
+  @Test
+  public void unmute_withMutedVolume_restoresPreviousVolume() {
+    when(mockRemoteMediaClient.setStreamVolume(anyDouble())).thenReturn(mockPendingResult);
+    when(mockRemoteMediaClient.setStreamMute(anyBoolean())).thenReturn(mockPendingResult);
+    remoteCastPlayer.setVolume(0.5f);
+    remoteCastPlayer.mute();
+    assertThat(remoteCastPlayer.getVolume()).isEqualTo(0f);
+    clearInvocations(mockRemoteMediaClient);
+
+    remoteCastPlayer.unmute();
+
+    assertThat(remoteCastPlayer.getVolume()).isEqualTo(0.5f);
+    verify(mockRemoteMediaClient).setStreamMute(false);
+    verify(mockRemoteMediaClient).setStreamVolume(0.5);
+  }
+
+  @Test
+  public void unmute_afterSetVolumeToZero_restoresPreviousVolume() {
+    when(mockRemoteMediaClient.setStreamVolume(anyDouble())).thenReturn(mockPendingResult);
+    when(mockRemoteMediaClient.setStreamMute(anyBoolean())).thenReturn(mockPendingResult);
+    remoteCastPlayer.setVolume(0.5f);
+    remoteCastPlayer.setVolume(0f);
+    when(mockMediaStatus.getStreamVolume()).thenReturn(0.0);
+    clearInvocations(mockRemoteMediaClient);
+
+    remoteCastPlayer.unmute();
+
+    assertThat(remoteCastPlayer.getVolume()).isEqualTo(0.5f);
+    verify(mockRemoteMediaClient).setStreamMute(false);
+    verify(mockRemoteMediaClient).setStreamVolume(0.5);
+  }
+
+  @Test
+  public void stressTest_rapidVolumeChangesAndMuteUnmute_stateStaysConsistent() {
+    when(mockRemoteMediaClient.setStreamVolume(anyDouble())).thenReturn(mockPendingResult);
+    when(mockRemoteMediaClient.setStreamMute(anyBoolean())).thenReturn(mockPendingResult);
+
+    float[] targetVolumes = new float[] {0.8f, 0.3f, 0.0f, 0.6f, 0.0f, 1.0f, 0.2f};
+    for (int i = 0; i < 50; i++) {
+      float targetVol = targetVolumes[i % targetVolumes.length];
+      remoteCastPlayer.setVolume(targetVol);
+
+      if (targetVol == 0f) {
+        assertThat(remoteCastPlayer.getVolume()).isEqualTo(0f);
+        remoteCastPlayer.unmute();
+        assertThat(remoteCastPlayer.getVolume()).isGreaterThan(0f);
+      } else if (i % 3 == 0) {
+        remoteCastPlayer.mute();
+        assertThat(remoteCastPlayer.getVolume()).isEqualTo(0f);
+        remoteCastPlayer.unmute();
+        assertThat(remoteCastPlayer.getVolume()).isEqualTo(targetVol);
+      } else {
+        assertThat(remoteCastPlayer.getVolume()).isEqualTo(targetVol);
+      }
+    }
+  }
+
+  @Test
+  public void unmute_withNonZeroVolume_isNoOp() {
+    when(mockRemoteMediaClient.setStreamVolume(anyDouble())).thenReturn(mockPendingResult);
+    remoteCastPlayer.setVolume(0.5f);
+    reset(mockRemoteMediaClient, mockListener);
+
+    remoteCastPlayer.unmute();
+
+    assertThat(remoteCastPlayer.getVolume()).isEqualTo(0.5f);
+    verifyNoMoreInteractions(mockRemoteMediaClient, mockListener);
+  }
+
+  @Test
+  public void onStatusUpdated_withMediaTracks_updatesPlayerTracks() {
+    MediaTrack audioTrack = new MediaTrack.Builder(1, MediaTrack.TYPE_AUDIO).build();
+    MediaTrack videoTrack = new MediaTrack.Builder(2, MediaTrack.TYPE_VIDEO).build();
+    MediaTrack textTrack = new MediaTrack.Builder(3, MediaTrack.TYPE_TEXT).build();
+    List<MediaTrack> mediaTracks = Arrays.asList(audioTrack, videoTrack, textTrack);
+    MediaInfo mediaInfo = new MediaInfo.Builder("contentId").setMediaTracks(mediaTracks).build();
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    when(mockMediaStatus.getActiveTrackIds()).thenReturn(new long[] {1, 2});
+
+    remoteMediaClientCallback.onStatusUpdated();
+
+    Tracks tracks = remoteCastPlayer.getCurrentTracks();
+    assertThat(tracks.getGroups()).hasSize(3);
+    assertThat(tracks.getGroups().get(0).getType()).isEqualTo(C.TRACK_TYPE_AUDIO);
+    assertThat(tracks.getGroups().get(0).isSelected()).isTrue();
+    assertThat(tracks.getGroups().get(1).getType()).isEqualTo(C.TRACK_TYPE_VIDEO);
+    assertThat(tracks.getGroups().get(1).isSelected()).isTrue();
+    assertThat(tracks.getGroups().get(2).getType()).isEqualTo(C.TRACK_TYPE_TEXT);
+    assertThat(tracks.getGroups().get(2).isSelected()).isFalse();
+  }
+
+  @Test
+  public void onStatusUpdated_withGenericMimeType_usesCastTrackTypeToGenerateTrackGroup() {
+    TrackSelectionParameters.Builder selectionParametersBuilder =
+        remoteCastPlayer.getTrackSelectionParameters().buildUpon();
+    remoteCastPlayer.setTrackSelectionParameters(
+        selectionParametersBuilder.setSelectTextByDefault(true).build());
+    MediaTrack textTrack =
+        new MediaTrack.Builder(1, MediaTrack.TYPE_TEXT)
+            .setContentType(MimeTypes.APPLICATION_MP4)
+            .build();
+    List<MediaTrack> mediaTracks = Collections.singletonList(textTrack);
+    MediaInfo mediaInfo = new MediaInfo.Builder("contentId").setMediaTracks(mediaTracks).build();
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    when(mockMediaStatus.getActiveTrackIds()).thenReturn(new long[] {1});
+    when(mockRemoteMediaClient.setActiveMediaTracks(any())).thenReturn(mockPendingResult);
+
+    remoteMediaClientCallback.onStatusUpdated();
+
+    Tracks tracks = remoteCastPlayer.getCurrentTracks();
+    assertThat(tracks.getGroups()).hasSize(1);
+    assertThat(tracks.getGroups().get(0).getType()).isEqualTo(C.TRACK_TYPE_TEXT);
+    assertThat(tracks.getGroups().get(0).isSelected()).isTrue();
+  }
+
+  @Test
   public void setMediaItems_callsRemoteMediaClient() {
     List<MediaItem> mediaItems = new ArrayList<>();
     String uri1 = "http://www.google.com/video1";
@@ -479,11 +744,14 @@ public class RemoteCastPlayerTest {
 
     remoteCastPlayer.setMediaItems(mediaItems, /* startIndex= */ 1, /* startPositionMs= */ 2000L);
 
-    verify(mockRemoteMediaClient)
-        .queueLoad(queueItemsArgumentCaptor.capture(), eq(1), anyInt(), eq(2000L), any());
-    MediaQueueItem[] mediaQueueItems = queueItemsArgumentCaptor.getValue();
-    assertThat(mediaQueueItems[0].getMedia().getContentId()).isEqualTo(uri1);
-    assertThat(mediaQueueItems[1].getMedia().getContentId()).isEqualTo(uri2);
+    verify(mockRemoteMediaClient).load(loadArgumentCaptor.capture());
+    MediaLoadRequestData mediaLoadRequestData = loadArgumentCaptor.getValue();
+    MediaQueueData queueData = mediaLoadRequestData.getQueueData();
+    assertThat(queueData.getStartIndex()).isEqualTo(1);
+    assertThat(queueData.getStartTime()).isEqualTo(2000L);
+    List<MediaQueueItem> mediaQueueItems = queueData.getItems();
+    assertThat(mediaQueueItems.get(0).getMedia().getContentId()).isEqualTo(uri1);
+    assertThat(mediaQueueItems.get(1).getMedia().getContentId()).isEqualTo(uri2);
   }
 
   @Test
@@ -499,12 +767,14 @@ public class RemoteCastPlayerTest {
 
     remoteCastPlayer.setMediaItems(mediaItems, startWindowIndex, startPositionMs);
 
-    verify(mockRemoteMediaClient)
-        .queueLoad(queueItemsArgumentCaptor.capture(), eq(0), anyInt(), eq(0L), any());
-
-    MediaQueueItem[] mediaQueueItems = queueItemsArgumentCaptor.getValue();
-    assertThat(mediaQueueItems[0].getMedia().getContentId()).isEqualTo(uri1);
-    assertThat(mediaQueueItems[1].getMedia().getContentId()).isEqualTo(uri2);
+    verify(mockRemoteMediaClient).load(loadArgumentCaptor.capture());
+    MediaLoadRequestData mediaLoadRequestData = loadArgumentCaptor.getValue();
+    MediaQueueData queueData = mediaLoadRequestData.getQueueData();
+    assertThat(queueData.getStartIndex()).isEqualTo(0);
+    assertThat(queueData.getStartTime()).isEqualTo(0);
+    List<MediaQueueItem> mediaQueueItems = queueData.getItems();
+    assertThat(mediaQueueItems.get(0).getMedia().getContentId()).isEqualTo(uri1);
+    assertThat(mediaQueueItems.get(1).getMedia().getContentId()).isEqualTo(uri2);
   }
 
   @Test
@@ -571,7 +841,8 @@ public class RemoteCastPlayerTest {
           MediaInfo.STREAM_TYPE_BUFFERED, MediaInfo.STREAM_TYPE_BUFFERED
         },
         /* durationsMs= */ new long[] {20_000, 20_000},
-        /* positionMs= */ 2000L);
+        /* positionMs= */ 2000L,
+        /* notifyStatusUpdate= */ true);
     // Replacing existing playlist.
     remoteCastPlayer.setMediaItems(
         secondPlaylist, /* startIndex= */ 0, /* startPositionMs= */ 1000L);
@@ -581,7 +852,8 @@ public class RemoteCastPlayerTest {
         /* currentItemId= */ 3,
         /* streamTypes= */ new int[] {MediaInfo.STREAM_TYPE_BUFFERED},
         /* durationsMs= */ new long[] {20_000},
-        /* positionMs= */ 1000L);
+        /* positionMs= */ 1000L,
+        /* notifyStatusUpdate= */ true);
 
     Player.PositionInfo oldPosition =
         new Player.PositionInfo(
@@ -889,7 +1161,8 @@ public class RemoteCastPlayerTest {
         /* currentItemId= */ 1,
         new int[] {MediaInfo.STREAM_TYPE_BUFFERED, MediaInfo.STREAM_TYPE_BUFFERED},
         /* durationsMs= */ new long[] {20_000L, 30_000L},
-        /* positionMs= */ 1234);
+        /* positionMs= */ 1234,
+        /* notifyStatusUpdate= */ true);
     remoteCastPlayer.clearMediaItems();
     updateTimeLine(
         /* mediaItems= */ ImmutableList.of(),
@@ -897,7 +1170,8 @@ public class RemoteCastPlayerTest {
         /* currentItemId= */ C.INDEX_UNSET,
         new int[] {MediaInfo.STREAM_TYPE_BUFFERED},
         /* durationsMs= */ new long[] {20_000L},
-        /* positionMs= */ 0);
+        /* positionMs= */ 0,
+        /* notifyStatusUpdate= */ true);
 
     Player.PositionInfo oldPosition =
         new Player.PositionInfo(
@@ -972,7 +1246,8 @@ public class RemoteCastPlayerTest {
         /* currentItemId= */ 1,
         new int[] {MediaInfo.STREAM_TYPE_BUFFERED, MediaInfo.STREAM_TYPE_BUFFERED},
         /* durationsMs= */ new long[] {20_000L, 30_000L},
-        /* positionMs= */ 1234);
+        /* positionMs= */ 1234,
+        /* notifyStatusUpdate= */ true);
     remoteCastPlayer.removeMediaItem(/* index= */ 0);
     // Update with the new timeline after removal.
     updateTimeLine(
@@ -981,7 +1256,8 @@ public class RemoteCastPlayerTest {
         /* currentItemId= */ 2,
         new int[] {MediaInfo.STREAM_TYPE_BUFFERED},
         /* durationsMs= */ new long[] {20_000L},
-        /* positionMs= */ 0);
+        /* positionMs= */ 0,
+        /* notifyStatusUpdate= */ true);
 
     Player.PositionInfo oldPosition =
         new Player.PositionInfo(
@@ -1054,7 +1330,8 @@ public class RemoteCastPlayerTest {
         /* currentItemId= */ 1,
         new int[] {MediaInfo.STREAM_TYPE_BUFFERED, MediaInfo.STREAM_TYPE_BUFFERED},
         /* durationsMs= */ new long[] {20_000L, 30_000L},
-        /* positionMs= */ 1234);
+        /* positionMs= */ 1234,
+        /* notifyStatusUpdate= */ true);
     // Update with the new timeline after removal on the device.
     updateTimeLine(
         ImmutableList.of(mediaItem2),
@@ -1062,7 +1339,8 @@ public class RemoteCastPlayerTest {
         /* currentItemId= */ 2,
         new int[] {MediaInfo.STREAM_TYPE_BUFFERED},
         /* durationsMs= */ new long[] {30_000L},
-        /* positionMs= */ 0);
+        /* positionMs= */ 0,
+        /* notifyStatusUpdate= */ true);
 
     Player.PositionInfo oldPosition =
         new Player.PositionInfo(
@@ -1315,14 +1593,16 @@ public class RemoteCastPlayerTest {
         /* currentItemId= */ 1,
         /* streamTypes= */ streamTypes,
         /* durationsMs= */ durationsFirstMs,
-        /* positionMs= */ C.TIME_UNSET);
+        /* positionMs= */ C.TIME_UNSET,
+        /* notifyStatusUpdate= */ true);
     updateTimeLine(
         mediaItems,
         mediaQueueItemIds,
         /* currentItemId= */ 2,
         /* streamTypes= */ streamTypes,
         /* durationsMs= */ durationsSecondMs,
-        /* positionMs= */ C.TIME_UNSET);
+        /* positionMs= */ C.TIME_UNSET,
+        /* notifyStatusUpdate= */ true);
 
     Player.PositionInfo oldPosition =
         new Player.PositionInfo(
@@ -1371,7 +1651,13 @@ public class RemoteCastPlayerTest {
 
     remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(
-        mediaItems, mediaQueueItemIds, currentItemId, streamTypes, durationsMs, positionMs);
+        mediaItems,
+        mediaQueueItemIds,
+        currentItemId,
+        streamTypes,
+        durationsMs,
+        positionMs,
+        /* notifyStatusUpdate= */ true);
     remoteCastPlayer.seekBack();
 
     Player.PositionInfo oldPosition =
@@ -1419,7 +1705,13 @@ public class RemoteCastPlayerTest {
 
     remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(
-        mediaItems, mediaQueueItemIds, currentItemId, streamTypes, durationsMs, positionMs);
+        mediaItems,
+        mediaQueueItemIds,
+        currentItemId,
+        streamTypes,
+        durationsMs,
+        positionMs,
+        /* notifyStatusUpdate= */ true);
     remoteCastPlayer.seekForward();
 
     Player.PositionInfo oldPosition =
@@ -1455,6 +1747,7 @@ public class RemoteCastPlayerTest {
   }
 
   @Test
+  @SuppressWarnings("deprecation") // Deprecated volume commands.
   public void isCommandAvailable_isTrueForAvailableCommands() {
     int[] mediaQueueItemIds = new int[] {1, 2};
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
@@ -1495,6 +1788,7 @@ public class RemoteCastPlayerTest {
   }
 
   @Test
+  @SuppressWarnings("deprecation") // Deprecated volume commands.
   public void isCommandAvailable_setVolumeIsSupported() {
     when(mockMediaStatus.isMediaCommandSupported(MediaStatus.COMMAND_SET_VOLUME)).thenReturn(true);
 
@@ -1530,7 +1824,8 @@ public class RemoteCastPlayerTest {
         /* currentItemId= */ 1,
         streamTypes,
         durationsMs,
-        /* positionMs= */ C.TIME_UNSET);
+        /* positionMs= */ C.TIME_UNSET,
+        /* notifyStatusUpdate= */ true);
 
     assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)).isFalse();
     assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_BACK)).isFalse();
@@ -1552,7 +1847,8 @@ public class RemoteCastPlayerTest {
         /* currentItemId= */ 1,
         streamTypes,
         durationsMs,
-        /* positionMs= */ C.TIME_UNSET);
+        /* positionMs= */ C.TIME_UNSET,
+        /* notifyStatusUpdate= */ true);
 
     assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_TO_PREVIOUS)).isFalse();
   }
@@ -1572,7 +1868,8 @@ public class RemoteCastPlayerTest {
         /* currentItemId= */ 2,
         streamTypes,
         durationsMs,
-        /* positionMs= */ C.TIME_UNSET);
+        /* positionMs= */ C.TIME_UNSET,
+        /* notifyStatusUpdate= */ true);
 
     assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_TO_PREVIOUS)).isTrue();
   }
@@ -1592,7 +1889,8 @@ public class RemoteCastPlayerTest {
         /* currentItemId= */ 1,
         streamTypes,
         durationsMs,
-        /* positionMs= */ C.TIME_UNSET);
+        /* positionMs= */ C.TIME_UNSET,
+        /* notifyStatusUpdate= */ true);
 
     assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_TO_NEXT)).isTrue();
   }
@@ -2079,6 +2377,628 @@ public class RemoteCastPlayerTest {
     verify(mockListener).onDeviceVolumeChanged(0, /* muted= */ false);
   }
 
+  @Test
+  public void onStatusUpdated_withMediaTracks_invokesTrackSelector() {
+    MediaTrack audioTrack = new MediaTrack.Builder(1, MediaTrack.TYPE_AUDIO).build();
+    List<MediaTrack> mediaTracks = Collections.singletonList(audioTrack);
+    MediaInfo mediaInfo = new MediaInfo.Builder("contentId").setMediaTracks(mediaTracks).build();
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    when(mockMediaStatus.getActiveTrackIds()).thenReturn(new long[] {1});
+
+    remoteMediaClientCallback.onStatusUpdated();
+
+    verify(spyTrackSelector).evaluate(any());
+  }
+
+  @Test
+  public void invalidateTracks_invokesTrackSelector() {
+    MediaTrack audioTrack = new MediaTrack.Builder(1, MediaTrack.TYPE_AUDIO).build();
+    List<MediaTrack> mediaTracks = Collections.singletonList(audioTrack);
+    MediaInfo mediaInfo = new MediaInfo.Builder("contentId").setMediaTracks(mediaTracks).build();
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    when(mockMediaStatus.getActiveTrackIds()).thenReturn(new long[] {1});
+    remoteMediaClientCallback.onStatusUpdated();
+    verify(spyTrackSelector).evaluate(any());
+
+    spyTrackSelector.invalidate();
+
+    verify(spyTrackSelector, times(2)).evaluate(any());
+  }
+
+  @Test
+  public void onStatusUpdated_withPendingTrackSelection_doesNotInvokeTrackSelector() {
+    doAnswer(
+            invocation -> {
+              CastTrackSelectorRequest request = invocation.getArgument(0);
+              return new CastTrackSelectorResult(
+                  ImmutableSet.of(request.trackGroupList.get(1)), request.trackSelectionParameters);
+            })
+        .when(spyTrackSelector)
+        .evaluate(any());
+    when(mockRemoteMediaClient.setActiveMediaTracks(any())).thenReturn(mockPendingResult);
+    MediaTrack audioTrack = new MediaTrack.Builder(1, MediaTrack.TYPE_AUDIO).build();
+    MediaTrack videoTrack = new MediaTrack.Builder(2, MediaTrack.TYPE_VIDEO).build();
+    List<MediaTrack> mediaTracks = Arrays.asList(audioTrack, videoTrack);
+    MediaInfo mediaInfo = new MediaInfo.Builder("contentId").setMediaTracks(mediaTracks).build();
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    when(mockMediaStatus.getActiveTrackIds()).thenReturn(new long[] {1});
+    remoteMediaClientCallback.onStatusUpdated();
+    verify(spyTrackSelector).evaluate(any());
+    clearInvocations(spyTrackSelector);
+    verify(mockRemoteMediaClient).setActiveMediaTracks(new long[] {2});
+    verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
+
+    // Another status update arrives before the result callback.
+    remoteMediaClientCallback.onStatusUpdated();
+    verify(spyTrackSelector, never()).evaluate(any());
+    // Now the result callback is called.
+    ResultCallback<RemoteMediaClient.MediaChannelResult> callback =
+        setResultCallbackArgumentCaptor.getValue();
+    when(mockMediaStatus.getActiveTrackIds()).thenReturn(new long[] {2});
+    callback.onResult(mock(RemoteMediaClient.MediaChannelResult.class));
+
+    verify(spyTrackSelector).evaluate(any());
+  }
+
+  @Test
+  public void onStatusUpdated_afterMaskingCompletes_acceptsSubsequentUpdates() {
+    doAnswer(
+            invocation -> {
+              CastTrackSelectorRequest request = invocation.getArgument(0);
+              return new CastTrackSelectorResult(
+                  ImmutableSet.of(request.trackGroupList.get(1)), request.trackSelectionParameters);
+            })
+        .when(spyTrackSelector)
+        .evaluate(any());
+    when(mockRemoteMediaClient.setActiveMediaTracks(any())).thenReturn(mockPendingResult);
+    MediaTrack audioTrack = new MediaTrack.Builder(1, MediaTrack.TYPE_AUDIO).build();
+    MediaTrack videoTrack = new MediaTrack.Builder(2, MediaTrack.TYPE_VIDEO).build();
+    List<MediaTrack> mediaTracks = Arrays.asList(audioTrack, videoTrack);
+    MediaInfo mediaInfo = new MediaInfo.Builder("contentId").setMediaTracks(mediaTracks).build();
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    when(mockMediaStatus.getActiveTrackIds()).thenReturn(new long[] {1});
+    // Trigger initial evaluation and capture the callback to start in a masking state.
+    remoteMediaClientCallback.onStatusUpdated();
+    verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
+
+    // Complete the masking command.
+    ResultCallback<RemoteMediaClient.MediaChannelResult> callback =
+        setResultCallbackArgumentCaptor.getValue();
+    when(mockMediaStatus.getActiveTrackIds()).thenReturn(new long[] {2});
+    callback.onResult(mock(RemoteMediaClient.MediaChannelResult.class));
+    // Clear all prior evaluations to focus only on the subsequent update.
+    clearInvocations(spyTrackSelector);
+    // A subsequent status update arrives after the result callback, with a different track active.
+    when(mockMediaStatus.getActiveTrackIds()).thenReturn(new long[] {1});
+    remoteMediaClientCallback.onStatusUpdated();
+
+    // Verify that this subsequent update is NOT ignored and evaluates with the correct parameters.
+    TrackGroup group1 = CastUtils.mediaTrackToTrackGroup(0, audioTrack);
+    TrackGroup group2 = CastUtils.mediaTrackToTrackGroup(0, videoTrack);
+    CastTrackSelectorRequest expectedRequest =
+        new CastTrackSelectorRequest(
+            /* mediaItemId= */ 0,
+            TrackSelectionParameters.DEFAULT,
+            ImmutableList.of(group1, group2),
+            ImmutableList.of(audioTrack, videoTrack),
+            ImmutableSet.of(group1),
+            TRACK_SELECTION_REQUEST_REASON_RECEIVER_UPDATE);
+    verify(spyTrackSelector).evaluate(expectedRequest);
+  }
+
+  @Test
+  public void onSessionChange_clearsMaskingState_acceptsSubsequentUpdates() {
+    doAnswer(
+            invocation -> {
+              CastTrackSelectorRequest request = invocation.getArgument(0);
+              return new CastTrackSelectorResult(
+                  ImmutableSet.of(request.trackGroupList.get(1)), request.trackSelectionParameters);
+            })
+        .when(spyTrackSelector)
+        .evaluate(any());
+    when(mockRemoteMediaClient.setActiveMediaTracks(any())).thenReturn(mockPendingResult);
+    MediaTrack audioTrack = new MediaTrack.Builder(1, MediaTrack.TYPE_AUDIO).build();
+    MediaTrack videoTrack = new MediaTrack.Builder(2, MediaTrack.TYPE_VIDEO).build();
+    List<MediaTrack> mediaTracks = Arrays.asList(audioTrack, videoTrack);
+    MediaInfo mediaInfo = new MediaInfo.Builder("contentId").setMediaTracks(mediaTracks).build();
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    when(mockMediaStatus.getActiveTrackIds()).thenReturn(new long[] {1});
+    // Trigger initial evaluation and capture the callback to start in a masking state.
+    remoteMediaClientCallback.onStatusUpdated();
+    verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
+
+    // Disconnect the session abruptly (simulates network drop - callback never fires).
+    when(mockSessionManager.getCurrentCastSession()).thenReturn(null);
+    sessionManagerListener.onSessionEnded(mockCastSession, 0);
+    shadowOf(Looper.getMainLooper()).idle(); // Flush disconnection events
+    // Mock the TV to already have the selector's preferred track active (ID 2) upon reconnect.
+    // This prevents the player from sending a new command and setting a new masking lock during
+    // sync.
+    when(mockMediaStatus.getActiveTrackIds()).thenReturn(new long[] {2});
+    // Reconnect to a new session.
+    when(mockSessionManager.getCurrentCastSession()).thenReturn(mockCastSession);
+    sessionManagerListener.onSessionStarted(mockCastSession, "new_session_id");
+    shadowOf(Looper.getMainLooper()).idle(); // Flush reconnection events
+    // Clear all prior evaluations to focus only on the post-reconnect update.
+    clearInvocations(spyTrackSelector);
+    // TV sends a status update in the new session, reporting a different active track (ID 1).
+    when(mockMediaStatus.getActiveTrackIds()).thenReturn(new long[] {1});
+    remoteMediaClientCallback.onStatusUpdated();
+
+    // Verify that this subsequent update is NOT ignored (proving the old masking lock was cleared)
+    // and evaluates with the correct parameters.
+    TrackGroup group1 = CastUtils.mediaTrackToTrackGroup(0, audioTrack);
+    TrackGroup group2 = CastUtils.mediaTrackToTrackGroup(0, videoTrack);
+    CastTrackSelectorRequest expectedRequest =
+        new CastTrackSelectorRequest(
+            /* mediaItemId= */ 0,
+            TrackSelectionParameters.DEFAULT,
+            ImmutableList.of(group1, group2),
+            ImmutableList.of(audioTrack, videoTrack),
+            ImmutableSet.of(group1),
+            TRACK_SELECTION_REQUEST_REASON_RECEIVER_UPDATE);
+    verify(spyTrackSelector).evaluate(expectedRequest);
+  }
+
+  @Test
+  public void onStatusUpdated_trackSelectorReturnsSameTracksAndParams_doesNothing() {
+    MediaTrack audioTrack = new MediaTrack.Builder(1, MediaTrack.TYPE_AUDIO).build();
+    List<MediaTrack> mediaTracks = Collections.singletonList(audioTrack);
+    MediaInfo mediaInfo = new MediaInfo.Builder("contentId").setMediaTracks(mediaTracks).build();
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    when(mockMediaStatus.getActiveTrackIds()).thenReturn(new long[] {1});
+    // The selector returns the same active tracks and parameters.
+    doAnswer(
+            invocation -> {
+              CastTrackSelectorRequest request = invocation.getArgument(0);
+              return new CastTrackSelectorResult(
+                  request.currentlySelectedTrackGroups, request.trackSelectionParameters);
+            })
+        .when(spyTrackSelector)
+        .evaluate(any());
+
+    remoteMediaClientCallback.onStatusUpdated();
+
+    verify(spyTrackSelector).evaluate(any());
+    verify(mockRemoteMediaClient, never()).setActiveMediaTracks(any());
+    verify(mockListener, never()).onTrackSelectionParametersChanged(any());
+  }
+
+  @Test
+  public void onStatusUpdated_trackSelectorChangesTrackSelection_callsSetActiveMediaTracks() {
+    List<MediaTrack> mediaTracks = Arrays.asList(FAKE_MEDIA_TRACK_AUDIO, FAKE_MEDIA_TRACK_VIDEO);
+    MediaInfo mediaInfo = new MediaInfo.Builder("contentId").setMediaTracks(mediaTracks).build();
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    when(mockMediaStatus.getActiveTrackIds())
+        .thenReturn(new long[] {FAKE_MEDIA_TRACK_AUDIO.getId()});
+    when(mockRemoteMediaClient.setActiveMediaTracks(any())).thenReturn(mockPendingResult);
+
+    doAnswer(
+            invocation -> {
+              CastTrackSelectorRequest request = invocation.getArgument(0);
+              ImmutableSet<TrackGroup> videoTrackSet =
+                  request.trackGroupList.stream()
+                      .filter(it -> it.type == C.TRACK_TYPE_VIDEO)
+                      .collect(toImmutableSet());
+              return new CastTrackSelectorResult(videoTrackSet, TrackSelectionParameters.DEFAULT);
+            })
+        .when(spyTrackSelector)
+        .evaluate(any());
+    remoteMediaClientCallback.onStatusUpdated();
+
+    verify(spyTrackSelector).evaluate(trackSelectionArgumentCaptor.capture());
+    assertThat(trackSelectionArgumentCaptor.getValue().trackSelectionRequestReason)
+        .isEqualTo(TRACK_SELECTION_REQUEST_REASON_RECEIVER_UPDATE);
+    verify(mockRemoteMediaClient).setActiveMediaTracks(new long[] {FAKE_MEDIA_TRACK_VIDEO.getId()});
+    verify(mockListener, never()).onTrackSelectionParametersChanged(any());
+    verify(mockListener).onTracksChanged(any());
+  }
+
+  @Test
+  public void isCommandAvailable_withTrackSelector_returnsTrueForTrackSelectionCommand() {
+    when(mockSessionManager.getCurrentCastSession()).thenReturn(null);
+    RemoteCastPlayer remoteCastPlayerWithTrackSelector =
+        new RemoteCastPlayer(
+            /* context= */ null,
+            Cast.getSingletonInstance(mockCastContext),
+            mediaItemConverter,
+            new CastTrackSelector() {
+              @Override
+              public CastTrackSelectorResult evaluate(CastTrackSelectorRequest request) {
+                return request.buildResultUpon().build();
+              }
+            },
+            C.DEFAULT_SEEK_BACK_INCREMENT_MS,
+            C.DEFAULT_SEEK_FORWARD_INCREMENT_MS,
+            C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS);
+
+    assertThat(
+            remoteCastPlayerWithTrackSelector
+                .getAvailableCommands()
+                .contains(Player.COMMAND_SET_TRACK_SELECTION_PARAMETERS))
+        .isTrue();
+  }
+
+  @Test
+  public void isCommandAvailable_withoutTrackSelector_returnsFalseForTrackSelectionCommand() {
+    // TODO: b/112049705 - Replace with builder call once MR2 robolectric shadows are available.
+    RemoteCastPlayer remoteCastPlayerWithoutTrackSelector =
+        new RemoteCastPlayer(
+            /* context= */ null,
+            Cast.getSingletonInstance(mockCastContext),
+            mediaItemConverter,
+            /* trackSelector= */ null,
+            C.DEFAULT_SEEK_BACK_INCREMENT_MS,
+            C.DEFAULT_SEEK_FORWARD_INCREMENT_MS,
+            C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS);
+    Listener mockListener = mock(Listener.class);
+    remoteCastPlayerWithoutTrackSelector.addListener(mockListener);
+    TrackSelectionParameters currentParams =
+        remoteCastPlayerWithoutTrackSelector.getTrackSelectionParameters();
+
+    boolean isTrackSelectionSupported =
+        remoteCastPlayerWithoutTrackSelector.isCommandAvailable(
+            Player.COMMAND_SET_TRACK_SELECTION_PARAMETERS);
+    remoteCastPlayerWithoutTrackSelector.setTrackSelectionParameters(
+        currentParams.buildUpon().setPreferredAudioLanguage("ja").build());
+    shadowOf(Looper.getMainLooper()).idle();
+    remoteMediaClientCallback.onStatusUpdated();
+
+    assertThat(isTrackSelectionSupported).isFalse();
+    verify(mockListener, never()).onTrackSelectionParametersChanged(any());
+    verify(mockRemoteMediaClient, never()).setActiveMediaTracks(any());
+  }
+
+  @Test
+  public void onStatusUpdated_withNonChangingSelectionRequest_doesNotCallTrackSelector() {
+    List<MediaTrack> mediaTracks = Collections.singletonList(FAKE_MEDIA_TRACK_AUDIO);
+    MediaInfo mediaInfo = new MediaInfo.Builder("contentId").setMediaTracks(mediaTracks).build();
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    remoteCastPlayer.setTrackSelectionParameters(
+        new TrackSelectionParameters.Builder().setPreferredAudioLanguage("ja").build());
+    shadowOf(Looper.getMainLooper()).idle();
+    clearInvocations(spyTrackSelector);
+
+    remoteMediaClientCallback.onStatusUpdated();
+    remoteMediaClientCallback.onStatusUpdated();
+
+    // Should be called only once. In the second update, nothing has changed.
+    verify(spyTrackSelector).evaluate(any());
+  }
+
+  @Test
+  public void castTrackSelectorInvalidate_withNonChangingSelectionRequest_callsTrackSelector() {
+    List<MediaTrack> mediaTracks = Collections.singletonList(FAKE_MEDIA_TRACK_AUDIO);
+    MediaInfo mediaInfo = new MediaInfo.Builder("contentId").setMediaTracks(mediaTracks).build();
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    remoteCastPlayer.setTrackSelectionParameters(
+        new TrackSelectionParameters.Builder().setPreferredAudioLanguage("ja").build());
+    shadowOf(Looper.getMainLooper()).idle();
+    clearInvocations(spyTrackSelector);
+
+    spyTrackSelector.invalidate();
+    spyTrackSelector.invalidate();
+
+    // Should be called only once. In the second update, nothing has changed.
+    verify(spyTrackSelector, times(2)).evaluate(any());
+  }
+
+  @Test
+  public void setTrackSelectorParameters_whileMaskingSelection_callsTrackSelector() {
+    List<MediaTrack> mediaTracks = Collections.singletonList(FAKE_MEDIA_TRACK_AUDIO);
+    MediaInfo mediaInfo = new MediaInfo.Builder("contentId").setMediaTracks(mediaTracks).build();
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    when(mockMediaStatus.getActiveTrackIds())
+        .thenReturn(new long[] {FAKE_MEDIA_TRACK_AUDIO.getId()});
+    shadowOf(Looper.getMainLooper()).idle();
+    doAnswer(
+            invocation -> {
+              CastTrackSelectorRequest request = invocation.getArgument(0);
+              return request.buildResultUpon().setSelections(ImmutableSet.of()).build();
+            })
+        .when(spyTrackSelector)
+        .evaluate(any());
+    when(mockRemoteMediaClient.setActiveMediaTracks(any())).thenReturn(mockPendingResult);
+    remoteMediaClientCallback.onStatusUpdated();
+    clearInvocations(spyTrackSelector);
+
+    remoteCastPlayer.setTrackSelectionParameters(
+        new TrackSelectionParameters.Builder().setPreferredAudioLanguage("ja").build());
+
+    verify(spyTrackSelector).evaluate(any());
+  }
+
+  @Test
+  public void onStatusUpdated_whileMasking_doesNotCallTrackSelector() {
+    List<MediaTrack> mediaTracks = Collections.singletonList(FAKE_MEDIA_TRACK_AUDIO);
+    MediaInfo mediaInfo = new MediaInfo.Builder("contentId").setMediaTracks(mediaTracks).build();
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    when(mockMediaStatus.getActiveTrackIds())
+        .thenReturn(new long[] {FAKE_MEDIA_TRACK_AUDIO.getId()});
+    shadowOf(Looper.getMainLooper()).idle();
+    doAnswer(
+            invocation -> {
+              CastTrackSelectorRequest request = invocation.getArgument(0);
+              return request.buildResultUpon().setSelections(ImmutableSet.of()).build();
+            })
+        .when(spyTrackSelector)
+        .evaluate(any());
+    when(mockRemoteMediaClient.setActiveMediaTracks(any())).thenReturn(mockPendingResult);
+    spyTrackSelector.invalidate();
+    clearInvocations(spyTrackSelector);
+
+    remoteMediaClientCallback.onStatusUpdated();
+
+    verify(spyTrackSelector, never()).evaluate(any());
+  }
+
+  @Test
+  public void onStatusUpdated_trackSelectorReturnsInvalidTrack_throwsException() {
+    List<MediaTrack> mediaTracks = Arrays.asList(FAKE_MEDIA_TRACK_AUDIO, FAKE_MEDIA_TRACK_VIDEO);
+    MediaInfo mediaInfo = new MediaInfo.Builder("contentId").setMediaTracks(mediaTracks).build();
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    when(mockMediaStatus.getActiveTrackIds())
+        .thenReturn(new long[] {FAKE_MEDIA_TRACK_AUDIO.getId()});
+    TrackGroup invalidTrackGroup = new TrackGroup(new Format.Builder().build());
+    doAnswer(
+            invocation -> {
+              CastTrackSelectorRequest request = invocation.getArgument(0);
+              return new CastTrackSelectorResult(
+                  ImmutableSet.of(invalidTrackGroup), request.trackSelectionParameters);
+            })
+        .when(spyTrackSelector)
+        .evaluate(any());
+
+    assertThrows(IllegalStateException.class, () -> remoteMediaClientCallback.onStatusUpdated());
+  }
+
+  @Test
+  public void invalidateTrackSelection_withNewParameters_invokesExpectedListeners() {
+    List<MediaTrack> mediaTracks = Collections.singletonList(FAKE_MEDIA_TRACK_AUDIO);
+    MediaInfo mediaInfo = new MediaInfo.Builder("contentId").setMediaTracks(mediaTracks).build();
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    when(mockMediaStatus.getActiveTrackIds())
+        .thenReturn(new long[] {FAKE_MEDIA_TRACK_AUDIO.getId()});
+    remoteMediaClientCallback.onStatusUpdated();
+    reset(mockListener);
+    reset(spyTrackSelector);
+    TrackSelectionParameters newParameters =
+        new TrackSelectionParameters.Builder().setMaxVideoBitrate(123).build();
+    doAnswer(
+            invocation -> {
+              CastTrackSelectorRequest request = invocation.getArgument(0);
+              return request.buildResultUpon().setTrackSelectionParameters(newParameters).build();
+            })
+        .when(spyTrackSelector)
+        .evaluate(any());
+
+    spyTrackSelector.invalidate();
+
+    assertThat(remoteCastPlayer.getTrackSelectionParameters()).isEqualTo(newParameters);
+    verify(spyTrackSelector).evaluate(trackSelectionArgumentCaptor.capture());
+    int reason = trackSelectionArgumentCaptor.getValue().trackSelectionRequestReason;
+    assertThat(reason).isEqualTo(TRACK_SELECTION_REQUEST_REASON_INVALIDATION);
+    verify(mockRemoteMediaClient, never()).setActiveMediaTracks(any());
+    verify(mockListener).onTrackSelectionParametersChanged(newParameters);
+    verify(mockListener, never()).onTracksChanged(any());
+  }
+
+  @Test
+  public void setTrackSelectionParameters_triggersTrackSelectionAndMasksTracks() {
+    List<MediaTrack> mediaTracks = Arrays.asList(FAKE_MEDIA_TRACK_AUDIO, FAKE_MEDIA_TRACK_VIDEO);
+    MediaInfo mediaInfo = new MediaInfo.Builder("contentId").setMediaTracks(mediaTracks).build();
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    when(mockMediaStatus.getActiveTrackIds())
+        .thenReturn(new long[] {FAKE_MEDIA_TRACK_AUDIO.getId()});
+    remoteMediaClientCallback.onStatusUpdated();
+    reset(spyTrackSelector);
+    reset(mockListener);
+    TrackSelectionParameters newParameters =
+        new TrackSelectionParameters.Builder().setMaxVideoBitrate(456).build();
+    doAnswer(
+            invocation -> {
+              CastTrackSelectorRequest request = invocation.getArgument(0);
+              return request
+                  .buildResultUpon()
+                  .setSelections(ImmutableSet.copyOf(request.trackGroupList))
+                  .build();
+            })
+        .when(spyTrackSelector)
+        .evaluate(any());
+    when(mockRemoteMediaClient.setActiveMediaTracks(any())).thenReturn(mockPendingResult);
+
+    remoteCastPlayer.setTrackSelectionParameters(newParameters);
+
+    verify(spyTrackSelector).evaluate(trackSelectionArgumentCaptor.capture());
+    int reason = trackSelectionArgumentCaptor.getValue().trackSelectionRequestReason;
+    assertThat(reason).isEqualTo(TRACK_SELECTION_REQUEST_REASON_PARAMETER_CHANGE);
+    verify(mockListener).onTrackSelectionParametersChanged(newParameters);
+    verify(mockListener).onTracksChanged(tracksArgumentCaptor.capture());
+    Tracks tracks = tracksArgumentCaptor.getValue();
+    assertThat(tracks.getGroups()).hasSize(2);
+    assertThat(tracks.isTypeSelected(C.TRACK_TYPE_AUDIO)).isTrue();
+    assertThat(tracks.isTypeSelected(C.TRACK_TYPE_VIDEO)).isTrue();
+    verify(mockRemoteMediaClient).setActiveMediaTracks(trackIdsCaptor.capture());
+    List<Long> trackIds = Longs.asList(trackIdsCaptor.getValue());
+    assertThat(trackIds)
+        .containsExactly(FAKE_MEDIA_TRACK_AUDIO.getId(), FAKE_MEDIA_TRACK_VIDEO.getId());
+  }
+
+  @Test
+  public void mediaQueueChanged_afterOnSessionEnding_doesNotClearTheTimeline() {
+    List<MediaItem> firstPlaylist = new ArrayList<>();
+    String uri1 = "http://www.google.com/video1";
+    String uri2 = "http://www.google.com/video2";
+    int firstItemId = 33;
+    firstPlaylist.add(
+        new MediaItem.Builder().setUri(uri1).setMimeType(MimeTypes.APPLICATION_MPD).build());
+    firstPlaylist.add(
+        new MediaItem.Builder().setUri(uri2).setMimeType(MimeTypes.APPLICATION_MP4).build());
+    remoteCastPlayer.setMediaItems(
+        firstPlaylist, /* startIndex= */ 1, /* startPositionMs= */ 2000L);
+    when(mockRemoteMediaClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_BUFFERING);
+    updateTimeLine(
+        firstPlaylist, /* mediaQueueItemIds= */ new int[] {firstItemId, 2}, /* currentItemId= */ 1);
+    mediaQueueCallback.mediaQueueChanged();
+    clearInvocations(mockListener);
+    Timeline initialTimeline = remoteCastPlayer.getCurrentTimeline();
+
+    sessionManagerListener.onSessionEnding(mockCastSession);
+    updateTimeLine(
+        /* mediaItems= */ ImmutableList.of(),
+        /* mediaQueueItemIds= */ new int[] {},
+        /* currentItemId= */ C.INDEX_UNSET,
+        /* streamTypes= */ new int[] {},
+        /* durationsMs= */ new long[] {},
+        /* positionMs= */ 0,
+        /* notifyStatusUpdate= */ true);
+    mediaQueueCallback.mediaQueueChanged();
+
+    Timeline timelineAfterSessionEnd = remoteCastPlayer.getCurrentTimeline();
+    verify(mockListener, never()).onTimelineChanged(any(), anyInt());
+    assertThat(initialTimeline).isEqualTo(timelineAfterSessionEnd);
+  }
+
+  @Test
+  public void onSessionEnded_withReasonStopped_notifiesUnavailableWithStoppedReason() {
+    remoteCastPlayer.setSessionAvailabilityListener(mockSessionAvailabilityListener);
+
+    sessionManagerListener.onSessionEnding(mockCastSession);
+    sessionManagerListener.onSessionEnded(
+        mockCastSession, RemoteCastPlayer.SESSION_END_REASON_STOPPED);
+
+    verify(mockSessionAvailabilityListener)
+        .onCastSessionUnavailable(SessionAvailabilityListener.SESSION_UNAVAILABLE_REASON_STOPPED);
+  }
+
+  @Test
+  public void onSessionEnded_withReasonRouteChanged_notifiesUnavailableWithRouteChangedReason() {
+    remoteCastPlayer.setSessionAvailabilityListener(mockSessionAvailabilityListener);
+
+    sessionManagerListener.onSessionEnding(mockCastSession);
+    sessionManagerListener.onSessionEnded(
+        mockCastSession, RemoteCastPlayer.SESSION_END_REASON_ROUTE_CHANGE);
+
+    verify(mockSessionAvailabilityListener)
+        .onCastSessionUnavailable(
+            SessionAvailabilityListener.SESSION_UNAVAILABLE_REASON_ROUTE_CHANGED);
+  }
+
+  @Test
+  public void onSessionEnded_withReasonAppStopped_notifiesUnavailableWithAppStoppedReason() {
+    remoteCastPlayer.setSessionAvailabilityListener(mockSessionAvailabilityListener);
+
+    sessionManagerListener.onSessionEnding(mockCastSession);
+    sessionManagerListener.onSessionEnded(mockCastSession, RemoteCastPlayer.APPLICATION_STOPPED);
+
+    verify(mockSessionAvailabilityListener)
+        .onCastSessionUnavailable(
+            SessionAvailabilityListener.SESSION_UNAVAILABLE_REASON_APP_STOPPED);
+  }
+
+  @Test
+  public void onSessionSuspended_notifiesUnavailableWithDisconnectedReason() {
+    remoteCastPlayer.setSessionAvailabilityListener(mockSessionAvailabilityListener);
+
+    sessionManagerListener.onSessionSuspended(mockCastSession, 0);
+
+    verify(mockSessionAvailabilityListener)
+        .onCastSessionUnavailable(
+            SessionAvailabilityListener.SESSION_UNAVAILABLE_REASON_DISCONNECTED);
+  }
+
+  @Test
+  public void onCastSessionUnavailable_notifiesLegacyListener() {
+    class LegacyListener implements SessionAvailabilityListener {
+      boolean onCastSessionUnavailableCalled = false;
+
+      @Override
+      public void onCastSessionAvailable() {}
+
+      @Override
+      public void onCastSessionUnavailable() {
+        onCastSessionUnavailableCalled = true;
+      }
+    }
+    LegacyListener legacyListener = new LegacyListener();
+    remoteCastPlayer.setSessionAvailabilityListener(legacyListener);
+
+    sessionManagerListener.onSessionEnding(mockCastSession);
+    sessionManagerListener.onSessionEnded(
+        mockCastSession, RemoteCastPlayer.SESSION_END_REASON_STOPPED);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertThat(legacyListener.onCastSessionUnavailableCalled).isTrue();
+  }
+
+  @Test
+  public void onSessionEnding_withReceiverUpdates_freezesTimelineAndTracks() {
+    // Set up an active playing session with playlist, tracks, and progress.
+    List<MediaTrack> mediaTracks = Collections.singletonList(FAKE_MEDIA_TRACK_AUDIO);
+    MediaInfo mediaInfo = new MediaInfo.Builder("contentId").setMediaTracks(mediaTracks).build();
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    when(mockMediaStatus.getActiveTrackIds())
+        .thenReturn(new long[] {FAKE_MEDIA_TRACK_AUDIO.getId()});
+    int[] queueItemIds = new int[] {1};
+    when(mockMediaQueue.getItemIds()).thenReturn(queueItemIds);
+    when(mockRemoteMediaClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PLAYING);
+    when(mockRemoteMediaClient.isPaused()).thenReturn(false);
+    when(mockRemoteMediaClient.getApproximateStreamPosition()).thenReturn(12345L);
+    // Trigger callbacks to update the player state.
+    mediaQueueCallback.mediaQueueChanged();
+    remoteMediaClientCallback.onStatusUpdated();
+    progressListener.onProgressUpdated(12345L, 0L);
+    shadowOf(Looper.getMainLooper()).idle();
+    // Validate the initial player state.
+    Timeline originalTimeline = remoteCastPlayer.getCurrentTimeline();
+    Tracks originalTracks = remoteCastPlayer.getCurrentTracks();
+    boolean originalPlayWhenReady = remoteCastPlayer.getPlayWhenReady();
+    long originalPosition = remoteCastPlayer.getCurrentPosition();
+    assertThat(originalTimeline.getWindowCount()).isEqualTo(1);
+    assertThat(originalTracks.getGroups()).hasSize(1);
+    assertThat(originalPlayWhenReady).isTrue();
+    assertThat(originalPosition).isEqualTo(12345L);
+
+    // Trigger the session disconnect sequence and simulate background GMS updates.
+    sessionManagerListener.onSessionEnding(mockCastSession);
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[0]);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(new MediaInfo.Builder("contentId").build());
+    when(mockRemoteMediaClient.getApproximateStreamPosition()).thenReturn(0L);
+    progressListener.onProgressUpdated(0L, 0L);
+    mediaQueueCallback.mediaQueueChanged();
+    remoteMediaClientCallback.onStatusUpdated();
+    shadowOf(Looper.getMainLooper()).idle();
+
+    // Verify that player state parameters remained frozen.
+    assertThat(remoteCastPlayer.getCurrentTimeline()).isEqualTo(originalTimeline);
+    assertThat(remoteCastPlayer.getCurrentTracks()).isEqualTo(originalTracks);
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isEqualTo(originalPlayWhenReady);
+    assertThat(remoteCastPlayer.getCurrentPosition()).isEqualTo(originalPosition);
+  }
+
+  @Test
+  public void onSessionEnding_withClientSideUpdates_freezesState() {
+    // Set up an active playing session
+    when(mockRemoteMediaClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PLAYING);
+    when(mockRemoteMediaClient.isPaused()).thenReturn(false);
+    when(mockMediaStatus.getPlaybackRate()).thenReturn(1.0);
+    when(mockMediaStatus.getQueueRepeatMode()).thenReturn(MediaStatus.REPEAT_MODE_REPEAT_OFF);
+    remoteMediaClientCallback.onStatusUpdated();
+
+    // Trigger the session disconnect sequence
+    sessionManagerListener.onSessionEnding(mockCastSession);
+    // Simulate client-side attempts to modify the player state
+    remoteCastPlayer.setPlayWhenReady(false);
+    remoteCastPlayer.setPlaybackParameters(new PlaybackParameters(2.0f));
+    remoteCastPlayer.setRepeatMode(Player.REPEAT_MODE_ALL);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    // Verify that the state was frozen and client-side updates were ignored
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isTrue();
+    assertThat(remoteCastPlayer.getPlaybackParameters().speed).isEqualTo(1.0f);
+    assertThat(remoteCastPlayer.getRepeatMode()).isEqualTo(Player.REPEAT_MODE_OFF);
+  }
+
   private int[] createMediaQueueItemIds(int numberOfIds) {
     int[] mediaQueueItemIds = new int[numberOfIds];
     for (int i = 0; i < numberOfIds; i++) {
@@ -2121,7 +3041,8 @@ public class RemoteCastPlayerTest {
         currentItemId,
         streamTypes,
         durationsMs,
-        /* positionMs= */ C.TIME_UNSET);
+        /* positionMs= */ C.TIME_UNSET,
+        /* notifyStatusUpdate= */ true);
   }
 
   private void updateTimeLine(
@@ -2130,7 +3051,8 @@ public class RemoteCastPlayerTest {
       int currentItemId,
       int[] streamTypes,
       long[] durationsMs,
-      long positionMs) {
+      long positionMs,
+      boolean notifyStatusUpdate) {
     // Set up mocks to allow the player to update the timeline.
     List<MediaQueueItem> queueItems = new ArrayList<>();
     for (int i = 0; i < mediaQueueItemIds.length; i++) {
@@ -2167,14 +3089,19 @@ public class RemoteCastPlayerTest {
     when(mockMediaStatus.getCurrentItemId())
         .thenReturn(currentItemId == C.INDEX_UNSET ? 0 : currentItemId);
 
-    // Call listener to update the timeline of the player.
-    remoteMediaClientCallback.onStatusUpdated();
+    if (notifyStatusUpdate) {
+      // Call listener to update the timeline of the player.
+      remoteMediaClientCallback.onStatusUpdated();
+    }
   }
 
   private static Player.Commands createWithDefaultCommands(
       boolean isTimelineEmpty, @Player.Command int... additionalCommands) {
     Player.Commands.Builder builder = new Player.Commands.Builder();
     builder.addAll(RemoteCastPlayer.PERMANENT_AVAILABLE_COMMANDS);
+    // The remote cast player in set up provides a track selector, making this command available by
+    // default in this class.
+    builder.add(Player.COMMAND_SET_TRACK_SELECTION_PARAMETERS);
     if (!isTimelineEmpty) {
       builder.add(COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM);
       builder.add(COMMAND_SEEK_TO_PREVIOUS);

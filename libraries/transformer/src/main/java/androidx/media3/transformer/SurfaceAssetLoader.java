@@ -109,6 +109,7 @@ public final class SurfaceAssetLoader implements AssetLoader {
   private @Transformer.ProgressState int progressState;
 
   private boolean isStarted;
+  private boolean isStopped;
   private boolean isVideoEndOfStreamSignaled;
   private @MonotonicNonNull SampleConsumer sampleConsumer;
   private @MonotonicNonNull Format contentFormat;
@@ -184,8 +185,18 @@ public final class SurfaceAssetLoader implements AssetLoader {
   }
 
   @Override
+  public void stop() {
+    isStopped = true;
+  }
+
+  @Override
+  public boolean isStopped() {
+    return isStopped;
+  }
+
+  @Override
   public void release() {
-    // Do nothing.
+    isStopped = true;
   }
 
   private void maybeFinishPreparation() {

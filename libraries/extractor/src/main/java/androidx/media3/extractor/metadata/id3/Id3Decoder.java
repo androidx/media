@@ -60,6 +60,16 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
   public static final FramePredicate NO_FRAMES_PREDICATE =
       (majorVersion, id0, id1, id2, id3) -> false;
 
+  /** A predicate that indicates artwork frames should not be decoded. */
+  public static final FramePredicate NO_ARTWORK_PREDICATE =
+      (majorVersion, id0, id1, id2, id3) -> {
+        if (majorVersion == 2) {
+          return !(id0 == 'P' && id1 == 'I' && id2 == 'C');
+        } else {
+          return !(id0 == 'A' && id1 == 'P' && id2 == 'I' && id3 == 'C');
+        }
+      };
+
   private static final String TAG = "Id3Decoder";
 
   /** The first three bytes of a well formed ID3 tag header. */
@@ -93,6 +103,16 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
    */
   public Id3Decoder(@Nullable FramePredicate framePredicate) {
     this.framePredicate = framePredicate;
+  }
+
+  /**
+   * Returns whether the given major version number is supported by {@link Id3Decoder}.
+   *
+   * @param majorVersion The ID3v2 major version number.
+   * @return Whether the major version is supported (ID3v2.2, ID3v2.3, or ID3v2.4).
+   */
+  public static boolean isSupportedMajorVersion(int majorVersion) {
+    return majorVersion >= 2 && majorVersion <= 4;
   }
 
   @Override
@@ -173,6 +193,10 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     }
 
     int majorVersion = data.readUnsignedByte();
+    if (!isSupportedMajorVersion(majorVersion)) {
+      Log.w(TAG, "Skipped ID3 tag with unsupported majorVersion=" + majorVersion);
+      return null;
+    }
     data.skipBytes(1); // Skip minor version.
     int flags = data.readUnsignedByte();
     int framesSize = data.readSynchSafeInt();
@@ -201,9 +225,6 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
       if (hasFooter) {
         framesSize -= 10;
       }
-    } else {
-      Log.w(TAG, "Skipped ID3 tag with unsupported majorVersion=" + majorVersion);
-      return null;
     }
 
     // isUnsynchronized is advisory only in version 4. Frame level flags are used instead.
@@ -372,7 +393,7 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
       frameSize = removeUnsynchronization(id3Data, frameSize);
     }
 
-    Id3Frame frame = null;
+    @Nullable Id3Frame frame = null;
     Throwable error = null;
     try {
       if (frameId0 == 'T'
@@ -647,6 +668,7 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     return new CommentFrame(language, description, text);
   }
 
+  @Nullable
   private static ChapterFrame decodeChapterFrame(
       ParsableByteArray id3Data,
       int frameSize,
@@ -666,6 +688,9 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
 
     int startTime = id3Data.readInt();
     int endTime = id3Data.readInt();
+    if (startTime > endTime) {
+      return null;
+    }
     long startOffset = id3Data.readUnsignedInt();
     if (startOffset == 0xFFFFFFFFL) {
       startOffset = C.INDEX_UNSET;

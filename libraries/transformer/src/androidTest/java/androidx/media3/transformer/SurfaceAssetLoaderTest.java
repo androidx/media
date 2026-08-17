@@ -15,10 +15,8 @@
  */
 package androidx.media3.transformer;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -37,6 +35,7 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import org.junit.Before;
@@ -47,6 +46,7 @@ import org.junit.runner.RunWith;
 
 /** End to end instrumentation test for {@link SurfaceAssetLoader} using {@link Transformer}. */
 @RunWith(AndroidJUnit4.class)
+@SdkSuppress(minSdkVersion = 29)
 public class SurfaceAssetLoaderTest {
 
   // TODO: b/351776005 - Add HDR-based test case(s).
@@ -67,8 +67,6 @@ public class SurfaceAssetLoaderTest {
 
   @Test
   public void encodingFromSurface_succeeds() throws Exception {
-    assumeTrue("ImageWriter with pixel format set requires API 29", SDK_INT >= 29);
-
     SettableFuture<SurfaceAssetLoader> surfaceAssetLoaderSettableFuture = SettableFuture.create();
     SettableFuture<Surface> surfaceSettableFuture = SettableFuture.create();
     Transformer transformer =
@@ -92,7 +90,7 @@ public class SurfaceAssetLoaderTest {
         new EditedMediaItem.Builder(
                 MediaItem.fromUri(SurfaceAssetLoader.MEDIA_ITEM_URI_SCHEME + ":"))
             .build();
-    ListenableFuture<ExportResult> exportCompletionFuture =
+    ListenableFuture<ExportTestResult> exportCompletionFuture =
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
             .runAsync(testId, editedMediaItem);
@@ -129,17 +127,16 @@ public class SurfaceAssetLoaderTest {
     }
     surfaceAssetLoader.signalEndOfInput();
 
-    ExportResult exportResult = exportCompletionFuture.get();
+    ExportResult exportResult = exportCompletionFuture.get().exportResult;
     assertThat(exportResult.videoFrameCount).isEqualTo(inputFrameCount);
     assertThat(exportResult.width).isEqualTo(bitmap.getWidth());
     assertThat(exportResult.height).isEqualTo(bitmap.getHeight());
-    assertThat(exportResult.durationMs).isEqualTo(300);
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
+    assertThat(exportResult.approximateDurationMs).isEqualTo(300);
   }
 
   @Test
   public void encodingFromSurface_withLargeTimestamps_succeeds() throws Exception {
-    assumeTrue("ImageWriter with pixel format set requires API 29", SDK_INT >= 29);
-
     SettableFuture<SurfaceAssetLoader> surfaceAssetLoaderSettableFuture = SettableFuture.create();
     SettableFuture<Surface> surfaceSettableFuture = SettableFuture.create();
     Transformer transformer =
@@ -163,7 +160,7 @@ public class SurfaceAssetLoaderTest {
         new EditedMediaItem.Builder(
                 MediaItem.fromUri(SurfaceAssetLoader.MEDIA_ITEM_URI_SCHEME + ":"))
             .build();
-    ListenableFuture<ExportResult> exportCompletionFuture =
+    ListenableFuture<ExportTestResult> exportCompletionFuture =
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
             .runAsync(testId, editedMediaItem);
@@ -188,8 +185,8 @@ public class SurfaceAssetLoaderTest {
       for (int i = 0; i < inputFrameCount; i++) {
         Image image = imageWriter.dequeueInputImage();
 
-        // Add a large base offset in nanoseconds.
-        image.setTimestamp(3_020_642_044_930_642L + i * C.NANOS_PER_SECOND / 30);
+        // Add a large base offset in nanoseconds. But within the range of int in milliseconds.
+        image.setTimestamp(2_020_642_044_930_642L + i * C.NANOS_PER_SECOND / 30);
         BitmapPixelTestUtil.copyRbga8888BitmapToImage(bitmap, image);
         readyForInputCondition.close();
         imageWriter.queueInputImage(image);
@@ -202,10 +199,11 @@ public class SurfaceAssetLoaderTest {
     }
     surfaceAssetLoader.signalEndOfInput();
 
-    ExportResult exportResult = exportCompletionFuture.get();
+    ExportResult exportResult = exportCompletionFuture.get().exportResult;
     assertThat(exportResult.videoFrameCount).isEqualTo(inputFrameCount);
     assertThat(exportResult.width).isEqualTo(bitmap.getWidth());
     assertThat(exportResult.height).isEqualTo(bitmap.getHeight());
-    assertThat(exportResult.durationMs).isEqualTo(300);
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
+    assertThat(exportResult.approximateDurationMs).isEqualTo(300);
   }
 }

@@ -89,8 +89,6 @@ import androidx.media3.session.legacy.RatingCompat;
 import androidx.media3.session.legacy.VolumeProviderCompat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -136,7 +134,8 @@ import java.util.concurrent.TimeoutException;
           MediaMetadataCompat.METADATA_KEY_BT_FOLDER_TYPE,
           MediaMetadataCompat.METADATA_KEY_ADVERTISEMENT,
           MediaMetadataCompat.METADATA_KEY_DOWNLOAD_STATUS,
-          MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT);
+          MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT,
+          MediaConstants.EXTRAS_KEY_PLAYLIST_ID);
 
   /** Exception thrown when the conversion between legacy and Media3 states fails. */
   public static class ConversionException extends Exception {
@@ -509,14 +508,8 @@ import java.util.concurrent.TimeoutException;
         .setArtworkUri(descriptionCompat.getIconUri())
         .setUserRating(convertToRating(RatingCompat.newUnratedRating(ratingType)));
 
-    @Nullable Bitmap iconBitmap = descriptionCompat.getIconBitmap();
-    if (iconBitmap != null) {
-      @Nullable byte[] artworkData = null;
-      try {
-        artworkData = convertToByteArray(iconBitmap);
-      } catch (IOException e) {
-        Log.w(TAG, "Failed to convert iconBitmap to artworkData", e);
-      }
+    @Nullable byte[] artworkData = descriptionCompat.getIconBitmapData();
+    if (artworkData != null) {
       builder.setArtworkData(artworkData, MediaMetadata.PICTURE_TYPE_FRONT_COVER);
     }
 
@@ -533,6 +526,14 @@ import java.util.concurrent.TimeoutException;
     if (extras != null && extras.containsKey(MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT)) {
       builder.setMediaType((int) extras.getLong(MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT));
       extras.remove(MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT);
+    }
+
+    if (extras != null && extras.containsKey(MediaConstants.EXTRAS_KEY_PLAYLIST_ID)) {
+      @Nullable String playlistId = extras.getString(MediaConstants.EXTRAS_KEY_PLAYLIST_ID);
+      if (!TextUtils.isEmpty(playlistId)) {
+        builder.setPlaylistId(playlistId);
+      }
+      extras.remove(MediaConstants.EXTRAS_KEY_PLAYLIST_ID);
     }
 
     if (extras != null
@@ -633,31 +634,14 @@ import java.util.concurrent.TimeoutException;
       builder.setRecordingYear((int) year);
     }
 
-    @Nullable
-    String artworkUriString =
-        getFirstString(
-            metadataCompat,
-            MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON_URI,
-            MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI,
-            MediaMetadataCompat.METADATA_KEY_ART_URI);
-    if (artworkUriString != null) {
-      builder.setArtworkUri(Uri.parse(artworkUriString));
+    @Nullable Uri artworkUri = metadataCompat.getMostRelevantArtworkUri();
+    if (artworkUri != null) {
+      builder.setArtworkUri(artworkUri);
     }
 
-    @Nullable
-    Bitmap artworkBitmap =
-        getFirstBitmap(
-            metadataCompat,
-            MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON,
-            MediaMetadataCompat.METADATA_KEY_ALBUM_ART,
-            MediaMetadataCompat.METADATA_KEY_ART);
-    if (artworkBitmap != null) {
-      try {
-        byte[] artworkData = convertToByteArray(artworkBitmap);
-        builder.setArtworkData(artworkData, MediaMetadata.PICTURE_TYPE_FRONT_COVER);
-      } catch (IOException e) {
-        Log.w(TAG, "Failed to convert artworkBitmap to artworkData", e);
-      }
+    @Nullable byte[] artworkData = metadataCompat.getMostRelevantArtworkBitmapData();
+    if (artworkData != null) {
+      builder.setArtworkData(artworkData, MediaMetadata.PICTURE_TYPE_FRONT_COVER);
     }
 
     boolean isBrowsable =
@@ -674,6 +658,13 @@ import java.util.concurrent.TimeoutException;
           (int) metadataCompat.getLong(MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT));
     }
 
+    if (metadataCompat.containsKey(MediaConstants.EXTRAS_KEY_PLAYLIST_ID)) {
+      @Nullable String playlistId = metadataCompat.getString(MediaConstants.EXTRAS_KEY_PLAYLIST_ID);
+      if (!TextUtils.isEmpty(playlistId)) {
+        builder.setPlaylistId(playlistId);
+      }
+    }
+
     builder.setIsPlayable(true);
 
     Bundle extras = metadataCompat.getBundle();
@@ -685,26 +676,6 @@ import java.util.concurrent.TimeoutException;
     }
 
     return builder.build();
-  }
-
-  @Nullable
-  private static Bitmap getFirstBitmap(MediaMetadataCompat mediaMetadataCompat, String... keys) {
-    for (String key : keys) {
-      if (mediaMetadataCompat.containsKey(key)) {
-        return mediaMetadataCompat.getBitmap(key);
-      }
-    }
-    return null;
-  }
-
-  @Nullable
-  private static String getFirstString(MediaMetadataCompat mediaMetadataCompat, String... keys) {
-    for (String key : keys) {
-      if (mediaMetadataCompat.containsKey(key)) {
-        return mediaMetadataCompat.getString(key);
-      }
-    }
-    return null;
   }
 
   /**
@@ -762,6 +733,18 @@ import java.util.concurrent.TimeoutException;
       builder.putLong(MediaMetadataCompat.METADATA_KEY_YEAR, metadata.recordingYear);
     }
 
+    if (metadata.author != null) {
+      builder.putText(MediaMetadataCompat.METADATA_KEY_AUTHOR, metadata.author);
+    }
+
+    if (metadata.writer != null) {
+      builder.putText(MediaMetadataCompat.METADATA_KEY_WRITER, metadata.writer);
+    }
+
+    if (metadata.composer != null) {
+      builder.putText(MediaMetadataCompat.METADATA_KEY_COMPOSER, metadata.composer);
+    }
+
     if (mediaUri != null) {
       builder.putString(MediaMetadataCompat.METADATA_KEY_MEDIA_URI, mediaUri.toString());
     }
@@ -783,6 +766,10 @@ import java.util.concurrent.TimeoutException;
       builder.putLong(
           MediaMetadataCompat.METADATA_KEY_BT_FOLDER_TYPE,
           convertToExtraBtFolderType(metadata.folderType));
+    }
+
+    if (metadata.playlistId != null && !TextUtils.isEmpty(metadata.playlistId)) {
+      builder.putString(MediaConstants.EXTRAS_KEY_PLAYLIST_ID, metadata.playlistId);
     }
 
     if (durationMs == C.TIME_UNSET && metadata.durationMs != null) {
@@ -856,6 +843,14 @@ import java.util.concurrent.TimeoutException;
             MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT, checkNotNull(metadata.mediaType));
       }
     }
+
+    if (metadata.playlistId != null && !TextUtils.isEmpty(metadata.playlistId)) {
+      if (extras == null) {
+        extras = new Bundle();
+      }
+      extras.putString(MediaConstants.EXTRAS_KEY_PLAYLIST_ID, metadata.playlistId);
+    }
+
     if (!metadata.supportedCommands.isEmpty()) {
       if (extras == null) {
         extras = new Bundle();
@@ -920,8 +915,12 @@ import java.util.concurrent.TimeoutException;
         return metadata.writer;
       case MediaMetadataCompat.METADATA_KEY_COMPOSER:
         return metadata.composer;
+      case MediaMetadataCompat.METADATA_KEY_AUTHOR:
+        return metadata.author;
       case MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE:
         return metadata.subtitle;
+      case MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION:
+        return metadata.description;
       default:
         return null;
     }
@@ -1398,17 +1397,16 @@ import java.util.concurrent.TimeoutException;
         || hasAction(actions, PlaybackStateCompat.ACTION_PLAY_PAUSE)) {
       playerCommandsBuilder.add(COMMAND_PLAY_PAUSE);
     }
-    if (hasAction(actions, PlaybackStateCompat.ACTION_PREPARE)) {
-      playerCommandsBuilder.add(COMMAND_PREPARE);
+    if (hasAction(actions, PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID)
+        || hasAction(actions, PlaybackStateCompat.ACTION_PLAY_FROM_SEARCH)
+        || hasAction(actions, PlaybackStateCompat.ACTION_PLAY_FROM_URI)) {
+      playerCommandsBuilder.add(COMMAND_SET_MEDIA_ITEM);
     }
-    if ((hasAction(actions, PlaybackStateCompat.ACTION_PREPARE_FROM_MEDIA_ID)
-            && hasAction(actions, PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID))
-        || (hasAction(actions, PlaybackStateCompat.ACTION_PREPARE_FROM_SEARCH)
-            && hasAction(actions, PlaybackStateCompat.ACTION_PLAY_FROM_SEARCH))
-        || (hasAction(actions, PlaybackStateCompat.ACTION_PREPARE_FROM_URI)
-            && hasAction(actions, PlaybackStateCompat.ACTION_PLAY_FROM_URI))) {
-      // Require both PREPARE and PLAY actions as we have no logic to handle having just one action.
-      playerCommandsBuilder.addAll(COMMAND_SET_MEDIA_ITEM, COMMAND_PREPARE);
+    if (hasAction(actions, PlaybackStateCompat.ACTION_PREPARE)
+        || hasAction(actions, PlaybackStateCompat.ACTION_PREPARE_FROM_MEDIA_ID)
+        || hasAction(actions, PlaybackStateCompat.ACTION_PREPARE_FROM_SEARCH)
+        || hasAction(actions, PlaybackStateCompat.ACTION_PREPARE_FROM_URI)) {
+      playerCommandsBuilder.add(COMMAND_PREPARE);
     }
     if (hasAction(actions, PlaybackStateCompat.ACTION_REWIND)) {
       playerCommandsBuilder.add(COMMAND_SEEK_BACK);
@@ -1451,9 +1449,9 @@ import java.util.concurrent.TimeoutException;
         COMMAND_RELEASE);
     if ((sessionFlags & FLAG_HANDLES_QUEUE_COMMANDS) != 0) {
       playerCommandsBuilder.add(COMMAND_CHANGE_MEDIA_ITEMS);
-      if (hasAction(actions, PlaybackStateCompat.ACTION_SKIP_TO_QUEUE_ITEM)) {
-        playerCommandsBuilder.add(Player.COMMAND_SEEK_TO_MEDIA_ITEM);
-      }
+    }
+    if (hasAction(actions, PlaybackStateCompat.ACTION_SKIP_TO_QUEUE_ITEM)) {
+      playerCommandsBuilder.add(Player.COMMAND_SEEK_TO_MEDIA_ITEM);
     }
     if (isSessionReady) {
       if (hasAction(actions, PlaybackStateCompat.ACTION_SET_REPEAT_MODE)) {
@@ -1542,6 +1540,9 @@ import java.util.concurrent.TimeoutException;
               .setSessionCommand(new SessionCommand(action, extras == null ? Bundle.EMPTY : extras))
               .setDisplayName(customAction.getName())
               .setEnabled(true);
+      if (extras != null) {
+        button.setExtras(extras);
+      }
       @Nullable
       String iconUriString =
           extras != null
@@ -1729,13 +1730,6 @@ import java.util.concurrent.TimeoutException;
     long currentPositionMs =
         convertToCurrentPositionMs(playbackStateCompat, currentMediaMetadata, timeDiffMs);
     return currentPositionMs >= durationMs;
-  }
-
-  private static byte[] convertToByteArray(Bitmap bitmap) throws IOException {
-    try (ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
-      bitmap.compress(Bitmap.CompressFormat.PNG, /* ignored */ 0, stream);
-      return stream.toByteArray();
-    }
   }
 
   private LegacyConversions() {}

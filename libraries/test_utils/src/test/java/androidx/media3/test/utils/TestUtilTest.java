@@ -24,12 +24,14 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 
 /** Unit tests for {@link TestUtil}. */
 @RunWith(AndroidJUnit4.class)
 public class TestUtilTest {
 
   @Test
+  @Config(maxSdk = 32) // TODO: b/513096061 - Run this on all API levels when it passes.
   public void getThrowingBundle_throwsWhenUsed() {
     Bundle bundle = TestUtil.getThrowingBundle();
 

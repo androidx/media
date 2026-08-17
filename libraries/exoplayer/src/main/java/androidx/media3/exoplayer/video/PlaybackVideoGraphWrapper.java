@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.video;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static androidx.media3.common.VideoFrameProcessor.DROP_OUTPUT_FRAME;
 import static androidx.media3.common.util.Util.contains;
 import static androidx.media3.common.util.Util.getMaxPendingFramesCountForMediaCodecDecoders;
@@ -34,7 +35,6 @@ import androidx.annotation.FloatRange;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
-import androidx.annotation.RestrictTo.Scope;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
@@ -47,6 +47,7 @@ import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.HandlerWrapper;
@@ -54,7 +55,6 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.TimedValueQueue;
 import androidx.media3.common.util.TimestampIterator;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -74,8 +74,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * Processes input from {@link VideoSink} instances, plumbing the data through a {@link VideoGraph}
  * and rendering the output.
  */
-@UnstableApi
-@RestrictTo({Scope.LIBRARY_GROUP})
+@RestrictTo(LIBRARY_GROUP)
 public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
 
   /** Listener for {@link PlaybackVideoGraphWrapper} events. */
@@ -104,6 +103,9 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
      * @param videoFrameProcessingException The error.
      */
     default void onError(VideoFrameProcessingException videoFrameProcessingException) {}
+
+    /** Called when an input sequence ends. */
+    default void onEnded(long finalFramePresentationTimeUs) {}
   }
 
   /** A builder for {@link PlaybackVideoGraphWrapper} instances. */
@@ -216,6 +218,7 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
      * @param lateThresholdToDropInputUs The threshold.
      */
     @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/470367421 - Remove or make non-experimental.
     public Builder experimentalSetLateThresholdToDropInputUs(long lateThresholdToDropInputUs) {
       this.lateThresholdToDropInputUs = lateThresholdToDropInputUs;
       return this;
@@ -388,6 +391,12 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
   }
 
   public void setTotalVideoInputCount(int totalVideoInputCount) {
+    if (totalVideoInputCount < this.totalVideoInputCount) {
+      // Currently we don't allow removing video from a sequence.
+      // TODO: b/430250222 - Track types should be fixed after this, and this method could be
+      //  removed.
+      return;
+    }
     this.totalVideoInputCount = totalVideoInputCount;
   }
 
@@ -540,7 +549,9 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
 
   @Override
   public void onEnded(long finalFramePresentationTimeUs) {
-    // Ignored.
+    for (PlaybackVideoGraphWrapper.Listener listener : listeners) {
+      listener.onEnded(finalFramePresentationTimeUs);
+    }
   }
 
   @Override
@@ -692,8 +703,12 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
       onOutputStreamChanged();
     }
     lastOutputFramePresentationTimeUs = C.TIME_UNSET;
-    finalFramePresentationTimeUs = C.TIME_UNSET;
-    hasSignaledEndOfVideoGraphOutputStream = false;
+    if (resetPosition) {
+      // If not resetting position, preserve the EOS state, this is necessary in operations like
+      // redraw which relies on flushing, but does not reset position.
+      finalFramePresentationTimeUs = C.TIME_UNSET;
+      hasSignaledEndOfVideoGraphOutputStream = false;
+    }
     // Handle pending video graph callbacks to ensure video size changes reach the video render
     // control.
     checkNotNull(handler).post(() -> pendingFlushCount--);
@@ -1255,8 +1270,15 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
       VideoGraph.Factory factory;
       try {
         // LINT.IfChange
-        Class<?> singleInputVideoGraphFactoryClass =
-            Class.forName("androidx.media3.effect.SingleInputVideoGraph$Factory");
+        // b/463697143: Obfuscate class name to bypass R8/AppReduce static analysis.
+        @SuppressWarnings({"UnnecessaryStringBuilder", "RedundantStringBuilderAppend"})
+        String className =
+            new StringBuilder()
+                .append("androidx.media3.effect.")
+                .append("SingleInputVideoGraph")
+                .append("$Factory")
+                .toString();
+        Class<?> singleInputVideoGraphFactoryClass = Class.forName(className);
         factory =
             (VideoGraph.Factory)
                 singleInputVideoGraphFactoryClass
@@ -1296,8 +1318,15 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
             () -> {
               try {
                 // LINT.IfChange
-                return Class.forName(
-                    "androidx.media3.effect.DefaultVideoFrameProcessor$Factory$Builder");
+                // b/463697143: Obfuscate class name to bypass R8/AppReduce static analysis.
+                @SuppressWarnings({"UnnecessaryStringBuilder", "RedundantStringBuilderAppend"})
+                String className =
+                    new StringBuilder()
+                        .append("androidx.media3.effect.")
+                        .append("DefaultVideoFrameProcessor")
+                        .append("$Factory$Builder")
+                        .toString();
+                return Class.forName(className);
                 // LINT.ThenChange(../../../../../../../proguard-rules.txt)
               } catch (Exception e) {
                 throw new IllegalStateException(e);
@@ -1320,6 +1349,7 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
         VideoFrameProcessor.Listener listener)
         throws VideoFrameProcessingException {
       try {
+        // LINT.IfChange
         Class<?> defaultVideoFrameProcessorFactoryBuilderClass =
             DEFAULT_VIDEO_FRAME_PROCESSOR_FACTORY_BUILDER_CLASS.get();
         Object builder =
@@ -1334,6 +1364,7 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
                     defaultVideoFrameProcessorFactoryBuilderClass
                         .getMethod("build")
                         .invoke(builder));
+        // LINT.ThenChange(../../../../../../../../effect/src/main/java/androidx/media3/effect/DefaultVideoFrameProcessor.java)
         return factory.create(
             context,
             debugViewProvider,

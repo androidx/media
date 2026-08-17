@@ -220,11 +220,6 @@ public final class MpeghReader implements ElementaryStreamReader {
     }
   }
 
-  @Override
-  public void packetFinished(boolean isEndOfInput) {
-    // Do nothing.
-  }
-
   /**
    * Copies data from the provided {@code source} into a given {@code target}, attempting to fill
    * the target buffer up to its limit.

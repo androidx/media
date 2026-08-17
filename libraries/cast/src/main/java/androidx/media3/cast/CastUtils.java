@@ -15,16 +15,30 @@
  */
 package androidx.media3.cast;
 
+import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.C.TrackType;
 import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
+import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Util;
 import com.google.android.gms.cast.CastStatusCodes;
 import com.google.android.gms.cast.MediaInfo;
 import com.google.android.gms.cast.MediaTrack;
+import com.google.common.base.Preconditions;
 
 /** Utility methods for Cast integration. */
 /* package */ final class CastUtils {
+
+  /**
+   * Verifies that the current thread is the main thread.
+   *
+   * @throws IllegalStateException if the current thread is not the main thread.
+   */
+  public static void verifyMainThread() {
+    Preconditions.checkState(Looper.myLooper() == Looper.getMainLooper());
+  }
 
   /**
    * Returns the duration in microseconds advertised by a media info, or {@link C#TIME_UNSET} if
@@ -96,18 +110,67 @@ import com.google.android.gms.cast.MediaTrack;
   }
 
   /**
-   * Creates a {@link Format} instance containing all information contained in the given {@link
-   * MediaTrack} object.
+   * Returns a {@link TrackGroup} that represents the given Cast media track.
    *
-   * @param mediaTrack The {@link MediaTrack}.
-   * @return The equivalent {@link Format}.
+   * @param mediaItemId The ID of the media item to which the given track belongs.
+   * @param mediaTrack The Cast media track to convert.
+   * @return A {@link TrackGroup} representing the Cast media track.
    */
-  public static Format mediaTrackToFormat(MediaTrack mediaTrack) {
-    return new Format.Builder()
-        .setId(mediaTrack.getContentId())
-        .setContainerMimeType(mediaTrack.getContentType())
-        .setLanguage(mediaTrack.getLanguage())
-        .build();
+  public static TrackGroup mediaTrackToTrackGroup(int mediaItemId, MediaTrack mediaTrack) {
+    String trackGroupId = Util.formatInvariant("item=%d,track=%d", mediaItemId, mediaTrack.getId());
+    String mimeType = mediaTrack.getContentType();
+    @TrackType int media3TrackType = toMedia3TrackType(mediaTrack.getType());
+    if (media3TrackType != MimeTypes.getTrackType(mimeType)) {
+      // We update the mime type to match the track's type, so as to ensure that TrackGroup infers
+      // the correct track type from the created format. See b/447601947.
+      String mimeTypeForTrackType = getUnknownMimeTypeForTrackType(media3TrackType);
+      if (mimeTypeForTrackType != null) {
+        mimeType = mimeTypeForTrackType;
+      }
+    }
+    Format format =
+        new Format.Builder()
+            .setId(mediaTrack.getContentId())
+            .setContainerMimeType(mimeType)
+            .setLanguage(mediaTrack.getLanguage())
+            .build();
+    return new TrackGroup(trackGroupId, format);
+  }
+
+  /**
+   * Returns the {@link C.TrackType} equivalent of the given Cast {@link
+   * com.google.android.gms.cast.MediaTrack#getType()}.
+   */
+  private static @TrackType int toMedia3TrackType(int castTrackType) {
+    switch (castTrackType) {
+      case MediaTrack.TYPE_AUDIO:
+        return C.TRACK_TYPE_AUDIO;
+      case MediaTrack.TYPE_VIDEO:
+        return C.TRACK_TYPE_VIDEO;
+      case MediaTrack.TYPE_TEXT:
+        return C.TRACK_TYPE_TEXT;
+      default:
+        return C.TRACK_TYPE_UNKNOWN;
+    }
+  }
+
+  /**
+   * Returns a MIME type with a type that matches the given track type and unknown subtype, or null
+   * if the track type is not one of {@link C#TRACK_TYPE_AUDIO}, {@link C#TRACK_TYPE_TEXT}, or
+   * {@link C#TRACK_TYPE_VIDEO}, which are the types supported by the Cast SDK.
+   */
+  @Nullable
+  private static String getUnknownMimeTypeForTrackType(@TrackType int media3TrackType) {
+    switch (media3TrackType) {
+      case C.TRACK_TYPE_AUDIO:
+        return MimeTypes.AUDIO_UNKNOWN;
+      case C.TRACK_TYPE_TEXT:
+        return MimeTypes.TEXT_UNKNOWN;
+      case C.TRACK_TYPE_VIDEO:
+        return MimeTypes.VIDEO_UNKNOWN;
+      default:
+        return null;
+    }
   }
 
   private CastUtils() {}

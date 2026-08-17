@@ -41,6 +41,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
 /** Base implementation of MediaBrowser. */
+@SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 /* package */ class MediaBrowserImplBase extends MediaControllerImplBase
     implements MediaBrowser.MediaBrowserImpl {
 
@@ -51,8 +52,15 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       @UnderInitialization MediaBrowser instance,
       SessionToken token,
       Bundle connectionHints,
-      Looper applicationLooper) {
-    super(context, instance, token, connectionHints, applicationLooper);
+      Looper applicationLooper,
+      boolean allowDeviceVolumeCommandsForLocalPlayback) {
+    super(
+        context,
+        instance,
+        token,
+        connectionHints,
+        applicationLooper,
+        allowDeviceVolumeCommandsForLocalPlayback);
     this.instance = instance;
   }
 
@@ -188,6 +196,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       int commandCode, RemoteLibrarySessionTask task) {
     IMediaSession iSession = getSessionInterfaceWithSessionCommandIfAble(commandCode);
     if (iSession != null) {
+      notifyPlatformControllerAboutMedia3ChangeRequest();
       SequencedFuture<LibraryResult<V>> result =
           sequencedFutureManager.createSequencedFuture(LibraryResult.ofError(INFO_CANCELLED));
       try {

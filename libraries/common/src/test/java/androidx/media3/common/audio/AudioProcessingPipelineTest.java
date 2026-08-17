@@ -22,6 +22,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
 import androidx.media3.common.audio.AudioProcessor.StreamMetadata;
 import androidx.media3.common.audio.AudioProcessor.UnhandledAudioFormatException;
+import androidx.media3.exoplayer.audio.ToFloatPcmAudioProcessor;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
@@ -46,7 +47,7 @@ public final class AudioProcessingPipelineTest {
         new AudioProcessingPipeline(ImmutableList.of());
 
     audioProcessingPipeline.configure(AUDIO_FORMAT);
-    audioProcessingPipeline.flush();
+    audioProcessingPipeline.flush(StreamMetadata.DEFAULT);
 
     assertThat(audioProcessingPipeline.isOperational()).isFalse();
   }
@@ -62,7 +63,7 @@ public final class AudioProcessingPipelineTest {
             ImmutableList.of(audioProcessorOne, audioProcessorTwo, audioProcessorThree));
     // The internal state of the pipeline does not affect equality.
     pipelineOne.configure(AUDIO_FORMAT);
-    pipelineOne.flush();
+    pipelineOne.flush(StreamMetadata.DEFAULT);
 
     AudioProcessingPipeline pipelineTwo =
         new AudioProcessingPipeline(
@@ -122,7 +123,7 @@ public final class AudioProcessingPipelineTest {
     audioProcessingPipeline.configure(AUDIO_FORMAT);
     // Configuring the pipeline is not enough for it to be operational.
     assertThat(audioProcessingPipeline.isOperational()).isFalse();
-    audioProcessingPipeline.flush();
+    audioProcessingPipeline.flush(StreamMetadata.DEFAULT);
     assertThat(audioProcessingPipeline.isOperational()).isTrue();
   }
 
@@ -132,13 +133,13 @@ public final class AudioProcessingPipelineTest {
     AudioProcessingPipeline audioProcessingPipeline =
         new AudioProcessingPipeline(ImmutableList.of(audioProcessor));
     audioProcessingPipeline.configure(AUDIO_FORMAT);
-    audioProcessingPipeline.flush();
+    audioProcessingPipeline.flush(StreamMetadata.DEFAULT);
     assertThat(audioProcessingPipeline.isOperational()).isTrue();
 
     audioProcessor.setActive(false);
     audioProcessingPipeline.configure(AUDIO_FORMAT);
     assertThat(audioProcessingPipeline.isOperational()).isTrue();
-    audioProcessingPipeline.flush();
+    audioProcessingPipeline.flush(StreamMetadata.DEFAULT);
     assertThat(audioProcessingPipeline.isOperational()).isFalse();
   }
 
@@ -161,7 +162,7 @@ public final class AudioProcessingPipelineTest {
     AudioProcessingPipeline audioProcessingPipeline =
         new AudioProcessingPipeline(ImmutableList.of(fakeSampleRateChangingAudioProcessor));
     AudioFormat outputFormat = audioProcessingPipeline.configure(AUDIO_FORMAT);
-    audioProcessingPipeline.flush();
+    audioProcessingPipeline.flush(StreamMetadata.DEFAULT);
     assertThat(outputFormat).isEqualTo(AUDIO_FORMAT);
     assertThat(audioProcessingPipeline.isOperational()).isFalse();
   }
@@ -172,7 +173,7 @@ public final class AudioProcessingPipelineTest {
     AudioProcessingPipeline audioProcessingPipeline =
         new AudioProcessingPipeline(ImmutableList.of(audioProcessor));
     audioProcessingPipeline.configure(AUDIO_FORMAT);
-    audioProcessingPipeline.flush();
+    audioProcessingPipeline.flush(StreamMetadata.DEFAULT);
 
     ByteBuffer inputBuffer = createOneSecondDefaultSilenceBuffer(AUDIO_FORMAT);
     long inputBytes = inputBuffer.remaining();
@@ -189,7 +190,7 @@ public final class AudioProcessingPipelineTest {
     AudioProcessingPipeline audioProcessingPipeline =
         new AudioProcessingPipeline(ImmutableList.of(audioProcessor));
     audioProcessingPipeline.configure(AUDIO_FORMAT);
-    audioProcessingPipeline.flush();
+    audioProcessingPipeline.flush(StreamMetadata.DEFAULT);
 
     ByteBuffer inputBuffer = createOneSecondDefaultSilenceBuffer(AUDIO_FORMAT);
     audioProcessingPipeline.queueInput(inputBuffer);
@@ -216,7 +217,7 @@ public final class AudioProcessingPipelineTest {
         };
     AudioProcessingPipeline pipeline = new AudioProcessingPipeline(ImmutableList.of(processor));
     pipeline.configure(AUDIO_FORMAT);
-    pipeline.flush(new StreamMetadata(/* positionOffsetUs= */ 0));
+    pipeline.flush(StreamMetadata.DEFAULT);
     assertThat(lastPositionOffsetUs.get()).isEqualTo(0);
   }
 
@@ -234,7 +235,7 @@ public final class AudioProcessingPipelineTest {
         };
     AudioProcessingPipeline pipeline = new AudioProcessingPipeline(ImmutableList.of(processor));
     pipeline.configure(AUDIO_FORMAT);
-    pipeline.flush();
+    pipeline.flush(StreamMetadata.DEFAULT);
     assertThat(lastPositionOffsetUs.get()).isEqualTo(0);
   }
 
@@ -280,7 +281,7 @@ public final class AudioProcessingPipelineTest {
         new AudioProcessingPipeline(
             ImmutableList.of(firstProcessor, secondProcessor, thirdProcessor));
     pipeline.configure(AUDIO_FORMAT);
-    pipeline.flush(new StreamMetadata(/* positionOffsetUs= */ 1_000_000));
+    pipeline.flush(new StreamMetadata.Builder().setPositionOffsetUs(1_000_000).build());
     assertThat(firstProcessorLastPositionOffset.get()).isEqualTo(/* positionOffsetUs */ 1_000_000);
     // The first AudioProcessor doubles the speed of the input stream, so the offset needs to adjust
     // accordingly.
@@ -304,7 +305,7 @@ public final class AudioProcessingPipelineTest {
                     /* maxInputBytesAtOnce= */ 160,
                     /* duplicateBytes= */ false)));
     audioProcessingPipeline.configure(AUDIO_FORMAT);
-    audioProcessingPipeline.flush();
+    audioProcessingPipeline.flush(StreamMetadata.DEFAULT);
 
     ByteBuffer inputBuffer = createOneSecondDefaultSilenceBuffer(AUDIO_FORMAT);
     inputBuffer.put(0, (byte) 24);
@@ -340,6 +341,20 @@ public final class AudioProcessingPipelineTest {
     assertThat(bytesOutput.get(10)).isEqualTo((byte) 6);
     assertThat(bytesOutput.get(11)).isEqualTo((byte) 6);
     assertThat(bytesOutput.get(12)).isEqualTo((byte) 0);
+  }
+
+  @Test
+  public void reset_withActiveProcessors_makesPipelineNotOperational() throws Exception {
+    AudioProcessingPipeline pipeline =
+        new AudioProcessingPipeline(ImmutableList.of(new ToFloatPcmAudioProcessor()));
+    pipeline.configure(AUDIO_FORMAT);
+    pipeline.flush(StreamMetadata.DEFAULT);
+
+    assertThat(pipeline.isOperational()).isTrue();
+    pipeline.reset();
+
+    assertThat(pipeline.isOperational()).isFalse();
+    assertThat(pipeline.getOutput().hasRemaining()).isFalse();
   }
 
   private static class FakeAudioProcessor extends BaseAudioProcessor {

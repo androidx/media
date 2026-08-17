@@ -121,7 +121,7 @@ public final class WebvttCueParser {
   private static final int TEXT_ALIGNMENT_RIGHT = 5;
 
   public static final Pattern CUE_HEADER_PATTERN =
-      Pattern.compile("^(\\S+)\\s+-->\\s+(\\S+)((?:.|\\f)*)?$");
+      Pattern.compile("^(\\S+)\\s+-->\\s+(\\S+)((?:.|\\f)*+)?$");
   private static final Pattern CUE_SETTING_PATTERN = Pattern.compile("(\\S+?):(\\S+)");
 
   private static final char CHAR_LESS_THAN = '<';

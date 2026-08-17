@@ -23,7 +23,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.media3.common.Player
-import androidx.media3.common.listenTo
 import androidx.media3.common.util.UnstableApi
 
 /**
@@ -33,7 +32,7 @@ import androidx.media3.common.util.UnstableApi
  */
 @UnstableApi
 @Composable
-fun rememberMuteButtonState(player: Player): MuteButtonState {
+fun rememberMuteButtonState(player: Player?): MuteButtonState {
   val muteButtonState = remember(player) { MuteButtonState(player) }
   LaunchedEffect(player) { muteButtonState.observe() }
   return muteButtonState
@@ -43,27 +42,45 @@ fun rememberMuteButtonState(player: Player): MuteButtonState {
  * State that holds all interactions to correctly deal with a UI component representing a Mute
  * button.
  *
- * @property[isEnabled] determined by `isCommandAvailable(Player.COMMAND_SET_VOLUME)`
- * @property[showMuted] determined by [Player]'s volume being 0.0f
+ * @property[isEnabled] true if [player] is not `null` and commands [Player.COMMAND_SET_VOLUME] and
+ *   [Player.COMMAND_GET_VOLUME] are available.
+ * @property[showMuted] true if [player] is not `null` and [player's volume][Player.volume] is 0.0f.
  */
 @UnstableApi
-class MuteButtonState(private val player: Player) {
-  var isEnabled by mutableStateOf(isMutingEnabled(player))
+class MuteButtonState(private val player: Player?) {
+
+  var isEnabled by mutableStateOf(false)
     private set
 
-  var showMuted by mutableStateOf(isMuted(player))
+  var showMuted by mutableStateOf(false)
     private set
+
+  private val playerStateObserver: PlayerStateObserver? =
+    player?.observeState(Player.EVENT_VOLUME_CHANGED, Player.EVENT_AVAILABLE_COMMANDS_CHANGED) {
+      isEnabled =
+        player.isCommandAvailable(Player.COMMAND_GET_VOLUME) &&
+          player.isCommandAvailable(Player.COMMAND_SET_VOLUME)
+      showMuted = player.isCommandAvailable(Player.COMMAND_GET_VOLUME) && player.volume == 0f
+    }
 
   /**
    * Handles the interaction with the Mute button according to the current state of the [Player].
    * Toggled between a muted state (volume of the Player is 0) and non-muted. Does not influence the
    * volume of the device.
    *
+   * This method does nothing if [Player.COMMAND_SET_VOLUME] is not available.
+   *
    * @see [Player.mute]
    * @see [Player.unmute]
+   * @see [Player.COMMAND_GET_VOLUME]
+   * @see [Player.COMMAND_SET_VOLUME]
    */
   fun onClick() {
-    if (player.volume == 0f) player.unmute() else player.mute()
+    player?.let {
+      if (it.isCommandAvailable(Player.COMMAND_SET_VOLUME)) {
+        if (it.volume == 0f) it.unmute() else it.mute()
+      }
+    }
   }
 
   /**
@@ -73,22 +90,7 @@ class MuteButtonState(private val player: Player) {
    * * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED] in order to determine whether the button should be
    *   enabled, i.e. respond to user input.
    */
-  suspend fun observe(): Nothing {
-    showMuted = isMuted(player)
-    isEnabled = isMutingEnabled(player)
-    player.listenTo(Player.EVENT_VOLUME_CHANGED, Player.EVENT_AVAILABLE_COMMANDS_CHANGED) {
-      showMuted = isMuted(this)
-      isEnabled = isMutingEnabled(this)
-    }
+  suspend fun observe() {
+    playerStateObserver?.observe()
   }
-
-  private fun isMuted(player: Player) = getVolumeWithCommandCheck(player) == 0f
-
-  private fun getVolumeWithCommandCheck(player: Player): Float {
-    return if (player.isCommandAvailable(Player.COMMAND_GET_VOLUME)) player.volume else 1f
-  }
-
-  private fun isMutingEnabled(player: Player) =
-    player.isCommandAvailable(Player.COMMAND_GET_VOLUME) &&
-      player.isCommandAvailable(Player.COMMAND_SET_VOLUME)
 }

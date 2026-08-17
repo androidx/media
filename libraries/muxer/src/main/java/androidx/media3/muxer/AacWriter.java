@@ -72,6 +72,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         "Channel count must be between 1 and 7, got %s",
         format.channelCount);
 
+    // TODO: b/492523731 - The profile value should be as per spec.
     profileCode = checkNotNull(CodecSpecificDataUtil.getCodecProfileAndLevel(format)).first;
     sampleFreqIndex = checkNotNull(SAMPLE_RATE_TABLE_INDEX.get(format.sampleRate));
     this.format = format;

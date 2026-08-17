@@ -47,7 +47,9 @@ public class FlacMetadataReaderTest {
   public void peekId3Metadata_updatesPeekPosition() throws Exception {
     ExtractorInput input = buildExtractorInput("media/flac/bear_with_id3.flac");
 
-    FlacMetadataReader.peekId3Metadata(input, /* parseData= */ false);
+    Metadata unused =
+        FlacMetadataReader.peekId3Metadata(
+            input, /* parseData= */ false, /* ignoreArtwork= */ false);
 
     assertThat(input.getPosition()).isEqualTo(0);
     assertThat(input.getPeekPosition()).isNotEqualTo(0);
@@ -57,7 +59,9 @@ public class FlacMetadataReaderTest {
   public void peekId3Metadata_parseData_returnsNonEmptyMetadata() throws Exception {
     ExtractorInput input = buildExtractorInput("media/flac/bear_with_id3.flac");
 
-    Metadata metadata = FlacMetadataReader.peekId3Metadata(input, /* parseData= */ true);
+    Metadata metadata =
+        FlacMetadataReader.peekId3Metadata(
+            input, /* parseData= */ true, /* ignoreArtwork= */ false);
 
     assertThat(metadata).isNotNull();
     assertThat(metadata.length()).isNotEqualTo(0);
@@ -67,7 +71,9 @@ public class FlacMetadataReaderTest {
   public void peekId3Metadata_doNotParseData_returnsNull() throws Exception {
     ExtractorInput input = buildExtractorInput("media/flac/bear_with_id3.flac");
 
-    Metadata metadata = FlacMetadataReader.peekId3Metadata(input, /* parseData= */ false);
+    Metadata metadata =
+        FlacMetadataReader.peekId3Metadata(
+            input, /* parseData= */ false, /* ignoreArtwork= */ false);
 
     assertThat(metadata).isNull();
   }
@@ -77,7 +83,9 @@ public class FlacMetadataReaderTest {
     String fileWithoutId3Metadata = "media/flac/bear.flac";
     ExtractorInput input = buildExtractorInput(fileWithoutId3Metadata);
 
-    Metadata metadata = FlacMetadataReader.peekId3Metadata(input, /* parseData= */ true);
+    Metadata metadata =
+        FlacMetadataReader.peekId3Metadata(
+            input, /* parseData= */ true, /* ignoreArtwork= */ false);
 
     assertThat(metadata).isNull();
   }
@@ -114,10 +122,14 @@ public class FlacMetadataReaderTest {
   public void readId3Metadata_updatesReadPositionAndAlignsPeekPosition() throws Exception {
     ExtractorInput input = buildExtractorInput("media/flac/bear_with_id3.flac");
     // Advance peek position after ID3 metadata.
-    FlacMetadataReader.peekId3Metadata(input, /* parseData= */ false);
+    Metadata unusedPeek =
+        FlacMetadataReader.peekId3Metadata(
+            input, /* parseData= */ false, /* ignoreArtwork= */ false);
     input.advancePeekPosition(1);
 
-    FlacMetadataReader.readId3Metadata(input, /* parseData= */ false);
+    Metadata unusedRead =
+        FlacMetadataReader.readId3Metadata(
+            input, /* parseData= */ false, /* ignoreArtwork= */ false);
 
     assertThat(input.getPosition()).isNotEqualTo(0);
     assertThat(input.getPeekPosition()).isEqualTo(input.getPosition());
@@ -127,7 +139,9 @@ public class FlacMetadataReaderTest {
   public void readId3Metadata_parseData_returnsNonEmptyMetadata() throws Exception {
     ExtractorInput input = buildExtractorInput("media/flac/bear_with_id3.flac");
 
-    Metadata metadata = FlacMetadataReader.readId3Metadata(input, /* parseData= */ true);
+    Metadata metadata =
+        FlacMetadataReader.readId3Metadata(
+            input, /* parseData= */ true, /* ignoreArtwork= */ false);
 
     assertThat(metadata).isNotNull();
     assertThat(metadata.length()).isNotEqualTo(0);
@@ -137,7 +151,9 @@ public class FlacMetadataReaderTest {
   public void readId3Metadata_doNotParseData_returnsNull() throws Exception {
     ExtractorInput input = buildExtractorInput("media/flac/bear_with_id3.flac");
 
-    Metadata metadata = FlacMetadataReader.readId3Metadata(input, /* parseData= */ false);
+    Metadata metadata =
+        FlacMetadataReader.readId3Metadata(
+            input, /* parseData= */ false, /* ignoreArtwork= */ false);
 
     assertThat(metadata).isNull();
   }
@@ -146,7 +162,9 @@ public class FlacMetadataReaderTest {
   public void readId3Metadata_noId3Metadata_returnsNull() throws Exception {
     ExtractorInput input = buildExtractorInput("media/flac/bear.flac");
 
-    Metadata metadata = FlacMetadataReader.readId3Metadata(input, /* parseData= */ true);
+    Metadata metadata =
+        FlacMetadataReader.readId3Metadata(
+            input, /* parseData= */ true, /* ignoreArtwork= */ false);
 
     assertThat(metadata).isNull();
   }
@@ -175,8 +193,11 @@ public class FlacMetadataReaderTest {
     // Advance peek position after metadata block.
     input.advancePeekPosition(FlacConstants.STREAM_INFO_BLOCK_SIZE + 1);
 
-    FlacMetadataReader.readMetadataBlock(
-        input, new FlacStreamMetadataHolder(/* flacStreamMetadata= */ null));
+    boolean unused =
+        FlacMetadataReader.readMetadataBlock(
+            input,
+            new FlacStreamMetadataHolder(/* flacStreamMetadata= */ null),
+            /* ignoreArtwork= */ false);
 
     assertThat(input.getPosition()).isNotEqualTo(0);
     assertThat(input.getPeekPosition()).isEqualTo(input.getPosition());
@@ -189,7 +210,9 @@ public class FlacMetadataReaderTest {
 
     boolean result =
         FlacMetadataReader.readMetadataBlock(
-            input, new FlacStreamMetadataHolder(/* flacStreamMetadata= */ null));
+            input,
+            new FlacStreamMetadataHolder(/* flacStreamMetadata= */ null),
+            /* ignoreArtwork= */ false);
 
     assertThat(result).isTrue();
   }
@@ -201,7 +224,9 @@ public class FlacMetadataReaderTest {
 
     boolean result =
         FlacMetadataReader.readMetadataBlock(
-            input, new FlacStreamMetadataHolder(/* flacStreamMetadata= */ null));
+            input,
+            new FlacStreamMetadataHolder(/* flacStreamMetadata= */ null),
+            /* ignoreArtwork= */ false);
 
     assertThat(result).isFalse();
   }
@@ -213,7 +238,8 @@ public class FlacMetadataReaderTest {
     FlacStreamMetadataHolder metadataHolder =
         new FlacStreamMetadataHolder(/* flacStreamMetadata= */ null);
 
-    FlacMetadataReader.readMetadataBlock(input, metadataHolder);
+    boolean unused =
+        FlacMetadataReader.readMetadataBlock(input, metadataHolder, /* ignoreArtwork= */ false);
 
     assertThat(metadataHolder.flacStreamMetadata).isNotNull();
     assertThat(metadataHolder.flacStreamMetadata.sampleRate).isEqualTo(48000);
@@ -227,7 +253,8 @@ public class FlacMetadataReaderTest {
     FlacStreamMetadataHolder metadataHolder = new FlacStreamMetadataHolder(buildStreamMetadata());
     long originalSampleRate = metadataHolder.flacStreamMetadata.sampleRate;
 
-    FlacMetadataReader.readMetadataBlock(input, metadataHolder);
+    boolean unused =
+        FlacMetadataReader.readMetadataBlock(input, metadataHolder, /* ignoreArtwork= */ false);
 
     assertThat(metadataHolder.flacStreamMetadata).isNotNull();
     // Check that metadata passed has not been erased.
@@ -244,7 +271,8 @@ public class FlacMetadataReaderTest {
     FlacStreamMetadataHolder metadataHolder = new FlacStreamMetadataHolder(buildStreamMetadata());
     long originalSampleRate = metadataHolder.flacStreamMetadata.sampleRate;
 
-    FlacMetadataReader.readMetadataBlock(input, metadataHolder);
+    boolean unused =
+        FlacMetadataReader.readMetadataBlock(input, metadataHolder, /* ignoreArtwork= */ false);
 
     assertThat(metadataHolder.flacStreamMetadata).isNotNull();
     // Check that metadata passed has not been erased.
@@ -265,7 +293,8 @@ public class FlacMetadataReaderTest {
     FlacStreamMetadataHolder metadataHolder = new FlacStreamMetadataHolder(buildStreamMetadata());
     long originalSampleRate = metadataHolder.flacStreamMetadata.sampleRate;
 
-    FlacMetadataReader.readMetadataBlock(input, metadataHolder);
+    boolean unused =
+        FlacMetadataReader.readMetadataBlock(input, metadataHolder, /* ignoreArtwork= */ false);
 
     assertThat(metadataHolder.flacStreamMetadata).isNotNull();
     // Check that metadata passed has not been erased.
@@ -291,7 +320,8 @@ public class FlacMetadataReaderTest {
     input.skipFully(640);
     FlacStreamMetadataHolder metadataHolder = new FlacStreamMetadataHolder(buildStreamMetadata());
 
-    FlacMetadataReader.readMetadataBlock(input, metadataHolder);
+    boolean unused =
+        FlacMetadataReader.readMetadataBlock(input, metadataHolder, /* ignoreArtwork= */ false);
 
     assertThat(input.getPosition()).isGreaterThan(640);
     assertThat(input.getPeekPosition()).isEqualTo(input.getPosition());
@@ -308,7 +338,9 @@ public class FlacMetadataReaderTest {
         IllegalArgumentException.class,
         () ->
             FlacMetadataReader.readMetadataBlock(
-                input, new FlacStreamMetadataHolder(/* flacStreamMetadata= */ null)));
+                input,
+                new FlacStreamMetadataHolder(/* flacStreamMetadata= */ null),
+                /* ignoreArtwork= */ false));
   }
 
   @Test

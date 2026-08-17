@@ -37,7 +37,7 @@ public class BaseDataSourceTest {
 
     DataSpec dataSpec = new DataSpec(Uri.EMPTY);
     testSource.open(dataSpec);
-    testSource.read(/* buffer= */ null, /* offset= */ 0, /* readLength= */ 100);
+    testSource.read(/* buffer= */ null, /* offset= */ 0, /* length= */ 100);
     testSource.close();
 
     assertThat(transferListener.lastTransferInitializingSource).isSameInstanceAs(testSource);
@@ -66,7 +66,7 @@ public class BaseDataSourceTest {
 
     DataSpec dataSpec = new DataSpec(Uri.EMPTY);
     testSource.open(dataSpec);
-    testSource.read(/* buffer= */ null, /* offset= */ 0, /* readLength= */ 100);
+    testSource.read(/* buffer= */ null, /* offset= */ 0, /* length= */ 100);
     testSource.close();
 
     assertThat(transferListener.lastTransferInitializingSource).isSameInstanceAs(testSource);

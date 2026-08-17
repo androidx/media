@@ -15,7 +15,9 @@
  */
 package androidx.media3.session.legacy;
 
+import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
+import static androidx.media3.common.util.Util.convertToNullIfInvalid;
 import static androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo.LEGACY_CONTROLLER;
 import static androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo.UNKNOWN_PID;
 import static androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo.UNKNOWN_UID;
@@ -28,8 +30,6 @@ import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.media.AudioAttributes;
-import android.media.AudioManager;
 import android.media.MediaDescription;
 import android.media.Rating;
 import android.media.VolumeProvider;
@@ -38,6 +38,7 @@ import android.net.Uri;
 import android.os.BadParcelableException;
 import android.os.Binder;
 import android.os.Build;
+import android.os.Build.VERSION;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -49,7 +50,6 @@ import android.os.RemoteException;
 import android.os.ResultReceiver;
 import android.os.SystemClock;
 import android.text.TextUtils;
-import android.util.Log;
 import android.view.KeyEvent;
 import android.view.ViewConfiguration;
 import androidx.annotation.GuardedBy;
@@ -57,8 +57,9 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
+import androidx.media3.common.AudioAttributes;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
 import androidx.versionedparcelable.ParcelUtils;
 import androidx.versionedparcelable.VersionedParcelable;
@@ -100,7 +101,6 @@ import java.util.Set;
  * <p>For information about building your media application, read the <a
  * href="{@docRoot}guide/topics/media-apps/index.html">Media Apps</a> developer guide.
  */
-@UnstableApi
 @RestrictTo(LIBRARY)
 public class MediaSessionCompat {
   static final String TAG = "MediaSessionCompat";
@@ -316,20 +316,30 @@ public class MediaSessionCompat {
    *     Bundle#EMPTY} if none. Controllers can get this information by calling {@link
    *     MediaControllerCompat#getSessionInfo()}. An {@link IllegalArgumentException} will be thrown
    *     if this contains any non-framework Parcelable objects.
+   * @param packageNameOverride Package name override for the session, if required. A {@link
+   *     SecurityException} will be thrown if the application does not hold the right permission.
    */
   @SuppressWarnings({
     "method.invocation.invalid",
     "argument.type.incompatible",
-    "assignment.type.incompatible"
+    "assignment.type.incompatible",
+    "PendingIntentMutability"
   }) // registering listener from constructor
   public MediaSessionCompat(
       Context context,
       String tag,
       @Nullable ComponentName mbrComponent,
       @Nullable PendingIntent mbrIntent,
-      @Nullable Bundle sessionInfo) {
+      @Nullable Bundle sessionInfo,
+      @Nullable String packageNameOverride) {
     if (TextUtils.isEmpty(tag)) {
       throw new IllegalArgumentException("tag must not be null or empty");
+    }
+    if (packageNameOverride != null
+        && context.checkSelfPermission("android.permission.OVERRIDE_MEDIA_SESSION_OWNER")
+            != PERMISSION_GRANTED) {
+      throw new SecurityException(
+          "must have OVERRIDE_MEDIA_SESSION_OWNER permission to override package name");
     }
 
     if (mbrComponent == null) {
@@ -351,12 +361,14 @@ public class MediaSessionCompat {
               Build.VERSION.SDK_INT >= 31 ? PendingIntent.FLAG_MUTABLE : 0);
     }
 
-    if (Build.VERSION.SDK_INT >= 29) {
-      impl = new MediaSessionImplApi29(context, tag, sessionInfo);
+    if (VERSION.SDK_INT >= 37) {
+      impl = new MediaSessionImplApi37(context, tag, sessionInfo, packageNameOverride);
+    } else if (Build.VERSION.SDK_INT >= 29) {
+      impl = new MediaSessionImplApi29(context, tag, sessionInfo, packageNameOverride);
     } else if (Build.VERSION.SDK_INT >= 28) {
-      impl = new MediaSessionImplApi28(context, tag, sessionInfo);
+      impl = new MediaSessionImplApi28(context, tag, sessionInfo, packageNameOverride);
     } else {
-      impl = new MediaSessionImplApi23(context, tag, sessionInfo);
+      impl = new MediaSessionImplApi23(context, tag, sessionInfo, packageNameOverride);
     }
     // Set default callback to respond to controllers' extra binder requests.
     Looper myLooper = Looper.myLooper();
@@ -420,12 +432,12 @@ public class MediaSessionCompat {
    * this session. If {@link #setPlaybackToRemote} was previously called it will stop receiving
    * volume commands and the system will begin sending volume changes to the appropriate stream.
    *
-   * <p>By default sessions are on {@link AudioManager#STREAM_MUSIC}.
+   * <p>By default sessions use {@link AudioAttributes#DEFAULT}.
    *
-   * @param stream The {@link AudioManager} stream this session is playing on.
+   * @param audioAttributes The {@link AudioAttributes} this session is using.
    */
-  public void setPlaybackToLocal(int stream) {
-    impl.setPlaybackToLocal(stream);
+  public void setPlaybackToLocal(AudioAttributes audioAttributes) {
+    impl.setPlaybackToLocal(audioAttributes);
   }
 
   /**
@@ -673,27 +685,6 @@ public class MediaSessionCompat {
     }
   }
 
-  /**
-   * Tries to unparcel the given {@link Bundle} with the application class loader and returns {@code
-   * null} if a {@link BadParcelableException} is thrown while unparcelling, otherwise the given
-   * bundle in which the application class loader is set.
-   */
-  @Nullable
-  public static Bundle unparcelWithClassLoader(@Nullable Bundle bundle) {
-    if (bundle == null) {
-      return null;
-    }
-    ensureClassLoader(bundle);
-    try {
-      bundle.isEmpty(); // to call unparcel()
-      return bundle;
-    } catch (BadParcelableException e) {
-      // The exception details will be logged by Parcel class.
-      Log.e(TAG, "Could not unparcel the data.");
-      return null;
-    }
-  }
-
   @Nullable
   @SuppressWarnings("WeakerAccess") /* synthetic access */
   static PlaybackStateCompat getStateWithUpdatedPosition(
@@ -745,8 +736,7 @@ public class MediaSessionCompat {
 
     @Nullable
     @GuardedBy("lock")
-    @SuppressWarnings("WeakerAccess") /* synthetic access */
-    CallbackHandler callbackHandler;
+    private CallbackHandler callbackHandler;
 
     public Callback() {
       callbackFwk = new MediaSessionCallback();
@@ -1082,7 +1072,7 @@ public class MediaSessionCompat {
         if (sessionImpl == null) {
           return;
         }
-        ensureClassLoader(extras);
+        extras = convertToNullIfInvalid(extras);
         setCurrentControllerInfo(sessionImpl);
         try {
           if (command.equals(MediaControllerCompat.COMMAND_GET_EXTRA_BINDER)) {
@@ -1170,7 +1160,7 @@ public class MediaSessionCompat {
         if (sessionImpl == null) {
           return;
         }
-        ensureClassLoader(extras);
+        extras = convertToNullIfInvalid(extras);
         setCurrentControllerInfo(sessionImpl);
         Callback.this.onPlayFromMediaId(mediaId, extras);
         clearCurrentControllerInfo(sessionImpl);
@@ -1182,7 +1172,7 @@ public class MediaSessionCompat {
         if (sessionImpl == null) {
           return;
         }
-        ensureClassLoader(extras);
+        extras = convertToNullIfInvalid(extras);
         setCurrentControllerInfo(sessionImpl);
         Callback.this.onPlayFromSearch(search, extras);
         clearCurrentControllerInfo(sessionImpl);
@@ -1194,7 +1184,7 @@ public class MediaSessionCompat {
         if (sessionImpl == null) {
           return;
         }
-        ensureClassLoader(extras);
+        extras = convertToNullIfInvalid(extras);
         setCurrentControllerInfo(sessionImpl);
         Callback.this.onPlayFromUri(uri, extras);
         clearCurrentControllerInfo(sessionImpl);
@@ -1305,15 +1295,14 @@ public class MediaSessionCompat {
         if (sessionImpl == null) {
           return;
         }
-        ensureClassLoader(extras);
+        extras = convertToNullIfInvalid(extras);
         setCurrentControllerInfo(sessionImpl);
 
         try {
           if (action.equals(ACTION_PLAY_FROM_URI)) {
             if (extras != null) {
               Uri uri = extras.getParcelable(ACTION_ARGUMENT_URI);
-              Bundle bundle = extras.getBundle(ACTION_ARGUMENT_EXTRAS);
-              ensureClassLoader(bundle);
+              Bundle bundle = convertToNullIfInvalid(extras.getBundle(ACTION_ARGUMENT_EXTRAS));
               Callback.this.onPlayFromUri(uri, bundle);
             }
           } else if (action.equals(ACTION_PREPARE)) {
@@ -1321,22 +1310,19 @@ public class MediaSessionCompat {
           } else if (action.equals(ACTION_PREPARE_FROM_MEDIA_ID)) {
             if (extras != null) {
               String mediaId = extras.getString(ACTION_ARGUMENT_MEDIA_ID);
-              Bundle bundle = extras.getBundle(ACTION_ARGUMENT_EXTRAS);
-              ensureClassLoader(bundle);
+              Bundle bundle = convertToNullIfInvalid(extras.getBundle(ACTION_ARGUMENT_EXTRAS));
               Callback.this.onPrepareFromMediaId(mediaId, bundle);
             }
           } else if (action.equals(ACTION_PREPARE_FROM_SEARCH)) {
             if (extras != null) {
               String query = extras.getString(ACTION_ARGUMENT_QUERY);
-              Bundle bundle = extras.getBundle(ACTION_ARGUMENT_EXTRAS);
-              ensureClassLoader(bundle);
+              Bundle bundle = convertToNullIfInvalid(extras.getBundle(ACTION_ARGUMENT_EXTRAS));
               Callback.this.onPrepareFromSearch(query, bundle);
             }
           } else if (action.equals(ACTION_PREPARE_FROM_URI)) {
             if (extras != null) {
               Uri uri = extras.getParcelable(ACTION_ARGUMENT_URI);
-              Bundle bundle = extras.getBundle(ACTION_ARGUMENT_EXTRAS);
-              ensureClassLoader(bundle);
+              Bundle bundle = convertToNullIfInvalid(extras.getBundle(ACTION_ARGUMENT_EXTRAS));
               Callback.this.onPrepareFromUri(uri, bundle);
             }
           } else if (action.equals(ACTION_SET_CAPTIONING_ENABLED)) {
@@ -1359,8 +1345,7 @@ public class MediaSessionCompat {
               RatingCompat rating =
                   LegacyParcelableUtil.convert(
                       extras.getParcelable(ACTION_ARGUMENT_RATING), RatingCompat.CREATOR);
-              Bundle bundle = extras.getBundle(ACTION_ARGUMENT_EXTRAS);
-              ensureClassLoader(bundle);
+              Bundle bundle = convertToNullIfInvalid(extras.getBundle(ACTION_ARGUMENT_EXTRAS));
               Callback.this.onSetRating(rating, bundle);
             }
           } else if (action.equals(ACTION_SET_PLAYBACK_SPEED)) {
@@ -1397,7 +1382,7 @@ public class MediaSessionCompat {
         if (sessionImpl == null) {
           return;
         }
-        ensureClassLoader(extras);
+        extras = convertToNullIfInvalid(extras);
         setCurrentControllerInfo(sessionImpl);
         Callback.this.onPrepareFromMediaId(mediaId, extras);
         clearCurrentControllerInfo(sessionImpl);
@@ -1410,7 +1395,7 @@ public class MediaSessionCompat {
         if (sessionImpl == null) {
           return;
         }
-        ensureClassLoader(extras);
+        extras = convertToNullIfInvalid(extras);
         setCurrentControllerInfo(sessionImpl);
         Callback.this.onPrepareFromSearch(query, extras);
         clearCurrentControllerInfo(sessionImpl);
@@ -1423,7 +1408,7 @@ public class MediaSessionCompat {
         if (sessionImpl == null) {
           return;
         }
-        ensureClassLoader(extras);
+        extras = convertToNullIfInvalid(extras);
         setCurrentControllerInfo(sessionImpl);
         Callback.this.onPrepareFromUri(uri, extras);
         clearCurrentControllerInfo(sessionImpl);
@@ -1660,6 +1645,7 @@ public class MediaSessionCompat {
         new Parcelable.Creator<Token>() {
           @Override
           public Token createFromParcel(Parcel in) {
+            @SuppressLint("ParcelClassLoader") // Using boot class loader for framework class.
             MediaSession.Token inner = in.readParcelable(null);
             return new Token(checkNotNull(inner));
           }
@@ -1844,7 +1830,7 @@ public class MediaSessionCompat {
 
     void setFlags(@SessionFlags int flags);
 
-    void setPlaybackToLocal(int stream);
+    void setPlaybackToLocal(AudioAttributes audioAttributes);
 
     void setPlaybackToRemote(VolumeProviderCompat volumeProvider);
 
@@ -1898,7 +1884,7 @@ public class MediaSessionCompat {
 
   static class MediaSessionImplApi23 implements MediaSessionImpl {
     final MediaSession sessionFwk;
-    final ExtraSession extraSession;
+    private final ExtraSession extraSession;
     final Token token;
     final Object lock = new Object();
     @Nullable Bundle sessionInfo;
@@ -1932,8 +1918,12 @@ public class MediaSessionCompat {
       "assignment.type.incompatible",
       "argument.type.incompatible"
     })
-    MediaSessionImplApi23(Context context, String tag, @Nullable Bundle sessionInfo) {
-      sessionFwk = createFwkMediaSession(context, tag, sessionInfo);
+    MediaSessionImplApi23(
+        Context context,
+        String tag,
+        @Nullable Bundle sessionInfo,
+        @Nullable String packageNameOverride) {
+      sessionFwk = createFwkMediaSession(context, tag, sessionInfo, packageNameOverride);
       extraSession = new ExtraSession(/* mediaSessionImpl= */ this);
       token = new Token(sessionFwk.getSessionToken(), extraSession);
       this.sessionInfo = sessionInfo;
@@ -1942,7 +1932,10 @@ public class MediaSessionCompat {
     }
 
     public MediaSession createFwkMediaSession(
-        Context context, String tag, @Nullable Bundle sessionInfo) {
+        Context context,
+        String tag,
+        @Nullable Bundle sessionInfo,
+        @Nullable String packageNameOverride) {
       return new MediaSession(context, tag);
     }
 
@@ -1965,11 +1958,8 @@ public class MediaSessionCompat {
     }
 
     @Override
-    public void setPlaybackToLocal(int stream) {
-      // TODO update APIs to use support version of AudioAttributes
-      AudioAttributes.Builder bob = new AudioAttributes.Builder();
-      bob.setLegacyStreamType(stream);
-      sessionFwk.setPlaybackToLocal(bob.build());
+    public void setPlaybackToLocal(AudioAttributes audioAttributes) {
+      sessionFwk.setPlaybackToLocal(audioAttributes.getPlatformAudioAttributes());
     }
 
     @Override
@@ -2272,8 +2262,12 @@ public class MediaSessionCompat {
 
   @RequiresApi(28)
   static class MediaSessionImplApi28 extends MediaSessionImplApi23 {
-    MediaSessionImplApi28(Context context, String tag, @Nullable Bundle sessionInfo) {
-      super(context, tag, sessionInfo);
+    MediaSessionImplApi28(
+        Context context,
+        String tag,
+        @Nullable Bundle sessionInfo,
+        @Nullable String packageNameOverride) {
+      super(context, tag, sessionInfo, packageNameOverride);
     }
 
     @Override
@@ -2292,14 +2286,47 @@ public class MediaSessionCompat {
 
   @RequiresApi(29)
   static class MediaSessionImplApi29 extends MediaSessionImplApi28 {
-    MediaSessionImplApi29(Context context, String tag, @Nullable Bundle sessionInfo) {
-      super(context, tag, sessionInfo);
+    MediaSessionImplApi29(
+        Context context,
+        String tag,
+        @Nullable Bundle sessionInfo,
+        @Nullable String packageNameOverride) {
+      super(context, tag, sessionInfo, packageNameOverride);
     }
 
     @Override
     public MediaSession createFwkMediaSession(
-        Context context, String tag, @Nullable Bundle sessionInfo) {
+        Context context,
+        String tag,
+        @Nullable Bundle sessionInfo,
+        @Nullable String packageNameOverride) {
       return new MediaSession(context, tag, sessionInfo);
+    }
+  }
+
+  @RequiresApi(37)
+  static class MediaSessionImplApi37 extends MediaSessionImplApi29 {
+    MediaSessionImplApi37(
+        Context context,
+        String tag,
+        @Nullable Bundle sessionInfo,
+        @Nullable String packageNameOverride) {
+      super(context, tag, sessionInfo, packageNameOverride);
+    }
+
+    @Override
+    @SuppressLint("MissingPermission") // Checked at runtime in MediaSessionCompat constructor.
+    public MediaSession createFwkMediaSession(
+        Context context,
+        String tag,
+        @Nullable Bundle sessionInfo,
+        @Nullable String packageNameOverride) {
+      if (packageNameOverride != null) {
+        return new MediaSession(
+            context, tag, sessionInfo == null ? Bundle.EMPTY : sessionInfo, packageNameOverride);
+      } else {
+        return new MediaSession(context, tag, sessionInfo);
+      }
     }
   }
 

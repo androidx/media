@@ -20,8 +20,9 @@ import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_T
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_AUDIO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_CSD_0;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
-import static androidx.media3.muxer.MuxerTestUtil.getExpectedDumpFilePath;
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Arrays.asList;
 import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
@@ -33,6 +34,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
+import androidx.media3.container.XmpData;
 import androidx.media3.muxer.FragmentedMp4Writer.SampleMetadata;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.DumpableMp4Box;
@@ -41,10 +43,14 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
+import com.google.common.truth.Correspondence;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -76,7 +82,7 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(tkhdBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, getExpectedDumpFilePath("video_track_tkhd_box"));
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("video_track_tkhd_box"));
   }
 
   @Test
@@ -92,7 +98,7 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(tkhdBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, getExpectedDumpFilePath("audio_track_tkhd_box"));
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("audio_track_tkhd_box"));
   }
 
   @Test
@@ -120,7 +126,9 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(edtsBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, getExpectedDumpFilePath("positive_start_time_edts_box"));
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedMp4DumpFilePath("positive_start_time_edts_box"));
   }
 
   @Test
@@ -135,7 +143,9 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(edtsBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, getExpectedDumpFilePath("negative_start_time_edts_box"));
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedMp4DumpFilePath("negative_start_time_edts_box"));
   }
 
   @Test
@@ -148,7 +158,8 @@ public class BoxesTest {
             /* videoDurationUs= */ 5_000_000);
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(mvhdBox);
-    DumpFileAsserts.assertOutput(context, dumpableBox, getExpectedDumpFilePath("mvhd_box"));
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("mvhd_box"));
   }
 
   @Test
@@ -162,7 +173,8 @@ public class BoxesTest {
             /* languageCode= */ "und");
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(mdhdBox);
-    DumpFileAsserts.assertOutput(context, dumpableBox, getExpectedDumpFilePath("mdhd_box"));
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("mdhd_box"));
   }
 
   @Test
@@ -170,7 +182,8 @@ public class BoxesTest {
     ByteBuffer vmhdBox = Boxes.vmhd();
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(vmhdBox);
-    DumpFileAsserts.assertOutput(context, dumpableBox, getExpectedDumpFilePath("vmhd_box"));
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("vmhd_box"));
   }
 
   @Test
@@ -178,7 +191,8 @@ public class BoxesTest {
     ByteBuffer smhdBox = Boxes.smhd();
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(smhdBox);
-    DumpFileAsserts.assertOutput(context, dumpableBox, getExpectedDumpFilePath("smhd_box"));
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("smhd_box"));
   }
 
   @Test
@@ -186,7 +200,8 @@ public class BoxesTest {
     ByteBuffer nmhdBox = Boxes.nmhd();
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(nmhdBox);
-    DumpFileAsserts.assertOutput(context, dumpableBox, getExpectedDumpFilePath("nmhd_box"));
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("nmhd_box"));
   }
 
   @Test
@@ -194,7 +209,8 @@ public class BoxesTest {
     ByteBuffer dinfBox = Boxes.dinf(Boxes.dref(Boxes.localUrl()));
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(dinfBox);
-    DumpFileAsserts.assertOutput(context, dumpableBox, getExpectedDumpFilePath("dinf_box_empty"));
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("dinf_box_empty"));
   }
 
   @Test
@@ -203,7 +219,8 @@ public class BoxesTest {
     ByteBuffer hdlrBox = Boxes.hdlr(/* handlerType= */ "vide", /* handlerName= */ "VideoHandle");
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(hdlrBox);
-    DumpFileAsserts.assertOutput(context, dumpableBox, getExpectedDumpFilePath("hdlr_box"));
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("hdlr_box"));
   }
 
   @Test
@@ -213,7 +230,8 @@ public class BoxesTest {
     ByteBuffer udtaBox = Boxes.udta(mp4Location);
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(udtaBox);
-    DumpFileAsserts.assertOutput(context, dumpableBox, getExpectedDumpFilePath("udta_box"));
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("udta_box"));
   }
 
   @Test
@@ -233,7 +251,8 @@ public class BoxesTest {
     ByteBuffer keysBox = Boxes.keys(metadataEntries);
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(keysBox);
-    DumpFileAsserts.assertOutput(context, dumpableBox, getExpectedDumpFilePath("keys_box"));
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("keys_box"));
   }
 
   @Test
@@ -253,7 +272,8 @@ public class BoxesTest {
     ByteBuffer ilstBox = Boxes.ilst(metadataEntries);
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(ilstBox);
-    DumpFileAsserts.assertOutput(context, dumpableBox, getExpectedDumpFilePath("ilst_box"));
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("ilst_box"));
   }
 
   @Test
@@ -261,17 +281,18 @@ public class BoxesTest {
     ByteBuffer xmpData =
         ByteBuffer.wrap(TestUtil.getByteArray(context, "media/xmp/sample_datetime_xmp.xmp"));
 
-    ByteBuffer xmpUuidBox = Boxes.uuid(Boxes.XMP_UUID, xmpData);
+    ByteBuffer xmpUuidBox = Boxes.uuid(XmpData.XMP_UUID, xmpData);
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(xmpUuidBox);
-    DumpFileAsserts.assertOutput(context, dumpableBox, getExpectedDumpFilePath("uuid_box_XMP"));
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("uuid_box_XMP"));
   }
 
   @Test
   public void createuuidBox_withEmptyXmpData_throws() {
     ByteBuffer xmpData = ByteBuffer.allocate(0);
 
-    assertThrows(IllegalArgumentException.class, () -> Boxes.uuid(Boxes.XMP_UUID, xmpData));
+    assertThrows(IllegalArgumentException.class, () -> Boxes.uuid(XmpData.XMP_UUID, xmpData));
   }
 
   @Test
@@ -287,7 +308,9 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(audioSampleEntryBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, getExpectedDumpFilePath("audio_sample_entry_box_aac"));
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedMp4DumpFilePath("audio_sample_entry_box_aac"));
   }
 
   @Test
@@ -298,7 +321,9 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(audioSampleEntryBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, getExpectedDumpFilePath("audio_sample_entry_box_amrnb"));
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedMp4DumpFilePath("audio_sample_entry_box_amrnb"));
   }
 
   @Test
@@ -309,7 +334,31 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(audioSampleEntryBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, getExpectedDumpFilePath("audio_sample_entry_box_amrwb"));
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedMp4DumpFilePath("audio_sample_entry_box_amrwb"));
+  }
+
+  @Test
+  public void createAudioSampleEntryBox_forOpusWithAopusHdr_matchesExpected() throws Exception {
+    Format format =
+        FAKE_AUDIO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_OPUS)
+            .setInitializationData(
+                ImmutableList.of(
+                    BaseEncoding.base16()
+                        .decode(
+                            "414F5055534844521B000000000000004F7075734865616401063801401F00000000010402000401020305")))
+            .build();
+
+    ByteBuffer audioSampleEntryBox = Boxes.audioSampleEntry(format);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(audioSampleEntryBox);
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedMp4DumpFilePath("audio_sample_entry_box_opus"));
   }
 
   @Test
@@ -328,7 +377,9 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(audioSampleEntryBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, getExpectedDumpFilePath("audio_sample_entry_box_opus"));
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedMp4DumpFilePath("audio_sample_entry_box_opus"));
   }
 
   @Test
@@ -349,7 +400,9 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(audioSampleEntryBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, getExpectedDumpFilePath("audio_sample_entry_box_vorbis"));
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedMp4DumpFilePath("audio_sample_entry_box_vorbis"));
   }
 
   @Test
@@ -377,7 +430,9 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(videoSampleEntryBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("video_sample_entry_box_h265"));
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedMp4DumpFilePath("video_sample_entry_box_h265"));
   }
 
   @Test
@@ -405,7 +460,7 @@ public class BoxesTest {
     DumpFileAsserts.assertOutput(
         context,
         dumpableBox,
-        MuxerTestUtil.getExpectedDumpFilePath("video_sample_entry_box_h265_hdr10"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("video_sample_entry_box_h265_hdr10"));
   }
 
   @Test
@@ -421,7 +476,9 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(videoSampleEntryBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("video_sample_entry_box_h263"));
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedMp4DumpFilePath("video_sample_entry_box_h263"));
   }
 
   @Test
@@ -432,7 +489,9 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(videoSampleEntryBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("video_sample_entry_box_h264"));
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedMp4DumpFilePath("video_sample_entry_box_h264"));
   }
 
   @Test
@@ -443,7 +502,9 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(videoSampleEntryBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("video_sample_entry_box_av1"));
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedMp4DumpFilePath("video_sample_entry_box_av1"));
   }
 
   @Test
@@ -456,7 +517,7 @@ public class BoxesTest {
     DumpFileAsserts.assertOutput(
         context,
         dumpableBox,
-        MuxerTestUtil.getExpectedDumpFilePath("video_sample_entry_box_mpeg4"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("video_sample_entry_box_mpeg4"));
   }
 
   @Test
@@ -482,7 +543,8 @@ public class BoxesTest {
     DumpFileAsserts.assertOutput(
         context,
         dumpableBox,
-        MuxerTestUtil.getExpectedDumpFilePath("video_sample_entry_box_vp09_codec_private_as_csd"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath(
+            "video_sample_entry_box_vp09_codec_private_as_csd"));
   }
 
   @Test
@@ -502,7 +564,7 @@ public class BoxesTest {
     DumpFileAsserts.assertOutput(
         context,
         dumpableBox,
-        MuxerTestUtil.getExpectedDumpFilePath("video_sample_entry_box_vp09_vpc_as_csd"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("video_sample_entry_box_vp09_vpc_as_csd"));
   }
 
   @Test
@@ -527,6 +589,38 @@ public class BoxesTest {
             C.TIME_UNSET);
 
     assertThat(durationsVu).containsExactly(0);
+  }
+
+  @Test
+  public void convertPresentationTimestampsToDurationsVu_roundingErrorIsWithingHalfATick() {
+    int videoUnitTimescale = 90_000;
+    ImmutableList<Long> originalTimestampsUs =
+        ImmutableList.of(
+            0L, 16_683L, 33_366L, 50_050L, 66_733L, 83_416L, 100_100L, 116_783L, 133_466L, 150_150L,
+            166_833L, 183_516L, 200_200L, 216_883L, 233_566L, 250_250L, 266_933L, 283_616L,
+            300_300L, 316_983L, 333_666L, 350_350L, 367_033L, 383_716L, 400_400L, 417_083L,
+            433_766L, 450_450L, 467_133L, 483_816L, 512_000L, 528_683L, 545_366L, 562_050L,
+            578_733L, 595_416L, 612_100L, 628_783L, 645_466L, 662_150L, 678_833L, 695_516L,
+            712_200L, 728_883L, 745_566L, 762_250L, 778_933L, 795_616L, 812_300L, 828_983L,
+            845_666L, 862_350L, 879_033L, 895_716L, 912_400L, 929_083L, 945_766L, 962_450L,
+            979_133L, 995_816L);
+    List<BufferInfo> sampleBufferInfos =
+        createBufferInfoListWithSamplePresentationTimestamps(originalTimestampsUs);
+
+    List<Integer> durationsVu =
+        Boxes.convertPresentationTimestampsToDurationsVu(
+            sampleBufferInfos,
+            videoUnitTimescale,
+            LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO,
+            /* endOfStreamTimestampUs= */ 1_024_000);
+
+    List<Long> derivedTimestampUs =
+        durationsVuToPresentationTimestamps(durationsVu, videoUnitTimescale);
+    // Allow a tolerance of ~half a tick: 1000000 / 90000 = 11.1us (periodic)
+    assertThat(derivedTimestampUs)
+        .comparingElementsUsing(Correspondence.tolerance(6))
+        .containsExactlyElementsIn(originalTimestampsUs)
+        .inOrder();
   }
 
   @Test
@@ -653,7 +747,7 @@ public class BoxesTest {
     DumpFileAsserts.assertOutput(
         context,
         dumpableBox,
-        MuxerTestUtil.getExpectedDumpFilePath("stts_box_single_sample_duration"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("stts_box_single_sample_duration"));
   }
 
   @Test
@@ -666,7 +760,7 @@ public class BoxesTest {
     DumpFileAsserts.assertOutput(
         context,
         dumpableBox,
-        MuxerTestUtil.getExpectedDumpFilePath("stts_box_all_different_sample_durations"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("stts_box_all_different_sample_durations"));
   }
 
   @Test
@@ -680,12 +774,12 @@ public class BoxesTest {
     DumpFileAsserts.assertOutput(
         context,
         dumpableBox,
-        MuxerTestUtil.getExpectedDumpFilePath("stts_box_few_same_sample_durations"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("stts_box_few_same_sample_durations"));
   }
 
   @Test
   public void createCttsBox_withSingleSampleTimestamp_returnsEmptyBox() {
-    List<BufferInfo> sampleBufferInfos = createBufferInfoListWithSamplePresentationTimestamps(400);
+    List<BufferInfo> sampleBufferInfos = createBufferInfoListWithSamplePresentationTimestamps(400L);
     List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
             sampleBufferInfos,
@@ -720,7 +814,7 @@ public class BoxesTest {
   public void createCttsBox_withBFramesSampleTimestamps_matchesExpected() throws IOException {
     List<BufferInfo> sampleBufferInfos =
         createBufferInfoListWithSamplePresentationTimestamps(
-            0, 400, 200, 100, 300, 800, 600, 500, 700);
+            0L, 400L, 200L, 100L, 300L, 800L, 600L, 500L, 700L);
 
     List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
@@ -733,7 +827,7 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(cttsBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("ctts_box"));
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("ctts_box"));
   }
 
   @Test
@@ -762,7 +856,40 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(stszBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("stsz_box"));
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("stsz_box"));
+  }
+
+  @Test
+  public void stsz_withIdenticallySizedSamples_matchesExpected() throws IOException {
+    List<BufferInfo> sampleBufferInfos = createBufferInfoListWithSampleSizes(150, 150, 150, 150);
+
+    ByteBuffer stszBox = Boxes.stsz(sampleBufferInfos);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(stszBox);
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedMp4DumpFilePath("stsz_box_with_identically_sized_samples"));
+  }
+
+  @Test
+  public void stsz_withIdenticallySizedSamples_omitsSampleTableAndSetsHeaderSampleSize()
+      throws Exception {
+    List<BufferInfo> sampleBufferInfos = createBufferInfoListWithSampleSizes(150, 150, 150, 150);
+
+    ByteBuffer stszBox = Boxes.stsz(sampleBufferInfos);
+
+    // Verify total box size is 20 bytes (8-byte header + 12-byte payload, omitting 4x4 entry array)
+    assertThat(stszBox.remaining()).isEqualTo(20);
+
+    // Parse ISO 14496-12 fields: version/flags (4 bytes), sample_size (4 bytes), sample_count (4
+    // bytes)
+    stszBox.position(12);
+    int sampleSize = stszBox.getInt();
+    int sampleCount = stszBox.getInt();
+
+    assertThat(sampleSize).isEqualTo(150);
+    assertThat(sampleCount).isEqualTo(4);
   }
 
   @Test
@@ -773,7 +900,7 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(stscBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("stsc_box"));
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("stsc_box"));
   }
 
   @Test
@@ -784,7 +911,9 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(stscBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("stsc_box_with_same_chunks"));
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedMp4DumpFilePath("stsc_box_with_same_chunks"));
   }
 
   @Test
@@ -795,7 +924,7 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(stcoBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("stco_box"));
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("stco_box"));
   }
 
   @Test
@@ -806,7 +935,7 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(co64Box);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("co64_box"));
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("co64_box"));
   }
 
   @Test
@@ -817,7 +946,7 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(stssBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("stss_box"));
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("stss_box"));
   }
 
   @Test
@@ -826,7 +955,7 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(ftypBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("ftyp_box"));
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("ftyp_box"));
   }
 
   @Test
@@ -835,7 +964,7 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(mfhdBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("mfhd_box"));
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("mfhd_box"));
   }
 
   @Test
@@ -844,7 +973,7 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(tfhdBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("tfhd_box"));
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("tfhd_box"));
   }
 
   @Test
@@ -866,7 +995,7 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(trunBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("trun_box"));
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("trun_box"));
   }
 
   @Test
@@ -890,7 +1019,7 @@ public class BoxesTest {
     DumpFileAsserts.assertOutput(
         context,
         dumpableBox,
-        MuxerTestUtil.getExpectedDumpFilePath("trun_box_with_all_sync_samples"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("trun_box_with_all_sync_samples"));
   }
 
   @Test
@@ -912,7 +1041,7 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(trunBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("trun_box_with_b_frame"));
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("trun_box_with_b_frame"));
   }
 
   @Test
@@ -921,11 +1050,185 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(trexBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("trex_box"));
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("trex_box"));
+  }
+
+  @Test
+  public void createTrefBox_withSingleTrackReference_matchesExpected() throws IOException {
+    Map<Integer, List<Integer>> trackReferences = new HashMap<>();
+    trackReferences.put(Util.getIntegerCodeForString("cdsc"), ImmutableList.of(1, 2));
+
+    ByteBuffer trefBox = Boxes.tref(trackReferences);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(trefBox);
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedMp4DumpFilePath("tref_box_with_one_track_reference"));
+  }
+
+  @Test
+  public void createIacbBox_matchesExpected() {
+    Format format =
+        FAKE_AUDIO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_IAMF)
+            .setInitializationData(ImmutableList.of(new byte[] {0x11, 0x22, 0x33}))
+            .build();
+
+    ByteBuffer iacbBox = Boxes.codecSpecificBox(format);
+
+    // Box header: size (4) and type (4)
+    // then iacb data: configuration version (1) + leb128 size (1) + config OBUs (3).
+    int expectedTotalSize = 4 + 4 + 1 + 1 + 3;
+    assertThat(iacbBox.getInt()).isEqualTo(expectedTotalSize); // total size
+    byte[] type = new byte[4];
+    iacbBox.get(type);
+    assertThat(type).isEqualTo(Util.getUtf8Bytes("iacb"));
+
+    assertThat(iacbBox.get()).isEqualTo((byte) 1); // configurationVersion
+    // This next field is a leb128, but because it's so small, we can read it like a single unsigned
+    // byte.
+    assertThat(iacbBox.get()).isEqualTo((byte) 3); // leb128 size
+
+    byte[] configObus = new byte[3];
+    iacbBox.get(configObus);
+    assertThat(configObus).isEqualTo(new byte[] {0x11, 0x22, 0x33});
+  }
+
+  @Test
+  public void createDec3Box_withAudioEAc3Joc_matchesExpectedDec3Box() {
+    Format format =
+        FAKE_AUDIO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_E_AC3_JOC)
+            .setInitializationData(ImmutableList.of(new byte[] {0x00, 0x00, 0x00, 0x03, 0x00}))
+            .build();
+
+    ByteBuffer dec3Box = Boxes.codecSpecificBox(format);
+
+    int expectedTotalSize = 4 + 4 + 5;
+    assertThat(dec3Box.getInt()).isEqualTo(expectedTotalSize);
+    byte[] type = new byte[4];
+    dec3Box.get(type);
+    assertThat(type).isEqualTo(Util.getUtf8Bytes("dec3"));
+    byte[] payload = new byte[5];
+    dec3Box.get(payload);
+    assertThat(payload).isEqualTo(new byte[] {0x00, 0x00, 0x00, 0x03, 0x00});
+  }
+
+  @Test
+  public void createAudioSampleEntryBox_forIamf_matchesExpected() {
+    Format format =
+        FAKE_AUDIO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_IAMF)
+            .setInitializationData(ImmutableList.of(new byte[] {0x11, 0x22, 0x33}))
+            .build();
+
+    ByteBuffer box = Boxes.audioSampleEntry(format);
+
+    // Sum of all of the following fields.
+    // Box header size and type: 4 + 4 bytes
+    // reserved space: 6
+    // dataRefIndex: 2
+    // reserved space: 8
+    // channelcount: 2
+    // samplesize: 2
+    // predefined and reserved: 4
+    // samplerate: 4
+    // iacb child box: 13
+    int expectedBoxSize = 4 + 4 + 6 + 2 + 8 + 2 + 2 + 4 + 4 + 13;
+    assertThat(box.getInt()).isEqualTo(expectedBoxSize);
+    byte[] type = new byte[4];
+    box.get(type);
+    assertThat(type).isEqualTo(Util.getUtf8Bytes("iamf"));
+
+    // 6 bytes of reserved space
+    assertThat(box.getInt()).isEqualTo(0);
+    assertThat(box.getShort()).isEqualTo((short) 0);
+
+    // dataRefIndex
+    assertThat(box.getShort()).isEqualTo((short) 1);
+
+    // 8 bytes of reserved space
+    assertThat(box.getInt()).isEqualTo(0);
+    assertThat(box.getInt()).isEqualTo(0);
+
+    // channelcount should be 0
+    assertThat(box.getShort()).isEqualTo((short) 0);
+    // samplesize should be 16
+    assertThat(box.getShort()).isEqualTo((short) 16);
+
+    // Skip predefined and reserved (4 bytes)
+    box.position(box.position() + 4);
+
+    // samplerate should be 0
+    assertThat(box.getInt()).isEqualTo(0);
+
+    // Test iacb child box follows with appropriate size and then 'iacb' code.
+    // iacmb Box header: size (4) and type (4)
+    // then iacb data: configuration version (1) + leb128 size (1) + config OBUs (3).
+    int expectedIacbSize = 4 + 4 + 1 + 1 + 3;
+    assertThat(box.getInt()).isEqualTo(expectedIacbSize);
+    byte[] iacbType = new byte[4];
+    box.get(iacbType);
+    assertThat(iacbType).isEqualTo(Util.getUtf8Bytes("iacb"));
+  }
+
+  @Test
+  public void createTrefBox_withMultipleTrackReferences_matchesExpected() throws IOException {
+    Map<Integer, List<Integer>> trackReferences = new LinkedHashMap<>();
+    trackReferences.put(Util.getIntegerCodeForString("cdsc"), ImmutableList.of(1, 2));
+    trackReferences.put(Util.getIntegerCodeForString("hind"), ImmutableList.of(1, 2));
+
+    ByteBuffer trefBox = Boxes.tref(trackReferences);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(trefBox);
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedMp4DumpFilePath("tref_box_with_multiple_track_reference"));
+  }
+
+  @Test
+  public void tfdt_withBaseMediaDecodeTime_matchesExpected() {
+    long baseMediaDecodeTime = 90_000L;
+
+    ByteBuffer tfdtBox = Boxes.tfdt(baseMediaDecodeTime);
+
+    // Box size (8-byte header + 12-byte payload = 20 bytes total).
+    assertThat(tfdtBox.remaining()).isEqualTo(20);
+    assertThat(tfdtBox.getInt()).isEqualTo(20);
+    // Box header type ("tfdt").
+    byte[] boxType = new byte[4];
+    tfdtBox.get(boxType);
+    assertThat(new String(boxType, UTF_8)).isEqualTo("tfdt");
+    // FullBox version 1 (64-bit decode time support) and flags (0).
+    assertThat(tfdtBox.getInt()).isEqualTo(0x01000000);
+    // 64-bit baseMediaDecodeTime payload.
+    assertThat(tfdtBox.getLong()).isEqualTo(baseMediaDecodeTime);
+  }
+
+  private static List<Long> durationsVuToPresentationTimestamps(
+      List<Integer> durationsVu, int videoUnitTimescale) {
+    List<Long> timestampsUs = new ArrayList<>();
+    int nextSampleTimestampVu = 0;
+    for (int duration : durationsVu) {
+      timestampsUs.add(
+          Util.scaleLargeTimestamp(nextSampleTimestampVu, C.MICROS_PER_SECOND, videoUnitTimescale));
+      nextSampleTimestampVu += duration;
+    }
+    return timestampsUs;
   }
 
   private static List<BufferInfo> createBufferInfoListWithSamplePresentationTimestamps(
-      long... timestampsUs) {
+      Long... timestampsUs) {
+    return createBufferInfoListWithSamplePresentationTimestamps(asList(timestampsUs));
+  }
+
+  private static List<BufferInfo> createBufferInfoListWithSamplePresentationTimestamps(
+      List<Long> timestampsUs) {
     List<BufferInfo> bufferInfoList = new ArrayList<>();
     for (long timestampUs : timestampsUs) {
       BufferInfo bufferInfo = new BufferInfo(timestampUs, /* size= */ 0, /* flags= */ 0);

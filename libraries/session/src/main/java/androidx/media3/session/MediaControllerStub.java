@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.common.util.Util.convertToNullIfInvalid;
 import static androidx.media3.common.util.Util.postOrRun;
 
 import android.app.PendingIntent;
@@ -25,6 +26,7 @@ import android.os.RemoteException;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Player.Commands;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.Log;
@@ -39,13 +41,12 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
   private static final String TAG = "MediaControllerStub";
 
-  /** The version of the IMediaController interface. */
-  public static final int VERSION_INT = 8;
-
   private final WeakReference<MediaControllerImplBase> controller;
+  private int sessionInterfaceVersion;
 
   public MediaControllerStub(MediaControllerImplBase controller) {
     this.controller = new WeakReference<>(controller);
+    this.sessionInterfaceVersion = C.INDEX_UNSET;
   }
 
   @Override
@@ -71,9 +72,13 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     if (libraryResultBundle == null) {
       return;
     }
+    if (sessionInterfaceVersion == C.INDEX_UNSET) {
+      // Not yet connected.
+      return;
+    }
     LibraryResult<?> result;
     try {
-      result = LibraryResult.fromUnknownBundle(libraryResultBundle);
+      result = LibraryResult.fromUnknownBundle(libraryResultBundle, sessionInterfaceVersion);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for LibraryResult", e);
       return;
@@ -97,6 +102,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       onDisconnected(seq);
       return;
     }
+    sessionInterfaceVersion = connectionState.sessionInterfaceVersion;
     dispatchControllerTaskOnHandler(controller -> controller.onConnected(connectionState));
   }
 
@@ -112,13 +118,12 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     if (commandButtonBundleList == null) {
       return;
     }
+    if (sessionInterfaceVersion == C.INDEX_UNSET) {
+      // Not yet connected.
+      return;
+    }
     List<CommandButton> layout;
     try {
-      int sessionInterfaceVersion = getSessionInterfaceVersion();
-      if (sessionInterfaceVersion == C.INDEX_UNSET) {
-        // Stale event.
-        return;
-      }
       layout =
           BundleCollectionUtil.fromBundleList(
               bundle -> CommandButton.fromBundle(bundle, sessionInterfaceVersion),
@@ -135,13 +140,12 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     if (commandButtonBundleList == null) {
       return;
     }
+    if (sessionInterfaceVersion == C.INDEX_UNSET) {
+      // Not yet connected.
+      return;
+    }
     ImmutableList<CommandButton> mediaButtonPreferences;
     try {
-      int sessionInterfaceVersion = getSessionInterfaceVersion();
-      if (sessionInterfaceVersion == C.INDEX_UNSET) {
-        // Stale event.
-        return;
-      }
       mediaButtonPreferences =
           BundleCollectionUtil.fromBundleList(
               bundle -> CommandButton.fromBundle(bundle, sessionInterfaceVersion),
@@ -245,9 +249,14 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     if (sessionPositionInfoBundle == null) {
       return;
     }
+    if (sessionInterfaceVersion == C.INDEX_UNSET) {
+      // Not yet connected.
+      return;
+    }
     SessionPositionInfo sessionPositionInfo;
     try {
-      sessionPositionInfo = SessionPositionInfo.fromBundle(sessionPositionInfoBundle);
+      sessionPositionInfo =
+          SessionPositionInfo.fromBundle(sessionPositionInfoBundle, sessionInterfaceVersion);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for SessionPositionInfo", e);
       return;
@@ -257,7 +266,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   }
 
   /**
-   * @deprecated Use {@link #onPlayerInfoChangedWithExclusions} from {@link #VERSION_INT} 2.
+   * @deprecated Use {@link #onPlayerInfoChangedWithExclusions} from {@link
+   *     MediaLibraryInfo#INTERFACE_VERSION} 2.
    */
   @Override
   @Deprecated
@@ -270,20 +280,19 @@ import org.checkerframework.checker.nullness.qual.NonNull;
             .toBundle());
   }
 
-  /** Added in {@link #VERSION_INT} 2. */
+  /** Added in {@link MediaLibraryInfo#INTERFACE_VERSION} 2. */
   @Override
   public void onPlayerInfoChangedWithExclusions(
       int seq, @Nullable Bundle playerInfoBundle, @Nullable Bundle playerInfoExclusions) {
     if (playerInfoBundle == null || playerInfoExclusions == null) {
       return;
     }
+    if (sessionInterfaceVersion == C.INDEX_UNSET) {
+      // Not yet connected.
+      return;
+    }
     PlayerInfo playerInfo;
     try {
-      int sessionInterfaceVersion = getSessionInterfaceVersion();
-      if (sessionInterfaceVersion == C.INDEX_UNSET) {
-        // Stale event.
-        return;
-      }
       playerInfo = PlayerInfo.fromBundle(playerInfoBundle, sessionInterfaceVersion);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for PlayerInfo", e);
@@ -302,11 +311,12 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
   @Override
   public void onExtrasChanged(int seq, @Nullable Bundle extras) {
-    if (extras == null) {
+    Bundle verifiedExtras = convertToNullIfInvalid(extras);
+    if (verifiedExtras == null) {
       Log.w(TAG, "Ignoring null Bundle for extras");
       return;
     }
-    dispatchControllerTaskOnHandler(controller -> controller.onExtrasChanged(extras));
+    dispatchControllerTaskOnHandler(controller -> controller.onExtrasChanged(verifiedExtras));
   }
 
   @Override
@@ -319,6 +329,11 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       return;
     }
     dispatchControllerTaskOnHandler(controller -> controller.onError(seq, error));
+  }
+
+  @Override
+  public void onSurfaceSizeChanged(int seq, int width, int height) {
+    dispatchControllerTaskOnHandler(controller -> controller.onSurfaceSizeChanged(width, height));
   }
 
   @Override
@@ -418,20 +433,6 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     } finally {
       Binder.restoreCallingIdentity(token);
     }
-  }
-
-  /** Returns session interface version or {@link C#INDEX_UNSET} for stale events. */
-  private int getSessionInterfaceVersion() {
-    @Nullable MediaControllerImplBase controller = this.controller.get();
-    if (controller == null) {
-      return C.INDEX_UNSET;
-    }
-    @Nullable SessionToken connectedToken = controller.getConnectedToken();
-    if (connectedToken == null) {
-      // Stale event.
-      return C.INDEX_UNSET;
-    }
-    return connectedToken.getInterfaceVersion();
   }
 
   /* @FunctionalInterface */

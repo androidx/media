@@ -24,16 +24,14 @@ import androidx.media3.common.DataReader;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.test.utils.Dumper.Dumpable;
-import com.google.common.primitives.Bytes;
+import com.google.common.collect.ImmutableList;
+import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 import java.util.Objects;
 
 /** A fake {@link TrackOutput}. */
@@ -52,8 +50,9 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
   private final boolean deduplicateConsecutiveFormats;
   private final ArrayList<DumpableSampleInfo> sampleInfos;
   private final ArrayList<Dumpable> dumpables;
+  private final ByteArrayOutputStream sampleData;
 
-  private byte[] sampleData;
+  @Nullable private byte[] cachedSampleData;
   private int formatCount;
   private boolean receivedSampleInFormat;
   private long durationUs;
@@ -65,7 +64,7 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
     this.deduplicateConsecutiveFormats = deduplicateConsecutiveFormats;
     sampleInfos = new ArrayList<>();
     dumpables = new ArrayList<>();
-    sampleData = Util.EMPTY_BYTE_ARRAY;
+    sampleData = new ByteArrayOutputStream();
     formatCount = 0;
     receivedSampleInFormat = true;
     durationUs = C.TIME_UNSET;
@@ -74,7 +73,8 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
   public void clear() {
     sampleInfos.clear();
     dumpables.clear();
-    sampleData = Util.EMPTY_BYTE_ARRAY;
+    sampleData.reset();
+    cachedSampleData = null;
     formatCount = 0;
     receivedSampleInFormat = true;
   }
@@ -116,16 +116,16 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
       }
       throw new EOFException();
     }
-    newData = Arrays.copyOf(newData, bytesAppended);
-    sampleData = Bytes.concat(sampleData, newData);
+    sampleData.write(newData, 0, bytesAppended);
+    cachedSampleData = null;
     return bytesAppended;
   }
 
   @Override
   public void sampleData(ParsableByteArray data, int length, @SampleDataPart int sampleDataPart) {
-    byte[] newData = new byte[length];
-    data.readBytes(newData, 0, length);
-    sampleData = Bytes.concat(sampleData, newData);
+    sampleData.write(data.getData(), data.getPosition(), length);
+    data.skipBytes(length);
+    cachedSampleData = null;
   }
 
   @Override
@@ -145,8 +145,9 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
     if (dumpables.isEmpty()) {
       addFormat(lastFormat);
     }
+    int sampleDataLength = sampleData.size();
     addSampleInfo(
-        timeUs, flags, sampleData.length - offset - size, sampleData.length - offset, cryptoData);
+        timeUs, flags, sampleDataLength - offset - size, sampleDataLength - offset, cryptoData);
   }
 
   public @C.TrackType int getType() {
@@ -166,12 +167,20 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
     assertThat(getSampleCryptoData(index)).isEqualTo(cryptoData);
   }
 
+  private byte[] getSampleDataArray() {
+    if (cachedSampleData == null) {
+      cachedSampleData = sampleData.toByteArray();
+    }
+    return cachedSampleData;
+  }
+
   public byte[] getSampleData(int index) {
-    return Arrays.copyOfRange(sampleData, getSampleStartOffset(index), getSampleEndOffset(index));
+    return Arrays.copyOfRange(
+        getSampleDataArray(), getSampleStartOffset(index), getSampleEndOffset(index));
   }
 
   private byte[] getSampleData(int fromIndex, int toIndex) {
-    return Arrays.copyOfRange(sampleData, fromIndex, toIndex);
+    return Arrays.copyOfRange(getSampleDataArray(), fromIndex, toIndex);
   }
 
   public long getSampleTimeUs(int index) {
@@ -191,17 +200,21 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
     return sampleInfos.size();
   }
 
-  public List<Long> getSampleTimesUs() {
-    List<Long> sampleTimesUs = new ArrayList<>();
+  public ImmutableList<Long> getSampleTimesUs() {
+    ImmutableList.Builder<Long> sampleTimesUs = new ImmutableList.Builder<>();
     for (DumpableSampleInfo sampleInfo : sampleInfos) {
       sampleTimesUs.add(sampleInfo.timeUs);
     }
-    return Collections.unmodifiableList(sampleTimesUs);
+    return sampleTimesUs.build();
+  }
+
+  public long getDurationUs() {
+    return durationUs;
   }
 
   @Override
   public void dump(Dumper dumper) {
-    dumper.add("total output bytes", sampleData.length);
+    dumper.add("total output bytes", sampleData.size());
     dumper.add("sample count", sampleInfos.size());
     dumper.addIfNonDefault("track duration", durationUs, C.TIME_UNSET);
     if (dumpables.isEmpty() && lastFormat != null) {

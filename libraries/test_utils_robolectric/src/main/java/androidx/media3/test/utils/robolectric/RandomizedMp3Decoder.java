@@ -24,8 +24,8 @@ import android.media.MediaCrypto;
 import android.media.MediaFormat;
 import android.view.Surface;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.MpegAudioUtil;
@@ -42,11 +42,10 @@ import org.robolectric.shadows.ShadowMediaCodec;
  * <p>The decoder reads the MP3 header for each input MP3 frame, determines the number of bytes the
  * input frame should inflate to, and writes randomized data of that amount to the output buffer.
  * Decoder randomness can help us identify possible errors in downstream renderers and audio
- * processors. The random bahavior is deterministic, it outputs the same bytes across multiple runs.
+ * processors. The random behavior is deterministic, it outputs the same bytes across multiple runs.
  *
  * <p>All the data written to the output by the decoder can be obtained by getAllOutputBytes().
  */
-@RequiresApi(29)
 @UnstableApi
 public final class RandomizedMp3Decoder implements ShadowMediaCodec.CodecConfig.Codec {
   private final List<byte[]> decoderOutput = new ArrayList<>();
@@ -79,11 +78,14 @@ public final class RandomizedMp3Decoder implements ShadowMediaCodec.CodecConfig.
   public void onConfigured(
       MediaFormat format, @Nullable Surface surface, @Nullable MediaCrypto crypto, int flags) {
     int pcmEncoding =
-        format.getInteger(
-            MediaFormat.KEY_PCM_ENCODING, /* defaultValue= */ AudioFormat.ENCODING_PCM_16BIT);
+        MediaFormatUtil.getInteger(
+            format,
+            MediaFormat.KEY_PCM_ENCODING,
+            /* defaultValue= */ AudioFormat.ENCODING_PCM_16BIT);
     int channelCount = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
     checkArgument(
-        format.getString(MediaFormat.KEY_MIME, MimeTypes.AUDIO_MPEG).equals(MimeTypes.AUDIO_MPEG));
+        MediaFormatUtil.getString(format, MediaFormat.KEY_MIME, MimeTypes.AUDIO_MPEG)
+            .equals(MimeTypes.AUDIO_MPEG));
     frameSizeInBytes = Util.getPcmFrameSize(pcmEncoding, channelCount);
   }
 

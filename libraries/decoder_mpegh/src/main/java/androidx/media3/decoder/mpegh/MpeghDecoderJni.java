@@ -15,9 +15,11 @@
  */
 package androidx.media3.decoder.mpegh;
 
+import androidx.media3.common.util.UnstableApi;
 import java.nio.ByteBuffer;
 
 /** JNI wrapper for the libmpegh MPEG-H decoder. */
+@UnstableApi
 public class MpeghDecoderJni {
 
   private long decoderHandle; // used by JNI only to hold the native context.

@@ -16,7 +16,6 @@
 package androidx.media3.session;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.app.ForegroundServiceStartNotAllowedException;
 import android.app.Service;
@@ -64,11 +63,11 @@ import java.util.Objects;
  * <p>This class assumes you have a {@link Service} in your app's manifest that controls media
  * playback via a {@link MediaSession}. Once a key event is received by this receiver, it tries to
  * find a {@link Service} that can handle the action {@link Intent#ACTION_MEDIA_BUTTON}, {@link
- * MediaSessionService#SERVICE_INTERFACE} or {@link MediaSessionService#SERVICE_INTERFACE}. If an
+ * MediaSessionService#SERVICE_INTERFACE} or {@link MediaLibraryService#SERVICE_INTERFACE}. If an
  * appropriate service is found, this class starts the service as a foreground service and sends the
  * key event to the service by an {@link Intent} with action {@link Intent#ACTION_MEDIA_BUTTON}. If
- * neither is available or more than one valid service is found for one of the actions, an {@link
- * IllegalStateException} is thrown.
+ * neither one is available or more than one valid service is found for one of the actions, an
+ * {@link IllegalStateException} is thrown.
  *
  * <h3>Service handling ACTION_MEDIA_BUTTON</h3>
  *
@@ -137,15 +136,12 @@ public class MediaButtonReceiver extends BroadcastReceiver {
   @UnstableApi
   protected final void handleIntentAndMaybeStartTheService(
       Context context, @Nullable Intent intent) {
-    if (intent == null
-        || !Objects.equals(intent.getAction(), Intent.ACTION_MEDIA_BUTTON)
-        || !intent.hasExtra(Intent.EXTRA_KEY_EVENT)) {
-      android.util.Log.d(TAG, "Ignore unsupported intent: " + intent);
+    if (intent == null || !Objects.equals(intent.getAction(), Intent.ACTION_MEDIA_BUTTON)) {
+      Log.d(TAG, "Ignore unsupported intent: " + intent);
       return;
     }
 
-    @Nullable
-    KeyEvent keyEvent = checkNotNull(intent.getExtras()).getParcelable(Intent.EXTRA_KEY_EVENT);
+    @Nullable KeyEvent keyEvent = DefaultActionFactory.getKeyEvent(intent);
     if (keyEvent == null
         || keyEvent.getAction() != KeyEvent.ACTION_DOWN
         || keyEvent.getRepeatCount() != 0) {
@@ -163,7 +159,7 @@ public class MediaButtonReceiver extends BroadcastReceiver {
         // playback is started and the MediaSessionService/MediaLibraryService is put into the
         // foreground (see https://developer.android.com/media/legacy/media-buttons and
         // https://developer.android.com/about/versions/oreo/android-8.0-changes#back-all).
-        android.util.Log.w(
+        Log.w(
             TAG,
             "Ignore key event that is not a `play` command on API 26 or above to avoid an"
                 + " 'ForegroundServiceDidNotStartInTimeException'");
@@ -268,7 +264,6 @@ public class MediaButtonReceiver extends BroadcastReceiver {
    *     starting the foreground service}.
    * @param e The exception thrown by the system and caught by this broadcast receiver.
    */
-  @SuppressWarnings("deprecation")
   @RequiresApi(31)
   protected void onForegroundServiceStartNotAllowedException(
       Context context, Intent intent, ForegroundServiceStartNotAllowedException e) {

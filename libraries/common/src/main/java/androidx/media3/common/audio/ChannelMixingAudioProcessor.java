@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
-import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import java.nio.ByteBuffer;
 
@@ -51,8 +50,7 @@ public final class ChannelMixingAudioProcessor extends BaseAudioProcessor {
   @Override
   protected AudioFormat onConfigure(AudioFormat inputAudioFormat)
       throws UnhandledAudioFormatException {
-    // TODO(b/290002731): Expand to allow float due to AudioMixingUtil built-in support for float.
-    if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT) {
+    if (!AudioMixingUtil.canMix(inputAudioFormat)) {
       throw new UnhandledAudioFormatException(inputAudioFormat);
     }
     @Nullable
@@ -60,7 +58,11 @@ public final class ChannelMixingAudioProcessor extends BaseAudioProcessor {
         matrixByInputChannelCount.get(inputAudioFormat.channelCount);
     if (channelMixingMatrix == null) {
       throw new UnhandledAudioFormatException(
-          "No mixing matrix for input channel count", inputAudioFormat);
+          String.format(
+              "No mixing matrix set for input channel count=%s. Please call"
+                  + " putChannelMixingMatrix() with the appropriate matrix.",
+              inputAudioFormat.channelCount),
+          inputAudioFormat);
     }
     if (channelMixingMatrix.isIdentity()) {
       return AudioFormat.NOT_SET;
@@ -68,7 +70,7 @@ public final class ChannelMixingAudioProcessor extends BaseAudioProcessor {
     return new AudioFormat(
         inputAudioFormat.sampleRate,
         channelMixingMatrix.getOutputChannelCount(),
-        C.ENCODING_PCM_16BIT);
+        inputAudioFormat.encoding);
   }
 
   @Override

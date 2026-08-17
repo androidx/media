@@ -25,7 +25,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.FileTypes;
 import androidx.media3.common.Format;
-import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.TimestampAdjuster;
 import androidx.media3.common.util.UnstableApi;
@@ -83,6 +82,7 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
    */
   public DefaultHlsExtractorFactory() {
     this(/* payloadReaderFactoryFlags= */ 0, /* exposeCea608WhenMissingDeclarations */ true);
+    codecsToParseWithinGopSampleDependencies = C.VIDEO_CODEC_FLAG_H264 | C.VIDEO_CODEC_FLAG_H265;
   }
 
   /**
@@ -251,7 +251,6 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
             subtitleParserFactory,
             parseSubtitlesDuringExtraction,
             timestampAdjuster,
-            format,
             muxedCaptionFormats,
             codecsToParseWithinGopSampleDependencies);
       case FileTypes.TS:
@@ -323,13 +322,9 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
       SubtitleParser.Factory subtitleParserFactory,
       boolean parseSubtitlesDuringExtraction,
       TimestampAdjuster timestampAdjuster,
-      Format format,
       @Nullable List<Format> muxedCaptionFormats,
       @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
-    // Only enable the EMSG TrackOutput if this is the 'variant' track (i.e. the main one) to avoid
-    // creating a separate EMSG track for every audio track in a video stream.
-    @FragmentedMp4Extractor.Flags
-    int flags = isFmp4Variant(format) ? FragmentedMp4Extractor.FLAG_ENABLE_EMSG_TRACK : 0;
+    @FragmentedMp4Extractor.Flags int flags = FragmentedMp4Extractor.FLAG_ENABLE_EMSG_TRACK;
     if (!parseSubtitlesDuringExtraction) {
       subtitleParserFactory = SubtitleParser.Factory.UNSUPPORTED;
       flags |= FragmentedMp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA;
@@ -344,21 +339,6 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
         /* sideloadedTrack= */ null,
         muxedCaptionFormats != null ? muxedCaptionFormats : ImmutableList.of(),
         /* additionalEmsgTrackOutput= */ null);
-  }
-
-  /** Returns true if this {@code format} represents a 'variant' track (i.e. the main one). */
-  private static boolean isFmp4Variant(Format format) {
-    Metadata metadata = format.metadata;
-    if (metadata == null) {
-      return false;
-    }
-    for (int i = 0; i < metadata.length(); i++) {
-      Metadata.Entry entry = metadata.get(i);
-      if (entry instanceof HlsTrackMetadataEntry) {
-        return !((HlsTrackMetadataEntry) entry).variantInfos.isEmpty();
-      }
-    }
-    return false;
   }
 
   private static boolean sniffQuietly(Extractor extractor, ExtractorInput input)

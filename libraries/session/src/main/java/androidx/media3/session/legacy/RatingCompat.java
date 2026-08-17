@@ -22,11 +22,10 @@ import android.annotation.SuppressLint;
 import android.media.Rating;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.util.Log;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
-import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Log;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -37,7 +36,6 @@ import java.lang.annotation.RetentionPolicy;
  * rating value (which may be defined as "unrated"), both of which are defined when the rating
  * instance is constructed through one of the factory methods.
  */
-@UnstableApi
 @RestrictTo(LIBRARY)
 @SuppressLint("BanParcelableUsage")
 public final class RatingCompat implements Parcelable {

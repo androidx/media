@@ -28,20 +28,23 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.os.Build;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.Presentation;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
+import androidx.media3.test.utils.BitmapPixelTestUtil;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.util.List;
 
 /** Utility class for checking testing {@link EditedMediaItemSequence} instances. */
 public final class SequenceEffectTestUtil {
   public static final ImmutableList<Effect> NO_EFFECT = ImmutableList.of();
-  public static final long SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS = 50;
+  public static final long SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS = 30;
 
   /**
    * Luma PSNR values between 30 and 50 are considered good for lossy compression (See <a
@@ -58,16 +61,17 @@ public final class SequenceEffectTestUtil {
   private SequenceEffectTestUtil() {}
 
   /**
-   * Creates a {@link Composition} with the specified {@link Presentation} and {@link
-   * EditedMediaItem} instances.
+   * Creates a {@link Composition} with a sequence of {@link C#TRACK_TYPE_VIDEO} only, using the
+   * specified {@link Presentation} and {@link EditedMediaItem} instances.
    */
-  public static Composition createComposition(
+  public static Composition createVideoOnlyComposition(
       @Nullable Presentation presentation,
       EditedMediaItem editedMediaItem,
       EditedMediaItem... editedMediaItems) {
     Composition.Builder builder =
         new Composition.Builder(
-            new EditedMediaItemSequence.Builder(editedMediaItem)
+            new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_VIDEO))
+                .addItem(editedMediaItem)
                 .addItems(editedMediaItems)
                 .build());
     if (presentation != null) {
@@ -113,13 +117,28 @@ public final class SequenceEffectTestUtil {
   }
 
   /**
-   * Assert that the bitmaps output in {@link #PNG_ASSET_BASE_PATH} match those written in {code
-   * actualBitmaps}.
+   * Asserts that the bitmaps output in {@link #PNG_ASSET_BASE_PATH} match those written in {@code
+   * actualBitmaps} with luma threshold {@link
+   * BitmapPixelTestUtil#MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_LUMA}.
    *
    * <p>Also saves {@code actualBitmaps} bitmaps, in case they differ from expected bitmaps, stored
    * at {@link #PNG_ASSET_BASE_PATH}/{@code testId}_id.png.
    */
   public static void assertBitmapsMatchExpectedAndSave(List<Bitmap> actualBitmaps, String testId)
+      throws IOException {
+    assertBitmapsMatchExpectedAndSave(
+        actualBitmaps, testId, MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_LUMA);
+  }
+
+  /**
+   * Asserts that the bitmaps output in {@link #PNG_ASSET_BASE_PATH} match those written in {@code
+   * actualBitmaps} with {@code maxAveragePixelAbsoluteDifference}.
+   *
+   * <p>Also saves {@code actualBitmaps} bitmaps, in case they differ from expected bitmaps, stored
+   * at {@link #PNG_ASSET_BASE_PATH}/{@code testId}_id.png.
+   */
+  public static void assertBitmapsMatchExpectedAndSave(
+      List<Bitmap> actualBitmaps, String testId, float maxAveragePixelAbsoluteDifference)
       throws IOException {
     for (int i = 0; i < actualBitmaps.size(); i++) {
       maybeSaveTestBitmap(
@@ -136,7 +155,7 @@ public final class SequenceEffectTestUtil {
               expectedBitmap, actualBitmaps.get(i), subTestId);
       assertWithMessage("For expected bitmap " + expectedPath)
           .that(averagePixelAbsoluteDifference)
-          .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_LUMA);
+          .isAtMost(maxAveragePixelAbsoluteDifference);
     }
   }
 

@@ -15,10 +15,12 @@
  */
 package androidx.media3.common;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.math.DoubleMath.fuzzyEquals;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.hardware.HardwareBuffer;
 import android.os.Bundle;
 import android.text.TextUtils;
 import androidx.annotation.IntDef;
@@ -60,6 +62,7 @@ import java.util.UUID;
  *   <li>{@link #language}
  *   <li>{@link #selectionFlags}
  *   <li>{@link #roleFlags}
+ *   <li>{@link #selectionPriority}
  *   <li>{@link #averageBitrate}
  *   <li>{@link #peakBitrate}
  *   <li>{@link #codecs}
@@ -101,6 +104,7 @@ import java.util.UUID;
  *   <li>{@link #decodedHeight}
  *   <li>{@link #frameRate}
  *   <li>{@link #rotationDegrees}
+ *   <li>{@link #mirrorHorizontal}
  *   <li>{@link #pixelWidthHeightRatio}
  *   <li>{@link #projectionData}
  *   <li>{@link #stereoMode}
@@ -112,6 +116,7 @@ import java.util.UUID;
  *
  * <ul>
  *   <li>{@link #channelCount}
+ *   <li>{@link #channelMask}
  *   <li>{@link #sampleRate}
  *   <li>{@link #pcmEncoding}
  *   <li>{@link #encoderDelay}
@@ -151,12 +156,14 @@ public final class Format {
     @Nullable private String language;
     private @C.SelectionFlags int selectionFlags;
     private @C.RoleFlags int roleFlags;
+    private float selectionPriority;
     private @C.AuxiliaryTrackType int auxiliaryTrackType;
     private int averageBitrate;
     private int peakBitrate;
     @Nullable private String codecs;
     @Nullable private Metadata metadata;
     @Nullable private Object customData;
+    @Nullable private String primaryTrackGroupId;
 
     // Container specific.
 
@@ -176,10 +183,12 @@ public final class Format {
 
     private int width;
     private int height;
+    private int pixelFormat;
     private int decodedWidth;
     private int decodedHeight;
     private float frameRate;
     private int rotationDegrees;
+    private boolean mirrorHorizontal;
     private float pixelWidthHeightRatio;
     @Nullable private byte[] projectionData;
     private @C.StereoMode int stereoMode;
@@ -189,6 +198,7 @@ public final class Format {
     // Audio specific.
 
     private int channelCount;
+    private int channelMask;
     private int sampleRate;
     private @C.PcmEncoding int pcmEncoding;
     private int encoderDelay;
@@ -211,6 +221,7 @@ public final class Format {
     /** Creates a new instance with default values. */
     public Builder() {
       labels = ImmutableList.of();
+      selectionPriority = NO_VALUE;
       averageBitrate = NO_VALUE;
       peakBitrate = NO_VALUE;
       // Sample specific.
@@ -220,6 +231,7 @@ public final class Format {
       // Video specific.
       width = NO_VALUE;
       height = NO_VALUE;
+      pixelFormat = NO_VALUE;
       decodedWidth = NO_VALUE;
       decodedHeight = NO_VALUE;
       frameRate = NO_VALUE;
@@ -228,6 +240,7 @@ public final class Format {
       maxSubLayers = NO_VALUE;
       // Audio specific.
       channelCount = NO_VALUE;
+      channelMask = NO_VALUE;
       sampleRate = NO_VALUE;
       pcmEncoding = NO_VALUE;
       // Text specific.
@@ -253,11 +266,13 @@ public final class Format {
       this.language = format.language;
       this.selectionFlags = format.selectionFlags;
       this.roleFlags = format.roleFlags;
+      this.selectionPriority = format.selectionPriority;
       this.averageBitrate = format.averageBitrate;
       this.peakBitrate = format.peakBitrate;
       this.codecs = format.codecs;
       this.metadata = format.metadata;
       this.customData = format.customData;
+      this.primaryTrackGroupId = format.primaryTrackGroupId;
       // Container specific.
       this.containerMimeType = format.containerMimeType;
       // Sample specific.
@@ -271,10 +286,12 @@ public final class Format {
       // Video specific.
       this.width = format.width;
       this.height = format.height;
+      this.pixelFormat = format.pixelFormat;
       this.decodedWidth = format.decodedWidth;
       this.decodedHeight = format.decodedHeight;
       this.frameRate = format.frameRate;
       this.rotationDegrees = format.rotationDegrees;
+      this.mirrorHorizontal = format.mirrorHorizontal;
       this.pixelWidthHeightRatio = format.pixelWidthHeightRatio;
       this.projectionData = format.projectionData;
       this.stereoMode = format.stereoMode;
@@ -282,6 +299,7 @@ public final class Format {
       this.maxSubLayers = format.maxSubLayers;
       // Audio specific.
       this.channelCount = format.channelCount;
+      this.channelMask = format.channelMask;
       this.sampleRate = format.sampleRate;
       this.pcmEncoding = format.pcmEncoding;
       this.encoderDelay = format.encoderDelay;
@@ -391,6 +409,18 @@ public final class Format {
     }
 
     /**
+     * Sets {@link Format#selectionPriority}. The default value is {@link Format#NO_VALUE}.
+     *
+     * @param selectionPriority The {@link Format#selectionPriority}.
+     * @return The builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setSelectionPriority(float selectionPriority) {
+      this.selectionPriority = selectionPriority;
+      return this;
+    }
+
+    /**
      * Sets {@link Format#auxiliaryTrackType}. The default value is {@link
      * C#AUXILIARY_TRACK_TYPE_UNDEFINED}.
      *
@@ -467,6 +497,24 @@ public final class Format {
     @CanIgnoreReturnValue
     public Builder setCustomData(@Nullable Object customData) {
       this.customData = customData;
+      return this;
+    }
+
+    /**
+     * Sets the {@link TrackGroup#id} of the primary {@link TrackGroup} this format is embedded
+     * into.
+     *
+     * <p>If {@code null}, the format is not known to be embedded in another stream. The default
+     * value is {@code null}.
+     *
+     * @param primaryTrackGroupId The {@link TrackGroup#id} of the primary {@link TrackGroup} this
+     *     format is embedded into.
+     * @return The builder.
+     */
+    @UnstableApi
+    @CanIgnoreReturnValue
+    public Builder setPrimaryTrackGroupId(@Nullable String primaryTrackGroupId) {
+      this.primaryTrackGroupId = primaryTrackGroupId;
       return this;
     }
 
@@ -597,6 +645,20 @@ public final class Format {
     }
 
     /**
+     * Sets {@link Format#pixelFormat}. The default value is {@link #NO_VALUE}.
+     *
+     * @param pixelFormat The {@link Format#pixelFormat}. Typically one of the {@link
+     *     HardwareBuffer} format constants.
+     * @return The builder.
+     */
+    @UnstableApi
+    @CanIgnoreReturnValue
+    public Builder setPixelFormat(int pixelFormat) {
+      this.pixelFormat = pixelFormat;
+      return this;
+    }
+
+    /**
      * Sets {@link Format#decodedWidth}. The default value is {@link #NO_VALUE}.
      *
      * @param decodedWidth The {@link Format#decodedWidth}.
@@ -623,11 +685,12 @@ public final class Format {
     /**
      * Sets {@link Format#frameRate}. The default value is {@link #NO_VALUE}.
      *
-     * @param frameRate The {@link Format#frameRate}.
+     * @param frameRate The {@link Format#frameRate}, which must be positive or {@link #NO_VALUE}.
      * @return The builder.
      */
     @CanIgnoreReturnValue
     public Builder setFrameRate(float frameRate) {
+      checkArgument(frameRate == NO_VALUE || frameRate > 0f);
       this.frameRate = frameRate;
       return this;
     }
@@ -641,6 +704,18 @@ public final class Format {
     @CanIgnoreReturnValue
     public Builder setRotationDegrees(int rotationDegrees) {
       this.rotationDegrees = rotationDegrees;
+      return this;
+    }
+
+    /**
+     * Sets {@link Format#mirrorHorizontal}. The default value is {@code false}.
+     *
+     * @param mirrorHorizontal The {@link Format#mirrorHorizontal}.
+     * @return The builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setMirrorHorizontal(boolean mirrorHorizontal) {
+      this.mirrorHorizontal = mirrorHorizontal;
       return this;
     }
 
@@ -709,12 +784,32 @@ public final class Format {
     /**
      * Sets {@link Format#channelCount}. The default value is {@link #NO_VALUE}.
      *
+     * <p>If both the channel count and the {@linkplain #setChannelMask(int) channel mask} are set
+     * (i.e. not {@link #NO_VALUE}), the number of set bits in the channel mask must equal the
+     * channel count.
+     *
      * @param channelCount The {@link Format#channelCount}.
      * @return The builder.
      */
     @CanIgnoreReturnValue
     public Builder setChannelCount(int channelCount) {
       this.channelCount = channelCount;
+      return this;
+    }
+
+    /**
+     * Sets {@link Format#channelMask}. The default value is {@link #NO_VALUE}.
+     *
+     * <p>If both the {@linkplain #setChannelCount(int) channel count} and the channel mask are set
+     * (i.e. not {@link #NO_VALUE}), the number of set bits in the channel mask must equal the
+     * channel count.
+     *
+     * @param channelMask The {@link Format#channelMask}.
+     * @return The builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setChannelMask(int channelMask) {
+      this.channelMask = channelMask;
       return this;
     }
 
@@ -909,6 +1004,20 @@ public final class Format {
   /** Track role flags. */
   public final @C.RoleFlags int roleFlags;
 
+  /**
+   * A relative preference among formats in the same {@link TrackGroup}, or {@link #NO_VALUE} if
+   * unset. A higher value indicates a more preferred format. The way in which this field is
+   * populated depends on the type of media to which the format corresponds:
+   *
+   * <ul>
+   *   <li>HLS variants: The {@code SCORE} attribute defined on the corresponding {@code
+   *       EXT-X-STREAM-INF} and {@code EXT-X-I-FRAME-STREAM-INF} tags in the multivariant playlist,
+   *       or {@link #NO_VALUE} if not present.
+   *   <li>All the other types of media: Always {@link #NO_VALUE}.
+   * </ul>
+   */
+  @UnstableApi public final float selectionPriority;
+
   /** The auxiliary track type. */
   @UnstableApi public final @C.AuxiliaryTrackType int auxiliaryTrackType;
 
@@ -977,6 +1086,13 @@ public final class Format {
    */
   @UnstableApi @Nullable public final Object customData;
 
+  /**
+   * The {@link TrackGroup#id} of the primary {@link TrackGroup} this format is embedded into.
+   *
+   * <p>If {@code null}, the format is not known to be embedded in another stream.
+   */
+  @UnstableApi @Nullable public final String primaryTrackGroupId;
+
   // Container specific.
 
   /** The MIME type of the container, or null if unknown or not applicable. */
@@ -1033,6 +1149,13 @@ public final class Format {
   public final int height;
 
   /**
+   * The pixel format of the video, or {@link #NO_VALUE} if unknown or not applicable.
+   *
+   * <p>Typically one of the {@link HardwareBuffer} format constants.
+   */
+  @UnstableApi public final int pixelFormat;
+
+  /**
    * The width of the video decoded picture in pixels, or {@link #NO_VALUE} if unknown or not
    * applicable.
    *
@@ -1048,7 +1171,11 @@ public final class Format {
    */
   @UnstableApi public final int decodedHeight;
 
-  /** The frame rate in frames per second, or {@link #NO_VALUE} if unknown or not applicable. */
+  /**
+   * The frame rate in frames per second, or {@link #NO_VALUE} if unknown or not applicable.
+   *
+   * <p>If not {@link #NO_VALUE}, the value is guaranteed to be positive.
+   */
   public final float frameRate;
 
   /**
@@ -1056,6 +1183,12 @@ public final class Format {
    * orientation, or 0 if unknown or not applicable. Only 0, 90, 180 and 270 are supported.
    */
   @UnstableApi public final int rotationDegrees;
+
+  /**
+   * Whether the video needs to be horizontally mirrored in order to be rendered correctly, or
+   * {@code false} if unknown or not applicable.
+   */
+  @UnstableApi public final boolean mirrorHorizontal;
 
   /** The width to height ratio of pixels in the video, or 1.0 if unknown or not applicable. */
   public final float pixelWidthHeightRatio;
@@ -1081,8 +1214,24 @@ public final class Format {
 
   // Audio specific.
 
-  /** The number of audio channels, or {@link #NO_VALUE} if unknown or not applicable. */
+  /**
+   * The number of audio channels, or {@link #NO_VALUE} if unknown or not applicable.
+   *
+   * <p>If both {@link #channelCount} and {@link #channelMask} are set (i.e. not {@link #NO_VALUE}),
+   * they are guaranteed to match, meaning the number of set bits in {@link #channelMask} equals
+   * {@link #channelCount}.
+   */
   public final int channelCount;
+
+  /**
+   * The audio channel mask. Expected to be a bitmask of {@link android.media.AudioFormat} {@code
+   * CHANNEL_OUT_*} constants, or {@link #NO_VALUE} if unknown or not applicable.
+   *
+   * <p>If both {@link #channelCount} and {@link #channelMask} are set (i.e. not {@link #NO_VALUE}),
+   * they are guaranteed to match, meaning the number of set bits in {@link #channelMask} equals
+   * {@link #channelCount}.
+   */
+  @UnstableApi public final int channelMask;
 
   /** The audio sampling rate in Hz, or {@link #NO_VALUE} if unknown or not applicable. */
   public final int sampleRate;
@@ -1091,7 +1240,7 @@ public final class Format {
    * The {@link C.PcmEncoding} for PCM or losslessly compressed audio. Set to {@link #NO_VALUE} for
    * other media types.
    */
-  @UnstableApi public final @C.PcmEncoding int pcmEncoding;
+  public final @C.PcmEncoding int pcmEncoding;
 
   /**
    * The number of frames to trim from the start of the decoded audio stream, or 0 if not
@@ -1172,6 +1321,7 @@ public final class Format {
         "Auxiliary track type must only be set to a value other than AUXILIARY_TRACK_TYPE_UNDEFINED"
             + " only when ROLE_FLAG_AUXILIARY is set");
     roleFlags = builder.roleFlags;
+    selectionPriority = builder.selectionPriority;
     auxiliaryTrackType = builder.auxiliaryTrackType;
     averageBitrate = builder.averageBitrate;
     peakBitrate = builder.peakBitrate;
@@ -1179,6 +1329,7 @@ public final class Format {
     codecs = builder.codecs;
     metadata = builder.metadata;
     customData = builder.customData;
+    primaryTrackGroupId = builder.primaryTrackGroupId;
     // Container specific.
     containerMimeType = builder.containerMimeType;
     // Sample specific.
@@ -1193,10 +1344,12 @@ public final class Format {
     // Video specific.
     width = builder.width;
     height = builder.height;
+    pixelFormat = builder.pixelFormat;
     decodedWidth = builder.decodedWidth;
     decodedHeight = builder.decodedHeight;
     frameRate = builder.frameRate;
     rotationDegrees = builder.rotationDegrees == NO_VALUE ? 0 : builder.rotationDegrees;
+    mirrorHorizontal = builder.mirrorHorizontal;
     pixelWidthHeightRatio =
         builder.pixelWidthHeightRatio == NO_VALUE ? 1 : builder.pixelWidthHeightRatio;
     projectionData = builder.projectionData;
@@ -1205,6 +1358,14 @@ public final class Format {
     maxSubLayers = builder.maxSubLayers;
     // Audio specific.
     channelCount = builder.channelCount;
+    channelMask = builder.channelMask;
+    if (channelCount != NO_VALUE && channelMask != NO_VALUE) {
+      checkState(
+          Integer.bitCount(channelMask) == channelCount,
+          "channelCount and channelMask are inconsistent. channelCount=%s, channelMask=%s",
+          channelCount,
+          channelMask);
+    }
     sampleRate = builder.sampleRate;
     pcmEncoding = builder.pcmEncoding;
     encoderDelay = builder.encoderDelay == NO_VALUE ? 0 : builder.encoderDelay;
@@ -1242,6 +1403,7 @@ public final class Format {
 
     // Use manifest value only.
     @Nullable String id = manifestFormat.id;
+    float selectionPriority = manifestFormat.selectionPriority;
     int tileCountHorizontal = manifestFormat.tileCountHorizontal;
     int tileCountVertical = manifestFormat.tileCountVertical;
 
@@ -1267,6 +1429,11 @@ public final class Format {
         codecs = codecsOfType;
       }
     }
+    @Nullable
+    String primaryTrackGroupId =
+        this.primaryTrackGroupId != null
+            ? this.primaryTrackGroupId
+            : manifestFormat.primaryTrackGroupId;
 
     @Nullable
     Metadata metadata =
@@ -1293,10 +1460,12 @@ public final class Format {
         .setLanguage(language)
         .setSelectionFlags(selectionFlags)
         .setRoleFlags(roleFlags)
+        .setSelectionPriority(selectionPriority)
         .setAverageBitrate(averageBitrate)
         .setPeakBitrate(peakBitrate)
         .setCodecs(codecs)
         .setMetadata(metadata)
+        .setPrimaryTrackGroupId(primaryTrackGroupId)
         .setDrmInitData(drmInitData)
         .setFrameRate(frameRate)
         .setTileCountHorizontal(tileCountHorizontal)
@@ -1347,6 +1516,8 @@ public final class Format {
         + ", ["
         + channelCount
         + ", "
+        + channelMask
+        + ", "
         + sampleRate
         + "])";
   }
@@ -1362,12 +1533,14 @@ public final class Format {
       result = 31 * result + (language == null ? 0 : language.hashCode());
       result = 31 * result + selectionFlags;
       result = 31 * result + roleFlags;
+      result = 31 * result + Float.floatToIntBits(selectionPriority);
       result = 31 * result + auxiliaryTrackType;
       result = 31 * result + averageBitrate;
       result = 31 * result + peakBitrate;
       result = 31 * result + (codecs == null ? 0 : codecs.hashCode());
       result = 31 * result + (metadata == null ? 0 : metadata.hashCode());
       result = 31 * result + (customData == null ? 0 : customData.hashCode());
+      result = 31 * result + (primaryTrackGroupId == null ? 0 : primaryTrackGroupId.hashCode());
       // Container specific.
       result = 31 * result + (containerMimeType == null ? 0 : containerMimeType.hashCode());
       // Sample specific.
@@ -1379,10 +1552,12 @@ public final class Format {
       // Video specific.
       result = 31 * result + width;
       result = 31 * result + height;
+      result = 31 * result + pixelFormat;
       result = 31 * result + decodedWidth;
       result = 31 * result + decodedHeight;
       result = 31 * result + Float.floatToIntBits(frameRate);
       result = 31 * result + rotationDegrees;
+      result = 31 * result + (mirrorHorizontal ? 1 : 0);
       result = 31 * result + Float.floatToIntBits(pixelWidthHeightRatio);
       // [Omitted] projectionData.
       result = 31 * result + stereoMode;
@@ -1390,6 +1565,7 @@ public final class Format {
       result = 31 * result + maxSubLayers;
       // Audio specific.
       result = 31 * result + channelCount;
+      result = 31 * result + channelMask;
       result = 31 * result + sampleRate;
       result = 31 * result + pcmEncoding;
       result = 31 * result + encoderDelay;
@@ -1428,12 +1604,15 @@ public final class Format {
         && subsampleOffsetUs == other.subsampleOffsetUs
         && width == other.width
         && height == other.height
+        && pixelFormat == other.pixelFormat
         && decodedWidth == other.decodedWidth
         && decodedHeight == other.decodedHeight
         && rotationDegrees == other.rotationDegrees
+        && mirrorHorizontal == other.mirrorHorizontal
         && stereoMode == other.stereoMode
         && maxSubLayers == other.maxSubLayers
         && channelCount == other.channelCount
+        && channelMask == other.channelMask
         && sampleRate == other.sampleRate
         && pcmEncoding == other.pcmEncoding
         && encoderDelay == other.encoderDelay
@@ -1443,11 +1622,13 @@ public final class Format {
         && tileCountVertical == other.tileCountVertical
         && cryptoType == other.cryptoType
         && Float.compare(frameRate, other.frameRate) == 0
+        && Float.compare(selectionPriority, other.selectionPriority) == 0
         && Float.compare(pixelWidthHeightRatio, other.pixelWidthHeightRatio) == 0
         && Objects.equals(id, other.id)
         && Objects.equals(label, other.label)
         && labels.equals(other.labels)
         && Objects.equals(codecs, other.codecs)
+        && Objects.equals(primaryTrackGroupId, other.primaryTrackGroupId)
         && Objects.equals(containerMimeType, other.containerMimeType)
         && Objects.equals(sampleMimeType, other.sampleMimeType)
         && Objects.equals(language, other.language)
@@ -1494,8 +1675,14 @@ public final class Format {
     if (format.containerMimeType != null) {
       builder.append(", container=").append(format.containerMimeType);
     }
+    if (format.primaryTrackGroupId != null) {
+      builder.append(", primaryGroupId=").append(format.primaryTrackGroupId);
+    }
     if (format.bitrate != NO_VALUE) {
       builder.append(", bitrate=").append(format.bitrate);
+    }
+    if (format.selectionPriority != NO_VALUE) {
+      builder.append(", selectionPriority=").append(format.selectionPriority);
     }
     if (format.codecs != null) {
       builder.append(", codecs=").append(format.codecs);
@@ -1538,14 +1725,26 @@ public final class Format {
     if (format.colorInfo != null && format.colorInfo.isValid()) {
       builder.append(", color=").append(format.colorInfo.toLogString());
     }
+    if (format.pixelFormat != NO_VALUE) {
+      builder.append(", pixelFormat=").append(format.pixelFormat);
+    }
     if (format.frameRate != NO_VALUE) {
       builder.append(", fps=").append(format.frameRate);
+    }
+    if (format.rotationDegrees != 0) {
+      builder.append(", rotation=").append(format.rotationDegrees);
+    }
+    if (format.mirrorHorizontal) {
+      builder.append(", mirrorHorizontal");
     }
     if (format.maxSubLayers != NO_VALUE) {
       builder.append(", maxSubLayers=").append(format.maxSubLayers);
     }
     if (format.channelCount != NO_VALUE) {
       builder.append(", channels=").append(format.channelCount);
+    }
+    if (format.channelMask != NO_VALUE) {
+      builder.append(", channel_mask=").append(format.channelMask);
     }
     if (format.sampleRate != NO_VALUE) {
       builder.append(", sample_rate=").append(format.sampleRate);
@@ -1618,11 +1817,13 @@ public final class Format {
   private static final String FIELD_MAX_SUB_LAYERS = Util.intToStringMaxRadix(34);
   private static final String FIELD_DECODED_WIDTH = Util.intToStringMaxRadix(35);
   private static final String FIELD_DECODED_HEIGHT = Util.intToStringMaxRadix(36);
+  private static final String FIELD_PRIMARY_TRACK_GROUP_ID = Util.intToStringMaxRadix(37);
+  private static final String FIELD_CHANNEL_MASK = Util.intToStringMaxRadix(38);
+  private static final String FIELD_MIRROR_HORIZONTAL = Util.intToStringMaxRadix(39);
+  private static final String FIELD_PIXEL_FORMAT = Util.intToStringMaxRadix(40);
+  private static final String FIELD_SELECTION_PRIORITY = Util.intToStringMaxRadix(41);
 
-  /**
-   * Returns a {@link Bundle} representing the information stored in this object. If {@code
-   * excludeMetadata} is true, {@linkplain Format#metadata metadata} is excluded.
-   */
+  /** Returns a {@link Bundle} representing the information stored in this object. */
   @UnstableApi
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
@@ -1633,12 +1834,16 @@ public final class Format {
     bundle.putString(FIELD_LANGUAGE, language);
     bundle.putInt(FIELD_SELECTION_FLAGS, selectionFlags);
     bundle.putInt(FIELD_ROLE_FLAGS, roleFlags);
+    bundle.putFloat(FIELD_SELECTION_PRIORITY, selectionPriority);
     if (auxiliaryTrackType != DEFAULT.auxiliaryTrackType) {
       bundle.putInt(FIELD_AUXILIARY_TRACK_TYPE, auxiliaryTrackType);
     }
     bundle.putInt(FIELD_AVERAGE_BITRATE, averageBitrate);
     bundle.putInt(FIELD_PEAK_BITRATE, peakBitrate);
     bundle.putString(FIELD_CODECS, codecs);
+    if (primaryTrackGroupId != null) {
+      bundle.putString(FIELD_PRIMARY_TRACK_GROUP_ID, primaryTrackGroupId);
+    }
     // The metadata does not implement toBundle() method, hence can not be added.
     // Container specific.
     bundle.putString(FIELD_CONTAINER_MIME_TYPE, containerMimeType);
@@ -1655,10 +1860,12 @@ public final class Format {
     // Video specific.
     bundle.putInt(FIELD_WIDTH, width);
     bundle.putInt(FIELD_HEIGHT, height);
+    bundle.putInt(FIELD_PIXEL_FORMAT, pixelFormat);
     bundle.putInt(FIELD_DECODED_WIDTH, decodedWidth);
     bundle.putInt(FIELD_DECODED_HEIGHT, decodedHeight);
     bundle.putFloat(FIELD_FRAME_RATE, frameRate);
     bundle.putInt(FIELD_ROTATION_DEGREES, rotationDegrees);
+    bundle.putBoolean(FIELD_MIRROR_HORIZONTAL, mirrorHorizontal);
     bundle.putFloat(FIELD_PIXEL_WIDTH_HEIGHT_RATIO, pixelWidthHeightRatio);
     bundle.putByteArray(FIELD_PROJECTION_DATA, projectionData);
     bundle.putInt(FIELD_STEREO_MODE, stereoMode);
@@ -1668,6 +1875,7 @@ public final class Format {
     bundle.putInt(FIELD_MAX_SUB_LAYERS, maxSubLayers);
     // Audio specific.
     bundle.putInt(FIELD_CHANNEL_COUNT, channelCount);
+    bundle.putInt(FIELD_CHANNEL_MASK, channelMask);
     bundle.putInt(FIELD_SAMPLE_RATE, sampleRate);
     bundle.putInt(FIELD_PCM_ENCODING, pcmEncoding);
     bundle.putInt(FIELD_ENCODER_DELAY, encoderDelay);
@@ -1700,11 +1908,15 @@ public final class Format {
         .setLanguage(defaultIfNull(bundle.getString(FIELD_LANGUAGE), DEFAULT.language))
         .setSelectionFlags(bundle.getInt(FIELD_SELECTION_FLAGS, DEFAULT.selectionFlags))
         .setRoleFlags(bundle.getInt(FIELD_ROLE_FLAGS, DEFAULT.roleFlags))
+        .setSelectionPriority(bundle.getFloat(FIELD_SELECTION_PRIORITY, DEFAULT.selectionPriority))
         .setAuxiliaryTrackType(
             bundle.getInt(FIELD_AUXILIARY_TRACK_TYPE, DEFAULT.auxiliaryTrackType))
         .setAverageBitrate(bundle.getInt(FIELD_AVERAGE_BITRATE, DEFAULT.averageBitrate))
         .setPeakBitrate(bundle.getInt(FIELD_PEAK_BITRATE, DEFAULT.peakBitrate))
         .setCodecs(defaultIfNull(bundle.getString(FIELD_CODECS), DEFAULT.codecs))
+        .setPrimaryTrackGroupId(
+            defaultIfNull(
+                bundle.getString(FIELD_PRIMARY_TRACK_GROUP_ID), DEFAULT.primaryTrackGroupId))
         // Container specific.
         .setContainerMimeType(
             defaultIfNull(bundle.getString(FIELD_CONTAINER_MIME_TYPE), DEFAULT.containerMimeType))
@@ -1721,6 +1933,10 @@ public final class Format {
       }
       initializationData.add(data);
     }
+    float frameRate = bundle.getFloat(FIELD_FRAME_RATE, DEFAULT.frameRate);
+    if (frameRate <= 0f) {
+      frameRate = NO_VALUE;
+    }
     builder
         .setInitializationData(initializationData)
         .setDrmInitData(bundle.getParcelable(FIELD_DRM_INIT_DATA))
@@ -1728,10 +1944,12 @@ public final class Format {
         // Video specific.
         .setWidth(bundle.getInt(FIELD_WIDTH, DEFAULT.width))
         .setHeight(bundle.getInt(FIELD_HEIGHT, DEFAULT.height))
+        .setPixelFormat(bundle.getInt(FIELD_PIXEL_FORMAT, DEFAULT.pixelFormat))
         .setDecodedWidth(bundle.getInt(FIELD_DECODED_WIDTH, DEFAULT.decodedWidth))
         .setDecodedHeight(bundle.getInt(FIELD_DECODED_HEIGHT, DEFAULT.decodedHeight))
-        .setFrameRate(bundle.getFloat(FIELD_FRAME_RATE, DEFAULT.frameRate))
+        .setFrameRate(frameRate)
         .setRotationDegrees(bundle.getInt(FIELD_ROTATION_DEGREES, DEFAULT.rotationDegrees))
+        .setMirrorHorizontal(bundle.getBoolean(FIELD_MIRROR_HORIZONTAL, DEFAULT.mirrorHorizontal))
         .setPixelWidthHeightRatio(
             bundle.getFloat(FIELD_PIXEL_WIDTH_HEIGHT_RATIO, DEFAULT.pixelWidthHeightRatio))
         .setProjectionData(bundle.getByteArray(FIELD_PROJECTION_DATA))
@@ -1744,6 +1962,7 @@ public final class Format {
     // Audio specific.
     builder
         .setChannelCount(bundle.getInt(FIELD_CHANNEL_COUNT, DEFAULT.channelCount))
+        .setChannelMask(bundle.getInt(FIELD_CHANNEL_MASK, DEFAULT.channelMask))
         .setSampleRate(bundle.getInt(FIELD_SAMPLE_RATE, DEFAULT.sampleRate))
         .setPcmEncoding(bundle.getInt(FIELD_PCM_ENCODING, DEFAULT.pcmEncoding))
         .setEncoderDelay(bundle.getInt(FIELD_ENCODER_DELAY, DEFAULT.encoderDelay))

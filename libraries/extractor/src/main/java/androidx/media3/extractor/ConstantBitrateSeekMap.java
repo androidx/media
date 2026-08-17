@@ -36,6 +36,7 @@ public class ConstantBitrateSeekMap implements SeekMap {
   private final int bitrate;
   private final long durationUs;
   private final boolean allowSeeksIfLengthUnknown;
+  private final boolean isEstimated;
 
   /**
    * Creates an instance with {@code allowSeeksIfLengthUnknown} set to {@code false}.
@@ -73,11 +74,40 @@ public class ConstantBitrateSeekMap implements SeekMap {
       int bitrate,
       int frameSize,
       boolean allowSeeksIfLengthUnknown) {
+    this(
+        inputLength,
+        firstFrameBytePosition,
+        bitrate,
+        frameSize,
+        allowSeeksIfLengthUnknown,
+        /* isEstimated= */ true);
+  }
+
+  /**
+   * Creates an instance.
+   *
+   * @param inputLength The length of the stream in bytes, or {@link C#LENGTH_UNSET} if unknown.
+   * @param firstFrameBytePosition The byte-position of the first frame in the stream.
+   * @param bitrate The bitrate (which is assumed to be constant in the stream).
+   * @param frameSize The size of each frame in the stream in bytes. May be {@link C#LENGTH_UNSET}
+   *     if unknown.
+   * @param allowSeeksIfLengthUnknown Whether to allow seeking even if the length of the content is
+   *     unknown.
+   * @param isEstimated Whether this {@link ConstantBitrateSeekMap} is based on estimations.
+   */
+  protected ConstantBitrateSeekMap(
+      long inputLength,
+      long firstFrameBytePosition,
+      int bitrate,
+      int frameSize,
+      boolean allowSeeksIfLengthUnknown,
+      boolean isEstimated) {
     this.inputLength = inputLength;
     this.firstFrameBytePosition = firstFrameBytePosition;
     this.frameSize = frameSize == C.LENGTH_UNSET ? 1 : frameSize;
     this.bitrate = bitrate;
     this.allowSeeksIfLengthUnknown = allowSeeksIfLengthUnknown;
+    this.isEstimated = isEstimated;
 
     if (inputLength == C.LENGTH_UNSET) {
       dataSize = C.LENGTH_UNSET;
@@ -121,6 +151,11 @@ public class ConstantBitrateSeekMap implements SeekMap {
     return durationUs;
   }
 
+  @Override
+  public boolean isEstimated() {
+    return isEstimated;
+  }
+
   /**
    * Returns the stream time in microseconds for a given position.
    *
@@ -129,6 +164,32 @@ public class ConstantBitrateSeekMap implements SeekMap {
    */
   public long getTimeUsAtPosition(long position) {
     return getTimeUsAtPosition(position, firstFrameBytePosition, bitrate);
+  }
+
+  /** Returns the byte position of the first frame in the stream (as passed to the constructor). */
+  protected final long getFirstFramePosition() {
+    return firstFrameBytePosition;
+  }
+
+  /**
+   * Returns the size of each frame in the stream in bytes, or {@code 1} if {@link C#LENGTH_UNSET}
+   * was passed to the constructor.
+   */
+  protected final int getFrameSize() {
+    return frameSize;
+  }
+
+  /** Returns the bitrate of the stream (as passed to the constructor). */
+  protected final int getBitrate() {
+    return bitrate;
+  }
+
+  /**
+   * Returns whether seeking is permitted if the stream length is unknown (as passed to the
+   * constructor).
+   */
+  protected final boolean shouldAllowSeeksIfLengthUnknown() {
+    return allowSeeksIfLengthUnknown;
   }
 
   // Internal methods

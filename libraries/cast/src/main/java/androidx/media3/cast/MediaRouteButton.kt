@@ -1,0 +1,249 @@
+/*
+ * Copyright 2025 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package androidx.media3.cast
+
+import android.content.Context
+import android.content.Intent
+import android.graphics.Color
+import android.os.Build
+import android.util.TypedValue
+import androidx.annotation.MainThread
+import androidx.annotation.VisibleForTesting
+import androidx.appcompat.R as AppCompatR
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.media3.cast.Cast.MediaRouteSelectorListener
+import androidx.media3.common.util.UnstableApi
+import androidx.mediarouter.app.MediaRouteChooserDialog
+import androidx.mediarouter.app.MediaRouteControllerDialog
+import androidx.mediarouter.app.SystemOutputSwitcherDialogController
+import androidx.mediarouter.media.MediaRouteSelector
+import androidx.mediarouter.media.MediaRouter.RouteInfo
+import androidx.mediarouter.media.MediaTransferReceiver
+
+/**
+ * A Material3 [IconButton][androidx.compose.material3.IconButton] that displays a media route
+ * button.
+ *
+ * Clicking the button displays the route chooser dialog for transferring media or the route
+ * controller dialog to control the remote playback. The default behavior prioritizes launching the
+ * system's route chooser / controller dialog if available and falls back to an in-app dialog
+ * otherwise.
+ *
+ * The button's tint color can be customized by providing a
+ * [androidx.compose.material3.LocalContentColor] in the composition hierarchy.
+ *
+ * ```kotlin
+ *  CompositionLocalProvider(LocalContentColor provides Color.Blue) {
+ *    MediaRouteButton(modifier = modifier)
+ * }
+ * ```
+ *
+ * Consumers can also use the [MediaRouteButtonState] to control inactivity timeout.
+ *
+ * ```kotlin
+ * @Composable
+ * fun MyMediaControls() {
+ *     val mediaRouteState = rememberMediaRouteButtonState()
+ *
+ *     // Pause inactivity timeout if the routing picker is visible
+ *     LaunchedEffect(mediaRouteState.isPickerVisible) {
+ *         if (mediaRouteState.isPickerVisible) {
+ *             stopTimer()
+ *         } else {
+ *             startTimer()
+ *         }
+ *     }
+ *
+ *     // Pass the hoisted state here
+ *     MediaRouteButton(modifier, mediaRouteState)
+ * }
+ * ```
+ *
+ * @param modifier the [Modifier] to be applied to the button.
+ * @param state the [MediaRouteButtonState] to be used for the button.
+ * @throws IllegalStateException if any of the following condition occurs:
+ *     - This method is not called on the main thread.
+ *     - The [Cast] has not been initialized via [Cast.initialize()] before this method is called.
+ */
+@MainThread
+@UnstableApi
+@Composable
+fun MediaRouteButton(
+  modifier: Modifier = Modifier,
+  state: MediaRouteButtonState = rememberMediaRouteButtonState(),
+) {
+  CastUtils.verifyMainThread()
+  MediaRouteButtonContainer {
+    IconButton(
+      onClick = {
+        val isOutputSwitcherEnabled =
+          (mediaRouter.routerParams?.isOutputSwitcherEnabled ?: false) && isMediaTransferEnabled()
+        val outputSwitcherLaunched =
+          isOutputSwitcherEnabled && SystemOutputSwitcherDialogController.showDialog(context)
+        // If the system output switcher was launched we don't show the media route dialogs.
+        state.isPickerVisible = !outputSwitcherLaunched
+      },
+      modifier,
+    ) {
+      mediaRouteButtonIcon()
+    }
+    if (state.isPickerVisible) {
+      MediaRouteDialog(onDismissRequest = { state.isPickerVisible = false })
+    }
+  }
+}
+
+@Composable
+private fun MediaRouterState.MediaRouteDialog(onDismissRequest: () -> Unit) {
+  if (isConnectedToRemote) {
+    MediaRouteControllerDialog(onDismissRequest)
+  } else {
+    MediaRouteChooserDialog(onDismissRequest)
+  }
+}
+
+private fun MediaRouterState.isMediaTransferEnabled(): Boolean {
+  if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+    return false
+  }
+  val queryIntent = Intent(context, MediaTransferReceiver::class.java)
+  queryIntent.setPackage(context.packageName)
+  val pm = context.packageManager
+  val resolveInfos = pm.queryBroadcastReceivers(queryIntent, 0)
+  val isMediaTransferDeclared = resolveInfos.isNotEmpty()
+  val routerParams = mediaRouter.routerParams
+  return isMediaTransferDeclared &&
+    (routerParams == null || routerParams.isMediaTransferReceiverEnabled)
+}
+
+@Composable
+private fun MediaRouterState.MediaRouteChooserDialog(onDismissRequest: () -> Unit) {
+  DisposableEffect(Unit) {
+    val theme = resolveDialogTheme(context)
+    val dialog = MediaRouteChooserDialog(context, theme)
+    dialog.routeSelector = selector
+    dialog.setOnDismissListener { onDismissRequest() }
+    dialog.show()
+    onDispose { dialog.dismiss() }
+  }
+}
+
+@Composable
+private fun MediaRouterState.MediaRouteControllerDialog(onDismissRequest: () -> Unit) {
+  DisposableEffect(Unit) {
+    val theme = resolveDialogTheme(context)
+    val dialog = MediaRouteControllerDialog(context, theme)
+    dialog.setOnDismissListener { onDismissRequest() }
+    dialog.show()
+    onDispose { dialog.dismiss() }
+  }
+}
+
+/**
+ * A state container for a media route button.
+ *
+ * @param content The composable content to be displayed for the media route button.
+ */
+@Composable
+@VisibleForTesting
+internal fun MediaRouteButtonContainer(content: @Composable MediaRouterState.() -> Unit) {
+  val context = LocalContext.current
+  var selector by remember { mutableStateOf(MediaRouteSelector.EMPTY) }
+  LaunchedEffect(context) {
+    val cast = Cast.getSingletonInstance(context)
+    cast.ensureInitialized(context)
+    val mediaRouteSelectorListener: MediaRouteSelectorListener =
+      object : MediaRouteSelectorListener() {
+        override fun onMediaRouteSelectorChanged(mediaRouteSelector: MediaRouteSelector) {
+          selector = mediaRouteSelector
+        }
+      }
+    val currentSelector = cast.registerListenerAndGetCurrentSelector(mediaRouteSelectorListener)
+    if (currentSelector != null) {
+      selector = currentSelector
+    }
+  }
+  if (!selector.isEmpty) {
+    rememberMediaRouterState(context, selector).content()
+  }
+}
+
+private val mediaRouteButtonIcon: @Composable MediaRouterState.() -> Unit =
+  @Composable {
+    val painter =
+      when (connectionState) {
+        RouteInfo.CONNECTION_STATE_CONNECTED ->
+          painterResource(R.drawable.media_route_button_connected)
+        else -> painterResource(R.drawable.media_route_button_disconnected)
+      }
+    val contentDescription =
+      when (connectionState) {
+        RouteInfo.CONNECTION_STATE_CONNECTED ->
+          stringResource(R.string.media_route_button_connected)
+        RouteInfo.CONNECTION_STATE_CONNECTING ->
+          stringResource(R.string.media_route_button_connecting)
+        else -> stringResource(R.string.media_route_button_disconnected)
+      }
+    Icon(painter, contentDescription)
+  }
+
+/**
+ * Returns the theme to be used for the media route dialogs.
+ *
+ * If the app theme defines a `colorPrimary`, this method returns 0 to use the app's theme.
+ * Otherwise, it returns [R.style.AppThemeDialog] as a fallback to ensure the dialogs are styled
+ * correctly and to avoid crashes due to missing or translucent attributes.
+ */
+@VisibleForTesting
+internal fun resolveDialogTheme(context: Context): Int {
+  val theme = context.theme ?: return R.style.AppThemeDialog
+  val value = TypedValue()
+  // Resolve the AppCompat colorPrimary attribute from the current theme.
+  // We check this attribute because MediaRouter dialogs use it to calculate contrast.
+  if (theme.resolveAttribute(AppCompatR.attr.colorPrimary, value, true)) {
+    val color =
+      if (value.resourceId != 0) {
+        // Resolve the color resource using the current theme.
+        val resources = context.resources ?: return R.style.AppThemeDialog
+        resources.getColor(value.resourceId, theme)
+      } else {
+        // Use the literal color data.
+        value.data
+      }
+
+    // MediaRouterThemeHelper crashes if the resolved color is translucent.
+    // Return 0 (use app theme) ONLY if the color is fully opaque (alpha == 255).
+    if (Color.alpha(color) == 255) {
+      return 0
+    }
+  }
+
+  // Fallback to the dedicated dialog theme if colorPrimary is missing or translucent.
+  // This ensures the dialog has a valid, opaque primary color as defined in styles.xml.
+  return R.style.AppThemeDialog
+}

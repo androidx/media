@@ -33,8 +33,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
-import androidx.media3.common.Format;
-import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.decoder.CryptoInfo;
 import com.google.common.base.Supplier;
@@ -44,6 +43,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.nio.ByteBuffer;
+import java.util.List;
 
 /**
  * A {@link MediaCodecAdapter} that operates the underlying {@link MediaCodec} in asynchronous mode,
@@ -58,6 +58,7 @@ import java.nio.ByteBuffer;
     private final Supplier<HandlerThread> queueingThreadSupplier;
 
     private boolean enableSynchronousBufferQueueingWithAsyncCryptoFlag;
+    private boolean enableAsyncCryptoSynchronization;
 
     /**
      * Creates an factory for {@link AsynchronousMediaCodecAdapter} instances.
@@ -86,18 +87,31 @@ import java.nio.ByteBuffer;
         Supplier<HandlerThread> queueingThreadSupplier) {
       this.callbackThreadSupplier = callbackThreadSupplier;
       this.queueingThreadSupplier = queueingThreadSupplier;
-      enableSynchronousBufferQueueingWithAsyncCryptoFlag = false;
+      enableSynchronousBufferQueueingWithAsyncCryptoFlag = true;
     }
 
     /**
-     * Sets whether to enable {@link MediaCodec#CONFIGURE_FLAG_USE_CRYPTO_ASYNC} on API 34 and
-     * above.
-     *
-     * <p>This method is experimental. Its default value may change, or it may be renamed or removed
-     * in a future release.
+     * Sets whether to enable {@link MediaCodec#CONFIGURE_FLAG_USE_CRYPTO_ASYNC} on API 36 and
+     * above. The default is {@code true}.
      */
-    public void experimentalSetAsyncCryptoFlagEnabled(boolean enableAsyncCryptoFlag) {
+    public void setAsyncCryptoFlagEnabled(boolean enableAsyncCryptoFlag) {
       enableSynchronousBufferQueueingWithAsyncCryptoFlag = enableAsyncCryptoFlag;
+    }
+
+    /**
+     * Sets whether to force synchronization for queuing input buffers on API 31 and above for
+     * {@link AsynchronousMediaCodecAdapter} instances.
+     *
+     * <p>A known bug in the Android framework (b/149908061) prior to API 31 can cause garbled video
+     * when audio and video are sharing the same DRM session. A workaround was implemented that
+     * forces synchronization for queuing input buffers. This workaround is disabled for devices
+     * with API level &gt;= 31 but can be enabled using this method.
+     *
+     * <p>The default is {@code false}.
+     */
+    @ExperimentalApi // TODO: b/502930657 - Remove this method.
+    public void setAsyncCryptoSynchronizationEnabled(boolean enableAsyncCryptoSynchronization) {
+      this.enableAsyncCryptoSynchronization = enableAsyncCryptoSynchronization;
     }
 
     @Override
@@ -112,12 +126,13 @@ import java.nio.ByteBuffer;
         int flags = 0;
         MediaCodecBufferEnqueuer bufferEnqueuer;
         if (enableSynchronousBufferQueueingWithAsyncCryptoFlag
-            && useSynchronousBufferQueueingWithAsyncCryptoFlag(configuration.format)) {
+            && useSynchronousBufferQueueingWithAsyncCryptoFlag()) {
           bufferEnqueuer = new SynchronousMediaCodecBufferEnqueuer(codec);
           flags |= MediaCodec.CONFIGURE_FLAG_USE_CRYPTO_ASYNC;
         } else {
           bufferEnqueuer =
-              new AsynchronousMediaCodecBufferEnqueuer(codec, queueingThreadSupplier.get());
+              new AsynchronousMediaCodecBufferEnqueuer(
+                  codec, queueingThreadSupplier.get(), enableAsyncCryptoSynchronization);
         }
         codecAdapter =
             new AsynchronousMediaCodecAdapter(
@@ -144,13 +159,10 @@ import java.nio.ByteBuffer;
       }
     }
 
-    @ChecksSdkIntAtLeast(api = 34)
-    private static boolean useSynchronousBufferQueueingWithAsyncCryptoFlag(Format format) {
-      if (SDK_INT < 34) {
-        return false;
-      }
-      // CONFIGURE_FLAG_USE_CRYPTO_ASYNC only works for audio on API 35+ (see b/316565675).
-      return SDK_INT >= 35 || MimeTypes.isVideo(format.sampleMimeType);
+    @ChecksSdkIntAtLeast(api = 36)
+    private static boolean useSynchronousBufferQueueingWithAsyncCryptoFlag() {
+      // CONFIGURE_FLAG_USE_CRYPTO_ASYNC causes timeout errors on API < 36, see b/362450802.
+      return SDK_INT >= 36;
     }
   }
 
@@ -254,6 +266,15 @@ import java.nio.ByteBuffer;
   }
 
   @Override
+  public void useInputBuffer(Runnable runnable) {
+    asynchronousMediaCodecCallback.useInputBuffer(
+        () -> {
+          bufferEnqueuer.maybeThrowException();
+          asynchronousMediaCodecCallback.useInputBuffer(runnable);
+        });
+  }
+
+  @Override
   @Nullable
   public ByteBuffer getOutputBuffer(int index) {
     return codec.getOutputBuffer(index);
@@ -342,6 +363,18 @@ import java.nio.ByteBuffer;
   @RequiresApi(26)
   public PersistableBundle getMetrics() {
     return codec.getMetrics();
+  }
+
+  @Override
+  @RequiresApi(31)
+  public void subscribeToVendorParameters(List<String> names) {
+    codec.subscribeToVendorParameters(names);
+  }
+
+  @Override
+  @RequiresApi(31)
+  public void unsubscribeFromVendorParameters(List<String> names) {
+    codec.unsubscribeFromVendorParameters(names);
   }
 
   @VisibleForTesting

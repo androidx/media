@@ -15,28 +15,27 @@
  */
 package androidx.media3.cast;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.MockitoAnnotations.openMocks;
 
-import android.os.Looper;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
-import androidx.media3.common.SimpleBasePlayer;
+import androidx.media3.test.utils.FakePlayer;
 import androidx.test.core.app.ApplicationProvider;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.android.gms.cast.MediaInfo;
+import com.google.android.gms.cast.MediaLoadRequestData;
+import com.google.android.gms.cast.MediaQueueData;
 import com.google.android.gms.cast.MediaQueueItem;
 import com.google.android.gms.cast.MediaStatus;
 import com.google.android.gms.cast.framework.CastContext;
@@ -47,8 +46,6 @@ import com.google.android.gms.cast.framework.media.MediaQueue;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient;
 import com.google.android.gms.common.api.PendingResult;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
 import org.junit.After;
 import org.junit.Before;
@@ -57,9 +54,8 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
-import org.robolectric.RobolectricTestRunner;
 
-@RunWith(RobolectricTestRunner.class)
+@RunWith(AndroidJUnit4.class)
 public final class CastPlayerTest {
 
   private static final DeviceInfo DEVICE_INFO_LOCAL =
@@ -70,7 +66,7 @@ public final class CastPlayerTest {
   private CastPlayer castPlayer;
   private RemoteCastPlayer remoteCastPlayer;
   private SessionManagerListener<CastSession> castSessionListener;
-  private StateHolderPlayer localPlayer;
+  private FakePlayer localPlayer;
   @Mock private RemoteMediaClient mockRemoteMediaClient;
   @Mock private PendingResult<RemoteMediaClient.MediaChannelResult> mockPendingResult;
   @Mock private MediaStatus mockMediaStatus;
@@ -84,7 +80,7 @@ public final class CastPlayerTest {
   @Before
   public void setUp() {
     mock = openMocks(this);
-    localPlayer = new StateHolderPlayer();
+    localPlayer = new FakePlayer();
     when(mockCastContext.getSessionManager()).thenReturn(mockSessionManager);
     when(mockCastSession.getRemoteMediaClient()).thenReturn(mockRemoteMediaClient);
     when(mockRemoteMediaClient.getMediaStatus()).thenReturn(mockMediaStatus);
@@ -92,8 +88,7 @@ public final class CastPlayerTest {
     when(mockRemoteMediaClient.play()).thenReturn(mockPendingResult);
     when(mockRemoteMediaClient.pause()).thenReturn(mockPendingResult);
     when(mockRemoteMediaClient.queueSetRepeatMode(anyInt(), any())).thenReturn(mockPendingResult);
-    when(mockRemoteMediaClient.queueLoad(any(), anyInt(), anyInt(), anyLong(), any()))
-        .thenReturn(mockPendingResult);
+    when(mockRemoteMediaClient.load((MediaLoadRequestData) any())).thenReturn(mockPendingResult);
     when(mockRemoteMediaClient.setPlaybackRate(anyDouble(), any())).thenReturn(mockPendingResult);
     when(mockMediaStatus.getMediaInfo()).thenReturn(new MediaInfo.Builder("contentId").build());
     when(mockMediaQueue.getItemIds()).thenReturn(new int[0]);
@@ -107,8 +102,9 @@ public final class CastPlayerTest {
     remoteCastPlayer =
         new RemoteCastPlayer(
             /* context= */ null,
-            mockCastContext,
+            Cast.getSingletonInstance(mockCastContext),
             new DefaultMediaItemConverter(),
+            /* trackSelector= */ null,
             C.DEFAULT_SEEK_BACK_INCREMENT_MS,
             C.DEFAULT_SEEK_FORWARD_INCREMENT_MS,
             C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS);
@@ -128,6 +124,7 @@ public final class CastPlayerTest {
   public void tearDown() throws Exception {
     castPlayer.release();
     mock.close();
+    Cast.reset();
   }
 
   @Test
@@ -171,23 +168,23 @@ public final class CastPlayerTest {
         new MediaItem.Builder().setUri(sampleUrl).setMimeType(MimeTypes.VIDEO_MP4).build();
     castPlayer.setMediaItems(
         ImmutableList.of(mediaItem), /* startIndex= */ 0, /* startPositionMs= */ 1234);
-    ArgumentCaptor<MediaQueueItem[]> queueCaptor = ArgumentCaptor.forClass(MediaQueueItem[].class);
+    ArgumentCaptor<MediaLoadRequestData> loadArgumentCaptor =
+        ArgumentCaptor.forClass(MediaLoadRequestData.class);
 
     castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "ignored");
 
     verify(mockRemoteMediaClient)
         .queueSetRepeatMode(MediaStatus.REPEAT_MODE_REPEAT_SINGLE, /* customData= */ null);
     verify(mockRemoteMediaClient).play();
-    verify(mockRemoteMediaClient)
-        .queueLoad(
-            queueCaptor.capture(),
-            /* startIndex= */ eq(0),
-            /* repeatMode= */ eq(MediaStatus.REPEAT_MODE_REPEAT_SINGLE),
-            /* playPosition= */ eq(1234L),
-            /* customData= */ eq(null));
-    MediaQueueItem[] mediaQueue = queueCaptor.getValue();
-    assertThat(mediaQueue).hasLength(1);
-    assertThat(mediaQueue[0].getMedia().getContentUrl()).isEqualTo(sampleUrl);
+    verify(mockRemoteMediaClient).load(loadArgumentCaptor.capture());
+    MediaLoadRequestData mediaLoadRequestData = loadArgumentCaptor.getValue();
+    MediaQueueData queueData = mediaLoadRequestData.getQueueData();
+    assertThat(mediaLoadRequestData.getCurrentTime()).isEqualTo(1234L);
+    assertThat(queueData.getStartIndex()).isEqualTo(0);
+    assertThat(queueData.getStartTime()).isEqualTo(1234L);
+    List<MediaQueueItem> mediaQueueItems = queueData.getItems();
+    assertThat(mediaQueueItems.get(0).getMedia().getContentId()).isEqualTo(sampleUrl);
+    assertThat(mediaQueueItems).hasSize(1);
   }
 
   @Test
@@ -253,8 +250,17 @@ public final class CastPlayerTest {
 
   @Test
   public void playerTransfer_whenSourcePlayerIsNonIdle_callsPrepare() {
-    // We need a non empty timeline to be in a non-idle state, and check that the target player is
+    // We need a non-empty timeline to be in a non-idle state, and check that the target player is
     // prepared as a result.
+    MediaInfo mediaInfo =
+        new MediaInfo.Builder("https://example.com/media.mp4")
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .setContentType("video/mp4")
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(mediaInfo).setItemId(1).build();
+    when(mockMediaStatus.getQueueItems()).thenReturn(ImmutableList.of(queueItem));
+    when(mockMediaStatus.getCurrentItemId()).thenReturn(1);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
     when(mockMediaQueue.getItemIds()).thenReturn(new int[] {1});
     when(mockRemoteMediaClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PLAYING);
     castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "ignored");
@@ -275,110 +281,62 @@ public final class CastPlayerTest {
     assertThat(localPlayer.getPlaybackState()).isEqualTo(Player.STATE_IDLE);
   }
 
-  /** A {@link Player} that holds state and supports its modification through setters. */
-  private static final class StateHolderPlayer extends SimpleBasePlayer {
+  @Test
+  public void playerTransfer_whenSessionStopped_pausesLocalPlayer() {
+    castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "");
+    castPlayer = castPlayerBuilder.build();
+    castPlayer.setPlayWhenReady(true);
 
-    private State state;
-    public boolean released;
+    castSessionListener.onSessionEnded(
+        mockCastSession, RemoteCastPlayer.SESSION_END_REASON_STOPPED);
 
-    private static final Commands AVAILABLE_COMMANDS =
-        new Commands.Builder()
-            .addAll(
-                COMMAND_PREPARE,
-                COMMAND_PLAY_PAUSE,
-                COMMAND_SET_REPEAT_MODE,
-                COMMAND_SET_SHUFFLE_MODE,
-                COMMAND_SET_SPEED_AND_PITCH,
-                COMMAND_GET_CURRENT_MEDIA_ITEM,
-                COMMAND_GET_TIMELINE,
-                COMMAND_SET_MEDIA_ITEM,
-                COMMAND_CHANGE_MEDIA_ITEMS,
-                COMMAND_SEEK_TO_MEDIA_ITEM,
-                COMMAND_RELEASE)
-            .build();
+    assertThat(localPlayer.getPlayWhenReady()).isFalse();
+  }
 
-    private StateHolderPlayer() {
-      super(Looper.getMainLooper());
-      state =
-          new State.Builder()
-              .setAvailableCommands(AVAILABLE_COMMANDS)
-              .setDeviceInfo(DEVICE_INFO_LOCAL)
-              .build();
-    }
+  @Test
+  public void playerTransfer_whenReceiverApplicationStopped_pausesLocalPlayer() {
+    castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "");
+    castPlayer = castPlayerBuilder.build();
+    castPlayer.setPlayWhenReady(true);
 
-    @Override
-    protected State getState() {
-      return state;
-    }
+    castSessionListener.onSessionEnded(mockCastSession, RemoteCastPlayer.APPLICATION_STOPPED);
 
-    @Override
-    protected ListenableFuture<?> handlePrepare() {
-      state = state.buildUpon().setPlaybackState(STATE_BUFFERING).build();
-      return Futures.immediateVoidFuture();
-    }
+    assertThat(localPlayer.getPlayWhenReady()).isFalse();
+  }
 
-    @Override
-    protected ListenableFuture<?> handleSetPlayWhenReady(boolean playWhenReady) {
-      state =
-          state
-              .buildUpon()
-              .setPlayWhenReady(playWhenReady, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
-              .build();
-      return Futures.immediateVoidFuture();
-    }
+  @Test
+  public void playerTransfer_whenRouteChanged_doesNotPauseLocalPlayer() {
+    castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "");
+    castPlayer = castPlayerBuilder.build();
+    castPlayer.setPlayWhenReady(true);
 
-    @Override
-    protected ListenableFuture<?> handleSetRepeatMode(int repeatMode) {
-      state = state.buildUpon().setRepeatMode(repeatMode).build();
-      return Futures.immediateVoidFuture();
-    }
+    castSessionListener.onSessionEnded(
+        mockCastSession, RemoteCastPlayer.SESSION_END_REASON_ROUTE_CHANGE);
 
-    @Override
-    protected ListenableFuture<?> handleSetShuffleModeEnabled(boolean shuffleModeEnabled) {
-      state = state.buildUpon().setShuffleModeEnabled(shuffleModeEnabled).build();
-      return Futures.immediateVoidFuture();
-    }
+    assertThat(localPlayer.getPlayWhenReady()).isTrue();
+  }
 
-    @Override
-    protected ListenableFuture<?> handleSetPlaybackParameters(
-        PlaybackParameters playbackParameters) {
-      state = state.buildUpon().setPlaybackParameters(playbackParameters).build();
+  @Test
+  public void playerTransfer_whenSessionSuspended_pausesLocalPlayer() {
+    castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "");
+    castPlayer = castPlayerBuilder.build();
+    castPlayer.setPlayWhenReady(true);
 
-      return Futures.immediateVoidFuture();
-    }
+    castSessionListener.onSessionSuspended(mockCastSession, /* reason= */ 0);
 
-    @Override
-    protected ListenableFuture<?> handleSetMediaItems(
-        List<MediaItem> mediaItems, int startIndex, long startPositionMs) {
-      ImmutableList<MediaItemData> mediaItemDatas =
-          mediaItems.stream()
-              .map(it -> new MediaItemData.Builder(/* uid= */ it).setMediaItem(it).build())
-              .collect(toImmutableList());
-      state =
-          state
-              .buildUpon()
-              .setPlaylist(mediaItemDatas)
-              .setContentPositionMs(startPositionMs)
-              .setCurrentMediaItemIndex(startIndex)
-              .build();
-      return Futures.immediateVoidFuture();
-    }
+    assertThat(localPlayer.getPlayWhenReady()).isFalse();
+  }
 
-    @Override
-    protected ListenableFuture<?> handleSeek(int mediaItemIndex, long positionMs, int seekCommand) {
-      state =
-          state
-              .buildUpon()
-              .setContentPositionMs(positionMs)
-              .setCurrentMediaItemIndex(mediaItemIndex)
-              .build();
-      return Futures.immediateVoidFuture();
-    }
+  @Test
+  public void playerTransfer_whenSessionStarted_doesNotPauseRemotePlayer() {
+    castPlayer = castPlayerBuilder.build();
+    castPlayer.setPlayWhenReady(true);
 
-    @Override
-    protected ListenableFuture<?> handleRelease() {
-      released = true;
-      return Futures.immediateVoidFuture();
-    }
+    castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "");
+
+    // Verify the remote player inherited the playing state and was NOT explicitly paused
+    assertThat(castPlayer.getPlayWhenReady()).isTrue();
+    // Verify that the command was actually forwarded to the Cast SDK
+    verify(mockRemoteMediaClient).play();
   }
 }

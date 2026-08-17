@@ -18,6 +18,7 @@ package androidx.media3.extractor;
 import android.net.Uri;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.SubtitleParser;
@@ -50,6 +51,7 @@ public interface ExtractorsFactory {
    */
   @CanIgnoreReturnValue
   @Deprecated
+  @ExperimentalApi // TODO: b/289983417 - Remove legacy subtitle decoding paths.
   default ExtractorsFactory experimentalSetTextTrackTranscodingEnabled(
       boolean textTrackTranscodingEnabled) {
     return this;
@@ -70,7 +72,7 @@ public interface ExtractorsFactory {
 
   /**
    * Sets the set of video codecs for which within GOP sample dependency information should be
-   * parsed as part of extraction. Defaults to {@code 0} - empty set of codecs.
+   * parsed as part of extraction. Defaults to H.264 and H.265.
    *
    * <p>Having access to additional sample dependency information can speed up seeking. See {@link
    * Mp4Extractor#FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}.
@@ -82,8 +84,20 @@ public interface ExtractorsFactory {
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
+  @ExperimentalApi // TODO: b/470365670 - Remove method once config is enabled by default.
   default ExtractorsFactory experimentalSetCodecsToParseWithinGopSampleDependencies(
       @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
+    return this;
+  }
+
+  /**
+   * Sets whether to parse HAGC (ST 2094-50) metadata.
+   *
+   * @param parseHagcMetadata Whether HAGC metadata parsing is enabled.
+   * @return This factory, for convenience.
+   */
+  @CanIgnoreReturnValue
+  default ExtractorsFactory setParseHagcMetadata(boolean parseHagcMetadata) {
     return this;
   }
 

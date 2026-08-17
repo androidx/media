@@ -15,8 +15,6 @@
  */
 package androidx.media3.datasource.cronet;
 
-import static java.lang.Math.min;
-
 import android.content.Context;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.Log;
@@ -168,7 +166,7 @@ public final class CronetUtil {
       }
       String[] versionStringsLeft = Util.split(versionLeft, "\\.");
       String[] versionStringsRight = Util.split(versionRight, "\\.");
-      int minLength = min(versionStringsLeft.length, versionStringsRight.length);
+      int minLength = Math.min(versionStringsLeft.length, versionStringsRight.length);
       for (int i = 0; i < minLength; i++) {
         if (!versionStringsLeft[i].equals(versionStringsRight[i])) {
           try {

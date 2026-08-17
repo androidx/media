@@ -44,7 +44,7 @@ class AudioFocusHelper(activity: Activity) :
       intArrayOf(
         AudioManager.AUDIOFOCUS_GAIN,
         AudioManager.AUDIOFOCUS_GAIN_TRANSIENT,
-        AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+        AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK,
       )
     // LINT.ThenChange(../../../../../res/values/options.xml)
   }

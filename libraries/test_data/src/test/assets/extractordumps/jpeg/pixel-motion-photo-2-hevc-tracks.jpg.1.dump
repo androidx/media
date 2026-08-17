@@ -32,7 +32,7 @@ track 0:
       lumaBitdepth = 8
       chromaBitdepth = 8
     roleFlags = [main]
-    metadata = entries=[Mp4Timestamp: creation time=3784612704, modification time=3784612704, timescale=10000]
+    metadata = entries=[Mp4Timestamp: creation time=3784612704, modification time=3784612704, timescale=10000, ThumbnailMetadata: presentationTimeUs=1767244]
     initializationData:
       data = length 82, hash C508E2F1
   sample 0:
@@ -237,7 +237,7 @@ track 1:
       lumaBitdepth = 8
       chromaBitdepth = 8
     roleFlags = [alt]
-    metadata = entries=[Mp4Timestamp: creation time=3784612704, modification time=3784612704, timescale=10000]
+    metadata = entries=[Mp4Timestamp: creation time=3784612704, modification time=3784612704, timescale=10000, ThumbnailMetadata: presentationTimeUs=0]
     initializationData:
       data = length 82, hash 1924973
   sample 0:

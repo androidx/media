@@ -17,7 +17,7 @@ package androidx.media3.common.audio;
 
 import static androidx.media3.test.utils.TestUtil.getPeriodicSamplesBuffer;
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertThrows;
 
 import androidx.media3.common.C;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
@@ -38,6 +38,9 @@ public final class SonicAudioProcessorTest {
   private static final AudioFormat AUDIO_FORMAT_44100_HZ =
       new AudioFormat(
           /* sampleRate= */ 44100, /* channelCount= */ 2, /* encoding= */ C.ENCODING_PCM_16BIT);
+  private static final AudioFormat AUDIO_FORMAT_FLOAT_PCM_44100_HZ =
+      new AudioFormat(
+          /* sampleRate= */ 44100, /* channelCount= */ 2, /* encoding= */ C.ENCODING_PCM_FLOAT);
   private static final AudioFormat AUDIO_FORMAT_48000_HZ =
       new AudioFormat(
           /* sampleRate= */ 48000, /* channelCount= */ 2, /* encoding= */ C.ENCODING_PCM_16BIT);
@@ -64,6 +67,14 @@ public final class SonicAudioProcessorTest {
     outputAudioFormat = sonicAudioProcessor.configure(AUDIO_FORMAT_44100_HZ);
     assertThat(sonicAudioProcessor.isActive()).isTrue();
     assertThat(outputAudioFormat.sampleRate).isEqualTo(48000);
+  }
+
+  @Test
+  public void configure_withFloatPcmSamples_returnsFloatPcmOutputEncoding() throws Exception {
+    sonicAudioProcessor.setOutputSampleRateHz(48000);
+    AudioFormat outputAudioFormat = sonicAudioProcessor.configure(AUDIO_FORMAT_FLOAT_PCM_44100_HZ);
+    assertThat(sonicAudioProcessor.isActive()).isTrue();
+    assertThat(outputAudioFormat.encoding).isEqualTo(C.ENCODING_PCM_FLOAT);
   }
 
   @Test
@@ -118,34 +129,32 @@ public final class SonicAudioProcessorTest {
   }
 
   @Test
-  public void doesNotSupportNon16BitInput() throws Exception {
-    try {
-      sonicAudioProcessor.configure(
-          new AudioFormat(
-              /* sampleRate= */ 44100, /* channelCount= */ 2, /* encoding= */ C.ENCODING_PCM_8BIT));
-      fail();
-    } catch (UnhandledAudioFormatException e) {
-      // Expected.
-    }
-    try {
-      sonicAudioProcessor.configure(
-          new AudioFormat(
-              /* sampleRate= */ 44100,
-              /* channelCount= */ 2,
-              /* encoding= */ C.ENCODING_PCM_24BIT));
-      fail();
-    } catch (UnhandledAudioFormatException e) {
-      // Expected.
-    }
-    try {
-      sonicAudioProcessor.configure(
-          new AudioFormat(
-              /* sampleRate= */ 44100,
-              /* channelCount= */ 2,
-              /* encoding= */ C.ENCODING_PCM_32BIT));
-      fail();
-    } catch (UnhandledAudioFormatException e) {
-      // Expected.
-    }
+  public void configure_withNonSupportedEncodings_throwsUnhandledFormatException() {
+    assertThrows(
+        UnhandledAudioFormatException.class,
+        () ->
+            sonicAudioProcessor.configure(
+                new AudioFormat(
+                    /* sampleRate= */ 44100,
+                    /* channelCount= */ 2,
+                    /* encoding= */ C.ENCODING_PCM_8BIT)));
+
+    assertThrows(
+        UnhandledAudioFormatException.class,
+        () ->
+            sonicAudioProcessor.configure(
+                new AudioFormat(
+                    /* sampleRate= */ 44100,
+                    /* channelCount= */ 2,
+                    /* encoding= */ C.ENCODING_PCM_24BIT)));
+
+    assertThrows(
+        UnhandledAudioFormatException.class,
+        () ->
+            sonicAudioProcessor.configure(
+                new AudioFormat(
+                    /* sampleRate= */ 44100,
+                    /* channelCount= */ 2,
+                    /* encoding= */ C.ENCODING_PCM_32BIT)));
   }
 }

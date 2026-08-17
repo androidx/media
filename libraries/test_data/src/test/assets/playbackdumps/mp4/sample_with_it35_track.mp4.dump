@@ -1,0 +1,281 @@
+MediaCodecAdapter (media3.video.av1):
+  inputBuffers:
+    count = 31
+    input buffer #0:
+      timeUs = 1000000000000
+      contents = length 18055, hash 4A4CEBD8
+    input buffer #1:
+      timeUs = 1000000033426
+      contents = length 10390, hash 1A97B887
+    input buffer #2:
+      timeUs = 1000000066852
+      contents = length 3, hash D5E0
+    input buffer #3:
+      timeUs = 1000000100278
+      contents = length 111, hash F52A3D2C
+    input buffer #4:
+      timeUs = 1000000133704
+      contents = length 3, hash D5D0
+    input buffer #5:
+      timeUs = 1000000167130
+      contents = length 748, hash 7FA30B17
+    input buffer #6:
+      timeUs = 1000000200557
+      contents = length 3, hash D610
+    input buffer #7:
+      timeUs = 1000000233983
+      contents = length 94, hash D426B3A3
+    input buffer #8:
+      timeUs = 1000000267409
+      contents = length 3, hash D5C0
+    input buffer #9:
+      timeUs = 1000000300835
+      contents = length 1487, hash 1B89F2D3
+    input buffer #10:
+      timeUs = 1000000334261
+      contents = length 3, hash D5D0
+    input buffer #11:
+      timeUs = 1000000367688
+      contents = length 243, hash 83AC8EF9
+    input buffer #12:
+      timeUs = 1000000401114
+      contents = length 3, hash D600
+    input buffer #13:
+      timeUs = 1000000434540
+      contents = length 719, hash 3F9A2D2F
+    input buffer #14:
+      timeUs = 1000000467966
+      contents = length 3, hash D5E0
+    input buffer #15:
+      timeUs = 1000000501392
+      contents = length 398, hash 29898A8D
+    input buffer #16:
+      timeUs = 1000000534818
+      contents = length 200, hash 18678644
+    input buffer #17:
+      timeUs = 1000000568245
+      contents = length 3, hash D5B0
+    input buffer #18:
+      timeUs = 1000000601671
+      contents = length 8443, hash 90C5F9E
+    input buffer #19:
+      timeUs = 1000000635097
+      contents = length 3, hash D5C0
+    input buffer #20:
+      timeUs = 1000000668523
+      contents = length 299, hash 3219B04
+    input buffer #21:
+      timeUs = 1000000701949
+      contents = length 222, hash FBB32D8
+    input buffer #22:
+      timeUs = 1000000735376
+      contents = length 3, hash D600
+    input buffer #23:
+      timeUs = 1000000768802
+      contents = length 645, hash 3FF6F2DF
+    input buffer #24:
+      timeUs = 1000000802228
+      contents = length 3, hash D5E0
+    input buffer #25:
+      timeUs = 1000000835654
+      contents = length 251, hash 83CE17A6
+    input buffer #26:
+      timeUs = 1000000869080
+      contents = length 253, hash 34714BEA
+    input buffer #27:
+      timeUs = 1000000902506
+      contents = length 3, hash D610
+    input buffer #28:
+      timeUs = 1000000935933
+      contents = length 482, hash 4D8E647E
+    input buffer #29:
+      timeUs = 1000000969359
+      contents = length 607, hash 230AC585
+    input buffer #30:
+      timeUs = 0
+      flags = 4
+      contents = length 0, hash 1
+  outputBuffers:
+    count = 30
+    output buffer #0:
+      timeUs = 1000000000000
+      size = 18055
+      rendered = true
+    output buffer #1:
+      timeUs = 1000000033426
+      size = 10390
+      rendered = true
+    output buffer #2:
+      timeUs = 1000000066852
+      size = 3
+      rendered = true
+    output buffer #3:
+      timeUs = 1000000100278
+      size = 111
+      rendered = true
+    output buffer #4:
+      timeUs = 1000000133704
+      size = 3
+      rendered = true
+    output buffer #5:
+      timeUs = 1000000167130
+      size = 748
+      rendered = true
+    output buffer #6:
+      timeUs = 1000000200557
+      size = 3
+      rendered = true
+    output buffer #7:
+      timeUs = 1000000233983
+      size = 94
+      rendered = true
+    output buffer #8:
+      timeUs = 1000000267409
+      size = 3
+      rendered = true
+    output buffer #9:
+      timeUs = 1000000300835
+      size = 1487
+      rendered = true
+    output buffer #10:
+      timeUs = 1000000334261
+      size = 3
+      rendered = true
+    output buffer #11:
+      timeUs = 1000000367688
+      size = 243
+      rendered = true
+    output buffer #12:
+      timeUs = 1000000401114
+      size = 3
+      rendered = true
+    output buffer #13:
+      timeUs = 1000000434540
+      size = 719
+      rendered = true
+    output buffer #14:
+      timeUs = 1000000467966
+      size = 3
+      rendered = true
+    output buffer #15:
+      timeUs = 1000000501392
+      size = 398
+      rendered = true
+    output buffer #16:
+      timeUs = 1000000534818
+      size = 200
+      rendered = true
+    output buffer #17:
+      timeUs = 1000000568245
+      size = 3
+      rendered = true
+    output buffer #18:
+      timeUs = 1000000601671
+      size = 8443
+      rendered = true
+    output buffer #19:
+      timeUs = 1000000635097
+      size = 3
+      rendered = true
+    output buffer #20:
+      timeUs = 1000000668523
+      size = 299
+      rendered = true
+    output buffer #21:
+      timeUs = 1000000701949
+      size = 222
+      rendered = true
+    output buffer #22:
+      timeUs = 1000000735376
+      size = 3
+      rendered = true
+    output buffer #23:
+      timeUs = 1000000768802
+      size = 645
+      rendered = true
+    output buffer #24:
+      timeUs = 1000000802228
+      size = 3
+      rendered = true
+    output buffer #25:
+      timeUs = 1000000835654
+      size = 251
+      rendered = true
+    output buffer #26:
+      timeUs = 1000000869080
+      size = 253
+      rendered = true
+    output buffer #27:
+      timeUs = 1000000902506
+      size = 3
+      rendered = true
+    output buffer #28:
+      timeUs = 1000000935933
+      size = 482
+      rendered = true
+    output buffer #29:
+      timeUs = 1000000969359
+      size = 607
+      rendered = true
+  setParameters:
+    count = 30
+    set parameters:
+      hdr-st2094-50-info = length 245, hash 9BFA0B
+    set parameters:
+      hdr-st2094-50-info = length 245, hash EA2065CD
+    set parameters:
+      hdr-st2094-50-info = length 245, hash F3A0DA5C
+    set parameters:
+      hdr-st2094-50-info = length 245, hash CF1BDEB2
+    set parameters:
+      hdr-st2094-50-info = length 245, hash BA53650F
+    set parameters:
+      hdr-st2094-50-info = length 245, hash 88941B39
+    set parameters:
+      hdr-st2094-50-info = length 245, hash 302A69B6
+    set parameters:
+      hdr-st2094-50-info = length 245, hash 86A9B7CF
+    set parameters:
+      hdr-st2094-50-info = length 245, hash 6C8AF8DF
+    set parameters:
+      hdr-st2094-50-info = length 245, hash A8D264F
+    set parameters:
+      hdr-st2094-50-info = length 245, hash BF90E97B
+    set parameters:
+      hdr-st2094-50-info = length 245, hash 3A036FF7
+    set parameters:
+      hdr-st2094-50-info = length 245, hash 4C76613D
+    set parameters:
+      hdr-st2094-50-info = length 245, hash 9C103E0D
+    set parameters:
+      hdr-st2094-50-info = length 245, hash 546611FD
+    set parameters:
+      hdr-st2094-50-info = length 245, hash 2EEAD77C
+    set parameters:
+      hdr-st2094-50-info = length 245, hash 45EE18FD
+    set parameters:
+      hdr-st2094-50-info = length 245, hash 6C4A5B60
+    set parameters:
+      hdr-st2094-50-info = length 245, hash C55E7F4F
+    set parameters:
+      hdr-st2094-50-info = length 245, hash 8C43E61B
+    set parameters:
+      hdr-st2094-50-info = length 245, hash 88CB156F
+    set parameters:
+      hdr-st2094-50-info = length 245, hash 975E8975
+    set parameters:
+      hdr-st2094-50-info = length 245, hash D7DAF392
+    set parameters:
+      hdr-st2094-50-info = length 245, hash 72F8BC8A
+    set parameters:
+      hdr-st2094-50-info = length 245, hash 69F05BD3
+    set parameters:
+      hdr-st2094-50-info = length 245, hash E12DFF0E
+    set parameters:
+      hdr-st2094-50-info = length 245, hash 5DD18D72
+    set parameters:
+      hdr-st2094-50-info = length 245, hash 2B6AB923
+    set parameters:
+      hdr-st2094-50-info = length 245, hash 68205A3F
+    set parameters:
+      hdr-st2094-50-info = length 245, hash 7D03F36A

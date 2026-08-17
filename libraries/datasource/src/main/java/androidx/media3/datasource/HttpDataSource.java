@@ -59,6 +59,7 @@ public interface HttpDataSource extends DataSource {
      * @param defaultRequestProperties The default request properties.
      * @return This factory.
      */
+    @CanIgnoreReturnValue
     @UnstableApi
     Factory setDefaultRequestProperties(Map<String, String> defaultRequestProperties);
   }

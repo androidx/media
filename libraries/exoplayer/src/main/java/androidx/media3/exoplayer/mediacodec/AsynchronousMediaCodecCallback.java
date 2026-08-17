@@ -25,7 +25,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
-import androidx.collection.CircularIntArray;
+import androidx.media3.common.util.CircularIntArray;
 import androidx.media3.common.util.Util;
 import java.util.ArrayDeque;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -124,6 +124,23 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       shutDown = true;
       callbackThread.quit();
       flushInternal();
+    }
+  }
+
+  /**
+   * Uses an acquired input buffer (e.g. to write data to it).
+   *
+   * <p>This can be used for error handling, e.g. to guarantee no operation can invalidate the
+   * buffer while it's being used.
+   *
+   * @param runnable The {@link Runnable} using an acquired input buffer.
+   */
+  public void useInputBuffer(Runnable runnable) {
+    synchronized (lock) {
+      // Run the Runnable under the buffer lock to ensure no new error callback can be handled
+      // while the buffer is used (under the assumption that error callbacks invalidate the buffer).
+      maybeThrowException();
+      runnable.run();
     }
   }
 

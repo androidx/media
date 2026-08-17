@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="default_notification_channel_name">ବର୍ତ୍ତମାନ ଚାଲୁଛି</string>
+  <string name="media3_controls_play_description">ଚଲାନ୍ତୁ</string>
+  <string name="media3_controls_pause_description">ବିରତ କରନ୍ତୁ</string>
+  <string name="media3_controls_seek_to_previous_description">ପୂର୍ବବର୍ତ୍ତୀ ଆଇଟମକୁ ଯାଆନ୍ତୁ</string>
+  <string name="media3_controls_seek_to_next_description">ପରବର୍ତ୍ତୀ ଆଇଟମକୁ ଯାଆନ୍ତୁ</string>
+  <string name="media3_controls_seek_back_description">ପଛକୁ ଫେରାଇ ନିଅନ୍ତୁ</string>
+  <string name="media3_controls_seek_forward_description">ଆଗକୁ ବଢ଼ାନ୍ତୁ</string>
+  <string name="error_message_fallback">କିଛି ତ୍ରୁଟି ଅଛି। ପରେ ଚେଷ୍ଟା କରନ୍ତୁ।</string>
+  <string name="error_message_info_cancelled">ସମାପ୍ତ କରାଯାଇପାରିଲା ନାହିଁ। ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।</string>
+  <string name="error_message_invalid_state">ବର୍ତ୍ତମାନ ତାହା କରାଯାଇପାରିବ ନାହିଁ</string>
+  <string name="error_message_authentication_expired">ଏହି ଆପ ବ୍ୟବହାର କରିବାକୁ ସାଇନ ଇନ କରନ୍ତୁ</string>
+  <string name="error_message_content_already_playing">ପୂର୍ବରୁ ସେହି ବିଷୟବସ୍ତୁ ଚଲାଯାଉଛି</string>
+  <string name="error_message_end_of_playlist">ଧାଡ଼ିରେ ଆଉ କିଛି ନାହିଁ</string>
+  <string name="error_message_concurrent_stream_limit">ଅନେକ ଡିଭାଇସରେ ଶୁଣାଯାଉଛି</string>
+  <string name="error_message_not_available_in_region">ଏଠାରେ ସେହି ବିଷୟବସ୍ତୁ ପାଇପାରିବେ ନାହିଁ</string>
+  <string name="error_message_not_supported">ଏହି ଆପ ତାହା କରିପାରିବ ନାହିଁ</string>
+  <string name="error_message_parental_control_restricted">ସେହି ବିଷୟବସ୍ତୁକୁ ବ୍ଲକ କରାଯାଇଛି</string>
+  <string name="error_message_premium_account_required">ପ୍ରିମିୟମ ଆକ୍ସେସ ଆବଶ୍ୟକ</string>
+  <string name="error_message_skip_limit_reached">ଆଉ ଅଧିକ ଟ୍ରାକକୁ ବାଦ ଦିଆଯାଇପାରିବ ନାହିଁ</string>
+  <string name="error_message_bad_value">ଭୁଲ ଇନପୁଟ ଡାଟା</string>
+  <string name="error_message_io">ଇନପୁଟ/ଆଉଟପୁଟ ତ୍ରୁଟି</string>
+  <string name="error_message_permission_denied">ଆକ୍ସେସ ଅଗ୍ରାହ୍ୟ କରାଯାଇଛି</string>
+  <string name="error_message_disconnected">ମିଡିଆ ଆପରୁ ଡିସକନେକ୍ଟ କରାଯାଇଛି</string>
+  <string name="error_message_setup_required">ସେଟଅପ ଆବଶ୍ୟକ</string>
+</resources>

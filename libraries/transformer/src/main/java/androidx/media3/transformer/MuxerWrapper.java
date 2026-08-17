@@ -53,6 +53,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
@@ -130,7 +131,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     void onSampleWrittenOrDropped();
 
-    void onEnded(long durationMs, long fileSizeBytes);
+    void onEnded(long approximateDurationMs);
+
+    void onFileSizeBytesAvailable(long fileSizeBytes);
 
     void onError(ExportException exportException);
   }
@@ -149,7 +152,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final boolean dropSamplesBeforeFirstVideoSample;
   private final SparseArray<TrackInfo> trackTypeToInfo;
   @Nullable private final Format appendVideoFormat;
-  private final boolean writeNegativeTimestampsToEditList;
 
   private boolean isReady;
   private boolean isEnded;
@@ -162,6 +164,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private boolean muxedPartialVideo;
   private boolean muxedPartialAudio;
   private long firstVideoPresentationTimeUs;
+  private long encoderDelayTimestampOffsetUs;
 
   private volatile int additionalRotationDegrees;
   private volatile int trackCount;
@@ -181,8 +184,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *     presentation timestamps before the first video sample.
    * @param appendVideoFormat The format which will be used to write samples after transitioning
    *     from {@link #MUXER_MODE_MUX_PARTIAL} to {@link #MUXER_MODE_APPEND}.
-   * @param writeNegativeTimestampsToEditList Whether the {@link Muxer} should write negative
-   *     timestamps to an edit list.
    */
   public MuxerWrapper(
       String outputPath,
@@ -190,15 +191,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Listener listener,
       @MuxerMode int muxerMode,
       boolean dropSamplesBeforeFirstVideoSample,
-      @Nullable Format appendVideoFormat,
-      boolean writeNegativeTimestampsToEditList) {
+      @Nullable Format appendVideoFormat) {
     this.outputPath = outputPath;
     this.muxerFactory = muxerFactory;
     this.listener = listener;
     checkArgument(muxerMode == MUXER_MODE_DEFAULT || muxerMode == MUXER_MODE_MUX_PARTIAL);
     this.muxerMode = muxerMode;
     this.dropSamplesBeforeFirstVideoSample = dropSamplesBeforeFirstVideoSample;
-    this.writeNegativeTimestampsToEditList = writeNegativeTimestampsToEditList;
     checkArgument(
         (muxerMode == MUXER_MODE_DEFAULT && appendVideoFormat == null)
             || (muxerMode == MUXER_MODE_MUX_PARTIAL && appendVideoFormat != null),
@@ -472,6 +471,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     ensureMuxerInitialized();
     TrackInfo trackInfo = new TrackInfo(format, muxer.addTrack(format));
+    if (trackType == C.TRACK_TYPE_AUDIO) {
+      maybeCalculateEncoderDelayTimestampOffset(format);
+    }
     trackTypeToInfo.put(trackType, trackInfo);
     DebugTraceUtil.logEvent(
         COMPONENT_MUXER,
@@ -548,36 +550,30 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         listener.onSampleWrittenOrDropped();
         return true;
       }
+      presentationTimeUs = presentationTimeUs - encoderDelayTimestampOffsetUs;
     }
     if (!canWriteSample) {
       return false;
     }
 
+    // Set the presentation timestamp of the first video frame to zero so that an edit list is not
+    // added and the first video frame
+    // is presented when playback starts cross-platform.
+    // Only apply this when there is audio track added, i.e. when not recording screen.
     if (trackInfo.sampleCount == 0) {
       if (trackType == C.TRACK_TYPE_VIDEO
           && contains(trackTypeToInfo, C.TRACK_TYPE_AUDIO)
           && !dropSamplesBeforeFirstVideoSample
-          // When writeNegativeTimestampsToEditList is true and the first timestamp is
-          // negative, skip this optimization.
-          && (!writeNegativeTimestampsToEditList || presentationTimeUs > 0)) {
+          && presentationTimeUs > 0) {
         checkState(firstVideoPresentationTimeUs != C.TIME_UNSET);
-        // Set the presentation timestamp of the first video to zero so that the first video frame
-        // is presented when playback starts cross-platform. Moreover, MediaMuxer shifts all video
-        // sample times to zero under API30 and it breaks A/V sync.
-        // Only apply this when there is audio track added, i.e. when not recording screen.
-        // TODO: b/376217254 - Consider removing after switching to InAppMuxer.
-        // TODO: b/376217254 - Remove audio dropping logic, use video frame shifting instead.
-        Log.w(
-            TAG,
-            "Applying workarounds for edit list: shifting only the first video timestamp to"
-                + " zero.");
+        Log.w(TAG, "Shifting first video timestamp from " + presentationTimeUs + " to zero.");
         presentationTimeUs = 0;
       }
       trackInfo.startTimeUs = presentationTimeUs;
     }
     trackInfo.sampleCount++;
     trackInfo.bytesWritten += data.remaining();
-    trackInfo.timeUs = max(trackInfo.timeUs, presentationTimeUs);
+    trackInfo.endTimeUs = max(trackInfo.endTimeUs, presentationTimeUs);
     listener.onSampleWrittenOrDropped();
     checkNotNull(muxer);
     BufferInfo bufferInfo =
@@ -610,13 +606,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     TrackInfo trackInfo = trackTypeToInfo.get(trackType);
     minEndedTrackTimeUs = max(0, min(minEndedTrackTimeUs, trackInfo.startTimeUs));
-    maxEndedTrackTimeUs = max(maxEndedTrackTimeUs, trackInfo.timeUs);
+    maxEndedTrackTimeUs = max(maxEndedTrackTimeUs, trackInfo.endTimeUs);
     listener.onTrackEnded(
         trackType, trackInfo.format, trackInfo.getAverageBitrate(), trackInfo.sampleCount);
     DebugTraceUtil.logEvent(
         COMPONENT_MUXER,
         EVENT_INPUT_ENDED,
-        trackInfo.timeUs,
+        trackInfo.endTimeUs,
         /* extraFormat= */ "%s",
         /* extraArgs...= */ Util.getTrackTypeString(trackType));
 
@@ -634,16 +630,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
     }
 
-    long durationMs = usToMs(maxEndedTrackTimeUs - minEndedTrackTimeUs);
+    long approximateDurationMs = usToMs(maxEndedTrackTimeUs - minEndedTrackTimeUs);
     if (muxerMode == MUXER_MODE_MUX_PARTIAL
         && muxedPartialVideo
         && (muxedPartialAudio || trackCount == 1)) {
-      listener.onEnded(durationMs, getCurrentOutputSizeBytes());
+      listener.onEnded(approximateDurationMs);
       return;
     }
 
     if (isEnded) {
-      listener.onEnded(durationMs, getCurrentOutputSizeBytes());
+      listener.onEnded(approximateDurationMs);
     }
   }
 
@@ -680,18 +676,25 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     isReady = false;
     if (muxer != null) {
-      try {
-        muxer.close();
-      } catch (MuxerException e) {
-        if (releaseReason == MUXER_RELEASE_REASON_CANCELLED
-            && checkNotNull(e.getMessage())
-                .equals(FrameworkMuxer.MUXER_STOPPING_FAILED_ERROR_MESSAGE)) {
-          // When releasing the muxer, FrameworkMuxer may sometimes fail before the actual release.
-          // When the release is due to cancellation, swallow this exception.
-          return;
-        }
-        throw e;
+      if (muxer instanceof FrameworkMuxer && releaseReason == MUXER_RELEASE_REASON_CANCELLED) {
+        ((FrameworkMuxer) muxer).setSuppressReleaseException();
       }
+      muxer.close();
+    }
+    if (releaseReason == MUXER_RELEASE_REASON_COMPLETED) {
+      // Make sure to only read the output file size after the muxer and underlying file are closed.
+      listener.onFileSizeBytesAvailable(getCurrentOutputSizeBytes());
+    }
+  }
+
+  private void maybeCalculateEncoderDelayTimestampOffset(Format audioFormat) {
+    if (audioFormat.encoderDelay > 0) {
+      encoderDelayTimestampOffsetUs =
+          Util.scaleLargeValue(
+              audioFormat.encoderDelay,
+              C.MICROS_PER_SECOND,
+              audioFormat.sampleRate,
+              RoundingMode.FLOOR);
     }
   }
 
@@ -709,7 +712,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (trackTypeToInfo.size() == 1) {
       return true;
     }
-    if (presentationTimeUs - trackTypeToInfo.get(trackType).timeUs > MAX_TRACK_WRITE_AHEAD_US) {
+    if (presentationTimeUs - trackTypeToInfo.get(trackType).endTimeUs > MAX_TRACK_WRITE_AHEAD_US) {
       TrackInfo trackInfoWithMinTimeUs = checkNotNull(getTrackInfoWithMinTimeUs(trackTypeToInfo));
       if (MimeTypes.getTrackType(trackInfoWithMinTimeUs.format.sampleMimeType) == trackType) {
         // Unstuck the muxer if consecutive timestamps from the same track are more than
@@ -718,7 +721,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
     }
     if (trackType != previousTrackType) {
-      minTrackTimeUs = checkNotNull(getTrackInfoWithMinTimeUs(trackTypeToInfo)).timeUs;
+      minTrackTimeUs = checkNotNull(getTrackInfoWithMinTimeUs(trackTypeToInfo)).endTimeUs;
     }
     return presentationTimeUs - minTrackTimeUs <= MAX_TRACK_WRITE_AHEAD_US;
   }
@@ -745,7 +748,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     TrackInfo trackInfoWithMinTimeUs = trackTypeToInfo.valueAt(0);
     for (int i = 1; i < trackTypeToInfo.size(); i++) {
       TrackInfo trackInfo = trackTypeToInfo.valueAt(i);
-      if (trackInfo.timeUs < trackInfoWithMinTimeUs.timeUs) {
+      if (trackInfo.endTimeUs < trackInfoWithMinTimeUs.endTimeUs) {
         trackInfoWithMinTimeUs = trackInfo;
       }
     }
@@ -759,7 +762,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public long startTimeUs;
     public long bytesWritten;
     public int sampleCount;
-    public long timeUs;
+    public long endTimeUs;
 
     public TrackInfo(Format format, int trackId) {
       this.format = format;
@@ -771,7 +774,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      * there is no track data.
      */
     public int getAverageBitrate() {
-      if (timeUs <= 0 || bytesWritten <= 0 || timeUs == startTimeUs) {
+      if (endTimeUs <= 0 || bytesWritten <= 0 || endTimeUs == startTimeUs) {
         return C.RATE_UNSET_INT;
       }
 
@@ -781,7 +784,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           Util.scaleLargeTimestamp(
               /* timestamp= */ bytesWritten,
               /* multiplier= */ C.BITS_PER_BYTE * C.MICROS_PER_SECOND,
-              /* divisor= */ timeUs - startTimeUs);
+              /* divisor= */ endTimeUs - startTimeUs);
     }
   }
 }

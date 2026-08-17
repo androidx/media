@@ -15,10 +15,14 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.exoplayer.source.SampleStream.FLAG_HAS_PREROLL;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_REQUIRE_FORMAT;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
+import static androidx.media3.test.utils.TestUtil.assertSubclassOverridesAllMethods;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.TruthJUnit.assume;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.spy;
@@ -26,50 +30,73 @@ import static org.mockito.Mockito.verify;
 
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaItem.ClippingConfiguration;
+import androidx.media3.common.Timeline;
+import androidx.media3.common.Timeline.Period;
+import androidx.media3.common.Timeline.Window;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.audio.SpeedProvider;
+import androidx.media3.common.util.ConditionVariable;
+import androidx.media3.common.util.SpeedProviderUtil.SpeedProviderMapper;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
+import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
+import androidx.media3.exoplayer.source.ClippingMediaSource;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.MediaSourceEventListener.EventDispatcher;
 import androidx.media3.exoplayer.source.SampleStream;
+import androidx.media3.exoplayer.source.SinglePeriodTimeline;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.FixedTrackSelection;
+import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.test.utils.FakeMediaPeriod;
+import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeSampleStream;
 import androidx.media3.test.utils.TestSpeedProvider;
-import androidx.media3.transformer.SpeedChangingMediaSource.SpeedProviderMapper;
 import androidx.media3.transformer.SpeedChangingMediaSource.SpeedProviderMediaPeriod;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestParameterInjector;
 
 /** Unit test for {@link SpeedProviderMediaPeriod}. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public final class SpeedProviderMediaPeriodTest {
 
-  SpeedProvider speedProvider =
+  private static final SpeedProvider SPEED_PROVIDER =
       TestSpeedProvider.createWithStartTimes(
           new long[] {0, 1_000_000, 2_000_000}, new float[] {0.5f, 1f, 2f});
+
+  @TestParameter({"0", "500_000"})
+  private long clipStartUs;
+
+  @Test
+  public void mediaPeriod_overridesAllMethods() throws Exception {
+    assertSubclassOverridesAllMethods(MediaPeriod.class, SpeedProviderMediaPeriod.class);
+  }
 
   @Test
   public void selectTracks_createsSampleStreamAdjustingTimes() throws Exception {
     FakeMediaPeriod fakeMediaPeriod =
         createFakeMediaPeriod(
             ImmutableList.of(
-                oneByteSample(/* timeUs= */ 500_000, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+                oneByteSample(/* timeUs= */ 500_000 + clipStartUs, C.BUFFER_FLAG_KEY_FRAME),
+                END_OF_STREAM_ITEM));
     SpeedProviderMediaPeriod speedProviderMediaPeriod =
-        new SpeedProviderMediaPeriod(fakeMediaPeriod, new SpeedProviderMapper(speedProvider));
-    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 0);
+        new SpeedProviderMediaPeriod(
+            fakeMediaPeriod, new SpeedProviderMapper(SPEED_PROVIDER), clipStartUs);
+    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ clipStartUs);
     FormatHolder formatHolder = new FormatHolder();
     DecoderInputBuffer inputBuffer =
         new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
@@ -85,8 +112,25 @@ public final class SpeedProviderMediaPeriodTest {
 
     assertThat(readResults.build())
         .containsExactly(C.RESULT_FORMAT_READ, C.RESULT_BUFFER_READ, C.RESULT_BUFFER_READ);
-    assertThat(readBufferTimeUs).isEqualTo(1_000_000);
+    assertThat(readBufferTimeUs).isEqualTo(1_000_000 + clipStartUs);
     assertThat(readEndOfStreamBuffer).isTrue();
+  }
+
+  @Test
+  public void setEndPositionUs_isForwardedWithTimeOffset() throws Exception {
+    FakeMediaPeriod fakeMediaPeriod =
+        createFakeMediaPeriod(
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 8000, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+    MediaPeriod spyPeriod = spy(fakeMediaPeriod);
+    SpeedProviderMediaPeriod speedProviderMediaPeriod =
+        new SpeedProviderMediaPeriod(
+            spyPeriod, new SpeedProviderMapper(SPEED_PROVIDER), clipStartUs);
+    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 0);
+
+    assertThat(speedProviderMediaPeriod.setEndPositionUs(250_000 + clipStartUs))
+        .isEqualTo(250_000 + clipStartUs);
+    verify(spyPeriod).setEndPositionUs(125_000L + clipStartUs);
   }
 
   @Test
@@ -94,14 +138,28 @@ public final class SpeedProviderMediaPeriodTest {
     FakeMediaPeriod fakeMediaPeriod =
         createFakeMediaPeriod(
             ImmutableList.of(
-                oneByteSample(/* timeUs= */ 500_000, C.BUFFER_FLAG_KEY_FRAME),
-                oneByteSample(/* timeUs= */ 1_500_000, C.BUFFER_FLAG_KEY_FRAME)));
+                oneByteSample(/* timeUs= */ 500_000 + clipStartUs, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 1_500_000 + clipStartUs, C.BUFFER_FLAG_KEY_FRAME)));
     SpeedProviderMediaPeriod speedProviderMediaPeriod =
-        new SpeedProviderMediaPeriod(fakeMediaPeriod, new SpeedProviderMapper(speedProvider));
-    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 0);
+        new SpeedProviderMediaPeriod(
+            fakeMediaPeriod, new SpeedProviderMapper(SPEED_PROVIDER), clipStartUs);
+    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ clipStartUs);
     selectTracksOnMediaPeriodAndTriggerLoading(speedProviderMediaPeriod);
 
-    assertThat(speedProviderMediaPeriod.getBufferedPositionUs()).isEqualTo(2_500_000);
+    assertThat(speedProviderMediaPeriod.getBufferedPositionUs()).isEqualTo(2_500_000 + clipStartUs);
+  }
+
+  @Test
+  public void getBufferedPositionUs_atEndOfStream_returnsEndOfStream() throws Exception {
+    assume().that(clipStartUs).isEqualTo(0);
+    FakeMediaPeriod fakeMediaPeriod = createFakeMediaPeriod(ImmutableList.of(END_OF_STREAM_ITEM));
+    SpeedProviderMediaPeriod speedProviderMediaPeriod =
+        new SpeedProviderMediaPeriod(
+            fakeMediaPeriod, new SpeedProviderMapper(SPEED_PROVIDER), clipStartUs);
+    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ clipStartUs);
+    selectTracksOnMediaPeriodAndTriggerLoading(speedProviderMediaPeriod);
+
+    assertThat(speedProviderMediaPeriod.getBufferedPositionUs()).isEqualTo(C.TIME_END_OF_SOURCE);
   }
 
   @Test
@@ -109,14 +167,28 @@ public final class SpeedProviderMediaPeriodTest {
     FakeMediaPeriod fakeMediaPeriod =
         createFakeMediaPeriod(
             ImmutableList.of(
-                oneByteSample(/* timeUs= */ 1_000_000, C.BUFFER_FLAG_KEY_FRAME),
-                oneByteSample(/* timeUs= */ 2_500_000, C.BUFFER_FLAG_KEY_FRAME)));
+                oneByteSample(/* timeUs= */ 1_000_000 + clipStartUs, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 2_500_000 + clipStartUs, C.BUFFER_FLAG_KEY_FRAME)));
     SpeedProviderMediaPeriod speedProviderMediaPeriod =
-        new SpeedProviderMediaPeriod(fakeMediaPeriod, new SpeedProviderMapper(speedProvider));
-    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 0);
+        new SpeedProviderMediaPeriod(
+            fakeMediaPeriod, new SpeedProviderMapper(SPEED_PROVIDER), clipStartUs);
+    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ clipStartUs);
     selectTracksOnMediaPeriodAndTriggerLoading(speedProviderMediaPeriod);
 
-    assertThat(speedProviderMediaPeriod.getNextLoadPositionUs()).isEqualTo(3_250_000);
+    assertThat(speedProviderMediaPeriod.getNextLoadPositionUs()).isEqualTo(3_250_000 + clipStartUs);
+  }
+
+  @Test
+  public void getNextLoadPositionUs_atEndOfStream_returnsEndOfStream() throws Exception {
+    assume().that(clipStartUs).isEqualTo(0);
+    FakeMediaPeriod fakeMediaPeriod = createFakeMediaPeriod(ImmutableList.of(END_OF_STREAM_ITEM));
+    SpeedProviderMediaPeriod speedProviderMediaPeriod =
+        new SpeedProviderMediaPeriod(
+            fakeMediaPeriod, new SpeedProviderMapper(SPEED_PROVIDER), clipStartUs);
+    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ clipStartUs);
+    selectTracksOnMediaPeriodAndTriggerLoading(speedProviderMediaPeriod);
+
+    assertThat(speedProviderMediaPeriod.getNextLoadPositionUs()).isEqualTo(C.TIME_END_OF_SOURCE);
   }
 
   @Test
@@ -124,14 +196,16 @@ public final class SpeedProviderMediaPeriodTest {
     FakeMediaPeriod fakeMediaPeriod =
         createFakeMediaPeriod(
             ImmutableList.of(
-                oneByteSample(/* timeUs= */ 100_000, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+                oneByteSample(/* timeUs= */ 100_000 + clipStartUs, C.BUFFER_FLAG_KEY_FRAME),
+                END_OF_STREAM_ITEM));
     MediaPeriod spyPeriod = spy(fakeMediaPeriod);
     SpeedProviderMediaPeriod speedProviderMediaPeriod =
-        new SpeedProviderMediaPeriod(spyPeriod, new SpeedProviderMapper(speedProvider));
+        new SpeedProviderMediaPeriod(
+            spyPeriod, new SpeedProviderMapper(SPEED_PROVIDER), clipStartUs);
 
-    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 250_000);
+    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 250_000 + clipStartUs);
 
-    verify(spyPeriod).prepare(any(), eq(125_000L));
+    verify(spyPeriod).prepare(any(), eq(125_000L + clipStartUs));
   }
 
   @Test
@@ -139,16 +213,19 @@ public final class SpeedProviderMediaPeriodTest {
     FakeMediaPeriod fakeMediaPeriod =
         createFakeMediaPeriod(
             ImmutableList.of(
-                oneByteSample(/* timeUs= */ 8000, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+                oneByteSample(/* timeUs= */ 8000 + clipStartUs, C.BUFFER_FLAG_KEY_FRAME),
+                END_OF_STREAM_ITEM));
     MediaPeriod spyPeriod = spy(fakeMediaPeriod);
     SpeedProviderMediaPeriod speedProviderMediaPeriod =
-        new SpeedProviderMediaPeriod(spyPeriod, new SpeedProviderMapper(speedProvider));
-    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 3_250_000);
+        new SpeedProviderMediaPeriod(
+            spyPeriod, new SpeedProviderMapper(SPEED_PROVIDER), clipStartUs);
+    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 3_250_000 + clipStartUs);
     selectTracksOnMediaPeriodAndTriggerLoading(speedProviderMediaPeriod);
 
-    speedProviderMediaPeriod.discardBuffer(/* positionUs= */ 3_250_000, /* toKeyframe= */ true);
+    speedProviderMediaPeriod.discardBuffer(
+        /* positionUs= */ 3_250_000 + clipStartUs, /* toKeyframe= */ true);
 
-    verify(spyPeriod).discardBuffer(2_500_000, /* toKeyframe= */ true);
+    verify(spyPeriod).discardBuffer(2_500_000 + clipStartUs, /* toKeyframe= */ true);
   }
 
   @Test
@@ -156,16 +233,18 @@ public final class SpeedProviderMediaPeriodTest {
     FakeMediaPeriod fakeMediaPeriod =
         createFakeMediaPeriod(
             ImmutableList.of(
-                oneByteSample(/* timeUs= */ 8000, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+                oneByteSample(/* timeUs= */ 8000 + clipStartUs, C.BUFFER_FLAG_KEY_FRAME),
+                END_OF_STREAM_ITEM));
     MediaPeriod spyPeriod = spy(fakeMediaPeriod);
     SpeedProviderMediaPeriod speedProviderMediaPeriod =
-        new SpeedProviderMediaPeriod(spyPeriod, new SpeedProviderMapper(speedProvider));
-    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 0);
+        new SpeedProviderMediaPeriod(
+            spyPeriod, new SpeedProviderMapper(SPEED_PROVIDER), clipStartUs);
+    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ clipStartUs);
     selectTracksOnMediaPeriodAndTriggerLoading(speedProviderMediaPeriod);
 
-    speedProviderMediaPeriod.discardBuffer(/* positionUs= */ 0, /* toKeyframe= */ true);
+    speedProviderMediaPeriod.discardBuffer(/* positionUs= */ clipStartUs, /* toKeyframe= */ true);
 
-    verify(spyPeriod).discardBuffer(0, /* toKeyframe= */ true);
+    verify(spyPeriod).discardBuffer(/* positionUs= */ clipStartUs, /* toKeyframe= */ true);
   }
 
   @Test
@@ -173,14 +252,40 @@ public final class SpeedProviderMediaPeriodTest {
     FakeMediaPeriod fakeMediaPeriod =
         createFakeMediaPeriod(
             ImmutableList.of(
-                oneByteSample(/* timeUs= */ 8000, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
-    fakeMediaPeriod.setDiscontinuityPositionUs(1_000_000);
+                oneByteSample(/* timeUs= */ 8000 + clipStartUs, C.BUFFER_FLAG_KEY_FRAME),
+                END_OF_STREAM_ITEM));
+    fakeMediaPeriod.setDiscontinuityPositionUs(1_000_000 + clipStartUs);
     MediaPeriod spyPeriod = spy(fakeMediaPeriod);
     SpeedProviderMediaPeriod speedProviderMediaPeriod =
-        new SpeedProviderMediaPeriod(spyPeriod, new SpeedProviderMapper(speedProvider));
-    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 500_000);
+        new SpeedProviderMediaPeriod(
+            spyPeriod, new SpeedProviderMapper(SPEED_PROVIDER), clipStartUs);
+    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 500_000 + clipStartUs);
+    SampleStream sampleStream =
+        selectTracksOnMediaPeriodAndTriggerLoading(speedProviderMediaPeriod);
 
-    assertThat(speedProviderMediaPeriod.readDiscontinuity()).isEqualTo(2_000_000);
+    assertThat(speedProviderMediaPeriod.readDiscontinuity()).isEqualTo(2_000_000 + clipStartUs);
+    assertThat(sampleStream.getFlags()).isEqualTo(FLAG_HAS_PREROLL);
+    verify(spyPeriod).readDiscontinuity();
+  }
+
+  @Test
+  public void readDiscontinuity_withNoDiscontinuity_returnsTimeUnset() throws Exception {
+    assume().that(clipStartUs).isEqualTo(0);
+    FakeMediaPeriod fakeMediaPeriod =
+        createFakeMediaPeriod(
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 8000 + clipStartUs, C.BUFFER_FLAG_KEY_FRAME),
+                END_OF_STREAM_ITEM));
+    MediaPeriod spyPeriod = spy(fakeMediaPeriod);
+    SpeedProviderMediaPeriod speedProviderMediaPeriod =
+        new SpeedProviderMediaPeriod(
+            spyPeriod, new SpeedProviderMapper(SPEED_PROVIDER), clipStartUs);
+    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 500_000 + clipStartUs);
+    SampleStream sampleStream =
+        selectTracksOnMediaPeriodAndTriggerLoading(speedProviderMediaPeriod);
+
+    assertThat(speedProviderMediaPeriod.readDiscontinuity()).isEqualTo(C.TIME_UNSET);
+    assertThat(sampleStream.getFlags()).isEqualTo(0);
     verify(spyPeriod).readDiscontinuity();
   }
 
@@ -189,17 +294,20 @@ public final class SpeedProviderMediaPeriodTest {
     FakeMediaPeriod fakeMediaPeriod =
         createFakeMediaPeriod(
             ImmutableList.of(
-                oneByteSample(/* timeUs= */ 8000, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+                oneByteSample(/* timeUs= */ 8000 + clipStartUs, C.BUFFER_FLAG_KEY_FRAME),
+                END_OF_STREAM_ITEM));
     MediaPeriod spyPeriod = spy(fakeMediaPeriod);
     SpeedProviderMediaPeriod speedProviderMediaPeriod =
-        new SpeedProviderMediaPeriod(spyPeriod, new SpeedProviderMapper(speedProvider));
-    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 2_000_000);
+        new SpeedProviderMediaPeriod(
+            spyPeriod, new SpeedProviderMapper(SPEED_PROVIDER), clipStartUs);
+    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 2_000_000 + clipStartUs);
     selectTracksOnMediaPeriodAndTriggerLoading(speedProviderMediaPeriod);
 
-    long seekResultTimeUs = speedProviderMediaPeriod.seekToUs(/* positionUs= */ 3_000_000);
+    long seekResultTimeUs =
+        speedProviderMediaPeriod.seekToUs(/* positionUs= */ 3_000_000 + clipStartUs);
 
-    verify(spyPeriod).seekToUs(2_000_000);
-    assertThat(seekResultTimeUs).isEqualTo(3_000_000);
+    verify(spyPeriod).seekToUs(2_000_000 + clipStartUs);
+    assertThat(seekResultTimeUs).isEqualTo(3_000_000 + clipStartUs);
   }
 
   @Test
@@ -207,20 +315,22 @@ public final class SpeedProviderMediaPeriodTest {
     FakeMediaPeriod fakeMediaPeriod =
         createFakeMediaPeriod(
             ImmutableList.of(
-                oneByteSample(/* timeUs= */ 8000, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+                oneByteSample(/* timeUs= */ 8000 + clipStartUs, C.BUFFER_FLAG_KEY_FRAME),
+                END_OF_STREAM_ITEM));
     fakeMediaPeriod.setSeekToUsOffset(2000);
     MediaPeriod spyPeriod = spy(fakeMediaPeriod);
     SpeedProviderMediaPeriod speedProviderMediaPeriod =
-        new SpeedProviderMediaPeriod(spyPeriod, new SpeedProviderMapper(speedProvider));
-    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 2_000_000);
+        new SpeedProviderMediaPeriod(
+            spyPeriod, new SpeedProviderMapper(SPEED_PROVIDER), clipStartUs);
+    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 2_000_000 + clipStartUs);
     selectTracksOnMediaPeriodAndTriggerLoading(speedProviderMediaPeriod);
 
     long adjustedSeekPositionUs =
         speedProviderMediaPeriod.getAdjustedSeekPositionUs(
-            /* positionUs= */ 2_000_000, SeekParameters.DEFAULT);
+            /* positionUs= */ 2_000_000 + clipStartUs, SeekParameters.DEFAULT);
 
-    verify(spyPeriod).getAdjustedSeekPositionUs(1_000_000, SeekParameters.DEFAULT);
-    assertThat(adjustedSeekPositionUs).isEqualTo(2_002_000);
+    verify(spyPeriod).getAdjustedSeekPositionUs(1_000_000 + clipStartUs, SeekParameters.DEFAULT);
+    assertThat(adjustedSeekPositionUs).isEqualTo(2_002_000 + clipStartUs);
   }
 
   @Test
@@ -228,18 +338,41 @@ public final class SpeedProviderMediaPeriodTest {
     FakeMediaPeriod fakeMediaPeriod =
         createFakeMediaPeriod(
             ImmutableList.of(
-                oneByteSample(/* timeUs= */ 8000, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+                oneByteSample(/* timeUs= */ 8000 + clipStartUs, C.BUFFER_FLAG_KEY_FRAME),
+                END_OF_STREAM_ITEM));
     MediaPeriod spyPeriod = spy(fakeMediaPeriod);
     SpeedProviderMediaPeriod speedProviderMediaPeriod =
-        new SpeedProviderMediaPeriod(spyPeriod, new SpeedProviderMapper(speedProvider));
-    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 3_250_000);
+        new SpeedProviderMediaPeriod(
+            spyPeriod, new SpeedProviderMapper(SPEED_PROVIDER), clipStartUs);
+    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 3_250_000 + clipStartUs);
     selectTracksOnMediaPeriodAndTriggerLoading(speedProviderMediaPeriod);
 
     speedProviderMediaPeriod.continueLoading(
-        new LoadingInfo.Builder().setPlaybackPositionUs(3_250_000).build());
+        new LoadingInfo.Builder().setPlaybackPositionUs(3_250_000 + clipStartUs).build());
 
     verify(spyPeriod)
-        .continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(2_500_000).build());
+        .continueLoading(
+            new LoadingInfo.Builder().setPlaybackPositionUs(2_500_000 + clipStartUs).build());
+  }
+
+  @Test
+  public void continueLoading_withUnsetPlaybackPosition_forwardsTimeUnset() {
+    assume().that(clipStartUs).isEqualTo(0);
+    FakeMediaPeriod fakeMediaPeriod =
+        createFakeMediaPeriod(
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 8000 + clipStartUs, C.BUFFER_FLAG_KEY_FRAME),
+                END_OF_STREAM_ITEM));
+    MediaPeriod spyPeriod = spy(fakeMediaPeriod);
+    SpeedProviderMediaPeriod speedProviderMediaPeriod =
+        new SpeedProviderMediaPeriod(
+            spyPeriod, new SpeedProviderMapper(SPEED_PROVIDER), clipStartUs);
+
+    speedProviderMediaPeriod.continueLoading(
+        new LoadingInfo.Builder().setPlaybackPositionUs(C.TIME_UNSET).build());
+
+    verify(spyPeriod)
+        .continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(C.TIME_UNSET).build());
   }
 
   @Test
@@ -247,16 +380,128 @@ public final class SpeedProviderMediaPeriodTest {
     FakeMediaPeriod fakeMediaPeriod =
         createFakeMediaPeriod(
             ImmutableList.of(
-                oneByteSample(/* timeUs= */ 8000, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+                oneByteSample(/* timeUs= */ 8000 + clipStartUs, C.BUFFER_FLAG_KEY_FRAME),
+                END_OF_STREAM_ITEM));
     MediaPeriod spyPeriod = spy(fakeMediaPeriod);
     SpeedProviderMediaPeriod speedProviderMediaPeriod =
-        new SpeedProviderMediaPeriod(spyPeriod, new SpeedProviderMapper(speedProvider));
-    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 3_250_000);
+        new SpeedProviderMediaPeriod(
+            spyPeriod, new SpeedProviderMapper(SPEED_PROVIDER), clipStartUs);
+    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 3_250_000 + clipStartUs);
     selectTracksOnMediaPeriodAndTriggerLoading(speedProviderMediaPeriod);
 
-    speedProviderMediaPeriod.reevaluateBuffer(/* positionUs= */ 3_250_000);
+    speedProviderMediaPeriod.reevaluateBuffer(/* positionUs= */ 3_250_000 + clipStartUs);
 
-    verify(spyPeriod).reevaluateBuffer(2_500_000);
+    verify(spyPeriod).reevaluateBuffer(/* positionUs= */ 2_500_000 + clipStartUs);
+  }
+
+  @Test
+  public void speedChangingMediaSource_withClippedTimeline_adjustsWindowAndPeriodDurations()
+      throws Exception {
+    assume().that(clipStartUs).isEqualTo(500_000);
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithStartTimes(
+            new long[] {0L, 2_000_000L, 4_000_000L}, new float[] {2f, 4f, 5f});
+
+    Timeline singlePeriodTimeline =
+        new SinglePeriodTimeline(
+            /* durationUs= */ 3_000_000,
+            /* isSeekable= */ true,
+            /* isDynamic= */ false,
+            /* useLiveConfiguration= */ false,
+            /* manifest= */ null,
+            MediaItem.EMPTY);
+
+    FakeMediaSource fakeMediaSource = new FakeMediaSource(singlePeriodTimeline);
+    ClippingMediaSource clippingMediaSource =
+        new ClippingMediaSource.Builder(fakeMediaSource).setStartPositionUs(clipStartUs).build();
+
+    SpeedChangingMediaSource source =
+        new SpeedChangingMediaSource(
+            clippingMediaSource,
+            speedProvider,
+            new ClippingConfiguration.Builder().setStartPositionUs(clipStartUs).build());
+
+    ConditionVariable latch = new ConditionVariable();
+    AtomicReference<Timeline> adjustedTimeline = new AtomicReference<>();
+
+    source.prepareSource(
+        (unused, timeline) -> {
+          adjustedTimeline.set(timeline);
+          latch.open();
+        },
+        PlayerId.UNSET,
+        BandwidthMeter.NO_OP);
+    latch.block(1000);
+
+    Window adjustedWindow = adjustedTimeline.get().getWindow(0, new Window());
+    // Duration of speed adjusted window is the speed adjusted clipped duration (2.5s -> 1.125s).
+    assertThat(adjustedWindow.durationUs).isEqualTo(1_125_000);
+    assertThat(adjustedWindow.positionInFirstPeriodUs).isEqualTo(500_000);
+
+    Period adjustedPeriod = adjustedTimeline.get().getPeriod(0, new Period());
+    // Duration of period is not affected by clipping.
+    assertThat(adjustedPeriod.durationUs).isEqualTo(1_625_000);
+    assertThat(adjustedPeriod.positionInWindowUs).isEqualTo(-500_000);
+  }
+
+  @Test
+  public void speedChangingMediaSource_adjustsWindowAndPeriodDurations() throws Exception {
+    assume().that(clipStartUs).isEqualTo(0);
+    Timeline singlePeriodTimeline =
+        new SinglePeriodTimeline(
+            /* durationUs= */ 2_000_000,
+            /* isSeekable= */ true,
+            /* isDynamic= */ false,
+            /* useLiveConfiguration= */ false,
+            /* manifest= */ null,
+            MediaItem.EMPTY);
+
+    SpeedChangingMediaSource source =
+        new SpeedChangingMediaSource(
+            new FakeMediaSource(singlePeriodTimeline), SPEED_PROVIDER, ClippingConfiguration.UNSET);
+
+    ConditionVariable latch = new ConditionVariable();
+    AtomicReference<Timeline> adjustedTimeline = new AtomicReference<>();
+
+    source.prepareSource(
+        (unused, timeline) -> {
+          adjustedTimeline.set(timeline);
+          latch.open();
+        },
+        PlayerId.UNSET,
+        BandwidthMeter.NO_OP);
+    assertThat(latch.block(1000)).isTrue();
+
+    assertThat(adjustedTimeline.get().getWindow(0, new Window()).durationUs).isEqualTo(3_000_000);
+    assertThat(adjustedTimeline.get().getPeriod(0, new Period()).durationUs).isEqualTo(3_000_000);
+  }
+
+  @Test
+  public void speedProviderMapper_withInvalidSpeedProvider_throws() {
+    assume().that(clipStartUs).isEqualTo(0);
+    SpeedProvider speedProvider =
+        new SpeedProvider() {
+          @Override
+          public float getSpeed(long timeUs) {
+            if (timeUs >= 1_000_000) {
+              return 2f;
+            }
+            return 0.5f;
+          }
+
+          @Override
+          public long getNextSpeedChangeTimeUs(long timeUs) {
+            // If timeUs is a speed change, the next speed change time should point to the following
+            // speed change. However, the next speed change at 1_000_000 points to itself, causing
+            // an infinite loop.
+            if (timeUs > 1_000_000) {
+              return C.TIME_UNSET;
+            }
+            return 1_000_000;
+          }
+        };
+
+    assertThrows(IllegalStateException.class, () -> new SpeedProviderMapper(speedProvider));
   }
 
   private static FakeMediaPeriod createFakeMediaPeriod(
@@ -271,7 +516,12 @@ public final class SpeedProviderMediaPeriodTest {
         eventDispatcher,
         DrmSessionManager.DRM_UNSUPPORTED,
         new DrmSessionEventListener.EventDispatcher(),
-        /* deferOnPrepared= */ false);
+        /* deferOnPrepared= */ false) {
+      @Override
+      public long setEndPositionUs(long endPositionUs) {
+        return endPositionUs;
+      }
+    };
   }
 
   private static void prepareMediaPeriodSync(MediaPeriod mediaPeriod, long positionUs)

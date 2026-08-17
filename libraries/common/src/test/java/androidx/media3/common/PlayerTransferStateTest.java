@@ -42,6 +42,11 @@ public class PlayerTransferStateTest {
     player.setMediaItems(ImmutableList.of(mediaItem1, mediaItem2));
     player.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 5000);
     player.setPlaybackParameters(new PlaybackParameters(/* speed= */ 1.5f, /* pitch= */ 0.8f));
+    TrackSelectionParameters trackSelectionParameters =
+        new TrackSelectionParameters.Builder().setMaxVideoBitrate(500).build();
+    player.setTrackSelectionParameters(trackSelectionParameters);
+    MediaMetadata playlistMetadata = new MediaMetadata.Builder().setTitle("Test Playlist").build();
+    player.setPlaylistMetadata(playlistMetadata);
 
     PlayerTransferState state = PlayerTransferState.fromPlayer(player);
 
@@ -53,12 +58,18 @@ public class PlayerTransferStateTest {
     assertThat(state.getMediaItems()).containsExactly(mediaItem1, mediaItem2).inOrder();
     assertThat(state.getPlaybackParameters().speed).isEqualTo(1.5f);
     assertThat(state.getPlaybackParameters().pitch).isEqualTo(0.8f);
+    assertThat(state.getTrackSelectionParameters()).isEqualTo(trackSelectionParameters);
+    assertThat(state.getPlaylistMetadata()).isEqualTo(playlistMetadata);
   }
 
   @Test
   public void setToPlayer_simpleBasePlayer_appliesCorrectState() {
     MediaItem mediaItem1 = new MediaItem.Builder().setMediaId("id1").build();
     MediaItem mediaItem2 = new MediaItem.Builder().setMediaId("id2").build();
+    TrackSelectionParameters trackSelectionParameters =
+        new TrackSelectionParameters.Builder().setMaxVideoBitrate(1000).build();
+    MediaMetadata playlistMetadata =
+        new MediaMetadata.Builder().setTitle("Target Playlist").build();
     PlayerTransferState state =
         new PlayerTransferState.Builder()
             .setPlayWhenReady(false)
@@ -68,6 +79,8 @@ public class PlayerTransferStateTest {
             .setCurrentPosition(1234)
             .setMediaItems(ImmutableList.of(mediaItem1, mediaItem2))
             .setPlaybackParameters(new PlaybackParameters(/* speed= */ 0.5f, /* pitch= */ 1.2f))
+            .setTrackSelectionParameters(trackSelectionParameters)
+            .setPlaylistMetadata(playlistMetadata)
             .build();
     SimpleBasePlayer player = new StateHolderPlayer();
     // Set some initial state on the player to ensure it's overwritten.
@@ -76,6 +89,8 @@ public class PlayerTransferStateTest {
     player.setShuffleModeEnabled(true);
     player.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 100);
     player.setPlaybackParameters(PlaybackParameters.DEFAULT);
+    player.setTrackSelectionParameters(TrackSelectionParameters.DEFAULT);
+    player.setPlaylistMetadata(MediaMetadata.EMPTY);
     player.setMediaItems(ImmutableList.of(new MediaItem.Builder().setMediaId("id3").build()));
 
     state.setToPlayer(player);
@@ -90,6 +105,8 @@ public class PlayerTransferStateTest {
     assertThat(player.getMediaItemAt(1)).isEqualTo(mediaItem2);
     assertThat(player.getPlaybackParameters().speed).isEqualTo(0.5f);
     assertThat(player.getPlaybackParameters().pitch).isEqualTo(1.2f);
+    assertThat(player.getTrackSelectionParameters()).isEqualTo(trackSelectionParameters);
+    assertThat(player.getPlaylistMetadata()).isEqualTo(playlistMetadata);
   }
 
   @Test
@@ -97,6 +114,10 @@ public class PlayerTransferStateTest {
     MediaItem mediaItem1 = new MediaItem.Builder().setMediaId("original1").build();
     MediaItem mediaItem2 = new MediaItem.Builder().setMediaId("original2").build();
     PlaybackParameters originalPlaybackParameters = new PlaybackParameters(1.1f, 0.9f);
+    TrackSelectionParameters originalTrackSelectionParameters =
+        new TrackSelectionParameters.Builder().setPreferredAudioLanguage("de").build();
+    MediaMetadata originalPlaylistMetadata =
+        new MediaMetadata.Builder().setTitle("Original").build();
     PlayerTransferState originalState =
         new PlayerTransferState.Builder()
             .setPlayWhenReady(true)
@@ -106,6 +127,8 @@ public class PlayerTransferStateTest {
             .setCurrentPosition(1000)
             .setMediaItems(ImmutableList.of(mediaItem1, mediaItem2))
             .setPlaybackParameters(originalPlaybackParameters)
+            .setTrackSelectionParameters(originalTrackSelectionParameters)
+            .setPlaylistMetadata(originalPlaylistMetadata)
             .build();
 
     PlayerTransferState copiedState = originalState.buildUpon().build();
@@ -120,6 +143,9 @@ public class PlayerTransferStateTest {
     assertThat(copiedState.getMediaItems()).isEqualTo(originalState.getMediaItems());
     assertThat(copiedState.getPlaybackParameters())
         .isEqualTo(originalState.getPlaybackParameters());
+    assertThat(copiedState.getTrackSelectionParameters())
+        .isEqualTo(originalState.getTrackSelectionParameters());
+    assertThat(copiedState.getPlaylistMetadata()).isEqualTo(originalState.getPlaylistMetadata());
   }
 
   @Test
@@ -127,6 +153,8 @@ public class PlayerTransferStateTest {
     MediaItem mediaItem1 = new MediaItem.Builder().setMediaId("original1").build();
     MediaItem mediaItem2 = new MediaItem.Builder().setMediaId("original2").build();
     PlaybackParameters originalPlaybackParameters = new PlaybackParameters(1.1f, 0.9f);
+    MediaMetadata originalPlaylistMetadata =
+        new MediaMetadata.Builder().setTitle("Original").build();
     PlayerTransferState originalState =
         new PlayerTransferState.Builder()
             .setPlayWhenReady(true)
@@ -136,9 +164,14 @@ public class PlayerTransferStateTest {
             .setCurrentPosition(1000)
             .setMediaItems(ImmutableList.of(mediaItem1, mediaItem2))
             .setPlaybackParameters(originalPlaybackParameters)
+            .setTrackSelectionParameters(TrackSelectionParameters.DEFAULT)
+            .setPlaylistMetadata(originalPlaylistMetadata)
             .build();
     MediaItem newMediaItem = new MediaItem.Builder().setMediaId("new").build();
     PlaybackParameters newPlaybackParameters = new PlaybackParameters(2.0f);
+    TrackSelectionParameters newTrackSelectionParameters =
+        new TrackSelectionParameters.Builder().setForceHighestSupportedBitrate(true).build();
+    MediaMetadata newPlaylistMetadata = new MediaMetadata.Builder().setTitle("Modified").build();
 
     PlayerTransferState modifiedState =
         originalState
@@ -147,6 +180,8 @@ public class PlayerTransferStateTest {
             .setCurrentPosition(500)
             .setMediaItems(ImmutableList.of(newMediaItem))
             .setPlaybackParameters(newPlaybackParameters)
+            .setTrackSelectionParameters(newTrackSelectionParameters)
+            .setPlaylistMetadata(newPlaylistMetadata)
             .build();
 
     // The following are unchanged.
@@ -158,6 +193,9 @@ public class PlayerTransferStateTest {
     assertThat(modifiedState.getCurrentPosition()).isEqualTo(500); // Modified
     assertThat(modifiedState.getMediaItems()).containsExactly(newMediaItem); // Modified
     assertThat(modifiedState.getPlaybackParameters()).isEqualTo(newPlaybackParameters); // Modified
+    assertThat(modifiedState.getTrackSelectionParameters())
+        .isEqualTo(newTrackSelectionParameters); // Modified
+    assertThat(modifiedState.getPlaylistMetadata()).isEqualTo(newPlaylistMetadata); // Modified
   }
 
   /** A {@link Player} that holds state and supports its modification through setters. */
@@ -176,7 +214,10 @@ public class PlayerTransferStateTest {
                 COMMAND_GET_TIMELINE,
                 COMMAND_SET_MEDIA_ITEM,
                 COMMAND_CHANGE_MEDIA_ITEMS,
-                COMMAND_SEEK_TO_MEDIA_ITEM)
+                COMMAND_SEEK_TO_MEDIA_ITEM,
+                COMMAND_SET_TRACK_SELECTION_PARAMETERS,
+                COMMAND_SET_PLAYLIST_METADATA,
+                COMMAND_GET_METADATA)
             .build();
 
     private StateHolderPlayer() {
@@ -216,6 +257,19 @@ public class PlayerTransferStateTest {
         PlaybackParameters playbackParameters) {
       state = state.buildUpon().setPlaybackParameters(playbackParameters).build();
 
+      return Futures.immediateVoidFuture();
+    }
+
+    @Override
+    protected ListenableFuture<?> handleSetTrackSelectionParameters(
+        TrackSelectionParameters trackSelectionParameters) {
+      state = state.buildUpon().setTrackSelectionParameters(trackSelectionParameters).build();
+      return Futures.immediateVoidFuture();
+    }
+
+    @Override
+    protected ListenableFuture<?> handleSetPlaylistMetadata(MediaMetadata playlistMetadata) {
+      state = state.buildUpon().setPlaylistMetadata(playlistMetadata).build();
       return Futures.immediateVoidFuture();
     }
 

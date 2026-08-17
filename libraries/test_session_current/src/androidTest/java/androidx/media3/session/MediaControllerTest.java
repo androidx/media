@@ -26,6 +26,7 @@ import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_CUSTOM_LAYOUT;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_SESSION_ACTIVITY;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_IS_SESSION_COMMAND_AVAILABLE;
+import static androidx.media3.test.session.common.MediaSessionConstants.TEST_SILENT_IPC_PARSING_FAILURE;
 import static androidx.media3.test.session.common.TestUtils.LONG_TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.NO_RESPONSE_TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
@@ -61,12 +62,12 @@ import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
-import androidx.media3.test.session.R;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MainLooperTestRule;
 import androidx.media3.test.session.common.MediaBrowserConstants;
 import androidx.media3.test.session.common.PollingCheck;
 import androidx.media3.test.session.common.TestUtils;
+import androidx.media3.test.utils.FakeTimeline;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
@@ -1022,23 +1023,16 @@ public class MediaControllerTest {
             .build();
     CommandButton button4 =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
-            .setDisplayName("button4")
-            .setCustomIconResId(R.drawable.media3_notification_small_icon)
-            .setPlayerCommand(Player.COMMAND_PLAY_PAUSE)
-            .setSlots(CommandButton.SLOT_OVERFLOW)
-            .build();
-    CommandButton button5 =
-        new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("button5")
             .setCustomIconResId(R.drawable.media3_notification_small_icon)
             .setPlayerCommand(Player.COMMAND_GET_TRACKS)
             .build();
-    setupMediaButtonPreferences(
-        session, ImmutableList.of(button1, button2, button3, button4, button5));
+    setupMediaButtonPreferences(session, ImmutableList.of(button1, button2, button3, button4));
     MediaController controller = controllerTestRule.createController(session.getToken());
 
     assertThat(threadTestRule.getHandler().postAndSync(controller::getCustomLayout))
-        .containsExactly(button1);
+        .containsExactly(button1)
+        .inOrder();
 
     session.cleanUp();
   }
@@ -2363,12 +2357,13 @@ public class MediaControllerTest {
 
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
     threadTestRule.getHandler().postAndSync(controller::mute);
-    float volume = threadTestRule.getHandler().postAndSync(controller::getVolume);
-    assertThat(volume).isEqualTo(0);
+    PollingCheck.waitFor(
+        TIMEOUT_MS, () -> threadTestRule.getHandler().postAndSync(controller::getVolume) == 0f);
 
     threadTestRule.getHandler().postAndSync(controller::unmute);
-    volume = threadTestRule.getHandler().postAndSync(controller::getVolume);
-    assertThat(volume).isEqualTo(testVolume);
+    PollingCheck.waitFor(
+        TIMEOUT_MS,
+        () -> threadTestRule.getHandler().postAndSync(controller::getVolume) == testVolume);
   }
 
   @Test
@@ -2644,6 +2639,133 @@ public class MediaControllerTest {
 
     assertThat(mediaItem)
         .isEqualTo(timeline.getWindow(mediaItemIndex, new Timeline.Window()).mediaItem);
+  }
+
+  @Test
+  public void getCurrentTimeline_preservesEqualUidsForEqualUidsInPlayer() throws Exception {
+    Timeline timeline =
+        new PlaylistTimeline(
+            ImmutableList.of(MediaItem.fromUri("uri1"), MediaItem.fromUri("uri2")));
+    Bundle playerConfig =
+        new RemoteMediaSession.MockPlayerConfigBuilder().setTimeline(timeline).build();
+    remoteSession.setPlayer(playerConfig);
+
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    Timeline controllerTimeline =
+        threadTestRule.getHandler().postAndSync(controller::getCurrentTimeline);
+
+    assertThat(controllerTimeline.getWindowCount()).isEqualTo(2);
+    Object uid1 = controllerTimeline.getWindow(/* windowIndex= */ 0, new Timeline.Window()).uid;
+    Object uid2 = controllerTimeline.getWindow(/* windowIndex= */ 0, new Timeline.Window()).uid;
+    assertThat(uid1).isEqualTo(uid2);
+    assertThat(uid1)
+        .isNotEqualTo(
+            controllerTimeline.getWindow(/* windowIndex= */ 1, new Timeline.Window()).uid);
+    assertThat(controllerTimeline.getPeriod(/* periodIndex= */ 0, new Timeline.Period()).uid)
+        .isNotEqualTo(
+            controllerTimeline.getPeriod(/* periodIndex= */ 1, new Timeline.Period()).uid);
+  }
+
+  @Test
+  public void getCurrentTimeline_withEmptyTimeline_isHandledCorrectly() throws Exception {
+    Timeline timeline = Timeline.EMPTY;
+    Bundle playerConfig =
+        new RemoteMediaSession.MockPlayerConfigBuilder().setTimeline(timeline).build();
+    remoteSession.setPlayer(playerConfig);
+
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    Timeline controllerTimeline =
+        threadTestRule.getHandler().postAndSync(controller::getCurrentTimeline);
+
+    assertThat(controllerTimeline.isEmpty()).isTrue();
+    assertThat(controllerTimeline.getWindowCount()).isEqualTo(0);
+    assertThat(controllerTimeline.getPeriodCount()).isEqualTo(0);
+  }
+
+  @Test
+  public void getCurrentTimeline_withMultiPeriodWindow_preservesUids() throws Exception {
+    Timeline timeline =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition.Builder()
+                .setPeriodCount(3)
+                .setUid("windowUid")
+                .build());
+    Bundle playerConfig =
+        new RemoteMediaSession.MockPlayerConfigBuilder().setTimeline(timeline).build();
+    remoteSession.setPlayer(playerConfig);
+
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    Timeline controllerTimeline =
+        threadTestRule.getHandler().postAndSync(controller::getCurrentTimeline);
+
+    assertThat(controllerTimeline.getWindowCount()).isEqualTo(1);
+    assertThat(controllerTimeline.getPeriodCount()).isEqualTo(3);
+
+    Timeline.Period period = new Timeline.Period();
+    Object uid0 = controllerTimeline.getPeriod(/* periodIndex= */ 0, period).uid;
+    Object uid1 = controllerTimeline.getPeriod(/* periodIndex= */ 1, period).uid;
+    Object uid2 = controllerTimeline.getPeriod(/* periodIndex= */ 2, period).uid;
+
+    assertThat(uid0).isNotEqualTo(uid1);
+    assertThat(uid1).isNotEqualTo(uid2);
+
+    assertThat(controllerTimeline.getIndexOfPeriod(uid0)).isEqualTo(0);
+    assertThat(controllerTimeline.getIndexOfPeriod(uid1)).isEqualTo(1);
+    assertThat(controllerTimeline.getIndexOfPeriod(uid2)).isEqualTo(2);
+
+    assertThat(controllerTimeline.getUidOfPeriod(0)).isEqualTo(uid0);
+    assertThat(controllerTimeline.getUidOfPeriod(1)).isEqualTo(uid1);
+    assertThat(controllerTimeline.getUidOfPeriod(2)).isEqualTo(uid2);
+  }
+
+  @Test
+  public void getCurrentTimeline_withShuffledTimeline_preservesShuffleOrder() throws Exception {
+    Timeline timeline =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition.Builder().setUid("window0").build(),
+            new FakeTimeline.TimelineWindowDefinition.Builder().setUid("window1").build(),
+            new FakeTimeline.TimelineWindowDefinition.Builder().setUid("window2").build());
+    Bundle playerConfig =
+        new RemoteMediaSession.MockPlayerConfigBuilder().setTimeline(timeline).build();
+    remoteSession.setPlayer(playerConfig);
+
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    Timeline controllerTimeline =
+        threadTestRule.getHandler().postAndSync(controller::getCurrentTimeline);
+
+    assertThat(controllerTimeline.getWindowCount()).isEqualTo(3);
+
+    // Assert that the shuffle order generated by the player is exactly identical to
+    // the shuffle order reconstructed by the controller.
+    assertThat(controllerTimeline.getFirstWindowIndex(/* shuffleModeEnabled= */ true))
+        .isEqualTo(timeline.getFirstWindowIndex(/* shuffleModeEnabled= */ true));
+
+    int index = controllerTimeline.getFirstWindowIndex(/* shuffleModeEnabled= */ true);
+    int expectedIndex = timeline.getFirstWindowIndex(/* shuffleModeEnabled= */ true);
+
+    index =
+        controllerTimeline.getNextWindowIndex(
+            index, Player.REPEAT_MODE_OFF, /* shuffleModeEnabled= */ true);
+    expectedIndex =
+        timeline.getNextWindowIndex(
+            expectedIndex, Player.REPEAT_MODE_OFF, /* shuffleModeEnabled= */ true);
+    assertThat(index).isEqualTo(expectedIndex);
+
+    index =
+        controllerTimeline.getNextWindowIndex(
+            index, Player.REPEAT_MODE_OFF, /* shuffleModeEnabled= */ true);
+    expectedIndex =
+        timeline.getNextWindowIndex(
+            expectedIndex, Player.REPEAT_MODE_OFF, /* shuffleModeEnabled= */ true);
+    assertThat(index).isEqualTo(expectedIndex);
+
+    index =
+        controllerTimeline.getNextWindowIndex(
+            index, Player.REPEAT_MODE_OFF, /* shuffleModeEnabled= */ true);
+    expectedIndex =
+        timeline.getNextWindowIndex(
+            expectedIndex, Player.REPEAT_MODE_OFF, /* shuffleModeEnabled= */ true);
+    assertThat(index).isEqualTo(expectedIndex);
   }
 
   private RemoteMediaSession createRemoteMediaSession(String id, Bundle tokenExtras)
@@ -3076,6 +3198,7 @@ public class MediaControllerTest {
   @Test
   public void getCurrentTracks_hasEqualTrackGroupsForEqualGroupsInPlayer() throws Exception {
     // Include metadata in Format to ensure the track group can't be fully bundled.
+    // Also include primary track group id to verify they are mapped correctly.
     Tracks initialPlayerTracks =
         new Tracks(
             ImmutableList.of(
@@ -3087,7 +3210,18 @@ public class MediaControllerTest {
                     /* trackSelected= */ new boolean[1]),
                 new Tracks.Group(
                     new TrackGroup(
-                        new Format.Builder().setMetadata(new Metadata()).setId("2").build()),
+                        new Format.Builder()
+                            .setMetadata(new Metadata())
+                            .setId("2")
+                            .setPrimaryTrackGroupId("main")
+                            .build()),
+                    /* adaptiveSupported= */ false,
+                    /* trackSupport= */ new int[1],
+                    /* trackSelected= */ new boolean[1]),
+                new Tracks.Group(
+                    new TrackGroup(
+                        /* id= */ "main",
+                        new Format.Builder().setMetadata(new Metadata()).setId("2main").build()),
                     /* adaptiveSupported= */ false,
                     /* trackSupport= */ new int[1],
                     /* trackSelected= */ new boolean[1])));
@@ -3096,13 +3230,24 @@ public class MediaControllerTest {
             ImmutableList.of(
                 new Tracks.Group(
                     new TrackGroup(
-                        new Format.Builder().setMetadata(new Metadata()).setId("2").build()),
+                        new Format.Builder()
+                            .setMetadata(new Metadata())
+                            .setId("2")
+                            .setPrimaryTrackGroupId("main")
+                            .build()),
                     /* adaptiveSupported= */ true,
                     /* trackSupport= */ new int[] {C.FORMAT_HANDLED},
                     /* trackSelected= */ new boolean[] {true}),
                 new Tracks.Group(
                     new TrackGroup(
                         new Format.Builder().setMetadata(new Metadata()).setId("3").build()),
+                    /* adaptiveSupported= */ false,
+                    /* trackSupport= */ new int[1],
+                    /* trackSelected= */ new boolean[1]),
+                new Tracks.Group(
+                    new TrackGroup(
+                        /* id= */ "main",
+                        new Format.Builder().setMetadata(new Metadata()).setId("2main").build()),
                     /* adaptiveSupported= */ false,
                     /* trackSupport= */ new int[1],
                     /* trackSelected= */ new boolean[1])));
@@ -3134,23 +3279,32 @@ public class MediaControllerTest {
     Tracks updatedControllerTracks =
         threadTestRule.getHandler().postAndSync(controller::getCurrentTracks);
 
-    assertThat(initialControllerTracks.getGroups()).hasSize(2);
-    assertThat(updatedControllerTracks.getGroups()).hasSize(2);
+    assertThat(initialControllerTracks.getGroups()).hasSize(3);
+    assertThat(updatedControllerTracks.getGroups()).hasSize(3);
     assertThat(initialControllerTracks.getGroups().get(1).getMediaTrackGroup())
         .isEqualTo(updatedControllerTracks.getGroups().get(0).getMediaTrackGroup());
+    assertThat(initialControllerTracks.getGroups().get(1).getTrackFormat(0).primaryTrackGroupId)
+        .isEqualTo(initialControllerTracks.getGroups().get(2).getMediaTrackGroup().id);
   }
 
   @Test
   public void getCurrentTracksAndTrackOverrides_haveEqualTrackGroupsForEqualGroupsInPlayer()
       throws Exception {
     // Include metadata in Format to ensure the track group can't be fully bundled.
+    // Also include primary track group id to verify they are mapped correctly.
     TrackGroup playerTrackGroupForOverride =
-        new TrackGroup(new Format.Builder().setMetadata(new Metadata()).setId("2").build());
+        new TrackGroup(
+            new Format.Builder()
+                .setMetadata(new Metadata())
+                .setId("2")
+                .setPrimaryTrackGroupId("main")
+                .build());
     Tracks playerTracks =
         new Tracks(
             ImmutableList.of(
                 new Tracks.Group(
                     new TrackGroup(
+                        /* id= */ "main",
                         new Format.Builder().setMetadata(new Metadata()).setId("1").build()),
                     /* adaptiveSupported= */ false,
                     /* trackSupport= */ new int[1],
@@ -3308,6 +3462,65 @@ public class MediaControllerTest {
         });
     session.setMediaButtonPreferences(ImmutableList.copyOf(mediaButtonPreferences));
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+  }
+
+  @Test
+  public void getCurrentTimeline_silentIpcParsingFailure_recoversWithoutCrash() throws Exception {
+    RemoteMediaSession session =
+        createRemoteMediaSession(TEST_SILENT_IPC_PARSING_FAILURE, /* tokenExtras= */ null);
+    session.getMockPlayer().createAndSetFakeTimeline(/* windowCount= */ 19);
+    MediaController controller = controllerTestRule.createController(session.getToken());
+    PollingCheck.waitFor(
+        TIMEOUT_MS,
+        () -> {
+          try {
+            return threadTestRule
+                .getHandler()
+                .postAndSync(() -> controller.getCurrentTimeline().getWindowCount() == 19);
+          } catch (Exception e) {
+            return false;
+          }
+        });
+
+    session.getMockPlayer().createAndSetFakeTimeline(/* windowCount= */ 20);
+    // Sleep to prevent coalescing of the timeline update and the discontinuity on the session side.
+    Thread.sleep(NO_RESPONSE_TIMEOUT_MS);
+    int targetIndex = 19;
+    session.getMockPlayer().setCurrentMediaItemIndexAndPeriodIndex(targetIndex, targetIndex);
+    Player.PositionInfo oldPosition =
+        new Player.PositionInfo(
+            /* windowUid= */ null,
+            /* mediaItemIndex= */ 0,
+            /* mediaItem= */ null,
+            /* periodUid= */ null,
+            /* periodIndex= */ 0,
+            /* positionMs= */ 0,
+            /* contentPositionMs= */ 0,
+            /* adGroupIndex= */ C.INDEX_UNSET,
+            /* adIndexInAdGroup= */ C.INDEX_UNSET);
+    Player.PositionInfo newPosition =
+        new Player.PositionInfo(
+            /* windowUid= */ null,
+            /* mediaItemIndex= */ targetIndex,
+            /* mediaItem= */ null,
+            /* periodUid= */ null,
+            /* periodIndex= */ 0,
+            /* positionMs= */ 0,
+            /* contentPositionMs= */ 0,
+            /* adGroupIndex= */ C.INDEX_UNSET,
+            /* adIndexInAdGroup= */ C.INDEX_UNSET);
+    session
+        .getMockPlayer()
+        .notifyPositionDiscontinuity(oldPosition, newPosition, Player.DISCONTINUITY_REASON_SEEK);
+    // Sleep to verify no update (which would trigger a crash) propagates.
+    Thread.sleep(NO_RESPONSE_TIMEOUT_MS);
+
+    AtomicInteger timelineWindowCount = new AtomicInteger();
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> timelineWindowCount.set(controller.getCurrentTimeline().getWindowCount()));
+    assertThat(timelineWindowCount.get()).isEqualTo(19);
   }
 
   private static CommandButton withBackForwardOverflowSlot(CommandButton button) {

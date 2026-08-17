@@ -32,10 +32,12 @@ import java.io.IOException;
 import java.util.TreeSet;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 /** Tests for {@link CachedRegionTracker}. */
 @RunWith(AndroidJUnit4.class)
@@ -54,6 +56,7 @@ public final class CachedRegionTrackerTest {
           },
           new long[] {0, 100 * MS_IN_US, 200 * MS_IN_US, 300 * MS_IN_US, 400 * MS_IN_US});
 
+  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
   @Mock private Cache cache;
   private CachedRegionTracker tracker;
 
@@ -61,7 +64,6 @@ public final class CachedRegionTrackerTest {
 
   @Before
   public void setUp() throws Exception {
-    MockitoAnnotations.initMocks(this);
     when(cache.addListener(anyString(), any(Cache.Listener.class))).thenReturn(new TreeSet<>());
     tracker = new CachedRegionTracker(cache, CACHE_KEY, CHUNK_INDEX);
     cacheDir =

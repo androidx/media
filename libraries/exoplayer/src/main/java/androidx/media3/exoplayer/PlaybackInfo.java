@@ -15,7 +15,9 @@
  */
 package androidx.media3.exoplayer;
 
-import android.os.SystemClock;
+import static androidx.media3.exoplayer.ExoPlayerImplInternal.READY_MAXIMUM_INTERVAL_MS;
+import static java.lang.Math.min;
+
 import androidx.annotation.CheckResult;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -24,6 +26,7 @@ import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.PlaybackSuppressionReason;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.TrackGroupArray;
@@ -40,6 +43,15 @@ import java.util.List;
    */
   private static final MediaPeriodId PLACEHOLDER_MEDIA_PERIOD_ID =
       new MediaPeriodId(/* periodUid= */ new Object());
+
+  /**
+   * Elapsed time limit for position extrapolation when accounting for thread scheduling delays.
+   *
+   * <p>The extrapolation must be capped to prevent unbounded ghost playback during thread
+   * deadlocks. The playback thread wakes up at most every READY_MAXIMUM_INTERVAL_MS (1000ms). A
+   * 1.5*READY_MAXIMUM_INTERVAL_MS cap provides a safe tolerance for normal thread scheduling.
+   */
+  private static final long MAX_ELAPSED_TIME_MS = (long) (READY_MAXIMUM_INTERVAL_MS * 1.5);
 
   /** The current {@link Timeline}. */
   public final Timeline timeline;
@@ -97,6 +109,11 @@ import java.util.List;
   public final boolean sleepingForOffload;
 
   /**
+   * Whether the player should use {@link #getEstimatedPositionUs} for current playback position.
+   */
+  public final boolean useEstimatedPosition;
+
+  /**
    * Position up to which media is buffered in {@link #loadingMediaPeriodId) relative to the start
    * of the associated period in the {@link #timeline}, in microseconds.
    */
@@ -115,10 +132,12 @@ import java.util.List;
   public volatile long positionUs;
 
   /**
-   * The value of {@link SystemClock#elapsedRealtime()} when {@link #positionUs} was updated, in
+   * The value of {@link Clock#elapsedRealtime()} when {@link #positionUs} was updated, in
    * milliseconds.
    */
   public volatile long positionUpdateTimeMs;
+
+  private volatile long positionUpdateSeq = 0;
 
   /**
    * Creates an empty placeholder playback info which can be used for masking as long as no real
@@ -149,7 +168,8 @@ import java.util.List;
         /* totalBufferedDurationUs= */ 0,
         /* positionUs= */ 0,
         /* positionUpdateTimeMs= */ 0,
-        /* sleepingForOffload= */ false);
+        /* sleepingForOffload= */ false,
+        /* useEstimatedPosition= */ false);
   }
 
   /**
@@ -174,6 +194,7 @@ import java.util.List;
    * @param positionUs See {@link #positionUs}.
    * @param positionUpdateTimeMs See {@link #positionUpdateTimeMs}.
    * @param sleepingForOffload See {@link #sleepingForOffload}.
+   * @param useEstimatedPosition See {@link #useEstimatedPosition}.
    */
   public PlaybackInfo(
       Timeline timeline,
@@ -195,7 +216,8 @@ import java.util.List;
       long totalBufferedDurationUs,
       long positionUs,
       long positionUpdateTimeMs,
-      boolean sleepingForOffload) {
+      boolean sleepingForOffload,
+      boolean useEstimatedPosition) {
     this.timeline = timeline;
     this.periodId = periodId;
     this.requestedContentPositionUs = requestedContentPositionUs;
@@ -216,6 +238,7 @@ import java.util.List;
     this.positionUs = positionUs;
     this.positionUpdateTimeMs = positionUpdateTimeMs;
     this.sleepingForOffload = sleepingForOffload;
+    this.useEstimatedPosition = useEstimatedPosition;
   }
 
   /** Returns a placeholder period id for an empty timeline. */
@@ -231,6 +254,8 @@ import java.util.List;
    * @param requestedContentPositionUs New requested content position. See {@link
    *     #requestedContentPositionUs}.
    * @param totalBufferedDurationUs New buffered duration. See {@link #totalBufferedDurationUs}.
+   * @param currentElapsedTimeMs The current elapsed real-time in milliseconds (e.g., from {@link
+   *     Clock#elapsedRealtime()}).
    * @param trackGroups The track groups for the new position. See {@link #trackGroups}.
    * @param trackSelectorResult The track selector result for the new position. See {@link
    *     #trackSelectorResult}.
@@ -245,6 +270,7 @@ import java.util.List;
       long requestedContentPositionUs,
       long discontinuityStartPositionUs,
       long totalBufferedDurationUs,
+      long currentElapsedTimeMs,
       TrackGroupArray trackGroups,
       TrackSelectorResult trackSelectorResult,
       List<Metadata> staticMetadata) {
@@ -267,8 +293,9 @@ import java.util.List;
         bufferedPositionUs,
         totalBufferedDurationUs,
         positionUs,
-        /* positionUpdateTimeMs= */ SystemClock.elapsedRealtime(),
-        sleepingForOffload);
+        currentElapsedTimeMs,
+        sleepingForOffload,
+        useEstimatedPosition);
   }
 
   /**
@@ -299,7 +326,8 @@ import java.util.List;
         totalBufferedDurationUs,
         positionUs,
         positionUpdateTimeMs,
-        sleepingForOffload);
+        sleepingForOffload,
+        useEstimatedPosition);
   }
 
   /**
@@ -330,7 +358,8 @@ import java.util.List;
         totalBufferedDurationUs,
         positionUs,
         positionUpdateTimeMs,
-        sleepingForOffload);
+        sleepingForOffload,
+        useEstimatedPosition);
   }
 
   /**
@@ -361,7 +390,8 @@ import java.util.List;
         totalBufferedDurationUs,
         positionUs,
         positionUpdateTimeMs,
-        sleepingForOffload);
+        sleepingForOffload,
+        useEstimatedPosition);
   }
 
   /**
@@ -392,7 +422,8 @@ import java.util.List;
         totalBufferedDurationUs,
         positionUs,
         positionUpdateTimeMs,
-        sleepingForOffload);
+        sleepingForOffload,
+        useEstimatedPosition);
   }
 
   /**
@@ -423,7 +454,8 @@ import java.util.List;
         totalBufferedDurationUs,
         positionUs,
         positionUpdateTimeMs,
-        sleepingForOffload);
+        sleepingForOffload,
+        useEstimatedPosition);
   }
 
   /**
@@ -461,7 +493,8 @@ import java.util.List;
         totalBufferedDurationUs,
         positionUs,
         positionUpdateTimeMs,
-        sleepingForOffload);
+        sleepingForOffload,
+        useEstimatedPosition);
   }
 
   /**
@@ -492,7 +525,8 @@ import java.util.List;
         totalBufferedDurationUs,
         positionUs,
         positionUpdateTimeMs,
-        sleepingForOffload);
+        sleepingForOffload,
+        useEstimatedPosition);
   }
 
   /**
@@ -523,7 +557,8 @@ import java.util.List;
         totalBufferedDurationUs,
         positionUs,
         positionUpdateTimeMs,
-        sleepingForOffload);
+        sleepingForOffload,
+        useEstimatedPosition);
   }
 
   /**
@@ -532,10 +567,12 @@ import java.util.List;
    * <p>Position is estimated with {@link #positionUs}, {@link #positionUpdateTimeMs}, and {@link
    * PlaybackParameters#speed}.
    *
+   * @param currentElapsedTimeMs The current elapsed real-time in milliseconds (e.g., from {@link
+   *     Clock#elapsedRealtime()}).
    * @return Copied playback info with new, estimated playback position.
    */
   @CheckResult
-  public PlaybackInfo copyWithEstimatedPosition() {
+  public PlaybackInfo copyWithEstimatedPosition(long currentElapsedTimeMs) {
     return new PlaybackInfo(
         timeline,
         periodId,
@@ -554,22 +591,67 @@ import java.util.List;
         playbackParameters,
         bufferedPositionUs,
         totalBufferedDurationUs,
-        getEstimatedPositionUs(),
-        SystemClock.elapsedRealtime(),
-        sleepingForOffload);
+        getEstimatedPositionUs(currentElapsedTimeMs),
+        currentElapsedTimeMs,
+        sleepingForOffload,
+        useEstimatedPosition);
   }
 
   /**
-   * Sets new playing position with update time of {@link SystemClock#elapsedRealtime()}, time
-   * relative to the start of the associated period in the {@link #timeline}
+   * Copies playback info with new value for whether the Player should use {@link
+   * #getEstimatedPositionUs} to retrieve the current playback position.
+   *
+   * <p>If the next position update is scheduled infrequently, the position should be extrapolated
+   * using {@link #positionUs}, {@link #positionUpdateTimeMs}, and {@link PlaybackParameters#speed}.
+   * This can be retrieved through {@link #getEstimatedPositionUs}.
+   *
+   * @return The updated playback info with new value of whether position should be retrieved
+   *     through {@link #getEstimatedPositionUs}.
+   */
+  @CheckResult
+  public PlaybackInfo copyWithUseEstimatedPosition(boolean useEstimatedPosition) {
+    return new PlaybackInfo(
+        timeline,
+        periodId,
+        requestedContentPositionUs,
+        discontinuityStartPositionUs,
+        playbackState,
+        playbackError,
+        isLoading,
+        trackGroups,
+        trackSelectorResult,
+        staticMetadata,
+        loadingMediaPeriodId,
+        playWhenReady,
+        playWhenReadyChangeReason,
+        playbackSuppressionReason,
+        playbackParameters,
+        bufferedPositionUs,
+        totalBufferedDurationUs,
+        positionUs,
+        positionUpdateTimeMs,
+        sleepingForOffload,
+        useEstimatedPosition);
+  }
+
+  /**
+   * Sets new playing position with a provided update time and that is relative to the start of the
+   * associated period in the {@link #timeline}.
+   *
+   * <p>Method updates volatile fields and so invocations must always occur on the same thread.
    *
    * @param positionUs The new playing position.
+   * @param currentElapsedTimeMs The current elapsed real-time in milliseconds (e.g., from {@link
+   *     Clock#elapsedRealtime()}).
    */
-  public void updatePositionUs(long positionUs) {
-    // Write order of positionUs then positionUpdateTimeMs in order to be reverse of
-    // retrieval in getExtrapolatedPositionUs().
+  @SuppressWarnings("NonAtomicVolatileUpdate") // All write access occurs on same thread.
+  public void updatePositionUs(long positionUs, long currentElapsedTimeMs) {
+    // This is a "Sequence Lock" (Seqlock) implementation to ensure atomic reads of positionUs and
+    // positionUpdateTimeMs across threads without heavy synchronization.
+    positionUpdateSeq++;
     this.positionUs = positionUs;
-    this.positionUpdateTimeMs = SystemClock.elapsedRealtime();
+    this.positionUpdateTimeMs = currentElapsedTimeMs;
+    positionUpdateSeq++;
   }
 
   /**
@@ -578,23 +660,29 @@ import java.util.List;
    *
    * <p>If not playing, then the estimated position is {@link #positionUs}.
    *
+   * @param currentElapsedTimeMs The current elapsed real-time in milliseconds (e.g., from {@link
+   *     Clock#elapsedRealtime()}).
    * @return The estimated position.
    */
-  public long getEstimatedPositionUs() {
+  public long getEstimatedPositionUs(long currentElapsedTimeMs) {
     if (!isPlaying()) {
       return this.positionUs;
     }
 
     // Snapshot of volatile position info
+    long positionUpdateSeq;
     long positionUs;
     long positionUpdateTimeMs;
     do {
-      // Read order of positionUpdateTimeMs then positionUs to be reverse of updatePositionUs write.
-      positionUpdateTimeMs = this.positionUpdateTimeMs;
+      positionUpdateSeq = this.positionUpdateSeq;
       positionUs = this.positionUs;
-    } while (positionUpdateTimeMs != this.positionUpdateTimeMs);
+      positionUpdateTimeMs = this.positionUpdateTimeMs;
+    } while (positionUpdateSeq % 2 != 0 || positionUpdateSeq != this.positionUpdateSeq);
 
-    long elapsedTimeMs = SystemClock.elapsedRealtime() - positionUpdateTimeMs;
+    long elapsedTimeMs = currentElapsedTimeMs - positionUpdateTimeMs;
+    // Cap the extrapolation to prevent unbounded ghost playback during thread deadlocks.
+    elapsedTimeMs = min(elapsedTimeMs, MAX_ELAPSED_TIME_MS);
+
     long estimatedPositionMs =
         Util.usToMs(positionUs) + (long) (elapsedTimeMs * playbackParameters.speed);
     return Util.msToUs(estimatedPositionMs);

@@ -21,13 +21,13 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Unit test for {@link DefaultRenderersFactoryTest} with {@link LibiamfAudioRenderer}. */
+/** Unit test for {@link DefaultRenderersFactoryTest} with {@link IamfAudioRenderer}. */
 @RunWith(AndroidJUnit4.class)
 public final class DefaultRenderersFactoryTest {
 
   @Test
   public void createRenderers_instantiatesIamfRenderer() {
     DefaultRenderersFactoryAsserts.assertExtensionRendererCreated(
-        LibiamfAudioRenderer.class, C.TRACK_TYPE_AUDIO);
+        IamfAudioRenderer.class, C.TRACK_TYPE_AUDIO);
   }
 }

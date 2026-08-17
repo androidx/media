@@ -124,8 +124,8 @@ public final class JsonUtil {
     if (exportResult.channelCount != C.LENGTH_UNSET) {
       jsonObject.put("channelCount", exportResult.channelCount);
     }
-    if (exportResult.durationMs != C.TIME_UNSET) {
-      jsonObject.put("durationMs", exportResult.durationMs);
+    if (exportResult.approximateDurationMs != C.TIME_UNSET) {
+      jsonObject.put("approximateDurationMs", exportResult.approximateDurationMs);
     }
     if (exportResult.fileSizeBytes != C.LENGTH_UNSET) {
       jsonObject.put("fileSizeBytes", exportResult.fileSizeBytes);

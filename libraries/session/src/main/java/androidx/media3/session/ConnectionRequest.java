@@ -45,7 +45,7 @@ import androidx.media3.common.util.Util;
       String packageName, int pid, Bundle connectionHints, int maxCommandsForMediaItems) {
     this(
         MediaLibraryInfo.VERSION_INT,
-        MediaControllerStub.VERSION_INT,
+        MediaLibraryInfo.INTERFACE_VERSION,
         packageName,
         pid,
         new Bundle(connectionHints),
