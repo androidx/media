@@ -22,15 +22,18 @@ import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.os.Bundle;
 import androidx.media3.common.MediaLibraryInfo;
+import androidx.media3.common.Player;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.session.legacy.MediaSessionManager;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.ByteArrayOutputStream;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.shadows.ShadowLooper;
 
 /** Tests for {@link MediaSession}. */
 @RunWith(AndroidJUnit4.class)
@@ -260,6 +263,28 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
 
     assertThat(decodedBitmap.getWidth()).isEqualTo(limit);
     assertThat(decodedBitmap.getHeight()).isEqualTo(limit);
+  }
+
+  @Test
+  public void prepare_withControllerReleasedInListenerCallback_doesNotCrash() throws Exception {
+    AtomicReference<MediaController> controllerReference = new AtomicReference<>();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onPlaybackStateChanged(int playbackState) {
+            MediaController controller = controllerReference.get();
+            if (controller != null) {
+              controller.release();
+            }
+          }
+        };
+    MediaController controller =
+        new MediaController.Builder(getApplicationContext(), session.getToken()).buildAsync().get();
+    controller.addListener(listener);
+    controllerReference.set(controller);
+
+    session.getPlayer().prepare();
+    ShadowLooper.idleMainLooper();
   }
 
   private static MediaSession.ControllerInfo createMinimalLegacyControllerInfo(

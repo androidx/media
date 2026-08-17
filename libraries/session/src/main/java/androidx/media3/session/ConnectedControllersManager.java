@@ -336,9 +336,11 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   public void updateLastSentTimelineAndTracks(
       ControllerInfo controllerInfo, Timeline timeline, Tracks tracks) {
     verifyApplicationThread();
-    ConnectedControllerRecord<T> record = checkNotNull(controllerRecords.get(controllerInfo));
-    record.lastSentTimeline = timeline;
-    record.lastSentTracks = tracks;
+    @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
+    if (record != null) {
+      record.lastSentTimeline = timeline;
+      record.lastSentTracks = tracks;
+    }
   }
 
   public void addToCommandQueue(
