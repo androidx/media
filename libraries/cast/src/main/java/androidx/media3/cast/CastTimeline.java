@@ -213,7 +213,8 @@ import java.util.Arrays;
     return Arrays.equals(ids, that.ids)
         && Arrays.equals(durationsUs, that.durationsUs)
         && Arrays.equals(defaultPositionsUs, that.defaultPositionsUs)
-        && Arrays.equals(isLive, that.isLive);
+        && Arrays.equals(isLive, that.isLive)
+        && Arrays.equals(mediaItems, that.mediaItems);
   }
 
   @Override
@@ -222,6 +223,7 @@ import java.util.Arrays;
     result = 31 * result + Arrays.hashCode(durationsUs);
     result = 31 * result + Arrays.hashCode(defaultPositionsUs);
     result = 31 * result + Arrays.hashCode(isLive);
+    result = 31 * result + Arrays.hashCode(mediaItems);
     return result;
   }
 }

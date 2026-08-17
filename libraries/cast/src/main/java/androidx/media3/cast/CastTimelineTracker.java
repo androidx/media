@@ -24,9 +24,12 @@ import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.Log;
+import androidx.media3.common.util.Util;
 import com.google.android.gms.cast.MediaInfo;
 import com.google.android.gms.cast.MediaQueueItem;
 import com.google.android.gms.cast.MediaStatus;
+import com.google.android.gms.cast.framework.media.MediaQueue;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -39,6 +42,11 @@ import java.util.List;
  * durations in the media queue items [See internal: b/65152553].
  */
 /* package */ final class CastTimelineTracker {
+  private static final String TAG = "CastTlTracker";
+
+  // Maximum number of queue item IDs fetched from the remote client per pass. This is also the
+  // cache size configured on MediaQueue to prevent cache evictions during multi-pass fetching.
+  @VisibleForTesting /* package */ static final int MAX_FETCH_COUNT = 20;
 
   private final SparseArray<CastTimeline.ItemData> itemIdToData;
   private final MediaItemConverter mediaItemConverter;
@@ -95,7 +103,8 @@ import java.util.List;
    * @return A {@link CastTimeline} that represents the given {@code remoteMediaClient} status.
    */
   public CastTimeline getCastTimeline(RemoteMediaClient remoteMediaClient) {
-    int[] itemIds = remoteMediaClient.getMediaQueue().getItemIds();
+    MediaQueue mediaQueue = remoteMediaClient.getMediaQueue();
+    int[] itemIds = mediaQueue.getItemIds();
     if (itemIds.length > 0) {
       // Only remove unused items when there is something in the queue to avoid removing all entries
       // if the remote media client clears the queue temporarily. See [Internal ref: b/128825216].
@@ -109,16 +118,36 @@ import java.util.List;
     }
 
     for (MediaQueueItem queueItem : mediaStatus.getQueueItems()) {
-      long defaultPositionUs = (long) (queueItem.getStartTime() * C.MICROS_PER_SECOND);
-      @Nullable MediaInfo mediaInfo = queueItem.getMedia();
-      String contentId = mediaInfo != null ? mediaInfo.getContentId() : UNKNOWN_CONTENT_ID;
-      MediaItem mediaItem = mediaItemsByContentId.get(contentId);
-      updateItemData(
-          queueItem.getItemId(),
-          mediaItem != null ? mediaItem : mediaItemConverter.toMediaItem(queueItem),
-          mediaInfo,
-          contentId,
-          defaultPositionUs);
+      updateItemDataFromQueueItem(queueItem);
+    }
+
+    int currentItemId = mediaStatus.getCurrentItemId();
+    int currentItemIndex = Util.linearSearch(itemIds, currentItemId);
+    if (currentItemIndex == C.INDEX_UNSET) {
+      // This is not expected to happen, but prevents us from running out of bounds in the following
+      // loop.
+      currentItemIndex = 0;
+    }
+
+    // Fetch missing item metadata starting from the current playback index forward.
+    // To prevent silent evictions in the MediaQueue fetch buffer (which is hard-capped at
+    // MediaQueue's internal DEFAULT_MAX_FETCH_COUNT = 20 items), we cap network fetch triggers per
+    // pass to MAX_FETCH_COUNT and fall back to cache-only lookups (fetchIfNeeded = false) for
+    // remaining items.
+    int fetchCount = 0;
+    for (int step = 0; step < itemIds.length; step++) {
+      int i = (currentItemIndex + step) % itemIds.length;
+      int itemId = itemIds[i];
+      CastTimeline.ItemData itemData = itemIdToData.get(itemId);
+      if (itemData == null || itemData.mediaItem == MediaItem.EMPTY) {
+        boolean fetchIfNeeded = fetchCount < MAX_FETCH_COUNT;
+        MediaQueueItem queueItem = mediaQueue.getItemAtIndex(i, fetchIfNeeded);
+        if (queueItem != null) {
+          updateItemDataFromQueueItem(queueItem);
+        } else if (fetchIfNeeded) {
+          fetchCount++;
+        }
+      }
     }
 
     // Process mediaStatus.getMediaInfo() after mediaStatus.getQueueItems()[...].getMedia(). Static
@@ -126,7 +155,6 @@ import java.util.List;
     // from buffered to live upon manifest loading). Updating from mediaStatus.getMediaInfo() second
     // ensures that active runtime playback state is preserved and not overwritten by stale queue
     // item metadata.
-    int currentItemId = mediaStatus.getCurrentItemId();
     MediaInfo currentMediaInfo = checkNotNull(mediaStatus.getMediaInfo());
     String currentContentId = currentMediaInfo.getContentId();
     MediaItem mediaItem = mediaItemsByContentId.get(currentContentId);
@@ -138,6 +166,28 @@ import java.util.List;
         /* defaultPositionUs= */ C.TIME_UNSET);
 
     return new CastTimeline(itemIds, itemIdToData);
+  }
+
+  private void updateItemDataFromQueueItem(MediaQueueItem queueItem) {
+    long defaultPositionUs = (long) (queueItem.getStartTime() * C.MICROS_PER_SECOND);
+    @Nullable MediaInfo mediaInfo = queueItem.getMedia();
+    String contentId = mediaInfo != null ? mediaInfo.getContentId() : UNKNOWN_CONTENT_ID;
+    @Nullable MediaItem mediaItem = mediaItemsByContentId.get(contentId);
+    if (mediaItem == null) {
+      try {
+        mediaItem = mediaItemConverter.toMediaItem(queueItem);
+      } catch (Exception e) {
+        // TODO(b/524966241): Remove try/catch once the converter doesn't throw parsing
+        // exceptions.
+        Log.w(TAG, "Failed to convert MediaQueueItem to MediaItem");
+      }
+    }
+    updateItemData(
+        queueItem.getItemId(),
+        mediaItem != null ? mediaItem : MediaItem.EMPTY,
+        mediaInfo,
+        contentId,
+        defaultPositionUs);
   }
 
   private void updateItemData(
