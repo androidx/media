@@ -1519,7 +1519,7 @@ public final class BoxParser {
     } else if (atomType == Mp4Box.TYPE_ap4x || atomType == Mp4Box.TYPE_ap4h
             || atomType == Mp4Box.TYPE_apch || atomType == Mp4Box.TYPE_apcn
             || atomType == Mp4Box.TYPE_apcs || atomType == Mp4Box.TYPE_apco) {
-      mimeType = MimeTypes.VIDEO_ProRes;
+      mimeType = MimeTypes.VIDEO_PRORES;
     }
 
     @Nullable List<byte[]> initializationData = null;

@@ -48,7 +48,7 @@ public final class MimeTypes {
   public static final String VIDEO_H264 = BASE_TYPE_VIDEO + "/avc";
   @UnstableApi public static final String VIDEO_APV = BASE_TYPE_VIDEO + "/apv";
   public static final String VIDEO_H265 = BASE_TYPE_VIDEO + "/hevc";
-  public static final String VIDEO_ProRes = BASE_TYPE_VIDEO + "/prores";
+  @UnstableApi public static final String VIDEO_PRORES = BASE_TYPE_VIDEO + "/prores";
   @UnstableApi public static final String VIDEO_H266 = BASE_TYPE_VIDEO + "/vvc";
   @UnstableApi public static final String VIDEO_VP8 = BASE_TYPE_VIDEO + "/x-vnd.on2.vp8";
   @UnstableApi public static final String VIDEO_VP9 = BASE_TYPE_VIDEO + "/x-vnd.on2.vp9";

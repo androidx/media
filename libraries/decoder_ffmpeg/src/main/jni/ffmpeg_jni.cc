@@ -16,7 +16,6 @@
 #include <android/log.h>
 #include <jni.h>
 #include <stdlib.h>
-#include <thread>
 #include <android/native_window.h>
 #include <android/native_window_jni.h>
 #include <libyuv.h>
@@ -153,6 +152,16 @@ jint ffmpegGetInputBufferPaddingSize(JNIEnv* env, jobject thiz) {
 
 jboolean ffmpegHasDecoder(JNIEnv* env, jobject thiz, jstring codecName) {
   return getCodecByName(env, codecName) != NULL;
+}
+
+jstring ffmpegGetAv1DecoderName(JNIEnv* env, jobject thiz) {
+  if (avcodec_find_decoder_by_name("libdav1d")) {
+    return env->NewStringUTF("libdav1d");
+  }
+  if (avcodec_find_decoder_by_name("libaom-av1")) {
+    return env->NewStringUTF("libaom-av1");
+  }
+  return NULL;
 }
 
 jlong ffmpegInitialize(JNIEnv* env, jobject thiz, jstring codecName,
@@ -447,33 +456,38 @@ struct JniContext {
     }
 
     bool MaybeAcquireNativeWindow(JNIEnv *env, jobject new_surface) {
-        if (surface == new_surface) {
+        if (surface != nullptr && env->IsSameObject(surface, new_surface)) {
             return true;
         }
         if (native_window) {
             ANativeWindow_release(native_window);
+            native_window = nullptr;
         }
         native_window_width = 0;
         native_window_height = 0;
         native_window = ANativeWindow_fromSurface(env, new_surface);
         if (native_window == nullptr) {
             LOGE("kJniStatusANativeWindowError");
-            surface = nullptr;
+            if (surface != nullptr) {
+                env->DeleteGlobalRef(surface);
+                surface = nullptr;
+            }
             return false;
         }
-        surface = new_surface;
+        if (surface != nullptr) {
+            env->DeleteGlobalRef(surface);
+        }
+        // Must hold a global reference: local references are invalid once the
+        // JNI call returns, and IsSameObject requires a valid reference.
+        surface = env->NewGlobalRef(new_surface);
         return true;
     }
 
     jfieldID data_field;
-    jfieldID yuvPlanes_field;
-    jfieldID yuvStrides_field;
     jfieldID width_field;
     jfieldID height_field;
     jfieldID pts_field;
-    jmethodID init_for_private_frame_method;
     jmethodID init_for_yuv_frame_method;
-    jmethodID init_method;
 
     AVCodecContext *codecContext;
     SwsContext *swsContext;
@@ -489,22 +503,44 @@ struct JniContext {
 constexpr int AlignTo16(int value) { return (value + 15) & (~15); }
 
 /**
- * Convert AvFrame ColorSpace to exoplayer supported ColorSpace
+ * Convert AVFrame ColorSpace to the VideoDecoderOutputBuffer#COLORSPACE_* values
+ * (see LINT.ThenChange in VideoDecoderOutputBuffer.java): BT601=1, BT709=2, BT2020=3.
  */
 constexpr int cvt_colorspace(AVColorSpace colorSpace) {
-    int colorspace = 0;
     switch (colorSpace) {
         case AVCOL_SPC_BT470BG:
         case AVCOL_SPC_SMPTE170M:
         case AVCOL_SPC_SMPTE240M:
-            colorspace = 1;
+            // COLORSPACE_BT601
+            return 1;
         case AVCOL_SPC_BT709:
-            colorspace = 2;
+            // COLORSPACE_BT709
+            return 2;
         case AVCOL_SPC_BT2020_NCL:
         case AVCOL_SPC_BT2020_CL:
-            colorspace = 3;
+            // COLORSPACE_BT2020
+            return 3;
+        default:
+            return 0;
     }
-    return colorspace;
+}
+
+/**
+ * Returns the swscale coefficient set matching an AVColorSpace, defaulting to BT.601.
+ */
+const int *cvt_colorspace_coefficients(AVColorSpace colorSpace) {
+    switch (colorSpace) {
+        case AVCOL_SPC_BT709:
+            return sws_getCoefficients(SWS_CS_ITU709);
+        case AVCOL_SPC_BT2020_NCL:
+        case AVCOL_SPC_BT2020_CL:
+            return sws_getCoefficients(SWS_CS_BT2020);
+        case AVCOL_SPC_BT470BG:
+        case AVCOL_SPC_SMPTE170M:
+        case AVCOL_SPC_SMPTE240M:
+        default:
+            return sws_getCoefficients(SWS_CS_ITU601);
+    }
 }
 
 /**
@@ -521,12 +557,23 @@ AVFrame *cvt_format(JniContext *jniContext,
     auto swsContext = sws_getCachedContext(jniContext->swsContext,
                                            src->width, src->height, src_format,
                                            dst_width, dst_height, dst_format,
-                                           SWS_FAST_BILINEAR, NULL, NULL, NULL
+                                           SWS_BILINEAR, NULL, NULL, NULL
     );
     if (!swsContext) {
         LOGE("Failed to allocate swsContext.");
         return nullptr;
     }
+
+    // Convert with the frame's own color space / range (same on both sides) so the
+    // conversion only changes bit depth / format and keeps the YUV values intact.
+    // Otherwise swscale defaults to BT.601 limited and HDR / wide-gamut content
+    // (e.g. 10-bit BT.709 or BT.2020) is shifted, then re-shifted downstream when the
+    // renderer applies the color space signalled in VideoDecoderOutputBuffer.
+    int src_range = (src->color_range == AVCOL_RANGE_JPEG) ? 1 : 0;
+    const int *coefficients = cvt_colorspace_coefficients(src->colorspace);
+    sws_setColorspaceDetails(swsContext, coefficients, src_range,
+                             coefficients, src_range,
+                             0, 1 << 16, 1 << 16);
 
     jniContext->swsContext = swsContext;
     auto dst = av_frame_alloc();
@@ -575,10 +622,15 @@ JniContext *createVideoContext(JNIEnv *env,
                                jint width,
                                jint height) {
     JniContext *jniContext = new(std::nothrow)JniContext();
+    if (!jniContext) {
+        LOGE("Failed to allocate JniContext.");
+        return NULL;
+    }
 
     AVCodecContext *codecContext = avcodec_alloc_context3(codec);
     if (!codecContext) {
         LOGE("Failed to allocate context.");
+        delete jniContext;
         return NULL;
     }
 
@@ -592,31 +644,37 @@ JniContext *createVideoContext(JNIEnv *env,
         if (!codecContext->extradata) {
             LOGE("Failed to allocate extradata.");
             releaseContext(codecContext);
+            delete jniContext;
             return NULL;
         }
         env->GetByteArrayRegion(extraData, 0, size, (jbyte *) codecContext->extradata);
     }
 
     // opt decode speed.
-    codecContext->skip_loop_filter = AVDISCARD_ALL;
+    // AVDISCARD_ALL would skip loop filtering entirely and visibly degrade quality
+    // (blocking artifacts); DEFAULT keeps the codec's standard behaviour.
+    codecContext->skip_loop_filter = AVDISCARD_DEFAULT;
     codecContext->skip_frame = AVDISCARD_DEFAULT;
     codecContext->thread_count = threads;
     codecContext->thread_type = FF_THREAD_FRAME;
     codecContext->err_recognition = AV_EF_IGNORE_ERR;
 
     AVDictionary *opts = NULL;
-    // libdav1d should set max_frame_delay
-    if (codec->id == AV_CODEC_ID_AV1) {
+    // libdav1d is the only AV1 decoder that exposes max_frame_delay. Only set it for
+    // libdav1d, otherwise avcodec_open2 fails with "Option not found" (e.g. libaom-av1).
+    if (codec->id == AV_CODEC_ID_AV1 && strcmp(codec->name, "libdav1d") == 0) {
         av_dict_set(&opts, "max_frame_delay", "1", 0);
     }
 
-    // mp43 format need set width x height
+    // Pass the container-advertised dimensions as the initial decode size. Formats whose
+    // bitstream lacks reliable dimensions (e.g. mp42/mp43) require this; other decoders
+    // (h264/hevc/vp9/av1/...) override it from the bitstream when opening.
     if (width > 0 && height > 0) {
         codecContext->width = width;
         codecContext->height = height;
     }
 
-    int result = avcodec_open2(codecContext, codec, NULL);
+    int result = avcodec_open2(codecContext, codec, &opts);
     if (result < 0) {
         logError("avcodec_open2", result);
         av_dict_free(&opts);
@@ -629,21 +687,18 @@ JniContext *createVideoContext(JNIEnv *env,
 
     // Populate JNI References.
     const jclass outputBufferClass = env->FindClass("androidx/media3/decoder/VideoDecoderOutputBuffer");
+    if (!outputBufferClass) {
+        LOGE("Failed to find VideoDecoderOutputBuffer class.");
+        releaseContext(codecContext);
+        delete jniContext;
+        return NULL;
+    }
     jniContext->data_field = env->GetFieldID(outputBufferClass, "data", "Ljava/nio/ByteBuffer;");
     jniContext->width_field = env->GetFieldID(outputBufferClass, "width", "I");
     jniContext->height_field = env->GetFieldID(outputBufferClass, "height", "I");
     jniContext->pts_field = env->GetFieldID(outputBufferClass, "timeUs", "J");
-
-
-    jniContext->yuvPlanes_field =
-            env->GetFieldID(outputBufferClass, "yuvPlanes", "[Ljava/nio/ByteBuffer;");
-    jniContext->yuvStrides_field = env->GetFieldID(outputBufferClass, "yuvStrides", "[I");
-    jniContext->init_for_private_frame_method =
-            env->GetMethodID(outputBufferClass, "initForPrivateFrame", "(II)V");
     jniContext->init_for_yuv_frame_method =
             env->GetMethodID(outputBufferClass, "initForYuvFrame", "(IIIII)Z");
-    jniContext->init_method =
-            env->GetMethodID(outputBufferClass, "init", "(JILjava/nio/ByteBuffer;)V");
 
     return jniContext;
 }
@@ -663,18 +718,20 @@ VIDEO_DECODER_FUNC(jlong, ffmpegInitialize, jstring codecName, jbyteArray extraD
 
 VIDEO_DECODER_FUNC(jlong, ffmpegReset, jlong jContext) {
     JniContext *const jniContext = reinterpret_cast<JniContext *>(jContext);
-    AVCodecContext *context = jniContext->codecContext;
-    if (!context) {
+    if (!jniContext || !jniContext->codecContext) {
         LOGE("Tried to reset without a context.");
         return 0L;
     }
 
-    avcodec_flush_buffers(context);
+    avcodec_flush_buffers(jniContext->codecContext);
     return (jlong) jniContext;
 }
 
 VIDEO_DECODER_FUNC(void, ffmpegRelease, jlong jContext) {
     JniContext *const jniContext = reinterpret_cast<JniContext *>(jContext);
+    if (!jniContext) {
+        return;
+    }
     AVCodecContext *context = jniContext->codecContext;
     SwsContext *swsContext = jniContext->swsContext;
 
@@ -687,16 +744,36 @@ VIDEO_DECODER_FUNC(void, ffmpegRelease, jlong jContext) {
         sws_freeContext(swsContext);
         jniContext->swsContext = NULL;
     }
+
+    if (jniContext->surface != nullptr) {
+        env->DeleteGlobalRef(jniContext->surface);
+        jniContext->surface = nullptr;
+    }
+
+    // ~JniContext() releases the ANativeWindow acquired via ANativeWindow_fromSurface.
+    delete jniContext;
 }
 
 
 VIDEO_DECODER_FUNC(jint, ffmpegSendPacket, jlong jContext, jobject encodedData,
                    jint length, jlong inputTimeUs) {
     JniContext *const jniContext = reinterpret_cast<JniContext *>(jContext);
+    if (!jniContext || !encodedData) {
+        LOGE("Invalid context or input buffer.");
+        return VIDEO_DECODER_ERROR_OTHER;
+    }
     AVCodecContext *avContext = jniContext->codecContext;
 
     uint8_t *inputBuffer = (uint8_t *) env->GetDirectBufferAddress(encodedData);
+    if (!inputBuffer) {
+        LOGE("Input data is not a direct ByteBuffer.");
+        return VIDEO_DECODER_ERROR_OTHER;
+    }
     auto packet = av_packet_alloc();
+    if (!packet) {
+        LOGE("Failed to allocate packet.");
+        return VIDEO_DECODER_ERROR_OTHER;
+    }
     packet->data = inputBuffer;
     packet->size = length;
     packet->pts = inputTimeUs;
@@ -747,16 +824,19 @@ VIDEO_DECODER_FUNC(jint, ffmpegReceiveFrame, jlong jContext, jint outputMode, jo
         return VIDEO_DECODER_ERROR_OTHER;
     }
 
-    // Use swscale to cvt format to YUV420P
-    AVFrame *cvt_frame = cvt_format(jniContext, raw_frame, AV_PIX_FMT_YUV420P, raw_frame->width, raw_frame->height);
-    if (cvt_frame == nullptr) {
+    // Convert to YUV420P with swscale only when the decoded format differs. When the
+    // frame is already YUV420P (the common case), use it directly and skip one full
+    // frame allocation + conversion per frame.
+    AVFrame *cvt_frame = raw_frame;
+    if (raw_frame->format != AV_PIX_FMT_YUV420P) {
+        cvt_frame = cvt_format(jniContext, raw_frame, AV_PIX_FMT_YUV420P, raw_frame->width, raw_frame->height);
+        if (cvt_frame == nullptr) {
+            av_frame_free(&raw_frame);
+            LOGW("Convert To YUV420P failed.");
+            return VIDEO_DECODER_ERROR_OTHER;
+        }
         av_frame_free(&raw_frame);
-        LOGW("Convert To YUV420P failed.");
-        return VIDEO_DECODER_ERROR_OTHER;
     }
-
-    // Convert Success! free the raw frame!
-    av_frame_free(&raw_frame);
 
     int width = env->GetIntField(jOutputBuffer, jniContext->width_field);
     int height = env->GetIntField(jOutputBuffer, jniContext->height_field);
@@ -778,12 +858,18 @@ VIDEO_DECODER_FUNC(jint, ffmpegReceiveFrame, jlong jContext, jint outputMode, jo
     int stride_uv = (output_width + 1) / 2;
 
     jboolean init_result = JNI_TRUE;
-    if (width != output_width && height != output_height) {
+    if (width != output_width || height != output_height) {
         // init data
         init_result = env->CallBooleanMethod(jOutputBuffer, jniContext->init_for_yuv_frame_method,
                                              output_width, output_height, stride_y, stride_uv, color_space);
-        LOGE("init_for_yuv_frame_method! wh [%d,%d], buffer wh [%d,%d]", output_width, output_height, width, height);
-    } else {
+        LOGD("init_for_yuv_frame_method! wh [%d,%d], buffer wh [%d,%d]", output_width, output_height, width, height);
+    }
+    // Override the timestamp with the frame's own PTS in both paths. FFmpeg may output a
+    // reordered frame whose PTS differs from the input buffer that triggered the receive,
+    // so the timestamp should come from the decoded frame itself. Guard against frames
+    // without a PTS (AV_NOPTS_VALUE), in which case the Java-side fallback timestamp
+    // (inputBuffer.timeUs) is kept.
+    if (cvt_frame->pts != AV_NOPTS_VALUE) {
         env->SetLongField(jOutputBuffer, jniContext->pts_field, cvt_frame->pts);
     }
 
@@ -806,7 +892,7 @@ VIDEO_DECODER_FUNC(jint, ffmpegReceiveFrame, jlong jContext, jint outputMode, jo
 
     // rotate YUV data & copy to OutputBuffer
     libyuv::RotationMode rotate = cvt_rotate(jniContext->rotate_degree);
-    libyuv::I420Rotate(
+    int rotate_result = libyuv::I420Rotate(
             cvt_frame->data[0], cvt_frame->linesize[0],
             cvt_frame->data[1], cvt_frame->linesize[1],
             cvt_frame->data[2], cvt_frame->linesize[2],
@@ -816,6 +902,10 @@ VIDEO_DECODER_FUNC(jint, ffmpegReceiveFrame, jlong jContext, jint outputMode, jo
             cvt_frame->width, cvt_frame->height, rotate
     );
     av_frame_free(&cvt_frame);
+    if (rotate_result != 0) {
+        LOGE("I420Rotate failed: %d", rotate_result);
+        return VIDEO_DECODER_ERROR_OTHER;
+    }
     return result;
 }
 
@@ -845,7 +935,10 @@ VIDEO_DECODER_FUNC(jint, ffmpegRenderFrame, jlong jContext, jobject jSurface,
     int result = ANativeWindow_lock(jniContext->native_window, &native_window_buffer, nullptr);
     if (result == -19) {
         // Surface: dequeueBuffer failed (No such device)
-        jniContext->surface = nullptr;
+        if (jniContext->surface != nullptr) {
+            env->DeleteGlobalRef(jniContext->surface);
+            jniContext->surface = nullptr;
+        }
         return VIDEO_DECODER_ERROR_SURFACE;
     } else if (result || native_window_buffer.bits == nullptr) {
         LOGE("kJniStatusANativeWindowError ANativeWindow_lock rst [%d]", result);
@@ -870,7 +963,7 @@ VIDEO_DECODER_FUNC(jint, ffmpegRenderFrame, jlong jContext, jobject jSurface,
     const int window_v_plane_size = window_v_plane_height * window_uv_plane_stride;
     const auto window_bits = reinterpret_cast<uint8_t *>(native_window_buffer.bits);
 
-    libyuv::I420Copy(
+    int copy_result = libyuv::I420Copy(
             data, src_stride_y,
             data + src_length_y, src_stride_uv,
             data + src_length_y + src_length_uv, src_stride_uv,
@@ -879,6 +972,11 @@ VIDEO_DECODER_FUNC(jint, ffmpegRenderFrame, jlong jContext, jobject jSurface,
             window_bits + window_y_plane_size, window_uv_plane_stride,
             native_window_buffer.width, native_window_buffer.height
     );
+    if (copy_result != 0) {
+        ANativeWindow_unlockAndPost(jniContext->native_window);
+        LOGE("I420Copy failed: %d", copy_result);
+        return VIDEO_DECODER_ERROR_OTHER;
+    }
     int rst = ANativeWindow_unlockAndPost(jniContext->native_window);
     if (rst) {
         LOGE("kJniStatusANativeWindowError ANativeWindow_unlockAndPost rst [%d]", rst);
@@ -942,6 +1040,8 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
        reinterpret_cast<void*>(ffmpegGetInputBufferPaddingSize)},
       {"ffmpegHasDecoder", "(Ljava/lang/String;)Z",
        reinterpret_cast<void*>(ffmpegHasDecoder)},
+      {"ffmpegGetAv1DecoderName", "()Ljava/lang/String;",
+       reinterpret_cast<void*>(ffmpegGetAv1DecoderName)},
   };
   if (env->RegisterNatives(libraryClazz, kFfmpegLibraryMethods,
                            sizeof(kFfmpegLibraryMethods) /

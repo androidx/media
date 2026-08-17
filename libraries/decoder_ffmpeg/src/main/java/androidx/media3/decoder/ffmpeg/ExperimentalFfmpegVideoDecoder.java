@@ -31,6 +31,7 @@ import androidx.media3.decoder.SimpleDecoder;
 import androidx.media3.decoder.VideoDecoderOutputBuffer;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayDeque;
 import java.util.List;
 
 /**
@@ -48,6 +49,7 @@ import java.util.List;
   private static final int VIDEO_DECODER_ERROR_INVALID_DATA = -1;
   private static final int VIDEO_DECODER_ERROR_OTHER = -2;
   private static final int VIDEO_DECODER_ERROR_READ_FRAME = -3;
+  private static final int VIDEO_DECODER_ERROR_SURFACE = -4;
   // LINT.ThenChange(../../../../../../../jni/ffmpeg_jni.cc)
 
   private final String codecName;
@@ -58,6 +60,26 @@ import java.util.List;
   private volatile int outputMode;
 
   private int degree = 0;
+
+  /**
+   * Input samples that could not be sent yet because FFmpeg's internal queue was full
+   * (avcodec_send_packet returned EAGAIN, which does NOT consume the packet). A queue is
+   * used because the queue can stay full for several consecutive inputs (e.g. while
+   * FFmpeg's frame threads are still decoding earlier packets); overwriting a single
+   * pending slot would drop the earlier sample and corrupt the reference chain.
+   */
+  private final ArrayDeque<PendingInput> pendingInputs = new ArrayDeque<>();
+
+  /** A copy of an input sample that is waiting to be sent to FFmpeg. */
+  private static final class PendingInput {
+    public final ByteBuffer data;
+    public final long timeUs;
+
+    public PendingInput(ByteBuffer data, long timeUs) {
+      this.data = data;
+      this.timeUs = timeUs;
+    }
+  }
 
   /**
    * Creates a Ffmpeg video Decoder.
@@ -125,7 +147,11 @@ import java.util.List;
 
   @Override
   protected DecoderInputBuffer createInputBuffer() {
-    return new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT);
+    // FFmpeg bitstream parsers may read up to AV_INPUT_BUFFER_PADDING_SIZE bytes past the
+    // end of the packet data, so the input buffers must be padded like the audio decoder.
+    return new DecoderInputBuffer(
+        DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT,
+        FfmpegLibrary.getInputBufferPaddingSize());
   }
 
   @Override
@@ -138,31 +164,64 @@ import java.util.List;
   protected FfmpegDecoderException decode(
       DecoderInputBuffer inputBuffer, VideoDecoderOutputBuffer outputBuffer, boolean reset) {
     if (reset) {
-
       nativeContext = ffmpegReset(nativeContext);
       if (nativeContext == 0) {
         return new FfmpegDecoderException("Error resetting (see logcat).");
       }
+      pendingInputs.clear();
     }
 
-    // send packet
     ByteBuffer inputData = Util.castNonNull(inputBuffer.data);
-    int inputSize = inputData.limit();
-    // enqueue origin data
-    int sendPacketResult = ffmpegSendPacket(nativeContext, inputData, inputSize,
-        inputBuffer.timeUs);
+    boolean decodeOnly = !isAtLeastOutputStartTimeUs(inputBuffer.timeUs);
+
+    // 1. Send as many pending inputs as FFmpeg currently accepts. A pending sample that
+    // returns EAGAIN stays at the head and is retried on the next call.
+    while (!pendingInputs.isEmpty()) {
+      PendingInput pending = pendingInputs.peek();
+      int pendingResult =
+          ffmpegSendPacket(nativeContext, pending.data, pending.data.limit(), pending.timeUs);
+      if (pendingResult == VIDEO_DECODER_ERROR_READ_FRAME) {
+        break;
+      }
+      pendingInputs.removeFirst();
+      if (pendingResult == VIDEO_DECODER_ERROR_OTHER) {
+        return new FfmpegDecoderException("ffmpegDecode error: (see logcat)");
+      }
+      // VIDEO_DECODER_ERROR_INVALID_DATA: drop the invalid sample and continue.
+    }
+
+    // 2. Send the current input packet. If FFmpeg's queue is still full, cache the input
+    // (it must never be dropped: avcodec_send_packet EAGAIN means "not consumed") and
+    // drain one decoded frame into this output buffer instead.
+    int sendPacketResult =
+        ffmpegSendPacket(nativeContext, inputData, inputData.limit(), inputBuffer.timeUs);
+
+    if (sendPacketResult == VIDEO_DECODER_ERROR_READ_FRAME) {
+      pendingInputs.addLast(copyPendingInput(inputData, inputBuffer.timeUs));
+      if (!decodeOnly) {
+        outputBuffer.init(inputBuffer.timeUs, outputMode, null);
+      }
+      int drainResult = ffmpegReceiveFrame(nativeContext, outputMode, outputBuffer, decodeOnly);
+      if (drainResult == VIDEO_DECODER_ERROR_OTHER) {
+        return new FfmpegDecoderException("ffmpegDecode error: (see logcat)");
+      }
+      if (drainResult == VIDEO_DECODER_ERROR_INVALID_DATA) {
+        outputBuffer.shouldBeSkipped = true;
+      } else if (!decodeOnly) {
+        // The drained frame belongs to the same stream, so the current format applies.
+        outputBuffer.format = inputBuffer.format;
+      }
+      return null;
+    }
 
     if (sendPacketResult == VIDEO_DECODER_ERROR_INVALID_DATA) {
       outputBuffer.shouldBeSkipped = true;
       return null;
-    } else if (sendPacketResult == VIDEO_DECODER_ERROR_READ_FRAME) {
-      // need read frame
     } else if (sendPacketResult == VIDEO_DECODER_ERROR_OTHER) {
       return new FfmpegDecoderException("ffmpegDecode error: (see logcat)");
     }
 
     // receive frame
-    boolean decodeOnly = !isAtLeastOutputStartTimeUs(inputBuffer.timeUs);
     // We need to dequeue the decoded frame from the decoder even when the input data is
     // decode-only.
     if (!decodeOnly) {
@@ -182,6 +241,18 @@ import java.util.List;
     }
 
     return null;
+  }
+
+  /**
+   * Copies the input sample into a decoder-owned buffer so it survives the return from
+   * {@link #decode} (the {@link DecoderInputBuffer} is returned to the pool afterwards).
+   */
+  private static PendingInput copyPendingInput(ByteBuffer inputData, long timeUs) {
+    inputData.position(0);
+    ByteBuffer copy = ByteBuffer.allocateDirect(inputData.limit());
+    copy.put(inputData);
+    copy.flip();
+    return new PendingInput(copy, timeUs);
   }
 
   @Override
@@ -212,9 +283,9 @@ import java.util.List;
     }
     int rst = ffmpegRenderFrame(nativeContext, surface, outputBuffer, outputBuffer.width,
         outputBuffer.height);
-    if (rst == VIDEO_DECODER_ERROR_OTHER) {
+    if (rst == VIDEO_DECODER_ERROR_OTHER || rst == VIDEO_DECODER_ERROR_SURFACE) {
       throw new FfmpegDecoderException(
-          "Buffer render error: ");
+          "Buffer render error: " + rst);
     }
   }
 

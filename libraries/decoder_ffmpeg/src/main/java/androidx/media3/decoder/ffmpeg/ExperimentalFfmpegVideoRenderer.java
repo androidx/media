@@ -37,7 +37,6 @@ import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.video.DecoderVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
-import java.util.Objects;
 
 // TODO: Merge actual implementation in https://github.com/androidx/media/pull/1591.
 /**
@@ -140,9 +139,11 @@ public final class ExperimentalFfmpegVideoRenderer extends DecoderVideoRenderer 
     } else if (format.cryptoType != C.CRYPTO_TYPE_NONE) {
       return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_DRM);
     } else {
+      // The FFmpeg decoder has no reconfiguration channel (no way to update extradata /
+      // dimensions on an open decoder), so adaptive switching requires a decoder rebuild.
       return RendererCapabilities.create(
           C.FORMAT_HANDLED,
-          ADAPTIVE_SEAMLESS,
+          ADAPTIVE_NOT_SEAMLESS,
           TUNNELING_NOT_SUPPORTED);
     }
   }
@@ -154,7 +155,7 @@ public final class ExperimentalFfmpegVideoRenderer extends DecoderVideoRenderer 
     TraceUtil.beginSection("createFfmpegVideoDecoder");
     int initialInputBufferSize =
         format.maxInputSize != Format.NO_VALUE ? format.maxInputSize : DEFAULT_INPUT_BUFFER_SIZE;
-    int threads = Math.max(this.threads, 4);
+    int threads = Math.max(this.threads, 1);
     ExperimentalFfmpegVideoDecoder decoder =
         new ExperimentalFfmpegVideoDecoder(numInputBuffers, numOutputBuffers,
             initialInputBufferSize, threads,
@@ -167,12 +168,17 @@ public final class ExperimentalFfmpegVideoRenderer extends DecoderVideoRenderer 
   @Override
   protected void renderOutputBufferToSurface(VideoDecoderOutputBuffer outputBuffer, Surface surface)
       throws FfmpegDecoderException {
-    if (decoder == null) {
-      throw new FfmpegDecoderException(
-          "Failed to render output buffer to surface: decoder is not initialized.");
+    try {
+      if (decoder == null) {
+        throw new FfmpegDecoderException(
+            "Failed to render output buffer to surface: decoder is not initialized.");
+      }
+      decoder.renderToSurface(outputBuffer, surface);
+    } finally {
+      // Always return the buffer to the pool, also on render failure, to avoid
+      // starving the SimpleDecoder output-buffer pool.
+      outputBuffer.release();
     }
-    decoder.renderToSurface(outputBuffer, surface);
-    outputBuffer.release();
   }
 
   @Override
@@ -185,13 +191,12 @@ public final class ExperimentalFfmpegVideoRenderer extends DecoderVideoRenderer 
   @Override
   protected DecoderReuseEvaluation canReuseDecoder(
       String decoderName, Format oldFormat, Format newFormat) {
-    boolean sameMimeType = Objects.equals(oldFormat.sampleMimeType, newFormat.sampleMimeType);
-    // TODO: Ability to reuse the decoder may be MIME type dependent.
+    // No reconfiguration support: always rebuild the decoder on any format change.
     return new DecoderReuseEvaluation(
         decoderName,
         oldFormat,
         newFormat,
-        sameMimeType ? REUSE_RESULT_YES_WITHOUT_RECONFIGURATION : REUSE_RESULT_NO,
-        sameMimeType ? 0 : DISCARD_REASON_MIME_TYPE_CHANGED);
+        REUSE_RESULT_NO,
+        DISCARD_REASON_MIME_TYPE_CHANGED);
   }
 }

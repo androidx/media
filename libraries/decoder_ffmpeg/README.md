@@ -144,6 +144,20 @@ a custom track selector the choice of `Renderer` is up to your implementation,
 so you need to make sure you are passing an `FfmpegAudioRenderer` to the player,
 then implement your own logic to use the renderer for a given track.
 
+## Known limitations of the experimental video renderer
+
+`ExperimentalFfmpegVideoRenderer` is built on the 1-input / 1-output
+`SimpleDecoder` model. FFmpeg video decoders keep an internal reorder buffer for
+streams with B-frames (e.g. most H.264/HEVC content), so frames decoded from
+such streams are emitted one input sample later and the frames still buffered
+inside FFmpeg at end-of-stream are not flushed. Practical impact:
+
+*   Streams without B-frames (e.g. IPPP H.264, MPEG-4, ProRes, VP8/VP9, AV1)
+    play correctly.
+*   Streams with B-frames may lose the last few frames at the end of playback
+    and can exhibit minor timestamp jitter. Decoded frame content is always
+    matched to its own PTS, so playback stays in order.
+
 [top level README]: ../../README.md
 [Android NDK]: https://developer.android.com/tools/sdk/ndk/index.html
 [Ninja]: https://ninja-build.org/

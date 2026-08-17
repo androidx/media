@@ -163,14 +163,15 @@ public final class FfmpegLibrary {
         return "vp8";
       case MimeTypes.VIDEO_VP9:
         return "vp9";
-      case MimeTypes.VIDEO_WEBM:
-        return "webm";
+      // MimeTypes.VIDEO_WEBM ("video/webm") is a container type, not a codec; the actual codec
+      // (VP8/VP9) is exposed via its own MIME type, so no mapping is possible here.
       case MimeTypes.VIDEO_MPEG:
-        return "mpegvideo";
-      case MimeTypes.VIDEO_MP2T:
+        // "video/mpeg" (from PS demuxing) can carry MPEG-1 or MPEG-2 video; the
+        // mpeg2video decoder in FFmpeg handles both, so use it instead of mpeg1video.
+        return "mpeg2video";
       case MimeTypes.VIDEO_MPEG2:
         return "mpeg2video";
-      case MimeTypes.VIDEO_ProRes:
+      case MimeTypes.VIDEO_PRORES:
         return "prores";
       case MimeTypes.VIDEO_MP4V:
       case MimeTypes.VIDEO_DIVX:
@@ -180,7 +181,12 @@ public final class FfmpegLibrary {
       case MimeTypes.VIDEO_MP43:
         return "msmpeg4";
       case MimeTypes.VIDEO_AV1:
-        return "libaom-av1";
+        // Probe the built-in AV1 decoder once and cache the result: libdav1d is
+        // preferred, libaom-av1 as a fallback.
+        if (av1DecoderName == null) {
+          av1DecoderName = ffmpegGetAv1DecoderName();
+        }
+        return av1DecoderName;
       case MimeTypes.VIDEO_MJPEG:
         return "mjpeg";
       case MimeTypes.VIDEO_H263:
@@ -203,4 +209,10 @@ public final class FfmpegLibrary {
   private static native int ffmpegGetInputBufferPaddingSize();
 
   private static native boolean ffmpegHasDecoder(String codecName);
+
+  /** Lazily probed AV1 decoder name, see {@link #getCodecName(String)}. */
+  @Nullable private static String av1DecoderName;
+
+  @Nullable
+  private static native String ffmpegGetAv1DecoderName();
 }
