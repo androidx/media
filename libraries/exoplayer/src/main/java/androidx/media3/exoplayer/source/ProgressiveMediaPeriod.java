@@ -1143,13 +1143,28 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         continue;
       }
 
-      if (sampleQueue.getReadIndex() == 0 && isSameAsLastSeekPosition) {
+      if (isSingleSample) {
+        // Single sample media (like images) only have one sample, so seeking always succeeds
+        // by resetting to the first sample.
+        sampleQueue.seekTo(sampleQueue.getFirstIndex());
+        continue;
+      }
+      long firstTimestampUs = sampleQueue.getFirstTimestampUs();
+      if (firstTimestampUs != Long.MIN_VALUE
+          && positionUs <= firstTimestampUs
+          && sampleQueue.getFirstIndex() == 0
+          && isSameAsLastSeekPosition) {
+        // If the seek target position is at or before the timestamp of the very first queued
+        // sample,
+        // and all samples loaded from the beginning of the stream are still present, reset to the
+        // first sample by index. This avoids falling through to a timestamp-based seek, which would
+        // reject the seek if the target position is strictly smaller than the first sample's
+        // timestamp (e.g., when seeking to time 0 on an audio track with encoder delay).
+        sampleQueue.seekTo(sampleQueue.getFirstIndex());
         continue;
       }
       boolean seekInsideQueue =
-          isSingleSample
-              ? sampleQueue.seekTo(sampleQueue.getFirstIndex())
-              : sampleQueue.seekTo(positionUs, /* allowTimeBeyondBuffer= */ loadingFinished);
+          sampleQueue.seekTo(positionUs, /* allowTimeBeyondBuffer= */ loadingFinished);
       // If we have AV tracks then an in-buffer seek is successful if the seek into every AV queue
       // is successful. We ignore whether seeks within non-AV queues are successful in this case, as
       // they may be sparse or poorly interleaved. If we only have non-AV tracks then a seek is

@@ -19,8 +19,10 @@ import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeTrue;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.net.Uri;
+import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
@@ -442,6 +444,69 @@ public final class ProgressiveMediaPeriodTest {
         createMediaPeriod(extractor, imageDurationUs, executor, executorReleased);
     mediaPeriod.release();
   }
+
+  @Test
+  public void seekToUs_toStreamStartWithPositiveFirstSampleTimestamp_seeksInsideBuffer()
+      throws Exception {
+    ProgressiveMediaPeriod mediaPeriod =
+        createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    boolean[] streamResetFlags = new boolean[trackGroups.length];
+    selections[1] =
+        new FakeTrackSelection(trackGroups.get(1), new int[] {0}, /* selectedIndex= */ 0);
+    long unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            streamResetFlags,
+            /* positionUs= */ 0);
+
+    // Initial load until buffered.
+    boolean unusedLoad =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    runMainLooperUntil(
+        () -> {
+          mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
+          return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
+        });
+    shadowOf(Looper.getMainLooper()).idle();
+
+    // Read first sample to advance read index past 0.
+    FormatHolder formatHolder = new FormatHolder();
+    DecoderInputBuffer buffer =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
+    int readResult = streams[1].readData(formatHolder, buffer, /* readFlags= */ 0);
+    if (readResult == C.RESULT_FORMAT_READ) {
+      buffer.clear();
+      readResult = streams[1].readData(formatHolder, buffer, /* readFlags= */ 0);
+    }
+    assertThat(readResult).isEqualTo(C.RESULT_BUFFER_READ);
+    long firstSampleTimeUs = buffer.timeUs;
+    assertThat(firstSampleTimeUs).isGreaterThan(0);
+
+    // Seek back to position 0 (same as last seek position).
+    long seekTimeUs = mediaPeriod.seekToUs(0);
+    assertThat(seekTimeUs).isEqualTo(0);
+
+    // Verify in-buffer seek was successful and loading is not restarted.
+    assertThat(mediaPeriod.isLoading()).isFalse();
+
+    // Verify reading starts again from the first sample.
+    buffer.clear();
+    readResult = streams[1].readData(formatHolder, buffer, /* readFlags= */ 0);
+    if (readResult == C.RESULT_FORMAT_READ) {
+      buffer.clear();
+      readResult = streams[1].readData(formatHolder, buffer, /* readFlags= */ 0);
+    }
+    assertThat(readResult).isEqualTo(C.RESULT_BUFFER_READ);
+    assertThat(buffer.timeUs).isEqualTo(firstSampleTimeUs);
+
+    mediaPeriod.release();
+  }
+
 
   private static final class ExecutionTrackingThread extends Thread {
     private final AtomicBoolean hasRun;
