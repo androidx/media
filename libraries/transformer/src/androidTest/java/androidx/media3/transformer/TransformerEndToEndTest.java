@@ -187,8 +187,7 @@ public class TransformerEndToEndTest {
   private String testId;
 
   @Rule
-  public final GlFrameProcessorTestRule glFrameProcessorTestRule =
-      new GlFrameProcessorTestRule(TEST_TIMEOUT_MS);
+  public final GlFrameProcessorTestRule glFrameProcessorTestRule = new GlFrameProcessorTestRule();
 
   private volatile @MonotonicNonNull TextureAssetLoader textureAssetLoader;
 

@@ -15,7 +15,6 @@
  */
 package androidx.media3.demo.composition
 
-import android.annotation.SuppressLint
 import android.app.Application
 import android.net.Uri
 import android.os.Build.VERSION.SDK_INT
@@ -88,7 +87,6 @@ import com.google.common.util.concurrent.ListeningExecutorService
 import com.google.common.util.concurrent.MoreExecutors.listeningDecorator
 import java.io.File
 import java.io.IOException
-import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
 import kotlin.math.ceil
 import kotlin.math.cos
@@ -1056,11 +1054,9 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   }
 
   private fun releaseAndRecreatePlayer() {
-    releaseGlResources(
-      playbackGlObjectsProvider,
-      playbackGlExecutorService,
-      "Failed to release OpenGL",
-    )
+    if (SDK_INT >= 26) {
+      playbackGlExecutorService?.let { FrameProcessorUtils.shutdownGlExecutorService(it) }
+    }
     playbackGlExecutorService = null
     playbackGlObjectsProvider = null
     compositionPlayer.stop()
@@ -1075,43 +1071,13 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   ): Pair<ListeningExecutorService, GlObjectsProvider> {
     val glObjectsProvider = DefaultGlObjectsProvider()
     val executorService = listeningDecorator(newSingleThreadExecutor(threadName))
-    // No need to wait for completion, as all subsequent GL operations are scheduled on the same
-    // thread.
-    executorService.execute {
-      try {
-        FrameProcessorUtils.setupOpenGl(glObjectsProvider)
-      } catch (e: Exception) {
-        Log.e(TAG, "Failed to setup OpenGL", e)
-        _uiState.update { it.copy(snackbarMessage = "Failed to setup OpenGL") }
-      }
-    }
     return executorService to glObjectsProvider
   }
 
-  @SuppressLint("NewApi")
-  private fun releaseGlResources(
-    glObjectsProvider: GlObjectsProvider?,
-    executorService: ExecutorService?,
-    errorMessage: String,
-  ) {
-    glObjectsProvider?.let {
-      executorService?.execute {
-        try {
-          FrameProcessorUtils.releaseOpenGl(it)
-        } catch (e: Exception) {
-          Log.e(TAG, errorMessage, e)
-        }
-      }
-    }
-    executorService?.let { FrameProcessorUtils.shutdownGlExecutorService(it) }
-  }
-
   private fun cleanUpExportGlResources() {
-    releaseGlResources(
-      exportGlObjectsProvider,
-      exportGlExecutorService,
-      "Failed to release export OpenGL",
-    )
+    if (SDK_INT >= 26) {
+      exportGlExecutorService?.let { FrameProcessorUtils.shutdownGlExecutorService(it) }
+    }
     exportGlExecutorService = null
     exportGlObjectsProvider = null
   }

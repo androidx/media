@@ -32,7 +32,6 @@ import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIX
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.extractBitmapsFromVideo;
-import static androidx.media3.transformer.GlFrameProcessorTestUtil.closeTestingGlResources;
 import static androidx.media3.transformer.SequenceEffectTestUtil.NO_EFFECT;
 import static androidx.media3.transformer.SequenceEffectTestUtil.PSNR_THRESHOLD;
 import static androidx.media3.transformer.SequenceEffectTestUtil.PSNR_THRESHOLD_HD;
@@ -46,7 +45,6 @@ import static androidx.media3.transformer.SequenceEffectTestUtil.tryToExportComp
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
@@ -59,12 +57,10 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.effect.BitmapOverlay;
 import androidx.media3.effect.DefaultGlFrameProcessor;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
-import androidx.media3.effect.FrameProcessorUtils;
 import androidx.media3.effect.LanczosResample;
 import androidx.media3.effect.OverlayEffect;
 import androidx.media3.effect.Presentation;
@@ -103,7 +99,6 @@ public final class TransformerSequenceEffectTest {
   private static final int EXPORT_WIDTH = 360;
   private static final int EXPORT_HEIGHT = 240;
   private static final int SQUARE_SIZE = 240;
-  private static final long TEST_TIMEOUT_MS = 10_000;
 
   private final Context context = ApplicationProvider.getApplicationContext();
   @Rule public final TestName testName = new TestName();
@@ -134,33 +129,13 @@ public final class TransformerSequenceEffectTest {
       assumeTrue(SDK_INT >= 28);
       glObjectsProvider = new DefaultGlObjectsProvider();
       glExecutorService = listeningDecorator(Executors.newSingleThreadExecutor());
-      glExecutorService
-          .submit(
-              () -> {
-                try {
-                  if (SDK_INT >= 26) {
-                    FrameProcessorUtils.setupOpenGl(checkNotNull(glObjectsProvider));
-                  }
-                } catch (GlException | RuntimeException e) {
-                  throw new AssertionError(e);
-                }
-              })
-          .get(TEST_TIMEOUT_MS, MILLISECONDS);
     }
   }
 
   @After
   public void tearDown() {
-    @Nullable Exception releasingException = null;
-    if (shouldUseDefaultGlFrameProcessor()) {
-      releasingException =
-          closeTestingGlResources(glExecutorService, glObjectsProvider, TEST_TIMEOUT_MS);
-    }
     if (glExecutorService != null) {
       glExecutorService.shutdown();
-    }
-    if (releasingException != null) {
-      throw new AssertionError(releasingException);
     }
   }
 

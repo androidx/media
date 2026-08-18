@@ -15,7 +15,10 @@
  */
 package androidx.media3.effect;
 
+import static androidx.media3.effect.FrameProcessorUtils.OPEN_GL_VERSION_3;
+import static androidx.media3.effect.FrameProcessorUtils.releaseOpenGl;
 import static androidx.media3.effect.FrameProcessorUtils.runAllAndAccumulateExceptions;
+import static androidx.media3.effect.FrameProcessorUtils.setupOpenGl;
 import static androidx.media3.effect.FrameProcessorUtils.waitAndCloseFence;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -39,6 +42,7 @@ import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ExperimentalApi;
+import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.common.video.AsyncFrame;
@@ -116,15 +120,18 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
     @Nullable private final GlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
     private final GlTextureFrameCompositor.Factory glTextureFrameCompositorFactory;
+    // Override for whether surfaceless contexts are supported, used for testing. If null,
+    // surfaceless context extension support is queried in production.
+    @Nullable private final Boolean isSurfacelessContextExtensionSupported;
 
     // TODO: b/536810100 - Remove this constructor and make the testing constructor public so
     // callers can pass factories.
     /**
      * Creates an instance.
      *
-     * <p>The caller is responsible for setting up OpenGL resources and releasing them after
-     * {@linkplain FrameProcessor#close closing} the built {@link DefaultGlFrameProcessor}. The
-     * caller should also shut down the {@link ExecutorService glExecutorService}.
+     * <p>The processor internally manages the setup and release of OpenGL resources. The caller is
+     * responsible for shutting down the {@link ExecutorService glExecutorService} after {@linkplain
+     * FrameProcessor#close closing} the built {@link DefaultGlFrameProcessor}.
      */
     public Factory(
         Context context,
@@ -140,6 +147,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       glTextureFrameCompositorFactory =
           new DefaultGlTextureFrameCompositor.Factory(
               new DefaultCompositorGlProgram.Factory(context));
+      isSurfacelessContextExtensionSupported = null;
     }
 
     /**
@@ -156,13 +164,15 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
         ListeningExecutorService glExecutorService,
         HardwareBufferConverter.Factory hardwareBufferConverterFactory,
         GlTextureFrameConsumer frameWriterGlTextureFrameConsumer,
-        GlTextureFrameCompositor.Factory glTextureFrameCompositorFactory) {
+        GlTextureFrameCompositor.Factory glTextureFrameCompositorFactory,
+        @Nullable Boolean isSurfacelessContextExtensionSupported) {
       this.context = context;
       this.glObjectsProvider = glObjectsProvider;
       this.glExecutorService = glExecutorService;
       this.hardwareBufferConverterFactory = hardwareBufferConverterFactory;
       this.frameWriterGlTextureFrameConsumer = frameWriterGlTextureFrameConsumer;
       this.glTextureFrameCompositorFactory = glTextureFrameCompositorFactory;
+      this.isSurfacelessContextExtensionSupported = isSurfacelessContextExtensionSupported;
       hardwareBufferJniWrapper = null;
     }
 
@@ -194,6 +204,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
           checkNotNull(hardwareBufferConverterFactory),
           checkNotNull(frameWriterGlTextureFrameConsumer),
           glTextureFrameCompositorFactory,
+          isSurfacelessContextExtensionSupported,
           listenerExecutor,
           listener);
     }
@@ -302,6 +313,12 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
 
   // Accessed on the GL thread.
   private boolean isPipelineInitialized;
+  private boolean isGlSetup;
+  private boolean isHdrSupported;
+
+  // Override for whether surfaceless contexts are supported, used for testing. If null,
+  // surfaceless context extension support is queried in production.
+  @Nullable private final Boolean isSurfacelessContextExtensionSupported;
 
   private DefaultGlFrameProcessor(
       Context context,
@@ -310,6 +327,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       HardwareBufferConverter.Factory hardwareBufferConverterFactory,
       GlTextureFrameConsumer frameWriterGlTextureFrameConsumer,
       GlTextureFrameCompositor.Factory glTextureFrameCompositorFactory,
+      @Nullable Boolean isSurfacelessContextExtensionSupported,
       Executor listenerExecutor,
       Listener listener) {
     this.context = context;
@@ -318,6 +336,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     this.hardwareBufferConverterFactory = hardwareBufferConverterFactory;
     this.frameWriterGlTextureFrameConsumer = frameWriterGlTextureFrameConsumer;
     this.glTextureFrameCompositorFactory = glTextureFrameCompositorFactory;
+    this.isSurfacelessContextExtensionSupported = isSurfacelessContextExtensionSupported;
     this.listenerExecutor = listenerExecutor;
     this.listener = listener;
     this.errorConsumer = e -> listenerExecutor.execute(() -> listener.onError(e));
@@ -351,6 +370,20 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
               if (closed) {
                 return null;
               }
+            }
+            if (!isGlSetup) {
+              int openGlVersion;
+              try {
+                openGlVersion =
+                    isSurfacelessContextExtensionSupported != null
+                        ? setupOpenGl(glObjectsProvider, isSurfacelessContextExtensionSupported)
+                        : setupOpenGl(glObjectsProvider);
+              } catch (GlException e) {
+                isGlSetup = true;
+                throw VideoFrameProcessingException.from(e);
+              }
+              isHdrSupported = openGlVersion == OPEN_GL_VERSION_3;
+              isGlSetup = true;
             }
             if (!isPipelineInitialized) {
               initializePipeline(resolveOutputColorInfo(frames.get(0).frame));
@@ -420,12 +453,18 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
             closeActions.add(postProcessingChain::close);
           }
           closeActions.add(frameWriterGlTextureFrameConsumer::close);
+          if (isGlSetup) {
+            closeActions.add(() -> releaseOpenGl(glObjectsProvider));
+          }
           runAllAndAccumulateExceptions(closeActions.build().toArray(new ThrowingRunnable<?>[0]));
           return null;
         });
   }
 
   private ColorInfo resolveOutputColorInfo(Frame firstFrame) {
+    if (!isHdrSupported) {
+      return ColorInfo.SDR_BT709_LIMITED;
+    }
     Format format = firstFrame.getFormat();
     ColorInfo inputColorInfo = format.colorInfo != null ? format.colorInfo : DEFAULT_COLOR_INFO;
     int hdrMode = 0; /* HDR_MODE_KEEP_HDR */

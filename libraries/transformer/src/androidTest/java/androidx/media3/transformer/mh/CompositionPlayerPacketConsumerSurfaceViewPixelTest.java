@@ -131,8 +131,7 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
   private @MonotonicNonNull ImageReaderSurfaceHolder surfaceHolder;
 
   @Rule
-  public final GlFrameProcessorTestRule glFrameProcessorTestRule =
-      new GlFrameProcessorTestRule(TEST_TIMEOUT_MS);
+  public final GlFrameProcessorTestRule glFrameProcessorTestRule = new GlFrameProcessorTestRule();
 
   private String testId;
 

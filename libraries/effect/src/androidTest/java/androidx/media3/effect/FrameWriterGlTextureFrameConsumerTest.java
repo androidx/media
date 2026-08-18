@@ -22,6 +22,7 @@ import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIX
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
@@ -101,7 +102,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
     glExecutorService
         .submit(
             () -> {
-              setupOpenGl(glObjectsProvider);
+              int unused = setupOpenGl(glObjectsProvider);
               return null;
             })
         .get();
@@ -626,9 +627,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
     public void queueInputFrame(Frame frame, @Nullable SyncFenceWrapper writeCompleteFence) {
       try {
         if (writeCompleteFence != null) {
-          if (!writeCompleteFence.awaitMs(500)) {
-            throw new IllegalStateException("Fence wait timeout");
-          }
+          checkState(writeCompleteFence.awaitMs(500), "Fence wait timeout");
           writeCompleteFence.close();
         }
         checkArgument(frame instanceof HardwareBufferFrame);
@@ -636,7 +635,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
         Bitmap hardwareBitmap =
             Bitmap.wrapHardwareBuffer(hardwareBuffer, ColorSpace.get(ColorSpace.Named.SRGB));
         outputBitmaps.add(hardwareBitmap.copy(Bitmap.Config.ARGB_8888, /* isMutable= */ false));
-      } catch (Exception e) {
+      } catch (RuntimeException e) {
         throw new IllegalStateException(e);
       }
     }

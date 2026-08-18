@@ -426,7 +426,7 @@ public final class HardwareBufferToGlTextureConverterTest {
         .submit(
             () -> {
               try {
-                setupOpenGl(checkNotNull(glObjectsProvider));
+                int unused = setupOpenGl(checkNotNull(glObjectsProvider));
                 GlTextureFrame glTextureFrame =
                     converter.convert(
                         /* hardwareBufferFrame= */ hardwareBufferFrame,
@@ -472,7 +472,7 @@ public final class HardwareBufferToGlTextureConverterTest {
         .submit(
             () -> {
               try {
-                setupOpenGl(checkNotNull(glObjectsProvider));
+                int unused = setupOpenGl(checkNotNull(glObjectsProvider));
                 GlTextureFrame glTextureFrame =
                     converter.convert(
                         hardwareBufferFrame,

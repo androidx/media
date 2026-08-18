@@ -77,8 +77,7 @@ public final class CompositionPlayerDefaultGlFrameProcessorTest {
   private final Context context;
 
   @Rule
-  public final GlFrameProcessorTestRule glFrameProcessorTestRule =
-      new GlFrameProcessorTestRule(TEST_TIMEOUT_MS);
+  public final GlFrameProcessorTestRule glFrameProcessorTestRule = new GlFrameProcessorTestRule();
 
   private @MonotonicNonNull CompositionPlayer compositionPlayer;
   private @MonotonicNonNull SurfaceView surfaceView;
