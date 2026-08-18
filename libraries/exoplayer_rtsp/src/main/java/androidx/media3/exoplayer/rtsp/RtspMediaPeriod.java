@@ -475,7 +475,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     if (transportReady && trackSelected) {
-      rtspClient.setupSelectedTracks(selectedLoadInfos);
+      ImmutableList.Builder<RtspClient.TrackSetupInfo> trackSetupInfos = ImmutableList.builder();
+      for (int i = 0; i < selectedLoadInfos.size(); i++) {
+        RtpLoadInfo loadInfo = selectedLoadInfos.get(i);
+        trackSetupInfos.add(
+            new RtspClient.TrackSetupInfo(loadInfo.getTrackUri(), loadInfo.getTransport()));
+      }
+      rtspClient.setupSelectedTracks(trackSetupInfos.build());
     }
   }
 

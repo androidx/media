@@ -125,6 +125,9 @@
         delayed network responses after the RTSP client was closed.
     *   Fix issue where rapid scrubbing could incorrectly trigger the TCP
         protocol fallback mechanic.
+    *   Fix an `IllegalStateException` crash that can occur when processing
+        delayed network responses after the RTSP client resets state during
+        track reselection, session teardown, or uri redirection.
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
     *   Opus: Fix memory corruption when multiple `OpusDecoder` instances are
         initialized concurrently.
