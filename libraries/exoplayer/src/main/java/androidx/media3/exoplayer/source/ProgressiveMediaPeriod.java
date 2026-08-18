@@ -819,6 +819,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         /* mediaStartTimeUs= */ loadable.seekTimeUs,
         durationUs);
     loadingStateMachine.onLoadCompleted();
+    if (haveSampleQueuesReachedEndTimeUs()) {
+      loadingStateMachine.onEndPositionReached();
+      maybeCancelOrDiscardUpstreamBuffers();
+    }
     checkNotNull(callback).onContinueLoadingRequested(this);
   }
 

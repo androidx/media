@@ -1875,6 +1875,55 @@ public final class ProgressiveMediaPeriodTest {
     mediaPeriod.release();
   }
 
+  @Test
+  public void onLoadCompleted_withEndPositionSet_immediatelyTransitionsToClippedFinished()
+      throws Exception {
+    ProgressiveMediaPeriod mediaPeriod =
+        createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    boolean[] streamResetFlags = new boolean[trackGroups.length];
+    selections[0] =
+        new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
+    long unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            streamResetFlags,
+            /* positionUs= */ 0);
+
+    // Configure clip end at 300ms before load finishes.
+    long unusedEndPosition = mediaPeriod.setEndPositionUs(300_000);
+    boolean unusedLoad =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+
+    // Run until the load completes without explicitly calling reevaluateBuffer.
+    runMainLooperUntil(() -> !mediaPeriod.isLoading());
+    shadowOf(Looper.getMainLooper()).idle();
+
+    // Verify upstream buffers beyond 300ms were immediately discarded on load completion.
+    FormatHolder formatHolder = new FormatHolder();
+    DecoderInputBuffer buffer =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
+    int readResult = streams[0].readData(formatHolder, buffer, /* readFlags= */ 0);
+    assertThat(readResult).isEqualTo(C.RESULT_FORMAT_READ);
+    long lastReadTimeUs = C.TIME_UNSET;
+    while (true) {
+      buffer.clear();
+      readResult = streams[0].readData(formatHolder, buffer, /* readFlags= */ 0);
+      if (readResult == C.RESULT_BUFFER_READ && !buffer.isEndOfStream()) {
+        lastReadTimeUs = buffer.timeUs;
+      } else {
+        break;
+      }
+    }
+    assertThat(lastReadTimeUs).isAtMost(300_000);
+    assertThat(buffer.isEndOfStream()).isTrue();
+    mediaPeriod.release();
+  }
+
   private static final class ExecutionTrackingThread extends Thread {
     private final AtomicBoolean hasRun;
 
