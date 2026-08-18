@@ -1058,6 +1058,66 @@ public class ExoPlayerAdTest {
   }
 
   @Test
+  public void timelineRefresh_movingLiveDefaultPositionPastPlayingSsaiAd_keepsPlayingAd()
+      throws Exception {
+    // Live window with three 20s periods: |- p0 content -|- p1 ad -|- p2 content -|.
+    Object adsId = new Object();
+    TimelineWindowDefinition liveWindowDefinition =
+        new TimelineWindowDefinition.Builder()
+            .setDynamic(true)
+            .setLive(true)
+            .setSeekable(true)
+            .setPeriodCount(3)
+            .setDurationUs(60_000_000)
+            .setWindowStartTimeUs(1_720_000_000_000_000L)
+            .setWindowPositionInFirstPeriodUs(0)
+            .setDefaultPositionUs(30_000_000)
+            .build();
+    Timeline initialContentTimeline = new FakeTimeline(liveWindowDefinition);
+    // p1 is entirely covered by a server-side inserted ad.
+    AdPlaybackState contentOnlyAdPlaybackState = new AdPlaybackState(adsId);
+    AdPlaybackState adPeriodAdPlaybackState =
+        addAdGroupToAdPlaybackState(
+            contentOnlyAdPlaybackState,
+            /* fromPositionUs= */ 0,
+            /* contentResumeOffsetUs= */ 20_000_000,
+            /* adDurationsUs...= */ 20_000_000);
+    // ServerSideAdInsertionMediaSource requires an AdPlaybackState for every period.
+    ImmutableMap<Object, AdPlaybackState> adPlaybackStates =
+        ImmutableMap.of(
+            initialContentTimeline.getUidOfPeriod(/* periodIndex= */ 0),
+            contentOnlyAdPlaybackState,
+            initialContentTimeline.getUidOfPeriod(/* periodIndex= */ 1),
+            adPeriodAdPlaybackState,
+            initialContentTimeline.getUidOfPeriod(/* periodIndex= */ 2),
+            contentOnlyAdPlaybackState);
+    FakeMediaSource contentMediaSource = new FakeMediaSource(initialContentTimeline);
+    ServerSideAdInsertionMediaSource mediaSource =
+        new ServerSideAdInsertionMediaSource(
+            contentMediaSource, /* adPlaybackStateUpdater= */ contentTimeline -> false);
+    mediaSource.setAdPlaybackStates(adPlaybackStates, initialContentTimeline);
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+
+    // Join the live stream while the ad in p1 is on air.
+    player.setMediaSource(mediaSource);
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+    boolean isPlayingAdAfterJoining = player.isPlayingAd();
+    // Refresh the live timeline with a default position that moved past the ad, into p2.
+    contentMediaSource.setNewSourceInfo(
+        new FakeTimeline(
+            liveWindowDefinition.buildUpon().setDefaultPositionUs(45_000_000).build()));
+    advance(player).untilPendingCommandsAreFullyHandled();
+    boolean isPlayingAdAfterRefresh = player.isPlayingAd();
+    @Nullable PlaybackException error = player.getPlayerError();
+    player.release();
+
+    assertThat(isPlayingAdAfterJoining).isTrue();
+    assertThat(error).isNull();
+    assertThat(isPlayingAdAfterRefresh).isTrue();
+  }
+
+  @Test
   public void addMediaSource_whilePlayingAd_correctMasking() throws Exception {
     long contentDurationMs = 10_000;
     long adDurationMs = 5_000;

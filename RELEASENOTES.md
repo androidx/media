@@ -9,28 +9,15 @@
         `setExperimentalEnableHagcPlayback` method is removed and replaced by
         `ExtractorsFactory.setParseHagcMetadata`. This also resolves an issue
         where disabling didn't work for Matroska/WebM containers.
-    *   Fix race condition in `PreCacheHelper` where canceling an ongoing
-        preparation request could still start background downloads.
-    *   Limit `setLoadOnlySelectedTracks(true)` on `ProgressiveMediaSource` and
-        `DefaultMediaSourceFactory` to only filter out unselected video and
-        image tracks. Audio and text tracks are always loaded to allow seamless
-        track switching without re-buffering.
-    *   Enable `setLoadOnlySelectedTracks(true)` by default on
-        `ProgressiveMediaSource` and `DefaultMediaSourceFactory`. This saves
-        memory and allows `DefaultLoadControl` buffer allocation calculations to
-        work more accurately when not all tracks are selected. Note that this
-        may cause additional buffering if unselected video or image tracks are
-        newly enabled mid-playback.
     *   Fix a playback stall caused when prewarming a non-transitioning
         secondary renderer.
     *   Fix pre-warming issue where the `Surface` should be returned to the
         primary renderer when a seek resets and disables both renderers.
+    *   Fix `ArrayIndexOutOfBoundsException` when a live timeline refresh moves
+        the default position past a server-side inserted ad that is currently
+        being played ([#3348](https://github.com/androidx/media/issues/3348)).
 *   CompositionPlayer:
 *   Transformer:
-    *   Fix a segmentation fault during release by introducing
-        `AssetLoader.stop()` and `AssetLoader.isStopped()` methods to verify
-        that data production has halted before releasing the output surface.
-        Custom `AssetLoader` implementations must implement these new methods.
 *   Track Selection:
 *   Extractors:
 *   Inspector:
@@ -42,8 +29,6 @@
         playback thread is no longer alive
         ([#3338](https://github.com/androidx/media/issues/3338)).
 *   Video:
-    *   Fix reporting of late video frames with identical release timestamps so
-        that they are reported as dropped instead of skipped.
 *   Text:
 *   Metadata:
 *   Image:
@@ -52,21 +37,12 @@
 *   Effect:
 *   Effect Lottie:
 *   Muxers:
-    *   Fix crash in `Mp4Writer` when writing an EOS sample before any other
-        samples are written.
 *   IMA extension:
 *   Session:
     *   Fix `NullPointerException` when an in-process `MediaController` is
         released from a `Player.Listener` callback
         ([#3375](https://github.com/androidx/media/issues/3375)).
 *   UI:
-    *   Introduce `PresentationState.videoAspectRatio` and make
-        `Modifier.resizeWithContentScale` take `aspectRatio: Float?` instead of
-        `sourceSizeDp: Size?`.
-    *   Add `CuesState` class and `rememberCuesState` Composable to the
-        `media3-ui-compose` module for listening to player's current cues.
-    *   Add scrubbing mode support to `ProgressSlider` if it is based on
-        `ExoPlayer` or `CompositionPlayer`.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:
@@ -79,28 +55,17 @@
         receiving `EOFException` from the extractor
         ([#3350](https://github.com/androidx/media/issues/3350)).
 *   DASH extension:
-    *   Support whitespace-separated lists of `@id` values in trick mode
-        (`http://dashif.org/guidelines/trickmode`) descriptor `@value`
-        attributes ([#3315](https://github.com/androidx/media/issues/3315)).
     *   Fix incorrect sample timestamp calculation for image tracks with a
         `presentationTimeOffset`
         ([#3334](https://github.com/androidx/media/issues/3334)).
 *   Smooth Streaming extension:
 *   RTSP extension:
-    *   Fix an `IllegalStateException` crash that occurred when processing
-        delayed network responses after the RTSP client was closed.
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
     *   Opus: Fix memory corruption when multiple `OpusDecoder` instances are
         initialized concurrently.
 *   MIDI extension:
 *   Leanback extension:
 *   Cast extension:
-    *   Introduce `SessionAvailabilityListener.SessionUnavailableReason` to
-        represent the reason for session unavailability, and provide an
-        overloaded method for
-        `SessionAvailabilityListener.onCastSessionUnavailable` to surface it.
-    *   Fix an issue where playback would unexpectedly resume locally after
-        stopping a Cast session.
 *   Test Utilities:
 *   Remove deprecated symbols:
 
