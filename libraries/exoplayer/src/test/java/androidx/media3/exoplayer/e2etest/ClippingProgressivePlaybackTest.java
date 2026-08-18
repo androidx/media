@@ -55,7 +55,6 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.util.List;
 import java.util.Map;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -66,7 +65,6 @@ import org.robolectric.annotation.Config;
 // TODO: b/511055213 - Fails on API < 31 due to sync vs async MediaCodec behavior differences in
 // Robolectric.
 @Config(minSdk = 31)
-@Ignore("Flaky: b/491840995")
 @RunWith(RobolectricTestParameterInjector.class)
 public final class ClippingProgressivePlaybackTest {
 
