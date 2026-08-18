@@ -1767,6 +1767,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return !isPendingReset()
           && dataType != C.DATA_TYPE_MEDIA_PROGRESSIVE_LIVE
           && (isFinished()
+              || state == STATE_IDLE
               || state == STATE_LOADING
               || state == STATE_CANCELING_FOR_CLIPPING
               || state == STATE_DEFERRED_RETRY_PENDING);
