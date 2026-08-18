@@ -32,6 +32,9 @@
     *   Fix an issue where Player.getCurrentPosition() could return stale values
         (updating only a few times per second) when dynamic scheduling is
         enabled ([#3286](https://github.com/androidx/media/issues/3286)).
+    *   Fix `ArrayIndexOutOfBoundsException` when a live timeline refresh moves
+        the default position past a server-side inserted ad that is currently
+        being played ([#3348](https://github.com/androidx/media/issues/3348)).
 *   CompositionPlayer:
     *   Support configuring the frame rate of video frame aggregation via
         `Composition.Builder.setVideoFrameAggregationParameters` for playback
