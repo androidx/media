@@ -425,6 +425,69 @@ public class RemoteCastPlayerTest {
   }
 
   @Test
+  public void mediaQueueChanged_whileSeekPendingToRemovedItem_updatesCurrentTimeline() {
+    when(mockRemoteMediaClient.queueJumpToItem(anyInt(), anyLong(), eq(null)))
+        .thenReturn(mockPendingResult);
+    MediaItem mediaItem1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem mediaItem2 = createMediaItem(/* mediaQueueItemId= */ 2);
+    ImmutableList<MediaItem> mediaItems = ImmutableList.of(mediaItem1, mediaItem2);
+    int[] mediaQueueItemIds = new int[] {1, 2};
+    addMediaItemsAndUpdateTimeline(mediaItems, mediaQueueItemIds);
+
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 1234);
+    // Receiver queue shrinks to 1 item.
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[] {1});
+    mediaQueueCallback.mediaQueueChanged();
+
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindowCount()).isEqualTo(1);
+    assertThat(remoteCastPlayer.getCurrentMediaItemIndex()).isEqualTo(0);
+  }
+
+  @Test
+  public void
+      mediaQueueChanged_mediaItemRemovedExternally_updatesTimelineAndCurrentMediaItemIndex() {
+    MediaItem mediaItem1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem mediaItem2 = createMediaItem(/* mediaQueueItemId= */ 2);
+    ImmutableList<MediaItem> mediaItems = ImmutableList.of(mediaItem1, mediaItem2);
+    int[] mediaQueueItemIds = new int[] {1, 2};
+    // Initialize 2-item queue and set currently playing item to item 2 (index 1)
+    remoteCastPlayer.addMediaItems(mediaItems);
+    updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 2);
+    assertThat(remoteCastPlayer.getCurrentMediaItemIndex()).isEqualTo(1);
+
+    // Item 1 is removed externally by another source. Queue shrinks to [item 2].
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[] {2});
+    mediaQueueCallback.mediaQueueChanged();
+
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindowCount()).isEqualTo(1);
+    assertThat(remoteCastPlayer.getCurrentMediaItemIndex()).isEqualTo(0);
+    assertThat(remoteCastPlayer.isCurrentMediaItemSeekable()).isTrue();
+  }
+
+  @Test
+  public void mediaQueueChanged_whileSeekPendingToShiftedItem_updatesMaskedIndex() {
+    when(mockRemoteMediaClient.queueJumpToItem(anyInt(), anyLong(), eq(null)))
+        .thenReturn(mockPendingResult);
+    MediaItem mediaItem1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem mediaItem2 = createMediaItem(/* mediaQueueItemId= */ 2);
+    MediaItem mediaItem3 = createMediaItem(/* mediaQueueItemId= */ 3);
+    ImmutableList<MediaItem> mediaItems = ImmutableList.of(mediaItem1, mediaItem2, mediaItem3);
+    int[] mediaQueueItemIds = new int[] {1, 2, 3};
+    addMediaItemsAndUpdateTimeline(mediaItems, mediaQueueItemIds);
+
+    // Seek to index 2 (item 3)
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 2, /* positionMs= */ 1234);
+    // Item 1 is removed, so queue on receiver becomes [item 2, item 3]
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[] {2, 3});
+    mediaQueueCallback.mediaQueueChanged();
+
+    // Timeline length is 2, and target item 3 is now at index 1:
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindowCount()).isEqualTo(2);
+    assertThat(remoteCastPlayer.getCurrentMediaItemIndex()).isEqualTo(1);
+    assertThat(remoteCastPlayer.isCurrentMediaItemSeekable()).isTrue();
+  }
+
+  @Test
   public void setPlaybackParameters_speedOutOfRange_valueIsConstraintToMinAndMax() {
     when(mockRemoteMediaClient.setPlaybackRate(eq(2d), any())).thenReturn(mockPendingResult);
     when(mockRemoteMediaClient.setPlaybackRate(eq(0.5d), any())).thenReturn(mockPendingResult);

@@ -384,6 +384,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   private int pendingSeekCount;
   private int pendingSeekWindowIndex;
   private long pendingSeekPositionMs;
+  @Nullable private Object pendingSeekPeriodUid;
   @Nullable private PositionInfo pendingMediaItemRemovalPosition;
   private MediaMetadata mediaMetadata;
   private MediaMetadata playlistMetadata;
@@ -723,6 +724,10 @@ public final class RemoteCastPlayer extends BasePlayer {
       pendingSeekCount++;
       pendingSeekWindowIndex = mediaItemIndex;
       pendingSeekPositionMs = positionMs;
+      pendingSeekPeriodUid =
+          !currentTimeline.isEmpty()
+              ? currentTimeline.getPeriod(mediaItemIndex, period, /* setIds= */ true).uid
+              : null;
       PositionInfo newPosition = getCurrentPositionInfo();
       listeners.queueEvent(
           Player.EVENT_POSITION_DISCONTINUITY,
@@ -1473,6 +1478,16 @@ public final class RemoteCastPlayer extends BasePlayer {
     boolean timelineChanged = !oldTimeline.equals(currentTimeline);
     if (timelineChanged) {
       currentWindowIndex = fetchCurrentWindowIndex(remoteMediaClient, currentTimeline);
+      if (pendingSeekPeriodUid != null) {
+        int newIndex = currentTimeline.getIndexOfPeriod(pendingSeekPeriodUid);
+        if (newIndex != C.INDEX_UNSET) {
+          pendingSeekWindowIndex = newIndex;
+        } else {
+          pendingSeekWindowIndex = C.INDEX_UNSET;
+          pendingSeekPositionMs = C.TIME_UNSET;
+          pendingSeekPeriodUid = null;
+        }
+      }
     }
     return timelineChanged;
   }
@@ -1927,6 +1942,7 @@ public final class RemoteCastPlayer extends BasePlayer {
     pendingSeekCount = 0;
     pendingSeekWindowIndex = C.INDEX_UNSET;
     pendingSeekPositionMs = C.TIME_UNSET;
+    pendingSeekPeriodUid = null;
     pendingMediaItemRemovalPosition = null;
   }
 
@@ -2148,9 +2164,15 @@ public final class RemoteCastPlayer extends BasePlayer {
             "Seek failed. Error code " + statusCode + ": " + CastUtils.getLogString(statusCode));
       }
       if (--pendingSeekCount == 0) {
-        currentWindowIndex = pendingSeekWindowIndex;
+        if (pendingSeekWindowIndex != C.INDEX_UNSET
+            && pendingSeekWindowIndex < currentTimeline.getWindowCount()) {
+          currentWindowIndex = pendingSeekWindowIndex;
+        } else {
+          currentWindowIndex = fetchCurrentWindowIndex(remoteMediaClient, currentTimeline);
+        }
         pendingSeekWindowIndex = C.INDEX_UNSET;
         pendingSeekPositionMs = C.TIME_UNSET;
+        pendingSeekPeriodUid = null;
       }
     }
   }
