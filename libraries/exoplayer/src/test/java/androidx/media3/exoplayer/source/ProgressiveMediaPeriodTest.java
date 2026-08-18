@@ -1874,7 +1874,6 @@ public final class ProgressiveMediaPeriodTest {
             streams,
             streamResetFlags,
             /* positionUs= */ 0);
-
     // Initial load until buffered.
     boolean unusedLoad =
         mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
@@ -1884,7 +1883,6 @@ public final class ProgressiveMediaPeriodTest {
           return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
         });
     shadowOf(Looper.getMainLooper()).idle();
-
     // Read first sample to advance read index past 0.
     FormatHolder formatHolder = new FormatHolder();
     DecoderInputBuffer buffer =
@@ -1898,13 +1896,11 @@ public final class ProgressiveMediaPeriodTest {
     long firstSampleTimeUs = buffer.timeUs;
     assertThat(firstSampleTimeUs).isGreaterThan(0);
 
-    // Seek back to position 0 (same as last seek position).
     long seekTimeUs = mediaPeriod.seekToUs(0);
-    assertThat(seekTimeUs).isEqualTo(0);
 
+    assertThat(seekTimeUs).isEqualTo(0);
     // Verify in-buffer seek was successful and loading is not restarted.
     assertThat(mediaPeriod.isLoading()).isFalse();
-
     // Verify reading starts again from the first sample.
     buffer.clear();
     readResult = streams[1].readData(formatHolder, buffer, /* readFlags= */ 0);
@@ -1914,7 +1910,6 @@ public final class ProgressiveMediaPeriodTest {
     }
     assertThat(readResult).isEqualTo(C.RESULT_BUFFER_READ);
     assertThat(buffer.timeUs).isEqualTo(firstSampleTimeUs);
-
     mediaPeriod.release();
   }
 
