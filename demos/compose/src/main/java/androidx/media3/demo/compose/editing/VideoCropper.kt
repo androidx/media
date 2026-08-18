@@ -421,6 +421,10 @@ private fun Path.addCornerBracket(
 @Stable
 private class GestureState {
 
+  /** The corner currently being dragged, or `null` if not dragging a corner. */
+  var activeCorner by mutableStateOf<Corner?>(null)
+    private set
+
   /** Whether the user is currently panning the video inside the crop frame. */
   var isPanningVideo by mutableStateOf(false)
     private set
@@ -453,6 +457,234 @@ private class GestureState {
    */
   var frozenCropFrame: Rect = Rect.Zero
     private set
+
+  /**
+   * The crop rectangle in normalized video coordinates captured at the start of the interaction.
+   *
+   * This rect remains strictly fixed (frozen) during the gesture. During a pan gesture, its width
+   * and height are used as a reference to keep the crop rectangle's aspect ratio and dimensions
+   * constant, preventing drift from accumulating floating-point errors.
+   */
+  var frozenCropRect: Rect = Rect.Zero
+    private set
+
+  /**
+   * Initializes the interaction state at the start of a drag gesture.
+   *
+   * Detects if the touch point is near any corner of the crop frame to initiate a corner resize. If
+   * not, it initiates a video panning interaction.
+   *
+   * All coordinates and sizes are expressed in pixels.
+   *
+   * @param cropRect The current crop rectangle in normalized video coordinates.
+   * @param transformation The active [CropFrameTransformation].
+   * @param touchPoint The touch point coordinate.
+   * @param touchTargetSize The radius around corners within which a touch is registered as a corner
+   *   drag.
+   */
+  fun startDrag(
+    cropRect: Rect,
+    transformation: CropFrameTransformation,
+    touchPoint: Offset,
+    touchTargetSize: Float,
+  ) {
+    activeCorner =
+      detectCorner(
+        cropFrame = transformation.cropFrame,
+        touchPoint = touchPoint,
+        touchTargetSize = touchTargetSize,
+      )
+    isPanningVideo = activeCorner == null
+    frozenVideoScale = transformation.nonInteractingScale
+    interactingVideoTranslation = transformation.nonInteractingTranslation
+    frozenCropFrame = transformation.cropFrame
+    frozenCropRect = cropRect
+  }
+
+  /**
+   * Updates the crop rectangle or video translation based on the drag progress.
+   *
+   * If a corner is active, it resizes the crop frame. If panning, it translates the video under the
+   * stationary crop frame.
+   *
+   * All coordinates, offsets, and sizes are expressed in pixels.
+   *
+   * @param dragAmount The offset of the drag step since the last update.
+   * @param transformation The active [CropFrameTransformation].
+   * @param videoFitRect The bounds of the video when fit inside the [VideoCropper] container.
+   * @param minCropSize The minimum allowed size of the crop frame on screen.
+   * @return The updated normalized crop rectangle.
+   */
+  fun dragBy(
+    dragAmount: Offset,
+    transformation: CropFrameTransformation,
+    videoFitRect: Rect,
+    minCropSize: Float,
+  ): Rect {
+    val corner = activeCorner
+    if (corner != null) {
+      // Resize the crop frame.
+      val newCropFrame =
+        resizeCropFrame(
+          cropFrame = transformation.interactingCropFrame,
+          corner = corner,
+          dragAmount = dragAmount,
+          aspectRatio = transformation.cropAspectRatio,
+          bounds = transformation.interactingVideoRect,
+          minCropSize = minCropSize,
+        )
+
+      // Convert the on-screen crop frame pixel bounds into normalized [0..1] video coordinates
+      // relative to the video's active on-screen bounds.
+      val newCropRect =
+        Rect(
+          left =
+            (newCropFrame.left - transformation.interactingVideoRect.left) /
+              transformation.interactingVideoRect.width,
+          top =
+            (newCropFrame.top - transformation.interactingVideoRect.top) /
+              transformation.interactingVideoRect.height,
+          right =
+            (newCropFrame.right - transformation.interactingVideoRect.left) /
+              transformation.interactingVideoRect.width,
+          bottom =
+            (newCropFrame.bottom - transformation.interactingVideoRect.top) /
+              transformation.interactingVideoRect.height,
+        )
+      return newCropRect
+    }
+
+    // Otherwise, pan the video under the stationary crop frame.
+    val videoWidth = videoFitRect.width * frozenVideoScale
+    val videoHeight = videoFitRect.height * frozenVideoScale
+    val tentativeLeft =
+      videoFitRect.left * frozenVideoScale + interactingVideoTranslation.x + dragAmount.x
+    val tentativeTop =
+      videoFitRect.top * frozenVideoScale + interactingVideoTranslation.y + dragAmount.y
+
+    // Clamp the video position so it fully covers the stationary on-screen crop frame. Use minOf
+    // to guard against float rounding discrepancies where minimum > maximum.
+    val minVideoLeft = frozenCropFrame.right - videoWidth
+    val maxVideoLeft = frozenCropFrame.left
+    val clampedVideoLeft = tentativeLeft.coerceIn(minOf(minVideoLeft, maxVideoLeft), maxVideoLeft)
+    val minVideoTop = frozenCropFrame.bottom - videoHeight
+    val maxVideoTop = frozenCropFrame.top
+    val clampedVideoTop = tentativeTop.coerceIn(minOf(minVideoTop, maxVideoTop), maxVideoTop)
+    interactingVideoTranslation =
+      Offset(clampedVideoLeft, clampedVideoTop) - videoFitRect.topLeft * frozenVideoScale
+
+    // Convert the stationary on-screen crop frame position into normalized [0..1] video
+    // coordinates, clamped to avoid floating-point rounding violations.
+    val normalizedLeft =
+      ((frozenCropFrame.left - clampedVideoLeft) / videoWidth).coerceIn(
+        0f,
+        1f - frozenCropRect.width,
+      )
+    val normalizedTop =
+      ((frozenCropFrame.top - clampedVideoTop) / videoHeight).coerceIn(
+        0f,
+        1f - frozenCropRect.height,
+      )
+    val newCropRect =
+      Rect(
+        left = normalizedLeft,
+        top = normalizedTop,
+        right = normalizedLeft + frozenCropRect.width,
+        bottom = normalizedTop + frozenCropRect.height,
+      )
+    return newCropRect
+  }
+
+  /** Resets the interaction state when the drag gesture finishes or is canceled. */
+  fun finishDrag() {
+    activeCorner = null
+    isPanningVideo = false
+  }
+
+  /**
+   * Determines which corner of the crop frame, if any, is close to the given touch point.
+   *
+   * @param cropFrame The current bounds of the on-screen crop frame.
+   * @param touchPoint The touch point coordinate.
+   * @param touchTargetSize The radius around corners within which a touch is registered as a corner
+   *   drag.
+   * @return The detected [Corner], or `null` if the touch point is not near any corner.
+   */
+  private fun detectCorner(cropFrame: Rect, touchPoint: Offset, touchTargetSize: Float): Corner? {
+    val touchTargetSizeSquared = touchTargetSize * touchTargetSize
+    return when {
+      (touchPoint - cropFrame.topLeft).getDistanceSquared() < touchTargetSizeSquared ->
+        Corner.TOP_LEFT
+      (touchPoint - cropFrame.topRight).getDistanceSquared() < touchTargetSizeSquared ->
+        Corner.TOP_RIGHT
+      (touchPoint - cropFrame.bottomLeft).getDistanceSquared() < touchTargetSizeSquared ->
+        Corner.BOTTOM_LEFT
+      (touchPoint - cropFrame.bottomRight).getDistanceSquared() < touchTargetSizeSquared ->
+        Corner.BOTTOM_RIGHT
+      else -> null
+    }
+  }
+
+  /**
+   * Resizes the [cropFrame] crop frame rectangle by dragging a specific [corner] by [dragAmount],
+   * while strictly preserving [aspectRatio] and remaining within [bounds] and above [minCropSize].
+   *
+   * To maintain the exact aspect ratio during unconstrained diagonal dragging, the touch coordinate
+   * is projected perpendicularly onto a linear constraint line passing through the stationary
+   * anchor corner (diagonally opposite to [corner]) with slope determined by [aspectRatio].
+   *
+   * All coordinates, offsets, and sizes are expressed in pixels.
+   *
+   * @param cropFrame The current crop frame rectangle before applying [dragAmount].
+   * @param corner The active [Corner] being dragged by the user.
+   * @param dragAmount The touch displacement vector for this drag event.
+   * @param aspectRatio The required width-to-height aspect ratio of the crop frame.
+   * @param bounds The maximum allowable screen bounding box constraining the crop frame.
+   * @param minCropSize The minimum allowable width and height for the crop frame.
+   * @return The resized and clamped crop frame rectangle.
+   */
+  private fun resizeCropFrame(
+    cropFrame: Rect,
+    corner: Corner,
+    dragAmount: Offset,
+    aspectRatio: Float,
+    bounds: Rect,
+    minCropSize: Float,
+  ): Rect {
+    val isLeft = corner == Corner.TOP_LEFT || corner == Corner.BOTTOM_LEFT
+    val isTop = corner == Corner.TOP_LEFT || corner == Corner.TOP_RIGHT
+
+    // The anchor is the stationary corner diagonally opposite to the dragged corner.
+    val anchorX = if (isLeft) cropFrame.right else cropFrame.left
+    val anchorY = if (isTop) cropFrame.bottom else cropFrame.top
+
+    // Signs indicate whether dragging along the positive axes (+x / +y) expands (+1f) or
+    // contracts (-1f) the frame's width and height relative to the stationary anchor.
+    val signX = if (isLeft) -1f else 1f
+    val signY = if (isTop) -1f else 1f
+
+    // Tentative dimensions from applying the drag delta.
+    val tentativeWidth = cropFrame.width + dragAmount.x * signX
+    val tentativeHeight = cropFrame.height + dragAmount.y * signY
+
+    // Project (tentativeWidth, tentativeHeight) onto the aspect ratio line.
+    val projectedHeight =
+      (tentativeWidth * aspectRatio + tentativeHeight) / (aspectRatio * aspectRatio + 1f)
+
+    // Determine the allowable height range constrained by bounds and minCropSize.
+    val maxBoundaryWidth = if (signX > 0) bounds.right - anchorX else anchorX - bounds.left
+    val maxBoundaryHeight = if (signY > 0) bounds.bottom - anchorY else anchorY - bounds.top
+    val maxHeight = minOf(maxBoundaryWidth / aspectRatio, maxBoundaryHeight)
+    val minHeight = maxOf(minCropSize, minCropSize / aspectRatio).coerceAtMost(maxHeight)
+
+    // Clamp height and derive width.
+    val newHeight = projectedHeight.coerceIn(minHeight, maxHeight)
+    val newWidth = newHeight * aspectRatio
+
+    val left = if (signX > 0) anchorX else anchorX - newWidth
+    val top = if (signY > 0) anchorY else anchorY - newHeight
+    return Rect(left = left, top = top, right = left + newWidth, bottom = top + newHeight)
+  }
 }
 
 /**
@@ -480,6 +712,12 @@ private class GestureState {
  *   interacting).
  * @param videoFitRect The baseline unscaled video rectangle (in pixels).
  * @param cropConstraintRect The bounding rectangle constraining the crop frame (in pixels).
+ * @property cropAspectRatio The active aspect ratio of the crop frame.
+ * @property nonInteractingScale The target video scale when the user is not interacting.
+ * @property nonInteractingTranslation The target video translation when the user is not
+ *   interacting.
+ * @property interactingVideoRect The video bounds during active interaction.
+ * @property interactingCropFrame The crop frame bounds during active interaction.
  * @property progress The current interaction progress (0f = idle, 1f = interacting).
  * @property cropFrame The current animated crop frame bounds.
  * @property scale The current animated video scale.
@@ -493,6 +731,44 @@ private class CropFrameTransformation(
   private val videoFitRect: Rect,
   private val cropConstraintRect: Rect,
 ) {
+
+  val cropAspectRatio: Float
+    get() =
+      cropperState.targetAspectRatio
+        ?: ((cropperState.cropRect.width * cropperState.videoSize.width) /
+          (cropperState.cropRect.height * cropperState.videoSize.height))
+
+  val nonInteractingScale: Float
+    get() = nonInteractingCropFrame.width / (videoFitRect.width * cropperState.cropRect.width)
+
+  val nonInteractingTranslation: Offset
+    get() =
+      nonInteractingCropFrame.topLeft -
+        videoFitRect.topLeft * nonInteractingScale -
+        Offset(
+          x = cropperState.cropRect.left * videoFitRect.width * nonInteractingScale,
+          y = cropperState.cropRect.top * videoFitRect.height * nonInteractingScale,
+        )
+
+  val interactingVideoRect: Rect
+    get() =
+      videoFitRect
+        .scale(gestureState.frozenVideoScale)
+        .translate(gestureState.interactingVideoTranslation)
+
+  val interactingCropFrame: Rect
+    get() =
+      if (gestureState.isPanningVideo) {
+        gestureState.frozenCropFrame
+      } else {
+        val videoRect = interactingVideoRect
+        Rect(
+          left = videoRect.left + cropperState.cropRect.left * videoRect.width,
+          top = videoRect.top + cropperState.cropRect.top * videoRect.height,
+          right = videoRect.left + cropperState.cropRect.right * videoRect.width,
+          bottom = videoRect.top + cropperState.cropRect.bottom * videoRect.height,
+        )
+      }
 
   val progress: Float
     get() = interactionProgressState.value
@@ -521,47 +797,9 @@ private class CropFrameTransformation(
         fraction = interactionProgressState.value,
       )
 
-  private val cropAspectRatio: Float
-    get() =
-      cropperState.targetAspectRatio
-        ?: ((cropperState.cropRect.width * cropperState.videoSize.width) /
-          (cropperState.cropRect.height * cropperState.videoSize.height))
-
   private val nonInteractingCropFrame: Rect
     get() =
       calculateMaxRectInContainer(aspectRatio = cropAspectRatio, container = cropConstraintRect)
-
-  private val nonInteractingScale: Float
-    get() = nonInteractingCropFrame.width / (videoFitRect.width * cropperState.cropRect.width)
-
-  private val nonInteractingTranslation: Offset
-    get() =
-      nonInteractingCropFrame.topLeft -
-        videoFitRect.topLeft * nonInteractingScale -
-        Offset(
-          x = cropperState.cropRect.left * videoFitRect.width * nonInteractingScale,
-          y = cropperState.cropRect.top * videoFitRect.height * nonInteractingScale,
-        )
-
-  private val interactingVideoRect: Rect
-    get() =
-      videoFitRect
-        .scale(gestureState.frozenVideoScale)
-        .translate(gestureState.interactingVideoTranslation)
-
-  private val interactingCropFrame: Rect
-    get() =
-      if (gestureState.isPanningVideo) {
-        gestureState.frozenCropFrame
-      } else {
-        val videoRect = interactingVideoRect
-        Rect(
-          left = videoRect.left + cropperState.cropRect.left * videoRect.width,
-          top = videoRect.top + cropperState.cropRect.top * videoRect.height,
-          right = videoRect.left + cropperState.cropRect.right * videoRect.width,
-          bottom = videoRect.top + cropperState.cropRect.bottom * videoRect.height,
-        )
-      }
 }
 
 /** Encapsulates visual styling and measurement configurations for rendering the crop frame. */
@@ -574,3 +812,10 @@ private data class CropFrameStyle(
   val cropFrameShape: RoundedCornerShape,
   val minCropSize: Dp,
 )
+
+private enum class Corner {
+  TOP_LEFT,
+  TOP_RIGHT,
+  BOTTOM_LEFT,
+  BOTTOM_RIGHT,
+}
