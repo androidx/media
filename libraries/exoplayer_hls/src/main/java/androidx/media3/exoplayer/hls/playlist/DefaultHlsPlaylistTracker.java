@@ -663,18 +663,21 @@ public final class DefaultHlsPlaylistTracker
 
   private long getLoadedPlaylistStartTimeUs(
       @Nullable HlsMediaPlaylist oldPlaylist, HlsMediaPlaylist loadedPlaylist) {
-    if (loadedPlaylist.hasProgramDateTime) {
-      return loadedPlaylist.startTimeUs;
-    }
     long primarySnapshotStartTimeUs =
         primaryMediaPlaylistSnapshot != null ? primaryMediaPlaylistSnapshot.startTimeUs : 0;
     if (oldPlaylist == null) {
-      return primarySnapshotStartTimeUs;
+      return loadedPlaylist.hasProgramDateTime
+          ? loadedPlaylist.startTimeUs
+          : primarySnapshotStartTimeUs;
     }
     int oldPlaylistSize = oldPlaylist.segments.size();
     Segment firstOldOverlappingSegment = getFirstOldOverlappingSegment(oldPlaylist, loadedPlaylist);
     if (firstOldOverlappingSegment != null) {
+      // Prefer continuity with the previous snapshot for overlapping media. Program date time
+      // values are wall-clock metadata and may shift between refreshes.
       return oldPlaylist.startTimeUs + firstOldOverlappingSegment.relativeStartTimeUs;
+    } else if (loadedPlaylist.hasProgramDateTime) {
+      return loadedPlaylist.startTimeUs;
     } else if (oldPlaylistSize == loadedPlaylist.mediaSequence - oldPlaylist.mediaSequence) {
       return oldPlaylist.getEndTimeUs();
     } else {

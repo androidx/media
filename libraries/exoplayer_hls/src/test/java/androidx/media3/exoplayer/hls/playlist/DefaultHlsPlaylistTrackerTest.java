@@ -147,6 +147,36 @@ public class DefaultHlsPlaylistTrackerTest {
           + "#EXT-X-TARGETDURATION:10\n"
           + "#EXTINF:10,\n"
           + "a-clone-segment1.ts\n";
+  private static final String MEDIA_PLAYLIST_WITH_PROGRAM_DATE_TIME =
+      "#EXTM3U\n"
+          + "#EXT-X-VERSION:3\n"
+          + "#EXT-X-TARGETDURATION:6\n"
+          + "#EXT-X-MEDIA-SEQUENCE:0\n"
+          + "#EXT-X-DISCONTINUITY-SEQUENCE:0\n"
+          + "#EXT-X-START:TIME-OFFSET=0\n"
+          + "#EXT-X-PROGRAM-DATE-TIME:2026-07-16T09:20:26.281Z\n"
+          + "#EXT-X-DISCONTINUITY\n"
+          + "#EXTINF:0.185760,\n"
+          + "l1_6a58a1d3ee8ac1baff0fc11e.aac\n"
+          + "#EXT-X-DISCONTINUITY\n"
+          + "#EXTINF:5.990748,\n"
+          + "l0_6a58a262ee8ac1baff0fc136.aac\n"
+          + "#EXTINF:5.990748,\n"
+          + "l0_6a58a268ee8ac1baff0fc137.aac\n"
+          + "#EXTINF:5.990748,\n"
+          + "l0_6a58a26eee8ac1baff0fc138.aac\n";
+  private static final String MEDIA_PLAYLIST_UPDATE_WITH_SHIFTED_PROGRAM_DATE_TIME =
+      "#EXTM3U\n"
+          + "#EXT-X-VERSION:3\n"
+          + "#EXT-X-TARGETDURATION:6\n"
+          + "#EXT-X-MEDIA-SEQUENCE:2\n"
+          + "#EXT-X-DISCONTINUITY-SEQUENCE:2\n"
+          + "#EXT-X-START:TIME-OFFSET=0\n"
+          + "#EXT-X-PROGRAM-DATE-TIME:2026-07-16T09:21:08.047Z\n"
+          + "#EXTINF:5.990748,\n"
+          + "l0_6a58a268ee8ac1baff0fc137.aac\n"
+          + "#EXTINF:5.990748,\n"
+          + "l0_6a58a26eee8ac1baff0fc138.aac\n";
 
   private MockWebServer mockWebServer;
   private int enqueueCounter;
@@ -194,6 +224,37 @@ public class DefaultHlsPlaylistTrackerTest {
     assertThat(secondFullPlaylist.segments.get(5).url).isEqualTo("fileSequence16.ts");
     assertThat(secondFullPlaylist.segments).hasSize(6);
     assertThat(secondFullPlaylist.segments).containsNoneIn(firstFullPlaylist.segments);
+  }
+
+  @Test
+  public void start_playlistUpdateWithShiftedProgramDateTime_preservesOverlappingSegmentTime()
+      throws IOException, TimeoutException, InterruptedException {
+    List<HttpUrl> httpUrls =
+        enqueueWebServerResponses(
+            new String[] {"/multivariant.m3u8", "/media0/playlist.m3u8", "/media0/playlist.m3u8"},
+            getMockResponse(SAMPLE_M3U8_LIVE_MULTIVARIANT),
+            new MockResponse()
+                .setResponseCode(200)
+                .setBody(MEDIA_PLAYLIST_WITH_PROGRAM_DATE_TIME),
+            new MockResponse()
+                .setResponseCode(200)
+                .setBody(MEDIA_PLAYLIST_UPDATE_WITH_SHIFTED_PROGRAM_DATE_TIME));
+
+    List<HlsMediaPlaylist> mediaPlaylists =
+        runPlaylistTrackerAndCollectMediaPlaylists(
+            new DefaultHttpDataSource.Factory(),
+            /* downloadExecutorSupplier= */ null,
+            Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
+            /* awaitedMediaPlaylistCount= */ 2);
+
+    assertRequestUrlsCalled(httpUrls);
+    HlsMediaPlaylist initialPlaylist = mediaPlaylists.get(0);
+    HlsMediaPlaylist updatedPlaylist = mediaPlaylists.get(1);
+    assertThat(updatedPlaylist.segments.get(0).url)
+        .isEqualTo(initialPlaylist.segments.get(2).url);
+    assertThat(updatedPlaylist.startTimeUs)
+        .isEqualTo(
+            initialPlaylist.startTimeUs + initialPlaylist.segments.get(2).relativeStartTimeUs);
   }
 
   @Test
