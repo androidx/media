@@ -295,15 +295,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           // new position to do another seek upon receiving the PLAY response.
           return positionUs;
         case RtspClient.RTSP_STATE_PLAYING:
-          // Pending PAUSE response, updates client with the newest seek position for the following
-          // PLAY request.
+        // Pending PAUSE response, updates client with the newest seek position for the following
+        // PLAY request.
+        case RtspClient.RTSP_STATE_UNINITIALIZED:
+        case RtspClient.RTSP_STATE_INIT:
+          // Pending SETUP response, updates client with the newest seek position for the PLAY
+          // request.
           pendingSeekPositionUs = positionUs;
           rtspClient.seekToUs(pendingSeekPositionUs);
           return positionUs;
-        case RtspClient.RTSP_STATE_UNINITIALIZED:
-        case RtspClient.RTSP_STATE_INIT:
         default:
-          // Never happens.
           throw new IllegalStateException();
       }
     }

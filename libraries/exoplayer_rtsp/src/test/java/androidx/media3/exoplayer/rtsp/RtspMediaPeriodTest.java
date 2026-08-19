@@ -250,6 +250,42 @@ public final class RtspMediaPeriodTest {
     assertThat(mediaPeriod.getBufferedPositionUs()).isEqualTo(seekPositionUs);
   }
 
+  @Test
+  public void seekToUs_duringInitialization_succeedsWithoutException() throws Exception {
+    rtspServer =
+        new RtspServer(
+            new TestResponseProvider(
+                rtpPacketStreamDump,
+                /* getPlayResponseReference= */ null,
+                /* isWwwAuthenticationMode= */ false));
+    mediaPeriod =
+        new RtspMediaPeriod(
+            new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE),
+            new FakeRtpDataChannelFactory(),
+            RtspTestUtils.getTestUri(rtspServer.startAndGetPortNumber()),
+            /* listener= */ timing -> {},
+            /* userAgent= */ "ExoPlayer:RtspPeriodTest",
+            /* socketFactory= */ SocketFactory.getDefault(),
+            /* debugLoggingEnabled= */ false);
+    mediaPeriod.prepare(mediaPeriodCallback, /* positionUs= */ 0);
+    RobolectricUtil.runMainLooperUntil(() -> trackGroupAtomicReference.get() != null);
+    SampleStream[] sampleStreams = new SampleStream[1];
+    mediaPeriod.selectTracks(
+        new ExoTrackSelection[] {
+          new FixedTrackSelection(trackGroupAtomicReference.get(), /* track= */ 0)
+        },
+        /* mayRetainStreamFlags= */ new boolean[] {false},
+        sampleStreams,
+        /* streamResetFlags= */ new boolean[] {true},
+        /* positionUs= */ 0);
+
+    // Perform multiple seeks before PLAY response is received (during RTSP_STATE_INIT).
+    mediaPeriod.seekToUs(1000000);
+    mediaPeriod.seekToUs(5000000);
+
+    assertThat(mediaPeriod.getBufferedPositionUs()).isEqualTo(5000000);
+  }
+
   private static class TestResponseProvider implements RtspServer.ResponseProvider {
     private static final String SESSION_ID = "00000000";
 

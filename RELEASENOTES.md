@@ -134,6 +134,8 @@
     *   Fix an `IllegalStateException` crash that can occur when processing
         delayed network responses after the RTSP client resets state during
         track reselection, session teardown, or uri redirection.
+    *   Fix issue where seeking again prior to playback restart could cause an
+        `IllegalStateException` crash.
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
     *   Opus: Fix memory corruption when multiple `OpusDecoder` instances are
         initialized concurrently.
