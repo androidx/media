@@ -69,6 +69,10 @@
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
     *   Opus: Fix memory corruption when multiple `OpusDecoder` instances are
         initialized concurrently.
+    *   MPEG-H: Fix memory leak, truncation of non-ASCII characters, and
+        potential native crash under low-memory conditions when sending commands
+        to the `MpeghUiManager`
+        ([#3365](https://github.com/androidx/media/issues/3365)).
 *   MIDI extension:
 *   Leanback extension:
 *   Cast extension:
