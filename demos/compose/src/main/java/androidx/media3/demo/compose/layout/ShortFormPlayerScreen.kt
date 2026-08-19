@@ -31,13 +31,11 @@ import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.demo.compose.shortform.rememberShortFormState
-import androidx.media3.demo.compose.text.Artwork
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.lifecycle.SlidingWindowEffect
 import androidx.media3.ui.compose.lifecycle.rememberPooledPlayer
 import androidx.media3.ui.compose.material3.Player
 import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
-import androidx.media3.ui.compose.text.CurrentMediaItemBox
 
 @OptIn(ExperimentalApi::class)
 @Composable
@@ -104,7 +102,6 @@ internal fun ShortFormPlayerScreen(
     Player(
       player = player,
       showControls = false,
-      artwork = { CurrentMediaItemBox(it) { Artwork(mediaMetadata, Modifier.fillMaxSize()) } },
       contentScale = ContentScale.Crop,
       modifier = Modifier.fillMaxSize().noRippleClickable(playPauseButtonState::onClick),
     )

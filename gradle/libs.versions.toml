@@ -49,6 +49,7 @@ animalSnifferAnnotationsVersion = "1.21"
 # Keep this in sync with Google's internal Checker Framework version.
 checkerframeworkVersion = "3.13.0"
 cronetVersion = "143.7445.0"
+coilComposeVersion = "2.7.0"
 desugarJdkLibsVersion = "2.1.5"
 dexmakerVersion = "2.28.3"
 # Keep in sync with gms.strict-version-matcher-plugin
@@ -129,6 +130,7 @@ animal-sniffer-annotations = { group = "org.codehaus.mojo", name = "animal-sniff
 checkerframework-qual = { group = "org.checkerframework", name = "checker-qual", version.ref = "checkerframeworkVersion" }
 cronet-api = { group = "org.chromium.net", name = "cronet-api", version.ref = "cronetVersion" }
 cronet-embedded = { group = "org.chromium.net", name = "cronet-embedded", version.ref = "cronetVersion" }
+coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coilComposeVersion" }
 desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugarJdkLibsVersion" }
 dexmaker-mockito = { group = "com.linkedin.dexmaker", name = "dexmaker-mockito", version.ref = "dexmakerVersion" }
 errorprone-annotations = { group = "com.google.errorprone", name = "error_prone_annotations", version.ref = "errorProneVersion" }

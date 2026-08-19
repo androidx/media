@@ -112,7 +112,8 @@
         `ExoPlayer` or `CompositionPlayer`.
     *   Add `showArtwork` support to `PresentationState` and use it to time
         rendering of the provided optional `artwork` Composable in
-        `ContentFrame` and `Player`.
+        `ContentFrame` and `Player`. Add `Artwork` Composable to be used as the
+        default value for the `artwork` slot.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:

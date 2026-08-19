@@ -45,4 +45,6 @@ dependencies {
   testImplementation(project(":lib-exoplayer"))
   testImplementation(project(":lib-transformer"))
   testImplementation(libs.robolectric)
+  testImplementation(libs.glide)
+  testImplementation(libs.glide.concurrent.integration)
 }

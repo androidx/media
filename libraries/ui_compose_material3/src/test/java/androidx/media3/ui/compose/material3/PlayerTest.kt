@@ -17,6 +17,9 @@
 package androidx.media3.ui.compose.material3
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -37,19 +40,29 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.createBitmap
 import androidx.media3.common.C
 import androidx.media3.common.Format
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
 import androidx.media3.common.TrackGroup
 import androidx.media3.common.Tracks
+import androidx.media3.common.util.BitmapLoader
 import androidx.media3.test.utils.FakePlayer
+import androidx.media3.ui.compose.Artwork
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.bumptech.glide.Glide
+import com.bumptech.glide.integration.concurrent.GlideFutures
 import com.google.common.truth.Truth
+import com.google.common.util.concurrent.ListenableFuture
+import java.io.ByteArrayOutputStream
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -293,5 +306,86 @@ class PlayerTest {
     }
 
     composeTestRule.onNodeWithTag("CustomArtworkTag").assertIsDisplayed()
+  }
+
+  @Test
+  fun player_glideAsBitmapLoaderBackend_loadsArtworkBitmap() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val glideBitmapLoader = GlideBitmapLoader(context)
+    val originalBitmap = createBitmap(1, 1)
+    originalBitmap.eraseColor(Color.RED)
+    val outputStream = ByteArrayOutputStream()
+    originalBitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+    val validImageData = outputStream.toByteArray()
+    val mediaItem =
+      MediaItem.Builder()
+        .setMediaMetadata(
+          MediaMetadata.Builder()
+            .setTitle("Track Title")
+            .setArtworkData(validImageData, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+            .build()
+        )
+        .build()
+    val audioTrack =
+      Tracks.Group(
+        TrackGroup(Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build()),
+        /* adaptiveSupported= */ true,
+        /* trackSupport= */ intArrayOf(C.FORMAT_HANDLED),
+        /* trackSelected= */ booleanArrayOf(true),
+      )
+    val player =
+      FakePlayer(
+        playlist =
+          listOf(
+            MediaItemData.Builder("First")
+              .setMediaItem(mediaItem)
+              .setTracks(Tracks(listOf(audioTrack)))
+              .build()
+          )
+      )
+
+    composeTestRule.setContent {
+      Player(
+        player,
+        artwork = {
+          Artwork(
+            player = player,
+            contentDescription = "Album Artwork",
+            bitmapLoader = glideBitmapLoader,
+            modifier = Modifier.fillMaxSize().testTag("ArtworkBackendTag"),
+          )
+        },
+      )
+    }
+
+    // We assert against the contentDescription because it is uniquely applied to the Image
+    // composable upon a successful load. Asserting against the testTag("ArtworkBackendTag")
+    // would falsely pass even on failure, as it applies to the fallback Box wrapper.
+    composeTestRule.waitUntil(timeoutMillis = 5000) {
+      composeTestRule
+        .onAllNodes(hasContentDescription("Album Artwork"))
+        .fetchSemanticsNodes()
+        .isNotEmpty()
+    }
+    composeTestRule.onNodeWithContentDescription("Album Artwork").assertIsDisplayed()
+  }
+
+  private class GlideBitmapLoader(private val context: Context) : BitmapLoader {
+    override fun loadBitmap(uri: Uri): ListenableFuture<Bitmap> {
+      return GlideFutures.submit(Glide.with(context).asBitmap().load(uri))
+    }
+
+    override fun decodeBitmap(data: ByteArray): ListenableFuture<Bitmap> {
+      return GlideFutures.submit(Glide.with(context).asBitmap().load(data))
+    }
+
+    override fun loadBitmapFromMetadata(metadata: MediaMetadata): ListenableFuture<Bitmap>? {
+      if (metadata.artworkData != null) {
+        return decodeBitmap(metadata.artworkData!!)
+      }
+      return metadata.artworkUri?.let { loadBitmap(it) }
+    }
+
+    override fun supportsMimeType(mimeType: String): Boolean = true
   }
 }

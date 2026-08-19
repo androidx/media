@@ -31,10 +31,13 @@ dependencies {
   api(platform(libs.androidx.compose.bom))
   api(libs.androidx.compose.foundation)
 
+  implementation(libs.kotlinx.coroutines.guava)
+
   testImplementation(libs.androidx.compose.ui.test)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(project(":test-utils"))
   testImplementation(project(":test-utils-robolectric"))
   testImplementation(libs.robolectric)
   testImplementation(libs.test.parameter.injector)
+  testImplementation(libs.coil.compose)
 }
