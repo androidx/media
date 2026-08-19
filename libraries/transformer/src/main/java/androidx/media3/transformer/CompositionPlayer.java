@@ -101,7 +101,6 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.LoadControl;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.RendererCapabilities.Capabilities;
-import androidx.media3.exoplayer.ScrubbingModeParameters;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.analytics.DefaultAnalyticsCollector;
@@ -2426,12 +2425,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
               .setHandleAudioBecomingNoisy(true)
               .setLoadControl(loadControl)
               .setClock(clock)
-              .setScrubbingModeParameters(
-                  ScrubbingModeParameters.DEFAULT
-                      .buildUpon()
-                      // TODO(b/542579779): Re-enable allowSkippingMediaCodecFlush.
-                      .setAllowSkippingMediaCodecFlush(false)
-                      .build())
               // Use dynamic scheduling to show the first video/image frame more promptly when the
               // player is paused (which is common in editing applications).
               .experimentalSetDynamicSchedulingEnabled(true)
