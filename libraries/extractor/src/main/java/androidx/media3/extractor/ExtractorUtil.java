@@ -20,9 +20,11 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.container.OpusUtil;
 import java.io.EOFException;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import org.checkerframework.dataflow.qual.Pure;
 
 /** Extractor related utility methods. */
@@ -178,6 +180,74 @@ public final class ExtractorUtil {
       case Format.NO_VALUE:
       default:
         return C.RATE_UNSET_INT;
+    }
+  }
+
+  /**
+   * Returns the number of audio frames per sample for the given encoding.
+   *
+   * <p>PCM encodings are not supported.
+   *
+   * @param encoding A {@link C.Encoding}.
+   * @param buffer The {@link ByteBuffer} containing the encoded sample.
+   * @return The number of audio frames per sample for the given encoding.
+   * @throws IllegalArgumentException If the sample data is invalid.
+   * @throws IllegalStateException If the encoding is not an encoded audio format, such as a PCM
+   *     encoding.
+   */
+  public static int getFramesPerEncodedSample(@C.Encoding int encoding, ByteBuffer buffer) {
+    switch (encoding) {
+      case C.ENCODING_MP3:
+        int headerDataInBigEndian = Util.getBigEndianInt(buffer, buffer.position());
+        int frameCount = MpegAudioUtil.parseMpegAudioFrameSampleCount(headerDataInBigEndian);
+        if (frameCount == C.LENGTH_UNSET) {
+          throw new IllegalArgumentException();
+        }
+        return frameCount;
+      case C.ENCODING_AAC_LC:
+        return AacUtil.AAC_LC_AUDIO_SAMPLE_COUNT;
+      case C.ENCODING_AAC_HE_V1:
+      case C.ENCODING_AAC_HE_V2:
+        return AacUtil.AAC_HE_AUDIO_SAMPLE_COUNT;
+      case C.ENCODING_AAC_XHE:
+        return AacUtil.AAC_XHE_AUDIO_SAMPLE_COUNT;
+      case C.ENCODING_AAC_ELD:
+        return AacUtil.AAC_LD_AUDIO_SAMPLE_COUNT;
+      case C.ENCODING_DTS:
+      case C.ENCODING_DTS_HD:
+      case C.ENCODING_DTS_UHD_P2:
+        return DtsUtil.parseDtsAudioSampleCount(buffer);
+      case C.ENCODING_AC3:
+      case C.ENCODING_E_AC3:
+      case C.ENCODING_E_AC3_JOC:
+        return Ac3Util.parseAc3SyncframeAudioSampleCount(buffer);
+      case C.ENCODING_AC4:
+        return Ac4Util.parseAc4SyncframeAudioSampleCount(buffer);
+      case C.ENCODING_DOLBY_TRUEHD:
+        int syncframeOffset = Ac3Util.findTrueHdSyncframeOffset(buffer);
+        return syncframeOffset == C.INDEX_UNSET
+            ? 0
+            : (Ac3Util.parseTrueHdSyncframeAudioSampleCount(buffer, syncframeOffset)
+                * Ac3Util.TRUEHD_RECHUNK_SAMPLE_COUNT);
+      case C.ENCODING_OPUS:
+        return OpusUtil.parseOggPacketAudioSampleCount(buffer);
+      case C.ENCODING_PCM_16BIT:
+      case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
+      case C.ENCODING_PCM_24BIT:
+      case C.ENCODING_PCM_24BIT_BIG_ENDIAN:
+      case C.ENCODING_PCM_32BIT:
+      case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
+      case C.ENCODING_PCM_8BIT:
+      case C.ENCODING_PCM_FLOAT:
+      case C.ENCODING_PCM_FLOAT_BIG_ENDIAN:
+      case C.ENCODING_PCM_DOUBLE:
+      case C.ENCODING_PCM_DOUBLE_BIG_ENDIAN:
+      case C.ENCODING_AAC_ER_BSAC:
+      case C.ENCODING_DSD:
+      case C.ENCODING_INVALID:
+      case Format.NO_VALUE:
+      default:
+        throw new IllegalStateException("Unexpected audio encoding: " + encoding);
     }
   }
 

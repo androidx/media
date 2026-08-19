@@ -54,18 +54,12 @@ import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import androidx.media3.container.OpusUtil;
 import androidx.media3.exoplayer.ExoPlayer.AudioOffloadListener;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.audio.AudioOutputProvider.FormatConfig;
 import androidx.media3.exoplayer.audio.AudioOutputProvider.FormatSupport;
 import androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig;
-import androidx.media3.extractor.AacUtil;
-import androidx.media3.extractor.Ac3Util;
-import androidx.media3.extractor.Ac4Util;
-import androidx.media3.extractor.DtsUtil;
 import androidx.media3.extractor.ExtractorUtil;
-import androidx.media3.extractor.MpegAudioUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
@@ -1012,7 +1006,7 @@ public final class DefaultAudioSink implements AudioSink {
       if (!configuration.isPcm() && framesPerEncodedSample == 0) {
         // If this is the first encoded sample, calculate the sample size in frames.
         framesPerEncodedSample =
-            getFramesPerEncodedSample(configuration.outputConfig.encoding, buffer);
+            ExtractorUtil.getFramesPerEncodedSample(configuration.outputConfig.encoding, buffer);
         if (framesPerEncodedSample == 0) {
           // We still don't know the number of frames per sample, so drop the buffer.
           // For TrueHD this can occur after some seek operations, as not every sample starts with
@@ -1864,62 +1858,6 @@ public final class DefaultAudioSink implements AudioSink {
         .setPreferredBufferSize(preferredBufferSize)
         .setVirtualDeviceId(virtualDeviceId)
         .build();
-  }
-
-  /* package */ static int getFramesPerEncodedSample(@C.Encoding int encoding, ByteBuffer buffer) {
-    switch (encoding) {
-      case C.ENCODING_MP3:
-        int headerDataInBigEndian = Util.getBigEndianInt(buffer, buffer.position());
-        int frameCount = MpegAudioUtil.parseMpegAudioFrameSampleCount(headerDataInBigEndian);
-        if (frameCount == C.LENGTH_UNSET) {
-          throw new IllegalArgumentException();
-        }
-        return frameCount;
-      case C.ENCODING_AAC_LC:
-        return AacUtil.AAC_LC_AUDIO_SAMPLE_COUNT;
-      case C.ENCODING_AAC_HE_V1:
-      case C.ENCODING_AAC_HE_V2:
-        return AacUtil.AAC_HE_AUDIO_SAMPLE_COUNT;
-      case C.ENCODING_AAC_XHE:
-        return AacUtil.AAC_XHE_AUDIO_SAMPLE_COUNT;
-      case C.ENCODING_AAC_ELD:
-        return AacUtil.AAC_LD_AUDIO_SAMPLE_COUNT;
-      case C.ENCODING_DTS:
-      case C.ENCODING_DTS_HD:
-      case C.ENCODING_DTS_UHD_P2:
-        return DtsUtil.parseDtsAudioSampleCount(buffer);
-      case C.ENCODING_AC3:
-      case C.ENCODING_E_AC3:
-      case C.ENCODING_E_AC3_JOC:
-        return Ac3Util.parseAc3SyncframeAudioSampleCount(buffer);
-      case C.ENCODING_AC4:
-        return Ac4Util.parseAc4SyncframeAudioSampleCount(buffer);
-      case C.ENCODING_DOLBY_TRUEHD:
-        int syncframeOffset = Ac3Util.findTrueHdSyncframeOffset(buffer);
-        return syncframeOffset == C.INDEX_UNSET
-            ? 0
-            : (Ac3Util.parseTrueHdSyncframeAudioSampleCount(buffer, syncframeOffset)
-                * Ac3Util.TRUEHD_RECHUNK_SAMPLE_COUNT);
-      case C.ENCODING_OPUS:
-        return OpusUtil.parseOggPacketAudioSampleCount(buffer);
-      case C.ENCODING_PCM_16BIT:
-      case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
-      case C.ENCODING_PCM_24BIT:
-      case C.ENCODING_PCM_24BIT_BIG_ENDIAN:
-      case C.ENCODING_PCM_32BIT:
-      case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
-      case C.ENCODING_PCM_8BIT:
-      case C.ENCODING_PCM_FLOAT:
-      case C.ENCODING_PCM_FLOAT_BIG_ENDIAN:
-      case C.ENCODING_PCM_DOUBLE:
-      case C.ENCODING_PCM_DOUBLE_BIG_ENDIAN:
-      case C.ENCODING_AAC_ER_BSAC:
-      case C.ENCODING_DSD:
-      case C.ENCODING_INVALID:
-      case Format.NO_VALUE:
-      default:
-        throw new IllegalStateException("Unexpected audio encoding: " + encoding);
-    }
   }
 
   private void playPendingData() {

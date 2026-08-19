@@ -44,6 +44,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig;
+import androidx.media3.extractor.ExtractorUtil;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.concurrent.Future;
@@ -241,7 +242,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
       throws WriteException {
     if (!isOutputPcm && framesPerEncodedSample == 0) {
       // If this is the first encoded sample, calculate the sample size in frames.
-      framesPerEncodedSample = DefaultAudioSink.getFramesPerEncodedSample(config.encoding, buffer);
+      framesPerEncodedSample = ExtractorUtil.getFramesPerEncodedSample(config.encoding, buffer);
     }
     maybeReportUnderrun();
     int bytesRemaining = buffer.remaining();
