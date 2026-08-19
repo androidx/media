@@ -170,20 +170,32 @@ UIMANAGER_FUNC(jint, destroy, jobject persistenceBuffer,
  * will be called to pass the received MHAS frame to the UI manager
  */
 UIMANAGER_FUNC(jboolean, command, jstring xmlAction) {
+  if (xmlAction == nullptr) {
+    return false;
+  }
+
   UIMANAGER_CONTEXT* ctx = getContext_UI(env, obj);
+  if (ctx == nullptr || ctx->handle == nullptr) {
+    LOGW("MPEG-H UI manager is not initialized.");
+    return false;
+  }
 
   const char* str = env->GetStringUTFChars(xmlAction, 0);
-  uint32_t strlen = env->GetStringLength(xmlAction);
+  if (str == nullptr) {
+    return false;
+  }
+  uint32_t xmlActionLength = env->GetStringUTFLength(xmlAction);
 
   unsigned int flagsOut = 0;
   MPEGH_UI_ERROR result =
-      mpegh_UI_ApplyXmlAction(ctx->handle, str, strlen, &flagsOut);
+      mpegh_UI_ApplyXmlAction(ctx->handle, str, xmlActionLength, &flagsOut);
   if (result != MPEGH_UI_OK) {
     LOGW("Failed to apply XML action with result %d for command %s", result,
          str);
-    return false;
   }
-  return true;
+
+  env->ReleaseStringUTFChars(xmlAction, str);
+  return result == MPEGH_UI_OK;
 }
 
 /*

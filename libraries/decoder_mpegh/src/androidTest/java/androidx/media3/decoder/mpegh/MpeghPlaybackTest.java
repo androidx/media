@@ -60,6 +60,10 @@ public final class MpeghPlaybackTest {
   private static final String ACTION_EVENT_XML =
       "<ActionEvent uuid=\"BB0C0000-0000-0000-0000-000083610318\" version=\"11.0\""
           + " actionType=\"60\" paramInt=\"0\" paramFloat=\"20\" />";
+  private static final String ACTION_EVENT_NON_ASCII_XML =
+      "<ActionEvent uuid=\"BB0C0000-0000-0000-0000-000083610318\" version=\"11.0\""
+          + " actionType=\"60\" paramInt=\"0\" paramFloat=\"20\" nonAscii=\"Kommentar Deutsch"
+          + " (Originalfassung) äöü\" />";
   private static final int MAX_PERSISTENCE_STORAGE = 8096;
 
   @Nullable private ByteBuffer persistenceBuffer;
@@ -73,19 +77,19 @@ public final class MpeghPlaybackTest {
   }
 
   @Test
-  public void testPlayback() throws Exception {
+  public void playback_matchesExpectedDump() throws Exception {
     playAndAssertAudioSinkInput(
         SAMPLE_MHM1_URI, /* command= */ null, /* persistenceBuffer= */ null, /* run= */ 1);
   }
 
   @Test
-  public void testPlaybackWithCommand() throws Exception {
+  public void playback_withCommand_matchesExpectedDump() throws Exception {
     playAndAssertAudioSinkInput(
         SAMPLE_MHM1_URI, ACTION_EVENT_XML, /* persistenceBuffer= */ null, /* run= */ 1);
   }
 
   @Test
-  public void testPlaybackWithCommandAndPersistence() throws Exception {
+  public void playback_withCommandAndPersistence_matchesExpectedDump() throws Exception {
     // First run with command to populate persistence
     playAndAssertAudioSinkInput(SAMPLE_MHM1_URI, ACTION_EVENT_XML, persistenceBuffer, /* run= */ 1);
 
@@ -94,8 +98,29 @@ public final class MpeghPlaybackTest {
         SAMPLE_MHM1_URI, /* command= */ null, persistenceBuffer, /* run= */ 2);
   }
 
+  @Test
+  public void playback_withNonAsciiCommand_matchesExpectedDump() throws Exception {
+    playAndAssertAudioSinkInput(
+        SAMPLE_MHM1_URI,
+        ACTION_EVENT_NON_ASCII_XML,
+        ".nonasciicmd",
+        /* persistenceBuffer= */ null,
+        /* run= */ 1);
+  }
+
   private static void playAndAssertAudioSinkInput(
       String fileName, @Nullable String command, @Nullable ByteBuffer persistenceBuffer, int run)
+      throws Exception {
+    playAndAssertAudioSinkInput(
+        fileName, command, command != null ? ".cmd" : "", persistenceBuffer, run);
+  }
+
+  private static void playAndAssertAudioSinkInput(
+      String fileName,
+      @Nullable String command,
+      String commandSuffix,
+      @Nullable ByteBuffer persistenceBuffer,
+      int run)
       throws Exception {
     CapturingAudioSink audioSink = CapturingAudioSink.create();
     TestPlaybackRunnable testPlaybackRunnable =
@@ -113,8 +138,6 @@ public final class MpeghPlaybackTest {
     if (testPlaybackRunnable.playbackException != null) {
       throw testPlaybackRunnable.playbackException;
     }
-
-    String commandSuffix = command != null ? ".cmd" : "";
     String persistenceSuffix = persistenceBuffer != null ? ".persist." + run : "";
 
     DumpFileAsserts.assertOutput(

@@ -42,6 +42,11 @@
     *   Support configuring the frame rate of video frame aggregation via
         `Composition.Builder.setVideoFrameAggregationParameters` for playback
         workflows.
+*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+    *   MPEG-H: Fix memory leak, truncation of non-ASCII characters, and
+        potential native crash under low-memory conditions when sending commands
+        to the `MpeghUiManager`
+        ([#3365](https://github.com/androidx/media/issues/3365)).
 *   Transformer:
     *   Fix a segmentation fault during release by introducing
         `AssetLoader.stop()` and `AssetLoader.isStopped()` methods to verify
