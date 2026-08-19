@@ -16,6 +16,9 @@
     *   Fix `ArrayIndexOutOfBoundsException` when a live timeline refresh moves
         the default position past a server-side inserted ad that is currently
         being played ([#3348](https://github.com/androidx/media/issues/3348)).
+    *   Fix a scrubbing mode issue where stale video frames could be briefly
+        displayed when seeking with
+        `ScrubbingModeParameters.allowSkippingMediaCodecFlush` enabled.
 *   CompositionPlayer:
 *   Transformer:
 *   Track Selection:
