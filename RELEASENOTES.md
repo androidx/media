@@ -23,6 +23,9 @@
 *   Transformer:
 *   Track Selection:
 *   Extractors:
+    *   Matroska: Fix issue where Tracks placed after clusters wouldn't result
+        in a seekable timeline
+        ([#3377](https://github.com/androidx/media/issues/3377)).
 *   Inspector:
 *   Inspector Frame:
 *   Audio:
