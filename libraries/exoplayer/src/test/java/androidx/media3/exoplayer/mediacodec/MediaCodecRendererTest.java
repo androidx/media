@@ -51,6 +51,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.MediaFormatUtil;
+import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.decoder.CryptoInfo;
 import androidx.media3.exoplayer.CodecParameters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
@@ -947,11 +948,11 @@ public class MediaCodecRendererTest {
     MediaCodecAdapter mockCodecAdapter = mock(MediaCodecAdapter.class);
     doAnswer(
             invocation -> {
-              ((Runnable) invocation.getArgument(0)).run();
+              ((ThrowingRunnable<?>) invocation.getArgument(0)).run();
               return null;
             })
         .when(mockCodecAdapter)
-        .useInputBuffer(any());
+        .useBuffer(any());
     when(mockCodecAdapter.dequeueInputBufferIndex())
         .thenReturn(0)
         .thenReturn(MediaCodec.INFO_TRY_AGAIN_LATER);

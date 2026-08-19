@@ -74,6 +74,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.CodecParameters;
 import androidx.media3.exoplayer.DecoderCounters;
@@ -7788,7 +7789,7 @@ public class MediaCodecVideoRendererTest {
     }
 
     @Override
-    public void useInputBuffer(Runnable runnable) {
+    public <E extends Exception> void useBuffer(ThrowingRunnable<E> runnable) throws E {
       runnable.run();
     }
 
