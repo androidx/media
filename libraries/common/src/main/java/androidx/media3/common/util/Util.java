@@ -2630,6 +2630,20 @@ public final class Util {
   }
 
   /**
+   * Returns whether {@code encoding} is an MPEG-H encoding.
+   *
+   * @param encoding The encoding of the audio data.
+   * @return Whether the encoding is an MPEG-H encoding.
+   */
+  @UnstableApi
+  public static boolean isMpegh(@C.Encoding int encoding) {
+    return encoding == C.ENCODING_MPEGH_BL_L3
+        || encoding == C.ENCODING_MPEGH_BL_L4
+        || encoding == C.ENCODING_MPEGH_LC_L3
+        || encoding == C.ENCODING_MPEGH_LC_L4;
+  }
+
+  /**
    * Returns whether {@code encoding} is high resolution (&gt; 16-bit) PCM.
    *
    * @param encoding The encoding of the audio data.
@@ -2801,6 +2815,10 @@ public final class Util {
         return 30;
       case C.ENCODING_PCM_24BIT:
       case C.ENCODING_PCM_32BIT:
+      case C.ENCODING_MPEGH_BL_L3:
+      case C.ENCODING_MPEGH_BL_L4:
+      case C.ENCODING_MPEGH_LC_L3:
+      case C.ENCODING_MPEGH_LC_L4:
         return 31;
       case C.ENCODING_DTS_UHD_P2:
       case C.ENCODING_DSD:

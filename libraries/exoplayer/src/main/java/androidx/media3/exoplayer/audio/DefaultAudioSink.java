@@ -66,6 +66,7 @@ import androidx.media3.extractor.Ac4Util;
 import androidx.media3.extractor.DtsUtil;
 import androidx.media3.extractor.ExtractorUtil;
 import androidx.media3.extractor.MpegAudioUtil;
+import androidx.media3.extractor.MpeghUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
@@ -606,6 +607,7 @@ public final class DefaultAudioSink implements AudioSink {
   private long outputStreamOffsetUs;
   private float volume;
 
+
   @Nullable private ByteBuffer inputBuffer;
   private int inputBufferAccessUnitCount;
   @Nullable private ByteBuffer outputBuffer;
@@ -1022,6 +1024,7 @@ public final class DefaultAudioSink implements AudioSink {
         }
       }
 
+
       if (afterDrainParameters != null) {
         if (!drainToEndOfStream()) {
           // Don't process any more input until draining completes.
@@ -1065,7 +1068,8 @@ public final class DefaultAudioSink implements AudioSink {
       if (configuration.isPcm()) {
         submittedPcmBytes += buffer.remaining();
       } else {
-        submittedEncodedFrames += (long) framesPerEncodedSample * encodedAccessUnitCount;
+        int paddingSamples = getPerBufferTruncationSamples(configuration.outputConfig.encoding, buffer);
+        submittedEncodedFrames += (long) framesPerEncodedSample * encodedAccessUnitCount - paddingSamples;
       }
 
       inputBuffer = buffer;
@@ -1326,13 +1330,12 @@ public final class DefaultAudioSink implements AudioSink {
         // When playing non-PCM, the inputBuffer is never processed, thus the last inputBuffer
         // must be the current input buffer.
         checkState(outputBuffer == inputBuffer);
-        // Add only the remaining unreconciled frames to ensure exact sample accuracy.
+        int paddingSamples = getPerBufferTruncationSamples(configuration.outputConfig.encoding, outputBuffer);
         writtenEncodedFrames +=
             ((long) framesPerEncodedSample * inputBufferAccessUnitCount)
+                - paddingSamples
                 - currentBufferFramesWritten;
-        currentBufferFramesWritten = 0;
-      }
-      outputBuffer = null;
+        currentBufferFramesWritten = 0;      }      outputBuffer = null;
     } else {
       if (!configuration.isPcm() && bytesWritten > 0) {
         checkState(inputBufferOriginalRemaining > 0);
@@ -1866,6 +1869,18 @@ public final class DefaultAudioSink implements AudioSink {
         .build();
   }
 
+  private static int getPerBufferTruncationSamples(@C.Encoding int encoding, ByteBuffer buffer) {
+    switch (encoding) {
+      case C.ENCODING_MPEGH_BL_L3:
+      case C.ENCODING_MPEGH_BL_L4:
+      case C.ENCODING_MPEGH_LC_L3:
+      case C.ENCODING_MPEGH_LC_L4:
+        return MpeghUtil.getTruncationSampleCount(buffer);
+      default:
+        return 0;
+    }
+  }
+
   /* package */ static int getFramesPerEncodedSample(@C.Encoding int encoding, ByteBuffer buffer) {
     switch (encoding) {
       case C.ENCODING_MP3:
@@ -1902,6 +1917,11 @@ public final class DefaultAudioSink implements AudioSink {
                 * Ac3Util.TRUEHD_RECHUNK_SAMPLE_COUNT);
       case C.ENCODING_OPUS:
         return OpusUtil.parseOggPacketAudioSampleCount(buffer);
+      case C.ENCODING_MPEGH_BL_L3:
+      case C.ENCODING_MPEGH_BL_L4:
+      case C.ENCODING_MPEGH_LC_L3:
+      case C.ENCODING_MPEGH_LC_L4:
+        return MpeghUtil.getStandardFrameLength(buffer);
       case C.ENCODING_PCM_16BIT:
       case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
       case C.ENCODING_PCM_24BIT:

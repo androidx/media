@@ -100,6 +100,10 @@ public final class AudioCapabilities {
           .put(C.ENCODING_E_AC3, 8)
           .put(C.ENCODING_DTS_HD, 8)
           .put(C.ENCODING_DOLBY_TRUEHD, 8)
+          .put(C.ENCODING_MPEGH_BL_L3, 8)
+          .put(C.ENCODING_MPEGH_BL_L4, 8)
+          .put(C.ENCODING_MPEGH_LC_L3, 8)
+          .put(C.ENCODING_MPEGH_LC_L4, 8)
           .buildOrThrow();
 
   /** Global settings key for devices that can specify external surround sound. */

@@ -25,7 +25,7 @@ the root of your media3 check-out):
 ```shell
 cd libraries/decoder_mpegh/src/main/jni && \
 git clone https://github.com/Fraunhofer-IIS/mpeghdec.git \
-     --branch r3.0.2 \
+     --branch r3.0.3 \
      --depth=1 \
      libmpegh
 ```

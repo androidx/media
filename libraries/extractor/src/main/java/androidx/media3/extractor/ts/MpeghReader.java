@@ -32,6 +32,7 @@ import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.ExtractorOutput;
+import androidx.media3.extractor.MpeghUtil;
 import androidx.media3.extractor.TrackOutput;
 import com.google.common.collect.ImmutableList;
 import java.lang.annotation.Documented;

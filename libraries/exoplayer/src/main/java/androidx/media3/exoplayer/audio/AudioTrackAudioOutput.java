@@ -44,6 +44,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig;
+import androidx.media3.extractor.MpeghUtil;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.concurrent.Future;
@@ -155,7 +156,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
       int channelCount = Integer.bitCount(config.channelMask);
       pcmFrameSize = Util.getPcmFrameSize(config.encoding, channelCount);
     } else {
-      pcmFrameSize = C.LENGTH_UNSET;
+        pcmFrameSize = C.LENGTH_UNSET;
     }
 
     audioTrackPositionTracker =
@@ -277,7 +278,11 @@ public final class AudioTrackAudioOutput implements AudioOutput {
     } else if (fullyHandled) {
       // For non-PCM we can only be sure about the number of written frames once the entire buffer
       // is submitted.
-      writtenEncodedFrames += (long) framesPerEncodedSample * encodedAccessUnitCount;
+      int paddingSamples = 0;
+      if (Util.isMpegh(config.encoding)) {
+        paddingSamples = MpeghUtil.getTruncationSampleCount(buffer);
+      }
+      writtenEncodedFrames += (long) framesPerEncodedSample * encodedAccessUnitCount - paddingSamples;
     }
     return fullyHandled;
   }
