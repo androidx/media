@@ -15,6 +15,11 @@
  */
 package androidx.media3.ui.compose.material3
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
@@ -22,8 +27,14 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.media3.common.MediaItem
+import androidx.compose.ui.unit.dp
+import androidx.media3.common.C
+import androidx.media3.common.Format
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.MimeTypes
+import androidx.media3.common.SimpleBasePlayer.MediaItemData
+import androidx.media3.common.TrackGroup
+import androidx.media3.common.Tracks
 import androidx.media3.test.utils.FakePlayer
 import androidx.media3.ui.compose.material3.buttons.PreviousButton
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -77,15 +88,16 @@ class MiniControllerTest {
 
   @Test
   fun miniController_displaysTitleAndArtist() {
-    val player = FakePlayer()
     val mediaMetadata =
       MediaMetadata.Builder().setTitle("Sample Title").setArtist("Sample Artist").build()
-    val mediaItem = MediaItem.Builder().setMediaMetadata(mediaMetadata).build()
-    player.setMediaItem(mediaItem)
+    val player =
+      FakePlayer(
+        playlist = listOf(MediaItemData.Builder("First").setMediaMetadata(mediaMetadata).build())
+      )
 
-    composeTestRule.setContent { MiniController(player = player) }
-    composeTestRule.onNodeWithText("Sample Title").assertIsDisplayed()
-    composeTestRule.onNodeWithText("Sample Artist").assertIsDisplayed()
+    composeTestRule.setContent { MiniController(player) }
+    composeTestRule.onNodeWithText("Sample Title", substring = true).assertIsDisplayed()
+    composeTestRule.onNodeWithText("Sample Artist", substring = true).assertIsDisplayed()
   }
 
   @Test
@@ -95,5 +107,52 @@ class MiniControllerTest {
     }
 
     composeTestRule.onNodeWithTag(miniControllerTag).assertIsDisplayed()
+  }
+
+  @Test
+  fun miniController_customArtwork_reactsToPlayerChange() {
+    val textTrack =
+      Tracks.Group(
+        TrackGroup(Format.Builder().setSampleMimeType(MimeTypes.TEXT_VTT).build()),
+        /* adaptiveSupported= */ true,
+        /* trackSupport= */ intArrayOf(C.FORMAT_HANDLED),
+        /* trackSelected= */ booleanArrayOf(true),
+      )
+    val mediaMetadata =
+      MediaMetadata.Builder().setTitle("Sample Title").setArtist("Sample Artist").build()
+    val player =
+      FakePlayer(
+        playlist =
+          listOf(
+            MediaItemData.Builder("First")
+              .setMediaMetadata(mediaMetadata)
+              .setTracks(Tracks(listOf(textTrack)))
+              .build()
+          )
+      )
+
+    lateinit var isPlayerNull: MutableState<Boolean>
+    composeTestRule.setContent {
+      isPlayerNull = remember { mutableStateOf(false) }
+      MiniController(
+        player = if (isPlayerNull.value) null else player,
+        modifier = Modifier.testTag(miniControllerTag),
+        artwork = { p ->
+          val tag = if (p != null) "artworkWithPlayer" else "artworkWithoutPlayer"
+          Box(modifier = Modifier.size(100.dp).testTag(tag))
+        },
+      )
+    }
+
+    composeTestRule.onNodeWithTag("artworkWithPlayer", useUnmergedTree = true).assertIsDisplayed()
+    composeTestRule.onNodeWithText("Sample Title", substring = true).assertIsDisplayed()
+    composeTestRule.onNodeWithText("Sample Artist", substring = true).assertIsDisplayed()
+
+    isPlayerNull.value = true
+    composeTestRule.waitForIdle()
+
+    composeTestRule
+      .onNodeWithTag("artworkWithoutPlayer", useUnmergedTree = true)
+      .assertIsDisplayed()
   }
 }
