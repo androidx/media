@@ -391,6 +391,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private int outputIndex;
   @Nullable private ByteBuffer outputBuffer;
   private boolean isDecodeOnlyOutputBuffer;
+  private boolean isOutputBufferStale;
   private boolean bypassEnabled;
   private boolean bypassSampleBufferPending;
   private boolean bypassDrainAndReinitialize;
@@ -415,6 +416,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private boolean experimentalEnableProcessedStreamChangedAtStart;
   private boolean hasSkippedFlushAndWaitingForQueueInputBuffer;
   private long skippedFlushOffsetUs;
+  private long largestStaleModifiedPresentationTimeUs;
   private CodecParameters activeCodecParameters;
   private CodecParameters lastDispatchedCodecParameters;
   private ImmutableSet<String> subscribedCodecParameterKeys;
@@ -479,6 +481,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     decoderCounters = new DecoderCounters();
     hasSkippedFlushAndWaitingForQueueInputBuffer = false;
     skippedFlushOffsetUs = 0;
+    largestStaleModifiedPresentationTimeUs = C.TIME_UNSET;
     this.subscribedCodecParameterKeys = ImmutableSet.of();
     this.activeCodecParameters = CodecParameters.EMPTY;
     this.lastDispatchedCodecParameters = CodecParameters.EMPTY;
@@ -1127,6 +1130,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     codecReceivedBuffers = false;
     codecNeedsAdaptationWorkaroundBuffer = false;
     shouldSkipAdaptationWorkaroundOutputBuffer = false;
+    isOutputBufferStale = false;
     isDecodeOnlyOutputBuffer = false;
     codecDrainState = DRAIN_STATE_NONE;
     codecDrainAction = DRAIN_ACTION_NONE;
@@ -1137,6 +1141,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         codecReconfigured ? RECONFIGURATION_STATE_WRITE_PENDING : RECONFIGURATION_STATE_NONE;
     hasSkippedFlushAndWaitingForQueueInputBuffer = false;
     skippedFlushOffsetUs = 0;
+    largestStaleModifiedPresentationTimeUs = C.TIME_UNSET;
   }
 
   /**
@@ -1659,6 +1664,18 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       lastStreamInfo.queuedBufferAfterReset = true;
       waitingForFirstSampleInFormat = false;
     }
+
+    if (hasSkippedFlushAndWaitingForQueueInputBuffer) {
+      largestStaleModifiedPresentationTimeUs =
+          largestQueuedPresentationTimeUs + skippedFlushOffsetUs;
+      if (presentationTimeUs <= largestQueuedPresentationTimeUs) {
+        skippedFlushOffsetUs += largestQueuedPresentationTimeUs - presentationTimeUs + 1;
+      }
+      largestQueuedPresentationTimeUs = presentationTimeUs;
+      largestQueuedPresentationTimeWithinDurationUs = presentationTimeUs;
+      hasSkippedFlushAndWaitingForQueueInputBuffer = false;
+    }
+
     largestQueuedPresentationTimeUs = max(largestQueuedPresentationTimeUs, presentationTimeUs);
     long streamEndPositionUs = getStreamEndPositionUs();
     if (streamEndPositionUs == C.TIME_UNSET
@@ -1673,15 +1690,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     buffer.flip();
     if (buffer.hasSupplementalData()) {
       handleInputBufferSupplementalData(buffer);
-    }
-
-    if (hasSkippedFlushAndWaitingForQueueInputBuffer) {
-      if (presentationTimeUs <= largestQueuedPresentationTimeUs) {
-        skippedFlushOffsetUs += largestQueuedPresentationTimeUs - presentationTimeUs + 1;
-      }
-      largestQueuedPresentationTimeUs = presentationTimeUs;
-      largestQueuedPresentationTimeWithinDurationUs = presentationTimeUs;
-      hasSkippedFlushAndWaitingForQueueInputBuffer = false;
     }
 
     onQueueInputBuffer(buffer);
@@ -2267,6 +2275,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       }
 
       // We've dequeued a buffer.
+      isOutputBufferStale =
+          largestStaleModifiedPresentationTimeUs != C.TIME_UNSET
+              && outputBufferInfo.presentationTimeUs <= largestStaleModifiedPresentationTimeUs;
       outputBufferInfo.presentationTimeUs -= skippedFlushOffsetUs;
       if (shouldSkipAdaptationWorkaroundOutputBuffer) {
         shouldSkipAdaptationWorkaroundOutputBuffer = false;
@@ -2304,7 +2315,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
             && outputBufferInfo.presentationTimeUs - getOutputStreamOffsetUs()
                 >= outputStreamInfo.durationUs;
     isDecodeOnlyOutputBuffer =
-        hasSkippedFlushAndWaitingForQueueInputBuffer
+        isOutputBufferStale
+            || hasSkippedFlushAndWaitingForQueueInputBuffer
             || outputBufferInfo.presentationTimeUs < getLastResetPositionUs()
             || isStrictDurationExceeded;
     boolean isLastOutputBuffer =

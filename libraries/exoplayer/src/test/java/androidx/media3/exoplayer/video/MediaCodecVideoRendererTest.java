@@ -125,6 +125,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.PriorityQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.junit.After;
 import org.junit.Before;
@@ -3992,6 +3993,103 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
+  @Config(minSdk = 34)
+  public void render_afterSeekWithFlushingDisabled_dropsStalePreSeekFrames() throws Exception {
+    AtomicReference<StaleFrameTestingMediaCodecAdapter> adapter = new AtomicReference<>();
+    MediaCodecAdapter.Factory customCodecAdapterFactory =
+        configuration -> {
+          MediaCodecAdapter mediaCodecAdapter = codecAdapterFactory.createAdapter(configuration);
+          StaleFrameTestingMediaCodecAdapter staleFrameTestingMediaCodecAdapter =
+              new StaleFrameTestingMediaCodecAdapter(mediaCodecAdapter);
+          adapter.set(staleFrameTestingMediaCodecAdapter);
+          return staleFrameTestingMediaCodecAdapter;
+        };
+    mediaCodecVideoRenderer =
+        new MediaCodecVideoRenderer(
+            new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
+                .setCodecAdapterFactory(customCodecAdapterFactory)
+                .setMediaCodecSelector(mediaCodecSelector)
+                .setAllowedJoiningTimeMs(0)
+                .setEnableDecoderFallback(false)
+                .setEventHandler(new Handler(testMainLooper))
+                .setEventListener(eventListener)
+                .setMaxDroppedFramesToNotify(1)) {
+          @Override
+          protected @Capabilities int supportsFormat(
+              MediaCodecSelector mediaCodecSelector, Format format) {
+            return RendererCapabilities.create(C.FORMAT_HANDLED);
+          }
+        };
+    FakeTimeline fakeTimeline =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition.Builder().setDurationUs(1_000_000).build());
+    mediaCodecVideoRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
+    mediaCodecVideoRenderer.setTimeline(fakeTimeline);
+    FakeSampleStream fakeSampleStream1 =
+        createFakeSampleStream(
+            VIDEO_H264,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 10_000, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 20_000),
+                oneByteSample(/* timeUs= */ 30_000), // largestQueued = 30,000
+                oneByteSample(/* timeUs= */ 40_000),
+                oneByteSample(/* timeUs= */ 50_000)));
+    mediaCodecVideoRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {VIDEO_H264},
+        fakeSampleStream1,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(fakeTimeline.getUidOfPeriod(0)));
+    shadowOf(testMainLooper).idle();
+    ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
+        ArgumentCaptor.forClass(DecoderCounters.class);
+    verify(eventListener).onVideoEnabled(argumentDecoderCounters.capture());
+    DecoderCounters decoderCounters = argumentDecoderCounters.getValue();
+    mediaCodecVideoRenderer.start();
+
+    // Render once to populate a few input buffers.
+    mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
+    // Output the format change, followed by the first frame.
+    adapter.get().allowFormatChange = true;
+    mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
+    adapter.get().allowFirstFrameOutput = true;
+    mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
+    assertThat(decoderCounters.renderedOutputBufferCount).isEqualTo(1);
+
+    ScrubbingModeParameters scrubbingModeParameters =
+        new ScrubbingModeParameters.Builder().setAllowSkippingMediaCodecFlush(true).build();
+    mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_SCRUBBING_MODE, scrubbingModeParameters);
+    seekToUs(
+        mediaCodecVideoRenderer, scrubbingModeParameters, fakeSampleStream1, /* positionUs= */ 0);
+
+    FakeSampleStream fakeSampleStream2 =
+        createFakeSampleStream(
+            VIDEO_H264,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 12_800, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+    mediaCodecVideoRenderer.replaceStream(
+        new Format[] {VIDEO_H264},
+        fakeSampleStream2,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(fakeTimeline.getUidOfPeriod(0)));
+    adapter.get().availableInputBufferCount = 1;
+    // Render to queue the new 12,800 frame and calculate the offset.
+    mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
+    // Force the adapter to output the STALE frame.
+    adapter.get().allowStaleFrameOutput = true;
+    mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
+
+    assertThat(decoderCounters.renderedOutputBufferCount).isEqualTo(1);
+    assertThat(decoderCounters.skippedOutputBufferCount).isEqualTo(1);
+  }
+
+  @Test
   public void
       render_afterSeekWithSkipKeyFrameResetAndDecodeOnlyFlagDisabled_rendersFramesAsExpected()
           throws Exception {
@@ -7666,6 +7764,93 @@ public class MediaCodecVideoRendererTest {
     public void flush() {
       super.flush();
       pendingBufferCount = 0;
+    }
+  }
+
+  /**
+   * A custom MediaCodecAdapter that bypasses 1-in 1-out limitations and allows precise, manual
+   * dispatching of output buffers for testing stale frame boundaries.
+   */
+  private static class StaleFrameTestingMediaCodecAdapter extends ForwardingMediaCodecAdapter {
+
+    private boolean allowFormatChange = false;
+    private boolean allowFirstFrameOutput = false;
+    private boolean allowStaleFrameOutput = false;
+    private int availableInputBufferCount = 4;
+    private int inputBufferIndexCounter = 0;
+    private final MediaFormat mediaFormat = new MediaFormat();
+    private final ByteBuffer buffer = ByteBuffer.allocate(1024);
+
+    private StaleFrameTestingMediaCodecAdapter(MediaCodecAdapter delegate) {
+      super(delegate);
+      mediaFormat.setInteger(MediaFormat.KEY_WIDTH, 1920);
+      mediaFormat.setInteger(MediaFormat.KEY_HEIGHT, 1080);
+    }
+
+    @Override
+    public void useInputBuffer(Runnable runnable) {
+      runnable.run();
+    }
+
+    @Override
+    public int dequeueInputBufferIndex() {
+      if (availableInputBufferCount > 0) {
+        availableInputBufferCount--;
+        return inputBufferIndexCounter++;
+      }
+      return MediaCodec.INFO_TRY_AGAIN_LATER;
+    }
+
+    @Override
+    public int dequeueOutputBufferIndex(MediaCodec.BufferInfo bufferInfo) {
+      if (allowFormatChange) {
+        allowFormatChange = false;
+        return MediaCodec.INFO_OUTPUT_FORMAT_CHANGED;
+      }
+      if (allowFirstFrameOutput) {
+        allowFirstFrameOutput = false;
+        bufferInfo.set(0, 100, 10_000L, 0);
+        return 0;
+      }
+      if (allowStaleFrameOutput) {
+        allowStaleFrameOutput = false;
+        bufferInfo.set(0, 100, 30_000L, 0);
+        return 0;
+      }
+      return MediaCodec.INFO_TRY_AGAIN_LATER;
+    }
+
+    @Override
+    public MediaFormat getOutputFormat() {
+      return mediaFormat;
+    }
+
+    @Nullable
+    @Override
+    public ByteBuffer getInputBuffer(int index) {
+      return buffer;
+    }
+
+    @Nullable
+    @Override
+    public ByteBuffer getOutputBuffer(int index) {
+      return buffer;
+    }
+
+    @Override
+    public void queueInputBuffer(
+        int index, int offset, int size, long presentationTimeUs, int flags) {
+      // No-op: prevent Robolectric's strict state checks from crashing on fake indices
+    }
+
+    @Override
+    public void releaseOutputBuffer(int index, boolean render) {
+      // No-op
+    }
+
+    @Override
+    public void releaseOutputBuffer(int index, long renderTimeStampNs) {
+      // No-op
     }
   }
 }
