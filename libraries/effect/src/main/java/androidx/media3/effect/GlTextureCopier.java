@@ -16,6 +16,7 @@
 package androidx.media3.effect;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
@@ -93,31 +94,14 @@ import java.io.IOException;
     try {
       GlProgram copyGlProgram;
       if (isExternalTexture) {
-        if (sdrExternalCopyGlProgram == null) {
-          sdrExternalCopyGlProgram =
-              new GlProgram(
-                  context,
-                  R.raw.vertex_shader_transformation_es2,
-                  R.raw.fragment_shader_transformation_sdr_external_es2);
-          setupCommonAttributesAndUniforms(sdrExternalCopyGlProgram);
-        }
-        copyGlProgram = sdrExternalCopyGlProgram;
+        setupExternalSdrGlProgram(requestedOutputColorInfo);
+        copyGlProgram = checkNotNull(sdrExternalCopyGlProgram);
       } else {
-        if (sdrInternalCopyGlProgram == null) {
-          sdrInternalCopyGlProgram =
-              new GlProgram(
-                  context,
-                  R.raw.vertex_shader_transformation_es2,
-                  R.raw.fragment_shader_transformation_sdr_internal_es2);
-          setupCommonAttributesAndUniforms(sdrInternalCopyGlProgram);
-          sdrInternalCopyGlProgram.setIntUniform("uSdrWorkingColorSpace", 0);
-        }
-        copyGlProgram = sdrInternalCopyGlProgram;
+        setupInternalSdrGlProgram(requestedOutputColorInfo);
+        copyGlProgram = checkNotNull(sdrInternalCopyGlProgram);
         copyGlProgram.setIntUniform("uInputColorTransfer", inputColorInfo.colorTransfer);
-        copyGlProgram.setIntUniform("uOutputColorTransfer", requestedOutputColorInfo.colorTransfer);
       }
       copyGlProgram.setIntUniform("uOutputColorTransfer", requestedOutputColorInfo.colorTransfer);
-
       copyGlProgram.setFloatsUniform("uTexTransformationMatrix", textureTransformMatrix);
 
       if (fboId == C.INDEX_UNSET) {
@@ -185,6 +169,36 @@ import java.io.IOException;
     }
     if (firstException != null) {
       throw VideoFrameProcessingException.from(firstException);
+    }
+  }
+
+  private void setupInternalSdrGlProgram(ColorInfo outputColorInfo)
+      throws GlException, IOException {
+    if (sdrInternalCopyGlProgram == null) {
+      sdrInternalCopyGlProgram =
+          new GlProgram(
+              context,
+              R.raw.vertex_shader_transformation_es2,
+              R.raw.fragment_shader_transformation_sdr_internal_es2);
+      setupCommonAttributesAndUniforms(sdrInternalCopyGlProgram);
+      // WORKING_COLOR_SPACE_DEFAULT
+      sdrInternalCopyGlProgram.setIntUniform("uSdrWorkingColorSpace", 0);
+      sdrInternalCopyGlProgram.setIntUniform("uOutputColorTransfer", outputColorInfo.colorTransfer);
+    }
+  }
+
+  private void setupExternalSdrGlProgram(ColorInfo outputColorInfo)
+      throws GlException, IOException {
+    if (sdrExternalCopyGlProgram == null) {
+      sdrExternalCopyGlProgram =
+          new GlProgram(
+              context,
+              R.raw.vertex_shader_transformation_es2,
+              R.raw.fragment_shader_transformation_sdr_external_es2);
+      setupCommonAttributesAndUniforms(sdrExternalCopyGlProgram);
+      // WORKING_COLOR_SPACE_DEFAULT
+      sdrExternalCopyGlProgram.setIntUniform("uSdrWorkingColorSpace", 0);
+      sdrExternalCopyGlProgram.setIntUniform("uOutputColorTransfer", outputColorInfo.colorTransfer);
     }
   }
 
