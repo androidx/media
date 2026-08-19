@@ -1562,7 +1562,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
     FormatHolder formatHolder = getFormatHolder();
     try {
-      codec.useInputBuffer(
+      codec.useBuffer(
           () -> readDataResultHolder.set(readSource(formatHolder, buffer, /* readFlags= */ 0)));
     } catch (InsufficientCapacityException e) {
       onCodecError(e);
