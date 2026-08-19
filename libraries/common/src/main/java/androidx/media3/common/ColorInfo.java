@@ -325,6 +325,11 @@ public final class ColorInfo {
             || colorInfo.colorTransfer == C.COLOR_TRANSFER_ST2084);
   }
 
+  /** Returns whether the {@code colorInfo} is in a wide color gamut (BT.2020). */
+  public static boolean isWideColorGamut(@Nullable ColorInfo colorInfo) {
+    return colorInfo != null && colorInfo.colorSpace == C.COLOR_SPACE_BT2020;
+  }
+
   /** The {@link C.ColorSpace}, or {@link Format#NO_VALUE} if not set. */
   public final @C.ColorSpace int colorSpace;
 

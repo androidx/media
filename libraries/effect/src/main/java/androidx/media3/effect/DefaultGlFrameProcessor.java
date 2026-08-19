@@ -267,6 +267,34 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
 
   private static final String TAG = "GlFrameProcessor";
 
+  /** An SDR color space with BT.709 / sRGB color primaries, and linear transfer function. */
+  /* package */ static final ColorInfo COLORSPACE_SDR_LINEAR =
+      new ColorInfo.Builder()
+          .setColorSpace(C.COLOR_SPACE_BT709)
+          .setColorTransfer(C.COLOR_TRANSFER_LINEAR)
+          .build();
+
+  /** An SDR color space with BT.709 / sRGB color primaries, and sRGB transfer function. */
+  /* package */ static final ColorInfo COLORSPACE_SDR_SRGB =
+      new ColorInfo.Builder()
+          .setColorSpace(C.COLOR_SPACE_BT709)
+          .setColorTransfer(C.COLOR_TRANSFER_SRGB)
+          .build();
+
+  /** An HDR color space with BT.2020 color primaries, and linear transfer function. */
+  /* package */ static final ColorInfo COLORSPACE_HDR_LINEAR =
+      new ColorInfo.Builder()
+          .setColorSpace(C.COLOR_SPACE_BT2020)
+          .setColorTransfer(C.COLOR_TRANSFER_LINEAR)
+          .build();
+
+  /** An HDR color space with BT.2020 color primaries, and HLG transfer function. */
+  /* package */ static final ColorInfo COLORSPACE_HDR_HLG =
+      new ColorInfo.Builder()
+          .setColorSpace(C.COLOR_SPACE_BT2020)
+          .setColorTransfer(C.COLOR_TRANSFER_HLG)
+          .build();
+
   private static final ColorInfo ULTRA_HDR_OUTPUT_COLOR_INFO =
       new ColorInfo.Builder()
           .setColorSpace(C.COLOR_SPACE_BT2020)
