@@ -55,6 +55,9 @@
     *   Add `ExtractorUtil.getFramesPerEncodedSample` to calculate the number of
         audio frames per sample for encoded audio formats
         ([#3367](https://github.com/androidx/media/issues/3367)).
+    *   Matroska: Fix issue where Tracks placed after clusters wouldn't result
+        in a seekable timeline
+        ([#3377](https://github.com/androidx/media/issues/3377)).
     *   Add `FLAG_READ_XMP_METADATA` to `Mp4Extractor` to extract XMP metadata
         from top-level UUID boxes.
     *   Fix corrupted AC-3, DTS and LPCM audio when playing DVD-style MPEG-PS

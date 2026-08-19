@@ -858,18 +858,8 @@ public class MatroskaExtractor implements Extractor {
       case ID_CLUSTER:
         if (tracksContentPosition != C.INDEX_UNSET && !readTracks) {
           seekForTracks = true;
-        }
-        if (!sentSeekMap) {
-          // We need to build cues before parsing the cluster.
-          if (seekForCuesEnabled && cuesContentPosition != C.INDEX_UNSET) {
-            // We know where the Cues element is located. Seek to request it.
-            seekForCues = true;
-          } else {
-            // We don't know where the Cues element is located. It's most likely omitted. Allow
-            // playback, but disable seeking.
-            extractorOutput.seekMap(new SeekMap.Unseekable(durationUs));
-            sentSeekMap = true;
-          }
+        } else {
+          maybePrepareSeekMap();
         }
         break;
       case ID_BLOCK_GROUP:
@@ -1133,6 +1123,9 @@ public class MatroskaExtractor implements Extractor {
         }
 
         readTracks = true;
+        if (seekPositionAfterReadingTracks != C.INDEX_UNSET) {
+          maybePrepareSeekMap();
+        }
         if (maybeSendFormatsEarly) {
           maybeEndTracks();
         }
@@ -2299,6 +2292,22 @@ public class MatroskaExtractor implements Extractor {
   @EnsuresNonNull("extractorOutput")
   private void assertInitialized() {
     checkNotNull(extractorOutput);
+  }
+
+  private void maybePrepareSeekMap() {
+    if (sentSeekMap) {
+      return; // Already evaluated
+    }
+    // We need to build cues before parsing the cluster.
+    if (seekForCuesEnabled && cuesContentPosition != C.INDEX_UNSET) {
+      // We know where the Cues element is located. Seek to request it.
+      seekForCues = true;
+    } else {
+      // We don't know where the Cues element is located. It's most likely omitted. Allow
+      // playback, but disable seeking.
+      checkNotNull(extractorOutput).seekMap(new SeekMap.Unseekable(durationUs));
+      sentSeekMap = true;
+    }
   }
 
   private void maybeEndTracks() {
