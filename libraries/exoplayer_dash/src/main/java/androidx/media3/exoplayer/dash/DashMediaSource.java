@@ -1370,31 +1370,56 @@ public final class DashMediaSource extends BaseMediaSource {
     boolean haveAudioVideoAdaptationSets = hasVideoOrAudioAdaptationSets(period);
     for (int i = 0; i < period.adaptationSets.size(); i++) {
       AdaptationSet adaptationSet = period.adaptationSets.get(i);
-      List<Representation> representations = adaptationSet.representations;
       // Exclude other adaptation sets from duration calculations, if we have at least one audio or
       // video adaptation set. See: https://github.com/google/ExoPlayer/issues/4029.
       boolean adaptationSetIsNotAudioVideo =
           adaptationSet.type != C.TRACK_TYPE_AUDIO && adaptationSet.type != C.TRACK_TYPE_VIDEO;
       if ((haveAudioVideoAdaptationSets && adaptationSetIsNotAudioVideo)
-          || representations.isEmpty()) {
+          || adaptationSet.representations.isEmpty()) {
         continue;
       }
-      @Nullable DashSegmentIndex index = representations.get(0).getIndex();
-      if (index == null) {
-        return periodStartTimeInManifestUs;
-      }
-      long availableSegmentCount = index.getAvailableSegmentCount(periodDurationUs, nowUnixTimeUs);
-      if (availableSegmentCount == 0) {
-        return periodStartTimeInManifestUs;
-      }
-      long firstAvailableSegmentNum =
-          index.getFirstAvailableSegmentNum(periodDurationUs, nowUnixTimeUs);
-      long adaptationSetAvailableStartTimeInManifestUs =
-          periodStartTimeInManifestUs + index.getTimeUs(firstAvailableSegmentNum);
+      long adaptationSetStartTimeUs =
+          getAvailableStartTimeInAdaptationSetUs(
+              adaptationSet, periodStartTimeInManifestUs, periodDurationUs, nowUnixTimeUs);
       availableStartTimeInManifestUs =
-          max(availableStartTimeInManifestUs, adaptationSetAvailableStartTimeInManifestUs);
+          max(availableStartTimeInManifestUs, adaptationSetStartTimeUs);
     }
     return availableStartTimeInManifestUs;
+  }
+
+  private static long getAvailableStartTimeInAdaptationSetUs(
+      AdaptationSet adaptationSet,
+      long periodStartTimeInManifestUs,
+      long periodDurationUs,
+      long nowUnixTimeUs) {
+    long availableStartTimeInAdaptationSetUs = periodStartTimeInManifestUs;
+    List<Representation> representations = adaptationSet.representations;
+    for (int i = 0; i < representations.size(); i++) {
+      long representationStartTimeUs =
+          getAvailableStartTimeInRepresentationUs(
+              representations.get(i), periodStartTimeInManifestUs, periodDurationUs, nowUnixTimeUs);
+      availableStartTimeInAdaptationSetUs =
+          max(availableStartTimeInAdaptationSetUs, representationStartTimeUs);
+    }
+    return availableStartTimeInAdaptationSetUs;
+  }
+
+  private static long getAvailableStartTimeInRepresentationUs(
+      Representation representation,
+      long periodStartTimeInManifestUs,
+      long periodDurationUs,
+      long nowUnixTimeUs) {
+    @Nullable DashSegmentIndex index = representation.getIndex();
+    if (index == null) {
+      return periodStartTimeInManifestUs;
+    }
+    long availableSegmentCount = index.getAvailableSegmentCount(periodDurationUs, nowUnixTimeUs);
+    if (availableSegmentCount == 0) {
+      return periodStartTimeInManifestUs;
+    }
+    long firstAvailableSegmentNum =
+        index.getFirstAvailableSegmentNum(periodDurationUs, nowUnixTimeUs);
+    return periodStartTimeInManifestUs + index.getTimeUs(firstAvailableSegmentNum);
   }
 
   private static long getAvailableEndTimeInManifestUs(
@@ -1404,34 +1429,58 @@ public final class DashMediaSource extends BaseMediaSource {
     boolean haveAudioVideoAdaptationSets = hasVideoOrAudioAdaptationSets(period);
     for (int i = 0; i < period.adaptationSets.size(); i++) {
       AdaptationSet adaptationSet = period.adaptationSets.get(i);
-      List<Representation> representations = adaptationSet.representations;
       // Exclude other adaptation sets from duration calculations, if we have at least one audio or
       // video adaptation set. See: https://github.com/google/ExoPlayer/issues/4029
       boolean adaptationSetIsNotAudioVideo =
           adaptationSet.type != C.TRACK_TYPE_AUDIO && adaptationSet.type != C.TRACK_TYPE_VIDEO;
       if ((haveAudioVideoAdaptationSets && adaptationSetIsNotAudioVideo)
-          || representations.isEmpty()) {
+          || adaptationSet.representations.isEmpty()) {
         continue;
       }
-      @Nullable DashSegmentIndex index = representations.get(0).getIndex();
-      if (index == null) {
-        return periodStartTimeInManifestUs + periodDurationUs;
-      }
-      long availableSegmentCount = index.getAvailableSegmentCount(periodDurationUs, nowUnixTimeUs);
-      if (availableSegmentCount == 0) {
-        return periodStartTimeInManifestUs;
-      }
-      long firstAvailableSegmentNum =
-          index.getFirstAvailableSegmentNum(periodDurationUs, nowUnixTimeUs);
-      long lastAvailableSegmentNum = firstAvailableSegmentNum + availableSegmentCount - 1;
-      long adaptationSetAvailableEndTimeInManifestUs =
-          periodStartTimeInManifestUs
-              + index.getTimeUs(lastAvailableSegmentNum)
-              + index.getDurationUs(lastAvailableSegmentNum, periodDurationUs);
-      availableEndTimeInManifestUs =
-          min(availableEndTimeInManifestUs, adaptationSetAvailableEndTimeInManifestUs);
+      long adaptationSetEndTimeUs =
+          getAvailableEndTimeInAdaptationSetUs(
+              adaptationSet, periodStartTimeInManifestUs, periodDurationUs, nowUnixTimeUs);
+      availableEndTimeInManifestUs = min(availableEndTimeInManifestUs, adaptationSetEndTimeUs);
     }
     return availableEndTimeInManifestUs;
+  }
+
+  private static long getAvailableEndTimeInAdaptationSetUs(
+      AdaptationSet adaptationSet,
+      long periodStartTimeInManifestUs,
+      long periodDurationUs,
+      long nowUnixTimeUs) {
+    long availableEndTimeInAdaptationSetUs = Long.MAX_VALUE;
+    List<Representation> representations = adaptationSet.representations;
+    for (int i = 0; i < representations.size(); i++) {
+      long representationEndTimeUs =
+          getAvailableEndTimeInRepresentationUs(
+              representations.get(i), periodStartTimeInManifestUs, periodDurationUs, nowUnixTimeUs);
+      availableEndTimeInAdaptationSetUs =
+          min(availableEndTimeInAdaptationSetUs, representationEndTimeUs);
+    }
+    return availableEndTimeInAdaptationSetUs;
+  }
+
+  private static long getAvailableEndTimeInRepresentationUs(
+      Representation representation,
+      long periodStartTimeInManifestUs,
+      long periodDurationUs,
+      long nowUnixTimeUs) {
+    @Nullable DashSegmentIndex index = representation.getIndex();
+    if (index == null) {
+      return periodStartTimeInManifestUs + periodDurationUs;
+    }
+    long availableSegmentCount = index.getAvailableSegmentCount(periodDurationUs, nowUnixTimeUs);
+    if (availableSegmentCount == 0) {
+      return periodStartTimeInManifestUs;
+    }
+    long firstAvailableSegmentNum =
+        index.getFirstAvailableSegmentNum(periodDurationUs, nowUnixTimeUs);
+    long lastAvailableSegmentNum = firstAvailableSegmentNum + availableSegmentCount - 1;
+    return periodStartTimeInManifestUs
+        + index.getTimeUs(lastAvailableSegmentNum)
+        + index.getDurationUs(lastAvailableSegmentNum, periodDurationUs);
   }
 
   private static boolean isIndexExplicit(Period period) {
