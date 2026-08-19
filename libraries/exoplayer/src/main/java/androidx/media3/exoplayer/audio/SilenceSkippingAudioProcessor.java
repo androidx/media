@@ -62,7 +62,7 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
    * Default minimum duration of audio that must be below {@code silenceThresholdLevel} before
    * silence starts being trimmed. Specified in microseconds.
    */
-  public static final long DEFAULT_MINIMUM_SILENCE_DURATION_US = 25_000;
+  public static final long DEFAULT_MINIMUM_SILENCE_DURATION_US = 100_000;
 
   /**
    * Default maximum silence to keep in microseconds. This maximum is applied after {@code
@@ -673,7 +673,7 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
 
   private int calculateFadeOutPercentage(int value, int max) {
     if (max == 0) {
-      return 0;
+      return minVolumeToKeepPercentageWhenMuting;
     }
     return ((minVolumeToKeepPercentageWhenMuting - 100) * ((AVOID_TRUNCATION_FACTOR * value) / max))
             / AVOID_TRUNCATION_FACTOR
@@ -682,7 +682,7 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
 
   private int calculateFadeInPercentage(int value, int max) {
     if (max == 0) {
-      return 0;
+      return 100;
     }
     return (minVolumeToKeepPercentageWhenMuting
         + ((100 - minVolumeToKeepPercentageWhenMuting) * (AVOID_TRUNCATION_FACTOR * value) / max)

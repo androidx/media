@@ -69,6 +69,12 @@
         `MetadataRetriever`.
 *   Inspector Frame:
 *   Audio:
+    *   Fix buffer size calculation in `SilenceSkippingAudioProcessor` so that
+        the minimum silence duration is not incorrectly scaled down by the frame
+        size ([#3271](https://github.com/androidx/media/pull/3271)).
+    *   Fix 8-bit PCM handling in `PcmAudioUtil` to treat samples as unsigned as
+        defined by Android
+        ([#3271](https://github.com/androidx/media/pull/3271)).
     *   Fix offload issue in which playback could stall during pre-roll or
         gapless transitions due to limited hardware buffer sizes.
     *   Fix bug in `DefaultAudioSink` where release count doesn't decrease when
