@@ -19,14 +19,17 @@ import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.effect.FrameProcessorUtils.releaseOpenGl;
 import static androidx.media3.effect.FrameProcessorUtils.setupOpenGl;
 import static androidx.media3.effect.FrameProcessorUtils.shutdownGlExecutorService;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_COLOR_TEST_1080P_HLG10;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromFocusedGlFramebuffer;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
+import static androidx.media3.test.utils.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -237,6 +240,99 @@ public final class HardwareBufferToGlTextureConverterTest {
     HardwareBufferFrame inputHardwareBufferFrame =
         new DefaultHardwareBufferFrame.Builder(inputHardwareBuffer).setFormat(inputFormat).build();
     Bitmap expectedBitmap = BitmapPixelTestUtil.readBitmap("media/png/first_frame_1920x1080.png");
+
+    Bitmap actualBitmap = convertAndCaptureBitmap(inputHardwareBufferFrame, listener);
+
+    assertThat(
+            getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+                expectedBitmap, actualBitmap, testName.getMethodName()))
+        .isLessThan(MAX_PIXEL_DIFFERENCE);
+    assertThat(completedFrame.get()).isSameInstanceAs(inputHardwareBufferFrame);
+    inputImageReader.close();
+  }
+
+  @SdkSuppress(minSdkVersion = 31)
+  @Test
+  public void convert_withHlgHardwareBufferAndToneMapping_outputsCorrectGlTexture()
+      throws Exception {
+    assumeDeviceSupportsOpenGlToneMapping(
+        testName.getMethodName(), MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
+
+    int width = 1920;
+    int height = 1080;
+
+    ImageReader inputImageReader =
+        ImageReader.newInstance(
+            width,
+            height,
+            // Make sure ImageReader reads 10 bit YUV data.
+            ImageFormat.YCBCR_P010,
+            /* maxImages= */ 1,
+            HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
+
+    AtomicReference<MediaFormat> inputMediaFormat = new AtomicReference<>();
+    DecodeOneFrameUtil.decodeOneMediaItemFrame(
+        MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri),
+        new DecodeOneFrameUtil.Listener() {
+          @Override
+          public void onContainerExtracted(MediaFormat mediaFormat) {}
+
+          @Override
+          public void onFrameDecoded(MediaFormat mediaFormat) {
+            inputMediaFormat.set(mediaFormat);
+          }
+        },
+        inputImageReader.getSurface());
+
+    Image inputImage = checkNotNull(inputImageReader.acquireLatestImage());
+    HardwareBuffer inputHardwareBuffer = checkNotNull(inputImage.getHardwareBuffer());
+
+    Format inputFormat =
+        MediaFormatUtil.createFormatFromMediaFormat(inputMediaFormat.get())
+            .buildUpon()
+            .setWidth(width)
+            .setHeight(height)
+            .build();
+
+    assumeTrue(GlUtil.isYuvTargetExtensionSupported());
+
+    converter =
+        new HardwareBufferToGlTextureConverter(
+            context,
+            HardwareBufferJni.INSTANCE,
+            /* outputColorInfo= */ DefaultGlFrameProcessor.COLORSPACE_SDR_SRGB,
+            e -> {
+              throw new AssertionError(e);
+            });
+
+    AtomicReference<Frame> completedFrame = new AtomicReference<>();
+    FrameProcessor.Listener listener =
+        new FrameProcessor.Listener() {
+          @Override
+          public void onWakeup() {}
+
+          @Override
+          public void onError(VideoFrameProcessingException exception) {
+            throw new AssertionError(exception);
+          }
+
+          @Override
+          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
+            if (releaseFence != null) {
+              assertThat(releaseFence.awaitMs(FENCE_TIMEOUT_MS)).isTrue();
+              releaseFence.close();
+            }
+            inputHardwareBuffer.close();
+            inputImage.close();
+            completedFrame.set(frame);
+          }
+        };
+
+    HardwareBufferFrame inputHardwareBufferFrame =
+        new DefaultHardwareBufferFrame.Builder(inputHardwareBuffer).setFormat(inputFormat).build();
+    Bitmap expectedBitmap =
+        BitmapPixelTestUtil.readBitmap(
+            "test-generated-goldens/sample_mp4_first_frame/electrical_colors/tone_map_hlg_to_sdr.png");
 
     Bitmap actualBitmap = convertAndCaptureBitmap(inputHardwareBufferFrame, listener);
 

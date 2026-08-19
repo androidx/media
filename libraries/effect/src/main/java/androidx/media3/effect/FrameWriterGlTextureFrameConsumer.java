@@ -266,6 +266,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public boolean isOutputFormatSupported(Format format) {
+    // TODO(b/545572413): Check for color space support and fallback to SDR if necessary.
     if (!frameWriter.getInfo().isSupported(format, OUTPUT_USAGE)) {
       return false;
     }

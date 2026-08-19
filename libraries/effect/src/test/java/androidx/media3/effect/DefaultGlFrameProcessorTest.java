@@ -56,7 +56,6 @@ import androidx.media3.effect.GlFrameProcessorTestUtil.FakeHardwareBufferConvert
 import androidx.media3.effect.GlFrameProcessorTestUtil.FakeHardwareBufferFrame;
 import androidx.media3.effect.GlFrameProcessorTestUtil.NoOpFrameWriter;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -76,10 +75,11 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 
 /** Unit tests for {@link DefaultGlFrameProcessor} using pluggable non-OpenGL fakes. */
 @RunWith(AndroidJUnit4.class)
-@SdkSuppress(minSdkVersion = 29)
+@Config(minSdk = 29)
 public final class DefaultGlFrameProcessorTest {
 
   private static final int COMPOSITOR_CAPACITY = 1;
@@ -202,7 +202,8 @@ public final class DefaultGlFrameProcessorTest {
   }
 
   @Test
-  public void queue_withHdrFrameAndSupportedHardware_keepsHdr() throws Exception {
+  public void queue_withHdrHlgFrameWorkingColorspaceUnset_resolvesWorkingColorspaceToSdrSrgb()
+      throws Exception {
     ColorInfo hdrColorInfo =
         new ColorInfo.Builder()
             .setColorSpace(C.COLOR_SPACE_BT2020)
@@ -215,17 +216,23 @@ public final class DefaultGlFrameProcessorTest {
             .setColorInfo(hdrColorInfo)
             .build();
     ColorInfo actualColorInfo =
-        queueFrameAndGetColorInfo(format, /* hdrMode= */ 0, /* forceUnsupportedFormat= */ false);
+        queueFrameAndGetColorInfo(format, /* forceUnsupportedFormat= */ false);
 
-    assertThat(actualColorInfo).isEqualTo(hdrColorInfo);
+    assertThat(actualColorInfo)
+        .isEqualTo(
+            new ColorInfo.Builder()
+                .setColorSpace(C.COLOR_SPACE_BT709)
+                .setColorTransfer(C.COLOR_TRANSFER_SRGB)
+                .build());
   }
 
   @Test
-  public void queue_withHdrVideoFrameAnd10BitContextSucceeds_keepsHdr() throws Exception {
+  public void queue_withHdrPqFrameWorkingColorspaceUnset_resolvesWorkingColorspaceToSdrSrgb()
+      throws Exception {
     ColorInfo hdrColorInfo =
         new ColorInfo.Builder()
             .setColorSpace(C.COLOR_SPACE_BT2020)
-            .setColorTransfer(C.COLOR_TRANSFER_HLG)
+            .setColorTransfer(C.COLOR_TRANSFER_ST2084)
             .setColorRange(C.COLOR_RANGE_LIMITED)
             .build();
     Format format =
@@ -233,17 +240,20 @@ public final class DefaultGlFrameProcessorTest {
             .setSampleMimeType(MimeTypes.VIDEO_H265)
             .setColorInfo(hdrColorInfo)
             .build();
-    TestGlObjectsProvider glObjectsProvider = new TestGlObjectsProvider(/* failVersion3= */ false);
-
     ColorInfo actualColorInfo =
-        queueFrameAndGetColorInfo(
-            format, /* hdrMode= */ 0, /* forceUnsupportedFormat= */ false, glObjectsProvider);
+        queueFrameAndGetColorInfo(format, /* forceUnsupportedFormat= */ false);
 
-    assertThat(actualColorInfo).isEqualTo(hdrColorInfo);
+    assertThat(actualColorInfo)
+        .isEqualTo(
+            new ColorInfo.Builder()
+                .setColorSpace(C.COLOR_SPACE_BT709)
+                .setColorTransfer(C.COLOR_TRANSFER_SRGB)
+                .build());
   }
 
   @Test
-  public void queue_withHdrVideoFrameAnd10BitContextFails_fallsBackToSdr() throws Exception {
+  public void queue_withHdrVideoFrameAndEs3ContextCreationFails_throwsIllegalStateException()
+      throws Exception {
     ColorInfo hdrColorInfo =
         new ColorInfo.Builder()
             .setColorSpace(C.COLOR_SPACE_BT2020)
@@ -257,11 +267,12 @@ public final class DefaultGlFrameProcessorTest {
             .build();
     TestGlObjectsProvider glObjectsProvider = new TestGlObjectsProvider(/* failVersion3= */ true);
 
-    ColorInfo actualColorInfo =
+    AtomicReference<VideoFrameProcessingException> expectedException = new AtomicReference<>();
+    ColorInfo unused =
         queueFrameAndGetColorInfo(
-            format, /* hdrMode= */ 0, /* forceUnsupportedFormat= */ false, glObjectsProvider);
-
-    assertThat(actualColorInfo).isEqualTo(ColorInfo.SDR_BT709_LIMITED);
+            format, /* forceUnsupportedFormat= */ false, glObjectsProvider, expectedException);
+    waitUntilGlThreadFinishes();
+    assertThat(expectedException.get()).hasCauseThat().isInstanceOf(IllegalStateException.class);
   }
 
   @Test
@@ -280,8 +291,7 @@ public final class DefaultGlFrameProcessorTest {
     TestGlObjectsProvider glObjectsProvider = new TestGlObjectsProvider(/* failVersion3= */ false);
 
     ColorInfo unused =
-        queueFrameAndGetColorInfo(
-            format, /* hdrMode= */ 0, /* forceUnsupportedFormat= */ false, glObjectsProvider);
+        queueFrameAndGetColorInfo(format, /* forceUnsupportedFormat= */ false, glObjectsProvider);
     waitUntilGlThreadFinishes();
 
     // DefaultGlFrameProcessor.close() is called inside queueFrameAndGetColorInfo.
@@ -303,8 +313,6 @@ public final class DefaultGlFrameProcessorTest {
             .build();
     ImmutableMap<String, Object> metadata =
         ImmutableMap.of(
-            DefaultGlFrameProcessor.KEY_HDR_MODE,
-            0,
             KEY_COMPOSITION_SEQUENCE_INDEX,
             0,
             KEY_COMPOSITOR_SETTINGS,
@@ -369,7 +377,8 @@ public final class DefaultGlFrameProcessorTest {
   }
 
   @Test
-  public void queue_withSdrFrame_keepsSdr() throws Exception {
+  public void queue_withSdrFrameWorkingColorspaceUnset_resolvesWorkingColorspaceToSdrSrgb()
+      throws Exception {
     ColorInfo sdrColorInfo =
         new ColorInfo.Builder()
             .setColorSpace(C.COLOR_SPACE_BT709)
@@ -382,66 +391,32 @@ public final class DefaultGlFrameProcessorTest {
             .setColorInfo(sdrColorInfo)
             .build();
     ColorInfo actualColorInfo =
-        queueFrameAndGetColorInfo(format, /* hdrMode= */ 0, /* forceUnsupportedFormat= */ false);
+        queueFrameAndGetColorInfo(format, /* forceUnsupportedFormat= */ false);
 
-    assertThat(actualColorInfo).isEqualTo(sdrColorInfo);
+    assertThat(actualColorInfo)
+        .isEqualTo(
+            new ColorInfo.Builder()
+                .setColorSpace(C.COLOR_SPACE_BT709)
+                .setColorTransfer(C.COLOR_TRANSFER_SRGB)
+                .build());
   }
 
   @Test
-  public void queue_withHdrFrameAndUnsupportedHardware_fallsBackToSdr() throws Exception {
-    ColorInfo hdrColorInfo =
-        new ColorInfo.Builder()
-            .setColorSpace(C.COLOR_SPACE_BT2020)
-            .setColorTransfer(C.COLOR_TRANSFER_HLG)
-            .setColorRange(C.COLOR_RANGE_LIMITED)
-            .build();
-    Format format =
-        new Format.Builder()
-            .setSampleMimeType(MimeTypes.VIDEO_H265)
-            .setColorInfo(hdrColorInfo)
-            .build();
-    ColorInfo actualColorInfo =
-        queueFrameAndGetColorInfo(format, /* hdrMode= */ 0, /* forceUnsupportedFormat= */ true);
-
-    assertThat(actualColorInfo).isEqualTo(ColorInfo.SDR_BT709_LIMITED);
-  }
-
-  @Test
-  public void queue_withHdrFrameAndToneMapHdrToSdrMode_fallsBackToSdr() throws Exception {
-    ColorInfo hdrColorInfo =
-        new ColorInfo.Builder()
-            .setColorSpace(C.COLOR_SPACE_BT2020)
-            .setColorTransfer(C.COLOR_TRANSFER_HLG)
-            .setColorRange(C.COLOR_RANGE_LIMITED)
-            .build();
-    Format format =
-        new Format.Builder()
-            .setSampleMimeType(MimeTypes.VIDEO_H265)
-            .setColorInfo(hdrColorInfo)
-            .build();
-    ColorInfo actualColorInfo =
-        queueFrameAndGetColorInfo(format, /* hdrMode= */ 2, /* forceUnsupportedFormat= */ false);
-
-    assertThat(actualColorInfo).isEqualTo(ColorInfo.SDR_BT709_LIMITED);
-  }
-
-  @Test
-  public void queue_withJpegRAndSrgbTransfer_infersHdrHlg() throws Exception {
+  public void queue_withJpegRAndSrgbTransferWorkingColorspaceUnset_infersHdrHlg() throws Exception {
     Format format =
         new Format.Builder()
             .setSampleMimeType(MimeTypes.IMAGE_JPEG_R)
             .setColorInfo(ColorInfo.SRGB_BT709_FULL) // SRGB metadata typical of JPEG input
             .build();
     ColorInfo actualColorInfo =
-        queueFrameAndGetColorInfo(format, /* hdrMode= */ 0, /* forceUnsupportedFormat= */ false);
+        queueFrameAndGetColorInfo(format, /* forceUnsupportedFormat= */ false);
 
-    ColorInfo expectedHdrColor =
-        new ColorInfo.Builder()
-            .setColorSpace(C.COLOR_SPACE_BT2020)
-            .setColorTransfer(C.COLOR_TRANSFER_HLG)
-            .setColorRange(C.COLOR_RANGE_LIMITED)
-            .build();
-    assertThat(actualColorInfo).isEqualTo(expectedHdrColor);
+    assertThat(actualColorInfo)
+        .isEqualTo(
+            new ColorInfo.Builder()
+                .setColorSpace(C.COLOR_SPACE_BT2020)
+                .setColorTransfer(C.COLOR_TRANSFER_HLG)
+                .build());
   }
 
   @Test
@@ -1509,25 +1484,27 @@ public final class DefaultGlFrameProcessorTest {
     return new FakeHardwareBufferFrame(metadataBuilder.buildOrThrow());
   }
 
-  private ColorInfo queueFrameAndGetColorInfo(
-      Format format, int hdrMode, boolean forceUnsupportedFormat) throws Exception {
+  private ColorInfo queueFrameAndGetColorInfo(Format format, boolean forceUnsupportedFormat)
+      throws Exception {
     return queueFrameAndGetColorInfo(
-        format,
-        hdrMode,
-        forceUnsupportedFormat,
-        new GlFrameProcessorTestUtil.FakeGlObjectsProvider());
+        format, forceUnsupportedFormat, new GlFrameProcessorTestUtil.FakeGlObjectsProvider());
+  }
+
+  private ColorInfo queueFrameAndGetColorInfo(
+      Format format, boolean forceUnsupportedFormat, GlObjectsProvider glObjectsProvider)
+      throws Exception {
+    return queueFrameAndGetColorInfo(
+        format, forceUnsupportedFormat, glObjectsProvider, /* thrownException= */ null);
   }
 
   private ColorInfo queueFrameAndGetColorInfo(
       Format format,
-      int hdrMode,
       boolean forceUnsupportedFormat,
-      GlObjectsProvider glObjectsProvider)
+      GlObjectsProvider glObjectsProvider,
+      @Nullable AtomicReference<VideoFrameProcessingException> thrownException)
       throws Exception {
     ImmutableMap<String, Object> metadata =
         ImmutableMap.of(
-            DefaultGlFrameProcessor.KEY_HDR_MODE,
-            hdrMode,
             KEY_COMPOSITION_SEQUENCE_INDEX,
             0,
             KEY_COMPOSITOR_SETTINGS,
@@ -1569,7 +1546,10 @@ public final class DefaultGlFrameProcessorTest {
 
               @Override
               public void onError(VideoFrameProcessingException exception) {
-                throw new AssertionError(exception);
+                if (thrownException == null) {
+                  throw new AssertionError(exception);
+                }
+                thrownException.set(exception);
               }
 
               @Override

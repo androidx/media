@@ -123,9 +123,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
       internalTexId =
           GlUtil.createTexture(
-              outputWidth,
-              outputHeight,
-              /* useHighPrecisionColorComponents= */ ColorInfo.isTransferHdr(outputColorInfo));
+              outputWidth, outputHeight, needsHighPrecisionTexture(outputColorInfo));
 
       MatrixUtils.populateTransformationMatrix(
           textureTransformMatrix,
@@ -204,6 +202,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 // Reset rotation to 0 because we rotated the frame physically with OpenGL. The
                 // pipeline should always receive frames in their intended orientation.
                 .setRotationDegrees(0)
+                .setColorInfo(outputColorInfo)
                 .build())
         .setMetadata(hardwareBufferFrame.getMetadata())
         .build();
@@ -249,5 +248,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (firstException != null) {
       throw VideoFrameProcessingException.from(firstException);
     }
+  }
+
+  private static boolean needsHighPrecisionTexture(ColorInfo outputColorInfo) {
+    // Use FP16 for all HDR content, and RGB_LINEAR.
+    return ColorInfo.isWideColorGamut(outputColorInfo)
+        || outputColorInfo.colorTransfer == C.COLOR_TRANSFER_LINEAR;
   }
 }
