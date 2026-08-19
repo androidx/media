@@ -20,6 +20,7 @@ import static androidx.media3.common.Player.DISCONTINUITY_REASON_AUTO_TRANSITION
 import static androidx.media3.common.Player.REPEAT_MODE_ALL;
 import static androidx.media3.common.Player.REPEAT_MODE_OFF;
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S;
 import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_80KHZ_MONO_20_REPEATING_1_SAMPLES_ASSET;
@@ -714,21 +715,20 @@ public class CompositionPlaybackTest {
 
   @Ignore("TODO: b/521754606 - Fix flakiness and re-enable")
   @Test
-  public void playback_withVeryShortItems_succeeds() throws Exception {
+  public void playback_withVeryShortClippedMediaItems_succeeds() throws Exception {
     // Use items with duration of 33ms to showcase the stuck playback issue (b/475201870).
-    String uri = "asset:///media/mp4/h264_4k_30fps_10sec.mp4";
     ImmutableList.Builder<EditedMediaItem> editedMediaItems = new ImmutableList.Builder<>();
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(
                 new MediaItem.Builder()
-                    .setUri(uri)
+                    .setUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri)
                     .setClippingConfiguration(
                         new MediaItem.ClippingConfiguration.Builder()
                             .setStartPositionMs(0)
                             .setEndPositionMs(33L)
                             .build())
                     .build())
-            .setDurationUs(10_000_000)
+            .setDurationUs(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoDurationUs)
             .build();
     for (int i = 0; i < 3; i++) {
       editedMediaItems.add(editedMediaItem);
