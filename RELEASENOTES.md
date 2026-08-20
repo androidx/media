@@ -164,6 +164,13 @@
         speed change, repeat mode, volume, mute, or track selection) fail in
         `RemoteCastPlayer`
         ([#3373](https://github.com/androidx/media/issues/3373)).
+    *   Fix `ArrayIndexOutOfBoundsException` in `RemoteCastPlayer` when the Cast
+        receiver queue changes or shrinks while a seek operation is pending
+        ([#3372](https://github.com/androidx/media/issues/3372)).
+    *   Fix an issue with the default Cast receiver where the timeline only
+        populated media items immediately surrounding the active item rather
+        than the entire playlist.
+        ([#3129](https://github.com/androidx/media/issues/3129)).
 *   Test Utilities:
 *   Remove deprecated symbols:
 
