@@ -153,6 +153,7 @@ private val POSITION_THUMB_WIDTH = 4.dp
 //  - Implement accessibility requirements
 //  - Match the height of the position slider's thumb to that of Google Photos' video trimmer's one.
 //  - Update position slider's thumb after compose addresses dynamic thumb size change.
+//  - Consider wrapping clippingRangeMs in a hoisted state
 //  - Decide and test what the slider should look like for RTL locales
 //  - Remove @OptIn(ExperimentalMaterial3Api::class) annotations once the RangeSlider is stable
 //  - Move to material3 module and mark API unstable

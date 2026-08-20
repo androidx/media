@@ -97,6 +97,14 @@ private val CORNER_TOUCH_TARGET_RADIUS = 24.dp
  * @param minCropSize The minimum width and height of the crop frame. Must be strictly positive.
  *   Defaults to [VideoCropperDefaults.MinCropSize].
  */
+// TODO: b/505719256
+//  - Implement accessibility requirements
+//  - Implement color defaults
+//  - Move to material3 module and mark API unstable
+//  - Add tests
+//  - Add support for zooming the video in and out
+//  - Add support for flexible aspect ratio
+//  - Add support for HDR
 @Composable
 fun VideoCropper(
   state: VideoCropperState,
