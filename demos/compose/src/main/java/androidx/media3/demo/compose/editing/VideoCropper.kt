@@ -17,6 +17,7 @@ package androidx.media3.demo.compose.editing
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -49,9 +50,12 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
@@ -60,6 +64,10 @@ import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.util.lerp
 import androidx.media3.common.Player
 import androidx.media3.ui.compose.ContentFrame
+import kotlin.math.roundToInt
+
+/** The radius of the touch target for the corners of the crop overlay. */
+private val CORNER_TOUCH_TARGET_RADIUS = 24.dp
 
 /**
  * A reusable video cropping widget.
@@ -105,12 +113,11 @@ fun VideoCropper(
 ) {
   require(minCropSize > 0.dp) { "minCropSize must be strictly positive, but was $minCropSize" }
 
-  val density = LocalDensity.current
-  val layoutDirection = LocalLayoutDirection.current
-
   val gestureState = remember { GestureState() }
   var cropperSize by remember { mutableStateOf(Size.Zero) }
 
+  val density = LocalDensity.current
+  val layoutDirection = LocalLayoutDirection.current
   val isReady = !state.videoSize.isEmpty() && !cropperSize.isEmpty()
   val interactingProgressState =
     animateFloatAsState(targetValue = if (state.isInteracting) 1f else 0f)
@@ -150,18 +157,31 @@ fun VideoCropper(
       }
     }
 
-  val currentTransformation by rememberUpdatedState(transformation)
-  val scaleProvider = remember { { currentTransformation?.scale ?: 1f } }
-  val translationProvider = remember { { currentTransformation?.translation ?: Offset.Zero } }
+  val style =
+    CropFrameStyle(
+      colors = colors,
+      bracketThickness = bracketThickness,
+      bracketLength = bracketLength,
+      cropFrameBorderThickness = cropFrameBorderThickness,
+      cropFrameShape = cropFrameShape,
+      minCropSize = minCropSize,
+    )
 
   Box(modifier = modifier.clipToBounds().onSizeChanged { cropperSize = it.toSize() }) {
     // Render the player container unconditionally so the player can attach to the surface and
     // expose the video size.
-    VideoPlayerContainer(
-      player = state.player,
-      scaleProvider = scaleProvider,
-      translationProvider = translationProvider,
-    )
+    VideoPlayerContainer(player = state.player, transformation = transformation)
+    if (transformation != null) {
+      CropFrameContainer(
+        cropperState = state,
+        gestureState = gestureState,
+        transformation = transformation,
+        videoFitRect = videoFitRect,
+        style = style,
+        onCropRectChangeFinished = onCropRectChangeFinished,
+        cropFrameControls = cropFrameControls,
+      )
+    }
   }
 }
 
@@ -172,22 +192,101 @@ fun VideoCropper(
 @Composable
 private fun VideoPlayerContainer(
   player: Player?,
-  scaleProvider: () -> Float,
-  translationProvider: () -> Offset,
+  transformation: CropFrameTransformation?,
   modifier: Modifier = Modifier,
 ) {
   ContentFrame(
     player = player,
     modifier =
       modifier.fillMaxSize().graphicsLayer {
-        scaleX = scaleProvider()
-        scaleY = scaleProvider()
-        val translation = translationProvider()
+        val scale = transformation?.scale ?: 1f
+        scaleX = scale
+        scaleY = scale
+        val translation = transformation?.translation ?: Offset.Zero
         translationX = translation.x
         translationY = translation.y
         transformOrigin = TransformOrigin(0f, 0f)
       },
   )
+}
+
+/**
+ * A container that wraps the crop frame drawing, controls overlay, and gesture detection.
+ *
+ * This composable intercepts drag gestures on the screen. It distinguishes between dragging the
+ * corners of the crop frame (to resize it) and dragging the video itself (to pan the video content
+ * under the crop frame). It updates the crop rectangle coordinates and triggers the corresponding
+ * callbacks.
+ *
+ * @param cropperState The active [VideoCropperState].
+ * @param gestureState The [GestureState] tracking active gesture interaction.
+ * @param transformation The calculated [CropFrameTransformation] containing the animated scales and
+ *   translations.
+ * @param videoFitRect The baseline unscaled video rectangle (in pixels).
+ * @param style The [CropFrameStyle] configuration.
+ * @param modifier The modifier to be applied to the crop frame container.
+ * @param onCropRectChangeFinished A callback invoked when the user finishes dragging/panning.
+ * @param cropFrameControls An optional overlay content composable.
+ */
+@Composable
+private fun CropFrameContainer(
+  cropperState: VideoCropperState,
+  gestureState: GestureState,
+  transformation: CropFrameTransformation,
+  videoFitRect: Rect,
+  style: CropFrameStyle,
+  modifier: Modifier = Modifier,
+  onCropRectChangeFinished: (() -> Unit)? = null,
+  cropFrameControls: (@Composable BoxScope.() -> Unit)? = null,
+) {
+  val density = LocalDensity.current
+  val currentTransformation by rememberUpdatedState(transformation)
+  val currentVideoFitRect by rememberUpdatedState(videoFitRect)
+  val currentMinCropSizePx by rememberUpdatedState(with(density) { style.minCropSize.toPx() })
+  val currentOnCropRectChangeFinished by rememberUpdatedState(onCropRectChangeFinished)
+  val currentTouchTargetSizePx by
+    rememberUpdatedState(with(density) { CORNER_TOUCH_TARGET_RADIUS.toPx() })
+  Box(
+    modifier =
+      modifier.fillMaxSize().pointerInput(Unit) {
+        detectDragGestures(
+          onDragStart = { touchPoint ->
+            gestureState.startDrag(
+              cropRect = cropperState.cropRect,
+              transformation = currentTransformation,
+              touchPoint = touchPoint,
+              touchTargetSize = currentTouchTargetSizePx,
+            )
+            cropperState.isInteracting = true
+          },
+          onDrag = { change, dragAmount ->
+            change.consume()
+            cropperState.cropRect =
+              gestureState.dragBy(
+                dragAmount = dragAmount,
+                transformation = currentTransformation,
+                videoFitRect = currentVideoFitRect,
+                minCropSize = currentMinCropSizePx,
+              )
+          },
+          onDragEnd = {
+            gestureState.finishDrag()
+            cropperState.isInteracting = false
+            currentOnCropRectChangeFinished?.invoke()
+          },
+          onDragCancel = {
+            gestureState.finishDrag()
+            cropperState.isInteracting = false
+            currentOnCropRectChangeFinished?.invoke()
+          },
+        )
+      }
+  ) {
+    CropperOverlay(transformation = transformation, style = style)
+    cropFrameControls?.let { controls ->
+      CropFrameControlsOverlay(transformation = transformation, content = controls)
+    }
+  }
 }
 
 /**
@@ -289,6 +388,32 @@ private fun CropperOverlay(
       radius = bottomRightRadius + bracketOffset,
     )
     drawPath(color = style.colors.bracketColor, path = bracketsPath, style = bracketStroke)
+  }
+}
+
+/**
+ * A custom layout wrapper that measures and places the crop controls overlay exactly on top of the
+ * active crop frame bounds.
+ */
+@Composable
+private fun CropFrameControlsOverlay(
+  transformation: CropFrameTransformation,
+  modifier: Modifier = Modifier,
+  content: @Composable BoxScope.() -> Unit,
+) {
+  Box(
+    modifier =
+      modifier.layout { measurable, _ ->
+        val cropFrame = transformation.cropFrame
+        val width = cropFrame.width.roundToInt()
+        val height = cropFrame.height.roundToInt()
+        val placeable = measurable.measure(Constraints.fixed(width, height))
+        layout(width, height) {
+          placeable.placeWithLayer(x = cropFrame.left.roundToInt(), y = cropFrame.top.roundToInt())
+        }
+      }
+  ) {
+    content()
   }
 }
 
