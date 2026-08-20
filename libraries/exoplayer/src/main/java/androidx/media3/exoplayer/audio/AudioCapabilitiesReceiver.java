@@ -267,15 +267,18 @@ public final class AudioCapabilitiesReceiver {
   private final class AudioDeviceCallback extends android.media.AudioDeviceCallback {
     @Override
     public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) {
-      updateCurrentAudioCapabilities();
+      handler.post(AudioCapabilitiesReceiver.this::updateCurrentAudioCapabilities);
     }
 
     @Override
     public void onAudioDevicesRemoved(AudioDeviceInfo[] removedDevices) {
-      if (Util.contains(removedDevices, routedDevice)) {
-        routedDevice = null;
-      }
-      updateCurrentAudioCapabilities();
+      handler.post(
+          () -> {
+            if (Util.contains(removedDevices, routedDevice)) {
+              routedDevice = null;
+            }
+            updateCurrentAudioCapabilities();
+          });
     }
   }
 }
