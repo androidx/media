@@ -1282,6 +1282,7 @@ public final class C {
   // LINT.ThenChange(
   //   util/MediaFormatUtil.java:color_space,
   //   ColorInfo.java:color_space,
+  //   ../../../../../../../effect/src/main/res/raw/color_conversions_es3.glsl:color_space,
   // )
 
   // LINT.IfChange(color_transfer)
@@ -1337,6 +1338,7 @@ public final class C {
   // ../../../../../../../effect/src/main/res/raw/fragment_shader_transformation_sdr_external_es2.glsl:color_transfer,
   // ../../../../../../../effect/src/main/res/raw/fragment_shader_transformation_external_yuv_es3.glsl:color_transfer,
   // ../../../../../../../effect/src/main/res/raw/fragment_shader_oetf_es3.glsl:color_transfer,
+  // ../../../../../../../effect/src/main/res/raw/color_conversions_es3.glsl:color_transfer,
   // )
 
   // LINT.IfChange(color_range)
