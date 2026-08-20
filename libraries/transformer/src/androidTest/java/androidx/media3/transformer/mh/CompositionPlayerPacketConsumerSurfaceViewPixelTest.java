@@ -479,15 +479,17 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
         .inOrder();
     assertThat(formatAtomicReference.get().width).isEqualTo(320);
     assertThat(formatAtomicReference.get().height).isEqualTo(240);
-    assertThat(formatAtomicReference.get().colorInfo)
-        .isEqualTo(
-            new ColorInfo.Builder()
+    ColorInfo expectedColorInfo =
+        mode.equals(DEFAULT_GL_FRAME_PROCESSOR)
+            ? ColorInfo.SDR_BT709_LIMITED
+            : new ColorInfo.Builder()
                 .setColorRange(C.COLOR_RANGE_FULL)
                 .setColorSpace(C.COLOR_SPACE_BT601)
                 .setColorTransfer(C.COLOR_TRANSFER_SDR)
                 .setChromaBitdepth(8)
                 .setLumaBitdepth(8)
-                .build());
+                .build();
+    assertThat(formatAtomicReference.get().colorInfo).isEqualTo(expectedColorInfo);
   }
 
   @Test
@@ -520,9 +522,15 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
     firstFrameRenderedFuture.get();
 
     int actualDataSpace = surfaceHolder.getLatestDataSpace();
-    assertThat(DataSpace.getStandard(actualDataSpace)).isEqualTo(DataSpace.STANDARD_BT601_625);
-    assertThat(DataSpace.getTransfer(actualDataSpace)).isEqualTo(DataSpace.TRANSFER_SMPTE_170M);
-    assertThat(DataSpace.getRange(actualDataSpace)).isEqualTo(DataSpace.RANGE_FULL);
+    if (mode.equals(DEFAULT_GL_FRAME_PROCESSOR)) {
+      assertThat(DataSpace.getStandard(actualDataSpace)).isEqualTo(DataSpace.STANDARD_BT709);
+      assertThat(DataSpace.getTransfer(actualDataSpace)).isEqualTo(DataSpace.TRANSFER_SMPTE_170M);
+      assertThat(DataSpace.getRange(actualDataSpace)).isEqualTo(DataSpace.RANGE_LIMITED);
+    } else {
+      assertThat(DataSpace.getStandard(actualDataSpace)).isEqualTo(DataSpace.STANDARD_BT601_625);
+      assertThat(DataSpace.getTransfer(actualDataSpace)).isEqualTo(DataSpace.TRANSFER_SMPTE_170M);
+      assertThat(DataSpace.getRange(actualDataSpace)).isEqualTo(DataSpace.RANGE_FULL);
+    }
   }
 
   @Test

@@ -167,13 +167,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     int rotationDegrees = calculateOutputRotationDegrees(inputFormat);
     int outputWidth = rotationDegrees == 90 ? inputFormat.height : inputFormat.width;
     int outputHeight = rotationDegrees == 90 ? inputFormat.width : inputFormat.height;
+    ColorInfo inputColorInfo = checkNotNull(inputFormat.colorInfo);
     return updateFormat(
         inputFormat,
         outputWidth,
         outputHeight,
         // Sets the degrees that the player needs to rotate. If we rotated 90 degrees, the player
         // needs to rotate -90 degrees, which is equivalent to rotating it 270 degrees.
-        /* rotationDegrees= */ (360 - rotationDegrees) % 360);
+        /* rotationDegrees= */ (360 - rotationDegrees) % 360,
+        // Certain encoders don't accept sRGB, update to using SDR as the color transfer.
+        // TODO(b/545572413): Allow converting outputting to other gamut, for example BT.601.
+        ColorInfo.isWideColorGamut(inputColorInfo) ? inputColorInfo : ColorInfo.SDR_BT709_LIMITED);
   }
 
   /** Reconfigures the shader program if the input size or color space changed. */
@@ -246,7 +250,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     Format formatRotate90 =
         // Setting rotation degrees to zero because the encoder doesn't rotate the frame and thus
         // the value is irrelevant. Here we use the swapped dimension to check encoder capability.
-        updateFormat(format, rotatedWidth, rotatedHeight, /* rotationDegrees= */ 0);
+        updateFormat(
+            format,
+            rotatedWidth,
+            rotatedHeight,
+            /* rotationDegrees= */ 0,
+            checkNotNull(format.colorInfo));
     if (frameWriter.getInfo().isSupported(formatRotate90, OUTPUT_USAGE)) {
       return 90;
     }
@@ -255,12 +264,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return 0;
   }
 
-  private static Format updateFormat(Format format, int width, int height, int rotationDegrees) {
+  private static Format updateFormat(
+      Format format, int width, int height, int rotationDegrees, ColorInfo colorInfo) {
     return format
         .buildUpon()
         .setWidth(width)
         .setHeight(height)
         .setRotationDegrees(rotationDegrees)
+        .setColorInfo(colorInfo)
         .build();
   }
 

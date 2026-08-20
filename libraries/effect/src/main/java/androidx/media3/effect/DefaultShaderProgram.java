@@ -211,8 +211,6 @@ public final class DefaultShaderProgram extends BaseGlShaderProgram
       @WorkingColorSpace int sdrWorkingColorSpace,
       @InputType int inputType)
       throws VideoFrameProcessingException {
-    checkState(
-        inputColorInfo.colorTransfer != C.COLOR_TRANSFER_SRGB || inputType == INPUT_TYPE_BITMAP);
     boolean isInputTransferHdr = ColorInfo.isTransferHdr(inputColorInfo);
     boolean isUsingUltraHdr =
         inputType == INPUT_TYPE_BITMAP && outputColorInfo.colorSpace == C.COLOR_SPACE_BT2020;
@@ -420,8 +418,10 @@ public final class DefaultShaderProgram extends BaseGlShaderProgram
       glProgram.setIntUniform("uSdrWorkingColorSpace", sdrWorkingColorSpace);
       checkArgument(
           outputColorTransfer == C.COLOR_TRANSFER_SDR
+              || outputColorTransfer == C.COLOR_TRANSFER_SRGB
               || outputColorTransfer == C.COLOR_TRANSFER_LINEAR);
-      // The SDR shader automatically applies a COLOR_TRANSFER_SDR EOTF.
+      // The SDR shader applies the COLOR_TRANSFER_SDR (SMPTE 170M) EOTF if the input is linear,
+      // passes through otherwise.
       glProgram.setIntUniform("uOutputColorTransfer", outputColorTransfer);
     }
 

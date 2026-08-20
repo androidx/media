@@ -670,6 +670,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       return COLORSPACE_SDR_SRGB;
     } else {
       // All SDR input are treated as sRGB.
+      // TODO(b/545591224): Allow converting outputting to other gamut, for example BT.601.
       return COLORSPACE_SDR_SRGB;
     }
   }
