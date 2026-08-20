@@ -38,6 +38,8 @@
     *   Fix a scrubbing mode issue where stale video frames could be briefly
         displayed when seeking with
         `ScrubbingModeParameters.allowSkippingMediaCodecFlush` enabled.
+    *   Remove experimental
+        `DefaultMediaCodecAdapterFactory.setAsyncCryptoSynchronizationEnabled(boolean)`.
 *   CompositionPlayer:
     *   Support configuring the frame rate of video frame aggregation via
         `Composition.Builder.setVideoFrameAggregationParameters` for playback
