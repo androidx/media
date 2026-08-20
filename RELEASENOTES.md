@@ -160,6 +160,10 @@
         `SessionAvailabilityListener.onCastSessionUnavailable` to surface it.
     *   Fix an issue where playback would unexpectedly resume locally after
         stopping a Cast session.
+    *   Log an error when `RemoteMediaClient` operations (such as play, pause,
+        speed change, repeat mode, volume, mute, or track selection) fail in
+        `RemoteCastPlayer`
+        ([#3373](https://github.com/androidx/media/issues/3373)).
 *   Test Utilities:
 *   Remove deprecated symbols:
 

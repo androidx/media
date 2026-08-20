@@ -84,6 +84,7 @@ import com.google.android.gms.cast.framework.media.RemoteMediaClient;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient.MediaChannelResult;
 import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.common.api.Status;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Longs;
@@ -676,6 +677,7 @@ public final class RemoteCastPlayer extends BasePlayer {
         new ResultCallback<MediaChannelResult>() {
           @Override
           public void onResult(MediaChannelResult mediaChannelResult) {
+            logOperationFailedIfStatusError("Set playWhenReady", mediaChannelResult);
             if (remoteMediaClient != null) {
               updatePlayerStateAndNotifyIfChanged(this);
               listeners.flushEvents();
@@ -823,6 +825,7 @@ public final class RemoteCastPlayer extends BasePlayer {
         new ResultCallback<MediaChannelResult>() {
           @Override
           public void onResult(MediaChannelResult mediaChannelResult) {
+            logOperationFailedIfStatusError("Set playback parameters", mediaChannelResult);
             if (remoteMediaClient != null) {
               updatePlaybackRateAndNotifyIfChanged(this);
               listeners.flushEvents();
@@ -848,6 +851,7 @@ public final class RemoteCastPlayer extends BasePlayer {
         new ResultCallback<MediaChannelResult>() {
           @Override
           public void onResult(MediaChannelResult mediaChannelResult) {
+            logOperationFailedIfStatusError("Set repeat mode", mediaChannelResult);
             if (remoteMediaClient != null) {
               updateRepeatModeAndNotifyIfChanged(this);
               listeners.flushEvents();
@@ -1013,6 +1017,7 @@ public final class RemoteCastPlayer extends BasePlayer {
         new ResultCallback<MediaChannelResult>() {
           @Override
           public void onResult(MediaChannelResult result) {
+            logOperationFailedIfStatusError("Set volume", result);
             if (remoteMediaClient != null) {
               updateVolumeAndNotifyIfChanged(this);
               listeners.flushEvents();
@@ -1058,6 +1063,7 @@ public final class RemoteCastPlayer extends BasePlayer {
         new ResultCallback<MediaChannelResult>() {
           @Override
           public void onResult(MediaChannelResult result) {
+            logOperationFailedIfStatusError("Set mute", result);
             if (remoteMediaClient != null) {
               updateVolumeAndNotifyIfChanged(this);
               listeners.flushEvents();
@@ -1575,6 +1581,7 @@ public final class RemoteCastPlayer extends BasePlayer {
           new ResultCallback<MediaChannelResult>() {
             @Override
             public void onResult(MediaChannelResult result) {
+              logOperationFailedIfStatusError("Set active tracks", result);
               if (remoteMediaClient != null) {
                 updateTracksAndNotifyIfChanged(
                     this, TRACK_SELECTION_REQUEST_REASON_RECEIVER_UPDATE);
@@ -2051,6 +2058,22 @@ public final class RemoteCastPlayer extends BasePlayer {
     return mediaQueueItems;
   }
 
+  private static void logOperationFailedIfStatusError(String operation, MediaChannelResult result) {
+    @Nullable Status status = result.getStatus();
+    if (status != null) {
+      int statusCode = status.getStatusCode();
+      if (statusCode != CastStatusCodes.SUCCESS && statusCode != CastStatusCodes.REPLACED) {
+        Log.e(
+            TAG,
+            operation
+                + " failed. Error code "
+                + statusCode
+                + ": "
+                + CastUtils.getLogString(statusCode));
+      }
+    }
+  }
+
   // Internal classes.
 
   private final class StatusListener extends RemoteMediaClient.Callback
@@ -2157,12 +2180,7 @@ public final class RemoteCastPlayer extends BasePlayer {
 
     @Override
     public void onResult(MediaChannelResult result) {
-      int statusCode = result.getStatus().getStatusCode();
-      if (statusCode != CastStatusCodes.SUCCESS && statusCode != CastStatusCodes.REPLACED) {
-        Log.e(
-            TAG,
-            "Seek failed. Error code " + statusCode + ": " + CastUtils.getLogString(statusCode));
-      }
+      logOperationFailedIfStatusError("Seek", result);
       if (--pendingSeekCount == 0) {
         if (pendingSeekWindowIndex != C.INDEX_UNSET
             && pendingSeekWindowIndex < currentTimeline.getWindowCount()) {
