@@ -158,9 +158,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private static final String KEY_CROP_BOTTOM = "crop-bottom";
   private static final String KEY_CROP_TOP = "crop-top";
 
-  // TODO: b/388762778 - Replace with MediaFormat.KEY_HDR_ST2094_50_INFO once compile SDK is 37.
-  private static final String KEY_HDR_ST2094_50_INFO = "hdr-st2094-50-info";
-
   // Long edge length in pixels for standard video formats, in decreasing in order.
   private static final int[] STANDARD_LONG_EDGE_VIDEO_PX =
       new int[] {1920, 1600, 1440, 1280, 960, 854, 640, 540, 480};
@@ -2063,7 +2060,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         isApplyingContainerHagcMetadata = hagcData.length > 0;
         if (isApplyingContainerHagcMetadata) {
           Bundle codecParameters = new Bundle();
-          codecParameters.putByteArray(KEY_HDR_ST2094_50_INFO, hagcData);
+          codecParameters.putByteArray(MediaFormat.KEY_HDR_ST2094_50_INFO, hagcData);
           checkNotNull(getCodec()).setParameters(codecParameters);
         }
       }
