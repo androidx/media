@@ -85,9 +85,7 @@ public final class MediaFormatUtil {
                 getInteger(
                     mediaFormat, MediaFormat.KEY_BIT_RATE, /* defaultValue= */ Format.NO_VALUE))
             .setCodecs(getCodecString(mediaFormat))
-            .setFrameRate(
-                getFloatFromIntOrFloat(
-                    mediaFormat, MediaFormat.KEY_FRAME_RATE, /* defaultValue= */ Format.NO_VALUE))
+            .setFrameRate(getFrameRate(mediaFormat))
             .setWidth(
                 getInteger(mediaFormat, MediaFormat.KEY_WIDTH, /* defaultValue= */ Format.NO_VALUE))
             .setHeight(
@@ -433,6 +431,20 @@ public final class MediaFormatUtil {
     } else {
       return mediaFormat.getString(MediaFormat.KEY_CODECS_STRING);
     }
+  }
+
+  /** Returns the frame rate from the given {@link MediaFormat}. */
+  @SuppressLint("InlinedApi") // Inlined MediaFormat.KEY_FRAME_RATE.
+  private static float getFrameRate(MediaFormat mediaFormat) {
+    float frameRate =
+        getFloatFromIntOrFloat(
+            mediaFormat, MediaFormat.KEY_FRAME_RATE, /* defaultValue= */ Format.NO_VALUE);
+    // Some devices may produce non-positive frame rates from MediaFormat.
+    // See b/493371202 for more information.
+    if (frameRate <= 0f) {
+      frameRate = Format.NO_VALUE;
+    }
+    return frameRate;
   }
 
   /** Returns the ratio between a pixel's width and height for a {@link MediaFormat}. */
