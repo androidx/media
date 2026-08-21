@@ -641,6 +641,26 @@ public abstract class MediaLibraryService extends MediaSessionService {
       }
 
       /**
+       * Sets whether playback position and duration are published for live media items to legacy
+       * controllers.
+       *
+       * <p>By default this is {@code false}, which keeps live playback position and duration
+       * hidden for legacy controllers such as {@code MediaControllerCompat}.
+       *
+       * <p>If set to {@code true}, live playback position and duration are published to legacy
+       * controllers based on the player's values.
+       *
+       * @param showPlaybackPositionForLiveStreams Whether to publish playback position and
+       *     duration for live streams to legacy controllers.
+       * @return The builder to allow chaining.
+       */
+      @UnstableApi
+      public Builder setShowPlaybackPositionForLiveStreams(
+          boolean showPlaybackPositionForLiveStreams) {
+        return super.setShowPlaybackPositionForLiveStreams(showPlaybackPositionForLiveStreams);
+      }
+
+      /**
        * Sets whether library result errors should be replicated to the platform media session's
        * {@link android.media.session.PlaybackState} as a fatal error, a non-fatal error or not
        * replicated at all. Replication is only executed for calling legacy browsers ({@link
@@ -729,6 +749,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
             bitmapLoader,
             playIfSuppressed,
             isPeriodicPositionUpdateEnabled,
+            showPlaybackPositionForLiveStreams,
             libraryErrorReplicationMode,
             packageNameOverride);
       }
@@ -748,6 +769,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
         BitmapLoader bitmapLoader,
         boolean playIfSuppressed,
         boolean isPeriodicPositionUpdateEnabled,
+        boolean showPlaybackPositionForLiveStreams,
         @LibraryErrorReplicationMode int libraryErrorReplicationMode,
         @Nullable String overridePackageName) {
       super(
@@ -764,6 +786,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
           bitmapLoader,
           playIfSuppressed,
           isPeriodicPositionUpdateEnabled,
+          showPlaybackPositionForLiveStreams,
           libraryErrorReplicationMode,
           /* useLegacySurfaceHandling= */ false,
           overridePackageName);
@@ -784,6 +807,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
         BitmapLoader bitmapLoader,
         boolean playIfSuppressed,
         boolean isPeriodicPositionUpdateEnabled,
+        boolean showPlaybackPositionForLiveStreams,
         @LibraryErrorReplicationMode int libraryErrorReplicationMode,
         boolean useLegacySurfaceHandling,
         @Nullable String overridePackageName) {
@@ -802,6 +826,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
           bitmapLoader,
           playIfSuppressed,
           isPeriodicPositionUpdateEnabled,
+          showPlaybackPositionForLiveStreams,
           libraryErrorReplicationMode,
           overridePackageName);
     }
