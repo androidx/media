@@ -41,6 +41,7 @@ import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
+import androidx.media3.common.Flags;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MediaMetadata;
@@ -640,7 +641,8 @@ public class MediaController implements Player {
             + MediaLibraryInfo.VERSION_SLASHY
             + "] ["
             + Util.DEVICE_DEBUG_INFO
-            + "]");
+            + "] "
+            + Flags.getLogString());
 
     // Initialize default values.
     window = new Timeline.Window();

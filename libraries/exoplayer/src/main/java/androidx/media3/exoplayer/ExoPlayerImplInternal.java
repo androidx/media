@@ -43,6 +43,7 @@ import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdPlaybackState.AdGroup;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.IllegalSeekPositionException;
 import androidx.media3.common.MediaItem;
@@ -315,8 +316,11 @@ import java.util.Objects;
     this.releaseTimeoutMs = releaseTimeoutMs;
     this.setForegroundModeTimeoutMs = releaseTimeoutMs;
     this.pauseAtEndOfWindow = pauseAtEndOfWindow;
-    this.dynamicSchedulingEnabled = dynamicSchedulingEnabled;
-    this.perStreamMediaProgressionEnabled = perStreamMediaProgressionEnabled;
+    this.dynamicSchedulingEnabled =
+        dynamicSchedulingEnabled && Flags.isEnabled(Flags.FLAG_DYNAMIC_SCHEDULING);
+    this.perStreamMediaProgressionEnabled =
+        perStreamMediaProgressionEnabled
+            || Flags.isEnabled(Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION);
     this.clock = clock;
     this.playerId = playerId;
     this.preloadConfiguration = preloadConfiguration;

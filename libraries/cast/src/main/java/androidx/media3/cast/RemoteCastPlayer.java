@@ -51,6 +51,7 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.BasePlayer;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
+import androidx.media3.common.Flags;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MediaMetadata;
@@ -427,7 +428,8 @@ public final class RemoteCastPlayer extends BasePlayer {
             + MediaLibraryInfo.VERSION_SLASHY
             + "] ["
             + Util.DEVICE_DEBUG_INFO
-            + "]");
+            + "] "
+            + Flags.getLogString());
     this.cast = cast;
     this.mediaItemConverter = mediaItemConverter;
     this.trackSelector = trackSelector;

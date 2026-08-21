@@ -3,6 +3,8 @@
 ### Unreleased changes
 
 *   Common Library:
+    *   Add a central `Flags` registry to manage experimental feature flags and
+        canary mode rollout.
     *   Add `MediaMetadata.playlistId` and
         `MediaMetadata.Builder.setPlaylistId(String)`.
 *   ExoPlayer:

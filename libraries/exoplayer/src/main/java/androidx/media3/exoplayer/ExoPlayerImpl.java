@@ -65,6 +65,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.C.TrackType;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.Effect;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.IllegalSeekPositionException;
 import androidx.media3.common.MediaItem;
@@ -269,7 +270,8 @@ import java.util.function.IntConsumer;
               + MediaLibraryInfo.VERSION_SLASHY
               + "] ["
               + Util.DEVICE_DEBUG_INFO
-              + "]");
+              + "] "
+              + Flags.getLogString());
       applicationContext = builder.context.getApplicationContext();
       analyticsCollector = builder.analyticsCollectorFunction.apply(builder.clock);
       priority = builder.priority;

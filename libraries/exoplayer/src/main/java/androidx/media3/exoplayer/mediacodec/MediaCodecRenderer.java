@@ -47,6 +47,7 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MimeTypes;
@@ -776,7 +777,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
               offsetUs,
               durationUs,
               streamFlags));
-      if (experimentalEnableProcessedStreamChangedAtStart) {
+      if (experimentalEnableProcessedStreamChangedAtStart
+          || Flags.isEnabled(Flags.FLAG_PROCESSED_STREAM_CHANGED_AT_START)) {
         onProcessedStreamChange();
       }
     } else if (pendingOutputStreamChanges.isEmpty()
