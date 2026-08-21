@@ -59,6 +59,26 @@ public class MediaFormatUtilTest {
   }
 
   @Test
+  public void createFormatFromMediaFormat_withZeroFrameRate_setsFrameRateToNoValue() {
+    MediaFormat mediaFormat = new MediaFormat();
+    mediaFormat.setFloat(MediaFormat.KEY_FRAME_RATE, 0.0f);
+
+    Format format = MediaFormatUtil.createFormatFromMediaFormat(mediaFormat);
+
+    assertThat(format.frameRate).isEqualTo(Format.NO_VALUE);
+  }
+
+  @Test
+  public void createFormatFromMediaFormat_withNegativeFrameRate_setsFrameRateToNoValue() {
+    MediaFormat mediaFormat = new MediaFormat();
+    mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, -10);
+
+    Format format = MediaFormatUtil.createFormatFromMediaFormat(mediaFormat);
+
+    assertThat(format.frameRate).isEqualTo(Format.NO_VALUE);
+  }
+
+  @Test
   public void createFormatFromMediaFormat_withContradictoryChannelMask_dropsChannelMask() {
     MediaFormat mediaFormat = new MediaFormat();
     mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 2);
