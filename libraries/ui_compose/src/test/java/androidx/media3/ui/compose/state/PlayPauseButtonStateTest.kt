@@ -22,6 +22,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runComposeUiTest
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
 import androidx.media3.test.utils.FakePlayer
@@ -321,5 +322,129 @@ class PlayPauseButtonStateTest {
     waitForIdle()
 
     assertThat(state.isEnabled).isTrue()
+  }
+
+  @Test
+  fun showBuffering_playerIsBuffering_isTrue() {
+    val player =
+      FakePlayer(
+        playbackState = Player.STATE_BUFFERING,
+        playlist = listOf(MediaItemData.Builder("item").build()),
+      )
+
+    val state = PlayPauseButtonState(player, displayMode = SHOW_BUFFERING_ALWAYS)
+
+    assertThat(state.showBuffering).isTrue()
+    assertThat(state.showReplay).isFalse()
+  }
+
+  @Test
+  fun showReplay_playerIsEndedWithReplayOption_isTrue() {
+    val player =
+      FakePlayer(
+        playbackState = Player.STATE_ENDED,
+        playlist = listOf(MediaItemData.Builder("item").build()),
+      )
+
+    val state = PlayPauseButtonState(player, displayMode = SHOW_REPLAY_ON_ENDED)
+
+    assertThat(state.showReplay).isTrue()
+    assertThat(state.showRetry).isFalse()
+    assertThat(state.showBuffering).isFalse()
+  }
+
+  @Test
+  fun showRetry_playerHasErrorWithRetryOption_isTrue() {
+    val player = FakePlayer(playlist = listOf(MediaItemData.Builder("item").build()))
+    player.setPlayerError(PlaybackException(null, null, PlaybackException.ERROR_CODE_UNSPECIFIED))
+
+    val state = PlayPauseButtonState(player, displayMode = SHOW_RETRY_ON_ERROR)
+
+    assertThat(state.showRetry).isTrue()
+    assertThat(state.showReplay).isFalse()
+    assertThat(state.showBuffering).isFalse()
+  }
+
+  @Test
+  fun showBuffering_modeAlwaysAndPlayerBuffering_isTrue() {
+    val player =
+      FakePlayer(
+        playbackState = Player.STATE_BUFFERING,
+        playlist = listOf(MediaItemData.Builder("item").build()),
+      )
+
+    val state = PlayPauseButtonState(player, displayMode = SHOW_BUFFERING_ALWAYS)
+
+    assertThat(state.showBuffering).isTrue()
+  }
+
+  @Test
+  fun showBuffering_modeNeverAndPlayerBuffering_isFalse() {
+    val player =
+      FakePlayer(
+        playbackState = Player.STATE_BUFFERING,
+        playlist = listOf(MediaItemData.Builder("item").build()),
+      )
+
+    val state = PlayPauseButtonState(player, displayMode = 0)
+
+    assertThat(state.showBuffering).isFalse()
+  }
+
+  @Test
+  fun showBuffering_modeWhenPlayingAndPlaying_isTrue() {
+    val player =
+      FakePlayer(
+        playbackState = Player.STATE_BUFFERING,
+        playWhenReady = true,
+        playlist = listOf(MediaItemData.Builder("item").build()),
+      )
+
+    val state = PlayPauseButtonState(player, displayMode = SHOW_BUFFERING_WHEN_PLAYING)
+
+    assertThat(state.showPlay).isFalse()
+    assertThat(state.showBuffering).isTrue()
+  }
+
+  @Test
+  fun showBuffering_modeWhenPlayingAndPaused_isFalse() {
+    val player =
+      FakePlayer(
+        playbackState = Player.STATE_BUFFERING,
+        playWhenReady = false,
+        playlist = listOf(MediaItemData.Builder("item").build()),
+      )
+
+    val state = PlayPauseButtonState(player, displayMode = SHOW_BUFFERING_WHEN_PLAYING)
+
+    assertThat(state.showPlay).isTrue()
+    assertThat(state.showBuffering).isFalse()
+  }
+
+  @Test
+  fun showBuffering_modeAlwaysAndPlayerReady_isFalse() {
+    val player =
+      FakePlayer(
+        playbackState = Player.STATE_READY,
+        playlist = listOf(MediaItemData.Builder("item").build()),
+      )
+
+    val state = PlayPauseButtonState(player, displayMode = SHOW_BUFFERING_ALWAYS)
+
+    assertThat(state.showBuffering).isFalse()
+  }
+
+  @Test
+  fun showBuffering_modeWhenPlayingAndPlayerReady_isFalse() {
+    val player =
+      FakePlayer(
+        playbackState = Player.STATE_READY,
+        playWhenReady = true,
+        playlist = listOf(MediaItemData.Builder("item").build()),
+      )
+
+    val state = PlayPauseButtonState(player, displayMode = SHOW_BUFFERING_WHEN_PLAYING)
+
+    assertThat(state.showBuffering).isFalse()
   }
 }

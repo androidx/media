@@ -121,6 +121,9 @@
         rendering of the provided optional `artwork` Composable in
         `ContentFrame` and `Player`. Add `Artwork` Composable to be used as the
         default value for the `artwork` slot.
+    *   Add new fields to `PlayPauseButtonState` (`showBuffering`, `showRetry`,
+        `showReplay`) and use them in `PlayPauseButton` to render more icons and
+        a buffering indicator.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:
