@@ -937,8 +937,13 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         return alternativeDecoderInfos;
       }
     }
-    return MediaCodecUtil.getDecoderInfosSoftMatch(
-        mediaCodecSelector, format, requiresSecureDecoder, requiresTunnelingDecoder);
+    if (MimeTypes.VIDEO_DOLBY_VISION.equals(format.sampleMimeType)) {
+      return MediaCodecUtil.getDecoderInfosSoftMatchFilteredByFormatSupport(
+          context, mediaCodecSelector, format, requiresSecureDecoder, requiresTunnelingDecoder);
+    } else {
+      return MediaCodecUtil.getDecoderInfosSoftMatch(
+          mediaCodecSelector, format, requiresSecureDecoder, requiresTunnelingDecoder);
+    }
   }
 
   @RequiresApi(26)
