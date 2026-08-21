@@ -1964,6 +1964,7 @@ public final class ProgressiveMediaPeriodTest {
 
   @Test
   public void seekToUs_inIdleStateAfterClipExtension_seeksInsideBuffer() throws Exception {
+    AtomicBoolean allowContinueLoading = new AtomicBoolean(true);
     ProgressiveMediaPeriod mediaPeriod =
         createMediaPeriod(
             Uri.parse("asset://android_asset/media/mp4/sample.mp4"),
@@ -1972,7 +1973,12 @@ public final class ProgressiveMediaPeriodTest {
               public void onPrepared(MediaPeriod mediaPeriod) {}
 
               @Override
-              public void onContinueLoadingRequested(MediaPeriod source) {}
+              public void onContinueLoadingRequested(MediaPeriod source) {
+                if (allowContinueLoading.get()) {
+                  source.continueLoading(
+                      new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+                }
+              }
             });
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
     @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
@@ -1995,11 +2001,12 @@ public final class ProgressiveMediaPeriodTest {
     runMainLooperUntil(
         () -> {
           mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
-          return !mediaPeriod.isLoading();
+          return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
         });
     shadowOf(Looper.getMainLooper()).idle();
 
     // Extend end position to 600ms (transitions state to STATE_IDLE).
+    allowContinueLoading.set(false);
     long unusedEndPosition2 = mediaPeriod.setEndPositionUs(600_000);
     assertThat(mediaPeriod.isLoading()).isFalse();
 
@@ -2012,12 +2019,13 @@ public final class ProgressiveMediaPeriodTest {
 
     // Continue loading to new end position and verify stream plays up to 600ms without losing
     // samples.
+    allowContinueLoading.set(true);
     boolean unusedLoad2 =
         mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
     runMainLooperUntil(
         () -> {
           mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
-          return !mediaPeriod.isLoading();
+          return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
         });
     shadowOf(Looper.getMainLooper()).idle();
 
