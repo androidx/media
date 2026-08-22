@@ -598,10 +598,9 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     List<MediaItem.SubtitleConfiguration> subtitleConfigurations =
         castNonNull(mediaItem.localConfiguration).subtitleConfigurations;
     if (!subtitleConfigurations.isEmpty()) {
-      MediaSource[] mediaSources = new MediaSource[subtitleConfigurations.size() + 1];
-      mediaSources[0] = mediaSource;
-      for (int i = 0; i < subtitleConfigurations.size(); i++) {
-        if (parseSubtitlesDuringExtraction) {
+      if (parseSubtitlesDuringExtraction) {
+        MediaSource[] subtitleMediaSources = new MediaSource[subtitleConfigurations.size()];
+        for (int i = 0; i < subtitleConfigurations.size(); i++) {
           Format format =
               new Format.Builder()
                   .setSampleMimeType(subtitleConfigurations.get(i).mimeType)
@@ -636,10 +635,17 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
           if (loadErrorHandlingPolicy != null) {
             progressiveMediaSourceFactory.setLoadErrorHandlingPolicy(loadErrorHandlingPolicy);
           }
-          mediaSources[i + 1] =
+          subtitleMediaSources[i] =
               progressiveMediaSourceFactory.createMediaSource(
                   MediaItem.fromUri(subtitleConfigurations.get(i).uri.toString()));
-        } else {
+        }
+        mediaSource =
+            new SideloadedSubtitlesMediaSource(
+                mediaSource, subtitleConfigurations, subtitleMediaSources);
+      } else {
+        MediaSource[] mediaSources = new MediaSource[subtitleConfigurations.size() + 1];
+        mediaSources[0] = mediaSource;
+        for (int i = 0; i < subtitleConfigurations.size(); i++) {
           SingleSampleMediaSource.Factory singleSampleMediaSourceFactory =
               new SingleSampleMediaSource.Factory(dataSourceFactory);
           if (loadErrorHandlingPolicy != null) {
@@ -649,9 +655,8 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
               singleSampleMediaSourceFactory.createMediaSource(
                   subtitleConfigurations.get(i), /* durationUs= */ C.TIME_UNSET);
         }
+        mediaSource = new MergingMediaSource(mediaSources);
       }
-
-      mediaSource = new MergingMediaSource(mediaSources);
     }
     return maybeWrapWithAdsMediaSource(
         mediaItem, maybeClipMediaSource(mediaItem, mediaSource, enableClippingInMediaPeriod));
