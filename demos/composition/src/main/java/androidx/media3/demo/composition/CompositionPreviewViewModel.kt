@@ -607,6 +607,51 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     compositionPlayer.play()
   }
 
+  /**
+   * Reproduces a CompositionPlayer stuck-seek bug:
+   *   - Requires the composition to end in a GapMediaItem and FrameConsumer to be enabled.
+   *   - Step 1: seekTo(duration-1) — lands the playhead in the trailing gap. If the gap emits
+   *     no frame, Media3's onFrameProcessed never clears waitingForFrameAfterSeek.
+   *   - Step 2: seekTo(0) — silently DEFERRED behind the latched flag.
+   *   - Step 3: play() — no visible playback (position never returns to 0).
+   * Watch `adb logcat -s SeekDbg RepDbg` while pressing the button.
+   */
+  fun reproduceStuckSeekBug() {
+    viewModelScope.launch {
+      val player = compositionPlayer
+      val duration = player.duration
+      Log.d("RepDbg", "start: duration=$duration currentPos=${player.currentPosition}")
+      if (duration <= 0) {
+        Log.d("RepDbg", "abort: duration<=0. Add media + a trailing Gap before pressing.")
+        return@launch
+      }
+
+      // Step 1: land the playhead at duration-1. Position moves 0 → duration-1, a frame
+      // is emitted, onFrameProcessed clears the flag.
+      Log.d("RepDbg", "step1: seekTo(${duration - 1}) — expect PROPAGATING + onFrameProcessed clears flag")
+      player.seekTo(duration - 1)
+      kotlinx.coroutines.delay(1000)
+      Log.d("RepDbg", "step1 done: currentPos=${player.currentPosition}")
+
+      // Step 2: redundant seek to the *same* position (mirrors Squirrel's "post-scrub refresh
+      // seek to <confirmed current pos>"). No-op seek → no frame delivered → onFrameProcessed
+      // never fires → waitingForFrameAfterSeek stays latched.
+      Log.d("RepDbg", "step2: seekTo(${duration - 1}) again (no-op) — expect PROPAGATING but NO onFrameProcessed follows")
+      player.seekTo(duration - 1)
+      kotlinx.coroutines.delay(1000)
+      Log.d("RepDbg", "step2 done: currentPos=${player.currentPosition}")
+
+      // Step 3: any follow-up seek is now silently DEFERRED behind the latched flag.
+      Log.d("RepDbg", "step3: seekTo(0) — expect DEFERRED (flag latched)")
+      player.seekTo(0)
+      kotlinx.coroutines.delay(200)
+      Log.d("RepDbg", "step3 done: currentPos=${player.currentPosition} (should still be at end)")
+
+      Log.d("RepDbg", "step4: play() — expect no visible playback")
+      player.play()
+    }
+  }
+
   fun exportComposition() {
     // Cancel and clean up files from any ongoing export.
     cancelExport()
@@ -800,9 +845,15 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
 
       val sequenceBuilder = EditedMediaItemSequence.Builder(trackTypes)
 
+      Log.d(
+        "RepDbg",
+        "buildSequence[$sequenceIndex] items=${sequenceItems.size} " +
+          "types=${sequenceItems.joinToString(",") { it.javaClass.simpleName }}",
+      )
       for (item in sequenceItems) {
         when (item) {
           is Gap -> {
+            Log.d("RepDbg", "  addGap durationUs=${item.durationUs}")
             sequenceBuilder.addGap(item.durationUs)
           }
           is Media -> {
@@ -836,6 +887,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
                 // Setting duration explicitly is only required for preview with CompositionPlayer,
                 // and is not needed for export with Transformer.
                 .setDurationUs(item.durationUs)
+            Log.d("RepDbg", "  addMedia durationUs=${item.durationUs} uri=${item.uri}")
             sequenceBuilder.addItem(itemBuilder.build())
           }
         }
