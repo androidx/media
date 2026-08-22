@@ -43,6 +43,28 @@ public class FileTypesTest {
   }
 
   @Test
+  public void inferFileFormat_fromMjpegResponseHeaders_returnsMjpeg() {
+    Map<String, List<String>> responseHeaders = new HashMap<>();
+    responseHeaders.put(
+        "Content-type",
+        Collections.singletonList("multipart/x-mixed-replace; boundary=--myboundary"));
+
+    assertThat(FileTypes.inferFileTypeFromResponseHeaders(responseHeaders))
+        .isEqualTo(FileTypes.MJPEG);
+  }
+
+  @Test
+  public void inferFileFormat_fromMjpegResponseHeadersWithQuotedBoundary_returnsMjpeg() {
+    Map<String, List<String>> responseHeaders = new HashMap<>();
+    responseHeaders.put(
+        "Content-Type",
+        Collections.singletonList("multipart/x-mixed-replace; boundary=\"--totalmjpeg\""));
+
+    assertThat(FileTypes.inferFileTypeFromResponseHeaders(responseHeaders))
+        .isEqualTo(FileTypes.MJPEG);
+  }
+
+  @Test
   public void inferFileFormat_fromResponseHeadersWithUnknownContentType_returnsUnknownFormat() {
     Map<String, List<String>> responseHeaders = new HashMap<>();
     responseHeaders.put(HEADER_CONTENT_TYPE, Collections.singletonList("unknown"));
@@ -60,6 +82,12 @@ public class FileTypesTest {
   @Test
   public void inferFileFormat_fromMimeType_returnsExpectedFormat() {
     assertThat(FileTypes.inferFileTypeFromMimeType("audio/x-flac")).isEqualTo(FileTypes.FLAC);
+  }
+
+  @Test
+  public void inferFileFormat_fromMjpegMimeType_returnsMjpeg() {
+    assertThat(FileTypes.inferFileTypeFromMimeType(MimeTypes.VIDEO_MJPEG))
+        .isEqualTo(FileTypes.MJPEG);
   }
 
   @Test
@@ -83,6 +111,12 @@ public class FileTypesTest {
   @Test
   public void inferFileFormat_fromUriWithExtensionPrefix_returnsExpectedFormat() {
     assertThat(inferFileTypeFromUri(Uri.parse("filename.mka"))).isEqualTo(FileTypes.MATROSKA);
+  }
+
+  @Test
+  public void inferFileFormat_fromMjpegUri_returnsMjpeg() {
+    assertThat(inferFileTypeFromUri(Uri.parse("filename.mjpeg"))).isEqualTo(FileTypes.MJPEG);
+    assertThat(inferFileTypeFromUri(Uri.parse("filename.mjpg"))).isEqualTo(FileTypes.MJPEG);
   }
 
   @Test
