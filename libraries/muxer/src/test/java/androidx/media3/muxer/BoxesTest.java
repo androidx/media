@@ -951,11 +951,42 @@ public class BoxesTest {
 
   @Test
   public void createFtypBox_matchesExpected() throws IOException {
-    ByteBuffer ftypBox = Boxes.ftyp();
+    ByteBuffer ftypBox = Boxes.ftyp(/* additionalCompatibleBrands= */ ImmutableList.of());
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(ftypBox);
     DumpFileAsserts.assertOutput(
         context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("ftyp_box"));
+  }
+
+  @Test
+  public void createFtypBox_withInvalidCompatibleBrandLength_throws() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> Boxes.ftyp(/* additionalCompatibleBrands= */ ImmutableList.of("dby")));
+  }
+
+  @Test
+  public void createFtypBox_forDolbyVision_containsDby1CompatibleBrand() {
+    ByteBuffer ftypBox = Boxes.ftyp(/* additionalCompatibleBrands= */ ImmutableList.of("dby1"));
+
+    assertThat(ftypBox.getInt()).isEqualTo(32);
+    byte[] type = new byte[4];
+    ftypBox.get(type);
+    assertThat(type).isEqualTo(Util.getUtf8Bytes("ftyp"));
+    assertThat(ftypBox.getInt()).isEqualTo(Util.getIntegerCodeForString("isom"));
+    assertThat(ftypBox.getInt()).isEqualTo(0x020000);
+
+    List<Integer> compatibleBrands = new ArrayList<>();
+    while (ftypBox.hasRemaining()) {
+      compatibleBrands.add(ftypBox.getInt());
+    }
+    assertThat(compatibleBrands)
+        .containsExactly(
+            Util.getIntegerCodeForString("isom"),
+            Util.getIntegerCodeForString("iso2"),
+            Util.getIntegerCodeForString("mp41"),
+            Util.getIntegerCodeForString("dby1"))
+        .inOrder();
   }
 
   @Test

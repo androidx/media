@@ -484,7 +484,10 @@ public final class Mp4Muxer implements Muxer {
    * {@inheritDoc}
    *
    * <p>Tracks can be added at any point before the muxer is closed, even after writing samples to
-   * other tracks.
+   * other tracks. Note that a track requiring an additional {@code ftyp} compatible brand (for
+   * example a {@link MimeTypes#VIDEO_DOLBY_VISION} track, which requires the {@code dby1} brand)
+   * that is added after samples have already been written to another track will not retroactively
+   * update the {@code ftyp} box.
    *
    * <p>The order of tracks remains same in which they are added.
    *
@@ -509,7 +512,10 @@ public final class Mp4Muxer implements Muxer {
    * Adds a track of the given media format.
    *
    * <p>Tracks can be added at any point before the muxer is closed, even after writing samples to
-   * other tracks.
+   * other tracks. Note that a track requiring an additional {@code ftyp} compatible brand (for
+   * example a {@link MimeTypes#VIDEO_DOLBY_VISION} track, which requires the {@code dby1} brand)
+   * that is added after samples have already been written to another track will not retroactively
+   * update the {@code ftyp} box.
    *
    * <p>The final order of tracks is determined by the provided sort key. Tracks with a lower sort
    * key will be written before tracks with a higher sort key. Ordering between tracks with the same

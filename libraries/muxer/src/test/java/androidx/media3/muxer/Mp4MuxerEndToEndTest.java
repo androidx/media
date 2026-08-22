@@ -107,6 +107,28 @@ public class Mp4MuxerEndToEndTest {
   }
 
   @Test
+  public void createMp4File_withDolbyVisionTrack_ftypContainsDby1CompatibleBrand()
+      throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Format dolbyVisionFormat =
+        FAKE_VIDEO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dvav.09.02")
+            .build();
+    Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L, /* isVideo= */ true);
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      int trackId = muxer.addTrack(dolbyVisionFormat);
+      muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+    }
+
+    byte[] outputFileBytes = TestUtil.getByteArrayFromFilePath(outputFilePath);
+    assertThat(MuxerTestUtil.ftypBoxContainsCompatibleBrand(outputFileBytes, "dby1")).isTrue();
+  }
+
+  @Test
   public void createMp4File_addTrackAndMetadataButNoSamples_createsEmptyFile() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
 
