@@ -121,7 +121,7 @@ public class MediaSessionServiceTest {
   }
 
   @Test
-  public void service_sessionIdleWithMediaShowAlways_createsNotification() {
+  public void service_sessionIdleWithMediaShowAlways_createsNotification() throws TimeoutException {
     ExoPlayer player = new TestExoPlayerBuilder(context).build();
     MediaSession session = new MediaSession.Builder(context, player).build();
     ServiceController<TestService> serviceController = Robolectric.buildService(TestService.class);
@@ -138,7 +138,7 @@ public class MediaSessionServiceTest {
     player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
     service.setShowNotificationForIdlePlayer(
         MediaSessionService.SHOW_NOTIFICATION_FOR_IDLE_PLAYER_ALWAYS);
-    ShadowLooper.idleMainLooper();
+    runMainLooperUntil(() -> getStatusBarNotification(2000) != null);
 
     assertThat(getStatusBarNotification(2000)).isNotNull();
 
@@ -175,7 +175,8 @@ public class MediaSessionServiceTest {
   }
 
   @Test
-  public void service_sessionIdleAfterNonIdleWithMedia_createsNotification() {
+  public void service_sessionIdleAfterNonIdleWithMedia_createsNotification()
+      throws TimeoutException {
     ExoPlayer player = new TestExoPlayerBuilder(context).build();
     MediaSession session = new MediaSession.Builder(context, player).build();
     ServiceController<TestService> serviceController = Robolectric.buildService(TestService.class);
@@ -193,7 +194,7 @@ public class MediaSessionServiceTest {
     player.prepare();
     ShadowLooper.idleMainLooper();
     player.stop();
-    ShadowLooper.idleMainLooper();
+    runMainLooperUntil(() -> getStatusBarNotification(2000) != null);
 
     assertThat(getStatusBarNotification(2000)).isNotNull();
 
@@ -233,7 +234,8 @@ public class MediaSessionServiceTest {
   }
 
   @Test
-  public void service_sessionIdleAfterNonIdleWithMediaShowNever_clearsNotification() {
+  public void service_sessionIdleAfterNonIdleWithMediaShowNever_clearsNotification()
+      throws TimeoutException {
     ExoPlayer player = new TestExoPlayerBuilder(context).build();
     MediaSession session = new MediaSession.Builder(context, player).build();
     ServiceController<TestService> serviceController = Robolectric.buildService(TestService.class);
@@ -253,7 +255,7 @@ public class MediaSessionServiceTest {
     player.stop();
     service.setShowNotificationForIdlePlayer(
         MediaSessionService.SHOW_NOTIFICATION_FOR_IDLE_PLAYER_NEVER);
-    ShadowLooper.idleMainLooper();
+    runMainLooperUntil(() -> getStatusBarNotification(2001) == null);
 
     assertThat(getStatusBarNotification(2000)).isNull();
 
@@ -263,7 +265,8 @@ public class MediaSessionServiceTest {
   }
 
   @Test
-  public void service_sessionIdleAfterNonIdleWithoutMedia_clearsNotification() {
+  public void service_sessionIdleAfterNonIdleWithoutMedia_clearsNotification()
+      throws TimeoutException {
     ExoPlayer player = new TestExoPlayerBuilder(context).build();
     MediaSession session = new MediaSession.Builder(context, player).build();
     ServiceController<TestService> serviceController = Robolectric.buildService(TestService.class);
@@ -282,7 +285,7 @@ public class MediaSessionServiceTest {
     ShadowLooper.idleMainLooper();
     player.stop();
     player.clearMediaItems();
-    ShadowLooper.idleMainLooper();
+    runMainLooperUntil(() -> getStatusBarNotification(2000) == null);
 
     assertThat(getStatusBarNotification(2000)).isNull();
 
@@ -292,7 +295,8 @@ public class MediaSessionServiceTest {
   }
 
   @Test
-  public void service_multipleSessionsOnMainThread_createsNotificationForEachSession() {
+  public void service_multipleSessionsOnMainThread_createsNotificationForEachSession()
+      throws TimeoutException {
     ExoPlayer player1 = new TestExoPlayerBuilder(context).build();
     ExoPlayer player2 = new TestExoPlayerBuilder(context).build();
     MediaSession session1 = new MediaSession.Builder(context, player1).setId("1").build();
@@ -315,7 +319,8 @@ public class MediaSessionServiceTest {
     player2.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
     player2.prepare();
     player2.play();
-    ShadowLooper.idleMainLooper();
+    runMainLooperUntil(() -> getStatusBarNotification(2001) != null
+        && getStatusBarNotification(2002) != null);
 
     assertThat(getStatusBarNotification(2001)).isNotNull();
     assertThat(getStatusBarNotification(2002)).isNotNull();
@@ -325,6 +330,10 @@ public class MediaSessionServiceTest {
     player1.release();
     player2.release();
     serviceController.destroy();
+    runMainLooperUntil(() -> getStatusBarNotification(2001) == null
+        && getStatusBarNotification(2002) == null);
+    assertThat(getStatusBarNotification(2001)).isNull();
+    assertThat(getStatusBarNotification(2002)).isNull();
   }
 
   @Test
@@ -372,9 +381,13 @@ public class MediaSessionServiceTest {
     session2.release();
     new Handler(thread1.getLooper()).post(player1::release);
     new Handler(thread2.getLooper()).post(player2::release);
-    thread1.quit();
-    thread2.quit();
+    thread1.quitSafely();
+    thread2.quitSafely();
     serviceController.destroy();
+    runMainLooperUntil(() -> getStatusBarNotification(2001) == null
+        && getStatusBarNotification(2002) == null);
+    assertThat(getStatusBarNotification(2001)).isNull();
+    assertThat(getStatusBarNotification(2002)).isNull();
   }
 
   @Test
@@ -471,7 +484,10 @@ public class MediaSessionServiceTest {
     player.pause();
     session.setCustomLayout(
         session.getMediaNotificationControllerInfo(), ImmutableList.of(button2));
-    ShadowLooper.idleMainLooper();
+    runMainLooperUntil(() -> {
+      StatusBarNotification innerNotification = getStatusBarNotification(2000);
+      return innerNotification != null && innerNotification.getNotification().actions.length == 4;
+    });
     mediaNotification = getStatusBarNotification(2000);
 
     assertThat(mediaNotification.getNotification().actions).hasLength(4);
@@ -581,7 +597,10 @@ public class MediaSessionServiceTest {
     player.pause();
     session.setMediaButtonPreferences(
         session.getMediaNotificationControllerInfo(), ImmutableList.of(button2));
-    ShadowLooper.idleMainLooper();
+    runMainLooperUntil(() -> {
+      StatusBarNotification innerNotification = getStatusBarNotification(2000);
+      return innerNotification != null && innerNotification.getNotification().actions.length == 4;
+    });
     mediaNotification = getStatusBarNotification(2000);
 
     assertThat(mediaNotification.getNotification().actions).hasLength(4);
@@ -674,7 +693,10 @@ public class MediaSessionServiceTest {
             .add(command2)
             .build(),
         MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS);
-    ShadowLooper.idleMainLooper();
+    runMainLooperUntil(() -> {
+      StatusBarNotification innerNotification = getStatusBarNotification(2000);
+      return innerNotification != null && innerNotification.getNotification().actions.length == 4;
+    });
     mediaNotification = getStatusBarNotification(2000);
 
     assertThat(mediaNotification.getNotification().actions).hasLength(4);
@@ -809,7 +831,7 @@ public class MediaSessionServiceTest {
 
   @Test
   public void onStartCommand_customCommands_deliveredByMediaNotificationController()
-      throws InterruptedException {
+      throws InterruptedException, TimeoutException {
     ExoPlayer player = new TestExoPlayerBuilder(context).build();
     AtomicReference<MediaSession> sessionRef = new AtomicReference<>();
     SessionCommand expectedCustomCommand = new SessionCommand("enable_shuffle", Bundle.EMPTY);
@@ -871,6 +893,7 @@ public class MediaSessionServiceTest {
 
     serviceController.startCommand(/* flags= */ 0, /* startId= */ 0);
 
+    runMainLooperUntil(() -> latch.getCount() == 0);
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     session.release();
     player.release();
@@ -878,7 +901,7 @@ public class MediaSessionServiceTest {
   }
 
   @Test
-  public void triggerNotificationUpdate_callsNotificationProvider() {
+  public void triggerNotificationUpdate_callsNotificationProvider() throws TimeoutException {
     ExoPlayer player = new TestExoPlayerBuilder(context).build();
     MediaSession session = new MediaSession.Builder(context, player).build();
     ServiceController<TestService> serviceController = Robolectric.buildService(TestService.class);
@@ -928,12 +951,13 @@ public class MediaSessionServiceTest {
     // Add media and give the service a chance to create an initial notification.
     player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
     player.prepare();
-    ShadowLooper.idleMainLooper();
+    runMainLooperUntil(() -> getStatusBarNotification(2000) != null);
 
     String tickerBeforeTriggerNotificationUpdate =
         getStatusBarNotification(2000).getNotification().tickerText.toString();
     service.triggerNotificationUpdate();
-    ShadowLooper.idleMainLooper();
+    runMainLooperUntil(() -> !getStatusBarNotification(2000).getNotification()
+        .tickerText.equals(tickerBeforeTriggerNotificationUpdate));
     String tickerAfterTriggerNotificationUpdate =
         getStatusBarNotification(2000).getNotification().tickerText.toString();
 
