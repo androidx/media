@@ -20,11 +20,14 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
+import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 import android.util.Pair;
 import androidx.annotation.IntDef;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Log;
@@ -60,6 +63,27 @@ public final class WavExtractor implements Extractor {
    */
   private static final int TARGET_SAMPLES_PER_SECOND = 10;
 
+  /**
+   * Flags controlling the behavior of the extractor. Possible flag values are {@link
+   * #FLAG_DISABLE_METADATA} and {@link #FLAG_DISABLE_ARTWORK_METADATA}.
+   */
+  @Documented
+  @Retention(SOURCE)
+  @Target(TYPE_USE)
+  @IntDef(
+      flag = true,
+      value = {FLAG_DISABLE_METADATA, FLAG_DISABLE_ARTWORK_METADATA})
+  public @interface Flags {}
+
+  /**
+   * Flag to disable parsing of any optional metadata. Can be set to avoid scanning for metadata
+   * chunks until the end of the file, which can result in playback being able to begin faster.
+   */
+  public static final int FLAG_DISABLE_METADATA = 1 << 0;
+
+  /** Flag to disable parsing of artwork metadata. */
+  public static final int FLAG_DISABLE_ARTWORK_METADATA = 1 << 1;
+
   /** Factory for {@link WavExtractor} instances. */
   public static final ExtractorsFactory FACTORY = () -> new Extractor[] {new WavExtractor()};
 
@@ -70,7 +94,7 @@ public final class WavExtractor implements Extractor {
   @IntDef({
     STATE_READING_FILE_TYPE,
     STATE_READING_RF64_SAMPLE_DATA_SIZE,
-    STATE_READING_FORMAT,
+    STATE_READING_FORMAT_AND_METADATA,
     STATE_SKIPPING_TO_SAMPLE_DATA,
     STATE_READING_SAMPLE_DATA
   })
@@ -78,23 +102,37 @@ public final class WavExtractor implements Extractor {
 
   private static final int STATE_READING_FILE_TYPE = 0;
   private static final int STATE_READING_RF64_SAMPLE_DATA_SIZE = 1;
-  private static final int STATE_READING_FORMAT = 2;
+  private static final int STATE_READING_FORMAT_AND_METADATA = 2;
   private static final int STATE_SKIPPING_TO_SAMPLE_DATA = 3;
   private static final int STATE_READING_SAMPLE_DATA = 4;
 
   private @MonotonicNonNull ExtractorOutput extractorOutput;
   private @MonotonicNonNull TrackOutput trackOutput;
   private @State int state;
+  private final @Flags int flags;
   private long rf64SampleDataSize;
+  private @Nullable Metadata id3Metadata;
+  private @Nullable Metadata rgadMetadata;
+  private @Nullable Metadata infoMetadata;
   private @MonotonicNonNull OutputWriter outputWriter;
+  private long dataChunkPosition;
   private int dataStartPosition;
   private long dataEndPosition;
 
   public WavExtractor() {
+    this(0);
+  }
+
+  /**
+   * @param flags Flags that control the extractor's behavior.
+   */
+  public WavExtractor(@Flags int flags) {
     state = STATE_READING_FILE_TYPE;
     rf64SampleDataSize = C.LENGTH_UNSET;
+    dataChunkPosition = C.INDEX_UNSET;
     dataStartPosition = C.INDEX_UNSET;
     dataEndPosition = C.INDEX_UNSET;
+    this.flags = flags;
   }
 
   @Override
@@ -133,9 +171,8 @@ public final class WavExtractor implements Extractor {
       case STATE_READING_RF64_SAMPLE_DATA_SIZE:
         readRf64SampleDataSize(input);
         return Extractor.RESULT_CONTINUE;
-      case STATE_READING_FORMAT:
-        readFormat(input);
-        return Extractor.RESULT_CONTINUE;
+      case STATE_READING_FORMAT_AND_METADATA:
+        return readFormatAndMetadata(input, seekPosition);
       case STATE_SKIPPING_TO_SAMPLE_DATA:
         skipToSampleData(input);
         return Extractor.RESULT_CONTINUE;
@@ -170,11 +207,85 @@ public final class WavExtractor implements Extractor {
 
   private void readRf64SampleDataSize(ExtractorInput input) throws IOException {
     rf64SampleDataSize = WavHeaderReader.readRf64SampleDataSize(input);
-    state = STATE_READING_FORMAT;
+    state = STATE_READING_FORMAT_AND_METADATA;
+  }
+
+  @RequiresNonNull({"extractorOutput", "trackOutput"})
+  private @ReadResult int readFormatAndMetadata(ExtractorInput input, PositionHolder seekPosition)
+      throws IOException {
+    ParsableByteArray scratch = new ParsableByteArray(16);
+    @Nullable
+    WavHeaderReader.ChunkHeader chunkHeader =
+        WavHeaderReader.ChunkHeader.peek(input, scratch, true);
+    if (chunkHeader != null) {
+      @Nullable Metadata newMetadata = null;
+      boolean canParseMetadata = (flags & FLAG_DISABLE_METADATA) == 0;
+      switch (chunkHeader.id) {
+        case WavUtil.FMT_FOURCC:
+          readFormat(input);
+          break;
+        case WavUtil.DATA_FOURCC:
+          dataChunkPosition = input.getPosition();
+          // Use a seek to skip the data chunk because it's very large and skipFully() would still
+          // read all the data, which would be inefficient over HTTP for example.
+          seekPosition.position = input.getPeekPosition() + chunkHeader.size;
+          // According to the RIFF specification, if a chunk's body size is odd, it's followed by a
+          // padding byte of value 0. This ensures each chunk occupies an even number of bytes in
+          // the file. The padding byte isn't included in the size field.
+          if (chunkHeader.size % 2 != 0) {
+            seekPosition.position++; // padding present if size is odd, skip it.
+          }
+          return Extractor.RESULT_SEEK;
+        case WavUtil.ID3_FOURCC:
+        case WavUtil.ID3_LOWER_FOURCC:
+          if (canParseMetadata) {
+            boolean canParseArtwork = (flags & FLAG_DISABLE_ARTWORK_METADATA) == 0;
+            id3Metadata = WavHeaderReader.parseId3(input, chunkHeader, canParseArtwork);
+            break;
+          }
+        // fallthrough
+        case WavUtil.RGAD_FOURCC:
+          if (canParseMetadata) {
+            rgadMetadata = WavHeaderReader.parseRgad(input, chunkHeader);
+            break;
+          }
+        // fallthrough
+        case WavUtil.LIST_FOURCC:
+          if (canParseMetadata) {
+            infoMetadata = WavHeaderReader.parseList(input, chunkHeader);
+            break;
+          }
+        // fallthrough
+        default:
+          Log.w(TAG, "Ignoring unknown WAV chunk: " + chunkHeader.id);
+          WavHeaderReader.skipToNextChunk(input, chunkHeader);
+          break;
+      }
+      if (outputWriter == null
+          || canParseMetadata
+              && (id3Metadata == null || rgadMetadata == null || infoMetadata == null)) {
+        // Continue looking for more metadata as there is some potential left.
+        return Extractor.RESULT_CONTINUE;
+      }
+    } else {
+      if (outputWriter == null) {
+        throw ParserException.createForMalformedContainer(
+            "Did not find format chunk, which is required.", /* cause= */ null);
+      }
+    }
+    // Either we've read every type of chunk we care about and don't need to continue looking, or
+    // we've reached the end of the file.
+    state = STATE_SKIPPING_TO_SAMPLE_DATA;
+    if (dataChunkPosition != C.INDEX_UNSET && input.getPosition() > dataChunkPosition) {
+      seekPosition.position = dataChunkPosition;
+      return Extractor.RESULT_SEEK;
+    }
+    return Extractor.RESULT_CONTINUE;
   }
 
   @RequiresNonNull({"extractorOutput", "trackOutput"})
   private void readFormat(ExtractorInput input) throws IOException {
+    input.resetPeekPosition();
     WavFormat wavFormat = WavHeaderReader.readFormat(input);
     if (wavFormat.formatType == WavUtil.TYPE_IMA_ADPCM) {
       outputWriter = new ImaAdPcmOutputWriter(extractorOutput, trackOutput, wavFormat);
@@ -206,7 +317,6 @@ public final class WavExtractor implements Extractor {
           new PassthroughOutputWriter(
               extractorOutput, trackOutput, wavFormat, MimeTypes.AUDIO_RAW, pcmEncoding);
     }
-    state = STATE_SKIPPING_TO_SAMPLE_DATA;
   }
 
   private void skipToSampleData(ExtractorInput input) throws IOException {
@@ -224,7 +334,17 @@ public final class WavExtractor implements Extractor {
       Log.w(TAG, "Data exceeds input length: " + dataEndPosition + ", " + inputLength);
       dataEndPosition = inputLength;
     }
-    checkNotNull(outputWriter).init(dataStartPosition, dataEndPosition);
+    @Nullable Metadata pendingMetadata = id3Metadata;
+    if (infoMetadata != null) {
+      pendingMetadata =
+          infoMetadata
+              .copyWithAppendedEntriesFrom(rgadMetadata)
+              .copyWithAppendedEntriesFrom(id3Metadata);
+    } else if (rgadMetadata != null) {
+      pendingMetadata = rgadMetadata.copyWithAppendedEntriesFrom(id3Metadata);
+    }
+
+    checkNotNull(outputWriter).init(dataStartPosition, dataEndPosition, pendingMetadata);
     state = STATE_READING_SAMPLE_DATA;
   }
 
@@ -253,15 +373,17 @@ public final class WavExtractor implements Extractor {
      *
      * @param dataStartPosition The byte position (inclusive) in the stream at which data starts.
      * @param dataEndPosition The end position (exclusive) in the stream at which data ends.
+     * @param metadata Optional metadata that was parsed from other chunks.
      * @throws ParserException If an error occurs initializing the writer.
      */
-    void init(int dataStartPosition, long dataEndPosition) throws ParserException;
+    void init(int dataStartPosition, long dataEndPosition, @Nullable Metadata metadata)
+        throws ParserException;
 
     /**
      * Consumes sample data from {@code input}, writing corresponding samples to the extractor's
      * output.
      *
-     * <p>Must not be called until after {@link #init(int, long)} has been called.
+     * <p>Must not be called until after {@link #init(int, long, Metadata)} has been called.
      *
      * @param input The input from which to read.
      * @param bytesLeft The number of sample data bytes left to be read from the input.
@@ -276,7 +398,7 @@ public final class WavExtractor implements Extractor {
     private final ExtractorOutput extractorOutput;
     private final TrackOutput trackOutput;
     private final WavFormat wavFormat;
-    private final Format format;
+    private final Format.Builder format;
 
     /** The target size of each output sample, in bytes. */
     private final int targetSampleSizeBytes;
@@ -329,8 +451,7 @@ public final class WavExtractor implements Extractor {
               .setChannelCount(wavFormat.numChannels)
               .setChannelMask(WavUtil.mapToAudioFormatChannelMask(wavFormat.channelMask))
               .setSampleRate(wavFormat.frameRateHz)
-              .setPcmEncoding(pcmEncoding)
-              .build();
+              .setPcmEncoding(pcmEncoding);
     }
 
     @Override
@@ -341,11 +462,11 @@ public final class WavExtractor implements Extractor {
     }
 
     @Override
-    public void init(int dataStartPosition, long dataEndPosition) {
+    public void init(int dataStartPosition, long dataEndPosition, @Nullable Metadata metadata) {
       WavSeekMap wavSeekMap =
           new WavSeekMap(wavFormat, /* framesPerBlock= */ 1, dataStartPosition, dataEndPosition);
       extractorOutput.seekMap(wavSeekMap);
-      trackOutput.format(format);
+      trackOutput.format(format.setMetadata(metadata).build());
       trackOutput.durationUs(wavSeekMap.getDurationUs());
     }
 
@@ -416,8 +537,8 @@ public final class WavExtractor implements Extractor {
     /** The target size of each output sample, in frames. */
     private final int targetSampleSizeFrames;
 
-    /** The output format. */
-    private final Format format;
+    /** The output format builder. */
+    private final Format.Builder format;
 
     /** The number of pending bytes in {@link #inputData}. */
     private int pendingInputBytes;
@@ -485,8 +606,7 @@ public final class WavExtractor implements Extractor {
               .setChannelCount(wavFormat.numChannels)
               .setChannelMask(WavUtil.mapToAudioFormatChannelMask(wavFormat.channelMask))
               .setSampleRate(wavFormat.frameRateHz)
-              .setPcmEncoding(C.ENCODING_PCM_16BIT)
-              .build();
+              .setPcmEncoding(C.ENCODING_PCM_16BIT);
     }
 
     @Override
@@ -498,11 +618,11 @@ public final class WavExtractor implements Extractor {
     }
 
     @Override
-    public void init(int dataStartPosition, long dataEndPosition) {
+    public void init(int dataStartPosition, long dataEndPosition, @Nullable Metadata metadata) {
       WavSeekMap wavSeekMap =
           new WavSeekMap(wavFormat, framesPerBlock, dataStartPosition, dataEndPosition);
       extractorOutput.seekMap(wavSeekMap);
-      trackOutput.format(format);
+      trackOutput.format(format.setMetadata(metadata).build());
       trackOutput.durationUs(wavSeekMap.getDurationUs());
     }
 
