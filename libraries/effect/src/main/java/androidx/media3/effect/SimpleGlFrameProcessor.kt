@@ -39,6 +39,7 @@ import androidx.media3.common.VideoFrameProcessingException
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.GlProgram
 import androidx.media3.common.util.GlUtil
+import androidx.media3.common.util.Log
 import androidx.media3.common.util.Size
 import androidx.media3.common.util.Util
 import androidx.media3.common.video.AsyncFrame
@@ -115,6 +116,7 @@ private constructor(
   private val overlayMatrixProvider = OverlayMatrixProvider()
   private var targetFormat: Format? = null
   private var presentationEffect: Presentation? = null
+  private var lastItemIndex: Int = -1
 
   private val lock = Any()
   @GuardedBy("lock") private var needsWakeup = false
@@ -226,6 +228,14 @@ private constructor(
       inputReleaseFences = result.readCompleteFences
 
       // Step 4: Update the output frame with the new content time and metadata.
+      val itemIndex = firstInputFrame.metadata[KEY_ITEM_INDEX] as? Int ?: -1
+      if (itemIndex != lastItemIndex) {
+        Log.d(TAG, "Packet changed: itemIndex=$lastItemIndex -> $itemIndex" +
+          " at contentTimeUs=${firstInputFrame.contentTimeUs}")
+        lastItemIndex = itemIndex
+      }
+      Log.d(TAG, "Processing frame: contentTimeUs=${firstInputFrame.contentTimeUs}," +
+        " itemIndex=$itemIndex")
       val updatedOutputFrame =
         (outputFrame.frame as HardwareBufferFrame)
           .buildUpon()
@@ -606,6 +616,8 @@ private constructor(
   }
 
   companion object {
+    private const val TAG = "SimpleGlFrameProcessor"
+    private const val KEY_ITEM_INDEX = "KEY_COMPOSITION_ITEM_INDEX"
     private val FENCE_TIMEOUT = Duration.ofMillis(500)
     private val USAGE = Frame.USAGE_GPU_COLOR_OUTPUT or Frame.USAGE_GPU_SAMPLED_IMAGE
   }
