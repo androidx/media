@@ -46,9 +46,32 @@ import java.util.Objects;
  *   <li>DVB ({@link DvbParser})
  *   <li>TTML ({@link TtmlParser})
  * </ul>
+ *
+ * <p>A {@link CharsetDetector} can be provided to detect the character encoding of standalone
+ * SubRip subtitles without a byte order mark.
  */
 @UnstableApi
 public final class DefaultSubtitleParserFactory implements SubtitleParser.Factory {
+
+  @Nullable private final CharsetDetector charsetDetector;
+
+  /** Creates an instance that defaults to UTF-8 for SubRip subtitles without a byte order mark. */
+  public DefaultSubtitleParserFactory() {
+    this(/* charsetDetector= */ null);
+  }
+
+  /**
+   * Creates an instance that uses {@code charsetDetector} for standalone SubRip subtitles without a
+   * byte order mark.
+   *
+   * <p>The detector is not used for SubRip subtitles embedded in a media container because these
+   * samples may contain only a small part of the subtitle file.
+   *
+   * @param charsetDetector The detector to use, or {@code null} to default to UTF-8.
+   */
+  public DefaultSubtitleParserFactory(@Nullable CharsetDetector charsetDetector) {
+    this.charsetDetector = charsetDetector;
+  }
 
   @Override
   public boolean supportsFormat(Format format) {
@@ -106,7 +129,7 @@ public final class DefaultSubtitleParserFactory implements SubtitleParser.Factor
         case MimeTypes.APPLICATION_MP4VTT:
           return new Mp4WebvttParser();
         case MimeTypes.APPLICATION_SUBRIP:
-          return new SubripParser();
+          return new SubripParser(isStandaloneSubrip(format) ? charsetDetector : null);
         case MimeTypes.APPLICATION_TX3G:
           return new Tx3gParser(format.initializationData);
         case MimeTypes.APPLICATION_PGS:
@@ -122,5 +145,9 @@ public final class DefaultSubtitleParserFactory implements SubtitleParser.Factor
       }
     }
     throw new IllegalArgumentException("Unsupported MIME type: " + mimeType);
+  }
+
+  private static boolean isStandaloneSubrip(Format format) {
+    return format.containerMimeType == null || MimeTypes.isText(format.containerMimeType);
   }
 }
