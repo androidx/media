@@ -17,7 +17,11 @@ package androidx.media3.demo.compose.editing
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -50,7 +54,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -73,13 +79,14 @@ private val CORNER_TOUCH_TARGET_RADIUS = 24.dp
  * A reusable video cropping widget.
  *
  * This component displays the video and a crop overlay. It allows the user to resize the crop area
- * by dragging its corners (preserving the aspect ratio) and pan the video inside the crop area.
+ * by dragging its corners (preserving the aspect ratio) and pan or zoom the video inside the crop
+ * area.
  *
  * @param state The [VideoCropperState] object holding the state. Created via
  *   [rememberVideoCropperState].
  * @param modifier The modifier to be applied to the cropping widget.
  * @param onCropRectChangeFinished A callback that is invoked when a user interaction (dragging a
- *   corner or panning the video) finishes.
+ *   corner, or panning or zooming the video) finishes.
  * @param cropFrameControls An optional overlay to be rendered on top of the crop frame.
  * @param colors The [VideoCropperColors] used to style the cropping widget. Defaults to
  *   [VideoCropperDefaults.colors].
@@ -102,7 +109,6 @@ private val CORNER_TOUCH_TARGET_RADIUS = 24.dp
 //  - Implement color defaults
 //  - Move to material3 module and mark API unstable
 //  - Add tests
-//  - Add support for zooming the video in and out
 //  - Add support for flexible aspect ratio
 //  - Add support for HDR
 @Composable
@@ -221,10 +227,9 @@ private fun VideoPlayerContainer(
 /**
  * A container that wraps the crop frame drawing, controls overlay, and gesture detection.
  *
- * This composable intercepts drag gestures on the screen. It distinguishes between dragging the
- * corners of the crop frame (to resize it) and dragging the video itself (to pan the video content
- * under the crop frame). It updates the crop rectangle coordinates and triggers the corresponding
- * callbacks.
+ * This composable intercepts touch gestures on the screen. It distinguishes between dragging the
+ * corners of the crop frame and panning or zooming the video itself. It updates the crop rectangle
+ * coordinates and triggers the corresponding callbacks.
  *
  * @param cropperState The active [VideoCropperState].
  * @param gestureState The [GestureState] tracking active gesture interaction.
@@ -233,7 +238,8 @@ private fun VideoPlayerContainer(
  * @param videoFitRect The baseline unscaled video rectangle (in pixels).
  * @param style The [CropFrameStyle] configuration.
  * @param modifier The modifier to be applied to the crop frame container.
- * @param onCropRectChangeFinished A callback invoked when the user finishes dragging/panning.
+ * @param onCropRectChangeFinished A callback invoked when the user finishes
+ *   dragging/panning/zooming.
  * @param cropFrameControls An optional overlay content composable.
  */
 @Composable
@@ -257,33 +263,29 @@ private fun CropFrameContainer(
   Box(
     modifier =
       modifier.fillMaxSize().pointerInput(Unit) {
-        detectDragGestures(
-          onDragStart = { touchPoint ->
-            gestureState.startDrag(
-              cropRect = cropperState.cropRect,
+        detectCropTransformGestures(
+          onGestureStart = { touchPoint ->
+            gestureState.startGesture(
               transformation = currentTransformation,
               touchPoint = touchPoint,
               touchTargetSize = currentTouchTargetSizePx,
             )
             cropperState.isInteracting = true
           },
-          onDrag = { change, dragAmount ->
-            change.consume()
+          onGesture = { centroid, pan, zoom, pointerCount ->
             cropperState.cropRect =
-              gestureState.dragBy(
-                dragAmount = dragAmount,
+              gestureState.processGesture(
+                centroid = centroid,
+                pan = pan,
+                zoom = zoom,
+                pointerCount = pointerCount,
                 transformation = currentTransformation,
                 videoFitRect = currentVideoFitRect,
                 minCropSize = currentMinCropSizePx,
               )
           },
-          onDragEnd = {
-            gestureState.finishDrag()
-            cropperState.isInteracting = false
-            currentOnCropRectChangeFinished?.invoke()
-          },
-          onDragCancel = {
-            gestureState.finishDrag()
+          onGestureEnd = {
+            gestureState.finishGesture()
             cropperState.isInteracting = false
             currentOnCropRectChangeFinished?.invoke()
           },
@@ -543,8 +545,45 @@ private fun Path.addCornerBracket(
 }
 
 /**
- * State holder class managing gesture tracking and transformation calculations during corner drag
- * and panning gestures.
+ * Detects single-finger (corner dragging or panning) and multi-touch (zooming and panning) gestures
+ * on [PointerInputScope].
+ */
+private suspend fun PointerInputScope.detectCropTransformGestures(
+  onGestureStart: (touchPoint: Offset) -> Unit,
+  onGesture: (centroid: Offset, pan: Offset, zoom: Float, pointerCount: Int) -> Unit,
+  onGestureEnd: () -> Unit,
+) {
+  awaitEachGesture {
+    val initialTouch = awaitFirstDown(requireUnconsumed = false)
+    onGestureStart(initialTouch.position)
+    var isInteracting = true
+    do {
+      val event = awaitPointerEvent()
+      val canceled = event.changes.any { it.isConsumed }
+      if (!canceled) {
+        val centroid = event.calculateCentroid(useCurrent = true)
+        val panChange = event.calculatePan()
+        val zoomChange = event.calculateZoom()
+        val pointerCount = event.changes.count { it.pressed }
+        if (zoomChange != 1f || panChange != Offset.Zero) {
+          onGesture(centroid, panChange, zoomChange, pointerCount)
+        }
+        for (change in event.changes) {
+          if (change.positionChanged()) {
+            change.consume()
+          }
+        }
+      } else {
+        isInteracting = false
+      }
+    } while (isInteracting && event.changes.any { it.pressed })
+    onGestureEnd()
+  }
+}
+
+/**
+ * State holder class managing gesture tracking and transformation calculations during corner drag,
+ * panning, and zooming gestures.
  *
  * This class serves as the source of truth for the active gesture session, tracking mutable state
  * that must persist across recompositions (such as the active corner and the accumulated drag
@@ -558,25 +597,20 @@ private class GestureState {
   var activeCorner by mutableStateOf<Corner?>(null)
     private set
 
-  /** Whether the user is currently panning the video inside the crop frame. */
-  var isPanningVideo by mutableStateOf(false)
-    private set
-
   /**
-   * The video scale captured at the start of the interaction.
+   * The video scale used during an active interaction.
    *
-   * This value remains strictly fixed (frozen) during the gesture. This ensures the video zoom
-   * level stays stable and does not jump or animate while the user is actively resizing the crop
-   * frame or panning the video.
+   * - During corner dragging and panning, it remains constant to freeze the video zoom level.
+   * - During zooming, it updates dynamically to apply the user's zoom changes.
    */
-  var frozenVideoScale by mutableFloatStateOf(1f)
+  var interactingVideoScale by mutableFloatStateOf(1f)
     private set
 
   /**
    * The video translation used during an active interaction (in pixels).
    *
    * - During corner dragging, it remains constant to freeze the video in place.
-   * - During panning, it updates dynamically to apply the user's drag offsets.
+   * - During panning or zooming, it updates dynamically to apply the user's pan changes.
    */
   var interactingVideoTranslation by mutableStateOf(Offset.Zero)
     private set
@@ -584,39 +618,28 @@ private class GestureState {
   /**
    * The bounds of the crop frame captured at the start of the interaction (in pixels).
    *
-   * This rect remains strictly fixed (frozen) during the gesture. During a pan gesture, the visual
-   * crop frame stays stationary on screen while the video moves underneath it; this frozen rect is
-   * used as a reference to calculate the new crop rectangle relative to the moving video.
+   * This rect remains strictly fixed (frozen) during the gesture. During a pan or zoom gesture, the
+   * visual crop frame stays stationary on screen while the video scales and moves underneath it;
+   * this frozen rect is used as a reference to calculate the new crop rectangle relative to the
+   * video.
    */
   var frozenCropFrame: Rect = Rect.Zero
     private set
 
   /**
-   * The crop rectangle in normalized video coordinates captured at the start of the interaction.
-   *
-   * This rect remains strictly fixed (frozen) during the gesture. During a pan gesture, its width
-   * and height are used as a reference to keep the crop rectangle's aspect ratio and dimensions
-   * constant, preventing drift from accumulating floating-point errors.
-   */
-  var frozenCropRect: Rect = Rect.Zero
-    private set
-
-  /**
-   * Initializes the interaction state at the start of a drag gesture.
+   * Initializes the interaction state at the start of a gesture.
    *
    * Detects if the touch point is near any corner of the crop frame to initiate a corner resize. If
-   * not, it initiates a video panning interaction.
+   * not, it initiates a video pan/zoom interaction.
    *
    * All coordinates and sizes are expressed in pixels.
    *
-   * @param cropRect The current crop rectangle in normalized video coordinates.
    * @param transformation The active [CropFrameTransformation].
    * @param touchPoint The touch point coordinate.
    * @param touchTargetSize The radius around corners within which a touch is registered as a corner
    *   drag.
    */
-  fun startDrag(
-    cropRect: Rect,
+  fun startGesture(
     transformation: CropFrameTransformation,
     touchPoint: Offset,
     touchTargetSize: Float,
@@ -627,33 +650,43 @@ private class GestureState {
         touchPoint = touchPoint,
         touchTargetSize = touchTargetSize,
       )
-    isPanningVideo = activeCorner == null
-    frozenVideoScale = transformation.nonInteractingScale
+    interactingVideoScale = transformation.nonInteractingScale
     interactingVideoTranslation = transformation.nonInteractingTranslation
     frozenCropFrame = transformation.cropFrame
-    frozenCropRect = cropRect
   }
 
   /**
-   * Updates the crop rectangle or video translation based on the drag progress.
+   * Processes the crop rectangle or video transformation based on gesture changes.
    *
-   * If a corner is active, it resizes the crop frame. If panning, it translates the video under the
-   * stationary crop frame.
+   * If a corner is active, it resizes the crop frame. If panning or zooming the video, it
+   * translates and scales the video under the stationary crop frame.
    *
    * All coordinates, offsets, and sizes are expressed in pixels.
    *
-   * @param dragAmount The offset of the drag step since the last update.
+   * @param centroid The focal point around which zooming occurs on screen.
+   * @param pan The pan displacement vector for this gesture step.
+   * @param zoom The incremental zoom factor for this gesture step.
+   * @param pointerCount The number of pointers currently pressed.
    * @param transformation The active [CropFrameTransformation].
    * @param videoFitRect The bounds of the video when fit inside the [VideoCropper] container.
    * @param minCropSize The minimum allowed size of the crop frame on screen.
    * @return The updated normalized crop rectangle.
    */
-  fun dragBy(
-    dragAmount: Offset,
+  fun processGesture(
+    centroid: Offset,
+    pan: Offset,
+    zoom: Float,
+    pointerCount: Int,
     transformation: CropFrameTransformation,
     videoFitRect: Rect,
     minCropSize: Float,
   ): Rect {
+    if (activeCorner != null && pointerCount > 1) {
+      // Transition from corner resizing to video transformation if a second pointer touches down.
+      frozenCropFrame = transformation.interactingCropFrame
+      activeCorner = null
+    }
+
     val corner = activeCorner
     if (corner != null) {
       // Resize the crop frame.
@@ -661,7 +694,7 @@ private class GestureState {
         resizeCropFrame(
           cropFrame = transformation.interactingCropFrame,
           corner = corner,
-          dragAmount = dragAmount,
+          dragAmount = pan,
           aspectRatio = transformation.cropAspectRatio,
           bounds = transformation.interactingVideoRect,
           minCropSize = minCropSize,
@@ -687,51 +720,59 @@ private class GestureState {
       return newCropRect
     }
 
-    // Otherwise, pan the video under the stationary crop frame.
-    val videoWidth = videoFitRect.width * frozenVideoScale
-    val videoHeight = videoFitRect.height * frozenVideoScale
-    val tentativeLeft =
-      videoFitRect.left * frozenVideoScale + interactingVideoTranslation.x + dragAmount.x
-    val tentativeTop =
-      videoFitRect.top * frozenVideoScale + interactingVideoTranslation.y + dragAmount.y
+    // Otherwise, zoom and pan the video under the stationary crop frame.
+
+    val minScaleX = frozenCropFrame.width / videoFitRect.width
+    val minScaleY = frozenCropFrame.height / videoFitRect.height
+    val minVideoScale = maxOf(minScaleX, minScaleY)
+    val maxScaleX = frozenCropFrame.width / minCropSize
+    val maxScaleY = frozenCropFrame.height / minCropSize
+    val maxVideoScale = maxOf(minVideoScale, minOf(maxScaleX, maxScaleY))
+    val newVideoScale = (interactingVideoScale * zoom).coerceIn(minVideoScale, maxVideoScale)
+
+    // Calculate new screen position of the video's top-left corner after scaling around centroid
+    // and panning.
+    val previousVideoTopLeft =
+      videoFitRect.topLeft * interactingVideoScale + interactingVideoTranslation
+    val scaleRatio = newVideoScale / interactingVideoScale
+    val tentativeTopLeft = centroid - (centroid - previousVideoTopLeft) * scaleRatio + pan
 
     // Clamp the video position so it fully covers the stationary on-screen crop frame. Use minOf
     // to guard against float rounding discrepancies where minimum > maximum.
+    val videoWidth = videoFitRect.width * newVideoScale
     val minVideoLeft = frozenCropFrame.right - videoWidth
     val maxVideoLeft = frozenCropFrame.left
-    val clampedVideoLeft = tentativeLeft.coerceIn(minOf(minVideoLeft, maxVideoLeft), maxVideoLeft)
+    val clampedVideoLeft =
+      tentativeTopLeft.x.coerceIn(minOf(minVideoLeft, maxVideoLeft), maxVideoLeft)
+
+    val videoHeight = videoFitRect.height * newVideoScale
     val minVideoTop = frozenCropFrame.bottom - videoHeight
     val maxVideoTop = frozenCropFrame.top
-    val clampedVideoTop = tentativeTop.coerceIn(minOf(minVideoTop, maxVideoTop), maxVideoTop)
+    val clampedVideoTop = tentativeTopLeft.y.coerceIn(minOf(minVideoTop, maxVideoTop), maxVideoTop)
+
+    interactingVideoScale = newVideoScale
     interactingVideoTranslation =
-      Offset(clampedVideoLeft, clampedVideoTop) - videoFitRect.topLeft * frozenVideoScale
+      Offset(clampedVideoLeft, clampedVideoTop) - videoFitRect.topLeft * newVideoScale
 
     // Convert the stationary on-screen crop frame position into normalized [0..1] video
     // coordinates, clamped to avoid floating-point rounding violations.
-    val normalizedLeft =
-      ((frozenCropFrame.left - clampedVideoLeft) / videoWidth).coerceIn(
-        0f,
-        1f - frozenCropRect.width,
-      )
-    val normalizedTop =
-      ((frozenCropFrame.top - clampedVideoTop) / videoHeight).coerceIn(
-        0f,
-        1f - frozenCropRect.height,
-      )
-    val newCropRect =
-      Rect(
-        left = normalizedLeft,
-        top = normalizedTop,
-        right = normalizedLeft + frozenCropRect.width,
-        bottom = normalizedTop + frozenCropRect.height,
-      )
-    return newCropRect
+    val normalizedLeft = ((frozenCropFrame.left - clampedVideoLeft) / videoWidth).coerceIn(0f, 1f)
+    val normalizedTop = ((frozenCropFrame.top - clampedVideoTop) / videoHeight).coerceIn(0f, 1f)
+    val normalizedRight =
+      ((frozenCropFrame.right - clampedVideoLeft) / videoWidth).coerceIn(normalizedLeft, 1f)
+    val normalizedBottom =
+      ((frozenCropFrame.bottom - clampedVideoTop) / videoHeight).coerceIn(normalizedTop, 1f)
+    return Rect(
+      left = normalizedLeft,
+      top = normalizedTop,
+      right = normalizedRight,
+      bottom = normalizedBottom,
+    )
   }
 
-  /** Resets the interaction state when the drag gesture finishes or is canceled. */
-  fun finishDrag() {
+  /** Resets the interaction state when a gesture finishes or is canceled. */
+  fun finishGesture() {
     activeCorner = null
-    isPanningVideo = false
   }
 
   /**
@@ -822,7 +863,7 @@ private class GestureState {
 
 /**
  * Derives and provides the scale, translation, and crop frame bounds for both interacting (active
- * dragging/panning) and non-interacting (static preview) states.
+ * dragging/panning/zooming) and non-interacting (static preview) states.
  *
  * Custom property getters dynamically read state from [VideoCropperState] and [GestureState] during
  * layout, draw, or gesture handling phases to prevent unnecessary recompositions during active
@@ -831,7 +872,7 @@ private class GestureState {
  * During the non-interacting state, the crop frame is centered and fits within the widget's
  * padding, while the video is scaled and translated so that the cropped region fills the crop
  * frame. During the interacting state, either the video zoom and position are frozen (when resizing
- * the crop frame), or the crop frame is frozen (when panning the video).
+ * the crop frame), or the crop frame is frozen (when panning or zooming the video).
  *
  * This class is a presentation-focused, read-only adapter remembered in composition. It combines
  * the active interaction state from [GestureState] and [VideoCropperState] with container layout
@@ -886,12 +927,12 @@ private class CropFrameTransformation(
   val interactingVideoRect: Rect
     get() =
       videoFitRect
-        .scale(gestureState.frozenVideoScale)
+        .scale(gestureState.interactingVideoScale)
         .translate(gestureState.interactingVideoTranslation)
 
   val interactingCropFrame: Rect
     get() =
-      if (gestureState.isPanningVideo) {
+      if (gestureState.activeCorner == null) {
         gestureState.frozenCropFrame
       } else {
         val videoRect = interactingVideoRect
@@ -918,7 +959,7 @@ private class CropFrameTransformation(
     get() =
       lerp(
         start = nonInteractingScale,
-        stop = gestureState.frozenVideoScale,
+        stop = gestureState.interactingVideoScale,
         fraction = interactionProgressState.value,
       )
 

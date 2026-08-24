@@ -83,8 +83,8 @@ fun rememberVideoCropperState(
  *   matching [targetAspectRatio] once video dimensions are available.
  * @property targetAspectRatio The desired target aspect ratio for the crop frame. Must be strictly
  *   positive and finite, or null to preserve the aspect ratio of [cropRect].
- * @property isInteracting Whether the user is currently interacting with the cropper (dragging or
- *   panning).
+ * @property isInteracting Whether the user is currently interacting with the cropper (dragging a
+ *   corner, panning or zooming the video).
  */
 @Stable
 class VideoCropperState(
