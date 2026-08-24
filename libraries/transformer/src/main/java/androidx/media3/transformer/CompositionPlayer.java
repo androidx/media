@@ -48,8 +48,6 @@ import android.view.SurfaceView;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
-import androidx.annotation.RestrictTo;
-import androidx.annotation.RestrictTo.Scope;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -90,9 +88,7 @@ import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferFrameProcessor;
-import androidx.media3.effect.HardwareBufferFrameQueue;
 import androidx.media3.effect.HardwareBufferJniWrapper;
-import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.exoplayer.DecoderCounters;
@@ -180,10 +176,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     private AudioAttributes audioAttributes;
     private boolean handleAudioFocus;
     private VideoGraph.@MonotonicNonNull Factory videoGraphFactory;
-
-    @Nullable
-    private RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
-        packetProcessor;
 
     private FrameProcessor.@MonotonicNonNull Factory frameProcessorFactory;
 
@@ -489,22 +481,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     }
 
     /**
-     * @deprecated Use {@link #setFrameProcessorFactory} instead.
-     */
-    @Deprecated
-    @RequiresApi(28)
-    @CanIgnoreReturnValue
-    @RestrictTo(Scope.LIBRARY_GROUP) // TODO: b/498547782 - Remove once usages have been migrated.
-    public Builder setHardwareBufferEffectsPipeline(
-        RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
-            packetProcessor) {
-      checkState(videoGraphFactory == null);
-      checkState(frameProcessorFactory == null);
-      this.packetProcessor = packetProcessor;
-      return this;
-    }
-
-    /**
      * Sets the {@link FrameProcessor.Factory} to be used to create {@link FrameProcessor} instances
      * that are used to process {@link androidx.media3.common.video.HardwareBufferFrame}s.
      *
@@ -517,8 +493,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
      *
      * @param frameProcessorFactory The {@link FrameProcessor.Factory}.
      * @return This builder.
-     * @throws IllegalStateException if a {@linkplain #setVideoGraphFactory videoGraphFactory} or
-     *     {@linkplain #setHardwareBufferEffectsPipeline HardwareBufferEffectsPipeline} is set.
+     * @throws IllegalStateException if a {@linkplain #setVideoGraphFactory videoGraphFactory} is
+     *     set.
      */
     @RequiresApi(28)
     @CanIgnoreReturnValue
@@ -526,7 +502,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     public Builder setFrameProcessorFactory(FrameProcessor.Factory frameProcessorFactory) {
       checkNotNull(frameProcessorFactory);
       checkState(videoGraphFactory == null);
-      checkState(packetProcessor == null);
       this.frameProcessorFactory = frameProcessorFactory;
       return this;
     }
@@ -772,11 +747,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             context, applicationHandler.getLooper(), /* playerControl= */ internalListener);
     playbackAudioGraphWrapper = new PlaybackAudioGraphWrapper(audioMixerFactory, finalAudioSink);
     HardwareBufferJniWrapper hardwareBufferJniWrapper = builder.hardwareBufferJniWrapper;
-    @Nullable
-    FrameProcessor.Factory frameProcessorFactory =
-        builder.frameProcessorFactory != null
-            ? builder.frameProcessorFactory
-            : getRenderingPacketConsumerFactory(builder.packetProcessor);
+    @Nullable FrameProcessor.Factory frameProcessorFactory = builder.frameProcessorFactory;
     playbackThread =
         new HandlerThread(/* name= */ "CompositionPlaybackThread", Process.THREAD_PRIORITY_AUDIO);
     try {
@@ -2656,25 +2627,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         videoPacketReleaseControl.onFrameProcessed(frame, onCompleteFence);
       }
     }
-  }
-
-  // TODO: b/510766403 - Remove once PacketConsumer entrypoint is removed.
-  /** Converts a {@link RenderingPacketConsumer} to a {@link FrameProcessor}. */
-  @Nullable
-  private static FrameProcessor.Factory getRenderingPacketConsumerFactory(
-      @Nullable
-          RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
-              packetProcessor) {
-    if (SDK_INT >= 26 && packetProcessor != null) {
-      return (output, listenerExecutor, listener) -> {
-        HardwareBufferFrameQueue adaptedQueue =
-            new FrameWriterToHardwareBufferFrameQueueAdapter(output);
-        packetProcessor.setRenderOutput(adaptedQueue);
-        return new PacketConsumerToFrameProcessorAdapter(
-            packetProcessor, listenerExecutor, listener);
-      };
-    }
-    return null;
   }
 
   private static final class HandlerExecutor implements Executor {

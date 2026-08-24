@@ -23,6 +23,7 @@ import static androidx.media3.test.utils.AssetInfo.AMR_NB_SINE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.PNG_ASSET;
 import static androidx.media3.test.utils.AssetInfo.RAW_AAC_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.skip;
@@ -50,13 +51,13 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
+import androidx.media3.common.video.Frame;
+import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.effect.GlEffect;
-import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.SingleInputVideoGraph;
-import androidx.media3.effect.ndk.HardwareBufferJni;
+import androidx.media3.test.utils.CapturingFrameProcessor;
 import androidx.media3.test.utils.PassthroughAudioProcessor;
 import androidx.media3.test.utils.PlayerFence;
-import androidx.media3.test.utils.RecordingHardwareBufferEffectsPipeline;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.filters.SdkSuppress;
 import com.google.common.base.Ascii;
@@ -109,6 +110,9 @@ public class CompositionPlayerSeekTest {
   @Rule
   public ActivityScenarioRule<SurfaceTestActivity> rule =
       new ActivityScenarioRule<>(SurfaceTestActivity.class);
+
+  @Rule
+  public final GlFrameProcessorTestRule glFrameProcessorTestRule = new GlFrameProcessorTestRule();
 
   @TestParameter boolean isScrubbingModeEnabled;
 
@@ -1150,23 +1154,21 @@ public class CompositionPlayerSeekTest {
 
   @Ignore("b/506959477 - Fix flakiness and re-enable")
   @Test
-  @SdkSuppress(minSdkVersion = 28)
-  public void packetConsumer_oneVideoSequence_seekForwardsAndBackwards_outputsCorrectFrames()
+  @SdkSuppress(minSdkVersion = HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
+  public void frameProcessor_oneVideoSequence_seekForwardsAndBackwards_outputsCorrectFrames()
       throws Exception {
     SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
     AtomicBoolean isPlaying = new AtomicBoolean();
-    AtomicReference<HardwareBufferFrame> lastQueuedFrame = new AtomicReference<>();
-    ConditionVariable packetQueued = new ConditionVariable();
-    AtomicInteger queuedPackets = new AtomicInteger();
-    RecordingHardwareBufferEffectsPipeline pipeline =
-        RecordingHardwareBufferEffectsPipeline.create(
-            applicationContext,
-            HardwareBufferJni.INSTANCE,
-            /* onQueue= */ frames -> {
-              lastQueuedFrame.set(frames.get(0));
-              queuedPackets.incrementAndGet();
-              packetQueued.open();
-              return frames;
+    AtomicReference<Frame> lastQueuedFrame = new AtomicReference<>();
+    ConditionVariable frameQueued = new ConditionVariable();
+    AtomicInteger queuedFramesCount = new AtomicInteger();
+    FrameProcessor.Factory frameProcessorFactory =
+        new CapturingFrameProcessor.Factory(
+            glFrameProcessorTestRule.createDefaultGlFrameProcessorFactory(applicationContext),
+            /* onQueueListener= */ frames -> {
+              lastQueuedFrame.set(frames.get(0).frame);
+              queuedFramesCount.incrementAndGet();
+              frameQueued.open();
             });
 
     Composition composition =
@@ -1182,9 +1184,9 @@ public class CompositionPlayerSeekTest {
         .runOnMainSync(
             () -> {
               player.set(
-                  new CompositionPlayer.Builder(applicationContext)
-                      .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
-                      .setHardwareBufferEffectsPipeline(pipeline)
+                  glFrameProcessorTestRule
+                      .createCompositionPlayerBuilder(applicationContext)
+                      .setFrameProcessorFactory(frameProcessorFactory)
                       .build());
               player.get().setVideoSurfaceView(surfaceView);
               firstFrameRenderedFuture.setFuture(futureWhen(player.get()).rendersFirstFrame());
@@ -1193,13 +1195,13 @@ public class CompositionPlayerSeekTest {
             });
 
     firstFrameRenderedFuture.get();
-    assertThat(packetQueued.isOpen()).isTrue();
-    assertThat(queuedPackets.get()).isEqualTo(1);
-    assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(0);
+    assertThat(frameQueued.isOpen()).isTrue();
+    assertThat(queuedFramesCount.get()).isEqualTo(1);
+    assertThat(lastQueuedFrame.get().getContentTimeUs()).isEqualTo(0);
     getInstrumentation().runOnMainSync(() -> assertThat(player.get().getPlayWhenReady()).isFalse());
 
     // Seek forwards
-    packetQueued.close();
+    frameQueued.close();
     getInstrumentation()
         .runOnMainSync(
             () -> {
@@ -1208,14 +1210,14 @@ public class CompositionPlayerSeekTest {
               player.get().setScrubbingModeEnabled(false);
             });
 
-    assertThat(packetQueued.block(TEST_TIMEOUT_MS)).isTrue();
-    assertThat(queuedPackets.get()).isEqualTo(2);
-    assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(500_500L);
+    assertThat(frameQueued.block(TEST_TIMEOUT_MS)).isTrue();
+    assertThat(queuedFramesCount.get()).isEqualTo(2);
+    assertThat(lastQueuedFrame.get().getContentTimeUs()).isEqualTo(500_500L);
     getInstrumentation().runOnMainSync(() -> isPlaying.set(player.get().getPlayWhenReady()));
     assertThat(isPlaying.get()).isFalse();
 
     // Seek backwards
-    packetQueued.close();
+    frameQueued.close();
     getInstrumentation()
         .runOnMainSync(
             () -> {
@@ -1224,14 +1226,14 @@ public class CompositionPlayerSeekTest {
               player.get().setScrubbingModeEnabled(false);
             });
 
-    assertThat(packetQueued.block(TEST_TIMEOUT_MS)).isTrue();
-    assertThat(queuedPackets.get()).isEqualTo(3);
-    assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(200_200L);
+    assertThat(frameQueued.block(TEST_TIMEOUT_MS)).isTrue();
+    assertThat(queuedFramesCount.get()).isEqualTo(3);
+    assertThat(lastQueuedFrame.get().getContentTimeUs()).isEqualTo(200_200L);
     getInstrumentation().runOnMainSync(() -> isPlaying.set(player.get().getPlayWhenReady()));
     assertThat(isPlaying.get()).isFalse();
 
     // Seek forwards
-    packetQueued.close();
+    frameQueued.close();
     getInstrumentation()
         .runOnMainSync(
             () -> {
@@ -1240,32 +1242,30 @@ public class CompositionPlayerSeekTest {
               player.get().setScrubbingModeEnabled(false);
             });
 
-    assertThat(packetQueued.block(TEST_TIMEOUT_MS)).isTrue();
-    assertThat(queuedPackets.get()).isEqualTo(4);
-    assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(767_433L);
+    assertThat(frameQueued.block(TEST_TIMEOUT_MS)).isTrue();
+    assertThat(queuedFramesCount.get()).isEqualTo(4);
+    assertThat(lastQueuedFrame.get().getContentTimeUs()).isEqualTo(767_433L);
     getInstrumentation().runOnMainSync(() -> isPlaying.set(player.get().getPlayWhenReady()));
     assertThat(isPlaying.get()).isFalse();
   }
 
   @Ignore("b/506959477 - Fix flakiness and re-enable")
   @Test
-  @SdkSuppress(minSdkVersion = 28)
-  public void packetConsumer_twoVideoSequences_seekForwardsAndBackwards_outputsCorrectFrames()
+  @SdkSuppress(minSdkVersion = HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
+  public void frameProcessor_twoVideoSequences_seekForwardsAndBackwards_outputsCorrectFrames()
       throws Exception {
     SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
     AtomicBoolean isPlaying = new AtomicBoolean();
-    AtomicReference<HardwareBufferFrame> lastQueuedFrame = new AtomicReference<>();
-    ConditionVariable packetQueued = new ConditionVariable();
-    AtomicInteger queuedPackets = new AtomicInteger();
-    RecordingHardwareBufferEffectsPipeline pipeline =
-        RecordingHardwareBufferEffectsPipeline.create(
-            applicationContext,
-            HardwareBufferJni.INSTANCE,
-            /* onQueue= */ frames -> {
-              lastQueuedFrame.set(frames.get(0));
-              queuedPackets.incrementAndGet();
-              packetQueued.open();
-              return frames;
+    AtomicReference<Frame> lastQueuedFrame = new AtomicReference<>();
+    ConditionVariable frameQueued = new ConditionVariable();
+    AtomicInteger queuedFramesCount = new AtomicInteger();
+    FrameProcessor.Factory frameProcessorFactory =
+        new CapturingFrameProcessor.Factory(
+            glFrameProcessorTestRule.createDefaultGlFrameProcessorFactory(applicationContext),
+            /* onQueueListener= */ frames -> {
+              lastQueuedFrame.set(frames.get(0).frame);
+              queuedFramesCount.incrementAndGet();
+              frameQueued.open();
             });
 
     Composition composition =
@@ -1286,9 +1286,9 @@ public class CompositionPlayerSeekTest {
         .runOnMainSync(
             () -> {
               player.set(
-                  new CompositionPlayer.Builder(applicationContext)
-                      .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
-                      .setHardwareBufferEffectsPipeline(pipeline)
+                  glFrameProcessorTestRule
+                      .createCompositionPlayerBuilder(applicationContext)
+                      .setFrameProcessorFactory(frameProcessorFactory)
                       .build());
               player.get().setVideoSurfaceView(surfaceView);
               firstFrameRenderedFuture.setFuture(futureWhen(player.get()).rendersFirstFrame());
@@ -1297,13 +1297,13 @@ public class CompositionPlayerSeekTest {
             });
 
     firstFrameRenderedFuture.get();
-    assertThat(packetQueued.isOpen()).isTrue();
-    assertThat(queuedPackets.get()).isEqualTo(1);
-    assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(0);
+    assertThat(frameQueued.isOpen()).isTrue();
+    assertThat(queuedFramesCount.get()).isEqualTo(1);
+    assertThat(lastQueuedFrame.get().getContentTimeUs()).isEqualTo(0);
     getInstrumentation().runOnMainSync(() -> assertThat(player.get().getPlayWhenReady()).isFalse());
 
     // Seek forwards
-    packetQueued.close();
+    frameQueued.close();
     getInstrumentation()
         .runOnMainSync(
             () -> {
@@ -1312,14 +1312,14 @@ public class CompositionPlayerSeekTest {
               player.get().setScrubbingModeEnabled(false);
             });
 
-    assertThat(packetQueued.block(TEST_TIMEOUT_MS)).isTrue();
-    assertThat(queuedPackets.get()).isEqualTo(2);
-    assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(500_500L);
+    assertThat(frameQueued.block(TEST_TIMEOUT_MS)).isTrue();
+    assertThat(queuedFramesCount.get()).isEqualTo(2);
+    assertThat(lastQueuedFrame.get().getContentTimeUs()).isEqualTo(500_500L);
     getInstrumentation().runOnMainSync(() -> isPlaying.set(player.get().getPlayWhenReady()));
     assertThat(isPlaying.get()).isFalse();
 
     // Seek backwards
-    packetQueued.close();
+    frameQueued.close();
     getInstrumentation()
         .runOnMainSync(
             () -> {
@@ -1328,14 +1328,14 @@ public class CompositionPlayerSeekTest {
               player.get().setScrubbingModeEnabled(false);
             });
 
-    assertThat(packetQueued.block(TEST_TIMEOUT_MS)).isTrue();
-    assertThat(queuedPackets.get()).isEqualTo(3);
-    assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(200_200L);
+    assertThat(frameQueued.block(TEST_TIMEOUT_MS)).isTrue();
+    assertThat(queuedFramesCount.get()).isEqualTo(3);
+    assertThat(lastQueuedFrame.get().getContentTimeUs()).isEqualTo(200_200L);
     getInstrumentation().runOnMainSync(() -> isPlaying.set(player.get().getPlayWhenReady()));
     assertThat(isPlaying.get()).isFalse();
 
     // Seek forwards
-    packetQueued.close();
+    frameQueued.close();
     getInstrumentation()
         .runOnMainSync(
             () -> {
@@ -1344,31 +1344,29 @@ public class CompositionPlayerSeekTest {
               player.get().setScrubbingModeEnabled(false);
             });
 
-    assertThat(packetQueued.block(TEST_TIMEOUT_MS)).isTrue();
-    assertThat(queuedPackets.get()).isEqualTo(4);
-    assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(767_433L);
+    assertThat(frameQueued.block(TEST_TIMEOUT_MS)).isTrue();
+    assertThat(queuedFramesCount.get()).isEqualTo(4);
+    assertThat(lastQueuedFrame.get().getContentTimeUs()).isEqualTo(767_433L);
     getInstrumentation().runOnMainSync(() -> isPlaying.set(player.get().getPlayWhenReady()));
     assertThat(isPlaying.get()).isFalse();
   }
 
   @Ignore("b/506959477 - Fix flakiness and re-enable")
   @Test
-  @SdkSuppress(minSdkVersion = 28)
-  public void packetConsumer_oneVideoSequence_seekThenPlay_outputsPacketAndEnds() throws Exception {
+  @SdkSuppress(minSdkVersion = HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
+  public void frameProcessor_oneVideoSequence_seekThenPlay_outputsPacketAndEnds() throws Exception {
     SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
     AtomicBoolean isPlaying = new AtomicBoolean();
-    AtomicReference<HardwareBufferFrame> lastQueuedFrame = new AtomicReference<>();
-    ConditionVariable packetQueued = new ConditionVariable();
-    AtomicInteger queuedPackets = new AtomicInteger();
-    RecordingHardwareBufferEffectsPipeline pipeline =
-        RecordingHardwareBufferEffectsPipeline.create(
-            applicationContext,
-            HardwareBufferJni.INSTANCE,
-            /* onQueue= */ frames -> {
-              lastQueuedFrame.set(frames.get(0));
-              queuedPackets.incrementAndGet();
-              packetQueued.open();
-              return frames;
+    AtomicReference<Frame> lastQueuedFrame = new AtomicReference<>();
+    ConditionVariable frameQueued = new ConditionVariable();
+    AtomicInteger queuedFramesCount = new AtomicInteger();
+    FrameProcessor.Factory frameProcessorFactory =
+        new CapturingFrameProcessor.Factory(
+            glFrameProcessorTestRule.createDefaultGlFrameProcessorFactory(applicationContext),
+            /* onQueueListener= */ frames -> {
+              lastQueuedFrame.set(frames.get(0).frame);
+              queuedFramesCount.incrementAndGet();
+              frameQueued.open();
             });
 
     Composition composition =
@@ -1384,9 +1382,9 @@ public class CompositionPlayerSeekTest {
         .runOnMainSync(
             () -> {
               player.set(
-                  new CompositionPlayer.Builder(applicationContext)
-                      .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
-                      .setHardwareBufferEffectsPipeline(pipeline)
+                  glFrameProcessorTestRule
+                      .createCompositionPlayerBuilder(applicationContext)
+                      .setFrameProcessorFactory(frameProcessorFactory)
                       .build());
               player.get().setVideoSurfaceView(surfaceView);
               firstFrameRenderedFuture.setFuture(futureWhen(player.get()).rendersFirstFrame());
@@ -1395,12 +1393,12 @@ public class CompositionPlayerSeekTest {
             });
 
     firstFrameRenderedFuture.get();
-    assertThat(packetQueued.isOpen()).isTrue();
-    assertThat(queuedPackets.get()).isEqualTo(1);
-    assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(0);
+    assertThat(frameQueued.isOpen()).isTrue();
+    assertThat(queuedFramesCount.get()).isEqualTo(1);
+    assertThat(lastQueuedFrame.get().getContentTimeUs()).isEqualTo(0);
     getInstrumentation().runOnMainSync(() -> assertThat(player.get().getPlayWhenReady()).isFalse());
 
-    packetQueued.close();
+    frameQueued.close();
     getInstrumentation()
         .runOnMainSync(
             () -> {
@@ -1409,9 +1407,9 @@ public class CompositionPlayerSeekTest {
               player.get().setScrubbingModeEnabled(false);
             });
 
-    assertThat(packetQueued.block(TEST_TIMEOUT_MS)).isTrue();
-    assertThat(queuedPackets.get()).isEqualTo(2);
-    assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(767_433L);
+    assertThat(frameQueued.block(TEST_TIMEOUT_MS)).isTrue();
+    assertThat(queuedFramesCount.get()).isEqualTo(2);
+    assertThat(lastQueuedFrame.get().getContentTimeUs()).isEqualTo(767_433L);
     getInstrumentation().runOnMainSync(() -> isPlaying.set(player.get().getPlayWhenReady()));
     assertThat(isPlaying.get()).isFalse();
 
@@ -1429,23 +1427,21 @@ public class CompositionPlayerSeekTest {
 
   @Ignore("b/506959477 - Fix flakiness and re-enable")
   @Test
-  @SdkSuppress(minSdkVersion = 28)
-  public void packetConsumer_twoVideoSequences_seekThenPlay_outputsPacketAndEnds()
+  @SdkSuppress(minSdkVersion = HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
+  public void frameProcessor_twoVideoSequences_seekThenPlay_outputsPacketAndEnds()
       throws Exception {
     SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
     AtomicBoolean isPlaying = new AtomicBoolean();
-    AtomicReference<HardwareBufferFrame> lastQueuedFrame = new AtomicReference<>();
-    ConditionVariable packetQueued = new ConditionVariable();
-    AtomicInteger queuedPackets = new AtomicInteger();
-    RecordingHardwareBufferEffectsPipeline pipeline =
-        RecordingHardwareBufferEffectsPipeline.create(
-            applicationContext,
-            HardwareBufferJni.INSTANCE,
-            /* onQueue= */ frames -> {
-              lastQueuedFrame.set(frames.get(0));
-              queuedPackets.incrementAndGet();
-              packetQueued.open();
-              return frames;
+    AtomicReference<Frame> lastQueuedFrame = new AtomicReference<>();
+    ConditionVariable frameQueued = new ConditionVariable();
+    AtomicInteger queuedFramesCount = new AtomicInteger();
+    FrameProcessor.Factory frameProcessorFactory =
+        new CapturingFrameProcessor.Factory(
+            glFrameProcessorTestRule.createDefaultGlFrameProcessorFactory(applicationContext),
+            /* onQueueListener= */ frames -> {
+              lastQueuedFrame.set(frames.get(0).frame);
+              queuedFramesCount.incrementAndGet();
+              frameQueued.open();
             });
 
     Composition composition =
@@ -1466,9 +1462,9 @@ public class CompositionPlayerSeekTest {
         .runOnMainSync(
             () -> {
               player.set(
-                  new CompositionPlayer.Builder(applicationContext)
-                      .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
-                      .setHardwareBufferEffectsPipeline(pipeline)
+                  glFrameProcessorTestRule
+                      .createCompositionPlayerBuilder(applicationContext)
+                      .setFrameProcessorFactory(frameProcessorFactory)
                       .build());
               player.get().setVideoSurfaceView(surfaceView);
               firstFrameRenderedFuture.setFuture(futureWhen(player.get()).rendersFirstFrame());
@@ -1477,12 +1473,12 @@ public class CompositionPlayerSeekTest {
             });
 
     firstFrameRenderedFuture.get();
-    assertThat(packetQueued.isOpen()).isTrue();
-    assertThat(queuedPackets.get()).isEqualTo(1);
-    assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(0);
+    assertThat(frameQueued.isOpen()).isTrue();
+    assertThat(queuedFramesCount.get()).isEqualTo(1);
+    assertThat(lastQueuedFrame.get().getContentTimeUs()).isEqualTo(0);
     getInstrumentation().runOnMainSync(() -> assertThat(player.get().getPlayWhenReady()).isFalse());
 
-    packetQueued.close();
+    frameQueued.close();
     getInstrumentation()
         .runOnMainSync(
             () -> {
@@ -1491,9 +1487,9 @@ public class CompositionPlayerSeekTest {
               player.get().setScrubbingModeEnabled(false);
             });
 
-    assertThat(packetQueued.block(TEST_TIMEOUT_MS)).isTrue();
-    assertThat(queuedPackets.get()).isEqualTo(2);
-    assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(767_433L);
+    assertThat(frameQueued.block(TEST_TIMEOUT_MS)).isTrue();
+    assertThat(queuedFramesCount.get()).isEqualTo(2);
+    assertThat(lastQueuedFrame.get().getContentTimeUs()).isEqualTo(767_433L);
     getInstrumentation().runOnMainSync(() -> isPlaying.set(player.get().getPlayWhenReady()));
     assertThat(isPlaying.get()).isFalse();
 

@@ -28,7 +28,9 @@ import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -118,6 +120,25 @@ public final class CapturingFrameProcessorTest {
         .isSameInstanceAs(frames1);
     assertThat(((CapturingFrameProcessor.FramesEvent) events.get(1)).frames)
         .isSameInstanceAs(frames2);
+  }
+
+  @Test
+  public void queue_withOnQueueListener_invokesListenerWhenQueued() {
+    TestFrameWriter frameWriter = new TestFrameWriter();
+    FakeFrameProcessor.Factory fakeFactory =
+        new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ false);
+    AtomicReference<List<AsyncFrame>> receivedFrames = new AtomicReference<>();
+    CapturingFrameProcessor.Factory capturingFactory =
+        new CapturingFrameProcessor.Factory(fakeFactory, receivedFrames::set);
+    CapturingFrameProcessor processor =
+        capturingFactory.create(frameWriter, Runnable::run, FAKE_LISTENER);
+    AsyncFrame frame = new AsyncFrame(createPlaceholderFrame(), /* acquireFence= */ null);
+    ImmutableList<AsyncFrame> frames = ImmutableList.of(frame);
+
+    boolean queued = processor.queue(frames);
+
+    assertThat(queued).isTrue();
+    assertThat(receivedFrames.get()).isSameInstanceAs(frames);
   }
 
   private static Frame createPlaceholderFrame() {

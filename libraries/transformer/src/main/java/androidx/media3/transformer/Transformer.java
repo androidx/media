@@ -30,8 +30,6 @@ import android.os.Looper;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
-import androidx.annotation.RestrictTo;
-import androidx.annotation.RestrictTo.Scope;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.DebugViewProvider;
@@ -54,10 +52,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
-import androidx.media3.effect.HardwareBufferFrame;
-import androidx.media3.effect.HardwareBufferFrameQueue;
 import androidx.media3.effect.HardwareBufferJniWrapper;
-import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.muxer.Muxer;
 import com.google.common.collect.ImmutableList;
@@ -129,10 +124,6 @@ public final class Transformer {
     private EditingMetricsCollector.MetricsReporter.@MonotonicNonNull Factory
         metricsReporterFactory;
 
-    @Nullable
-    private RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
-        packetProcessor;
-
     @Nullable private HardwareBufferJniWrapper hardwareBufferJniWrapper;
     @Nullable private FrameProcessor.Factory frameProcessorFactory;
 
@@ -190,7 +181,6 @@ public final class Transformer {
       this.debugViewProvider = transformer.debugViewProvider;
       this.clock = transformer.clock;
       this.metricsReporterFactory = transformer.metricsReporterFactory;
-      this.packetProcessor = transformer.packetProcessor;
       this.hardwareBufferJniWrapper = transformer.hardwareBufferJniWrapper;
       this.frameProcessorFactory = transformer.frameProcessorFactory;
     }
@@ -348,7 +338,7 @@ public final class Transformer {
      *
      * <p>This method is experimental and will be renamed or removed in a future release.
      *
-     * <p>This will only be used if {@link #setHardwareBufferEffectsPipeline} is set.
+     * <p>This will only be used if {@link #setFrameProcessorFactory} is set.
      *
      * @param hardwareBufferJniWrapper The {@link HardwareBufferJniWrapper} to provide native
      *     helpers.
@@ -359,33 +349,6 @@ public final class Transformer {
     public Builder setNativeHardwareBufferHelpers(
         HardwareBufferJniWrapper hardwareBufferJniWrapper) {
       this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
-      return this;
-    }
-
-    /**
-     * Sets the {@link RenderingPacketConsumer} used to process {@link HardwareBufferFrame}s.
-     *
-     * <p>Setting this parameter forces video transcoding. It has no effect on audio processing.
-     *
-     * <p>This method is experimental and will be renamed or removed in a future release.
-     *
-     * <p>If using this method, do not {@linkplain #setVideoFrameProcessorFactory set} a {@link
-     * VideoFrameProcessor.Factory}.
-     *
-     * <p>For multi-sequence compositions, the index of a frame in the aggregated {@link
-     * HardwareBufferFrame} list is not guaranteed to correspond to its originating sequence's
-     * index. An input sequence that has finished outputting frames will no longer contribute to the
-     * aggregated packet.
-     *
-     * @param packetProcessor The {@link RenderingPacketConsumer} to process frames.
-     * @return This builder.
-     */
-    @CanIgnoreReturnValue
-    @RestrictTo(Scope.LIBRARY_GROUP) // TODO: b/498547782 - Remove once usages have been migrated.
-    public Builder setHardwareBufferEffectsPipeline(
-        RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
-            packetProcessor) {
-      this.packetProcessor = packetProcessor;
       return this;
     }
 
@@ -710,9 +673,6 @@ public final class Transformer {
           !mp4EditListTrimEnabled || muxerFactory.supportsWritingNegativeTimestampsInEditList(),
           "Muxer.Factory %s does not support writing negative timestamps to an edit list.",
           muxerFactory);
-      if (packetProcessor != null) {
-        checkState(hardwareBufferJniWrapper != null || SDK_INT >= 33);
-      }
       return new Transformer(
           context,
           transformationRequest,
@@ -737,7 +697,6 @@ public final class Transformer {
           debugViewProvider,
           clock,
           metricsReporterFactory,
-          packetProcessor,
           hardwareBufferJniWrapper,
           frameProcessorFactory);
     }
@@ -863,11 +822,6 @@ public final class Transformer {
   private final ExportOperationListener exportOperationListener;
   @Nullable private final EditingMetricsCollector.MetricsReporter.Factory metricsReporterFactory;
 
-  @Nullable
-  private final RenderingPacketConsumer<
-          ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
-      packetProcessor;
-
   @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
   @Nullable private final FrameProcessor.Factory frameProcessorFactory;
 
@@ -904,9 +858,6 @@ public final class Transformer {
       DebugViewProvider debugViewProvider,
       Clock clock,
       @Nullable EditingMetricsCollector.MetricsReporter.Factory metricsReporterFactory,
-      @Nullable
-          RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
-              packetProcessor,
       @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper,
       @Nullable FrameProcessor.Factory frameProcessorFactory) {
     checkState(!removeAudio || !removeVideo, "Audio and video cannot both be removed.");
@@ -932,7 +883,6 @@ public final class Transformer {
     this.looper = looper;
     this.debugViewProvider = debugViewProvider;
     this.clock = clock;
-    this.packetProcessor = packetProcessor;
     this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
     this.frameProcessorFactory = frameProcessorFactory;
     this.metricsReporterFactory = metricsReporterFactory;
@@ -1379,7 +1329,7 @@ public final class Transformer {
               applicationHandler,
               debugViewProvider,
               clock,
-              getFrameProcessorFactory(),
+              frameProcessorFactory,
               hardwareBufferJniWrapper,
               logSessionId,
               shouldApplyMp4EditListTrim(),
@@ -1403,7 +1353,7 @@ public final class Transformer {
               applicationHandler,
               debugViewProvider,
               clock,
-              getFrameProcessorFactory(),
+              frameProcessorFactory,
               hardwareBufferJniWrapper,
               logSessionId,
               shouldApplyMp4EditListTrim(),
@@ -1426,7 +1376,7 @@ public final class Transformer {
               applicationHandler,
               debugViewProvider,
               clock,
-              getFrameProcessorFactory(),
+              frameProcessorFactory,
               hardwareBufferJniWrapper,
               logSessionId,
               shouldApplyMp4EditListTrim(),
@@ -1535,27 +1485,5 @@ public final class Transformer {
         checkState(maxDelayBetweenMuxerSamplesMs == C.TIME_UNSET);
       }
     }
-  }
-
-  @Nullable
-  private FrameProcessor.Factory getFrameProcessorFactory() {
-    FrameProcessor.Factory factory = frameProcessorFactory;
-    RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
-        localPacketProcessor = packetProcessor;
-    if (factory == null && localPacketProcessor != null) {
-      if (SDK_INT >= 26) {
-        factory =
-            (output, listenerExecutor, listener) -> {
-              HardwareBufferFrameQueue adaptedQueue =
-                  new FrameWriterToHardwareBufferFrameQueueAdapter(output);
-              localPacketProcessor.setRenderOutput(adaptedQueue);
-              return new PacketConsumerToFrameProcessorAdapter(
-                  localPacketProcessor, listenerExecutor, listener);
-            };
-      } else {
-        throw new IllegalStateException("API 26+ required to use PacketProcessor in Transformer");
-      }
-    }
-    return factory;
   }
 }

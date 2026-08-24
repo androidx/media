@@ -21,6 +21,7 @@ import static androidx.media3.test.utils.AssetInfo.JPG_SINGLE_PIXEL_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S;
 import static androidx.media3.test.utils.PlayerFence.futureWhen;
+import static androidx.media3.transformer.AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
@@ -66,13 +67,11 @@ import androidx.media3.common.util.Util;
 import androidx.media3.datasource.AssetDataSource;
 import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
-import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.effect.SingleInputVideoGraph;
-import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.ForwardingAudioSink;
@@ -117,6 +116,9 @@ public class CompositionPlayerTest {
   @Rule
   public ActivityScenarioRule<SurfaceTestActivity> rule =
       new ActivityScenarioRule<>(SurfaceTestActivity.class);
+
+  @Rule
+  public final GlFrameProcessorTestRule glFrameProcessorTestRule = new GlFrameProcessorTestRule();
 
   private final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
   private final Context applicationContext = instrumentation.getContext().getApplicationContext();
@@ -862,20 +864,16 @@ public class CompositionPlayerTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 28)
-  public void compositionPlayer_withPacketConsumer_outputsFrameBeforeEnding() throws Exception {
+  @SdkSuppress(minSdkVersion = HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
+  public void compositionPlayer_withFrameProcessor_outputsFrameBeforeEnding() throws Exception {
     SettableFuture<Void> endedFuture = SettableFuture.create();
     Queue<Long> videoTimestamps = new ConcurrentLinkedQueue<>();
 
     instrumentation.runOnMainSync(
         () -> {
-          DefaultHardwareBufferEffectsPipeline packetProcessor =
-              DefaultHardwareBufferEffectsPipeline.create(
-                  applicationContext, HardwareBufferJni.INSTANCE);
           compositionPlayer =
-              new CompositionPlayer.Builder(applicationContext)
-                  .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
-                  .setHardwareBufferEffectsPipeline(packetProcessor)
+              glFrameProcessorTestRule
+                  .createCompositionPlayerBuilder(applicationContext)
                   .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                   .build();
           compositionPlayer.setVideoSurfaceView(surfaceView);
@@ -921,19 +919,16 @@ public class CompositionPlayerTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 28)
-  public void compositionPlayer_playAfterEnded_doesNotTimeout() throws Exception {
+  @SdkSuppress(minSdkVersion = HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
+  public void compositionPlayer_withFrameProcessor_playAfterEnded_doesNotTimeout()
+      throws Exception {
     SettableFuture<Void> endedFuture = SettableFuture.create();
 
     instrumentation.runOnMainSync(
         () -> {
-          DefaultHardwareBufferEffectsPipeline packetProcessor =
-              DefaultHardwareBufferEffectsPipeline.create(
-                  applicationContext, HardwareBufferJni.INSTANCE);
           compositionPlayer =
-              new CompositionPlayer.Builder(applicationContext)
-                  .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
-                  .setHardwareBufferEffectsPipeline(packetProcessor)
+              glFrameProcessorTestRule
+                  .createCompositionPlayerBuilder(applicationContext)
                   .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                   .build();
           compositionPlayer.setVideoSurfaceView(surfaceView);
