@@ -15,12 +15,15 @@
  */
 package androidx.media3.muxer;
 
+import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
+import static androidx.media3.muxer.MuxerTestUtil.getFakeSampleAndSampleInfo;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
+import android.util.Pair;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -82,6 +85,29 @@ public class FragmentedMp4MuxerEndToEndTest {
         MuxerTestUtil.getExpectedDumpFilePath(
             MuxerTestUtil.getSubstitutedPath(H265_HDR10_MP4, MuxerTestUtil.MP4)
                 + "_fragmented_box_structure"));
+  }
+
+  @Test
+  public void createFragmentedMp4File_withDolbyVisionTrack_ftypContainsDby1CompatibleBrand()
+      throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Format dolbyVisionFormat =
+        FAKE_VIDEO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dvav.09.02")
+            .build();
+    Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L, /* isVideo= */ true);
+
+    try (FragmentedMp4Muxer muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel()).build()) {
+      int trackId = muxer.addTrack(dolbyVisionFormat);
+      muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+    }
+
+    byte[] outputFileBytes = TestUtil.getByteArrayFromFilePath(outputFilePath);
+    assertThat(MuxerTestUtil.ftypBoxContainsCompatibleBrand(outputFileBytes, "dby1")).isTrue();
   }
 
   @Test

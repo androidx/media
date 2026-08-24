@@ -34,6 +34,8 @@ import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.Mp4OrientationData;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.container.XmpData;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Longs;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -43,6 +45,7 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.WritableByteChannel;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 /** Utility methods for muxer. */
 @UnstableApi
@@ -145,6 +148,32 @@ public final class MuxerUtil {
             || format.auxiliaryTrackType == C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR
             || format.auxiliaryTrackType == C.AUXILIARY_TRACK_TYPE_DEPTH_INVERSE
             || format.auxiliaryTrackType == C.AUXILIARY_TRACK_TYPE_DEPTH_METADATA);
+  }
+
+  /** Returns the additional ftyp compatible brands that should be declared for the given tracks. */
+  /* package */ static ImmutableList<String> getFtypCompatibleBrands(List<Track> tracks) {
+    ImmutableSet.Builder<String> compatibleBrands = new ImmutableSet.Builder<>();
+    for (int i = 0; i < tracks.size(); i++) {
+      if (isDolbyTrack(tracks.get(i).format)) {
+        compatibleBrands.add("dby1");
+      }
+    }
+    return compatibleBrands.build().asList();
+  }
+
+  /**
+   * Returns whether the given {@linkplain Format track format} is a Dolby format (Dolby Vision
+   * video, or Dolby AC-3, EAC3, EAC3-JOC, AC-4 or TrueHD audio) that requires the {@code dby1}
+   * compatible brand in the ftyp box.
+   */
+  private static boolean isDolbyTrack(Format format) {
+    String sampleMimeType = format.sampleMimeType;
+    return Objects.equals(sampleMimeType, MimeTypes.VIDEO_DOLBY_VISION)
+        || Objects.equals(sampleMimeType, MimeTypes.AUDIO_AC3)
+        || Objects.equals(sampleMimeType, MimeTypes.AUDIO_AC4)
+        || Objects.equals(sampleMimeType, MimeTypes.AUDIO_E_AC3)
+        || Objects.equals(sampleMimeType, MimeTypes.AUDIO_E_AC3_JOC)
+        || Objects.equals(sampleMimeType, MimeTypes.AUDIO_TRUEHD);
   }
 
   /** Returns a {@link MdtaMetadataEntry} for the auxiliary tracks offset metadata. */

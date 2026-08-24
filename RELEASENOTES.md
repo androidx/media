@@ -104,6 +104,10 @@
         `FLAG_READ_MFRA_FOR_SEEK_MAP`.
     *   Fix crash in `Mp4Writer` and `FragmentedMp4Writer` when writing an EOS
         sample before any other samples are written.
+    *   Fix container compliance when muxing Dolby content into MP4 or
+        Fragmented MP4 files by advertising the dby1 compatible brand in the
+        container header.
+        ([#3369](https://github.com/androidx/media/pull/3369)).
 *   IMA extension:
 *   Session:
     *   Add `MediaConstants.EXTRAS_KEY_PLAYLIST_ID` to populate
