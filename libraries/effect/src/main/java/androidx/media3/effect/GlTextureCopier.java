@@ -19,8 +19,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
+import android.graphics.Gainmap;
 import android.opengl.GLES20;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -49,6 +51,7 @@ import java.io.IOException;
   @Nullable private GlProgram sdrInternalCopyGlProgram;
   @Nullable private GlProgram hdrExternalCopyGlProgram;
   @Nullable private GlProgram hdrInternalCopyGlProgram;
+  @Nullable private GlProgram ultraHdrCopyGlProgram;
   private int fboId = C.INDEX_UNSET;
 
   public GlTextureCopier(Context context) {
@@ -111,31 +114,86 @@ import java.io.IOException;
         }
       }
       copyGlProgram.setFloatsUniform("uTexTransformationMatrix", textureTransformMatrix);
-
-      if (fboId == C.INDEX_UNSET) {
-        int[] fboIds = new int[1];
-        GLES20.glGenFramebuffers(/* n= */ 1, fboIds, /* offset= */ 0);
-        GlUtil.checkGlError();
-        fboId = fboIds[0];
-      }
-
-      GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboId);
-      GlUtil.checkGlError();
-      GLES20.glFramebufferTexture2D(
-          GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0, GLES20.GL_TEXTURE_2D, outputTexId, 0);
-      GlUtil.checkGlError();
-
-      GlUtil.focusFramebufferUsingCurrentContext(fboId, outputWidth, outputHeight);
-
-      checkState(copyGlProgram != null);
-      copyGlProgram.use();
       copyGlProgram.setSamplerTexIdUniform("uTexSampler", inputTexId, /* texUnitIndex= */ 0);
-      copyGlProgram.bindAttributesAndUniforms();
-      GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, /* first= */ 0, /* count= */ 4);
-      GlUtil.checkGlError();
+
+      drawGlProgramToOutputTexture(copyGlProgram, outputTexId, outputWidth, outputHeight);
     } catch (GlException | IOException e) {
       throw VideoFrameProcessingException.from(e);
     }
+  }
+
+  /**
+   * Copies the content of an input base texture and an Ultra HDR gainmap texture to an output
+   * texture, applying the gainmap and converting to the target color space.
+   *
+   * @param inputTexId The ID of the input base texture.
+   * @param gainmapTexId The ID of the gainmap texture.
+   * @param gainmap The {@link Gainmap} containing mathematical parameters.
+   * @param outputTexId The ID of the output texture.
+   * @param outputWidth The width of the output texture.
+   * @param outputHeight The height of the output texture.
+   * @param requestedOutputColorInfo The {@link ColorInfo} of the requested output texture.
+   * @param textureTransformMatrix The 4x4 matrix to apply to texture coordinates.
+   * @throws VideoFrameProcessingException If an OpenGL error occurs during the copy.
+   */
+  @RequiresApi(34)
+  public void copyTextureUltraHdr(
+      int inputTexId,
+      int gainmapTexId,
+      Gainmap gainmap,
+      int outputTexId,
+      int outputWidth,
+      int outputHeight,
+      ColorInfo requestedOutputColorInfo,
+      float[] textureTransformMatrix)
+      throws VideoFrameProcessingException {
+    try {
+      GlProgram ultraHdrCopyGlProgram = this.ultraHdrCopyGlProgram;
+      if (ultraHdrCopyGlProgram == null) {
+        ultraHdrCopyGlProgram =
+            new GlProgram(
+                context,
+                R.raw.vertex_shader_transformation_es3,
+                R.raw.fragment_shader_transformation_ultra_hdr_es3);
+        setupCommonAttributesAndUniforms(ultraHdrCopyGlProgram);
+        ultraHdrCopyGlProgram.setIntUniform(
+            "uOutputColorTransfer", requestedOutputColorInfo.colorTransfer);
+        this.ultraHdrCopyGlProgram = ultraHdrCopyGlProgram;
+      }
+      ultraHdrCopyGlProgram.setSamplerTexIdUniform(
+          "uTexSampler", inputTexId, /* texUnitIndex= */ 0);
+      ultraHdrCopyGlProgram.setSamplerTexIdUniform(
+          "uGainmapTexSampler", gainmapTexId, /* texUnitIndex= */ 1);
+      ultraHdrCopyGlProgram.setFloatsUniform("uTexTransformationMatrix", textureTransformMatrix);
+      GainmapUtil.setGainmapUniforms(ultraHdrCopyGlProgram, gainmap, C.INDEX_UNSET);
+
+      drawGlProgramToOutputTexture(ultraHdrCopyGlProgram, outputTexId, outputWidth, outputHeight);
+    } catch (GlException | IOException e) {
+      throw VideoFrameProcessingException.from(e);
+    }
+  }
+
+  private void drawGlProgramToOutputTexture(
+      GlProgram glProgram, int outputTexId, int outputWidth, int outputHeight) throws GlException {
+    if (fboId == C.INDEX_UNSET) {
+      int[] fboIds = new int[1];
+      GLES20.glGenFramebuffers(/* n= */ 1, fboIds, /* offset= */ 0);
+      GlUtil.checkGlError();
+      fboId = fboIds[0];
+    }
+
+    GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboId);
+    GlUtil.checkGlError();
+    GLES20.glFramebufferTexture2D(
+        GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0, GLES20.GL_TEXTURE_2D, outputTexId, 0);
+    GlUtil.checkGlError();
+
+    GlUtil.focusFramebufferUsingCurrentContext(fboId, outputWidth, outputHeight);
+
+    glProgram.use();
+    glProgram.bindAttributesAndUniforms();
+    GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, /* first= */ 0, /* count= */ 4);
+    GlUtil.checkGlError();
   }
 
   /** Releases resources used by the copier. */
@@ -187,6 +245,19 @@ import java.io.IOException;
         }
       }
       hdrInternalCopyGlProgram = null;
+    }
+    if (ultraHdrCopyGlProgram != null) {
+      try {
+        ultraHdrCopyGlProgram.delete();
+      } catch (GlException e) {
+        if (firstException == null) {
+          firstException = e;
+        } else {
+          Log.w(TAG, "Failed to delete ultraHdrCopyGlProgram", e);
+          firstException.addSuppressed(e);
+        }
+      }
+      ultraHdrCopyGlProgram = null;
     }
     if (fboId != C.INDEX_UNSET) {
       try {

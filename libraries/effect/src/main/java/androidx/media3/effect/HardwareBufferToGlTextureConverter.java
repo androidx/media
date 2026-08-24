@@ -15,12 +15,16 @@
  */
 package androidx.media3.effect;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.effect.FrameProcessorUtils.createAndBindEglImage;
 import static androidx.media3.effect.FrameProcessorUtils.releaseEglImageTexture;
+import static androidx.media3.effect.FrameProcessorUtils.runAllAndAccumulateExceptions;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getFirst;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Gainmap;
 import android.hardware.HardwareBuffer;
 import android.opengl.EGLDisplay;
 import android.opengl.GLES11Ext;
@@ -31,19 +35,26 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlTextureInfo;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.ThrowingRunnable;
+import androidx.media3.common.video.DefaultHardwareBufferFrame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.FrameProcessorUtils.EglImageTextureWrapper;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 @ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.
@@ -58,6 +69,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final ColorInfo outputColorInfo;
   private final Consumer<VideoFrameProcessingException> errorConsumer;
   private final Map<HardwareBufferFrame, EglImageTextureWrapper> activeEglImageTextureWrappers;
+  private final Map<HardwareBufferFrame, Integer> activeGainmapTextures;
 
   @Nullable private GlTextureCopier glTextureCopier;
   private @MonotonicNonNull EGLDisplay eglDisplay;
@@ -73,6 +85,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.outputColorInfo = outputColorInfo;
     this.errorConsumer = errorConsumer;
     this.activeEglImageTextureWrappers = new HashMap<>();
+    this.activeGainmapTextures = new HashMap<>();
     this.textureTransformMatrix = new float[16];
   }
 
@@ -133,20 +146,53 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           /* formatHeight= */ outputHeight,
           inputFormat.rotationDegrees);
 
-      copier.copyTexture(
-          texId,
-          /* outputTexId= */ internalTexId,
-          outputWidth,
-          outputHeight,
-          inputColorInfo,
-          outputColorInfo,
-          textureTransformMatrix,
-          isExternalTexture);
+      // On API 34+, if the input is an Ultra HDR image with a gainmap and the pipeline output is
+      // HDR, apply the gainmap to reconstruct the HDR image. On API <= 33 or when the pipeline
+      // output is SDR, falls back to copying the base SDR image without gainmap application.
+      boolean isUltraHdr =
+          SDK_INT >= 34
+              && Objects.equals(inputFormat.sampleMimeType, MimeTypes.IMAGE_JPEG_R)
+              && ColorInfo.isTransferHdr(outputColorInfo);
+
+      if (isUltraHdr) {
+        Bitmap bitmap = (Bitmap) checkNotNull(getInternalFrame(hardwareBufferFrame));
+        Gainmap gainmap = checkNotNull(bitmap.getGainmap());
+        int gainmapTexId = GlUtil.createTexture(checkNotNull(gainmap.getGainmapContents()));
+        activeGainmapTextures.put(hardwareBufferFrame, gainmapTexId);
+        copier.copyTextureUltraHdr(
+            texId,
+            gainmapTexId,
+            gainmap,
+            /* outputTexId= */ internalTexId,
+            outputWidth,
+            outputHeight,
+            outputColorInfo,
+            textureTransformMatrix);
+      } else {
+        copier.copyTexture(
+            texId,
+            /* outputTexId= */ internalTexId,
+            outputWidth,
+            outputHeight,
+            inputColorInfo,
+            outputColorInfo,
+            textureTransformMatrix,
+            isExternalTexture);
+      }
 
       outputTexId = internalTexId;
       internalTexId = C.INDEX_UNSET;
       eglImageTextureWrapper = eglImageTextureWrapper.withOutputTexId(outputTexId);
     } catch (GlException | VideoFrameProcessingException e) {
+      Integer activeGainmapTexId = activeGainmapTextures.remove(hardwareBufferFrame);
+      if (activeGainmapTexId != null) {
+        try {
+          GlUtil.deleteTexture(activeGainmapTexId);
+        } catch (GlException exception) {
+          Log.w(TAG, "Failed to delete gainmap texture during error recovery", exception);
+          e.addSuppressed(exception);
+        }
+      }
       if (eglImageTextureWrapper != null) {
         try {
           releaseEglImageTexture(eglImageTextureWrapper, hardwareBufferJniWrapper);
@@ -176,21 +222,38 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 outputHeight),
             /* releaseTextureExecutor= */ glExecutor,
             /* releaseTextureCallback= */ info -> {
-              try {
-                EglImageTextureWrapper activeWrapper =
-                    activeEglImageTextureWrappers.remove(hardwareBufferFrame);
-                if (activeWrapper != null) {
-                  releaseEglImageTexture(activeWrapper, hardwareBufferJniWrapper);
-                }
-                // The GlTextureFrame is released by the first effect in the chain after it has
-                // finished reading from it. Generate a sync fence here to signal when the input
-                // frame is no longer needed.
-                @Nullable SyncFenceWrapper glReadFence = getFirst(GlUtil.createSyncFences(1), null);
-                listenerExecutor.execute(
-                    () -> listener.onFrameProcessed(hardwareBufferFrame, glReadFence));
-              } catch (GlException e) {
-                errorConsumer.accept(VideoFrameProcessingException.from(e));
+              Integer activeGainmapTexId = activeGainmapTextures.remove(hardwareBufferFrame);
+              EglImageTextureWrapper activeWrapper =
+                  activeEglImageTextureWrappers.remove(hardwareBufferFrame);
+              if (activeGainmapTexId == null && activeWrapper == null) {
+                return;
               }
+              AtomicReference<SyncFenceWrapper> glReadFence = new AtomicReference<>();
+
+              runAllAndAccumulateExceptions(
+                  errorConsumer,
+                  () -> {
+                    if (activeGainmapTexId != null) {
+                      GlUtil.deleteTexture(activeGainmapTexId);
+                    }
+                  },
+                  () -> {
+                    if (activeWrapper != null) {
+                      releaseEglImageTexture(activeWrapper, hardwareBufferJniWrapper);
+                    }
+                  },
+                  () -> {
+                    @Nullable
+                    SyncFenceWrapper syncFence = getFirst(GlUtil.createSyncFences(1), null);
+                    if (syncFence != null) {
+                      glReadFence.set(syncFence);
+                    } else {
+                      GLES20.glFinish();
+                    }
+                  });
+
+              listenerExecutor.execute(
+                  () -> listener.onFrameProcessed(hardwareBufferFrame, glReadFence.get()));
             })
         .setPresentationTimeUs(hardwareBufferFrame.getContentTimeUs())
         .setFormat(
@@ -199,6 +262,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 .buildUpon()
                 .setWidth(outputWidth)
                 .setHeight(outputHeight)
+                .setColorInfo(outputColorInfo)
                 // Reset rotation to 0 because we rotated the frame physically with OpenGL. The
                 // pipeline should always receive frames in their intended orientation.
                 .setRotationDegrees(0)
@@ -211,43 +275,47 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public void releaseGlResources(HardwareBufferFrame hardwareBufferFrame)
       throws VideoFrameProcessingException {
+    Integer activeGainmapTexId = activeGainmapTextures.remove(hardwareBufferFrame);
     EglImageTextureWrapper wrapper = activeEglImageTextureWrappers.remove(hardwareBufferFrame);
-    if (wrapper == null) {
-      return;
-    }
-    try {
-      releaseEglImageTexture(wrapper, hardwareBufferJniWrapper);
-    } catch (GlException e) {
-      throw VideoFrameProcessingException.from(e);
-    }
+
+    runAllAndAccumulateExceptions(
+        () -> {
+          if (activeGainmapTexId != null) {
+            GlUtil.deleteTexture(activeGainmapTexId);
+          }
+        },
+        () -> {
+          if (wrapper != null) {
+            releaseEglImageTexture(wrapper, hardwareBufferJniWrapper);
+          }
+        });
   }
 
   @Override
   public void close() throws VideoFrameProcessingException {
-    @Nullable Exception firstException = null;
+    List<ThrowingRunnable<?>> actions = new ArrayList<>();
     if (glTextureCopier != null) {
-      try {
-        glTextureCopier.release();
-      } catch (VideoFrameProcessingException e) {
-        firstException = e;
-      }
+      GlTextureCopier copier = glTextureCopier;
       glTextureCopier = null;
+      actions.add(copier::release);
     }
+    for (int gainmapTexId : activeGainmapTextures.values()) {
+      actions.add(() -> GlUtil.deleteTexture(gainmapTexId));
+    }
+    activeGainmapTextures.clear();
     for (EglImageTextureWrapper wrapper : activeEglImageTextureWrappers.values()) {
-      try {
-        releaseEglImageTexture(wrapper, hardwareBufferJniWrapper);
-      } catch (GlException e) {
-        if (firstException == null) {
-          firstException = e;
-        } else {
-          Log.w(TAG, "Failed to release EGLImage during close", e);
-        }
-      }
+      actions.add(() -> releaseEglImageTexture(wrapper, hardwareBufferJniWrapper));
     }
     activeEglImageTextureWrappers.clear();
-    if (firstException != null) {
-      throw VideoFrameProcessingException.from(firstException);
+    runAllAndAccumulateExceptions(actions.toArray(new ThrowingRunnable<?>[0]));
+  }
+
+  @Nullable
+  private static Object getInternalFrame(HardwareBufferFrame hardwareBufferFrame) {
+    if (hardwareBufferFrame instanceof DefaultHardwareBufferFrame) {
+      return ((DefaultHardwareBufferFrame) hardwareBufferFrame).getInternalImage();
     }
+    return null;
   }
 
   private static boolean needsHighPrecisionTexture(ColorInfo outputColorInfo) {

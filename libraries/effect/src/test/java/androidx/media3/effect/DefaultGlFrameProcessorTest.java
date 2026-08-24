@@ -402,7 +402,7 @@ public final class DefaultGlFrameProcessorTest {
   }
 
   @Test
-  public void queue_withJpegRAndSrgbTransferWorkingColorspaceUnset_infersHdrHlg() throws Exception {
+  public void queue_withJpegRAndSrgbTransfer_infersHdrHlg() throws Exception {
     Format format =
         new Format.Builder()
             .setSampleMimeType(MimeTypes.IMAGE_JPEG_R)
@@ -411,12 +411,7 @@ public final class DefaultGlFrameProcessorTest {
     ColorInfo actualColorInfo =
         queueFrameAndGetColorInfo(format, /* forceUnsupportedFormat= */ false);
 
-    assertThat(actualColorInfo)
-        .isEqualTo(
-            new ColorInfo.Builder()
-                .setColorSpace(C.COLOR_SPACE_BT2020)
-                .setColorTransfer(C.COLOR_TRANSFER_HLG)
-                .build());
+    assertThat(actualColorInfo).isEqualTo(DefaultGlFrameProcessor.COLORSPACE_HDR_HLG);
   }
 
   @Test

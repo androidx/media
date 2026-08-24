@@ -17,10 +17,12 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.Player.STATE_ENDED;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
+import static androidx.media3.test.utils.AssetInfo.JPG_ULTRA_HDR_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S;
 import static androidx.media3.test.utils.PlayerFence.futureWhen;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.junit.Assume.assumeTrue;
 
 import android.app.Instrumentation;
 import android.content.Context;
@@ -29,6 +31,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.effect.DefaultGlFrameProcessor;
+import androidx.media3.effect.FrameProcessorUtils;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -165,6 +168,62 @@ public final class CompositionPlayerDefaultGlFrameProcessorTest {
           compositionPlayer.play();
         });
     endedAfterPlayFuture.get(TEST_TIMEOUT_MS, MILLISECONDS);
+  }
+
+  @SdkSuppress(minSdkVersion = 34)
+  @Test
+  public void
+      compositionPlayer_withUltraHdrImageAndDefaultGlFrameProcessor_outputsFrameBeforeEnding()
+          throws Exception {
+    assumeTrue(
+        glFrameProcessorTestRule
+            .getExecutorService()
+            .submit(
+                () ->
+                    FrameProcessorUtils.setupOpenGl(glFrameProcessorTestRule.getGlObjectsProvider())
+                        == FrameProcessorUtils.OPEN_GL_VERSION_3)
+            .get());
+
+    SettableFuture<Void> endedFuture = SettableFuture.create();
+    Queue<Long> videoTimestamps = new ConcurrentLinkedQueue<>();
+    // Set a duration shorter than 1 frame period (1/30s ~ 33ms) so that exactly one frame at
+    // presentation timestamp 0 is requested before ending playback.
+    EditedMediaItem ultraHdrItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(JPG_ULTRA_HDR_ASSET.uri))
+            .setDurationUs(10_000)
+            .setFrameRate(30)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(ultraHdrItem)))
+            .build();
+
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer = createCompositionPlayer();
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.setVideoFrameMetadataListener(
+              (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
+                videoTimestamps.add(presentationTimeUs);
+              });
+          compositionPlayer.addListener(
+              new Player.Listener() {
+                @Override
+                public void onPlaybackStateChanged(int playbackState) {
+                  if (playbackState == STATE_ENDED) {
+                    videoTimestamps.add(-1L);
+                  }
+                }
+              });
+          compositionPlayer.setComposition(composition);
+          compositionPlayer.prepare();
+          compositionPlayer.play();
+        });
+    endedFuture.get(TEST_TIMEOUT_MS, MILLISECONDS);
+
+    assertThat(videoTimestamps).containsExactly(0L, -1L).inOrder();
   }
 
   private CompositionPlayer createCompositionPlayer() {

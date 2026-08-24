@@ -21,10 +21,13 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.graphics.Bitmap;
+import android.graphics.Gainmap;
 import android.graphics.ImageFormat;
 import android.os.HandlerThread;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ConstantRateTimestampIterator;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.TimestampIterator;
@@ -41,6 +44,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 
 /** Robolectric tests for {@link HardwareBufferFrameReader}. */
 @RunWith(AndroidJUnit4.class)
@@ -373,6 +377,52 @@ public class HardwareBufferFrameReaderTest {
     assertThat(receivedFrames).hasSize(2);
     assertThat(receivedFrames.get(0).presentationTimeUs).isEqualTo(0);
     assertThat(receivedFrames.get(1).presentationTimeUs).isEqualTo(33_333);
+    assertThat(hardwareBufferFrameReaderException.get()).isNull();
+  }
+
+  @Test
+  public void outputBitmap_withSdrBitmap_outputsImageRawFormatWithSdrColorTransfer() {
+    Bitmap bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+    TimestampIterator singleFrame =
+        new ConstantRateTimestampIterator(/* durationUs= */ 1_000, /* frameRate= */ 1f);
+
+    hardwareBufferFrameReader.outputBitmap(
+        bitmap,
+        /* timestampIterator= */ singleFrame,
+        /* sequenceOffsetUs= */ 0,
+        /* indexOfItem= */ 0);
+
+    assertThat(receivedFrames).hasSize(1);
+    Format format = receivedFrames.get(0).format;
+    assertThat(format.sampleMimeType).isEqualTo(MimeTypes.IMAGE_RAW);
+    assertThat(format.colorInfo).isNotNull();
+    assertThat(format.colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_SDR);
+    assertThat(hardwareBufferFrameReaderException.get()).isNull();
+  }
+
+  @Config(sdk = 34)
+  @Test
+  public void outputBitmap_withUltraHdrBitmap_outputsImageJpegRFormatWithSrgbColorTransfer() {
+    Bitmap bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+    Bitmap gainmapBitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ALPHA_8);
+    Gainmap gainmap = new Gainmap(gainmapBitmap);
+    bitmap.setGainmap(gainmap);
+    TimestampIterator singleFrame =
+        new ConstantRateTimestampIterator(/* durationUs= */ 1_000, /* frameRate= */ 1f);
+
+    hardwareBufferFrameReader.outputBitmap(
+        bitmap,
+        /* timestampIterator= */ singleFrame,
+        /* sequenceOffsetUs= */ 0,
+        /* indexOfItem= */ 0);
+
+    assertThat(receivedFrames).hasSize(1);
+    Format format = receivedFrames.get(0).format;
+    assertThat(format.sampleMimeType).isEqualTo(MimeTypes.IMAGE_JPEG_R);
+    assertThat(format.colorInfo).isNotNull();
+    assertThat(format.colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_SRGB);
+    assertThat(format.colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_BT709);
+    assertThat(format.colorInfo.colorRange).isEqualTo(C.COLOR_RANGE_FULL);
     assertThat(hardwareBufferFrameReaderException.get()).isNull();
   }
 }

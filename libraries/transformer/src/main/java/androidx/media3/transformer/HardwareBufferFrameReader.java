@@ -42,6 +42,7 @@ import androidx.media3.exoplayer.Renderer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -226,9 +227,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   // into account.
   void outputBitmap(
       Bitmap bitmap, TimestampIterator timestampIterator, long sequenceOffsetUs, int indexOfItem) {
+    String sampleMimeType =
+        SDK_INT >= 34 && Api34.hasGainmap(bitmap) ? MimeTypes.IMAGE_JPEG_R : MimeTypes.IMAGE_RAW;
     Format format =
         new Format.Builder()
-            .setSampleMimeType(MimeTypes.IMAGE_RAW)
+            .setSampleMimeType(sampleMimeType)
             .setWidth(bitmap.getWidth())
             .setHeight(bitmap.getHeight())
             .setColorInfo(resolveColorInfoFromBitmap(bitmap))
@@ -467,7 +470,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Format format) {
     // COLOR_TRANSFER_SRGB may not be supported by the encoder or display, but is equivalent to
     // COLOR_TRANSFER_SDR on Android which is widely supported.
-    if (format.colorInfo != null && format.colorInfo.colorTransfer == C.COLOR_TRANSFER_SRGB) {
+    if (format.colorInfo != null
+        && format.colorInfo.colorTransfer == C.COLOR_TRANSFER_SRGB
+        && !Objects.equals(format.sampleMimeType, MimeTypes.IMAGE_JPEG_R)) {
       ColorInfo adjustedColorInfo =
           format.colorInfo.buildUpon().setColorTransfer(C.COLOR_TRANSFER_SDR).build();
       format = format.buildUpon().setColorInfo(adjustedColorInfo).build();
@@ -643,6 +648,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         default:
           return ColorInfo.SRGB_BT709_FULL;
       }
+    }
+  }
+
+  @RequiresApi(34)
+  private static final class Api34 {
+    private static boolean hasGainmap(Bitmap bitmap) {
+      return bitmap.hasGainmap();
     }
   }
 }
