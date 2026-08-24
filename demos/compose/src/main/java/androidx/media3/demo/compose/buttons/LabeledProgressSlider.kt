@@ -16,6 +16,7 @@
 
 package androidx.media3.demo.compose.buttons
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.interaction.FocusInteraction
@@ -45,6 +46,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.Dp
@@ -77,9 +81,16 @@ import kotlinx.coroutines.CoroutineScope
  *   [Interactions][androidx.compose.foundation.interaction.Interaction] for this slider. You can
  *   create and pass in your own `remember`ed instance to observe `Interactions` and customize the
  *   appearance / behavior of this slider in different states.
+ * @param thumbTrackGapSize The gap between the thumb and the track. Set to `0.dp` to remove the gap
+ *   completely.
  * @param thumb A custom thumb to be displayed on the slider, it is placed on top of the track. The
- *   lambda receives a [SliderState] which is used to obtain the current active track. If `null`, a
- *   standard Material3 `SliderDefaults.Thumb` will be shown.
+ *   lambda receives the [ProgressStateWithTickCount], the current [SliderState], and a boolean
+ *   indicating whether changing progress is enabled. If `null`, a standard Material3
+ *   `SliderDefaults.Thumb` will be shown.
+ * @param track A custom track to be displayed on the slider, it is placed underneath the thumb. The
+ *   lambda receives the [ProgressStateWithTickCount], the current [SliderState], and a boolean
+ *   indicating whether changing progress is enabled. If `null`, a standard Material3
+ *   `SliderDefaults.Track` will be shown.
  */
 // TODO: b/304811984 - publish this Slider when the overload with thumb/track is stabilized
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,9 +103,21 @@ fun LabeledProgressSlider(
   scope: CoroutineScope = rememberCoroutineScope(),
   colors: SliderColors = SliderDefaults.colors(),
   interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
-  thumb: (@Composable (ProgressStateWithTickCount, SliderState) -> Unit)? =
-    { progressState, sliderState ->
-      SeekTimeThumb(progressState, sliderState, interactionSource)
+  thumbTrackGapSize: Dp = ThumbTrackGapSize,
+  thumb: (@Composable (ProgressStateWithTickCount, SliderState, Boolean) -> Unit)? =
+    { progressState, sliderState, enabled ->
+      SeekTimeThumb(progressState, sliderState, interactionSource, enabled)
+    },
+  track: @Composable ((ProgressStateWithTickCount, SliderState, Boolean) -> Unit)? =
+    { progressState, sliderState, enabled ->
+      BufferingTrack(
+        progressState,
+        sliderState,
+        enabled,
+        thumbTrackGapSize = thumbTrackGapSize,
+        colors = colors,
+        interactionSource = interactionSource,
+      )
     },
 ) {
   var sliderWidthPx by remember { mutableIntStateOf(0) }
@@ -140,8 +163,20 @@ fun LabeledProgressSlider(
             enabled = changingProgressEnabled,
           )
         } else {
-
-          thumb(this, sliderState)
+          thumb(this, sliderState, changingProgressEnabled)
+        }
+      },
+      track = { sliderState ->
+        if (track == null) {
+          SliderDefaults.Track(
+            colors = colors,
+            enabled = changingProgressEnabled,
+            sliderState = sliderState,
+            thumbTrackGapSize = thumbTrackGapSize,
+            trackInsideCornerSize = if (thumbTrackGapSize == 0.dp) 0.dp else TrackInsideCornerSize,
+          )
+        } else {
+          track(this, sliderState, changingProgressEnabled)
         }
       },
       // Beware the order: This measurement will happen first and it is unaware of any final size
@@ -164,8 +199,9 @@ private fun SeekTimeThumb(
   progressState: ProgressStateWithTickCount,
   sliderState: SliderState,
   interactionSource: MutableInteractionSource,
+  enabled: Boolean = true,
 ) {
-  LabeledThumb(interactionSource = interactionSource) {
+  LabeledThumb(interactionSource = interactionSource, enabled = enabled) {
     Text(
       text = Util.getStringForTime(progressState.progressToPosition(sliderState.value)),
       modifier =
@@ -184,6 +220,7 @@ private fun SeekTimeThumb(
 internal fun LabeledThumb(
   interactionSource: MutableInteractionSource,
   modifier: Modifier = Modifier,
+  enabled: Boolean = true,
   textOffset: Dp = 8.dp,
   label: @Composable (() -> Unit)? = null,
 ) {
@@ -223,10 +260,125 @@ internal fun LabeledThumb(
         label()
       }
     }
-    SliderDefaults.Thumb(interactionSource = interactionSource, thumbSize = ThumbSize)
+    SliderDefaults.Thumb(
+      interactionSource = interactionSource,
+      enabled = enabled,
+      thumbSize = ThumbSize,
+    )
   }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BufferingTrack(
+  progressState: ProgressStateWithTickCount,
+  sliderState: SliderState,
+  enabled: Boolean,
+  modifier: Modifier = Modifier,
+  thumbTrackGapSize: Dp = ThumbTrackGapSize,
+  colors: SliderColors = SliderDefaults.colors(),
+  interactionSource: MutableInteractionSource? = null,
+) {
+  val interactions = remember { mutableStateListOf<Interaction>() }
+  if (interactionSource != null) {
+    LaunchedEffect(interactionSource) {
+      interactionSource.interactions.collect { interaction ->
+        when (interaction) {
+          is PressInteraction.Press -> interactions.add(interaction)
+          is PressInteraction.Release -> interactions.remove(interaction.press)
+          is PressInteraction.Cancel -> interactions.remove(interaction.press)
+          is DragInteraction.Start -> interactions.add(interaction)
+          is DragInteraction.Stop -> interactions.remove(interaction.start)
+          is DragInteraction.Cancel -> interactions.remove(interaction.start)
+          is FocusInteraction.Focus -> interactions.add(interaction)
+          is FocusInteraction.Unfocus -> interactions.remove(interaction.focus)
+        }
+      }
+    }
+  }
+
+  Box(modifier = modifier, contentAlignment = Alignment.Center) {
+    SliderDefaults.Track(
+      sliderState = sliderState,
+      enabled = enabled,
+      colors = colors,
+      thumbTrackGapSize = thumbTrackGapSize,
+      trackInsideCornerSize = if (thumbTrackGapSize == 0.dp) 0.dp else TrackInsideCornerSize,
+    )
+
+    val isDragging = interactions.isNotEmpty()
+    val currentBufferedPos = progressState.bufferedPositionProgress
+    var draggingBufferedPos by remember { mutableFloatStateOf(-1f) }
+
+    if (isDragging && draggingBufferedPos < 0f) {
+      draggingBufferedPos = currentBufferedPos
+    } else if (!isDragging) {
+      draggingBufferedPos = -1f
+    }
+
+    val bufferedPos =
+      if (isDragging && draggingBufferedPos >= 0f) draggingBufferedPos else currentBufferedPos
+
+    Canvas(modifier = Modifier.matchParentSize()) {
+      val thumbPos = sliderState.coercedValueAsFraction
+
+      val startX = size.width * thumbPos
+      val endX = size.width * bufferedPos
+
+      val trackHeight = 16.dp.toPx()
+
+      val thumbWidth = if (isDragging) PressedThumbWidth else ThumbWidth
+      // The gap from the center of the thumb to the start of the visible track
+      val visualGap =
+        if (thumbTrackGapSize > 0.dp) {
+          (thumbWidth.toPx() / 2f) + thumbTrackGapSize.toPx()
+        } else {
+          0f
+        }
+      val visualStartX = (startX + visualGap).coerceIn(0f, size.width)
+      val visualEndX = endX.coerceIn(0f, size.width)
+
+      if (visualEndX > visualStartX) {
+        val bufferingColor =
+          if (enabled) {
+            colors.activeTrackColor.copy(alpha = colors.activeTrackColor.alpha * 0.5f)
+          } else {
+            colors.disabledActiveTrackColor.copy(
+              alpha = colors.disabledActiveTrackColor.alpha * 0.5f
+            )
+          }
+
+        val trackInsideCornerRadius =
+          if (thumbTrackGapSize > 0.dp) TrackInsideCornerSize.toPx() else 0f
+        val fullCornerRadius = trackHeight / 2f
+
+        val path =
+          Path().apply {
+            addRoundRect(
+              RoundRect(
+                left = visualStartX,
+                top = (size.height - trackHeight) / 2f,
+                right = visualEndX,
+                bottom = (size.height + trackHeight) / 2f,
+                topLeftCornerRadius = CornerRadius(trackInsideCornerRadius),
+                bottomLeftCornerRadius = CornerRadius(trackInsideCornerRadius),
+                topRightCornerRadius = CornerRadius(fullCornerRadius),
+                bottomRightCornerRadius = CornerRadius(fullCornerRadius),
+              )
+            )
+          }
+
+        drawPath(path = path, color = bufferingColor)
+      }
+    }
+  }
+}
+
+private val ThumbTrackGapSize =
+  6.dp // = androidx.compose.material3.tokens.SliderTokens.ActiveHandleLeadingSpace
+private val TrackInsideCornerSize = 2.dp
 private val ThumbWidth = 4.dp // = androidx.compose.material3.tokens.SliderTokens.HandleWidth
+private val PressedThumbWidth =
+  2.dp // = androidx.compose.material3.tokens.SliderTokens.PressedHandleWidth
 private val ThumbHeight = 44.0.dp // = androidx.compose.material3.tokens.SliderTokens.HandleHeight
 private val ThumbSize = DpSize(ThumbWidth, ThumbHeight)
