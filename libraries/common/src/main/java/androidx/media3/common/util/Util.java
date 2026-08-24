@@ -234,6 +234,12 @@ public final class Util {
     return ByteStreams.toByteArray(inputStream);
   }
 
+  /** Converts a single integer into an equivalent 4-byte array in big-endian order. */
+  @UnstableApi
+  public static byte[] toByteArray(int value) {
+    return Ints.toByteArray(value);
+  }
+
   /**
    * Converts an array of integers into an equivalent byte array.
    *

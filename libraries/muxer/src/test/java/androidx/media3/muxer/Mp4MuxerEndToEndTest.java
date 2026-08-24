@@ -65,6 +65,7 @@ public class Mp4MuxerEndToEndTest {
   private static final String H265_HDR10_MP4 = "hdr10-720p.mp4";
   private static final String AV1_MP4 = "sample_av1.mp4";
   private static final String VP9_MP4 = "bbb_800x640_768kbps_30fps_vp9.mp4";
+  private static final String IT35_MP4 = "sample_with_it35_track.mp4";
   private final Context context = ApplicationProvider.getApplicationContext();
 
   @Test
@@ -173,6 +174,30 @@ public class Mp4MuxerEndToEndTest {
         context,
         fakeExtractorOutput,
         MuxerTestUtil.getExpectedMp4DumpFilePath(VP9_MP4 + "_without_csd"));
+  }
+
+  @Test
+  public void createMp4File_withIt35_matchesExpected() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+
+    try (Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      mp4Muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 100_000_000L,
+              /* modificationTimestampSeconds= */ 500_000_000L));
+      feedInputDataToMuxer(context, mp4Muxer, MP4_FILE_ASSET_DIRECTORY + IT35_MP4);
+      mp4Muxer.addTrackReference(
+          /* trackId= */ 1,
+          Mp4Muxer.TRACK_REFERENCE_TYPE_CDSC,
+          /* referencedTrackIds= */ ImmutableList.of(0));
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputFilePath));
+
+    DumpFileAsserts.assertOutput(
+        context, fakeExtractorOutput, MuxerTestUtil.getExpectedMp4DumpFilePath(IT35_MP4));
   }
 
   @Test

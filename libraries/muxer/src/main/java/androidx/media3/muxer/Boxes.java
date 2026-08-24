@@ -1407,7 +1407,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       contents.putInt(trackIds.get(i));
     }
     contents.flip();
-    byte[] typeBytes = Util.toByteArray(referenceType);
+    byte[] typeBytes = Ints.toByteArray(referenceType);
     return BoxUtils.wrapIntoBox(typeBytes, contents);
   }
 
