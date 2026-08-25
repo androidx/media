@@ -556,7 +556,7 @@ public class MediaItemTest {
             .build();
 
     assertThat(clippingConfiguration.endPositionMs).isEqualTo(C.TIME_END_OF_SOURCE);
-    assertThat(clippingConfiguration.endPositionMs).isEqualTo(C.TIME_END_OF_SOURCE);
+    assertThat(clippingConfiguration.endPositionUs).isEqualTo(C.TIME_END_OF_SOURCE);
   }
 
   @Test
