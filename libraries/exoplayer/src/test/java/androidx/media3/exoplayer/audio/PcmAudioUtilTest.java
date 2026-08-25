@@ -33,7 +33,7 @@ public final class PcmAudioUtilTest {
   @Test
   public void readAs32BitIntPcm_read8Bit_returnsExpectedValues() {
     ByteBuffer buffer = ByteBuffer.allocate(5);
-    buffer.put(hexToBytes("80" + "AB" + "00" + "12" + "7F"));
+    buffer.put(hexToBytes("00" + "2B" + "80" + "92" + "FF"));
     buffer.flip();
 
     assertThat(PcmAudioUtil.readAs32BitIntPcm(buffer, C.ENCODING_PCM_8BIT))
@@ -197,7 +197,7 @@ public final class PcmAudioUtilTest {
     PcmAudioUtil.write32BitIntPcm(buffer, Integer.MAX_VALUE, C.ENCODING_PCM_8BIT);
     buffer.flip();
 
-    assertThat(byteBufferToHex(buffer)).isEqualTo("80" + "AB" + "00" + "12" + "7F");
+    assertThat(byteBufferToHex(buffer)).isEqualTo("00" + "2B" + "80" + "92" + "FF");
   }
 
   @Test
