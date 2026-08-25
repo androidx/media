@@ -1645,17 +1645,20 @@ public final class MediaItem {
        * <p>A positive value shifts the cues to be displayed later relative to the media, a negative
        * value shifts them to be displayed earlier.
        *
-       * <p>The offset can be changed during playback by passing an updated {@link MediaItem} to
-       * {@code Player.replaceMediaItem(int, MediaItem)}. If only the time offsets of the {@link
-       * SubtitleConfiguration} instances are changed, playback continues uninterrupted and the new
-       * offsets apply to cues that have not been read by the renderer yet. To also apply the new
-       * offset to the cues currently on screen, disable and re-enable the text track, for example
-       * with {@code TrackSelectionParameters.Builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT,
-       * boolean)}.
+       * <p>ExoPlayer specific notes:
        *
-       * <p>The offset only takes effect if the subtitles are parsed during extraction (the default
-       * behavior of {@code DefaultMediaSourceFactory}), and is ignored by the deprecated legacy
-       * subtitle decoding path.
+       * <ul>
+       *   <li>The offset can be changed during playback by passing an updated {@link MediaItem} to
+       *       {@code Player.replaceMediaItem(int, MediaItem)}. If only the time offsets of the
+       *       {@link SubtitleConfiguration} instances are changed, playback continues uninterrupted
+       *       and the new offsets apply to cues that have not been read by the renderer yet. To
+       *       also apply the new offset to the cues currently on screen, disable and re-enable the
+       *       text track, for example with {@code
+       *       TrackSelectionParameters.Builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, boolean)}.
+       *   <li>The offset only takes effect if the subtitles are parsed during extraction (the
+       *       default behavior of {@code DefaultMediaSourceFactory}), and is ignored by the
+       *       deprecated legacy subtitle decoding path.
+       * </ul>
        *
        * <p>The default value is 0.
        */
