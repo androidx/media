@@ -186,7 +186,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     @Nullable private VideoFrameReleaseControl.FrameTimingEvaluator frameTimingEvaluator;
 
     private boolean videoPrewarmingEnabled;
-    private boolean perStreamMediaProgressionEnabled;
     private boolean enableReplayableCache;
     private long lateThresholdToDropInputUs;
     private boolean built;
@@ -318,22 +317,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     /* package */ Builder setVideoPrewarmingEnabled(boolean videoPrewarmingEnabled) {
       // TODO: b/369817794 - Remove this setter once the tests are run on a device with API < 23.
       this.videoPrewarmingEnabled = videoPrewarmingEnabled;
-      return this;
-    }
-
-    /**
-     * Sets whether to enable per-stream media progression in the player.
-     *
-     * <p>The default value is {@code false}.
-     *
-     * @param perStreamMediaProgressionEnabled Whether to enable per-stream media progression in the
-     *     player.
-     * @return This builder, for convenience.
-     */
-    @CanIgnoreReturnValue
-    @ExperimentalApi // TODO: b/528260159 - Enable this by default.
-    public Builder setPerStreamMediaProgressionEnabled(boolean perStreamMediaProgressionEnabled) {
-      this.perStreamMediaProgressionEnabled = perStreamMediaProgressionEnabled;
       return this;
     }
 
@@ -638,7 +621,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private final ImageDecoder.Factory imageDecoderFactory;
   private final VideoGraph.Factory videoGraphFactory;
   private final boolean videoPrewarmingEnabled;
-  private final boolean perStreamMediaProgressionEnabled;
   private final HandlerWrapper compositionInternalListenerHandler;
   private final LoadControl loadControl;
   private final boolean enableReplayableCache;
@@ -721,7 +703,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     imageDecoderFactory = new GapHandlingDecoderFactory(builder.imageDecoderFactorySupplier.get());
     videoGraphFactory = checkNotNull(builder.videoGraphFactory);
     videoPrewarmingEnabled = builder.videoPrewarmingEnabled;
-    perStreamMediaProgressionEnabled = builder.perStreamMediaProgressionEnabled;
     compositionInternalListenerHandler = clock.createHandler(builder.looper, /* callback= */ null);
     loadControl = builder.loadControlSupplier.get();
     this.enableReplayableCache = builder.enableReplayableCache;
@@ -2396,16 +2377,12 @@ public final class CompositionPlayer extends SimpleBasePlayer {
               .setHandleAudioBecomingNoisy(true)
               .setLoadControl(loadControl)
               .setClock(clock)
-              // Use dynamic scheduling to show the first video/image frame more promptly when the
-              // player is paused (which is common in editing applications).
-              .experimentalSetDynamicSchedulingEnabled(true)
               .setTrackSelector(trackSelector)
               // TODO: b/489733731 - Reenable stuck player detection.
               .setStuckBufferingDetectionTimeoutMs(Integer.MAX_VALUE)
               .setStuckPlayingDetectionTimeoutMs(Integer.MAX_VALUE)
               .setStuckPlayingNotEndingTimeoutMs(Integer.MAX_VALUE)
-              .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
-              .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled);
+              .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE);
       player = playerBuilder.build();
       this.renderersFactory = renderersFactory;
       this.hardwareBufferFrameReaderSupplier = hardwareBufferFrameReaderSupplier;

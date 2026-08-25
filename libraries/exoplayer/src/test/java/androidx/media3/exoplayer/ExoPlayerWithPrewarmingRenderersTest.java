@@ -33,6 +33,7 @@ import android.os.Handler;
 import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -56,6 +57,7 @@ import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
+import androidx.media3.test.utils.BindFlag;
 import androidx.media3.test.utils.ExoPlayerTestRunner;
 import androidx.media3.test.utils.FakeAudioRenderer;
 import androidx.media3.test.utils.FakeClock;
@@ -64,6 +66,7 @@ import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeSampleStream;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeVideoRenderer;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
@@ -72,7 +75,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -82,7 +84,7 @@ import org.robolectric.ParameterizedRobolectricTestRunner;
 @RunWith(ParameterizedRobolectricTestRunner.class) // TODO: b/510217604 - Remove parameterization.
 public class ExoPlayerWithPrewarmingRenderersTest {
 
-  private Context context;
+  private final Context context = ApplicationProvider.getApplicationContext();
 
   @ParameterizedRobolectricTestRunner.Parameters(name = "perStream={0}")
   public static ImmutableList<Boolean> params() {
@@ -90,16 +92,14 @@ public class ExoPlayerWithPrewarmingRenderersTest {
   }
 
   @ParameterizedRobolectricTestRunner.Parameter(0)
+  @BindFlag(Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION)
   public Boolean perStreamMediaProgressionEnabled;
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
       ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
-  @Before
-  public void setUp() {
-    context = ApplicationProvider.getApplicationContext();
-  }
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
 
   @Test
   public void play_withTwoItemsAndPrewarming_secondaryRendererisEnabledButNotStarted()
@@ -110,7 +110,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setClock(fakeClock)
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
     Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
@@ -155,7 +154,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setClock(fakeClock)
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
     Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
@@ -210,7 +208,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setClock(fakeClock)
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
     Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
@@ -266,7 +263,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setClock(fakeClock)
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
     // Set a playlist that allows a new renderer to be enabled early.
@@ -303,7 +299,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setClock(fakeClock)
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
     // Set a playlist that would prevent pre-warming at normal speed with duration limit for reading
@@ -342,7 +337,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setClock(fakeClock)
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
     // Set a playlist that would prevent pre-warming at normal speed with duration limit for reading
@@ -381,7 +375,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setClock(fakeClock)
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
     Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
@@ -441,7 +434,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setClock(fakeClock)
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
     Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
@@ -485,7 +477,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setClock(fakeClock)
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
     Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
@@ -553,7 +544,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setTrackSelector(defaultTrackSelector)
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
     Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
@@ -605,7 +595,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setClock(fakeClock)
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
     Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
@@ -661,7 +650,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setClock(fakeClock)
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
     Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
@@ -738,7 +726,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
             .setTrackSelector(trackSelector)
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     Format audioFormat =
         ExoPlayerTestRunner.AUDIO_FORMAT.buildUpon().setAverageBitrate(70_000).build();
@@ -789,7 +776,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setClock(fakeClock)
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
     Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
@@ -841,7 +827,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setClock(fakeClock)
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
     Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
@@ -889,7 +874,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setClock(fakeClock)
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
     Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
@@ -939,7 +923,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setClock(fakeClock)
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
     Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
@@ -983,7 +966,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setClock(fakeClock)
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
     Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
@@ -1035,7 +1017,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setClock(fakeClock)
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
     Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
@@ -1088,7 +1069,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setClock(fakeClock)
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
     Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
@@ -1145,7 +1125,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setClock(fakeClock)
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
     Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
@@ -1195,7 +1174,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setClock(fakeClock)
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
     Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
@@ -1241,7 +1219,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setClock(fakeClock)
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
     Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
@@ -1296,7 +1273,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRendererThatThrowsOnRender(
                     fakeClock, attemptedRenderWithSecondaryRenderer, shouldSecondaryRendererThrow))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     player.addListener(listener);
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
@@ -1337,7 +1313,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRendererThatThrowsOnRender(
                     fakeClock, attemptedRenderWithSecondaryRenderer, shouldSecondaryRendererThrow))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     player.addListener(listener);
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
@@ -1387,7 +1362,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRendererThatThrowsOnRender(
                     fakeClock, attemptedRenderWithSecondaryRenderer, shouldSecondaryRendererThrow))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     player.addListener(listener);
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
@@ -1436,7 +1410,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRendererThatThrowsOnRender(
                     fakeClock, attemptedRenderWithSecondaryRenderer, shouldSecondaryRendererThrow))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     player.addListener(listener);
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
@@ -1525,7 +1498,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
                     };
                   }
                 })
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     player.addListener(listener);
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
@@ -1608,7 +1580,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
                     };
                   }
                 })
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     player.addListener(listener);
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
@@ -1665,7 +1636,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setRenderersFactory(
                 new FakeRenderersFactorySupportingSecondaryVideoRendererThatThrowsOnRender(
                     fakeClock, attemptedRenderWithSecondaryRenderer, shouldSecondaryRendererThrow))
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     player.addListener(listener);
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
@@ -1751,7 +1721,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
                     };
                   }
                 })
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     player.addListener(listener);
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
@@ -1843,7 +1812,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
         new TestExoPlayerBuilder(context)
             .setClock(fakeClock)
             .setRenderersFactory(renderersFactoryWithNoSampleRenderer)
-            .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
             .build();
     Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
     Renderer noSampleRenderer = player.getRenderer(/* index= */ 2);

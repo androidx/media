@@ -56,6 +56,7 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Effect;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MimeTypes;
@@ -463,9 +464,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     /**
      * Sets whether the {@link #getDurationToProgressUs} is enabled.
      *
-     * <p>When ExoPlayer's {@link ExoPlayer.Builder#experimentalSetDynamicSchedulingEnabled dynamic
-     * scheduling} is enabled, ExoPlayer uses {@link Renderer#getDurationToProgressUs} to better
-     * align when it wakes the CPU with when player progress can be made.
+     * <p>When ExoPlayer's {@linkplain Flags#FLAG_DYNAMIC_SCHEDULING dynamic scheduling} is enabled,
+     * ExoPlayer uses {@link Renderer#getDurationToProgressUs} to better align when it wakes the CPU
+     * with when player progress can be made.
      *
      * <p>If {@code true}, then if the {@link MediaCodec} decoder is set up in asynchronous mode
      * with a registered {@link MediaCodec.Callback} listener, {@link #getDurationToProgressUs} will
@@ -474,7 +475,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
      *
      * <p>This method is experimental and will be renamed or removed in a future release.
      *
-     * @see ExoPlayer.Builder#experimentalSetDynamicSchedulingEnabled(boolean)
+     * @see Flags#FLAG_DYNAMIC_SCHEDULING
      */
     @CanIgnoreReturnValue
     @ExperimentalApi // TODO: b/369523131 - Remove once experiment is complete.
@@ -1000,7 +1001,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           mayRenderStartOfStream
               ? RELEASE_FIRST_FRAME_IMMEDIATELY
               : RELEASE_FIRST_FRAME_WHEN_STARTED;
-      experimentalEnableProcessedStreamChangedAtStart();
     } else {
       videoFrameReleaseControl.setClock(getClock());
       int firstFrameReleaseInstruction =
@@ -2235,6 +2235,12 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (!tunneling) {
       buffersInCodecCount--;
     }
+  }
+
+  @Override
+  @ExperimentalApi // TODO: b/470373575 - Remove this method.
+  protected boolean shouldProcessStreamChangeAtStart() {
+    return videoSink != null;
   }
 
   @Override

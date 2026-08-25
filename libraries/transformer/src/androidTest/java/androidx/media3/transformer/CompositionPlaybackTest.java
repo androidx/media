@@ -33,6 +33,7 @@ import android.content.Context;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
+import androidx.media3.common.Flags;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaItem.ClippingConfiguration;
 import androidx.media3.common.Player;
@@ -43,6 +44,7 @@ import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.TeeAudioProcessor;
 import androidx.media3.test.utils.CountDownFuture;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.PassthroughAudioProcessor;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
@@ -62,12 +64,15 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Ignore;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Playback tests for {@link CompositionPlayer} */
 @RunWith(AndroidJUnit4.class)
 public class CompositionPlaybackTest {
+
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
 
   private static final MediaItem VIDEO_MEDIA_ITEM = MediaItem.fromUri(MP4_ADVANCED_ASSET.uri);
   private static final long VIDEO_DURATION_US = MP4_ADVANCED_ASSET.videoDurationUs;
@@ -767,6 +772,11 @@ public class CompositionPlaybackTest {
       boolean videoPrewarmingEnabled,
       boolean perStreamMediaProgressionEnabled)
       throws InterruptedException, ExecutionException {
+    if (perStreamMediaProgressionEnabled) {
+      Flags.enableFlag(Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION);
+    } else {
+      Flags.disableFlag(Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION);
+    }
     SettableFuture<Void> endedFuture = SettableFuture.create();
     DecoderCountersListener decoderCountersListener = new DecoderCountersListener();
     getInstrumentation()
@@ -776,7 +786,6 @@ public class CompositionPlaybackTest {
                   new CompositionPlayer.Builder(context)
                       .setVideoPrewarmingEnabled(videoPrewarmingEnabled)
                       .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-                      .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
                       .build();
               endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
               player.addAnalyticsListener(decoderCountersListener);

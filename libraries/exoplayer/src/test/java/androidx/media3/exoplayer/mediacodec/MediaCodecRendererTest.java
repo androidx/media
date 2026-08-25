@@ -47,6 +47,7 @@ import android.os.SystemClock;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Clock;
@@ -65,6 +66,7 @@ import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.test.utils.FakeSampleStream;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.base.Supplier;
@@ -74,6 +76,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
@@ -83,6 +87,8 @@ import org.robolectric.annotation.Config;
 /** Unit tests for {@link MediaCodecRenderer} */
 @RunWith(AndroidJUnit4.class)
 public class MediaCodecRendererTest {
+
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
 
   private static final Format AUDIO_AAC =
       new Format.Builder()
@@ -96,6 +102,11 @@ public class MediaCodecRendererTest {
           .setChannelCount(2)
           .setSampleRate(48000)
           .build();
+
+  @Before
+  public void setUp() {
+    Flags.enableFlag(Flags.FLAG_PROCESSED_STREAM_CHANGED_AT_START);
+  }
 
   @Test
   public void render_withReplaceStream_triggersOutputCallbacksInCorrectOrder() throws Exception {
@@ -1107,7 +1118,6 @@ public class MediaCodecRendererTest {
                       /* forceSecure= */ false)),
           /* enableDecoderFallback= */ false,
           /* assumedMinimumCodecOperatingRate= */ 0);
-      experimentalEnableProcessedStreamChangedAtStart();
     }
 
     @Override

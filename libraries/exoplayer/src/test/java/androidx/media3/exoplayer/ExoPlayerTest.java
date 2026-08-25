@@ -105,6 +105,7 @@ import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
@@ -176,6 +177,7 @@ import androidx.media3.extractor.metadata.id3.TextInformationFrame;
 import androidx.media3.test.utils.ActionSchedule;
 import androidx.media3.test.utils.ActionSchedule.PlayerRunnable;
 import androidx.media3.test.utils.ActionSchedule.PlayerTarget;
+import androidx.media3.test.utils.BindFlag;
 import androidx.media3.test.utils.EmptyMediaSource;
 import androidx.media3.test.utils.ExoPlayerTestRunner;
 import androidx.media3.test.utils.FakeAudioRenderer;
@@ -195,6 +197,7 @@ import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
 import androidx.media3.test.utils.FakeTrackSelection;
 import androidx.media3.test.utils.FakeTrackSelector;
 import androidx.media3.test.utils.FakeVideoRenderer;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.ReleaseListener;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.media3.test.utils.robolectric.IdlingMediaCodecAdapterFactory;
@@ -268,11 +271,14 @@ public final class ExoPlayerTest {
   public ShadowMediaCodecConfig mediaCodecConfig =
       ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
+
   @Parameter(0)
   public boolean isPreloadEnabled;
 
   // TODO: b/510217604 - Remove parameterization.
   @Parameter(1)
+  @BindFlag(Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION)
   public boolean perStreamMediaProgressionEnabled;
 
   private Context context;
@@ -284,19 +290,16 @@ public final class ExoPlayerTest {
     placeholderTimeline =
         new MaskingMediaSource.PlaceholderTimeline(FAKE_MEDIA_ITEM.buildUpon().setTag(0).build());
     ExoPlayer.Builder.experimentalEnableStuckPlayingDetection = true;
+    Flags.disableFlag(Flags.FLAG_DYNAMIC_SCHEDULING);
   }
 
   private TestExoPlayerBuilder parameterizeTestExoPlayerBuilder(TestExoPlayerBuilder builder) {
-    return builder
-        .setPreloadConfiguration(preloadConfigurationsList.get(isPreloadEnabled ? 1 : 0))
-        .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled);
+    return builder.setPreloadConfiguration(preloadConfigurationsList.get(isPreloadEnabled ? 1 : 0));
   }
 
   private ExoPlayerTestRunner.Builder parameterizeExoPlayerTestRunnerBuilder(
       ExoPlayerTestRunner.Builder builder) {
-    return builder
-        .setPreloadConfiguration(preloadConfigurationsList.get(isPreloadEnabled ? 1 : 0))
-        .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled);
+    return builder.setPreloadConfiguration(preloadConfigurationsList.get(isPreloadEnabled ? 1 : 0));
   }
 
   /**
@@ -9935,6 +9938,7 @@ public final class ExoPlayerTest {
   @Test
   public void play_withDynamicSchedulingEnabled_usesRendererDurationSchedulingInterval()
       throws Exception {
+    Flags.enableFlag(Flags.FLAG_DYNAMIC_SCHEDULING);
     AtomicInteger renderCounter = new AtomicInteger();
     ForwardingDurationToProgressRenderer fakeRenderer =
         new ForwardingDurationToProgressRenderer(
@@ -9943,11 +9947,7 @@ public final class ExoPlayerTest {
             renderCounter);
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ExoPlayer player =
-        new TestExoPlayerBuilder(context)
-            .setClock(clock)
-            .setDynamicSchedulingEnabled(true)
-            .setRenderers(fakeRenderer)
-            .build();
+        new TestExoPlayerBuilder(context).setClock(clock).setRenderers(fakeRenderer).build();
     player.setMediaSource(
         new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT));
     player.prepare();
@@ -9993,6 +9993,7 @@ public final class ExoPlayerTest {
   public void
       play_withDynamicSchedulingEnabledAndMultipleRenderers_usesMinimumDurationSchedulingInterval()
           throws Exception {
+    Flags.enableFlag(Flags.FLAG_DYNAMIC_SCHEDULING);
     AtomicInteger audioRenderCounter = new AtomicInteger();
     ForwardingDurationToProgressRenderer fakeAudioRenderer =
         new ForwardingDurationToProgressRenderer(
@@ -10008,7 +10009,6 @@ public final class ExoPlayerTest {
     ExoPlayer player =
         new TestExoPlayerBuilder(context)
             .setClock(clock)
-            .setDynamicSchedulingEnabled(true)
             .setRenderers(fakeAudioRenderer, fakeVideoRenderer)
             .build();
     player.setMediaSource(
@@ -10032,6 +10032,7 @@ public final class ExoPlayerTest {
   @Test
   public void prepareOnly_withDynamicSchedulingEnabled_usesDefaultIdleSchedulingInterval()
       throws Exception {
+    Flags.enableFlag(Flags.FLAG_DYNAMIC_SCHEDULING);
     AtomicInteger renderCounter = new AtomicInteger();
     FakeRenderer fakeRenderer =
         new FakeRenderer(C.TRACK_TYPE_AUDIO) {
@@ -10043,11 +10044,7 @@ public final class ExoPlayerTest {
         };
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ExoPlayer player =
-        new TestExoPlayerBuilder(context)
-            .setClock(clock)
-            .setDynamicSchedulingEnabled(true)
-            .setRenderers(fakeRenderer)
-            .build();
+        new TestExoPlayerBuilder(context).setClock(clock).setRenderers(fakeRenderer).build();
     player.setMediaSource(
         new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT));
     player.prepare();
@@ -10064,6 +10061,7 @@ public final class ExoPlayerTest {
   @Test
   public void play_withDynamicSchedulingEnabledAndInBufferingState_usesBufferingSchedulingInterval()
       throws Exception {
+    Flags.enableFlag(Flags.FLAG_DYNAMIC_SCHEDULING);
     AtomicInteger renderCounter = new AtomicInteger();
     AtomicBoolean allowStreamRead = new AtomicBoolean();
     ForwardingDurationToProgressRenderer fakeRenderer =
@@ -10080,11 +10078,7 @@ public final class ExoPlayerTest {
         };
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ExoPlayer player =
-        new TestExoPlayerBuilder(context)
-            .setClock(clock)
-            .setDynamicSchedulingEnabled(true)
-            .setRenderers(fakeRenderer)
-            .build();
+        new TestExoPlayerBuilder(context).setClock(clock).setRenderers(fakeRenderer).build();
     // Prevent reading any samples to keep player in a buffering state.
     FakeDelayedMediaSource fakeDelayedMediaSource =
         new FakeDelayedMediaSource(
@@ -10106,6 +10100,7 @@ public final class ExoPlayerTest {
   @Test
   @Config(minSdk = 31)
   public void play_withDynamicSchedulingEnabled_wakesUpExoPlayerForWork() throws Exception {
+    Flags.enableFlag(Flags.FLAG_DYNAMIC_SCHEDULING);
     AtomicInteger renderCounter = new AtomicInteger();
     AtomicBoolean queuedInputBuffer = new AtomicBoolean();
     AtomicBoolean allowProgressInRenderBeyondFirstBuffer = new AtomicBoolean();
@@ -10153,7 +10148,6 @@ public final class ExoPlayerTest {
     ExoPlayer player =
         new TestExoPlayerBuilder(context)
             .setRenderersFactory(renderersFactory)
-            .setDynamicSchedulingEnabled(true)
             .setClock(clock)
             .build();
     player.setMediaSource(
@@ -10176,6 +10170,7 @@ public final class ExoPlayerTest {
   @Test
   public void getCurrentPosition_withDynamicSchedulingEnabled_calculatesUsingEstimatedPosition()
       throws Exception {
+    Flags.enableFlag(Flags.FLAG_DYNAMIC_SCHEDULING);
     AtomicInteger renderCounter = new AtomicInteger();
     ForwardingDurationToProgressRenderer fakeRenderer =
         new ForwardingDurationToProgressRenderer(
@@ -10184,11 +10179,7 @@ public final class ExoPlayerTest {
             renderCounter);
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ExoPlayer player =
-        new TestExoPlayerBuilder(context)
-            .setClock(clock)
-            .setDynamicSchedulingEnabled(true)
-            .setRenderers(fakeRenderer)
-            .build();
+        new TestExoPlayerBuilder(context).setClock(clock).setRenderers(fakeRenderer).build();
     player.setMediaSource(
         new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT));
     player.prepare();
@@ -10208,6 +10199,7 @@ public final class ExoPlayerTest {
   public void
       getCurrentPosition_withDynamicSchedulingEnabledAndPaused_calculatedPositionIsNotExtrapolated()
           throws Exception {
+    Flags.enableFlag(Flags.FLAG_DYNAMIC_SCHEDULING);
     AtomicInteger renderCounter = new AtomicInteger();
     ForwardingDurationToProgressRenderer fakeRenderer =
         new ForwardingDurationToProgressRenderer(
@@ -10216,11 +10208,7 @@ public final class ExoPlayerTest {
             renderCounter);
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ExoPlayer player =
-        new TestExoPlayerBuilder(context)
-            .setClock(clock)
-            .setDynamicSchedulingEnabled(true)
-            .setRenderers(fakeRenderer)
-            .build();
+        new TestExoPlayerBuilder(context).setClock(clock).setRenderers(fakeRenderer).build();
     player.setMediaSource(
         new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT));
     player.prepare();
@@ -10241,6 +10229,7 @@ public final class ExoPlayerTest {
   public void
       getCurrentPosition_withDynamicSchedulingEnabledAndPlayThenPaused_returnsMaskedEstimatedPosition()
           throws Exception {
+    Flags.enableFlag(Flags.FLAG_DYNAMIC_SCHEDULING);
     AtomicInteger renderCounter = new AtomicInteger();
     ForwardingDurationToProgressRenderer fakeRenderer =
         new ForwardingDurationToProgressRenderer(
@@ -10249,11 +10238,7 @@ public final class ExoPlayerTest {
             renderCounter);
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ExoPlayer player =
-        new TestExoPlayerBuilder(context)
-            .setClock(clock)
-            .setDynamicSchedulingEnabled(true)
-            .setRenderers(fakeRenderer)
-            .build();
+        new TestExoPlayerBuilder(context).setClock(clock).setRenderers(fakeRenderer).build();
     player.setMediaSource(
         new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT));
     player.prepare();
@@ -10277,6 +10262,7 @@ public final class ExoPlayerTest {
   public void
       getCurrentPosition_withDynamicSchedulingEnabledAndStopped_returnsMaskedEstimatedPosition()
           throws Exception {
+    Flags.enableFlag(Flags.FLAG_DYNAMIC_SCHEDULING);
     AtomicInteger renderCounter = new AtomicInteger();
     ForwardingDurationToProgressRenderer fakeRenderer =
         new ForwardingDurationToProgressRenderer(
@@ -10285,11 +10271,7 @@ public final class ExoPlayerTest {
             renderCounter);
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ExoPlayer player =
-        new TestExoPlayerBuilder(context)
-            .setClock(clock)
-            .setDynamicSchedulingEnabled(true)
-            .setRenderers(fakeRenderer)
-            .build();
+        new TestExoPlayerBuilder(context).setClock(clock).setRenderers(fakeRenderer).build();
     player.setMediaSource(
         new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT));
     player.prepare();
@@ -10313,6 +10295,7 @@ public final class ExoPlayerTest {
   public void
       getCurrentPosition_withDynamicSchedulingEnabledAndSpeedChangedBeforeClockAdvance_calculatesCorrectPositionEstimate()
           throws Exception {
+    Flags.enableFlag(Flags.FLAG_DYNAMIC_SCHEDULING);
     AtomicInteger renderCounter = new AtomicInteger();
     ForwardingDurationToProgressRenderer fakeRenderer =
         new ForwardingDurationToProgressRenderer(
@@ -10321,11 +10304,7 @@ public final class ExoPlayerTest {
             renderCounter);
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ExoPlayer player =
-        new TestExoPlayerBuilder(context)
-            .setClock(clock)
-            .setDynamicSchedulingEnabled(true)
-            .setRenderers(fakeRenderer)
-            .build();
+        new TestExoPlayerBuilder(context).setClock(clock).setRenderers(fakeRenderer).build();
     player.setMediaSource(
         new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT));
     player.prepare();
@@ -10347,6 +10326,7 @@ public final class ExoPlayerTest {
   public void
       getCurrentPosition_withDynamicSchedulingEnabledAndSpeedChangedAfterClockAdvance_calculatesCorrectPositionEstimate()
           throws Exception {
+    Flags.enableFlag(Flags.FLAG_DYNAMIC_SCHEDULING);
     AtomicInteger renderCounter = new AtomicInteger();
     ForwardingDurationToProgressRenderer fakeRenderer =
         new ForwardingDurationToProgressRenderer(
@@ -10355,11 +10335,7 @@ public final class ExoPlayerTest {
             renderCounter);
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ExoPlayer player =
-        new TestExoPlayerBuilder(context)
-            .setClock(clock)
-            .setDynamicSchedulingEnabled(true)
-            .setRenderers(fakeRenderer)
-            .build();
+        new TestExoPlayerBuilder(context).setClock(clock).setRenderers(fakeRenderer).build();
     player.setMediaSource(
         new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT));
     player.prepare();
@@ -10382,6 +10358,7 @@ public final class ExoPlayerTest {
   @Test
   public void getCurrentPosition_withDynamicSchedulingEnabled_enforcesMonotonicPositionTracking()
       throws Exception {
+    Flags.enableFlag(Flags.FLAG_DYNAMIC_SCHEDULING);
     AtomicInteger renderCounter = new AtomicInteger();
     AtomicLong rendererPositionUs = new AtomicLong(0);
     ForwardingDurationToProgressRenderer fakeRenderer =
@@ -10404,11 +10381,7 @@ public final class ExoPlayerTest {
             renderCounter);
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ExoPlayer player =
-        new TestExoPlayerBuilder(context)
-            .setClock(clock)
-            .setDynamicSchedulingEnabled(true)
-            .setRenderers(fakeRenderer)
-            .build();
+        new TestExoPlayerBuilder(context).setClock(clock).setRenderers(fakeRenderer).build();
     player.setMediaSource(
         new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT));
     player.prepare();
@@ -10447,6 +10420,7 @@ public final class ExoPlayerTest {
   public void
       getCurrentPosition_withDynamicSchedulingEnabled_playAfterPauseDoesNotExtrapolateBeforeInternalThreadCatchesUp()
           throws Exception {
+    Flags.enableFlag(Flags.FLAG_DYNAMIC_SCHEDULING);
     AtomicInteger renderCounter = new AtomicInteger();
     ForwardingDurationToProgressRenderer fakeRenderer =
         new ForwardingDurationToProgressRenderer(
@@ -10455,11 +10429,7 @@ public final class ExoPlayerTest {
             renderCounter);
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ExoPlayer player =
-        new TestExoPlayerBuilder(context)
-            .setClock(clock)
-            .setDynamicSchedulingEnabled(true)
-            .setRenderers(fakeRenderer)
-            .build();
+        new TestExoPlayerBuilder(context).setClock(clock).setRenderers(fakeRenderer).build();
     player.setMediaSource(
         new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT));
 
@@ -10480,6 +10450,7 @@ public final class ExoPlayerTest {
   @Test
   public void play_backwardSeekWithDynamicScheduling_reportsCorrectTargetInDiscontinuityCallback()
       throws Exception {
+    Flags.enableFlag(Flags.FLAG_DYNAMIC_SCHEDULING);
     AtomicInteger renderCounter = new AtomicInteger();
     AtomicLong reportedNewPositionMs = new AtomicLong(C.TIME_UNSET);
     ForwardingDurationToProgressRenderer fakeRenderer =
@@ -10489,11 +10460,7 @@ public final class ExoPlayerTest {
             renderCounter);
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ExoPlayer player =
-        new TestExoPlayerBuilder(context)
-            .setClock(clock)
-            .setDynamicSchedulingEnabled(true)
-            .setRenderers(fakeRenderer)
-            .build();
+        new TestExoPlayerBuilder(context).setClock(clock).setRenderers(fakeRenderer).build();
     player.setMediaSource(
         new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT));
     player.prepare();
@@ -14728,6 +14695,7 @@ public final class ExoPlayerTest {
           }
         };
 
+    Flags.disableFlag(Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION);
     ExoPlayer player =
         new TestExoPlayerBuilder(context).setRenderersFactory(renderersFactory).build();
     Format formatA =
@@ -15210,6 +15178,7 @@ public final class ExoPlayerTest {
             super.render(positionUs, elapsedRealtimeUs);
           }
         };
+    Flags.enableFlag(Flags.FLAG_DYNAMIC_SCHEDULING);
     ExoPlayer player =
         new ExoPlayer.Builder(context)
             .setClock(clock)
@@ -15219,7 +15188,6 @@ public final class ExoPlayerTest {
                     audioRendererEventListener,
                     textRendererOutput,
                     metadataRendererOutput) -> new Renderer[] {fakeRenderer})
-            .experimentalSetDynamicSchedulingEnabled(true)
             .build();
     player.setMediaSource(
         new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT));

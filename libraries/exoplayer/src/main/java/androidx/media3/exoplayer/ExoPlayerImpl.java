@@ -396,8 +396,6 @@ import java.util.function.IntConsumer;
               builder.livePlaybackSpeedControl,
               builder.releaseTimeoutMs,
               pauseAtEndOfMediaItems,
-              builder.dynamicSchedulingEnabled,
-              builder.perStreamMediaProgressionEnabled,
               applicationLooper,
               clock,
               playbackInfoUpdateListener,

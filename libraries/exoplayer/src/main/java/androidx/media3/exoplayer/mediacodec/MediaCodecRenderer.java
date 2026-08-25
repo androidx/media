@@ -414,7 +414,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private OutputStreamInfo outputStreamInfo;
   private long lastProcessedOutputBufferTimeUs;
   private boolean needToNotifyOutputFormatChangeAfterStreamChange;
-  private boolean experimentalEnableProcessedStreamChangedAtStart;
   private boolean hasSkippedFlushAndWaitingForQueueInputBuffer;
   private long skippedFlushOffsetUs;
   private long largestStaleModifiedPresentationTimeUs;
@@ -532,17 +531,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         positionUs,
         elapsedRealtimeUs,
         /* isOnBufferAvailableListenerRegistered= */ codecRegisteredOnBufferAvailableListener);
-  }
-
-  /**
-   * Enables the renderer to invoke {@link #onProcessedStreamChange()} on the first stream.
-   *
-   * <p>When not enabled, {@link #onProcessedStreamChange()} is invoked from the second stream
-   * onwards.
-   */
-  @ExperimentalApi // TODO: b/470373575 - Enable this feature by default.
-  public void experimentalEnableProcessedStreamChangedAtStart() {
-    this.experimentalEnableProcessedStreamChangedAtStart = true;
   }
 
   /**
@@ -777,7 +765,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
               offsetUs,
               durationUs,
               streamFlags));
-      if (experimentalEnableProcessedStreamChangedAtStart
+      if (shouldProcessStreamChangeAtStart()
           || Flags.isEnabled(Flags.FLAG_PROCESSED_STREAM_CHANGED_AT_START)) {
         onProcessedStreamChange();
       }
@@ -2054,6 +2042,17 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   /** Called after the last output buffer before a stream change has been processed. */
   protected void onProcessedStreamChange() {
     // Do nothing.
+  }
+
+  /**
+   * Returns whether {@link #onProcessedStreamChange()} should be invoked on the first stream.
+   *
+   * <p>Subclasses can override this method if they need stream change processing for the initial
+   * stream even when {@linkplain Flags#FLAG_PROCESSED_STREAM_CHANGED_AT_START} is disabled.
+   */
+  @ExperimentalApi // TODO: b/470373575 - Remove this method.
+  protected boolean shouldProcessStreamChangeAtStart() {
+    return false;
   }
 
   /**

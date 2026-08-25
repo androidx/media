@@ -19,8 +19,9 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.media.metrics.PlaybackMetrics;
 import androidx.media3.common.Flags;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import org.junit.After;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
@@ -30,13 +31,10 @@ import org.robolectric.annotation.Config;
 @Config(minSdk = 31)
 public final class MediaMetricsListenerTest {
 
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
+
   private static final @Flags.Flag int TEST_FLAG_1 = 1_000_000;
   private static final @Flags.Flag int TEST_FLAG_2 = 1_000_001;
-
-  @After
-  public void tearDown() {
-    Flags.resetForTesting();
-  }
 
   @Test
   public void addFlagExperimentIds_defaultCanaryMode_addsNoExperimentIds() {

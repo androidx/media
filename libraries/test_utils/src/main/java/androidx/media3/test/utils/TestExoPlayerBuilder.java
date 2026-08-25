@@ -62,8 +62,6 @@ public class TestExoPlayerBuilder {
   private boolean deviceVolumeControlEnabled;
   private boolean suppressPlaybackWhenUnsuitableOutput;
   @Nullable private ExoPlayer.PreloadConfiguration preloadConfiguration;
-  private boolean dynamicSchedulingEnabled;
-  private boolean perStreamMediaProgressionEnabled;
   private int stuckPlayingDetectionTimeoutMs;
   private int stuckSuppressedDetectionTimeoutMs;
   private boolean enforceAdPlaybackOnTimelineRefresh;
@@ -401,19 +399,6 @@ public class TestExoPlayerBuilder {
   }
 
   /**
-   * See {@link ExoPlayer.Builder#experimentalSetDynamicSchedulingEnabled(boolean)} for details.
-   *
-   * @param dynamicSchedulingEnabled Whether the player should enable dynamically schedule its
-   *     playback loop for when {@link Renderer} progress can be made.
-   * @return This builder.
-   */
-  @CanIgnoreReturnValue
-  public TestExoPlayerBuilder setDynamicSchedulingEnabled(boolean dynamicSchedulingEnabled) {
-    this.dynamicSchedulingEnabled = dynamicSchedulingEnabled;
-    return this;
-  }
-
-  /**
    * See {@link ExoPlayer.Builder#setStuckPlayingDetectionTimeoutMs} for details.
    *
    * @param stuckPlayingDetectionTimeoutMs The timeout after which the player is assumed stuck
@@ -451,19 +436,6 @@ public class TestExoPlayerBuilder {
   public TestExoPlayerBuilder setEnforceAdPlaybackOnTimelineRefresh(
       boolean enforceAdPlaybackOnTimelineRefresh) {
     this.enforceAdPlaybackOnTimelineRefresh = enforceAdPlaybackOnTimelineRefresh;
-    return this;
-  }
-
-  /**
-   * See {@link ExoPlayer.Builder#enablePerStreamMediaProgression} for details.
-   *
-   * @param perStreamMediaProgressionEnabled Whether to enable per stream media period progression.
-   * @return This builder.
-   */
-  @CanIgnoreReturnValue // TODO: b/510217604 - Remove this method.
-  public TestExoPlayerBuilder setPerStreamMediaProgressionEnabled(
-      boolean perStreamMediaProgressionEnabled) {
-    this.perStreamMediaProgressionEnabled = perStreamMediaProgressionEnabled;
     return this;
   }
 
@@ -506,11 +478,9 @@ public class TestExoPlayerBuilder {
             .setMaxSeekToPreviousPositionMs(maxSeekToPreviousPositionMs)
             .setDeviceVolumeControlEnabled(deviceVolumeControlEnabled)
             .setSuppressPlaybackOnUnsuitableOutput(suppressPlaybackWhenUnsuitableOutput)
-            .experimentalSetDynamicSchedulingEnabled(dynamicSchedulingEnabled)
             .setStuckPlayingDetectionTimeoutMs(stuckPlayingDetectionTimeoutMs)
             .setStuckSuppressedDetectionTimeoutMs(stuckSuppressedDetectionTimeoutMs)
-            .setEnforceAdPlaybackOnTimelineRefresh(enforceAdPlaybackOnTimelineRefresh)
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled);
+            .setEnforceAdPlaybackOnTimelineRefresh(enforceAdPlaybackOnTimelineRefresh);
     if (suitableOutputChecker != null) {
       builder.setSuitableOutputChecker(suitableOutputChecker);
     }

@@ -41,6 +41,7 @@ import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -73,6 +74,7 @@ import androidx.media3.test.utils.FakeMediaSourceFactory;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
 import androidx.media3.test.utils.FakeVideoRenderer;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.media3.test.utils.robolectric.RobolectricUtil;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
@@ -118,8 +120,10 @@ public class ExoPlayerAdTest {
   }
 
   @Rule
-  public ShadowMediaCodecConfig mediaCodecConfig =
+  public final ShadowMediaCodecConfig mediaCodecConfig =
       ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
+
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
 
   // The explicit boolean parameter is only used to give clear test names.
   @Parameter(0)
@@ -132,6 +136,7 @@ public class ExoPlayerAdTest {
 
   @Before
   public void setUp() {
+    Flags.disableFlag(Flags.FLAG_DYNAMIC_SCHEDULING);
     context = ApplicationProvider.getApplicationContext();
     ExoPlayer.Builder.experimentalEnableStuckPlayingDetection = true;
   }

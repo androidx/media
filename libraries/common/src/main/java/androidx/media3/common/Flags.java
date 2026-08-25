@@ -52,6 +52,11 @@ import java.lang.annotation.Target;
  * components (e.g., {@code ExoPlayer}, {@code Transformer}). Flag queries from other threads (e.g.,
  * the playback thread) rely on happens-before relationships established by {@link Thread#start()}
  * and {@link android.os.Handler} message posting during component setup.
+ *
+ * <p><b>Testing</b>
+ *
+ * <p>In unit tests, {@code androidx.media3.test.utils.Media3FlagsRule} is the preferred way to
+ * manage flag states and automatically reset all flag overrides and canary mode after each test.
  */
 @UnstableApi
 public final class Flags {
@@ -352,7 +357,9 @@ public final class Flags {
    * Resets the flag registry to its default configuration (all overrides cleared, canary mode
    * enabled).
    *
-   * <p>This is intended for use in tests only to avoid test pollution.
+   * <p>This is intended for use in tests only to avoid test pollution. In unit tests, {@code
+   * androidx.media3.test.utils.Media3FlagsRule} is the preferred alternative to calling this method
+   * directly.
    */
   @VisibleForTesting
   public static synchronized void resetForTesting() {

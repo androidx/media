@@ -75,6 +75,7 @@ import android.view.Surface;
 import android.view.TextureView;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -112,6 +113,7 @@ import androidx.media3.test.utils.CapturingFrameProcessor.FramesEvent;
 import androidx.media3.test.utils.EditedMediaItemAssetInfo;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeFrameProcessor;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.SequenceAssetInfo;
 import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
@@ -441,6 +443,8 @@ public class CompositionPlayerTest {
           },
           /* expectedDurationMs= */ 900,
           "AUDIO_ITEM_WITH_CLIPPED_START_AND_END_WITH_SET_HALF_SPEED");
+
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
 
   @MonotonicNonNull CompositionPlayer player;
 
@@ -2049,10 +2053,8 @@ public class CompositionPlayerTest {
                         EditedMediaItemAssetInfo.VIDEO.getEditedMediaItem(),
                         EditedMediaItemAssetInfo.IMAGE.getEditedMediaItem())))
             .build();
-    player =
-        createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory)
-            .setPerStreamMediaProgressionEnabled(true)
-            .build();
+    Flags.enableFlag(Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION);
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
 
     player.setComposition(composition);
     player.prepare();
@@ -3391,11 +3393,11 @@ public class CompositionPlayerTest {
     // Force release every frame.
     AutomaticOutputFrameTimingEvaluator frameTimingEvaluator =
         new AutomaticOutputFrameTimingEvaluator();
+    Flags.enableFlag(Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION);
     player =
         createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory)
             .setAudioSink(customAudioSink)
             .setClock(clock)
-            .setPerStreamMediaProgressionEnabled(true)
             .setFrameTimingEvaluator(frameTimingEvaluator)
             .build();
 

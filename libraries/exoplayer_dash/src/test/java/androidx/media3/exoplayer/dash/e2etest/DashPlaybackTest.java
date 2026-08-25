@@ -37,6 +37,7 @@ import android.os.Looper;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.ParserException;
@@ -72,8 +73,10 @@ import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
+import androidx.media3.test.utils.BindFlag;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.ThrowingSubtitleParserFactory;
 import androidx.media3.test.utils.WebServerDispatcher;
 import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
@@ -114,6 +117,7 @@ public final class DashPlaybackTest {
   }
 
   @ParameterizedRobolectricTestRunner.Parameter(0)
+  @BindFlag(Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION)
   public Boolean perStreamMediaProgressionEnabled;
 
   @Rule
@@ -121,6 +125,8 @@ public final class DashPlaybackTest {
       ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
+
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
 
   @Test
   public void webvttStandaloneFile() throws Exception {
@@ -131,7 +137,6 @@ public final class DashPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -171,7 +176,6 @@ public final class DashPlaybackTest {
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
             .setMediaSourceFactory(new DefaultMediaSourceFactory(webvttNotFoundDataSourceFactory))
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -212,7 +216,6 @@ public final class DashPlaybackTest {
                     .setSubtitleParserFactory(
                         new ThrowingSubtitleParserFactory(
                             () -> new IllegalStateException("test subtitle parsing error"))))
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -253,7 +256,6 @@ public final class DashPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -286,7 +288,6 @@ public final class DashPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -360,7 +361,6 @@ public final class DashPlaybackTest {
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
             .setStuckBufferingDetectionTimeoutMs(Integer.MAX_VALUE)
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -428,7 +428,6 @@ public final class DashPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -468,7 +467,6 @@ public final class DashPlaybackTest {
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
             .setMediaSourceFactory(new DefaultMediaSourceFactory(ttmlNotFoundDataSourceFactory))
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -509,7 +507,6 @@ public final class DashPlaybackTest {
                     .setSubtitleParserFactory(
                         new ThrowingSubtitleParserFactory(
                             () -> new IllegalStateException("test subtitle parsing error"))))
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -557,7 +554,6 @@ public final class DashPlaybackTest {
                 new DashMediaSource.Factory(new DefaultDataSource.Factory(applicationContext))
                     .experimentalParseSubtitlesDuringExtraction(false))
             .setClock(clock)
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -599,7 +595,6 @@ public final class DashPlaybackTest {
                 new DashMediaSource.Factory(new DefaultDataSource.Factory(applicationContext))
                     .experimentalParseSubtitlesDuringExtraction(true))
             .setClock(clock)
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -632,7 +627,6 @@ public final class DashPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -662,7 +656,6 @@ public final class DashPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, renderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -699,7 +692,6 @@ public final class DashPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, renderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -731,7 +723,6 @@ public final class DashPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     PlaybackOutput playbackOutput = PlaybackOutput.registerWithoutRendererCapture(player);
 
@@ -755,7 +746,6 @@ public final class DashPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     PlaybackOutput playbackOutput = PlaybackOutput.registerWithoutRendererCapture(player);
     player.setMediaItem(MediaItem.fromUri("asset:///media/dash/thumbnails/sample.mpd"));
@@ -795,7 +785,6 @@ public final class DashPlaybackTest {
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setMediaSourceFactory(dashMediaSourceFactory)
             .setClock(clock)
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -829,7 +818,6 @@ public final class DashPlaybackTest {
         new ExoPlayer.Builder(applicationContext)
             .setMediaSourceFactory(dashMediaSourceFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
 
     player.setMediaItem(MediaItem.fromUri("asset:///media/dash/standalone-webvtt/sample.mpd"));
@@ -865,7 +853,6 @@ public final class DashPlaybackTest {
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setMediaSourceFactory(dashMediaSourceFactory)
             .setClock(clock)
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     player.setTrackSelectionParameters(
         player.getTrackSelectionParameters().buildUpon().setPreferredTextLanguage("en").build());
@@ -898,7 +885,6 @@ public final class DashPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -926,7 +912,6 @@ public final class DashPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -967,7 +952,6 @@ public final class DashPlaybackTest {
                             clock,
                             /* shouldDelay= */ dataSpec ->
                                 dataSpec.uri.toString().contains("audio"))))
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -997,7 +981,6 @@ public final class DashPlaybackTest {
             .setMediaSourceFactory(
                 new DefaultMediaSourceFactory(applicationContext)
                     .setCmcdConfigurationFactory(CmcdConfiguration.Factory.DEFAULT))
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -1022,7 +1005,6 @@ public final class DashPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     AnalyticsListenerImpl analyticsListener = new AnalyticsListenerImpl();
     player.addAnalyticsListener(analyticsListener);
@@ -1068,7 +1050,6 @@ public final class DashPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Player.Listener listener = mock(Player.Listener.class);
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
@@ -1108,7 +1089,6 @@ public final class DashPlaybackTest {
             .setMediaSourceFactory(
                 new DefaultMediaSourceFactory(applicationContext)
                     .setCmcdConfigurationFactory(CmcdConfiguration.Factory.DEFAULT))
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -1148,7 +1128,6 @@ public final class DashPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -1175,7 +1154,6 @@ public final class DashPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);

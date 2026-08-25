@@ -295,8 +295,6 @@ import java.util.Objects;
       LivePlaybackSpeedControl livePlaybackSpeedControl,
       long releaseTimeoutMs,
       boolean pauseAtEndOfWindow,
-      boolean dynamicSchedulingEnabled,
-      boolean perStreamMediaProgressionEnabled,
       Looper applicationLooper,
       Clock clock,
       PlaybackInfoUpdateListener playbackInfoUpdateListener,
@@ -316,11 +314,9 @@ import java.util.Objects;
     this.releaseTimeoutMs = releaseTimeoutMs;
     this.setForegroundModeTimeoutMs = releaseTimeoutMs;
     this.pauseAtEndOfWindow = pauseAtEndOfWindow;
-    this.dynamicSchedulingEnabled =
-        dynamicSchedulingEnabled && Flags.isEnabled(Flags.FLAG_DYNAMIC_SCHEDULING);
+    this.dynamicSchedulingEnabled = Flags.isEnabled(Flags.FLAG_DYNAMIC_SCHEDULING);
     this.perStreamMediaProgressionEnabled =
-        perStreamMediaProgressionEnabled
-            || Flags.isEnabled(Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION);
+        Flags.isEnabled(Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION);
     this.clock = clock;
     this.playerId = playerId;
     this.preloadConfiguration = preloadConfiguration;

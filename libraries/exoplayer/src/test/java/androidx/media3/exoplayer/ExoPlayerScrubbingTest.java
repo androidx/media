@@ -50,6 +50,7 @@ import android.util.Pair;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
@@ -80,6 +81,7 @@ import androidx.media3.test.utils.FakeRenderer;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
 import androidx.media3.test.utils.FakeVideoRenderer;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.media3.test.utils.robolectric.IdlingMediaCodecAdapterFactory;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
@@ -112,6 +114,8 @@ public final class ExoPlayerScrubbingTest {
       ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   @Rule public Expect expect = Expect.create();
+
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
 
   @Test
   public void scrubbingMode_getterWorks() throws Exception {
@@ -869,6 +873,7 @@ public final class ExoPlayerScrubbingTest {
   @Ignore("Flaky: b/515127273")
   public void dynamicSchedulingInScrubbingMode_renderCalledMoreFrequentlyThan10ms()
       throws Exception {
+    Flags.disableFlag(Flags.FLAG_DYNAMIC_SCHEDULING);
     Context context = ApplicationProvider.getApplicationContext();
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     IdlingMediaCodecAdapterFactory codecAdapterFactory =
@@ -902,7 +907,6 @@ public final class ExoPlayerScrubbingTest {
     ExoPlayer player =
         new TestExoPlayerBuilder(context)
             .setRenderersFactory(renderersFactory)
-            .setDynamicSchedulingEnabled(false)
             .setClock(clock)
             .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
             .build();
@@ -936,6 +940,7 @@ public final class ExoPlayerScrubbingTest {
   @Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when Robolectric is fixed.
   @Ignore("Flaky: b/515127273")
   public void dynamicSchedulingDisabledInScrubbingMode_renderCalledEvery10ms() throws Exception {
+    Flags.disableFlag(Flags.FLAG_DYNAMIC_SCHEDULING);
     Context context = ApplicationProvider.getApplicationContext();
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     IdlingMediaCodecAdapterFactory codecAdapterFactory =
@@ -969,7 +974,6 @@ public final class ExoPlayerScrubbingTest {
     ExoPlayer player =
         new TestExoPlayerBuilder(context)
             .setRenderersFactory(renderersFactory)
-            .setDynamicSchedulingEnabled(false)
             .setClock(clock)
             .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
             .build();

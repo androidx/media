@@ -30,6 +30,7 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
@@ -356,9 +357,9 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * Sets whether {@link MediaCodecVideoRenderer} supports {@link Renderer#getDurationToProgressUs
    * getDurationToProgressUs}.
    *
-   * <p>When ExoPlayer's {@link ExoPlayer.Builder#experimentalSetDynamicSchedulingEnabled dynamic
-   * scheduling} is enabled, ExoPlayer uses {@link Renderer#getDurationToProgressUs} to better align
-   * when it wakes the CPU with when player progress can be made.
+   * <p>When ExoPlayer's {@linkplain Flags#FLAG_DYNAMIC_SCHEDULING dynamic scheduling} is enabled,
+   * ExoPlayer uses {@link Renderer#getDurationToProgressUs} to better align when it wakes the CPU
+   * with when player progress can be made.
    *
    * <p>If {@code true}, then {@link MediaCodecVideoRenderer} will support {@link
    * Renderer#getDurationToProgressUs getDurationToProgressUs} and only if its {@link MediaCodec}
@@ -369,7 +370,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    *
    * <p>This method is experimental and will be renamed or removed in a future release.
    *
-   * @see ExoPlayer.Builder#experimentalSetDynamicSchedulingEnabled
+   * @see Flags#FLAG_DYNAMIC_SCHEDULING
    */
   @CanIgnoreReturnValue
   @ExperimentalApi // TODO: b/369523131 - Remove once experiment is complete.
