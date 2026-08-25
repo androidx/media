@@ -35,9 +35,8 @@ import java.util.List;
  */
 /* package */ final class SideloadedSubtitlesMediaSource extends WrappingMediaSource {
 
-  private final TimeOffsetMediaSource[] subtitleSources;
-
-  private List<MediaItem.SubtitleConfiguration> subtitleConfigurations;
+  private final long[] timeOffsetsUs;
+  private final ArrayList<TimeOffsetMediaPeriod>[] activeMediaPeriods;
 
   /**
    * Creates the media source.
@@ -53,18 +52,24 @@ import java.util.List;
       List<MediaItem.SubtitleConfiguration> subtitleConfigurations,
       MediaSource[] subtitleMediaSources) {
     this(
+        contentMediaSource,
         subtitleConfigurations,
-        createTimeOffsetSources(subtitleConfigurations, subtitleMediaSources),
-        contentMediaSource);
+        subtitleMediaSources,
+        createTimeOffsetsUs(subtitleConfigurations),
+        createActiveMediaPeriodsArray(subtitleMediaSources.length));
   }
 
   private SideloadedSubtitlesMediaSource(
+      MediaSource contentMediaSource,
       List<MediaItem.SubtitleConfiguration> subtitleConfigurations,
-      TimeOffsetMediaSource[] subtitleSources,
-      MediaSource contentMediaSource) {
-    super(createMergingMediaSource(contentMediaSource, subtitleSources));
-    this.subtitleConfigurations = subtitleConfigurations;
-    this.subtitleSources = subtitleSources;
+      MediaSource[] subtitleMediaSources,
+      long[] timeOffsetsUs,
+      ArrayList<TimeOffsetMediaPeriod>[] activeMediaPeriods) {
+    super(
+        createMergingMediaSource(
+            contentMediaSource, subtitleMediaSources, timeOffsetsUs, activeMediaPeriods));
+    this.timeOffsetsUs = timeOffsetsUs;
+    this.activeMediaPeriods = activeMediaPeriods;
   }
 
   @Override
@@ -77,21 +82,29 @@ import java.util.List;
     super.updateMediaItem(mediaItem);
     List<MediaItem.SubtitleConfiguration> newSubtitleConfigurations =
         checkNotNull(mediaItem.localConfiguration).subtitleConfigurations;
-    for (int i = 0; i < subtitleSources.length; i++) {
-      subtitleSources[i].setTimeOffsetUs(newSubtitleConfigurations.get(i).timeOffsetUs);
+    for (int i = 0; i < timeOffsetsUs.length; i++) {
+      long newTimeOffsetUs = newSubtitleConfigurations.get(i).timeOffsetUs;
+      timeOffsetsUs[i] = newTimeOffsetUs;
+      for (int j = 0; j < activeMediaPeriods[i].size(); j++) {
+        activeMediaPeriods[i].get(j).updateTimeOffsetUs(newTimeOffsetUs);
+      }
     }
-    subtitleConfigurations = newSubtitleConfigurations;
   }
 
   private boolean canUpdateSubtitleConfigurations(MediaItem mediaItem) {
     @Nullable MediaItem.LocalConfiguration localConfiguration = mediaItem.localConfiguration;
+    @Nullable
+    MediaItem.LocalConfiguration currentLocalConfiguration = getMediaItem().localConfiguration;
     if (localConfiguration == null
-        || localConfiguration.subtitleConfigurations.size() != subtitleConfigurations.size()) {
+        || currentLocalConfiguration == null
+        || localConfiguration.subtitleConfigurations.size()
+            != currentLocalConfiguration.subtitleConfigurations.size()) {
       return false;
     }
-    for (int i = 0; i < subtitleConfigurations.size(); i++) {
+    for (int i = 0; i < currentLocalConfiguration.subtitleConfigurations.size(); i++) {
       if (!equalsIgnoringTimeOffset(
-          localConfiguration.subtitleConfigurations.get(i), subtitleConfigurations.get(i))) {
+          localConfiguration.subtitleConfigurations.get(i),
+          currentLocalConfiguration.subtitleConfigurations.get(i))) {
         return false;
       }
     }
@@ -108,90 +121,56 @@ import java.util.List;
         .equals(other);
   }
 
-  private static TimeOffsetMediaSource[] createTimeOffsetSources(
-      List<MediaItem.SubtitleConfiguration> subtitleConfigurations,
-      MediaSource[] subtitleMediaSources) {
-    checkArgument(subtitleConfigurations.size() == subtitleMediaSources.length);
-    TimeOffsetMediaSource[] timeOffsetSources =
-        new TimeOffsetMediaSource[subtitleMediaSources.length];
-    for (int i = 0; i < subtitleMediaSources.length; i++) {
-      timeOffsetSources[i] =
-          new TimeOffsetMediaSource(
-              subtitleMediaSources[i], subtitleConfigurations.get(i).timeOffsetUs);
+  private static long[] createTimeOffsetsUs(
+      List<MediaItem.SubtitleConfiguration> subtitleConfigurations) {
+    long[] timeOffsetsUs = new long[subtitleConfigurations.size()];
+    for (int i = 0; i < subtitleConfigurations.size(); i++) {
+      timeOffsetsUs[i] = subtitleConfigurations.get(i).timeOffsetUs;
     }
-    return timeOffsetSources;
+    return timeOffsetsUs;
+  }
+
+  @SuppressWarnings("unchecked")
+  private static ArrayList<TimeOffsetMediaPeriod>[] createActiveMediaPeriodsArray(int length) {
+    ArrayList<TimeOffsetMediaPeriod>[] array = new ArrayList[length];
+    for (int i = 0; i < length; i++) {
+      array[i] = new ArrayList<>();
+    }
+    return array;
   }
 
   private static MergingMediaSource createMergingMediaSource(
-      MediaSource contentMediaSource, TimeOffsetMediaSource[] subtitleSources) {
-    MediaSource[] mediaSources = new MediaSource[subtitleSources.length + 1];
+      MediaSource contentMediaSource,
+      MediaSource[] subtitleMediaSources,
+      long[] timeOffsetsUs,
+      ArrayList<TimeOffsetMediaPeriod>[] activeMediaPeriods) {
+    checkArgument(subtitleMediaSources.length == timeOffsetsUs.length);
+    MediaSource[] mediaSources = new MediaSource[subtitleMediaSources.length + 1];
     mediaSources[0] = contentMediaSource;
-    System.arraycopy(subtitleSources, 0, mediaSources, 1, subtitleSources.length);
+    for (int i = 0; i < subtitleMediaSources.length; i++) {
+      int subtitleIndex = i;
+      mediaSources[i + 1] =
+          new WrappingMediaSource(subtitleMediaSources[i]) {
+            @Override
+            public MediaPeriod createPeriod(
+                MediaPeriodId id, Allocator allocator, long startPositionUs) {
+              TimeOffsetMediaPeriod mediaPeriod =
+                  new TimeOffsetMediaPeriod(
+                      mediaSource.createPeriod(
+                          id, allocator, startPositionUs - timeOffsetsUs[subtitleIndex]),
+                      timeOffsetsUs[subtitleIndex]);
+              activeMediaPeriods[subtitleIndex].add(mediaPeriod);
+              return mediaPeriod;
+            }
+
+            @Override
+            public void releasePeriod(MediaPeriod mediaPeriod) {
+              TimeOffsetMediaPeriod timeOffsetMediaPeriod = (TimeOffsetMediaPeriod) mediaPeriod;
+              activeMediaPeriods[subtitleIndex].remove(timeOffsetMediaPeriod);
+              mediaSource.releasePeriod(timeOffsetMediaPeriod.getWrappedMediaPeriod());
+            }
+          };
+    }
     return new MergingMediaSource(mediaSources);
-  }
-
-  /**
-   * A {@link MediaSource} that applies a time offset to the timestamps of a wrapped {@link
-   * MediaSource}, and allows updating the offset during playback.
-   *
-   * <p>A positive offset shifts the samples of the wrapped source to later positions on the
-   * playback timeline, a negative offset shifts them to earlier positions. The {@link
-   * androidx.media3.common.Timeline} of the wrapped source is not adjusted, so this source relies
-   * on being merged with another source that defines the timeline.
-   */
-  private static final class TimeOffsetMediaSource extends WrappingMediaSource {
-
-    private final ArrayList<TimeOffsetMediaPeriod> activeMediaPeriods;
-
-    private long timeOffsetUs;
-
-    /**
-     * Creates the time offset source.
-     *
-     * @param mediaSource The wrapped {@link MediaSource}.
-     * @param timeOffsetUs The offset to apply to all timestamps coming from the wrapped source, in
-     *     microseconds.
-     */
-    public TimeOffsetMediaSource(MediaSource mediaSource, long timeOffsetUs) {
-      super(mediaSource);
-      this.timeOffsetUs = timeOffsetUs;
-      this.activeMediaPeriods = new ArrayList<>();
-    }
-
-    /**
-     * Updates the offset that is applied to all timestamps coming from the wrapped source.
-     *
-     * <p>Must be called on the playback thread.
-     *
-     * <p>The new offset is applied to all future interactions with this source and its active
-     * {@linkplain MediaPeriod media periods}. Data already read from the sample streams of active
-     * periods is unaffected, see {@link TimeOffsetMediaPeriod#updateTimeOffsetUs(long)}.
-     *
-     * @param timeOffsetUs The offset to apply to all timestamps coming from the wrapped source, in
-     *     microseconds.
-     */
-    public void setTimeOffsetUs(long timeOffsetUs) {
-      this.timeOffsetUs = timeOffsetUs;
-      for (int i = 0; i < activeMediaPeriods.size(); i++) {
-        activeMediaPeriods.get(i).updateTimeOffsetUs(timeOffsetUs);
-      }
-    }
-
-    @Override
-    public MediaPeriod createPeriod(MediaPeriodId id, Allocator allocator, long startPositionUs) {
-      TimeOffsetMediaPeriod mediaPeriod =
-          new TimeOffsetMediaPeriod(
-              mediaSource.createPeriod(id, allocator, startPositionUs - timeOffsetUs),
-              timeOffsetUs);
-      activeMediaPeriods.add(mediaPeriod);
-      return mediaPeriod;
-    }
-
-    @Override
-    public void releasePeriod(MediaPeriod mediaPeriod) {
-      TimeOffsetMediaPeriod timeOffsetMediaPeriod = (TimeOffsetMediaPeriod) mediaPeriod;
-      activeMediaPeriods.remove(timeOffsetMediaPeriod);
-      mediaSource.releasePeriod(timeOffsetMediaPeriod.getWrappedMediaPeriod());
-    }
   }
 }

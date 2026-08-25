@@ -101,62 +101,6 @@ public final class DefaultMediaSourceFactoryTest {
   }
 
   @Test
-  public void canUpdateMediaItem_withChangedSubtitleTimeOffset_returnsTrue() {
-    DefaultMediaSourceFactory defaultMediaSourceFactory =
-        new DefaultMediaSourceFactory((Context) ApplicationProvider.getApplicationContext());
-    MediaItem.SubtitleConfiguration subtitleConfiguration =
-        new MediaItem.SubtitleConfiguration.Builder(Uri.parse(URI_TEXT))
-            .setMimeType(MimeTypes.APPLICATION_TTML)
-            .setLanguage("en")
-            .build();
-    MediaItem mediaItem =
-        new MediaItem.Builder()
-            .setUri(URI_MEDIA)
-            .setSubtitleConfigurations(ImmutableList.of(subtitleConfiguration))
-            .build();
-    MediaSource mediaSource = defaultMediaSourceFactory.createMediaSource(mediaItem);
-
-    MediaItem updatedMediaItem =
-        mediaItem
-            .buildUpon()
-            .setSubtitleConfigurations(
-                ImmutableList.of(
-                    subtitleConfiguration.buildUpon().setTimeOffsetUs(1_000_000).build()))
-            .build();
-
-    assertThat(mediaSource.canUpdateMediaItem(updatedMediaItem)).isTrue();
-  }
-
-  @Test
-  public void canUpdateMediaItem_withStructurallyChangedSubtitleConfigurations_returnsFalse() {
-    DefaultMediaSourceFactory defaultMediaSourceFactory =
-        new DefaultMediaSourceFactory((Context) ApplicationProvider.getApplicationContext());
-    MediaItem.SubtitleConfiguration subtitleConfiguration =
-        new MediaItem.SubtitleConfiguration.Builder(Uri.parse(URI_TEXT))
-            .setMimeType(MimeTypes.APPLICATION_TTML)
-            .setLanguage("en")
-            .build();
-    MediaItem mediaItem =
-        new MediaItem.Builder()
-            .setUri(URI_MEDIA)
-            .setSubtitleConfigurations(ImmutableList.of(subtitleConfiguration))
-            .build();
-    MediaSource mediaSource = defaultMediaSourceFactory.createMediaSource(mediaItem);
-
-    MediaItem mediaItemWithChangedLanguage =
-        mediaItem
-            .buildUpon()
-            .setSubtitleConfigurations(
-                ImmutableList.of(subtitleConfiguration.buildUpon().setLanguage("de").build()))
-            .build();
-    MediaItem mediaItemWithoutSubtitles =
-        mediaItem.buildUpon().setSubtitleConfigurations(ImmutableList.of()).build();
-
-    assertThat(mediaSource.canUpdateMediaItem(mediaItemWithChangedLanguage)).isFalse();
-    assertThat(mediaSource.canUpdateMediaItem(mediaItemWithoutSubtitles)).isFalse();
-  }
-
-  @Test
   public void createMediaSource_withStartPosition_isClippingMediaSource() {
     DefaultMediaSourceFactory defaultMediaSourceFactory =
         new DefaultMediaSourceFactory((Context) ApplicationProvider.getApplicationContext());

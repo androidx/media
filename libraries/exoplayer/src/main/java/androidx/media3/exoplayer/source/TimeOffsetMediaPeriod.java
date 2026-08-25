@@ -211,11 +211,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     private final SampleStream sampleStream;
 
-    public TimeOffsetSampleStream(SampleStream sampleStream) {
+    private TimeOffsetSampleStream(SampleStream sampleStream) {
       this.sampleStream = sampleStream;
     }
 
-    public SampleStream getChildStream() {
+    private SampleStream getChildStream() {
       return sampleStream;
     }
 

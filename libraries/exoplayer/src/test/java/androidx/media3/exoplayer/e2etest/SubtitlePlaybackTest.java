@@ -64,7 +64,6 @@ public class SubtitlePlaybackTest {
   public ShadowMediaCodecConfig mediaCodecConfig =
       ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
-  // https://github.com/androidx/media/issues/1976
   @Test
   public void sideloadedSubtitle_withPositiveTimeOffset_cuesShiftedLater() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
@@ -109,7 +108,6 @@ public class SubtitlePlaybackTest {
         .inOrder();
   }
 
-  // https://github.com/androidx/media/issues/1976
   @Test
   public void sideloadedSubtitle_withNegativeTimeOffset_cuesShiftedEarlier() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
@@ -153,10 +151,10 @@ public class SubtitlePlaybackTest {
     assertThat(cueTexts).containsExactly("This is the second subtitle.");
   }
 
-  // https://github.com/androidx/media/issues/1976
   @Test
-  public void sideloadedSubtitle_timeOffsetUpdatedDuringPlayback_playbackContinuesWithShiftedCues()
-      throws Exception {
+  public void
+      sideloadedSubtitle_timeOffsetUpdatedDuringPlaybackWithTextTrackReenabled_playbackContinuesWithShiftedCues()
+          throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
@@ -186,7 +184,7 @@ public class SubtitlePlaybackTest {
     player.prepare();
     advance(player).untilState(Player.STATE_READY);
     advance(player).untilFullyBuffered();
-    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 2000);
+    advance(player).untilPositionAtLeast(/* positionMs= */ 2000);
     List<Integer> playbackStatesAfterUpdate = new ArrayList<>();
     player.addListener(
         new Player.Listener() {
@@ -236,6 +234,79 @@ public class SubtitlePlaybackTest {
             "This is the first subtitle.",
             "This is the first subtitle.",
             "This is the second subtitle.")
+        .inOrder();
+    // The media item update must not interrupt playback with a re-preparation.
+    assertThat(playbackStatesAfterUpdate).containsExactly(Player.STATE_ENDED);
+  }
+
+  @Test
+  public void
+      sideloadedSubtitle_timeOffsetUpdatedDuringPlaybackWithoutTextTrackReenabled_appliesToFutureCuesOnly()
+          throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext, clock);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(clock)
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    List<Long> cueChangeTimesUs = new ArrayList<>();
+    List<String> cueTexts = new ArrayList<>();
+    player.addListener(createNonEmptyCueGroupCollectingListener(cueChangeTimesUs, cueTexts));
+    MediaItem.SubtitleConfiguration subtitleConfiguration =
+        new MediaItem.SubtitleConfiguration.Builder(Uri.parse("asset:///media/webvtt/typical"))
+            .setMimeType(MimeTypes.TEXT_VTT)
+            .setLanguage("en")
+            .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+            .build();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri("asset:///media/mp4/preroll-5s.mp4")
+            .setSubtitleConfigurations(ImmutableList.of(subtitleConfiguration))
+            .build();
+
+    player.setMediaItem(mediaItem);
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+    advance(player).untilFullyBuffered();
+    advance(player).untilPositionAtLeast(/* positionMs= */ 1000);
+    List<Integer> playbackStatesAfterUpdate = new ArrayList<>();
+    player.addListener(
+        new Player.Listener() {
+          @Override
+          public void onPlaybackStateChanged(@Player.State int playbackState) {
+            playbackStatesAfterUpdate.add(playbackState);
+          }
+        });
+    // Shift the subtitles one second later. Without re-enabling the text track, the new offset
+    // only applies to future cues that haven't been read by the renderer yet.
+    player.replaceMediaItem(
+        /* index= */ 0,
+        mediaItem
+            .buildUpon()
+            .setSubtitleConfigurations(
+                ImmutableList.of(
+                    subtitleConfiguration.buildUpon().setTimeOffsetUs(1_000_000).build()))
+            .build());
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    long updatedTimeOffsetUs =
+        checkNotNull(player.getCurrentMediaItem().localConfiguration)
+            .subtitleConfigurations
+            .get(0)
+            .timeOffsetUs;
+    player.release();
+    surface.release();
+
+    assertThat(updatedTimeOffsetUs).isEqualTo(1_000_000);
+    // The first cue is shown with the initial zero offset, and the second cue is shown with the
+    // new shifted offset.
+    assertThat(cueChangeTimesUs).containsExactly(0L, 3_345_000L).inOrder();
+    assertThat(cueTexts)
+        .containsExactly("This is the first subtitle.", "This is the second subtitle.")
         .inOrder();
     // The media item update must not interrupt playback with a re-preparation.
     assertThat(playbackStatesAfterUpdate).containsExactly(Player.STATE_ENDED);
