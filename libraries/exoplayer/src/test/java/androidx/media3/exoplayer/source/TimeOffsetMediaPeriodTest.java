@@ -84,7 +84,8 @@ public final class TimeOffsetMediaPeriodTest {
   }
 
   @Test
-  public void updateTimeOffsetUs_appliesNewOffsetToExistingSampleStreamsAndSeeks() throws Exception {
+  public void updateTimeOffsetUs_appliesNewOffsetToExistingSampleStreamsAndSeeks()
+      throws Exception {
     FakeMediaPeriod fakeMediaPeriod =
         createFakeMediaPeriod(
             ImmutableList.of(

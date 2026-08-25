@@ -25,9 +25,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A {@link MediaSource} merging a content source with its sideloaded subtitle sources, applying
- * the {@linkplain MediaItem.SubtitleConfiguration.Builder#setTimeOffsetUs(long) time offsets} of
- * the subtitle configurations and handling {@link MediaItem} updates that change them.
+ * A {@link MediaSource} merging a content source with its sideloaded subtitle sources, applying the
+ * {@linkplain MediaItem.SubtitleConfiguration.Builder#setTimeOffsetUs(long) time offsets} of the
+ * subtitle configurations and handling {@link MediaItem} updates that change them.
  *
  * <p>Time offset changes are forwarded to the affected subtitle sources without interrupting
  * playback. Updates that change the subtitle configurations in any other way are rejected from

@@ -170,14 +170,6 @@ public class SubtitlePlaybackTest {
     List<Long> cueChangeTimesUs = new ArrayList<>();
     List<String> cueTexts = new ArrayList<>();
     player.addListener(createNonEmptyCueGroupCollectingListener(cueChangeTimesUs, cueTexts));
-    List<Integer> playbackStates = new ArrayList<>();
-    player.addListener(
-        new Player.Listener() {
-          @Override
-          public void onPlaybackStateChanged(@Player.State int playbackState) {
-            playbackStates.add(playbackState);
-          }
-        });
     MediaItem.SubtitleConfiguration subtitleConfiguration =
         new MediaItem.SubtitleConfiguration.Builder(Uri.parse("asset:///media/webvtt/typical"))
             .setMimeType(MimeTypes.TEXT_VTT)
@@ -195,6 +187,14 @@ public class SubtitlePlaybackTest {
     advance(player).untilState(Player.STATE_READY);
     advance(player).untilFullyBuffered();
     advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 2000);
+    List<Integer> playbackStatesAfterUpdate = new ArrayList<>();
+    player.addListener(
+        new Player.Listener() {
+          @Override
+          public void onPlaybackStateChanged(@Player.State int playbackState) {
+            playbackStatesAfterUpdate.add(playbackState);
+          }
+        });
     // Shift the subtitles two seconds later and re-enable the text track to apply the new offset
     // to the cues around the current position.
     player.replaceMediaItem(
@@ -238,9 +238,7 @@ public class SubtitlePlaybackTest {
             "This is the second subtitle.")
         .inOrder();
     // The media item update must not interrupt playback with a re-preparation.
-    assertThat(playbackStates)
-        .containsExactly(Player.STATE_BUFFERING, Player.STATE_READY, Player.STATE_ENDED)
-        .inOrder();
+    assertThat(playbackStatesAfterUpdate).containsExactly(Player.STATE_ENDED);
   }
 
   private static Player.Listener createNonEmptyCueGroupCollectingListener(

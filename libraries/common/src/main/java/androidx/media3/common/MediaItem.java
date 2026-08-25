@@ -1654,7 +1654,7 @@ public final class MediaItem {
        * boolean)}.
        *
        * <p>The offset only takes effect if the subtitles are parsed during extraction (the default
-       * behaviour of {@code DefaultMediaSourceFactory}), and is ignored by the deprecated legacy
+       * behavior of {@code DefaultMediaSourceFactory}), and is ignored by the deprecated legacy
        * subtitle decoding path.
        *
        * <p>The default value is 0.
@@ -1771,7 +1771,7 @@ public final class MediaItem {
       result = 31 * result + roleFlags;
       result = 31 * result + (label == null ? 0 : label.hashCode());
       result = 31 * result + (id == null ? 0 : id.hashCode());
-      result = (int) (31L * result + timeOffsetUs);
+      result = 31 * result + (int) (timeOffsetUs ^ (timeOffsetUs >>> 32));
       return result;
     }
 

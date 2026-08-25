@@ -30,7 +30,6 @@ import androidx.media3.exoplayer.source.ads.AdsMediaSource;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
-import java.util.Arrays;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -80,7 +79,7 @@ public final class DefaultMediaSourceFactoryTest {
     DefaultMediaSourceFactory defaultMediaSourceFactory =
         new DefaultMediaSourceFactory((Context) ApplicationProvider.getApplicationContext());
     List<MediaItem.SubtitleConfiguration> subtitleConfigurations =
-        Arrays.asList(
+        ImmutableList.of(
             new MediaItem.SubtitleConfiguration.Builder(Uri.parse(URI_TEXT))
                 .setMimeType(MimeTypes.APPLICATION_TTML)
                 .setLanguage("en")
