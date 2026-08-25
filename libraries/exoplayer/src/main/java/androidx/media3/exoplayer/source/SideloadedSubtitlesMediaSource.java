@@ -136,13 +136,13 @@ import java.util.List;
     private final List<TimeOffsetMediaPeriod> activeMediaPeriods;
     private long timeOffsetUs;
 
-    public TimeOffsetMediaSource(MediaSource mediaSource, long timeOffsetUs) {
+    private TimeOffsetMediaSource(MediaSource mediaSource, long timeOffsetUs) {
       super(mediaSource);
       this.timeOffsetUs = timeOffsetUs;
       this.activeMediaPeriods = new ArrayList<>();
     }
 
-    public void setTimeOffsetUs(long timeOffsetUs) {
+    private void setTimeOffsetUs(long timeOffsetUs) {
       this.timeOffsetUs = timeOffsetUs;
       for (int i = 0; i < activeMediaPeriods.size(); i++) {
         activeMediaPeriods.get(i).updateTimeOffsetUs(timeOffsetUs);
