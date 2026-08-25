@@ -20,7 +20,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.Timeline;
+import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.upstream.Allocator;
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -33,10 +36,16 @@ import java.util.List;
  * playback. Updates that change the subtitle configurations in any other way are rejected from
  * {@link #canUpdateMediaItem}, so that the player falls back to re-preparing the item.
  */
-/* package */ final class SideloadedSubtitlesMediaSource extends WrappingMediaSource {
+/* package */ final class SideloadedSubtitlesMediaSource extends CompositeMediaSource<Integer> {
 
+  private static final int CONTENT_MEDIA_SOURCE_INDEX = 0;
+  private static final int FIRST_SUBTITLE_MEDIA_SOURCE_INDEX = 1;
+
+  private final MediaSource contentMediaSource;
+  private final MediaSource[] subtitleMediaSources;
+  private final CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory;
   private final long[] timeOffsetsUs;
-  private final ArrayList<TimeOffsetMediaPeriod>[] activeMediaPeriods;
+  private final List<List<TimeOffsetMediaPeriod>> activeMediaPeriods;
 
   /**
    * Creates the media source.
@@ -51,43 +60,88 @@ import java.util.List;
       MediaSource contentMediaSource,
       List<MediaItem.SubtitleConfiguration> subtitleConfigurations,
       MediaSource[] subtitleMediaSources) {
-    this(
-        contentMediaSource,
-        subtitleConfigurations,
-        subtitleMediaSources,
-        createTimeOffsetsUs(subtitleConfigurations),
-        createActiveMediaPeriodsArray(subtitleMediaSources.length));
+    checkArgument(subtitleConfigurations.size() == subtitleMediaSources.length);
+    this.contentMediaSource = contentMediaSource;
+    this.subtitleMediaSources = subtitleMediaSources;
+    this.compositeSequenceableLoaderFactory = new DefaultCompositeSequenceableLoaderFactory();
+    this.timeOffsetsUs = new long[subtitleConfigurations.size()];
+    this.activeMediaPeriods = new ArrayList<>(subtitleMediaSources.length);
+    for (int i = 0; i < subtitleConfigurations.size(); i++) {
+      this.timeOffsetsUs[i] = subtitleConfigurations.get(i).timeOffsetUs;
+      this.activeMediaPeriods.add(new ArrayList<>());
+    }
   }
 
-  private SideloadedSubtitlesMediaSource(
-      MediaSource contentMediaSource,
-      List<MediaItem.SubtitleConfiguration> subtitleConfigurations,
-      MediaSource[] subtitleMediaSources,
-      long[] timeOffsetsUs,
-      ArrayList<TimeOffsetMediaPeriod>[] activeMediaPeriods) {
-    super(
-        createMergingMediaSource(
-            contentMediaSource, subtitleMediaSources, timeOffsetsUs, activeMediaPeriods));
-    this.timeOffsetsUs = timeOffsetsUs;
-    this.activeMediaPeriods = activeMediaPeriods;
+  @Override
+  public MediaItem getMediaItem() {
+    return contentMediaSource.getMediaItem();
   }
 
   @Override
   public boolean canUpdateMediaItem(MediaItem mediaItem) {
-    return super.canUpdateMediaItem(mediaItem) && canUpdateSubtitleConfigurations(mediaItem);
+    return contentMediaSource.canUpdateMediaItem(mediaItem)
+        && canUpdateSubtitleConfigurations(mediaItem);
   }
 
   @Override
   public void updateMediaItem(MediaItem mediaItem) {
-    super.updateMediaItem(mediaItem);
-    List<MediaItem.SubtitleConfiguration> newSubtitleConfigurations =
+    contentMediaSource.updateMediaItem(mediaItem);
+    ImmutableList<MediaItem.SubtitleConfiguration> newSubtitleConfigurations =
         checkNotNull(mediaItem.localConfiguration).subtitleConfigurations;
     for (int i = 0; i < timeOffsetsUs.length; i++) {
       long newTimeOffsetUs = newSubtitleConfigurations.get(i).timeOffsetUs;
       timeOffsetsUs[i] = newTimeOffsetUs;
-      for (int j = 0; j < activeMediaPeriods[i].size(); j++) {
-        activeMediaPeriods[i].get(j).updateTimeOffsetUs(newTimeOffsetUs);
+      for (int j = 0; j < activeMediaPeriods.get(i).size(); j++) {
+        activeMediaPeriods.get(i).get(j).updateTimeOffsetUs(newTimeOffsetUs);
       }
+    }
+  }
+
+  @Override
+  protected void prepareSourceInternal(@Nullable TransferListener mediaTransferListener) {
+    super.prepareSourceInternal(mediaTransferListener);
+    for (int i = 0; i < subtitleMediaSources.length; i++) {
+      prepareChildSource(FIRST_SUBTITLE_MEDIA_SOURCE_INDEX + i, subtitleMediaSources[i]);
+    }
+    prepareChildSource(CONTENT_MEDIA_SOURCE_INDEX, contentMediaSource);
+  }
+
+  @Override
+  protected void onChildSourceInfoRefreshed(
+      Integer childSourceId, MediaSource mediaSource, Timeline newTimeline) {
+    if (childSourceId == CONTENT_MEDIA_SOURCE_INDEX) {
+      refreshSourceInfo(newTimeline);
+    }
+  }
+
+  @Override
+  public MediaPeriod createPeriod(MediaPeriodId id, Allocator allocator, long startPositionUs) {
+    MediaPeriod[] periods = new MediaPeriod[subtitleMediaSources.length + 1];
+    periods[CONTENT_MEDIA_SOURCE_INDEX] =
+        contentMediaSource.createPeriod(id, allocator, startPositionUs);
+    for (int i = 0; i < subtitleMediaSources.length; i++) {
+      TimeOffsetMediaPeriod period =
+          new TimeOffsetMediaPeriod(
+              subtitleMediaSources[i].createPeriod(
+                  id, allocator, startPositionUs - timeOffsetsUs[i]),
+              timeOffsetsUs[i]);
+      periods[FIRST_SUBTITLE_MEDIA_SOURCE_INDEX + i] = period;
+      activeMediaPeriods.get(i).add(period);
+    }
+    return new MergingMediaPeriod(
+        compositeSequenceableLoaderFactory, new long[periods.length], periods);
+  }
+
+  @Override
+  public void releasePeriod(MediaPeriod mediaPeriod) {
+    MergingMediaPeriod mergingMediaPeriod = (MergingMediaPeriod) mediaPeriod;
+    contentMediaSource.releasePeriod(mergingMediaPeriod.getChildPeriod(CONTENT_MEDIA_SOURCE_INDEX));
+    for (int i = 0; i < subtitleMediaSources.length; i++) {
+      TimeOffsetMediaPeriod timeOffsetMediaPeriod =
+          (TimeOffsetMediaPeriod)
+              mergingMediaPeriod.getChildPeriod(FIRST_SUBTITLE_MEDIA_SOURCE_INDEX + i);
+      activeMediaPeriods.get(i).remove(timeOffsetMediaPeriod);
+      subtitleMediaSources[i].releasePeriod(timeOffsetMediaPeriod.getWrappedMediaPeriod());
     }
   }
 
@@ -119,58 +173,5 @@ import java.util.List;
         .setTimeOffsetUs(other.timeOffsetUs)
         .build()
         .equals(other);
-  }
-
-  private static long[] createTimeOffsetsUs(
-      List<MediaItem.SubtitleConfiguration> subtitleConfigurations) {
-    long[] timeOffsetsUs = new long[subtitleConfigurations.size()];
-    for (int i = 0; i < subtitleConfigurations.size(); i++) {
-      timeOffsetsUs[i] = subtitleConfigurations.get(i).timeOffsetUs;
-    }
-    return timeOffsetsUs;
-  }
-
-  @SuppressWarnings("unchecked")
-  private static ArrayList<TimeOffsetMediaPeriod>[] createActiveMediaPeriodsArray(int length) {
-    ArrayList<TimeOffsetMediaPeriod>[] array = new ArrayList[length];
-    for (int i = 0; i < length; i++) {
-      array[i] = new ArrayList<>();
-    }
-    return array;
-  }
-
-  private static MergingMediaSource createMergingMediaSource(
-      MediaSource contentMediaSource,
-      MediaSource[] subtitleMediaSources,
-      long[] timeOffsetsUs,
-      ArrayList<TimeOffsetMediaPeriod>[] activeMediaPeriods) {
-    checkArgument(subtitleMediaSources.length == timeOffsetsUs.length);
-    MediaSource[] mediaSources = new MediaSource[subtitleMediaSources.length + 1];
-    mediaSources[0] = contentMediaSource;
-    for (int i = 0; i < subtitleMediaSources.length; i++) {
-      int subtitleIndex = i;
-      mediaSources[i + 1] =
-          new WrappingMediaSource(subtitleMediaSources[i]) {
-            @Override
-            public MediaPeriod createPeriod(
-                MediaPeriodId id, Allocator allocator, long startPositionUs) {
-              TimeOffsetMediaPeriod mediaPeriod =
-                  new TimeOffsetMediaPeriod(
-                      mediaSource.createPeriod(
-                          id, allocator, startPositionUs - timeOffsetsUs[subtitleIndex]),
-                      timeOffsetsUs[subtitleIndex]);
-              activeMediaPeriods[subtitleIndex].add(mediaPeriod);
-              return mediaPeriod;
-            }
-
-            @Override
-            public void releasePeriod(MediaPeriod mediaPeriod) {
-              TimeOffsetMediaPeriod timeOffsetMediaPeriod = (TimeOffsetMediaPeriod) mediaPeriod;
-              activeMediaPeriods[subtitleIndex].remove(timeOffsetMediaPeriod);
-              mediaSource.releasePeriod(timeOffsetMediaPeriod.getWrappedMediaPeriod());
-            }
-          };
-    }
-    return new MergingMediaSource(mediaSources);
   }
 }
