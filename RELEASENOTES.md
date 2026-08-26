@@ -4,7 +4,8 @@
 
 *   Common Library:
     *   Add a central `Flags` registry to manage experimental feature flags and
-        canary mode rollout.
+        canary mode rollout. Migrated many existing `@ExperimentalApi` methods
+        to use the new flags API.
     *   Add `MediaMetadata.playlistId` and
         `MediaMetadata.Builder.setPlaylistId(String)`.
 *   ExoPlayer:
