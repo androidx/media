@@ -164,6 +164,7 @@ public class EncoderFrameWriterTest {
     encoderFrameWriter.configure(VIDEO_FORMAT, /* usage= */ 0L);
 
     // Verify the exception was intercepted and passed to the listener.
+    assertThat(testListener.encoder).isNull();
     assertThat(testListener.exception).isNotNull();
     assertThat(testListener.exception).hasCauseThat().isEqualTo(expectedException);
   }
@@ -171,6 +172,7 @@ public class EncoderFrameWriterTest {
   /** A fake listener that records callbacks for validation. */
   private static class TestListener implements EncoderFrameWriter.Listener {
     @Nullable private VideoFrameProcessingException exception;
+    @Nullable private Codec encoder;
 
     @Override
     public Format onConfigure(Format requestedFormat) {
@@ -178,7 +180,9 @@ public class EncoderFrameWriterTest {
     }
 
     @Override
-    public void onEncoderCreated(Codec encoder) {}
+    public void onEncoderCreated(Codec encoder) {
+      this.encoder = encoder;
+    }
 
     @Override
     public void onEndOfStream() {}
