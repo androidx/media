@@ -24,7 +24,7 @@ import java.time.Duration;
 
 /** A wrapper for {@link SyncFence} that exists on all API levels. */
 @ExperimentalApi // TODO: b/498176910 Remove once SyncFenceWrapper is production ready.
-public final class SyncFenceWrapper {
+public class SyncFenceWrapper {
 
   private final SyncFence syncFence;
 

@@ -15,7 +15,11 @@
  */
 package androidx.media3.common.video;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import android.hardware.HardwareBuffer;
+import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
@@ -25,28 +29,50 @@ import androidx.media3.common.Format;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
+import java.util.concurrent.Executor;
 
 /** Default implementation of {@link HardwareBufferFrame}. */
 @RestrictTo(Scope.LIBRARY_GROUP)
-public final class DefaultHardwareBufferFrame implements HardwareBufferFrame {
+public final class DefaultHardwareBufferFrame implements HardwareBufferFrame, ReferenceCounter {
 
   /** Concrete implementation of {@link HardwareBufferFrame.Builder}. */
-  public static final class Builder implements HardwareBufferFrame.Builder {
+  public static final class Builder
+      implements HardwareBufferFrame.Builder, ReferenceCounter.Builder {
 
     private final HardwareBuffer hardwareBuffer;
+    @Nullable private final FrameSharedState sharedState;
     private Format format;
     private ImmutableMap<String, Object> metadata;
     private long contentTimeUs;
     @Nullable private Object internalImage;
+    private boolean shouldIncrementReferenceCount;
 
     /**
-     * Creates a builder for {@link HardwareBufferFrame} instances.
+     * Creates a builder for {@link HardwareBufferFrame} instances without lifecycle management.
      *
      * @param hardwareBuffer The {@link HardwareBuffer} that backs the frame.
      */
     @RequiresApi(26)
     public Builder(HardwareBuffer hardwareBuffer) {
       this.hardwareBuffer = hardwareBuffer;
+      this.sharedState = null;
+      this.format = new Format.Builder().build();
+      this.metadata = ImmutableMap.of();
+      this.contentTimeUs = C.TIME_UNSET;
+    }
+
+    /**
+     * Creates a builder for reference-counted {@link HardwareBufferFrame} instances.
+     *
+     * @param hardwareBuffer The {@link HardwareBuffer} that backs the frame.
+     * @param releaseExecutor The {@link Executor} on which {@code releaseCallback} is called.
+     * @param releaseCallback The callback invoked when the frame is fully released.
+     */
+    @RequiresApi(26)
+    public Builder(
+        HardwareBuffer hardwareBuffer, Executor releaseExecutor, ReleaseCallback releaseCallback) {
+      this.hardwareBuffer = hardwareBuffer;
+      this.sharedState = new FrameSharedState(releaseCallback, releaseExecutor);
       this.format = new Format.Builder().build();
       this.metadata = ImmutableMap.of();
       this.contentTimeUs = C.TIME_UNSET;
@@ -54,14 +80,26 @@ public final class DefaultHardwareBufferFrame implements HardwareBufferFrame {
 
     private Builder(DefaultHardwareBufferFrame frame) {
       this.hardwareBuffer = frame.hardwareBuffer;
+      this.sharedState = frame.sharedState;
       this.format = frame.format;
       this.metadata = frame.metadata;
       this.contentTimeUs = frame.contentTimeUs;
       this.internalImage = frame.internalImage;
     }
 
+    @CanIgnoreReturnValue
+    @Override
+    public DefaultHardwareBufferFrame.Builder shouldIncrementReferenceCount() {
+      checkState(sharedState != null);
+      this.shouldIncrementReferenceCount = true;
+      return this;
+    }
+
     @Override
     public DefaultHardwareBufferFrame build() {
+      if (shouldIncrementReferenceCount) {
+        checkNotNull(sharedState).retain();
+      }
       return new DefaultHardwareBufferFrame(this);
     }
 
@@ -92,19 +130,27 @@ public final class DefaultHardwareBufferFrame implements HardwareBufferFrame {
     }
   }
 
+  private final Object lock;
   private final HardwareBuffer hardwareBuffer;
   private final Format format;
   private final ImmutableMap<String, Object> metadata;
   private final long contentTimeUs;
   @Nullable private final Object internalImage;
+  @Nullable private final FrameSharedState sharedState;
+
+  @GuardedBy("lock")
+  private boolean isReleased;
 
   /** Private constructor used by the builder. */
   private DefaultHardwareBufferFrame(Builder builder) {
+    this.lock = new Object();
     this.hardwareBuffer = builder.hardwareBuffer;
     this.format = builder.format;
     this.metadata = builder.metadata;
     this.contentTimeUs = builder.contentTimeUs;
     this.internalImage = builder.internalImage;
+    this.sharedState = builder.sharedState;
+    this.isReleased = false;
   }
 
   @Override
@@ -129,8 +175,37 @@ public final class DefaultHardwareBufferFrame implements HardwareBufferFrame {
   }
 
   @Override
-  public HardwareBufferFrame.Builder buildUpon() {
-    return new Builder(this);
+  public DefaultHardwareBufferFrame.Builder buildUpon() {
+    synchronized (lock) {
+      if (isReleased) {
+        throw new IllegalStateException(
+            "Cannot buildUpon a DefaultHardwareBufferFrame that has already been released.");
+      }
+      return new Builder(this);
+    }
+  }
+
+  @Override
+  public void release(@Nullable SyncFenceWrapper releaseFence) {
+    synchronized (lock) {
+      if (isReleased) {
+        closeFenceSilently(releaseFence);
+        return;
+      }
+      isReleased = true;
+    }
+    if (sharedState != null) {
+      sharedState.release(releaseFence);
+    } else {
+      closeFenceSilently(releaseFence);
+    }
+  }
+
+  private static void closeFenceSilently(@Nullable SyncFenceWrapper fence) {
+    if (fence == null) {
+      return;
+    }
+    fence.close();
   }
 
   @Nullable
