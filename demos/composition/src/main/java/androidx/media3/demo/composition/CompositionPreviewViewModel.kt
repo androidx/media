@@ -21,7 +21,6 @@ import android.os.Build.VERSION.SDK_INT
 import android.os.SystemClock
 import android.provider.OpenableColumns
 import android.util.Rational
-import android.view.SurfaceView
 import androidx.annotation.GuardedBy
 import androidx.annotation.OptIn
 import androidx.annotation.RequiresApi
@@ -119,7 +118,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   val API_28_REQUIRED_MESSAGE =
     application.resources.getString(R.string.api_28_required_frame_processor)
   internal var frameProcessorEnabled: Boolean = false
-  internal var surfaceView: SurfaceView? = null
   private var transformer: Transformer? = null
   private var playbackGlExecutorService: ListeningExecutorService? = null
   private var playbackGlObjectsProvider: GlObjectsProvider? = null
@@ -209,8 +207,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   }
 
   override fun onCleared() {
-    super.onCleared()
-    releaseAndRecreatePlayer()
+    releasePlayer()
     cancelExport()
     exportStopwatch.reset()
   }
@@ -1053,14 +1050,14 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     return player
   }
 
-  private fun releaseAndRecreatePlayer() {
-    if (SDK_INT >= 26) {
-      playbackGlExecutorService?.let { FrameProcessorUtils.shutdownGlExecutorService(it) }
-    }
-    playbackGlExecutorService = null
-    playbackGlObjectsProvider = null
+  private fun releasePlayer() {
     compositionPlayer.stop()
     compositionPlayer.release()
+    cleanUpPlaybackGlResources()
+  }
+
+  private fun releaseAndRecreatePlayer() {
+    releasePlayer()
     compositionPlayer = createCompositionPlayer()
     playerPrepared = false
   }
@@ -1072,6 +1069,14 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     val glObjectsProvider = DefaultGlObjectsProvider()
     val executorService = listeningDecorator(newSingleThreadExecutor(threadName))
     return executorService to glObjectsProvider
+  }
+
+  private fun cleanUpPlaybackGlResources() {
+    if (SDK_INT >= 26) {
+      playbackGlExecutorService?.let { FrameProcessorUtils.shutdownGlExecutorService(it) }
+    }
+    playbackGlExecutorService = null
+    playbackGlObjectsProvider = null
   }
 
   private fun cleanUpExportGlResources() {

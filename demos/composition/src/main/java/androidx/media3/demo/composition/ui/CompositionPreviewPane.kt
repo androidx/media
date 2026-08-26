@@ -16,7 +16,6 @@
 package androidx.media3.demo.composition.ui
 
 import android.os.Build.VERSION.SDK_INT
-import android.view.SurfaceView
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -90,8 +89,6 @@ internal fun CompositionPreviewPane(
           playerView.player = viewModel.compositionPlayer
           playerView.setTimeBarScrubbingEnabled(true)
           playerView.setUseController(true)
-          // TODO: b/449957627 - Remove once internal pipeline is migrated to FrameConsumer.
-          viewModel.surfaceView = playerView.videoSurfaceView as SurfaceView
         },
         modifier = Modifier.fillMaxSize(),
       )
