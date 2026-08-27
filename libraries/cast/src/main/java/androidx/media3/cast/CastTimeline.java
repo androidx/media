@@ -15,18 +15,56 @@
  */
 package androidx.media3.cast;
 
-import android.util.SparseArray;
-import android.util.SparseIntArray;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
 import com.google.android.gms.cast.MediaInfo;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /** A {@link Timeline} for Cast media queues. */
 /* package */ final class CastTimeline extends Timeline {
+
+  /** An identifier for a period or window in a {@link CastTimeline}. */
+  public static final class ItemUid {
+    private final String value;
+
+    private ItemUid(String value) {
+      this.value = value;
+    }
+
+    public static ItemUid generateItemUid() {
+      return new ItemUid(UUID.randomUUID().toString());
+    }
+
+    @Override
+    public boolean equals(@Nullable Object other) {
+      if (this == other) {
+        return true;
+      }
+      if (!(other instanceof ItemUid)) {
+        return false;
+      }
+      return value.equals(((ItemUid) other).value);
+    }
+
+    @Override
+    public int hashCode() {
+      return value.hashCode();
+    }
+
+    @Override
+    public String toString() {
+      return value;
+    }
+  }
 
   /** Holds {@link Timeline} related data for a Cast media item. */
   public static final class ItemData {
@@ -110,11 +148,13 @@ import java.util.Arrays;
 
   /** {@link Timeline} for a cast queue that has no items. */
   public static final CastTimeline EMPTY_CAST_TIMELINE =
-      new CastTimeline(new int[0], new SparseArray<>());
+      new CastTimeline(ImmutableList.of(), ImmutableMap.of());
 
-  private final SparseIntArray idsToIndex;
-  private final MediaItem[] mediaItems;
-  private final int[] ids;
+  // In CastTimeline, periods and windows have a 1:1 correspondence. Period IDs and window UIDs are
+  // used interchangeably in this class.
+  private final Map<ItemUid, Integer> periodUidsToIndex;
+  private final ImmutableList<MediaItem> mediaItems;
+  private final ImmutableList<ItemUid> periodUids;
   private final long[] durationsUs;
   private final long[] defaultPositionsUs;
   private final boolean[] isLive;
@@ -125,30 +165,35 @@ import java.util.Arrays;
    * @param itemIds The ids of the items in the timeline.
    * @param itemIdToData Maps item ids to {@link ItemData}.
    */
-  public CastTimeline(int[] itemIds, SparseArray<ItemData> itemIdToData) {
-    int itemCount = itemIds.length;
-    idsToIndex = new SparseIntArray(itemCount);
-    ids = Arrays.copyOf(itemIds, itemCount);
+  public CastTimeline(List<ItemUid> itemIds, Map<ItemUid, ItemData> itemIdToData) {
+    int itemCount = itemIds.size();
+    periodUids = ImmutableList.copyOf(itemIds);
+    periodUidsToIndex = new HashMap<>(itemCount);
     durationsUs = new long[itemCount];
     defaultPositionsUs = new long[itemCount];
     isLive = new boolean[itemCount];
-    mediaItems = new MediaItem[itemCount];
-    for (int i = 0; i < ids.length; i++) {
-      int id = ids[i];
-      idsToIndex.put(id, i);
-      ItemData data = itemIdToData.get(id, ItemData.EMPTY);
-      mediaItems[i] = data.mediaItem;
+    ImmutableList.Builder<MediaItem> mediaItemsBuilder =
+        ImmutableList.builderWithExpectedSize(itemCount);
+    for (int i = 0; i < periodUids.size(); i++) {
+      ItemUid id = periodUids.get(i);
+      periodUidsToIndex.put(id, i);
+      ItemData data = itemIdToData.get(id);
+      if (data == null) {
+        data = ItemData.EMPTY;
+      }
+      mediaItemsBuilder.add(data.mediaItem);
       durationsUs[i] = data.durationUs;
       defaultPositionsUs[i] = data.defaultPositionUs == C.TIME_UNSET ? 0 : data.defaultPositionUs;
       isLive[i] = data.isLive;
     }
+    mediaItems = mediaItemsBuilder.build();
   }
 
   // Timeline implementation.
 
   @Override
   public int getWindowCount() {
-    return ids.length;
+    return periodUids.size();
   }
 
   @Override
@@ -156,15 +201,15 @@ import java.util.Arrays;
     long durationUs = durationsUs[windowIndex];
     boolean isDynamic = durationUs == C.TIME_UNSET;
     return window.set(
-        /* uid= */ ids[windowIndex],
-        /* mediaItem= */ mediaItems[windowIndex],
+        /* uid= */ periodUids.get(windowIndex),
+        /* mediaItem= */ mediaItems.get(windowIndex),
         /* manifest= */ null,
         /* presentationStartTimeMs= */ C.TIME_UNSET,
         /* windowStartTimeMs= */ C.TIME_UNSET,
         /* elapsedRealtimeEpochOffsetMs= */ C.TIME_UNSET,
         /* isSeekable= */ !isDynamic,
         isDynamic,
-        isLive[windowIndex] ? mediaItems[windowIndex].liveConfiguration : null,
+        isLive[windowIndex] ? mediaItems.get(windowIndex).liveConfiguration : null,
         defaultPositionsUs[windowIndex],
         durationUs,
         /* firstPeriodIndex= */ windowIndex,
@@ -174,14 +219,14 @@ import java.util.Arrays;
 
   @Override
   public int getPeriodCount() {
-    return ids.length;
+    return periodUids.size();
   }
 
   @Override
   public Period getPeriod(int periodIndex, Period period, boolean setIds) {
-    int id = ids[periodIndex];
+    ItemUid id = periodUids.get(periodIndex);
     return period.set(
-        id,
+        /* id= */ id,
         /* uid= */ id,
         periodIndex,
         durationsUs[periodIndex],
@@ -192,12 +237,16 @@ import java.util.Arrays;
 
   @Override
   public int getIndexOfPeriod(Object uid) {
-    return uid instanceof Integer ? idsToIndex.get((int) uid, C.INDEX_UNSET) : C.INDEX_UNSET;
+    if (!(uid instanceof ItemUid)) {
+      return C.INDEX_UNSET;
+    }
+    Integer index = periodUidsToIndex.get(uid);
+    return index != null ? index : C.INDEX_UNSET;
   }
 
   @Override
-  public Integer getUidOfPeriod(int periodIndex) {
-    return ids[periodIndex];
+  public Object getUidOfPeriod(int periodIndex) {
+    return periodUids.get(periodIndex);
   }
 
   // equals and hashCode implementations.
@@ -210,20 +259,20 @@ import java.util.Arrays;
       return false;
     }
     CastTimeline that = (CastTimeline) other;
-    return Arrays.equals(ids, that.ids)
+    return periodUids.equals(that.periodUids)
         && Arrays.equals(durationsUs, that.durationsUs)
         && Arrays.equals(defaultPositionsUs, that.defaultPositionsUs)
         && Arrays.equals(isLive, that.isLive)
-        && Arrays.equals(mediaItems, that.mediaItems);
+        && mediaItems.equals(that.mediaItems);
   }
 
   @Override
   public int hashCode() {
-    int result = Arrays.hashCode(ids);
+    int result = periodUids.hashCode();
     result = 31 * result + Arrays.hashCode(durationsUs);
     result = 31 * result + Arrays.hashCode(defaultPositionsUs);
     result = 31 * result + Arrays.hashCode(isLive);
-    result = 31 * result + Arrays.hashCode(mediaItems);
+    result = 31 * result + mediaItems.hashCode();
     return result;
   }
 }

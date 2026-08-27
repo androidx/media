@@ -21,6 +21,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
+import androidx.media3.cast.CastTimeline.ItemData;
+import androidx.media3.cast.CastTimeline.ItemUid;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
@@ -31,9 +33,12 @@ import com.google.android.gms.cast.MediaQueueItem;
 import com.google.android.gms.cast.MediaStatus;
 import com.google.android.gms.cast.framework.media.MediaQueue;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient;
+import com.google.common.collect.ImmutableList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Creates {@link CastTimeline CastTimelines} from cast receiver app status updates.
@@ -48,7 +53,12 @@ import java.util.List;
   // cache size configured on MediaQueue to prevent cache evictions during multi-pass fetching.
   @VisibleForTesting /* package */ static final int MAX_FETCH_COUNT = 20;
 
-  private final SparseArray<CastTimeline.ItemData> itemIdToData;
+  private final Map<ItemUid, ItemData> itemIdToData;
+  // Maps the receiver assigned id to the synthetic id for media items. The synthetic id is used as
+  // the stable uid of the media item in CastTimeline and abstracts away the receiver assigned id
+  // from consumers.
+  private final SparseArray<ItemUid> receiverItemIdToUid;
+  private final Map<ItemUid, Integer> uidToReceiverItemId;
   private final MediaItemConverter mediaItemConverter;
   @VisibleForTesting /* package */ final HashMap<String, MediaItem> mediaItemsByContentId;
 
@@ -60,8 +70,53 @@ import java.util.List;
    */
   public CastTimelineTracker(MediaItemConverter mediaItemConverter) {
     this.mediaItemConverter = mediaItemConverter;
-    itemIdToData = new SparseArray<>();
+    itemIdToData = new HashMap<>();
+    receiverItemIdToUid = new SparseArray<>();
+    uidToReceiverItemId = new HashMap<>();
     mediaItemsByContentId = new HashMap<>();
+  }
+
+  /**
+   * Returns the {@link ItemUid} associated with {@code receiverItemId}, or {@code null} if not
+   * found.
+   */
+  @Nullable
+  public ItemUid getItemUid(int receiverItemId) {
+    return receiverItemIdToUid.get(receiverItemId);
+  }
+
+  /**
+   * Returns the existing {@link ItemUid} for {@code receiverItemId}, or creates and caches a new
+   * one if none exists.
+   */
+  public ItemUid getOrCreateItemUid(int receiverItemId) {
+    ItemUid uid = receiverItemIdToUid.get(receiverItemId);
+    if (uid == null) {
+      uid = ItemUid.generateItemUid();
+      receiverItemIdToUid.put(receiverItemId, uid);
+      uidToReceiverItemId.put(uid, receiverItemId);
+    }
+    return uid;
+  }
+
+  /**
+   * Returns the receiver item ID for {@code uid}, or {@link MediaQueueItem#INVALID_ITEM_ID} if not
+   * found.
+   */
+  public int getReceiverItemId(@Nullable Object uid) {
+    if (uid == null || !(uid instanceof ItemUid)) {
+      return MediaQueueItem.INVALID_ITEM_ID;
+    }
+    Integer receiverId = uidToReceiverItemId.get(uid);
+    return receiverId != null ? receiverId : MediaQueueItem.INVALID_ITEM_ID;
+  }
+
+  /** Resets all item data and UID mappings. */
+  public void reset() {
+    itemIdToData.clear();
+    receiverItemIdToUid.clear();
+    uidToReceiverItemId.clear();
+    mediaItemsByContentId.clear();
   }
 
   /**
@@ -138,7 +193,8 @@ import java.util.List;
     for (int step = 0; step < itemIds.length; step++) {
       int i = (currentItemIndex + step) % itemIds.length;
       int itemId = itemIds[i];
-      CastTimeline.ItemData itemData = itemIdToData.get(itemId);
+      ItemUid uid = getOrCreateItemUid(itemId);
+      ItemData itemData = itemIdToData.get(uid);
       if (itemData == null || itemData.mediaItem == MediaItem.EMPTY) {
         boolean fetchIfNeeded = fetchCount < MAX_FETCH_COUNT;
         MediaQueueItem queueItem = mediaQueue.getItemAtIndex(i, fetchIfNeeded);
@@ -159,13 +215,17 @@ import java.util.List;
     String currentContentId = currentMediaInfo.getContentId();
     MediaItem mediaItem = mediaItemsByContentId.get(currentContentId);
     updateItemData(
-        currentItemId,
+        getOrCreateItemUid(currentItemId),
         mediaItem != null ? mediaItem : MediaItem.EMPTY,
         currentMediaInfo,
         currentContentId,
         /* defaultPositionUs= */ C.TIME_UNSET);
 
-    return new CastTimeline(itemIds, itemIdToData);
+    ImmutableList.Builder<ItemUid> uids = ImmutableList.builderWithExpectedSize(itemIds.length);
+    for (int itemId : itemIds) {
+      uids.add(getOrCreateItemUid(itemId));
+    }
+    return new CastTimeline(uids.build(), itemIdToData);
   }
 
   private void updateItemDataFromQueueItem(MediaQueueItem queueItem) {
@@ -183,7 +243,7 @@ import java.util.List;
       }
     }
     updateItemData(
-        queueItem.getItemId(),
+        getOrCreateItemUid(queueItem.getItemId()),
         mediaItem != null ? mediaItem : MediaItem.EMPTY,
         mediaInfo,
         contentId,
@@ -191,12 +251,15 @@ import java.util.List;
   }
 
   private void updateItemData(
-      int itemId,
+      ItemUid uid,
       MediaItem mediaItem,
       @Nullable MediaInfo mediaInfo,
       String contentId,
       long defaultPositionUs) {
-    CastTimeline.ItemData previousData = itemIdToData.get(itemId, CastTimeline.ItemData.EMPTY);
+    ItemData previousData = itemIdToData.get(uid);
+    if (previousData == null) {
+      previousData = ItemData.EMPTY;
+    }
     long durationUs = CastUtils.getStreamDurationUs(mediaInfo);
     if (durationUs == C.TIME_UNSET) {
       durationUs = previousData.durationUs;
@@ -214,25 +277,35 @@ import java.util.List;
       mediaItem = previousData.mediaItem;
     }
     itemIdToData.put(
-        itemId,
+        uid,
         previousData.copyWithNewValues(
             durationUs, defaultPositionUs, isLive, mediaItem, contentId));
   }
 
   private void removeUnusedItemDataEntries(int[] itemIds) {
-    HashSet<Integer> scratchItemIds = new HashSet<>(/* initialCapacity= */ itemIds.length * 2);
+    HashSet<Integer> activeReceiverIds = new HashSet<>(/* initialCapacity= */ itemIds.length * 2);
+    HashSet<ItemUid> activeUids = new HashSet<>(/* initialCapacity= */ itemIds.length * 2);
     for (int id : itemIds) {
-      scratchItemIds.add(id);
+      activeReceiverIds.add(id);
+      ItemUid uid = receiverItemIdToUid.get(id);
+      if (uid != null) {
+        activeUids.add(uid);
+      }
     }
 
-    int index = 0;
-    while (index < itemIdToData.size()) {
-      if (!scratchItemIds.contains(itemIdToData.keyAt(index))) {
-        CastTimeline.ItemData itemData = itemIdToData.valueAt(index);
-        mediaItemsByContentId.remove(itemData.contentId);
-        itemIdToData.removeAt(index);
-      } else {
-        index++;
+    for (int i = receiverItemIdToUid.size() - 1; i >= 0; i--) {
+      if (!activeReceiverIds.contains(receiverItemIdToUid.keyAt(i))) {
+        receiverItemIdToUid.removeAt(i);
+      }
+    }
+    uidToReceiverItemId.values().retainAll(activeReceiverIds);
+
+    Iterator<Map.Entry<ItemUid, ItemData>> iterator = itemIdToData.entrySet().iterator();
+    while (iterator.hasNext()) {
+      Map.Entry<ItemUid, ItemData> entry = iterator.next();
+      if (!activeUids.contains(entry.getKey())) {
+        mediaItemsByContentId.remove(entry.getValue().contentId);
+        iterator.remove();
       }
     }
   }
