@@ -2420,6 +2420,25 @@ public final class Util {
   }
 
   /**
+   * Returns the {@link C.VideoCodecFlags} corresponding to the provided MIME type.
+   *
+   * @throws IllegalArgumentException If {@code mimeType} is not a recognized video codec.
+   */
+  @UnstableApi
+  public static @C.VideoCodecFlags int getVideoCodecFlagForMime(String mimeType) {
+    switch (Ascii.toLowerCase(mimeType)) {
+      case MimeTypes.VIDEO_H264:
+        return C.VIDEO_CODEC_FLAG_H264;
+      case MimeTypes.VIDEO_H265:
+        return C.VIDEO_CODEC_FLAG_H265;
+      case MimeTypes.VIDEO_AV1:
+        return C.VIDEO_CODEC_FLAG_AV1;
+      default:
+        throw new IllegalArgumentException("Unsupported video codec MIME type: " + mimeType);
+    }
+  }
+
+  /**
    * Splits a codecs sequence string, as defined in RFC 6381, into individual codec strings.
    *
    * @param codecs A codec sequence string, as defined in RFC 6381.
