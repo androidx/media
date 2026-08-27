@@ -94,6 +94,10 @@
     *   Fix reporting of late video frames with identical release timestamps so
         that they are reported as dropped instead of skipped.
 *   Text:
+    *   SubRip: Add support for injecting a `CharsetDetector` into
+        `DefaultSubtitleParserFactory` to detect the character encoding of
+        standalone SubRip subtitles without a byte order mark
+        ([#2247](https://github.com/androidx/media/issues/2247)).
 *   Metadata:
 *   Image:
 *   DataSource:
