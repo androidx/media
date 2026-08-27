@@ -1660,7 +1660,7 @@ public final class MediaItem {
        *       deprecated legacy subtitle decoding path.
        * </ul>
        *
-       * <p>The default value is 0.
+       * <p>The default value is {@code 0}.
        */
       @CanIgnoreReturnValue
       @UnstableApi
