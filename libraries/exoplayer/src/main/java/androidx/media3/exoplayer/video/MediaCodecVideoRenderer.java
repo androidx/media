@@ -505,14 +505,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
      * Sets whether to skip buffers that have an identical release time as the previous released
      * buffer.
      *
-     * <p>This method is experimental and will be renamed or removed in a future release.
-     *
      * @param skipBuffersWithIdenticalReleaseTime Whether to skip buffers with identical release
      *     time.
      * @return This builder.
      */
     @CanIgnoreReturnValue
-    @ExperimentalApi // TODO: b/321230611 - Remove after next release.
     public Builder setSkipBuffersWithIdenticalReleaseTime(
         boolean skipBuffersWithIdenticalReleaseTime) {
       this.skipBuffersWithIdenticalReleaseTime = skipBuffersWithIdenticalReleaseTime;
