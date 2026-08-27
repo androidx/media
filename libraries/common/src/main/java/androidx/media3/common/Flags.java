@@ -65,7 +65,7 @@ public final class Flags {
   // Adding a new flag:
   // 1. Allocate the next flag ID from NEXT_FLAG_ID and increment NEXT_FLAG_ID by 1.
   // 2. Declare the public static final int constant, annotate with @ExperimentalApi, and add a
-  //    TODO with a tracking issue to remove it.
+  //    TODO with a tracking issue to remove it (including earliest cleanup date if in canary mode).
   // 3. Add the flag to the @Flag @IntDef list and update its javadoc.
   // 4. Decide on the initial lifecycle stage (see Flag Lifecycle and Evolution below).
   //
@@ -84,12 +84,10 @@ public final class Flags {
   //      immediately.
   //
   // 2. Canary Rollout (Dynamic Flag):
-  //    - When the feature is considered safe for general rollout, remove it from
-  //      STATIC_FLAG_STATES.
-  //    - The flag is now dynamic: enabled by default when canary mode is active (the default),
-  //      and disabled when canary mode is turned off (acting as a holdback).
-  //    - Keep the flag in canary mode for at least 2 months or until the next Media3 release
-  //      (whichever is later).
+  //    - When ready for general rollout, remove the flag from STATIC_FLAG_STATES so it is enabled
+  //      by default in canary mode and disabled when canary mode is turned off.
+  //    - Keep in canary mode for at least 2 months or until the next Media3 release (whichever is
+  //      later). Note the earliest cleanup date in the TODO (e.g. `(earliest cleanup: 2026-11-24)`)
   //
   // 3. Fallback Mechanism (Statically Enabled, Optional):
   //    - If an opt-out mechanism is temporarily desired after graduating from canary mode,
