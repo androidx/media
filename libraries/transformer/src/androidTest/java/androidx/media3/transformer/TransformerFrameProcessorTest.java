@@ -21,6 +21,7 @@ import static androidx.media3.common.C.MICROS_PER_SECOND;
 import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.PNG_ASSET;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
+import static androidx.media3.transformer.ExperimentalAnalyzerModeFactory.buildAnalyzer;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
@@ -182,11 +183,13 @@ public class TransformerFrameProcessorTest {
           };
         };
     Transformer transformer =
-        new Transformer.Builder(context)
-            .setAssetLoaderFactory(new ImageAssetLoader.Factory(context, fakeBitmapLoader))
-            .setFrameProcessorFactory(interceptingFactory)
-            .setNativeHardwareBufferHelpers(new FakeHardwareBufferJniWrapper())
-            .build();
+        buildAnalyzer(
+            context,
+            new Transformer.Builder(context)
+                .setAssetLoaderFactory(new ImageAssetLoader.Factory(context, fakeBitmapLoader))
+                .setFrameProcessorFactory(interceptingFactory)
+                .setNativeHardwareBufferHelpers(new FakeHardwareBufferJniWrapper())
+                .build());
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(PNG_ASSET.uri))
             .setDurationUs(MICROS_PER_SECOND / 2)
