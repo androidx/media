@@ -94,6 +94,11 @@
     *   Fix reporting of late video frames with identical release timestamps so
         that they are reported as dropped instead of skipped.
 *   Text:
+    *   Add `MediaItem.SubtitleConfiguration.timeOffsetUs` to shift the
+        timestamps of sideloaded subtitles relative to the media. The offset can
+        be changed during playback with `Player.replaceMediaItem(int,
+        MediaItem)` without interrupting playback
+        ([#1976](https://github.com/androidx/media/issues/1976)).
 *   Metadata:
 *   Image:
 *   DataSource:

@@ -328,6 +328,7 @@ public class MediaItemTest {
                 .setRoleFlags(C.ROLE_FLAG_ALTERNATE)
                 .setLabel("label")
                 .setId("id")
+                .setTimeOffsetUs(500_000)
                 .build());
 
     MediaItem mediaItem =
@@ -396,6 +397,7 @@ public class MediaItemTest {
             .setRoleFlags(C.ROLE_FLAG_ALTERNATE)
             .setLabel("label")
             .setId("id")
+            .setTimeOffsetUs(-300_000)
             .build();
 
     MediaItem.SubtitleConfiguration subtitleConfigurationFromBundle =
@@ -800,6 +802,7 @@ public class MediaItemTest {
                         .setRoleFlags(C.ROLE_FLAG_ALTERNATE)
                         .setLabel("label")
                         .setId("id")
+                        .setTimeOffsetUs(250_000)
                         .build()))
             .setDrmConfiguration(
                 new MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
@@ -953,6 +956,7 @@ public class MediaItemTest {
                         .setRoleFlags(C.ROLE_FLAG_ALTERNATE)
                         .setLabel("label")
                         .setId("id")
+                        .setTimeOffsetUs(250_000)
                         .build()))
             .setTag(new Object())
             .build();
@@ -1010,6 +1014,7 @@ public class MediaItemTest {
                         .setRoleFlags(C.ROLE_FLAG_ALTERNATE)
                         .setLabel("label")
                         .setId("id")
+                        .setTimeOffsetUs(250_000)
                         .build()))
             .setRequestMetadata(
                 new RequestMetadata.Builder()

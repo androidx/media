@@ -1567,6 +1567,7 @@ public final class MediaItem {
       private @C.RoleFlags int roleFlags;
       @Nullable private String label;
       @Nullable private String id;
+      private long timeOffsetUs;
 
       /**
        * Constructs an instance.
@@ -1585,6 +1586,7 @@ public final class MediaItem {
         this.roleFlags = subtitleConfiguration.roleFlags;
         this.label = subtitleConfiguration.label;
         this.id = subtitleConfiguration.id;
+        this.timeOffsetUs = subtitleConfiguration.timeOffsetUs;
       }
 
       /** Sets the {@link Uri} to the subtitle file. */
@@ -1636,6 +1638,37 @@ public final class MediaItem {
         return this;
       }
 
+      /**
+       * Sets the offset that is added to the timestamps of the cues in this subtitle track, in
+       * microseconds.
+       *
+       * <p>A positive value shifts the cues to be displayed later relative to the media, a negative
+       * value shifts them to be displayed earlier.
+       *
+       * <p>ExoPlayer specific notes:
+       *
+       * <ul>
+       *   <li>The offset can be changed during playback by passing an updated {@link MediaItem} to
+       *       {@code Player.replaceMediaItem(int, MediaItem)}. If only the time offsets of the
+       *       {@link SubtitleConfiguration} instances are changed, playback continues uninterrupted
+       *       and the new offsets apply to cues that have not been read by the renderer yet. To
+       *       also apply the new offset to the cues currently on screen, disable and re-enable the
+       *       text track, for example with {@code
+       *       TrackSelectionParameters.Builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, boolean)}.
+       *   <li>The offset only takes effect if the subtitles are parsed during extraction (the
+       *       default behavior of {@code DefaultMediaSourceFactory}), and is ignored by the
+       *       deprecated legacy subtitle decoding path.
+       * </ul>
+       *
+       * <p>The default value is {@code 0}.
+       */
+      @CanIgnoreReturnValue
+      @UnstableApi
+      public Builder setTimeOffsetUs(long timeOffsetUs) {
+        this.timeOffsetUs = timeOffsetUs;
+        return this;
+      }
+
       /** Creates a {@link SubtitleConfiguration} from the values of this builder. */
       public SubtitleConfiguration build() {
         return new SubtitleConfiguration(this);
@@ -1671,6 +1704,12 @@ public final class MediaItem {
      */
     @Nullable public final String id;
 
+    /**
+     * The offset that is added to the timestamps of the cues in this subtitle track, in
+     * microseconds. See {@link Builder#setTimeOffsetUs(long)} for details.
+     */
+    @UnstableApi public final long timeOffsetUs;
+
     private SubtitleConfiguration(
         Uri uri,
         String mimeType,
@@ -1686,6 +1725,7 @@ public final class MediaItem {
       this.roleFlags = roleFlags;
       this.label = label;
       this.id = id;
+      this.timeOffsetUs = 0;
     }
 
     private SubtitleConfiguration(Builder builder) {
@@ -1696,6 +1736,7 @@ public final class MediaItem {
       this.roleFlags = builder.roleFlags;
       this.label = builder.label;
       this.id = builder.id;
+      this.timeOffsetUs = builder.timeOffsetUs;
     }
 
     /** Returns a {@link Builder} initialized with the values of this instance. */
@@ -1720,7 +1761,8 @@ public final class MediaItem {
           && selectionFlags == other.selectionFlags
           && roleFlags == other.roleFlags
           && Objects.equals(label, other.label)
-          && Objects.equals(id, other.id);
+          && Objects.equals(id, other.id)
+          && timeOffsetUs == other.timeOffsetUs;
     }
 
     @Override
@@ -1732,6 +1774,7 @@ public final class MediaItem {
       result = 31 * result + roleFlags;
       result = 31 * result + (label == null ? 0 : label.hashCode());
       result = 31 * result + (id == null ? 0 : id.hashCode());
+      result = 31 * result + (int) (timeOffsetUs ^ (timeOffsetUs >>> 32));
       return result;
     }
 
@@ -1742,6 +1785,7 @@ public final class MediaItem {
     private static final String FIELD_ROLE_FLAGS = Util.intToStringMaxRadix(4);
     private static final String FIELD_LABEL = Util.intToStringMaxRadix(5);
     private static final String FIELD_ID = Util.intToStringMaxRadix(6);
+    private static final String FIELD_TIME_OFFSET_US = Util.intToStringMaxRadix(7);
 
     /** Restores a {@code SubtitleConfiguration} from a {@link Bundle}. */
     @UnstableApi
@@ -1753,6 +1797,7 @@ public final class MediaItem {
       @C.RoleFlags int roleFlags = bundle.getInt(FIELD_ROLE_FLAGS, 0);
       @Nullable String label = bundle.getString(FIELD_LABEL);
       @Nullable String id = bundle.getString(FIELD_ID);
+      long timeOffsetUs = bundle.getLong(FIELD_TIME_OFFSET_US, 0);
 
       SubtitleConfiguration.Builder builder = new SubtitleConfiguration.Builder(uri);
       return builder
@@ -1762,6 +1807,7 @@ public final class MediaItem {
           .setRoleFlags(roleFlags)
           .setLabel(label)
           .setId(id)
+          .setTimeOffsetUs(timeOffsetUs)
           .build();
     }
 
@@ -1786,6 +1832,9 @@ public final class MediaItem {
       }
       if (id != null) {
         bundle.putString(FIELD_ID, id);
+      }
+      if (timeOffsetUs != 0) {
+        bundle.putLong(FIELD_TIME_OFFSET_US, timeOffsetUs);
       }
       return bundle;
     }
