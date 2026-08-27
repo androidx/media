@@ -16,13 +16,14 @@
 package androidx.media3.common;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -282,7 +283,7 @@ public class FlagsTest {
 
   @Test
   public void declaredFlags_haveValidAndUniqueIdsLessThanNextFlagId() throws Exception {
-    Set<Integer> seenIds = new HashSet<>();
+    Map<Integer, String> seenIdsToFieldNames = new HashMap<>();
     for (Field field : Flags.class.getDeclaredFields()) {
       if (field.getName().startsWith("FLAG_")
           && Modifier.isPublic(field.getModifiers())
@@ -291,10 +292,15 @@ public class FlagsTest {
         int flagId = field.getInt(null);
         assertThat(flagId).isGreaterThan(0);
         assertThat(flagId).isLessThan(Flags.NEXT_FLAG_ID);
-        assertThat(seenIds.add(flagId)).isTrue();
+        String previousField = seenIdsToFieldNames.put(flagId, field.getName());
+        assertWithMessage(
+                "Duplicate flag ID %s found for fields '%s' and '%s'.",
+                flagId, previousField, field.getName())
+            .that(previousField)
+            .isNull();
       }
     }
-    assertThat(seenIds).isNotEmpty();
+    assertThat(seenIdsToFieldNames).isNotEmpty();
   }
 
   private static @Flags.Flag int getStaticallyDisabledFlag() {
