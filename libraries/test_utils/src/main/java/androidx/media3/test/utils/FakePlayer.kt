@@ -26,6 +26,7 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
 import androidx.media3.common.TrackSelectionParameters
+import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.text.CueGroup
 import androidx.media3.common.util.UnstableApi
@@ -45,6 +46,7 @@ import kotlinx.coroutines.test.TestCoroutineScheduler
  * @param playWhenReady Whether playback should start automatically when ready.
  * @param playlist The initial list of media items to play.
  * @param playbackSpeed The initial playback speed.
+ * @param trackSelectionParameters The initial track selection parameters.
  * @param bufferingDelayMs The time spent in [Player#STATE_BUFFERING] when preparing or seeking, in
  *   milliseconds. A value of zero will result in the player transitioning directly to
  *   [Player#STATE_READY] without entering [Player#STATE_BUFFERING]. Must not be negative.
@@ -55,6 +57,7 @@ class FakePlayer(
   playWhenReady: Boolean = false,
   playlist: List<MediaItemData> = ImmutableList.of(),
   playbackSpeed: Float = 1f,
+  trackSelectionParameters: TrackSelectionParameters = TrackSelectionParameters.DEFAULT,
   private val bufferingDelayMs: Long = 100,
 ) : SimpleBasePlayer(Looper.myLooper()!!) {
   private val handler = Util.createHandlerForCurrentLooper()
@@ -66,6 +69,7 @@ class FakePlayer(
       .setPlayWhenReady(playWhenReady, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
       .setPlaylist(playlist)
       .setPlaybackParameters(PlaybackParameters(playbackSpeed))
+      .setTrackSelectionParameters(trackSelectionParameters)
       .setDeviceInfo(DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_LOCAL).build())
       .build()
 
@@ -354,6 +358,22 @@ class FakePlayer(
         .buildUpon()
         .setAvailableCommands(state.availableCommands.buildUpon().addAll(*commands).build())
         .build()
+    invalidateState()
+  }
+
+  /**
+   * Sets the [Tracks] of the current media item.
+   *
+   * @param tracks The [Tracks] to set.
+   */
+  fun setTracks(tracks: Tracks) {
+    val index = currentMediaItemIndex
+    if (index < 0 || index >= state.playlist.size) {
+      return
+    }
+    val modifiedPlaylist = state.playlist.toMutableList()
+    modifiedPlaylist[index] = modifiedPlaylist[index].buildUpon().setTracks(tracks).build()
+    state = state.buildUpon().setPlaylist(modifiedPlaylist).build()
     invalidateState()
   }
 

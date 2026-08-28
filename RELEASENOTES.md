@@ -139,6 +139,9 @@
         released from a `Player.Listener` callback
         ([#3375](https://github.com/androidx/media/issues/3375)).
 *   UI:
+    *   Add `TrackSelectionState` and `TrackSelectionParametersState` classes
+        and their corresponding Composable state remember functions to the
+        `media3-ui-compose` module.
     *   Introduce `PresentationState.videoAspectRatio` and make
         `Modifier.resizeWithContentScale` take `aspectRatio: Float?` instead of
         `sourceSizeDp: Size?`.
