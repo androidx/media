@@ -9,6 +9,11 @@
     *   Add `MediaMetadata.playlistId` and
         `MediaMetadata.Builder.setPlaylistId(String)`.
 *   ExoPlayer:
+    *   Support registering multiple `VideoFrameMetadataListener` instances via
+        `ExoPlayer.addVideoFrameMetadataListener` and
+        `ExoPlayer.removeVideoFrameMetadataListener`, deprecating
+        `ExoPlayer.setVideoFrameMetadataListener` and
+        `ExoPlayer.clearVideoFrameMetadataListener`.
     *   Add support for ads in multi-period content (e.g., DASH) by splitting
         and offsetting the `AdPlaybackState` for each period.
     *   Move the flag to enable/disable HAGC metadata for progressive media from

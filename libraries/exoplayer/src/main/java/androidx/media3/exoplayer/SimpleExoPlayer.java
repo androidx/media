@@ -727,12 +727,26 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
   }
 
   @Override
+  public void addVideoFrameMetadataListener(VideoFrameMetadataListener listener) {
+    blockUntilConstructorFinished();
+    player.addVideoFrameMetadataListener(listener);
+  }
+
+  @Override
+  public void removeVideoFrameMetadataListener(VideoFrameMetadataListener listener) {
+    blockUntilConstructorFinished();
+    player.removeVideoFrameMetadataListener(listener);
+  }
+
+  @Override
+  @Deprecated
   public void setVideoFrameMetadataListener(VideoFrameMetadataListener listener) {
     blockUntilConstructorFinished();
     player.setVideoFrameMetadataListener(listener);
   }
 
   @Override
+  @Deprecated
   public void clearVideoFrameMetadataListener(VideoFrameMetadataListener listener) {
     blockUntilConstructorFinished();
     player.clearVideoFrameMetadataListener(listener);

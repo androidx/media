@@ -1793,23 +1793,48 @@ public interface ExoPlayer extends Player {
   int getVideoChangeFrameRateStrategy();
 
   /**
+   * Adds a listener to receive video frame metadata events.
+   *
+   * @param listener The listener to add.
+   */
+  @UnstableApi
+  void addVideoFrameMetadataListener(VideoFrameMetadataListener listener);
+
+  /**
+   * Removes a listener to receive video frame metadata events.
+   *
+   * @param listener The listener to remove.
+   */
+  @UnstableApi
+  void removeVideoFrameMetadataListener(VideoFrameMetadataListener listener);
+
+  /**
    * Sets a listener to receive video frame metadata events.
    *
-   * <p>This method is intended to be called by the same component that sets the {@link Surface}
-   * onto which video will be rendered. If using ExoPlayer's standard UI components, this method
-   * should not be called directly from application code.
+   * <p>Calling this method is equivalent to calling {@link
+   * #removeVideoFrameMetadataListener(VideoFrameMetadataListener)} for the listener previously set
+   * with this method (if any), and then calling {@link
+   * #addVideoFrameMetadataListener(VideoFrameMetadataListener)} with {@code listener} (if
+   * non-null).
    *
    * @param listener The listener.
+   * @deprecated Use {@link #addVideoFrameMetadataListener(VideoFrameMetadataListener)} and {@link
+   *     #removeVideoFrameMetadataListener(VideoFrameMetadataListener)} instead.
    */
+  @Deprecated
   @UnstableApi
   void setVideoFrameMetadataListener(VideoFrameMetadataListener listener);
 
   /**
-   * Clears the listener which receives video frame metadata events if it matches the one passed.
-   * Else does nothing.
+   * Clears the listener which receives video frame metadata events.
+   *
+   * <p>Calling this method is equivalent to calling {@link
+   * #removeVideoFrameMetadataListener(VideoFrameMetadataListener)}.
    *
    * @param listener The listener to clear.
+   * @deprecated Use {@link #removeVideoFrameMetadataListener(VideoFrameMetadataListener)} instead.
    */
+  @Deprecated
   @UnstableApi
   void clearVideoFrameMetadataListener(VideoFrameMetadataListener listener);
 
