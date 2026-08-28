@@ -137,8 +137,8 @@ public class ExoPlayerAdTest {
   @Before
   public void setUp() {
     Flags.disableFlag(Flags.FLAG_DYNAMIC_SCHEDULING);
+    Flags.enableFlag(Flags.FLAG_ENABLE_STUCK_PLAYING_DETECTION);
     context = ApplicationProvider.getApplicationContext();
-    ExoPlayer.Builder.experimentalEnableStuckPlayingDetection = true;
   }
 
   private TestExoPlayerBuilder parameterizeTestExoPlayerBuilder(TestExoPlayerBuilder builder) {

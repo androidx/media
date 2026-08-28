@@ -22,6 +22,7 @@ import static java.lang.Math.min;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.StreamKey;
@@ -82,7 +83,7 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
         enableInitialDiscontinuity,
         startUs,
         endUs,
-        /* enableClippingInMediaPeriod= */ false);
+        Flags.isEnabled(Flags.FLAG_ENABLE_CLIPPING_IN_MEDIA_PERIOD));
   }
 
   /**
@@ -90,16 +91,16 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
    * MediaPeriod}'s sample streams.
    *
    * <p>If the start point is guaranteed to be a key frame, pass {@code false} to {@code
-   * enableInitialPositionDiscontinuity} to suppress an initial discontinuity when the period is
-   * first read from.
+   * enableInitialDiscontinuity} to suppress an initial discontinuity when a period is first read
+   * from.
    *
    * @param mediaPeriod The media period to clip.
    * @param enableInitialDiscontinuity Whether the initial discontinuity should be enabled.
    * @param startUs The clipping start time, in microseconds.
    * @param endUs The clipping end time, in microseconds, or {@link C#TIME_END_OF_SOURCE} to
    *     indicate the end of the period.
-   * @param enableClippingInMediaPeriod Whether the end clipping should be delegated to the {@code
-   *     mediaPeriod}.
+   * @param enableClippingInMediaPeriod Whether to delegate end-position clipping to {@link
+   *     MediaPeriod} instances.
    */
   @ExperimentalApi // TODO: b/474538573 - Remove once clipping in media period is default.
   public ClippingMediaPeriod(

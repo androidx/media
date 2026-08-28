@@ -82,7 +82,6 @@ import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.PlayerMessage.Target;
-import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.ScrubbingModeParameters;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
@@ -230,8 +229,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Nullable private final VideoFrameReleaseEarlyTimeForecaster videoFrameReleaseEarlyTimeForecaster;
 
   private final PriorityQueue<Long> discardedDecoderInputBufferTimestamps;
-  private final boolean enableMediaCodecBufferDecodeOnlyFlag;
-  private final boolean enableDurationToProgressUs;
 
   private @MonotonicNonNull CodecMaxValues codecMaxValues;
   private boolean codecNeedsSetOutputSurfaceWorkaround;
@@ -285,8 +282,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     private float assumedMinimumCodecOperatingRate;
     @Nullable private VideoSink videoSink;
     private long lateThresholdToDropDecoderInputUs;
-    private boolean enableMediaCodecBufferDecodeOnlyFlag;
-    private boolean enableDurationToProgressUs;
     private long earlySchedulingThresholdUs;
     private boolean skipBuffersWithIdenticalReleaseTime;
 
@@ -419,50 +414,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     public Builder experimentalSetLateThresholdToDropDecoderInputUs(
         long lateThresholdToDropDecoderInputUs) {
       this.lateThresholdToDropDecoderInputUs = lateThresholdToDropDecoderInputUs;
-      return this;
-    }
-
-    /**
-     * Sets whether the {@link MediaCodec#BUFFER_FLAG_DECODE_ONLY} flag will be included when
-     * queuing decode-only input buffers to the decoder.
-     *
-     * <p>If {@code false}, then only if the decoder is set up in tunneling mode will decode-only
-     * input buffers be queued with the {@link MediaCodec#BUFFER_FLAG_DECODE_ONLY} flag. The default
-     * value is {@code false}.
-     *
-     * <p>Requires API 34.
-     *
-     * <p>This method is experimental and will be renamed or removed in a future release.
-     */
-    @RequiresApi(34)
-    @CanIgnoreReturnValue
-    @ExperimentalApi // TODO: b/470367414 - Run experiments and enable by default.
-    public Builder experimentalSetEnableMediaCodecBufferDecodeOnlyFlag(
-        boolean enableMediaCodecBufferDecodeOnlyFlag) {
-      this.enableMediaCodecBufferDecodeOnlyFlag = enableMediaCodecBufferDecodeOnlyFlag;
-      return this;
-    }
-
-    /**
-     * Sets whether the {@link #getDurationToProgressUs} is enabled.
-     *
-     * <p>When ExoPlayer's {@linkplain Flags#FLAG_DYNAMIC_SCHEDULING dynamic scheduling} is enabled,
-     * ExoPlayer uses {@link Renderer#getDurationToProgressUs} to better align when it wakes the CPU
-     * with when player progress can be made.
-     *
-     * <p>If {@code true}, then if the {@link MediaCodec} decoder is set up in asynchronous mode
-     * with a registered {@link MediaCodec.Callback} listener, {@link #getDurationToProgressUs} will
-     * return durations based on the next output frame's presentation time. This will increase CPU
-     * Idle time thereby reducing power consumption. The default value is {@code false}.
-     *
-     * <p>This method is experimental and will be renamed or removed in a future release.
-     *
-     * @see Flags#FLAG_DYNAMIC_SCHEDULING
-     */
-    @CanIgnoreReturnValue
-    @ExperimentalApi // TODO: b/369523131 - Remove once experiment is complete.
-    public Builder setEnableDurationToProgressUs(boolean enableDurationToProgressUs) {
-      this.enableDurationToProgressUs = enableDurationToProgressUs;
       return this;
     }
 
@@ -703,8 +654,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       minEarlyUsToDropDecoderInput = C.TIME_UNSET;
       videoFrameReleaseEarlyTimeForecaster = null;
     }
-    enableMediaCodecBufferDecodeOnlyFlag = builder.enableMediaCodecBufferDecodeOnlyFlag;
-    enableDurationToProgressUs = builder.enableDurationToProgressUs;
     nextOutputBufferToProcessPresentationTimeUs = C.TIME_UNSET;
     scrubbingModeParameters = null;
   }
@@ -1554,7 +1503,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Override
   protected long getDurationToProgressUs(
       long positionUs, long elapsedRealtimeUs, boolean isOnBufferAvailableListenerRegistered) {
-    if (!enableDurationToProgressUs || !isOnBufferAvailableListenerRegistered) {
+    if (!Flags.isEnabled(Flags.FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS)
+        || !isOnBufferAvailableListenerRegistered) {
       return super.getDurationToProgressUs(
           positionUs, elapsedRealtimeUs, isOnBufferAvailableListenerRegistered);
     }
@@ -1816,7 +1766,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Override
   protected int getCodecBufferFlags(DecoderInputBuffer buffer) {
     if (SDK_INT >= 34
-        && (enableMediaCodecBufferDecodeOnlyFlag
+        && (Flags.isEnabled(Flags.FLAG_ENABLE_MEDIACODEC_BUFFER_DECODE_ONLY)
             || (scrubbingModeParameters != null && scrubbingModeParameters.useDecodeOnlyFlag)
             || tunneling)
         && isBufferBeforeStartTime(buffer)

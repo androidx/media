@@ -69,6 +69,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DrmInitData;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
@@ -110,6 +111,7 @@ import androidx.media3.test.utils.FakeCryptoConfig;
 import androidx.media3.test.utils.FakeMediaPeriod;
 import androidx.media3.test.utils.FakeSampleStream;
 import androidx.media3.test.utils.FakeTimeline;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.robolectric.IdlingMediaCodecAdapterFactory;
 import androidx.media3.test.utils.robolectric.RobolectricUtil;
 import androidx.test.core.app.ApplicationProvider;
@@ -148,6 +150,7 @@ import org.robolectric.shadows.ShadowSystemClock;
 @RunWith(AndroidJUnit4.class)
 public class MediaCodecVideoRendererTest {
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
 
   private static final Format VIDEO_H264 =
       new Format.Builder()
@@ -230,6 +233,7 @@ public class MediaCodecVideoRendererTest {
                     /* vendor= */ false,
                     /* forceDisableAdaptive= */ false,
                     /* forceSecure= */ requiresSecureDecoder));
+    Flags.enableFlag(Flags.FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS);
     mediaCodecVideoRenderer =
         new MediaCodecVideoRenderer(
             new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
@@ -239,8 +243,7 @@ public class MediaCodecVideoRendererTest {
                 .setEnableDecoderFallback(false)
                 .setEventHandler(new Handler(testMainLooper))
                 .setEventListener(eventListener)
-                .setMaxDroppedFramesToNotify(1)
-                .setEnableDurationToProgressUs(true)) {
+                .setMaxDroppedFramesToNotify(1)) {
           @Override
           protected @Capabilities int supportsFormat(
               MediaCodecSelector mediaCodecSelector, Format format) {
@@ -2636,6 +2639,7 @@ public class MediaCodecVideoRendererTest {
   @Config(minSdk = 34)
   public void render_withDisabledMediaCodecBufferDecodeOnlyFlag_rendererSkipsEarlyBuffers()
       throws Exception {
+    Flags.disableFlag(Flags.FLAG_ENABLE_MEDIACODEC_BUFFER_DECODE_ONLY);
     MediaCodecVideoRenderer mediaCodecVideoRenderer =
         new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
             .setCodecAdapterFactory(codecAdapterFactory)
@@ -2645,7 +2649,6 @@ public class MediaCodecVideoRendererTest {
             .setEventHandler(new Handler(testMainLooper))
             .setEventListener(eventListener)
             .setMaxDroppedFramesToNotify(1)
-            .experimentalSetEnableMediaCodecBufferDecodeOnlyFlag(false)
             .build();
     mediaCodecVideoRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
     mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
@@ -2694,6 +2697,7 @@ public class MediaCodecVideoRendererTest {
   @Config(minSdk = 34)
   public void render_withEnabledSetMediaCodecBufferDecodeOnlyFlag_decoderSkipsEarlyBuffers()
       throws Exception {
+    Flags.enableFlag(Flags.FLAG_ENABLE_MEDIACODEC_BUFFER_DECODE_ONLY);
     MediaCodecVideoRenderer mediaCodecVideoRenderer =
         new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
             .setCodecAdapterFactory(codecAdapterFactory)
@@ -2703,7 +2707,6 @@ public class MediaCodecVideoRendererTest {
             .setEventHandler(new Handler(testMainLooper))
             .setEventListener(eventListener)
             .setMaxDroppedFramesToNotify(1)
-            .experimentalSetEnableMediaCodecBufferDecodeOnlyFlag(true)
             .build();
     mediaCodecVideoRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
     mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
@@ -2766,6 +2769,7 @@ public class MediaCodecVideoRendererTest {
   @Config(minSdk = 34)
   public void render_withEnabledSetMediaCodecBufferDecodeOnlyFlag_flagNotSetOnLastBuffer()
       throws Exception {
+    Flags.enableFlag(Flags.FLAG_ENABLE_MEDIACODEC_BUFFER_DECODE_ONLY);
     MediaCodecVideoRenderer mediaCodecVideoRenderer =
         new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
             .setCodecAdapterFactory(codecAdapterFactory)
@@ -2775,7 +2779,6 @@ public class MediaCodecVideoRendererTest {
             .setEventHandler(new Handler(testMainLooper))
             .setEventListener(eventListener)
             .setMaxDroppedFramesToNotify(1)
-            .experimentalSetEnableMediaCodecBufferDecodeOnlyFlag(true)
             .build();
     mediaCodecVideoRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
     mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
@@ -4254,6 +4257,7 @@ public class MediaCodecVideoRendererTest {
   @Config(minSdk = 34)
   public void render_afterSeekWithFlushingDisabledAndDecodeOnlyFlags_playsFrameAsExpected()
       throws Exception {
+    Flags.enableFlag(Flags.FLAG_ENABLE_MEDIACODEC_BUFFER_DECODE_ONLY);
     MediaCodecVideoRenderer mediaCodecVideoRenderer =
         new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
             .setCodecAdapterFactory(codecAdapterFactory)
@@ -4263,7 +4267,6 @@ public class MediaCodecVideoRendererTest {
             .setEventHandler(new Handler(testMainLooper))
             .setEventListener(eventListener)
             .setMaxDroppedFramesToNotify(1)
-            .experimentalSetEnableMediaCodecBufferDecodeOnlyFlag(true)
             .build();
     mediaCodecVideoRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
     mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
@@ -4345,6 +4348,7 @@ public class MediaCodecVideoRendererTest {
   @Config(minSdk = 34)
   public void render_afterBackwardsSeekWithFlushingDisabledAndDecodeOnlyFlags_playsFrameAsExpected()
       throws Exception {
+    Flags.enableFlag(Flags.FLAG_ENABLE_MEDIACODEC_BUFFER_DECODE_ONLY);
     MediaCodecVideoRenderer mediaCodecVideoRenderer =
         new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
             .setCodecAdapterFactory(codecAdapterFactory)
@@ -4354,7 +4358,6 @@ public class MediaCodecVideoRendererTest {
             .setEventHandler(new Handler(testMainLooper))
             .setEventListener(eventListener)
             .setMaxDroppedFramesToNotify(1)
-            .experimentalSetEnableMediaCodecBufferDecodeOnlyFlag(true)
             .build();
     mediaCodecVideoRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
     mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
@@ -6045,6 +6048,7 @@ public class MediaCodecVideoRendererTest {
   public void
       getDurationToProgressUs_withDurationToProgressUsDisabledAndWaitingOutputBuffer_returnsDefaultDuration()
           throws Exception {
+    Flags.disableFlag(Flags.FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS);
     mediaCodecVideoRenderer =
         new MediaCodecVideoRenderer(
             new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
@@ -6054,8 +6058,7 @@ public class MediaCodecVideoRendererTest {
                 .setEnableDecoderFallback(false)
                 .setEventHandler(new Handler(testMainLooper))
                 .setEventListener(eventListener)
-                .setMaxDroppedFramesToNotify(1)
-                .setEnableDurationToProgressUs(false)) {
+                .setMaxDroppedFramesToNotify(1)) {
           @Override
           protected @Capabilities int supportsFormat(
               MediaCodecSelector mediaCodecSelector, Format format) {
@@ -6168,8 +6171,7 @@ public class MediaCodecVideoRendererTest {
                 .setEnableDecoderFallback(false)
                 .setEventHandler(new Handler(testMainLooper))
                 .setEventListener(eventListener)
-                .setMaxDroppedFramesToNotify(1)
-                .setEnableDurationToProgressUs(true)) {
+                .setMaxDroppedFramesToNotify(1)) {
           @Override
           protected @Capabilities int supportsFormat(
               MediaCodecSelector mediaCodecSelector, Format format) {
@@ -6387,8 +6389,7 @@ public class MediaCodecVideoRendererTest {
                 .setEnableDecoderFallback(false)
                 .setEventHandler(new Handler(testMainLooper))
                 .setEventListener(eventListener)
-                .setMaxDroppedFramesToNotify(1)
-                .setEnableDurationToProgressUs(true)) {
+                .setMaxDroppedFramesToNotify(1)) {
           @Override
           protected @Capabilities int supportsFormat(
               MediaCodecSelector mediaCodecSelector, Format format) {
@@ -7223,7 +7224,6 @@ public class MediaCodecVideoRendererTest {
               .setEventListener(eventListener)
               .setMaxDroppedFramesToNotify(1)
               .experimentalSetLateThresholdToDropDecoderInputUs(100_000)
-              .setEnableDurationToProgressUs(true)
               .setAssumedMinimumCodecOperatingRate(assumedMinimumCodecOperatingRate));
     }
 

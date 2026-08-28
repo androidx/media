@@ -26,6 +26,7 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.ExperimentalApi;
@@ -54,7 +55,6 @@ public final class ClippingMediaSource extends WrappingMediaSource {
 
     private final MediaSource mediaSource;
     private MediaItem.ClippingConfiguration.Builder config;
-
     private boolean enableClippingInMediaPeriod;
     private boolean buildCalled;
 
@@ -66,6 +66,7 @@ public final class ClippingMediaSource extends WrappingMediaSource {
     public Builder(MediaSource mediaSource) {
       this.mediaSource = checkNotNull(mediaSource);
       this.config = new MediaItem.ClippingConfiguration.Builder();
+      enableClippingInMediaPeriod = Flags.isEnabled(Flags.FLAG_ENABLE_CLIPPING_IN_MEDIA_PERIOD);
     }
 
     /**
@@ -236,13 +237,12 @@ public final class ClippingMediaSource extends WrappingMediaSource {
     }
 
     /**
-     * Sets whether an experimental setting to delegate end position clipping to the wrapped {@link
-     * MediaPeriod} is enabled.
+     * Sets whether to delegate end-position clipping to {@link MediaPeriod} instances.
      *
-     * <p>The default value is {@code false}.
+     * <p>The default value is determined by {@link Flags#FLAG_ENABLE_CLIPPING_IN_MEDIA_PERIOD}.
      *
-     * @param enableClippingInMediaPeriod Whether the end clipping should be delegated to the
-     *     wrapped {@link MediaPeriod}.
+     * @param enableClippingInMediaPeriod Whether to delegate end-position clipping to {@link
+     *     MediaPeriod} instances.
      * @return This builder.
      */
     @ExperimentalApi // TODO: b/474538573 - Remove once clipping in media period is default.

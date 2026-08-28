@@ -25,7 +25,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.C.TrackType;
 import androidx.media3.common.Flags;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
@@ -222,10 +221,9 @@ public final class ScrubbingModeParameters {
      * signalling that the decoded output of buffers between the previous keyframe and the target
      * frame is not needed by the player.
      *
-     * <p>If the decode-only flag is {@linkplain
-     * MediaCodecVideoRenderer.Builder#experimentalSetEnableMediaCodecBufferDecodeOnlyFlag enabled}
-     * (which may become the default in a future release), this method is a no-op (i.e. you cannot
-     * disable usage of the decode-only flag when scrubbing using this method).
+     * <p>If the decode-only flag is {@linkplain Flags#FLAG_ENABLE_MEDIACODEC_BUFFER_DECODE_ONLY
+     * enabled} (which may become the default in a future release), this method is a no-op (i.e. you
+     * cannot disable usage of the decode-only flag when scrubbing using this method).
      *
      * <p>Defaults to {@code true} (this may change in a future release).
      */

@@ -40,6 +40,7 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
@@ -247,17 +248,6 @@ public interface ExoPlayer extends Player {
      * milliseconds.
      */
     @UnstableApi public static final int DEFAULT_STUCK_SUPPRESSED_DETECTION_TIMEOUT_MS = 600_000;
-
-    /**
-     * Static override to allow stuck playing detection. If {@code false}, the provided timeouts
-     * default to {@link Integer#MAX_VALUE} instead of {@link
-     * #DEFAULT_STUCK_PLAYING_DETECTION_TIMEOUT_MS} and {@link
-     * #DEFAULT_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS}.
-     *
-     * <p>This value is experimental and will be removed in a future release.
-     */
-    @ExperimentalApi // TODO: b/443074686 - Remove once global opt-out no longer needed.
-    public static boolean experimentalEnableStuckPlayingDetection = true;
 
     /* package */ final Context context;
 
@@ -520,11 +510,11 @@ public interface ExoPlayer extends Player {
       detachSurfaceTimeoutMs = DEFAULT_DETACH_SURFACE_TIMEOUT_MS;
       stuckBufferingDetectionTimeoutMs = DEFAULT_STUCK_BUFFERING_DETECTION_TIMEOUT_MS;
       stuckPlayingDetectionTimeoutMs =
-          experimentalEnableStuckPlayingDetection
+          Flags.isEnabled(Flags.FLAG_ENABLE_STUCK_PLAYING_DETECTION)
               ? DEFAULT_STUCK_PLAYING_DETECTION_TIMEOUT_MS
               : Integer.MAX_VALUE;
       stuckPlayingNotEndingTimeoutMs =
-          experimentalEnableStuckPlayingDetection
+          Flags.isEnabled(Flags.FLAG_ENABLE_STUCK_PLAYING_DETECTION)
               ? DEFAULT_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS
               : Integer.MAX_VALUE;
       stuckSuppressedDetectionTimeoutMs = DEFAULT_STUCK_SUPPRESSED_DETECTION_TIMEOUT_MS;

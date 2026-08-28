@@ -113,6 +113,10 @@ public final class Flags {
    *   <li>{@link #FLAG_PER_STREAM_MEDIA_PROGRESSION}
    *   <li>{@link #FLAG_PROCESSED_STREAM_CHANGED_AT_START}
    *   <li>{@link #FLAG_DYNAMIC_SCHEDULING}
+   *   <li>{@link #FLAG_ENABLE_STUCK_PLAYING_DETECTION}
+   *   <li>{@link #FLAG_ENABLE_CLIPPING_IN_MEDIA_PERIOD}
+   *   <li>{@link #FLAG_ENABLE_MEDIACODEC_BUFFER_DECODE_ONLY}
+   *   <li>{@link #FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS}
    * </ul>
    */
   @Documented
@@ -124,6 +128,10 @@ public final class Flags {
         FLAG_PER_STREAM_MEDIA_PROGRESSION,
         FLAG_PROCESSED_STREAM_CHANGED_AT_START,
         FLAG_DYNAMIC_SCHEDULING,
+        FLAG_ENABLE_STUCK_PLAYING_DETECTION,
+        FLAG_ENABLE_CLIPPING_IN_MEDIA_PERIOD,
+        FLAG_ENABLE_MEDIACODEC_BUFFER_DECODE_ONLY,
+        FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS,
       })
   public @interface Flag {}
 
@@ -161,7 +169,52 @@ public final class Flags {
   @ExperimentalApi // TODO: b/500985770 - Remove this flag.
   public static final int FLAG_DYNAMIC_SCHEDULING = 3;
 
-  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 4;
+  /**
+   * Flag to enable stuck playing detection in ExoPlayer.
+   *
+   * <p>When enabled, ExoPlayer detects when playback is stuck without making progress or without
+   * ending, and triggers a playback error.
+   */
+  @ExperimentalApi // TODO: b/443074686 - Remove this flag.
+  public static final int FLAG_ENABLE_STUCK_PLAYING_DETECTION = 4;
+
+  /**
+   * Flag to enable delegating end-position clipping to {@code MediaPeriod} instances in ExoPlayer.
+   *
+   * <p>When enabled, clipping of the end position is delegated to the wrapped {@code MediaPeriod}
+   * rather than being handled at the media source level.
+   *
+   * <p>This flag is not yet covered by canary mode and defaults to {@code false}.
+   */
+  @ExperimentalApi // TODO: b/474538573 - Remove this flag.
+  public static final int FLAG_ENABLE_CLIPPING_IN_MEDIA_PERIOD = 5;
+
+  /**
+   * Flag to enable passing {@link android.media.MediaCodec#BUFFER_FLAG_DECODE_ONLY} to {@link
+   * android.media.MediaCodec} on API 34+.
+   *
+   * <p>When enabled on API 34+, buffers before the start time in non-tunneling mode are queued with
+   * {@code BUFFER_FLAG_DECODE_ONLY} rather than being dropped after decoding.
+   *
+   * <p>This flag is not yet covered by canary mode and defaults to {@code false}.
+   */
+  @ExperimentalApi // TODO: b/470367414 - Remove this flag.
+  public static final int FLAG_ENABLE_MEDIACODEC_BUFFER_DECODE_ONLY = 6;
+
+  /**
+   * Flag to enable calculating duration-to-progress based on next output buffer presentation time
+   * in {@code MediaCodecVideoRenderer}.
+   *
+   * <p>When enabled along with {@link #FLAG_DYNAMIC_SCHEDULING}, {@code MediaCodecVideoRenderer}
+   * returns duration-to-progress aligned with when its next output buffer can be rendered when in
+   * asynchronous mode.
+   *
+   * <p>This flag is not yet covered by canary mode and defaults to {@code false}.
+   */
+  @ExperimentalApi // TODO: b/369523131 - Remove this flag.
+  public static final int FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS = 7;
+
+  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 8;
 
   private static final SparseBooleanArray STATIC_FLAG_STATES = new SparseBooleanArray();
 
@@ -169,9 +222,13 @@ public final class Flags {
     // Statically disabled flags (not ready for general rollout).
     STATIC_FLAG_STATES.put(FLAG_PER_STREAM_MEDIA_PROGRESSION, false);
     STATIC_FLAG_STATES.put(FLAG_PROCESSED_STREAM_CHANGED_AT_START, false);
+    STATIC_FLAG_STATES.put(FLAG_ENABLE_CLIPPING_IN_MEDIA_PERIOD, false);
+    STATIC_FLAG_STATES.put(FLAG_ENABLE_MEDIACODEC_BUFFER_DECODE_ONLY, false);
+    STATIC_FLAG_STATES.put(FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS, false);
 
     // Statically enabled flags (kept as fallback for opt-out).
     STATIC_FLAG_STATES.put(FLAG_DYNAMIC_SCHEDULING, true);
+    STATIC_FLAG_STATES.put(FLAG_ENABLE_STUCK_PLAYING_DETECTION, true);
   }
 
   @SuppressWarnings("NonFinalStaticField") // Intentional statically shared mutable state.

@@ -24,6 +24,7 @@ import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AdViewProvider;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
@@ -215,6 +216,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     liveMaxSpeed = C.RATE_UNSET;
     parseSubtitlesDuringExtraction = true;
     loadOnlySelectedTracks = true;
+    enableClippingInMediaPeriod = Flags.isEnabled(Flags.FLAG_ENABLE_CLIPPING_IN_MEDIA_PERIOD);
   }
 
   @CanIgnoreReturnValue
@@ -499,13 +501,12 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
   }
 
   /**
-   * Sets whether an experimental setting to delegate end position clipping to a wrapped {@link
-   * MediaPeriod} is enabled.
+   * Sets whether to delegate end-position clipping to {@link MediaPeriod} instances.
    *
-   * <p>The default value is {@code false}.
+   * <p>The default value is determined by {@link Flags#FLAG_ENABLE_CLIPPING_IN_MEDIA_PERIOD}.
    *
-   * @param enableClippingInMediaPeriod Whether the end clipping should be delegated to the wrapped
-   *     {@link MediaPeriod}.
+   * @param enableClippingInMediaPeriod Whether to delegate end-position clipping to {@link
+   *     MediaPeriod} instances.
    * @return This factory, for convenience.
    */
   @ExperimentalApi // TODO: b/474538573 - Remove once clipping in media period is default.

@@ -23,6 +23,7 @@ import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.UnstableApi;
@@ -463,7 +464,7 @@ public class TestExoPlayerBuilder {
                 };
           };
     }
-    ExoPlayer.Builder.experimentalEnableStuckPlayingDetection = true;
+    Flags.enableFlag(Flags.FLAG_ENABLE_STUCK_PLAYING_DETECTION);
     ExoPlayer.Builder builder =
         new ExoPlayer.Builder(context, playerRenderersFactory)
             .setTrackSelector(trackSelector)

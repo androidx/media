@@ -26,10 +26,10 @@ import android.os.Looper;
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
-import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
@@ -104,7 +104,7 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
     this.audioSink = capturingAudioSink;
     this.imageDecoderFactory = new BitmapFactoryImageDecoder.Factory(context);
     this.textRendererFactory = TextRenderer::new;
-    ExoPlayer.Builder.experimentalEnableStuckPlayingDetection = true;
+    Flags.enableFlag(Flags.FLAG_ENABLE_STUCK_PLAYING_DETECTION);
   }
 
   /**

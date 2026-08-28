@@ -71,6 +71,7 @@ import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
@@ -90,6 +91,7 @@ import androidx.media3.extractor.ExtractorsFactory;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.TestTransformerBuilder;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
@@ -153,6 +155,7 @@ public final class MediaItemExportTest {
             }
           });
 
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
   @Rule public final TemporaryFolder outputDir = new TemporaryFolder();
 
   private final Context context = ApplicationProvider.getApplicationContext();
@@ -259,6 +262,9 @@ public final class MediaItemExportTest {
   @Test
   public void start_withClippingStartAndEndEqual_completesSuccessfully(
       @TestParameter boolean enableClippingInMediaPeriod) throws Exception {
+    if (enableClippingInMediaPeriod) {
+      Flags.enableFlag(Flags.FLAG_ENABLE_CLIPPING_IN_MEDIA_PERIOD);
+    }
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
     Clock clock = new FakeClock(/* isAutoAdvancing= */ true);
     Codec.DecoderFactory decoderFactory = new DefaultDecoderFactory.Builder(context).build();
@@ -267,11 +273,7 @@ public final class MediaItemExportTest {
             .setMuxerFactory(muxerFactory)
             .setAssetLoaderFactory(
                 new ExoPlayerAssetLoader.Factory(
-                    context,
-                    decoderFactory,
-                    clock,
-                    new DefaultMediaSourceFactory(context)
-                        .setEnableClippingInMediaPeriod(enableClippingInMediaPeriod)))
+                    context, decoderFactory, clock, new DefaultMediaSourceFactory(context)))
             .setClock(clock)
             .build();
     MediaItem mediaItem =

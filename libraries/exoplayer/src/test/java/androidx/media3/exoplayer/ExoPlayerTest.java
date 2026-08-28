@@ -289,7 +289,7 @@ public final class ExoPlayerTest {
     context = ApplicationProvider.getApplicationContext();
     placeholderTimeline =
         new MaskingMediaSource.PlaceholderTimeline(FAKE_MEDIA_ITEM.buildUpon().setTag(0).build());
-    ExoPlayer.Builder.experimentalEnableStuckPlayingDetection = true;
+    Flags.enableFlag(Flags.FLAG_ENABLE_STUCK_PLAYING_DETECTION);
     Flags.disableFlag(Flags.FLAG_DYNAMIC_SCHEDULING);
   }
 
