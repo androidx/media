@@ -177,9 +177,9 @@ public class TransformerMp4EditListTrimTest {
     ImmutableList<Long> videoTimestampsUs = getVideoSampleTimesUs(outputPath);
     assertThat(videoTimestampsUs).hasSize(56);
     assertThat(videoTimestampsUs.get(0)).isEqualTo(-50_000); // Original PTS: 0
-    assertThat(videoTimestampsUs.get(1)).isEqualTo(-16_655); // Original PTS: 33_334
-    assertThat(videoTimestampsUs.get(2)).isEqualTo(16_688); // Original PTS: 66_688
-    assertThat(videoTimestampsUs.get(55)).isEqualTo(1_967_311); // Original PTS: 2_100_700
+    assertThat(videoTimestampsUs.get(1)).isEqualTo(-16_642); // Original PTS: 33_334
+    assertThat(videoTimestampsUs.get(2)).isEqualTo(16_678); // Original PTS: 66_688
+    assertThat(videoTimestampsUs.get(55)).isEqualTo(1_967_321); // Original PTS: 2_100_700
   }
 
   @Test

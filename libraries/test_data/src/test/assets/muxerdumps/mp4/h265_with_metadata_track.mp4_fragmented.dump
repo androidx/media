@@ -78,11 +78,11 @@ track 2:
     flags = 1
     data = length 420464, hash 9C6E9B09
   sample 1:
-    time = 33355
+    time = 33366
     flags = 0
     data = length 131591, hash A1895540
   sample 2:
-    time = 66711
+    time = 66700
     flags = 0
     data = length 126941, hash 7B26BBA6
 tracksEnded = true

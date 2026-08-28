@@ -15,12 +15,15 @@
  */
 package androidx.media3.muxer;
 
+import static androidx.media3.common.util.Util.constrainValue;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.muxer.Mp4Muxer.TrackReferenceType;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
@@ -122,10 +125,27 @@ import java.util.Map;
   }
 
   public int videoUnitTimebase() {
-    // TODO: b/270583563 - Use frame rate for video tracks.
     if (MimeTypes.isAudio(format.sampleMimeType)) {
       return format.sampleRate != Format.NO_VALUE ? format.sampleRate : 48_000;
     }
+    // 1. Primary: Calculate timescale from frame rate (see b/270583563#comment6).
+    if (format.frameRate != Format.NO_VALUE && format.frameRate >= 1.0f) {
+      int roundedFrameRate = Math.round(format.frameRate);
+      return constrainValue(roundedFrameRate * 1000, 1_000, 1_000_000);
+    }
+    // 2. First fallback: Use track timescale if present in format metadata.
+    if (format.metadata != null) {
+      for (int i = 0; i < format.metadata.length(); i++) {
+        Metadata.Entry entry = format.metadata.get(i);
+        if (entry instanceof Mp4TimestampData) {
+          long sourceTimescale = ((Mp4TimestampData) entry).timescale;
+          if (sourceTimescale > 0 && sourceTimescale <= Integer.MAX_VALUE) {
+            return (int) sourceTimescale;
+          }
+        }
+      }
+    }
+    // 3. Second fallback: Default to 90 kHz video timescale.
     return 90_000;
   }
 }

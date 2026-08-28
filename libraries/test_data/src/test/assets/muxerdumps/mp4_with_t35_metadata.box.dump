@@ -32,7 +32,7 @@ moov (2434 bytes):
       Data = length 84, hash 6B57450F
     mdia (767 bytes):
       mdhd (32 bytes):
-        Data = length 24, hash 174688FC
+        Data = length 24, hash 219C8052
       hdlr (44 bytes):
         Data = length 36, hash A0852FF2
       minf (683 bytes):
@@ -44,7 +44,7 @@ moov (2434 bytes):
           stsd (143 bytes):
             Data = length 135, hash F53E78CB
           stts (24 bytes):
-            Data = length 16, hash E6950F30
+            Data = length 16, hash E6950E66
           stsz (140 bytes):
             Data = length 132, hash B04B2673
           stsc (28 bytes):
