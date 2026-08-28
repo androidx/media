@@ -25,7 +25,6 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.test.utils.awaitPlaybackState
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -92,8 +91,6 @@ class DrmPlaybackTest {
             context,
             DefaultRenderersFactory(context)
               .experimentalSetLateThresholdToDropDecoderInputUs(-100000000L),
-            DefaultMediaSourceFactory(context)
-              .experimentalSetCodecsToParseWithinGopSampleDependencies(C.VIDEO_CODEC_FLAG_H264),
           )
           .build()
 
@@ -133,12 +130,7 @@ class DrmPlaybackTest {
               .build()
           )
           .build()
-      val player =
-        ExoPlayer.Builder(
-            context,
-            DefaultRenderersFactory(context).experimentalSetParseAv1SampleDependencies(true),
-          )
-          .build()
+      val player = ExoPlayer.Builder(context).build()
       player.setMediaItem(mediaItem)
       player.prepare()
       player.play()

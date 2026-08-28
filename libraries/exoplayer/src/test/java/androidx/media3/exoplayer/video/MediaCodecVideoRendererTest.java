@@ -1899,8 +1899,7 @@ public class MediaCodecVideoRendererTest {
                 .setEventHandler(new Handler(testMainLooper))
                 .setEventListener(eventListener)
                 .setMaxDroppedFramesToNotify(1)
-                .experimentalSetLateThresholdToDropDecoderInputUs(50_000)
-                .experimentalSetParseAv1SampleDependencies(true)) {
+                .experimentalSetLateThresholdToDropDecoderInputUs(50_000)) {
           @Override
           protected @Capabilities int supportsFormat(
               MediaCodecSelector mediaCodecSelector, Format format) {

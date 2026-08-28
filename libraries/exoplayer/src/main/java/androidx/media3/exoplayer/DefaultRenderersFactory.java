@@ -31,7 +31,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Flags;
-import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -125,7 +124,6 @@ public class DefaultRenderersFactory implements RenderersFactory {
   private boolean enableFloatOutput;
   private boolean enableAudioOutputPlaybackParameters;
   private boolean enableMediaCodecVideoRendererPrewarming;
-  private boolean parseAv1SampleDependencies;
   private long lateThresholdToDropDecoderInputUs;
   private long videoRendererEarlySchedulingThresholdUs;
   private boolean enableMediaCodecBufferDecodeOnlyFlag;
@@ -140,7 +138,6 @@ public class DefaultRenderersFactory implements RenderersFactory {
     extensionRendererMode = EXTENSION_RENDERER_MODE_OFF;
     allowedVideoJoiningTimeMs = DEFAULT_ALLOWED_VIDEO_JOINING_TIME_MS;
     mediaCodecSelector = MediaCodecSelector.DEFAULT;
-    parseAv1SampleDependencies = true;
     lateThresholdToDropDecoderInputUs = DEFAULT_LATE_THRESHOLD_TO_DROP_DECODER_INPUT_US;
     videoRendererEarlySchedulingThresholdUs = DEFAULT_EARLY_SCHEDULING_THRESHOLD_US;
   }
@@ -310,25 +307,6 @@ public class DefaultRenderersFactory implements RenderersFactory {
   public final DefaultRenderersFactory experimentalSetEnableMediaCodecVideoRendererPrewarming(
       boolean enableMediaCodecVideoRendererPrewarming) {
     this.enableMediaCodecVideoRendererPrewarming = enableMediaCodecVideoRendererPrewarming;
-    return this;
-  }
-
-  /**
-   * Sets whether {@link MimeTypes#VIDEO_AV1} bitstream parsing for sample dependency information is
-   * enabled. Knowing which input frames are not depended on can speed up seeking and reduce dropped
-   * frames.
-   *
-   * <p>Defaults to {@code true}.
-   *
-   * <p>This method is experimental and will be renamed or removed in a future release.
-   *
-   * @param parseAv1SampleDependencies Whether bitstream parsing is enabled.
-   */
-  @CanIgnoreReturnValue
-  @ExperimentalApi // TODO: b/470365670 - Remove method once config is enabled by default.
-  public final DefaultRenderersFactory experimentalSetParseAv1SampleDependencies(
-      boolean parseAv1SampleDependencies) {
-    this.parseAv1SampleDependencies = parseAv1SampleDependencies;
     return this;
   }
 
@@ -506,7 +484,6 @@ public class DefaultRenderersFactory implements RenderersFactory {
             .setEventHandler(eventHandler)
             .setEventListener(eventListener)
             .setMaxDroppedFramesToNotify(MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY)
-            .experimentalSetParseAv1SampleDependencies(parseAv1SampleDependencies)
             .experimentalSetLateThresholdToDropDecoderInputUs(lateThresholdToDropDecoderInputUs)
             .setEnableDurationToProgressUs(enableMediaCodecVideoRendererDurationToProgressUs)
             .setEarlySchedulingThresholdUs(videoRendererEarlySchedulingThresholdUs);

@@ -97,8 +97,7 @@ public class FragmentedMp4Extractor implements Extractor {
    * Flags controlling the behavior of the extractor. Possible flag values are {@link
    * #FLAG_WORKAROUND_EVERY_VIDEO_FRAME_IS_SYNC_FRAME}, {@link #FLAG_WORKAROUND_IGNORE_TFDT_BOX},
    * {@link #FLAG_ENABLE_EMSG_TRACK}, {@link #FLAG_WORKAROUND_IGNORE_EDIT_LISTS}, {@link
-   * #FLAG_EMIT_RAW_SUBTITLE_DATA}, {@link #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}, {@link
-   * #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265}, {@link #FLAG_MERGE_FRAGMENTED_SIDX} and {@link
+   * #FLAG_EMIT_RAW_SUBTITLE_DATA}, {@link #FLAG_MERGE_FRAGMENTED_SIDX} and {@link
    * #FLAG_READ_MFRA_FOR_SEEK_MAP}.
    */
   @Documented
@@ -112,8 +111,6 @@ public class FragmentedMp4Extractor implements Extractor {
         FLAG_ENABLE_EMSG_TRACK,
         FLAG_WORKAROUND_IGNORE_EDIT_LISTS,
         FLAG_EMIT_RAW_SUBTITLE_DATA,
-        FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES,
-        FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265,
         FLAG_MERGE_FRAGMENTED_SIDX,
         FLAG_READ_MFRA_FOR_SEEK_MAP,
         FLAG_DISABLE_ARTWORK_METADATA,
@@ -147,28 +144,6 @@ public class FragmentedMp4Extractor implements Extractor {
    * transcoded to {@link MimeTypes#APPLICATION_MEDIA3_CUES} during extraction.
    */
   public static final int FLAG_EMIT_RAW_SUBTITLE_DATA = 1 << 5; // 32
-
-  /**
-   * Flag to extract additional sample dependency information, and mark output buffers with {@link
-   * C#BUFFER_FLAG_NOT_DEPENDED_ON} for {@linkplain MimeTypes#VIDEO_H264 H.264} video.
-   *
-   * <p>This class always marks the samples at the start of each group of picture (GOP) with {@link
-   * C#BUFFER_FLAG_KEY_FRAME}. Usually, key frames can be decoded independently, without depending
-   * on other samples.
-   *
-   * <p>Setting this flag enables elementary stream parsing to identify disposable samples that are
-   * not depended on by other samples. Any disposable sample can be safely omitted, and the rest of
-   * the track will remain valid.
-   */
-  public static final int FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES = 1 << 6; // 64
-
-  /**
-   * Flag to extract additional sample dependency information, and mark output buffers with {@link
-   * C#BUFFER_FLAG_NOT_DEPENDED_ON} for {@linkplain MimeTypes#VIDEO_H265 H.265} video.
-   *
-   * <p>See {@link #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}.
-   */
-  public static final int FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265 = 1 << 7;
 
   /** Flag to enable reading and merging of all sidx boxes before continuing extraction. */
   public static final int FLAG_MERGE_FRAGMENTED_SIDX = 1 << 8;
@@ -467,23 +442,6 @@ public class FragmentedMp4Extractor implements Extractor {
     chunkIndexMerger = new ChunkIndexMerger();
     seekPositionBeforeSidxProcessing = C.INDEX_UNSET;
     seekPositionBeforeMfraProcessing = C.INDEX_UNSET;
-  }
-
-  /**
-   * Returns {@link Flags} denoting if an extractor should parse within GOP sample dependencies.
-   *
-   * @param videoCodecFlags The set of codecs for which to parse within GOP sample dependencies.
-   */
-  public static @Flags int codecsToParseWithinGopSampleDependenciesAsFlags(
-      @C.VideoCodecFlags int videoCodecFlags) {
-    @Flags int flags = 0;
-    if ((videoCodecFlags & C.VIDEO_CODEC_FLAG_H264) != 0) {
-      flags |= FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES;
-    }
-    if ((videoCodecFlags & C.VIDEO_CODEC_FLAG_H265) != 0) {
-      flags |= FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265;
-    }
-    return flags;
   }
 
   @Override
@@ -1911,14 +1869,9 @@ public class FragmentedMp4Extractor implements Extractor {
    * Returns whether reading within GOP sample dependencies is enabled for the sample {@link
    * Format}.
    */
-  private boolean canReadWithinGopSampleDependencies(Format format) {
-    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H264)) {
-      return (flags & FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES) != 0;
-    }
-    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H265)) {
-      return (flags & FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265) != 0;
-    }
-    return false;
+  private static boolean canReadWithinGopSampleDependencies(Format format) {
+    return Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H264)
+        || Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H265);
   }
 
   /**

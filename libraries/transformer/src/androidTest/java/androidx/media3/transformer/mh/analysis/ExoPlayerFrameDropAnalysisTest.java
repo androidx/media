@@ -151,8 +151,6 @@ public class ExoPlayerFrameDropAnalysisTest {
                   new ExoPlayer.Builder(
                           context,
                           new DefaultRenderersFactory(context)
-                              .experimentalSetParseAv1SampleDependencies(
-                                  /* parseAv1SampleDependencies= */ testConfig.lateThresholdUs != 0)
                               .experimentalSetLateThresholdToDropDecoderInputUs(
                                   testConfig.lateThresholdUs))
                       .setClock(new JumpingClock())

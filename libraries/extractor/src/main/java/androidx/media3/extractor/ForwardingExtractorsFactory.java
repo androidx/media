@@ -16,7 +16,6 @@
 package androidx.media3.extractor;
 
 import android.net.Uri;
-import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.text.SubtitleParser;
 import java.util.List;
@@ -50,13 +49,6 @@ public class ForwardingExtractorsFactory implements ExtractorsFactory {
   @Override
   public ExtractorsFactory setSubtitleParserFactory(SubtitleParser.Factory subtitleParserFactory) {
     return factory.setSubtitleParserFactory(subtitleParserFactory);
-  }
-
-  @Override
-  public ExtractorsFactory experimentalSetCodecsToParseWithinGopSampleDependencies(
-      @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
-    return factory.experimentalSetCodecsToParseWithinGopSampleDependencies(
-        codecsToParseWithinGopSampleDependencies);
   }
 
   @Override

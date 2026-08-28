@@ -151,8 +151,8 @@ public final class Mp4ExtractorNonParameterizedTest {
     FakeExtractorOutput primaryTracksOutput =
         TestUtil.extractAllSamplesFromFile(mp4Extractor, context, inputFilePath);
 
-    String dumpFilePath = getDumpFilePath(inputFilePath, "_with_flag_read_auxiliary_tracks");
-    DumpFileAsserts.assertOutput(context, primaryTracksOutput, dumpFilePath);
+    DumpFileAsserts.assertOutput(
+        context, primaryTracksOutput, "extractordumps/mp4/sample.mp4.0.dump");
   }
 
   @Test
@@ -247,34 +247,6 @@ public final class Mp4ExtractorNonParameterizedTest {
     assertThat(videoFormat.height).isEqualTo(720);
     // Importantly, check that no actual sample data was output
     assertThat(output.trackOutputs.get(0).getSampleCount()).isEqualTo(0);
-  }
-
-  @Test
-  public void extract_h264WithoutGopParsingFlags() throws Exception {
-    Context context = ApplicationProvider.getApplicationContext();
-    String inputFilePath = "media/mp4/sample.mp4";
-    Mp4Extractor mp4Extractor =
-        new Mp4Extractor(new DefaultSubtitleParserFactory(), /* flags= */ 0);
-
-    FakeExtractorOutput output =
-        TestUtil.extractAllSamplesFromFile(mp4Extractor, context, inputFilePath);
-
-    String dumpFilePath = getDumpFilePath(inputFilePath, "_without_gop_parsing_flags");
-    DumpFileAsserts.assertOutput(context, output, dumpFilePath);
-  }
-
-  @Test
-  public void extract_h265WithoutGopParsingFlags() throws Exception {
-    Context context = ApplicationProvider.getApplicationContext();
-    String inputFilePath = "media/mp4/h265_bframes.mp4";
-    Mp4Extractor mp4Extractor =
-        new Mp4Extractor(new DefaultSubtitleParserFactory(), /* flags= */ 0);
-
-    FakeExtractorOutput output =
-        TestUtil.extractAllSamplesFromFile(mp4Extractor, context, inputFilePath);
-
-    String dumpFilePath = getDumpFilePath(inputFilePath, "_without_gop_parsing_flags");
-    DumpFileAsserts.assertOutput(context, output, dumpFilePath);
   }
 
   @Test

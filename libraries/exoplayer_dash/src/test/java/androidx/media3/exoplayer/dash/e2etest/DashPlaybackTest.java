@@ -36,7 +36,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.view.Surface;
 import androidx.annotation.Nullable;
-import androidx.media3.common.C;
 import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -772,9 +771,7 @@ public final class DashPlaybackTest {
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
         new CapturingRenderersFactory(applicationContext, clock);
-    BundledChunkExtractor.Factory chunkExtractorFactory =
-        new BundledChunkExtractor.Factory()
-            .experimentalSetCodecsToParseWithinGopSampleDependencies(C.VIDEO_CODEC_FLAG_H264);
+    BundledChunkExtractor.Factory chunkExtractorFactory = new BundledChunkExtractor.Factory();
     DataSource.Factory defaultDataSourceFactory = new DefaultDataSource.Factory(applicationContext);
     DashMediaSource.Factory dashMediaSourceFactory =
         new DashMediaSource.Factory(
@@ -805,9 +802,7 @@ public final class DashPlaybackTest {
   @Test
   public void playVideo_usingWithinGopSampleDependencies_withSeekAfterEoS() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
-    BundledChunkExtractor.Factory chunkExtractorFactory =
-        new BundledChunkExtractor.Factory()
-            .experimentalSetCodecsToParseWithinGopSampleDependencies(C.VIDEO_CODEC_FLAG_H264);
+    BundledChunkExtractor.Factory chunkExtractorFactory = new BundledChunkExtractor.Factory();
     DataSource.Factory defaultDataSourceFactory = new DefaultDataSource.Factory(applicationContext);
     DashMediaSource.Factory dashMediaSourceFactory =
         new DashMediaSource.Factory(
@@ -840,9 +835,7 @@ public final class DashPlaybackTest {
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
         new CapturingRenderersFactory(applicationContext, clock);
-    BundledChunkExtractor.Factory chunkExtractorFactory =
-        new BundledChunkExtractor.Factory()
-            .experimentalSetCodecsToParseWithinGopSampleDependencies(C.VIDEO_CODEC_FLAG_H265);
+    BundledChunkExtractor.Factory chunkExtractorFactory = new BundledChunkExtractor.Factory();
     DataSource.Factory defaultDataSourceFactory = new DefaultDataSource.Factory(applicationContext);
     DashMediaSource.Factory dashMediaSourceFactory =
         new DashMediaSource.Factory(
@@ -1245,8 +1238,7 @@ public final class DashPlaybackTest {
           /* enableDecoderFallback= */ false,
           eventHandler,
           videoRendererEventListener,
-          DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
-          /* parseAv1SampleDependencies= */ false) {
+          DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY) {
         @Override
         protected boolean processOutputBuffer(
             long positionUs,

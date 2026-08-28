@@ -21,7 +21,6 @@ import static androidx.media3.common.FileTypes.inferFileTypeFromUri;
 import android.net.Uri;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
-import androidx.media3.common.C;
 import androidx.media3.common.FileTypes;
 import androidx.media3.common.Format;
 import androidx.media3.common.PlaybackException;
@@ -154,7 +153,6 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
   private int tsTimestampSearchBytes;
   private boolean textTrackTranscodingEnabled;
   private SubtitleParser.Factory subtitleParserFactory;
-  private @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies;
   private @JpegExtractor.Flags int jpegFlags;
   private @HeifExtractor.Flags int heifFlags;
   private boolean parseHagcMetadata;
@@ -164,7 +162,6 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
     tsTimestampSearchBytes = TsExtractor.DEFAULT_TIMESTAMP_SEARCH_BYTES;
     subtitleParserFactory = new DefaultSubtitleParserFactory();
     textTrackTranscodingEnabled = true;
-    codecsToParseWithinGopSampleDependencies = C.VIDEO_CODEC_FLAG_H264 | C.VIDEO_CODEC_FLAG_H265;
     parseHagcMetadata = true;
   }
 
@@ -408,15 +405,6 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
     return this;
   }
 
-  @CanIgnoreReturnValue
-  @Override
-  public synchronized DefaultExtractorsFactory
-      experimentalSetCodecsToParseWithinGopSampleDependencies(
-          @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
-    this.codecsToParseWithinGopSampleDependencies = codecsToParseWithinGopSampleDependencies;
-    return this;
-  }
-
   /**
    * Sets flags for {@link JpegExtractor} instances created by the factory.
    *
@@ -554,8 +542,6 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
                 subtitleParserFactory,
                 fragmentedMp4Flags
                     | FragmentedMp4Extractor.FLAG_READ_MFRA_FOR_SEEK_MAP
-                    | FragmentedMp4Extractor.codecsToParseWithinGopSampleDependenciesAsFlags(
-                        codecsToParseWithinGopSampleDependencies)
                     | (textTrackTranscodingEnabled
                         ? 0
                         : FragmentedMp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA)
@@ -567,8 +553,6 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
             new Mp4Extractor(
                 subtitleParserFactory,
                 mp4Flags
-                    | Mp4Extractor.codecsToParseWithinGopSampleDependenciesAsFlags(
-                        codecsToParseWithinGopSampleDependencies)
                     | (textTrackTranscodingEnabled ? 0 : Mp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA)
                     | (disableArtworkMetadata ? Mp4Extractor.FLAG_DISABLE_ARTWORK_METADATA : 0)
                     | (parseHagcMetadata ? 0 : Mp4Extractor.FLAG_DISABLE_HAGC_METADATA)));

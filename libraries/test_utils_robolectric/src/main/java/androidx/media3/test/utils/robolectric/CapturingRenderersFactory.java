@@ -26,9 +26,7 @@ import android.os.Looper;
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Clock;
-import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -80,7 +78,6 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
 
   private ImageDecoder.Factory imageDecoderFactory;
   private TextRendererFactory textRendererFactory;
-  private boolean parseAv1SampleDependencies;
 
   /**
    * Creates an instance.
@@ -135,25 +132,6 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
   @CanIgnoreReturnValue
   public CapturingRenderersFactory setTextRendererFactory(TextRendererFactory textRendererFactory) {
     this.textRendererFactory = textRendererFactory;
-    return this;
-  }
-
-  /**
-   * Sets whether {@link MimeTypes#VIDEO_AV1} bitstream parsing for sample dependency information is
-   * enabled. Knowing which input frames are not depended on can speed up seeking and reduce dropped
-   * frames.
-   *
-   * <p>Defaults to {@code false}.
-   *
-   * <p>This method is experimental and will be renamed or removed in a future release.
-   *
-   * @param parseAv1SampleDependencies Whether bitstream parsing is enabled.
-   */
-  @CanIgnoreReturnValue
-  @ExperimentalApi // TODO: b/470365670 - Remove method once config is enabled by default.
-  public final CapturingRenderersFactory experimentalSetParseAv1SampleDependencies(
-      boolean parseAv1SampleDependencies) {
-    this.parseAv1SampleDependencies = parseAv1SampleDependencies;
     return this;
   }
 
@@ -218,8 +196,7 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
         /* enableDecoderFallback= */ false,
         eventHandler,
         videoRendererEventListener,
-        DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
-        parseAv1SampleDependencies);
+        DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY);
   }
 
   /**
@@ -250,8 +227,7 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
         boolean enableDecoderFallback,
         @Nullable Handler eventHandler,
         @Nullable VideoRendererEventListener eventListener,
-        int maxDroppedFramesToNotify,
-        boolean parseAv1SampleDependencies) {
+        int maxDroppedFramesToNotify) {
       super(
           new Builder(context)
               .setCodecAdapterFactory(codecAdapterFactory)
@@ -261,7 +237,6 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
               .setEventHandler(eventHandler)
               .setEventListener(eventListener)
               .setMaxDroppedFramesToNotify(maxDroppedFramesToNotify)
-              .experimentalSetParseAv1SampleDependencies(parseAv1SampleDependencies)
               // Do not drop input buffers due to slow processing.
               .experimentalSetLateThresholdToDropDecoderInputUs(C.TIME_UNSET)
               // Do not skip buffers with identical vsync times as we can't control this from tests.

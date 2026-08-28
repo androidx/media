@@ -41,11 +41,11 @@ track 0:
     data = length 68, hash 83DC1BAA
   sample 3:
     time = 16700000
-    flags = 0
+    flags = 67108864
     data = length 68, hash 66214C05
   sample 4:
     time = 16766666
-    flags = 0
+    flags = 67108864
     data = length 68, hash 4605E639
   sample 5:
     time = 16933333
@@ -57,11 +57,11 @@ track 0:
     data = length 70, hash 98EFD089
   sample 7:
     time = 16833333
-    flags = 0
+    flags = 67108864
     data = length 68, hash 88475340
   sample 8:
     time = 16900000
-    flags = 0
+    flags = 67108864
     data = length 68, hash 682BED75
   sample 9:
     time = 17066666
@@ -73,11 +73,11 @@ track 0:
     data = length 70, hash 7BAE9640
   sample 11:
     time = 16966666
-    flags = 0
+    flags = 67108864
     data = length 68, hash E8DCF97C
   sample 12:
     time = 17033333
-    flags = 0
+    flags = 67108864
     data = length 68, hash C8C193B1
   sample 13:
     time = 17200000
@@ -89,11 +89,11 @@ track 0:
     data = length 70, hash 5B33157E
   sample 15:
     time = 17100000
-    flags = 0
+    flags = 67108864
     data = length 68, hash 3D0223F9
   sample 16:
     time = 17166666
-    flags = 0
+    flags = 67108864
     data = length 68, hash 1CE6BE2E
   sample 17:
     time = 17333333
@@ -105,11 +105,11 @@ track 0:
     data = length 70, hash ECF81CBA
   sample 19:
     time = 17233333
-    flags = 0
+    flags = 67108864
     data = length 68, hash 9D97CA36
   sample 20:
     time = 17300000
-    flags = 0
+    flags = 67108864
     data = length 68, hash 7D7C6469
   sample 21:
     time = 17466666
@@ -121,11 +121,11 @@ track 0:
     data = length 70, hash 1DB944F6
   sample 23:
     time = 17366666
-    flags = 0
+    flags = 67108864
     data = length 68, hash BFBDD171
   sample 24:
     time = 17433333
-    flags = 0
+    flags = 67108864
     data = length 68, hash 9FA26BA5
   sample 25:
     time = 17600000
@@ -137,11 +137,11 @@ track 0:
     data = length 70, hash AF7E4C32
   sample 27:
     time = 17500000
-    flags = 0
+    flags = 67108864
     data = length 68, hash 205377AE
   sample 28:
     time = 17566666
-    flags = 0
+    flags = 67108864
     data = length 68, hash 3811E1
   sample 29:
     time = 17733333
@@ -153,11 +153,11 @@ track 0:
     data = length 70, hash F383DB6D
   sample 31:
     time = 17633333
-    flags = 0
+    flags = 67108864
     data = length 68, hash 8D5999A8
   sample 32:
     time = 17700000
-    flags = 0
+    flags = 67108864
     data = length 68, hash 6D3E33DC
   sample 33:
     time = 17866666
@@ -169,11 +169,11 @@ track 0:
     data = length 70, hash B92866C8
   sample 35:
     time = 17766666
-    flags = 0
+    flags = 67108864
     data = length 68, hash 66214C05
   sample 36:
     time = 17833333
-    flags = 0
+    flags = 67108864
     data = length 68, hash 4605E639
   sample 37:
     time = 18000000
@@ -185,11 +185,11 @@ track 0:
     data = length 70, hash E9E98F05
   sample 39:
     time = 17900000
-    flags = 0
+    flags = 67108864
     data = length 68, hash 88475340
   sample 40:
     time = 17966666
-    flags = 0
+    flags = 67108864
     data = length 68, hash 682BED75
   sample 41:
     time = 18133333
@@ -201,11 +201,11 @@ track 0:
     data = length 70, hash 7BAE9640
   sample 43:
     time = 18033333
-    flags = 0
+    flags = 67108864
     data = length 68, hash E8DCF97C
   sample 44:
     time = 18100000
-    flags = 0
+    flags = 67108864
     data = length 68, hash C8C193B1
   sample 45:
     time = 18266666
@@ -217,11 +217,11 @@ track 0:
     data = length 70, hash 5B33157E
   sample 47:
     time = 18166666
-    flags = 0
+    flags = 67108864
     data = length 68, hash 3D0223F9
   sample 48:
     time = 18233333
-    flags = 0
+    flags = 67108864
     data = length 68, hash 1CE6BE2E
   sample 49:
     time = 18400000
@@ -233,11 +233,11 @@ track 0:
     data = length 70, hash ECF81CBA
   sample 51:
     time = 18300000
-    flags = 0
+    flags = 67108864
     data = length 68, hash 9D97CA36
   sample 52:
     time = 18366666
-    flags = 0
+    flags = 67108864
     data = length 68, hash 7D7C6469
   sample 53:
     time = 18533333
@@ -249,11 +249,11 @@ track 0:
     data = length 70, hash 1DB944F6
   sample 55:
     time = 18433333
-    flags = 0
+    flags = 67108864
     data = length 68, hash BFBDD171
   sample 56:
     time = 18500000
-    flags = 0
+    flags = 67108864
     data = length 68, hash 9FA26BA5
   sample 57:
     time = 18666666
@@ -265,11 +265,11 @@ track 0:
     data = length 70, hash AF7E4C32
   sample 59:
     time = 18566666
-    flags = 0
+    flags = 67108864
     data = length 68, hash 205377AE
   sample 60:
     time = 18633333
-    flags = 0
+    flags = 67108864
     data = length 68, hash 3811E1
   sample 61:
     time = 18800000
@@ -281,11 +281,11 @@ track 0:
     data = length 70, hash F383DB6D
   sample 63:
     time = 18700000
-    flags = 0
+    flags = 67108864
     data = length 68, hash 8D5999A8
   sample 64:
     time = 18766666
-    flags = 0
+    flags = 67108864
     data = length 68, hash 6D3E33DC
   sample 65:
     time = 18933333
@@ -297,11 +297,11 @@ track 0:
     data = length 70, hash B92866C8
   sample 67:
     time = 18833333
-    flags = 0
+    flags = 67108864
     data = length 68, hash 66214C05
   sample 68:
     time = 18900000
-    flags = 0
+    flags = 67108864
     data = length 68, hash 4605E639
   sample 69:
     time = 19066666
@@ -313,11 +313,11 @@ track 0:
     data = length 70, hash E9E98F05
   sample 71:
     time = 18966666
-    flags = 0
+    flags = 67108864
     data = length 68, hash 88475340
   sample 72:
     time = 19033333
-    flags = 0
+    flags = 67108864
     data = length 68, hash 682BED75
   sample 73:
     time = 19200000
@@ -329,11 +329,11 @@ track 0:
     data = length 70, hash 7BAE9640
   sample 75:
     time = 19100000
-    flags = 0
+    flags = 67108864
     data = length 68, hash E8DCF97C
   sample 76:
     time = 19166666
-    flags = 0
+    flags = 67108864
     data = length 68, hash C8C193B1
   sample 77:
     time = 19333333
@@ -345,11 +345,11 @@ track 0:
     data = length 70, hash 5B33157E
   sample 79:
     time = 19233333
-    flags = 0
+    flags = 67108864
     data = length 68, hash 3D0223F9
   sample 80:
     time = 19300000
-    flags = 0
+    flags = 67108864
     data = length 68, hash 1CE6BE2E
   sample 81:
     time = 19466666
@@ -361,11 +361,11 @@ track 0:
     data = length 70, hash ECF81CBA
   sample 83:
     time = 19366666
-    flags = 0
+    flags = 67108864
     data = length 68, hash 9D97CA36
   sample 84:
     time = 19433333
-    flags = 0
+    flags = 67108864
     data = length 68, hash 7D7C6469
   sample 85:
     time = 19600000
@@ -377,11 +377,11 @@ track 0:
     data = length 70, hash 1DB944F6
   sample 87:
     time = 19500000
-    flags = 0
+    flags = 67108864
     data = length 68, hash BFBDD171
   sample 88:
     time = 19566666
-    flags = 0
+    flags = 67108864
     data = length 68, hash 9FA26BA5
   sample 89:
     time = 19733333
@@ -393,11 +393,11 @@ track 0:
     data = length 70, hash AF7E4C32
   sample 91:
     time = 19633333
-    flags = 0
+    flags = 67108864
     data = length 68, hash 205377AE
   sample 92:
     time = 19700000
-    flags = 0
+    flags = 67108864
     data = length 68, hash 3811E1
   sample 93:
     time = 19866666
@@ -409,11 +409,11 @@ track 0:
     data = length 70, hash F383DB6D
   sample 95:
     time = 19766666
-    flags = 0
+    flags = 67108864
     data = length 68, hash 8D5999A8
   sample 96:
     time = 19833333
-    flags = 0
+    flags = 67108864
     data = length 68, hash 6D3E33DC
   sample 97:
     time = 19966666
@@ -425,6 +425,6 @@ track 0:
     data = length 70, hash 3AC762E9
   sample 99:
     time = 19933333
-    flags = 0
+    flags = 67108864
     data = length 68, hash B1C7769A
 tracksEnded = true

@@ -67,7 +67,6 @@ public class ParseAv1SampleDependenciesPlaybackTest {
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory renderersFactory =
         new CapturingRenderersFactory(applicationContext, clock);
-    renderersFactory.experimentalSetParseAv1SampleDependencies(true);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, renderersFactory).setClock(clock).build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
@@ -99,7 +98,6 @@ public class ParseAv1SampleDependenciesPlaybackTest {
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory renderersFactory =
         new CapturingRenderersFactory(applicationContext, clock);
-    renderersFactory.experimentalSetParseAv1SampleDependencies(true);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, renderersFactory).setClock(clock).build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
@@ -198,7 +196,6 @@ public class ParseAv1SampleDependenciesPlaybackTest {
             /* enableDecoderFallback= */ false,
             eventHandler,
             videoRendererEventListener,
-            /* parseAv1SampleDependencies= */ true,
             /* lateThresholdToDropDecoderInputUs= */ -100_000_000L)
       };
     }
@@ -215,7 +212,6 @@ public class ParseAv1SampleDependenciesPlaybackTest {
           boolean enableDecoderFallback,
           @Nullable Handler eventHandler,
           @Nullable VideoRendererEventListener eventListener,
-          boolean parseAv1SampleDependencies,
           long lateThresholdToDropDecoderInputUs) {
         super(
             new Builder(context)
@@ -226,7 +222,6 @@ public class ParseAv1SampleDependenciesPlaybackTest {
                 .setEventHandler(eventHandler)
                 .setEventListener(eventListener)
                 .setMaxDroppedFramesToNotify(1)
-                .experimentalSetParseAv1SampleDependencies(parseAv1SampleDependencies)
                 .experimentalSetLateThresholdToDropDecoderInputUs(lateThresholdToDropDecoderInputUs)
                 .setSkipBuffersWithIdenticalReleaseTime(false));
       }

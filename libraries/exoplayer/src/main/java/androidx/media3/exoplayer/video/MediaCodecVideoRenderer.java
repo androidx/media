@@ -220,7 +220,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private final VideoFrameReleaseControl videoFrameReleaseControl;
   private final VideoFrameReleaseControl.FrameReleaseInfo videoFrameReleaseInfo;
   private final FixedFrameRateEstimator frameRateEstimator;
-  @Nullable private final Av1SampleDependencyParser av1SampleDependencyParser;
+  private final Av1SampleDependencyParser av1SampleDependencyParser;
 
   /**
    * The earliest time threshold, in microseconds, after which decoder input buffers may be dropped.
@@ -284,7 +284,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     private int maxDroppedFramesToNotify;
     private float assumedMinimumCodecOperatingRate;
     @Nullable private VideoSink videoSink;
-    private boolean parseAv1SampleDependencies;
     private long lateThresholdToDropDecoderInputUs;
     private boolean enableMediaCodecBufferDecodeOnlyFlag;
     private boolean enableDurationToProgressUs;
@@ -301,7 +300,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       this.mediaCodecSelector = MediaCodecSelector.DEFAULT;
       this.codecAdapterFactory = MediaCodecAdapter.Factory.getDefault(context);
       this.assumedMinimumCodecOperatingRate = 0;
-      this.parseAv1SampleDependencies = true;
       this.lateThresholdToDropDecoderInputUs = DEFAULT_LATE_THRESHOLD_TO_DROP_DECODER_INPUT_US;
       this.earlySchedulingThresholdUs = DEFAULT_EARLY_SCHEDULING_THRESHOLD_US;
       this.skipBuffersWithIdenticalReleaseTime = true;
@@ -399,22 +397,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     @CanIgnoreReturnValue
     public Builder setVideoSink(@Nullable VideoSink videoSink) {
       this.videoSink = videoSink;
-      return this;
-    }
-
-    /**
-     * Sets whether {@link MimeTypes#VIDEO_AV1} bitstream parsing for sample dependency information
-     * is enabled. Knowing which input frames are not depended on can speed up seeking and reduce
-     * dropped frames.
-     *
-     * <p>Defaults to {@code true}.
-     *
-     * <p>This method is experimental and will be renamed or removed in a future release.
-     */
-    @CanIgnoreReturnValue
-    @ExperimentalApi // TODO: b/470365670 - Remove method once config is enabled by default.
-    public Builder experimentalSetParseAv1SampleDependencies(boolean parseAv1SampleDependencies) {
-      this.parseAv1SampleDependencies = parseAv1SampleDependencies;
       return this;
     }
 
@@ -711,8 +693,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     reportedVideoSize = null;
     rendererPriority = C.PRIORITY_PLAYBACK;
     startPositionUs = C.TIME_UNSET;
-    av1SampleDependencyParser =
-        builder.parseAv1SampleDependencies ? new Av1SampleDependencyParser() : null;
+    av1SampleDependencyParser = new Av1SampleDependencyParser();
     discardedDecoderInputBufferTimestamps = new PriorityQueue<>();
     if (builder.lateThresholdToDropDecoderInputUs != C.TIME_UNSET) {
       minEarlyUsToDropDecoderInput = -builder.lateThresholdToDropDecoderInputUs;
@@ -1478,9 +1459,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     consecutiveDroppedInputBufferCount = 0;
     isFlushRequired = false;
     nextOutputBufferToProcessPresentationTimeUs = C.TIME_UNSET;
-    if (av1SampleDependencyParser != null) {
-      av1SampleDependencyParser.reset();
-    }
+    av1SampleDependencyParser.reset();
   }
 
   @Override
@@ -1821,7 +1800,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           }
         }
       }
-      if (isAv1 && av1SampleDependencyParser != null && buffer.isKeyFrame()) {
+      if (isAv1 && buffer.isKeyFrame()) {
         av1SampleDependencyParser.queueInputBuffer(bufferData);
       }
     }
@@ -1874,8 +1853,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (buffer.notDependedOn()) {
       bufferDiscarded = true;
       buffer.clear();
-    } else if (av1SampleDependencyParser != null
-        && checkNotNull(getCodecInfo()).mimeType.equals(MimeTypes.VIDEO_AV1)
+    } else if (checkNotNull(getCodecInfo()).mimeType.equals(MimeTypes.VIDEO_AV1)
         && buffer.data != null) {
       boolean skipFrameHeaders =
           isBufferBeforeStartTime

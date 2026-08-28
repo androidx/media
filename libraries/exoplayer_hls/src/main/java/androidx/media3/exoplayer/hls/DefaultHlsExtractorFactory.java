@@ -22,7 +22,6 @@ import android.annotation.SuppressLint;
 import android.net.Uri;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
-import androidx.media3.common.C;
 import androidx.media3.common.FileTypes;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -71,7 +70,6 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
 
   private SubtitleParser.Factory subtitleParserFactory;
   private boolean parseSubtitlesDuringExtraction;
-  private @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies;
 
   private final boolean exposeCea608WhenMissingDeclarations;
 
@@ -82,7 +80,6 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
    */
   public DefaultHlsExtractorFactory() {
     this(/* payloadReaderFactoryFlags= */ 0, /* exposeCea608WhenMissingDeclarations */ true);
-    codecsToParseWithinGopSampleDependencies = C.VIDEO_CODEC_FLAG_H264 | C.VIDEO_CODEC_FLAG_H265;
   }
 
   /**
@@ -181,14 +178,6 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
     return this;
   }
 
-  @CanIgnoreReturnValue
-  @Override
-  public DefaultHlsExtractorFactory experimentalSetCodecsToParseWithinGopSampleDependencies(
-      @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
-    this.codecsToParseWithinGopSampleDependencies = codecsToParseWithinGopSampleDependencies;
-    return this;
-  }
-
   /**
    * {@inheritDoc}
    *
@@ -251,8 +240,7 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
             subtitleParserFactory,
             parseSubtitlesDuringExtraction,
             timestampAdjuster,
-            muxedCaptionFormats,
-            codecsToParseWithinGopSampleDependencies);
+            muxedCaptionFormats);
       case FileTypes.TS:
         return createTsExtractor(
             payloadReaderFactoryFlags,
@@ -322,16 +310,12 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
       SubtitleParser.Factory subtitleParserFactory,
       boolean parseSubtitlesDuringExtraction,
       TimestampAdjuster timestampAdjuster,
-      @Nullable List<Format> muxedCaptionFormats,
-      @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
+      @Nullable List<Format> muxedCaptionFormats) {
     @FragmentedMp4Extractor.Flags int flags = FragmentedMp4Extractor.FLAG_ENABLE_EMSG_TRACK;
     if (!parseSubtitlesDuringExtraction) {
       subtitleParserFactory = SubtitleParser.Factory.UNSUPPORTED;
       flags |= FragmentedMp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA;
     }
-    flags |=
-        FragmentedMp4Extractor.codecsToParseWithinGopSampleDependenciesAsFlags(
-            codecsToParseWithinGopSampleDependencies);
     return new FragmentedMp4Extractor(
         subtitleParserFactory,
         flags,

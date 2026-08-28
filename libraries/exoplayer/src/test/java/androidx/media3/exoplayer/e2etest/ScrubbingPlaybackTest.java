@@ -470,8 +470,7 @@ public class ScrubbingPlaybackTest {
           /* enableDecoderFallback= */ false,
           eventHandler,
           videoRendererEventListener,
-          DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
-          /* parseAv1SampleDependencies= */ false) {
+          DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY) {
         @Override
         protected boolean processOutputBuffer(
             long positionUs,
