@@ -1121,7 +1121,8 @@ public final class Transformer {
         if (editingMetricsCollector == null) {
           LogSessionId unused = setUpMetricsCollection();
         }
-        checkNotNull(editingMetricsCollector).onExportCancelled(progressPercentage);
+        checkNotNull(editingMetricsCollector)
+            .onExportCancelled(checkNotNull(composition), progressPercentage);
       }
 
       currentExportOperation = null;
@@ -1449,7 +1450,8 @@ public final class Transformer {
       listeners.sendEvent(
           listener -> listener.onCompleted(checkNotNull(composition), exportResult));
       if (canCollectEditingMetrics()) {
-        checkNotNull(editingMetricsCollector).onExportSuccess(exportResult, exportResumed);
+        checkNotNull(editingMetricsCollector)
+            .onExportSuccess(checkNotNull(composition), exportResult, exportResumed);
       }
       currentExportOperation = null;
       exportResumed = false;
@@ -1471,7 +1473,12 @@ public final class Transformer {
           LogSessionId unused = setUpMetricsCollection();
         }
         checkNotNull(editingMetricsCollector)
-            .onExportError(progressPercentage, exportException, exportResult, exportResumed);
+            .onExportError(
+                checkNotNull(composition),
+                progressPercentage,
+                exportException,
+                exportResult,
+                exportResumed);
       }
       currentExportOperation = null;
       exportResumed = false;

@@ -21,13 +21,21 @@ import static com.google.common.truth.Truth.assertThat;
 import android.hardware.DataSpace;
 import android.media.metrics.EditingEndedEvent;
 import android.media.metrics.MediaItemInfo;
+import android.net.Uri;
+import android.os.PersistableBundle;
 import android.util.Size;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
+import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
+import androidx.media3.common.audio.AudioProcessor;
+import androidx.media3.common.audio.SonicAudioProcessor;
+import androidx.media3.effect.Crop;
+import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -78,6 +86,13 @@ public final class EditingMetricsCollectorTest {
           .setColorInfo(VIDEO_COLOR_INFO)
           .build();
 
+  private static final Composition EMPTY_COMPOSITION =
+      new Composition.Builder(
+              EditedMediaItemSequence.withAudioAndVideoFrom(
+                  ImmutableList.of(
+                      new EditedMediaItem.Builder(MediaItem.fromUri(Uri.EMPTY)).build())))
+          .build();
+
   @Test
   public void onExportSuccess_populatesEditingEndedEvent() {
     List<ExportResult.ProcessedInput> processedInputs = new ArrayList<>();
@@ -121,7 +136,8 @@ public final class EditingMetricsCollectorTest {
             /* compositionHasAudioProcessors= */ false,
             /* compositionHasVideoEffects= */ false);
 
-    editingMetricsCollector.onExportSuccess(exportResult, /* isExportResumed= */ false);
+    editingMetricsCollector.onExportSuccess(
+        EMPTY_COMPOSITION, exportResult, /* isExportResumed= */ false);
 
     EditingEndedEvent editingEndedEvent = editingEndedEventAtomicReference.get();
     assertThat(editingEndedEvent.getFinalState())
@@ -231,7 +247,11 @@ public final class EditingMetricsCollectorTest {
     int progressPercentage = 10;
 
     editingMetricsCollector.onExportError(
-        progressPercentage, exception, exportResult, /* isExportResumed= */ false);
+        EMPTY_COMPOSITION,
+        progressPercentage,
+        exception,
+        exportResult,
+        /* isExportResumed= */ false);
 
     EditingEndedEvent editingEndedEvent = editingEndedEventAtomicReference.get();
     assertThat(editingEndedEvent.getFinalState()).isEqualTo(EditingEndedEvent.FINAL_STATE_ERROR);
@@ -314,7 +334,7 @@ public final class EditingMetricsCollectorTest {
             /* compositionHasVideoEffects= */ true);
     int progressPercentage = 70;
 
-    editingMetricsCollector.onExportCancelled(progressPercentage);
+    editingMetricsCollector.onExportCancelled(EMPTY_COMPOSITION, progressPercentage);
 
     EditingEndedEvent editingEndedEvent = editingEndedEventAtomicReference.get();
     assertThat(editingEndedEvent.getFinalState()).isEqualTo(EditingEndedEvent.FINAL_STATE_CANCELED);
@@ -326,5 +346,214 @@ public final class EditingMetricsCollectorTest {
         .isEqualTo(
             EditingEndedEvent.OPERATION_TYPE_AUDIO_EDIT
                 | EditingEndedEvent.OPERATION_TYPE_VIDEO_EDIT);
+  }
+
+  @Test
+  public void onExportSuccess_withVideoEffect_populatesSpatialComponentAndScope() {
+    // Arrange
+    AtomicReference<PersistableBundle> bundleReference = new AtomicReference<>();
+    EditingMetricsCollector collector = createCollectorForEffectMetrics(bundleReference);
+    Crop crop =
+        new Crop(/* left= */ -0.5f, /* right= */ 0.5f, /* bottom= */ -0.5f, /* top= */ 0.5f);
+    Composition composition = createCompositionWithVideoEffects(crop);
+
+    // Act
+    collector.onExportSuccess(
+        composition, createDefaultExportResult(), /* isExportResumed= */ false);
+
+    // Assert
+    PersistableBundle bundle = bundleReference.get();
+    assertThat(bundle).isNotNull();
+    assertThat(bundle.getString(EditingMetricsCollector.KEY_PROCESSOR_NAME))
+        .isEqualTo(EXPORTER_NAME);
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_COMPONENTS))
+        .asList()
+        .containsExactly(EditingMetricsCollector.COMPONENT_MEDIA3_EFFECT_SPATIAL);
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_COMPONENT_SCOPES))
+        .asList()
+        .containsExactly(1);
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_METRICS)).isNull();
+    assertThat(bundle.getLongArray(EditingMetricsCollector.KEY_METRIC_VALUES)).isNull();
+  }
+
+  @Test
+  public void onExportSuccess_withAudioProcessor_populatesSpeedAndPitchComponent() {
+    // Arrange
+    AtomicReference<PersistableBundle> bundleReference = new AtomicReference<>();
+    EditingMetricsCollector collector = createCollectorForEffectMetrics(bundleReference);
+    SonicAudioProcessor sonicAudioProcessor = new SonicAudioProcessor();
+    Composition composition = createCompositionWithAudioProcessors(sonicAudioProcessor);
+
+    // Act
+    collector.onExportSuccess(
+        composition, createDefaultExportResult(), /* isExportResumed= */ false);
+
+    // Assert
+    PersistableBundle bundle = bundleReference.get();
+    assertThat(bundle).isNotNull();
+    assertThat(bundle.getString(EditingMetricsCollector.KEY_PROCESSOR_NAME))
+        .isEqualTo(EXPORTER_NAME);
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_COMPONENTS))
+        .asList()
+        .containsExactly(EditingMetricsCollector.COMPONENT_MEDIA3_AUDIO_SPEED_AND_PITCH);
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_COMPONENT_SCOPES))
+        .asList()
+        .containsExactly(1);
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_METRICS)).isNull();
+    assertThat(bundle.getLongArray(EditingMetricsCollector.KEY_METRIC_VALUES)).isNull();
+  }
+
+  @Test
+  public void onExportSuccess_withScaleAndRotate_extractsRotationMetric() {
+    // Arrange
+    AtomicReference<PersistableBundle> bundleReference = new AtomicReference<>();
+    EditingMetricsCollector collector = createCollectorForEffectMetrics(bundleReference);
+    ScaleAndRotateTransformation scaleAndRotate =
+        new ScaleAndRotateTransformation.Builder().setRotationDegrees(90).build();
+    Composition composition = createCompositionWithVideoEffects(scaleAndRotate);
+
+    // Act
+    collector.onExportSuccess(
+        composition, createDefaultExportResult(), /* isExportResumed= */ false);
+
+    // Assert
+    PersistableBundle bundle = bundleReference.get();
+    assertThat(bundle).isNotNull();
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_COMPONENTS))
+        .asList()
+        .containsExactly(EditingMetricsCollector.COMPONENT_MEDIA3_EFFECT_SPATIAL);
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_METRICS))
+        .asList()
+        .containsExactly(EditingMetricsCollector.METRIC_ROTATION_DEGREES);
+    assertThat(bundle.getLongArray(EditingMetricsCollector.KEY_METRIC_VALUES))
+        .asList()
+        .containsExactly(90L);
+  }
+
+  @Test
+  public void onExportSuccess_withChainedRotations_extractsAllRotationMetricsInOrder() {
+    // Arrange
+    AtomicReference<PersistableBundle> bundleReference = new AtomicReference<>();
+    EditingMetricsCollector collector = createCollectorForEffectMetrics(bundleReference);
+    ScaleAndRotateTransformation rotation90 =
+        new ScaleAndRotateTransformation.Builder().setRotationDegrees(90).build();
+    ScaleAndRotateTransformation rotation180 =
+        new ScaleAndRotateTransformation.Builder().setRotationDegrees(180).build();
+    Composition composition = createCompositionWithVideoEffects(rotation90, rotation180);
+
+    // Act
+    collector.onExportSuccess(
+        composition, createDefaultExportResult(), /* isExportResumed= */ false);
+
+    // Assert
+    PersistableBundle bundle = bundleReference.get();
+    assertThat(bundle).isNotNull();
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_METRICS))
+        .asList()
+        .containsExactly(
+            EditingMetricsCollector.METRIC_ROTATION_DEGREES,
+            EditingMetricsCollector.METRIC_ROTATION_DEGREES)
+        .inOrder();
+    assertThat(bundle.getLongArray(EditingMetricsCollector.KEY_METRIC_VALUES))
+        .asList()
+        .containsExactly(90L, 180L)
+        .inOrder();
+  }
+
+  @Test
+  public void onExportSuccess_withMultipleEffectsSameScope_deduplicatesComponents() {
+    // Arrange
+    AtomicReference<PersistableBundle> bundleReference = new AtomicReference<>();
+    EditingMetricsCollector collector = createCollectorForEffectMetrics(bundleReference);
+    Crop crop =
+        new Crop(/* left= */ -0.5f, /* right= */ 0.5f, /* bottom= */ -0.5f, /* top= */ 0.5f);
+    ScaleAndRotateTransformation scaleAndRotate =
+        new ScaleAndRotateTransformation.Builder().setRotationDegrees(90).build();
+    Composition composition = createCompositionWithVideoEffects(crop, scaleAndRotate);
+
+    // Act
+    collector.onExportSuccess(
+        composition, createDefaultExportResult(), /* isExportResumed= */ false);
+
+    // Assert
+    PersistableBundle bundle = bundleReference.get();
+    assertThat(bundle).isNotNull();
+    // Both Crop and ScaleAndRotate are SPATIAL (101) in the same scope, so components array
+    // contains 101 only once
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_COMPONENTS))
+        .asList()
+        .containsExactly(EditingMetricsCollector.COMPONENT_MEDIA3_EFFECT_SPATIAL);
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_COMPONENT_SCOPES))
+        .asList()
+        .containsExactly(1);
+  }
+
+  @Test
+  public void onExportSuccess_withoutEffects_doesNotReportEffectMetrics() {
+    // Arrange
+    AtomicReference<PersistableBundle> bundleReference = new AtomicReference<>();
+    EditingMetricsCollector collector = createCollectorForEffectMetrics(bundleReference);
+
+    // Act
+    collector.onExportSuccess(
+        EMPTY_COMPOSITION, createDefaultExportResult(), /* isExportResumed= */ false);
+
+    // Assert
+    assertThat(bundleReference.get()).isNull();
+  }
+
+  private static EditingMetricsCollector createCollectorForEffectMetrics(
+      AtomicReference<PersistableBundle> bundleReference) {
+    return new EditingMetricsCollector(
+        new EditingMetricsCollector.MetricsReporter() {
+          @Override
+          public void reportMetrics(EditingEndedEvent editingEndedEvent) {}
+
+          @Override
+          public void reportEffectMetrics(PersistableBundle bundle) {
+            bundleReference.set(bundle);
+          }
+
+          @Override
+          public void close() {}
+        },
+        EXPORTER_NAME,
+        MUXER_NAME,
+        /* compositionHasAudioProcessors= */ true,
+        /* compositionHasVideoEffects= */ true);
+  }
+
+  private static Composition createCompositionWithVideoEffects(Effect... effects) {
+    return new Composition.Builder(
+            EditedMediaItemSequence.withAudioAndVideoFrom(
+                ImmutableList.of(
+                    new EditedMediaItem.Builder(MediaItem.fromUri(Uri.EMPTY))
+                        .setEffects(
+                            new Effects(
+                                /* audioProcessors= */ ImmutableList.of(),
+                                /* videoEffects= */ ImmutableList.copyOf(effects)))
+                        .build())))
+        .build();
+  }
+
+  private static Composition createCompositionWithAudioProcessors(
+      AudioProcessor... audioProcessors) {
+    return new Composition.Builder(
+            EditedMediaItemSequence.withAudioAndVideoFrom(
+                ImmutableList.of(
+                    new EditedMediaItem.Builder(MediaItem.fromUri(Uri.EMPTY))
+                        .setEffects(
+                            new Effects(
+                                /* audioProcessors= */ ImmutableList.copyOf(audioProcessors),
+                                /* videoEffects= */ ImmutableList.of()))
+                        .build())))
+        .build();
+  }
+
+  private static ExportResult createDefaultExportResult() {
+    return new ExportResult.Builder()
+        .setAudioMimeType(AUDIO_MIME_TYPE)
+        .setVideoMimeType(VIDEO_MIME_TYPE)
+        .build();
   }
 }
