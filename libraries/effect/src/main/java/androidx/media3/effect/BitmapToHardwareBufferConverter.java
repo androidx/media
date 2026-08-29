@@ -26,6 +26,7 @@ import android.hardware.HardwareBuffer;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.media3.common.C;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ExperimentalApi;
@@ -37,20 +38,20 @@ import java.util.concurrent.RejectedExecutionException;
 
 // TODO: b/475511702 - Handle HDR bitmaps.
 /**
- * A {@link HardwareBufferFrameProcessor} that converts {@link Bitmap}-backed {@link
- * HardwareBufferFrame} instances into {@link android.hardware.HardwareBuffer}-backed ones.
+ * Converts {@link Bitmap} instances into {@link HardwareBuffer}-backed {@link HardwareBufferFrame}
+ * instances.
  *
- * <p>This processor caches the underlying {@link android.hardware.HardwareBuffer} as long as the
- * input {@link Bitmap} remains the same (verified via {@link Bitmap#getGenerationId()}). It uses
- * JNI to copy pixels from the bitmap to the hardware buffer.
+ * <p>This converter caches the underlying {@link HardwareBuffer} as long as the input {@link
+ * Bitmap} remains the same (verified via {@link Bitmap#getGenerationId()}). It uses JNI to copy
+ * pixels from the bitmap to the hardware buffer.
  *
- * <p>The processor manages the lifecycle of the hardware buffer using reference counting, ensuring
- * it is only closed once all consumer frames and the processor itself have released their
+ * <p>The converter manages the lifecycle of the hardware buffer using reference counting, ensuring
+ * it is only closed once all consumer frames and the converter itself have released their
  * references.
  */
 @RequiresApi(26)
 @ExperimentalApi // TODO: b/479415385 - remove when packet consumer is production-ready.
-public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProcessor {
+public final class BitmapToHardwareBufferConverter implements AutoCloseable {
 
   private static final Duration RELEASE_TIMEOUT = Duration.ofMillis(500);
 
@@ -82,7 +83,7 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
    * @param errorCallback The {@link Consumer<VideoFrameProcessingException>} called when waiting or
    *     closing the created {@link HardwareBuffer}s fails.
    */
-  public BitmapToHardwareBufferProcessor(
+  public BitmapToHardwareBufferConverter(
       HardwareBufferJniWrapper hardwareBufferJniWrapper,
       ExecutorService internalExecutor,
       Executor errorExecutor,
@@ -93,16 +94,15 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
     this.errorCallback = errorCallback;
   }
 
-  @Override
-  public HardwareBufferFrame process(HardwareBufferFrame inputFrame) {
-    if (inputFrame.hardwareBuffer != null || !(inputFrame.internalFrame instanceof Bitmap)) {
-      return inputFrame;
-    }
-    Bitmap nextBitmap = checkNotNull((Bitmap) inputFrame.internalFrame);
-    HardwareBufferFrame outputFrame;
-
+  /**
+   * Returns a retained {@link HardwareBufferFrame} containing the {@link HardwareBuffer} for the
+   * given {@link Bitmap}.
+   *
+   * <p>The caller must call {@link HardwareBufferFrame#release(SyncFenceWrapper)} on the returned
+   * frame when finished with it.
+   */
+  public HardwareBufferFrame getOrCreateRetainedFrame(Bitmap nextBitmap) {
     synchronized (this) {
-      // process should not be called after close.
       checkState(!internalExecutor.isShutdown());
       // Check whether the current bitmap should be updated.
       if (currentFrame != null
@@ -111,6 +111,8 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
         // Release this reference, the buffer will be cleaned up once other references are released.
         checkNotNull(currentFrame).release(/* releaseFence= */ null);
         currentFrame = null;
+        currentBitmap = null;
+        currentBitmapGenerationId = C.INDEX_UNSET;
       }
 
       if (currentFrame == null) {
@@ -128,8 +130,11 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
               // We must first copy to a software Bitmap (e.g. ARGB_8888)
               // and then copy that to a new HardwareBuffer via JNI.
               Bitmap softwareBitmap = nextBitmap.copy(Config.ARGB_8888, /* isMutable= */ false);
-              buffer = copyCpuBitmapToHardwareBuffer(softwareBitmap, hardwareBufferJniWrapper);
-              softwareBitmap.recycle();
+              try {
+                buffer = copyCpuBitmapToHardwareBuffer(softwareBitmap, hardwareBufferJniWrapper);
+              } finally {
+                softwareBitmap.recycle();
+              }
             } else {
               // Input is not HARDWARE: Copy the software Bitmap to a new HardwareBuffer via JNI.
               buffer = copyCpuBitmapToHardwareBuffer(nextBitmap, hardwareBufferJniWrapper);
@@ -157,37 +162,26 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
         }
       }
 
-      outputFrame = checkNotNull(currentFrame).retain();
+      return checkNotNull(currentFrame).retain();
     }
-
-    return new HardwareBufferFrame.Builder(
-            checkNotNull(outputFrame.hardwareBuffer),
-            directExecutor(),
-            /* releaseCallback= */ (fence) -> {
-              outputFrame.release(fence);
-              // inputFrame is used when creating the outputFrame synchronously, it can be safely
-              // released earlier without a fence. Releasing it here with the outputFrame to keep
-              // backpressuring the upstream.
-              inputFrame.release(/* releaseFence= */ null);
-            })
-        .setFormat(inputFrame.format)
-        .setInternalFrame(nextBitmap)
-        .setReleaseTimeNs(inputFrame.releaseTimeNs)
-        .setPresentationTimeUs(inputFrame.presentationTimeUs)
-        .setSequencePresentationTimeUs(inputFrame.sequencePresentationTimeUs)
-        .setMetadata(inputFrame.getMetadata())
-        .build();
   }
 
-  @Override
-  public void close() {
+  /** Releases the cached frame and resets state. */
+  public void flush() {
     synchronized (this) {
       if (currentFrame != null) {
         currentFrame.release(/* releaseFence= */ null);
         currentFrame = null;
         currentBitmap = null;
-        currentBitmapGenerationId = 0;
+        currentBitmapGenerationId = C.INDEX_UNSET;
       }
+    }
+  }
+
+  @Override
+  public void close() {
+    synchronized (this) {
+      flush();
       if (!internalExecutor.isShutdown()) {
         internalExecutor.shutdown();
       }
@@ -217,7 +211,10 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
                 | HardwareBuffer.USAGE_CPU_READ_OFTEN
                 | HardwareBuffer.USAGE_CPU_WRITE_OFTEN);
 
-    checkState(hardwareBufferJniWrapper.nativeCopyBitmapToHardwareBuffer(bitmap, buffer));
+    if (!hardwareBufferJniWrapper.nativeCopyBitmapToHardwareBuffer(bitmap, buffer)) {
+      buffer.close();
+      throw new IllegalStateException("Failed to natively copy bitmap to hardware buffer.");
+    }
     return buffer;
   }
 

@@ -21,7 +21,6 @@ import static androidx.media3.effect.HardwareBufferFrame.END_OF_STREAM_FRAME;
 import static androidx.media3.transformer.CompositionFrameMetadata.asFrameMetadata;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 
 import android.content.Context;
@@ -47,7 +46,6 @@ import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.decoder.DecoderInputBuffer;
-import androidx.media3.effect.BitmapToHardwareBufferProcessor;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferJniWrapper;
@@ -79,7 +77,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final MuxerWrapper muxerWrapper;
   private final TransformationRequest transformationRequest;
   private final Format firstInputFormat;
-  @Nullable private final BitmapToHardwareBufferProcessor hardwareBufferPostProcessor;
 
   private final Queue<PendingQueueCall> pendingQueueCalls;
   private final Map<Frame, HardwareBufferFrame> inFlightFrames;
@@ -170,20 +167,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     frameProcessor =
         frameProcessorFactory.create(
             frameWriter, listenerExecutor, /* listener= */ componentListener);
-    if (hardwareBufferJniWrapper != null) {
-      hardwareBufferPostProcessor =
-          new BitmapToHardwareBufferProcessor(
-              hardwareBufferJniWrapper,
-              /* internalExecutor= */ Util.newSingleThreadExecutor(
-                  "BitmapToHardwareBufferProcessor::Thread"),
-              /* errorExecutor= */ directExecutor(),
-              /* errorCallback= */ (e) ->
-                  errorConsumer.accept(
-                      ExportException.createForVideoFrameProcessingException(
-                          VideoFrameProcessingException.from(e))));
-    } else {
-      hardwareBufferPostProcessor = null;
-    }
 
     frameAggregator =
         new FrameAggregator(
@@ -213,10 +196,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                     }
                     if (frame == HardwareBufferFrame.END_OF_STREAM_FRAME) {
                       checkNotNull(frameAggregator).queueEndOfStream(sequenceIndex);
-                    } else if (hardwareBufferPostProcessor != null) {
-                      HardwareBufferFrame processedFrame =
-                          hardwareBufferPostProcessor.process(frame);
-                      checkNotNull(frameAggregator).queueFrame(processedFrame, sequenceIndex);
                     } else {
                       checkNotNull(frameAggregator).queueFrame(frame, sequenceIndex);
                     }
@@ -228,7 +207,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               playbackLooper,
               handlerWrapper,
               frameConsumer,
-              errorConsumer);
+              errorConsumer,
+              hardwareBufferJniWrapper);
       sampleConsumerBuilder.add(sampleConsumer);
       // TODO: b/496585841 - Handle single asset items with TRACK_TYPE_NONE.
       // Ensure the FrameAggregator ignores audio only sequences.
@@ -299,9 +279,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     releasePendingQueueCalls();
     for (int i = 0; i < sampleConsumers.size(); i++) {
       sampleConsumers.get(i).release();
-    }
-    if (hardwareBufferPostProcessor != null) {
-      hardwareBufferPostProcessor.close();
     }
     frameAggregator.close();
     try {

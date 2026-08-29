@@ -36,8 +36,11 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.TimestampIterator;
+import androidx.media3.common.util.Util;
 import androidx.media3.common.video.SyncFenceWrapper;
+import androidx.media3.effect.BitmapToHardwareBufferConverter;
 import androidx.media3.effect.HardwareBufferFrame;
+import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.exoplayer.Renderer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -112,6 +115,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Nullable private Format lastFormat;
   private @MonotonicNonNull Format lastAdjustedFormat;
 
+  @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
+  @Nullable private BitmapToHardwareBufferConverter bitmapToHardwareBufferConverter;
+
   // TODO: b/478781219 - Ensure this class is only accessed from a single thread.
   /** The number of frames that are currently in use by the downstream consumer. */
   @GuardedBy("this")
@@ -130,6 +136,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *     internal {@link ImageReaderAdapter}.
    * @param listener The listener.
    * @param listenerHandler A {@link HandlerWrapper} to dispatch {@link Listener} callbacks.
+   * @param hardwareBufferJniWrapper An optional {@link HardwareBufferJniWrapper} used to convert
+   *     software bitmaps to hardware buffers.
    */
   /* package */ HardwareBufferFrameReader(
       Composition composition,
@@ -139,12 +147,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       int defaultSurfacePixelFormat,
       ImageReaderAdapter.Factory imageReaderAdapterFactory,
       Listener listener,
-      HandlerWrapper listenerHandler) {
+      HandlerWrapper listenerHandler,
+      @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper) {
     this.composition = composition;
     this.sequenceIndex = sequenceIndex;
     this.frameConsumer = frameConsumer;
     this.listener = listener;
     this.listenerHandler = listenerHandler;
+    this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
     // The width and height are sensible defaults for tests and are typically ignored when writing
     // from MediaCodec.
     this.imageReader =
@@ -329,6 +339,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   void flush() {
     synchronized (this) {
       pendingFrameInfo.clear();
+      if (SDK_INT >= 26 && bitmapToHardwareBufferConverter != null) {
+        bitmapToHardwareBufferConverter.flush();
+      }
     }
   }
 
@@ -338,6 +351,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       imageReaderSurface.release();
     }
     imageReader.close();
+    if (SDK_INT >= 26 && bitmapToHardwareBufferConverter != null) {
+      bitmapToHardwareBufferConverter.close();
+      bitmapToHardwareBufferConverter = null;
+    }
   }
 
   /** Sets a default {@link ColorInfo} on the given {@link Format}. */
@@ -431,6 +448,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         frameBuilder, presentationTimeUs, sequenceOffsetUs, indexOfItem, format);
   }
 
+  @Nullable
+  private BitmapToHardwareBufferConverter getOrCreateBitmapToHardwareBufferConverter() {
+    if (SDK_INT >= 26
+        && hardwareBufferJniWrapper != null
+        && bitmapToHardwareBufferConverter == null) {
+      bitmapToHardwareBufferConverter =
+          new BitmapToHardwareBufferConverter(
+              hardwareBufferJniWrapper,
+              /* internalExecutor= */ Util.newSingleThreadExecutor(
+                  "BitmapToHardwareBufferConverter::Thread"),
+              /* errorExecutor= */ playbackExecutor,
+              /* errorCallback= */ listener::onError);
+    }
+    return bitmapToHardwareBufferConverter;
+  }
+
   private HardwareBufferFrame createHardwareBufferFrameFromBitmap(
       Bitmap bitmap, long presentationTimeUs, long sequenceOffsetUs, int itemIndex, Format format) {
     HardwareBufferFrame.Builder frameBuilder;
@@ -446,6 +479,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 // Do not manually release the hardware buffer backing the bitmap, it will be reused
                 // when the bitmap is repeated, and cleaned up when the bitmap is garbage collected.
                 releaseFrame(/* image= */ null, /* hardwareBuffer= */ null, releaseFence);
+              });
+    } else if (SDK_INT >= 26 && getOrCreateBitmapToHardwareBufferConverter() != null) {
+      HardwareBufferFrame retainedHandle =
+          checkNotNull(getOrCreateBitmapToHardwareBufferConverter())
+              .getOrCreateRetainedFrame(bitmap);
+      frameBuilder =
+          new HardwareBufferFrame.Builder(
+              checkNotNull(retainedHandle.hardwareBuffer),
+              playbackExecutor,
+              /* releaseCallback= */ (releaseFence) -> {
+                retainedHandle.release(releaseFence);
+                releaseFrame(
+                    /* image= */ null, /* hardwareBuffer= */ null, /* releaseFence= */ null);
               });
     } else {
       frameBuilder =

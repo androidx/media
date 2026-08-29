@@ -82,12 +82,10 @@ import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.SurfaceHolderFrameWriter;
 import androidx.media3.common.video.SyncFenceWrapper;
-import androidx.media3.effect.BitmapToHardwareBufferProcessor;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.HardwareBufferFrame;
-import androidx.media3.effect.HardwareBufferFrameProcessor;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.TimestampAdjustment;
@@ -640,8 +638,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private final ImageReaderAdapter.Factory imageReaderAdapterFactory;
 
   @Nullable private final SurfaceHolderFrameWriter surfaceHolderFrameWriter;
-
-  @Nullable private final HardwareBufferFrameProcessor hardwareBufferPostProcessor;
+  @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
   private final HandlerThread playbackThread;
   private final HandlerWrapper playbackThreadHandler;
@@ -727,7 +724,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         new AudioFocusManager(
             context, applicationHandler.getLooper(), /* playerControl= */ internalListener);
     playbackAudioGraphWrapper = new PlaybackAudioGraphWrapper(audioMixerFactory, finalAudioSink);
-    HardwareBufferJniWrapper hardwareBufferJniWrapper = builder.hardwareBufferJniWrapper;
+    hardwareBufferJniWrapper = builder.hardwareBufferJniWrapper;
     @Nullable FrameProcessor.Factory frameProcessorFactory = builder.frameProcessorFactory;
     playbackThread =
         new HandlerThread(/* name= */ "CompositionPlaybackThread", Process.THREAD_PRIORITY_AUDIO);
@@ -739,18 +736,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             new HandlerExecutor(playbackThreadHandler, internalListener);
         Executor applicationThreadExecutor =
             new HandlerExecutor(applicationHandler, internalListener);
-        // Convert CPU Bitmaps to HardwareBuffers when the native helpers are available.
-        if (hardwareBufferJniWrapper != null) {
-          hardwareBufferPostProcessor =
-              new BitmapToHardwareBufferProcessor(
-                  hardwareBufferJniWrapper,
-                  /* internalExecutor= */ Util.newSingleThreadExecutor(
-                      "BitmapToHardwareBufferProcessor::Thread"),
-                  /* errorExecutor= */ playbackThreadExecutor,
-                  /* errorCallback= */ internalListener::onError);
-        } else {
-          hardwareBufferPostProcessor = null;
-        }
         surfaceHolderFrameWriter =
             hardwareBufferJniWrapper != null || SDK_INT < 33
                 ? SurfaceHolderFrameWriter.create(
@@ -787,7 +772,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             new CompositionVideoPacketReleaseControl(
                 videoFrameReleaseControl, frameProcessor, internalListener);
       } else {
-        hardwareBufferPostProcessor = null;
         frameProcessor = null;
         surfaceHolderFrameWriter = null;
         frameAggregator = null;
@@ -1084,14 +1068,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     waitingForFrameAfterSeek = false;
     pendingSeekPositionMs = C.TIME_UNSET;
     removeSurfaceCallbacks();
-    if (hardwareBufferPostProcessor != null) {
-      try {
-        hardwareBufferPostProcessor.close();
-      } catch (Exception e) {
-        // Ignore exceptions during release.
-        Log.e(TAG, "Failed to release hardwareBufferPostProcessor.", e);
-      }
-    }
     // TODO: b/518679527 - Move close calls of frameAggregator and frameProcessor to the
     // playback thread.
     if (frameAggregator != null) {
@@ -1667,11 +1643,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
                       /* frameConsumer= */ hardwareBufferFrame -> {
                         if (hardwareBufferFrame == HardwareBufferFrame.END_OF_STREAM_FRAME) {
                           checkNotNull(currentFrameAggregator).queueEndOfStream(sequenceIndex);
-                        } else if (hardwareBufferPostProcessor != null) {
-                          HardwareBufferFrame processedFrame =
-                              hardwareBufferPostProcessor.process(hardwareBufferFrame);
-                          checkNotNull(currentFrameAggregator)
-                              .queueFrame(processedFrame, sequenceIndex);
                         } else {
                           checkNotNull(currentFrameAggregator)
                               .queueFrame(hardwareBufferFrame, sequenceIndex);
@@ -1685,7 +1656,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
                               "HardwareBufferFrameReader error",
                               e,
                               PlaybackException.ERROR_CODE_UNSPECIFIED),
-                      compositionInternalListenerHandler));
+                      compositionInternalListenerHandler,
+                      hardwareBufferJniWrapper));
       renderersFactory =
           SequenceRenderersFactory.createForHardwareBuffer(
               context,

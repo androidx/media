@@ -40,7 +40,6 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -54,10 +53,10 @@ import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
-/** Instrumentation tests for {@link BitmapToHardwareBufferProcessor}. */
+/** Instrumentation tests for {@link BitmapToHardwareBufferConverter}. */
 @RunWith(TestParameterInjector.class)
 @SdkSuppress(minSdkVersion = 26)
-public final class BitmapToHardwareBufferProcessorTest {
+public final class BitmapToHardwareBufferConverterTest {
 
   private enum BitmapType {
     HARDWARE,
@@ -71,7 +70,7 @@ public final class BitmapToHardwareBufferProcessorTest {
   private static final long TEST_TIMEOUT_MS = 1000L;
 
   private @MonotonicNonNull ExecutorService executorService;
-  private @MonotonicNonNull BitmapToHardwareBufferProcessor processor;
+  private @MonotonicNonNull BitmapToHardwareBufferConverter converter;
   private @MonotonicNonNull List<AutoCloseable> resourcesToClose;
 
   @Rule public final TestName testName = new TestName();
@@ -79,8 +78,8 @@ public final class BitmapToHardwareBufferProcessorTest {
   @Before
   public void setUp() {
     executorService = Executors.newSingleThreadExecutor();
-    processor =
-        new BitmapToHardwareBufferProcessor(
+    converter =
+        new BitmapToHardwareBufferConverter(
             HardwareBufferJni.INSTANCE,
             /* internalExecutor= */ executorService,
             /* errorExecutor= */ directExecutor(),
@@ -92,8 +91,8 @@ public final class BitmapToHardwareBufferProcessorTest {
 
   @After
   public void tearDown() throws Exception {
-    if (processor != null) {
-      processor.close();
+    if (converter != null) {
+      converter.close();
     }
     if (executorService != null) {
       executorService.shutdown();
@@ -104,10 +103,9 @@ public final class BitmapToHardwareBufferProcessorTest {
   }
 
   @Test
-  public void process_validBitmap_copiesPixelsCorrectly(@TestParameter BitmapType bitmapType)
-      throws Exception {
+  public void getOrCreateRetainedFrame_validBitmap_copiesPixelsCorrectly(
+      @TestParameter BitmapType bitmapType) throws Exception {
     checkBitmapTypeSupported(bitmapType);
-
     Bitmap inputBitmap = readBitmap(bitmapType);
     // The pixel comparison can only run on ARGB_8888 bitmaps, if the input is HARDWARE, copy it to
     // a ARGB_8888 for the assertion.
@@ -115,106 +113,58 @@ public final class BitmapToHardwareBufferProcessorTest {
         bitmapType == BitmapType.ARGB_8888
             ? inputBitmap
             : inputBitmap.copy(Config.ARGB_8888, /* isMutable= */ false);
-    HardwareBufferFrame inputFrame =
-        new HardwareBufferFrame.Builder(
-                /* hardwareBuffer= */ null, directExecutor(), /* releaseCallback= */ (fence) -> {})
-            .setInternalFrame(inputBitmap)
-            .build();
 
-    HardwareBufferFrame outputFrame = processor.process(inputFrame);
+    HardwareBufferFrame outputFrame = converter.getOrCreateRetainedFrame(inputBitmap);
 
     assertThat(outputFrame.hardwareBuffer).isNotNull();
     HardwareBuffer hardwareBuffer = outputFrame.hardwareBuffer;
-
     assertThat(hardwareBuffer.getWidth()).isEqualTo(inputBitmap.getWidth());
     assertThat(hardwareBuffer.getHeight()).isEqualTo(inputBitmap.getHeight());
-
     Bitmap outputBitmap = readBitmapFromHardwareBuffer(hardwareBuffer);
-
     assertThat(
             BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
                 expectedBitmap, outputBitmap, testName.getMethodName()))
         .isLessThan(MAX_AVG_PIXEL_DIFFERENCE);
-
     outputFrame.release(/* releaseFence= */ null);
   }
 
   @Test
-  public void process_recycledBitmap_throwsIllegalStateException() throws Exception {
+  public void getOrCreateRetainedFrame_recycledBitmap_throwsIllegalStateException()
+      throws Exception {
     Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap(INPUT_PATH);
-    HardwareBufferFrame inputFrame =
-        new HardwareBufferFrame.Builder(
-                /* hardwareBuffer= */ null, directExecutor(), /* releaseCallback= */ (fence) -> {})
-            .setInternalFrame(inputBitmap)
-            .build();
-
     inputBitmap.recycle();
 
-    assertThrows(IllegalStateException.class, () -> processor.process(inputFrame));
+    assertThrows(
+        IllegalStateException.class, () -> converter.getOrCreateRetainedFrame(inputBitmap));
   }
 
   @Test
-  public void process_alreadyHasHardwareBuffer_returnsOriginalFrame() {
-    try (HardwareBuffer hardwareBuffer = createHardwareBuffer()) {
-      HardwareBufferFrame inputFrame =
-          new HardwareBufferFrame.Builder(
-                  hardwareBuffer, directExecutor(), /* releaseCallback= */ (fence) -> {})
-              .build();
-
-      HardwareBufferFrame outputFrame = processor.process(inputFrame);
-
-      assertThat(outputFrame).isSameInstanceAs(inputFrame);
-
-      outputFrame.release(/* releaseFence= */ null);
-    }
-  }
-
-  @Test
-  public void process_notABitmap_returnsOriginalFrame() {
-    HardwareBufferFrame inputFrame =
-        new HardwareBufferFrame.Builder(
-                /* hardwareBuffer= */ null, directExecutor(), /* releaseCallback= */ (fence) -> {})
-            .setInternalFrame(new Object())
-            .build();
-
-    HardwareBufferFrame outputFrame = processor.process(inputFrame);
-
-    assertThat(outputFrame).isSameInstanceAs(inputFrame);
-
-    outputFrame.release(/* releaseFence= */ null);
-  }
-
-  @Test
-  public void process_repeatedBitmap_reusesSameBuffer(@TestParameter BitmapType bitmapType)
-      throws IOException {
-    checkBitmapTypeSupported(bitmapType);
-
-    Bitmap inputBitmap = readBitmap(bitmapType);
-    HardwareBufferFrame inputFrame1 = createBitmapFrame(inputBitmap);
-    HardwareBufferFrame inputFrame2 = createBitmapFrame(inputBitmap);
-
-    HardwareBufferFrame outputFrame1 = processor.process(inputFrame1);
-    HardwareBufferFrame outputFrame2 = processor.process(inputFrame2);
-
-    assertThat(outputFrame1.hardwareBuffer).isSameInstanceAs(outputFrame2.hardwareBuffer);
-    assertThat(outputFrame1.hardwareBuffer.isClosed()).isFalse();
-
-    outputFrame1.release(/* releaseFence= */ null);
-    outputFrame2.release(/* releaseFence= */ null);
-  }
-
-  @Test
-  public void process_repeatedBitmapAfterRelease_reusesSameBuffer(
+  public void getOrCreateRetainedFrame_repeatedBitmap_reusesSameBuffer(
       @TestParameter BitmapType bitmapType) throws IOException {
     checkBitmapTypeSupported(bitmapType);
 
     Bitmap inputBitmap = readBitmap(bitmapType);
-    HardwareBufferFrame inputFrame1 = createBitmapFrame(inputBitmap);
-    HardwareBufferFrame inputFrame2 = createBitmapFrame(inputBitmap);
 
-    HardwareBufferFrame outputFrame1 = processor.process(inputFrame1);
+    HardwareBufferFrame outputFrame1 = converter.getOrCreateRetainedFrame(inputBitmap);
+    HardwareBufferFrame outputFrame2 = converter.getOrCreateRetainedFrame(inputBitmap);
+
+    assertThat(outputFrame1.hardwareBuffer).isSameInstanceAs(outputFrame2.hardwareBuffer);
+    assertThat(outputFrame1.hardwareBuffer.isClosed()).isFalse();
+
     outputFrame1.release(/* releaseFence= */ null);
-    HardwareBufferFrame outputFrame2 = processor.process(inputFrame2);
+    outputFrame2.release(/* releaseFence= */ null);
+  }
+
+  @Test
+  public void getOrCreateRetainedFrame_repeatedBitmapAfterRelease_reusesSameBuffer(
+      @TestParameter BitmapType bitmapType) throws IOException {
+    checkBitmapTypeSupported(bitmapType);
+
+    Bitmap inputBitmap = readBitmap(bitmapType);
+
+    HardwareBufferFrame outputFrame1 = converter.getOrCreateRetainedFrame(inputBitmap);
+    outputFrame1.release(/* releaseFence= */ null);
+    HardwareBufferFrame outputFrame2 = converter.getOrCreateRetainedFrame(inputBitmap);
 
     assertThat(outputFrame1.hardwareBuffer).isSameInstanceAs(outputFrame2.hardwareBuffer);
     assertThat(outputFrame1.hardwareBuffer.isClosed()).isFalse();
@@ -223,20 +173,21 @@ public final class BitmapToHardwareBufferProcessorTest {
   }
 
   @Test
-  public void process_differentBitmap_createsNewBufferAndRemovesReferenceToOldBuffer(
-      @TestParameter BitmapType bitmapType)
-      throws IOException, ExecutionException, InterruptedException, TimeoutException {
+  public void
+      getOrCreateRetainedFrame_differentBitmap_createsNewBufferAndRemovesReferenceToOldBuffer(
+          @TestParameter BitmapType bitmapType)
+          throws IOException, ExecutionException, InterruptedException, TimeoutException {
     checkBitmapTypeSupported(bitmapType);
 
     Bitmap bitmap1 = readBitmap(bitmapType);
     Bitmap bitmap2 = readBitmap(bitmapType);
 
-    HardwareBufferFrame outputFrame1 = processor.process(createBitmapFrame(bitmap1));
-    HardwareBufferFrame outputFrame2 = processor.process(createBitmapFrame(bitmap2));
+    HardwareBufferFrame outputFrame1 = converter.getOrCreateRetainedFrame(bitmap1);
+    HardwareBufferFrame outputFrame2 = converter.getOrCreateRetainedFrame(bitmap2);
 
     assertThat(outputFrame1.hardwareBuffer).isNotSameInstanceAs(outputFrame2.hardwareBuffer);
 
-    // Processor released its hold on buffer1 when bitmap2 was converted.
+    // Converter released its hold on buffer1 when bitmap2 was converted.
     // buffer1 is still held by outputFrame1.
     assertThat(outputFrame1.hardwareBuffer.isClosed()).isFalse();
 
@@ -250,13 +201,13 @@ public final class BitmapToHardwareBufferProcessorTest {
   }
 
   @Test
-  public void process_differentGenerationId_createsNewBuffer() {
+  public void getOrCreateRetainedFrame_differentGenerationId_createsNewBuffer() {
     // Cannot be tested with Config.Hardware because hardware backed bitmaps are immutable.
     Bitmap bitmap = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888);
 
-    HardwareBufferFrame outputFrame1 = processor.process(createBitmapFrame(bitmap));
+    HardwareBufferFrame outputFrame1 = converter.getOrCreateRetainedFrame(bitmap);
     bitmap.eraseColor(Color.RED);
-    HardwareBufferFrame outputFrame2 = processor.process(createBitmapFrame(bitmap));
+    HardwareBufferFrame outputFrame2 = converter.getOrCreateRetainedFrame(bitmap);
 
     assertThat(outputFrame1.hardwareBuffer).isNotSameInstanceAs(outputFrame2.hardwareBuffer);
 
@@ -265,37 +216,14 @@ public final class BitmapToHardwareBufferProcessorTest {
   }
 
   @Test
-  public void process_defersInputFrameReleaseUntilOutputFrameRelease() throws Exception {
-    CountDownLatch releasedLatch = new CountDownLatch(1);
-    HardwareBufferFrame inputFrame =
-        new HardwareBufferFrame.Builder(
-                /* hardwareBuffer= */ null,
-                directExecutor(),
-                /* releaseCallback= */ (fence) -> releasedLatch.countDown())
-            .setInternalFrame(Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888))
-            .build();
-
-    HardwareBufferFrame outputFrame = processor.process(inputFrame);
-    // The input frame should not have been released yet.
-    assertThat(releasedLatch.getCount()).isEqualTo(1);
-
-    // Releasing the output frame should trigger inputFrame release
-    outputFrame.release(/* releaseFence= */ null);
-    assertThat(releasedLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(releasedLatch.getCount()).isEqualTo(0);
-  }
-
-  @Test
   public void releaseOutputFrame_sharedBuffer_doesNotCloseSharedBuffer(
       @TestParameter BitmapType bitmapType) throws Exception {
     checkBitmapTypeSupported(bitmapType);
 
     Bitmap inputBitmap = readBitmap(bitmapType);
-    HardwareBufferFrame inputFrame1 = createBitmapFrame(inputBitmap);
-    HardwareBufferFrame inputFrame2 = createBitmapFrame(inputBitmap);
 
-    HardwareBufferFrame outputFrame1 = processor.process(inputFrame1);
-    HardwareBufferFrame outputFrame2 = processor.process(inputFrame2);
+    HardwareBufferFrame outputFrame1 = converter.getOrCreateRetainedFrame(inputBitmap);
+    HardwareBufferFrame outputFrame2 = converter.getOrCreateRetainedFrame(inputBitmap);
 
     outputFrame1.release(/* releaseFence= */ null);
     // Ensure there are no pending tasks left on the executor.
@@ -313,12 +241,12 @@ public final class BitmapToHardwareBufferProcessorTest {
   }
 
   @Test
-  public void close_shutsDownInternalExecutor() {
+  public void close_withoutErrors_shutsDownInternalExecutor() {
     Bitmap bitmap = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888);
-    HardwareBufferFrame outputFrame = processor.process(createBitmapFrame(bitmap));
+    HardwareBufferFrame outputFrame = converter.getOrCreateRetainedFrame(bitmap);
     outputFrame.release(/* releaseFence= */ null);
 
-    processor.close();
+    converter.close();
 
     assertThat(executorService.isShutdown()).isTrue();
   }
@@ -326,12 +254,12 @@ public final class BitmapToHardwareBufferProcessorTest {
   @Test
   public void releaseOutputFrame_afterClose_closesBuffer() throws IOException {
     Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap(INPUT_PATH);
-    HardwareBufferFrame outputFrame = processor.process(createBitmapFrame(inputBitmap));
+    HardwareBufferFrame outputFrame = converter.getOrCreateRetainedFrame(inputBitmap);
     HardwareBuffer hardwareBuffer = outputFrame.hardwareBuffer;
 
-    processor.close();
+    converter.close();
 
-    // Processor released its reference, but the frame still holds one.
+    // Converter released its reference, but the frame still holds one.
     assertThat(hardwareBuffer.isClosed()).isFalse();
 
     outputFrame.release(/* releaseFence= */ null);
@@ -341,12 +269,12 @@ public final class BitmapToHardwareBufferProcessorTest {
   }
 
   @Test
-  public void process_afterClose_throwsIllegalStateException() {
+  public void getOrCreateRetainedFrame_afterClose_throwsIllegalStateException() {
     Bitmap bitmap = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888);
 
-    processor.close();
+    converter.close();
 
-    assertThrows(IllegalStateException.class, () -> processor.process(createBitmapFrame(bitmap)));
+    assertThrows(IllegalStateException.class, () -> converter.getOrCreateRetainedFrame(bitmap));
   }
 
   private Bitmap readBitmapFromHardwareBuffer(HardwareBuffer hardwareBuffer) throws Exception {
@@ -420,21 +348,5 @@ public final class BitmapToHardwareBufferProcessorTest {
         && Build.VERSION.SDK_INT < 33) {
       throw new AssumptionViolatedException("HDR bitmap formats require API level 33+");
     }
-  }
-
-  private static HardwareBufferFrame createBitmapFrame(Bitmap bitmap) {
-    return new HardwareBufferFrame.Builder(
-            /* hardwareBuffer= */ null, directExecutor(), /* releaseCallback= */ (fence) -> {})
-        .setInternalFrame(bitmap)
-        .build();
-  }
-
-  private static HardwareBuffer createHardwareBuffer() {
-    return HardwareBuffer.create(
-        10,
-        10,
-        /* format= */ HardwareBuffer.RGBA_8888,
-        /* layers= */ 1,
-        /* usage= */ HardwareBuffer.USAGE_CPU_WRITE_OFTEN | HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
   }
 }

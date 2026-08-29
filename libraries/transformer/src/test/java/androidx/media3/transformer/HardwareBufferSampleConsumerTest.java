@@ -72,7 +72,8 @@ public class HardwareBufferSampleConsumerTest {
             looper,
             handlerWrapper,
             frame -> receivedFrames.add(frame),
-            error -> errorRef.set(error));
+            error -> errorRef.set(error),
+            /* hardwareBufferJniWrapper= */ null);
   }
 
   @After
