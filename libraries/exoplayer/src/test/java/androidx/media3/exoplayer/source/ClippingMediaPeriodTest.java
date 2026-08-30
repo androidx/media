@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.source;
 
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_HAS_PREROLL;
+import static androidx.media3.exoplayer.source.SampleStream.FLAG_MAYBE_HAS_PREROLL;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_STRICT_DURATION;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
@@ -157,7 +158,9 @@ public class ClippingMediaPeriodTest {
 
     assertThat(sampleStreams[0]).isNotNull();
     assertThat(sampleStreams[0].getFlags()).isEqualTo(FLAG_STRICT_DURATION);
-    assertThat(sampleStreams[1].getFlags()).isEqualTo(FLAG_HAS_PREROLL | FLAG_STRICT_DURATION);
+    // The clip only sets an end position, so the wrapped period's report of its own preroll is
+    // passed through rather than being replaced by the enable-position heuristic.
+    assertThat(sampleStreams[1].getFlags()).isEqualTo(FLAG_STRICT_DURATION);
     assertThat(discontinuityPositionUs).isEqualTo(250);
   }
 
@@ -264,7 +267,9 @@ public class ClippingMediaPeriodTest {
     long discontinuityPositionUs = clippingMediaPeriod.readDiscontinuity();
 
     assertThat(sampleStreams[0].getFlags()).isEqualTo(FLAG_STRICT_DURATION);
-    assertThat(sampleStreams[1].getFlags()).isEqualTo(FLAG_HAS_PREROLL | FLAG_STRICT_DURATION);
+    // The clip only sets an end position, so the wrapped period's report of its own preroll is
+    // passed through rather than being replaced by the enable-position heuristic.
+    assertThat(sampleStreams[1].getFlags()).isEqualTo(FLAG_STRICT_DURATION);
     assertThat(discontinuityPositionUs).isEqualTo(C.TIME_UNSET);
   }
 
@@ -305,7 +310,9 @@ public class ClippingMediaPeriodTest {
     clippingMediaPeriod.seekToUs(400);
     long discontinuityPositionUs = clippingMediaPeriod.readDiscontinuity();
 
-    assertThat(sampleStreams[1].getFlags()).isEqualTo(FLAG_STRICT_DURATION | FLAG_HAS_PREROLL);
+    // The clip only sets an end position, so the wrapped period's report of its own preroll is
+    // passed through rather than being replaced by the enable-position heuristic.
+    assertThat(sampleStreams[1].getFlags()).isEqualTo(FLAG_STRICT_DURATION);
     assertThat(discontinuityPositionUs).isEqualTo(C.TIME_UNSET);
   }
 
@@ -508,5 +515,62 @@ public class ClippingMediaPeriodTest {
             clippingMediaPeriod, /* preparePositionUs= */ 0, trackGroups);
 
     assertThat(sampleStreams[0].getFlags()).isEqualTo(SampleStream.FLAG_STRICT_DURATION);
+  }
+
+  @Test
+  public void selectTracks_withEndClippingAndChildStreamMaybeHasPreroll_passesThroughChildFlags()
+      throws Exception {
+    TrackGroupArray trackGroups = new TrackGroupArray(VIDEO_TRACK_GROUP);
+    FakeMediaPeriod mediaPeriod =
+        new FakeMediaPeriod(
+            trackGroups,
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* trackDataFactory= */ (format, mediaPeriodId) -> ImmutableList.of(),
+            new MediaSourceEventListener.EventDispatcher()
+                .withParameters(
+                    /* windowIndex= */ 0,
+                    new MediaSource.MediaPeriodId(/* periodUid= */ new Object())),
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* deferOnPrepared= */ false) {
+          @Override
+          protected FakeSampleStream createSampleStream(
+              Allocator allocator,
+              @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+              DrmSessionManager drmSessionManager,
+              DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+              Format initialFormat,
+              List<FakeSampleStream.FakeSampleStreamItem> fakeSampleStreamItems) {
+            return new FakeSampleStream(
+                allocator,
+                mediaSourceEventDispatcher,
+                drmSessionManager,
+                drmEventDispatcher,
+                initialFormat,
+                fakeSampleStreamItems) {
+              @Override
+              public int getFlags() {
+                return FLAG_MAYBE_HAS_PREROLL;
+              }
+            };
+          }
+        };
+
+    ClippingMediaPeriod clippingMediaPeriod =
+        new ClippingMediaPeriod(
+            mediaPeriod,
+            /* enableInitialDiscontinuity= */ true,
+            /* startUs= */ 0,
+            /* endUs= */ 500);
+
+    SampleStream[] sampleStreams =
+        prepareMediaPeriodAndSelectTracks(
+            clippingMediaPeriod, /* preparePositionUs= */ 250, trackGroups);
+
+    // The clip only sets an end position, so it adds no preroll of its own and the child's
+    // FLAG_MAYBE_HAS_PREROLL must survive. The flag tells the player to defer the reading period
+    // transition until the child resolves its preroll, instead of resetting the renderer now.
+    assertThat(sampleStreams[0].getFlags())
+        .isEqualTo(FLAG_MAYBE_HAS_PREROLL | FLAG_STRICT_DURATION);
   }
 }
