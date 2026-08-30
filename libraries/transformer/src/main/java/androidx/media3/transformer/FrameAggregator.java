@@ -16,6 +16,8 @@
 
 package androidx.media3.transformer;
 
+import static androidx.media3.transformer.CompositionFrameMetadata.asFrameMetadata;
+import static androidx.media3.transformer.TransformerUtil.END_OF_STREAM_ASYNC_FRAME;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -23,11 +25,17 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.util.Rational;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.Util;
+import androidx.media3.common.video.AsyncFrame;
+import androidx.media3.common.video.DefaultHardwareBufferFrame;
+import androidx.media3.common.video.Frame;
 import androidx.media3.effect.HardwareBufferFrame;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.math.RoundingMode;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -36,12 +44,12 @@ import java.util.Queue;
 
 /**
  * Combines multiple sequences of {@link HardwareBufferFrame}s into one sequence of {@link
- * ImmutableList<HardwareBufferFrame>}.
+ * ImmutableList<AsyncFrame>}.
  */
 /* package */ class FrameAggregator implements AutoCloseable {
   private static final VirtualFrameToken VIRTUAL_FRAME_TOKEN = new VirtualFrameToken();
 
-  private final Consumer<ImmutableList<HardwareBufferFrame>> downstreamConsumer;
+  private final Consumer<ImmutableList<AsyncFrame>> downstreamConsumer;
   private final Consumer<Integer> onFlush;
   private final List<FrameQueue> inputFrameQueues;
   private final int numSequences;
@@ -69,8 +77,8 @@ import java.util.Queue;
    * @param numSequences The number of sequences to expect frames from.
    * @param frameRate The target frame rate in frames per second, or {@code null} to use the primary
    *     sequence as the reference timeline.
-   * @param downstreamConsumer Receives the aggregated {@linkplain
-   *     ImmutableList<HardwareBufferFrame> frames}.
+   * @param downstreamConsumer Receives the aggregated {@linkplain ImmutableList<AsyncFrame>
+   *     frames}.
    * @param onFlush Callback triggered when {@link #flush(int)} is called.
    * @throws IllegalArgumentException If {@code numSequences} is less than 1, or if {@code
    *     frameRate} has a zero or negative numerator or denominator.
@@ -78,7 +86,7 @@ import java.util.Queue;
   /* package */ FrameAggregator(
       int numSequences,
       @Nullable Rational frameRate,
-      Consumer<ImmutableList<HardwareBufferFrame>> downstreamConsumer,
+      Consumer<ImmutableList<AsyncFrame>> downstreamConsumer,
       Consumer<Integer> onFlush) {
     checkArgument(numSequences > 0, "numSequences must be at least 1.");
     checkArgument(
@@ -235,7 +243,7 @@ import java.util.Queue;
         return;
       }
       if (referenceFrame == HardwareBufferFrame.END_OF_STREAM_FRAME) {
-        downstreamConsumer.accept(ImmutableList.of(HardwareBufferFrame.END_OF_STREAM_FRAME));
+        downstreamConsumer.accept(ImmutableList.of(END_OF_STREAM_ASYNC_FRAME));
         isEnded = true;
         return;
       }
@@ -284,11 +292,11 @@ import java.util.Queue;
       }
       ImmutableList<HardwareBufferFrame> outputFrames = outputFramesBuilder.build();
       if (outputFrames.isEmpty()) {
-        downstreamConsumer.accept(ImmutableList.of(HardwareBufferFrame.END_OF_STREAM_FRAME));
+        downstreamConsumer.accept(ImmutableList.of(END_OF_STREAM_ASYNC_FRAME));
         isEnded = true;
         return;
       }
-      downstreamConsumer.accept(outputFrames);
+      downstreamConsumer.accept(toAsyncFrameList(outputFrames));
     }
   }
 
@@ -399,7 +407,7 @@ import java.util.Queue;
   private void handlePrimaryEndOfStream() {
     // Without a target frame rate, ending Sequence 0 ends the composition.
     if (frameRate == null && inputFrameQueues.get(0).isEnded) {
-      downstreamConsumer.accept(ImmutableList.of(HardwareBufferFrame.END_OF_STREAM_FRAME));
+      downstreamConsumer.accept(ImmutableList.of(END_OF_STREAM_ASYNC_FRAME));
       isEnded = true;
     }
   }
@@ -450,6 +458,49 @@ import java.util.Queue;
         /* multiplier= */ frameRate.getNumerator(),
         /* divisor= */ 1_000_000L * frameRate.getDenominator(),
         RoundingMode.CEILING);
+  }
+
+  // TODO(b/517167018): Migrate to HardwareBufferFrameReader.
+  @SuppressWarnings("NewApi")
+  private static ImmutableList<AsyncFrame> toAsyncFrameList(
+      ImmutableList<HardwareBufferFrame> outputFrames) {
+    ImmutableList.Builder<AsyncFrame> builder = ImmutableList.builder();
+    for (int i = 0; i < outputFrames.size(); i++) {
+      HardwareBufferFrame effectFrame = outputFrames.get(i);
+      DefaultHardwareBufferFrame commonFrame =
+          toDefaultHardwareBufferFrame(effectFrame, /* releaseTimeNs= */ effectFrame.releaseTimeNs);
+      builder.add(new AsyncFrame(commonFrame, effectFrame.acquireFence));
+    }
+    return builder.build();
+  }
+
+  @VisibleForTesting
+  @RequiresApi(26)
+  @SuppressWarnings("deprecation")
+  /* package */ static DefaultHardwareBufferFrame toDefaultHardwareBufferFrame(
+      HardwareBufferFrame effectFrame, long releaseTimeNs) {
+    ImmutableMap.Builder<String, Object> metadataBuilder =
+        ImmutableMap.<String, Object>builder()
+            .put(Frame.KEY_PRESENTATION_TIME_US, effectFrame.presentationTimeUs)
+            .put(Frame.KEY_DISPLAY_TIME_NS, releaseTimeNs);
+    if (effectFrame.getMetadata() instanceof CompositionFrameMetadata) {
+      CompositionFrameMetadata compositionFrameMetadata =
+          (CompositionFrameMetadata) effectFrame.getMetadata();
+      metadataBuilder
+          .put(CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA, compositionFrameMetadata)
+          .putAll(asFrameMetadata(compositionFrameMetadata));
+    }
+    metadataBuilder
+        // TODO(b/517167018): Remove DEPRECATED_ORIGINAL_EFFECT_FRAME once
+        //  effect.HardwareBufferFrame is removed.
+        .put("DEPRECATED_ORIGINAL_EFFECT_FRAME", effectFrame);
+    return new DefaultHardwareBufferFrame.Builder(
+            checkNotNull(effectFrame.hardwareBuffer), directExecutor(), effectFrame::release)
+        .setFormat(effectFrame.format)
+        .setContentTimeUs(effectFrame.sequencePresentationTimeUs)
+        .setMetadata(metadataBuilder.buildOrThrow())
+        .setInternalImage(effectFrame.internalFrame)
+        .build();
   }
 
   /** A helper class representing a {@link Queue<HardwareBufferFrame>} that can end. */

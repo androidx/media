@@ -46,6 +46,10 @@ import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.video.AsyncFrame;
+import androidx.media3.common.video.Frame;
+import androidx.media3.common.video.ReferenceCounter;
+import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.SpeedChangeEffect;
@@ -56,11 +60,36 @@ import androidx.media3.extractor.metadata.mp4.SlowMotionData;
 import androidx.media3.transformer.Composition.HdrMode;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import java.util.List;
 import java.util.Objects;
 
 /** Utility methods for Transformer. */
 @UnstableApi
 public final class TransformerUtil {
+
+  /** An empty {@link AsyncFrame} representing the end of a stream. */
+  /* package */ static final AsyncFrame END_OF_STREAM_ASYNC_FRAME =
+      new AsyncFrame(
+          new Frame() {
+            private final Format format = new Format.Builder().build();
+
+            @Override
+            public Format getFormat() {
+              return format;
+            }
+
+            @Override
+            public ImmutableMap<String, Object> getMetadata() {
+              return ImmutableMap.of();
+            }
+
+            @Override
+            public long getContentTimeUs() {
+              return C.TIME_END_OF_SOURCE;
+            }
+          },
+          /* acquireFence= */ null);
 
   private TransformerUtil() {}
 
@@ -463,6 +492,36 @@ public final class TransformerUtil {
     int index = timeline.getIndexOfPeriod(mediaPeriodId.periodUid);
     EditedMediaItemSequence sequence = getEditedMediaItemSequence(timeline, mediaPeriodId);
     return EditedMediaItemSequence.getEditedMediaItem(sequence, index);
+  }
+
+  /**
+   * Releases {@code object} if it implements {@link ReferenceCounter}.
+   *
+   * <p>If {@code object} is not a {@link ReferenceCounter} and {@code releaseFence} is non-null,
+   * the fence is closed silently to prevent leaks.
+   *
+   * @param object The object to release, or {@code null}.
+   * @param releaseFence An optional {@link SyncFenceWrapper} signaling when hardware resources are
+   *     safe for reuse.
+   */
+  /* package */ static void releaseIfNeeded(
+      @Nullable Object object, @Nullable SyncFenceWrapper releaseFence) {
+    if (object instanceof ReferenceCounter) {
+      ((ReferenceCounter) object).release(releaseFence);
+    } else if (releaseFence != null) {
+      releaseFence.close();
+    }
+  }
+
+  /**
+   * Releases each object in {@code objects} if it implements {@link ReferenceCounter}.
+   *
+   * @param objects The collection of objects to release.
+   */
+  /* package */ static void releaseIfNeeded(List<?> objects) {
+    for (int i = 0; i < objects.size(); i++) {
+      releaseIfNeeded(objects.get(i), /* releaseFence= */ null);
+    }
   }
 
   @Nullable

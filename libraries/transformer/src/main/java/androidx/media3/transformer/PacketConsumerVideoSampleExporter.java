@@ -17,14 +17,12 @@ package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
-import static androidx.media3.effect.HardwareBufferFrame.END_OF_STREAM_FRAME;
-import static androidx.media3.transformer.CompositionFrameMetadata.asFrameMetadata;
+import static androidx.media3.transformer.TransformerUtil.END_OF_STREAM_ASYNC_FRAME;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 
 import android.content.Context;
-import android.hardware.HardwareBuffer;
 import android.media.MediaCodec.BufferInfo;
 import android.media.metrics.LogSessionId;
 import android.os.Handler;
@@ -40,7 +38,6 @@ import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Util;
 import androidx.media3.common.video.AsyncFrame;
-import androidx.media3.common.video.DefaultHardwareBufferFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.FrameWriter;
@@ -51,11 +48,12 @@ import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.transformer.Codec.EncoderFactory;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import java.util.ArrayDeque;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.initialization.qual.Initialized;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -67,7 +65,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private static final String DEFAULT_OUTPUT_MIME_TYPE = MimeTypes.VIDEO_H265;
 
   private final DecoderInputBuffer encoderOutputBuffer;
-
   private final Consumer<ExportException> errorConsumer;
   private final FrameProcessor frameProcessor;
   private final FrameAggregator frameAggregator;
@@ -78,8 +75,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final TransformationRequest transformationRequest;
   private final Format firstInputFormat;
 
-  private final Queue<PendingQueueCall> pendingQueueCalls;
-  private final Map<Frame, HardwareBufferFrame> inFlightFrames;
+  private final Queue<ImmutableList<AsyncFrame>> pendingPackets;
+  private final Set<Frame> inFlightFrames;
   private boolean hasPendingEos;
   private int outputRotationDegrees;
   private volatile boolean released;
@@ -118,8 +115,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.errorConsumer = errorConsumer;
     this.muxerWrapper = muxerWrapper;
     this.firstInputFormat = firstInputFormat;
-    this.pendingQueueCalls = new ArrayDeque<>();
-    this.inFlightFrames = new HashMap<>();
+    this.pendingPackets = new ArrayDeque<>();
+    this.inFlightFrames = new HashSet<>();
     finalFramePresentationTimeUs = C.TIME_UNSET;
     lastMuxerInputBufferTimestampUs = C.TIME_UNSET;
     encoderOutputBuffer =
@@ -219,10 +216,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     sampleConsumers = sampleConsumerBuilder.build();
   }
 
-  @SuppressWarnings("deprecation")
-  private void queueAggregatedFrames(ImmutableList<HardwareBufferFrame> frames) {
-    if (frames.get(0) == END_OF_STREAM_FRAME) {
-      if (pendingQueueCalls.isEmpty()) {
+  private void queueAggregatedFrames(ImmutableList<AsyncFrame> frames) {
+    if (frames.get(0) == END_OF_STREAM_ASYNC_FRAME) {
+      if (pendingPackets.isEmpty()) {
         frameProcessor.signalEndOfStream();
       } else {
         hasPendingEos = true;
@@ -230,39 +226,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return;
     }
 
-    ImmutableList.Builder<AsyncFrame> asyncFrameListBuilder = ImmutableList.builder();
-    for (int i = 0; i < frames.size(); i++) {
-      HardwareBufferFrame effectFrame = frames.get(i);
-      // When encoding, releaseTime and contentTime are the same.
-      checkState(effectFrame.releaseTimeNs == effectFrame.sequencePresentationTimeUs * 1000);
-
-      ImmutableMap.Builder<String, Object> metadataBuilder = ImmutableMap.builder();
-      metadataBuilder
-          .put(Frame.KEY_PRESENTATION_TIME_US, effectFrame.presentationTimeUs)
-          .put(Frame.KEY_DISPLAY_TIME_NS, effectFrame.releaseTimeNs);
-      if (effectFrame.getMetadata() instanceof CompositionFrameMetadata) {
-        CompositionFrameMetadata compositionFrameMetadata =
-            (CompositionFrameMetadata) effectFrame.getMetadata();
-        metadataBuilder
-            .put(CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA, compositionFrameMetadata)
-            .putAll(asFrameMetadata(compositionFrameMetadata));
-      }
-
-      HardwareBuffer hardwareBuffer = checkNotNull(effectFrame.hardwareBuffer);
-      DefaultHardwareBufferFrame commonFrame =
-          new DefaultHardwareBufferFrame.Builder(hardwareBuffer)
-              .setFormat(effectFrame.format)
-              .setContentTimeUs(effectFrame.sequencePresentationTimeUs)
-              .setMetadata(metadataBuilder.buildOrThrow())
-              .setInternalImage(effectFrame.internalFrame)
-              .build();
-
-      asyncFrameListBuilder.add(new AsyncFrame(commonFrame, effectFrame.acquireFence));
-    }
-
-    PendingQueueCall call = new PendingQueueCall(asyncFrameListBuilder.build(), frames);
-    pendingQueueCalls.add(call);
-    drainPendingQueueCalls();
+    pendingPackets.add(frames);
+    drainPendingPackets();
   }
 
   @Override
@@ -276,7 +241,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return;
     }
     released = true;
-    releasePendingQueueCalls();
+    releasePendingPackets();
+    TransformerUtil.releaseIfNeeded(new ArrayList<>(inFlightFrames));
+    inFlightFrames.clear();
     for (int i = 0; i < sampleConsumers.size(); i++) {
       sampleConsumers.get(i).release();
     }
@@ -408,43 +375,55 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Override
     public void onWakeup() {
-      drainPendingQueueCalls();
+      drainPendingPackets();
     }
 
     @Override
     public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
-      checkNotNull(inFlightFrames.remove(frame)).release(releaseFence);
+      boolean removed = inFlightFrames.remove(frame);
+      if (removed) {
+        TransformerUtil.releaseIfNeeded(frame, releaseFence);
+      } else if (releaseFence != null) {
+        releaseFence.close();
+      }
     }
   }
 
-  private void drainPendingQueueCalls() {
-    while (!pendingQueueCalls.isEmpty()) {
-      PendingQueueCall call = pendingQueueCalls.peek();
-      if (call == null) {
+  private void drainPendingPackets() {
+    while (!pendingPackets.isEmpty()) {
+      ImmutableList<AsyncFrame> packet = pendingPackets.peek();
+      if (packet == null) {
         break;
       }
-      boolean queued = frameProcessor.queue(call.asyncFrames);
+      boolean queued = frameProcessor.queue(packet);
       if (queued) {
-        for (int i = 0; i < call.asyncFrames.size(); i++) {
-          inFlightFrames.put(call.asyncFrames.get(i).frame, call.hardwareBufferFrames.get(i));
+        for (int i = 0; i < packet.size(); i++) {
+          inFlightFrames.add(packet.get(i).frame);
         }
-        pendingQueueCalls.poll();
+        pendingPackets.poll();
       } else {
         break;
       }
     }
-    if (pendingQueueCalls.isEmpty() && hasPendingEos) {
+    if (pendingPackets.isEmpty() && hasPendingEos) {
       frameProcessor.signalEndOfStream();
       hasPendingEos = false;
     }
   }
 
-  private void releasePendingQueueCalls() {
-    PendingQueueCall call;
-    while ((call = pendingQueueCalls.poll()) != null) {
-      for (HardwareBufferFrame frame : call.hardwareBufferFrames) {
-        frame.release(/* releaseFence= */ null);
-      }
+  private void releasePendingPackets() {
+    @Nullable ImmutableList<AsyncFrame> packet;
+    while ((packet = pendingPackets.poll()) != null) {
+      releasePacket(packet);
+    }
+  }
+
+  private static void releasePacket(@Nullable List<AsyncFrame> packet) {
+    if (packet == null) {
+      return;
+    }
+    for (int i = 0; i < packet.size(); i++) {
+      TransformerUtil.releaseIfNeeded(packet.get(i).frame, /* releaseFence= */ null);
     }
   }
 
@@ -457,18 +436,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return DEFAULT_OUTPUT_MIME_TYPE;
     } else {
       return inputSampleMimeType;
-    }
-  }
-
-  private static final class PendingQueueCall {
-    final ImmutableList<AsyncFrame> asyncFrames;
-    final ImmutableList<HardwareBufferFrame> hardwareBufferFrames;
-
-    PendingQueueCall(
-        ImmutableList<AsyncFrame> asyncFrames,
-        ImmutableList<HardwareBufferFrame> hardwareBufferFrames) {
-      this.asyncFrames = asyncFrames;
-      this.hardwareBufferFrames = hardwareBufferFrames;
     }
   }
 

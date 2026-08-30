@@ -15,19 +15,24 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.transformer.TransformerUtil.END_OF_STREAM_ASYNC_FRAME;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static org.junit.Assert.assertThrows;
 
+import android.hardware.HardwareBuffer;
 import android.util.Rational;
 import androidx.annotation.Nullable;
+import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.effect.GlTextureFrame;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -44,12 +49,27 @@ public class FrameAggregatorTest {
 
   private ArrayList<List<HardwareBufferFrame>> outputFrames;
   private ArrayList<Integer> flushedSequences;
+  private HardwareBuffer placeholderBuffer;
 
   @Before
   public void setUp() {
     releasedFrameTimestamps = new ArrayList<>();
     outputFrames = new ArrayList<>();
     flushedSequences = new ArrayList<>();
+    placeholderBuffer =
+        HardwareBuffer.create(
+            /* width= */ 16,
+            /* height= */ 16,
+            /* format= */ HardwareBuffer.RGBA_8888,
+            /* layers= */ 1,
+            /* usage= */ 0);
+  }
+
+  @After
+  public void tearDown() {
+    if (placeholderBuffer != null) {
+      placeholderBuffer.close();
+    }
   }
 
   @Test
@@ -60,7 +80,7 @@ public class FrameAggregatorTest {
             new FrameAggregator(
                 /* numSequences= */ 0,
                 /* frameRate= */ null,
-                /* downstreamConsumer= */ outputFrames::add,
+                /* downstreamConsumer= */ this::recordOutputFrames,
                 /* onFlush= */ flushedSequences::add));
   }
 
@@ -72,7 +92,7 @@ public class FrameAggregatorTest {
             new FrameAggregator(
                 /* numSequences= */ -1,
                 /* frameRate= */ null,
-                /* downstreamConsumer= */ outputFrames::add,
+                /* downstreamConsumer= */ this::recordOutputFrames,
                 /* onFlush= */ flushedSequences::add));
   }
 
@@ -82,7 +102,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     HardwareBufferFrame frame =
         createFrame(/* presentationTimeUs= */ 100, /* sequencePresentationTimeUs= */ 100);
@@ -96,7 +116,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 1,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 1);
     HardwareBufferFrame frame1 =
@@ -118,7 +138,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
     HardwareBufferFrame primaryFrame =
@@ -148,7 +168,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
     HardwareBufferFrame primaryFrame =
@@ -186,7 +206,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
     HardwareBufferFrame primaryFrame =
@@ -219,7 +239,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
     HardwareBufferFrame primaryFrame =
@@ -252,7 +272,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
     HardwareBufferFrame primaryFrame1 =
@@ -288,7 +308,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
     HardwareBufferFrame primaryFrame =
@@ -325,7 +345,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
     HardwareBufferFrame primaryFrame1 =
@@ -355,7 +375,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
     // Queue one second of primary frames (30 packets).
@@ -386,7 +406,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
     // Simulate ~30fps for primary sequence
@@ -440,7 +460,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
     long[] primaryUs = {0, 33_333, 66_667, 100_000};
@@ -510,7 +530,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
     // Primary Sequence with two items:
@@ -566,7 +586,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
     // Primary Sequence with one item spanning the whole duration
@@ -623,7 +643,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 3,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 3);
     HardwareBufferFrame frame0 =
@@ -663,7 +683,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 1,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
 
     frameAggregator.close();
@@ -680,7 +700,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 1,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 1);
     frameAggregator.close();
@@ -700,7 +720,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 1,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 1);
     frameAggregator.close();
@@ -716,7 +736,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 1,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 1);
     frameAggregator.close();
@@ -732,7 +752,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
     HardwareBufferFrame primaryFrame1 =
@@ -779,7 +799,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
 
@@ -792,7 +812,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
     HardwareBufferFrame primaryFrame =
@@ -814,7 +834,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 3,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 3);
     HardwareBufferFrame primaryFrame =
@@ -844,7 +864,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
     HardwareBufferFrame primaryFrame1 =
@@ -884,7 +904,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
     HardwareBufferFrame primaryFrame1 =
@@ -919,7 +939,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 1,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 1);
 
@@ -935,7 +955,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 1,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 1);
     HardwareBufferFrame frame1 =
@@ -955,7 +975,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 1,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 1);
     HardwareBufferFrame frame1 =
@@ -976,7 +996,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 1,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 1);
 
@@ -993,7 +1013,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 1,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 1);
 
@@ -1018,7 +1038,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
     HardwareBufferFrame primaryFrame = createFrame(100, /* sequencePresentationTimeUs= */ 100);
@@ -1046,7 +1066,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     HardwareBufferFrame primaryFrame =
         createFrame(/* presentationTimeUs= */ 100, /* sequencePresentationTimeUs= */ 100);
@@ -1062,7 +1082,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
 
     assertThrows(
@@ -1076,7 +1096,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
 
     assertThrows(
@@ -1096,7 +1116,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     HardwareBufferFrame primaryFrame =
         createFrame(/* presentationTimeUs= */ 100, /* sequencePresentationTimeUs= */ 100);
@@ -1117,7 +1137,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ null,
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
     HardwareBufferFrame primary1 =
@@ -1163,7 +1183,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 3,
             /* frameRate= */ new Rational(30, 1),
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 3);
 
@@ -1275,7 +1295,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ new Rational(30, 1),
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
 
@@ -1320,7 +1340,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ new Rational(30, 1),
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
 
@@ -1365,7 +1385,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ new Rational(30, 1),
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
 
@@ -1397,7 +1417,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ new Rational(30, 1),
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
 
@@ -1438,7 +1458,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ new Rational(30, 1),
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
 
@@ -1496,7 +1516,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 2,
             /* frameRate= */ new Rational(30, 1),
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
 
@@ -1540,7 +1560,7 @@ public class FrameAggregatorTest {
         new FrameAggregator(
             /* numSequences= */ 1,
             /* frameRate= */ new Rational(10, 1),
-            /* downstreamConsumer= */ outputFrames::add,
+            /* downstreamConsumer= */ this::recordOutputFrames,
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 1);
 
@@ -1636,7 +1656,7 @@ public class FrameAggregatorTest {
   private HardwareBufferFrame createFrame(
       long presentationTimeUs, long sequencePresentationTimeUs, int sequenceIndex) {
     return new HardwareBufferFrame.Builder(
-            /* hardwareBuffer= */ null,
+            placeholderBuffer,
             directExecutor(),
             (releaseFence) -> releasedFrameTimestamps.add(presentationTimeUs))
         .setPresentationTimeUs(presentationTimeUs)
@@ -1724,5 +1744,19 @@ public class FrameAggregatorTest {
     SourceFrameMetadata(SourceFrame sourceFrame) {
       this.sourceFrame = sourceFrame;
     }
+  }
+
+  private void recordOutputFrames(ImmutableList<AsyncFrame> asyncFrames) {
+    List<HardwareBufferFrame> effectFrames = new ArrayList<>();
+    for (AsyncFrame asyncFrame : asyncFrames) {
+      if (asyncFrame == END_OF_STREAM_ASYNC_FRAME) {
+        effectFrames.add(HardwareBufferFrame.END_OF_STREAM_FRAME);
+      } else {
+        effectFrames.add(
+            (HardwareBufferFrame)
+                asyncFrame.frame.getMetadata().get("DEPRECATED_ORIGINAL_EFFECT_FRAME"));
+      }
+    }
+    outputFrames.add(effectFrames);
   }
 }

@@ -17,7 +17,7 @@ package androidx.media3.transformer;
 
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_FRAME_DISCONTINUITY_NUMBER;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
-import static androidx.media3.transformer.CompositionFrameMetadata.asFrameMetadata;
+import static androidx.media3.transformer.TransformerUtil.END_OF_STREAM_ASYNC_FRAME;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -33,8 +33,6 @@ import androidx.media3.common.video.DefaultHardwareBufferFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.SyncFenceWrapper;
-import androidx.media3.effect.GlTextureFrame;
-import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.video.FixedFrameRateEstimator;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
@@ -42,13 +40,14 @@ import androidx.media3.transformer.SequenceRenderersFactory.CompositionRendererL
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayDeque;
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
 // TODO: b/449956936 - This is a placeholder implementation, revisit the threading logic to make it
 //  more robust.
-/** Computes the release time for each {@linkplain List<HardwareBufferFrame> packet}. */
+/** Computes the release time for each {@linkplain List<AsyncFrame> packet}. */
 @RequiresApi(26)
 @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
 /* package */ class CompositionVideoPacketReleaseControl
@@ -59,7 +58,7 @@ import java.util.Map;
   private final VideoFrameReleaseControl videoFrameReleaseControl;
   private final FrameProcessor downstreamFrameProcessor;
   // Accessed on the playback thread only.
-  private final ArrayDeque<ImmutableList<HardwareBufferFrame>> packetQueue;
+  private final ArrayDeque<ImmutableList<AsyncFrame>> packetQueue;
   private final VideoFrameReleaseControl.FrameReleaseInfo videoFrameReleaseInfo;
   private final FixedFrameRateEstimator frameRateEstimator;
   private volatile boolean isEnded;
@@ -69,9 +68,9 @@ import java.util.Map;
   private final Object lock;
 
   @GuardedBy("lock")
-  private final Map<Frame, HardwareBufferFrame> inFlightFrames;
+  private final Set<Frame> inFlightFrames;
 
-  @Nullable private ImmutableList<HardwareBufferFrame> lastQueuedPacket;
+  @Nullable private ImmutableList<AsyncFrame> lastQueuedPacket;
 
   /** Listener for {@link CompositionVideoPacketReleaseControl} events. */
   public interface Listener {
@@ -88,9 +87,8 @@ import java.util.Map;
    * Creates a new {@link CompositionVideoPacketReleaseControl}.
    *
    * @param videoFrameReleaseControl Controls when frames are released.
-   * @param downstreamFrameProcessor Receives the {@linkplain List<HardwareBufferFrame> packet},
-   *     with each {@link HardwareBufferFrame} having the same {@linkplain
-   *     HardwareBufferFrame#releaseTimeNs} release time}.
+   * @param downstreamFrameProcessor Receives the {@linkplain List<AsyncFrame> packet}, with each
+   *     {@link Frame} having the same release time.
    * @param listener The listener for {@link CompositionVideoPacketReleaseControl} events.
    */
   public CompositionVideoPacketReleaseControl(
@@ -107,21 +105,22 @@ import java.util.Map;
     packetQueue = new ArrayDeque<>();
     videoFrameReleaseInfo = new VideoFrameReleaseControl.FrameReleaseInfo();
     lock = new Object();
-    inFlightFrames = new HashMap<>();
+    inFlightFrames = new HashSet<>();
     // Allow the first frame to be rendered before playback starts.
     videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
   }
 
   /**
-   * Queues a {@linkplain List<HardwareBufferFrame> packet}.
+   * Queues a {@linkplain List<AsyncFrame> packet}.
    *
-   * <p>Once called, the caller must not modify the {@link HardwareBufferFrame}s in the packet.
+   * <p>Once called, the caller must not modify the {@linkplain AsyncFrame async frames} in the
+   * packet.
    *
    * <p>Called on the playback thread.
    *
-   * @param packet The {@link List<HardwareBufferFrame>} to queue.
+   * @param packet The {@link List<AsyncFrame>} to queue.
    */
-  public void queue(List<HardwareBufferFrame> packet) {
+  public void queue(List<AsyncFrame> packet) {
     checkArgument(!packet.isEmpty());
     packetQueue.add(ImmutableList.copyOf(packet));
   }
@@ -129,7 +128,7 @@ import java.util.Map;
   /**
    * {@inheritDoc}
    *
-   * <p>Computes the release action and release time of queued {@linkplain List<HardwareBufferFrame>
+   * <p>Computes the release action and release time of queued {@linkplain List<AsyncFrame>
    * packets}, forwards them {@linkplain #downstreamFrameProcessor downstream} if applicable or
    * drops them. Continues until a packet should be held until a later {@code positionUs}.
    *
@@ -143,10 +142,10 @@ import java.util.Map;
       throws ExoPlaybackException {
     // Remove packet from the packet queue to ensure frames are not simultaneously released by
     // queueFrame and forwarded downstream.
-    @Nullable ImmutableList<HardwareBufferFrame> packet;
+    @Nullable ImmutableList<AsyncFrame> packet;
     while ((packet = packetQueue.poll()) != null) {
       checkState(!packet.isEmpty());
-      if (packet.get(0).equals(HardwareBufferFrame.END_OF_STREAM_FRAME)) {
+      if (packet.get(0) == END_OF_STREAM_ASYNC_FRAME) {
         if (packetQueue.peek() == null) {
           isEnded = true;
           downstreamFrameProcessor.signalEndOfStream();
@@ -156,7 +155,7 @@ import java.util.Map;
         // Ignore EOS frames if there are more frames to be rendered.
         continue;
       }
-      long presentationTimeUs = checkNotNull(packet).get(0).sequencePresentationTimeUs;
+      long presentationTimeUs = checkNotNull(packet).get(0).frame.getContentTimeUs();
       frameRateEstimator.onNextFrame(presentationTimeUs * 1000);
       @VideoFrameReleaseControl.FrameReleaseAction
       int frameReleaseAction =
@@ -179,9 +178,9 @@ import java.util.Map;
   }
 
   /**
-   * {@linkplain HardwareBufferFrame#release Releases} all frames that have not been sent
-   * downstream, and {@link VideoFrameReleaseControl#reset() resets} the release control, when the
-   * primary sequence is flushed.
+   * Releases all frames that have not been sent downstream, and {@link
+   * VideoFrameReleaseControl#reset() resets} the release control, when the primary sequence is
+   * flushed.
    *
    * <p>Called on the playback thread.
    */
@@ -218,12 +217,12 @@ import java.util.Map;
 
   /** Called when a frame has been fully processed by the downstream {@link FrameProcessor}. */
   public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
-    @Nullable HardwareBufferFrame hardwareBufferFrame;
+    boolean removed;
     synchronized (lock) {
-      hardwareBufferFrame = inFlightFrames.remove(frame);
+      removed = inFlightFrames.remove(frame);
     }
-    if (hardwareBufferFrame != null) {
-      hardwareBufferFrame.release(releaseFence);
+    if (removed) {
+      TransformerUtil.releaseIfNeeded(frame, releaseFence);
     } else {
       if (releaseFence != null) {
         releaseFence.close();
@@ -233,15 +232,15 @@ import java.util.Map;
   }
 
   /**
-   * {@linkplain HardwareBufferFrame#release Releases} all frames that have not been sent
-   * downstream, and {@link VideoFrameReleaseControl#reset() resets} the release control.
+   * Releases all frames that have not been sent downstream, and {@link
+   * VideoFrameReleaseControl#reset() resets} the release control.
    *
    * <p>This method does not release the frames in {@link #inFlightFrames} which have been sent
    * downstream. The {@link #downstreamFrameProcessor} is responsible for releasing in flight
    * frames.
    */
   private void reset() {
-    @Nullable ImmutableList<HardwareBufferFrame> packet;
+    @Nullable ImmutableList<AsyncFrame> packet;
     while ((packet = packetQueue.poll()) != null) {
       releasePacket(packet);
     }
@@ -274,19 +273,19 @@ import java.util.Map;
 
   /** Releases any resources held by this release control. */
   private void releaseRetainedFrames() {
-    ImmutableList<HardwareBufferFrame> framesToRelease;
+    List<Frame> framesToRelease;
     synchronized (lock) {
       // Copy frames to release them without holding the lock.
-      framesToRelease = ImmutableList.copyOf(inFlightFrames.values());
+      framesToRelease = new ArrayList<>(inFlightFrames);
       inFlightFrames.clear();
     }
-    releasePacket(framesToRelease);
+    TransformerUtil.releaseIfNeeded(framesToRelease);
     releasePacket(lastQueuedPacket);
     lastQueuedPacket = null;
   }
 
-  private void updateLastQueuedPacket(ImmutableList<HardwareBufferFrame> newlyQueuedPacket) {
-    ImmutableList<HardwareBufferFrame> lastQueuedPacket = this.lastQueuedPacket;
+  private void updateLastQueuedPacket(ImmutableList<AsyncFrame> newlyQueuedPacket) {
+    ImmutableList<AsyncFrame> lastQueuedPacket = this.lastQueuedPacket;
     // The newlyQueuedPacket is retained so that it's kept alive for replays.
     this.lastQueuedPacket = retainFrames(newlyQueuedPacket);
     // When replaying, the newly queued packet is the same as the last queued packet. When queueing
@@ -298,27 +297,32 @@ import java.util.Map;
     }
   }
 
-  private ImmutableList<HardwareBufferFrame> retainFrames(
-      ImmutableList<HardwareBufferFrame> newlyQueuedPacket) {
-    ImmutableList.Builder<HardwareBufferFrame> retainedFrames = new ImmutableList.Builder<>();
+  private ImmutableList<AsyncFrame> retainFrames(ImmutableList<AsyncFrame> newlyQueuedPacket) {
+    ImmutableList.Builder<AsyncFrame> retainedFrames = new ImmutableList.Builder<>();
     for (int i = 0; i < newlyQueuedPacket.size(); i++) {
-      HardwareBufferFrame hardwareBufferFrame = newlyQueuedPacket.get(i);
-      retainedFrames.add(hardwareBufferFrame.retain());
+      AsyncFrame asyncFrame = newlyQueuedPacket.get(i);
+      checkState(asyncFrame.frame instanceof DefaultHardwareBufferFrame);
+      DefaultHardwareBufferFrame retainedFrame =
+          ((DefaultHardwareBufferFrame) asyncFrame.frame)
+              .buildUpon()
+              .shouldIncrementReferenceCount()
+              .build();
+      retainedFrames.add(new AsyncFrame(retainedFrame, asyncFrame.acquireFence));
     }
     return retainedFrames.build();
   }
 
   /**
-   * Determines how the {@link HardwareBufferFrame} should be handled given the release action.
+   * Determines how the {@link AsyncFrame} should be handled given the release action.
    *
    * @param frameReleaseAction The release action for this frame.
-   * @param packet The {@link ImmutableList<HardwareBufferFrame>} to send downstream.
-   * @return {@code true} if the {@link HardwareBufferFrame} should be removed from the internal
-   *     {@link #packetQueue}.
+   * @param packet The {@link ImmutableList<AsyncFrame>} to send downstream.
+   * @return {@code true} if the {@link AsyncFrame} should be removed from the internal {@link
+   *     #packetQueue}.
    */
   private boolean maybeQueuePacketDownstream(
       @VideoFrameReleaseControl.FrameReleaseAction int frameReleaseAction,
-      ImmutableList<HardwareBufferFrame> packet) {
+      ImmutableList<AsyncFrame> packet) {
     switch (frameReleaseAction) {
       case VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER:
       case VideoFrameReleaseControl.FRAME_RELEASE_IGNORE:
@@ -349,62 +353,63 @@ import java.util.Map;
   }
 
   /**
-   * Updates the release time of all {@link HardwareBufferFrame}s and forwards them to a downstream
-   * consumer of {@link GlTextureFrame}.
+   * Updates the release time of all {@link AsyncFrame} instances and forwards them to a downstream
+   * consumer.
    *
-   * <p>The downstream consumer is responsible for releasing the {@link GlTextureFrame} packet.
+   * <p>The downstream consumer is responsible for releasing the packet.
    *
-   * @param packet The list of {@link HardwareBufferFrame} to send downstream.
+   * @param packet The list of {@link AsyncFrame} to send downstream.
    * @param releaseTimeNs The time the packet should be rendered on screen.
    * @return Whether the frame was queued downstream.
    */
-  @SuppressWarnings("deprecation")
   private boolean setReleaseTimeAndQueueDownstream(
-      ImmutableList<HardwareBufferFrame> packet, long releaseTimeNs) {
-    ImmutableList.Builder<AsyncFrame> asyncFrameListBuilder = ImmutableList.builder();
-    Map<Frame, HardwareBufferFrame> pendingInFlightFrames = new HashMap<>();
+      ImmutableList<AsyncFrame> packet, long releaseTimeNs) {
+    ImmutableList.Builder<AsyncFrame> downstreamAsyncFrames = ImmutableList.builder();
+
     for (int i = 0; i < packet.size(); i++) {
-      HardwareBufferFrame effectFrame = packet.get(i);
+      AsyncFrame asyncFrame = packet.get(i);
+      Frame inputFrame = asyncFrame.frame;
+
       ImmutableMap.Builder<String, Object> metadataBuilder =
           ImmutableMap.<String, Object>builder()
-              .put(Frame.KEY_PRESENTATION_TIME_US, effectFrame.presentationTimeUs)
-              .put(Frame.KEY_DISPLAY_TIME_NS, releaseTimeNs);
-      if (effectFrame.getMetadata() instanceof CompositionFrameMetadata) {
-        CompositionFrameMetadata compositionFrameMetadata =
-            (CompositionFrameMetadata) effectFrame.getMetadata();
-        metadataBuilder
-            .put(CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA, compositionFrameMetadata)
-            .putAll(asFrameMetadata(compositionFrameMetadata));
-      }
-      metadataBuilder.put(KEY_FRAME_DISCONTINUITY_NUMBER, currentStreamDiscontinuityNumber);
-      DefaultHardwareBufferFrame commonFrame =
-          new DefaultHardwareBufferFrame.Builder(checkNotNull(effectFrame.hardwareBuffer))
-              .setFormat(effectFrame.format)
-              .setContentTimeUs(effectFrame.sequencePresentationTimeUs)
-              .setMetadata(metadataBuilder.buildOrThrow())
-              .setInternalImage(effectFrame.internalFrame)
+              .putAll(inputFrame.getMetadata())
+              .put(Frame.KEY_DISPLAY_TIME_NS, releaseTimeNs)
+              .put(KEY_FRAME_DISCONTINUITY_NUMBER, currentStreamDiscontinuityNumber);
+
+      checkState(inputFrame instanceof DefaultHardwareBufferFrame);
+      Frame downstreamFrame =
+          ((DefaultHardwareBufferFrame) inputFrame)
+              .buildUpon()
+              .shouldIncrementReferenceCount()
+              .setMetadata(metadataBuilder.buildKeepingLast())
               .build();
 
-      asyncFrameListBuilder.add(new AsyncFrame(commonFrame, effectFrame.acquireFence));
-      pendingInFlightFrames.put(commonFrame, effectFrame);
+      downstreamAsyncFrames.add(new AsyncFrame(downstreamFrame, asyncFrame.acquireFence));
     }
 
-    boolean queued = downstreamFrameProcessor.queue(asyncFrameListBuilder.build());
+    ImmutableList<AsyncFrame> asyncFrameList = downstreamAsyncFrames.build();
+
+    boolean queued = downstreamFrameProcessor.queue(asyncFrameList);
     if (queued) {
       synchronized (lock) {
-        inFlightFrames.putAll(pendingInFlightFrames);
+        for (int i = 0; i < asyncFrameList.size(); i++) {
+          inFlightFrames.add(asyncFrameList.get(i).frame);
+        }
       }
       updateLastQueuedPacket(packet);
+      releasePacket(packet);
+    } else {
+      releasePacket(asyncFrameList);
     }
     return queued;
   }
 
-  private static void releasePacket(@Nullable ImmutableList<HardwareBufferFrame> packet) {
+  private static void releasePacket(@Nullable List<AsyncFrame> packet) {
     if (packet == null) {
       return;
     }
     for (int i = 0; i < packet.size(); i++) {
-      packet.get(i).release(/* releaseFence= */ null);
+      TransformerUtil.releaseIfNeeded(packet.get(i).frame, /* releaseFence= */ null);
     }
   }
 }
