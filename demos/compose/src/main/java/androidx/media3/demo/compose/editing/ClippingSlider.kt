@@ -94,30 +94,46 @@ private const val CLIPPING_THUMB_PLAIN_WIDTH_RATIO =
  * / 2 before the image row end.
  */
 private const val CLIPPING_TRACK_WIDTH_RATIO = 1f - CLIPPING_THUMB_WIDTH_RATIO
-/** The ratio of the maximum position slider length to the width of the image row. */
-private const val POSITION_SLIDER_MAX_LENGTH_RATIO = 1f - 2 * CLIPPING_THUMB_PLAIN_WIDTH_RATIO
+/** The ratio of the maximum progress slider length to the width of the image row. */
+private const val PROGRESS_SLIDER_MAX_LENGTH_RATIO = 1f - 2 * CLIPPING_THUMB_PLAIN_WIDTH_RATIO
 /** The ratio of the clipping frame's horizontal bar thickness to the total height of the slider. */
 private const val CLIPPING_FRAME_THICKNESS_RATIO = 0.05f
 
 /** The minimum clipping progress delta required to prevent the clipping thumbs from overlapping. */
 private const val MIN_CLIPPING_DELTA_FOR_NO_OVERLAP =
   2f * (CLIPPING_THUMB_WIDTH_RATIO - CLIPPING_THUMB_PLAIN_WIDTH_RATIO) /
-    POSITION_SLIDER_MAX_LENGTH_RATIO
+    PROGRESS_SLIDER_MAX_LENGTH_RATIO
 
 /**
  * A small epsilon value used to check if a progress value is close to the boundaries (0.0 or 1.0).
  */
 private const val BOUNDARY_EPSILON = 1e-3f
 
+/**
+ * A small positive weight used for layout spacers to avoid zero-weight exceptions in [Row] layout.
+ */
+private const val MIN_LAYOUT_WEIGHT = 1e-4f
+
 /** The width of the playback position thumb. */
 private val POSITION_THUMB_WIDTH = 4.dp
 
+// TODO: b/505719491
+//  - Implement accessibility requirements
+//  - Match the height of the progress slider's thumb to that of Google Photos' video trimmer's one.
+//  - Update progress slider's thumb after compose addresses dynamic thumb size change.
+//  - Consider wrapping clippingRangeMs in a hoisted state
+//  - Decide and test what the slider should look like for RTL locales
+//  - Remove @OptIn(ExperimentalMaterial3Api::class) annotations once the RangeSlider is stable
+//  - Move to material3 module and mark API unstable
+//  - Add tests
+//  - Optimize ProgressSlider recomposition scope (e.g. sliderColors reading playbackProgress on
+// every frame)
 /**
  * A Material3 clipping slider that allows users to select a clipping range and track playback
  * position.
  *
  * This component displays a row of bitmaps representing the media content, with a range slider
- * overlaid to define the start and end clipping points. A secondary position slider allows for
+ * overlaid to define the start and end clipping points. A secondary progress slider allows for
  * seeking within the selected range.
  *
  * This component does not update the player's clipping configuration. The caller is intended to
@@ -149,17 +165,6 @@ private val POSITION_THUMB_WIDTH = 4.dp
  *   being painted. The second boolean indicates whether the thumb has reached its absolute boundary
  *   within the media (start of media for the start thumb, end of the media for the end thumb).
  */
-// TODO: b/505719491
-//  - Implement accessibility requirements
-//  - Match the height of the position slider's thumb to that of Google Photos' video trimmer's one.
-//  - Update position slider's thumb after compose addresses dynamic thumb size change.
-//  - Consider wrapping clippingRangeMs in a hoisted state
-//  - Decide and test what the slider should look like for RTL locales
-//  - Remove @OptIn(ExperimentalMaterial3Api::class) annotations once the RangeSlider is stable
-//  - Move to material3 module and mark API unstable
-//  - Add tests
-//  - Optimize PositionSlider recomposition scope (e.g. sliderColors reading playbackProgress on
-// every frame)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClippingSlider(
@@ -173,20 +178,8 @@ fun ClippingSlider(
   colors: ClippingSliderColors = ClippingSliderDefaults.colors(),
   shape: RoundedCornerShape = RoundedCornerShape(percent = 30),
   clippingThumbPainter: @Composable (isStart: Boolean, isAtLimit: Boolean) -> Painter =
-    defaultClippingThumbPainterIcon,
+    defaultClippingThumbPainter,
 ) {
-  if (bitmaps.isEmpty()) {
-    Box(modifier)
-    return
-  }
-  val sliderAspectRatio =
-    remember(bitmaps) {
-      val firstBitmap = bitmaps[0]
-      require(firstBitmap.width > 0 && firstBitmap.height > 0) {
-        "Bitmap should have positive width and height"
-      }
-      (bitmaps.size * firstBitmap.width).toFloat() / firstBitmap.height.toFloat()
-    }
   var positionTickCount by remember { mutableIntStateOf(0) }
   val state =
     rememberClippingSliderState(player, positionTickCount, clippingRangeMs, minClippedDurationMs)
@@ -201,29 +194,160 @@ fun ClippingSlider(
     }
   }
 
-  Box(
-    modifier =
-      modifier.aspectRatio(sliderAspectRatio).onSizeChanged { size ->
-        positionTickCount = (POSITION_SLIDER_MAX_LENGTH_RATIO * size.width).roundToInt()
+  val minRangeDelta = calculateMinRangeDelta(minClippedDurationMs, state.durationMs)
+  var lastChangedBoundaryIsStart by remember { mutableStateOf(true) }
+  var scrubberDragPosition by remember { mutableStateOf<Float?>(null) }
+
+  ClippingSlider(
+    progress = state.playbackProgress,
+    clippingRange = state.clippingRange,
+    onClippingRangeChange = { newRange ->
+      if (newRange.start != state.clippingRange.start) {
+        lastChangedBoundaryIsStart = true
+      } else if (newRange.endInclusive != state.clippingRange.endInclusive) {
+        lastChangedBoundaryIsStart = false
       }
-  ) {
-    ImageRow(bitmaps, Modifier.fillMaxWidth().clip(shape))
-    InactiveTrackFilter(
-      clippingRangeProvider = { state.clippingRange },
-      colors.inactiveTrackColor,
-      Modifier.fillMaxSize().clip(shape),
-    )
+      state.isUserInteracting = true
+      state.pause()
+      state.clippingRange = newRange
+      currentOnClippingRangeChange(state.clippingRangeMs)
+    },
+    bitmaps = bitmaps,
+    modifier =
+      modifier.onSizeChanged { size ->
+        positionTickCount = (PROGRESS_SLIDER_MAX_LENGTH_RATIO * size.width).roundToInt()
+      },
+    enabled = state.changingProgressEnabled && state.durationMs > 0,
+    onClippingRangeChangeFinished = {
+      val snapPosition =
+        if (lastChangedBoundaryIsStart) state.clippingRange.start
+        else state.clippingRange.endInclusive
+      state.seekTo(snapPosition)
+      state.isUserInteracting = false
+      onClippingRangeChangeFinished?.invoke()
+    },
+    onProgressChange = { position ->
+      scrubberDragPosition = position
+      state.isUserInteracting = true
+      state.pause()
+    },
+    onProgressChangeFinished = {
+      scrubberDragPosition?.let { state.seekTo(it) }
+      scrubberDragPosition = null
+      state.isUserInteracting = false
+    },
+    minRangeDelta = minRangeDelta,
+    colors = colors,
+    shape = shape,
+    clippingThumbPainter = clippingThumbPainter,
+  )
+}
+
+/**
+ * A Material3 clipping slider that allows users to select a clipping range and track playback
+ * position.
+ *
+ * This component links [ClippingRangeSlider] and [ProgressSlider] together without depending on a
+ * [Player]. It is the primary component for clients that use their own custom playback engine.
+ *
+ * @param progress The current progress position as a fraction of total duration (0.0 to 1.0), or
+ *   `null` if unknown/unset.
+ * @param clippingRange The selected clipping range as fractions of the total duration (0.0 to 1.0).
+ * @param onClippingRangeChange A callback that is invoked continuously as one of the clipping
+ *   thumbs is being dragged. The [ClosedFloatingPointRange] represents the clipping start and end
+ *   positions as fractions of the total duration (0.0 to 1.0) and should be used to update
+ *   [clippingRange].
+ * @param bitmaps A list of [Bitmap] instances to display as a background preview for the slider.
+ *   They should all have the same size. If this list is empty, the component will render an empty
+ *   [Box] instead.
+ * @param modifier The [Modifier] to be applied to the slider.
+ * @param enabled Whether interaction with the clipping slider is enabled.
+ * @param onClippingRangeChangeFinished A callback that is invoked when the user finishes dragging a
+ *   clipping thumb. This callback shouldn't be used to update the range slider values (use
+ *   [onClippingRangeChange] for that), but rather to know when the user has completed selecting a
+ *   new value by ending a drag.
+ * @param onProgressChange A callback that is invoked continuously when the user drags the position
+ *   scrubber thumb.
+ * @param onProgressChangeFinished A callback that is invoked when the user finishes dragging the
+ *   position scrubber.
+ * @param minRangeDelta The minimum allowed distance between the start and end clipping thumbs, as a
+ *   fraction of the total duration (0.0 to 1.0). The slider will prevent the user from selecting a
+ *   range shorter than this value.
+ * @param colors The [ClippingSliderColors] used to style the slider.
+ * @param shape The [RoundedCornerShape] used to define the slider's shape.
+ * @param clippingThumbPainter A composable lambda that provides icons for the clipping thumbs. The
+ *   first boolean passed to the lambda indicates which of the two clipping handles is currently
+ *   being painted. The second boolean indicates whether the thumb has reached its absolute boundary
+ *   within the media (start of media for the start thumb, end of the media for the end thumb).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ClippingSlider(
+  progress: Float?,
+  clippingRange: ClosedFloatingPointRange<Float>,
+  onClippingRangeChange: (ClosedFloatingPointRange<Float>) -> Unit,
+  bitmaps: ImmutableList<Bitmap>,
+  modifier: Modifier = Modifier,
+  enabled: Boolean = true,
+  onClippingRangeChangeFinished: (() -> Unit)? = null,
+  onProgressChange: ((Float) -> Unit)? = null,
+  onProgressChangeFinished: (() -> Unit)? = null,
+  minRangeDelta: Float = MIN_CLIPPING_DELTA_FOR_NO_OVERLAP,
+  colors: ClippingSliderColors = ClippingSliderDefaults.colors(),
+  shape: RoundedCornerShape = RoundedCornerShape(percent = 30),
+  clippingThumbPainter: @Composable (isStart: Boolean, isAtLimit: Boolean) -> Painter =
+    defaultClippingThumbPainter,
+) {
+  if (bitmaps.isEmpty()) {
+    Box(modifier)
+    return
+  }
+  val sliderAspectRatio =
+    remember(bitmaps) {
+      val firstBitmap = bitmaps[0]
+      require(firstBitmap.width > 0 && firstBitmap.height > 0) {
+        "Bitmap should have positive width and height"
+      }
+      (bitmaps.size * firstBitmap.width).toFloat() / firstBitmap.height.toFloat()
+    }
+
+  var preDragClippingRange by remember { mutableStateOf(clippingRange) }
+  var isRangeDragging by remember { mutableStateOf(false) }
+
+  val activeValueRange = if (isRangeDragging) preDragClippingRange else clippingRange
+
+  Box(modifier = modifier.aspectRatio(sliderAspectRatio)) {
     ClippingRangeSlider(
-      state = state,
-      onClippingRangeChange = onClippingRangeChange,
-      onClippingRangeChangeFinished = onClippingRangeChangeFinished,
-      minClippedDurationMs = minClippedDurationMs,
+      clippingRange = clippingRange,
+      onClippingRangeChange = { range ->
+        if (!isRangeDragging) {
+          preDragClippingRange = clippingRange
+          isRangeDragging = true
+        }
+        onClippingRangeChange(range)
+      },
+      bitmaps = bitmaps,
+      modifier = Modifier.fillMaxSize(),
+      enabled = enabled,
+      onClippingRangeChangeFinished = {
+        isRangeDragging = false
+        onClippingRangeChangeFinished?.invoke()
+      },
+      minRangeDelta = minRangeDelta,
       colors = colors,
       shape = shape,
-      thumbPainter = clippingThumbPainter,
-      modifier = Modifier.fillMaxSize(),
+      clippingThumbPainter = clippingThumbPainter,
     )
-    PositionSlider(state, colors.positionThumbColor, Modifier.fillMaxSize())
+    ProgressSlider(
+      value = progress,
+      onValueChange = onProgressChange,
+      modifier = Modifier.fillMaxSize(),
+      enabled = enabled,
+      valueRange = activeValueRange,
+      activeRange = clippingRange,
+      onValueChangeFinished = onProgressChangeFinished,
+      positionThumbColor = colors.positionThumbColor,
+    )
   }
 }
 
@@ -264,111 +388,130 @@ private fun InactiveTrackFilter(
     val clippingRange = clippingRangeProvider()
     val width = size.width
     val height = size.height
-    val positionSliderStart = logicalToVisualPositionSliderStart(clippingRange.start) * width
-    if (positionSliderStart > 0f) {
-      drawRect(inactiveTrackColor, size = Size(positionSliderStart, height))
+    val progressSliderStart = logicalToVisualProgressSliderStart(clippingRange.start) * width
+    if (progressSliderStart > 0f) {
+      drawRect(inactiveTrackColor, size = Size(progressSliderStart, height))
     }
-    val positionSliderEnd = logicalToVisualPositionSliderEnd(clippingRange.endInclusive) * width
-    if (positionSliderEnd < width) {
+    val progressSliderEnd = logicalToVisualProgressSliderEnd(clippingRange.endInclusive) * width
+    if (progressSliderEnd < width) {
       drawRect(
         inactiveTrackColor,
-        topLeft = Offset(x = positionSliderEnd, y = 0f),
-        size = Size(width - positionSliderEnd, height),
+        topLeft = Offset(x = progressSliderEnd, y = 0f),
+        size = Size(width - progressSliderEnd, height),
       )
     }
   }
 }
 
+/**
+ * A composable that renders the range slider used to select the clipping range over preview
+ * bitmaps.
+ *
+ * This component displays the background [ImageRow], the [InactiveTrackFilter] overlay, and a
+ * [RangeSlider] configured with custom thumbs ([ClippingThumb]) and track ([ClippingTrack]).
+ *
+ * @param clippingRange The current active clipping range as fractions (0.0 to 1.0).
+ * @param onClippingRangeChange Callback invoked continuously as one of the clipping thumbs is
+ *   dragged.
+ * @param bitmaps A list of [Bitmap] instances to display as a background preview for the slider.
+ * @param modifier The [Modifier] to be applied to this composable.
+ * @param enabled Whether interaction with the range slider is enabled.
+ * @param onClippingRangeChangeFinished Callback invoked when the user finishes dragging a clipping
+ *   thumb.
+ * @param minRangeDelta The minimum normalized distance between start and end clipping thumbs.
+ * @param colors The [ClippingSliderColors] used to style the slider.
+ * @param shape The [RoundedCornerShape] used to define the slider's shape.
+ * @param clippingThumbPainter A composable lambda that provides icons for the clipping thumbs. The
+ *   first boolean passed to the lambda indicates which of the two clipping handles is currently
+ *   being painted. The second boolean indicates whether the thumb has reached its absolute boundary
+ *   within the media (start of media for the start thumb, end of the media for the end thumb).
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ClippingRangeSlider(
-  state: ClippingSliderState,
-  onClippingRangeChange: (LongRange) -> Unit,
-  onClippingRangeChangeFinished: (() -> Unit)?,
-  minClippedDurationMs: Long,
-  colors: ClippingSliderColors,
-  shape: RoundedCornerShape,
-  thumbPainter: @Composable (isStart: Boolean, isAtLimit: Boolean) -> Painter,
+  clippingRange: ClosedFloatingPointRange<Float>,
+  onClippingRangeChange: (ClosedFloatingPointRange<Float>) -> Unit,
+  bitmaps: ImmutableList<Bitmap>,
   modifier: Modifier = Modifier,
+  enabled: Boolean = true,
+  onClippingRangeChangeFinished: (() -> Unit)? = null,
+  minRangeDelta: Float = MIN_CLIPPING_DELTA_FOR_NO_OVERLAP,
+  colors: ClippingSliderColors = ClippingSliderDefaults.colors(),
+  shape: RoundedCornerShape = RoundedCornerShape(percent = 30),
+  clippingThumbPainter: @Composable (isStart: Boolean, isAtLimit: Boolean) -> Painter =
+    defaultClippingThumbPainter,
 ) {
   val startThumbInteractionSource = remember { MutableInteractionSource() }
   val endThumbInteractionSource = remember { MutableInteractionSource() }
   val isDraggingStartThumb by startThumbInteractionSource.collectIsDraggedAsState()
   val isDraggingEndThumb by endThumbInteractionSource.collectIsDraggedAsState()
   val isDragging = isDraggingStartThumb || isDraggingEndThumb
-  val clippingSliderRange = sliderRangeFromClippingRange(state.clippingRange)
-  val minProgressDelta = state.calculateMinProgressDelta(minClippedDurationMs)
-  // While onValueChange and onValueChangeFinished handle ordinary range updates faster upfront,
-  // this observer acts as a safety net for gesture cancellations (e.g. system interrupts like phone
-  // calls).
-  LaunchedEffect(isDragging) {
-    if (isDragging) {
-      state.pause()
-    }
-    state.isUserInteracting = isDragging
-  }
-  RangeSlider(
-    value = clippingSliderRange,
-    onValueChange = { newClippingSliderRange ->
-      if (!isDragging) return@RangeSlider // Filter out tapping events
-      state.isUserInteracting = true
-      state.pause()
-      val proposedRange = clippingRangeFromSliderRange(newClippingSliderRange)
-      var constrainedStart = proposedRange.start
-      var constrainedEnd = proposedRange.endInclusive
-      if (constrainedEnd - constrainedStart < minProgressDelta) {
-        if (isDraggingStartThumb) {
-          constrainedStart = (constrainedEnd - minProgressDelta).coerceAtLeast(0f)
-        } else {
-          constrainedEnd = (constrainedStart + minProgressDelta).coerceAtMost(1f)
+  val currentClippingProgressRange =
+    clippingRange.start.coerceIn(0f, 1f)..clippingRange.endInclusive.coerceIn(0f, 1f)
+  val clippingSliderRange = sliderRangeFromClippingRange(currentClippingProgressRange)
+
+  Box(modifier = modifier) {
+    ImageRow(bitmaps, Modifier.fillMaxWidth().clip(shape))
+    InactiveTrackFilter(
+      clippingRangeProvider = { currentClippingProgressRange },
+      colors.inactiveTrackColor,
+      Modifier.fillMaxSize().clip(shape),
+    )
+    RangeSlider(
+      value = clippingSliderRange,
+      onValueChange = { newClippingSliderRange ->
+        if (!isDragging) return@RangeSlider // Filter out tapping events
+        val proposedRange = clippingRangeFromSliderRange(newClippingSliderRange)
+        var constrainedStart = proposedRange.start
+        var constrainedEnd = proposedRange.endInclusive
+        if (constrainedEnd - constrainedStart < minRangeDelta) {
+          if (isDraggingStartThumb) {
+            constrainedStart = (constrainedEnd - minRangeDelta).coerceAtLeast(0f)
+          } else {
+            constrainedEnd = (constrainedStart + minRangeDelta).coerceAtMost(1f)
+          }
         }
-      }
-      state.clippingRange = constrainedStart..constrainedEnd
-      onClippingRangeChange(state.clippingRangeMs)
-    },
-    modifier = modifier,
-    enabled = state.durationMs > 0,
-    onValueChangeFinished = {
-      if (!isDragging) return@RangeSlider
-      state.committedClippingRange = state.clippingRange
-      val snapPosition =
-        if (isDraggingStartThumb) state.clippingRange.start else state.clippingRange.endInclusive
-      state.seekTo(snapPosition)
-      state.isUserInteracting = false
-      onClippingRangeChangeFinished?.invoke()
-    },
-    startInteractionSource = startThumbInteractionSource,
-    endInteractionSource = endThumbInteractionSource,
-    startThumb = {
-      val isStart = true
-      val isAtLimit = clippingSliderRange.start <= BOUNDARY_EPSILON
-      ClippingThumb(
-        isStart,
-        colors,
-        shape,
-        thumbPainter(isStart, isAtLimit),
-        Modifier.fillMaxWidth(CLIPPING_THUMB_WIDTH_RATIO).fillMaxHeight(),
-      )
-    },
-    endThumb = {
-      val isStart = false
-      val isAtLimit = clippingSliderRange.endInclusive >= 1f - BOUNDARY_EPSILON
-      ClippingThumb(
-        isStart,
-        colors,
-        shape,
-        thumbPainter(isStart, isAtLimit),
-        Modifier.fillMaxWidth(CLIPPING_THUMB_WIDTH_RATIO).fillMaxHeight(),
-      )
-    },
-    track = {
-      ClippingTrack(
-        clippingSliderRangeProvider = { clippingSliderRange },
-        colors.clippingFrameColor,
-        Modifier.fillMaxSize(),
-      )
-    },
-  )
+        onClippingRangeChange(constrainedStart..constrainedEnd)
+      },
+      modifier = Modifier.fillMaxSize(),
+      enabled = enabled,
+      onValueChangeFinished = {
+        if (!isDragging) return@RangeSlider // Filter out tapping events
+        onClippingRangeChangeFinished?.invoke()
+      },
+      startInteractionSource = startThumbInteractionSource,
+      endInteractionSource = endThumbInteractionSource,
+      startThumb = {
+        val isStart = true
+        val isAtLimit = clippingSliderRange.start <= BOUNDARY_EPSILON
+        ClippingThumb(
+          isStart,
+          colors,
+          shape,
+          clippingThumbPainter(isStart, isAtLimit),
+          Modifier.fillMaxWidth(CLIPPING_THUMB_WIDTH_RATIO).fillMaxHeight(),
+        )
+      },
+      endThumb = {
+        val isStart = false
+        val isAtLimit = clippingSliderRange.endInclusive >= 1f - BOUNDARY_EPSILON
+        ClippingThumb(
+          isStart,
+          colors,
+          shape,
+          clippingThumbPainter(isStart, isAtLimit),
+          Modifier.fillMaxWidth(CLIPPING_THUMB_WIDTH_RATIO).fillMaxHeight(),
+        )
+      },
+      track = {
+        ClippingTrack(
+          clippingSliderRangeProvider = { clippingSliderRange },
+          colors.clippingFrameColor,
+          Modifier.fillMaxSize(),
+        )
+      },
+    )
+  }
 }
 
 /**
@@ -490,49 +633,60 @@ private fun ClippingTrack(
   )
 }
 
+/**
+ * A composable that renders the playback position scrubber slider within the clipping bounds.
+ *
+ * @param value The current progress position as a fraction of total duration (0.0 to 1.0), or
+ *   `null` if unknown/unset.
+ * @param onValueChange Callback invoked continuously when the user drags the position scrubber
+ *   thumb. Unlike [Slider], this component tracks the drag position internally, so this callback is
+ *   an add-on and should not update [value] itself.
+ * @param modifier The [Modifier] to be applied to this composable.
+ * @param enabled Whether interaction with the progress slider is enabled.
+ * @param valueRange The allowed range of values for the progress slider, corresponding to the
+ *   committed clipping range.
+ * @param activeRange The current active clipping range, used to constrain the thumb position during
+ *   clipping adjustments.
+ * @param onValueChangeFinished Callback invoked when the user finishes dragging the position
+ *   scrubber.
+ * @param positionThumbColor The color used to render the playback position thumb.
+ */
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-private fun PositionSlider(
-  state: ClippingSliderState,
-  positionThumbColor: Color,
+private fun ProgressSlider(
+  value: Float?,
+  onValueChange: ((Float) -> Unit)? = null,
   modifier: Modifier = Modifier,
+  enabled: Boolean = true,
+  valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
+  activeRange: ClosedFloatingPointRange<Float> = valueRange,
+  onValueChangeFinished: (() -> Unit)? = null,
+  positionThumbColor: Color = ClippingSliderDefaults.colors().positionThumbColor,
 ) {
   var dragPosition by remember { mutableStateOf<Float?>(null) }
   val interactionSource = remember { MutableInteractionSource() }
-  val isDragging by interactionSource.collectIsDraggedAsState()
-  // While onValueChange and onValueChangeFinished handle ordinary scrubber updates faster upfront,
-  // this observer acts as a safety net for gesture cancellations (e.g. system interrupts like phone
-  // calls).
-  LaunchedEffect(isDragging) {
-    if (isDragging) {
-      state.pause()
-    }
-    state.isUserInteracting = isDragging
-  }
-  // Use state.committedClippingRange to compute the position slider position so it only updates
-  // when dragging the clipping thumbs finishes.
-  val visualPositionSliderStart =
-    logicalToVisualPositionSliderStart(state.committedClippingRange.start)
-  val visualPositionSliderEnd =
-    logicalToVisualPositionSliderEnd(state.committedClippingRange.endInclusive)
+  // Use valueRange (which corresponds to the pre-drag clipping bounds) to compute the progress
+  // slider layout so it remains visually stable during drag gestures.
+  val visualProgressSliderStart = logicalToVisualProgressSliderStart(valueRange.start)
+  val visualProgressSliderEnd = logicalToVisualProgressSliderEnd(valueRange.endInclusive)
   val density = LocalDensity.current
   var sliderHeight by remember { mutableStateOf(0.dp) }
   Row(modifier) {
-    Spacer(modifier = Modifier.weight(visualPositionSliderStart))
+    Spacer(modifier = Modifier.weight(visualProgressSliderStart.coerceAtLeast(MIN_LAYOUT_WEIGHT)))
     Box(
       modifier =
-        Modifier.weight(visualPositionSliderEnd - visualPositionSliderStart)
+        Modifier.weight(
+            (visualProgressSliderEnd - visualProgressSliderStart).coerceAtLeast(MIN_LAYOUT_WEIGHT)
+          )
           .fillMaxHeight()
           .onSizeChanged { size -> sliderHeight = with(density) { size.height.toDp() } }
     ) {
       val sliderColors =
         SliderDefaults.colors(
-          thumbColor =
-            if (state.playbackProgress != null) positionThumbColor else Color.Transparent,
+          thumbColor = if (value != null) positionThumbColor else Color.Transparent,
           activeTrackColor = Color.Transparent,
           inactiveTrackColor = Color.Transparent,
-          disabledThumbColor =
-            if (state.playbackProgress != null) positionThumbColor else Color.Transparent,
+          disabledThumbColor = if (value != null) positionThumbColor else Color.Transparent,
           disabledActiveTrackColor = Color.Transparent,
           disabledInactiveTrackColor = Color.Transparent,
         )
@@ -541,18 +695,15 @@ private fun PositionSlider(
           dragPosition
             // Coerce within the active clipping range so the position thumb sticks to the clipping
             // thumb when the clipping thumb crosses the position thumb. Then coerce within
-            // committedClippingRange to ensure the value stays within Slider.valueRange while
+            // valueRange to ensure the value stays within Slider.valueRange while
             // player position updates lag behind a seek.
-            ?: state.playbackProgress
-              ?.coerceIn(state.clippingRange)
-              ?.coerceIn(state.committedClippingRange)
-            ?: state.committedClippingRange.start,
+            ?: value?.coerceIn(activeRange)?.coerceIn(valueRange)
+            ?: valueRange.start,
         onValueChange = {
-          state.isUserInteracting = true
-          state.pause()
           dragPosition = it
+          onValueChange?.invoke(it)
         },
-        enabled = state.changingProgressEnabled,
+        enabled = enabled,
         modifier =
           Modifier.fillMaxSize()
             // Expand the slider by 1px on each side to avoid rounding gaps. Row measurement rounds
@@ -564,11 +715,10 @@ private fun PositionSlider(
               val placeable = measurable.measure(expandedConstraints)
               layout(placeable.width - 2, placeable.height) { placeable.place(x = -1, y = 0) }
             },
-        valueRange = state.committedClippingRange,
+        valueRange = valueRange,
         onValueChangeFinished = {
-          dragPosition?.let { state.seekTo(it) }
+          onValueChangeFinished?.invoke()
           dragPosition = null
-          state.isUserInteracting = false
         },
         interactionSource = interactionSource,
         colors = sliderColors,
@@ -581,7 +731,9 @@ private fun PositionSlider(
         },
       )
     }
-    Spacer(modifier = Modifier.weight(1f - visualPositionSliderEnd))
+    Spacer(
+      modifier = Modifier.weight((1f - visualProgressSliderEnd).coerceAtLeast(MIN_LAYOUT_WEIGHT))
+    )
   }
 }
 
@@ -608,26 +760,26 @@ private fun rememberClippingSliderState(
 }
 
 /**
- * Returns the visual ratio for the position slider start compared to the width of the image row.
+ * Returns the visual ratio for the progress slider start compared to the width of the image row.
  *
- * The position slider lies between the plain portions of the clipping handles.
+ * The progress slider lies between the plain portions of the clipping handles.
  *
  * @param clippingStart The clipping start position of the media, expressed as a ratio of the
  *   duration (value between 0 and 1).
  */
-private fun logicalToVisualPositionSliderStart(clippingStart: Float): Float =
-  (clippingStart * POSITION_SLIDER_MAX_LENGTH_RATIO) + CLIPPING_THUMB_PLAIN_WIDTH_RATIO
+private fun logicalToVisualProgressSliderStart(clippingStart: Float): Float =
+  (clippingStart * PROGRESS_SLIDER_MAX_LENGTH_RATIO) + CLIPPING_THUMB_PLAIN_WIDTH_RATIO
 
 /**
- * Returns the visual ratio for the position slider end compared to the width of the image row.
+ * Returns the visual ratio for the progress slider end compared to the width of the image row.
  *
- * The position slider lies between the plain portions of the clipping handles.
+ * The progress slider lies between the plain portions of the clipping handles.
  *
  * @param clippingEnd The clipping end position of the media, expressed as a ratio of the duration
  *   (value between 0 and 1).
  */
-private fun logicalToVisualPositionSliderEnd(clippingEnd: Float): Float =
-  (clippingEnd * POSITION_SLIDER_MAX_LENGTH_RATIO) + CLIPPING_THUMB_PLAIN_WIDTH_RATIO
+private fun logicalToVisualProgressSliderEnd(clippingEnd: Float): Float =
+  (clippingEnd * PROGRESS_SLIDER_MAX_LENGTH_RATIO) + CLIPPING_THUMB_PLAIN_WIDTH_RATIO
 
 /**
  * Converts the clipping slider start and end positions to the actual clipping end points.
@@ -648,13 +800,13 @@ private fun clippingRangeFromSliderRange(
   // at the start of the slider) and the actual clipping start (corresponding to the inside of the
   // left thumb), divided by the total width.
   val clippingStartWidthRatio = clippingSliderRange.start * CLIPPING_TRACK_WIDTH_RATIO
-  val clippingStart = clippingStartWidthRatio / POSITION_SLIDER_MAX_LENGTH_RATIO
+  val clippingStart = clippingStartWidthRatio / PROGRESS_SLIDER_MAX_LENGTH_RATIO
   // The distance between the min clipping start and the actual clipping end (corresponding to the
   // inside of the right thumb), divided by the total width.
   val clippingEndWidthRatio =
     clippingSliderRange.endInclusive * CLIPPING_TRACK_WIDTH_RATIO -
       2 * CLIPPING_THUMB_PLAIN_WIDTH_RATIO + CLIPPING_THUMB_WIDTH_RATIO
-  val clippingEnd = clippingEndWidthRatio / POSITION_SLIDER_MAX_LENGTH_RATIO
+  val clippingEnd = clippingEndWidthRatio / PROGRESS_SLIDER_MAX_LENGTH_RATIO
   return clippingStart..clippingEnd
 }
 
@@ -676,25 +828,36 @@ private fun sliderRangeFromClippingRange(
   // The distance between the min slider start (corresponding to the center of the
   // left thumb when at the start of the slider) and the actual slider start
   // (corresponding to the center of the left thumb), divided by the total width.
-  val sliderStartWidthRatio = clippingRange.start * POSITION_SLIDER_MAX_LENGTH_RATIO
+  val sliderStartWidthRatio = clippingRange.start * PROGRESS_SLIDER_MAX_LENGTH_RATIO
   val sliderStart = sliderStartWidthRatio / CLIPPING_TRACK_WIDTH_RATIO
   // The distance between the min slider start (corresponding to the center of the
   // left thumb when at the start of the slider) and the actual slider end
   // (corresponding to the center of the right thumb), divided by the total width.
   val sliderEndWidthRatio =
-    clippingRange.endInclusive * POSITION_SLIDER_MAX_LENGTH_RATIO +
+    clippingRange.endInclusive * PROGRESS_SLIDER_MAX_LENGTH_RATIO +
       2 * CLIPPING_THUMB_PLAIN_WIDTH_RATIO - CLIPPING_THUMB_WIDTH_RATIO
   val sliderEnd = sliderEndWidthRatio / CLIPPING_TRACK_WIDTH_RATIO
   return sliderStart..sliderEnd
 }
 
-private val defaultClippingThumbPainterIcon:
+private val defaultClippingThumbPainter:
   @Composable
   (isStart: Boolean, isAtLimit: Boolean) -> Painter =
   @Composable { isStart, isAtLimit ->
     if (isAtLimit) painterResource(R.drawable.media3_icon_clip_thumb_limit)
     else if (isStart) painterResource(R.drawable.media3_icon_clip_thumb_left_arrow)
     else painterResource(R.drawable.media3_icon_clip_thumb_right_arrow)
+  }
+
+/**
+ * Calculates the minimum progress delta required to prevent the clipping thumbs from overlapping.
+ */
+private fun calculateMinRangeDelta(minClippedDurationMs: Long, durationMs: Long): Float =
+  if (durationMs <= 0) {
+    MIN_CLIPPING_DELTA_FOR_NO_OVERLAP
+  } else {
+    maxOf(minClippedDurationMs.toFloat() / durationMs, MIN_CLIPPING_DELTA_FOR_NO_OVERLAP)
+      .coerceAtMost(1f)
   }
 
 private class ClippingSliderState(
@@ -705,11 +868,6 @@ private class ClippingSliderState(
 ) {
   /** The current clipping range expressed as a fraction of the total duration (0 to 1). */
   var clippingRange by mutableStateOf(0f..1f)
-  /**
-   * The clipping range that has been confirmed by the user. This is typically updated when a drag
-   * operation on the clipping thumbs finishes.
-   */
-  var committedClippingRange by mutableStateOf(0f..1f)
 
   /**
    * The current clipping range in milliseconds, preserving [C.TIME_END_OF_SOURCE] when the end
@@ -776,6 +934,7 @@ private class ClippingSliderState(
   /** Converts a fraction (0 to 1) of the total duration into a position in milliseconds. */
   fun progressToPosition(progress: Float) = positionProgressState.progressToPosition(progress)
 
+  // TODO: b/505719491 - Refactor syncExternalRange to a declarative Compose state model.
   /**
    * Syncs the state with an externally provided clipping range, enforcing constraints and seeking
    * the player if necessary.
@@ -789,7 +948,6 @@ private class ClippingSliderState(
     val (newRange, wasAdjusted) =
       calculateClippingRangeProgress(clippingRangeMs, minClippedDurationMs)
     clippingRange = newRange
-    committedClippingRange = clippingRange
     val currentProgress = playbackProgress
     if (currentProgress != null) {
       if (currentProgress < clippingRange.start) {
@@ -800,17 +958,6 @@ private class ClippingSliderState(
     }
     return wasAdjusted
   }
-
-  /**
-   * Calculates the minimum progress delta required to prevent the clipping thumbs from overlapping.
-   */
-  fun calculateMinProgressDelta(minClippedDurationMs: Long): Float =
-    if (durationMs <= 0) {
-      MIN_CLIPPING_DELTA_FOR_NO_OVERLAP
-    } else {
-      maxOf(minClippedDurationMs.toFloat() / durationMs, MIN_CLIPPING_DELTA_FOR_NO_OVERLAP)
-        .coerceAtMost(1f)
-    }
 
   private fun play() {
     if (playWhenReady) return
@@ -838,10 +985,10 @@ private class ClippingSliderState(
       if (clippingRangeMs.last == C.TIME_END_OF_SOURCE) durationMs else clippingRangeMs.last
     val rawEnd = originalEndMs.toFloat() / durationMs
     var end = rawEnd.coerceIn(0f, 1f)
-    val minProgressDelta = calculateMinProgressDelta(minClippedDurationMs)
-    if (end - start < minProgressDelta) {
-      end = (start + minProgressDelta).coerceAtMost(1f)
-      start = (end - minProgressDelta).coerceAtLeast(0f)
+    val minRangeDelta = calculateMinRangeDelta(minClippedDurationMs, durationMs)
+    if (end - start < minRangeDelta) {
+      end = (start + minRangeDelta).coerceAtMost(1f)
+      start = (end - minRangeDelta).coerceAtLeast(0f)
     }
     val wasAdjusted = rawStart != start || rawEnd != end
     return (start..end) to wasAdjusted
