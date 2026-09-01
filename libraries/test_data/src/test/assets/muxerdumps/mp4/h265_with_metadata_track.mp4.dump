@@ -61,9 +61,9 @@ track 1:
 track 2:
   total output bytes = 678996
   sample count = 3
-  track duration = 100000
+  track duration = 100100
   format 0:
-    averageBitrate = 54301760
+    averageBitrate = 54283853
     id = 3
     containerMimeType = video/mp4
     sampleMimeType = video/hevc
@@ -74,7 +74,7 @@ track 2:
     height = 1080
     decodedWidth = 1920
     decodedHeight = 1088
-    frameRate = 29.99
+    frameRate = 29.98
     maxSubLayers = 1
     colorInfo:
       colorSpace = 2
@@ -90,11 +90,11 @@ track 2:
     flags = 1
     data = length 420464, hash 9C6E9B09
   sample 1:
-    time = 33366
+    time = 33355
     flags = 0
     data = length 131591, hash A1895540
   sample 2:
-    time = 66700
+    time = 66711
     flags = 536870912
     data = length 126941, hash 7B26BBA6
 tracksEnded = true

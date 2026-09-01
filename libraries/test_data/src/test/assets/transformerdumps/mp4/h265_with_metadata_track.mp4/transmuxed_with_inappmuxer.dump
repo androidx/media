@@ -1,17 +1,17 @@
 seekMap:
   isSeekable = true
-  duration = 100000
+  duration = 100100
   getPosition(0) = [[timeUs=0, position=400052]]
   getPosition(1) = [[timeUs=0, position=400052]]
-  getPosition(50000) = [[timeUs=0, position=400052]]
-  getPosition(100000) = [[timeUs=0, position=400052]]
+  getPosition(50050) = [[timeUs=0, position=400052]]
+  getPosition(100100) = [[timeUs=0, position=400052]]
 numberOfTracks = 2
 track 0:
   total output bytes = 678996
   sample count = 3
-  track duration = 100000
+  track duration = 100100
   format 0:
-    averageBitrate = 54301760
+    averageBitrate = 54283853
     id = 1
     containerMimeType = video/mp4
     sampleMimeType = video/hevc
@@ -22,7 +22,7 @@ track 0:
     height = 1080
     decodedWidth = 1920
     decodedHeight = 1088
-    frameRate = 29.99
+    frameRate = 29.98
     rotationDegrees = 90
     maxSubLayers = 1
     colorInfo:
@@ -39,11 +39,11 @@ track 0:
     flags = 1
     data = length 420464, hash 9C6E9B09
   sample 1:
-    time = 33366
+    time = 33355
     flags = 0
     data = length 131591, hash A1895540
   sample 2:
-    time = 66700
+    time = 66711
     flags = 536870912
     data = length 126941, hash 7B26BBA6
 track 1:
