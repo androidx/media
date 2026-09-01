@@ -64,6 +64,9 @@ fun Project.configureCommonConfig(android: CommonExtension, libs: VersionCatalog
       }
     }
 
+    // TODO: b/502167525 - Upgrade source/targetCompatibility to JavaVersion.VERSION_11.
+    // AndroidX bytecode has moved to Java 11 (b/457821470). When androidx.compose.bom is updated,
+    // Kotlin consumers calling inline Compose APIs will require JVM target 11.
     compileOptions.apply {
       sourceCompatibility = JavaVersion.VERSION_1_8
       targetCompatibility = JavaVersion.VERSION_1_8
