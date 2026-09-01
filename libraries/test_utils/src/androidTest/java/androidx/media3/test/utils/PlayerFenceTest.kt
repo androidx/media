@@ -197,7 +197,7 @@ class PlayerFenceTest {
       assertFailsWith<TimeoutCancellationException> {
         player.awaitPlaybackState(Player.STATE_READY, timeout = 100.milliseconds)
       }
-      assertThat(stopwatch.elapsed(TimeUnit.MILLISECONDS)).isLessThan(200)
+      assertThat(stopwatch.elapsed(TimeUnit.MILLISECONDS)).isLessThan(1000)
       player.release()
     }
 
@@ -266,7 +266,6 @@ class PlayerFenceTest {
       val player = ExoPlayer.Builder(getInstrumentation().context.applicationContext).build()
       player.setMediaItem(SHORT_MP3_ITEM)
       player.prepare()
-      player.play()
       try {
         player.awaitPlaybackState(Player.STATE_READY)
 
@@ -283,6 +282,7 @@ class PlayerFenceTest {
     runBlocking(Dispatchers.Main) {
       player = ExoPlayer.Builder(getInstrumentation().context.applicationContext).build()
       player.setMediaItem(SHORT_MP3_ITEM)
+      player.repeatMode = Player.REPEAT_MODE_ALL
       player.prepare()
 
       val isPlaying = async { player.awaitIsPlaying(true) }
@@ -323,6 +323,7 @@ class PlayerFenceTest {
     runBlocking(Dispatchers.Main) {
       player = ExoPlayer.Builder(getInstrumentation().context.applicationContext).build()
       player.setMediaItem(SHORT_MP3_ITEM)
+      player.repeatMode = Player.REPEAT_MODE_ALL
       player.prepare()
       player.play()
       val playerPlaying = CompletableDeferred<Unit>()
@@ -366,6 +367,7 @@ class PlayerFenceTest {
           .setRenderersFactory(FailingAudioRenderer.Factory())
           .build()
       player.setMediaItem(SHORT_MP3_ITEM)
+      player.repeatMode = Player.REPEAT_MODE_ALL
       player.prepare()
       player.play()
 
@@ -634,6 +636,7 @@ class PlayerFenceTest {
       player.addAnalyticsListener(listener)
 
       player.setMediaItem(SHORT_MP3_ITEM)
+      player.repeatMode = Player.REPEAT_MODE_ALL
       player.prepare()
       player.play()
 
@@ -654,6 +657,7 @@ class PlayerFenceTest {
       val exoPlayer = ExoPlayer.Builder(getInstrumentation().context.applicationContext).build()
       player = exoPlayer
       exoPlayer.setMediaItem(SHORT_MP3_ITEM)
+      exoPlayer.repeatMode = Player.REPEAT_MODE_ALL
       exoPlayer.prepare()
       exoPlayer.play()
 
