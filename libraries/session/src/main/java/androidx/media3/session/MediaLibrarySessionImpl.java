@@ -82,6 +82,7 @@ import java.util.concurrent.Future;
       BitmapLoader bitmapLoader,
       boolean playIfSuppressed,
       boolean isPeriodicPositionUpdateEnabled,
+      boolean showPlaybackPositionForLiveStreams,
       @MediaLibrarySession.LibraryErrorReplicationMode int libraryErrorReplicationMode,
       @Nullable String packageNameOverride) {
     super(
@@ -99,6 +100,7 @@ import java.util.concurrent.Future;
         bitmapLoader,
         playIfSuppressed,
         isPeriodicPositionUpdateEnabled,
+        showPlaybackPositionForLiveStreams,
         /* useLegacySurfaceHandling= */ false,
         packageNameOverride);
     this.instance = instance;
