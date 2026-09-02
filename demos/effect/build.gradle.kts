@@ -49,7 +49,7 @@ dependencies {
   implementation(project(":lib-ui-compose-material3"))
   // TODO(b/555710150): Revert this once our Gradle BOM is updated to a stable version that
   // includes the M3 API changes (ExposedDropdownMenu).
-  implementation("androidx.compose.material3:material3:1.5.0-alpha25")
+  implementation("androidx.compose.material3:material3:1.5.0-alpha26")
   implementation(project(":lib-effect"))
   implementation(project(":lib-effect-lottie"))
 
