@@ -170,24 +170,16 @@ internal fun LongFormPlayerScreen(
   val context = LocalContext.current
   val bitmapLoader = remember(context) { DataSourceBitmapLoader.Builder(context).build() }
 
-  val artwork: @Composable (Player?) -> Unit = { p ->
-    Artwork(
-      player = p,
-      contentDescription = null,
-      modifier = Modifier.fillMaxSize(),
-      bitmapLoader = bitmapLoader,
-      error =
-        rememberTintedPainter(
-          painterResource(R.drawable.media3_icon_broken_image),
-          MaterialTheme.colorScheme.primary,
-        ),
-      fallback =
-        rememberTintedPainter(
-          painterResource(R.drawable.media3_icon_default_album_image),
-          MaterialTheme.colorScheme.primary,
-        ),
+  val errorPainter =
+    rememberTintedPainter(
+      painterResource(R.drawable.media3_icon_broken_image),
+      MaterialTheme.colorScheme.primary,
     )
-  }
+  val fallbackPainter =
+    rememberTintedPainter(
+      painterResource(R.drawable.media3_icon_default_album_image),
+      MaterialTheme.colorScheme.primary,
+    )
 
   Box(
     modifier
@@ -197,7 +189,16 @@ internal fun LongFormPlayerScreen(
   ) {
     Player(
       player = player,
-      artwork = artwork,
+      artwork = { p ->
+        Artwork(
+          player = p,
+          contentDescription = null,
+          modifier = Modifier.fillMaxSize(),
+          bitmapLoader = bitmapLoader,
+          error = errorPainter,
+          fallback = fallbackPainter,
+        )
+      },
       showControls = if (isRemotePlayback) true else showControls,
       modifier =
         Modifier.onGloballyPositioned { coordinates -> size = coordinates.size }
@@ -307,7 +308,8 @@ internal fun LongFormPlayerScreen(
           Modifier.fillMaxWidth()
             .align(Alignment.BottomCenter)
             .padding(bottom = bottomControlsHeight + 10.dp),
-        artwork = artwork,
+        bitmapLoader = bitmapLoader,
+        defaultArtwork = fallbackPainter,
       )
     }
     if (showPlaylist) {
