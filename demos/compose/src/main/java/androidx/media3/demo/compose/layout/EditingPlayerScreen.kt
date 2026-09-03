@@ -137,10 +137,10 @@ internal fun EditingPlayerScreen(
               MuteButton(player)
             }
           },
-          progressSlider = {
+          progressSlider = { player ->
             var clippingRange by remember(mediaItem) { mutableStateOf(0L..C.TIME_END_OF_SOURCE) }
             ClippingSlider(
-              player = it,
+              player = player,
               clippingRangeMs = clippingRange,
               onClippingRangeChange = { clippingRange = it },
               bitmaps = bitmaps,

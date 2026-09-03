@@ -213,6 +213,8 @@ fun ClippingSlider(
       modifier.onSizeChanged { size ->
         positionTickCount = (PROGRESS_SLIDER_MAX_LENGTH_RATIO * size.width).roundToInt()
       },
+    onClippingRangeChange = onClippingRangeChange,
+    onClippingRangeChangeFinished = onClippingRangeChangeFinished,
     onProgressChange = { position ->
       scrubberDragPosition = position
       state.isUserInteracting = true
@@ -231,34 +233,21 @@ fun ClippingSlider(
 
 /**
  * A Material3 clipping slider that allows users to select a clipping range and track playback
- * position.
+ * position using a [ClippingSliderState].
  *
- * This component links [ClippingRangeSlider] and [ProgressSlider] together without depending on a
- * [Player]. It is the primary component for clients that use their own custom playback engine.
- *
- * @param progress The current progress position as a fraction of total duration (0.0 to 1.0), or
- *   `null` if unknown/unset.
- * @param clippingRange The selected clipping range as fractions of the total duration (0.0 to 1.0).
- * @param onClippingRangeChange A callback that is invoked continuously as one of the clipping
- *   thumbs is being dragged. The [ClosedFloatingPointRange] represents the clipping start and end
- *   positions as fractions of the total duration (0.0 to 1.0) and should be used to update
- *   [clippingRange].
+ * @param state The [ClippingSliderState] controlling the slider.
  * @param bitmaps A list of [Bitmap] instances to display as a background preview for the slider.
  *   They should all have the same size. If this list is empty, the component will render an empty
  *   [Box] instead.
  * @param modifier The [Modifier] to be applied to the slider.
- * @param enabled Whether interaction with the clipping slider is enabled.
+ * @param onClippingRangeChange A callback that is invoked continuously when the user drags a
+ *   clipping thumb.
  * @param onClippingRangeChangeFinished A callback that is invoked when the user finishes dragging a
- *   clipping thumb. This callback shouldn't be used to update the range slider values (use
- *   [onClippingRangeChange] for that), but rather to know when the user has completed selecting a
- *   new value by ending a drag.
+ *   clipping thumb.
  * @param onProgressChange A callback that is invoked continuously when the user drags the position
  *   scrubber thumb.
  * @param onProgressChangeFinished A callback that is invoked when the user finishes dragging the
  *   position scrubber.
- * @param minRangeDelta The minimum allowed distance between the start and end clipping thumbs, as a
- *   fraction of the total duration (0.0 to 1.0). The slider will prevent the user from selecting a
- *   range shorter than this value.
  * @param colors The [ClippingSliderColors] used to style the slider.
  * @param shape The [RoundedCornerShape] used to define the slider's shape.
  * @param clippingThumbPainter A composable lambda that provides icons for the clipping thumbs. The
@@ -272,6 +261,8 @@ private fun ClippingSlider(
   state: ClippingSliderState,
   bitmaps: ImmutableList<Bitmap>,
   modifier: Modifier = Modifier,
+  onClippingRangeChange: ((LongRange) -> Unit)? = null,
+  onClippingRangeChangeFinished: (() -> Unit)? = null,
   onProgressChange: ((Float) -> Unit)? = null,
   onProgressChangeFinished: (() -> Unit)? = null,
   colors: ClippingSliderColors = ClippingSliderDefaults.colors(),
@@ -279,6 +270,13 @@ private fun ClippingSlider(
   clippingThumbPainter: @Composable (isStart: Boolean, isAtLimit: Boolean) -> Painter =
     defaultClippingThumbPainter,
 ) {
+  if (onClippingRangeChange != null) {
+    state.onClippingRangeChange = onClippingRangeChange
+  }
+  if (onClippingRangeChangeFinished != null) {
+    state.onClippingRangeChangeFinished = onClippingRangeChangeFinished
+  }
+
   if (bitmaps.isEmpty()) {
     Box(modifier)
     return
@@ -320,7 +318,7 @@ private fun ClippingSlider(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ClippingSlider(
+private fun ClippingSlider(
   progress: Float?,
   clippingRange: ClosedFloatingPointRange<Float>,
   onClippingRangeChange: (ClosedFloatingPointRange<Float>) -> Unit,
@@ -457,15 +455,14 @@ private fun InactiveTrackFilter(
  * This component displays the background [ImageRow], the [InactiveTrackFilter] overlay, and a
  * [RangeSlider] configured with custom thumbs ([ClippingThumb]) and track ([ClippingTrack]).
  *
- * @param clippingRange The current active clipping range as fractions (0.0 to 1.0).
- * @param onClippingRangeChange Callback invoked continuously as one of the clipping thumbs is
- *   dragged.
+ * @param rangeSliderState The [RangeSliderState] controlling the slider thumbs.
  * @param bitmaps A list of [Bitmap] instances to display as a background preview for the slider.
  * @param modifier The [Modifier] to be applied to this composable.
  * @param enabled Whether interaction with the range slider is enabled.
- * @param onClippingRangeChangeFinished Callback invoked when the user finishes dragging a clipping
- *   thumb.
- * @param minRangeDelta The minimum normalized distance between start and end clipping thumbs.
+ * @param startThumbInteractionSource The [MutableInteractionSource] for the start clipping thumb.
+ * @param endThumbInteractionSource The [MutableInteractionSource] for the end clipping thumb.
+ * @param clippingRangeProvider A provider returning the current clipping range as fractions (0.0 to
+ *   1.0) of the total duration.
  * @param colors The [ClippingSliderColors] used to style the slider.
  * @param shape The [RoundedCornerShape] used to define the slider's shape.
  * @param clippingThumbPainter A composable lambda that provides icons for the clipping thumbs. The
@@ -892,6 +889,15 @@ private fun calculateMinRangeDelta(minClippedDurationMs: Long, durationMs: Long)
       .coerceAtMost(1f)
   }
 
+/**
+ * State object that manages a [ClippingSlider] connected to a [Player].
+ *
+ * @param player The [Player] to observe and control, or `null`.
+ * @param positionProgressState The [ProgressStateWithTickCount] tracking media progress.
+ * @param initialClippingRangeMs The initial clipping range in milliseconds.
+ * @param initialMinClippedDurationMs The initial minimum allowed duration between clipping start
+ *   and end in milliseconds.
+ */
 private class ClippingSliderState(
   private val player: Player?,
   private val positionProgressState: ProgressStateWithTickCount,
