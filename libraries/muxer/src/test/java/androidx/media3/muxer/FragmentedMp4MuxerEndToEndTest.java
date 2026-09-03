@@ -503,4 +503,36 @@ public class FragmentedMp4MuxerEndToEndTest {
 
     assertThrows(IllegalStateException.class, muxer::close);
   }
+
+  @Test
+  public void createFragmentedMp4File_withMultipleTracks_preservesTrackIds() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    try (FragmentedMp4Muxer muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel()).build()) {
+      int videoTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int audioTrackId = muxer.addTrack(MuxerTestUtil.FAKE_AUDIO_FORMAT);
+
+      assertThat(videoTrackId).isEqualTo(1);
+      assertThat(audioTrackId).isEqualTo(2);
+
+      Pair<ByteBuffer, BufferInfo> videoSample =
+          getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L, /* isVideo= */ true);
+      muxer.writeSampleData(videoTrackId, videoSample.first, videoSample.second);
+
+      Pair<ByteBuffer, BufferInfo> audioSample =
+          getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L, /* isVideo= */ false);
+      muxer.writeSampleData(audioTrackId, audioSample.first, audioSample.second);
+    }
+
+    FragmentedMp4Extractor extractor =
+        new FragmentedMp4Extractor(new DefaultSubtitleParserFactory());
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(extractor, outputFilePath);
+
+    assertThat(fakeExtractorOutput.numberOfTracks).isEqualTo(2);
+    assertThat(fakeExtractorOutput.trackOutputs.get(0).lastFormat.sampleMimeType)
+        .isEqualTo(FAKE_VIDEO_FORMAT.sampleMimeType);
+    assertThat(fakeExtractorOutput.trackOutputs.get(1).lastFormat.sampleMimeType)
+        .isEqualTo(MuxerTestUtil.FAKE_AUDIO_FORMAT.sampleMimeType);
+  }
 }

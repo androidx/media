@@ -140,6 +140,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     tracks = new ArrayList<>();
     minInputPresentationTimeUs = Long.MAX_VALUE;
     currentFragmentSequenceNumber = 1;
+    nextTrackId = 1;
     linearByteBufferAllocator = new LinearByteBufferAllocator(/* initialCapacity= */ 0);
   }
 
@@ -207,8 +208,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     for (int i = 0; i < tracks.size(); i++) {
       Track track = tracks.get(i);
       if (!track.tfraEntries.isEmpty()) {
-        // TODO(b/538527053): Use 1-based track ID indices throughout and remove +1 logic.
-        tfraBoxes.add(Boxes.tfra(/* trackId= */ i + 1, track.tfraEntries));
+        tfraBoxes.add(Boxes.tfra(track.id, track.tfraEntries));
       }
     }
     if (!tfraBoxes.isEmpty()) {
@@ -387,8 +387,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private ImmutableList<ProcessedTrackInfo> processAllTracks() {
     ImmutableList.Builder<ProcessedTrackInfo> trackInfos = new ImmutableList.Builder<>();
     for (int i = 0; i < tracks.size(); i++) {
-      if (!tracks.get(i).pendingSamplesBufferInfo.isEmpty()) {
-        trackInfos.add(processTrack(/* trackId= */ i + 1, tracks.get(i)));
+      Track track = tracks.get(i);
+      if (!track.pendingSamplesBufferInfo.isEmpty()) {
+        trackInfos.add(processTrack(track.id, track));
       }
     }
     return trackInfos.build();
