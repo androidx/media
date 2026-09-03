@@ -18,8 +18,9 @@ package androidx.media3.demo.composition.ui
 import android.os.Build.VERSION.SDK_INT
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,18 +39,22 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.demo.composition.CompositionPreviewViewModel
 import androidx.media3.demo.composition.R
@@ -57,7 +62,14 @@ import androidx.media3.demo.composition.data.CompositionPreviewState
 import androidx.media3.demo.composition.data.Preset
 import androidx.media3.demo.composition.ui.theme.spacing
 import androidx.media3.demo.composition.ui.theme.textPadding
-import androidx.media3.ui.PlayerView
+import androidx.media3.ui.compose.material3.Player
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+private const val CONTROLS_VISIBILITY_TIMEOUT_MS = 3000L
+
+private class JobHolder(var job: Job? = null)
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -67,8 +79,31 @@ internal fun CompositionPreviewPane(
   uiState: CompositionPreviewState,
   modifier: Modifier = Modifier,
 ) {
+  val scope = rememberCoroutineScope()
   val scrollState = rememberScrollState()
   var isLayoutDropdownExpanded by remember { mutableStateOf(false) }
+
+  var showControls by rememberSaveable { mutableStateOf(true) }
+  var anyPointerDown by remember { mutableStateOf(false) }
+  val hideJobHolder = remember { JobHolder() }
+
+  fun scheduleHideControls() {
+    hideJobHolder.job?.cancel()
+    if (!anyPointerDown) {
+      hideJobHolder.job = scope.launch {
+        delay(CONTROLS_VISIBILITY_TIMEOUT_MS)
+        showControls = false
+      }
+    }
+  }
+
+  LaunchedEffect(showControls, anyPointerDown) {
+    if (showControls && !anyPointerDown) {
+      scheduleHideControls()
+    } else {
+      hideJobHolder.job?.cancel()
+    }
+  }
 
   Column(modifier = modifier.fillMaxSize()) {
     Text(
@@ -77,20 +112,24 @@ internal fun CompositionPreviewPane(
       fontWeight = FontWeight.Bold,
     )
 
-    @Suppress("UnusedBoxWithConstraintsScope")
-    BoxWithConstraints(
+    Box(
       modifier = Modifier.fillMaxWidth().heightIn(max = 250.dp),
       contentAlignment = Alignment.Center,
     ) {
       // Video Player
-      AndroidView(
-        factory = { context -> PlayerView(context) },
-        update = { playerView ->
-          playerView.player = viewModel.compositionPlayer
-          playerView.setTimeBarScrubbingEnabled(true)
-          playerView.setUseController(true)
-        },
-        modifier = Modifier.fillMaxSize(),
+      Player(
+        player = viewModel.compositionPlayer,
+        showControls = showControls,
+        modifier =
+          Modifier.fillMaxSize()
+            .playerGestures(
+              onPointerDownChange = { anyPointerDown = it },
+              onPointerMove = {
+                showControls = true
+                scheduleHideControls()
+              },
+              onToggleControls = { showControls = !showControls },
+            ),
       )
 
       // FPS Tracker Overlay
@@ -264,3 +303,22 @@ private fun presetToString(preset: Preset): String {
     Preset.CUSTOM -> stringResource(R.string.preset_custom)
   }
 }
+
+private fun Modifier.playerGestures(
+  onPointerDownChange: (Boolean) -> Unit,
+  onPointerMove: () -> Unit,
+  onToggleControls: () -> Unit,
+): Modifier =
+  this.pointerInput(Unit) {
+      awaitPointerEventScope {
+        while (true) {
+          val event = awaitPointerEvent()
+          val isAnyPressed = event.changes.any { it.pressed }
+          onPointerDownChange(isAnyPressed)
+          if (event.type == PointerEventType.Move) {
+            onPointerMove()
+          }
+        }
+      }
+    }
+    .pointerInput(Unit) { detectTapGestures(onTap = { onToggleControls() }) }
