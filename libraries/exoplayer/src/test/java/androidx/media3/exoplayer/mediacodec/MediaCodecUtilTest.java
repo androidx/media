@@ -15,16 +15,28 @@
  */
 package androidx.media3.exoplayer.mediacodec;
 
+import static android.media.MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelFhd30;
+import static android.media.MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheDtr;
+import static android.media.MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheSt;
+import static android.media.MediaCodecInfo.CodecProfileLevel.HEVCHighTierLevel51;
+import static android.media.MediaCodecInfo.CodecProfileLevel.HEVCMainTierLevel4;
+import static android.media.MediaCodecInfo.CodecProfileLevel.HEVCMainTierLevel41;
+import static android.media.MediaCodecInfo.CodecProfileLevel.HEVCProfileMain;
+import static android.media.MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10;
+import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.createCodecProfileLevel;
 import static com.google.common.truth.Truth.assertThat;
 
-import android.media.MediaCodecInfo;
+import android.media.MediaCodecInfo.CodecCapabilities;
+import android.media.MediaCodecInfo.CodecProfileLevel;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil.MediaCodecProfileAndLevel;
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.shadows.ShadowBuild;
@@ -212,10 +224,7 @@ public final class MediaCodecUtilTest {
             .setCodecs("hvc1.6.40.L120.BF.80")
             .setInitializationData(ImmutableList.of(CSD0, CSD1))
             .build();
-    assertHevcBaseLayerCodecProfileAndLevelForFormat(
-        format,
-        MediaCodecInfo.CodecProfileLevel.HEVCProfileMain,
-        MediaCodecInfo.CodecProfileLevel.HEVCMainTierLevel4);
+    assertHevcBaseLayerCodecProfileAndLevelForFormat(format, HEVCProfileMain, HEVCMainTierLevel4);
   }
 
   @Test
@@ -272,6 +281,177 @@ public final class MediaCodecUtilTest {
     ShadowBuild.setManufacturer("Google");
     Format format = new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_E_AC3_JOC).build();
     assertThat(MediaCodecUtil.getAlternativeCodecMimeType(format)).isNull();
+  }
+
+  @Test
+  public void
+      getDecoderInfosSoftMatchFilteredByFormatSupport_withDecoderNotMatchingFormatSupport_excludesDecoder()
+          throws Exception {
+    Format formatDvProfile8 =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dvhe.08.01")
+            .build();
+    CodecCapabilities capabilitiesDolbyProfile4 =
+        createCodecCapabilities(DolbyVisionProfileDvheDtr, DolbyVisionLevelFhd30);
+    CodecCapabilities capabilitiesDolbyProfile8 =
+        createCodecCapabilities(DolbyVisionProfileDvheSt, DolbyVisionLevelFhd30);
+    MediaCodecInfo decoderProfile4 =
+        MediaCodecInfo.newInstance(
+            /* name= */ "dv-p4-codec",
+            /* mimeType= */ MimeTypes.VIDEO_DOLBY_VISION,
+            /* codecMimeType= */ MimeTypes.VIDEO_DOLBY_VISION,
+            /* capabilities= */ capabilitiesDolbyProfile4,
+            /* hardwareAccelerated= */ true,
+            /* softwareOnly= */ false,
+            /* vendor= */ false,
+            /* forceDisableAdaptive= */ false,
+            /* forceSecure= */ false);
+    MediaCodecInfo decoderProfile8 =
+        MediaCodecInfo.newInstance(
+            /* name= */ "dv-p8-codec",
+            /* mimeType= */ MimeTypes.VIDEO_DOLBY_VISION,
+            /* codecMimeType= */ MimeTypes.VIDEO_DOLBY_VISION,
+            /* capabilities= */ capabilitiesDolbyProfile8,
+            /* hardwareAccelerated= */ true,
+            /* softwareOnly= */ false,
+            /* vendor= */ false,
+            /* forceDisableAdaptive= */ false,
+            /* forceSecure= */ false);
+    MediaCodecSelector mediaCodecSelector =
+        (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) -> {
+          if (mimeType.equals(MimeTypes.VIDEO_DOLBY_VISION)) {
+            return ImmutableList.of(decoderProfile4, decoderProfile8);
+          }
+          return ImmutableList.of();
+        };
+
+    List<MediaCodecInfo> decoderInfos =
+        MediaCodecUtil.getDecoderInfosSoftMatchFilteredByFormatSupport(
+            ApplicationProvider.getApplicationContext(),
+            mediaCodecSelector,
+            formatDvProfile8,
+            /* requiresSecureDecoder= */ false,
+            /* requiresTunnelingDecoder= */ false);
+
+    assertThat(decoderInfos).containsExactly(decoderProfile8);
+  }
+
+  @Test
+  public void
+      getAlternativeDecoderInfosFilteredByFormatSupport_withDecoderNotMatchingFormatSupport_excludesDecoder()
+          throws Exception {
+    Format formatDvProfile8 =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dvhe.08.01")
+            .build();
+    CodecCapabilities capabilitiesHevcMain =
+        createCodecCapabilities(HEVCProfileMain, HEVCMainTierLevel41);
+    CodecCapabilities capabilitiesHevcMain10 =
+        createCodecCapabilities(HEVCProfileMain10, HEVCHighTierLevel51);
+    MediaCodecInfo decoderHevcMain =
+        MediaCodecInfo.newInstance(
+            /* name= */ "hevc-main-codec",
+            /* mimeType= */ MimeTypes.VIDEO_H265,
+            /* codecMimeType= */ MimeTypes.VIDEO_H265,
+            /* capabilities= */ capabilitiesHevcMain,
+            /* hardwareAccelerated= */ true,
+            /* softwareOnly= */ false,
+            /* vendor= */ false,
+            /* forceDisableAdaptive= */ false,
+            /* forceSecure= */ false);
+    MediaCodecInfo decoderHevcMain10 =
+        MediaCodecInfo.newInstance(
+            /* name= */ "hevc-main10-codec",
+            /* mimeType= */ MimeTypes.VIDEO_H265,
+            /* codecMimeType= */ MimeTypes.VIDEO_H265,
+            /* capabilities= */ capabilitiesHevcMain10,
+            /* hardwareAccelerated= */ true,
+            /* softwareOnly= */ false,
+            /* vendor= */ false,
+            /* forceDisableAdaptive= */ false,
+            /* forceSecure= */ false);
+    MediaCodecSelector mediaCodecSelector =
+        (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) -> {
+          if (mimeType.equals(MimeTypes.VIDEO_H265)) {
+            return ImmutableList.of(decoderHevcMain, decoderHevcMain10);
+          }
+          return ImmutableList.of();
+        };
+
+    List<MediaCodecInfo> decoderInfos =
+        MediaCodecUtil.getAlternativeDecoderInfosFilteredByFormatSupport(
+            ApplicationProvider.getApplicationContext(),
+            mediaCodecSelector,
+            formatDvProfile8,
+            /* requiresSecureDecoder= */ false,
+            /* requiresTunnelingDecoder= */ false);
+
+    assertThat(decoderInfos).containsExactly(decoderHevcMain10);
+  }
+
+  @Test
+  public void
+      getDecoderInfosSoftMatchFilteredByFormatSupport_withNoMatchingDecoders_fallsBackToUnfilteredList()
+          throws Exception {
+    Format formatDvProfile8 =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dvhe.08.01")
+            .build();
+    CodecCapabilities capabilitiesDvProfile4 =
+        createCodecCapabilities(DolbyVisionProfileDvheDtr, DolbyVisionLevelFhd30);
+    CodecCapabilities capabilitiesHevcMain =
+        createCodecCapabilities(HEVCProfileMain, HEVCMainTierLevel41);
+    MediaCodecInfo decoderProfile4 =
+        MediaCodecInfo.newInstance(
+            /* name= */ "dv-profile4-codec",
+            /* mimeType= */ MimeTypes.VIDEO_DOLBY_VISION,
+            /* codecMimeType= */ MimeTypes.VIDEO_DOLBY_VISION,
+            /* capabilities= */ capabilitiesDvProfile4,
+            /* hardwareAccelerated= */ true,
+            /* softwareOnly= */ false,
+            /* vendor= */ false,
+            /* forceDisableAdaptive= */ false,
+            /* forceSecure= */ false);
+    MediaCodecInfo decoderHevcMain =
+        MediaCodecInfo.newInstance(
+            /* name= */ "hevc-main-codec",
+            /* mimeType= */ MimeTypes.VIDEO_H265,
+            /* codecMimeType= */ MimeTypes.VIDEO_H265,
+            /* capabilities= */ capabilitiesHevcMain,
+            /* hardwareAccelerated= */ true,
+            /* softwareOnly= */ false,
+            /* vendor= */ false,
+            /* forceDisableAdaptive= */ false,
+            /* forceSecure= */ false);
+    MediaCodecSelector mediaCodecSelector =
+        (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) -> {
+          if (mimeType.equals(MimeTypes.VIDEO_DOLBY_VISION)) {
+            return ImmutableList.of(decoderProfile4);
+          }
+          if (mimeType.equals(MimeTypes.VIDEO_H265)) {
+            return ImmutableList.of(decoderHevcMain);
+          }
+          return ImmutableList.of();
+        };
+
+    List<MediaCodecInfo> decoderInfos =
+        MediaCodecUtil.getDecoderInfosSoftMatchFilteredByFormatSupport(
+            ApplicationProvider.getApplicationContext(),
+            mediaCodecSelector,
+            formatDvProfile8,
+            /* requiresSecureDecoder= */ false,
+            /* requiresTunnelingDecoder= */ false);
+
+    assertThat(decoderInfos).containsExactly(decoderProfile4, decoderHevcMain).inOrder();
+  }
+
+  private static CodecCapabilities createCodecCapabilities(int profile, int level) {
+    CodecCapabilities capabilities = new CodecCapabilities();
+    capabilities.profileLevels = new CodecProfileLevel[] {createCodecProfileLevel(profile, level)};
+    return capabilities;
   }
 
   private static void assertHevcBaseLayerCodecProfileAndLevelForFormat(

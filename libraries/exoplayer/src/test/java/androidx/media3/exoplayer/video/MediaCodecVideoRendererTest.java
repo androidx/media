@@ -23,6 +23,7 @@ import static android.media.MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline;
 import static android.media.MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
 import static android.media.MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelFhd30;
 import static android.media.MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheDtr;
+import static android.media.MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheSt;
 import static android.media.MediaCodecInfo.CodecProfileLevel.HEVCHighTierLevel51;
 import static android.media.MediaCodecInfo.CodecProfileLevel.HEVCMainTierLevel41;
 import static android.media.MediaCodecInfo.CodecProfileLevel.HEVCProfileMain;
@@ -5465,6 +5466,78 @@ public class MediaCodecVideoRendererTest {
     capabilitiesDvheDtr = renderer.supportsFormat(formatDvheDtr);
 
     assertThat(RendererCapabilities.getDecoderSupport(capabilitiesDvheDtr))
+        .isEqualTo(RendererCapabilities.DECODER_SUPPORT_PRIMARY);
+  }
+
+  @Test
+  @Config(minSdk = 26)
+  public void
+      supportsFormat_withMultipleDolbyVisionDecoders_returnsPrimaryDecoderForMatchingProfile()
+          throws Exception {
+    Format formatDvProfile8 =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dvhe.08.01")
+            .build();
+    // Provide two Dolby Vision decoders: the first supports only Profile 4 (DvheDtr),
+    // the second supports Profile 8 (DvheSt).
+    MediaCodecSelector mediaCodecSelector =
+        (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) -> {
+          if (mimeType.equals(MimeTypes.VIDEO_DOLBY_VISION)) {
+            CodecCapabilities capabilitiesDolbyProfile4 =
+                createCodecCapabilities(DolbyVisionProfileDvheDtr, DolbyVisionLevelFhd30);
+            CodecCapabilities capabilitiesDolbyProfile8 =
+                createCodecCapabilities(DolbyVisionProfileDvheSt, DolbyVisionLevelFhd30);
+            return ImmutableList.of(
+                MediaCodecInfo.newInstance(
+                    /* name= */ "dv-p4-codec",
+                    /* mimeType= */ mimeType,
+                    /* codecMimeType= */ mimeType,
+                    /* capabilities= */ capabilitiesDolbyProfile4,
+                    /* hardwareAccelerated= */ true,
+                    /* softwareOnly= */ false,
+                    /* vendor= */ false,
+                    /* forceDisableAdaptive= */ false,
+                    /* forceSecure= */ false),
+                MediaCodecInfo.newInstance(
+                    /* name= */ "dv-p8-codec",
+                    /* mimeType= */ mimeType,
+                    /* codecMimeType= */ mimeType,
+                    /* capabilities= */ capabilitiesDolbyProfile8,
+                    /* hardwareAccelerated= */ true,
+                    /* softwareOnly= */ false,
+                    /* vendor= */ false,
+                    /* forceDisableAdaptive= */ false,
+                    /* forceSecure= */ false));
+          }
+          return ImmutableList.of();
+        };
+    // Set Display to have Dolby Vision support.
+    Context context = ApplicationProvider.getApplicationContext();
+    DisplayManager displayManager =
+        (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
+    Display display = (displayManager != null) ? displayManager.getDisplay(DEFAULT_DISPLAY) : null;
+    ShadowDisplay shadowDisplay = Shadows.shadowOf(display);
+    int[] hdrCapabilities =
+        new int[] {
+          Display.HdrCapabilities.HDR_TYPE_HDR10, Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION
+        };
+    shadowDisplay.setDisplayHdrCapabilities(
+        display.getDisplayId(),
+        /* maxLuminance= */ 100f,
+        /* maxAverageLuminance= */ 100f,
+        /* minLuminance= */ 100f,
+        hdrCapabilities);
+    MediaCodecVideoRenderer renderer =
+        new MediaCodecVideoRenderer.Builder(context)
+            .setMediaCodecSelector(mediaCodecSelector)
+            .build();
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+
+    @Capabilities int capabilities = renderer.supportsFormat(formatDvProfile8);
+
+    assertThat(RendererCapabilities.getFormatSupport(capabilities)).isEqualTo(C.FORMAT_HANDLED);
+    assertThat(RendererCapabilities.getDecoderSupport(capabilities))
         .isEqualTo(RendererCapabilities.DECODER_SUPPORT_PRIMARY);
   }
 

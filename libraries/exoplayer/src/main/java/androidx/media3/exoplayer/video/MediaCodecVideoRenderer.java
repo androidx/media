@@ -830,10 +830,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   /**
    * Returns a list of decoders that can decode media in the specified format, in the priority order
-   * specified by the {@link MediaCodecSelector}. Note that since the {@link MediaCodecSelector}
-   * only has access to {@link Format#sampleMimeType}, the list is not ordered to account for
-   * whether each decoder supports the details of the format (e.g., taking into account the format's
-   * profile, level, resolution and so on). {@link
+   * specified by the {@link MediaCodecSelector}. Note that for formats other than Dolby Vision,
+   * since the {@link MediaCodecSelector} only has access to {@link Format#sampleMimeType}, the list
+   * is not filtered or ordered to account for whether each decoder supports the details of the
+   * format (e.g., taking into account the format's profile, level, resolution and so on). {@link
    * MediaCodecUtil#getDecoderInfosSortedByFormatSupport} can be used to further sort the list into
    * an order where decoders that fully support the format come first.
    *
@@ -856,14 +856,23 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       return ImmutableList.of();
     }
     if (SDK_INT >= 26
-        && MimeTypes.VIDEO_DOLBY_VISION.equals(format.sampleMimeType)
+        && format.sampleMimeType.equals(MimeTypes.VIDEO_DOLBY_VISION)
         && !Api26.doesDisplaySupportDolbyVision(context)) {
       List<MediaCodecInfo> alternativeDecoderInfos =
-          MediaCodecUtil.getAlternativeDecoderInfos(
-              mediaCodecSelector, format, requiresSecureDecoder, requiresTunnelingDecoder);
+          MediaCodecUtil.getAlternativeDecoderInfosFilteredByFormatSupport(
+              context, mediaCodecSelector, format, requiresSecureDecoder, requiresTunnelingDecoder);
+      if (alternativeDecoderInfos.isEmpty()) {
+        alternativeDecoderInfos =
+            MediaCodecUtil.getAlternativeDecoderInfos(
+                mediaCodecSelector, format, requiresSecureDecoder, requiresTunnelingDecoder);
+      }
       if (!alternativeDecoderInfos.isEmpty()) {
         return alternativeDecoderInfos;
       }
+    }
+    if (format.sampleMimeType.equals(MimeTypes.VIDEO_DOLBY_VISION)) {
+      return MediaCodecUtil.getDecoderInfosSoftMatchFilteredByFormatSupport(
+          context, mediaCodecSelector, format, requiresSecureDecoder, requiresTunnelingDecoder);
     }
     return MediaCodecUtil.getDecoderInfosSoftMatch(
         mediaCodecSelector, format, requiresSecureDecoder, requiresTunnelingDecoder);

@@ -66,6 +66,9 @@
         `Composition.Builder.setVideoFrameAggregationParameters` for export
         workflows.
 *   Track Selection:
+    *   Fix an issue where an SDR track was incorrectly preferred over a
+        supported Dolby Vision track on some devices
+        ([#3135](https://github.com/androidx/media/issues/3135)).
 *   Extractors:
     *   Remove `Mp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES`,
         `Mp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265`,
