@@ -187,7 +187,9 @@ public abstract class MediaLibraryService extends MediaSessionService {
        * androidx.media.MediaBrowserServiceCompat.BrowserRoot}, then the main thread may be blocked
        * until the returned future is done. If your service may be queried by a legacy {@code
        * android.support.v4.media.MediaBrowserCompat}, you should ensure that the future completes
-       * quickly to avoid blocking the main thread for a long period of time.
+       * quickly to avoid blocking the main thread for a long period of time. In particular, the
+       * returned future must not be completed on or by posting to the application thread (or main
+       * thread), as this will cause a deadlock while the thread is blocked.
        *
        * @param session The session for this event.
        * @param browser The browser information.

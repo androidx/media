@@ -163,6 +163,24 @@ public class MediaBrowserCompatWithMediaSessionServiceTest {
     assertThat(connectionCallback.connectedLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
   }
 
+  @Test
+  public void connect_asyncRejected() throws Exception {
+    Bundle rootHints = new Bundle();
+    rootHints.putLong(
+        MediaSessionConstants.CONNECTION_HINT_KEY_ASYNC_CONNECTION_REJECT_DELAY_MS, 100L);
+
+    handler.postAndSync(
+        () -> {
+          browserCompat =
+              new MediaBrowserCompat(context, getServiceComponent(), connectionCallback, rootHints);
+        });
+
+    browserCompat.connect();
+
+    assertThat(connectionCallback.failedLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(connectionCallback.connectedLatch.getCount()).isNotEqualTo(0);
+  }
+
   @Ignore("Create a session service whose onConnect() returns null.")
   @Test
   public void connect_rejected() throws InterruptedException {
