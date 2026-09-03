@@ -35,6 +35,7 @@ import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.TimestampAdjuster;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.DolbyVisionConfig;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
@@ -156,6 +157,7 @@ public final class TsExtractor implements Extractor {
   private static final long E_AC3_FORMAT_IDENTIFIER = 0x45414333;
   private static final long AC4_FORMAT_IDENTIFIER = 0x41432d34;
   private static final long HEVC_FORMAT_IDENTIFIER = 0x48455643;
+  private static final long DOVI_FORMAT_IDENTIFIER = 0x444f5649; // "DOVI"
 
   private static final int BUFFER_SIZE = TS_PACKET_SIZE * 50;
   private static final int SNIFF_TS_PACKET_COUNT = 5;
@@ -690,6 +692,7 @@ public final class TsExtractor implements Extractor {
     private static final int TS_PMT_DESC_DTS = 0x7B;
     private static final int TS_PMT_DESC_DVB_EXT = 0x7F;
     private static final int TS_PMT_DESC_DVBSUBS = 0x59;
+    private static final int TS_PMT_DESC_DOVI = 0xB0;
 
     private static final int TS_PMT_DESC_DVB_EXT_AC4 = 0x15;
     private static final int TS_PMT_DESC_DVB_EXT_DTS_HD = 0x0E;
@@ -856,6 +859,7 @@ public final class TsExtractor implements Extractor {
       String language = null;
       @EsInfo.AudioType int audioType = AUDIO_TYPE_UNDEFINED;
       List<DvbSubtitleInfo> dvbSubtitleInfos = null;
+      @Nullable DolbyVisionConfig dolbyVisionConfig = null;
       while (data.getPosition() < descriptorsEndPosition) {
         int descriptorTag = data.readUnsignedByte();
         int descriptorLength = data.readUnsignedByte();
@@ -874,7 +878,17 @@ public final class TsExtractor implements Extractor {
             streamType = TS_STREAM_TYPE_AC4;
           } else if (formatIdentifier == HEVC_FORMAT_IDENTIFIER) {
             streamType = TS_STREAM_TYPE_H265;
+          } else if (formatIdentifier == DOVI_FORMAT_IDENTIFIER) {
+            // The DOVI registration descriptor signals that this is a Dolby Vision stream, but does
+            // not carry profile/level info. Full DV treatment (format and colour-info override)
+            // requires a co-located TS_PMT_DESC_DOVI (0xB0) descriptor in the same ES loop.
+            streamType = TS_STREAM_TYPE_H265;
           }
+        } else if (descriptorTag == TS_PMT_DESC_DOVI) {
+          // Dolby Vision video descriptor: 16-bit dv_descriptor header layout matching the dvcC
+          // record (dv_version_major, dv_version_minor, then dv_profile/dv_level bits).
+          streamType = TS_STREAM_TYPE_H265;
+          dolbyVisionConfig = DolbyVisionConfig.parse(data);
         } else if (descriptorTag == TS_PMT_DESC_AC3) { // AC-3_descriptor in DVB (ETSI EN 300 468)
           streamType = TS_STREAM_TYPE_AC3;
         } else if (descriptorTag == TS_PMT_DESC_EAC3) { // enhanced_AC-3_descriptor
@@ -920,7 +934,8 @@ public final class TsExtractor implements Extractor {
           language,
           audioType,
           dvbSubtitleInfos,
-          Arrays.copyOfRange(data.getData(), descriptorsStartPosition, descriptorsEndPosition));
+          Arrays.copyOfRange(data.getData(), descriptorsStartPosition, descriptorsEndPosition),
+          dolbyVisionConfig);
     }
   }
 }
