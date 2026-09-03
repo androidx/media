@@ -1717,7 +1717,9 @@ public class MediaSession {
      * legacy controller} is connecting to the session then this callback may block the main thread,
      * even if it's called on a different application thread. If it's possible that platform or
      * legacy controllers will connect to the session, you should ensure that the callback returns
-     * quickly to avoid blocking the main thread for a long period of time.
+     * quickly to avoid blocking the main thread for a long period of time. In particular, the
+     * returned future must not be completed on or by posting to the application thread (or main
+     * thread), as this will cause a deadlock while the thread is blocked.
      *
      * @param session The session for this event.
      * @param controller The {@linkplain ControllerInfo controller} information.

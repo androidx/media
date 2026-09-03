@@ -141,6 +141,10 @@
     *   Fix `NullPointerException` when an in-process `MediaController` is
         released from a `Player.Listener` callback
         ([#3375](https://github.com/androidx/media/issues/3375)).
+    *   Fix deadlock on the main thread when a legacy `MediaBrowser` connects to
+        a service returning an asynchronous result from `onGetLibraryRoot()` or
+        `onConnectAsync()`
+        ([#3393](https://github.com/androidx/media/issues/3393)).
 *   UI:
     *   Add `TrackSelectionState` and `TrackSelectionParametersState` classes
         and their corresponding Composable state remember functions to the

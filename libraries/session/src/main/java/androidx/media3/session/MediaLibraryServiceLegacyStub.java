@@ -120,47 +120,48 @@ import java.util.concurrent.atomic.AtomicReference;
       haveRoot.open();
       return;
     }
+    boolean isSearchSessionCommandAvailable =
+        getConnectedControllersManager()
+            .isSessionCommandAvailable(controller, SessionCommand.COMMAND_CODE_LIBRARY_SEARCH);
+    ImmutableList<CommandButton> commandButtonsForMediaItems =
+        librarySessionImpl.getCommandButtonsForMediaItems();
+    @Nullable ArrayList<Bundle> browserActionBundles = null;
+    if (!commandButtonsForMediaItems.isEmpty()) {
+      browserActionBundles = new ArrayList<>();
+      for (int i = 0; i < commandButtonsForMediaItems.size(); i++) {
+        CommandButton commandButton = commandButtonsForMediaItems.get(i);
+        if (commandButton.sessionCommand != null
+            && commandButton.sessionCommand.commandCode == SessionCommand.COMMAND_CODE_CUSTOM) {
+          browserActionBundles.add(LegacyConversions.convertToBundle(commandButton));
+        }
+      }
+    }
     @Nullable
     LibraryParams params =
         LegacyConversions.convertToLibraryParams(librarySessionImpl.getContext(), rootHints);
     ListenableFuture<LibraryResult<MediaItem>> future =
         librarySessionImpl.onGetLibraryRootOnHandler(controller, params);
 
+    @Nullable ArrayList<Bundle> finalBrowserActionBundles = browserActionBundles;
     Futures.addCallback(
         future,
         new FutureCallback<LibraryResult<MediaItem>>() {
           @Override
           public void onSuccess(@Nullable LibraryResult<MediaItem> result) {
+            // Running on arbitrary future callback.
             if (result != null && result.resultCode == RESULT_SUCCESS && result.value != null) {
               @Nullable
               Bundle extras =
                   result.params != null
                       ? LegacyConversions.convertToRootHints(result.params)
                       : new Bundle();
-              boolean isSearchSessionCommandAvailable =
-                  getConnectedControllersManager()
-                      .isSessionCommandAvailable(
-                          controller, SessionCommand.COMMAND_CODE_LIBRARY_SEARCH);
               checkNotNull(extras)
                   .putBoolean(
                       BROWSER_SERVICE_EXTRAS_KEY_SEARCH_SUPPORTED, isSearchSessionCommandAvailable);
-              ImmutableList<CommandButton> commandButtonsForMediaItems =
-                  librarySessionImpl.getCommandButtonsForMediaItems();
-              if (!commandButtonsForMediaItems.isEmpty()) {
-                ArrayList<Bundle> browserActionBundles = new ArrayList<>();
-                for (int i = 0; i < commandButtonsForMediaItems.size(); i++) {
-                  CommandButton commandButton = commandButtonsForMediaItems.get(i);
-                  if (commandButton.sessionCommand != null
-                      && commandButton.sessionCommand.commandCode
-                          == SessionCommand.COMMAND_CODE_CUSTOM) {
-                    browserActionBundles.add(LegacyConversions.convertToBundle(commandButton));
-                  }
-                }
-                if (!browserActionBundles.isEmpty()) {
-                  extras.putParcelableArrayList(
-                      BROWSER_SERVICE_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ROOT_LIST,
-                      browserActionBundles);
-                }
+              if (finalBrowserActionBundles != null && !finalBrowserActionBundles.isEmpty()) {
+                extras.putParcelableArrayList(
+                    BROWSER_SERVICE_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ROOT_LIST,
+                    finalBrowserActionBundles);
               }
               rootReference.set(new BrowserRoot(result.value.mediaId, extras));
             } else {
@@ -174,12 +175,13 @@ import java.util.concurrent.atomic.AtomicReference;
 
           @Override
           public void onFailure(Throwable t) {
+            // Running on arbitrary future callback.
             Log.e(TAG, "Couldn't get a result from onGetLibraryRoot", t);
             rootReference.set(MediaUtils.defaultBrowserRoot);
             haveRoot.open();
           }
         },
-        this::postOrRunOnApplicationHandler);
+        MoreExecutors.directExecutor());
   }
 
   // TODO(b/192455639): Optimize potential multiple calls of
