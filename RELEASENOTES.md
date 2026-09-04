@@ -166,6 +166,8 @@
     *   Add new fields to `PlayPauseButtonState` (`showBuffering`, `showRetry`,
         `showReplay`) and use them in `PlayPauseButton` to render more icons and
         a buffering indicator.
+    *   Add `PlaybackState` class to allow custom playback state observation,
+        and introduce `BufferingIndicator` as a button-independent component.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:

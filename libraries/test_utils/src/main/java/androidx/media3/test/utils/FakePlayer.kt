@@ -326,6 +326,18 @@ class FakePlayer(
   }
 
   /**
+   * Sets the playback suppression reason.
+   *
+   * @param playbackSuppressionReason The playback suppression reason.
+   */
+  fun setPlaybackSuppressionReason(
+    playbackSuppressionReason: @Player.PlaybackSuppressionReason Int
+  ) {
+    state = state.buildUpon().setPlaybackSuppressionReason(playbackSuppressionReason).build()
+    invalidateState()
+  }
+
+  /**
    * Sets whether a frame has been rendered for the first time since setting the surface, a
    * rendering reset, or since the stream being rendered was changed.
    */

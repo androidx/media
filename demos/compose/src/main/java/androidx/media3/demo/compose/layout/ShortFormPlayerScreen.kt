@@ -35,6 +35,8 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.lifecycle.SlidingWindowEffect
 import androidx.media3.ui.compose.lifecycle.rememberPooledPlayer
 import androidx.media3.ui.compose.material3.Player
+import androidx.media3.ui.compose.material3.indicator.BufferingIndicator
+import androidx.media3.ui.compose.state.SHOW_BUFFERING_WHEN_PLAYING
 import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
 
 @OptIn(ExperimentalApi::class)
@@ -104,6 +106,9 @@ internal fun ShortFormPlayerScreen(
       showControls = false,
       contentScale = ContentScale.Crop,
       modifier = Modifier.fillMaxSize().noRippleClickable(playPauseButtonState::onClick),
+      centerControls = { p, _ ->
+        BufferingIndicator(player = p, displayMode = SHOW_BUFFERING_WHEN_PLAYING)
+      },
     )
   }
 }
