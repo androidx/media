@@ -471,7 +471,14 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
       if (endUs != C.TIME_END_OF_SOURCE) {
         flags |= FLAG_STRICT_DURATION;
       }
-      if (hasPreroll) {
+      // A non-zero clipping start introduces preroll the wrapped period cannot know about, because
+      // sample streams provide buffers starting at a key-frame that may precede the clipping start
+      // point. With a zero clipping start the samples delivered are exactly the samples the wrapped
+      // period delivers, so its own report is exact and must not be overwritten with the
+      // conservative assumption made by the enable-position heuristic.
+      // TODO: ProgressiveMediaPeriod reports only Format.hasPrerollSamples, not seek-induced
+      // preroll, so the wrapped period's report is currently only exact for chunk-based sources.
+      if (startUs != 0 && hasPreroll) {
         flags &= ~FLAG_MAYBE_HAS_PREROLL;
         flags |= FLAG_HAS_PREROLL;
       }
