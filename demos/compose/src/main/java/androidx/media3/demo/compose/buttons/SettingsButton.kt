@@ -81,7 +81,6 @@ internal fun SettingsBottomSheet(
       horizontalAlignment = Alignment.CenterHorizontally,
     ) {
       ListItem(
-        headlineContent = { Text("Playback Speed") },
         trailingContent = {
           // Custom PlaybackSpeed button, brings up a bottom sheet, not default toggle
           PlaybackSpeedBottomSheetButton(
@@ -91,9 +90,10 @@ internal fun SettingsBottomSheet(
           )
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-      )
+      ) {
+        Text("Playback Speed")
+      }
       ListItem(
-        headlineContent = { Text("Shuffle Mode") },
         trailingContent = {
           // Custom shuffle button, switch-toggle, not icon button
           ShuffleButton(player) {
@@ -101,9 +101,10 @@ internal fun SettingsBottomSheet(
           }
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-      )
+      ) {
+        Text("Shuffle Mode")
+      }
       ListItem(
-        headlineContent = { Text("Repeat Mode") },
         trailingContent = {
           // Default repeat button
           RepeatButton(
@@ -113,12 +114,15 @@ internal fun SettingsBottomSheet(
           )
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-      )
+      ) {
+        Text("Repeat Mode")
+      }
       ListItem(
-        headlineContent = { Text("Content Scale") },
         trailingContent = { TextButton(onClick = onContentScaleChange) { Text(contentScale) } },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-      )
+      ) {
+        Text("Content Scale")
+      }
     }
   }
 }
