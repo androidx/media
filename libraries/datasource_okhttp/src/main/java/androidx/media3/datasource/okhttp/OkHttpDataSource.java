@@ -317,10 +317,10 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
       throw new InvalidContentTypeException(contentType, dataSpec);
     }
 
-    // If we requested a range starting from a non-zero position and received a 200 rather than a
-    // 206, then the server does not support partial requests. We'll need to manually skip to the
-    // requested position.
-    long bytesToSkip = responseCode == 200 && dataSpec.position != 0 ? dataSpec.position : 0;
+    // If we requested a range starting from a non-zero position and did not receive a 206, then
+    // the server does not support partial requests. We'll need to manually skip to the requested
+    // position.
+    long bytesToSkip = responseCode != 206 && dataSpec.position != 0 ? dataSpec.position : 0;
 
     // Determine the length of the data to be read, after skipping.
     if (dataSpec.length != C.LENGTH_UNSET) {
