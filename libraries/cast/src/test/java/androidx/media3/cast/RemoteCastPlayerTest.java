@@ -115,6 +115,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import org.json.JSONObject;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -841,6 +842,26 @@ public class RemoteCastPlayerTest {
   }
 
   @Test
+  public void setMediaItems_attachesSyntheticIdsToDispatchedQueueItems() throws Exception {
+    ImmutableList<MediaItem> mediaItems =
+        ImmutableList.of(
+            new MediaItem.Builder().setUri("http://www.google.com/video1").build(),
+            new MediaItem.Builder().setUri("http://www.google.com/video2").build());
+
+    remoteCastPlayer.setMediaItems(mediaItems);
+
+    verify(mockRemoteMediaClient).load(loadArgumentCaptor.capture());
+    MediaLoadRequestData mediaLoadRequestData = loadArgumentCaptor.getValue();
+    List<MediaQueueItem> queueItems = mediaLoadRequestData.getQueueData().getItems();
+    assertThat(queueItems).hasSize(2);
+    for (MediaQueueItem queueItem : queueItems) {
+      JSONObject customData = queueItem.getMedia().getCustomData();
+      assertThat(customData).isNotNull();
+      assertThat(customData.getString("m3-syntheticId")).isNotEmpty();
+    }
+  }
+
+  @Test
   public void setMediaItems_replaceExistingPlaylist_notifiesMediaItemTransition() {
     List<MediaItem> firstPlaylist = new ArrayList<>();
     String uri1 = "http://www.google.com/video1";
@@ -988,8 +1009,8 @@ public class RemoteCastPlayerTest {
 
     verify(mockRemoteMediaClient, times(2))
         .queueInsertItems(queueItemsArgumentCaptor.capture(), anyInt(), any());
-    assertThat(queueItemsArgumentCaptor.getAllValues().get(1)[0])
-        .isEqualTo(mediaItemConverter.toMediaQueueItem(anotherMediaItem));
+    MediaQueueItem insertedItem = queueItemsArgumentCaptor.getAllValues().get(1)[0];
+    assertThat(mediaItemConverter.toMediaItem(insertedItem)).isEqualTo(anotherMediaItem);
     Timeline.Window currentWindow =
         remoteCastPlayer
             .getCurrentTimeline()
@@ -1145,8 +1166,8 @@ public class RemoteCastPlayerTest {
     verify(mockRemoteMediaClient, times(2))
         .queueInsertItems(queueItemsArgumentCaptor.capture(), anyInt(), any());
     verify(mockRemoteMediaClient).queueRemoveItems(new int[] {2}, /* customData= */ null);
-    assertThat(queueItemsArgumentCaptor.getAllValues().get(1)[0])
-        .isEqualTo(mediaItemConverter.toMediaQueueItem(anotherMediaItem));
+    MediaQueueItem insertedItem = queueItemsArgumentCaptor.getAllValues().get(1)[0];
+    assertThat(mediaItemConverter.toMediaItem(insertedItem)).isEqualTo(anotherMediaItem);
     Timeline.Window currentWindow =
         remoteCastPlayer
             .getCurrentTimeline()

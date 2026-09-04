@@ -1684,8 +1684,8 @@ public final class RemoteCastPlayer extends BasePlayer {
     if (!currentTimeline.isEmpty()) {
       pendingMediaItemRemovalPosition = getCurrentPositionInfo();
     }
-    MediaQueueItem[] mediaQueueItems = toMediaQueueItems(mediaItems);
-    timelineTracker.onMediaItemsSet(mediaItems, mediaQueueItems);
+    timelineTracker.reset();
+    MediaQueueItem[] mediaQueueItems = timelineTracker.registerMediaItems(mediaItems);
     MediaQueueData mediaQueueData =
         new MediaQueueData.Builder()
             .setItems(Arrays.asList(mediaQueueItems))
@@ -1710,8 +1710,7 @@ public final class RemoteCastPlayer extends BasePlayer {
     if (!isCastSessionActive() || getMediaStatus() == null) {
       return;
     }
-    MediaQueueItem[] itemsToInsert = toMediaQueueItems(mediaItems);
-    timelineTracker.onMediaItemsAdded(mediaItems, itemsToInsert);
+    MediaQueueItem[] itemsToInsert = timelineTracker.registerMediaItems(mediaItems);
     remoteMediaClient.queueInsertItems(itemsToInsert, receiverUid, /* customData= */ null);
   }
 
@@ -2074,14 +2073,6 @@ public final class RemoteCastPlayer extends BasePlayer {
       default:
         throw new IllegalArgumentException();
     }
-  }
-
-  private MediaQueueItem[] toMediaQueueItems(List<MediaItem> mediaItems) {
-    MediaQueueItem[] mediaQueueItems = new MediaQueueItem[mediaItems.size()];
-    for (int i = 0; i < mediaItems.size(); i++) {
-      mediaQueueItems[i] = mediaItemConverter.toMediaQueueItem(mediaItems.get(i));
-    }
-    return mediaQueueItems;
   }
 
   private static void logOperationFailedIfStatusError(String operation, MediaChannelResult result) {
