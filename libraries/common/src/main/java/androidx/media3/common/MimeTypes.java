@@ -53,6 +53,7 @@ public final class MimeTypes {
   @UnstableApi public static final String VIDEO_VP9 = BASE_TYPE_VIDEO + "/x-vnd.on2.vp9";
   public static final String VIDEO_AV1 = BASE_TYPE_VIDEO + "/av01";
   public static final String VIDEO_MP2T = BASE_TYPE_VIDEO + "/mp2t";
+  @UnstableApi public static final String VIDEO_MMT_TLV = BASE_TYPE_VIDEO + "/mmt-tlv";
   public static final String VIDEO_MP4V = BASE_TYPE_VIDEO + "/mp4v-es";
   public static final String VIDEO_MPEG = BASE_TYPE_VIDEO + "/mpeg";
   public static final String VIDEO_PS = BASE_TYPE_VIDEO + "/mp2p";
