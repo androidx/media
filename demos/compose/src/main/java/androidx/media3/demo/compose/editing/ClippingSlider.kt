@@ -34,7 +34,6 @@ import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.RangeSliderState
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.rememberRangeSliderState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -316,86 +315,6 @@ private fun ClippingSlider(
   }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ClippingSlider(
-  progress: Float?,
-  clippingRange: ClosedFloatingPointRange<Float>,
-  onClippingRangeChange: (ClosedFloatingPointRange<Float>) -> Unit,
-  bitmaps: ImmutableList<Bitmap>,
-  modifier: Modifier = Modifier,
-  enabled: Boolean = true,
-  onClippingRangeChangeFinished: (() -> Unit)? = null,
-  onProgressChange: ((Float) -> Unit)? = null,
-  onProgressChangeFinished: (() -> Unit)? = null,
-  minRangeDelta: Float = MIN_CLIPPING_DELTA_FOR_NO_OVERLAP,
-  colors: ClippingSliderColors = ClippingSliderDefaults.colors(),
-  shape: RoundedCornerShape = RoundedCornerShape(percent = 30),
-  clippingThumbPainter: @Composable (isStart: Boolean, isAtLimit: Boolean) -> Painter =
-    defaultClippingThumbPainter,
-) {
-  val initialSliderRange = remember(clippingRange) { sliderRangeFromClippingRange(clippingRange) }
-  val rangeSliderState =
-    rememberRangeSliderState(
-      activeRangeStart = initialSliderRange.start,
-      activeRangeEnd = initialSliderRange.endInclusive,
-      onValueChangeFinished = onClippingRangeChangeFinished,
-    )
-  LaunchedEffect(clippingRange) {
-    val sliderRange = sliderRangeFromClippingRange(clippingRange)
-    if (rangeSliderState.activeRangeStart != sliderRange.start) {
-      rangeSliderState.activeRangeStart = sliderRange.start
-    }
-    if (rangeSliderState.activeRangeEnd != sliderRange.endInclusive) {
-      rangeSliderState.activeRangeEnd = sliderRange.endInclusive
-    }
-  }
-  val currentOnChange by rememberUpdatedState(onClippingRangeChange)
-  LaunchedEffect(rangeSliderState) {
-    snapshotFlow {
-        clippingRangeFromSliderRange(
-          rangeSliderState.activeRangeStart..rangeSliderState.activeRangeEnd
-        )
-      }
-      .collect { currentOnChange(it) }
-  }
-
-  if (bitmaps.isEmpty()) {
-    Box(modifier)
-    return
-  }
-  val sliderAspectRatio =
-    remember(bitmaps) {
-      val firstBitmap = bitmaps[0]
-      require(firstBitmap.width > 0 && firstBitmap.height > 0) {
-        "Bitmap should have positive width and height"
-      }
-      (bitmaps.size * firstBitmap.width).toFloat() / firstBitmap.height.toFloat()
-    }
-
-  Box(modifier = modifier.aspectRatio(sliderAspectRatio)) {
-    ClippingRangeSlider(
-      rangeSliderState = rangeSliderState,
-      bitmaps = bitmaps,
-      modifier = Modifier.fillMaxSize(),
-      enabled = enabled,
-      colors = colors,
-      shape = shape,
-      clippingThumbPainter = clippingThumbPainter,
-    )
-    ProgressSlider(
-      value = progress,
-      onValueChange = onProgressChange,
-      modifier = Modifier.fillMaxSize(),
-      enabled = enabled,
-      valueRange = clippingRange,
-      activeRange = clippingRange,
-      onValueChangeFinished = onProgressChangeFinished,
-      positionThumbColor = colors.positionThumbColor,
-    )
-  }
-}
-
 @Composable
 private fun ImageRow(bitmaps: ImmutableList<Bitmap>, modifier: Modifier = Modifier) {
   val imageBitmaps = remember(bitmaps) { bitmaps.map { it.asImageBitmap() } }
@@ -496,6 +415,9 @@ private fun ClippingRangeSlider(
     )
     RangeSlider(
       state = rangeSliderState,
+      // TODO: b/505719491 - Once onValueChange and onValueChangeFinished callbacks are added to
+      // this stateful overload, move them here from RangeSliderState, and implement minRangeDelta
+      // clamping logic
       modifier = Modifier.fillMaxSize(),
       enabled = enabled,
       startThumbInteractionSource = startThumbInteractionSource,
@@ -1112,6 +1034,8 @@ private class ClippingSliderState(
       }
 
       // Observe slider movements to enforce minRangeDelta constraints.
+      // TODO: b/505719491 - Once onValueChange callback is added to RangeSliderState, move
+      //  minRangeDelta clamping logic to that callback instead of observing snapshotFlow here.
       launch {
         var previousRange = rangeSliderState.activeRangeStart..rangeSliderState.activeRangeEnd
         snapshotFlow { rangeSliderState.activeRangeStart..rangeSliderState.activeRangeEnd }
