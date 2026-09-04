@@ -2672,6 +2672,25 @@ public final class Util {
         || encoding == C.ENCODING_PCM_DOUBLE_BIG_ENDIAN;
   }
 
+  /** Returns whether {@code encoding} is a floating-point PCM encoding. */
+  @UnstableApi
+  public static boolean isFloatPcmEncoding(@C.PcmEncoding int encoding) {
+    return encoding == C.ENCODING_PCM_FLOAT
+        || encoding == C.ENCODING_PCM_FLOAT_BIG_ENDIAN
+        || encoding == C.ENCODING_PCM_DOUBLE
+        || encoding == C.ENCODING_PCM_DOUBLE_BIG_ENDIAN;
+  }
+
+  /** Returns whether {@code encoding} is a big-endian PCM encoding. */
+  @UnstableApi
+  public static boolean isPcmEncodingBigEndian(@C.PcmEncoding int encoding) {
+    return encoding == C.ENCODING_PCM_16BIT_BIG_ENDIAN
+        || encoding == C.ENCODING_PCM_24BIT_BIG_ENDIAN
+        || encoding == C.ENCODING_PCM_32BIT_BIG_ENDIAN
+        || encoding == C.ENCODING_PCM_FLOAT_BIG_ENDIAN
+        || encoding == C.ENCODING_PCM_DOUBLE_BIG_ENDIAN;
+  }
+
   /**
    * Returns the audio track channel configuration for the given {@link Format}, or {@link
    * AudioFormat#CHANNEL_INVALID} if output is not possible.

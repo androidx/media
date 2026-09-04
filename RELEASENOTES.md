@@ -134,6 +134,9 @@
         Fragmented MP4 files by advertising the dby1 compatible brand in the
         container header.
         ([#3369](https://github.com/androidx/media/pull/3369)).
+    *   Support 32-bit float PCM audio tracks in `Mp4Muxer` and
+        `FragmentedMp4Muxer`
+        ([#3389](https://github.com/androidx/media/issues/3389)).
 *   IMA extension:
 *   Session:
     *   Add `MediaConstants.EXTRAS_KEY_PLAYLIST_ID` to populate
