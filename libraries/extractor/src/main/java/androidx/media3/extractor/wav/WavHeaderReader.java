@@ -19,15 +19,27 @@ import static androidx.media3.common.util.WavUtil.TYPE_WAVE_FORMAT_EXTENSIBLE;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.util.Pair;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Metadata;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.common.util.WavUtil;
 import androidx.media3.extractor.ExtractorInput;
+import androidx.media3.extractor.Id3Peeker;
+import androidx.media3.extractor.metadata.ReplayGainInfo;
+import androidx.media3.extractor.metadata.id3.Id3Decoder;
+import androidx.media3.extractor.metadata.riff.RiffInfoChunk;
+import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
 
 /** Reads a WAV header from an input stream; supports resuming from input failures. */
 /* package */ final class WavHeaderReader {
@@ -161,7 +173,7 @@ import java.util.Arrays;
       extraData = Util.EMPTY_BYTE_ARRAY;
     }
 
-    input.skipFully((int) (input.getPeekPosition() - input.getPosition()));
+    skipToNextChunk(input, chunkHeader);
     return new WavFormat(
         audioFormatType,
         numChannels,
@@ -171,6 +183,103 @@ import java.util.Arrays;
         bitsPerSample,
         extraData,
         channelMask);
+  }
+
+  /**
+   * Parse an ID3 chunk. After calling, the input stream's position will point to the start of the
+   * next chunk in the WAV. If an exception is thrown, the input position will be left pointing to
+   * the current chunk's header.
+   *
+   * @param input The input stream, whose read position must be pointing to an ID3 chunk header, and
+   *     the peek position must be pointing to the start of the same chunk's body.
+   * @param chunkHeader The header of the chunk.
+   * @return The parsed Metadata from this ID3 chunk if it was valid ID3, or {@code null}.
+   * @throws ParserException If an error occurs parsing chunks.
+   * @throws IOException If reading from the input fails.
+   */
+  public static @Nullable Metadata parseId3(
+      ExtractorInput input, ChunkHeader chunkHeader, boolean parseArtworkMetadata)
+      throws IOException {
+    Id3Decoder.FramePredicate id3FramePredicate =
+        !parseArtworkMetadata ? Id3Decoder.NO_ARTWORK_PREDICATE : null;
+    Metadata metadata = new Id3Peeker().peekId3Data(input, id3FramePredicate, 0);
+    skipToNextChunk(input, chunkHeader);
+    return metadata;
+  }
+
+  /**
+   * Parse a RGAD chunk. After calling, the input stream's position will point to the start of the
+   * next chunk in the WAV. If an exception is thrown, the input position will be left pointing to
+   * the current chunk's header.
+   *
+   * @param input The input stream, whose read position must be pointing to a valid RGAD chunk
+   *     header, and the peek position must be pointing to the start of the same chunk's body.
+   * @param chunkHeader The header of the chunk.
+   * @return The parsed Metadata from this RGAD chunk if it valid ReplayGain data, or {@code null}.
+   * @throws ParserException If an error occurs parsing chunks.
+   * @throws IOException If reading from the input fails.
+   */
+  public static @Nullable Metadata parseRgad(ExtractorInput input, ChunkHeader chunkHeader)
+      throws IOException {
+    checkState(chunkHeader.size == 8);
+    ParsableByteArray scratch = new ParsableByteArray(8);
+    input.peekFully(scratch.getData(), 0, 8);
+    skipToNextChunk(input, chunkHeader);
+    ReplayGainInfo info =
+        ReplayGainInfo.parse(scratch.readFloat(), scratch.readShort(), scratch.readShort());
+    if (info != null) {
+      return new Metadata(info);
+    }
+    return null;
+  }
+
+  /**
+   * Parse a LIST chunk if it's a RIFF INFO list. After calling, the input stream's position will
+   * point to the start of the next chunk in the WAV. If an exception is thrown, the input position
+   * will be left pointing to the current chunk's header.
+   *
+   * @param input The input stream, whose read position must be pointing to a valid LIST chunk
+   *     header, and the peek position must be pointing to the start of the same chunk's body.
+   * @param chunkHeader The header of the chunk.
+   * @return The parsed Metadata from this LIST chunk if it was an INFO chunk, or {@code null}.
+   * @throws ParserException If an error occurs parsing chunks.
+   * @throws IOException If reading from the input fails.
+   */
+  public static @Nullable Metadata parseList(ExtractorInput input, ChunkHeader chunkHeader)
+      throws IOException {
+    int listSize = (int) chunkHeader.size;
+    checkState(listSize >= 4);
+    ParsableByteArray scratch = new ParsableByteArray(listSize);
+    input.peekFully(scratch.getData(), 0, listSize);
+    skipToNextChunk(input, chunkHeader);
+    int type = scratch.readInt();
+    if (type != WavUtil.INFO_FOURCC) {
+      return null;
+    }
+    HashMap<String, ImmutableList.Builder<String>> tags = new HashMap<>();
+    while (scratch.bytesLeft() >= ChunkHeader.SIZE_IN_BYTES) {
+      ChunkHeader entry = ChunkHeader.parse(scratch);
+      String name = new String(Ints.toByteArray(entry.id), StandardCharsets.US_ASCII);
+      if (scratch.bytesLeft() < entry.size) {
+        Log.w(TAG, "Out-of-bounds RIFF INFO tag, stopped reading RIFF INFO at " + name);
+        break;
+      }
+      @Nullable ImmutableList.Builder<String> tag = tags.get(name);
+      if (tag == null) {
+        tag = new ImmutableList.Builder<>();
+        tags.put(name, tag);
+      }
+      tag.add(scratch.readNullTerminatedString((int) entry.size - 1));
+      scratch.skipBytes(1);
+    }
+    if (scratch.bytesLeft() > 0) {
+      Log.w(TAG, "There are " + scratch.bytesLeft() + " leftover bytes reading RIFF INFO");
+    }
+    ImmutableList.Builder<Metadata.Entry> entries = new ImmutableList.Builder<>();
+    for (Map.Entry<String, ImmutableList.Builder<String>> tag : tags.entrySet()) {
+      entries.add(new RiffInfoChunk(tag.getKey(), tag.getValue().build()));
+    }
+    return new Metadata(entries.build());
   }
 
   /**
@@ -200,6 +309,31 @@ import java.util.Arrays;
   }
 
   /**
+   * Skips the chunk at the current position. After calling, the input stream's position and peek
+   * position will both point to the next chunk's header. If an exception is thrown, the input
+   * position will be left pointing to the current chunk header.
+   *
+   * @param input The input stream, whose read position must be pointing to a valid chunk header.
+   * @param current The header of the chunk that should be skipped.
+   * @throws ParserException If the chunk is too large to skip.
+   * @throws IOException If reading from the input fails.
+   */
+  public static void skipToNextChunk(ExtractorInput input, ChunkHeader current) throws IOException {
+    long bytesToSkip = ChunkHeader.SIZE_IN_BYTES + current.size;
+    // According to the RIFF specification, if a chunk's body size is odd, it's followed by a
+    // padding byte of value 0. This ensures each chunk occupies an even number of bytes in the
+    // file. The padding byte isn't included in the size field.
+    if (current.size % 2 != 0) {
+      bytesToSkip++; // padding present if size is odd, skip it.
+    }
+    if (bytesToSkip > Integer.MAX_VALUE) {
+      throw ParserException.createForUnsupportedContainerFeature(
+          "Chunk is too large (~2GB+) to skip; id: " + current.id);
+    }
+    input.skipFully((int) bytesToSkip);
+  }
+
+  /**
    * Skips to the chunk header corresponding to the {@code chunkId} provided. After calling, the
    * input stream's position will point to the chunk header with provided {@code chunkId} and the
    * peek position to the chunk body. If an exception is thrown, the input position will be left
@@ -216,19 +350,8 @@ import java.util.Arrays;
       int chunkId, ExtractorInput input, ParsableByteArray scratch) throws IOException {
     ChunkHeader chunkHeader = ChunkHeader.peek(input, scratch);
     while (chunkHeader.id != chunkId) {
-      Log.w(TAG, "Ignoring unknown WAV chunk: " + chunkHeader.id);
-      long bytesToSkip = ChunkHeader.SIZE_IN_BYTES + chunkHeader.size;
-      // According to the RIFF specification, if a chunk's body size is odd, it's followed by a
-      // padding byte of value 0. This ensures each chunk occupies an even number of bytes in the
-      // file. The padding byte isn't included in the size field.
-      if (chunkHeader.size % 2 != 0) {
-        bytesToSkip++; // padding present if size is odd, skip it.
-      }
-      if (bytesToSkip > Integer.MAX_VALUE) {
-        throw ParserException.createForUnsupportedContainerFeature(
-            "Chunk is too large (~2GB+) to skip; id: " + chunkHeader.id);
-      }
-      input.skipFully((int) bytesToSkip);
+      Log.w(TAG, "Found unknown WAV chunk: " + chunkHeader.id + " at " + input.getPosition());
+      skipToNextChunk(input, chunkHeader);
       chunkHeader = ChunkHeader.peek(input, scratch);
     }
     return chunkHeader;
@@ -239,7 +362,7 @@ import java.util.Arrays;
   }
 
   /** Container for a WAV chunk header. */
-  private static final class ChunkHeader {
+  public static final class ChunkHeader {
 
     /** Size in bytes of a WAV chunk header. */
     public static final int SIZE_IN_BYTES = 8;
@@ -256,22 +379,54 @@ import java.util.Arrays;
     }
 
     /**
+     * Parse and returns a {@link ChunkHeader}.
+     *
+     * @param input Input array to parse the chunk header from.
+     * @return A new {@code ChunkHeader} peeked from {@code input}.
+     */
+    public static ChunkHeader parse(ParsableByteArray input) throws IOException {
+      int id = input.readInt();
+      long size = input.readLittleEndianUnsignedInt();
+      return new ChunkHeader(id, size);
+    }
+
+    /**
      * Peeks and returns a {@link ChunkHeader}.
      *
      * @param input Input stream to peek the chunk header from.
      * @param scratch Buffer for temporary use.
+     * @param allowEndOfInput True if encountering the end of the input having peeked no data is
+     *     allowed, and should result in null being returned. False if it should be considered an
+     *     error, causing an EOFException to be thrown.
+     * @throws java.io.EOFException If the end of input was encountered and {@code allowEndOfInput}
+     *     is false.
+     * @throws IOException If peeking from the input fails.
+     * @return A new {@code ChunkHeader} peeked from {@code input}, or {@code null} if the input
+     *     ended and {@code allowEndOfInput} is true.
+     */
+    public static @Nullable ChunkHeader peek(
+        ExtractorInput input, ParsableByteArray scratch, boolean allowEndOfInput)
+        throws IOException {
+      if (!input.peekFully(
+          scratch.getData(), /* offset= */ 0, /* length= */ SIZE_IN_BYTES, allowEndOfInput)) {
+        return null;
+      }
+      scratch.setPosition(0);
+      return parse(scratch);
+    }
+
+    /**
+     * Peeks and returns a {@link ChunkHeader}.
+     *
+     * @param input Input stream to peek the chunk header from.
+     * @param scratch Buffer for temporary use.
+     * @throws java.io.EOFException If the end of input was encountered.
      * @throws IOException If peeking from the input fails.
      * @return A new {@code ChunkHeader} peeked from {@code input}.
      */
     public static ChunkHeader peek(ExtractorInput input, ParsableByteArray scratch)
         throws IOException {
-      input.peekFully(scratch.getData(), /* offset= */ 0, /* length= */ SIZE_IN_BYTES);
-      scratch.setPosition(0);
-
-      int id = scratch.readInt();
-      long size = scratch.readLittleEndianUnsignedInt();
-
-      return new ChunkHeader(id, size);
+      return Objects.requireNonNull(peek(input, scratch, false));
     }
   }
 }
