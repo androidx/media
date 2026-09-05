@@ -901,6 +901,10 @@ public final class CompositionPlayer extends SimpleBasePlayer {
               : this.playWhenReadyChangeReason);
 
       // Bypass debouncing for the final seek when scrubbing ends.
+      Log.d(
+          "SeekDbg",
+          "setScrubbingModeEnabled(false) CLEARING flag; pendingSeekPositionMs="
+              + pendingSeekPositionMs);
       waitingForFrameAfterSeek = false;
       if (pendingSeekPositionMs != C.TIME_UNSET) {
         long pendingSeekPosition = pendingSeekPositionMs;
@@ -1153,18 +1157,65 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         "positionMs=%d",
         positionMs);
 
+    Log.d(
+        "SeekDbg",
+        "handleSeekInternal enter positionMs="
+            + positionMs
+            + " frameProcessor="
+            + (frameProcessor != null)
+            + " waitingForFrameAfterSeek="
+            + waitingForFrameAfterSeek
+            + " pendingSeekPositionMs="
+            + pendingSeekPositionMs
+            + " aggregatedContentPos="
+            + getContentPositionMs());
     if (frameProcessor != null) {
       if (waitingForFrameAfterSeek) {
         pendingSeekPositionMs = positionMs;
+        Log.d(
+            "SeekDbg",
+            "handleSeekInternal DEFERRED (flag latched) -> pendingSeekPositionMs=" + positionMs);
         return;
       }
       waitingForFrameAfterSeek = true;
     }
+    Log.d(
+        "SeekDbg", "handleSeekInternal PROPAGATING to inner players positionMs=" + positionMs);
     CompositionPlayerInternal compositionPlayerInternal =
         checkNotNull(this.compositionPlayerInternal);
     compositionPlayerInternal.startSeek(positionMs);
     for (int i = 0; i < playerHolders.size(); i++) {
+      androidx.media3.exoplayer.ExoPlayer innerPlayer = playerHolders.get(i).player;
+      Log.d(
+          "SeekDbg",
+          "  inner["
+              + i
+              + "] PRE-seek state="
+              + innerPlayer.getPlaybackState()
+              + " contentPos="
+              + innerPlayer.getContentPosition()
+              + " duration="
+              + innerPlayer.getDuration()
+              + " playWhenReady="
+              + innerPlayer.getPlayWhenReady()
+              + " mediaItemCount="
+              + innerPlayer.getMediaItemCount()
+              + " currentMediaItemIndex="
+              + innerPlayer.getCurrentMediaItemIndex());
       playerHolders.get(i).player.seekTo(positionMs);
+      Log.d(
+          "SeekDbg",
+          "  inner["
+              + i
+              + "] POST-seek state="
+              + innerPlayer.getPlaybackState()
+              + " contentPos="
+              + innerPlayer.getContentPosition()
+              + " currentMediaItemIndex="
+              + innerPlayer.getCurrentMediaItemIndex()
+              + " (requested "
+              + positionMs
+              + ")");
       // Flush the HardwareBufferFrameReader and FrameAggregator after the player seeks to ensure
       // frames from before the seek do not race with the flush calls.
       if (frameProcessor != null) {
@@ -1186,6 +1237,12 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       }
     }
     compositionPlayerInternal.endSeek();
+    Log.d(
+        "SeekDbg",
+        "handleSeekInternal DONE requestedMs="
+            + positionMs
+            + " aggregatedContentPos="
+            + getContentPositionMs());
   }
 
   @Override
@@ -1530,6 +1587,16 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   }
 
   private void setCompositionInternal(Composition composition, long startPositionMs) {
+    Log.d(
+        "SeekDbg",
+        "setCompositionInternal startPositionMs="
+            + startPositionMs
+            + " CLEARING waitingForFrameAfterSeek (was "
+            + waitingForFrameAfterSeek
+            + ") pendingSeekPositionMs=(was "
+            + pendingSeekPositionMs
+            + ") priorAggregatedPos="
+            + getContentPositionMs());
     waitingForFrameAfterSeek = false;
     pendingSeekPositionMs = C.TIME_UNSET;
     for (int i = 0; i < playerHolders.size(); i++) {
@@ -2504,11 +2571,22 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     public void onFrameProcessed() {
       applicationHandler.post(
           () -> {
+            Log.d(
+                "SeekDbg",
+                "onFrameProcessed waitingForFrameAfterSeek="
+                    + waitingForFrameAfterSeek
+                    + " pendingSeekPositionMs="
+                    + pendingSeekPositionMs
+                    + " aggregatedContentPos="
+                    + getContentPositionMs());
             if (waitingForFrameAfterSeek) {
               waitingForFrameAfterSeek = false;
               if (pendingSeekPositionMs != C.TIME_UNSET) {
                 long pendingSeekPosition = pendingSeekPositionMs;
                 pendingSeekPositionMs = C.TIME_UNSET;
+                Log.d(
+                    "SeekDbg",
+                    "onFrameProcessed FLUSHING pending seek -> " + pendingSeekPosition);
                 handleSeekInternal(pendingSeekPosition);
               }
             }
