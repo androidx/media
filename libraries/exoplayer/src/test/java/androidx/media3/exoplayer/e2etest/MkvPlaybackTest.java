@@ -49,13 +49,16 @@ public final class MkvPlaybackTest {
         Sample.forFile("sample_with_htc_rotation_track_name.mkv"),
         Sample.withBitmapSubtitles("sample_with_pgs_subtitles.mkv"),
         Sample.forFile("sample_with_ssa_subtitles.mkv"),
+        Sample.forFile("sample_with_zlib_ass_subtitles.mkv"),
         Sample.forFile("sample_with_null_terminated_ssa_subtitles.mkv"),
         Sample.forFile("sample_with_overlapping_ssa_subtitles.mkv"),
         Sample.forFile("sample_with_srt.mkv"),
         Sample.forFile("sample_with_null_terminated_srt.mkv"),
+        Sample.forFile("sample_with_zlib_null_terminated_srt.mkv"),
         Sample.forFile("sample_with_overlapping_srt.mkv"),
         Sample.forFile("sample_with_vtt_subtitles.mkv"),
         Sample.forFile("sample_with_null_terminated_vtt_subtitles.mkv"),
+        Sample.forFile("sample_with_zlib_null_terminated_vtt_subtitles.mkv"),
         Sample.withBitmapSubtitles("sample_with_vobsub.mkv"),
         Sample.forFile("sample_last_cluster.mkv"));
   }
