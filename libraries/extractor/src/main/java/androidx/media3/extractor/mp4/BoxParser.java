@@ -25,6 +25,7 @@ import static java.nio.ByteOrder.LITTLE_ENDIAN;
 
 import android.util.Pair;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DrmInitData;
@@ -72,6 +73,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Utility methods for parsing MP4 format box payloads according to ISO/IEC 14496-12. */
 @SuppressWarnings("ConstantField")
@@ -1034,23 +1037,34 @@ public final class BoxParser {
     return entries.isEmpty() ? null : new Metadata(entries);
   }
 
+  private static final Pattern XYZ_PATTERN =
+      Pattern.compile("([+-][0-9.]+)([+-][0-9.]+)(?:([+-][0-9.]+))?(?:CRS[^/]*)?/.*");
+
   /** Parses the location metadata from the xyz atom. */
+  @VisibleForTesting
   @Nullable
-  private static Metadata parseXyz(ParsableByteArray xyzBox) {
+  /* package */ static Metadata parseXyz(ParsableByteArray xyzBox) {
     int length = xyzBox.readShort();
     xyzBox.skipBytes(2); // language code.
     String location = xyzBox.readString(length);
-    // The location string looks like "+35.1345-15.1020/".
-    int plusSignIndex = location.lastIndexOf('+');
-    int minusSignIndex = location.lastIndexOf('-');
-    int latitudeEndIndex = max(plusSignIndex, minusSignIndex);
+    // The location string looks like "+35.1345-15.1020/" or "+37.7749-122.4194+15.0000/".
+    Matcher matcher = XYZ_PATTERN.matcher(location);
+    if (!matcher.matches()) {
+      return null;
+    }
+    String latitudeString = castNonNull(matcher.group(1));
+    String longitudeString = castNonNull(matcher.group(2));
     try {
-      float latitude = Float.parseFloat(location.substring(0, latitudeEndIndex));
-      float longitude =
-          Float.parseFloat(location.substring(latitudeEndIndex, location.length() - 1));
+      float latitude = Float.parseFloat(latitudeString);
+      float longitude = Float.parseFloat(longitudeString);
+      @Nullable String altitudeString = matcher.group(3);
+      if (altitudeString != null) {
+        float altitude = Float.parseFloat(altitudeString);
+        return new Metadata(new Mp4LocationData(latitude, longitude, altitude));
+      }
       return new Metadata(new Mp4LocationData(latitude, longitude));
-    } catch (IndexOutOfBoundsException | NumberFormatException exception) {
-      // Invalid input.
+    } catch (IllegalArgumentException exception) {
+      // Invalid input (e.g. NumberFormatException or invalid latitude/longitude range).
       return null;
     }
   }

@@ -57,6 +57,8 @@
         `FragmentedMp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265`
         as within-GOP sample dependency parsing for H.264 and H.265 is enabled
         by default.
+    *   Mp4Extractor: Fix location metadata parsing from `xyz` boxes containing
+        altitude coordinates to populate `Mp4LocationData`.
     *   Add `ExtractorUtil.getFramesPerEncodedSample` to calculate the number of
         audio frames per sample for encoded audio formats
         ([#3367](https://github.com/androidx/media/issues/3367)).
