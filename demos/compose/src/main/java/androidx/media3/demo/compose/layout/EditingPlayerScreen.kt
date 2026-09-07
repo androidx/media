@@ -177,7 +177,10 @@ private fun rememberExtractedFrames(
             val positions =
               List(bitmapCount) { i -> i * durationMs / (bitmapCount - 1).coerceAtLeast(1) }
             val futureFrames = positions.map { positionMs -> frameExtractor.getFrame(positionMs) }
-            // Fast-path: Await the first frame and immediately publish it to the UI
+            // Fast-path: Await the first frame and immediately publish it to the UI. Because the
+            // slider's aspect ratio depends on the number of bitmaps, the list size should remain
+            // fixed, as changing it dynamically would cause the slider layout to resize each time
+            // the list grows or shrinks.
             val firstBitmap = futureFrames.first().await().bitmap
             value = ImmutableList.copyOf(Collections.nCopies(bitmapCount, firstBitmap))
 

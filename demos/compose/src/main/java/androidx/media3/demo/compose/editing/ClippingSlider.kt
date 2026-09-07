@@ -153,8 +153,12 @@ private const val POSITION_THUMB_HEIGHT_RATIO = 1.1f
  *   milliseconds (or [C.TIME_END_OF_SOURCE] as the end position when the clip is untrimmed at the
  *   end of the media) and should be used to update [clippingRangeMs].
  * @param bitmaps A list of [Bitmap] instances to display as a background preview for the slider.
- *   They should all have the same size. If this list is empty, the component will render an empty
- *   [Box] instead.
+ *   All bitmaps in the list should have the same size. Because the slider's aspect ratio depends on
+ *   the number of bitmaps, the list size should remain fixed, as changing it dynamically will cause
+ *   the slider layout to resize each time the list grows or shrinks (for example, when loading
+ *   frames asynchronously, pass a fixed-size list upfront using placeholder bitmaps and update
+ *   elements as frames load). If this list is empty, the component will render an empty [Box]
+ *   instead.
  * @param modifier The [Modifier] to be applied to the slider.
  * @param onClippingRangeChangeFinished A callback that is invoked when the user finishes dragging a
  *   clipping thumb. This callback shouldn't be used to update the range slider values (use
@@ -237,8 +241,12 @@ fun ClippingSlider(
  *
  * @param state The [ClippingSliderState] controlling the slider.
  * @param bitmaps A list of [Bitmap] instances to display as a background preview for the slider.
- *   They should all have the same size. If this list is empty, the component will render an empty
- *   [Box] instead.
+ *   All bitmaps in the list should have the same size. Because the slider's aspect ratio depends on
+ *   the number of bitmaps, the list size should remain fixed, as changing it dynamically will cause
+ *   the slider layout to resize each time the list grows or shrinks (for example, when loading
+ *   frames asynchronously, pass a fixed-size list upfront using placeholder bitmaps and update
+ *   elements as frames load). If this list is empty, the component will render an empty [Box]
+ *   instead.
  * @param modifier The [Modifier] to be applied to the slider.
  * @param onClippingRangeChange A callback that is invoked continuously when the user drags a
  *   clipping thumb.
@@ -377,6 +385,12 @@ private fun InactiveTrackFilter(
  *
  * @param rangeSliderState The [RangeSliderState] controlling the slider thumbs.
  * @param bitmaps A list of [Bitmap] instances to display as a background preview for the slider.
+ *   All bitmaps in the list should have the same size. Because the slider's aspect ratio depends on
+ *   the number of bitmaps, the list size should remain fixed, as changing it dynamically will cause
+ *   the slider layout to resize each time the list grows or shrinks (for example, when loading
+ *   frames asynchronously, pass a fixed-size list upfront using placeholder bitmaps and update
+ *   elements as frames load). If this list is empty, the [ClippingSlider] component will render an
+ *   empty [Box] instead.
  * @param modifier The [Modifier] to be applied to this composable.
  * @param enabled Whether interaction with the range slider is enabled.
  * @param startThumbInteractionSource The [MutableInteractionSource] for the start clipping thumb.
