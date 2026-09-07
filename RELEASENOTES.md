@@ -1,8 +1,10 @@
 # Release notes
 
-### Unreleased changes
+### 1.11.1 (2026-09-10)
 
-*   Common Library:
+This release includes the following changes since the
+[1.11.0 release](#1110-2026-08-05):
+
 *   ExoPlayer:
     *   Move the flag to enable/disable HAGC metadata for progressive media from
         `MediaSource.Factory` to `ExtractorsFactory`. The previous
@@ -19,15 +21,10 @@
     *   Fix a scrubbing mode issue where stale video frames could be briefly
         displayed when seeking with
         `ScrubbingModeParameters.allowSkippingMediaCodecFlush` enabled.
-*   CompositionPlayer:
-*   Transformer:
-*   Track Selection:
 *   Extractors:
     *   Matroska: Fix issue where Tracks placed after clusters wouldn't result
         in a seekable timeline
         ([#3377](https://github.com/androidx/media/issues/3377)).
-*   Inspector:
-*   Inspector Frame:
 *   Audio:
     *   Fix buffer size calculation in `SilenceSkippingAudioProcessor` so that
         the minimum silence duration is not incorrectly scaled down by the frame
@@ -40,16 +37,6 @@
     *   Fix bug in `DefaultAudioSink` where release count doesn't decrease when
         playback thread is no longer alive
         ([#3338](https://github.com/androidx/media/issues/3338)).
-*   Video:
-*   Text:
-*   Metadata:
-*   Image:
-*   DataSource:
-*   DRM:
-*   Effect:
-*   Effect Lottie:
-*   Muxers:
-*   IMA extension:
 *   Session:
     *   Fix `NullPointerException` when an in-process `MediaController` is
         released from a `Player.Listener` callback
@@ -58,11 +45,6 @@
         a service returning an asynchronous result from `onGetLibraryRoot()` or
         `onConnectAsync()`
         ([#3393](https://github.com/androidx/media/issues/3393)).
-*   UI:
-*   Downloads:
-*   OkHttp extension:
-*   Cronet extension:
-*   RTMP extension:
 *   HLS extension:
     *   Fix calculation of content resume offset when the target segment for
         snapping is not yet in the playlist
@@ -74,8 +56,6 @@
     *   Fix incorrect sample timestamp calculation for image tracks with a
         `presentationTimeOffset`
         ([#3334](https://github.com/androidx/media/issues/3334)).
-*   Smooth Streaming extension:
-*   RTSP extension:
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
     *   Opus: Fix memory corruption when multiple `OpusDecoder` instances are
         initialized concurrently.
@@ -83,13 +63,6 @@
         potential native crash under low-memory conditions when sending commands
         to the `MpeghUiManager`
         ([#3365](https://github.com/androidx/media/issues/3365)).
-*   MIDI extension:
-*   Leanback extension:
-*   Cast extension:
-*   Test Utilities:
-*   Remove deprecated symbols:
-
-## 1.11
 
 ### 1.11.0 (2026-08-05)
 
