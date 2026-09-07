@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Objects;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -1450,6 +1451,46 @@ public class FrameAggregatorTest {
     // Only the primary frame is dropped initially because the matcher aborts checking further
     // sequences as soon as the primary queue is empty.
     assertThat(releasedFrameTimestamps).containsExactly(66_667L);
+  }
+
+  @Test
+  @Ignore("b/557199457")
+  public void
+      queueFrame_withFrameRateAndTruncatedTimestampsAtFrameBoundary_retainsAndOutputsFrame() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(
+            /* numSequences= */ 1,
+            /* frameRate= */ new Rational(30, 1),
+            /* downstreamConsumer= */ this::recordOutputFrames,
+            /* onFlush= */ flushedSequences::add);
+    registerAllSequences(frameAggregator, /* numSequences= */ 1);
+
+    // A rounding error on microsecond presentation time (e.g. 66_666 us vs 66_667 us at 30 fps)
+    // should not cause a frame drop.
+    frameAggregator.queueFrame(
+        createFrame(/* presentationTimeUs= */ 0, /* sequencePresentationTimeUs= */ 0),
+        /* sequenceIndex= */ 0);
+    frameAggregator.queueFrame(
+        createFrame(/* presentationTimeUs= */ 33_333, /* sequencePresentationTimeUs= */ 33_333),
+        /* sequenceIndex= */ 0);
+    frameAggregator.queueFrame(
+        createFrame(/* presentationTimeUs= */ 66_666, /* sequencePresentationTimeUs= */ 66_666),
+        /* sequenceIndex= */ 0);
+    frameAggregator.queueFrame(
+        createFrame(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000),
+        /* sequenceIndex= */ 0);
+
+    assertThat(releasedFrameTimestamps).doesNotContain(66_666L);
+    assertThat(outputFrames).hasSize(4);
+    assertOutputPacket(
+        outputFrames.get(2),
+        /* expectedSize= */ 1,
+        /* expectedPresentationTimeUs= */ 66_667,
+        /* expectedSequencePresentationTimeUs= */ 66_667,
+        new SourceFrame(
+            /* sequenceIndex= */ 0,
+            /* presentationTimeUs= */ 66_666,
+            /* sequencePresentationTimeUs= */ 66_666));
   }
 
   @Test
