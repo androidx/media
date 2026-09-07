@@ -740,7 +740,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
     DataSpec dataSpec =
         DashUtil.buildDataSpec(
             representation,
-            representationHolder.selectedBaseUrl.url,
+            representationHolder.selectedBaseUrl,
             requestUri,
             /* flags= */ 0,
             /* httpRequestHeaders= */ ImmutableMap.of());
@@ -787,7 +787,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
       DataSpec dataSpec =
           DashUtil.buildDataSpec(
               representation,
-              representationHolder.selectedBaseUrl.url,
+              representationHolder.selectedBaseUrl,
               segmentUri,
               flags,
               /* httpRequestHeaders= */ ImmutableMap.of());
@@ -844,7 +844,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
       DataSpec dataSpec =
           DashUtil.buildDataSpec(
               representation,
-              representationHolder.selectedBaseUrl.url,
+              representationHolder.selectedBaseUrl,
               segmentUri,
               flags,
               /* httpRequestHeaders= */ ImmutableMap.of());
@@ -950,7 +950,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
               : DataSpec.FLAG_MIGHT_NOT_USE_FULL_NETWORK_SPEED;
       return DashUtil.buildDataSpec(
           representationHolder.representation,
-          representationHolder.selectedBaseUrl.url,
+          representationHolder.selectedBaseUrl,
           segmentUri,
           flags,
           /* httpRequestHeaders= */ ImmutableMap.of());

@@ -222,6 +222,10 @@
         ([#3129](https://github.com/androidx/media/issues/3129)).
 *   Test Utilities:
 *   Remove deprecated symbols:
+    *   Remove `DashUtil.buildDataSpec(Representation, RangedUri, int)` and
+        `DashUtil.buildDataSpec(Representation, String, RangedUri, int)`. Use
+        `DashUtil.buildDataSpec(Representation, BaseUrl, RangedUri, int,
+        Map<String, String>)` instead.
 
 ## 1.11
 
