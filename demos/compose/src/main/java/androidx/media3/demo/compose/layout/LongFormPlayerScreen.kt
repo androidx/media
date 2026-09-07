@@ -131,11 +131,11 @@ internal fun LongFormPlayerScreen(
   var anyPointerDown by remember { mutableStateOf(false) }
   val playPauseButtonState = rememberPlayPauseButtonState(player)
 
-  val hideJob = remember { mutableStateOf<Job?>(null) }
+  val hideJobHolder = remember { JobHolder() }
   fun scheduleHideControls() {
-    hideJob.value?.cancel()
+    hideJobHolder.job?.cancel()
     if (!anyPointerDown) {
-      hideJob.value = scope.launch {
+      hideJobHolder.job = scope.launch {
         delay(CONTROLS_VISIBILITY_TIMEOUT)
         showControls = false
       }
@@ -158,7 +158,7 @@ internal fun LongFormPlayerScreen(
     ) {
       scheduleHideControls()
     } else {
-      hideJob.value?.cancel()
+      hideJobHolder.job?.cancel()
     }
   }
 
@@ -366,3 +366,5 @@ private fun rememberTintedPainter(painter: Painter, tint: Color): Painter {
 }
 
 private val CONTROLS_VISIBILITY_TIMEOUT = 3000.milliseconds
+
+private class JobHolder(var job: Job? = null)
