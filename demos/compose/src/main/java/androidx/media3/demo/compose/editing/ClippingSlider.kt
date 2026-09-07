@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.RangeSlider
@@ -120,9 +121,11 @@ private const val MIN_LAYOUT_WEIGHT = 1e-4f
 /** The width of the playback position thumb. */
 private val POSITION_THUMB_WIDTH = 4.dp
 
+/** The ratio of the playback position thumb height to the slider track height. */
+private const val POSITION_THUMB_HEIGHT_RATIO = 1.1f
+
 // TODO: b/505719491
 //  - Implement accessibility requirements
-//  - Match the height of the progress slider's thumb to that of Google Photos' video trimmer's one.
 //  - Update progress slider's thumb after compose addresses dynamic thumb size change.
 //  - Consider wrapping clippingRangeMs in a hoisted state
 //  - Decide and test what the slider should look like for RTL locales
@@ -649,7 +652,10 @@ private fun ProgressSlider(
         },
         enabled = enabled,
         modifier =
-          Modifier.fillMaxSize()
+          Modifier.fillMaxWidth()
+            // Use unbounded height so the slider and its position thumb can exceed the track height
+            // (sliderHeight) without being clamped by the parent Box's maxHeight constraint.
+            .wrapContentHeight(unbounded = true)
             // Expand the slider by 1px on each side to avoid rounding gaps. Row measurement rounds
             // weighted dimensions to the nearest integer pixel, which can leave a sub-pixel gap
             // between the clipping thumbs and the slider where the background image is visible.
@@ -670,7 +676,11 @@ private fun ProgressSlider(
           SliderDefaults.Thumb(
             interactionSource = interactionSource,
             colors = sliderColors,
-            thumbSize = DpSize(width = POSITION_THUMB_WIDTH, height = sliderHeight),
+            thumbSize =
+              DpSize(
+                width = POSITION_THUMB_WIDTH,
+                height = sliderHeight * POSITION_THUMB_HEIGHT_RATIO,
+              ),
           )
         },
       )
