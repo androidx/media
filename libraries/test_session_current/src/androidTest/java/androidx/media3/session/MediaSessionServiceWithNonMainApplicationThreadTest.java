@@ -94,6 +94,7 @@ public class MediaSessionServiceWithNonMainApplicationThreadTest {
     Looper appLooper = appThread.getLooper();
 
     SettableFuture<Looper> playFuture = SettableFuture.create();
+    SettableFuture<Void> setVolumeWasCalled = SettableFuture.create();
     testServiceRegistry.setOnGetSessionHandler(
         controllerInfo -> {
           ExoPlayer exoPlayer =
@@ -106,6 +107,17 @@ public class MediaSessionServiceWithNonMainApplicationThreadTest {
                 @Override
                 public void play() {
                   playFuture.set(Looper.myLooper());
+                }
+
+                @Override
+                public void setVolume(float volume) {
+                  // Must be already done as setVolume() is called after play() on the controller.
+                  try {
+                    assertThat(playFuture.get(0, MILLISECONDS)).isNotNull();
+                  } catch (Exception e) {
+                    throw new RuntimeException(e);
+                  }
+                  setVolumeWasCalled.set(null);
                 }
               };
           return new MediaSession.Builder(context, player)
@@ -133,9 +145,13 @@ public class MediaSessionServiceWithNonMainApplicationThreadTest {
     RemoteMediaController controller = controllerTestRule.createRemoteController(token);
 
     controller.play();
+    // Send a command after play to assert they are processed in the correct order even if play
+    // takes a moment. See setVolume above.
+    controller.setVolume(0.5f);
 
     // Verify that playback starts on the application looper.
     assertThat(playFuture.get(TIMEOUT_MS, MILLISECONDS)).isEqualTo(appLooper);
+    assertThat(setVolumeWasCalled.get(TIMEOUT_MS, MILLISECONDS)).isEqualTo(null);
     appThread.quitSafely();
   }
 
