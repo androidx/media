@@ -126,9 +126,7 @@ private const val POSITION_THUMB_HEIGHT_RATIO = 1.1f
 
 // TODO: b/505719491
 //  - Implement accessibility requirements
-//  - Update progress slider's thumb after compose addresses dynamic thumb size change.
 //  - Consider wrapping clippingRangeMs in a hoisted state
-//  - Decide and test what the slider should look like for RTL locales
 //  - Remove @OptIn(ExperimentalMaterial3Api::class) annotations once the RangeSlider is stable
 //  - Move to material3 module and mark API unstable
 //  - Add tests
