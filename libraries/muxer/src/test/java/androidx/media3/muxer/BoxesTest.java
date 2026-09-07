@@ -242,6 +242,17 @@ public class BoxesTest {
   }
 
   @Test
+  public void createUdtaBox_withAltitude_containsAltitudeString() {
+    Mp4LocationData mp4Location = new Mp4LocationData(33.0f, -120f, 150.5f);
+
+    ByteBuffer udtaBox = Boxes.udta(mp4Location);
+
+    String boxContentsString =
+        new String(udtaBox.array(), udtaBox.arrayOffset(), udtaBox.remaining(), UTF_8);
+    assertThat(boxContentsString).contains("+33.0000-120.0000+150.5000/");
+  }
+
+  @Test
   public void createKeysBox_matchesExpected() throws Exception {
     List<MdtaMetadataEntry> metadataEntries = new ArrayList<>();
     metadataEntries.add(

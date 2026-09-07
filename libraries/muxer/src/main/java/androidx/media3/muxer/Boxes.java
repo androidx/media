@@ -626,7 +626,10 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     }
 
     String locationString =
-        Util.formatInvariant("%+.4f%+.4f/", location.latitude, location.longitude);
+        location.altitude != Mp4LocationData.ALTITUDE_UNSET
+            ? Util.formatInvariant(
+                "%+.4f%+.4f%+.4f/", location.latitude, location.longitude, location.altitude)
+            : Util.formatInvariant("%+.4f%+.4f/", location.latitude, location.longitude);
 
     ByteBuffer xyzBoxContents = ByteBuffer.allocate(locationString.length() + 2 + 2);
     xyzBoxContents.putShort((short) (xyzBoxContents.capacity() - 4));

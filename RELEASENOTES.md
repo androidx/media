@@ -89,6 +89,7 @@
 *   Effect:
 *   Effect Lottie:
 *   Muxers:
+    *   Support writing GPS altitude in `Mp4LocationData` via `Mp4Muxer`.
     *   Write `tfdt` (Track Fragment Base Media Decode Time) box by default in
         `traf` boxes of fragmented MP4 files to provide media decode timestamps.
     *   Support writing E-AC-3 and E-AC-3 JOC (Dolby Atmos) `dec3` container
