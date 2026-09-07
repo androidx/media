@@ -328,6 +328,11 @@ public class Cast {
     pendingMediaRouteSelectorListeners.remove(listener);
   }
 
+  @VisibleForTesting
+  /* package */ boolean hasPendingMediaRouteSelectorListeners() {
+    return !pendingMediaRouteSelectorListeners.isEmpty();
+  }
+
   /**
    * Returns the ongoing Cast session, or null if there's no ongoing Cast session, or there's no
    * Cast context available.
