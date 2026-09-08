@@ -19,12 +19,10 @@ import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLoop
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -715,11 +713,9 @@ public final class HlsContentSteeringTrackerTest {
       Clock clock,
       int awaitedCurrentPathwayUpdateCount,
       AtomicReference<TimeoutException> timeoutExceptionRef) {
-    HlsDataSourceFactory mockHlsDataSourceFactory = mock(HlsDataSourceFactory.class);
-    when(mockHlsDataSourceFactory.createDataSource(anyInt())).thenReturn(fakeDataSource);
     HlsContentSteeringTracker contentSteeringTracker =
         new HlsContentSteeringTracker(
-            mockHlsDataSourceFactory,
+            dataType -> fakeDataSource,
             /* downloadExecutorSupplier= */ null,
             mockPlaylistTracker,
             callback,
@@ -728,7 +724,7 @@ public final class HlsContentSteeringTrackerTest {
 
     contentSteeringTracker.start(
         Uri.parse(TEST_INITIAL_STEERING_URI_STRING),
-        initialPathwayId,
+        ImmutableList.of(initialPathwayId),
         new MediaSourceEventListener.EventDispatcher());
 
     try {

@@ -19,13 +19,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.net.Uri;
-import android.util.Pair;
 import androidx.annotation.Nullable;
-import androidx.media3.common.C;
-import androidx.media3.common.util.Clock;
-import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.util.ReleasableExecutor;
@@ -33,31 +28,21 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
 import java.util.TreeMap;
-import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
-import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /**
- * Abstract base class for {@link ContentSteeringTracker} implementations.
+ * Abstract base class for Content Steering tracker implementations.
  *
- * <p>It provides common state management for pathway priority updates, pathway evaluation, and
- * pathway exclusion logic.
+ * <p>It provides common state management for steering manifest tracking, pathway evaluation, and
+ * pathway cloning.
  */
 @UnstableApi
-public abstract class BaseContentSteeringTracker implements ContentSteeringTracker {
+public abstract class BaseContentSteeringTracker {
 
   private final SteeringManifestTracker steeringManifestTracker;
-  @Nullable private final ContentSteeringTracker.Callback callback;
-  private final Set<String> availablePathwayIds;
-  private final Set<String> excludedPathwayIds;
-  private final HandlerWrapper handler;
-
-  @Nullable private String currentPathwayId;
   @Nullable private ImmutableList<String> currentPathwayPriority;
+  private boolean isActive;
 
   /**
    * Creates a {@link BaseContentSteeringTracker}.
@@ -65,82 +50,111 @@ public abstract class BaseContentSteeringTracker implements ContentSteeringTrack
    * @param dataSourceFactory The {@link DataSource.Factory} to load steering manifests.
    * @param downloadExecutorSupplier A supplier for a {@link ReleasableExecutor} to download
    *     steering manifests.
-   * @param callback A {@link ContentSteeringTracker.Callback} to receive events.
-   * @param clock The {@link Clock}.
-   * @param availablePathwayIds The set of initially available pathway IDs.
    */
   protected BaseContentSteeringTracker(
       DataSource.Factory dataSourceFactory,
-      @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier,
-      @Nullable ContentSteeringTracker.Callback callback,
-      Clock clock,
-      Set<String> availablePathwayIds) {
+      @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier) {
     this.steeringManifestTracker =
         new SteeringManifestTracker(dataSourceFactory, downloadExecutorSupplier);
-    this.callback = callback;
-    this.availablePathwayIds = new HashSet<>(availablePathwayIds);
-    this.excludedPathwayIds = new HashSet<>();
-    this.handler = clock.createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null);
   }
 
-  @Override
+  /**
+   * Starts the Content Steering tracker.
+   *
+   * @param initialSteeringManifestUri The initial {@link Uri} of the steering manifest.
+   * @param initialPathwayIds The IDs of the initial pathways to use before the first steering
+   *     manifest is loaded.
+   * @param eventDispatcher A {@link MediaSourceEventListener.EventDispatcher} for reporting load
+   *     events.
+   */
   public final void start(
       Uri initialSteeringManifestUri,
-      String initialPathwayId,
+      ImmutableList<String> initialPathwayIds,
       MediaSourceEventListener.EventDispatcher eventDispatcher) {
-    checkState(availablePathwayIds.contains(initialPathwayId));
-    currentPathwayId = initialPathwayId;
-    notifyOnCurrentPathwayUpdated(
-        currentPathwayId,
-        /* previousPathwayId= */ null,
-        /* previousPathwayExcludeDurationMs= */ C.TIME_UNSET);
+    checkState(!isActive());
+    verifyInitialPathwayIdsAvailable(initialPathwayIds);
+    isActive = true;
+    onStart(initialPathwayIds);
     steeringManifestTracker.start(
         initialSteeringManifestUri, new SteeringManifestTrackerCallback(), eventDispatcher);
   }
 
-  @Override
-  public final boolean excludeCurrentPathway(long excludeDurationMs) {
-    if (isActive() && currentPathwayPriority != null) {
-      String previousPathwayId = currentPathwayId;
-      performPathwayEvaluationAndUpdate(
-          /* previousPathwayIdExcludeDurationMs= */ excludeDurationMs);
-      if (!Objects.equals(currentPathwayId, previousPathwayId)) {
-        excludedPathwayIds.add(previousPathwayId);
-        handler.postDelayed(() -> expireExclusion(previousPathwayId), excludeDurationMs);
-        return true;
-      }
+  private void verifyInitialPathwayIdsAvailable(ImmutableList<String> initialPathwayIds) {
+    for (String pathwayId : initialPathwayIds) {
+      checkState(
+          isPathwayAvailable(pathwayId), "The pathway with ID: " + pathwayId + " is not available");
     }
-    return false;
   }
 
-  @Override
-  @EnsuresNonNullIf(result = true, expression = "currentPathwayId")
+  /**
+   * Returns whether the Content Steering tracker is active.
+   *
+   * <p>If this method returns {@code false}, the caller of the tracker should behave as if content
+   * steering is absent.
+   */
   public final boolean isActive() {
-    return currentPathwayId != null;
+    return isActive;
   }
 
-  @Override
-  public final void stop() {
+  /**
+   * Releases the Content Steering tracker.
+   *
+   * <p>Once released, the tracker cannot be used again.
+   */
+  public final void release() {
     stopInternal();
   }
+
+  /**
+   * Called when the tracker is started.
+   *
+   * @param initialPathwayIds The IDs of the initial pathways to be used before the first steering
+   *     manifest is loaded.
+   */
+  protected abstract void onStart(ImmutableList<String> initialPathwayIds);
+
+  /**
+   * Returns whether the given pathway is currently available.
+   *
+   * @param pathwayId The ID of the pathway to check.
+   * @return Whether the given pathway is available.
+   */
+  protected abstract boolean isPathwayAvailable(String pathwayId);
 
   /** Returns the query parameters to include in the steering manifest request. */
   protected abstract ImmutableMap<String, String> getSteeringQueryParameters();
 
   /**
+   * Performs a pathway evaluation based on the passed pathway priority.
+   *
+   * @param pathwayPriority The {@linkplain SteeringManifest#pathwayPriority pathway priority} to
+   *     use for evaluation.
+   */
+  protected abstract void performPathwayEvaluation(ImmutableList<String> pathwayPriority);
+
+  /**
    * Performs a pathway clone defined in the steering manifest.
    *
    * @param pathwayClone The {@link SteeringManifest.PathwayClone} to perform.
-   * @return A {@link Pair} where the first element is the list of new cloned URIs and the second
-   *     element is the list of corresponding base URIs.
    */
-  protected abstract Pair<ImmutableList<Uri>, ImmutableList<Uri>> performPathwayClone(
-      SteeringManifest.PathwayClone pathwayClone);
+  protected abstract void performPathwayClone(SteeringManifest.PathwayClone pathwayClone);
 
-  /** Returns the current pathway ID, or {@code null} if the tracker is not active. */
+  /**
+   * Called when tracking is stopped.
+   *
+   * <p>This can be either externally called by {@link #release()} or internally due to an
+   * unrecoverable error.
+   */
+  protected abstract void onStop();
+
+  /**
+   * Returns the current pathway priority.
+   *
+   * @return The current pathway priority, or {@code null} if the tracker is not active.
+   */
   @Nullable
-  protected final String getCurrentPathwayId() {
-    return currentPathwayId;
+  protected final ImmutableList<String> getCurrentPathwayPriority() {
+    return currentPathwayPriority;
   }
 
   /**
@@ -172,64 +186,19 @@ public abstract class BaseContentSteeringTracker implements ContentSteeringTrack
     return newUrlBuilder.build();
   }
 
-  private void expireExclusion(String pathwayId) {
-    checkState(isActive());
-    excludedPathwayIds.remove(pathwayId);
-    if (currentPathwayPriority != null) {
-      performPathwayEvaluationAndUpdate(/* previousPathwayIdExcludeDurationMs= */ C.TIME_UNSET);
-    }
-  }
-
   private void stopInternal() {
     steeringManifestTracker.stop();
-    handler.removeCallbacksAndMessages(null);
-    currentPathwayId = null;
+    isActive = false;
     currentPathwayPriority = null;
-    excludedPathwayIds.clear();
+    onStop();
   }
 
   private void performPathwayClones(ImmutableList<SteeringManifest.PathwayClone> pathwayClones) {
     for (SteeringManifest.PathwayClone pathwayClone : pathwayClones) {
-      if (!availablePathwayIds.contains(pathwayClone.baseId)
-          || availablePathwayIds.contains(pathwayClone.id)) {
+      if (!isPathwayAvailable(pathwayClone.baseId) || isPathwayAvailable(pathwayClone.id)) {
         continue;
       }
-      availablePathwayIds.add(pathwayClone.id);
-      Pair<ImmutableList<Uri>, ImmutableList<Uri>> newAndBaseUris =
-          performPathwayClone(pathwayClone);
-      if (callback != null) {
-        callback.onNewPathwayAvailable(
-            pathwayClone.id, pathwayClone.baseId, newAndBaseUris.first, newAndBaseUris.second);
-      }
-    }
-  }
-
-  @RequiresNonNull("currentPathwayPriority")
-  private void performPathwayEvaluationAndUpdate(long previousPathwayIdExcludeDurationMs) {
-    String previousPathwayId = currentPathwayId;
-    for (String pathwayId : currentPathwayPriority) {
-      if (previousPathwayIdExcludeDurationMs != C.TIME_UNSET
-          && pathwayId.equals(previousPathwayId)) {
-        continue;
-      }
-      if (availablePathwayIds.contains(pathwayId) && !excludedPathwayIds.contains(pathwayId)) {
-        currentPathwayId = pathwayId;
-        break;
-      }
-    }
-    if (!Objects.equals(currentPathwayId, previousPathwayId)) {
-      notifyOnCurrentPathwayUpdated(
-          checkNotNull(currentPathwayId), previousPathwayId, previousPathwayIdExcludeDurationMs);
-    }
-  }
-
-  private void notifyOnCurrentPathwayUpdated(
-      String currentPathwayId,
-      @Nullable String previousPathwayId,
-      long previousPathwayExcludeDurationMs) {
-    if (callback != null) {
-      callback.onCurrentPathwayUpdated(
-          currentPathwayId, previousPathwayId, previousPathwayExcludeDurationMs);
+      performPathwayClone(pathwayClone);
     }
   }
 
@@ -246,7 +215,7 @@ public abstract class BaseContentSteeringTracker implements ContentSteeringTrack
       checkState(isActive());
       performPathwayClones(steeringManifest.pathwayClones);
       currentPathwayPriority = steeringManifest.pathwayPriority;
-      performPathwayEvaluationAndUpdate(/* previousPathwayIdExcludeDurationMs= */ C.TIME_UNSET);
+      performPathwayEvaluation(currentPathwayPriority);
     }
 
     @Override

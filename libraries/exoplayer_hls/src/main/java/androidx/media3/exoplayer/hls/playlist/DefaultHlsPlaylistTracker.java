@@ -49,7 +49,6 @@ import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo;
 import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
-import androidx.media3.exoplayer.upstream.contentsteering.ContentSteeringTracker;
 import androidx.media3.exoplayer.util.ReleasableExecutor;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
@@ -210,7 +209,7 @@ public final class DefaultHlsPlaylistTracker
     primaryMediaPlaylistSnapshot = null;
     multivariantPlaylist = null;
     if (contentSteeringTracker != null) {
-      contentSteeringTracker.stop();
+      contentSteeringTracker.release();
     }
     variantRedundantGroups = null;
     videoRedundantGroups = null;
@@ -439,12 +438,12 @@ public final class DefaultHlsPlaylistTracker
               new ContentSteeringCallback(),
               checkNotNull(bandwidthMeter),
               SystemClock.DEFAULT);
-      String initialPathwayId =
-          contentSteeringInfo.pathwayId != null
-              ? contentSteeringInfo.pathwayId
-              : variantRedundantGroups.get(0).getCurrentPathwayId();
+      @Nullable String initialPathwayId = contentSteeringInfo.pathwayId;
+
+      ImmutableList<String> initialPathwayIds =
+          initialPathwayId != null ? ImmutableList.of(initialPathwayId) : ImmutableList.of();
       contentSteeringTracker.start(
-          contentSteeringInfo.serverUri, initialPathwayId, eventDispatcher);
+          contentSteeringInfo.serverUri, initialPathwayIds, eventDispatcher);
     }
     HlsRedundantGroup primaryRedundantGroup = variantRedundantGroups.get(0);
     primaryMediaPlaylistUrl = primaryRedundantGroup.getCurrentPlaylistUrl();
@@ -1364,7 +1363,7 @@ public final class DefaultHlsPlaylistTracker
     }
   }
 
-  private class ContentSteeringCallback implements ContentSteeringTracker.Callback {
+  private class ContentSteeringCallback implements HlsContentSteeringTracker.Callback {
 
     @Override
     public void onCurrentPathwayUpdated(
