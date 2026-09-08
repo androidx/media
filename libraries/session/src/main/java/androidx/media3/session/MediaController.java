@@ -171,6 +171,31 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * MediaSessionCompat.Callback.onRemoveQueueItem} callbacks. Check {@link #getAvailableCommands()}
  * to see if playlist modifications are {@linkplain
  * androidx.media3.common.Player#COMMAND_CHANGE_MEDIA_ITEMS supported} by the legacy session.
+ *
+ * <p>When connected to a platform or legacy media session, some {@link Player} methods and features
+ * are not supported by the underlying legacy API:
+ *
+ * <ul>
+ *   <li>Tracks and track selection: {@link #getCurrentTracks()} returns {@link
+ *       androidx.media3.common.Tracks#EMPTY}, {@link #getTrackSelectionParameters()} returns {@link
+ *       androidx.media3.common.TrackSelectionParameters#DEFAULT}, and {@link
+ *       #setTrackSelectionParameters(TrackSelectionParameters)} is ignored.
+ *   <li>Video surfaces: Setting a video surface via {@link #setVideoSurface(Surface)}, {@link
+ *       #setVideoSurfaceHolder(SurfaceHolder)}, {@link #setVideoSurfaceView(SurfaceView)}, or
+ *       {@link #setVideoTextureView(TextureView)} logs a warning and is ignored.
+ *   <li>Player volume: {@link #getVolume()} returns {@code 1.0f}, and {@link #setVolume(float)}
+ *       logs a warning and is ignored. Note that device volume control via {@link
+ *       #setDeviceVolume(int)} is supported if the session provides remote volume handling.
+ *   <li>Text cues: {@link #getCurrentCues()} returns {@link
+ *       androidx.media3.common.text.CueGroup#EMPTY_TIME_ZERO}.
+ *   <li>Playback suppression: {@link #getPlaybackSuppressionReason()} returns {@link
+ *       Player#PLAYBACK_SUPPRESSION_REASON_NONE}.
+ *   <li>Ad information: {@link #getCurrentAdGroupIndex()} and {@link #getCurrentAdIndexInAdGroup()}
+ *       return {@link androidx.media3.common.C#INDEX_UNSET}.
+ *   <li>Playlist metadata: {@link #setPlaylistMetadata(MediaMetadata)} is ignored.
+ *   <li>Ratings: {@link #setRating(String, Rating)} is only supported for the currently playing
+ *       media item; calling it for any other item is ignored.
+ * </ul>
  */
 @DoNotMock
 public class MediaController implements Player {
@@ -953,6 +978,13 @@ public class MediaController implements Player {
     return isConnected() && impl.getPlayWhenReady();
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, playback suppression reasons are not
+   * supported and this method always returns {@link Player#PLAYBACK_SUPPRESSION_REASON_NONE}.
+   */
   @Override
   public final @PlaybackSuppressionReason int getPlaybackSuppressionReason() {
     verifyApplicationThread();
@@ -1062,12 +1094,26 @@ public class MediaController implements Player {
     return isConnected() && impl.isPlayingAd();
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, ad playback is not supported and this
+   * method always returns {@link androidx.media3.common.C#INDEX_UNSET}.
+   */
   @Override
   public final int getCurrentAdGroupIndex() {
     verifyApplicationThread();
     return isConnected() ? impl.getCurrentAdGroupIndex() : C.INDEX_UNSET;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, ad playback is not supported and this
+   * method always returns {@link androidx.media3.common.C#INDEX_UNSET}.
+   */
   @Override
   public final int getCurrentAdIndexInAdGroup() {
     verifyApplicationThread();
@@ -1128,6 +1174,11 @@ public class MediaController implements Player {
    *
    * <p>If the user rating was {@code null}, the media item does not accept setting user rating.
    *
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, setting a rating is only supported for
+   * the currently playing media item. If {@code mediaId} does not match the current media item's
+   * media ID, the call is ignored.
+   *
    * @param mediaId The non-empty {@link MediaItem#mediaId}.
    * @param rating The rating to set.
    * @return A {@link ListenableFuture} of {@link SessionResult} representing the pending
@@ -1171,10 +1222,11 @@ public class MediaController implements Player {
    * <p>A command is not accepted if it is not a custom command or the command is not in the list of
    * {@linkplain #getAvailableSessionCommands() available session commands}.
    *
-   * <p>Interoperability: When connected to {@code
+   * <p>Interoperability: When sending a custom command to {@code
    * android.support.v4.media.session.MediaSessionCompat}, {@link SessionResult#resultCode} will
-   * return the custom result code from the {@code android.os.ResultReceiver#onReceiveResult(int,
-   * Bundle)} instead of the standard result codes defined in the {@link SessionResult}.
+   * always be {@link SessionResult#RESULT_SUCCESS} because the session has no way to send a result
+   * back from {@code
+   * android.support.v4.media.session.MediaSessionCompat.Callback#onCustomAction(String, Bundle)}.
    *
    * @param command The custom command.
    * @param args The additional arguments. May be empty.
@@ -1201,10 +1253,12 @@ public class MediaController implements Player {
    * Whether or not the session sends progress updates depends on the implementation of the session
    * callback that responds to the given {@link SessionCommand}.
    *
-   * <p>Interoperability: When connected to {@code
+   * <p>Interoperability: When sending a custom command to {@code
    * android.support.v4.media.session.MediaSessionCompat}, {@link SessionResult#resultCode} will
-   * return the custom result code from the {@code android.os.ResultReceiver#onReceiveResult(int,
-   * Bundle)} instead of the standard result codes defined in the {@link SessionResult}.
+   * always be {@link SessionResult#RESULT_SUCCESS} because the session has no way to send a result
+   * back from {@code
+   * android.support.v4.media.session.MediaSessionCompat.Callback#onCustomAction(String, Bundle)},
+   * and {@code progressListener} is ignored.
    *
    * @param command The custom command.
    * @param args The additional arguments. May be empty.
@@ -1239,8 +1293,8 @@ public class MediaController implements Player {
    * <p>Interoperability: When sending a custom command to {@code
    * android.support.v4.media.session.MediaSessionCompat}, {@link SessionResult#resultCode} will
    * always be {@link SessionResult#RESULT_SUCCESS} because the session has no way to send a result
-   * back from {@link
-   * androidx.media3.session.legacy.MediaSessionCompat.Callback#onCustomAction(String, Bundle)}.
+   * back from {@code
+   * android.support.v4.media.session.MediaSessionCompat.Callback#onCustomAction(String, Bundle)}.
    *
    * @param command The custom command.
    * @param mediaItem The media item for which the command is sent.
@@ -1271,8 +1325,9 @@ public class MediaController implements Player {
    * <p>Interoperability: When sending a custom command to {@code
    * android.support.v4.media.session.MediaSessionCompat}, {@link SessionResult#resultCode} will
    * always be {@link SessionResult#RESULT_SUCCESS} because the session has no way to send a result
-   * back from {@link
-   * androidx.media3.session.legacy.MediaSessionCompat.Callback#onCustomAction(String, Bundle)}.
+   * back from {@code
+   * android.support.v4.media.session.MediaSessionCompat.Callback#onCustomAction(String, Bundle)},
+   * and {@code progressListener} is ignored.
    *
    * @param command The custom command.
    * @param mediaItem The media item for which the command is sent.
@@ -1433,6 +1488,13 @@ public class MediaController implements Player {
     impl.setMediaItems(mediaItems, startIndex, startPositionMs);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, setting playlist metadata is not
+   * supported and calls to this method are ignored.
+   */
   @Override
   public final void setPlaylistMetadata(MediaMetadata playlistMetadata) {
     verifyApplicationThread();
@@ -1843,6 +1905,13 @@ public class MediaController implements Player {
     return isConnected() ? impl.getSurfaceSize() : Size.UNKNOWN;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, video surfaces are not supported and
+   * calls to this method are ignored.
+   */
   @Override
   public final void clearVideoSurface() {
     verifyApplicationThread();
@@ -1853,6 +1922,13 @@ public class MediaController implements Player {
     impl.clearVideoSurface();
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, video surfaces are not supported and
+   * calls to this method are ignored.
+   */
   @Override
   public final void clearVideoSurface(@Nullable Surface surface) {
     verifyApplicationThread();
@@ -1863,6 +1939,13 @@ public class MediaController implements Player {
     impl.clearVideoSurface(surface);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, setting a video surface is not supported
+   * and calls to this method are ignored.
+   */
   @Override
   public final void setVideoSurface(@Nullable Surface surface) {
     verifyApplicationThread();
@@ -1873,6 +1956,13 @@ public class MediaController implements Player {
     impl.setVideoSurface(surface);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, setting a video surface is not supported
+   * and calls to this method are ignored.
+   */
   @Override
   public final void setVideoSurfaceHolder(@Nullable SurfaceHolder surfaceHolder) {
     verifyApplicationThread();
@@ -1883,6 +1973,13 @@ public class MediaController implements Player {
     impl.setVideoSurfaceHolder(surfaceHolder);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, video surfaces are not supported and
+   * calls to this method are ignored.
+   */
   @Override
   public final void clearVideoSurfaceHolder(@Nullable SurfaceHolder surfaceHolder) {
     verifyApplicationThread();
@@ -1893,6 +1990,13 @@ public class MediaController implements Player {
     impl.clearVideoSurfaceHolder(surfaceHolder);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, setting a video surface is not supported
+   * and calls to this method are ignored.
+   */
   @Override
   public final void setVideoSurfaceView(@Nullable SurfaceView surfaceView) {
     verifyApplicationThread();
@@ -1903,6 +2007,13 @@ public class MediaController implements Player {
     impl.setVideoSurfaceView(surfaceView);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, video surfaces are not supported and
+   * calls to this method are ignored.
+   */
   @Override
   public final void clearVideoSurfaceView(@Nullable SurfaceView surfaceView) {
     verifyApplicationThread();
@@ -1913,6 +2024,13 @@ public class MediaController implements Player {
     impl.clearVideoSurfaceView(surfaceView);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, setting a video surface is not supported
+   * and calls to this method are ignored.
+   */
   @Override
   public final void setVideoTextureView(@Nullable TextureView textureView) {
     verifyApplicationThread();
@@ -1923,6 +2041,13 @@ public class MediaController implements Player {
     impl.setVideoTextureView(textureView);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, video surfaces are not supported and
+   * calls to this method are ignored.
+   */
   @Override
   public final void clearVideoTextureView(@Nullable TextureView textureView) {
     verifyApplicationThread();
@@ -1933,12 +2058,26 @@ public class MediaController implements Player {
     impl.clearVideoTextureView(textureView);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, text cues are not supported and this
+   * method returns {@link CueGroup#EMPTY_TIME_ZERO}.
+   */
   @Override
   public final CueGroup getCurrentCues() {
     verifyApplicationThread();
     return isConnected() ? impl.getCurrentCues() : CueGroup.EMPTY_TIME_ZERO;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, player volume is not supported and this
+   * method returns {@code 1.0f}. Remote device volume is accessible via {@link #getDeviceVolume()}.
+   */
   @Override
   @FloatRange(from = 0, to = 1)
   public final float getVolume() {
@@ -1946,6 +2085,14 @@ public class MediaController implements Player {
     return isConnected() ? impl.getVolume() : 1;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, setting player volume is not supported
+   * and calls to this method are ignored. Remote device volume can be controlled via {@link
+   * #setDeviceVolume(int)}.
+   */
   @Override
   public final void setVolume(@FloatRange(from = 0, to = 1) float volume) {
     verifyApplicationThread();
@@ -1957,6 +2104,14 @@ public class MediaController implements Player {
     impl.setVolume(volume);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, muting the player is not supported and
+   * calls to this method are ignored. Remote device volume can be muted via {@link
+   * #setDeviceMuted(boolean)}.
+   */
   @Override
   public final void mute() {
     verifyApplicationThread();
@@ -1967,6 +2122,14 @@ public class MediaController implements Player {
     impl.mute();
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, unmuting the player is not supported and
+   * calls to this method are ignored. Remote device volume can be unmuted via {@link
+   * #setDeviceMuted(boolean)}.
+   */
   @Override
   public final void unmute() {
     verifyApplicationThread();
@@ -2117,12 +2280,26 @@ public class MediaController implements Player {
     return isConnected() ? impl.getMediaMetadata() : MediaMetadata.EMPTY;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, tracks are not supported and this method
+   * returns {@link Tracks#EMPTY}.
+   */
   @Override
   public final Tracks getCurrentTracks() {
     verifyApplicationThread();
     return isConnected() ? impl.getCurrentTracks() : Tracks.EMPTY;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, track selection parameters are not
+   * supported and this method returns {@link TrackSelectionParameters#DEFAULT}.
+   */
   @Override
   public final TrackSelectionParameters getTrackSelectionParameters() {
     verifyApplicationThread();
@@ -2132,6 +2309,13 @@ public class MediaController implements Player {
     return impl.getTrackSelectionParameters();
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, track selection parameters are not
+   * supported and calls to this method are ignored.
+   */
   @Override
   public final void setTrackSelectionParameters(TrackSelectionParameters parameters) {
     verifyApplicationThread();

@@ -228,6 +228,37 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * android.media.session.MediaController} and legacy {@code
  * android.support.v4.media.session.MediaControllerCompat} instances.
  *
+ * <p>While Media3 allows setting controller-specific configurations (such as available commands,
+ * custom layout, media button preferences, session activity, session extras, and playback
+ * exceptions) for each connected {@link MediaController}, all platform and legacy controllers
+ * interact with this single, shared platform session.
+ *
+ * <p>Because all platform and legacy controllers share this one platform session,
+ * controller-specific settings cannot be pushed to individual platform or legacy controllers (calls
+ * to controller-specific setters with a {@linkplain ControllerInfo#LEGACY_CONTROLLER_VERSION legacy
+ * controller} are ignored). Instead, to dynamically configure the shared platform session, apps
+ * can:
+ *
+ * <ul>
+ *   <li>Use {@linkplain #getMediaNotificationControllerInfo() the media notification controller} as
+ *       the target controller in controller-specific methods (such as {@link
+ *       #setAvailableCommands(ControllerInfo, SessionCommands, Player.Commands)}, {@link
+ *       #setMediaButtonPreferences(ControllerInfo, List)}, {@link #setCustomLayout(ControllerInfo,
+ *       List)}, {@link #setSessionActivity(ControllerInfo, PendingIntent)}, {@link
+ *       #setSessionExtras(ControllerInfo, Bundle)}, or {@link #setPlaybackException(ControllerInfo,
+ *       PlaybackException)}). When a media notification controller is connected, settings applied
+ *       to it are routed directly to the shared platform session and reflected across all platform
+ *       controllers.
+ *   <li>Use session-wide methods such as {@link #setMediaButtonPreferences(List)}, {@link
+ *       #setCustomLayout(List)}, {@link #setSessionExtras(Bundle)}, {@link
+ *       #setSessionActivity(PendingIntent)}, {@link #setPlaybackException(PlaybackException)},
+ *       {@link #sendError(SessionError)}, and {@link #broadcastCustomCommand(SessionCommand,
+ *       Bundle)}.
+ *   <li>Configure initial commands, media button preferences, or custom layout for the platform
+ *       session when the media notification controller connects in {@link Callback#onConnect} or
+ *       {@link Callback#onConnectAsync} via {@link ConnectionResult.AcceptedResultBuilder}.
+ * </ul>
+ *
  * <h2 id="CompatibilityController">Backward compatibility with platform and legacy controller APIs
  * </h2>
  *
@@ -955,8 +986,9 @@ public class MediaSession {
    *
    * <p>Interoperability: This call has no effect when called for a {@linkplain
    * ControllerInfo#LEGACY_CONTROLLER_VERSION platform or legacy controller}. To set the session
-   * activity of the platform session use {@linkplain #getMediaNotificationControllerInfo() the
-   * media notification controller} as the target controller.
+   * activity of the platform session, use {@linkplain #getMediaNotificationControllerInfo() the
+   * media notification controller} as the target controller or use {@link
+   * #setSessionActivity(PendingIntent)}.
    *
    * @param controller The controller to send the session activity to.
    * @param activityPendingIntent The pending intent to start the session activity.
@@ -1037,6 +1069,13 @@ public class MediaSession {
   /**
    * Returns the list of connected controllers.
    *
+   * <p>Interoperability: The returned list includes connected platform or legacy controllers (where
+   * {@link ControllerInfo#getControllerVersion()} equals {@link
+   * ControllerInfo#LEGACY_CONTROLLER_VERSION}). Note that when the media notification controller is
+   * connected, requests from System UI are attributed to {@linkplain
+   * #getMediaNotificationControllerInfo() the media notification controller} and System UI is not
+   * included in this list.
+   *
    * <p>This method must be called from the thread associated with the {@linkplain
    * Player#getApplicationLooper() application looper}.
    */
@@ -1054,6 +1093,10 @@ public class MediaSession {
    * <p>Note: If you want to prevent a controller from calling a method, specify the {@link
    * ConnectionResult#availablePlayerCommands available commands} in {@link Callback#onConnectAsync}
    * or set them via {@link #setAvailableCommands}.
+   *
+   * <p>Interoperability: For requests originating from System UI, this method returns the {@link
+   * ControllerInfo} of {@linkplain #getMediaNotificationControllerInfo() the media notification
+   * controller} when the notification controller is connected.
    *
    * <p>This method must be called on the {@linkplain Player#getApplicationLooper() application
    * thread} of the underlying player.
@@ -1107,6 +1150,13 @@ public class MediaSession {
    * available commands of the underlying player to determine the playback actions of the platform
    * session (see {@code PlaybackStateCompat.getActions()}).
    *
+   * <p>In addition to available commands and media button preferences, this controller info serves
+   * as the designated target to dynamically configure the single shared platform session for {@link
+   * #setSessionActivity(ControllerInfo, PendingIntent)}, {@link #setSessionExtras(ControllerInfo,
+   * Bundle)}, {@link #setPlaybackException(ControllerInfo, PlaybackException)}, and {@link
+   * #setCustomLayout(ControllerInfo, List)}. Configurations applied to this controller info update
+   * the shared platform session and reflect across all connected platform controllers.
+   *
    * <p>This method must be called from the thread associated with the {@linkplain
    * Player#getApplicationLooper() application looper}.
    */
@@ -1121,6 +1171,13 @@ public class MediaSession {
    *
    * <p>Note: This is not a security validation.
    *
+   * <p>Interoperability: If an Automotive OS controller connects as a platform or legacy controller
+   * (see {@link ControllerInfo#LEGACY_CONTROLLER_VERSION}), it interacts via the shared platform
+   * session. In this case, controller-specific settings (such as custom layout or media button
+   * preferences) cannot be set directly for the controller; configure the shared platform session
+   * instead (e.g. via {@link #setMediaButtonPreferences(List)} or {@linkplain
+   * #getMediaNotificationControllerInfo() the media notification controller}).
+   *
    * @param controllerInfo The controller info of the connected controller.
    * @return True if the controller into belongs to a connected Automotive OS controller.
    */
@@ -1134,6 +1191,13 @@ public class MediaSession {
    * controller.
    *
    * <p>Note: This is not a security validation.
+   *
+   * <p>Interoperability: If an Android Auto companion app controller connects as a platform or
+   * legacy controller (see {@link ControllerInfo#LEGACY_CONTROLLER_VERSION}), it interacts via the
+   * shared platform session. In this case, controller-specific settings (such as custom layout or
+   * media button preferences) cannot be set directly for the controller; configure the shared
+   * platform session instead (e.g. via {@link #setMediaButtonPreferences(List)} or {@linkplain
+   * #getMediaNotificationControllerInfo() the media notification controller}).
    *
    * @param controllerInfo The controller info of the connected controller.
    * @return True if the controller into belongs to a connected Auto companion client app.
@@ -1168,7 +1232,9 @@ public class MediaSession {
    * {@code false} if the available commands of the controller do not allow to use a button.
    *
    * <p>Interoperability: This call has no effect when called for a {@linkplain
-   * ControllerInfo#LEGACY_CONTROLLER_VERSION platform or legacy controller}.
+   * ControllerInfo#LEGACY_CONTROLLER_VERSION platform or legacy controller}. To set the custom
+   * layout of the platform session, use {@linkplain #getMediaNotificationControllerInfo() the media
+   * notification controller} as the target controller or use {@link #setCustomLayout(List)}.
    *
    * @param controller The controller for which to set the custom layout.
    * @param layout The ordered list of {@linkplain CommandButton command buttons}.
@@ -1233,7 +1299,10 @@ public class MediaSession {
    * {@code false} if the available commands of the controller do not allow to use a button.
    *
    * <p>Interoperability: This call has no effect when called for a {@linkplain
-   * ControllerInfo#LEGACY_CONTROLLER_VERSION platform or legacy controller}.
+   * ControllerInfo#LEGACY_CONTROLLER_VERSION platform or legacy controller}. To set the media
+   * button preferences of the platform session, use {@linkplain
+   * #getMediaNotificationControllerInfo() the media notification controller} as the target
+   * controller or use {@link #setMediaButtonPreferences(List)}.
    *
    * @param controller The controller for which to set the media button preferences.
    * @param mediaButtonPreferences The ordered list of {@linkplain CommandButton command buttons}.
@@ -1290,6 +1359,12 @@ public class MediaSession {
    * PlaybackException#areErrorInfosEqual(PlaybackException, PlaybackException) equal error info} to
    * the previously set exception for the given controller, results in a no-op.
    *
+   * <p>Interoperability: This call has no effect when called for a {@linkplain
+   * ControllerInfo#LEGACY_CONTROLLER_VERSION platform or legacy controller}. To set the playback
+   * exception of the platform session, use {@linkplain #getMediaNotificationControllerInfo() the
+   * media notification controller} as the target controller or use {@link
+   * #setPlaybackException(PlaybackException)}.
+   *
    * @param controllerInfo The controller for which to set the playback exception.
    * @param playbackException The {@link PlaybackException} or null.
    */
@@ -1325,6 +1400,13 @@ public class MediaSession {
    * <p>Note that {@code playerCommands} will be intersected with the {@link
    * Player#getAvailableCommands() available commands} of the underlying {@link Player} and the
    * controller will only be able to call the commonly available commands.
+   *
+   * <p>Interoperability: Calling this method for a {@linkplain
+   * ControllerInfo#LEGACY_CONTROLLER_VERSION platform or legacy controller} updates internal
+   * command permissions for that controller, but does not alter the visible playback actions or
+   * custom actions of the shared platform session. To update the available commands and actions of
+   * the shared platform session, use {@linkplain #getMediaNotificationControllerInfo() the media
+   * notification controller} as the target controller.
    *
    * @param controller The controller to change allowed commands.
    * @param sessionCommands The new available session commands.
@@ -1432,7 +1514,9 @@ public class MediaSession {
    * <p>This call immediately returns and doesn't wait for a result from the controller.
    *
    * <p>Interoperability: This call has no effect when called for a {@linkplain
-   * ControllerInfo#LEGACY_CONTROLLER_VERSION platform or legacy controller}.
+   * ControllerInfo#LEGACY_CONTROLLER_VERSION platform or legacy controller}. To set the session
+   * extras of the platform session, use {@linkplain #getMediaNotificationControllerInfo() the media
+   * notification controller} as the target controller or use {@link #setSessionExtras(Bundle)}.
    *
    * @param controller The controller to send the extras to.
    * @param sessionExtras The session extras.
@@ -1498,8 +1582,6 @@ public class MediaSession {
    *
    * @param controllerInfo The controller to send the error to.
    * @param sessionError The session error.
-   * @throws IllegalArgumentException thrown if an error is attempted to be sent to a legacy
-   *     controller.
    */
   @UnstableApi
   public final void sendError(ControllerInfo controllerInfo, SessionError sessionError) {
@@ -1669,6 +1751,14 @@ public class MediaSession {
      * legacy controllers will connect to the session, you should ensure that the callback returns
      * quickly to avoid blocking the main thread for a long period of time.
      *
+     * <p>Custom layouts, media button preferences, session extras, and session activities returned
+     * in the {@link ConnectionResult} for a platform or legacy controller are ignored by the
+     * platform session. To configure initial commands, media button preferences, or custom actions
+     * for the shared platform session, configure the {@link ConnectionResult} returned when
+     * {@linkplain #getMediaNotificationControllerInfo() the media notification controller}
+     * connects. When the notification controller is connected, System UI does not invoke this
+     * callback and automatically adopts the platform session configuration.
+     *
      * @param session The session for this event.
      * @param controller The {@linkplain ControllerInfo controller} information.
      * @return A {@link ListenableFuture} of the {@link ConnectionResult}.
@@ -1720,6 +1810,14 @@ public class MediaSession {
      * quickly to avoid blocking the main thread for a long period of time. In particular, the
      * returned future must not be completed on or by posting to the application thread (or main
      * thread), as this will cause a deadlock while the thread is blocked.
+     *
+     * <p>Custom layouts, media button preferences, session extras, and session activities returned
+     * in the {@link ConnectionResult} for a platform or legacy controller are ignored by the
+     * platform session. To configure initial commands, media button preferences, or custom actions
+     * for the shared platform session, configure the {@link ConnectionResult} returned when
+     * {@linkplain #getMediaNotificationControllerInfo() the media notification controller}
+     * connects. When the notification controller is connected, System UI does not invoke this
+     * callback and automatically adopts the platform session configuration.
      *
      * @param session The session for this event.
      * @param controller The {@linkplain ControllerInfo controller} information.
@@ -1829,11 +1927,15 @@ public class MediaSession {
      * available session commands} in {@link #onConnectAsync} or set via {@link
      * #setAvailableCommands}.
      *
-     * <p>Interoperability: This will be also called by {@code
-     * android.support.v4.media.MediaBrowserCompat.sendCustomAction()}. If so, {@code extras} from
-     * {@code android.support.v4.media.MediaBrowserCompat.sendCustomAction()} will be considered as
-     * {@code args} and the custom command will have {@code null} {@link
-     * SessionCommand#customExtras}.
+     * <p>Interoperability: This will also be called when custom action buttons in the media
+     * notification or on Android Auto / Automotive OS are clicked, or when legacy controller APIs
+     * are used (such as {@code MediaControllerCompat.TransportControls#sendCustomAction(String,
+     * Bundle)}, {@code MediaControllerCompat#sendCommand(String, Bundle, ResultReceiver)}, or
+     * {@code android.support.v4.media.MediaBrowserCompat#sendCustomAction(String, Bundle,
+     * CustomActionCallback)}). If the controller connects as a platform or legacy controller (note
+     * that the media notification, Android Auto, and Automotive OS may connect as either platform
+     * or Media3 controllers), the incoming extras will be considered as {@code args} and the custom
+     * command will have empty {@link SessionCommand#customExtras}.
      *
      * <p>Return a {@link ListenableFuture} to send a {@link SessionResult} back to the controller
      * asynchronously. You can also return a {@link SessionResult} directly by using Guava's {@link
@@ -1872,11 +1974,15 @@ public class MediaSession {
      * available session commands} in {@link #onConnectAsync} or set via {@link
      * #setAvailableCommands}.
      *
-     * <p>Interoperability: This will be also called by {@code
-     * android.support.v4.media.MediaBrowserCompat.sendCustomAction()}. If so, {@code extras} from
-     * {@code android.support.v4.media.MediaBrowserCompat.sendCustomAction()} will be considered as
-     * {@code args} and the custom command will have {@code null} {@link
-     * SessionCommand#customExtras}.
+     * <p>Interoperability: This will also be called when custom action buttons in the media
+     * notification or on Android Auto / Automotive OS are clicked, or when legacy controller APIs
+     * are used (such as {@code MediaControllerCompat.TransportControls#sendCustomAction(String,
+     * Bundle)}, {@code MediaControllerCompat#sendCommand(String, Bundle, ResultReceiver)}, or
+     * {@code android.support.v4.media.MediaBrowserCompat#sendCustomAction(String, Bundle,
+     * CustomActionCallback)}). If the controller connects as a platform or legacy controller (note
+     * that the media notification, Android Auto, and Automotive OS may connect as either platform
+     * or Media3 controllers), the incoming extras will be considered as {@code args} and the custom
+     * command will have empty {@link SessionCommand#customExtras}.
      *
      * <p>Return a {@link ListenableFuture} to send a {@link SessionResult} back to the controller
      * asynchronously. You can also return a {@link SessionResult} directly by using Guava's {@link
@@ -2305,6 +2411,14 @@ public class MediaSession {
        * <p>The default is {@link ConnectionResult#DEFAULT_SESSION_AND_LIBRARY_COMMANDS} for a
        * {@link MediaLibrarySession} and {@link ConnectionResult#DEFAULT_SESSION_COMMANDS} for a
        * {@link MediaSession}.
+       *
+       * <p>Interoperability: When accepting a connection from a {@linkplain
+       * ControllerInfo#LEGACY_CONTROLLER_VERSION platform or legacy controller}, this sets the
+       * internal command permissions for that controller, but does not alter the visible custom
+       * actions of the shared platform session. Setting available session commands when accepting
+       * {@linkplain MediaSession#getMediaNotificationControllerInfo() the media notification
+       * controller} sets the session commands of the shared platform session, which determines
+       * which custom actions are enabled on the platform session.
        */
       @CanIgnoreReturnValue
       public AcceptedResultBuilder setAvailableSessionCommands(
@@ -2323,6 +2437,16 @@ public class MediaSession {
        * available to a controller.
        *
        * <p>The default is {@link ConnectionResult#DEFAULT_PLAYER_COMMANDS}.
+       *
+       * <p>Interoperability: When accepting a connection from a {@linkplain
+       * ControllerInfo#LEGACY_CONTROLLER_VERSION platform or legacy controller}, this sets the
+       * internal player command permissions for that controller, but does not alter the visible
+       * playback actions of the shared platform session. Setting available player commands when
+       * accepting {@linkplain MediaSession#getMediaNotificationControllerInfo() the media
+       * notification controller} sets the available player commands of the shared platform session,
+       * which determines the visible playback actions ({@link
+       * android.support.v4.media.session.PlaybackStateCompat#getActions()}) of the platform
+       * session.
        */
       @CanIgnoreReturnValue
       public AcceptedResultBuilder setAvailablePlayerCommands(
@@ -2346,6 +2470,12 @@ public class MediaSession {
        * commands}. On the controller side, the {@linkplain CommandButton#isEnabled enabled} flag is
        * set to {@code false} if the available commands of the controller do not allow to use a
        * button.
+       *
+       * <p>Interoperability: This setting has no effect when accepting a connection from a
+       * {@linkplain ControllerInfo#LEGACY_CONTROLLER_VERSION platform or legacy controller}.
+       * Setting a custom layout when accepting {@linkplain
+       * MediaSession#getMediaNotificationControllerInfo() the media notification controller} sets
+       * the custom layout of the shared platform session.
        */
       @CanIgnoreReturnValue
       public AcceptedResultBuilder setCustomLayout(@Nullable List<CommandButton> customLayout) {
@@ -2365,6 +2495,12 @@ public class MediaSession {
        * available session commands}. On the controller side, the {@linkplain
        * CommandButton#isEnabled enabled} flag is set to {@code false} if the available commands of
        * the controller do not allow to use a button.
+       *
+       * <p>Interoperability: This setting has no effect when accepting a connection from a
+       * {@linkplain ControllerInfo#LEGACY_CONTROLLER_VERSION platform or legacy controller}.
+       * Setting media button preferences when accepting {@linkplain
+       * MediaSession#getMediaNotificationControllerInfo() the media notification controller} sets
+       * the media button preferences and custom actions of the shared platform session.
        */
       @CanIgnoreReturnValue
       public AcceptedResultBuilder setMediaButtonPreferences(
@@ -2379,6 +2515,15 @@ public class MediaSession {
        * of the session}.
        *
        * <p>The default is null to indicate that the extras of the session should be used.
+       *
+       * <p>Interoperability: This setting has no effect when accepting a connection from a
+       * {@linkplain ControllerInfo#LEGACY_CONTROLLER_VERSION platform or legacy controller}. Unlike
+       * setting the custom layout or media button preferences, setting session extras when
+       * accepting {@linkplain MediaSession#getMediaNotificationControllerInfo() the media
+       * notification controller} does not set the extras of the shared platform session. It only
+       * configures the extras for the connecting media notification controller. To update the
+       * platform session extras, use {@link MediaSession#setSessionExtras(Bundle)} or {@link
+       * MediaSession#setSessionExtras(ControllerInfo, Bundle)}.
        */
       @CanIgnoreReturnValue
       public AcceptedResultBuilder setSessionExtras(Bundle sessionExtras) {
@@ -2391,6 +2536,16 @@ public class MediaSession {
        * session activity of the session}.
        *
        * <p>The default is null to indicate that the session activity of the session should be used.
+       *
+       * <p>Interoperability: This setting has no effect when accepting a connection from a
+       * {@linkplain ControllerInfo#LEGACY_CONTROLLER_VERSION platform or legacy controller}. Unlike
+       * setting the custom layout or media button preferences, setting a session activity when
+       * accepting {@linkplain MediaSession#getMediaNotificationControllerInfo() the media
+       * notification controller} does not set the session activity of the shared platform session.
+       * It only configures the session activity for the connecting media notification controller.
+       * To update the platform session activity, use {@link
+       * MediaSession#setSessionActivity(PendingIntent)} or {@link
+       * MediaSession#setSessionActivity(ControllerInfo, PendingIntent)}.
        */
       @CanIgnoreReturnValue
       public AcceptedResultBuilder setSessionActivity(@Nullable PendingIntent sessionActivity) {

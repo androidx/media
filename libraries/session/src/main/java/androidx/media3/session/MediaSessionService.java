@@ -110,6 +110,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * <ol>
  *   <li><a href="#ServiceLifecycle">Service Lifecycle</a>
  *   <li><a href="#MultipleSessions">Supporting Multiple Sessions</a>
+ *   <li><a href="#BackwardCompatibility">Backward Interoperability</a>
  * </ol>
  *
  * <h2 id="ServiceLifecycle">Service Lifecycle</h2>
@@ -158,6 +159,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * session in this service. In that case, {@link #onGetSession(ControllerInfo)} will be called to
  * decide which session to handle the connection request. Pick the best session among the added
  * sessions, or create a new session and return it from {@link #onGetSession(ControllerInfo)}.
+ *
+ * <h2 id="BackwardCompatibility">Backward Interoperability</h2>
+ *
+ * <p>When a legacy controller (such as {@code
+ * android.support.v4.media.session.MediaControllerCompat}) connects, it connects using the session
+ * token published by the underlying platform session rather than binding directly to {@link
+ * MediaSessionService}.
+ *
+ * <p>When a legacy media browser (such as {@code android.support.v4.media.MediaBrowserCompat})
+ * binds to the service using the {@code android.media.browse.MediaBrowserService} action, {@link
+ * #onGetSession(ControllerInfo)} is called with a {@link ControllerInfo} whose package name is
+ * {@link android.service.media.MediaBrowserService#SERVICE_INTERFACE}. Returning a {@link
+ * MediaSession} allows the legacy browser to connect and control playback, but media browsing
+ * operations are not supported. If media browsing is required, extend {@link MediaLibraryService}
+ * and return a {@link MediaLibraryService.MediaLibrarySession}.
  */
 public abstract class MediaSessionService extends LifecycleService {
 
@@ -321,7 +337,10 @@ public abstract class MediaSessionService extends LifecycleService {
    *   <li>When a legacy {@link android.media.browse.MediaBrowser} or a {@code
    *       android.support.v4.media.MediaBrowserCompat} tries to connect, the package name will be
    *       {@link android.service.media.MediaBrowserService#SERVICE_INTERFACE}. If you want to allow
-   *       the service to be bound by the legacy media browsers, do not return {@code null}.
+   *       the service to be bound by the legacy media browsers, do not return {@code null}. Note
+   *       that returning a {@link MediaSession} allows legacy browsers to control playback, but
+   *       browsing operations are not supported unless the session is a {@link
+   *       MediaLibraryService.MediaLibrarySession}.
    * </ul>
    *
    * <p>For those special cases, the values returned by {@link ControllerInfo#getUid()} and {@link
