@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.extractor.mp3;
+package androidx.media3.extractor.metadata;
 
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -27,9 +27,11 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.Objects;
 
-/** Representation of the ReplayGain data stored in a LAME Xing or Info frame. */
+/**
+ * Representation of the ReplayGain data stored in a LAME Xing or Info frame, or a RIFF RGAD chunk.
+ */
 @UnstableApi
-public final class Mp3InfoReplayGain implements Metadata.Entry {
+public final class ReplayGainInfo implements Metadata.Entry {
 
   /** A gain field can store one gain adjustment with name and originator metadata. */
   public static final class GainField {
@@ -202,7 +204,7 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
    */
   @Nullable public GainField field2;
 
-  private Mp3InfoReplayGain(float peak, @Nullable GainField field1, @Nullable GainField field2) {
+  private ReplayGainInfo(float peak, @Nullable GainField field1, @Nullable GainField field2) {
     this.peak = peak;
     this.field1 = field1;
     this.field2 = field2;
@@ -214,13 +216,13 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
    * <p>Returns null if the representation is invalid or should be ignored.
    */
   @Nullable
-  public static Mp3InfoReplayGain parse(float peak, int field1, int field2) {
+  public static ReplayGainInfo parse(float peak, int field1, int field2) {
     GainField parsedField1 = GainField.parse(field1);
     GainField parsedField2 = GainField.parse(field2);
     if (peak <= 0 && parsedField1 == null && parsedField2 == null) {
       return null;
     }
-    return new Mp3InfoReplayGain(peak, parsedField1, parsedField2);
+    return new ReplayGainInfo(peak, parsedField1, parsedField2);
   }
 
   @Override
@@ -236,10 +238,10 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
 
   @Override
   public boolean equals(@Nullable Object o) {
-    if (!(o instanceof Mp3InfoReplayGain)) {
+    if (!(o instanceof ReplayGainInfo)) {
       return false;
     }
-    Mp3InfoReplayGain that = (Mp3InfoReplayGain) o;
+    ReplayGainInfo that = (ReplayGainInfo) o;
     return Float.compare(peak, that.peak) == 0
         && Objects.equals(field1, that.field1)
         && Objects.equals(field2, that.field2);
