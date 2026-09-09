@@ -38,14 +38,12 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.ExperimentalApi
@@ -138,11 +136,8 @@ internal fun EditingPlayerScreen(
             }
           },
           progressSlider = { player ->
-            var clippingRange by remember(mediaItem) { mutableStateOf(0L..C.TIME_END_OF_SOURCE) }
             ClippingSlider(
               player = player,
-              clippingRangeMs = clippingRange,
-              onClippingRangeChange = { clippingRange = it },
               bitmaps = bitmaps,
               onClippingRangeChangeFinished = {
                 Log.d("EditingPlayerScreen", "onClippingRangeChangeFinished")

@@ -79,6 +79,7 @@ import androidx.media3.ui.compose.state.rememberProgressStateWithTickCount
 import com.google.common.collect.ImmutableList
 import kotlin.math.roundToInt
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /** The ratio of the total width of a clipping thumb to the width of the image row. */
@@ -126,7 +127,6 @@ private const val POSITION_THUMB_HEIGHT_RATIO = 1.1f
 
 // TODO: b/505719491
 //  - Implement accessibility requirements
-//  - Consider wrapping clippingRangeMs in a hoisted state
 //  - Remove @OptIn(ExperimentalMaterial3Api::class) annotations once the RangeSlider is stable
 //  - Move to material3 module and mark API unstable
 //  - Add tests
@@ -145,13 +145,6 @@ private const val POSITION_THUMB_HEIGHT_RATIO = 1.1f
  * experience.
  *
  * @param player The [Player] whose content to clip.
- * @param clippingRangeMs The selected clipping range in milliseconds. To set the end of the
- *   clipping range to the full duration of the media, the caller should pass [C.TIME_END_OF_SOURCE]
- *   as the end time in the [LongRange].
- * @param onClippingRangeChange A callback that is invoked continuously as one of the clipping
- *   thumbs is being dragged. The [LongRange] represents the clipping start and end positions in
- *   milliseconds (or [C.TIME_END_OF_SOURCE] as the end position when the clip is untrimmed at the
- *   end of the media) and should be used to update [clippingRangeMs].
  * @param bitmaps A list of [Bitmap] instances to display as a background preview for the slider.
  *   All bitmaps in the list should have the same size. Because the slider's aspect ratio depends on
  *   the number of bitmaps, the list size should remain fixed, as changing it dynamically will cause
@@ -160,10 +153,14 @@ private const val POSITION_THUMB_HEIGHT_RATIO = 1.1f
  *   elements as frames load). If this list is empty, the component will render an empty [Box]
  *   instead.
  * @param modifier The [Modifier] to be applied to the slider.
+ * @param initialClippingRangeMs The initial clipping range in milliseconds.
+ * @param onClippingRangeChange A callback that is invoked continuously as one of the clipping
+ *   thumbs is being dragged. The [LongRange] represents the clipping start and end positions in
+ *   milliseconds (or [C.TIME_END_OF_SOURCE] as the end position when the clip is untrimmed at the
+ *   end of the media). This callback shouldn't be used to update the range slider values.
  * @param onClippingRangeChangeFinished A callback that is invoked when the user finishes dragging a
- *   clipping thumb. This callback shouldn't be used to update the range slider values (use
- *   [onClippingRangeChange] for that), but rather to know when the user has completed selecting a
- *   new value by ending a drag.
+ *   clipping thumb. This callback shouldn't be used to update the range slider values, but rather
+ *   to know when the user has completed selecting a new value by ending a drag.
  * @param minClippedDurationMs The minimum allowed duration of the clipped range in milliseconds.
  *   The slider will prevent the user from selecting a range shorter than this value.
  * @param colors The [ClippingSliderColors] used to style the slider.
@@ -177,10 +174,10 @@ private const val POSITION_THUMB_HEIGHT_RATIO = 1.1f
 @Composable
 fun ClippingSlider(
   player: Player?,
-  clippingRangeMs: LongRange,
-  onClippingRangeChange: (LongRange) -> Unit,
   bitmaps: ImmutableList<Bitmap>,
   modifier: Modifier = Modifier,
+  initialClippingRangeMs: LongRange = 0L..C.TIME_END_OF_SOURCE,
+  onClippingRangeChange: ((LongRange) -> Unit)? = null,
   onClippingRangeChangeFinished: (() -> Unit)? = null,
   minClippedDurationMs: Long = 1000L,
   colors: ClippingSliderColors = ClippingSliderDefaults.colors(),
@@ -193,18 +190,18 @@ fun ClippingSlider(
     rememberClippingSliderState(
       player = player,
       positionTickCount = positionTickCount,
-      initialClippingRangeMs = clippingRangeMs,
+      initialClippingRangeMs = initialClippingRangeMs,
       minClippedDurationMs = minClippedDurationMs,
       onClippingRangeChange = onClippingRangeChange,
       onClippingRangeChangeFinished = onClippingRangeChangeFinished,
     )
 
-  LaunchedEffect(clippingRangeMs, minClippedDurationMs, state.durationMs) {
+  LaunchedEffect(state.isUserInteracting, minClippedDurationMs, state.durationMs) {
     if (state.isUserInteracting) return@LaunchedEffect
 
-    val wasAdjusted = state.syncExternalRange(clippingRangeMs, minClippedDurationMs)
+    val wasAdjusted = state.enforceConstraints(minClippedDurationMs)
     if (wasAdjusted) {
-      onClippingRangeChange(state.clippingRangeMs)
+      state.onClippingRangeChange?.invoke(state.clippingRangeMs)
     }
   }
 
@@ -707,9 +704,9 @@ private fun ProgressSlider(
 private fun rememberClippingSliderState(
   player: Player?,
   positionTickCount: Int,
-  initialClippingRangeMs: LongRange,
+  initialClippingRangeMs: LongRange = 0L..C.TIME_END_OF_SOURCE,
   minClippedDurationMs: Long,
-  onClippingRangeChange: (LongRange) -> Unit,
+  onClippingRangeChange: ((LongRange) -> Unit)? = null,
   onClippingRangeChangeFinished: (() -> Unit)? = null,
 ): ClippingSliderState {
   val positionProgressState =
@@ -845,7 +842,7 @@ private fun calculateMinRangeDelta(minClippedDurationMs: Long, durationMs: Long)
 private class ClippingSliderState(
   private val player: Player?,
   private val positionProgressState: ProgressStateWithTickCount,
-  initialClippingRangeMs: LongRange,
+  private val initialClippingRangeMs: LongRange,
   initialMinClippedDurationMs: Long,
 ) {
   var minClippedDurationMs by mutableLongStateOf(initialMinClippedDurationMs)
@@ -949,7 +946,7 @@ private class ClippingSliderState(
     }
 
   init {
-    val unused = syncExternalRange(initialClippingRangeMs, initialMinClippedDurationMs)
+    setClippingRange(initialClippingRangeMs)
   }
 
   fun pause() {
@@ -973,28 +970,46 @@ private class ClippingSliderState(
     pause()
   }
 
-  // TODO: b/505719491 - Refactor syncExternalRange to a declarative Compose state model.
   /**
-   * Syncs the state with an externally provided clipping range, enforcing constraints and seeking
-   * the player if necessary.
+   * Sets the clipping range, enforcing constraints against media duration and
+   * [minClippedDurationMs].
    *
-   * @param clippingRangeMs The new desired clipping range in milliseconds.
-   * @param minClippedDurationMs The minimum permitted duration between clipping start and end in
-   *   milliseconds.
-   * @return Whether the requested range was adjusted to enforce constraints or match source bounds.
+   * @param clippingRangeMs The desired clipping range in milliseconds.
    */
-  fun syncExternalRange(clippingRangeMs: LongRange, minClippedDurationMs: Long): Boolean {
+  fun setClippingRange(clippingRangeMs: LongRange) {
+    val (newRange, _) = calculateClippingRangeProgress(clippingRangeMs, minClippedDurationMs)
+    applyClippingRange(newRange, updateSlider = true)
+  }
+
+  /**
+   * Validates the internal clipping range against current constraints and media duration. If the
+   * bounds violate constraints (e.g., they are too close together or exceed media bounds), they are
+   * clamped to legal values.
+   *
+   * @param minClippedDurationMs The minimum permitted duration between clipping start and end.
+   * @return Whether the internal range was adjusted to enforce constraints.
+   */
+  fun enforceConstraints(minClippedDurationMs: Long): Boolean {
     this.minClippedDurationMs = minClippedDurationMs
     val (newRange, wasAdjusted) =
-      calculateClippingRangeProgress(clippingRangeMs, minClippedDurationMs)
-    val sliderRange = sliderRangeFromClippingRange(newRange)
-    if (rangeSliderState.activeRangeStart != sliderRange.start) {
-      rangeSliderState.activeRangeStart = sliderRange.start
+      calculateClippingRangeProgress(this.clippingRangeMs, minClippedDurationMs)
+    applyClippingRange(newRange, updateSlider = wasAdjusted)
+    return wasAdjusted
+  }
+
+  private fun applyClippingRange(newRange: ClosedFloatingPointRange<Float>, updateSlider: Boolean) {
+    if (updateSlider) {
+      val sliderRange = sliderRangeFromClippingRange(newRange)
+      if (rangeSliderState.activeRangeStart != sliderRange.start) {
+        rangeSliderState.activeRangeStart = sliderRange.start
+      }
+      if (rangeSliderState.activeRangeEnd != sliderRange.endInclusive) {
+        rangeSliderState.activeRangeEnd = sliderRange.endInclusive
+      }
+      preDragClippingRange = newRange
     }
-    if (rangeSliderState.activeRangeEnd != sliderRange.endInclusive) {
-      rangeSliderState.activeRangeEnd = sliderRange.endInclusive
-    }
-    preDragClippingRange = newRange
+
+    // Ensure the player's current position hasn't been left outside the new bounds
     val currentProgress = playbackProgress
     if (currentProgress != null) {
       if (currentProgress < newRange.start) {
@@ -1003,7 +1018,6 @@ private class ClippingSliderState(
         seekTo(newRange.endInclusive)
       }
     }
-    return wasAdjusted
   }
 
   private fun play() {
@@ -1045,6 +1059,12 @@ private class ClippingSliderState(
     coroutineScope {
       // Observe Player events (isPlaying, playWhenReady) to keep playback states synchronized.
       launch { playerStateObserver?.observe() }
+
+      // Apply initial clipping range once media duration is known.
+      launch {
+        snapshotFlow { durationMs }.first { it > 0 }
+        setClippingRange(initialClippingRangeMs)
+      }
 
       // Listen for touch/drag gestures on the start thumb to pause playback and record interaction.
       launch {
