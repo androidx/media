@@ -1804,6 +1804,103 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     assertThat(controllerCompat.getSessionActivity()).isNull();
   }
 
+  @Test
+  public void
+      setSessionActivity_standaloneSessionWithoutNotificationController_changedWhenReceivedWithSetter()
+          throws Exception {
+    RemoteMediaSession standaloneSession =
+        new RemoteMediaSession("standaloneSession", context, Bundle.EMPTY);
+    MediaControllerCompat standaloneControllerCompat =
+        new MediaControllerCompat(context, standaloneSession.getCompatToken());
+    waitUntilSessionReady(standaloneControllerCompat);
+
+    Intent intent = new Intent(context, SurfaceActivity.class);
+    PendingIntent sessionActivity =
+        PendingIntent.getActivity(
+            context, 0, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+    CountDownLatch playingLatch = new CountDownLatch(1);
+    CountDownLatch bufferingLatch = new CountDownLatch(1);
+    MediaControllerCompat.Callback callback =
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onPlaybackStateChanged(PlaybackStateCompat state) {
+            if (state.getState() == PlaybackStateCompat.STATE_BUFFERING) {
+              if (standaloneControllerCompat.getSessionActivity() == null) {
+                bufferingLatch.countDown();
+              }
+            } else if (state.getState() == PlaybackStateCompat.STATE_PLAYING) {
+              if (standaloneControllerCompat.getSessionActivity() != null) {
+                playingLatch.countDown();
+              }
+            }
+          }
+        };
+    standaloneControllerCompat.registerCallback(callback, handler);
+    assertThat(standaloneControllerCompat.getSessionActivity()).isNull();
+
+    standaloneSession.setSessionActivity(/* controllerKey= */ null, sessionActivity);
+    standaloneSession
+        .getMockPlayer()
+        .notifyPlayWhenReadyChanged(
+            true,
+            Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+            Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    standaloneSession.getMockPlayer().notifyPlaybackStateChanged(STATE_READY);
+
+    assertThat(playingLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(standaloneControllerCompat.getSessionActivity()).isEqualTo(sessionActivity);
+
+    standaloneSession.setSessionActivity(/* controllerKey= */ null, null);
+    standaloneSession.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_BUFFERING);
+
+    assertThat(bufferingLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(standaloneControllerCompat.getSessionActivity()).isNull();
+
+    standaloneSession.release();
+  }
+
+  @Test
+  public void
+      setPlaybackException_standaloneSessionWithoutNotificationController_updatesPlaybackStateToErrorAndRecovers()
+          throws Exception {
+    RemoteMediaSession standaloneSession =
+        new RemoteMediaSession("standaloneSessionForError", context, Bundle.EMPTY);
+    MediaControllerCompat standaloneControllerCompat =
+        new MediaControllerCompat(context, standaloneSession.getCompatToken());
+    waitUntilSessionReady(standaloneControllerCompat);
+
+    standaloneSession.getMockPlayer().notifyPlaybackStateChanged(STATE_READY);
+    List<PlaybackStateCompat> playbackStates = new ArrayList<>();
+    CountDownLatch latch = new CountDownLatch(2);
+    MediaControllerCompat.Callback callback =
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onPlaybackStateChanged(PlaybackStateCompat state) {
+            if (playbackStates.isEmpty() && state.getState() != PlaybackStateCompat.STATE_ERROR) {
+              return;
+            }
+            playbackStates.add(state);
+            latch.countDown();
+          }
+        };
+    standaloneControllerCompat.registerCallback(callback, handler);
+
+    PlaybackException testPlayerError =
+        new PlaybackException(
+            /* message= */ "standalone error",
+            /* cause= */ null,
+            PlaybackException.ERROR_CODE_REMOTE_ERROR);
+    standaloneSession.setPlaybackException(/* controllerKey= */ null, testPlayerError);
+    standaloneSession.setPlaybackException(/* controllerKey= */ null, /* playerError= */ null);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(playbackStates.get(0).getState()).isEqualTo(PlaybackStateCompat.STATE_ERROR);
+    assertThat(playbackStates.get(0).getErrorMessage().toString()).isEqualTo("standalone error");
+    assertThat(playbackStates.get(1).getState()).isNotEqualTo(PlaybackStateCompat.STATE_ERROR);
+
+    standaloneSession.release();
+  }
+
   @SuppressWarnings("deprecation") // Testing access through deprecated androidx.media library
   @Test
   public void setSessionActivity_setToNotificationController_changedWhenReceivedWithSetter()

@@ -254,9 +254,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  *       #setSessionActivity(PendingIntent)}, {@link #setPlaybackException(PlaybackException)},
  *       {@link #sendError(SessionError)}, and {@link #broadcastCustomCommand(SessionCommand,
  *       Bundle)}.
- *   <li>Configure initial commands, media button preferences, or custom layout for the platform
- *       session when the media notification controller connects in {@link Callback#onConnect} or
- *       {@link Callback#onConnectAsync} via {@link ConnectionResult.AcceptedResultBuilder}.
+ *   <li>Configure initial commands, media button preferences, custom layout, session extras, or
+ *       session activity for the platform session when the media notification controller connects
+ *       in {@link Callback#onConnect} or {@link Callback#onConnectAsync} via {@link
+ *       ConnectionResult.AcceptedResultBuilder}.
  * </ul>
  *
  * <h2 id="CompatibilityController">Backward compatibility with platform and legacy controller APIs
@@ -966,6 +967,9 @@ public class MediaSession {
    *
    * <p>Note: When a controller is connected to the session that has a version smaller than 1.6.0,
    * then setting the session activity to null has no effect on the controller side.
+   *
+   * <p>Interoperability: Setting the session activity also updates the session activity of the
+   * shared platform session.
    *
    * @param activityPendingIntent The pending intent to start the session activity or null.
    * @throws IllegalArgumentException if the {@link PendingIntent} passed into this method is
@@ -2517,13 +2521,10 @@ public class MediaSession {
        * <p>The default is null to indicate that the extras of the session should be used.
        *
        * <p>Interoperability: This setting has no effect when accepting a connection from a
-       * {@linkplain ControllerInfo#LEGACY_CONTROLLER_VERSION platform or legacy controller}. Unlike
-       * setting the custom layout or media button preferences, setting session extras when
-       * accepting {@linkplain MediaSession#getMediaNotificationControllerInfo() the media
-       * notification controller} does not set the extras of the shared platform session. It only
-       * configures the extras for the connecting media notification controller. To update the
-       * platform session extras, use {@link MediaSession#setSessionExtras(Bundle)} or {@link
-       * MediaSession#setSessionExtras(ControllerInfo, Bundle)}.
+       * {@linkplain ControllerInfo#LEGACY_CONTROLLER_VERSION platform or legacy controller}.
+       * Setting session extras when accepting {@linkplain
+       * MediaSession#getMediaNotificationControllerInfo() the media notification controller} sets
+       * the extras of the shared platform session.
        */
       @CanIgnoreReturnValue
       public AcceptedResultBuilder setSessionExtras(Bundle sessionExtras) {
@@ -2538,14 +2539,10 @@ public class MediaSession {
        * <p>The default is null to indicate that the session activity of the session should be used.
        *
        * <p>Interoperability: This setting has no effect when accepting a connection from a
-       * {@linkplain ControllerInfo#LEGACY_CONTROLLER_VERSION platform or legacy controller}. Unlike
-       * setting the custom layout or media button preferences, setting a session activity when
-       * accepting {@linkplain MediaSession#getMediaNotificationControllerInfo() the media
-       * notification controller} does not set the session activity of the shared platform session.
-       * It only configures the session activity for the connecting media notification controller.
-       * To update the platform session activity, use {@link
-       * MediaSession#setSessionActivity(PendingIntent)} or {@link
-       * MediaSession#setSessionActivity(ControllerInfo, PendingIntent)}.
+       * {@linkplain ControllerInfo#LEGACY_CONTROLLER_VERSION platform or legacy controller}.
+       * Setting a session activity when accepting {@linkplain
+       * MediaSession#getMediaNotificationControllerInfo() the media notification controller} sets
+       * the session activity of the shared platform session.
        */
       @CanIgnoreReturnValue
       public AcceptedResultBuilder setSessionActivity(@Nullable PendingIntent sessionActivity) {
