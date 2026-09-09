@@ -191,7 +191,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                     if (frame == HardwareBufferFrame.END_OF_STREAM_FRAME) {
                       checkNotNull(frameAggregator).queueEndOfStream(sequenceIndex);
                     } else {
-                      checkNotNull(frameAggregator).queueFrame(frame, sequenceIndex);
+                      checkNotNull(frameAggregator)
+                          .queueFrame(HardwareBufferFrameReader.toAsyncFrame(frame), sequenceIndex);
                     }
                   });
       HardwareBufferSampleConsumer sampleConsumer =

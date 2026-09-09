@@ -1645,7 +1645,9 @@ public final class CompositionPlayer extends SimpleBasePlayer {
                           checkNotNull(currentFrameAggregator).queueEndOfStream(sequenceIndex);
                         } else {
                           checkNotNull(currentFrameAggregator)
-                              .queueFrame(hardwareBufferFrame, sequenceIndex);
+                              .queueFrame(
+                                  HardwareBufferFrameReader.toAsyncFrame(hardwareBufferFrame),
+                                  sequenceIndex);
                         }
                       },
                       checkNotNull(playbackThread).getLooper(),

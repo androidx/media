@@ -17,7 +17,10 @@ package androidx.media3.transformer;
 
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
+import static androidx.media3.transformer.TransformerUtil.END_OF_STREAM_ASYNC_FRAME;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -26,6 +29,7 @@ import static org.robolectric.Shadows.shadowOf;
 import android.graphics.Bitmap;
 import android.graphics.Gainmap;
 import android.graphics.ImageFormat;
+import android.hardware.HardwareBuffer;
 import android.os.HandlerThread;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -35,6 +39,8 @@ import androidx.media3.common.util.ConstantRateTimestampIterator;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.Util;
+import androidx.media3.common.video.AsyncFrame;
+import androidx.media3.common.video.Frame;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.transformer.HardwareBufferFrameReader.RendererWakeupListener;
@@ -526,5 +532,65 @@ public class HardwareBufferFrameReaderTest {
     assertThat(frames.get(0).hardwareBuffer).isNotSameInstanceAs(frames.get(1).hardwareBuffer);
 
     frameReader.release();
+  }
+
+  @Test
+  public void toAsyncFrame_withEndOfStreamFrame_returnsEndOfStreamAsyncFrame() {
+    assertThat(HardwareBufferFrameReader.toAsyncFrame(HardwareBufferFrame.END_OF_STREAM_FRAME))
+        .isSameInstanceAs(END_OF_STREAM_ASYNC_FRAME);
+  }
+
+  @Test
+  public void toAsyncFrame_withNullHardwareBuffer_throwsNullPointerException() {
+    HardwareBufferFrame effectFrame =
+        new HardwareBufferFrame.Builder(
+                /* hardwareBuffer= */ null,
+                directExecutor(),
+                /* releaseCallback= */ releaseFence -> {})
+            .setInternalFrame(
+                Bitmap.createBitmap(/* width= */ 16, /* height= */ 16, Bitmap.Config.ARGB_8888))
+            .build();
+    assertThrows(
+        NullPointerException.class, () -> HardwareBufferFrameReader.toAsyncFrame(effectFrame));
+  }
+
+  @Test
+  @SuppressWarnings("deprecation") // Creates deprecated CompositionFrameMetadata.
+  public void toAsyncFrame_withValidFrame_createsAsyncFrameWithoutOriginalEffectFrame() {
+    HardwareBuffer hardwareBuffer =
+        HardwareBuffer.create(
+            /* width= */ 16,
+            /* height= */ 16,
+            /* format= */ HardwareBuffer.RGBA_8888,
+            /* layers= */ 1,
+            /* usage= */ 0);
+    try {
+      EditedMediaItem editedMediaItem =
+          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)).build();
+      EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem));
+      Composition composition = new Composition.Builder(sequence).build();
+      CompositionFrameMetadata compositionFrameMetadata =
+          new CompositionFrameMetadata(composition, /* sequenceIndex= */ 0, /* itemIndex= */ 0);
+      HardwareBufferFrame effectFrame =
+          new HardwareBufferFrame.Builder(
+                  hardwareBuffer, directExecutor(), /* releaseCallback= */ releaseFence -> {})
+              .setPresentationTimeUs(100_000L)
+              .setSequencePresentationTimeUs(120_000L)
+              .setReleaseTimeNs(500_000L)
+              .setMetadata(compositionFrameMetadata)
+              .build();
+
+      AsyncFrame asyncFrame = HardwareBufferFrameReader.toAsyncFrame(effectFrame);
+
+      assertThat(asyncFrame.frame.getContentTimeUs()).isEqualTo(120_000L);
+      assertThat(asyncFrame.frame.getMetadata())
+          .containsEntry(Frame.KEY_PRESENTATION_TIME_US, 100_000L);
+      assertThat(asyncFrame.frame.getMetadata()).containsEntry(Frame.KEY_DISPLAY_TIME_NS, 500_000L);
+      assertThat(asyncFrame.frame.getMetadata())
+          .containsEntry(
+              CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA, compositionFrameMetadata);
+    } finally {
+      hardwareBuffer.close();
+    }
   }
 }

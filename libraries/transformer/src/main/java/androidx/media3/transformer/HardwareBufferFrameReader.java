@@ -16,8 +16,10 @@
 package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.transformer.CompositionFrameMetadata.asFrameMetadata;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.graphics.Bitmap;
 import android.graphics.ColorSpace;
@@ -37,11 +39,15 @@ import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.Util;
+import androidx.media3.common.video.AsyncFrame;
+import androidx.media3.common.video.DefaultHardwareBufferFrame;
+import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.BitmapToHardwareBufferConverter;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.exoplayer.Renderer;
+import com.google.common.collect.ImmutableMap;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
@@ -695,6 +701,34 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           return ColorInfo.SRGB_BT709_FULL;
       }
     }
+  }
+
+  @SuppressWarnings({"deprecation", "NewApi"})
+  /* package */ static AsyncFrame toAsyncFrame(HardwareBufferFrame effectFrame) {
+    if (effectFrame == HardwareBufferFrame.END_OF_STREAM_FRAME) {
+      return TransformerUtil.END_OF_STREAM_ASYNC_FRAME;
+    }
+    checkNotNull(effectFrame.hardwareBuffer);
+    ImmutableMap.Builder<String, Object> metadataBuilder =
+        ImmutableMap.<String, Object>builder()
+            .put(Frame.KEY_PRESENTATION_TIME_US, effectFrame.presentationTimeUs)
+            .put(Frame.KEY_DISPLAY_TIME_NS, effectFrame.releaseTimeNs);
+    if (effectFrame.getMetadata() instanceof CompositionFrameMetadata) {
+      CompositionFrameMetadata compositionFrameMetadata =
+          (CompositionFrameMetadata) effectFrame.getMetadata();
+      metadataBuilder
+          .put(CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA, compositionFrameMetadata)
+          .putAll(asFrameMetadata(compositionFrameMetadata));
+    }
+    DefaultHardwareBufferFrame commonFrame =
+        new DefaultHardwareBufferFrame.Builder(
+                effectFrame.hardwareBuffer, directExecutor(), effectFrame::release)
+            .setFormat(effectFrame.format)
+            .setContentTimeUs(effectFrame.sequencePresentationTimeUs)
+            .setMetadata(metadataBuilder.buildOrThrow())
+            .setInternalImage(effectFrame.internalFrame)
+            .build();
+    return new AsyncFrame(commonFrame, effectFrame.acquireFence);
   }
 
   @RequiresApi(34)
