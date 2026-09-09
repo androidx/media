@@ -865,7 +865,9 @@ private class ClippingSliderState(
         val snapPosition =
           if (lastChangedBoundaryIsStart) clippingRange.start else clippingRange.endInclusive
         seekTo(snapPosition)
+        isClipping = false
         isUserInteracting = false
+        preDragClippingRange = clippingRange
         onClippingRangeChangeFinished?.invoke()
       },
     )
@@ -899,8 +901,14 @@ private class ClippingSliderState(
   val playbackProgress: Float?
     get() = if (durationMs > 0) positionProgressState.currentPositionProgress else null
 
-  /** Whether the user is actively interacting with the clipping slider. */
+  /**
+   * Whether the user is actively interacting with the slider (either adjusting clipping or
+   * scrubbing progress).
+   */
   var isUserInteracting by mutableStateOf(false)
+
+  /** Whether the user is actively dragging one of the clipping thumbs. */
+  private var isClipping by mutableStateOf(false)
 
   /**
    * The clipping range as a fraction of the total duration (0 to 1) captured before the current
@@ -911,11 +919,11 @@ private class ClippingSliderState(
 
   /**
    * The value range used by the progress slider to layout its track. Anchors to
-   * [preDragClippingRange] while [isUserInteracting] is true so that the progress scrubber layout
-   * remains visually stable while thumbs are being dragged.
+   * [preDragClippingRange] while [isClipping] is true so that the progress scrubber layout remains
+   * visually stable while clipping thumbs are being dragged.
    */
   val activeValueRange: ClosedFloatingPointRange<Float>
-    get() = if (isUserInteracting) preDragClippingRange else clippingRange
+    get() = if (isClipping) preDragClippingRange else clippingRange
 
   /** Whether changing the playback progress is enabled. */
   val changingProgressEnabled: Boolean
@@ -960,6 +968,7 @@ private class ClippingSliderState(
   fun onDragStarted(isStart: Boolean) {
     lastChangedBoundaryIsStart = isStart
     preDragClippingRange = clippingRange
+    isClipping = true
     isUserInteracting = true
     pause()
   }
@@ -1069,7 +1078,7 @@ private class ClippingSliderState(
             }
             previousRange = currentRange
 
-            if (isUserInteracting) {
+            if (isClipping) {
               val minDelta = calculateMinRangeDelta(minClippedDurationMs, durationMs)
               val proposedRange = clippingRangeFromSliderRange(currentRange)
               var start = proposedRange.start
