@@ -22,11 +22,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.ExperimentalApi;
-import androidx.media3.common.util.Log;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
@@ -40,10 +38,7 @@ import androidx.media3.transformer.SequenceRenderersFactory.CompositionRendererL
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 // TODO: b/449956936 - This is a placeholder implementation, revisit the threading logic to make it
 //  more robust.
@@ -53,10 +48,9 @@ import java.util.Set;
 /* package */ class CompositionVideoPacketReleaseControl
     implements CompositionRendererListener, AutoCloseable {
 
-  private static final String TAG = "CompositionReleaseCtrl";
-
   private final VideoFrameReleaseControl videoFrameReleaseControl;
   private final FrameProcessor downstreamFrameProcessor;
+  private final InFlightFrameManager inFlightFrameManager;
   // Accessed on the playback thread only.
   private final ArrayDeque<ImmutableList<AsyncFrame>> packetQueue;
   private final VideoFrameReleaseControl.FrameReleaseInfo videoFrameReleaseInfo;
@@ -65,10 +59,6 @@ import java.util.Set;
   private final Listener listener;
   // Accessed on the playback thread only.
   private int currentStreamDiscontinuityNumber;
-  private final Object lock;
-
-  @GuardedBy("lock")
-  private final Set<Frame> inFlightFrames;
 
   @Nullable private ImmutableList<AsyncFrame> lastQueuedPacket;
 
@@ -102,10 +92,9 @@ import java.util.Set;
             frameRate -> videoFrameReleaseControl.setSurfaceMediaFrameRate(frameRate));
     this.listener = listener;
     this.downstreamFrameProcessor = downstreamFrameProcessor;
+    inFlightFrameManager = new InFlightFrameManager();
     packetQueue = new ArrayDeque<>();
     videoFrameReleaseInfo = new VideoFrameReleaseControl.FrameReleaseInfo();
-    lock = new Object();
-    inFlightFrames = new HashSet<>();
     // Allow the first frame to be rendered before playback starts.
     videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
   }
@@ -217,27 +206,15 @@ import java.util.Set;
 
   /** Called when a frame has been fully processed by the downstream {@link FrameProcessor}. */
   public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
-    boolean removed;
-    synchronized (lock) {
-      removed = inFlightFrames.remove(frame);
-    }
-    if (removed) {
-      TransformerUtil.releaseIfNeeded(frame, releaseFence);
-    } else {
-      if (releaseFence != null) {
-        releaseFence.close();
-      }
-      Log.d(TAG, "onFrameProcessed: Frame not found: " + frame);
-    }
+    inFlightFrameManager.onFrameProcessed(frame, releaseFence);
   }
 
   /**
    * Releases all frames that have not been sent downstream, and {@link
    * VideoFrameReleaseControl#reset() resets} the release control.
    *
-   * <p>This method does not release the frames in {@link #inFlightFrames} which have been sent
-   * downstream. The {@link #downstreamFrameProcessor} is responsible for releasing in flight
-   * frames.
+   * <p>This method does not release the in-flight frames which have been sent downstream. The
+   * {@link #downstreamFrameProcessor} is responsible for releasing in flight frames.
    */
   private void reset() {
     @Nullable ImmutableList<AsyncFrame> packet;
@@ -273,13 +250,7 @@ import java.util.Set;
 
   /** Releases any resources held by this release control. */
   private void releaseRetainedFrames() {
-    List<Frame> framesToRelease;
-    synchronized (lock) {
-      // Copy frames to release them without holding the lock.
-      framesToRelease = new ArrayList<>(inFlightFrames);
-      inFlightFrames.clear();
-    }
-    TransformerUtil.releaseIfNeeded(framesToRelease);
+    inFlightFrameManager.releaseAll();
     releasePacket(lastQueuedPacket);
     lastQueuedPacket = null;
   }
@@ -388,20 +359,19 @@ import java.util.Set;
     }
 
     ImmutableList<AsyncFrame> asyncFrameList = downstreamAsyncFrames.build();
-
-    boolean queued = downstreamFrameProcessor.queue(asyncFrameList);
-    if (queued) {
-      synchronized (lock) {
-        for (int i = 0; i < asyncFrameList.size(); i++) {
-          inFlightFrames.add(asyncFrameList.get(i).frame);
-        }
+    boolean queued = false;
+    try {
+      queued =
+          inFlightFrameManager.trackIfSuccessful(downstreamFrameProcessor::queue, asyncFrameList);
+      return queued;
+    } finally {
+      if (queued) {
+        updateLastQueuedPacket(packet);
+        releasePacket(packet);
+      } else {
+        releasePacket(asyncFrameList);
       }
-      updateLastQueuedPacket(packet);
-      releasePacket(packet);
-    } else {
-      releasePacket(asyncFrameList);
     }
-    return queued;
   }
 
   private static void releasePacket(@Nullable List<AsyncFrame> packet) {

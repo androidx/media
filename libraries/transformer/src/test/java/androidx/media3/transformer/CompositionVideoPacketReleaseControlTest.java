@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -1019,6 +1020,71 @@ public class CompositionVideoPacketReleaseControlTest {
         /* compositionTimePositionUs= */ 100_000,
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
+
+    assertThat(releasedTimestamps).isEmpty();
+
+    for (AsyncFrame frame : packet) {
+      TransformerUtil.releaseIfNeeded(frame.frame, /* releaseFence= */ null);
+    }
+
+    assertThat(releasedTimestamps).containsExactly(100_000L);
+  }
+
+  @Test
+  public void queue_downstreamThrows_releasesRetainedFrames() throws Exception {
+    FrameProcessor throwingFrameProcessor =
+        new FrameProcessor() {
+          @Override
+          public boolean queue(List<AsyncFrame> frames) {
+            throw new RuntimeException("Queue error");
+          }
+
+          @Override
+          public void signalEndOfStream() {}
+
+          @Override
+          public void close() {}
+        };
+
+    CompositionVideoPacketReleaseControl releaseControl =
+        new CompositionVideoPacketReleaseControl(
+            videoFrameReleaseControl,
+            throwingFrameProcessor,
+            new Listener() {
+              @Override
+              public void onFrameProcessed() {}
+
+              @Override
+              public void onError(Exception e) {}
+            });
+
+    releaseControl.onStarted();
+
+    Set<Long> releasedTimestamps = new HashSet<>();
+    HardwareBufferFrame effectFrame =
+        new HardwareBufferFrame.Builder(
+                placeholderBuffer,
+                directExecutor(),
+                (releaseFence) -> releasedTimestamps.add(100_000L))
+            .setPresentationTimeUs(100_000L)
+            .setSequencePresentationTimeUs(100_000L)
+            .build();
+    DefaultHardwareBufferFrame commonFrame =
+        FrameAggregator.toDefaultHardwareBufferFrame(
+            effectFrame, /* releaseTimeNs= */ C.TIME_UNSET);
+    ImmutableList<AsyncFrame> packet =
+        ImmutableList.of(new AsyncFrame(commonFrame, effectFrame.acquireFence));
+
+    releaseControl.queue(packet);
+
+    long elapsedRealtimeUs = msToUs(fakeClock.elapsedRealtime());
+    Assert.assertThrows(
+        RuntimeException.class,
+        () ->
+            releaseControl.onRender(
+                /* compositionTimePositionUs= */ 100_000,
+                /* elapsedRealtimeUs= */ elapsedRealtimeUs,
+                /* compositionTimeOutputStreamStartPositionUs= */ 0));
 
     assertThat(releasedTimestamps).isEmpty();
 

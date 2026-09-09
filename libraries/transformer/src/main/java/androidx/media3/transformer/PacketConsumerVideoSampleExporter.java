@@ -49,11 +49,8 @@ import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.transformer.Codec.EncoderFactory;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Queue;
-import java.util.Set;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.initialization.qual.Initialized;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -76,7 +73,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Format firstInputFormat;
 
   private final Queue<ImmutableList<AsyncFrame>> pendingPackets;
-  private final Set<Frame> inFlightFrames;
+  private final InFlightFrameManager inFlightFrameManager;
   private boolean hasPendingEos;
   private int outputRotationDegrees;
   private volatile boolean released;
@@ -116,7 +113,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.muxerWrapper = muxerWrapper;
     this.firstInputFormat = firstInputFormat;
     this.pendingPackets = new ArrayDeque<>();
-    this.inFlightFrames = new HashSet<>();
+    this.inFlightFrameManager = new InFlightFrameManager();
     finalFramePresentationTimeUs = C.TIME_UNSET;
     lastMuxerInputBufferTimestampUs = C.TIME_UNSET;
     encoderOutputBuffer =
@@ -242,8 +239,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     released = true;
     releasePendingPackets();
-    TransformerUtil.releaseIfNeeded(new ArrayList<>(inFlightFrames));
-    inFlightFrames.clear();
+    inFlightFrameManager.releaseAll();
     for (int i = 0; i < sampleConsumers.size(); i++) {
       sampleConsumers.get(i).release();
     }
@@ -380,12 +376,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Override
     public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
-      boolean removed = inFlightFrames.remove(frame);
-      if (removed) {
-        TransformerUtil.releaseIfNeeded(frame, releaseFence);
-      } else if (releaseFence != null) {
-        releaseFence.close();
-      }
+      inFlightFrameManager.onFrameProcessed(frame, releaseFence);
     }
   }
 
@@ -395,11 +386,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (packet == null) {
         break;
       }
-      boolean queued = frameProcessor.queue(packet);
+      boolean queued = inFlightFrameManager.trackIfSuccessful(frameProcessor::queue, packet);
       if (queued) {
-        for (int i = 0; i < packet.size(); i++) {
-          inFlightFrames.add(packet.get(i).frame);
-        }
         pendingPackets.poll();
       } else {
         break;
