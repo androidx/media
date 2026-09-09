@@ -15,27 +15,63 @@
  */
 package androidx.media3.common.video;
 
-import android.hardware.HardwareBuffer;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.RestrictTo.Scope;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
 
-/** Default implementation of {@link HardwareBufferFrame}. */
+/**
+ * Default implementation of {@link ImagePlanesFrame} with {@link ReferenceCounter} lifecycle
+ * management.
+ */
 @RestrictTo(Scope.LIBRARY_GROUP)
-public final class DefaultHardwareBufferFrame implements HardwareBufferFrame, ReferenceCounter {
+public final class DefaultImagePlanesFrame implements ImagePlanesFrame, ReferenceCounter {
 
-  /** Concrete implementation of {@link HardwareBufferFrame.Builder}. */
-  public static final class Builder
-      implements HardwareBufferFrame.Builder, ReferenceCounter.Builder {
+  /** An implementation of {@link ImagePlanesFrame.Plane}. */
+  public static final class DefaultPlane implements ImagePlanesFrame.Plane {
+    private final ByteBuffer buffer;
+    private final int rowStride;
+    private final int pixelStride;
 
-    private final HardwareBuffer hardwareBuffer;
+    public DefaultPlane(ByteBuffer buffer, int rowStride, int pixelStride) {
+      this.buffer = checkNotNull(buffer);
+      checkArgument(rowStride > 0, "rowStride must be positive: %s", rowStride);
+      checkArgument(pixelStride > 0, "pixelStride must be positive: %s", pixelStride);
+      this.rowStride = rowStride;
+      this.pixelStride = pixelStride;
+    }
+
+    @Override
+    public ByteBuffer getBuffer() {
+      return buffer;
+    }
+
+    @Override
+    public int getRowStride() {
+      return rowStride;
+    }
+
+    @Override
+    public int getPixelStride() {
+      return pixelStride;
+    }
+  }
+
+  /** A builder for {@link DefaultImagePlanesFrame}. */
+  public static final class Builder implements ImagePlanesFrame.Builder, ReferenceCounter.Builder {
+
+    private final ImmutableList<Plane> planes;
     private final SharedStateReferenceCounter.Builder delegateCounterBuilder;
     private Format format;
     private ImmutableMap<String, Object> metadata;
@@ -43,13 +79,13 @@ public final class DefaultHardwareBufferFrame implements HardwareBufferFrame, Re
     @Nullable private Object internalImage;
 
     /**
-     * Creates a builder for {@link HardwareBufferFrame} instances without lifecycle management.
+     * Creates a builder for {@link ImagePlanesFrame} instances without lifecycle management.
      *
-     * @param hardwareBuffer The {@link HardwareBuffer} that backs the frame.
+     * @param planes The {@link Plane} instances backing this frame.
      */
-    @RequiresApi(26)
-    public Builder(HardwareBuffer hardwareBuffer) {
-      this.hardwareBuffer = hardwareBuffer;
+    public Builder(List<Plane> planes) {
+      checkArgument(!planes.isEmpty(), "planes cannot be empty");
+      this.planes = ImmutableList.copyOf(planes);
       this.delegateCounterBuilder = new SharedStateReferenceCounter.Builder();
       this.format = new Format.Builder().build();
       this.metadata = ImmutableMap.of();
@@ -57,16 +93,15 @@ public final class DefaultHardwareBufferFrame implements HardwareBufferFrame, Re
     }
 
     /**
-     * Creates a builder for reference-counted {@link HardwareBufferFrame} instances.
+     * Creates a builder for reference-counted {@link ImagePlanesFrame} instances.
      *
-     * @param hardwareBuffer The {@link HardwareBuffer} that backs the frame.
+     * @param planes The {@link Plane} instances backing this frame.
      * @param releaseExecutor The {@link Executor} on which {@code releaseCallback} is called.
      * @param releaseCallback The callback invoked when the frame is fully released.
      */
-    @RequiresApi(26)
-    public Builder(
-        HardwareBuffer hardwareBuffer, Executor releaseExecutor, ReleaseCallback releaseCallback) {
-      this.hardwareBuffer = hardwareBuffer;
+    public Builder(List<Plane> planes, Executor releaseExecutor, ReleaseCallback releaseCallback) {
+      checkArgument(!planes.isEmpty(), "planes cannot be empty");
+      this.planes = ImmutableList.copyOf(planes);
       this.delegateCounterBuilder =
           new SharedStateReferenceCounter.Builder(releaseExecutor, releaseCallback);
       this.format = new Format.Builder().build();
@@ -74,8 +109,8 @@ public final class DefaultHardwareBufferFrame implements HardwareBufferFrame, Re
       this.contentTimeUs = C.TIME_UNSET;
     }
 
-    private Builder(DefaultHardwareBufferFrame frame) {
-      this.hardwareBuffer = frame.hardwareBuffer;
+    private Builder(DefaultImagePlanesFrame frame) {
+      this.planes = frame.planes;
       this.delegateCounterBuilder =
           new SharedStateReferenceCounter.Builder(frame.delegateCounter.getSharedState());
       this.format = frame.format;
@@ -86,53 +121,52 @@ public final class DefaultHardwareBufferFrame implements HardwareBufferFrame, Re
 
     @CanIgnoreReturnValue
     @Override
-    public DefaultHardwareBufferFrame.Builder shouldIncrementReferenceCount() {
+    public DefaultImagePlanesFrame.Builder shouldIncrementReferenceCount() {
       delegateCounterBuilder.shouldIncrementReferenceCount();
       return this;
     }
 
     @Override
-    public DefaultHardwareBufferFrame build() {
-      return new DefaultHardwareBufferFrame(this);
+    public DefaultImagePlanesFrame build() {
+      return new DefaultImagePlanesFrame(this);
     }
 
     @CanIgnoreReturnValue
     @Override
-    public DefaultHardwareBufferFrame.Builder setMetadata(Map<String, Object> metadata) {
+    public DefaultImagePlanesFrame.Builder setMetadata(Map<String, Object> metadata) {
       this.metadata = ImmutableMap.copyOf(metadata);
       return this;
     }
 
     @CanIgnoreReturnValue
     @Override
-    public DefaultHardwareBufferFrame.Builder setContentTimeUs(long contentTimeUs) {
+    public DefaultImagePlanesFrame.Builder setContentTimeUs(long contentTimeUs) {
       this.contentTimeUs = contentTimeUs;
       return this;
     }
 
     @CanIgnoreReturnValue
-    public DefaultHardwareBufferFrame.Builder setFormat(Format format) {
+    public DefaultImagePlanesFrame.Builder setFormat(Format format) {
       this.format = format;
       return this;
     }
 
     @CanIgnoreReturnValue
-    public DefaultHardwareBufferFrame.Builder setInternalImage(@Nullable Object internalImage) {
+    public DefaultImagePlanesFrame.Builder setInternalImage(@Nullable Object internalImage) {
       this.internalImage = internalImage;
       return this;
     }
   }
 
-  private final HardwareBuffer hardwareBuffer;
+  private final ImmutableList<Plane> planes;
   private final Format format;
   private final ImmutableMap<String, Object> metadata;
   private final long contentTimeUs;
   @Nullable private final Object internalImage;
   private final SharedStateReferenceCounter delegateCounter;
 
-  /** Private constructor used by the builder. */
-  private DefaultHardwareBufferFrame(Builder builder) {
-    this.hardwareBuffer = builder.hardwareBuffer;
+  private DefaultImagePlanesFrame(Builder builder) {
+    this.planes = builder.planes;
     this.format = builder.format;
     this.metadata = builder.metadata;
     this.contentTimeUs = builder.contentTimeUs;
@@ -155,16 +189,15 @@ public final class DefaultHardwareBufferFrame implements HardwareBufferFrame, Re
     return contentTimeUs;
   }
 
-  @RequiresApi(26)
   @Override
-  public HardwareBuffer getHardwareBuffer() {
-    return hardwareBuffer;
+  public ImmutableList<Plane> getPlanes() {
+    return planes;
   }
 
   @Override
-  public DefaultHardwareBufferFrame.Builder buildUpon() {
+  public DefaultImagePlanesFrame.Builder buildUpon() {
     delegateCounter.checkNotReleased(
-        "Cannot buildUpon a DefaultHardwareBufferFrame that has already been released.");
+        "Cannot buildUpon a DefaultImagePlanesFrame that has already been released.");
     return new Builder(this);
   }
 
