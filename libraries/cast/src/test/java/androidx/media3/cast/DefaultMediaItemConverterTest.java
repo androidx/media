@@ -27,6 +27,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.android.gms.cast.MediaInfo;
 import com.google.android.gms.cast.MediaQueueItem;
 import com.google.common.collect.ImmutableMap;
+import java.util.Calendar;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -64,6 +65,9 @@ public class DefaultMediaItemConverterTest {
                     .setComposer("testComposer")
                     .setDiscNumber(42)
                     .setTrackNumber(23)
+                    .setReleaseYear(2024)
+                    .setReleaseMonth(5)
+                    .setReleaseDay(27)
                     .build())
             .setMimeType(MimeTypes.APPLICATION_MPD)
             .setDrmConfiguration(
@@ -273,5 +277,78 @@ public class DefaultMediaItemConverterTest {
     MediaQueueItem queueItem = converter.toMediaQueueItem(mediaItem);
 
     assertThat(queueItem.getMedia().getStreamType()).isEqualTo(MediaInfo.STREAM_TYPE_INVALID);
+  }
+
+  @Test
+  public void toMediaQueueItem_withReleaseDate_setsKeyReleaseDate() {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri("http://example.com")
+            .setMediaMetadata(
+                new MediaMetadata.Builder()
+                    .setReleaseYear(2024)
+                    .setReleaseMonth(5)
+                    .setReleaseDay(27)
+                    .build())
+            .build();
+
+    MediaQueueItem queueItem = converter.toMediaQueueItem(mediaItem);
+    com.google.android.gms.cast.MediaMetadata metadata = queueItem.getMedia().getMetadata();
+
+    assertThat(metadata.containsKey(com.google.android.gms.cast.MediaMetadata.KEY_RELEASE_DATE))
+        .isTrue();
+    Calendar calendar =
+        metadata.getDate(com.google.android.gms.cast.MediaMetadata.KEY_RELEASE_DATE);
+    assertThat(calendar).isNotNull();
+    assertThat(calendar.get(Calendar.YEAR)).isEqualTo(2024);
+    assertThat(calendar.get(Calendar.MONTH)).isEqualTo(Calendar.MAY);
+    assertThat(calendar.get(Calendar.DAY_OF_MONTH)).isEqualTo(27);
+    assertThat(metadata.getDateAsString(com.google.android.gms.cast.MediaMetadata.KEY_RELEASE_DATE))
+        .isEqualTo("20240527");
+  }
+
+  @Test
+  public void toMediaQueueItem_withReleaseYearOnly_defaultsMonthAndDay() {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri("http://example.com")
+            .setMediaMetadata(new MediaMetadata.Builder().setReleaseYear(2024).build())
+            .build();
+
+    MediaQueueItem queueItem = converter.toMediaQueueItem(mediaItem);
+    com.google.android.gms.cast.MediaMetadata metadata = queueItem.getMedia().getMetadata();
+
+    assertThat(metadata.containsKey(com.google.android.gms.cast.MediaMetadata.KEY_RELEASE_DATE))
+        .isTrue();
+    assertThat(metadata.getDateAsString(com.google.android.gms.cast.MediaMetadata.KEY_RELEASE_DATE))
+        .isEqualTo("20240101");
+  }
+
+  @Test
+  public void toMediaItem_withReleaseDate_setsReleaseDate() {
+    com.google.android.gms.cast.MediaMetadata gmsMetadata =
+        new com.google.android.gms.cast.MediaMetadata(
+            com.google.android.gms.cast.MediaMetadata.MEDIA_TYPE_MOVIE);
+    Calendar calendar = Calendar.getInstance();
+    calendar.clear();
+    calendar.set(2024, Calendar.MAY, 27);
+    gmsMetadata.putDate(com.google.android.gms.cast.MediaMetadata.KEY_RELEASE_DATE, calendar);
+    MediaInfo mediaInfo =
+        new MediaInfo.Builder("contentId")
+            .setContentUrl("http://example.com/url")
+            .setContentType(MimeTypes.VIDEO_MP4)
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .setMetadata(gmsMetadata)
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(mediaInfo).build();
+
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    MediaItem mediaItem = converter.toMediaItem(queueItem);
+
+    assertThat(mediaItem.mediaMetadata.releaseYear).isEqualTo(2024);
+    assertThat(mediaItem.mediaMetadata.releaseMonth).isEqualTo(5);
+    assertThat(mediaItem.mediaMetadata.releaseDay).isEqualTo(27);
   }
 }
