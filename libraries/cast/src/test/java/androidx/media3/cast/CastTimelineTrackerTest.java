@@ -942,7 +942,7 @@ public class CastTimelineTrackerTest {
         castTimelineTracker.registerMediaItems(ImmutableList.of(item1));
     // Intermediate getCastTimeline call while queue addition is still in-flight would trigger
     // clean-up of unused items in the tracker. The in-flight item should be preserved.
-    CastTimeline _ = castTimelineTracker.getCastTimeline(mockClient);
+    CastTimeline unused = castTimelineTracker.getCastTimeline(mockClient);
     MediaQueueItem queueItem1 =
         new MediaQueueItem.Builder(inFlightQueueItems[0].getMedia()).setItemId(101).build();
     when(mockQueue.getItemIds()).thenReturn(new int[] {100, 101});
