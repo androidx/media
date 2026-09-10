@@ -21,7 +21,7 @@ android {
   namespace = "androidx.media3.demo.effect"
 
   // TODO: b/502167525 - Remove this temporary JVM 11 override once commonConfig.kt
-  // is migrated to Java 11 and the alpha25 dependency is reverted back to the BOM.
+  // is migrated to Java 11 and the alpha28 dependency is reverted back to the BOM.
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
@@ -52,7 +52,7 @@ dependencies {
   implementation(project(":lib-ui-compose-material3"))
   // TODO(b/555710150): Revert this once our Gradle BOM is updated to a stable version that
   // includes the M3 API changes (ExposedDropdownMenu).
-  implementation("androidx.compose.material3:material3:1.5.0-alpha26")
+  implementation("androidx.compose.material3:material3:1.5.0-alpha28")
   implementation(project(":lib-effect"))
   implementation(project(":lib-effect-lottie"))
 

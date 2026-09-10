@@ -26,7 +26,6 @@ import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderColors
@@ -92,8 +91,6 @@ import kotlinx.coroutines.CoroutineScope
  *   indicating whether changing progress is enabled. If `null`, a standard Material3
  *   `SliderDefaults.Track` will be shown.
  */
-// TODO: b/304811984 - publish this Slider when the overload with thumb/track is stabilized
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LabeledProgressSlider(
   player: Player?,
@@ -136,8 +133,12 @@ fun LabeledProgressSlider(
     // Cache the result to avoid repeated scrubbing mode checks
     var scrubbingEnabledForThisPlayer by remember(player) { mutableStateOf(false) }
 
+    val sliderValue = if (isDragging) seekPosition else currentPositionProgress
+    val sliderState = remember { SliderState(value = sliderValue) }
+    sliderState.value = sliderValue
+
     Slider(
-      value = if (isDragging) seekPosition else currentPositionProgress,
+      state = sliderState,
       onValueChange = {
         if (!isDragging) {
           exoPlayer?.setScrubbingModeEnabled(true)
@@ -148,6 +149,7 @@ fun LabeledProgressSlider(
         // Dispatch seeks only if they are less expensive (scrubbing mode enabled)
         if (scrubbingEnabledForThisPlayer) updateCurrentPositionProgress(seekPosition)
         onValueChange?.invoke(it)
+        sliderState.value = it
       },
       onValueChangeFinished = {
         updateCurrentPositionProgress(seekPosition)
@@ -193,7 +195,6 @@ fun LabeledProgressSlider(
   }
 }
 
-@OptIn(ExperimentalMaterial3Api::class) // For SliderState
 @Composable
 private fun SeekTimeThumb(
   progressState: ProgressStateWithTickCount,
@@ -268,7 +269,6 @@ internal fun LabeledThumb(
   }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BufferingTrack(
   progressState: ProgressStateWithTickCount,
