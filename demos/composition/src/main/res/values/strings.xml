@@ -71,6 +71,7 @@
   <string name="preset_sequence" translatable="false">Sequential</string>
   <string name="preset_grid" translatable="false">2x2 grid</string>
   <string name="preset_pip" translatable="false">PiP overlay</string>
+  <string name="preset_av_split_repro" translatable="false">AV split repro</string>
   <string name="presets" translatable="false">Preset</string>
   <string name="preview_composition_title" translatable="false">Preview: %s</string>
   <string name="add_sequence" translatable="false">Add sequence</string>

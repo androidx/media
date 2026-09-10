@@ -101,11 +101,13 @@ import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONException
+import kotlin.math.min
 
 @OptIn(ExperimentalApi::class)
 class CompositionPreviewViewModel(application: Application) : AndroidViewModel(application) {
 
-  val compositionLayouts = listOf(Preset.SEQUENCE, Preset.GRID, Preset.PIP)
+  val compositionLayouts =
+    listOf(Preset.SEQUENCE, Preset.GRID, Preset.PIP, Preset.AV_SPLIT_REPRO)
 
   private val _uiState = MutableStateFlow(createInitialState())
   val uiState: StateFlow<CompositionPreviewState> = _uiState.asStateFlow()
@@ -222,13 +224,18 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
         when (preset) {
           Preset.GRID -> 4 // 2x2 Grid
           Preset.PIP -> 2 // PiP Overlay
+          Preset.AV_SPLIT_REPRO -> 2 // video-only + audio-only
           else -> 1 // Sequence
         }
       val currentTrackTypes = currentState.sequenceTrackTypes
       val newTrackTypes =
-        List(numSequences) { i ->
-          if (i < currentTrackTypes.size) currentTrackTypes[i]
-          else setOf(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO)
+        if (preset == Preset.AV_SPLIT_REPRO) {
+          listOf(setOf(C.TRACK_TYPE_VIDEO), setOf(C.TRACK_TYPE_AUDIO))
+        } else {
+          List(numSequences) { i ->
+            if (i < currentTrackTypes.size) currentTrackTypes[i]
+            else setOf(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO)
+          }
         }
       val firstItem = currentState.mediaState.availableItems.firstOrNull()?.copy()
       val newItemsBySequence: List<List<Item>> =
@@ -243,6 +250,11 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
           }
           Preset.SEQUENCE -> {
             List(1) { if (firstItem != null) List(4) { firstItem.copy() } else emptyList() }
+          }
+          Preset.AV_SPLIT_REPRO -> {
+            // Same 3 clips in both sequences, so the audio-only sequence's item transitions
+            // mirror the video-only one exactly, as CompositionBuilder's split does.
+            List(2) { if (firstItem != null) List(3) { firstItem.copy() } else emptyList() }
           }
           Preset.CUSTOM -> {
             val currentItemsBySequence = currentState.mediaState.selectedItemsBySequence
@@ -832,7 +844,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
                 .setFrameRate(DEFAULT_FRAME_RATE_FPS)
                 // Setting duration explicitly is only required for preview with CompositionPlayer,
                 // and is not needed for export with Transformer.
-                .setDurationUs(item.durationUs)
+                .setDurationUs(min(item.durationUs, 400000L))
             sequenceBuilder.addItem(itemBuilder.build())
           }
         }
