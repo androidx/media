@@ -36,6 +36,7 @@ import androidx.media3.extractor.flv.FlvExtractor;
 import androidx.media3.extractor.heif.HeifExtractor;
 import androidx.media3.extractor.jpeg.JpegExtractor;
 import androidx.media3.extractor.mkv.MatroskaExtractor;
+import androidx.media3.extractor.mmt.TlvExtractor;
 import androidx.media3.extractor.mp3.Mp3Extractor;
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
 import androidx.media3.extractor.mp4.Mp4Extractor;
@@ -93,6 +94,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *   <li>BMP ({@link BmpExtractor})
  *   <li>HEIF ({@link HeifExtractor})
  *   <li>AVIF ({@link AvifExtractor})
+ *   <li>MMT/TLV ({@link TlvExtractor})
  *   <li>MIDI, if available, the MIDI extension's {@code androidx.media3.decoder.midi.MidiExtractor}
  *       is used.
  * </ul>
@@ -128,7 +130,8 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
         FileTypes.WEBP,
         FileTypes.BMP,
         FileTypes.HEIF,
-        FileTypes.AVIF
+        FileTypes.AVIF,
+        FileTypes.MMT_TLV
       };
 
   private static final ExtensionLoader FLAC_EXTENSION_LOADER =
@@ -608,6 +611,9 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
         break;
       case FileTypes.AVIF:
         extractors.add(new AvifExtractor());
+        break;
+      case FileTypes.MMT_TLV:
+        extractors.add(new TlvExtractor());
         break;
       case FileTypes.WEBVTT:
       case FileTypes.UNKNOWN:
