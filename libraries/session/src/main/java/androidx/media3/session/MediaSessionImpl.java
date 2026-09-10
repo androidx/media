@@ -186,6 +186,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       BitmapLoader bitmapLoader,
       boolean playIfSuppressed,
       boolean isPeriodicPositionUpdateEnabled,
+      boolean showPlaybackPositionForLiveStreams,
       boolean useLegacySurfaceHandling,
       @Nullable String packageNameOverride) {
     Log.i(
@@ -245,6 +246,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             tokenExtras,
             sessionActivity,
             playIfSuppressed,
+            showPlaybackPositionForLiveStreams,
             customLayout,
             mediaButtonPreferences,
             defaultSessionCommands,
