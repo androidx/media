@@ -227,7 +227,7 @@ private constructor(
       throw HttpDataSource.InvalidContentTypeException(contentType, dataSpec)
     }
 
-    val bytesToSkip = if (responseCode == 200 && dataSpec.position != 0L) dataSpec.position else 0L
+    val bytesToSkip = if (responseCode != 206 && dataSpec.position != 0L) dataSpec.position else 0L
 
     if (dataSpec.length != C.LENGTH_UNSET.toLong()) {
       bytesToRead = dataSpec.length
