@@ -59,6 +59,7 @@ public final class FileTypes {
    *   <li>{@link #BMP}
    *   <li>{@link #HEIF}
    *   <li>{@link #AVIF}
+   *   <li>{@link #MJPEG}
    * </ul>
    */
   @Documented
@@ -66,7 +67,7 @@ public final class FileTypes {
   @Target(TYPE_USE)
   @IntDef({
     UNKNOWN, AC3, AC4, ADTS, AMR, FLAC, FLV, MATROSKA, MP3, MP4, OGG, PS, TS, WAV, WEBVTT, JPEG,
-    MIDI, AVI, PNG, WEBP, BMP, HEIF, AVIF
+    MIDI, AVI, PNG, WEBP, BMP, HEIF, AVIF, MJPEG
   })
   public @interface Type {}
 
@@ -139,6 +140,9 @@ public final class FileTypes {
   /** File type for the AVIF format. */
   public static final int AVIF = 21;
 
+  /** File type for Motion JPEG streams. */
+  public static final int MJPEG = 22;
+
   @VisibleForTesting /* package */ static final String HEADER_CONTENT_TYPE = "Content-Type";
 
   private static final String EXTENSION_AC3 = ".ac3";
@@ -173,6 +177,8 @@ public final class FileTypes {
   private static final String EXTENSION_WEBVTT = ".webvtt";
   private static final String EXTENSION_JPG = ".jpg";
   private static final String EXTENSION_JPEG = ".jpeg";
+  private static final String EXTENSION_MJPG = ".mjpg";
+  private static final String EXTENSION_MJPEG = ".mjpeg";
   private static final String EXTENSION_AVI = ".avi";
   private static final String EXTENSION_PNG = ".png";
   private static final String EXTENSION_WEBP = ".webp";
@@ -187,7 +193,14 @@ public final class FileTypes {
   /** Returns the {@link Type} corresponding to the response headers provided. */
   public static @FileTypes.Type int inferFileTypeFromResponseHeaders(
       Map<String, List<String>> responseHeaders) {
-    @Nullable List<String> contentTypes = responseHeaders.get(HEADER_CONTENT_TYPE);
+    @Nullable List<String> contentTypes = null;
+    for (Map.Entry<String, List<String>> responseHeader : responseHeaders.entrySet()) {
+      if (responseHeader.getKey() != null
+          && responseHeader.getKey().equalsIgnoreCase(HEADER_CONTENT_TYPE)) {
+        contentTypes = responseHeader.getValue();
+        break;
+      }
+    }
     @Nullable
     String mimeType = contentTypes == null || contentTypes.isEmpty() ? null : contentTypes.get(0);
     return inferFileTypeFromMimeType(mimeType);
@@ -201,6 +214,10 @@ public final class FileTypes {
   public static @FileTypes.Type int inferFileTypeFromMimeType(@Nullable String mimeType) {
     if (mimeType == null) {
       return FileTypes.UNKNOWN;
+    }
+    int parametersStartIndex = mimeType.indexOf(';');
+    if (parametersStartIndex != -1) {
+      mimeType = mimeType.substring(0, parametersStartIndex).trim();
     }
     mimeType = normalizeMimeType(mimeType);
     switch (mimeType) {
@@ -257,6 +274,9 @@ public final class FileTypes {
         return FileTypes.HEIF;
       case MimeTypes.IMAGE_AVIF:
         return FileTypes.AVIF;
+      case MimeTypes.MULTIPART_MJPEG:
+      case MimeTypes.VIDEO_MJPEG:
+        return FileTypes.MJPEG;
       default:
         return FileTypes.UNKNOWN;
     }
@@ -320,6 +340,8 @@ public final class FileTypes {
       return FileTypes.WAV;
     } else if (filename.endsWith(EXTENSION_VTT) || filename.endsWith(EXTENSION_WEBVTT)) {
       return FileTypes.WEBVTT;
+    } else if (filename.endsWith(EXTENSION_MJPG) || filename.endsWith(EXTENSION_MJPEG)) {
+      return FileTypes.MJPEG;
     } else if (filename.endsWith(EXTENSION_JPG) || filename.endsWith(EXTENSION_JPEG)) {
       return FileTypes.JPEG;
     } else if (filename.endsWith(EXTENSION_AVI)) {
