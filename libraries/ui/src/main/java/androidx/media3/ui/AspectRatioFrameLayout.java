@@ -19,7 +19,9 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.graphics.Canvas;
 import android.util.AttributeSet;
+import android.view.View;
 import android.widget.FrameLayout;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
@@ -176,6 +178,8 @@ public final class AspectRatioFrameLayout extends FrameLayout {
 
     int width = getMeasuredWidth();
     int height = getMeasuredHeight();
+    int originalWidth = width;
+    int originalHeight = height;
     float viewAspectRatio = (float) width / height;
     float aspectDeformation = videoAspectRatio / viewAspectRatio - 1;
     if (Math.abs(aspectDeformation) <= MAX_ASPECT_RATIO_DEFORMATION_FRACTION) {
@@ -214,6 +218,42 @@ public final class AspectRatioFrameLayout extends FrameLayout {
     super.onMeasure(
         MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
         MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY));
+    if (resizeMode == RESIZE_MODE_ZOOM) {
+      // Reset the frame's measured dimensions to the original parent-constrained size so the frame
+      // itself does not overflow its parent. Children are already measured at the zoomed size.
+      setMeasuredDimension(originalWidth, originalHeight);
+    }
+  }
+
+  @Override
+  protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+    super.onLayout(changed, left, top, right, bottom);
+    if (resizeMode == RESIZE_MODE_ZOOM && videoAspectRatio > 0) {
+      int frameWidth = right - left;
+      int frameHeight = bottom - top;
+      for (int i = 0; i < getChildCount(); i++) {
+        View child = getChildAt(i);
+        int childWidth = child.getMeasuredWidth();
+        int childHeight = child.getMeasuredHeight();
+        if (childWidth > frameWidth || childHeight > frameHeight) {
+          int childLeft = (frameWidth - childWidth) / 2;
+          int childTop = (frameHeight - childHeight) / 2;
+          child.layout(childLeft, childTop, childLeft + childWidth, childTop + childHeight);
+        }
+      }
+    }
+  }
+
+  @Override
+  protected void dispatchDraw(Canvas canvas) {
+    if (resizeMode == RESIZE_MODE_ZOOM && videoAspectRatio > 0) {
+      canvas.save();
+      canvas.clipRect(0, 0, getWidth(), getHeight());
+      super.dispatchDraw(canvas);
+      canvas.restore();
+    } else {
+      super.dispatchDraw(canvas);
+    }
   }
 
   /** Dispatches updates to {@link AspectRatioListener}. */
