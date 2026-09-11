@@ -841,7 +841,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       @Nullable ColorInfo colorInfo, MediaCodecInfo encoderInfo, MediaFormat mediaFormat) {
     // TODO: b/445454172 - Remove overriding profile/level (before API 29).
     String mimeType = MimeTypes.VIDEO_H264;
-    if (SDK_INT >= 29) {
+    if (SDK_INT >= 29 && !deviceNeedsNoH264HighProfileWorkaround()) {
       int expectedEncodingProfile = MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
       if (colorInfo != null) {
         int colorTransfer = colorInfo.colorTransfer;
@@ -995,8 +995,12 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
 
   private static boolean deviceNeedsNoH264HighProfileWorkaround() {
     // The H.264/AVC encoder produces B-frames when high profile is chosen despite configuration to
-    // turn them off, so force not using high profile on these devices (see b/306617392).
+    // turn them off (see b/306617392), or fails during configure (see b/558023801), so force not
+    // using high profile on these devices.
     // TODO: b/229420356 - Remove once the in-app muxer is the default and B-frames are supported.
-    return SDK_INT == 27 && (Build.DEVICE.equals("ASUS_X00T_3") || Build.DEVICE.equals("TC77"));
+    return (SDK_INT == 27 && (Build.DEVICE.equals("ASUS_X00T_3") || Build.DEVICE.equals("TC77")))
+
+        // Redmi 7a
+        || Build.DEVICE.equals("pine");
   }
 }
