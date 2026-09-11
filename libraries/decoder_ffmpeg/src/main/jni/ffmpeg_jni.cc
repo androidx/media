@@ -16,6 +16,8 @@
 #include <android/log.h>
 #include <jni.h>
 #include <stdlib.h>
+#include <algorithm>
+#include <new>
 #include <android/native_window.h>
 #include <android/native_window_jni.h>
 #include <libyuv.h>
