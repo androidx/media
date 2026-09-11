@@ -102,7 +102,8 @@ public class DashManifestParserTest {
       "media/mpd/sample_mpd_multiple_locations_relative";
   private static final String SAMPLE_MPD_MULTIPLE_LOCATIONS_ABSOLUTE =
       "media/mpd/sample_mpd_multiple_locations_absolute";
-  private static final String SAMPLE_MPD_CONTENT_STEERING = "media/mpd/sample_mpd_content_steering";
+  private static final String SAMPLE_MPD_CONTENT_STEERING_WITH_DEFAULT_SERVICE_LOCATION =
+      "media/mpd/sample_mpd_content_steering_with_default_service_location";
 
   private static final String NEXT_TAG_NAME = "Next";
   private static final String NEXT_TAG = "<" + NEXT_TAG_NAME + "/>";
@@ -1174,12 +1175,13 @@ public class DashManifestParserTest {
         parser.parse(
             Uri.parse("https://example.com/test.mpd"),
             TestUtil.getInputStream(
-                ApplicationProvider.getApplicationContext(), SAMPLE_MPD_CONTENT_STEERING));
+                ApplicationProvider.getApplicationContext(),
+                SAMPLE_MPD_CONTENT_STEERING_WITH_DEFAULT_SERVICE_LOCATION));
 
     assertThat(manifest.contentSteering).isNotNull();
     assertThat(manifest.contentSteering.steeringServerUri)
-        .isEqualTo(Uri.parse("http://steering-server.com/steering"));
-    assertThat(manifest.contentSteering.defaultServiceLocation).containsExactly("loc1", "loc4");
+        .isEqualTo(Uri.parse("https://example.com/steering"));
+    assertThat(manifest.contentSteering.defaultServiceLocation).containsExactly("loc2", "loc4");
     assertThat(manifest.contentSteering.queryBeforeStart).isTrue();
   }
 

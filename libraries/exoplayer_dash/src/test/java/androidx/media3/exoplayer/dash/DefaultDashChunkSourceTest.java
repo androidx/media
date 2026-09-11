@@ -20,6 +20,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 import android.net.Uri;
 import android.os.SystemClock;
@@ -33,10 +39,12 @@ import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.HttpDataSource;
 import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.analytics.PlayerId;
+import androidx.media3.exoplayer.dash.manifest.BaseUrl;
 import androidx.media3.exoplayer.dash.manifest.DashManifest;
 import androidx.media3.exoplayer.dash.manifest.DashManifestParser;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
+import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.source.SampleQueue;
 import androidx.media3.exoplayer.source.chunk.BaseMediaChunk;
 import androidx.media3.exoplayer.source.chunk.BaseMediaChunkOutput;
@@ -79,6 +87,8 @@ public class DefaultDashChunkSourceTest {
   private static final String SAMPLE_MPD_VOD = "media/mpd/sample_mpd_vod";
   private static final String SAMPLE_MPD_VOD_LOCATION_FALLBACK =
       "media/mpd/sample_mpd_vod_location_fallback";
+  private static final String SAMPLE_MPD_VOD_LOCATION_AND_TRACK_FALLBACK =
+      "media/mpd/sample_mpd_vod_location_and_track_fallback";
 
   @Test
   public void getNextChunk_forLowLatencyManifest_setsCorrectMayNotLoadAtFullNetworkSpeedFlag()
@@ -109,7 +119,8 @@ public class DefaultDashChunkSourceTest {
             /* closedCaptionFormats= */ ImmutableList.of(),
             /* playerTrackEmsgHandler= */ null,
             PlayerId.UNSET,
-            /* cmcdConfiguration= */ null);
+            /* cmcdConfiguration= */ null,
+            /* contentSteeringTracker= */ null);
 
     long nowInPeriodUs = Util.msToUs(nowMs - manifest.availabilityStartTimeMs);
     ChunkHolder output = new ChunkHolder();
@@ -161,7 +172,8 @@ public class DefaultDashChunkSourceTest {
             /* closedCaptionFormats= */ ImmutableList.of(),
             /* playerTrackEmsgHandler= */ null,
             PlayerId.UNSET,
-            /* cmcdConfiguration= */ null);
+            /* cmcdConfiguration= */ null,
+            /* contentSteeringTracker= */ null);
 
     ChunkHolder output = new ChunkHolder();
     chunkSource.getNextChunk(
@@ -573,7 +585,8 @@ public class DefaultDashChunkSourceTest {
             /* closedCaptionFormats= */ ImmutableList.of(),
             /* playerTrackEmsgHandler= */ null,
             PlayerId.UNSET,
-            /* cmcdConfiguration= */ null);
+            /* cmcdConfiguration= */ null,
+            /* contentSteeringTracker= */ null);
     ChunkHolder output = new ChunkHolder();
     // Populate with last available media chunk
     chunkSource.getNextChunk(
@@ -622,7 +635,8 @@ public class DefaultDashChunkSourceTest {
             /* closedCaptionFormats= */ ImmutableList.of(),
             /* playerTrackEmsgHandler= */ null,
             PlayerId.UNSET,
-            /* cmcdConfiguration= */ null);
+            /* cmcdConfiguration= */ null,
+            /* contentSteeringTracker= */ null);
     ChunkHolder output = new ChunkHolder();
     // Populate with last media chunk
     chunkSource.getNextChunk(
@@ -691,7 +705,8 @@ public class DefaultDashChunkSourceTest {
             /* closedCaptionFormats= */ ImmutableList.of(),
             /* playerTrackEmsgHandler= */ null,
             PlayerId.UNSET,
-            /* cmcdConfiguration= */ null);
+            /* cmcdConfiguration= */ null,
+            /* contentSteeringTracker= */ null);
     ChunkHolder output = new ChunkHolder();
 
     chunkSource.getNextChunk(
@@ -752,7 +767,8 @@ public class DefaultDashChunkSourceTest {
             /* closedCaptionFormats= */ ImmutableList.of(),
             /* playerTrackEmsgHandler= */ null,
             PlayerId.UNSET,
-            /* cmcdConfiguration= */ null);
+            /* cmcdConfiguration= */ null,
+            /* contentSteeringTracker= */ null);
     ChunkHolder output = new ChunkHolder();
 
     chunkSource.getNextChunk(
@@ -800,7 +816,8 @@ public class DefaultDashChunkSourceTest {
             /* closedCaptionFormats= */ ImmutableList.of(),
             /* playerTrackEmsgHandler= */ null,
             PlayerId.UNSET,
-            /* cmcdConfiguration= */ null);
+            /* cmcdConfiguration= */ null,
+            /* contentSteeringTracker= */ null);
 
     // Update from empty to non-empty manifest.
     chunkSource.updateManifest(nonEmptyManifest, /* newPeriodIndex= */ 0);
@@ -811,8 +828,364 @@ public class DefaultDashChunkSourceTest {
     chunkSource.maybeThrowError();
   }
 
+  @Test
+  public void onChunkLoadError_withoutContentSteering_locationFallbackFirstWhenAvailable()
+      throws Exception {
+    DashManifest manifest =
+        new DashManifestParser()
+            .parse(
+                Uri.parse("https://example.com/test.mpd"),
+                TestUtil.getInputStream(
+                    ApplicationProvider.getApplicationContext(),
+                    SAMPLE_MPD_VOD_LOCATION_AND_TRACK_FALLBACK));
+    Format format0 = manifest.getPeriod(0).adaptationSets.get(0).representations.get(0).format;
+    Format format1 = manifest.getPeriod(0).adaptationSets.get(0).representations.get(1).format;
+    ImmutableList<BaseUrl> baseUrls =
+        manifest.getPeriod(0).adaptationSets.get(0).representations.get(0).baseUrls;
+    AdaptiveTrackSelection adaptiveTrackSelection =
+        spy(
+            new AdaptiveTrackSelection(
+                new TrackGroup(format0, format1),
+                new int[] {0, 1},
+                new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
+                    .build()));
+    BaseUrlExclusionList baseUrlExclusionList =
+        new BaseUrlExclusionList(new Random(/* seed= */ 1234));
+    // Before the chunk load error, there are 2 priority levels available.
+    assertThat(baseUrlExclusionList.getPriorityCountAfterExclusion(baseUrls)).isEqualTo(2);
+    DashChunkSource chunkSource =
+        new DefaultDashChunkSource(
+            new BundledChunkExtractor.Factory(),
+            new LoaderErrorThrower.Placeholder(),
+            manifest,
+            baseUrlExclusionList,
+            /* periodIndex= */ 0,
+            /* adaptationSetIndices= */ new int[] {0},
+            adaptiveTrackSelection,
+            C.TRACK_TYPE_VIDEO,
+            new FakeDataSource(),
+            /* elapsedRealtimeOffsetMs= */ 0,
+            /* maxSegmentsPerLoad= */ 1,
+            /* enableEventMessageTrack= */ false,
+            /* closedCaptionFormats= */ ImmutableList.of(),
+            /* playerTrackEmsgHandler= */ null,
+            PlayerId.UNSET,
+            /* cmcdConfiguration= */ null,
+            /* contentSteeringTracker= */ null);
+    ChunkHolder output = new ChunkHolder();
+    chunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).build(),
+        /* loadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of(),
+        output);
+    List<LoadErrorHandlingPolicy.FallbackOptions> capturedOptions = new ArrayList<>();
+    LoadErrorHandlingPolicy loadErrorHandlingPolicy =
+        new DefaultLoadErrorHandlingPolicy() {
+          @Override
+          public FallbackSelection getFallbackSelectionFor(
+              LoadErrorHandlingPolicy.FallbackOptions fallbackOptions,
+              LoadErrorInfo loadErrorInfo) {
+            capturedOptions.add(fallbackOptions);
+            return super.getFallbackSelectionFor(fallbackOptions, loadErrorInfo);
+          }
+        };
+
+    chunkSource.onChunkLoadError(
+        checkNotNull(output.chunk),
+        /* cancelable= */ true,
+        createFakeLoadErrorInfo(
+            output.chunk.dataSpec, /* httpResponseCode= */ 404, /* errorCount= */ 1),
+        loadErrorHandlingPolicy);
+
+    assertThat(capturedOptions).hasSize(1);
+    LoadErrorHandlingPolicy.FallbackOptions options = capturedOptions.get(0);
+    assertThat(options.locationSteeringActive).isFalse();
+    assertThat(options.numberOfLocations).isEqualTo(2);
+    assertThat(options.numberOfExcludedLocations).isEqualTo(0);
+    assertThat(options.numberOfTracks).isEqualTo(2);
+    assertThat(options.numberOfExcludedTracks).isEqualTo(0);
+    // After the chunk load error, one priority level is excluded.
+    assertThat(baseUrlExclusionList.getPriorityCountAfterExclusion(baseUrls)).isEqualTo(1);
+    // No track fallback.
+    verify(adaptiveTrackSelection, never()).excludeTrack(anyInt(), anyLong());
+  }
+
+  @Test
+  public void onChunkLoadError_withoutContentSteering_trackFallbackIfLocationFallbackIsUnavailable()
+      throws Exception {
+    DashManifest manifest =
+        new DashManifestParser()
+            .parse(
+                Uri.parse("https://example.com/test.mpd"),
+                TestUtil.getInputStream(
+                    ApplicationProvider.getApplicationContext(),
+                    SAMPLE_MPD_VOD_LOCATION_AND_TRACK_FALLBACK));
+    Format format0 = manifest.getPeriod(0).adaptationSets.get(0).representations.get(0).format;
+    Format format1 = manifest.getPeriod(0).adaptationSets.get(0).representations.get(1).format;
+    ImmutableList<BaseUrl> baseUrls =
+        manifest.getPeriod(0).adaptationSets.get(0).representations.get(0).baseUrls;
+    AdaptiveTrackSelection adaptiveTrackSelection =
+        spy(
+            new AdaptiveTrackSelection(
+                new TrackGroup(format0, format1),
+                new int[] {0, 1},
+                new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
+                    .build()));
+    // Exclude priority 2 beforehand to make location fallback impossible for Track 0.
+    BaseUrlExclusionList baseUrlExclusionList =
+        new BaseUrlExclusionList(new Random(/* seed= */ 1234));
+    baseUrlExclusionList.exclude(baseUrls.get(1), DEFAULT_LOCATION_EXCLUSION_MS);
+    assertThat(baseUrlExclusionList.getPriorityCountAfterExclusion(baseUrls)).isEqualTo(1);
+    DashChunkSource chunkSource =
+        new DefaultDashChunkSource(
+            new BundledChunkExtractor.Factory(),
+            new LoaderErrorThrower.Placeholder(),
+            manifest,
+            baseUrlExclusionList,
+            /* periodIndex= */ 0,
+            /* adaptationSetIndices= */ new int[] {0},
+            adaptiveTrackSelection,
+            C.TRACK_TYPE_VIDEO,
+            new FakeDataSource(),
+            /* elapsedRealtimeOffsetMs= */ 0,
+            /* maxSegmentsPerLoad= */ 1,
+            /* enableEventMessageTrack= */ false,
+            /* closedCaptionFormats= */ ImmutableList.of(),
+            /* playerTrackEmsgHandler= */ null,
+            PlayerId.UNSET,
+            /* cmcdConfiguration= */ null,
+            /* contentSteeringTracker= */ null);
+    ChunkHolder output = new ChunkHolder();
+    chunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).build(),
+        /* loadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of(),
+        output);
+    List<LoadErrorHandlingPolicy.FallbackOptions> capturedOptions = new ArrayList<>();
+    LoadErrorHandlingPolicy loadErrorHandlingPolicy =
+        new DefaultLoadErrorHandlingPolicy() {
+          @Override
+          public FallbackSelection getFallbackSelectionFor(
+              LoadErrorHandlingPolicy.FallbackOptions fallbackOptions,
+              LoadErrorInfo loadErrorInfo) {
+            capturedOptions.add(fallbackOptions);
+            return super.getFallbackSelectionFor(fallbackOptions, loadErrorInfo);
+          }
+        };
+
+    chunkSource.onChunkLoadError(
+        checkNotNull(output.chunk),
+        /* cancelable= */ true,
+        createFakeLoadErrorInfo(
+            output.chunk.dataSpec, /* httpResponseCode= */ 404, /* errorCount= */ 1),
+        loadErrorHandlingPolicy);
+
+    assertThat(capturedOptions).hasSize(1);
+    LoadErrorHandlingPolicy.FallbackOptions options = capturedOptions.get(0);
+    assertThat(options.locationSteeringActive).isFalse();
+    assertThat(options.numberOfLocations).isEqualTo(2);
+    assertThat(options.numberOfExcludedLocations).isEqualTo(1);
+    assertThat(options.numberOfTracks).isEqualTo(2);
+    assertThat(options.numberOfExcludedTracks).isEqualTo(0);
+    // After the chunk load error, no more priority level is excluded.
+    assertThat(baseUrlExclusionList.getPriorityCountAfterExclusion(baseUrls)).isEqualTo(1);
+    // One track is excluded.
+    verify(adaptiveTrackSelection).excludeTrack(anyInt(), anyLong());
+  }
+
+  @Test
+  public void onChunkLoadError_withContentSteering_trackFallbackFirstWhenAvailable()
+      throws Exception {
+    DashContentSteeringTracker contentSteeringTracker = createDashContentSteeringTracker();
+    contentSteeringTracker.start(
+        Uri.parse("https://example.com/steering"),
+        ImmutableList.of("b", "a"),
+        new MediaSourceEventListener.EventDispatcher());
+    DashManifest manifest =
+        new DashManifestParser()
+            .parse(
+                Uri.parse("https://example.com/test.mpd"),
+                TestUtil.getInputStream(
+                    ApplicationProvider.getApplicationContext(),
+                    SAMPLE_MPD_VOD_LOCATION_AND_TRACK_FALLBACK));
+    Format format0 = manifest.getPeriod(0).adaptationSets.get(0).representations.get(0).format;
+    Format format1 = manifest.getPeriod(0).adaptationSets.get(0).representations.get(1).format;
+    ImmutableList<BaseUrl> baseUrls =
+        manifest.getPeriod(0).adaptationSets.get(0).representations.get(0).baseUrls;
+    AdaptiveTrackSelection adaptiveTrackSelection =
+        spy(
+            new AdaptiveTrackSelection(
+                new TrackGroup(format0, format1),
+                new int[] {0, 1},
+                new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
+                    .build()));
+    BaseUrlExclusionList baseUrlExclusionList =
+        new BaseUrlExclusionList(new Random(/* seed= */ 1234));
+    baseUrlExclusionList.updateServiceLocationSteeringPriority(ImmutableList.of("b", "a", "c"));
+    // Before the chunk load error, all 3 locations (a, b, and c) are available.
+    assertThat(baseUrlExclusionList.getServiceLocationCountAfterExclusion(baseUrls)).isEqualTo(3);
+    DashChunkSource chunkSource =
+        new DefaultDashChunkSource(
+            new BundledChunkExtractor.Factory(),
+            new LoaderErrorThrower.Placeholder(),
+            manifest,
+            baseUrlExclusionList,
+            /* periodIndex= */ 0,
+            /* adaptationSetIndices= */ new int[] {0},
+            adaptiveTrackSelection,
+            C.TRACK_TYPE_VIDEO,
+            new FakeDataSource(),
+            /* elapsedRealtimeOffsetMs= */ 0,
+            /* maxSegmentsPerLoad= */ 1,
+            /* enableEventMessageTrack= */ false,
+            /* closedCaptionFormats= */ ImmutableList.of(),
+            /* playerTrackEmsgHandler= */ null,
+            PlayerId.UNSET,
+            /* cmcdConfiguration= */ null,
+            contentSteeringTracker);
+    ChunkHolder output = new ChunkHolder();
+    chunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).build(),
+        /* loadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of(),
+        output);
+    List<LoadErrorHandlingPolicy.FallbackOptions> capturedOptions = new ArrayList<>();
+    LoadErrorHandlingPolicy loadErrorHandlingPolicy =
+        new DefaultLoadErrorHandlingPolicy() {
+          @Override
+          public FallbackSelection getFallbackSelectionFor(
+              LoadErrorHandlingPolicy.FallbackOptions fallbackOptions,
+              LoadErrorInfo loadErrorInfo) {
+            capturedOptions.add(fallbackOptions);
+            return super.getFallbackSelectionFor(fallbackOptions, loadErrorInfo);
+          }
+        };
+
+    chunkSource.onChunkLoadError(
+        checkNotNull(output.chunk),
+        /* cancelable= */ true,
+        createFakeLoadErrorInfo(
+            output.chunk.dataSpec, /* httpResponseCode= */ 404, /* errorCount= */ 1),
+        loadErrorHandlingPolicy);
+
+    assertThat(capturedOptions).hasSize(1);
+    LoadErrorHandlingPolicy.FallbackOptions options = capturedOptions.get(0);
+    assertThat(options.locationSteeringActive).isTrue();
+    assertThat(options.numberOfLocations).isEqualTo(3);
+    assertThat(options.numberOfExcludedLocations).isEqualTo(0);
+    // Both Track 0 and Track 1 have current service location "b".
+    assertThat(options.numberOfTracks).isEqualTo(2);
+    assertThat(options.numberOfExcludedTracks).isEqualTo(0);
+    // After the chunk load error, no location is excluded.
+    assertThat(baseUrlExclusionList.getServiceLocationCountAfterExclusion(baseUrls)).isEqualTo(3);
+    // One track is excluded.
+    verify(adaptiveTrackSelection).excludeTrack(anyInt(), anyLong());
+
+    contentSteeringTracker.release();
+  }
+
+  @Test
+  public void onChunkLoadError_withContentSteering_locationFallbackIfTrackFallbackUnavailable()
+      throws Exception {
+    DashContentSteeringTracker contentSteeringTracker = createDashContentSteeringTracker();
+    contentSteeringTracker.start(
+        Uri.parse("https://example.com/steering"),
+        ImmutableList.of("a", "b"),
+        new MediaSourceEventListener.EventDispatcher());
+    DashManifest manifest =
+        new DashManifestParser()
+            .parse(
+                Uri.parse("https://example.com/test.mpd"),
+                TestUtil.getInputStream(
+                    ApplicationProvider.getApplicationContext(),
+                    SAMPLE_MPD_VOD_LOCATION_AND_TRACK_FALLBACK));
+    Format format0 = manifest.getPeriod(0).adaptationSets.get(0).representations.get(0).format;
+    Format format1 = manifest.getPeriod(0).adaptationSets.get(0).representations.get(1).format;
+    ImmutableList<BaseUrl> baseUrls =
+        manifest.getPeriod(0).adaptationSets.get(0).representations.get(0).baseUrls;
+    AdaptiveTrackSelection adaptiveTrackSelection =
+        spy(
+            new AdaptiveTrackSelection(
+                new TrackGroup(format0, format1),
+                new int[] {0, 1},
+                new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
+                    .build()));
+    BaseUrlExclusionList baseUrlExclusionList =
+        new BaseUrlExclusionList(new Random(/* seed= */ 1234));
+    baseUrlExclusionList.updateServiceLocationSteeringPriority(ImmutableList.of("a", "b", "c"));
+    // Before the chunk load error, all 3 locations (a, b, and c) are available.
+    assertThat(baseUrlExclusionList.getServiceLocationCountAfterExclusion(baseUrls)).isEqualTo(3);
+    DashChunkSource chunkSource =
+        new DefaultDashChunkSource(
+            new BundledChunkExtractor.Factory(),
+            new LoaderErrorThrower.Placeholder(),
+            manifest,
+            baseUrlExclusionList,
+            /* periodIndex= */ 0,
+            /* adaptationSetIndices= */ new int[] {0},
+            adaptiveTrackSelection,
+            C.TRACK_TYPE_VIDEO,
+            new FakeDataSource(),
+            /* elapsedRealtimeOffsetMs= */ 0,
+            /* maxSegmentsPerLoad= */ 1,
+            /* enableEventMessageTrack= */ false,
+            /* closedCaptionFormats= */ ImmutableList.of(),
+            /* playerTrackEmsgHandler= */ null,
+            PlayerId.UNSET,
+            /* cmcdConfiguration= */ null,
+            contentSteeringTracker);
+    ChunkHolder output = new ChunkHolder();
+    chunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).build(),
+        /* loadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of(),
+        output);
+    List<LoadErrorHandlingPolicy.FallbackOptions> capturedOptions = new ArrayList<>();
+    LoadErrorHandlingPolicy loadErrorHandlingPolicy =
+        new DefaultLoadErrorHandlingPolicy() {
+          @Override
+          public FallbackSelection getFallbackSelectionFor(
+              LoadErrorHandlingPolicy.FallbackOptions fallbackOptions,
+              LoadErrorInfo loadErrorInfo) {
+            capturedOptions.add(fallbackOptions);
+            return super.getFallbackSelectionFor(fallbackOptions, loadErrorInfo);
+          }
+        };
+
+    chunkSource.onChunkLoadError(
+        checkNotNull(output.chunk),
+        /* cancelable= */ true,
+        createFakeLoadErrorInfo(
+            output.chunk.dataSpec, /* httpResponseCode= */ 404, /* errorCount= */ 1),
+        loadErrorHandlingPolicy);
+
+    assertThat(capturedOptions).hasSize(1);
+    LoadErrorHandlingPolicy.FallbackOptions options = capturedOptions.get(0);
+    assertThat(options.locationSteeringActive).isTrue();
+    assertThat(options.numberOfLocations).isEqualTo(3);
+    assertThat(options.numberOfExcludedLocations).isEqualTo(0);
+    // Only Track 0 has current service location "a". Track 1 only has "b".
+    assertThat(options.numberOfTracks).isEqualTo(1);
+    assertThat(options.numberOfExcludedTracks).isEqualTo(0);
+    // After the chunk load error, location "a" is excluded.
+    assertThat(baseUrlExclusionList.getServiceLocationCountAfterExclusion(baseUrls)).isEqualTo(2);
+    // No track is excluded.
+    verify(adaptiveTrackSelection, never()).excludeTrack(anyInt(), anyLong());
+
+    contentSteeringTracker.release();
+  }
+
   private DashChunkSource createDashChunkSource(
       int numberOfTracks, @Nullable CmcdConfiguration cmcdConfiguration) throws IOException {
+    return createDashChunkSource(
+        numberOfTracks, cmcdConfiguration, /* contentSteeringTracker= */ null);
+  }
+
+  private DashChunkSource createDashChunkSource(
+      int numberOfTracks,
+      @Nullable CmcdConfiguration cmcdConfiguration,
+      @Nullable DashContentSteeringTracker contentSteeringTracker)
+      throws IOException {
     checkArgument(numberOfTracks < 6);
     DashManifest manifest =
         new DashManifestParser()
@@ -855,7 +1228,8 @@ public class DefaultDashChunkSourceTest {
         /* closedCaptionFormats= */ ImmutableList.of(),
         /* playerTrackEmsgHandler= */ null,
         PlayerId.UNSET,
-        cmcdConfiguration);
+        cmcdConfiguration,
+        contentSteeringTracker);
   }
 
   private LoadErrorHandlingPolicy.LoadErrorInfo createFakeLoadErrorInfo(
@@ -874,5 +1248,20 @@ public class DefaultDashChunkSourceTest {
             new byte[0]);
     return new LoadErrorHandlingPolicy.LoadErrorInfo(
         loadEventInfo, mediaLoadData, invalidResponseCodeException, errorCount);
+  }
+
+  private static DashContentSteeringTracker createDashContentSteeringTracker() throws Exception {
+    DashManifest manifest =
+        new DashManifestParser()
+            .parse(
+                Uri.parse("https://example.com/test.mpd"),
+                TestUtil.getInputStream(
+                    ApplicationProvider.getApplicationContext(), SAMPLE_MPD_VOD_LOCATION_FALLBACK));
+    return new DashContentSteeringTracker(
+        FakeDataSource::new,
+        /* downloadExecutorSupplier= */ null,
+        mock(DashContentSteeringTracker.Callback.class),
+        /* mediaTransferListener= */ null,
+        manifest);
   }
 }

@@ -50,9 +50,10 @@ public final class DashContentSteeringTracker extends BaseContentSteeringTracker
     /**
      * Called when the service location priority is updated.
      *
-     * @param serviceLocationPriority The updated service location priority.
+     * @param serviceLocationPriority The updated service location priority, or {@code null} if the
+     *     tracker becomes inactive.
      */
-    void onServiceLocationPriorityUpdated(ImmutableList<String> serviceLocationPriority);
+    void onServiceLocationPriorityUpdated(@Nullable ImmutableList<String> serviceLocationPriority);
   }
 
   /** Provides the information for the query parameters to request the steering manifests. */
@@ -142,6 +143,11 @@ public final class DashContentSteeringTracker extends BaseContentSteeringTracker
 
   @Override
   protected ImmutableMap<String, String> getSteeringQueryParameters() {
+    if (getCurrentPathwayPriority() == null) {
+      // We omit the _DASH_pathway and _DASH_throughput query parameters for the first steering
+      // manifest request.
+      return ImmutableMap.of();
+    }
     Map<String, Long> serviceLocationsToThroughputs = new HashMap<>();
     for (SteeringQueryParamsProvider provider : steeringQueryParamsProviders) {
       ImmutableList<String> steeredServiceLocations = provider.getSteeredServiceLocations();
@@ -192,6 +198,9 @@ public final class DashContentSteeringTracker extends BaseContentSteeringTracker
   @Override
   protected void onStop() {
     manifest = null;
+    if (callback != null) {
+      callback.onServiceLocationPriorityUpdated(null);
+    }
     availableManifestLocations.clear();
     availableBaseUrls.clear();
     steeringQueryParamsProviders.clear();

@@ -372,6 +372,7 @@ public final class DashMediaPeriodTest {
             any(),
             any(),
             any(),
+            any(),
             any());
 
     assertThat(closedCaptionFormatsCaptor.getValue())
@@ -427,7 +428,8 @@ public final class DashMediaPeriodTest {
         mock(CompositeSequenceableLoaderFactory.class),
         mock(PlayerEmsgCallback.class),
         PlayerId.UNSET,
-        /* downloadExecutorSupplier= */ null);
+        /* downloadExecutorSupplier= */ null,
+        /* contentSteeringTracker= */ null);
   }
 
   private static DashManifest parseManifest(String fileName) throws IOException {

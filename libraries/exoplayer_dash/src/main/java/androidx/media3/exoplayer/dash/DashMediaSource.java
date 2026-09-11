@@ -50,6 +50,7 @@ import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.dash.PlayerEmsgHandler.PlayerEmsgCallback;
 import androidx.media3.exoplayer.dash.manifest.AdaptationSet;
+import androidx.media3.exoplayer.dash.manifest.ContentSteering;
 import androidx.media3.exoplayer.dash.manifest.DashManifest;
 import androidx.media3.exoplayer.dash.manifest.DashManifestParser;
 import androidx.media3.exoplayer.dash.manifest.Location;
@@ -97,6 +98,7 @@ import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -106,6 +108,7 @@ import java.util.Objects;
 import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 
 /** A DASH {@link MediaSource}. */
 @SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
@@ -453,7 +456,7 @@ public final class DashMediaSource extends BaseMediaSource {
   @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
   @GuardedBy("manifestLocationsLock")
-  private final Map<String, Long> excludedServiceLocations;
+  private final Map<String, Long> excludedManifestServiceLocations;
 
   @GuardedBy("manifestLocationsLock")
   private ImmutableList<Location> manifestLocations;
@@ -464,6 +467,13 @@ public final class DashMediaSource extends BaseMediaSource {
 
   @GuardedBy("manifestLocationsLock")
   private Uri initialManifestUri;
+
+  @GuardedBy("manifestLocationsLock")
+  @Nullable
+  private ImmutableList<String> serviceLocationSteeringPriority;
+
+  @Nullable private DashContentSteeringTracker contentSteeringTracker;
+  @Nullable private SteeringQueryParamsProvider steeringQueryParamsProvider;
 
   private DataSource dataSource;
   private Loader loader;
@@ -520,7 +530,7 @@ public final class DashMediaSource extends BaseMediaSource {
     manifestEventDispatcher = createEventDispatcher(/* mediaPeriodId= */ null);
     manifestLocationsLock = new Object();
     manifestLocations = ImmutableList.of(new Location(initialManifestUri));
-    excludedServiceLocations = new HashMap<>();
+    excludedManifestServiceLocations = new HashMap<>();
     periodsById = new SparseArray<>();
     playerEmsgCallback = new DefaultPlayerEmsgCallback();
     expiredManifestPublishTimeUs = C.TIME_UNSET;
@@ -549,7 +559,7 @@ public final class DashMediaSource extends BaseMediaSource {
       this.initialManifestUri = manifestUri;
       this.currentManifestLocation = new Location(manifestUri);
       this.manifestLocations = ImmutableList.of(this.currentManifestLocation);
-      this.excludedServiceLocations.clear();
+      this.excludedManifestServiceLocations.clear();
     }
   }
 
@@ -614,7 +624,9 @@ public final class DashMediaSource extends BaseMediaSource {
             baseUrlExclusionList,
             periodIndex,
             chunkSourceFactory,
-            mediaTransferListener,
+            isContentSteeringActive()
+                ? contentSteeringTracker.getMediaTransferListener()
+                : mediaTransferListener,
             cmcdConfiguration,
             drmSessionManager,
             drmEventDispatcher,
@@ -626,7 +638,8 @@ public final class DashMediaSource extends BaseMediaSource {
             compositeSequenceableLoaderFactory,
             playerEmsgCallback,
             getPlayerId(),
-            downloadExecutorSupplier);
+            downloadExecutorSupplier,
+            contentSteeringTracker);
     periodsById.put(mediaPeriod.id, mediaPeriod);
     return mediaPeriod;
   }
@@ -649,11 +662,20 @@ public final class DashMediaSource extends BaseMediaSource {
     setLiveConfiguration(getMediaItem().liveConfiguration);
     manifestLoadStartTimestampMs = 0;
     manifestLoadEndTimestampMs = 0;
+    if (contentSteeringTracker != null) {
+      contentSteeringTracker.removeSteeringQueryParamsProvider(
+          checkNotNull(steeringQueryParamsProvider));
+      contentSteeringTracker.release();
+      contentSteeringTracker = null;
+      steeringQueryParamsProvider = null;
+    }
     synchronized (manifestLocationsLock) {
       manifestLocations = ImmutableList.of(new Location(initialManifestUri));
-      excludedServiceLocations.clear();
+      excludedManifestServiceLocations.clear();
       currentManifestLocation = null;
+      serviceLocationSteeringPriority = null;
     }
+    mediaTransferListener = null;
     manifestFatalError = null;
     if (handler != null) {
       handler.removeCallbacksAndMessages(null);
@@ -665,6 +687,39 @@ public final class DashMediaSource extends BaseMediaSource {
     periodsById.clear();
     baseUrlExclusionList.reset();
     drmSessionManager.release();
+  }
+
+  private class ContentSteeringCallback implements DashContentSteeringTracker.Callback {
+
+    @Override
+    public void onServiceLocationPriorityUpdated(
+        @Nullable ImmutableList<String> serviceLocationPriority) {
+      synchronized (manifestLocationsLock) {
+        serviceLocationSteeringPriority = serviceLocationPriority;
+        Location unused = selectManifestLocation();
+      }
+      baseUrlExclusionList.updateServiceLocationSteeringPriority(serviceLocationPriority);
+    }
+  }
+
+  private class SteeringQueryParamsProvider
+      implements DashContentSteeringTracker.SteeringQueryParamsProvider {
+
+    @Override
+    public ImmutableList<String> getSteeredServiceLocations() {
+      synchronized (manifestLocationsLock) {
+        if (contentSteeringTracker == null || !contentSteeringTracker.isActive()) {
+          return ImmutableList.of();
+        }
+        if (currentManifestLocation != null
+            && serviceLocationSteeringPriority != null
+            && serviceLocationSteeringPriority.contains(currentManifestLocation.serviceLocation)) {
+          String serviceLocation = currentManifestLocation.serviceLocation;
+          return ImmutableList.of(serviceLocation);
+        }
+        return ImmutableList.of();
+      }
+    }
   }
 
   // PlayerEmsgCallback callbacks.
@@ -791,7 +846,7 @@ public final class DashMediaSource extends BaseMediaSource {
         }
       }
     }
-
+    maybeInitializeContentSteeringTracker(manifest);
     if (manifest.dynamic && elapsedRealtimeOffsetMs == C.TIME_UNSET) {
       // Determine elapsedRealtimeOffsetMs before processing the manifest further.
       if (manifest.utcTiming != null) {
@@ -828,7 +883,7 @@ public final class DashMediaSource extends BaseMediaSource {
       numberOfLocations = manifestLocations.size();
       numberOfExcludedLocations = 0;
       for (Location location : manifestLocations) {
-        Long exclusionEndMs = excludedServiceLocations.get(location.serviceLocation);
+        Long exclusionEndMs = excludedManifestServiceLocations.get(location.serviceLocation);
         if (exclusionEndMs != null && exclusionEndMs > elapsedRealtimeMs) {
           numberOfExcludedLocations++;
         }
@@ -840,7 +895,7 @@ public final class DashMediaSource extends BaseMediaSource {
             numberOfExcludedLocations,
             /* numberOfTracks= */ 1,
             /* numberOfExcludedTracks= */ 0,
-            /* locationSteeringActive= */ false);
+            /* locationSteeringActive= */ isContentSteeringActive());
     @Nullable
     LoadErrorHandlingPolicy.FallbackSelection fallbackSelection =
         loadErrorHandlingPolicy.getFallbackSelectionFor(fallbackOptions, loadErrorInfo);
@@ -863,7 +918,7 @@ public final class DashMediaSource extends BaseMediaSource {
         }
         if (failingLocation != null) {
           long excludeUntilMs = elapsedRealtimeMs + fallbackSelection.exclusionDurationMs;
-          excludedServiceLocations.put(failingLocation.serviceLocation, excludeUntilMs);
+          excludedManifestServiceLocations.put(failingLocation.serviceLocation, excludeUntilMs);
         }
       }
       if (failingLocation != null) {
@@ -1072,7 +1127,9 @@ public final class DashMediaSource extends BaseMediaSource {
             getMediaItem(),
             manifest.dynamic ? getLiveConfiguration() : null);
     refreshSourceInfo(timeline);
-
+    if (isContentSteeringActive()) {
+      contentSteeringTracker.updateManifest(manifest);
+    }
     if (!sideloadedManifest) {
       // Remove any pending simulated refresh.
       handler.removeCallbacks(simulateManifestRefreshRunnable);
@@ -1102,6 +1159,26 @@ public final class DashMediaSource extends BaseMediaSource {
         scheduleManifestRefresh(delayUntilNextLoadMs);
       }
     }
+  }
+
+  private void maybeInitializeContentSteeringTracker(DashManifest manifest) {
+    if (contentSteeringTracker != null || manifest.contentSteering == null) {
+      return;
+    }
+    contentSteeringTracker =
+        new DashContentSteeringTracker(
+            manifestDataSourceFactory,
+            downloadExecutorSupplier,
+            new ContentSteeringCallback(),
+            mediaTransferListener,
+            manifest);
+    ContentSteering contentSteering = manifest.contentSteering;
+    steeringQueryParamsProvider = new SteeringQueryParamsProvider();
+    contentSteeringTracker.addSteeringQueryParamsProvider(steeringQueryParamsProvider);
+    contentSteeringTracker.start(
+        contentSteering.steeringServerUri,
+        contentSteering.defaultServiceLocation,
+        manifestEventDispatcher);
   }
 
   private void updateLiveConfiguration(long nowInWindowUs, long windowDurationUs) {
@@ -1218,7 +1295,8 @@ public final class DashMediaSource extends BaseMediaSource {
   private Location selectManifestLocation() {
     long nowMs = SystemClock.elapsedRealtime();
     // Clear expired exclusions
-    Iterator<Map.Entry<String, Long>> iterator = excludedServiceLocations.entrySet().iterator();
+    Iterator<Map.Entry<String, Long>> iterator =
+        excludedManifestServiceLocations.entrySet().iterator();
     while (iterator.hasNext()) {
       Map.Entry<String, Long> entry = iterator.next();
       if (entry.getValue() <= nowMs) {
@@ -1226,27 +1304,62 @@ public final class DashMediaSource extends BaseMediaSource {
       }
     }
 
+    Location selectedLocation =
+        serviceLocationSteeringPriority != null
+            ? selectManifestLocationWithSteeringPriority(serviceLocationSteeringPriority)
+            : selectManifestLocationDefault();
+    currentManifestLocation = selectedLocation;
+    return selectedLocation;
+  }
+
+  @GuardedBy("manifestLocationsLock")
+  private Location selectManifestLocationWithSteeringPriority(
+      ImmutableList<String> steeringPriority) {
+    List<Location> candidates = new ArrayList<>();
+    for (int i = 0; i < steeringPriority.size(); i++) {
+      // Iterate through the steering priority list from high to low.
+      String serviceLocation = steeringPriority.get(i);
+      List<Location> matchingLocations = findMatchingManifestLocations(serviceLocation);
+      candidates.addAll(matchingLocations);
+    }
+    if (!candidates.isEmpty()) {
+      // The candidates list is ordered by the serviceLocation's priority, so we should be either
+      // select the non-excluded location that has the highest priority, or the one has the
+      // earliest exclusion timeout, if all candidates are currently excluded.
+      return selectFirstNonExcludedOrEarliestExclusionTimeout(candidates);
+    }
+    // If the candidates list is empty, it is possible that the steering priority list is empty (the
+    // content steering tracker just started without default service location), or no available
+    // manifest locations matching any service locations on the list, then we fallback to select
+    // with the default logic.
+    return selectManifestLocationDefault();
+  }
+
+  @GuardedBy("manifestLocationsLock")
+  private Location selectManifestLocationDefault() {
     // If the current location's serviceLocation matches one of the manifest locations and is not
     // excluded, stay on it.
     if (currentManifestLocation != null
-        && !excludedServiceLocations.containsKey(currentManifestLocation.serviceLocation)) {
+        && !excludedManifestServiceLocations.containsKey(currentManifestLocation.serviceLocation)) {
       for (int i = 0; i < manifestLocations.size(); i++) {
         Location location = manifestLocations.get(i);
         if (location.serviceLocation.equals(currentManifestLocation.serviceLocation)) {
-          currentManifestLocation = location;
           return location;
         }
       }
     }
+    return selectFirstNonExcludedOrEarliestExclusionTimeout(manifestLocations);
+  }
 
-    // Select the first non-excluded location, or track the one with the earliest exclusion timeout.
+  @GuardedBy("manifestLocationsLock")
+  private Location selectFirstNonExcludedOrEarliestExclusionTimeout(List<Location> candidates) {
+    checkState(!candidates.isEmpty());
     long earliestTimeoutMs = Long.MAX_VALUE;
-    Location locationWithEarliestExclusionTimeout = checkNotNull(manifestLocations.get(0));
-    for (int i = 0; i < manifestLocations.size(); i++) {
-      Location location = manifestLocations.get(i);
-      @Nullable Long timeoutMs = excludedServiceLocations.get(location.serviceLocation);
+    Location locationWithEarliestExclusionTimeout = candidates.get(0);
+    for (int i = 0; i < candidates.size(); i++) {
+      Location location = candidates.get(i);
+      @Nullable Long timeoutMs = excludedManifestServiceLocations.get(location.serviceLocation);
       if (timeoutMs == null) {
-        currentManifestLocation = location;
         return location;
       }
       if (timeoutMs < earliestTimeoutMs) {
@@ -1254,8 +1367,19 @@ public final class DashMediaSource extends BaseMediaSource {
         locationWithEarliestExclusionTimeout = location;
       }
     }
-    currentManifestLocation = locationWithEarliestExclusionTimeout;
     return locationWithEarliestExclusionTimeout;
+  }
+
+  @GuardedBy("manifestLocationsLock")
+  private List<Location> findMatchingManifestLocations(String serviceLocation) {
+    List<Location> matchingLocations = new ArrayList<>();
+    for (int i = 0; i < manifestLocations.size(); i++) {
+      Location location = manifestLocations.get(i);
+      if (Objects.equals(location.serviceLocation, serviceLocation)) {
+        matchingLocations.add(location);
+      }
+    }
+    return matchingLocations;
   }
 
   private void startLoadingManifest() {
@@ -1493,6 +1617,11 @@ public final class DashMediaSource extends BaseMediaSource {
       }
     }
     return false;
+  }
+
+  @EnsuresNonNullIf(result = true, expression = "contentSteeringTracker")
+  private boolean isContentSteeringActive() {
+    return contentSteeringTracker != null && contentSteeringTracker.isActive();
   }
 
   private static final class DashTimeline extends Timeline {

@@ -83,6 +83,62 @@ public class BaseUrlExclusionListTest {
   }
 
   @Test
+  public void selectBaseUrl_withSteeringPriority_selectsMostPreferredBaseUrl() {
+    BaseUrlExclusionList baseUrlExclusionList = new BaseUrlExclusionList();
+    BaseUrl baseUrlA = new BaseUrl("a", "loc-a", /* priority= */ 1, /* weight= */ 1);
+    BaseUrl baseUrlB = new BaseUrl("b", "loc-b", /* priority= */ 1, /* weight= */ 1);
+    BaseUrl baseUrlC = new BaseUrl("c", "loc-c", /* priority= */ 1, /* weight= */ 1);
+    ImmutableList<BaseUrl> baseUrls = ImmutableList.of(baseUrlA, baseUrlB, baseUrlC);
+    baseUrlExclusionList.updateServiceLocationSteeringPriority(
+        ImmutableList.of("loc-b", "loc-a", "loc-c"));
+
+    assertThat(baseUrlExclusionList.selectBaseUrl(baseUrls)).isEqualTo(baseUrlB);
+  }
+
+  @Test
+  public void
+      selectBaseUrl_withSteeringPriorityAndMultipleBaseUrlsForSameServiceLocation_selectsBasedOnBaseUrlPriority() {
+    BaseUrlExclusionList baseUrlExclusionList = new BaseUrlExclusionList();
+    BaseUrl baseUrlA1 = new BaseUrl("a1", "loc-a", /* priority= */ 2, /* weight= */ 1);
+    BaseUrl baseUrlA2 = new BaseUrl("a2", "loc-a", /* priority= */ 1, /* weight= */ 1);
+    BaseUrl baseUrlB = new BaseUrl("b", "loc-b", /* priority= */ 1, /* weight= */ 1);
+    ImmutableList<BaseUrl> baseUrls = ImmutableList.of(baseUrlA1, baseUrlA2, baseUrlB);
+    baseUrlExclusionList.updateServiceLocationSteeringPriority(ImmutableList.of("loc-a", "loc-b"));
+
+    assertThat(baseUrlExclusionList.selectBaseUrl(baseUrls)).isEqualTo(baseUrlA2);
+  }
+
+  @Test
+  public void
+      selectBaseUrl_withSteeringPriorityAndMultipleBaseUrlsForSameServiceLocationAndSameLowestPriority_selectsRandomlyBasedOnWeight() {
+    Random mockRandom = mock(Random.class, withSettings().withoutAnnotations());
+    when(mockRandom.nextInt(anyInt())).thenReturn(99);
+    BaseUrlExclusionList baseUrlExclusionList = new BaseUrlExclusionList(mockRandom);
+    BaseUrl baseUrlA1 = new BaseUrl("a1", "loc-a", /* priority= */ 1, /* weight= */ 99);
+    BaseUrl baseUrlA2 = new BaseUrl("a2", "loc-a", /* priority= */ 1, /* weight= */ 1);
+    BaseUrl baseUrlB = new BaseUrl("b", "loc-b", /* priority= */ 1, /* weight= */ 1);
+    ImmutableList<BaseUrl> baseUrls = ImmutableList.of(baseUrlA1, baseUrlA2, baseUrlB);
+    baseUrlExclusionList.updateServiceLocationSteeringPriority(ImmutableList.of("loc-a", "loc-b"));
+
+    assertThat(baseUrlExclusionList.selectBaseUrl(baseUrls)).isEqualTo(baseUrlA2);
+  }
+
+  @Test
+  public void
+      selectBaseUrl_withSteeringPriorityAndMostPreferredBaseUrlExcluded_selectsNextPreferredBaseUrl() {
+    BaseUrlExclusionList baseUrlExclusionList = new BaseUrlExclusionList();
+    BaseUrl baseUrlA = new BaseUrl("a", "loc-a", /* priority= */ 1, /* weight= */ 1);
+    BaseUrl baseUrlB = new BaseUrl("b", "loc-b", /* priority= */ 1, /* weight= */ 1);
+    BaseUrl baseUrlC = new BaseUrl("c", "loc-c", /* priority= */ 1, /* weight= */ 1);
+    ImmutableList<BaseUrl> baseUrls = ImmutableList.of(baseUrlA, baseUrlB, baseUrlC);
+    baseUrlExclusionList.updateServiceLocationSteeringPriority(
+        ImmutableList.of("loc-a", "loc-b", "loc-c"));
+    baseUrlExclusionList.exclude(baseUrlA, 5000);
+
+    assertThat(baseUrlExclusionList.selectBaseUrl(baseUrls)).isEqualTo(baseUrlB);
+  }
+
+  @Test
   public void selectBaseUrl_samePriority_choiceIsRandom() {
     List<BaseUrl> baseUrls =
         ImmutableList.of(

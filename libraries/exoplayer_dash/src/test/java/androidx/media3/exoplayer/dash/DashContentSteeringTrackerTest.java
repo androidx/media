@@ -67,19 +67,16 @@ public final class DashContentSteeringTrackerTest {
   private static final String TEST_INITIAL_STEERING_URI_STRING = "https://steering";
 
   @Mock private DashContentSteeringTracker.Callback mockCallback;
-  private DataSource.Factory dataSourceFactory;
-  private AtomicInteger pathwayUpdateCount;
-
+  private AtomicInteger serviceLocationPriorityUpdateCount;
   private DashManifest initialDashManifest;
   private DashContentSteeringTracker contentSteeringTracker;
 
   @Before
   public void setUp() {
-    pathwayUpdateCount = new AtomicInteger();
-    dataSourceFactory = FakeDataSource::new;
+    serviceLocationPriorityUpdateCount = new AtomicInteger();
     doAnswer(
             invocation -> {
-              pathwayUpdateCount.incrementAndGet();
+              serviceLocationPriorityUpdateCount.incrementAndGet();
               return null;
             })
         .when(mockCallback)
@@ -90,9 +87,17 @@ public final class DashContentSteeringTrackerTest {
             new Location(Uri.parse("https://loc-b"), "CDN-B"),
             new Location(Uri.parse("https://loc-c"), "CDN-C"));
     initialDashManifest = createDashManifest(locations, ImmutableList.of());
+    String steeringManifest =
+        "{\"VERSION\": 1, \"PATHWAY-PRIORITY\": [\"CDN-B\", \"CDN-A\", \"CDN-C\"]}";
+    FakeDataSource fakeDataSource =
+        new FakeDataSource(
+            new FakeDataSet()
+                .newDefaultData()
+                .appendReadData(getBytes(steeringManifest))
+                .endData());
     contentSteeringTracker =
         new DashContentSteeringTracker(
-            dataSourceFactory,
+            () -> fakeDataSource,
             /* downloadExecutorSupplier= */ null,
             mockCallback,
             /* mediaTransferListener= */ null,
@@ -130,27 +135,12 @@ public final class DashContentSteeringTrackerTest {
 
   @Test
   public void start_onSteeringManifestUpdated_propagatesPathwayPriorityUpdate() throws Exception {
-    String steeringManifest =
-        "{\"VERSION\": 1, \"PATHWAY-PRIORITY\": [\"CDN-B\", \"CDN-A\", \"CDN-C\"]}";
-    FakeDataSource fakeDataSource =
-        new FakeDataSource(
-            new FakeDataSet()
-                .newDefaultData()
-                .appendReadData(getBytes(steeringManifest))
-                .endData());
-    contentSteeringTracker =
-        new DashContentSteeringTracker(
-            () -> fakeDataSource,
-            /* downloadExecutorSupplier= */ null,
-            mockCallback,
-            /* mediaTransferListener= */ null,
-            initialDashManifest);
-
     contentSteeringTracker.start(
         Uri.parse(TEST_INITIAL_STEERING_URI_STRING),
         ImmutableList.of("CDN-A"),
         new MediaSourceEventListener.EventDispatcher());
-    runMainLooperUntil(/* maxTimeDiffMs= */ 5_000L, () -> pathwayUpdateCount.get() >= 2);
+    runMainLooperUntil(
+        /* maxTimeDiffMs= */ 5_000L, () -> serviceLocationPriorityUpdateCount.get() >= 2);
 
     verify(mockCallback).onServiceLocationPriorityUpdated(ImmutableList.of("CDN-A"));
     verify(mockCallback)
@@ -165,7 +155,7 @@ public final class DashContentSteeringTrackerTest {
     DashManifest manifest = createDashManifest(locations, ImmutableList.of());
     contentSteeringTracker =
         new DashContentSteeringTracker(
-            dataSourceFactory,
+            FakeDataSource::new,
             /* downloadExecutorSupplier= */ null,
             mockCallback,
             /* mediaTransferListener= */ null,
@@ -191,11 +181,13 @@ public final class DashContentSteeringTrackerTest {
 
   @Test
   public void
-      getSteeringQueryParameters_withMultipleSteeringQueryParamsProviders_returnsCorrectQueryParameters() {
+      getSteeringQueryParameters_withMultipleSteeringQueryParamsProviders_returnsCorrectQueryParameters()
+          throws Exception {
     contentSteeringTracker.start(
         Uri.parse(TEST_INITIAL_STEERING_URI_STRING),
         ImmutableList.of("CDN-A"),
         new MediaSourceEventListener.EventDispatcher());
+    runMainLooperUntil(() -> serviceLocationPriorityUpdateCount.get() >= 2);
     contentSteeringTracker.addSteeringQueryParamsProvider(() -> ImmutableList.of("CDN-A", "CDN-B"));
     contentSteeringTracker.addSteeringQueryParamsProvider(() -> ImmutableList.of("CDN-B", "CDN-C"));
     TransferListener transferListener = contentSteeringTracker.getMediaTransferListener();
@@ -238,11 +230,13 @@ public final class DashContentSteeringTrackerTest {
 
   @Test
   public void
-      getSteeringQueryParameters_noSteeredServiceLocations_omitsPathwayAndThroughputParams() {
+      getSteeringQueryParameters_forFirstSteeringManifestRequest_omitsPathwayAndThroughputParams()
+          throws Exception {
     contentSteeringTracker.start(
         Uri.parse(TEST_INITIAL_STEERING_URI_STRING),
         ImmutableList.of("CDN-A"),
         new MediaSourceEventListener.EventDispatcher());
+    runMainLooperUntil(() -> serviceLocationPriorityUpdateCount.get() == 1);
 
     ImmutableMap<String, String> params = contentSteeringTracker.getSteeringQueryParameters();
 
@@ -251,11 +245,28 @@ public final class DashContentSteeringTrackerTest {
   }
 
   @Test
-  public void getSteeringQueryParameters_noThroughputEstimate_omitsThroughputParam() {
+  public void getSteeringQueryParameters_noSteeredServiceLocations_omitsPathwayAndThroughputParams()
+      throws Exception {
     contentSteeringTracker.start(
         Uri.parse(TEST_INITIAL_STEERING_URI_STRING),
         ImmutableList.of("CDN-A"),
         new MediaSourceEventListener.EventDispatcher());
+    runMainLooperUntil(() -> serviceLocationPriorityUpdateCount.get() >= 2);
+
+    ImmutableMap<String, String> params = contentSteeringTracker.getSteeringQueryParameters();
+
+    assertThat(params).doesNotContainKey("_DASH_pathway");
+    assertThat(params).doesNotContainKey("_DASH_throughput");
+  }
+
+  @Test
+  public void getSteeringQueryParameters_noThroughputEstimate_omitsThroughputParam()
+      throws Exception {
+    contentSteeringTracker.start(
+        Uri.parse(TEST_INITIAL_STEERING_URI_STRING),
+        ImmutableList.of("CDN-A"),
+        new MediaSourceEventListener.EventDispatcher());
+    runMainLooperUntil(() -> serviceLocationPriorityUpdateCount.get() >= 2);
     contentSteeringTracker.addSteeringQueryParamsProvider(() -> ImmutableList.of("CDN-A", "CDN-B"));
 
     ImmutableMap<String, String> params = contentSteeringTracker.getSteeringQueryParameters();
@@ -265,11 +276,14 @@ public final class DashContentSteeringTrackerTest {
   }
 
   @Test
-  public void removeSteeringQueryParamsProvider_providerInfoDoesNotAppearInQueryParameters() {
+  public void removeSteeringQueryParamsProvider_providerInfoDoesNotAppearInQueryParameters()
+      throws Exception {
     contentSteeringTracker.start(
         Uri.parse(TEST_INITIAL_STEERING_URI_STRING),
         ImmutableList.of("CDN-A"),
         new MediaSourceEventListener.EventDispatcher());
+    runMainLooperUntil(() -> serviceLocationPriorityUpdateCount.get() >= 2);
+
     contentSteeringTracker.addSteeringQueryParamsProvider(() -> ImmutableList.of("CDN-A", "CDN-B"));
     DashContentSteeringTracker.SteeringQueryParamsProvider anotherProvider =
         () -> ImmutableList.of("CDN-B", "CDN-C");

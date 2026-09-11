@@ -61,6 +61,7 @@ import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoaderErrorThrower;
 import androidx.media3.extractor.ChunkIndex;
 import androidx.media3.extractor.text.SubtitleParser;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
@@ -144,7 +145,8 @@ public class DefaultDashChunkSource implements DashChunkSource {
         @Nullable PlayerTrackEmsgHandler playerEmsgHandler,
         @Nullable TransferListener transferListener,
         PlayerId playerId,
-        @Nullable CmcdConfiguration cmcdConfiguration) {
+        @Nullable CmcdConfiguration cmcdConfiguration,
+        @Nullable DashContentSteeringTracker contentSteeringTracker) {
       DataSource dataSource = dataSourceFactory.createDataSource();
       if (transferListener != null) {
         dataSource.addTransferListener(transferListener);
@@ -165,7 +167,8 @@ public class DefaultDashChunkSource implements DashChunkSource {
           closedCaptionFormats,
           playerEmsgHandler,
           playerId,
-          cmcdConfiguration);
+          cmcdConfiguration,
+          contentSteeringTracker);
     }
 
     /**
@@ -189,6 +192,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
   private final int maxSegmentsPerLoad;
   @Nullable private final PlayerTrackEmsgHandler playerTrackEmsgHandler;
   @Nullable private final CmcdConfiguration cmcdConfiguration;
+  @Nullable private final DashContentSteeringTracker contentSteeringTracker;
 
   protected final RepresentationHolder[] representationHolders;
 
@@ -197,6 +201,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
   private int periodIndex;
   @Nullable private IOException fatalError;
   private boolean missingLastSegment;
+  @Nullable private BaseUrl selectedBaseUrl;
 
   /**
    * The time at which the last {@link #getNextChunk(LoadingInfo, long, List, ChunkHolder)} method
@@ -227,6 +232,8 @@ public class DefaultDashChunkSource implements DashChunkSource {
    *     messages targeting the player. Maybe null if this is not necessary.
    * @param playerId The {@link PlayerId} of the player using this chunk source.
    * @param cmcdConfiguration The {@link CmcdConfiguration} for this chunk source.
+   * @param contentSteeringTracker The {@link DashContentSteeringTracker} to use for Content
+   *     Steering, or {@code null} if Content Steering is unavailable.
    */
   public DefaultDashChunkSource(
       ChunkExtractor.Factory chunkExtractorFactory,
@@ -244,7 +251,8 @@ public class DefaultDashChunkSource implements DashChunkSource {
       List<Format> closedCaptionFormats,
       @Nullable PlayerTrackEmsgHandler playerTrackEmsgHandler,
       PlayerId playerId,
-      @Nullable CmcdConfiguration cmcdConfiguration) {
+      @Nullable CmcdConfiguration cmcdConfiguration,
+      @Nullable DashContentSteeringTracker contentSteeringTracker) {
     this.manifestLoaderErrorThrower = manifestLoaderErrorThrower;
     this.manifest = manifest;
     this.baseUrlExclusionList = baseUrlExclusionList;
@@ -257,6 +265,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
     this.maxSegmentsPerLoad = maxSegmentsPerLoad;
     this.playerTrackEmsgHandler = playerTrackEmsgHandler;
     this.cmcdConfiguration = cmcdConfiguration;
+    this.contentSteeringTracker = contentSteeringTracker;
     this.lastChunkRequestRealtimeMs = C.TIME_UNSET;
 
     long periodDurationUs = manifest.getPeriodDurationUs(periodIndex);
@@ -329,6 +338,12 @@ public class DefaultDashChunkSource implements DashChunkSource {
   @Override
   public void updateTrackSelection(ExoTrackSelection trackSelection) {
     this.trackSelection = trackSelection;
+  }
+
+  @Override
+  @Nullable
+  public BaseUrl getSelectedBaseUrl() {
+    return selectedBaseUrl;
   }
 
   @Override
@@ -598,7 +613,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
     }
 
     LoadErrorHandlingPolicy.FallbackOptions fallbackOptions =
-        createFallbackOptions(trackSelection, representationHolder.representation.baseUrls);
+        createFallbackOptions(trackSelection, representationHolder);
     if (!fallbackOptions.isFallbackAvailable(LoadErrorHandlingPolicy.FALLBACK_TYPE_TRACK)
         && !fallbackOptions.isFallbackAvailable(LoadErrorHandlingPolicy.FALLBACK_TYPE_LOCATION)) {
       return false;
@@ -637,23 +652,64 @@ public class DefaultDashChunkSource implements DashChunkSource {
   // Internal methods.
 
   private LoadErrorHandlingPolicy.FallbackOptions createFallbackOptions(
-      ExoTrackSelection trackSelection, List<BaseUrl> baseUrls) {
+      ExoTrackSelection trackSelection, RepresentationHolder representationHolder) {
     long nowMs = SystemClock.elapsedRealtime();
-    int numberOfTracks = trackSelection.length();
-    int numberOfExcludedTracks = 0;
-    for (int i = 0; i < numberOfTracks; i++) {
-      if (trackSelection.isTrackExcluded(i, nowMs)) {
-        numberOfExcludedTracks++;
+    ImmutableList<BaseUrl> baseUrls = representationHolder.representation.baseUrls;
+
+    if (contentSteeringTracker != null && contentSteeringTracker.isActive()) {
+      int numberOfTracks = 0;
+      int numberOfExcludedTracks = 0;
+      String serviceLocation = representationHolder.selectedBaseUrl.serviceLocation;
+      for (int i = 0; i < trackSelection.length(); i++) {
+        if (!hasBaseUrlForServiceLocation(
+            representationHolders[i].representation.baseUrls, serviceLocation)) {
+          // Track i does not have a base URL for the current service location. In the Content
+          // Steering case, we do not count this track as an option for track fallback, as we should
+          // stay on the current service location.
+          continue;
+        }
+        numberOfTracks++;
+        if (trackSelection.isTrackExcluded(i, nowMs)) {
+          numberOfExcludedTracks++;
+        }
+      }
+      int numberOfLocations = BaseUrlExclusionList.getServiceLocationCount(baseUrls);
+      int numberOfExcludedLocations =
+          numberOfLocations - baseUrlExclusionList.getServiceLocationCountAfterExclusion(baseUrls);
+      return new LoadErrorHandlingPolicy.FallbackOptions(
+          numberOfLocations,
+          numberOfExcludedLocations,
+          numberOfTracks,
+          numberOfExcludedTracks,
+          /* locationSteeringActive= */ true);
+    } else {
+      int numberOfTracks = trackSelection.length();
+      int numberOfExcludedTracks = 0;
+      for (int i = 0; i < numberOfTracks; i++) {
+        if (trackSelection.isTrackExcluded(i, nowMs)) {
+          numberOfExcludedTracks++;
+        }
+      }
+      int numberOfLocations = BaseUrlExclusionList.getPriorityCount(baseUrls);
+      int numberOfExcludedLocations =
+          numberOfLocations - baseUrlExclusionList.getPriorityCountAfterExclusion(baseUrls);
+      return new LoadErrorHandlingPolicy.FallbackOptions(
+          numberOfLocations,
+          numberOfExcludedLocations,
+          numberOfTracks,
+          numberOfExcludedTracks,
+          /* locationSteeringActive= */ false);
+    }
+  }
+
+  private static boolean hasBaseUrlForServiceLocation(
+      ImmutableList<BaseUrl> baseUrls, String serviceLocation) {
+    for (int i = 0; i < baseUrls.size(); i++) {
+      if (serviceLocation.equals(baseUrls.get(i).serviceLocation)) {
+        return true;
       }
     }
-    int priorityCount = BaseUrlExclusionList.getPriorityCount(baseUrls);
-    return new LoadErrorHandlingPolicy.FallbackOptions(
-        /* numberOfLocations= */ priorityCount,
-        /* numberOfExcludedLocations= */ priorityCount
-            - baseUrlExclusionList.getPriorityCountAfterExclusion(baseUrls),
-        numberOfTracks,
-        numberOfExcludedTracks,
-        /* locationSteeringActive= */ false);
+    return false;
   }
 
   private long getSegmentNum(
@@ -905,9 +961,12 @@ public class DefaultDashChunkSource implements DashChunkSource {
     @Nullable
     BaseUrl selectedBaseUrl =
         baseUrlExclusionList.selectBaseUrl(representationHolder.representation.baseUrls);
-    if (selectedBaseUrl != null && !selectedBaseUrl.equals(representationHolder.selectedBaseUrl)) {
-      representationHolder = representationHolder.copyWithNewSelectedBaseUrl(selectedBaseUrl);
-      representationHolders[trackIndex] = representationHolder;
+    if (selectedBaseUrl != null) {
+      if (!selectedBaseUrl.equals(representationHolder.selectedBaseUrl)) {
+        representationHolder = representationHolder.copyWithNewSelectedBaseUrl(selectedBaseUrl);
+        representationHolders[trackIndex] = representationHolder;
+      }
+      this.selectedBaseUrl = selectedBaseUrl;
     }
     return representationHolder;
   }

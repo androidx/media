@@ -15,7 +15,10 @@
  */
 package androidx.media3.exoplayer.dash;
 
+import static androidx.media3.common.util.Util.createHandlerForCurrentLooper;
+import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 
@@ -33,13 +36,16 @@ import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.datasource.FileDataSource;
 import androidx.media3.exoplayer.analytics.PlayerId;
+import androidx.media3.exoplayer.source.LoadEventInfo;
+import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.test.utils.TestUtil;
-import androidx.media3.test.utils.robolectric.RobolectricUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -103,6 +109,10 @@ public final class DashMediaSourceTest {
       "media/mpd/sample_mpd_updated_no_locations";
   private static final String SAMPLE_MPD_DIFFERENT_REPRESENTATION_AVAILABILITIES =
       "media/mpd/sample_mpd_different_representation_availabilities";
+  private static final String SAMPLE_MPD_CONTENT_STEERING_WITH_DEFAULT_SERVICE_LOCATION =
+      "media/mpd/sample_mpd_content_steering_with_default_service_location";
+  private static final String SAMPLE_MPD_CONTENT_STEERING_WITHOUT_DEFAULT_SERVICE_LOCATION =
+      "media/mpd/sample_mpd_content_steering_without_default_service_location";
 
   @Test
   public void iso8601ParserParse() throws IOException {
@@ -512,14 +522,14 @@ public final class DashMediaSourceTest {
 
     mediaSource.prepareSource(mediaSourceCaller, PlayerId.UNSET, BandwidthMeter.NO_OP);
 
-    RobolectricUtil.runMainLooperUntil(() -> capturedWindows.size() == 1);
+    runMainLooperUntil(() -> capturedWindows.size() == 1);
     // Assert that the offset defined by the media item was overridden.
     assertThat(capturedWindows.get(0).liveConfiguration.targetOffsetMs).isEqualTo(9_000L);
 
     mediaSource.releaseSource(mediaSourceCaller);
     mediaSource.prepareSource(mediaSourceCaller, PlayerId.UNSET, BandwidthMeter.NO_OP);
 
-    RobolectricUtil.runMainLooperUntil(() -> capturedWindows.size() == 2);
+    runMainLooperUntil(() -> capturedWindows.size() == 2);
     assertThat(capturedWindows.get(1).liveConfiguration.targetOffsetMs).isEqualTo(25_000L);
   }
 
@@ -556,7 +566,7 @@ public final class DashMediaSourceTest {
         (source, timeline) -> capturedTimelines.add(timeline),
         PlayerId.UNSET,
         BandwidthMeter.NO_OP);
-    RobolectricUtil.runMainLooperUntil(() -> capturedTimelines.size() == 3);
+    runMainLooperUntil(() -> capturedTimelines.size() == 3);
 
     assertRequestUrlsCalled(httpUrls);
   }
@@ -594,7 +604,7 @@ public final class DashMediaSourceTest {
         (source, timeline) -> capturedTimelines.add(timeline),
         PlayerId.UNSET,
         BandwidthMeter.NO_OP);
-    RobolectricUtil.runMainLooperUntil(() -> capturedTimelines.size() == 3);
+    runMainLooperUntil(() -> capturedTimelines.size() == 3);
 
     assertRequestUrlsCalled(httpUrls);
   }
@@ -641,7 +651,7 @@ public final class DashMediaSourceTest {
         (source, timeline) -> capturedTimelines.add(timeline),
         PlayerId.UNSET,
         BandwidthMeter.NO_OP);
-    RobolectricUtil.runMainLooperUntil(() -> capturedTimelines.size() == 3);
+    runMainLooperUntil(() -> capturedTimelines.size() == 3);
 
     assertRequestUrlsCalled(httpUrls);
   }
@@ -685,7 +695,7 @@ public final class DashMediaSourceTest {
         (source, timeline) -> capturedTimelines.add(timeline),
         PlayerId.UNSET,
         BandwidthMeter.NO_OP);
-    RobolectricUtil.runMainLooperUntil(() -> capturedTimelines.size() == 3);
+    runMainLooperUntil(() -> capturedTimelines.size() == 3);
 
     assertRequestUrlsCalled(httpUrls);
   }
@@ -724,7 +734,7 @@ public final class DashMediaSourceTest {
         (source, timeline) -> capturedTimelines.add(timeline),
         PlayerId.UNSET,
         BandwidthMeter.NO_OP);
-    RobolectricUtil.runMainLooperUntil(() -> capturedTimelines.size() == 3);
+    runMainLooperUntil(() -> capturedTimelines.size() == 3);
 
     assertRequestUrlsCalled(httpUrls);
   }
@@ -758,7 +768,7 @@ public final class DashMediaSourceTest {
     // Call replaceManifestUri immediately after starting preparation (while load is active).
     mediaSource.replaceManifestUri(
         Uri.parse(mockWebServer.url("/replaced/manifest.mpd").toString()));
-    RobolectricUtil.runMainLooperUntil(() -> capturedTimelines.size() == 2);
+    runMainLooperUntil(() -> capturedTimelines.size() == 2);
 
     assertRequestUrlsCalled(httpUrls);
   }
@@ -787,7 +797,7 @@ public final class DashMediaSourceTest {
         (source, timeline) -> capturedTimelines.add(timeline),
         PlayerId.UNSET,
         BandwidthMeter.NO_OP);
-    RobolectricUtil.runMainLooperUntil(() -> capturedTimelines.size() == 2);
+    runMainLooperUntil(() -> capturedTimelines.size() == 2);
 
     assertRequestUrlsCalled(httpUrls);
   }
@@ -824,7 +834,7 @@ public final class DashMediaSourceTest {
         (source, timeline) -> capturedTimelines.add(timeline),
         PlayerId.UNSET,
         BandwidthMeter.NO_OP);
-    RobolectricUtil.runMainLooperUntil(() -> capturedTimelines.size() == 2);
+    runMainLooperUntil(() -> capturedTimelines.size() == 2);
 
     assertRequestUrlsCalled(httpUrls);
   }
@@ -872,9 +882,294 @@ public final class DashMediaSourceTest {
         (source, timeline) -> capturedTimelines.add(timeline),
         PlayerId.UNSET,
         BandwidthMeter.NO_OP);
-    RobolectricUtil.runMainLooperUntil(() -> capturedTimelines.size() == 2);
+    runMainLooperUntil(() -> capturedTimelines.size() == 2);
 
     assertRequestUrlsCalled(httpUrls);
+  }
+
+  @Test
+  public void
+      prepareWithContentSteering_onValidServiceLocationPriority_switchesToMostPreferredLocation()
+          throws Exception {
+    String manifest =
+        TestUtil.getString(
+            ApplicationProvider.getApplicationContext(),
+            SAMPLE_MPD_CONTENT_STEERING_WITH_DEFAULT_SERVICE_LOCATION);
+    byte[] steeringJson =
+        "{\"VERSION\": 1, \"PATHWAY-PRIORITY\": [\"loc2\", \"loc1\"]}".getBytes(UTF_8);
+    List<HttpUrl> expectedUrls =
+        enqueueWebServerResponses(
+            new String[] {"/manifest.mpd", "/steering", "/manifest_loc2.mpd"},
+            new MockResponse()
+                .setResponseCode(200)
+                .setBody(new Buffer().write(manifest.getBytes(UTF_8))),
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(steeringJson)),
+            new MockResponse()
+                .setResponseCode(200)
+                .setBody(new Buffer().write(manifest.getBytes(UTF_8))));
+    // Use the directExecutor() to ensure the order of the manifest arrivals.
+    DashMediaSource mediaSource =
+        new DashMediaSource.Factory(new DefaultHttpDataSource.Factory())
+            .setDownloadExecutor(() -> ReleasableExecutor.from(directExecutor(), e -> {}))
+            .createMediaSource(
+                MediaItem.fromUri(Uri.parse(mockWebServer.url("/manifest.mpd").toString())));
+    List<Timeline> capturedTimelines = new ArrayList<>();
+
+    mediaSource.prepareSource(
+        (source, timeline) -> capturedTimelines.add(timeline),
+        PlayerId.UNSET,
+        BandwidthMeter.NO_OP);
+    runMainLooperUntil(() -> capturedTimelines.size() == 2);
+
+    assertRequestUrlsCalled(expectedUrls);
+  }
+
+  @Test
+  public void
+      prepareWithContentSteering_onEmptyServiceLocationPriority_selectCurrentLocationsWithDefaultLogic()
+          throws Exception {
+    String manifest =
+        TestUtil.getString(
+            ApplicationProvider.getApplicationContext(),
+            SAMPLE_MPD_CONTENT_STEERING_WITHOUT_DEFAULT_SERVICE_LOCATION);
+    byte[] steeringJson = "{\"VERSION\": 1, \"PATHWAY-PRIORITY\": []}".getBytes(UTF_8);
+    List<HttpUrl> expectedUrls =
+        enqueueWebServerResponses(
+            // There is no default service location in the initial MPD ContentSteering element.
+            // After the empty service location priority is received, the media source should stay
+            // on the current manifest location, which is loc1 (the initial MPD lists locations
+            // loc1 and loc2, then loc1 is selected as the current manifest location based on the
+            // default selection logic).
+            new String[] {"/manifest.mpd", "/steering", "/manifest_loc1.mpd"},
+            new MockResponse()
+                .setResponseCode(200)
+                .setBody(new Buffer().write(manifest.getBytes(UTF_8))),
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(steeringJson)),
+            new MockResponse()
+                .setResponseCode(200)
+                .setBody(new Buffer().write(manifest.getBytes(UTF_8))));
+    // Use the directExecutor() to ensure the order of the manifest arrivals.
+    DashMediaSource mediaSource =
+        new DashMediaSource.Factory(new DefaultHttpDataSource.Factory())
+            .setDownloadExecutor(() -> ReleasableExecutor.from(directExecutor(), e -> {}))
+            .createMediaSource(
+                MediaItem.fromUri(Uri.parse(mockWebServer.url("/manifest.mpd").toString())));
+    List<Timeline> capturedTimelines = new ArrayList<>();
+
+    mediaSource.prepareSource(
+        (source, timeline) -> capturedTimelines.add(timeline),
+        PlayerId.UNSET,
+        BandwidthMeter.NO_OP);
+    runMainLooperUntil(() -> capturedTimelines.size() == 2);
+
+    assertRequestUrlsCalled(expectedUrls);
+  }
+
+  @Test
+  public void
+      prepareWithContentSteering_onInvalidServiceLocationPriority_selectCurrentLocationsWithDefaultLogic()
+          throws Exception {
+    String manifest =
+        TestUtil.getString(
+            ApplicationProvider.getApplicationContext(),
+            SAMPLE_MPD_CONTENT_STEERING_WITHOUT_DEFAULT_SERVICE_LOCATION);
+    byte[] steeringJson =
+        "{\"VERSION\": 1, \"PATHWAY-PRIORITY\": [\"unknown_loc1\", \"unknown_loc2\"]}"
+            .getBytes(UTF_8);
+    List<HttpUrl> expectedUrls =
+        // There is no default service location in the initial MPD ContentSteering element.
+        // After the invalid service location priority is received, the media source should stay on
+        // the current manifest location, which is loc1 (the initial MPD lists locations
+        // loc1 and loc2, then loc1 is selected as the current manifest location based on the
+        // default selection logic).
+        enqueueWebServerResponses(
+            new String[] {"/manifest.mpd", "/steering", "/manifest_loc1.mpd"},
+            new MockResponse()
+                .setResponseCode(200)
+                .setBody(new Buffer().write(manifest.getBytes(UTF_8))),
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(steeringJson)),
+            new MockResponse()
+                .setResponseCode(200)
+                .setBody(new Buffer().write(manifest.getBytes(UTF_8))));
+    // Use the directExecutor() to ensure the order of the manifest arrivals.
+    DashMediaSource mediaSource =
+        new DashMediaSource.Factory(new DefaultHttpDataSource.Factory())
+            .setDownloadExecutor(() -> ReleasableExecutor.from(directExecutor(), e -> {}))
+            .createMediaSource(
+                MediaItem.fromUri(Uri.parse(mockWebServer.url("/manifest.mpd").toString())));
+    List<Timeline> capturedTimelines = new ArrayList<>();
+    mediaSource.prepareSource(
+        (source, timeline) -> capturedTimelines.add(timeline),
+        PlayerId.UNSET,
+        BandwidthMeter.NO_OP);
+    runMainLooperUntil(() -> capturedTimelines.size() == 2);
+
+    assertRequestUrlsCalled(expectedUrls);
+  }
+
+  @Test
+  public void
+      prepareWithContentSteering_onManifestLoadError_switchesToNextPreferredServiceLocation()
+          throws Exception {
+    String manifest =
+        TestUtil.getString(
+            ApplicationProvider.getApplicationContext(),
+            SAMPLE_MPD_CONTENT_STEERING_WITH_DEFAULT_SERVICE_LOCATION);
+    byte[] steeringJson =
+        "{\"VERSION\": 1, \"PATHWAY-PRIORITY\": [\"loc2\", \"loc1\"]}".getBytes(UTF_8);
+    List<HttpUrl> expectedUrls =
+        enqueueWebServerResponses(
+            new String[] {"/manifest.mpd", "/steering", "/manifest_loc2.mpd", "/manifest_loc1.mpd"},
+            new MockResponse()
+                .setResponseCode(200)
+                .setBody(new Buffer().write(manifest.getBytes(UTF_8))),
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(steeringJson)),
+            new MockResponse().setResponseCode(500),
+            new MockResponse()
+                .setResponseCode(200)
+                .setBody(new Buffer().write(manifest.getBytes(UTF_8))));
+    // Use the directExecutor() to ensure the order of the manifest arrivals.
+    DashMediaSource mediaSource =
+        new DashMediaSource.Factory(new DefaultHttpDataSource.Factory())
+            .setDownloadExecutor(() -> ReleasableExecutor.from(directExecutor(), e -> {}))
+            .createMediaSource(
+                MediaItem.fromUri(Uri.parse(mockWebServer.url("/manifest.mpd").toString())));
+    List<Timeline> capturedTimelines = new ArrayList<>();
+    AtomicBoolean steeringLoadCompleted = new AtomicBoolean();
+    mediaSource.addEventListener(
+        createHandlerForCurrentLooper(),
+        new MediaSourceEventListener() {
+          @Override
+          public void onLoadCompleted(
+              int windowIndex,
+              MediaSource.MediaPeriodId mediaPeriodId,
+              LoadEventInfo loadEventInfo,
+              MediaLoadData mediaLoadData) {
+            if (loadEventInfo.uri.getPath() != null
+                && loadEventInfo.uri.getPath().startsWith("/steering")) {
+              steeringLoadCompleted.set(true);
+            }
+          }
+        });
+
+    mediaSource.prepareSource(
+        (source, timeline) -> capturedTimelines.add(timeline),
+        PlayerId.UNSET,
+        BandwidthMeter.NO_OP);
+    runMainLooperUntil(50L, steeringLoadCompleted::get);
+    runMainLooperUntil(() -> capturedTimelines.size() == 2);
+
+    assertRequestUrlsCalled(expectedUrls);
+  }
+
+  @Test
+  public void
+      prepareWithContentSteering_onManifestLoadErrorAndAllLocationsExcluded_fallsBackToEarliestExclusionExpiringLocation()
+          throws Exception {
+    String manifest =
+        TestUtil.getString(
+            ApplicationProvider.getApplicationContext(),
+            SAMPLE_MPD_CONTENT_STEERING_WITH_DEFAULT_SERVICE_LOCATION);
+    byte[] steeringJson =
+        "{\"VERSION\": 1, \"PATHWAY-PRIORITY\": [\"loc2\", \"loc1\"]}".getBytes(UTF_8);
+    List<HttpUrl> expectedUrls =
+        enqueueWebServerResponses(
+            new String[] {
+              "/manifest.mpd",
+              "/steering",
+              "/manifest_loc2.mpd",
+              "/manifest_loc1.mpd",
+              "/manifest_loc2.mpd"
+            },
+            new MockResponse()
+                .setResponseCode(200)
+                .setBody(new Buffer().write(manifest.getBytes(UTF_8))),
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(steeringJson)),
+            new MockResponse().setResponseCode(500),
+            new MockResponse().setResponseCode(500),
+            new MockResponse()
+                .setResponseCode(200)
+                .setBody(new Buffer().write(manifest.getBytes(UTF_8))));
+    AtomicInteger getFallbackSelectionCount = new AtomicInteger(0);
+    LoadErrorHandlingPolicy customPolicy =
+        new DefaultLoadErrorHandlingPolicy() {
+          @Override
+          public FallbackSelection getFallbackSelectionFor(
+              FallbackOptions fallbackOptions, LoadErrorInfo loadErrorInfo) {
+            int count = getFallbackSelectionCount.incrementAndGet();
+            long exclusionDurationMs = count == 1 ? 5000 : 10000;
+            return new FallbackSelection(FALLBACK_TYPE_LOCATION, exclusionDurationMs);
+          }
+        };
+    // Use the directExecutor() to ensure the order of the manifest arrivals.
+    DashMediaSource mediaSource =
+        new DashMediaSource.Factory(new DefaultHttpDataSource.Factory())
+            .setDownloadExecutor(() -> ReleasableExecutor.from(directExecutor(), e -> {}))
+            .setLoadErrorHandlingPolicy(customPolicy)
+            .createMediaSource(
+                MediaItem.fromUri(Uri.parse(mockWebServer.url("/manifest.mpd").toString())));
+    List<Timeline> capturedTimelines = new ArrayList<>();
+
+    mediaSource.prepareSource(
+        (source, timeline) -> capturedTimelines.add(timeline),
+        PlayerId.UNSET,
+        BandwidthMeter.NO_OP);
+    runMainLooperUntil(() -> capturedTimelines.size() == 2);
+
+    assertRequestUrlsCalled(expectedUrls);
+  }
+
+  @Test
+  public void
+      prepareWithContentSteering_currentServiceLocationNotInPriority_omitsSteeredLocationsQueryParam()
+          throws Exception {
+    String manifest =
+        TestUtil.getString(
+            ApplicationProvider.getApplicationContext(),
+            SAMPLE_MPD_CONTENT_STEERING_WITHOUT_DEFAULT_SERVICE_LOCATION);
+    byte[] steeringJson =
+        "{\"VERSION\": 1, \"TTL\": 0, \"PATHWAY-PRIORITY\": [\"unknown_loc1\", \"unknown_loc2\"]}"
+            .getBytes(UTF_8);
+    List<HttpUrl> expectedUrls =
+        enqueueWebServerResponses(
+            new String[] {"/manifest.mpd", "/steering", "/steering"},
+            new MockResponse()
+                .setResponseCode(200)
+                .setBody(new Buffer().write(manifest.getBytes(UTF_8))),
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(steeringJson)),
+            new MockResponse().setResponseCode(200).setBody(new Buffer().write(steeringJson)));
+    // Use the directExecutor() to ensure the order of the manifest arrivals.
+    DashMediaSource mediaSource =
+        new DashMediaSource.Factory(new DefaultHttpDataSource.Factory())
+            .setDownloadExecutor(() -> ReleasableExecutor.from(directExecutor(), e -> {}))
+            .createMediaSource(
+                MediaItem.fromUri(Uri.parse(mockWebServer.url("/manifest.mpd").toString())));
+    List<Timeline> capturedTimelines = new ArrayList<>();
+    AtomicInteger steeringLoadCompletedCount = new AtomicInteger();
+    mediaSource.addEventListener(
+        createHandlerForCurrentLooper(),
+        new MediaSourceEventListener() {
+          @Override
+          public void onLoadCompleted(
+              int windowIndex,
+              MediaSource.MediaPeriodId mediaPeriodId,
+              LoadEventInfo loadEventInfo,
+              MediaLoadData mediaLoadData) {
+            if (loadEventInfo.uri.getPath() != null
+                && loadEventInfo.uri.getPath().startsWith("/steering")) {
+              steeringLoadCompletedCount.incrementAndGet();
+            }
+          }
+        });
+
+    mediaSource.prepareSource(
+        (source, timeline) -> capturedTimelines.add(timeline),
+        PlayerId.UNSET,
+        BandwidthMeter.NO_OP);
+    runMainLooperUntil(
+        () -> capturedTimelines.size() == 1 && steeringLoadCompletedCount.get() == 2);
+
+    assertRequestUrlsCalled(expectedUrls);
   }
 
   @Test
@@ -1018,7 +1313,7 @@ public final class DashMediaSourceTest {
 
     mediaSource.prepareSource(mediaSourceCaller, PlayerId.UNSET, BandwidthMeter.NO_OP);
 
-    RobolectricUtil.runMainLooperUntil(() -> capturedWindows.size() == 1);
+    runMainLooperUntil(() -> capturedWindows.size() == 1);
     // Assert that the offset defined by the media item was overridden.
     assertThat(capturedWindows.get(0).liveConfiguration.targetOffsetMs).isEqualTo(9_000L);
 
@@ -1032,7 +1327,7 @@ public final class DashMediaSourceTest {
 
     mediaSource.prepareSource(mediaSourceCaller, PlayerId.UNSET, BandwidthMeter.NO_OP);
 
-    RobolectricUtil.runMainLooperUntil(() -> capturedWindows.size() == 2);
+    runMainLooperUntil(() -> capturedWindows.size() == 2);
     assertThat(capturedWindows.get(1).liveConfiguration.targetOffsetMs).isEqualTo(5_000L);
   }
 
@@ -1060,7 +1355,7 @@ public final class DashMediaSourceTest {
             windowReference.set(timeline.getWindow(/* windowIndex= */ 0, new Timeline.Window())),
         PlayerId.UNSET,
         BandwidthMeter.NO_OP);
-    RobolectricUtil.runMainLooperUntil(() -> windowReference.get() != null);
+    runMainLooperUntil(() -> windowReference.get() != null);
     return windowReference.get();
   }
 

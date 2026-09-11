@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.dash;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -36,6 +37,7 @@ import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.dash.PlayerEmsgHandler.PlayerEmsgCallback;
 import androidx.media3.exoplayer.dash.PlayerEmsgHandler.PlayerTrackEmsgHandler;
 import androidx.media3.exoplayer.dash.manifest.AdaptationSet;
+import androidx.media3.exoplayer.dash.manifest.BaseUrl;
 import androidx.media3.exoplayer.dash.manifest.DashManifest;
 import androidx.media3.exoplayer.dash.manifest.Descriptor;
 import androidx.media3.exoplayer.dash.manifest.EventStream;
@@ -73,6 +75,7 @@ import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Objects;
@@ -112,8 +115,13 @@ import java.util.regex.Pattern;
   private final DrmSessionEventListener.EventDispatcher drmEventDispatcher;
   private final PlayerId playerId;
   @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
+  @Nullable private final DashContentSteeringTracker contentSteeringTracker;
 
   @Nullable private Callback callback;
+
+  @Nullable
+  private DashContentSteeringTracker.SteeringQueryParamsProvider steeringQueryParamsProvider;
+
   private ChunkSampleStream<DashChunkSource>[] sampleStreams;
   private EventSampleStream[] eventSampleStreams;
   private SequenceableLoader compositeSequenceableLoader;
@@ -144,7 +152,8 @@ import java.util.regex.Pattern;
       CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory,
       PlayerEmsgCallback playerEmsgCallback,
       PlayerId playerId,
-      @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier) {
+      @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier,
+      @Nullable DashContentSteeringTracker contentSteeringTracker) {
     this.id = id;
     this.manifest = manifest;
     this.baseUrlExclusionList = baseUrlExclusionList;
@@ -162,7 +171,12 @@ import java.util.regex.Pattern;
     this.compositeSequenceableLoaderFactory = compositeSequenceableLoaderFactory;
     this.playerId = playerId;
     this.downloadExecutorSupplier = downloadExecutorSupplier;
+    this.contentSteeringTracker = contentSteeringTracker;
     this.canReportInitialDiscontinuity = true;
+    if (contentSteeringTracker != null && contentSteeringTracker.isActive()) {
+      this.steeringQueryParamsProvider = new SteeringQueryParamsProvider();
+      contentSteeringTracker.addSteeringQueryParamsProvider(this.steeringQueryParamsProvider);
+    }
     playerEmsgHandler = new PlayerEmsgHandler(manifest, playerEmsgCallback, allocator);
     sampleStreams = newSampleStreamArray(0);
     eventSampleStreams = new EventSampleStream[0];
@@ -214,6 +228,11 @@ import java.util.regex.Pattern;
       sampleStream.release(this);
     }
     callback = null;
+    if (this.steeringQueryParamsProvider != null) {
+      checkNotNull(contentSteeringTracker)
+          .removeSteeringQueryParamsProvider(this.steeringQueryParamsProvider);
+      this.steeringQueryParamsProvider = null;
+    }
   }
 
   // ChunkSampleStream.ReleaseCallback implementation.
@@ -946,7 +965,8 @@ import java.util.regex.Pattern;
             trackPlayerEmsgHandler,
             transferListener,
             playerId,
-            cmcdConfiguration);
+            cmcdConfiguration,
+            contentSteeringTracker);
     ChunkSampleStream<DashChunkSource> stream =
         new ChunkSampleStream<>(
             trackGroupInfo.trackType,
@@ -1117,6 +1137,26 @@ import java.util.regex.Pattern;
   @SuppressWarnings({"unchecked", "rawtypes"})
   private static ChunkSampleStream<DashChunkSource>[] newSampleStreamArray(int length) {
     return new ChunkSampleStream[length];
+  }
+
+  private class SteeringQueryParamsProvider
+      implements DashContentSteeringTracker.SteeringQueryParamsProvider {
+
+    @Override
+    public ImmutableList<String> getSteeredServiceLocations() {
+      if (contentSteeringTracker == null || !contentSteeringTracker.isActive()) {
+        return ImmutableList.of();
+      }
+      HashSet<String> steeredServiceLocations = new HashSet<>();
+      for (ChunkSampleStream<DashChunkSource> sampleStream : sampleStreams) {
+        DashChunkSource chunkSource = sampleStream.getChunkSource();
+        @Nullable BaseUrl baseUrl = chunkSource.getSelectedBaseUrl();
+        if (baseUrl != null) {
+          steeredServiceLocations.add(baseUrl.serviceLocation);
+        }
+      }
+      return ImmutableList.copyOf(steeredServiceLocations);
+    }
   }
 
   private static final class TrackGroupInfo {

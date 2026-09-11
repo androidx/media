@@ -24,6 +24,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.dash.manifest.BaseUrl;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -31,6 +32,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 
@@ -45,6 +47,8 @@ public final class BaseUrlExclusionList {
   private final Map<Integer, Long> excludedPriorities;
   private final Map<List<Pair<String, Integer>>, BaseUrl> selectionsTaken = new HashMap<>();
   private final Random random;
+
+  @Nullable private ImmutableList<String> serviceLocationSteeringPriority;
 
   /** Creates an instance. */
   public BaseUrlExclusionList() {
@@ -68,7 +72,8 @@ public final class BaseUrlExclusionList {
   public void exclude(BaseUrl baseUrlToExclude, long exclusionDurationMs) {
     long excludeUntilMs = SystemClock.elapsedRealtime() + exclusionDurationMs;
     addExclusion(baseUrlToExclude.serviceLocation, excludeUntilMs, excludedServiceLocations);
-    if (baseUrlToExclude.priority != BaseUrl.PRIORITY_UNSET) {
+    if (serviceLocationSteeringPriority == null
+        && baseUrlToExclude.priority != BaseUrl.PRIORITY_UNSET) {
       addExclusion(baseUrlToExclude.priority, excludeUntilMs, excludedPriorities);
     }
   }
@@ -91,15 +96,37 @@ public final class BaseUrlExclusionList {
     }
     // Sort by priority and service location to make the sort order of the candidates deterministic.
     Collections.sort(includedBaseUrls, BaseUrlExclusionList::compareBaseUrl);
+
+    @Nullable
+    ImmutableList<String> serviceLocationSteeringPriority = this.serviceLocationSteeringPriority;
+    if (serviceLocationSteeringPriority != null) {
+      // If there is a serviceLocationSteeringPriority, select the base URL based on it.
+      for (int i = 0; i < serviceLocationSteeringPriority.size(); i++) {
+        String serviceLocation = serviceLocationSteeringPriority.get(i);
+        List<BaseUrl> matchingBaseUrls = findMatchingBaseUrls(serviceLocation, includedBaseUrls);
+        if (!matchingBaseUrls.isEmpty()) {
+          // Within the most preferred service location, select the base URL by priority and
+          // weight.
+          return selectBaseUrlByPriorityAndWeight(matchingBaseUrls);
+        }
+      }
+    }
+    return selectBaseUrlByPriorityAndWeight(includedBaseUrls);
+  }
+
+  private BaseUrl selectBaseUrlByPriorityAndWeight(List<BaseUrl> candidates) {
+    if (candidates.size() == 1) {
+      return candidates.get(0);
+    }
     // Get candidates of the lowest priority from the head of the sorted list.
     List<Pair<String, Integer>> candidateKeys = new ArrayList<>();
-    int lowestPriority = includedBaseUrls.get(0).priority;
-    for (int i = 0; i < includedBaseUrls.size(); i++) {
-      BaseUrl baseUrl = includedBaseUrls.get(i);
+    int lowestPriority = candidates.get(0).priority;
+    for (int i = 0; i < candidates.size(); i++) {
+      BaseUrl baseUrl = candidates.get(i);
       if (lowestPriority != baseUrl.priority) {
         if (candidateKeys.size() == 1) {
           // Only a single candidate of lowest priority; no choice.
-          return includedBaseUrls.get(0);
+          return candidates.get(0);
         }
         break;
       }
@@ -109,11 +136,39 @@ public final class BaseUrlExclusionList {
     @Nullable BaseUrl baseUrl = selectionsTaken.get(candidateKeys);
     if (baseUrl == null) {
       // Weighted random selection from multiple candidates of the same priority.
-      baseUrl = selectWeighted(includedBaseUrls.subList(0, candidateKeys.size()));
+      baseUrl = selectWeighted(candidates.subList(0, candidateKeys.size()));
       // Remember the selection taken for later.
       selectionsTaken.put(candidateKeys, baseUrl);
     }
     return baseUrl;
+  }
+
+  /**
+   * Returns the number of priority levels of the given list of base URLs.
+   *
+   * @param baseUrls The list of base URLs.
+   * @return The number of priority levels before exclusion.
+   */
+  public static int getPriorityCount(List<BaseUrl> baseUrls) {
+    Set<Integer> priorities = new HashSet<>();
+    for (int i = 0; i < baseUrls.size(); i++) {
+      priorities.add(baseUrls.get(i).priority);
+    }
+    return priorities.size();
+  }
+
+  /**
+   * Returns the number of service locations for the given list of base URLs before exclusion.
+   *
+   * @param baseUrls The list of base URLs.
+   * @return The number of service locations before exclusion.
+   */
+  public static int getServiceLocationCount(List<BaseUrl> baseUrls) {
+    Set<String> serviceLocations = new HashSet<>();
+    for (int i = 0; i < baseUrls.size(); i++) {
+      serviceLocations.add(baseUrls.get(i).serviceLocation);
+    }
+    return serviceLocations.size();
   }
 
   /**
@@ -132,17 +187,24 @@ public final class BaseUrlExclusionList {
   }
 
   /**
-   * Returns the number of priority levels of the given list of base URLs.
+   * Returns the number of service locations for the given list of base URLs after exclusion.
    *
    * @param baseUrls The list of base URLs.
-   * @return The number of priority levels before exclusion.
+   * @return The number of service locations after exclusion.
    */
-  public static int getPriorityCount(List<BaseUrl> baseUrls) {
-    Set<Integer> priorities = new HashSet<>();
-    for (int i = 0; i < baseUrls.size(); i++) {
-      priorities.add(baseUrls.get(i).priority);
+  public int getServiceLocationCountAfterExclusion(List<BaseUrl> baseUrls) {
+    Set<String> serviceLocations = new HashSet<>();
+    List<BaseUrl> includedBaseUrls = applyExclusions(baseUrls);
+    for (int i = 0; i < includedBaseUrls.size(); i++) {
+      serviceLocations.add(includedBaseUrls.get(i).serviceLocation);
     }
-    return priorities.size();
+    return serviceLocations.size();
+  }
+
+  /** Updates the service location steering priority. */
+  public void updateServiceLocationSteeringPriority(
+      @Nullable ImmutableList<String> serviceLocationPriority) {
+    this.serviceLocationSteeringPriority = serviceLocationPriority;
   }
 
   /** Resets the state. */
@@ -150,9 +212,22 @@ public final class BaseUrlExclusionList {
     excludedServiceLocations.clear();
     excludedPriorities.clear();
     selectionsTaken.clear();
+    serviceLocationSteeringPriority = null;
   }
 
   // Internal methods.
+
+  private static List<BaseUrl> findMatchingBaseUrls(
+      String serviceLocation, List<BaseUrl> baseUrls) {
+    List<BaseUrl> matchingBaseUrls = new ArrayList<>();
+    for (int i = 0; i < baseUrls.size(); i++) {
+      BaseUrl baseUrl = baseUrls.get(i);
+      if (Objects.equals(serviceLocation, baseUrl.serviceLocation)) {
+        matchingBaseUrls.add(baseUrl);
+      }
+    }
+    return matchingBaseUrls;
+  }
 
   private List<BaseUrl> applyExclusions(List<BaseUrl> baseUrls) {
     long nowMs = SystemClock.elapsedRealtime();

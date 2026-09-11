@@ -25,6 +25,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.dash.PlayerEmsgHandler.PlayerTrackEmsgHandler;
+import androidx.media3.exoplayer.dash.manifest.BaseUrl;
 import androidx.media3.exoplayer.dash.manifest.DashManifest;
 import androidx.media3.exoplayer.source.chunk.ChunkSource;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
@@ -93,6 +94,8 @@ public interface DashChunkSource extends ChunkSource {
      *     May be null if no listener is available.
      * @param playerId The {@link PlayerId} of the player using this chunk source.
      * @param cmcdConfiguration The {@link CmcdConfiguration} for this chunk source.
+     * @param contentSteeringTracker The {@link DashContentSteeringTracker} to use for Content
+     *     Steering, or {@code null} if Content Steering is unavailable.
      * @return The created {@link DashChunkSource}.
      */
     DashChunkSource createDashChunkSource(
@@ -109,7 +112,8 @@ public interface DashChunkSource extends ChunkSource {
         @Nullable PlayerTrackEmsgHandler playerEmsgHandler,
         @Nullable TransferListener transferListener,
         PlayerId playerId,
-        @Nullable CmcdConfiguration cmcdConfiguration);
+        @Nullable CmcdConfiguration cmcdConfiguration,
+        @Nullable DashContentSteeringTracker contentSteeringTracker);
 
     /**
      * Returns the output {@link Format} of emitted {@linkplain C#TRACK_TYPE_TEXT text samples}
@@ -146,4 +150,17 @@ public interface DashChunkSource extends ChunkSource {
    * @param trackSelection The new track selection instance. Must be equivalent to the previous one.
    */
   void updateTrackSelection(ExoTrackSelection trackSelection);
+
+  /**
+   * Returns the selected {@link BaseUrl}.
+   *
+   * <p>The default implementation returns {@code null}.
+   *
+   * @return The selected {@link BaseUrl} of this {@link DashChunkSource}. Can be {@code null} if
+   *     unknown or if no {@link BaseUrl} has been selected.
+   */
+  @Nullable
+  default BaseUrl getSelectedBaseUrl() {
+    return null;
+  }
 }
