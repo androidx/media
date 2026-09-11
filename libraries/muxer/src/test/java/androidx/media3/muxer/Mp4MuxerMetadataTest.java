@@ -20,9 +20,14 @@ import static androidx.media3.container.MdtaMetadataEntry.TYPE_INDICATOR_FLOAT32
 import static androidx.media3.container.MdtaMetadataEntry.TYPE_INDICATOR_STRING;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.XMP_SAMPLE_DATA;
+import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.util.Pair;
+import androidx.annotation.Nullable;
+import androidx.media3.common.C;
+import androidx.media3.common.Format;
+import androidx.media3.common.Metadata;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
@@ -37,6 +42,7 @@ import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.Iterables;
 import java.nio.ByteBuffer;
 import org.junit.Rule;
 import org.junit.Test;
@@ -172,6 +178,33 @@ public class Mp4MuxerMetadataTest {
         context,
         fakeExtractorOutput,
         MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_location.mp4"));
+  }
+
+  @Test
+  public void writeMp4File_setLocationWithAltitude_setsSameLocationWithAltitude() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    float latitude = 33.0f;
+    float longitude = -120.0f;
+    float altitude = 150.5f;
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 1_000_000L,
+              /* modificationTimestampSeconds= */ 5_000_000L));
+      int trackId = muxer.addTrack(/* sortKey= */ 0, FAKE_VIDEO_FORMAT);
+      muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+      muxer.addMetadataEntry(new Mp4LocationData(latitude, longitude, altitude));
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), outputFilePath);
+    Format videoTrackFormat =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO))
+            .lastFormat;
+    Mp4LocationData locationData = findMetadataEntry(videoTrackFormat, Mp4LocationData.class);
+    assertThat(locationData).isEqualTo(new Mp4LocationData(latitude, longitude, altitude));
   }
 
   @Test
@@ -315,5 +348,20 @@ public class Mp4MuxerMetadataTest {
     // The uuid box should be present in the output MP4.
     DumpFileAsserts.assertOutput(
         context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_xmp.mp4"));
+  }
+
+  @Nullable
+  private static <T extends Metadata.Entry> T findMetadataEntry(
+      Format format, Class<T> metadataClazz) {
+    if (format.metadata == null) {
+      return null;
+    }
+    for (int i = 0; i < format.metadata.length(); i++) {
+      Metadata.Entry entry = format.metadata.get(i);
+      if (metadataClazz.isInstance(entry)) {
+        return metadataClazz.cast(entry);
+      }
+    }
+    return null;
   }
 }

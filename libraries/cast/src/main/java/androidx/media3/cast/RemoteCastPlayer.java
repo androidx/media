@@ -51,6 +51,7 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.BasePlayer;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
+import androidx.media3.common.Flags;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MediaMetadata;
@@ -84,6 +85,7 @@ import com.google.android.gms.cast.framework.media.RemoteMediaClient;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient.MediaChannelResult;
 import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.common.api.Status;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Longs;
@@ -384,6 +386,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   private int pendingSeekCount;
   private int pendingSeekWindowIndex;
   private long pendingSeekPositionMs;
+  @Nullable private Object pendingSeekPeriodUid;
   @Nullable private PositionInfo pendingMediaItemRemovalPosition;
   private MediaMetadata mediaMetadata;
   private MediaMetadata playlistMetadata;
@@ -425,7 +428,8 @@ public final class RemoteCastPlayer extends BasePlayer {
             + MediaLibraryInfo.VERSION_SLASHY
             + "] ["
             + Util.DEVICE_DEBUG_INFO
-            + "]");
+            + "] "
+            + Flags.getLogString());
     this.cast = cast;
     this.mediaItemConverter = mediaItemConverter;
     this.trackSelector = trackSelector;
@@ -492,6 +496,7 @@ public final class RemoteCastPlayer extends BasePlayer {
     listeners.flushEvents();
   }
 
+  // TODO: b/549537517 - Remove this method once deprecation cycle is complete.
   /**
    * Returns the item that corresponds to the period with the given id, or null if no media queue or
    * period with id {@code periodId} exist.
@@ -500,11 +505,17 @@ public final class RemoteCastPlayer extends BasePlayer {
    *     to get.
    * @return The item that corresponds to the period with the given id, or null if no media queue or
    *     period with id {@code periodId} exist.
+   * @deprecated Use {@link #getCurrentTimeline()} to get {@link Timeline.Window#mediaItem} via
+   *     {@link Timeline#getPeriodByUid(Object, Timeline.Period)} and {@link Timeline#getWindow(int,
+   *     Timeline.Window)}.
    */
+  @Deprecated
   @Nullable
   public MediaQueueItem getItem(int periodId) {
     MediaStatus mediaStatus = getMediaStatus();
-    return mediaStatus != null && currentTimeline.getIndexOfPeriod(periodId) != C.INDEX_UNSET
+    return mediaStatus != null
+            && currentTimeline.getIndexOfPeriod(timelineTracker.getItemUid(periodId))
+                != C.INDEX_UNSET
         ? mediaStatus.getItemById(periodId)
         : null;
   }
@@ -568,11 +579,12 @@ public final class RemoteCastPlayer extends BasePlayer {
   @Override
   public void addMediaItems(int index, List<MediaItem> mediaItems) {
     checkArgument(index >= 0);
-    int uid = MediaQueueItem.INVALID_ITEM_ID;
+    int receiverUid = MediaQueueItem.INVALID_ITEM_ID;
     if (index < currentTimeline.getWindowCount()) {
-      uid = (int) currentTimeline.getWindow(/* windowIndex= */ index, window).uid;
+      receiverUid =
+          toReceiverItemId(currentTimeline.getWindow(/* windowIndex= */ index, window).uid);
     }
-    addMediaItemsInternal(mediaItems, uid);
+    addMediaItemsInternal(mediaItems, receiverUid);
   }
 
   @Override
@@ -585,11 +597,12 @@ public final class RemoteCastPlayer extends BasePlayer {
       // Do nothing.
       return;
     }
-    int[] uids = new int[toIndex - fromIndex];
-    for (int i = 0; i < uids.length; i++) {
-      uids[i] = (int) currentTimeline.getWindow(/* windowIndex= */ i + fromIndex, window).uid;
+    int[] receiverUids = new int[toIndex - fromIndex];
+    for (int i = 0; i < receiverUids.length; i++) {
+      receiverUids[i] =
+          toReceiverItemId(currentTimeline.getWindow(/* windowIndex= */ i + fromIndex, window).uid);
     }
-    moveMediaItemsInternal(uids, fromIndex, newIndex);
+    moveMediaItemsInternal(receiverUids, fromIndex, newIndex);
   }
 
   @Override
@@ -613,11 +626,12 @@ public final class RemoteCastPlayer extends BasePlayer {
       // Do nothing.
       return;
     }
-    int[] uids = new int[toIndex - fromIndex];
-    for (int i = 0; i < uids.length; i++) {
-      uids[i] = (int) currentTimeline.getWindow(/* windowIndex= */ i + fromIndex, window).uid;
+    int[] receiverUids = new int[toIndex - fromIndex];
+    for (int i = 0; i < receiverUids.length; i++) {
+      receiverUids[i] =
+          toReceiverItemId(currentTimeline.getWindow(/* windowIndex= */ i + fromIndex, window).uid);
     }
-    removeMediaItemsInternal(uids);
+    removeMediaItemsInternal(receiverUids);
   }
 
   @Override
@@ -675,6 +689,7 @@ public final class RemoteCastPlayer extends BasePlayer {
         new ResultCallback<MediaChannelResult>() {
           @Override
           public void onResult(MediaChannelResult mediaChannelResult) {
+            logOperationFailedIfStatusError("Set playWhenReady", mediaChannelResult);
             if (remoteMediaClient != null) {
               updatePlayerStateAndNotifyIfChanged(this);
               listeners.flushEvents();
@@ -714,7 +729,9 @@ public final class RemoteCastPlayer extends BasePlayer {
       if (getCurrentMediaItemIndex() != mediaItemIndex) {
         remoteMediaClient
             .queueJumpToItem(
-                (int) currentTimeline.getPeriod(mediaItemIndex, period).uid, positionMs, null)
+                toReceiverItemId(currentTimeline.getPeriod(mediaItemIndex, period).uid),
+                positionMs,
+                null)
             .setResultCallback(seekResultCallback);
       } else {
         remoteMediaClient.seek(positionMs).setResultCallback(seekResultCallback);
@@ -723,6 +740,10 @@ public final class RemoteCastPlayer extends BasePlayer {
       pendingSeekCount++;
       pendingSeekWindowIndex = mediaItemIndex;
       pendingSeekPositionMs = positionMs;
+      pendingSeekPeriodUid =
+          !currentTimeline.isEmpty()
+              ? currentTimeline.getPeriod(mediaItemIndex, period, /* setIds= */ true).uid
+              : null;
       PositionInfo newPosition = getCurrentPositionInfo();
       listeners.queueEvent(
           Player.EVENT_POSITION_DISCONTINUITY,
@@ -749,6 +770,10 @@ public final class RemoteCastPlayer extends BasePlayer {
       updateAvailableCommandsAndNotifyIfChanged();
     }
     listeners.flushEvents();
+  }
+
+  private int toReceiverItemId(@Nullable Object uid) {
+    return timelineTracker.getReceiverItemId(uid);
   }
 
   @Override
@@ -818,6 +843,7 @@ public final class RemoteCastPlayer extends BasePlayer {
         new ResultCallback<MediaChannelResult>() {
           @Override
           public void onResult(MediaChannelResult mediaChannelResult) {
+            logOperationFailedIfStatusError("Set playback parameters", mediaChannelResult);
             if (remoteMediaClient != null) {
               updatePlaybackRateAndNotifyIfChanged(this);
               listeners.flushEvents();
@@ -843,6 +869,7 @@ public final class RemoteCastPlayer extends BasePlayer {
         new ResultCallback<MediaChannelResult>() {
           @Override
           public void onResult(MediaChannelResult mediaChannelResult) {
+            logOperationFailedIfStatusError("Set repeat mode", mediaChannelResult);
             if (remoteMediaClient != null) {
               updateRepeatModeAndNotifyIfChanged(this);
               listeners.flushEvents();
@@ -1008,6 +1035,7 @@ public final class RemoteCastPlayer extends BasePlayer {
         new ResultCallback<MediaChannelResult>() {
           @Override
           public void onResult(MediaChannelResult result) {
+            logOperationFailedIfStatusError("Set volume", result);
             if (remoteMediaClient != null) {
               updateVolumeAndNotifyIfChanged(this);
               listeners.flushEvents();
@@ -1053,6 +1081,7 @@ public final class RemoteCastPlayer extends BasePlayer {
         new ResultCallback<MediaChannelResult>() {
           @Override
           public void onResult(MediaChannelResult result) {
+            logOperationFailedIfStatusError("Set mute", result);
             if (remoteMediaClient != null) {
               updateVolumeAndNotifyIfChanged(this);
               listeners.flushEvents();
@@ -1246,7 +1275,8 @@ public final class RemoteCastPlayer extends BasePlayer {
     updatePlaybackRateAndNotifyIfChanged(/* resultCallback= */ null);
     boolean playingPeriodChangedByTimelineChange = updateTimelineAndNotifyIfChanged();
     Timeline currentTimeline = getCurrentTimeline();
-    currentWindowIndex = fetchCurrentWindowIndex(remoteMediaClient, currentTimeline);
+    currentWindowIndex =
+        fetchCurrentWindowIndex(remoteMediaClient, timelineTracker, currentTimeline);
     mediaMetadata = getMediaMetadataInternal();
     @Nullable
     Object currentPeriodUid =
@@ -1472,7 +1502,18 @@ public final class RemoteCastPlayer extends BasePlayer {
             : CastTimeline.EMPTY_CAST_TIMELINE;
     boolean timelineChanged = !oldTimeline.equals(currentTimeline);
     if (timelineChanged) {
-      currentWindowIndex = fetchCurrentWindowIndex(remoteMediaClient, currentTimeline);
+      currentWindowIndex =
+          fetchCurrentWindowIndex(remoteMediaClient, timelineTracker, currentTimeline);
+      if (pendingSeekPeriodUid != null) {
+        int newIndex = currentTimeline.getIndexOfPeriod(pendingSeekPeriodUid);
+        if (newIndex != C.INDEX_UNSET) {
+          pendingSeekWindowIndex = newIndex;
+        } else {
+          pendingSeekWindowIndex = C.INDEX_UNSET;
+          pendingSeekPositionMs = C.TIME_UNSET;
+          pendingSeekPeriodUid = null;
+        }
+      }
     }
     return timelineChanged;
   }
@@ -1560,6 +1601,7 @@ public final class RemoteCastPlayer extends BasePlayer {
           new ResultCallback<MediaChannelResult>() {
             @Override
             public void onResult(MediaChannelResult result) {
+              logOperationFailedIfStatusError("Set active tracks", result);
               if (remoteMediaClient != null) {
                 updateTracksAndNotifyIfChanged(
                     this, TRACK_SELECTION_REQUEST_REASON_RECEIVER_UPDATE);
@@ -1642,8 +1684,8 @@ public final class RemoteCastPlayer extends BasePlayer {
     if (!currentTimeline.isEmpty()) {
       pendingMediaItemRemovalPosition = getCurrentPositionInfo();
     }
-    MediaQueueItem[] mediaQueueItems = toMediaQueueItems(mediaItems);
-    timelineTracker.onMediaItemsSet(mediaItems, mediaQueueItems);
+    timelineTracker.reset();
+    MediaQueueItem[] mediaQueueItems = timelineTracker.registerMediaItems(mediaItems);
     MediaQueueData mediaQueueData =
         new MediaQueueData.Builder()
             .setItems(Arrays.asList(mediaQueueItems))
@@ -1664,29 +1706,29 @@ public final class RemoteCastPlayer extends BasePlayer {
     PendingResult<MediaChannelResult> unused = remoteMediaClient.load(loadRequestData);
   }
 
-  private void addMediaItemsInternal(List<MediaItem> mediaItems, int uid) {
+  private void addMediaItemsInternal(List<MediaItem> mediaItems, int receiverUid) {
     if (!isCastSessionActive() || getMediaStatus() == null) {
       return;
     }
-    MediaQueueItem[] itemsToInsert = toMediaQueueItems(mediaItems);
-    timelineTracker.onMediaItemsAdded(mediaItems, itemsToInsert);
-    remoteMediaClient.queueInsertItems(itemsToInsert, uid, /* customData= */ null);
+    MediaQueueItem[] itemsToInsert = timelineTracker.registerMediaItems(mediaItems);
+    remoteMediaClient.queueInsertItems(itemsToInsert, receiverUid, /* customData= */ null);
   }
 
-  private void moveMediaItemsInternal(int[] uids, int fromIndex, int newIndex) {
+  private void moveMediaItemsInternal(int[] receiverUids, int fromIndex, int newIndex) {
     if (!isCastSessionActive() || getMediaStatus() == null) {
       return;
     }
-    int insertBeforeIndex = fromIndex < newIndex ? newIndex + uids.length : newIndex;
+    int insertBeforeIndex = fromIndex < newIndex ? newIndex + receiverUids.length : newIndex;
     int insertBeforeItemId = MediaQueueItem.INVALID_ITEM_ID;
     if (insertBeforeIndex < currentTimeline.getWindowCount()) {
-      insertBeforeItemId = (int) currentTimeline.getWindow(insertBeforeIndex, window).uid;
+      insertBeforeItemId =
+          toReceiverItemId(currentTimeline.getWindow(insertBeforeIndex, window).uid);
     }
-    remoteMediaClient.queueReorderItems(uids, insertBeforeItemId, /* customData= */ null);
+    remoteMediaClient.queueReorderItems(receiverUids, insertBeforeItemId, /* customData= */ null);
   }
 
   @Nullable
-  private PendingResult<MediaChannelResult> removeMediaItemsInternal(int[] uids) {
+  private PendingResult<MediaChannelResult> removeMediaItemsInternal(int[] receiverUids) {
     if (!isCastSessionActive() || getMediaStatus() == null) {
       return null;
     }
@@ -1694,14 +1736,15 @@ public final class RemoteCastPlayer extends BasePlayer {
     if (!timeline.isEmpty()) {
       Object periodUid =
           castNonNull(timeline.getPeriod(getCurrentPeriodIndex(), period, /* setIds= */ true).uid);
-      for (int uid : uids) {
-        if (periodUid.equals(uid)) {
+      int currentReceiverId = toReceiverItemId(periodUid);
+      for (int receiverUid : receiverUids) {
+        if (currentReceiverId == receiverUid) {
           pendingMediaItemRemovalPosition = getCurrentPositionInfo();
           break;
         }
       }
     }
-    return remoteMediaClient.queueRemoveItems(uids, /* customData= */ null);
+    return remoteMediaClient.queueRemoveItems(receiverUids, /* customData= */ null);
   }
 
   private PositionInfo getCurrentPositionInfo() {
@@ -1927,7 +1970,9 @@ public final class RemoteCastPlayer extends BasePlayer {
     pendingSeekCount = 0;
     pendingSeekWindowIndex = C.INDEX_UNSET;
     pendingSeekPositionMs = C.TIME_UNSET;
+    pendingSeekPeriodUid = null;
     pendingMediaItemRemovalPosition = null;
+    timelineTracker.reset();
   }
 
   @Nullable
@@ -1996,7 +2041,9 @@ public final class RemoteCastPlayer extends BasePlayer {
   }
 
   private static int fetchCurrentWindowIndex(
-      @Nullable RemoteMediaClient remoteMediaClient, Timeline timeline) {
+      @Nullable RemoteMediaClient remoteMediaClient,
+      CastTimelineTracker timelineTracker,
+      Timeline timeline) {
     if (remoteMediaClient == null) {
       return 0;
     }
@@ -2004,7 +2051,8 @@ public final class RemoteCastPlayer extends BasePlayer {
     int currentWindowIndex = C.INDEX_UNSET;
     @Nullable MediaQueueItem currentItem = remoteMediaClient.getCurrentItem();
     if (currentItem != null) {
-      currentWindowIndex = timeline.getIndexOfPeriod(currentItem.getItemId());
+      currentWindowIndex =
+          timeline.getIndexOfPeriod(timelineTracker.getItemUid(currentItem.getItemId()));
     }
     if (currentWindowIndex == C.INDEX_UNSET) {
       // The timeline is empty. Fall back to index 0.
@@ -2027,12 +2075,20 @@ public final class RemoteCastPlayer extends BasePlayer {
     }
   }
 
-  private MediaQueueItem[] toMediaQueueItems(List<MediaItem> mediaItems) {
-    MediaQueueItem[] mediaQueueItems = new MediaQueueItem[mediaItems.size()];
-    for (int i = 0; i < mediaItems.size(); i++) {
-      mediaQueueItems[i] = mediaItemConverter.toMediaQueueItem(mediaItems.get(i));
+  private static void logOperationFailedIfStatusError(String operation, MediaChannelResult result) {
+    @Nullable Status status = result.getStatus();
+    if (status != null) {
+      int statusCode = status.getStatusCode();
+      if (statusCode != CastStatusCodes.SUCCESS && statusCode != CastStatusCodes.REPLACED) {
+        Log.e(
+            TAG,
+            operation
+                + " failed. Error code "
+                + statusCode
+                + ": "
+                + CastUtils.getLogString(statusCode));
+      }
     }
-    return mediaQueueItems;
   }
 
   // Internal classes.
@@ -2141,16 +2197,18 @@ public final class RemoteCastPlayer extends BasePlayer {
 
     @Override
     public void onResult(MediaChannelResult result) {
-      int statusCode = result.getStatus().getStatusCode();
-      if (statusCode != CastStatusCodes.SUCCESS && statusCode != CastStatusCodes.REPLACED) {
-        Log.e(
-            TAG,
-            "Seek failed. Error code " + statusCode + ": " + CastUtils.getLogString(statusCode));
-      }
+      logOperationFailedIfStatusError("Seek", result);
       if (--pendingSeekCount == 0) {
-        currentWindowIndex = pendingSeekWindowIndex;
+        if (pendingSeekWindowIndex != C.INDEX_UNSET
+            && pendingSeekWindowIndex < currentTimeline.getWindowCount()) {
+          currentWindowIndex = pendingSeekWindowIndex;
+        } else {
+          currentWindowIndex =
+              fetchCurrentWindowIndex(remoteMediaClient, timelineTracker, currentTimeline);
+        }
         pendingSeekWindowIndex = C.INDEX_UNSET;
         pendingSeekPositionMs = C.TIME_UNSET;
+        pendingSeekPeriodUid = null;
       }
     }
   }

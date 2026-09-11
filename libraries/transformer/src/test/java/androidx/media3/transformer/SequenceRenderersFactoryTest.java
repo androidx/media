@@ -77,7 +77,8 @@ public final class SequenceRenderersFactoryTest {
   @Test
   public void hardwareBufferImageRenderer_implementsRendererWakeupListener_andForwardsWakeup()
       throws Exception {
-    SequenceRenderersFactory factory = createFactoryForHardwareBuffer(/* supplier= */ () -> null);
+    SequenceRenderersFactory factory =
+        createFactoryForHardwareBuffer(/* hardwareBufferFrameReaderSupplier= */ () -> null);
     Renderer imageRenderer = createRenderer(factory, C.TRACK_TYPE_IMAGE);
 
     assertThat(imageRenderer).isInstanceOf(HardwareBufferFrameReader.RendererWakeupListener.class);
@@ -127,7 +128,8 @@ public final class SequenceRenderersFactoryTest {
   @Test
   public void hardwareBufferVideoRenderer_implementsRendererWakeupListener_andForwardsWakeup()
       throws Exception {
-    SequenceRenderersFactory factory = createFactoryForHardwareBuffer(/* supplier= */ () -> null);
+    SequenceRenderersFactory factory =
+        createFactoryForHardwareBuffer(/* hardwareBufferFrameReaderSupplier= */ () -> null);
     Renderer videoRenderer = createRenderer(factory, C.TRACK_TYPE_VIDEO);
 
     assertThat(videoRenderer).isInstanceOf(HardwareBufferFrameReader.RendererWakeupListener.class);
@@ -228,7 +230,8 @@ public final class SequenceRenderersFactoryTest {
         /* defaultSurfacePixelFormat= */ ImageFormat.YUV_420_888,
         new DefaultImageReaderAdapter.Factory(),
         /* listener= */ e -> {},
-        SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null));
+        SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null),
+        /* hardwareBufferJniWrapper= */ null);
   }
 
   private static void enableRenderer(Renderer renderer, Timeline timeline)

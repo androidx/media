@@ -25,6 +25,8 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.assertThrows;
 
+import android.app.PendingIntent;
+import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -48,6 +50,7 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.session.MediaSession.ConnectionResult;
 import androidx.media3.session.MediaSession.ConnectionResult.AcceptedResultBuilder;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
+import androidx.media3.test.session.common.SurfaceActivity;
 import androidx.media3.test.session.common.TestUtils;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -1531,6 +1534,70 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     assertThat(customAction.getExtras().get("key1")).isEqualTo("value1");
     assertThat(customAction.getExtras().get(MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT))
         .isEqualTo(CommandButton.ICON_PLAY);
+    mediaSession.release();
+    releasePlayer(player);
+  }
+
+  @Test
+  public void
+      onConnect_mediaNotificationController_sessionExtrasAndActivityConfigured_setsExtrasAndActivityOnLegacySession()
+          throws Exception {
+    Player player = createDefaultPlayer();
+    Bundle sessionExtras = new Bundle();
+    sessionExtras.putString("test_key", "test_value");
+    Intent intent = new Intent(ApplicationProvider.getApplicationContext(), SurfaceActivity.class);
+    PendingIntent sessionActivity =
+        PendingIntent.getActivity(
+            ApplicationProvider.getApplicationContext(),
+            0,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+    MediaSession.Callback callback =
+        new MediaSession.Callback() {
+          @Override
+          public ListenableFuture<ConnectionResult> onConnectAsync(
+              MediaSession session, MediaSession.ControllerInfo controller) {
+            return Futures.immediateFuture(
+                new AcceptedResultBuilder(session, controller)
+                    .setSessionExtras(sessionExtras)
+                    .setSessionActivity(sessionActivity)
+                    .build());
+          }
+        };
+    MediaSession mediaSession = createMediaSession(player, callback);
+    connectMediaNotificationController(mediaSession);
+    MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
+
+    assertThat(controllerCompat.getExtras().getString("test_key")).isEqualTo("test_value");
+    assertThat(controllerCompat.getSessionActivity()).isEqualTo(sessionActivity);
+
+    mediaSession.release();
+    releasePlayer(player);
+  }
+
+  @Test
+  public void builder_withSessionExtrasAndActivity_setsExtrasAndActivityOnLegacySession()
+      throws Exception {
+    Player player = createDefaultPlayer();
+    Bundle sessionExtras = new Bundle();
+    sessionExtras.putString("test_key", "test_value");
+    Intent intent = new Intent(ApplicationProvider.getApplicationContext(), SurfaceActivity.class);
+    PendingIntent sessionActivity =
+        PendingIntent.getActivity(
+            ApplicationProvider.getApplicationContext(),
+            0,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+    MediaSession mediaSession =
+        new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player)
+            .setSessionExtras(sessionExtras)
+            .setSessionActivity(sessionActivity)
+            .build();
+    MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
+
+    assertThat(controllerCompat.getExtras().getString("test_key")).isEqualTo("test_value");
+    assertThat(controllerCompat.getSessionActivity()).isEqualTo(sessionActivity);
+
     mediaSession.release();
     releasePlayer(player);
   }

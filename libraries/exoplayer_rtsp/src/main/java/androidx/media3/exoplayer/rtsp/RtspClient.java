@@ -47,7 +47,6 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
-import androidx.media3.exoplayer.rtsp.RtspMediaPeriod.RtpLoadInfo;
 import androidx.media3.exoplayer.rtsp.RtspMediaSource.RtspPlaybackException;
 import androidx.media3.exoplayer.rtsp.RtspMediaSource.RtspUdpUnsupportedTransportException;
 import androidx.media3.exoplayer.rtsp.RtspMessageChannel.InterleavedBinaryDataListener;
@@ -134,12 +133,27 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     void onPlaybackError(RtspPlaybackException error);
   }
 
+  /** Groups track URI and transport string for RTSP SETUP requests. */
+  public static final class TrackSetupInfo {
+    /** The {@link Uri} of the loading RTSP track. */
+    public final Uri trackUri;
+
+    /** The transport string for RTP loading. */
+    public final String transport;
+
+    /** Creates a new instance. */
+    public TrackSetupInfo(Uri trackUri, String transport) {
+      this.trackUri = trackUri;
+      this.transport = transport;
+    }
+  }
+
   private final SessionInfoListener sessionInfoListener;
   private final PlaybackEventListener playbackEventListener;
   private final String userAgent;
   private final SocketFactory socketFactory;
   private final boolean debugLoggingEnabled;
-  private final ArrayDeque<RtpLoadInfo> pendingSetupRtpLoadInfos;
+  private final ArrayDeque<TrackSetupInfo> pendingSetupTrackInfos;
   // TODO(b/172331505) Add a timeout monitor for pending requests.
   private final SparseArray<RtspRequest> pendingRequests;
   private final MessageSender messageSender;
@@ -187,7 +201,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.userAgent = userAgent;
     this.socketFactory = socketFactory;
     this.debugLoggingEnabled = debugLoggingEnabled;
-    this.pendingSetupRtpLoadInfos = new ArrayDeque<>();
+    this.pendingSetupTrackInfos = new ArrayDeque<>();
     this.pendingRequests = new SparseArray<>();
     this.messageSender = new MessageSender();
     this.uri = RtspMessageUtil.removeUserInfo(uri);
@@ -224,12 +238,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   /**
    * Triggers RTSP SETUP requests after track selection.
    *
-   * <p>All selected tracks (represented by {@link RtpLoadInfo}) must have valid transport.
+   * <p>All selected tracks (represented by {@link TrackSetupInfo}) must have valid transport.
    *
-   * @param loadInfos A list of selected tracks represented by {@link RtpLoadInfo}.
+   * @param trackSetupInfos A list of selected tracks represented by {@link TrackSetupInfo}.
    */
-  public void setupSelectedTracks(List<RtpLoadInfo> loadInfos) {
-    pendingSetupRtpLoadInfos.addAll(loadInfos);
+  public void setupSelectedTracks(List<TrackSetupInfo> trackSetupInfos) {
+    pendingSetupTrackInfos.addAll(trackSetupInfos);
     continueSetupRtspTrack();
   }
 
@@ -274,7 +288,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     rtspState = RTSP_STATE_UNINITIALIZED;
     sessionId = null;
-    pendingSetupRtpLoadInfos.clear();
+    pendingSetupTrackInfos.clear();
     pendingRequests.clear();
     messageChannel.close();
   }
@@ -303,12 +317,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private void continueSetupRtspTrack() {
-    @Nullable RtpLoadInfo loadInfo = pendingSetupRtpLoadInfos.pollFirst();
-    if (loadInfo == null) {
+    @Nullable TrackSetupInfo trackInfo = pendingSetupTrackInfos.pollFirst();
+    if (trackInfo == null) {
       playbackEventListener.onRtspSetupCompleted();
       return;
     }
-    messageSender.sendSetupRequest(loadInfo.getTrackUri(), loadInfo.getTransport(), sessionId);
+    messageSender.sendSetupRequest(trackInfo.trackUri, trackInfo.transport, sessionId);
   }
 
   private void maybeLogMessage(List<String> message) {
@@ -396,6 +410,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     public void sendSetupRequest(Uri trackUri, String transport, @Nullable String sessionId) {
       rtspState = RTSP_STATE_INIT;
+      pendingRequests.clear();
       sendRequest(
           getRequestWithCommonHeaders(
               METHOD_SETUP,
@@ -423,6 +438,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
 
       rtspState = RTSP_STATE_INIT;
+      pendingRequests.clear();
       sendRequest(
           getRequestWithCommonHeaders(
               METHOD_TEARDOWN, sessionId, /* additionalHeaders= */ ImmutableMap.of(), uri));
@@ -569,6 +585,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             if (rtspState != RTSP_STATE_UNINITIALIZED) {
               rtspState = RTSP_STATE_INIT;
             }
+            pendingRequests.clear();
             @Nullable String redirectionUriString = response.headers.get(RtspHeaders.LOCATION);
             if (redirectionUriString == null) {
               sessionInfoListener.onSessionTimelineRequestFailed(

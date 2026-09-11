@@ -47,6 +47,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -67,7 +70,6 @@ import androidx.media3.demo.compose.buttons.CcButton
 import androidx.media3.demo.compose.buttons.LabeledProgressSlider
 import androidx.media3.demo.compose.buttons.SettingsBottomSheet
 import androidx.media3.demo.compose.buttons.SettingsButton
-import androidx.media3.demo.compose.text.Artwork
 import androidx.media3.demo.compose.text.CastingOverlay
 import androidx.media3.demo.compose.text.FastForwardOverlay
 import androidx.media3.demo.compose.text.PlaylistInfoBottomSheet
@@ -77,6 +79,7 @@ import androidx.media3.demo.compose.text.rememberCastState
 import androidx.media3.demo.compose.viewmodel.PlayerLifecycleViewModel
 import androidx.media3.demo.compose.viewmodel.rememberPlayerWithLifecycle
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.compose.Artwork
 import androidx.media3.ui.compose.material3.MiniController
 import androidx.media3.ui.compose.material3.Player
 import androidx.media3.ui.compose.material3.PlayerDefaults
@@ -85,7 +88,6 @@ import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
 import androidx.media3.ui.compose.state.rememberPlaybackSpeedState
 import androidx.media3.ui.compose.state.rememberSeekBackButtonState
 import androidx.media3.ui.compose.state.rememberSeekForwardButtonState
-import androidx.media3.ui.compose.text.CurrentMediaItemBox
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -129,11 +131,11 @@ internal fun LongFormPlayerScreen(
   var anyPointerDown by remember { mutableStateOf(false) }
   val playPauseButtonState = rememberPlayPauseButtonState(player)
 
-  val hideJob = remember { mutableStateOf<Job?>(null) }
+  val hideJobHolder = remember { JobHolder() }
   fun scheduleHideControls() {
-    hideJob.value?.cancel()
+    hideJobHolder.job?.cancel()
     if (!anyPointerDown) {
-      hideJob.value = scope.launch {
+      hideJobHolder.job = scope.launch {
         delay(CONTROLS_VISIBILITY_TIMEOUT)
         showControls = false
       }
@@ -156,7 +158,7 @@ internal fun LongFormPlayerScreen(
     ) {
       scheduleHideControls()
     } else {
-      hideJob.value?.cancel()
+      hideJobHolder.job?.cancel()
     }
   }
 
@@ -165,6 +167,20 @@ internal fun LongFormPlayerScreen(
   var showFastForward by remember { mutableStateOf(false) }
 
   val playbackSpeedState = rememberPlaybackSpeedState(player)
+  val context = LocalContext.current
+  val bitmapLoader = remember(context) { DataSourceBitmapLoader.Builder(context).build() }
+
+  val errorPainter =
+    rememberTintedPainter(
+      painterResource(R.drawable.media3_icon_broken_image),
+      MaterialTheme.colorScheme.primary,
+    )
+  val fallbackPainter =
+    rememberTintedPainter(
+      painterResource(R.drawable.media3_icon_default_album_image),
+      MaterialTheme.colorScheme.primary,
+    )
+
   Box(
     modifier
       .background(MaterialTheme.colorScheme.background)
@@ -173,7 +189,16 @@ internal fun LongFormPlayerScreen(
   ) {
     Player(
       player = player,
-      artwork = { CurrentMediaItemBox(it) { Artwork(mediaMetadata, Modifier.fillMaxSize()) } },
+      artwork = { p ->
+        Artwork(
+          player = p,
+          contentDescription = null,
+          modifier = Modifier.fillMaxSize(),
+          bitmapLoader = bitmapLoader,
+          error = errorPainter,
+          fallback = fallbackPainter,
+        )
+      },
       showControls = if (isRemotePlayback) true else showControls,
       modifier =
         Modifier.onGloballyPositioned { coordinates -> size = coordinates.size }
@@ -277,8 +302,6 @@ internal fun LongFormPlayerScreen(
       )
     }
     if (showMiniController) {
-      val context = LocalContext.current
-      val bitmapLoader = remember(context) { DataSourceBitmapLoader.Builder(context).build() }
       MiniController(
         player = player,
         modifier =
@@ -286,7 +309,7 @@ internal fun LongFormPlayerScreen(
             .align(Alignment.BottomCenter)
             .padding(bottom = bottomControlsHeight + 10.dp),
         bitmapLoader = bitmapLoader,
-        defaultArtwork = painterResource(R.drawable.media3_icon_default_album_image),
+        defaultArtwork = fallbackPainter,
       )
     }
     if (showPlaylist) {
@@ -294,6 +317,7 @@ internal fun LongFormPlayerScreen(
         player = player,
         onDismissRequest = { showPlaylist = false },
         modifier = Modifier.fillMaxWidth(),
+        bitmapLoader = bitmapLoader,
       )
     }
     if (showSettings) {
@@ -327,4 +351,20 @@ private fun PlayingNowButton(visible: Boolean, modifier: Modifier = Modifier, on
   }
 }
 
+@Composable
+private fun rememberTintedPainter(painter: Painter, tint: Color): Painter {
+  return remember(painter, tint) {
+    object : Painter() {
+      override val intrinsicSize
+        get() = painter.intrinsicSize
+
+      override fun DrawScope.onDraw() {
+        with(painter) { draw(size, colorFilter = ColorFilter.tint(tint)) }
+      }
+    }
+  }
+}
+
 private val CONTROLS_VISIBILITY_TIMEOUT = 3000.milliseconds
+
+private class JobHolder(var job: Job? = null)

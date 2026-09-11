@@ -93,8 +93,7 @@ public final class Mp4Extractor implements Extractor {
   /**
    * Flags controlling the behavior of the extractor. Possible flag values are {@link
    * #FLAG_WORKAROUND_IGNORE_EDIT_LISTS}, {@link #FLAG_READ_SEF_DATA}, {@link
-   * #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}, {@link #FLAG_READ_AUXILIARY_TRACKS}, {@link
-   * #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265} and {@link #FLAG_OMIT_TRACK_SAMPLE_TABLE}.
+   * #FLAG_READ_AUXILIARY_TRACKS}, and {@link #FLAG_OMIT_TRACK_SAMPLE_TABLE}.
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -106,9 +105,7 @@ public final class Mp4Extractor implements Extractor {
         FLAG_READ_SEF_DATA,
         FLAG_MARK_FIRST_VIDEO_TRACK_WITH_MAIN_ROLE,
         FLAG_EMIT_RAW_SUBTITLE_DATA,
-        FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES,
         FLAG_READ_AUXILIARY_TRACKS,
-        FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265,
         FLAG_OMIT_TRACK_SAMPLE_TABLE,
         FLAG_DISABLE_ARTWORK_METADATA,
         FLAG_DISABLE_HAGC_METADATA,
@@ -134,20 +131,6 @@ public final class Mp4Extractor implements Extractor {
   public static final int FLAG_EMIT_RAW_SUBTITLE_DATA = 1 << 4;
 
   /**
-   * Flag to extract additional sample dependency information, and mark output buffers with {@link
-   * C#BUFFER_FLAG_NOT_DEPENDED_ON} for {@linkplain MimeTypes#VIDEO_H264 H.264} video.
-   *
-   * <p>This class always marks the samples at the start of each group of picture (GOP) with {@link
-   * C#BUFFER_FLAG_KEY_FRAME}. Usually, key frames can be decoded independently, without depending
-   * on other samples.
-   *
-   * <p>Setting this flag enables elementary stream parsing to identify disposable samples that are
-   * not depended on by other samples. Any disposable sample can be safely omitted, and the rest of
-   * the track will remain valid.
-   */
-  public static final int FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES = 1 << 5;
-
-  /**
    * Flag to extract the auxiliary tracks from the MP4 With Auxiliary Tracks Extension (MP4-AT) file
    * format.
    *
@@ -160,14 +143,6 @@ public final class Mp4Extractor implements Extractor {
    * <p>See the file format at https://developer.android.com/media/platform/mp4-at-file-format.
    */
   public static final int FLAG_READ_AUXILIARY_TRACKS = 1 << 6;
-
-  /**
-   * Flag to extract additional sample dependency information, and mark output buffers with {@link
-   * C#BUFFER_FLAG_NOT_DEPENDED_ON} for {@linkplain MimeTypes#VIDEO_H265 H.265} video.
-   *
-   * <p>See {@link #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}.
-   */
-  public static final int FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265 = 1 << 7;
 
   /**
    * Flag to omit allocating and populating the large per-sample arrays (offsets, sizes, timestamps,
@@ -347,23 +322,6 @@ public final class Mp4Extractor implements Extractor {
     tracks = new Mp4Track[0];
     chapterSampleTables = new ArrayList<>();
     quickTimeChapters = new ArrayList<>();
-  }
-
-  /**
-   * Returns {@link Flags} denoting if an extractor should parse within GOP sample dependencies.
-   *
-   * @param videoCodecFlags The set of codecs for which to parse within GOP sample dependencies.
-   */
-  public static @Flags int codecsToParseWithinGopSampleDependenciesAsFlags(
-      @C.VideoCodecFlags int videoCodecFlags) {
-    @Flags int flags = 0;
-    if ((videoCodecFlags & C.VIDEO_CODEC_FLAG_H264) != 0) {
-      flags |= FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES;
-    }
-    if ((videoCodecFlags & C.VIDEO_CODEC_FLAG_H265) != 0) {
-      flags |= FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265;
-    }
-    return flags;
   }
 
   @Override
@@ -1308,16 +1266,10 @@ public final class Mp4Extractor implements Extractor {
    * Returns whether reading within GOP sample dependencies is enabled for the sample {@link
    * Format}.
    */
-  private boolean canReadWithinGopSampleDependencies(Format format) {
-    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H264)) {
-      return (flags & FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES) != 0;
-    }
-    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H265)) {
-      return (flags & FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265) != 0;
-    }
-    // Do not flag gate APV sample dependency parsing - prior experiments with H.264 and H.265
-    // were positive, and the defaults have been updated.
-    return Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_APV);
+  private static boolean canReadWithinGopSampleDependencies(Format format) {
+    return Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H264)
+        || Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H265)
+        || Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_APV);
   }
 
   /**

@@ -23,6 +23,7 @@ import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.UnstableApi;
@@ -62,8 +63,6 @@ public class TestExoPlayerBuilder {
   private boolean deviceVolumeControlEnabled;
   private boolean suppressPlaybackWhenUnsuitableOutput;
   @Nullable private ExoPlayer.PreloadConfiguration preloadConfiguration;
-  private boolean dynamicSchedulingEnabled;
-  private boolean perStreamMediaProgressionEnabled;
   private int stuckPlayingDetectionTimeoutMs;
   private int stuckSuppressedDetectionTimeoutMs;
   private boolean enforceAdPlaybackOnTimelineRefresh;
@@ -401,19 +400,6 @@ public class TestExoPlayerBuilder {
   }
 
   /**
-   * See {@link ExoPlayer.Builder#experimentalSetDynamicSchedulingEnabled(boolean)} for details.
-   *
-   * @param dynamicSchedulingEnabled Whether the player should enable dynamically schedule its
-   *     playback loop for when {@link Renderer} progress can be made.
-   * @return This builder.
-   */
-  @CanIgnoreReturnValue
-  public TestExoPlayerBuilder setDynamicSchedulingEnabled(boolean dynamicSchedulingEnabled) {
-    this.dynamicSchedulingEnabled = dynamicSchedulingEnabled;
-    return this;
-  }
-
-  /**
    * See {@link ExoPlayer.Builder#setStuckPlayingDetectionTimeoutMs} for details.
    *
    * @param stuckPlayingDetectionTimeoutMs The timeout after which the player is assumed stuck
@@ -454,19 +440,6 @@ public class TestExoPlayerBuilder {
     return this;
   }
 
-  /**
-   * See {@link ExoPlayer.Builder#enablePerStreamMediaProgression} for details.
-   *
-   * @param perStreamMediaProgressionEnabled Whether to enable per stream media period progression.
-   * @return This builder.
-   */
-  @CanIgnoreReturnValue // TODO: b/510217604 - Remove this method.
-  public TestExoPlayerBuilder setPerStreamMediaProgressionEnabled(
-      boolean perStreamMediaProgressionEnabled) {
-    this.perStreamMediaProgressionEnabled = perStreamMediaProgressionEnabled;
-    return this;
-  }
-
   /** Builds an {@link ExoPlayer} using the provided values or their defaults. */
   public ExoPlayer build() {
     checkNotNull(
@@ -491,7 +464,7 @@ public class TestExoPlayerBuilder {
                 };
           };
     }
-    ExoPlayer.Builder.experimentalEnableStuckPlayingDetection = true;
+    Flags.enableFlag(Flags.FLAG_ENABLE_STUCK_PLAYING_DETECTION);
     ExoPlayer.Builder builder =
         new ExoPlayer.Builder(context, playerRenderersFactory)
             .setTrackSelector(trackSelector)
@@ -506,11 +479,9 @@ public class TestExoPlayerBuilder {
             .setMaxSeekToPreviousPositionMs(maxSeekToPreviousPositionMs)
             .setDeviceVolumeControlEnabled(deviceVolumeControlEnabled)
             .setSuppressPlaybackOnUnsuitableOutput(suppressPlaybackWhenUnsuitableOutput)
-            .experimentalSetDynamicSchedulingEnabled(dynamicSchedulingEnabled)
             .setStuckPlayingDetectionTimeoutMs(stuckPlayingDetectionTimeoutMs)
             .setStuckSuppressedDetectionTimeoutMs(stuckSuppressedDetectionTimeoutMs)
-            .setEnforceAdPlaybackOnTimelineRefresh(enforceAdPlaybackOnTimelineRefresh)
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled);
+            .setEnforceAdPlaybackOnTimelineRefresh(enforceAdPlaybackOnTimelineRefresh);
     if (suitableOutputChecker != null) {
       builder.setSuitableOutputChecker(suitableOutputChecker);
     }

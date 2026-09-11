@@ -148,10 +148,7 @@ public class TranscodeForegroundSpeedTest {
       String testId, Uri mediaUri, long durationMs) throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     Codec.DecoderFactory decoderFactory =
-        new DefaultDecoderFactory.Builder(context)
-            .experimentalSetDynamicSchedulingEnabled(true)
-            .setShouldConfigureOperatingRate(true)
-            .build();
+        new DefaultDecoderFactory.Builder(context).setShouldConfigureOperatingRate(true).build();
     AssetLoader.Factory assetLoaderFactory =
         new DefaultAssetLoaderFactory(
             context, decoderFactory, Clock.DEFAULT, /* logSessionId= */ null);

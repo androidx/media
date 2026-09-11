@@ -274,11 +274,23 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
   }
 
   @Override
+  public void addVideoFrameMetadataListener(VideoFrameMetadataListener listener) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void removeVideoFrameMetadataListener(VideoFrameMetadataListener listener) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  @Deprecated
   public void setVideoFrameMetadataListener(VideoFrameMetadataListener listener) {
     throw new UnsupportedOperationException();
   }
 
   @Override
+  @Deprecated
   public void clearVideoFrameMetadataListener(VideoFrameMetadataListener listener) {
     throw new UnsupportedOperationException();
   }

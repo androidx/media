@@ -118,6 +118,7 @@ public class HardwareBufferSampleConsumerAndroidTest {
         looper,
         handlerWrapper,
         onFrame,
-        error -> errorRef.set(error));
+        error -> errorRef.set(error),
+        /* hardwareBufferJniWrapper= */ null);
   }
 }

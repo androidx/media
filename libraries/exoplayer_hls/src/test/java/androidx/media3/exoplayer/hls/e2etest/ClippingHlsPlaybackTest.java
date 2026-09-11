@@ -27,6 +27,7 @@ import android.util.Pair;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.datasource.DataSource;
@@ -41,9 +42,11 @@ import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
+import androidx.media3.test.utils.BindFlag;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.Dumper;
 import androidx.media3.test.utils.FakeClock;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
@@ -66,7 +69,11 @@ public final class ClippingHlsPlaybackTest {
 
   private static final String TEST_HLS_URI = "asset:///media/cmaf/multi-segment/playlist.m3u8";
 
-  @TestParameter private boolean enableMediaPeriodClipping;
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
+
+  @TestParameter
+  @BindFlag(Flags.FLAG_ENABLE_CLIPPING_IN_MEDIA_PERIOD)
+  private boolean enableMediaPeriodClipping;
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
@@ -572,7 +579,6 @@ public final class ClippingHlsPlaybackTest {
                     return new ClippingMediaSource.Builder(hlsSource)
                         .setStartPositionUs(mediaItem.clippingConfiguration.startPositionUs)
                         .setEndPositionUs(mediaItem.clippingConfiguration.endPositionUs)
-                        .setEnableClippingInMediaPeriod(enableMediaPeriodClipping)
                         .build();
                   }
                 })

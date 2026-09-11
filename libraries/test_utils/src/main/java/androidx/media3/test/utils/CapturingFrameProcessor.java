@@ -22,6 +22,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
+import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.FrameProcessor;
@@ -45,6 +46,7 @@ public class CapturingFrameProcessor implements FrameProcessor {
   public static class Factory implements FrameProcessor.Factory {
 
     private final FrameProcessor.Factory underlyingFactory;
+    @Nullable private final Consumer<List<AsyncFrame>> onQueueListener;
     @Nullable private volatile CapturingFrameProcessor createdProcessor;
 
     /**
@@ -53,7 +55,21 @@ public class CapturingFrameProcessor implements FrameProcessor {
      * @param underlyingFactory The factory that creates the underlying {@link FrameProcessor}.
      */
     public Factory(FrameProcessor.Factory underlyingFactory) {
+      this(underlyingFactory, /* onQueueListener= */ null);
+    }
+
+    /**
+     * Creates a new instance.
+     *
+     * @param underlyingFactory The factory that creates the underlying {@link FrameProcessor}.
+     * @param onQueueListener A listener that is invoked after each successful {@link #queue(List)}
+     *     call.
+     */
+    public Factory(
+        FrameProcessor.Factory underlyingFactory,
+        @Nullable Consumer<List<AsyncFrame>> onQueueListener) {
       this.underlyingFactory = checkNotNull(underlyingFactory);
+      this.onQueueListener = onQueueListener;
     }
 
     @Override
@@ -62,7 +78,7 @@ public class CapturingFrameProcessor implements FrameProcessor {
       checkState(createdProcessor == null, "Factory can only create one processor");
       FrameProcessor underlyingProcessor =
           underlyingFactory.create(output, listenerExecutor, listener);
-      createdProcessor = new CapturingFrameProcessor(underlyingProcessor);
+      createdProcessor = new CapturingFrameProcessor(underlyingProcessor, onQueueListener);
       return checkNotNull(createdProcessor);
     }
 
@@ -141,12 +157,15 @@ public class CapturingFrameProcessor implements FrameProcessor {
   }
 
   private final FrameProcessor underlyingProcessor;
+  @Nullable private final Consumer<List<AsyncFrame>> onQueueListener;
 
   /** All the frames and EOS events queued to this {@link FrameProcessor}. */
   private final CopyOnWriteArrayList<Event> queuedEvents;
 
-  private CapturingFrameProcessor(FrameProcessor underlyingProcessor) {
+  private CapturingFrameProcessor(
+      FrameProcessor underlyingProcessor, @Nullable Consumer<List<AsyncFrame>> onQueueListener) {
     this.underlyingProcessor = underlyingProcessor;
+    this.onQueueListener = onQueueListener;
     this.queuedEvents = new CopyOnWriteArrayList<>();
   }
 
@@ -156,6 +175,9 @@ public class CapturingFrameProcessor implements FrameProcessor {
     boolean queued = underlyingProcessor.queue(frames);
     if (queued) {
       queuedEvents.add(event);
+      if (onQueueListener != null) {
+        onQueueListener.accept(frames);
+      }
     }
     return queued;
   }

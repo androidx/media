@@ -94,7 +94,13 @@ public final class DecoderVideoRendererTest {
             eventListener,
             /* maxDroppedFramesToNotify= */ -1) {
 
-          private final Phaser inputBuffersInCodecPhaser = new Phaser();
+          private final Phaser inputBuffersInCodecPhaser =
+              new Phaser() {
+                @Override
+                protected boolean onAdvance(int phase, int registeredParties) {
+                  return false;
+                }
+              };
           private @C.VideoOutputMode int outputMode;
 
           @Override
@@ -137,6 +143,7 @@ public final class DecoderVideoRendererTest {
             //     to be cleared.
             //  4. The tests need to call ShadowLooper.idleMainThread() to execute the wait message
             //     sent in step (3).
+            ((TestDecoderInputBuffer) buffer).isQueuedInCodec = true;
             int currentPhase = inputBuffersInCodecPhaser.register();
             new Handler().post(() -> inputBuffersInCodecPhaser.awaitAdvance(currentPhase));
             super.onQueueInputBuffer(buffer);
@@ -153,13 +160,7 @@ public final class DecoderVideoRendererTest {
                 new DecoderInputBuffer[10], new VideoDecoderOutputBuffer[10]) {
               @Override
               protected DecoderInputBuffer createInputBuffer() {
-                return new DecoderInputBuffer(BUFFER_REPLACEMENT_MODE_DIRECT) {
-                  @Override
-                  public void clear() {
-                    super.clear();
-                    inputBuffersInCodecPhaser.arriveAndDeregister();
-                  }
-                };
+                return new TestDecoderInputBuffer(inputBuffersInCodecPhaser);
               }
 
               @Override
@@ -658,5 +659,24 @@ public final class DecoderVideoRendererTest {
 
     assertThat(renderer.decoderCounters.renderedOutputBufferCount).isEqualTo(3);
     assertThat(renderer.decoderCounters.skippedOutputBufferCount).isEqualTo(0);
+  }
+
+  private static final class TestDecoderInputBuffer extends DecoderInputBuffer {
+    private final Phaser phaser;
+    private boolean isQueuedInCodec;
+
+    private TestDecoderInputBuffer(Phaser phaser) {
+      super(BUFFER_REPLACEMENT_MODE_DIRECT);
+      this.phaser = phaser;
+    }
+
+    @Override
+    public void clear() {
+      super.clear();
+      if (isQueuedInCodec) {
+        isQueuedInCodec = false;
+        phaser.arriveAndDeregister();
+      }
+    }
   }
 }

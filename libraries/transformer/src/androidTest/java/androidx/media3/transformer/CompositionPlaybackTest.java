@@ -20,6 +20,7 @@ import static androidx.media3.common.Player.DISCONTINUITY_REASON_AUTO_TRANSITION
 import static androidx.media3.common.Player.REPEAT_MODE_ALL;
 import static androidx.media3.common.Player.REPEAT_MODE_OFF;
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S;
 import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_80KHZ_MONO_20_REPEATING_1_SAMPLES_ASSET;
@@ -32,6 +33,7 @@ import android.content.Context;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
+import androidx.media3.common.Flags;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaItem.ClippingConfiguration;
 import androidx.media3.common.Player;
@@ -42,6 +44,7 @@ import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.TeeAudioProcessor;
 import androidx.media3.test.utils.CountDownFuture;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.PassthroughAudioProcessor;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
@@ -61,12 +64,15 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Ignore;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Playback tests for {@link CompositionPlayer} */
 @RunWith(AndroidJUnit4.class)
 public class CompositionPlaybackTest {
+
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
 
   private static final MediaItem VIDEO_MEDIA_ITEM = MediaItem.fromUri(MP4_ADVANCED_ASSET.uri);
   private static final long VIDEO_DURATION_US = MP4_ADVANCED_ASSET.videoDurationUs;
@@ -714,21 +720,20 @@ public class CompositionPlaybackTest {
 
   @Ignore("TODO: b/521754606 - Fix flakiness and re-enable")
   @Test
-  public void playback_withVeryShortItems_succeeds() throws Exception {
+  public void playback_withVeryShortClippedMediaItems_succeeds() throws Exception {
     // Use items with duration of 33ms to showcase the stuck playback issue (b/475201870).
-    String uri = "asset:///media/mp4/h264_4k_30fps_10sec.mp4";
     ImmutableList.Builder<EditedMediaItem> editedMediaItems = new ImmutableList.Builder<>();
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(
                 new MediaItem.Builder()
-                    .setUri(uri)
+                    .setUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri)
                     .setClippingConfiguration(
                         new MediaItem.ClippingConfiguration.Builder()
                             .setStartPositionMs(0)
                             .setEndPositionMs(33L)
                             .build())
                     .build())
-            .setDurationUs(10_000_000)
+            .setDurationUs(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoDurationUs)
             .build();
     for (int i = 0; i < 3; i++) {
       editedMediaItems.add(editedMediaItem);
@@ -767,6 +772,11 @@ public class CompositionPlaybackTest {
       boolean videoPrewarmingEnabled,
       boolean perStreamMediaProgressionEnabled)
       throws InterruptedException, ExecutionException {
+    if (perStreamMediaProgressionEnabled) {
+      Flags.enableFlag(Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION);
+    } else {
+      Flags.disableFlag(Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION);
+    }
     SettableFuture<Void> endedFuture = SettableFuture.create();
     DecoderCountersListener decoderCountersListener = new DecoderCountersListener();
     getInstrumentation()
@@ -776,7 +786,6 @@ public class CompositionPlaybackTest {
                   new CompositionPlayer.Builder(context)
                       .setVideoPrewarmingEnabled(videoPrewarmingEnabled)
                       .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-                      .setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled)
                       .build();
               endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
               player.addAnalyticsListener(decoderCountersListener);

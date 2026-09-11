@@ -29,7 +29,7 @@ import androidx.media3.exoplayer.source.ads.AdsLoader;
 import androidx.media3.exoplayer.source.ads.AdsMediaSource;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import java.util.Arrays;
+import com.google.common.collect.ImmutableList;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -75,11 +75,11 @@ public final class DefaultMediaSourceFactoryTest {
   }
 
   @Test
-  public void createMediaSource_withSubtitle_isMergingMediaSource() {
+  public void createMediaSource_withSubtitle_isSideloadedSubtitlesMediaSource() {
     DefaultMediaSourceFactory defaultMediaSourceFactory =
         new DefaultMediaSourceFactory((Context) ApplicationProvider.getApplicationContext());
     List<MediaItem.SubtitleConfiguration> subtitleConfigurations =
-        Arrays.asList(
+        ImmutableList.of(
             new MediaItem.SubtitleConfiguration.Builder(Uri.parse(URI_TEXT))
                 .setMimeType(MimeTypes.APPLICATION_TTML)
                 .setLanguage("en")
@@ -97,7 +97,7 @@ public final class DefaultMediaSourceFactoryTest {
 
     MediaSource mediaSource = defaultMediaSourceFactory.createMediaSource(mediaItem);
 
-    assertThat(mediaSource).isInstanceOf(MergingMediaSource.class);
+    assertThat(mediaSource).isInstanceOf(SideloadedSubtitlesMediaSource.class);
   }
 
   @Test

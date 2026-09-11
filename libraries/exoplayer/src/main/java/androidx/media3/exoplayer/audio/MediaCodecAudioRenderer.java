@@ -48,6 +48,7 @@ import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
+import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
@@ -77,6 +78,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Decodes and renders audio using {@link MediaCodec} and an {@link AudioSink}.
@@ -132,6 +134,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   private final EventDispatcher eventDispatcher;
   private final AudioSink audioSink;
   @Nullable private final LoudnessCodecController loudnessCodecController;
+  private final AtomicBoolean processOutputBufferResultHolder;
 
   private int codecMaxInputSize;
   private boolean codecNeedsDiscardChannelsWorkaround;
@@ -330,6 +333,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     this.loudnessCodecController = loudnessCodecController;
     rendererPriority = C.PRIORITY_PLAYBACK;
     eventDispatcher = new EventDispatcher(eventHandler, eventListener);
+    processOutputBufferResultHolder = new AtomicBoolean();
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
     firstNotReadyTimeMs = C.TIME_UNSET;
     hasBeenReady = false;
@@ -927,9 +931,16 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       return true;
     }
 
-    boolean fullyConsumed;
     try {
-      fullyConsumed = audioSink.handleBuffer(buffer, bufferPresentationTimeUs, sampleCount);
+      ThrowingRunnable<Exception> handleBufferOperation =
+          () ->
+              processOutputBufferResultHolder.set(
+                  audioSink.handleBuffer(buffer, bufferPresentationTimeUs, sampleCount));
+      if (codec != null) {
+        codec.useBuffer(handleBufferOperation);
+      } else {
+        handleBufferOperation.run();
+      }
     } catch (InitializationException e) {
       throw createRendererException(
           e,
@@ -948,7 +959,13 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
                   && getConfiguration().offloadModePreferred != AudioSink.OFFLOAD_MODE_DISABLED
               ? PlaybackException.ERROR_CODE_AUDIO_TRACK_OFFLOAD_WRITE_FAILED
               : PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED);
+    } catch (RuntimeException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new IllegalStateException(e);
     }
+
+    boolean fullyConsumed = processOutputBufferResultHolder.get();
 
     if (fullyConsumed) {
       if (codec != null) {

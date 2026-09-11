@@ -15,11 +15,15 @@
  */
 package androidx.media3.muxer;
 
+import static androidx.media3.common.util.Util.getPcmFormat;
+import static androidx.media3.common.util.Util.getPcmFrameSize;
+import static androidx.media3.common.util.Util.isPcmEncodingBigEndian;
 import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
 import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_AUDIO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_CSD_0;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
+import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
@@ -31,6 +35,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
@@ -40,10 +45,11 @@ import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.DumpableMp4Box;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 import com.google.common.truth.Correspondence;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -54,9 +60,10 @@ import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestParameterInjector;
 
 /** Unit tests for {@link Boxes}. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public class BoxesTest {
   // A typical timescale is ~90_000. We're using 100_000 here to simplify calculations.
   // This makes one time unit equal to 10 microseconds.
@@ -235,6 +242,17 @@ public class BoxesTest {
   }
 
   @Test
+  public void createUdtaBox_withAltitude_containsAltitudeString() {
+    Mp4LocationData mp4Location = new Mp4LocationData(33.0f, -120f, 150.5f);
+
+    ByteBuffer udtaBox = Boxes.udta(mp4Location);
+
+    String boxContentsString =
+        new String(udtaBox.array(), udtaBox.arrayOffset(), udtaBox.remaining(), UTF_8);
+    assertThat(boxContentsString).contains("+33.0000-120.0000+150.5000/");
+  }
+
+  @Test
   public void createKeysBox_matchesExpected() throws Exception {
     List<MdtaMetadataEntry> metadataEntries = new ArrayList<>();
     metadataEntries.add(
@@ -403,6 +421,40 @@ public class BoxesTest {
         context,
         dumpableBox,
         MuxerTestUtil.getExpectedMp4DumpFilePath("audio_sample_entry_box_vorbis"));
+  }
+
+  @Test
+  public void createAudioSampleEntryBox_forPcmFloat_matchesExpected(
+      @TestParameter(valuesProvider = FloatPcmEncodingValuesProvider.class) @C.PcmEncoding
+          int pcmEncoding) {
+    Format format = getPcmFormat(pcmEncoding, /* channels= */ 2, /* sampleRate= */ 48_000);
+
+    ByteBuffer audioSampleEntryBox = Boxes.audioSampleEntry(format);
+    ParsableByteArray parsableByteArray =
+        new ParsableByteArray(createByteArray(audioSampleEntryBox));
+
+    assertThat(parsableByteArray.readInt()).isEqualTo(50); // Box size
+    assertThat(parsableByteArray.readString(4)).isEqualTo("fpcm");
+    parsableByteArray.skipBytes(6); // reserved
+    assertThat(parsableByteArray.readUnsignedShort())
+        .isEqualTo(1); // data reference index (points to first dref table entry)
+    parsableByteArray.skipBytes(8); // reserved
+    assertThat(parsableByteArray.readUnsignedShort()).isEqualTo(2); // channel count
+    // In AudioSampleEntry v0, sample_size is fixed to 16 as a template value (ISO/IEC 14496-12).
+    // The actual PCM bit depth for fpcm/ipcm is specified in the pcmC box.
+    assertThat(parsableByteArray.readUnsignedShort()).isEqualTo(16); // sample size
+    parsableByteArray.skipBytes(4); // predefined + reserved
+    assertThat(parsableByteArray.readInt())
+        .isEqualTo(48_000 << 16); // sample_rate in 16.16 fixed-point format
+    // pcmC box
+    assertThat(parsableByteArray.readInt()).isEqualTo(14); // pcmC size
+    assertThat(parsableByteArray.readString(4)).isEqualTo("pcmC");
+    assertThat(parsableByteArray.readInt()).isEqualTo(0); // version + flags
+    byte expectedFlags = isPcmEncodingBigEndian(pcmEncoding) ? (byte) 0 : (byte) 1;
+    assertThat(parsableByteArray.readUnsignedByte()).isEqualTo(expectedFlags);
+    int expectedBitDepth = getPcmFrameSize(pcmEncoding, /* channelCount= */ 1) * 8;
+    assertThat(parsableByteArray.readUnsignedByte()).isEqualTo(expectedBitDepth);
+    assertThat(parsableByteArray.bytesLeft()).isEqualTo(0);
   }
 
   @Test
@@ -951,11 +1003,42 @@ public class BoxesTest {
 
   @Test
   public void createFtypBox_matchesExpected() throws IOException {
-    ByteBuffer ftypBox = Boxes.ftyp();
+    ByteBuffer ftypBox = Boxes.ftyp(/* additionalCompatibleBrands= */ ImmutableList.of());
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(ftypBox);
     DumpFileAsserts.assertOutput(
         context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("ftyp_box"));
+  }
+
+  @Test
+  public void createFtypBox_withInvalidCompatibleBrandLength_throws() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> Boxes.ftyp(/* additionalCompatibleBrands= */ ImmutableList.of("dby")));
+  }
+
+  @Test
+  public void createFtypBox_forDolbyVision_containsDby1CompatibleBrand() {
+    ByteBuffer ftypBox = Boxes.ftyp(/* additionalCompatibleBrands= */ ImmutableList.of("dby1"));
+
+    assertThat(ftypBox.getInt()).isEqualTo(32);
+    byte[] type = new byte[4];
+    ftypBox.get(type);
+    assertThat(type).isEqualTo(Util.getUtf8Bytes("ftyp"));
+    assertThat(ftypBox.getInt()).isEqualTo(Util.getIntegerCodeForString("isom"));
+    assertThat(ftypBox.getInt()).isEqualTo(0x020000);
+
+    List<Integer> compatibleBrands = new ArrayList<>();
+    while (ftypBox.hasRemaining()) {
+      compatibleBrands.add(ftypBox.getInt());
+    }
+    assertThat(compatibleBrands)
+        .containsExactly(
+            Util.getIntegerCodeForString("isom"),
+            Util.getIntegerCodeForString("iso2"),
+            Util.getIntegerCodeForString("mp41"),
+            Util.getIntegerCodeForString("dby1"))
+        .inOrder();
   }
 
   @Test
@@ -1259,5 +1342,16 @@ public class BoxesTest {
     }
 
     return bufferInfoList;
+  }
+
+  private static final class FloatPcmEncodingValuesProvider extends TestParameterValuesProvider {
+    @Override
+    protected ImmutableList<?> provideValues(TestParameterValuesProvider.Context context) {
+      return ImmutableList.of(
+          value(C.ENCODING_PCM_FLOAT).withName("ENCODING_PCM_FLOAT"),
+          value(C.ENCODING_PCM_FLOAT_BIG_ENDIAN).withName("ENCODING_PCM_FLOAT_BIG_ENDIAN"),
+          value(C.ENCODING_PCM_DOUBLE).withName("ENCODING_PCM_DOUBLE"),
+          value(C.ENCODING_PCM_DOUBLE_BIG_ENDIAN).withName("ENCODING_PCM_DOUBLE_BIG_ENDIAN"));
+    }
   }
 }

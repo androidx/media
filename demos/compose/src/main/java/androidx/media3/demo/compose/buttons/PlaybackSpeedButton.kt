@@ -32,12 +32,13 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.SheetState
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.contentColorFor
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -154,7 +155,7 @@ fun PlaybackSpeedBottomSheet(
   onDismissRequest: () -> Unit,
   modifier: Modifier = Modifier,
   contentModifier: Modifier = Modifier,
-  sheetState: SheetState = rememberModalBottomSheetState(),
+  sheetState: SheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden),
   presetSpeeds: List<Float> = listOf(0.25f, 1.0f, 1.25f, 1.5f, 2.0f),
   speedStep: Float = 0.05f,
   speedRange: ClosedFloatingPointRange<Float> = 0.25f..2.0f,

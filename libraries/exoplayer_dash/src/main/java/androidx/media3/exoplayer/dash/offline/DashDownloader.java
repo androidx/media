@@ -32,6 +32,7 @@ import androidx.media3.exoplayer.dash.DashSegmentIndex;
 import androidx.media3.exoplayer.dash.DashUtil;
 import androidx.media3.exoplayer.dash.DashWrappingSegmentIndex;
 import androidx.media3.exoplayer.dash.manifest.AdaptationSet;
+import androidx.media3.exoplayer.dash.manifest.BaseUrl;
 import androidx.media3.exoplayer.dash.manifest.DashManifest;
 import androidx.media3.exoplayer.dash.manifest.DashManifestParser;
 import androidx.media3.exoplayer.dash.manifest.Period;
@@ -284,7 +285,7 @@ public final class DashDownloader extends SegmentDownloader<DashManifest> {
         throw new DownloadException("Unbounded segment index");
       }
 
-      String baseUrl = castNonNull(baseUrlExclusionList.selectBaseUrl(representation.baseUrls)).url;
+      BaseUrl baseUrl = castNonNull(baseUrlExclusionList.selectBaseUrl(representation.baseUrls));
       @Nullable RangedUri initializationUri = representation.getInitializationUri();
       if (initializationUri != null) {
         out.add(createSegment(representation, baseUrl, periodStartUs, initializationUri));
@@ -318,7 +319,7 @@ public final class DashDownloader extends SegmentDownloader<DashManifest> {
   }
 
   private Segment createSegment(
-      Representation representation, String baseUrl, long startTimeUs, RangedUri rangedUri) {
+      Representation representation, BaseUrl baseUrl, long startTimeUs, RangedUri rangedUri) {
     DataSpec dataSpec =
         DashUtil.buildDataSpec(
             representation,

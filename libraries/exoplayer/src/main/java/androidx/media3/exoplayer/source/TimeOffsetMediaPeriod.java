@@ -31,12 +31,12 @@ import java.io.IOException;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
-/** A {@link MediaPeriod} that applies a fixed time offset to all timestamps */
+/** A {@link MediaPeriod} that applies a time offset to all timestamps */
 /* package */ final class TimeOffsetMediaPeriod implements MediaPeriod, MediaPeriod.Callback {
 
   private final MediaPeriod mediaPeriod;
-  private final long timeOffsetUs;
 
+  private long timeOffsetUs;
   private @MonotonicNonNull Callback callback;
 
   /**
@@ -54,6 +54,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   /** Returns the wrapped {@link MediaPeriod}. */
   public MediaPeriod getWrappedMediaPeriod() {
     return mediaPeriod;
+  }
+
+  /**
+   * Updates the offset that is applied to all timestamps coming from the wrapped period.
+   *
+   * <p>The new offset applies to all future interactions with this period and its {@linkplain
+   * SampleStream sample streams}. Data already read with the previous offset is unaffected. To
+   * apply the new offset to the data at the current playback position, the tracks of this period
+   * need to be re-selected (or seeked) so that the wrapped period re-reads this data.
+   *
+   * @param timeOffsetUs The offset to apply to all timestamps coming from the wrapped period, in
+   *     microseconds.
+   */
+  public void updateTimeOffsetUs(long timeOffsetUs) {
+    this.timeOffsetUs = timeOffsetUs;
   }
 
   @Override
@@ -102,7 +117,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         streams[i] = null;
       } else if (streams[i] == null
           || ((TimeOffsetSampleStream) streams[i]).getChildStream() != childStream) {
-        streams[i] = new TimeOffsetSampleStream(childStream, timeOffsetUs);
+        streams[i] = new TimeOffsetSampleStream(childStream);
       }
     }
     return startPositionUs + timeOffsetUs;
@@ -192,17 +207,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         : actualEndPositionUs + timeOffsetUs;
   }
 
-  private static final class TimeOffsetSampleStream implements SampleStream {
+  private final class TimeOffsetSampleStream implements SampleStream {
 
     private final SampleStream sampleStream;
-    private final long timeOffsetUs;
 
-    public TimeOffsetSampleStream(SampleStream sampleStream, long timeOffsetUs) {
+    private TimeOffsetSampleStream(SampleStream sampleStream) {
       this.sampleStream = sampleStream;
-      this.timeOffsetUs = timeOffsetUs;
     }
 
-    public SampleStream getChildStream() {
+    private SampleStream getChildStream() {
       return sampleStream;
     }
 

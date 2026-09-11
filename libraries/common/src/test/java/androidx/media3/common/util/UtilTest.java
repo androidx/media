@@ -53,6 +53,7 @@ import android.util.SparseArray;
 import android.util.SparseLongArray;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.test.utils.TestUtil;
 import com.google.common.io.ByteStreams;
 import com.google.common.primitives.Bytes;
@@ -1830,6 +1831,18 @@ public class UtilTest {
     Format format = new Format.Builder().setChannelCount(6).build();
 
     assertThat(Util.getAudioTrackChannelConfig(format)).isEqualTo(AudioFormat.CHANNEL_OUT_5POINT1);
+  }
+
+  @Test
+  public void getVideoCodecFlagForMime_returnsProperFlag() {
+    assertThat(Util.getVideoCodecFlagForMime(MimeTypes.VIDEO_H264))
+        .isEqualTo(C.VIDEO_CODEC_FLAG_H264);
+    assertThat(Util.getVideoCodecFlagForMime(MimeTypes.VIDEO_H265))
+        .isEqualTo(C.VIDEO_CODEC_FLAG_H265);
+    assertThat(Util.getVideoCodecFlagForMime(MimeTypes.VIDEO_AV1))
+        .isEqualTo(C.VIDEO_CODEC_FLAG_AV1);
+    assertThrows(
+        IllegalArgumentException.class, () -> Util.getVideoCodecFlagForMime("video/unsupported"));
   }
 
   private static void assertEscapeUnescapeFileName(String fileName, String escapedFileName) {

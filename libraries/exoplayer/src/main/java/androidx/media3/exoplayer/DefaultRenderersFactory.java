@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.exoplayer.video.MediaCodecVideoRenderer.DEFAULT_EARLY_SCHEDULING_THRESHOLD_US;
 import static androidx.media3.exoplayer.video.MediaCodecVideoRenderer.DEFAULT_LATE_THRESHOLD_TO_DROP_DECODER_INPUT_US;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -28,9 +27,7 @@ import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
-import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -124,11 +121,8 @@ public class DefaultRenderersFactory implements RenderersFactory {
   private boolean enableFloatOutput;
   private boolean enableAudioOutputPlaybackParameters;
   private boolean enableMediaCodecVideoRendererPrewarming;
-  private boolean parseAv1SampleDependencies;
   private long lateThresholdToDropDecoderInputUs;
   private long videoRendererEarlySchedulingThresholdUs;
-  private boolean enableMediaCodecBufferDecodeOnlyFlag;
-  private boolean enableMediaCodecVideoRendererDurationToProgressUs;
 
   /**
    * @param context A {@link Context}.
@@ -139,7 +133,6 @@ public class DefaultRenderersFactory implements RenderersFactory {
     extensionRendererMode = EXTENSION_RENDERER_MODE_OFF;
     allowedVideoJoiningTimeMs = DEFAULT_ALLOWED_VIDEO_JOINING_TIME_MS;
     mediaCodecSelector = MediaCodecSelector.DEFAULT;
-    parseAv1SampleDependencies = true;
     lateThresholdToDropDecoderInputUs = DEFAULT_LATE_THRESHOLD_TO_DROP_DECODER_INPUT_US;
     videoRendererEarlySchedulingThresholdUs = DEFAULT_EARLY_SCHEDULING_THRESHOLD_US;
   }
@@ -313,74 +306,6 @@ public class DefaultRenderersFactory implements RenderersFactory {
   }
 
   /**
-   * Sets whether {@link MimeTypes#VIDEO_AV1} bitstream parsing for sample dependency information is
-   * enabled. Knowing which input frames are not depended on can speed up seeking and reduce dropped
-   * frames.
-   *
-   * <p>Defaults to {@code true}.
-   *
-   * <p>This method is experimental and will be renamed or removed in a future release.
-   *
-   * @param parseAv1SampleDependencies Whether bitstream parsing is enabled.
-   */
-  @CanIgnoreReturnValue
-  @ExperimentalApi // TODO: b/470365670 - Remove method once config is enabled by default.
-  public final DefaultRenderersFactory experimentalSetParseAv1SampleDependencies(
-      boolean parseAv1SampleDependencies) {
-    this.parseAv1SampleDependencies = parseAv1SampleDependencies;
-    return this;
-  }
-
-  /**
-   * Sets whether the {@link MediaCodec#BUFFER_FLAG_DECODE_ONLY} flag will be included when queuing
-   * decode-only input buffers to the decoder.
-   *
-   * <p>If {@code false}, then only if the decoder is set up in tunneling mode will the decode-only
-   * input buffers be queued with the {@link MediaCodec#BUFFER_FLAG_DECODE_ONLY} flag. The default
-   * value is {@code false}.
-   *
-   * <p>Requires API 34.
-   *
-   * <p>This method is experimental and will be renamed or removed in a future release.
-   */
-  @RequiresApi(34)
-  @CanIgnoreReturnValue
-  @ExperimentalApi // TODO: b/470367414 - Run experiments and enable by default.
-  public DefaultRenderersFactory experimentalSetEnableMediaCodecBufferDecodeOnlyFlag(
-      boolean enableMediaCodecBufferDecodeOnlyFlag) {
-    this.enableMediaCodecBufferDecodeOnlyFlag = enableMediaCodecBufferDecodeOnlyFlag;
-    return this;
-  }
-
-  /**
-   * Sets whether {@link MediaCodecVideoRenderer} supports {@link Renderer#getDurationToProgressUs
-   * getDurationToProgressUs}.
-   *
-   * <p>When ExoPlayer's {@link ExoPlayer.Builder#experimentalSetDynamicSchedulingEnabled dynamic
-   * scheduling} is enabled, ExoPlayer uses {@link Renderer#getDurationToProgressUs} to better align
-   * when it wakes the CPU with when player progress can be made.
-   *
-   * <p>If {@code true}, then {@link MediaCodecVideoRenderer} will support {@link
-   * Renderer#getDurationToProgressUs getDurationToProgressUs} and only if its {@link MediaCodec}
-   * decoder is set up in asynchronous mode with a registered {@link MediaCodec.Callback} listener.
-   * With these conditions met {@link ExoPlayer} will adjust its task scheduling with when {@link
-   * MediaCodecVideoRenderer} can schedule its next output. This will increase CPU Idle time thereby
-   * reducing power consumption. The default value is {@code false}.
-   *
-   * <p>This method is experimental and will be renamed or removed in a future release.
-   *
-   * @see ExoPlayer.Builder#experimentalSetDynamicSchedulingEnabled
-   */
-  @CanIgnoreReturnValue
-  @ExperimentalApi // TODO: b/369523131 - Remove once experiment is complete.
-  public DefaultRenderersFactory setEnableMediaCodecVideoRendererDurationToProgressUs(
-      boolean enableMediaCodecVideoRendererDurationToProgressUs) {
-    this.enableMediaCodecVideoRendererDurationToProgressUs =
-        enableMediaCodecVideoRendererDurationToProgressUs;
-    return this;
-  }
-
-  /**
    * Sets the maximum duration for which video renderers can attempt to seamlessly join an ongoing
    * playback.
    *
@@ -505,15 +430,8 @@ public class DefaultRenderersFactory implements RenderersFactory {
             .setEventHandler(eventHandler)
             .setEventListener(eventListener)
             .setMaxDroppedFramesToNotify(MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY)
-            .experimentalSetParseAv1SampleDependencies(parseAv1SampleDependencies)
             .experimentalSetLateThresholdToDropDecoderInputUs(lateThresholdToDropDecoderInputUs)
-            .setEnableDurationToProgressUs(enableMediaCodecVideoRendererDurationToProgressUs)
             .setEarlySchedulingThresholdUs(videoRendererEarlySchedulingThresholdUs);
-    if (SDK_INT >= 34) {
-      builder =
-          builder.experimentalSetEnableMediaCodecBufferDecodeOnlyFlag(
-              enableMediaCodecBufferDecodeOnlyFlag);
-    }
     return builder.build();
   }
 

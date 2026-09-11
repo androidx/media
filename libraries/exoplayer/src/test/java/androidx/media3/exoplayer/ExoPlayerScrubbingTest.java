@@ -44,12 +44,12 @@ import android.graphics.Color;
 import android.graphics.SurfaceTexture;
 import android.media.MediaFormat;
 import android.os.Bundle;
-import android.os.Handler;
 import android.os.Looper;
 import android.util.Pair;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
@@ -66,11 +66,8 @@ import androidx.media3.exoplayer.image.ImageOutput;
 import androidx.media3.exoplayer.image.ImageRenderer;
 import androidx.media3.exoplayer.mediacodec.ForwardingMediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
-import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.source.MergingMediaSource;
-import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
-import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.test.utils.ExoPlayerTestRunner;
 import androidx.media3.test.utils.FakeAudioRenderer;
 import androidx.media3.test.utils.FakeClock;
@@ -80,6 +77,7 @@ import androidx.media3.test.utils.FakeRenderer;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
 import androidx.media3.test.utils.FakeVideoRenderer;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.media3.test.utils.robolectric.IdlingMediaCodecAdapterFactory;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
@@ -95,7 +93,6 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -112,6 +109,8 @@ public final class ExoPlayerScrubbingTest {
       ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   @Rule public Expect expect = Expect.create();
+
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
 
   @Test
   public void scrubbingMode_getterWorks() throws Exception {
@@ -865,139 +864,73 @@ public final class ExoPlayerScrubbingTest {
   }
 
   @Test
-  @Config(minSdk = 31) // Relies on async MediaCodec mode, which is only the default on API 31+.
-  @Ignore("Flaky: b/515127273")
   public void dynamicSchedulingInScrubbingMode_renderCalledMoreFrequentlyThan10ms()
       throws Exception {
+    Flags.disableFlag(Flags.FLAG_DYNAMIC_SCHEDULING);
     Context context = ApplicationProvider.getApplicationContext();
-    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
-    IdlingMediaCodecAdapterFactory codecAdapterFactory =
-        new IdlingMediaCodecAdapterFactory(context, clock);
     AtomicInteger renderCounter = new AtomicInteger();
-    RenderersFactory renderersFactory =
-        new DefaultRenderersFactory(context) {
-          @Override
-          protected void buildVideoRenderers(
-              Context context,
-              @ExtensionRendererMode int extensionRendererMode,
-              MediaCodecSelector mediaCodecSelector,
-              boolean enableDecoderFallback,
-              Handler eventHandler,
-              VideoRendererEventListener eventListener,
-              long allowedVideoJoiningTimeMs,
-              ArrayList<Renderer> out) {
-            MediaCodecVideoRenderer videoRenderer =
-                new MediaCodecVideoRenderer.Builder(context)
-                    .setCodecAdapterFactory(codecAdapterFactory)
-                    .setMediaCodecSelector(mediaCodecSelector)
-                    .setAllowedJoiningTimeMs(allowedVideoJoiningTimeMs)
-                    .setEnableDecoderFallback(enableDecoderFallback)
-                    .setEventHandler(eventHandler)
-                    .setEventListener(eventListener)
-                    .build();
-            out.add(new RenderCountingRenderer(videoRenderer, renderCounter));
-          }
-        };
-
+    ForwardingDurationToProgressRenderer fakeRenderer =
+        new ForwardingDurationToProgressRenderer(
+            new FakeRenderer(C.TRACK_TYPE_VIDEO),
+            /* durationToProgressUs= */ 2_000L,
+            renderCounter);
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ExoPlayer player =
-        new TestExoPlayerBuilder(context)
-            .setRenderersFactory(renderersFactory)
-            .setDynamicSchedulingEnabled(false)
-            .setClock(clock)
-            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
-            .build();
-    player.setMediaSource(create30Fps2sGop10sDurationVideoSource());
-    Surface surface = new Surface(new SurfaceTexture(1));
-    player.setVideoSurface(surface);
+        new TestExoPlayerBuilder(context).setClock(clock).setRenderers(fakeRenderer).build();
+    player.setMediaSource(
+        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT));
     player.prepare();
     player.play();
-
     advance(player).untilState(Player.STATE_READY);
+
     player.setScrubbingModeEnabled(true);
     advance(player).untilPendingCommandsAreFullyHandled();
-    long playerReadyTimeMs = clock.currentTimeMillis();
+
+    advance(player).untilBackgroundThreadCondition(() -> clock.currentTimeMillis() >= 500);
     renderCounter.set(0);
+    advance(player).untilBackgroundThreadCondition(() -> clock.currentTimeMillis() >= 800);
 
-    // This seeks to near the end of a GoP, requiring decoding 58 frames.
-    player.seekTo(3950);
-
-    advance(player)
-        .untilBackgroundThreadCondition(() -> clock.currentTimeMillis() - playerReadyTimeMs >= 500);
-
-    // With dynamic scheduling enabled, and lots of decoding work to do for the seeks, we should
-    // be triggering the renderer more frequently than every 10ms.
-    assertThat(renderCounter.get()).isGreaterThan(55);
+    // With dynamic scheduling enabled in scrubbing mode, the 2ms renderer duration should be used
+    // (150 render calls in 300ms).
+    assertThat(renderCounter.get()).isEqualTo(150);
 
     player.release();
-    surface.release();
   }
 
   @Test
-  @Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when Robolectric is fixed.
-  @Ignore("Flaky: b/515127273")
-  public void dynamicSchedulingDisabledInScrubbingMode_renderCalledEvery10ms() throws Exception {
+  public void dynamicSchedulingDisabledInScrubbingMode_usesDefaultIdleSchedulingInterval()
+      throws Exception {
+    Flags.disableFlag(Flags.FLAG_DYNAMIC_SCHEDULING);
     Context context = ApplicationProvider.getApplicationContext();
-    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
-    IdlingMediaCodecAdapterFactory codecAdapterFactory =
-        new IdlingMediaCodecAdapterFactory(context, clock);
     AtomicInteger renderCounter = new AtomicInteger();
-    RenderersFactory renderersFactory =
-        new DefaultRenderersFactory(context) {
-          @Override
-          protected void buildVideoRenderers(
-              Context context,
-              @ExtensionRendererMode int extensionRendererMode,
-              MediaCodecSelector mediaCodecSelector,
-              boolean enableDecoderFallback,
-              Handler eventHandler,
-              VideoRendererEventListener eventListener,
-              long allowedVideoJoiningTimeMs,
-              ArrayList<Renderer> out) {
-            MediaCodecVideoRenderer videoRenderer =
-                new MediaCodecVideoRenderer.Builder(context)
-                    .setCodecAdapterFactory(codecAdapterFactory)
-                    .setMediaCodecSelector(mediaCodecSelector)
-                    .setAllowedJoiningTimeMs(allowedVideoJoiningTimeMs)
-                    .setEnableDecoderFallback(enableDecoderFallback)
-                    .setEventHandler(eventHandler)
-                    .setEventListener(eventListener)
-                    .build();
-            out.add(new RenderCountingRenderer(videoRenderer, renderCounter));
-          }
-        };
-
+    ForwardingDurationToProgressRenderer fakeRenderer =
+        new ForwardingDurationToProgressRenderer(
+            new FakeRenderer(C.TRACK_TYPE_VIDEO),
+            /* durationToProgressUs= */ 2_000L,
+            renderCounter);
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ExoPlayer player =
-        new TestExoPlayerBuilder(context)
-            .setRenderersFactory(renderersFactory)
-            .setDynamicSchedulingEnabled(false)
-            .setClock(clock)
-            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
-            .build();
-    player.setMediaSource(create30Fps2sGop10sDurationVideoSource());
-    Surface surface = new Surface(new SurfaceTexture(1));
-    player.setVideoSurface(surface);
+        new TestExoPlayerBuilder(context).setClock(clock).setRenderers(fakeRenderer).build();
+    player.setMediaSource(
+        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT));
     player.setScrubbingModeParameters(
         new ScrubbingModeParameters.Builder().setShouldEnableDynamicScheduling(false).build());
     player.prepare();
     player.play();
-
     advance(player).untilState(Player.STATE_READY);
+
     player.setScrubbingModeEnabled(true);
     advance(player).untilPendingCommandsAreFullyHandled();
-    long playerReadyTimeMs = clock.currentTimeMillis();
+
+    advance(player).untilBackgroundThreadCondition(() -> clock.currentTimeMillis() >= 1000);
     renderCounter.set(0);
+    advance(player).untilBackgroundThreadCondition(() -> clock.currentTimeMillis() >= 4000);
 
-    // This seeks to near the end of a GoP, requiring decoding 58 frames.
-    player.seekTo(3950);
-
-    advance(player)
-        .untilBackgroundThreadCondition(() -> clock.currentTimeMillis() - playerReadyTimeMs >= 500);
-
-    // Expect about one render call every 10ms.
-    assertThat(renderCounter.get()).isWithin(5).of(50);
+    // Dynamic scheduling is disabled, so the 2ms renderer duration is ignored and the default
+    // static idle scheduling interval (1000ms) is used (3 render calls in 3000ms).
+    assertThat(renderCounter.get()).isEqualTo(3);
 
     player.release();
-    surface.release();
   }
 
   @Test
@@ -1270,12 +1203,20 @@ public final class ExoPlayerScrubbingTest {
         .build();
   }
 
-  private static class RenderCountingRenderer extends ForwardingRenderer {
+  private static class ForwardingDurationToProgressRenderer extends ForwardingRenderer {
+    private final long durationToProgressUs;
     private final AtomicInteger renderCounter;
 
-    public RenderCountingRenderer(Renderer renderer, AtomicInteger renderCounter) {
+    private ForwardingDurationToProgressRenderer(
+        Renderer renderer, long durationToProgressUs, AtomicInteger renderCounter) {
       super(renderer);
+      this.durationToProgressUs = durationToProgressUs;
       this.renderCounter = renderCounter;
+    }
+
+    @Override
+    public long getDurationToProgressUs(long positionUs, long elapsedRealtimeUs) {
+      return durationToProgressUs;
     }
 
     @Override

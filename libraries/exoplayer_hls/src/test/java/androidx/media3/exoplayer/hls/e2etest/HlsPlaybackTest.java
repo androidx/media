@@ -31,7 +31,6 @@ import android.graphics.SurfaceTexture;
 import android.net.Uri;
 import android.view.Surface;
 import androidx.annotation.Nullable;
-import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.datasource.DefaultDataSource;
@@ -45,7 +44,6 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
-import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.ThrowingSubtitleParserFactory;
@@ -485,13 +483,8 @@ public final class HlsPlaybackTest {
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
         new CapturingRenderersFactory(applicationContext, clock);
-    DefaultMediaSourceFactory defaultMediaSourceFactory =
-        new DefaultMediaSourceFactory(applicationContext, new DefaultExtractorsFactory());
-    defaultMediaSourceFactory.experimentalSetCodecsToParseWithinGopSampleDependencies(
-        C.VIDEO_CODEC_FLAG_H264);
     ExoPlayer player =
-        new ExoPlayer.Builder(
-                applicationContext, capturingRenderersFactory, defaultMediaSourceFactory)
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));

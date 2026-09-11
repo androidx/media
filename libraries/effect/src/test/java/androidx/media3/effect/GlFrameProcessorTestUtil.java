@@ -26,6 +26,7 @@ import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
@@ -266,7 +267,13 @@ public final class GlFrameProcessorTestUtil {
     private final Format format;
 
     public FakeHardwareBufferFrame(Map<String, Object> metadata) {
-      this(new Format.Builder().setWidth(100).setHeight(100).build(), metadata);
+      this(
+          new Format.Builder()
+              .setWidth(100)
+              .setHeight(100)
+              .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+              .build(),
+          metadata);
     }
 
     public FakeHardwareBufferFrame(Format format, Map<String, Object> metadata) {

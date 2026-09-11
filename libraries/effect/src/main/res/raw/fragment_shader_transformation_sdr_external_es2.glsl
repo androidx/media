@@ -28,7 +28,8 @@ uniform samplerExternalOES uTexSampler;
 uniform mat4 uRgbMatrix;
 varying vec2 vTexSamplingCoord;
 // C.java#ColorTransfer value.
-// Only COLOR_TRANSFER_LINEAR and COLOR_TRANSFER_SDR_VIDEO are allowed.
+// Only COLOR_TRANSFER_LINEAR, COLOR_TRANSFER_SRGB, and COLOR_TRANSFER_SDR_VIDEO
+// are allowed.
 uniform int uOutputColorTransfer;
 uniform int uSdrWorkingColorSpace;
 
@@ -98,12 +99,14 @@ vec3 convertToWorkingColors(vec3 inputColor) {
 highp vec3 convertToOutputColors(highp vec3 workingColors) {
   // LINT.IfChange(color_transfer)
   const int COLOR_TRANSFER_LINEAR = 1;
+  const int COLOR_TRANSFER_SRGB = 2;
   const int COLOR_TRANSFER_SDR_VIDEO = 3;
   // LINT.ThenChange(../../../../../common/src/main/java/androidx/media3/common/C.java:color_transfer)
   if (uSdrWorkingColorSpace == WORKING_COLOR_SPACE_DEFAULT) {
     if (uOutputColorTransfer == COLOR_TRANSFER_LINEAR) {
       return smpte170mEotf(workingColors);
-    } else if (uOutputColorTransfer == COLOR_TRANSFER_SDR_VIDEO) {
+    } else if (uOutputColorTransfer == COLOR_TRANSFER_SDR_VIDEO ||
+               uOutputColorTransfer == COLOR_TRANSFER_SRGB) {
       return workingColors;
     } else {
       return ERROR_COLOR_RED;

@@ -66,6 +66,7 @@ import static androidx.media3.test.session.common.MediaBrowserConstants.SUBSCRIB
 import static androidx.media3.test.session.common.MediaBrowserConstants.SUBSCRIBE_PARENT_ID_2;
 import static androidx.media3.test.session.common.MediaSessionConstants.CONNECTION_HINT_KEY_ASYNC_CONNECTION_DELAY_MS;
 import static androidx.media3.test.session.common.MediaSessionConstants.CONNECTION_HINT_KEY_ASYNC_CONNECTION_REJECT_DELAY_MS;
+import static androidx.media3.test.session.common.MediaSessionConstants.CONNECTION_HINT_KEY_ASYNC_LIBRARY_ROOT_DELAY_MS;
 import static androidx.media3.test.session.common.MediaSessionConstants.EXTRA_KEY_ASYNC_CONNECTION_CONFIRMATION;
 import static androidx.media3.test.session.common.MediaSessionConstants.KEY_CONTROLLER;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -399,6 +400,16 @@ public class MockMediaLibraryService extends MediaLibraryService {
         Bundle rootExtras = new Bundle(ROOT_EXTRAS);
         rootExtras.putBoolean(EXTRA_KEY_ASYNC_CONNECTION_CONFIRMATION, true);
         rootParams = new LibraryParams.Builder().setExtras(rootExtras).build();
+      }
+      if (params != null
+          && params.extras.containsKey(CONNECTION_HINT_KEY_ASYNC_LIBRARY_ROOT_DELAY_MS)) {
+        long delayMs = params.extras.getLong(CONNECTION_HINT_KEY_ASYNC_LIBRARY_ROOT_DELAY_MS);
+        SettableFuture<LibraryResult<MediaItem>> future = SettableFuture.create();
+        MediaItem finalRootItem = rootItem;
+        LibraryParams finalRootParams = rootParams;
+        handler.postDelayed(
+            () -> future.set(LibraryResult.ofItem(finalRootItem, finalRootParams)), delayMs);
+        return future;
       }
       return immediateFuture(LibraryResult.ofItem(rootItem, rootParams));
     }

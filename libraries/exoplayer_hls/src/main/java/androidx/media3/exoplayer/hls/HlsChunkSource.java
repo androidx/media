@@ -57,7 +57,6 @@ import androidx.media3.exoplayer.upstream.CmcdData;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.FallbackOptions;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.FallbackSelection;
-import androidx.media3.exoplayer.upstream.contentsteering.ContentSteeringTracker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
@@ -140,7 +139,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final HlsRedundantGroup[] redundantGroups;
   private final Format[] redundantGroupFormats;
   private final HlsPlaylistTracker playlistTracker;
-  @Nullable private final ContentSteeringTracker contentSteeringTracker;
+  @Nullable private final HlsContentSteeringTracker contentSteeringTracker;
   private final TrackGroup trackGroup;
   @Nullable private final List<Format> muxedCaptionFormats;
   private final FullSegmentEncryptionKeyCache keyCache;
@@ -739,7 +738,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return false;
     }
     @Nullable
-    ContentSteeringTracker contentSteeringTracker =
+    HlsContentSteeringTracker contentSteeringTracker =
         (this.contentSteeringTracker != null && this.contentSteeringTracker.isActive())
             ? this.contentSteeringTracker
             : null;
@@ -792,7 +791,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return false;
     }
     @Nullable
-    ContentSteeringTracker contentSteeringTracker =
+    HlsContentSteeringTracker contentSteeringTracker =
         (this.contentSteeringTracker != null && this.contentSteeringTracker.isActive())
             ? this.contentSteeringTracker
             : null;

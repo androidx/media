@@ -440,7 +440,16 @@ public final class EditedMediaItem {
       jsonObject.put("effects", effects.toJsonObject());
       jsonObject.put("removeAudio", removeAudio);
       jsonObject.put("removeVideo", removeVideo);
+      jsonObject.put("flattenForSlowMotion", flattenForSlowMotion);
       jsonObject.put("durationUs", durationUs);
+      jsonObject.put("frameRate", frameRate != C.RATE_UNSET_INT ? frameRate : "UNSET");
+      if (!Objects.equals(speedParameters.speedProvider, SpeedProvider.DEFAULT)) {
+        JSONObject speedParametersJsonObject = new JSONObject();
+        speedParametersJsonObject.put(
+            "speedProvider", speedParameters.speedProvider.getClass().getSimpleName());
+        speedParametersJsonObject.put("shouldMaintainPitch", speedParameters.shouldMaintainPitch);
+        jsonObject.put("speedParameters", speedParametersJsonObject);
+      }
       // Calling getPresentationDurationUs() without a set duration will crash.
       jsonObject.put(
           "presentationDuration", durationUs != C.TIME_UNSET ? getPresentationDurationUs() : "N/A");

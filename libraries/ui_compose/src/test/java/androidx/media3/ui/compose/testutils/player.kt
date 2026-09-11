@@ -18,6 +18,8 @@ package androidx.media3.ui.compose.testutils
 
 import androidx.media3.common.Player.STATE_READY
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
+import androidx.media3.common.TrackSelectionParameters
+import androidx.media3.common.Tracks
 import androidx.media3.test.utils.FakePlayer
 
 internal fun createReadyPlayerWithTwoItems(): FakePlayer =
@@ -37,3 +39,11 @@ internal fun createReadyPlayerWithSingleItem(durationUs: Long = 10_000_000L): Fa
     playWhenReady = true,
     playlist = listOf(MediaItemData.Builder("SingleItem").setDurationUs(durationUs).build()),
   )
+
+internal fun createPlayerWithTracks(
+  tracks: Tracks = Tracks.EMPTY,
+  params: TrackSelectionParameters = TrackSelectionParameters.DEFAULT,
+): FakePlayer {
+  val mediaItemData = MediaItemData.Builder("id").setTracks(tracks).build()
+  return FakePlayer(playlist = listOf(mediaItemData), trackSelectionParameters = params)
+}

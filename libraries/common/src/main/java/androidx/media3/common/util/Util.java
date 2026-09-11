@@ -234,6 +234,12 @@ public final class Util {
     return ByteStreams.toByteArray(inputStream);
   }
 
+  /** Converts a single integer into an equivalent 4-byte array in big-endian order. */
+  @UnstableApi
+  public static byte[] toByteArray(int value) {
+    return Ints.toByteArray(value);
+  }
+
   /**
    * Converts an array of integers into an equivalent byte array.
    *
@@ -2414,6 +2420,25 @@ public final class Util {
   }
 
   /**
+   * Returns the {@link C.VideoCodecFlags} corresponding to the provided MIME type.
+   *
+   * @throws IllegalArgumentException If {@code mimeType} is not a recognized video codec.
+   */
+  @UnstableApi
+  public static @C.VideoCodecFlags int getVideoCodecFlagForMime(String mimeType) {
+    switch (Ascii.toLowerCase(mimeType)) {
+      case MimeTypes.VIDEO_H264:
+        return C.VIDEO_CODEC_FLAG_H264;
+      case MimeTypes.VIDEO_H265:
+        return C.VIDEO_CODEC_FLAG_H265;
+      case MimeTypes.VIDEO_AV1:
+        return C.VIDEO_CODEC_FLAG_AV1;
+      default:
+        throw new IllegalArgumentException("Unsupported video codec MIME type: " + mimeType);
+    }
+  }
+
+  /**
    * Splits a codecs sequence string, as defined in RFC 6381, into individual codec strings.
    *
    * @param codecs A codec sequence string, as defined in RFC 6381.
@@ -2644,6 +2669,25 @@ public final class Util {
         || encoding == C.ENCODING_PCM_FLOAT
         || encoding == C.ENCODING_PCM_FLOAT_BIG_ENDIAN
         || encoding == C.ENCODING_PCM_DOUBLE
+        || encoding == C.ENCODING_PCM_DOUBLE_BIG_ENDIAN;
+  }
+
+  /** Returns whether {@code encoding} is a floating-point PCM encoding. */
+  @UnstableApi
+  public static boolean isFloatPcmEncoding(@C.PcmEncoding int encoding) {
+    return encoding == C.ENCODING_PCM_FLOAT
+        || encoding == C.ENCODING_PCM_FLOAT_BIG_ENDIAN
+        || encoding == C.ENCODING_PCM_DOUBLE
+        || encoding == C.ENCODING_PCM_DOUBLE_BIG_ENDIAN;
+  }
+
+  /** Returns whether {@code encoding} is a big-endian PCM encoding. */
+  @UnstableApi
+  public static boolean isPcmEncodingBigEndian(@C.PcmEncoding int encoding) {
+    return encoding == C.ENCODING_PCM_16BIT_BIG_ENDIAN
+        || encoding == C.ENCODING_PCM_24BIT_BIG_ENDIAN
+        || encoding == C.ENCODING_PCM_32BIT_BIG_ENDIAN
+        || encoding == C.ENCODING_PCM_FLOAT_BIG_ENDIAN
         || encoding == C.ENCODING_PCM_DOUBLE_BIG_ENDIAN;
   }
 

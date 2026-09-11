@@ -41,6 +41,14 @@ import java.lang.annotation.Target;
   public static final long MKV_UNKNOWN_LENGTH = 0x01ffffffffffffffL;
 
   /**
+   * The standard ISO 639-2 / BCP 47 undetermined language code ("und").
+   *
+   * <p>The <a href="https://www.matroska.org/technical/elements.html#TagLanguage">Matroska
+   * Specification</a> defines this code as a fallback when no language is specified.
+   */
+  public static final String DEFAULT_TRACK_LANGUAGE = "und";
+
+  /**
    * EBML element IDs are in form of VINT and are defined in <a
    * href="http://matroska.org/technical/specs/index.html">Matroska specifications</a>.
    */

@@ -71,8 +71,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
   private @MonotonicNonNull SurfaceView surfaceView;
 
   @Rule
-  public final GlFrameProcessorTestRule glFrameProcessorTestRule =
-      new GlFrameProcessorTestRule(TEST_TIMEOUT_MS);
+  public final GlFrameProcessorTestRule glFrameProcessorTestRule = new GlFrameProcessorTestRule();
 
   private static class SingleInputVideoGraphConfigsProvider extends TestParameterValuesProvider {
     @Override

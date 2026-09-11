@@ -18,13 +18,18 @@ package androidx.media3.demo.compose.layout
 
 import android.content.Context
 import android.graphics.Bitmap
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -33,16 +38,17 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.media3.common.C
+import androidx.compose.ui.res.painterResource
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.Log
+import androidx.media3.demo.compose.R
 import androidx.media3.demo.compose.editing.ClippingSlider
 import androidx.media3.demo.compose.viewmodel.PlayerLifecycleViewModel
 import androidx.media3.demo.compose.viewmodel.rememberPlayerWithLifecycle
@@ -76,9 +82,22 @@ internal fun EditingPlayerScreen(
   val durationMs = rememberProgressStateWithTickCount(player).durationMs
   // A list state that will hold the extracted preview frames of the video for the clipping track.
   val bitmaps by rememberExtractedFrames(context, mediaItem, durationMs)
+  var showCropping by rememberSaveable { mutableStateOf(false) }
+
+  BackHandler(enabled = showCropping) { showCropping = false }
 
   CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.primary) {
-    EditingPlayerScreen(player, bitmaps, mediaItem, modifier = modifier.fillMaxSize())
+    if (showCropping) {
+      VideoCropperScreen(player = player, modifier = modifier.fillMaxSize())
+    } else {
+      EditingPlayerScreen(
+        player = player,
+        bitmaps = bitmaps,
+        mediaItem = mediaItem,
+        onCropClick = { showCropping = true },
+        modifier = modifier.fillMaxSize(),
+      )
+    }
   }
 }
 
@@ -89,6 +108,7 @@ internal fun EditingPlayerScreen(
   player: Player?,
   bitmaps: ImmutableList<Bitmap>,
   mediaItem: MediaItem,
+  onCropClick: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
   Box(modifier.background(MaterialTheme.colorScheme.background).statusBarsPadding()) {
@@ -101,14 +121,23 @@ internal fun EditingPlayerScreen(
           showControls,
           modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
           above = {
-            Box(Modifier.fillMaxWidth()) { MuteButton(player, Modifier.align(Alignment.CenterEnd)) }
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              IconButton(onClick = onCropClick) {
+                Icon(
+                  painter = painterResource(R.drawable.media3_icon_crop),
+                  contentDescription = "Crop",
+                )
+              }
+              MuteButton(player)
+            }
           },
-          progressSlider = {
-            var clippingRange by remember(mediaItem) { mutableStateOf(0L..C.TIME_END_OF_SOURCE) }
+          progressSlider = { player ->
             ClippingSlider(
-              player = it,
-              clippingRangeMs = clippingRange,
-              onClippingRangeChange = { clippingRange = it },
+              player = player,
               bitmaps = bitmaps,
               onClippingRangeChangeFinished = {
                 Log.d("EditingPlayerScreen", "onClippingRangeChangeFinished")
@@ -143,7 +172,10 @@ private fun rememberExtractedFrames(
             val positions =
               List(bitmapCount) { i -> i * durationMs / (bitmapCount - 1).coerceAtLeast(1) }
             val futureFrames = positions.map { positionMs -> frameExtractor.getFrame(positionMs) }
-            // Fast-path: Await the first frame and immediately publish it to the UI
+            // Fast-path: Await the first frame and immediately publish it to the UI. Because the
+            // slider's aspect ratio depends on the number of bitmaps, the list size should remain
+            // fixed, as changing it dynamically would cause the slider layout to resize each time
+            // the list grows or shrinks.
             val firstBitmap = futureFrames.first().await().bitmap
             value = ImmutableList.copyOf(Collections.nCopies(bitmapCount, firstBitmap))
 

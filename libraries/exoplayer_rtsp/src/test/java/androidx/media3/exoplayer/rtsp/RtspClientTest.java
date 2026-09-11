@@ -577,4 +577,106 @@ public final class RtspClientTest {
 
     assertThat(onSessionTimelineRequestFailed.get()).isFalse();
   }
+
+  @Test
+  public void setupSelectedTracks_withDelayedPlayResponse_clearsPendingRequestAndPreventsError()
+      throws Exception {
+    AtomicBoolean playResponseSent = new AtomicBoolean();
+    rtspServer =
+        new RtspServer(
+            new RtspServer.ResponseProvider() {
+              @Override
+              public RtspResponse getOptionsResponse() {
+                return new RtspResponse(
+                    200,
+                    new RtspHeaders.Builder()
+                        .add(RtspHeaders.PUBLIC, "OPTIONS, DESCRIBE, SETUP, PLAY")
+                        .build());
+              }
+
+              @Override
+              public RtspResponse getDescribeResponse(Uri requestedUri, RtspHeaders headers) {
+                return RtspTestUtils.newDescribeResponseWithSdpMessage(
+                    SESSION_DESCRIPTION, rtpPacketStreamDumps, requestedUri);
+              }
+
+              @Override
+              public RtspResponse getSetupResponse(Uri requestedUri, RtspHeaders headers) {
+                return new RtspResponse(
+                    200,
+                    new RtspHeaders.Builder()
+                        .add(RtspHeaders.SESSION, "12345678")
+                        .add(RtspHeaders.TRANSPORT, "RTP/AVP;unicast;client_port=65536-65537")
+                        .build());
+              }
+
+              @Override
+              public RtspResponse getPlayResponse() {
+                playResponseSent.set(true);
+                return new RtspResponse(
+                    200,
+                    new RtspHeaders.Builder()
+                        .add(
+                            RtspHeaders.RTP_INFO,
+                            RtspTestUtils.getRtpInfoForDumps(rtpPacketStreamDumps))
+                        .build());
+              }
+            });
+    Uri testUri = RtspTestUtils.getTestUri(rtspServer.startAndGetPortNumber());
+    AtomicBoolean onSessionTimelineRequestFailed = new AtomicBoolean();
+    AtomicReference<RtspPlaybackException> playbackError = new AtomicReference<>();
+    rtspClient =
+        new RtspClient(
+            new SessionInfoListener() {
+              @Override
+              public void onSessionTimelineUpdated(
+                  RtspSessionTiming timing, ImmutableList<RtspMediaTrack> tracks) {
+                rtspClient.setupSelectedTracks(
+                    ImmutableList.of(
+                        new RtspClient.TrackSetupInfo(
+                            tracks.get(0).uri, "RTP/AVP;unicast;client_port=65536-65537")));
+              }
+
+              @Override
+              public void onSessionTimelineRequestFailed(
+                  String message, @Nullable Throwable cause) {
+                onSessionTimelineRequestFailed.set(true);
+              }
+            },
+            new PlaybackEventListener() {
+              @Override
+              public void onRtspSetupCompleted() {
+                rtspClient.startPlayback(0);
+              }
+
+              @Override
+              public void onPlaybackStarted(
+                  long startPositionUs, ImmutableList<RtspTrackTiming> trackTimingList) {}
+
+              @Override
+              public void onPlaybackError(RtspPlaybackException error) {
+                playbackError.set(error);
+              }
+            },
+            "ExoPlayer:RtspClientTest",
+            testUri,
+            SocketFactory.getDefault(),
+            false);
+    rtspClient.start();
+
+    RobolectricUtil.runMainLooperUntil(playResponseSent::get);
+    rtspClient.setupSelectedTracks(
+        ImmutableList.of(
+            new RtspClient.TrackSetupInfo(
+                testUri.buildUpon().appendEncodedPath("track1").build(),
+                "RTP/AVP;unicast;client_port=65536-65537")));
+    RobolectricUtil.runMainLooperUntil(
+        () ->
+            rtspClient.getState() == RtspClient.RTSP_STATE_READY
+                || playbackError.get() != null
+                || onSessionTimelineRequestFailed.get());
+
+    assertThat(onSessionTimelineRequestFailed.get()).isFalse();
+    assertThat(playbackError.get()).isNull();
+  }
 }

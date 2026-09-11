@@ -17,7 +17,6 @@
 package androidx.media3.transformer.mh;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_COLOR_TEST_1080P_HLG10;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
@@ -78,8 +77,6 @@ public final class TranscodeQualityTest {
       "test-generated-goldens/FrameExtractorTest/hlg10-color-test_0.000.png";
   private static final String EXPECTED_ROTATED_VIDEO_EXTRACTED_PNG_PATH =
       "test-generated-goldens/FrameExtractorTest/internal_emulator_transformer_output_270_rotated_0.000.png";
-  private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 10_000;
-
   private static final String LEGACY = "legacy";
   private static final String DEFAULT_GL_FRAME_PROCESSOR_NDK = "default_gl_frame_processor_ndk";
 
@@ -96,8 +93,7 @@ public final class TranscodeQualityTest {
   @Parameter public String mode;
 
   @Rule
-  public final GlFrameProcessorTestRule glFrameProcessorTestRule =
-      new GlFrameProcessorTestRule(TEST_TIMEOUT_MS);
+  public final GlFrameProcessorTestRule glFrameProcessorTestRule = new GlFrameProcessorTestRule();
 
   private String testId;
 

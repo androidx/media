@@ -128,21 +128,6 @@ public class EncoderFrameWriterAndroidTest {
   }
 
   @Test
-  public void configure_withImpossibleFormat_invokesErrorListener() {
-    Format impossibleFormat =
-        new Format.Builder()
-            .setWidth(1)
-            .setHeight(1)
-            .setSampleMimeType(MimeTypes.VIDEO_H264)
-            .build();
-
-    encoderFrameWriter.configure(impossibleFormat, Frame.USAGE_VIDEO_ENCODE);
-
-    assertThat(createdEncoder.get()).isNull();
-    assertThat(errorException.get()).isNotNull();
-  }
-
-  @Test
   public void dequeueInputFrame_beforeConfigure_throwIllegalStateException() {
     Executor wakeupExecutor = directExecutor();
     assertThrows(

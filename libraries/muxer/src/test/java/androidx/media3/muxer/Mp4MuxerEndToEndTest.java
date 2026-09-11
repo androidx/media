@@ -15,6 +15,8 @@
  */
 package androidx.media3.muxer;
 
+import static androidx.media3.common.util.Util.getPcmFormat;
+import static androidx.media3.common.util.Util.isPcmEncodingBigEndian;
 import static androidx.media3.muxer.Mp4Muxer.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION;
 import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_AUDIO_FORMAT;
@@ -22,6 +24,10 @@ import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.XMP_SAMPLE_DATA;
 import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
 import static androidx.media3.muxer.MuxerTestUtil.getFakeSampleAndSampleInfo;
+import static androidx.media3.test.utils.TestUtil.buildDoubleTestSamples;
+import static androidx.media3.test.utils.TestUtil.buildFloatTestSamples;
+import static androidx.media3.test.utils.TestUtil.createByteArray;
+import static androidx.media3.test.utils.TestUtil.createByteBuffer;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
@@ -43,21 +49,27 @@ import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.DumpableMp4Box;
 import androidx.media3.test.utils.FakeExtractorOutput;
+import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
+import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.Random;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestParameterInjector;
 import org.robolectric.annotation.Config;
 
 /** End to end tests for {@link Mp4Muxer}. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public class Mp4MuxerEndToEndTest {
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
@@ -66,6 +78,7 @@ public class Mp4MuxerEndToEndTest {
   private static final String H265_HDR10_MP4 = "hdr10-720p.mp4";
   private static final String AV1_MP4 = "sample_av1.mp4";
   private static final String VP9_MP4 = "bbb_800x640_768kbps_30fps_vp9.mp4";
+  private static final String IT35_MP4 = "sample_with_it35_track.mp4";
   private final Context context = ApplicationProvider.getApplicationContext();
 
   @Test
@@ -104,6 +117,28 @@ public class Mp4MuxerEndToEndTest {
         context,
         dumpableBox,
         MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_samples_and_metadata.mp4"));
+  }
+
+  @Test
+  public void createMp4File_withDolbyVisionTrack_ftypContainsDby1CompatibleBrand()
+      throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Format dolbyVisionFormat =
+        FAKE_VIDEO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dvav.09.02")
+            .build();
+    Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L, /* isVideo= */ true);
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      int trackId = muxer.addTrack(dolbyVisionFormat);
+      muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+    }
+
+    byte[] outputFileBytes = TestUtil.getByteArrayFromFilePath(outputFilePath);
+    assertThat(MuxerTestUtil.ftypBoxContainsCompatibleBrand(outputFileBytes, "dby1")).isTrue();
   }
 
   @Test
@@ -174,6 +209,30 @@ public class Mp4MuxerEndToEndTest {
         context,
         fakeExtractorOutput,
         MuxerTestUtil.getExpectedMp4DumpFilePath(VP9_MP4 + "_without_csd"));
+  }
+
+  @Test
+  public void createMp4File_withIt35_matchesExpected() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+
+    try (Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      mp4Muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 100_000_000L,
+              /* modificationTimestampSeconds= */ 500_000_000L));
+      feedInputDataToMuxer(context, mp4Muxer, MP4_FILE_ASSET_DIRECTORY + IT35_MP4);
+      mp4Muxer.addTrackReference(
+          /* trackId= */ 1,
+          Mp4Muxer.TRACK_REFERENCE_TYPE_CDSC,
+          /* referencedTrackIds= */ ImmutableList.of(0));
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputFilePath));
+
+    DumpFileAsserts.assertOutput(
+        context, fakeExtractorOutput, MuxerTestUtil.getExpectedMp4DumpFilePath(IT35_MP4));
   }
 
   @Test
@@ -305,6 +364,34 @@ public class Mp4MuxerEndToEndTest {
     assertThat(extractedFormat.sampleMimeType).isEqualTo(MimeTypes.AUDIO_E_AC3);
     assertThat(extractedFormat.initializationData).hasSize(1);
     assertThat(extractedFormat.initializationData.get(0)).isEqualTo(expectedDec3Payload);
+  }
+
+  @Test
+  public void createMp4File_withAudioPcmFloat_writesAndExtractsCorrectSamples(
+      @TestParameter(valuesProvider = FloatPcmEncodingValuesProvider.class) @C.PcmEncoding
+          int pcmEncoding)
+      throws Exception {
+    File outputFile = temporaryFolder.newFile();
+    Format pcmFloatFormat = getPcmFormat(pcmEncoding, /* channels= */ 1, /* sampleRate= */ 48_000);
+    ByteBuffer sampleBuffer = getTestSamplesForEncoding(pcmEncoding);
+    byte[] sampleData = createByteArray(sampleBuffer.duplicate());
+    BufferInfo bufferInfo =
+        new BufferInfo(/* presentationTimeUs= */ 0L, sampleData.length, C.BUFFER_FLAG_KEY_FRAME);
+
+    try (Mp4Muxer mp4Muxer =
+        new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFile.getPath())).build()) {
+      int audioTrack = mp4Muxer.addTrack(pcmFloatFormat);
+      mp4Muxer.writeSampleData(audioTrack, sampleBuffer, bufferInfo);
+    }
+
+    FakeExtractorOutput extractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), outputFile.getPath());
+    FakeTrackOutput trackOutput = extractorOutput.trackOutputs.valueAt(0);
+    Format extractedFormat = checkNotNull(trackOutput.lastFormat);
+    assertThat(extractedFormat.sampleMimeType).isEqualTo(MimeTypes.AUDIO_RAW);
+    assertThat(extractedFormat.pcmEncoding).isEqualTo(pcmEncoding);
+    assertThat(trackOutput.getSampleData(/* index= */ 0)).isEqualTo(sampleData);
   }
 
   @Test
@@ -1310,5 +1397,28 @@ public class Mp4MuxerEndToEndTest {
     mp4Muxer.close();
 
     assertThrows(IllegalStateException.class, mp4Muxer::close);
+  }
+
+  private static ByteBuffer getTestSamplesForEncoding(@C.PcmEncoding int pcmEncoding) {
+    Random random = new Random(/* seed= */ 0);
+    ByteBuffer sampleBuffer;
+    if (pcmEncoding == C.ENCODING_PCM_DOUBLE || pcmEncoding == C.ENCODING_PCM_DOUBLE_BIG_ENDIAN) {
+      sampleBuffer = createByteBuffer(buildDoubleTestSamples(/* length= */ 100, random));
+    } else {
+      sampleBuffer = createByteBuffer(buildFloatTestSamples(/* length= */ 100, random));
+    }
+    return sampleBuffer.order(
+        isPcmEncodingBigEndian(pcmEncoding) ? ByteOrder.BIG_ENDIAN : ByteOrder.LITTLE_ENDIAN);
+  }
+
+  private static final class FloatPcmEncodingValuesProvider extends TestParameterValuesProvider {
+    @Override
+    protected ImmutableList<?> provideValues(TestParameterValuesProvider.Context context) {
+      return ImmutableList.of(
+          value(C.ENCODING_PCM_FLOAT).withName("ENCODING_PCM_FLOAT"),
+          value(C.ENCODING_PCM_FLOAT_BIG_ENDIAN).withName("ENCODING_PCM_FLOAT_BIG_ENDIAN"),
+          value(C.ENCODING_PCM_DOUBLE).withName("ENCODING_PCM_DOUBLE"),
+          value(C.ENCODING_PCM_DOUBLE_BIG_ENDIAN).withName("ENCODING_PCM_DOUBLE_BIG_ENDIAN"));
+    }
   }
 }

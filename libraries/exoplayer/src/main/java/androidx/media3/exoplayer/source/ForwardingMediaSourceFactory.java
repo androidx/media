@@ -56,13 +56,6 @@ public class ForwardingMediaSourceFactory implements MediaSource.Factory {
   }
 
   @Override
-  public MediaSource.Factory experimentalSetCodecsToParseWithinGopSampleDependencies(
-      @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
-    return factory.experimentalSetCodecsToParseWithinGopSampleDependencies(
-        codecsToParseWithinGopSampleDependencies);
-  }
-
-  @Override
   public @C.ContentType int[] getSupportedTypes() {
     return factory.getSupportedTypes();
   }

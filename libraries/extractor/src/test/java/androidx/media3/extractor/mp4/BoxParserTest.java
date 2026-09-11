@@ -24,6 +24,7 @@ import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.Mp4Box;
+import androidx.media3.container.Mp4LocationData;
 import androidx.media3.extractor.metadata.Chapter;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.nio.ByteBuffer;
@@ -363,6 +364,105 @@ public final class BoxParserTest {
 
     Metadata metadata = BoxParser.parseChpl(new ParsableByteArray(data));
     assertThat(metadata).isNull();
+  }
+
+  @Test
+  public void parseXyz_withTwoCoordinates_returnsLocationData() {
+    ParsableByteArray xyzBox = createXyzBox("+35.1345-15.1020/");
+
+    Metadata metadata = BoxParser.parseXyz(xyzBox);
+
+    assertThat(metadata)
+        .isEqualTo(
+            new Metadata(
+                new Mp4LocationData(/* latitude= */ 35.1345f, /* longitude= */ -15.1020f)));
+  }
+
+  @Test
+  public void parseXyz_withThreeCoordinates_returnsLocationDataWithAltitude() {
+    ParsableByteArray xyzBox = createXyzBox("+37.7749-122.4194+15.0000/");
+
+    Metadata metadata = BoxParser.parseXyz(xyzBox);
+
+    assertThat(metadata)
+        .isEqualTo(
+            new Metadata(
+                new Mp4LocationData(
+                    /* latitude= */ 37.7749f, /* longitude= */ -122.4194f, /* altitude= */ 15.0f)));
+  }
+
+  @Test
+  public void parseXyz_withNegativeAltitudeAndCrs_returnsLocationData() {
+    ParsableByteArray xyzBox = createXyzBox("-12.3456+78.9012-100.5CRSWGS_84/");
+
+    Metadata metadata = BoxParser.parseXyz(xyzBox);
+
+    assertThat(metadata)
+        .isEqualTo(
+            new Metadata(
+                new Mp4LocationData(
+                    /* latitude= */ -12.3456f,
+                    /* longitude= */ 78.9012f,
+                    /* altitude= */ -100.5f)));
+  }
+
+  @Test
+  public void parseXyz_withTwoCoordinatesAndCrs_returnsLocationData() {
+    ParsableByteArray xyzBox = createXyzBox("+37.7749-122.4194CRSWGS_84/");
+
+    Metadata metadata = BoxParser.parseXyz(xyzBox);
+
+    assertThat(metadata)
+        .isEqualTo(
+            new Metadata(
+                new Mp4LocationData(/* latitude= */ 37.7749f, /* longitude= */ -122.4194f)));
+  }
+
+  @Test
+  public void parseXyz_withInvalidFormat_returnsNull() {
+    ParsableByteArray xyzBox = createXyzBox("invalid-location");
+
+    Metadata metadata = BoxParser.parseXyz(xyzBox);
+
+    assertThat(metadata).isNull();
+  }
+
+  @Test
+  public void parseXyz_withCoordinatesOutOfRange_returnsNull() {
+    ParsableByteArray xyzBox = createXyzBox("+95.0000-122.4194/");
+
+    Metadata metadata = BoxParser.parseXyz(xyzBox);
+
+    assertThat(metadata).isNull();
+  }
+
+  @Test
+  public void parseXyz_withoutTerminatingSlash_returnsNull() {
+    ParsableByteArray xyzBox = createXyzBox("+37.7749-122.4194+15.0000");
+
+    Metadata metadata = BoxParser.parseXyz(xyzBox);
+
+    assertThat(metadata).isNull();
+  }
+
+  @Test
+  public void parseXyz_withExtraCoordinates_returnsNull() {
+    ParsableByteArray xyzBox = createXyzBox("+10-20+30-40/");
+
+    Metadata metadata = BoxParser.parseXyz(xyzBox);
+
+    assertThat(metadata).isNull();
+  }
+
+  private static ParsableByteArray createXyzBox(String locationString) {
+    byte[] stringBytes = locationString.getBytes(UTF_8);
+    byte[] data =
+        ByteBuffer.allocate(2 + 2 + stringBytes.length)
+            .putShort((short) stringBytes.length)
+            .putShort((short) 0x15C7) // language code
+            .put(stringBytes)
+            .array();
+    return new ParsableByteArray(data);
   }
 
   private static void verifyStz2Parsing(Mp4Box.LeafBox stz2Atom) {

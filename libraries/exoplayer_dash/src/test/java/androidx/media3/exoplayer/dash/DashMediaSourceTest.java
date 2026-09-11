@@ -101,6 +101,8 @@ public final class DashMediaSourceTest {
       "media/mpd/sample_mpd_multiple_locations_relative";
   private static final String SAMPLE_MPD_UPDATED_NO_LOCATIONS =
       "media/mpd/sample_mpd_updated_no_locations";
+  private static final String SAMPLE_MPD_DIFFERENT_REPRESENTATION_AVAILABILITIES =
+      "media/mpd/sample_mpd_different_representation_availabilities";
 
   @Test
   public void iso8601ParserParse() throws IOException {
@@ -1032,6 +1034,23 @@ public final class DashMediaSourceTest {
 
     RobolectricUtil.runMainLooperUntil(() -> capturedWindows.size() == 2);
     assertThat(capturedWindows.get(1).liveConfiguration.targetOffsetMs).isEqualTo(5_000L);
+  }
+
+  @Test
+  public void prepare_withDifferentRepresentationAvailabilities_windowUsesNarrowestRange()
+      throws Exception {
+    DashMediaSource mediaSource =
+        new DashMediaSource.Factory(
+                () -> createSampleMpdDataSource(SAMPLE_MPD_DIFFERENT_REPRESENTATION_AVAILABILITIES))
+            .createMediaSource(MediaItem.fromUri(Uri.EMPTY));
+
+    Window window = prepareAndWaitForTimelineRefresh(mediaSource);
+
+    // Video: Rep 1 covers [0, 60s], Rep 2 covers [10ms, 60.01s]
+    // Audio: Rep 1 covers [0, 59.98s], Rep 2 covers [50ms, 60.03s]
+    // The window uses the narrowest overlapping range: [50ms, 59.98s], duration = 59.93s.
+    assertThat(window.positionInFirstPeriodUs).isEqualTo(50_000L);
+    assertThat(window.getDurationMs()).isEqualTo(59_930L);
   }
 
   private static Window prepareAndWaitForTimelineRefresh(MediaSource mediaSource) throws Exception {

@@ -195,7 +195,7 @@ public final class DebugViewShaderProgram implements GlShaderProgram {
    * and makes rendering a no-op if not.
    */
   private static final class SurfaceViewWrapper implements SurfaceHolder.Callback {
-    public final @C.ColorTransfer int outputColorTransfer;
+    final @C.ColorTransfer int outputColorTransfer;
     private final EGLDisplay eglDisplay;
     private final EGLContext eglContext;
 
@@ -210,7 +210,7 @@ public final class DebugViewShaderProgram implements GlShaderProgram {
     private int width;
     private int height;
 
-    public SurfaceViewWrapper(
+    SurfaceViewWrapper(
         EGLDisplay eglDisplay,
         EGLContext eglContext,
         SurfaceView surfaceView,
@@ -260,10 +260,10 @@ public final class DebugViewShaderProgram implements GlShaderProgram {
      *
      * <p>Must be called on the GL thread.
      */
-    public synchronized void maybeRenderToSurfaceView(
+    synchronized void maybeRenderToSurfaceView(
         VideoFrameProcessingTaskExecutor.Task renderingTask, GlObjectsProvider glObjectsProvider)
         throws GlUtil.GlException, VideoFrameProcessingException {
-      if (surface == null) {
+      if (surface == null || !surface.isValid()) {
         return;
       }
 

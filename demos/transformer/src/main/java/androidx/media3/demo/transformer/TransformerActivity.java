@@ -77,7 +77,6 @@ import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ElapsedRealtimeTicker;
 import androidx.media3.common.util.ExperimentalApi;
-import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
@@ -376,21 +375,6 @@ public final class TransformerActivity extends AppCompatActivity {
       }
       glExecutorService = listeningDecorator(newSingleThreadExecutor("Transformer:Effect"));
       glObjectsProvider = new DefaultGlObjectsProvider();
-      // Do not wait for the GL setup to complete before continuing because the same single-thread
-      // executor will be used for all subsequent GL operations, ensuring correct ordering.
-      glExecutorService.execute(
-          () -> {
-            try {
-              FrameProcessorUtils.setupOpenGl(glObjectsProvider);
-            } catch (GlException | RuntimeException e) {
-              Log.e(TAG, "Failed to setup OpenGL", e);
-              runOnUiThread(
-                  () ->
-                      Toast.makeText(
-                              TransformerActivity.this, "Failed to setup OpenGL", Toast.LENGTH_LONG)
-                          .show());
-            }
-          });
 
       transformerBuilder =
           new Transformer.Builder(/* context= */ this)
@@ -928,15 +912,6 @@ public final class TransformerActivity extends AppCompatActivity {
     if (glExecutorService == null) {
       return;
     }
-    GlObjectsProvider finalGlObjectsProvider = checkNotNull(glObjectsProvider);
-    glExecutorService.execute(
-        () -> {
-          try {
-            FrameProcessorUtils.releaseOpenGl(finalGlObjectsProvider);
-          } catch (GlException e) {
-            Log.e(TAG, "Failed to release OpenGL", e);
-          }
-        });
     FrameProcessorUtils.shutdownGlExecutorService(glExecutorService);
     glExecutorService = null;
     glObjectsProvider = null;

@@ -160,6 +160,15 @@ public class TestUtil {
     return source;
   }
 
+  /** Returns an array of random doubles between {@code [-1; 1]} with the specified length. */
+  public static double[] buildDoubleTestSamples(int length, Random random) {
+    double[] source = new double[length];
+    for (int i = 0; i < length; i++) {
+      source[i] = (random.nextDouble() * 2.0) - 1.0;
+    }
+    return source;
+  }
+
   /**
    * Generates a random string with the specified length.
    *

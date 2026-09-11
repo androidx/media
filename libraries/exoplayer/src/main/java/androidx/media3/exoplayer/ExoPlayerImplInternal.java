@@ -43,6 +43,7 @@ import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdPlaybackState.AdGroup;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.IllegalSeekPositionException;
 import androidx.media3.common.MediaItem;
@@ -294,8 +295,6 @@ import java.util.Objects;
       LivePlaybackSpeedControl livePlaybackSpeedControl,
       long releaseTimeoutMs,
       boolean pauseAtEndOfWindow,
-      boolean dynamicSchedulingEnabled,
-      boolean perStreamMediaProgressionEnabled,
       Looper applicationLooper,
       Clock clock,
       PlaybackInfoUpdateListener playbackInfoUpdateListener,
@@ -315,8 +314,9 @@ import java.util.Objects;
     this.releaseTimeoutMs = releaseTimeoutMs;
     this.setForegroundModeTimeoutMs = releaseTimeoutMs;
     this.pauseAtEndOfWindow = pauseAtEndOfWindow;
-    this.dynamicSchedulingEnabled = dynamicSchedulingEnabled;
-    this.perStreamMediaProgressionEnabled = perStreamMediaProgressionEnabled;
+    this.dynamicSchedulingEnabled = Flags.isEnabled(Flags.FLAG_DYNAMIC_SCHEDULING);
+    this.perStreamMediaProgressionEnabled =
+        Flags.isEnabled(Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION);
     this.clock = clock;
     this.playerId = playerId;
     this.preloadConfiguration = preloadConfiguration;
@@ -4099,12 +4099,13 @@ import java.util.Objects;
     // avoid any unintentional renderer reset.
     boolean isInStreamAdChange =
         isIgnorableServerSideAdInsertionPeriodChange(
+            timeline,
             isUsingPlaceholderPeriod,
             oldPeriodId,
             oldContentPositionUs,
             periodIdWithAds,
-            timeline.getPeriodByUid(newPeriodUid, period),
-            newContentPositionUs);
+            newContentPositionUs,
+            period);
     MediaPeriodId newPeriodId =
         onlyNextAdGroupIndexIncreased || isInStreamAdChange ? oldPeriodId : periodIdWithAds;
 
@@ -4178,27 +4179,29 @@ import java.util.Objects;
   }
 
   private static boolean isIgnorableServerSideAdInsertionPeriodChange(
+      Timeline timeline,
       boolean isUsingPlaceholderPeriod,
       MediaPeriodId oldPeriodId,
       long oldContentPositionUs,
       MediaPeriodId newPeriodId,
-      Timeline.Period newPeriod,
-      long newContentPositionUs) {
+      long newContentPositionUs,
+      Timeline.Period period) {
     if (isUsingPlaceholderPeriod
         || oldContentPositionUs != newContentPositionUs
         || !oldPeriodId.periodUid.equals(newPeriodId.periodUid)) {
       // The period position changed.
       return false;
     }
-    if (oldPeriodId.isAd() && newPeriod.isServerSideInsertedAdGroup(oldPeriodId.adGroupIndex)) {
+    timeline.getPeriodByUid(newPeriodId.periodUid, period);
+    if (oldPeriodId.isAd() && period.isServerSideInsertedAdGroup(oldPeriodId.adGroupIndex)) {
       // Whether the old period was a server side ad that doesn't need skipping to the content.
-      return newPeriod.getAdState(oldPeriodId.adGroupIndex, oldPeriodId.adIndexInAdGroup)
+      return period.getAdState(oldPeriodId.adGroupIndex, oldPeriodId.adIndexInAdGroup)
               != AdPlaybackState.AD_STATE_ERROR
-          && newPeriod.getAdState(oldPeriodId.adGroupIndex, oldPeriodId.adIndexInAdGroup)
+          && period.getAdState(oldPeriodId.adGroupIndex, oldPeriodId.adIndexInAdGroup)
               != AdPlaybackState.AD_STATE_SKIPPED;
     }
     // If the new period is a server side inserted ad, we can just continue playing.
-    return newPeriodId.isAd() && newPeriod.isServerSideInsertedAdGroup(newPeriodId.adGroupIndex);
+    return newPeriodId.isAd() && period.isServerSideInsertedAdGroup(newPeriodId.adGroupIndex);
   }
 
   private static boolean isUsingPlaceholderPeriod(

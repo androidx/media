@@ -360,7 +360,8 @@ public final class GlUtil {
    * @param surface The surface to wrap; must be a surface, surface texture or surface holder.
    * @param colorTransfer The {@linkplain C.ColorTransfer color transfer characteristics} to which
    *     the {@code surface} is configured. The only accepted values are {@link
-   *     C#COLOR_TRANSFER_SDR}, {@link C#COLOR_TRANSFER_HLG}, and {@link C#COLOR_TRANSFER_ST2084}.
+   *     C#COLOR_TRANSFER_SDR}, {@link C#COLOR_TRANSFER_GAMMA_2_2}, {@link C#COLOR_TRANSFER_SRGB},
+   *     {@link C#COLOR_TRANSFER_HLG}, and {@link C#COLOR_TRANSFER_ST2084}.
    * @param isEncoderInputSurface Whether the {@code surface} is the input surface of an encoder.
    */
   public static EGLSurface createEglSurface(
@@ -371,7 +372,9 @@ public final class GlUtil {
       throws GlException {
     int[] configAttributes;
     int[] windowAttributes;
-    if (colorTransfer == C.COLOR_TRANSFER_SDR || colorTransfer == C.COLOR_TRANSFER_GAMMA_2_2) {
+    if (colorTransfer == C.COLOR_TRANSFER_SDR
+        || colorTransfer == C.COLOR_TRANSFER_GAMMA_2_2
+        || colorTransfer == C.COLOR_TRANSFER_SRGB) {
       configAttributes = EGL_CONFIG_ATTRIBUTES_RGBA_8888;
       windowAttributes = EGL_WINDOW_SURFACE_ATTRIBUTES_NONE;
     } else if (colorTransfer == C.COLOR_TRANSFER_HLG || colorTransfer == C.COLOR_TRANSFER_ST2084) {

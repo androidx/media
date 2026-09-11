@@ -3059,6 +3059,108 @@ public final class DefaultTrackSelectorTest {
   }
 
   @Test
+  public void
+      selectTracks_with720pDolbyVisionHdrFallbackToHevcAnd1080pSdr_prefersHdrOverResolution()
+          throws Exception {
+    ColorInfo hdrColorInfo =
+        new ColorInfo.Builder().setColorTransfer(C.COLOR_TRANSFER_ST2084).build();
+    Format format720pDvHdr =
+        new Format.Builder()
+            .setId("720p_dv_hdr")
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setWidth(1280)
+            .setHeight(720)
+            .setColorInfo(hdrColorInfo)
+            .build();
+    Format format1080pSdr =
+        new Format.Builder()
+            .setId("1080p_sdr")
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setWidth(1920)
+            .setHeight(1080)
+            .build();
+    TrackGroupArray trackGroups =
+        new TrackGroupArray(new TrackGroup(format720pDvHdr), new TrackGroup(format1080pSdr));
+    @Capabilities
+    int capabilitiesDv =
+        RendererCapabilities.create(
+            FORMAT_HANDLED,
+            ADAPTIVE_NOT_SEAMLESS,
+            TUNNELING_NOT_SUPPORTED,
+            HARDWARE_ACCELERATION_SUPPORTED,
+            DECODER_SUPPORT_FALLBACK_MIMETYPE);
+    @Capabilities
+    int capabilitiesSdr =
+        RendererCapabilities.create(
+            FORMAT_HANDLED,
+            ADAPTIVE_NOT_SEAMLESS,
+            TUNNELING_NOT_SUPPORTED,
+            HARDWARE_ACCELERATION_SUPPORTED,
+            DECODER_SUPPORT_PRIMARY);
+    ImmutableMap<String, Integer> rendererCapabilitiesMap =
+        ImmutableMap.of("720p_dv_hdr", capabilitiesDv, "1080p_sdr", capabilitiesSdr);
+    RendererCapabilities rendererCapabilities =
+        new FakeMappedRendererCapabilities(C.TRACK_TYPE_VIDEO, rendererCapabilitiesMap);
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {rendererCapabilities}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroups, format720pDvHdr);
+  }
+
+  @Test
+  public void
+      selectTracks_withDolbyVisionHdrFallbackToHevcAndSdrSameResolution_selectsDolbyVisionHdr()
+          throws Exception {
+    ColorInfo hdrColorInfo =
+        new ColorInfo.Builder().setColorTransfer(C.COLOR_TRANSFER_ST2084).build();
+    Format formatDvHdr =
+        new Format.Builder()
+            .setId("dv_hdr")
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setWidth(1920)
+            .setHeight(1080)
+            .setColorInfo(hdrColorInfo)
+            .build();
+    Format formatSdr =
+        new Format.Builder()
+            .setId("sdr")
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setWidth(1920)
+            .setHeight(1080)
+            .build();
+    TrackGroupArray trackGroups =
+        new TrackGroupArray(new TrackGroup(formatDvHdr), new TrackGroup(formatSdr));
+    @Capabilities
+    int capabilitiesDv =
+        RendererCapabilities.create(
+            FORMAT_HANDLED,
+            ADAPTIVE_NOT_SEAMLESS,
+            TUNNELING_NOT_SUPPORTED,
+            HARDWARE_ACCELERATION_SUPPORTED,
+            DECODER_SUPPORT_FALLBACK_MIMETYPE);
+    @Capabilities
+    int capabilitiesSdr =
+        RendererCapabilities.create(
+            FORMAT_HANDLED,
+            ADAPTIVE_NOT_SEAMLESS,
+            TUNNELING_NOT_SUPPORTED,
+            HARDWARE_ACCELERATION_SUPPORTED,
+            DECODER_SUPPORT_PRIMARY);
+    ImmutableMap<String, Integer> rendererCapabilitiesMap =
+        ImmutableMap.of("dv_hdr", capabilitiesDv, "sdr", capabilitiesSdr);
+    RendererCapabilities rendererCapabilities =
+        new FakeMappedRendererCapabilities(C.TRACK_TYPE_VIDEO, rendererCapabilitiesMap);
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {rendererCapabilities}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroups, formatDvHdr);
+  }
+
+  @Test
   public void selectTracks_withAvcAndHevcSameResolution_prefersHevcOverAvc() throws Exception {
     Format formatAvc =
         new Format.Builder()

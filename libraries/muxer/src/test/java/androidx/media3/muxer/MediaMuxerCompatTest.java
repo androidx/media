@@ -119,6 +119,71 @@ public final class MediaMuxerCompatTest {
   }
 
   @Test
+  public void createWebmFile_withNullLanguage_writesUndefinedLanguage() throws Exception {
+    String outputFilePath = tempFolder.newFile().getAbsolutePath();
+    MediaMuxerCompat mediaMuxerCompat = new MediaMuxerCompat(outputFilePath, OUTPUT_FORMAT_WEBM);
+    MediaFormat videoFormat =
+        MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_VP8, 1280, 720);
+
+    try {
+      int trackIndex = mediaMuxerCompat.addTrack(videoFormat);
+      mediaMuxerCompat.start();
+      ByteBuffer sampleBuffer = ByteBuffer.allocateDirect(100);
+      MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+      bufferInfo.set(
+          /* newOffset= */ 0,
+          /* newSize= */ 50,
+          /* newTimeUs= */ 1000L,
+          MediaCodec.BUFFER_FLAG_KEY_FRAME);
+
+      mediaMuxerCompat.writeSampleData(trackIndex, sampleBuffer, bufferInfo);
+    } finally {
+      mediaMuxerCompat.release();
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new MatroskaExtractor(new DefaultSubtitleParserFactory()),
+            checkNotNull(outputFilePath));
+    Format videoTrackFormat =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO))
+            .lastFormat;
+    assertThat(videoTrackFormat.language).isEqualTo("und");
+  }
+
+  @Test
+  public void addTrack_withZeroFrameRateInMediaFormat_succeeds() throws Exception {
+    String outputFilePath = tempFolder.newFile().getAbsolutePath();
+    MediaMuxerCompat mediaMuxerCompat = new MediaMuxerCompat(outputFilePath, OUTPUT_FORMAT_MP4);
+    MediaFormat videoFormat =
+        MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, 1280, 720);
+    videoFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 0);
+
+    try {
+      int trackIndex = mediaMuxerCompat.addTrack(videoFormat);
+      assertThat(trackIndex).isAtLeast(0);
+    } finally {
+      mediaMuxerCompat.release();
+    }
+  }
+
+  @Test
+  public void addTrack_withNanFrameRateInMediaFormat_succeeds() throws Exception {
+    String outputFilePath = tempFolder.newFile().getAbsolutePath();
+    MediaMuxerCompat mediaMuxerCompat = new MediaMuxerCompat(outputFilePath, OUTPUT_FORMAT_MP4);
+    MediaFormat videoFormat =
+        MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, 1280, 720);
+    videoFormat.setFloat(MediaFormat.KEY_FRAME_RATE, Float.NaN);
+
+    try {
+      int trackIndex = mediaMuxerCompat.addTrack(videoFormat);
+      assertThat(trackIndex).isAtLeast(0);
+    } finally {
+      mediaMuxerCompat.release();
+    }
+  }
+
+  @Test
   public void createWebmFile_withUnsupportedTrack_throws() throws Exception {
     String outputFilePath = tempFolder.newFile().getAbsolutePath();
     MediaMuxerCompat mediaMuxerCompat = new MediaMuxerCompat(outputFilePath, OUTPUT_FORMAT_WEBM);

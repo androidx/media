@@ -15,14 +15,12 @@
  */
 package androidx.media3.demo.composition
 
-import android.annotation.SuppressLint
 import android.app.Application
 import android.net.Uri
 import android.os.Build.VERSION.SDK_INT
 import android.os.SystemClock
 import android.provider.OpenableColumns
 import android.util.Rational
-import android.view.SurfaceView
 import androidx.annotation.GuardedBy
 import androidx.annotation.OptIn
 import androidx.annotation.RequiresApi
@@ -88,7 +86,6 @@ import com.google.common.util.concurrent.ListeningExecutorService
 import com.google.common.util.concurrent.MoreExecutors.listeningDecorator
 import java.io.File
 import java.io.IOException
-import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
 import kotlin.math.ceil
 import kotlin.math.cos
@@ -121,7 +118,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   val API_28_REQUIRED_MESSAGE =
     application.resources.getString(R.string.api_28_required_frame_processor)
   internal var frameProcessorEnabled: Boolean = false
-  internal var surfaceView: SurfaceView? = null
   private var transformer: Transformer? = null
   private var playbackGlExecutorService: ListeningExecutorService? = null
   private var playbackGlObjectsProvider: GlObjectsProvider? = null
@@ -211,8 +207,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   }
 
   override fun onCleared() {
-    super.onCleared()
-    releaseAndRecreatePlayer()
+    releasePlayer()
     cancelExport()
     exportStopwatch.reset()
   }
@@ -1055,16 +1050,14 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     return player
   }
 
-  private fun releaseAndRecreatePlayer() {
-    releaseGlResources(
-      playbackGlObjectsProvider,
-      playbackGlExecutorService,
-      "Failed to release OpenGL",
-    )
-    playbackGlExecutorService = null
-    playbackGlObjectsProvider = null
+  private fun releasePlayer() {
     compositionPlayer.stop()
     compositionPlayer.release()
+    cleanUpPlaybackGlResources()
+  }
+
+  private fun releaseAndRecreatePlayer() {
+    releasePlayer()
     compositionPlayer = createCompositionPlayer()
     playerPrepared = false
   }
@@ -1075,43 +1068,21 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   ): Pair<ListeningExecutorService, GlObjectsProvider> {
     val glObjectsProvider = DefaultGlObjectsProvider()
     val executorService = listeningDecorator(newSingleThreadExecutor(threadName))
-    // No need to wait for completion, as all subsequent GL operations are scheduled on the same
-    // thread.
-    executorService.execute {
-      try {
-        FrameProcessorUtils.setupOpenGl(glObjectsProvider)
-      } catch (e: Exception) {
-        Log.e(TAG, "Failed to setup OpenGL", e)
-        _uiState.update { it.copy(snackbarMessage = "Failed to setup OpenGL") }
-      }
-    }
     return executorService to glObjectsProvider
   }
 
-  @SuppressLint("NewApi")
-  private fun releaseGlResources(
-    glObjectsProvider: GlObjectsProvider?,
-    executorService: ExecutorService?,
-    errorMessage: String,
-  ) {
-    glObjectsProvider?.let {
-      executorService?.execute {
-        try {
-          FrameProcessorUtils.releaseOpenGl(it)
-        } catch (e: Exception) {
-          Log.e(TAG, errorMessage, e)
-        }
-      }
+  private fun cleanUpPlaybackGlResources() {
+    if (SDK_INT >= 26) {
+      playbackGlExecutorService?.let { FrameProcessorUtils.shutdownGlExecutorService(it) }
     }
-    executorService?.let { FrameProcessorUtils.shutdownGlExecutorService(it) }
+    playbackGlExecutorService = null
+    playbackGlObjectsProvider = null
   }
 
   private fun cleanUpExportGlResources() {
-    releaseGlResources(
-      exportGlObjectsProvider,
-      exportGlExecutorService,
-      "Failed to release export OpenGL",
-    )
+    if (SDK_INT >= 26) {
+      exportGlExecutorService?.let { FrameProcessorUtils.shutdownGlExecutorService(it) }
+    }
     exportGlExecutorService = null
     exportGlObjectsProvider = null
   }

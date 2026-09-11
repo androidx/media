@@ -295,7 +295,9 @@ import java.util.List;
     trackEntry.add(createUnsignedIntElement(MkvEbmlElement.TRACK_NUMBER, trackNumber));
     trackEntry.add(createUnsignedIntElement(MkvEbmlElement.TRACK_UID, uid));
     trackEntry.add(createUnsignedIntElement(MkvEbmlElement.FLAG_LACING, /* false */ 0));
-    trackEntry.add(createStringElement(MkvEbmlElement.LANGUAGE, checkNotNull(format.language)));
+    String language =
+        format.language != null ? format.language : WebmConstants.DEFAULT_TRACK_LANGUAGE;
+    trackEntry.add(createStringElement(MkvEbmlElement.LANGUAGE, language));
     trackEntry.add(
         createStringElement(
             MkvEbmlElement.CODEC_ID, getCodecId(checkNotNull(format.sampleMimeType))));

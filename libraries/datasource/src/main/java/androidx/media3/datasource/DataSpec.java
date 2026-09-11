@@ -51,6 +51,7 @@ public final class DataSpec {
 
     @Nullable private Uri uri;
     private long uriPositionOffset;
+    @Nullable private String location;
     private @HttpMethod int httpMethod;
     @Nullable private byte[] httpBody;
     private Map<String, String> httpRequestHeaders;
@@ -74,6 +75,7 @@ public final class DataSpec {
      */
     private Builder(DataSpec dataSpec) {
       uri = dataSpec.uri;
+      location = dataSpec.location;
       uriPositionOffset = dataSpec.uriPositionOffset;
       httpMethod = dataSpec.httpMethod;
       httpBody = dataSpec.httpBody;
@@ -118,6 +120,18 @@ public final class DataSpec {
     @CanIgnoreReturnValue
     public Builder setUriPositionOffset(long uriPositionOffset) {
       this.uriPositionOffset = uriPositionOffset;
+      return this;
+    }
+
+    /**
+     * Sets the {@link DataSpec#location}. The default value is {@code null}.
+     *
+     * @param location The {@link DataSpec#location}.
+     * @return The builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setLocation(@Nullable String location) {
+      this.location = location;
       return this;
     }
 
@@ -232,6 +246,7 @@ public final class DataSpec {
       return new DataSpec(
           uri,
           uriPositionOffset,
+          location,
           httpMethod,
           httpBody,
           httpRequestHeaders,
@@ -347,6 +362,13 @@ public final class DataSpec {
   public final long uriPositionOffset;
 
   /**
+   * A logical identifier of the location (e.g., a service location, pathway, CDN identifier etc.)
+   * from which the resource is loaded, or {@code null} if the location is not known or not
+   * applicable.
+   */
+  @Nullable public final String location;
+
+  /**
    * The HTTP method to use when requesting the data. This value will be ignored by non-HTTP {@link
    * DataSource} implementations.
    */
@@ -446,6 +468,7 @@ public final class DataSpec {
     this(
         uri,
         /* uriPositionOffset= */ 0,
+        /* location= */ null,
         HTTP_METHOD_GET,
         null,
         Collections.emptyMap(),
@@ -459,6 +482,7 @@ public final class DataSpec {
   private DataSpec(
       Uri uri,
       long uriPositionOffset,
+      @Nullable String location,
       @HttpMethod int httpMethod,
       @Nullable byte[] httpBody,
       Map<String, String> httpRequestHeaders,
@@ -473,6 +497,7 @@ public final class DataSpec {
     checkArgument(position >= 0);
     checkArgument(length > 0 || length == C.LENGTH_UNSET);
     this.uri = checkNotNull(uri);
+    this.location = location;
     this.uriPositionOffset = uriPositionOffset;
     this.httpMethod = httpMethod;
     this.httpBody = httpBody != null && httpBody.length != 0 ? httpBody : null;
@@ -498,7 +523,7 @@ public final class DataSpec {
    * Returns the uppercase HTTP method name (e.g., "GET", "POST", "HEAD") corresponding to the
    * {@link #httpMethod}.
    */
-  public final String getHttpMethodString() {
+  public String getHttpMethodString() {
     return getStringForHttpMethod(httpMethod);
   }
 
@@ -532,6 +557,7 @@ public final class DataSpec {
       return new DataSpec(
           uri,
           uriPositionOffset,
+          location,
           httpMethod,
           httpBody,
           httpRequestHeaders,
@@ -553,6 +579,7 @@ public final class DataSpec {
     return new DataSpec(
         uri,
         uriPositionOffset,
+        location,
         httpMethod,
         httpBody,
         httpRequestHeaders,
@@ -574,6 +601,7 @@ public final class DataSpec {
     return new DataSpec(
         uri,
         uriPositionOffset,
+        location,
         httpMethod,
         httpBody,
         httpRequestHeaders,
@@ -598,6 +626,7 @@ public final class DataSpec {
     return new DataSpec(
         uri,
         uriPositionOffset,
+        location,
         httpMethod,
         httpBody,
         httpRequestHeaders,
@@ -622,6 +651,7 @@ public final class DataSpec {
         + key
         + ", "
         + flags
+        + (location != null ? ", location=" + location : "")
         + "]";
   }
 }

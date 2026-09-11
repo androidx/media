@@ -44,6 +44,7 @@ import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
@@ -76,6 +77,7 @@ import androidx.media3.exoplayer.trackselection.FixedTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
+import androidx.media3.test.utils.BindFlag;
 import androidx.media3.test.utils.CapturingAudioSink;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
@@ -83,6 +85,7 @@ import androidx.media3.test.utils.FakeMediaPeriod;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeSampleStream;
 import androidx.media3.test.utils.FakeTimeline;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.RobolectricUtil;
@@ -112,11 +115,14 @@ public final class ServerSideAdInsertionMediaSourceTest {
   }
 
   @ParameterizedRobolectricTestRunner.Parameter(0)
+  @BindFlag(Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION)
   public Boolean perStreamMediaProgressionEnabled;
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
       ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
+
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
 
   private static final String TEST_ASSET = "asset:///media/mp4/sample.mp4";
 
@@ -419,11 +425,7 @@ public final class ServerSideAdInsertionMediaSourceTest {
     Context context = ApplicationProvider.getApplicationContext();
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory renderersFactory = new CapturingRenderersFactory(context, clock);
-    ExoPlayer player =
-        new ExoPlayer.Builder(context, renderersFactory)
-            .setClock(clock)
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
-            .build();
+    ExoPlayer player = new ExoPlayer.Builder(context, renderersFactory).setClock(clock).build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, renderersFactory);
@@ -498,11 +500,7 @@ public final class ServerSideAdInsertionMediaSourceTest {
     CapturingRenderersFactory renderersFactory =
         new CapturingRenderersFactory(
             context, clock, DiscontinuitySkippingCapturingAudioSink.create());
-    ExoPlayer player =
-        new ExoPlayer.Builder(context, renderersFactory)
-            .setClock(clock)
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
-            .build();
+    ExoPlayer player = new ExoPlayer.Builder(context, renderersFactory).setClock(clock).build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, renderersFactory);
@@ -583,11 +581,7 @@ public final class ServerSideAdInsertionMediaSourceTest {
     CapturingRenderersFactory renderersFactory =
         new CapturingRenderersFactory(
             context, clock, DiscontinuitySkippingCapturingAudioSink.create());
-    ExoPlayer player =
-        new ExoPlayer.Builder(context, renderersFactory)
-            .setClock(clock)
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
-            .build();
+    ExoPlayer player = new ExoPlayer.Builder(context, renderersFactory).setClock(clock).build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, renderersFactory);
@@ -663,10 +657,7 @@ public final class ServerSideAdInsertionMediaSourceTest {
   public void playbackWithSeek_isHandledCorrectly() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     ExoPlayer player =
-        new ExoPlayer.Builder(context)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
-            .build();
+        new ExoPlayer.Builder(context).setClock(new FakeClock(/* isAutoAdvancing= */ true)).build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
 

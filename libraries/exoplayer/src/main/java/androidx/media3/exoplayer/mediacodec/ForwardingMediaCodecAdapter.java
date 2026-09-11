@@ -23,6 +23,7 @@ import android.os.PersistableBundle;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.CryptoInfo;
 import java.nio.ByteBuffer;
@@ -65,8 +66,8 @@ public class ForwardingMediaCodecAdapter implements MediaCodecAdapter {
   }
 
   @Override
-  public void useInputBuffer(Runnable runnable) {
-    delegate.useInputBuffer(runnable);
+  public <E extends Exception> void useBuffer(ThrowingRunnable<E> runnable) throws E {
+    delegate.useBuffer(runnable);
   }
 
   @Nullable

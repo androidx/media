@@ -268,6 +268,9 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     if (sessionActivity != null) {
       sessionCompat.setSessionActivity(sessionActivity);
     }
+    if (!this.legacyExtras.isEmpty()) {
+      sessionCompat.setExtras(this.legacyExtras);
+    }
 
     @SuppressWarnings("nullness:assignment")
     @Initialized
@@ -346,6 +349,16 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       ImmutableList<CommandButton> mediaButtonPreferences) {
     this.mediaButtonPreferences = mediaButtonPreferences;
     updateCustomLayoutAndLegacyExtrasForMediaButtonPreferencesAndInformExtrasChanged();
+  }
+
+  /** Returns the available player commands of the platform session. */
+  public Player.Commands getAvailablePlayerCommands() {
+    return availablePlayerCommands;
+  }
+
+  /** Returns the legacy extras of the platform session. */
+  public Bundle getLegacyExtras() {
+    return new Bundle(legacyExtras);
   }
 
   /**

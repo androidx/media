@@ -29,6 +29,7 @@ import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.effect.HardwareBufferFrame;
+import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.transformer.HardwareBufferFrameReader.Listener;
 
 /**
@@ -60,6 +61,8 @@ import androidx.media3.transformer.HardwareBufferFrameReader.Listener;
    * @param frameConsumer The {@link Consumer<HardwareBufferFrame>} to which processed frames are
    *     output.
    * @param errorConsumer A consumer to accept {@link ExportException}s if errors occur.
+   * @param hardwareBufferJniWrapper An optional {@link HardwareBufferJniWrapper} used to convert
+   *     software bitmaps to hardware buffers.
    */
   public HardwareBufferSampleConsumer(
       Composition composition,
@@ -67,7 +70,8 @@ import androidx.media3.transformer.HardwareBufferFrameReader.Listener;
       Looper playbackLooper,
       HandlerWrapper listenerHandler,
       Consumer<HardwareBufferFrame> frameConsumer,
-      Consumer<ExportException> errorConsumer) {
+      Consumer<ExportException> errorConsumer,
+      @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper) {
     this.composition = composition;
     this.sequenceIndex = sequenceIndex;
     // Modify the release times of frames exiting the hardwareBufferFrameReader to account for
@@ -93,7 +97,8 @@ import androidx.media3.transformer.HardwareBufferFrameReader.Listener;
             /* defaultSurfacePixelFormat= */ ImageFormat.PRIVATE,
             new DefaultImageReaderAdapter.Factory(),
             e -> errorConsumer.accept(ExportException.createForUnexpected(e)),
-            listenerHandler);
+            listenerHandler,
+            hardwareBufferJniWrapper);
   }
 
   @Override

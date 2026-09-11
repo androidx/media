@@ -54,6 +54,9 @@ public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Du
   private long lastPresentationTimeUs;
   @Nullable private ByteBuffer currentBuffer;
   private @MonotonicNonNull Format format;
+  private boolean isPlaying;
+  private boolean audioTrackFull;
+  private long firstPendingPresentationTimeUs;
 
   /** Creates the capturing audio sink. */
   public static CapturingAudioSink create() {
@@ -89,6 +92,7 @@ public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Du
     audioSink = sink;
     interceptedData = new ArrayList<>();
     this.shouldCaptureIndividualBuffers = shouldCaptureIndividualBuffers;
+    firstPendingPresentationTimeUs = C.TIME_UNSET;
   }
 
   /** Returns the wrapped {@link AudioSink}. */
@@ -115,6 +119,23 @@ public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Du
   public boolean handleBuffer(
       ByteBuffer buffer, long presentationTimeUs, int encodedAccessUnitCount)
       throws InitializationException, WriteException {
+    // Simulate a finite AudioTrack buffer: while not playing, only buffer up to one AudioTrack
+    // buffer worth of audio ahead of the first pending sample before reporting the sink as full.
+    // A real AudioTrack applies this backpressure once its buffer fills while paused; the fake
+    // AudioTrack used in tests otherwise accepts everything, letting the codec decode the whole
+    // stream while paused (see b/174737370).
+    if (!isPlaying) {
+      long audioTrackBufferSizeUs = getAudioTrackBufferSizeUs();
+      if (firstPendingPresentationTimeUs == C.TIME_UNSET) {
+        firstPendingPresentationTimeUs = presentationTimeUs;
+      } else if (audioTrackBufferSizeUs != C.TIME_UNSET
+          && audioTrackBufferSizeUs > 0
+          && presentationTimeUs - firstPendingPresentationTimeUs >= audioTrackBufferSizeUs) {
+        audioTrackFull = true;
+        return false;
+      }
+    }
+    audioTrackFull = false;
     lastPresentationTimeUs = presentationTimeUs;
     // The handleBuffer is called repeatedly with the same buffer until it's been fully consumed by
     // the sink. We only want to dump each buffer once.
@@ -130,6 +151,40 @@ public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Du
       currentBuffer = null;
     }
     return fullyBuffered;
+  }
+
+  @Override
+  public boolean hasPendingData() {
+    return audioTrackFull || super.hasPendingData();
+  }
+
+  @Override
+  public void play() {
+    isPlaying = true;
+    audioTrackFull = false;
+    firstPendingPresentationTimeUs = C.TIME_UNSET;
+    super.play();
+  }
+
+  @Override
+  public void pause() {
+    isPlaying = false;
+    super.pause();
+  }
+
+  @Override
+  public void flush() {
+    audioTrackFull = false;
+    firstPendingPresentationTimeUs = C.TIME_UNSET;
+    super.flush();
+  }
+
+  @Override
+  public void reset() {
+    isPlaying = false;
+    audioTrackFull = false;
+    firstPendingPresentationTimeUs = C.TIME_UNSET;
+    super.reset();
   }
 
   @Override

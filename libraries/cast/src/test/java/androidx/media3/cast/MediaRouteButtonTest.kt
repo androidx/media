@@ -18,6 +18,9 @@ package androidx.media3.cast
 import android.content.Context
 import android.view.ContextThemeWrapper
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -99,6 +102,27 @@ class MediaRouteButtonTest {
 
     composeTestRule.onNodeWithContentDescription(buttonContentDescription).assertIsDisplayed()
   }
+
+  @Test
+  fun initializeMediaRouteButton_leavesCompositionBeforeCastInitialization_unregistersMediaRouteSelectorListener() =
+    runTest {
+      cast.initialize(mockCastContextInitializer)
+      var isComposed by mutableStateOf(true)
+
+      composeTestRule.setContent {
+        if (isComposed) {
+          MediaRouteButtonContainer {}
+        }
+      }
+      composeTestRule.waitForIdle()
+
+      assertThat(cast.hasPendingMediaRouteSelectorListeners()).isTrue()
+
+      isComposed = false
+      composeTestRule.waitForIdle()
+
+      assertThat(cast.hasPendingMediaRouteSelectorListeners()).isFalse()
+    }
 
   @Test
   fun initializeMediaRouteButton_notInitialized_notThrowsException() = runTest {

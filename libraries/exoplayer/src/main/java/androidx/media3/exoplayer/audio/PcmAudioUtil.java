@@ -71,7 +71,7 @@ public final class PcmAudioUtil {
   public static int readAs32BitIntPcm(ByteBuffer buffer, @C.Encoding int pcmEncoding) {
     switch (pcmEncoding) {
       case C.ENCODING_PCM_8BIT:
-        return (buffer.get() & 0xFF) << 24;
+        return ((buffer.get() & 0xFF) - 128) << 24;
       case C.ENCODING_PCM_16BIT:
         return ((buffer.get() & 0xFF) << 16) | ((buffer.get() & 0xFF) << 24);
       case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
@@ -161,7 +161,7 @@ public final class PcmAudioUtil {
         buffer.put((byte) (pcm32bit >> 24));
         return;
       case C.ENCODING_PCM_8BIT:
-        buffer.put((byte) (pcm32bit >> 24));
+        buffer.put((byte) ((pcm32bit >> 24) + 128));
         return;
       case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
         buffer.put((byte) (pcm32bit >> 24));

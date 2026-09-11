@@ -16,6 +16,9 @@
 package androidx.media3.muxer;
 
 import static androidx.media3.common.MimeTypes.allSamplesAreSyncSamples;
+import static androidx.media3.common.util.Util.getPcmFrameSize;
+import static androidx.media3.common.util.Util.isFloatPcmEncoding;
+import static androidx.media3.common.util.Util.isPcmEncodingBigEndian;
 import static androidx.media3.muxer.MuxerUtil.UNSIGNED_INT_MAX_VALUE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -623,7 +626,10 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     }
 
     String locationString =
-        Util.formatInvariant("%+.4f%+.4f/", location.latitude, location.longitude);
+        location.altitude != Mp4LocationData.ALTITUDE_UNSET
+            ? Util.formatInvariant(
+                "%+.4f%+.4f%+.4f/", location.latitude, location.longitude, location.altitude)
+            : Util.formatInvariant("%+.4f%+.4f/", location.latitude, location.longitude);
 
     ByteBuffer xyzBoxContents = ByteBuffer.allocate(locationString.length() + 2 + 2);
     xyzBoxContents.putShort((short) (xyzBoxContents.capacity() - 4));
@@ -735,19 +741,21 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
     contents.putInt(0x0); // reserved
     contents.putShort((short) 0x0); // reserved
-    contents.putShort((short) 0x1); // data ref index
+    contents.putShort((short) 0x1); // data ref index (points to the first entry in dref table)
     contents.putInt(0x0); // reserved
     contents.putInt(0x0); // reserved
 
     final boolean isIamf = Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_IAMF);
     final int channelCount = isIamf ? 0 : format.channelCount;
     contents.putShort((short) channelCount);
+    // In AudioSampleEntry v0, sample_size is fixed to 16 as a template value (ISO/IEC 14496-12).
+    // The actual PCM bit depth for fpcm/ipcm is specified in the pcmC box.
     contents.putShort((short) 16); // sample size
     contents.putShort((short) 0x0); // predefined
     contents.putShort((short) 0x0); // reserved
 
     final int sampleRate = isIamf ? 0 : format.sampleRate;
-    contents.putInt(sampleRate << 16);
+    contents.putInt(sampleRate << 16); // 16.16 fixed-point format.
 
     contents.put(codecSpecificBox);
 
@@ -776,7 +784,12 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       case MimeTypes.AUDIO_IAMF:
         return iacbBox(format);
       case MimeTypes.AUDIO_RAW:
-        return ByteBuffer.allocate(0); // No codec specific box for raw audio.
+        if (isFloatPcmEncoding(format.pcmEncoding)) {
+          return pcmCBox(format);
+        }
+        // Non-standard QuickTime format for 16-bit integer PCM (sowt/twos) does not use a
+        // codec-specific configuration box, unlike the newer ipcm support in the MP4 spec.
+        return ByteBuffer.allocate(0);
       case MimeTypes.VIDEO_H263:
         return d263Box(format);
       case MimeTypes.VIDEO_H264:
@@ -1273,8 +1286,13 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return BoxUtils.wrapBoxesIntoBox("stbl", Arrays.asList(subBoxes));
   }
 
-  /** Creates the ftyp box. */
-  public static ByteBuffer ftyp() {
+  /**
+   * Creates the ftyp box.
+   *
+   * @param additionalCompatibleBrands Additional compatible brands to declare, beyond the default
+   *     set ({@code isom}, {@code iso2}, {@code mp41}).
+   */
+  /* package */ static ByteBuffer ftyp(List<String> additionalCompatibleBrands) {
     List<ByteBuffer> boxBytes = new ArrayList<>();
 
     String majorVersion = "isom";
@@ -1286,9 +1304,15 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     minorBytes.flip();
     boxBytes.add(minorBytes);
 
-    String[] compatibleBrands = {"isom", "iso2", "mp41"};
+    List<String> compatibleBrands = new ArrayList<>(Arrays.asList("isom", "iso2", "mp41"));
+    compatibleBrands.addAll(additionalCompatibleBrands);
     for (String compatibleBrand : compatibleBrands) {
-      boxBytes.add(ByteBuffer.wrap(Util.getUtf8Bytes(compatibleBrand)));
+      byte[] compatibleBrandBytes = Util.getUtf8Bytes(compatibleBrand);
+      checkArgument(
+          compatibleBrandBytes.length == 4,
+          "Compatible brand must be 4 bytes: %s",
+          compatibleBrand);
+      boxBytes.add(ByteBuffer.wrap(compatibleBrandBytes));
     }
 
     return BoxUtils.wrapBoxesIntoBox("ftyp", boxBytes);
@@ -1425,7 +1449,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       contents.putInt(trackIds.get(i));
     }
     contents.flip();
-    byte[] typeBytes = Util.toByteArray(referenceType);
+    byte[] typeBytes = Ints.toByteArray(referenceType);
     return BoxUtils.wrapIntoBox(typeBytes, contents);
   }
 
@@ -1880,6 +1904,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
           return "sowt";
         } else if (format.pcmEncoding == C.ENCODING_PCM_16BIT_BIG_ENDIAN) {
           return "twos";
+        } else if (isFloatPcmEncoding(format.pcmEncoding)) {
+          return "fpcm";
         } else {
           throw new IllegalArgumentException("Unsupported PCM encoding: " + format.pcmEncoding);
         }
@@ -1900,6 +1926,21 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       default:
         throw new IllegalArgumentException("Unsupported format: " + mimeType);
     }
+  }
+
+  /** Returns the pcmC (PCM configuration) box. */
+  private static ByteBuffer pcmCBox(Format format) {
+    checkArgument(Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_RAW));
+    checkArgument(isFloatPcmEncoding(format.pcmEncoding));
+
+    ByteBuffer contents = ByteBuffer.allocate(6);
+    contents.putInt(0x0); // version (0) and flags (0)
+    // Format flags: bit 0 indicates Little-Endian (0x01), 0x00 is Big-Endian.
+    byte formatFlags = isPcmEncodingBigEndian(format.pcmEncoding) ? (byte) 0x00 : (byte) 0x01;
+    contents.put(formatFlags);
+    contents.put((byte) (getPcmFrameSize(format.pcmEncoding, /* channelCount= */ 1) * 8));
+    contents.flip();
+    return BoxUtils.wrapIntoBox("pcmC", contents);
   }
 
   /** Returns the esds box. */

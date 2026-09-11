@@ -95,7 +95,6 @@ fun SampleChooserScreen(
           }
           items(group.playlists) { playlist ->
             ListItem(
-              headlineContent = { Text(playlist.name) },
               modifier =
                 Modifier.clickable(enabled = !isLoading) {
                   coroutineScope.launch {
@@ -111,7 +110,9 @@ fun SampleChooserScreen(
                   containerColor = MaterialTheme.colorScheme.surfaceVariant,
                   headlineColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 ),
-            )
+            ) {
+              Text(playlist.name)
+            }
           }
         }
       }

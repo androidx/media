@@ -19,6 +19,7 @@ package androidx.media3.ui.compose.material3
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.Composable
@@ -32,6 +33,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.media3.common.Player
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.ui.compose.Artwork
 import androidx.media3.ui.compose.ContentFrame
 import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
 import androidx.media3.ui.compose.SurfaceType
@@ -83,11 +85,11 @@ fun Player(player: Player?, modifier: Modifier = Modifier) {
  * @param modifier The [Modifier] to be applied to the outer [Box].
  * @param surfaceType The type of surface to use for video rendering. See [SurfaceType].
  * @param contentScale The scaling mode to apply to the content within the [ContentFrame].
- * @param artwork Optional composable slot to render artwork for the current media item.
  * @param keepContentOnReset Whether to keep the content visible when the player is reset.
  * @param subtitleOverlay A composable for rendering subtitles.
  * @param shutter A composable to be displayed as a shutter over the content. The default shutter is
  *   a black [Box].
+ * @param artwork Optional composable slot to render artwork for the current media item.
  * @param showControls Whether the controls should be visible. False by default.
  * @param topControls A composable aligned with [Alignment.TopCenter], receiving the [player] and
  *   [showControls].
@@ -105,10 +107,12 @@ fun Player(
   modifier: Modifier = Modifier,
   surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
   contentScale: ContentScale = ContentScale.Fit,
-  artwork: (@Composable (Player?) -> Unit)? = null,
   keepContentOnReset: Boolean = false,
   subtitleOverlay: @Composable (Player?) -> Unit = { Subtitles(it) },
   shutter: @Composable () -> Unit = PlayerDefaults::Shutter,
+  artwork: (@Composable (Player?) -> Unit)? = {
+    Artwork(it, modifier = Modifier.fillMaxSize(), contentScale = contentScale)
+  },
   showControls: Boolean = false,
   topControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = { player, showControls ->
     PlayerDefaults.TopControls(player, showControls, Modifier.fillMaxWidth())
@@ -126,10 +130,10 @@ fun Player(
     modifier,
     surfaceType,
     contentScale,
-    artwork,
     keepContentOnReset,
     subtitleOverlay,
     shutter,
+    artwork,
     showControls,
     topControls,
     centerControls,
@@ -144,10 +148,12 @@ private fun PlayerImpl(
   modifier: Modifier = Modifier,
   surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
   contentScale: ContentScale = ContentScale.Fit,
-  artwork: (@Composable (Player?) -> Unit)? = null,
   keepContentOnReset: Boolean = false,
   subtitleOverlay: @Composable (Player?) -> Unit = { Subtitles(it) },
   shutter: @Composable () -> Unit = PlayerDefaults::Shutter,
+  artwork: (@Composable (Player?) -> Unit)? = {
+    Artwork(player, modifier = Modifier.fillMaxSize(), contentScale = contentScale)
+  },
   showControls: Boolean = false,
   topControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = { player, showControls ->
     PlayerDefaults.TopControls(player, showControls, Modifier.fillMaxWidth())
@@ -169,8 +175,8 @@ private fun PlayerImpl(
       player = player,
       surfaceType = surfaceType,
       contentScale = contentScale,
-      artwork = artwork,
       keepContentOnReset = keepContentOnReset,
+      artwork = artwork,
       overlay = { subtitleOverlay(player) },
       shutter = shutter,
     )

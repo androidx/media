@@ -20,6 +20,7 @@ import static org.junit.Assert.fail;
 
 import android.net.Uri;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
@@ -33,6 +34,7 @@ import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.MediaSourceTestRunner;
 import androidx.media3.test.utils.TestUtil;
 import androidx.media3.test.utils.TimelineAsserts;
@@ -41,12 +43,15 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Unit tests for {@link ClippingMediaSource}. */
 @RunWith(AndroidJUnit4.class)
 public final class ClippingMediaSourceTest {
+
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
 
   private static final long TEST_PERIOD_DURATION_US = 1_000_000;
   private static final long TEST_CLIP_AMOUNT_US = 300_000;
@@ -624,11 +629,9 @@ public final class ClippingMediaSourceTest {
     FakeMediaSource fakeMediaSource = new FakeMediaSource();
     fakeMediaSource.setCanUpdateMediaItems(true);
     fakeMediaSource.updateMediaItem(initialMediaItem);
+    Flags.enableFlag(Flags.FLAG_ENABLE_CLIPPING_IN_MEDIA_PERIOD);
     ClippingMediaSource mediaSource =
-        new ClippingMediaSource.Builder(fakeMediaSource)
-            .setEnableClippingInMediaPeriod(true)
-            .setStartPositionMs(1)
-            .build();
+        new ClippingMediaSource.Builder(fakeMediaSource).setStartPositionMs(1).build();
 
     boolean canUpdateMediaItem = mediaSource.canUpdateMediaItem(updatedMediaItem);
 
@@ -670,9 +673,9 @@ public final class ClippingMediaSourceTest {
             MediaItem.fromUri(Uri.EMPTY));
     FakeMediaSource fakeMediaSource = new FakeMediaSource(timeline);
     fakeMediaSource.setCanUpdateMediaItems(true);
+    Flags.enableFlag(Flags.FLAG_ENABLE_CLIPPING_IN_MEDIA_PERIOD);
     ClippingMediaSource mediaSource =
         new ClippingMediaSource.Builder(fakeMediaSource)
-            .setEnableClippingInMediaPeriod(true)
             .setStartPositionUs(100_000)
             .setEndPositionUs(900_000)
             .build();
@@ -725,11 +728,9 @@ public final class ClippingMediaSourceTest {
     FakeMediaSource fakeMediaSource = new FakeMediaSource(timeline);
     fakeMediaSource.setCanUpdateMediaItems(true);
     // Initial: start=100ms relative to window (so 100ms in period if not relative to default)
+    Flags.enableFlag(Flags.FLAG_ENABLE_CLIPPING_IN_MEDIA_PERIOD);
     ClippingMediaSource mediaSource =
-        new ClippingMediaSource.Builder(fakeMediaSource)
-            .setEnableClippingInMediaPeriod(true)
-            .setStartPositionUs(100_000)
-            .build();
+        new ClippingMediaSource.Builder(fakeMediaSource).setStartPositionUs(100_000).build();
     MediaSourceTestRunner testRunner = new MediaSourceTestRunner(mediaSource);
 
     try {
@@ -779,9 +780,9 @@ public final class ClippingMediaSourceTest {
     FakeMediaSource fakeMediaSource = new FakeMediaSource(timeline);
     fakeMediaSource.setCanUpdateMediaItems(true);
     // Initial: relativeToLiveWindow = true
+    Flags.enableFlag(Flags.FLAG_ENABLE_CLIPPING_IN_MEDIA_PERIOD);
     ClippingMediaSource mediaSource =
         new ClippingMediaSource.Builder(fakeMediaSource)
-            .setEnableClippingInMediaPeriod(true)
             .setAllowDynamicClippingUpdates(true)
             .setStartPositionUs(100_000)
             .build();
@@ -851,9 +852,9 @@ public final class ClippingMediaSourceTest {
             MediaItem.fromUri(Uri.EMPTY));
     FakeMediaSource fakeMediaSource = new FakeMediaSource(timeline);
     fakeMediaSource.setCanUpdateMediaItems(true);
+    Flags.enableFlag(Flags.FLAG_ENABLE_CLIPPING_IN_MEDIA_PERIOD);
     ClippingMediaSource mediaSource =
         new ClippingMediaSource.Builder(fakeMediaSource)
-            .setEnableClippingInMediaPeriod(true)
             .setStartPositionUs(100_000)
             .setEndPositionUs(900_000)
             .build();

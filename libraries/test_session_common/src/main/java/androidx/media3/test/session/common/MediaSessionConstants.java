@@ -58,6 +58,10 @@ public class MediaSessionConstants {
   public static final String CONNECTION_HINT_KEY_ASYNC_CONNECTION_DELAY_MS =
       "androidx.media3.session.async_connection_delay_ms";
 
+  /** Connection hint key for requesting an async library root with a delay in milliseconds. */
+  public static final String CONNECTION_HINT_KEY_ASYNC_LIBRARY_ROOT_DELAY_MS =
+      "androidx.media3.session.async_library_root_delay_ms";
+
   /** Connection hint key for requesting an async rejection with a delay in milliseconds. */
   public static final String CONNECTION_HINT_KEY_ASYNC_CONNECTION_REJECT_DELAY_MS =
       "androidx.media3.session.async_connection_reject_delay_ms";

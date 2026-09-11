@@ -27,7 +27,6 @@ import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.PositionHolder;
-import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
 import androidx.media3.extractor.text.SubtitleParser;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
@@ -101,26 +100,6 @@ public interface HlsExtractorFactory {
   @ExperimentalApi // TODO: b/289983417 - Remove legacy subtitle decoding paths.
   default HlsExtractorFactory experimentalParseSubtitlesDuringExtraction(
       boolean parseSubtitlesDuringExtraction) {
-    return this;
-  }
-
-  /**
-   * Sets the set of video codecs for which within GOP sample dependency information should be
-   * parsed as part of extraction. Defaults to H.264 and H.265.
-   *
-   * <p>Having access to additional sample dependency information can speed up seeking. See {@link
-   * FragmentedMp4Extractor#FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}.
-   *
-   * <p>This method is experimental and will be renamed or removed in a future release.
-   *
-   * @param codecsToParseWithinGopSampleDependencies The set of codecs for which to parse within GOP
-   *     sample dependency information.
-   * @return This factory, for convenience.
-   */
-  @CanIgnoreReturnValue
-  @ExperimentalApi // TODO: b/470365670 - Remove method once config is enabled by default.
-  default HlsExtractorFactory experimentalSetCodecsToParseWithinGopSampleDependencies(
-      @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
     return this;
   }
 

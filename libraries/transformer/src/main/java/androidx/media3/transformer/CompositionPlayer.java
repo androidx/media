@@ -48,8 +48,6 @@ import android.view.SurfaceView;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
-import androidx.annotation.RestrictTo;
-import androidx.annotation.RestrictTo.Scope;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -84,15 +82,11 @@ import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.SurfaceHolderFrameWriter;
 import androidx.media3.common.video.SyncFenceWrapper;
-import androidx.media3.effect.BitmapToHardwareBufferProcessor;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.HardwareBufferFrame;
-import androidx.media3.effect.HardwareBufferFrameProcessor;
-import androidx.media3.effect.HardwareBufferFrameQueue;
 import androidx.media3.effect.HardwareBufferJniWrapper;
-import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.exoplayer.DecoderCounters;
@@ -101,7 +95,6 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.LoadControl;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.RendererCapabilities.Capabilities;
-import androidx.media3.exoplayer.ScrubbingModeParameters;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.analytics.DefaultAnalyticsCollector;
@@ -182,10 +175,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     private boolean handleAudioFocus;
     private VideoGraph.@MonotonicNonNull Factory videoGraphFactory;
 
-    @Nullable
-    private RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
-        packetProcessor;
-
     private FrameProcessor.@MonotonicNonNull Factory frameProcessorFactory;
 
     @Nullable private HardwareBufferJniWrapper hardwareBufferJniWrapper;
@@ -195,7 +184,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     @Nullable private VideoFrameReleaseControl.FrameTimingEvaluator frameTimingEvaluator;
 
     private boolean videoPrewarmingEnabled;
-    private boolean perStreamMediaProgressionEnabled;
     private boolean enableReplayableCache;
     private long lateThresholdToDropInputUs;
     private boolean built;
@@ -327,22 +315,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     /* package */ Builder setVideoPrewarmingEnabled(boolean videoPrewarmingEnabled) {
       // TODO: b/369817794 - Remove this setter once the tests are run on a device with API < 23.
       this.videoPrewarmingEnabled = videoPrewarmingEnabled;
-      return this;
-    }
-
-    /**
-     * Sets whether to enable per-stream media progression in the player.
-     *
-     * <p>The default value is {@code false}.
-     *
-     * @param perStreamMediaProgressionEnabled Whether to enable per-stream media progression in the
-     *     player.
-     * @return This builder, for convenience.
-     */
-    @CanIgnoreReturnValue
-    @ExperimentalApi // TODO: b/528260159 - Enable this by default.
-    public Builder setPerStreamMediaProgressionEnabled(boolean perStreamMediaProgressionEnabled) {
-      this.perStreamMediaProgressionEnabled = perStreamMediaProgressionEnabled;
       return this;
     }
 
@@ -490,22 +462,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     }
 
     /**
-     * @deprecated Use {@link #setFrameProcessorFactory} instead.
-     */
-    @Deprecated
-    @RequiresApi(28)
-    @CanIgnoreReturnValue
-    @RestrictTo(Scope.LIBRARY_GROUP) // TODO: b/498547782 - Remove once usages have been migrated.
-    public Builder setHardwareBufferEffectsPipeline(
-        RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
-            packetProcessor) {
-      checkState(videoGraphFactory == null);
-      checkState(frameProcessorFactory == null);
-      this.packetProcessor = packetProcessor;
-      return this;
-    }
-
-    /**
      * Sets the {@link FrameProcessor.Factory} to be used to create {@link FrameProcessor} instances
      * that are used to process {@link androidx.media3.common.video.HardwareBufferFrame}s.
      *
@@ -518,8 +474,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
      *
      * @param frameProcessorFactory The {@link FrameProcessor.Factory}.
      * @return This builder.
-     * @throws IllegalStateException if a {@linkplain #setVideoGraphFactory videoGraphFactory} or
-     *     {@linkplain #setHardwareBufferEffectsPipeline HardwareBufferEffectsPipeline} is set.
+     * @throws IllegalStateException if a {@linkplain #setVideoGraphFactory videoGraphFactory} is
+     *     set.
      */
     @RequiresApi(28)
     @CanIgnoreReturnValue
@@ -527,7 +483,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     public Builder setFrameProcessorFactory(FrameProcessor.Factory frameProcessorFactory) {
       checkNotNull(frameProcessorFactory);
       checkState(videoGraphFactory == null);
-      checkState(packetProcessor == null);
       this.frameProcessorFactory = frameProcessorFactory;
       return this;
     }
@@ -664,7 +619,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private final ImageDecoder.Factory imageDecoderFactory;
   private final VideoGraph.Factory videoGraphFactory;
   private final boolean videoPrewarmingEnabled;
-  private final boolean perStreamMediaProgressionEnabled;
   private final HandlerWrapper compositionInternalListenerHandler;
   private final LoadControl loadControl;
   private final boolean enableReplayableCache;
@@ -684,8 +638,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private final ImageReaderAdapter.Factory imageReaderAdapterFactory;
 
   @Nullable private final SurfaceHolderFrameWriter surfaceHolderFrameWriter;
-
-  @Nullable private final HardwareBufferFrameProcessor hardwareBufferPostProcessor;
+  @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
   private final HandlerThread playbackThread;
   private final HandlerWrapper playbackThreadHandler;
@@ -747,7 +700,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     imageDecoderFactory = new GapHandlingDecoderFactory(builder.imageDecoderFactorySupplier.get());
     videoGraphFactory = checkNotNull(builder.videoGraphFactory);
     videoPrewarmingEnabled = builder.videoPrewarmingEnabled;
-    perStreamMediaProgressionEnabled = builder.perStreamMediaProgressionEnabled;
     compositionInternalListenerHandler = clock.createHandler(builder.looper, /* callback= */ null);
     loadControl = builder.loadControlSupplier.get();
     this.enableReplayableCache = builder.enableReplayableCache;
@@ -772,12 +724,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         new AudioFocusManager(
             context, applicationHandler.getLooper(), /* playerControl= */ internalListener);
     playbackAudioGraphWrapper = new PlaybackAudioGraphWrapper(audioMixerFactory, finalAudioSink);
-    HardwareBufferJniWrapper hardwareBufferJniWrapper = builder.hardwareBufferJniWrapper;
-    @Nullable
-    FrameProcessor.Factory frameProcessorFactory =
-        builder.frameProcessorFactory != null
-            ? builder.frameProcessorFactory
-            : getRenderingPacketConsumerFactory(builder.packetProcessor);
+    hardwareBufferJniWrapper = builder.hardwareBufferJniWrapper;
+    @Nullable FrameProcessor.Factory frameProcessorFactory = builder.frameProcessorFactory;
     playbackThread =
         new HandlerThread(/* name= */ "CompositionPlaybackThread", Process.THREAD_PRIORITY_AUDIO);
     try {
@@ -788,18 +736,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             new HandlerExecutor(playbackThreadHandler, internalListener);
         Executor applicationThreadExecutor =
             new HandlerExecutor(applicationHandler, internalListener);
-        // Convert CPU Bitmaps to HardwareBuffers when the native helpers are available.
-        if (hardwareBufferJniWrapper != null) {
-          hardwareBufferPostProcessor =
-              new BitmapToHardwareBufferProcessor(
-                  hardwareBufferJniWrapper,
-                  /* internalExecutor= */ Util.newSingleThreadExecutor(
-                      "BitmapToHardwareBufferProcessor::Thread"),
-                  /* errorExecutor= */ playbackThreadExecutor,
-                  /* errorCallback= */ internalListener::onError);
-        } else {
-          hardwareBufferPostProcessor = null;
-        }
         surfaceHolderFrameWriter =
             hardwareBufferJniWrapper != null || SDK_INT < 33
                 ? SurfaceHolderFrameWriter.create(
@@ -836,7 +772,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             new CompositionVideoPacketReleaseControl(
                 videoFrameReleaseControl, frameProcessor, internalListener);
       } else {
-        hardwareBufferPostProcessor = null;
         frameProcessor = null;
         surfaceHolderFrameWriter = null;
         frameAggregator = null;
@@ -1133,14 +1068,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     waitingForFrameAfterSeek = false;
     pendingSeekPositionMs = C.TIME_UNSET;
     removeSurfaceCallbacks();
-    if (hardwareBufferPostProcessor != null) {
-      try {
-        hardwareBufferPostProcessor.close();
-      } catch (Exception e) {
-        // Ignore exceptions during release.
-        Log.e(TAG, "Failed to release hardwareBufferPostProcessor.", e);
-      }
-    }
     // TODO: b/518679527 - Move close calls of frameAggregator and frameProcessor to the
     // playback thread.
     if (frameAggregator != null) {
@@ -1716,14 +1643,11 @@ public final class CompositionPlayer extends SimpleBasePlayer {
                       /* frameConsumer= */ hardwareBufferFrame -> {
                         if (hardwareBufferFrame == HardwareBufferFrame.END_OF_STREAM_FRAME) {
                           checkNotNull(currentFrameAggregator).queueEndOfStream(sequenceIndex);
-                        } else if (hardwareBufferPostProcessor != null) {
-                          HardwareBufferFrame processedFrame =
-                              hardwareBufferPostProcessor.process(hardwareBufferFrame);
-                          checkNotNull(currentFrameAggregator)
-                              .queueFrame(processedFrame, sequenceIndex);
                         } else {
                           checkNotNull(currentFrameAggregator)
-                              .queueFrame(hardwareBufferFrame, sequenceIndex);
+                              .queueFrame(
+                                  HardwareBufferFrameReader.toAsyncFrame(hardwareBufferFrame),
+                                  sequenceIndex);
                         }
                       },
                       checkNotNull(playbackThread).getLooper(),
@@ -1734,7 +1658,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
                               "HardwareBufferFrameReader error",
                               e,
                               PlaybackException.ERROR_CODE_UNSPECIFIED),
-                      compositionInternalListenerHandler));
+                      compositionInternalListenerHandler,
+                      hardwareBufferJniWrapper));
       renderersFactory =
           SequenceRenderersFactory.createForHardwareBuffer(
               context,
@@ -2426,22 +2351,12 @@ public final class CompositionPlayer extends SimpleBasePlayer {
               .setHandleAudioBecomingNoisy(true)
               .setLoadControl(loadControl)
               .setClock(clock)
-              .setScrubbingModeParameters(
-                  ScrubbingModeParameters.DEFAULT
-                      .buildUpon()
-                      // TODO(b/542579779): Re-enable allowSkippingMediaCodecFlush.
-                      .setAllowSkippingMediaCodecFlush(false)
-                      .build())
-              // Use dynamic scheduling to show the first video/image frame more promptly when the
-              // player is paused (which is common in editing applications).
-              .experimentalSetDynamicSchedulingEnabled(true)
               .setTrackSelector(trackSelector)
               // TODO: b/489733731 - Reenable stuck player detection.
               .setStuckBufferingDetectionTimeoutMs(Integer.MAX_VALUE)
               .setStuckPlayingDetectionTimeoutMs(Integer.MAX_VALUE)
               .setStuckPlayingNotEndingTimeoutMs(Integer.MAX_VALUE)
-              .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
-              .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled);
+              .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE);
       player = playerBuilder.build();
       this.renderersFactory = renderersFactory;
       this.hardwareBufferFrameReaderSupplier = hardwareBufferFrameReaderSupplier;
@@ -2663,25 +2578,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         videoPacketReleaseControl.onFrameProcessed(frame, onCompleteFence);
       }
     }
-  }
-
-  // TODO: b/510766403 - Remove once PacketConsumer entrypoint is removed.
-  /** Converts a {@link RenderingPacketConsumer} to a {@link FrameProcessor}. */
-  @Nullable
-  private static FrameProcessor.Factory getRenderingPacketConsumerFactory(
-      @Nullable
-          RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
-              packetProcessor) {
-    if (SDK_INT >= 26 && packetProcessor != null) {
-      return (output, listenerExecutor, listener) -> {
-        HardwareBufferFrameQueue adaptedQueue =
-            new FrameWriterToHardwareBufferFrameQueueAdapter(output);
-        packetProcessor.setRenderOutput(adaptedQueue);
-        return new PacketConsumerToFrameProcessorAdapter(
-            packetProcessor, listenerExecutor, listener);
-      };
-    }
-    return null;
   }
 
   private static final class HandlerExecutor implements Executor {

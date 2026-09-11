@@ -20,12 +20,12 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.exoplayer.hls.HlsContentSteeringTracker;
 import androidx.media3.exoplayer.hls.HlsDataSourceFactory;
 import androidx.media3.exoplayer.source.MediaSourceEventListener.EventDispatcher;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
-import androidx.media3.exoplayer.upstream.contentsteering.ContentSteeringTracker;
 import androidx.media3.exoplayer.util.ReleasableExecutor;
 import com.google.common.base.Supplier;
 import java.io.IOException;
@@ -179,13 +179,13 @@ public interface HlsPlaylistTracker {
   HlsMultivariantPlaylist getMultivariantPlaylist();
 
   /**
-   * Returns the {@linkplain ContentSteeringTracker content steering tracker}.
+   * Returns the {@link HlsContentSteeringTracker content steering tracker}.
    *
-   * @return The content steering tracker. Null if the initial playlist has yet to be loaded, or no
-   *     information for content steering is declared in the initial playlist.
+   * @return The {@link HlsContentSteeringTracker}. Null if the initial playlist has yet to be
+   *     loaded, or no information for content steering is declared in the initial playlist.
    */
   @Nullable
-  ContentSteeringTracker getContentSteeringTracker();
+  HlsContentSteeringTracker getContentSteeringTracker();
 
   /**
    * Returns the {@link HlsRedundantGroup} list corresponding to the {@code type}.

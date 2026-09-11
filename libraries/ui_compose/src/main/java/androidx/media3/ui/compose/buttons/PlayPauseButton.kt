@@ -19,7 +19,11 @@ package androidx.media3.ui.compose.buttons
 import androidx.compose.runtime.Composable
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.ui.compose.state.DisplayMode
 import androidx.media3.ui.compose.state.PlayPauseButtonState
+import androidx.media3.ui.compose.state.SHOW_BUFFERING_ALWAYS
+import androidx.media3.ui.compose.state.SHOW_REPLAY_ON_ENDED
+import androidx.media3.ui.compose.state.SHOW_RETRY_ON_ERROR
 import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
 
 /**
@@ -29,10 +33,18 @@ import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
  * provided by the [content] lambda, which has access to the [PlayPauseButtonState].
  *
  * @param player The [Player] to control.
+ * @param displayMode The [DisplayMode] determining under which conditions buffering, replay, or
+ *   retry indicators should be shown. Defaults to [SHOW_BUFFERING_ALWAYS] combined with
+ *   [SHOW_REPLAY_ON_ENDED] and [SHOW_RETRY_ON_ERROR].
  * @param content The composable content to be displayed for the button.
  */
 @UnstableApi
 @Composable
-fun PlayPauseButton(player: Player?, content: @Composable PlayPauseButtonState.() -> Unit) {
-  rememberPlayPauseButtonState(player).content()
+fun PlayPauseButton(
+  player: Player?,
+  displayMode: @DisplayMode Int =
+    SHOW_BUFFERING_ALWAYS or SHOW_REPLAY_ON_ENDED or SHOW_RETRY_ON_ERROR,
+  content: @Composable PlayPauseButtonState.() -> Unit,
+) {
+  rememberPlayPauseButtonState(player, displayMode).content()
 }

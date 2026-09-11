@@ -27,6 +27,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.MediaFormatUtil;
+import androidx.media3.common.util.Util;
 import androidx.media3.inspector.MediaExtractorCompat;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
@@ -163,6 +164,24 @@ import java.util.Objects;
     } while (extractor.advance());
 
     extractor.release();
+  }
+
+  /**
+   * Returns whether the {@code ftyp} box at the start of {@code outputFileBytes} declares {@code
+   * compatibleBrand} as one of its compatible brands.
+   */
+  public static boolean ftypBoxContainsCompatibleBrand(
+      byte[] outputFileBytes, String compatibleBrand) {
+    ByteBuffer buffer = ByteBuffer.wrap(outputFileBytes);
+    int ftypBoxSize = buffer.getInt();
+    buffer.position(16); // Skip box size, "ftyp", major_brand and minor_version.
+    int compatibleBrandCode = Util.getIntegerCodeForString(compatibleBrand);
+    while (buffer.position() < ftypBoxSize) {
+      if (buffer.getInt() == compatibleBrandCode) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private MuxerTestUtil() {}

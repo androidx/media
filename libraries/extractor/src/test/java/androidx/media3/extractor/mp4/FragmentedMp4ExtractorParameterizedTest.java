@@ -333,11 +333,7 @@ public final class FragmentedMp4ExtractorParameterizedTest {
   private static ExtractorFactory getExtractorFactory(
       List<Format> closedCaptionFormats, boolean subtitlesParsedDuringExtraction) {
     SubtitleParser.Factory subtitleParserFactory;
-    @FragmentedMp4Extractor.Flags
-    int flags =
-        FragmentedMp4Extractor.FLAG_READ_MFRA_FOR_SEEK_MAP
-            | FragmentedMp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES
-            | FragmentedMp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265;
+    @FragmentedMp4Extractor.Flags int flags = FragmentedMp4Extractor.FLAG_READ_MFRA_FOR_SEEK_MAP;
     if (subtitlesParsedDuringExtraction) {
       subtitleParserFactory = new DefaultSubtitleParserFactory();
     } else {

@@ -129,15 +129,6 @@ public class DefaultDashChunkSource implements DashChunkSource {
       return this;
     }
 
-    @CanIgnoreReturnValue
-    @Override
-    public Factory experimentalSetCodecsToParseWithinGopSampleDependencies(
-        @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
-      chunkExtractorFactory.experimentalSetCodecsToParseWithinGopSampleDependencies(
-          codecsToParseWithinGopSampleDependencies);
-      return this;
-    }
-
     @Override
     public DashChunkSource createDashChunkSource(
         LoaderErrorThrower manifestLoaderErrorThrower,
@@ -749,7 +740,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
     DataSpec dataSpec =
         DashUtil.buildDataSpec(
             representation,
-            representationHolder.selectedBaseUrl.url,
+            representationHolder.selectedBaseUrl,
             requestUri,
             /* flags= */ 0,
             /* httpRequestHeaders= */ ImmutableMap.of());
@@ -796,7 +787,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
       DataSpec dataSpec =
           DashUtil.buildDataSpec(
               representation,
-              representationHolder.selectedBaseUrl.url,
+              representationHolder.selectedBaseUrl,
               segmentUri,
               flags,
               /* httpRequestHeaders= */ ImmutableMap.of());
@@ -853,7 +844,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
       DataSpec dataSpec =
           DashUtil.buildDataSpec(
               representation,
-              representationHolder.selectedBaseUrl.url,
+              representationHolder.selectedBaseUrl,
               segmentUri,
               flags,
               /* httpRequestHeaders= */ ImmutableMap.of());
@@ -870,10 +861,10 @@ public class DefaultDashChunkSource implements DashChunkSource {
         CmcdData cmcdData = cmcdDataFactory.createCmcdData();
         dataSpec = cmcdData.addToDataSpec(dataSpec);
       }
-      long sampleOffsetUs = -representation.presentationTimeOffsetUs;
-      if (MimeTypes.isImage(trackFormat.sampleMimeType)) {
-        sampleOffsetUs += startTimeUs;
-      }
+      long sampleOffsetUs =
+          MimeTypes.isImage(trackFormat.sampleMimeType)
+              ? startTimeUs
+              : -representation.presentationTimeOffsetUs;
       return new ContainerMediaChunk(
           dataSource,
           dataSpec,
@@ -959,7 +950,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
               : DataSpec.FLAG_MIGHT_NOT_USE_FULL_NETWORK_SPEED;
       return DashUtil.buildDataSpec(
           representationHolder.representation,
-          representationHolder.selectedBaseUrl.url,
+          representationHolder.selectedBaseUrl,
           segmentUri,
           flags,
           /* httpRequestHeaders= */ ImmutableMap.of());

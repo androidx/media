@@ -115,6 +115,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import org.json.JSONObject;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -421,7 +422,70 @@ public class RemoteCastPlayerTest {
         .onTimelineChanged(eq(newTimeline), eq(Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE));
     assertThat(newTimeline.getPeriodCount()).isEqualTo(1);
     Timeline.Period period = new Timeline.Period();
-    assertThat(newTimeline.getPeriod(/* periodIndex= */ 0, period).id).isEqualTo(firstItemId);
+    assertThat(newTimeline.getPeriod(/* periodIndex= */ 0, period).id).isNotNull();
+  }
+
+  @Test
+  public void mediaQueueChanged_whileSeekPendingToRemovedItem_updatesCurrentTimeline() {
+    when(mockRemoteMediaClient.queueJumpToItem(anyInt(), anyLong(), eq(null)))
+        .thenReturn(mockPendingResult);
+    MediaItem mediaItem1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem mediaItem2 = createMediaItem(/* mediaQueueItemId= */ 2);
+    ImmutableList<MediaItem> mediaItems = ImmutableList.of(mediaItem1, mediaItem2);
+    int[] mediaQueueItemIds = new int[] {1, 2};
+    addMediaItemsAndUpdateTimeline(mediaItems, mediaQueueItemIds);
+
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 1234);
+    // Receiver queue shrinks to 1 item.
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[] {1});
+    mediaQueueCallback.mediaQueueChanged();
+
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindowCount()).isEqualTo(1);
+    assertThat(remoteCastPlayer.getCurrentMediaItemIndex()).isEqualTo(0);
+  }
+
+  @Test
+  public void
+      mediaQueueChanged_mediaItemRemovedExternally_updatesTimelineAndCurrentMediaItemIndex() {
+    MediaItem mediaItem1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem mediaItem2 = createMediaItem(/* mediaQueueItemId= */ 2);
+    ImmutableList<MediaItem> mediaItems = ImmutableList.of(mediaItem1, mediaItem2);
+    int[] mediaQueueItemIds = new int[] {1, 2};
+    // Initialize 2-item queue and set currently playing item to item 2 (index 1)
+    remoteCastPlayer.addMediaItems(mediaItems);
+    updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 2);
+    assertThat(remoteCastPlayer.getCurrentMediaItemIndex()).isEqualTo(1);
+
+    // Item 1 is removed externally by another source. Queue shrinks to [item 2].
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[] {2});
+    mediaQueueCallback.mediaQueueChanged();
+
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindowCount()).isEqualTo(1);
+    assertThat(remoteCastPlayer.getCurrentMediaItemIndex()).isEqualTo(0);
+    assertThat(remoteCastPlayer.isCurrentMediaItemSeekable()).isTrue();
+  }
+
+  @Test
+  public void mediaQueueChanged_whileSeekPendingToShiftedItem_updatesMaskedIndex() {
+    when(mockRemoteMediaClient.queueJumpToItem(anyInt(), anyLong(), eq(null)))
+        .thenReturn(mockPendingResult);
+    MediaItem mediaItem1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem mediaItem2 = createMediaItem(/* mediaQueueItemId= */ 2);
+    MediaItem mediaItem3 = createMediaItem(/* mediaQueueItemId= */ 3);
+    ImmutableList<MediaItem> mediaItems = ImmutableList.of(mediaItem1, mediaItem2, mediaItem3);
+    int[] mediaQueueItemIds = new int[] {1, 2, 3};
+    addMediaItemsAndUpdateTimeline(mediaItems, mediaQueueItemIds);
+
+    // Seek to index 2 (item 3)
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 2, /* positionMs= */ 1234);
+    // Item 1 is removed, so queue on receiver becomes [item 2, item 3]
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[] {2, 3});
+    mediaQueueCallback.mediaQueueChanged();
+
+    // Timeline length is 2, and target item 3 is now at index 1:
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindowCount()).isEqualTo(2);
+    assertThat(remoteCastPlayer.getCurrentMediaItemIndex()).isEqualTo(1);
+    assertThat(remoteCastPlayer.isCurrentMediaItemSeekable()).isTrue();
   }
 
   @Test
@@ -778,6 +842,26 @@ public class RemoteCastPlayerTest {
   }
 
   @Test
+  public void setMediaItems_attachesSyntheticIdsToDispatchedQueueItems() throws Exception {
+    ImmutableList<MediaItem> mediaItems =
+        ImmutableList.of(
+            new MediaItem.Builder().setUri("http://www.google.com/video1").build(),
+            new MediaItem.Builder().setUri("http://www.google.com/video2").build());
+
+    remoteCastPlayer.setMediaItems(mediaItems);
+
+    verify(mockRemoteMediaClient).load(loadArgumentCaptor.capture());
+    MediaLoadRequestData mediaLoadRequestData = loadArgumentCaptor.getValue();
+    List<MediaQueueItem> queueItems = mediaLoadRequestData.getQueueData().getItems();
+    assertThat(queueItems).hasSize(2);
+    for (MediaQueueItem queueItem : queueItems) {
+      JSONObject customData = queueItem.getMedia().getCustomData();
+      assertThat(customData).isNotNull();
+      assertThat(customData.getString("m3-syntheticId")).isNotEmpty();
+    }
+  }
+
+  @Test
   public void setMediaItems_replaceExistingPlaylist_notifiesMediaItemTransition() {
     List<MediaItem> firstPlaylist = new ArrayList<>();
     String uri1 = "http://www.google.com/video1";
@@ -844,6 +928,7 @@ public class RemoteCastPlayerTest {
         /* positionMs= */ 2000L,
         /* notifyStatusUpdate= */ true);
     // Replacing existing playlist.
+    Object oldUid = remoteCastPlayer.getCurrentTimeline().getWindow(1, new Timeline.Window()).uid;
     remoteCastPlayer.setMediaItems(
         secondPlaylist, /* startIndex= */ 0, /* startPositionMs= */ 1000L);
     updateTimeLine(
@@ -854,13 +939,14 @@ public class RemoteCastPlayerTest {
         /* durationsMs= */ new long[] {20_000},
         /* positionMs= */ 1000L,
         /* notifyStatusUpdate= */ true);
+    Object newUid = remoteCastPlayer.getCurrentTimeline().getWindow(0, new Timeline.Window()).uid;
 
     Player.PositionInfo oldPosition =
         new Player.PositionInfo(
-            /* windowUid= */ 2,
+            /* windowUid= */ oldUid,
             /* mediaItemIndex= */ 1,
             firstPlaylist.get(1),
-            /* periodUid= */ 2,
+            /* periodUid= */ oldUid,
             /* periodIndex= */ 1,
             /* positionMs= */ 2000,
             /* contentPositionMs= */ 2000,
@@ -868,10 +954,10 @@ public class RemoteCastPlayerTest {
             /* adIndexInAdGroup= */ C.INDEX_UNSET);
     Player.PositionInfo newPosition =
         new Player.PositionInfo(
-            /* windowUid= */ 3,
+            /* windowUid= */ newUid,
             /* mediaItemIndex= */ 0,
             secondPlaylist.get(0),
-            /* periodUid= */ 3,
+            /* periodUid= */ newUid,
             /* periodIndex= */ 0,
             /* positionMs= */ 1000,
             /* contentPositionMs= */ 1000,
@@ -923,13 +1009,13 @@ public class RemoteCastPlayerTest {
 
     verify(mockRemoteMediaClient, times(2))
         .queueInsertItems(queueItemsArgumentCaptor.capture(), anyInt(), any());
-    assertThat(queueItemsArgumentCaptor.getAllValues().get(1)[0])
-        .isEqualTo(mediaItemConverter.toMediaQueueItem(anotherMediaItem));
+    MediaQueueItem insertedItem = queueItemsArgumentCaptor.getAllValues().get(1)[0];
+    assertThat(mediaItemConverter.toMediaItem(insertedItem)).isEqualTo(anotherMediaItem);
     Timeline.Window currentWindow =
         remoteCastPlayer
             .getCurrentTimeline()
             .getWindow(remoteCastPlayer.getCurrentMediaItemIndex(), new Timeline.Window());
-    assertThat(currentWindow.uid).isEqualTo(123);
+    assertThat(currentWindow.uid).isNotNull();
     assertThat(currentWindow.mediaItem).isEqualTo(anotherMediaItem);
   }
 
@@ -1080,13 +1166,13 @@ public class RemoteCastPlayerTest {
     verify(mockRemoteMediaClient, times(2))
         .queueInsertItems(queueItemsArgumentCaptor.capture(), anyInt(), any());
     verify(mockRemoteMediaClient).queueRemoveItems(new int[] {2}, /* customData= */ null);
-    assertThat(queueItemsArgumentCaptor.getAllValues().get(1)[0])
-        .isEqualTo(mediaItemConverter.toMediaQueueItem(anotherMediaItem));
+    MediaQueueItem insertedItem = queueItemsArgumentCaptor.getAllValues().get(1)[0];
+    assertThat(mediaItemConverter.toMediaItem(insertedItem)).isEqualTo(anotherMediaItem);
     Timeline.Window currentWindow =
         remoteCastPlayer
             .getCurrentTimeline()
             .getWindow(remoteCastPlayer.getCurrentMediaItemIndex(), new Timeline.Window());
-    assertThat(currentWindow.uid).isEqualTo(123);
+    assertThat(currentWindow.uid).isNotNull();
     assertThat(currentWindow.mediaItem).isEqualTo(anotherMediaItem);
   }
 
@@ -1163,6 +1249,7 @@ public class RemoteCastPlayerTest {
         /* durationsMs= */ new long[] {20_000L, 30_000L},
         /* positionMs= */ 1234,
         /* notifyStatusUpdate= */ true);
+    Object oldUid = remoteCastPlayer.getCurrentTimeline().getWindow(0, new Timeline.Window()).uid;
     remoteCastPlayer.clearMediaItems();
     updateTimeLine(
         /* mediaItems= */ ImmutableList.of(),
@@ -1175,10 +1262,10 @@ public class RemoteCastPlayerTest {
 
     Player.PositionInfo oldPosition =
         new Player.PositionInfo(
-            /* windowUid= */ 1,
+            /* windowUid= */ oldUid,
             /* mediaItemIndex= */ 0,
             mediaItems.get(0),
-            /* periodUid= */ 1,
+            /* periodUid= */ oldUid,
             /* periodIndex= */ 0,
             /* positionMs= */ 1234,
             /* contentPositionMs= */ 1234,
@@ -1248,6 +1335,8 @@ public class RemoteCastPlayerTest {
         /* durationsMs= */ new long[] {20_000L, 30_000L},
         /* positionMs= */ 1234,
         /* notifyStatusUpdate= */ true);
+    Object oldUid = remoteCastPlayer.getCurrentTimeline().getWindow(0, new Timeline.Window()).uid;
+    Object newUid = remoteCastPlayer.getCurrentTimeline().getWindow(1, new Timeline.Window()).uid;
     remoteCastPlayer.removeMediaItem(/* index= */ 0);
     // Update with the new timeline after removal.
     updateTimeLine(
@@ -1261,10 +1350,10 @@ public class RemoteCastPlayerTest {
 
     Player.PositionInfo oldPosition =
         new Player.PositionInfo(
-            /* windowUid= */ 1,
+            /* windowUid= */ oldUid,
             /* mediaItemIndex= */ 0,
             mediaItem1,
-            /* periodUid= */ 1,
+            /* periodUid= */ oldUid,
             /* periodIndex= */ 0,
             /* positionMs= */ 1234,
             /* contentPositionMs= */ 1234,
@@ -1272,10 +1361,10 @@ public class RemoteCastPlayerTest {
             /* adIndexInAdGroup= */ C.INDEX_UNSET);
     Player.PositionInfo newPosition =
         new Player.PositionInfo(
-            /* windowUid= */ 2,
+            /* windowUid= */ newUid,
             /* mediaItemIndex= */ 0,
             mediaItem2,
-            /* periodUid= */ 2,
+            /* periodUid= */ newUid,
             /* periodIndex= */ 0,
             /* positionMs= */ 0,
             /* contentPositionMs= */ 0,
@@ -1332,6 +1421,8 @@ public class RemoteCastPlayerTest {
         /* durationsMs= */ new long[] {20_000L, 30_000L},
         /* positionMs= */ 1234,
         /* notifyStatusUpdate= */ true);
+    Object oldUid = remoteCastPlayer.getCurrentTimeline().getWindow(0, new Timeline.Window()).uid;
+    Object newUid = remoteCastPlayer.getCurrentTimeline().getWindow(1, new Timeline.Window()).uid;
     // Update with the new timeline after removal on the device.
     updateTimeLine(
         ImmutableList.of(mediaItem2),
@@ -1344,10 +1435,10 @@ public class RemoteCastPlayerTest {
 
     Player.PositionInfo oldPosition =
         new Player.PositionInfo(
-            /* windowUid= */ 1,
+            /* windowUid= */ oldUid,
             /* mediaItemIndex= */ 0,
             mediaItem1,
-            /* periodUid= */ 1,
+            /* periodUid= */ oldUid,
             /* periodIndex= */ 0,
             /* positionMs= */ 0, // position at which we receive the timeline change
             /* contentPositionMs= */ 0, // position at which we receive the timeline change
@@ -1355,10 +1446,10 @@ public class RemoteCastPlayerTest {
             /* adIndexInAdGroup= */ C.INDEX_UNSET);
     Player.PositionInfo newPosition =
         new Player.PositionInfo(
-            /* windowUid= */ 2,
+            /* windowUid= */ newUid,
             /* mediaItemIndex= */ 0,
             mediaItem2,
-            /* periodUid= */ 2,
+            /* periodUid= */ newUid,
             /* periodIndex= */ 0,
             /* positionMs= */ 0,
             /* contentPositionMs= */ 0,
@@ -1457,14 +1548,17 @@ public class RemoteCastPlayerTest {
 
     remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 1);
+    Timeline timeline = remoteCastPlayer.getCurrentTimeline();
+    Object oldUid = timeline.getWindow(0, new Timeline.Window()).uid;
+    Object newUid = timeline.getWindow(1, new Timeline.Window()).uid;
     remoteCastPlayer.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 1234);
 
     Player.PositionInfo oldPosition =
         new Player.PositionInfo(
-            /* windowUid= */ 1,
+            /* windowUid= */ oldUid,
             /* mediaItemIndex= */ 0,
             mediaItem1,
-            /* periodUid= */ 1,
+            /* periodUid= */ oldUid,
             /* periodIndex= */ 0,
             /* positionMs= */ 0,
             /* contentPositionMs= */ 0,
@@ -1472,10 +1566,10 @@ public class RemoteCastPlayerTest {
             /* adIndexInAdGroup= */ C.INDEX_UNSET);
     Player.PositionInfo newPosition =
         new Player.PositionInfo(
-            /* windowUid= */ 2,
+            /* windowUid= */ newUid,
             /* mediaItemIndex= */ 1,
             mediaItem2,
-            /* periodUid= */ 2,
+            /* periodUid= */ newUid,
             /* periodIndex= */ 1,
             /* positionMs= */ 1234,
             /* contentPositionMs= */ 1234,
@@ -1519,14 +1613,16 @@ public class RemoteCastPlayerTest {
 
     remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 1);
+    Timeline timeline = remoteCastPlayer.getCurrentTimeline();
+    Object uid = timeline.getWindow(0, new Timeline.Window()).uid;
     remoteCastPlayer.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 1234);
 
     Player.PositionInfo oldPosition =
         new Player.PositionInfo(
-            /* windowUid= */ 1,
+            /* windowUid= */ uid,
             /* mediaItemIndex= */ 0,
             mediaItems.get(0),
-            /* periodUid= */ 1,
+            /* periodUid= */ uid,
             /* periodIndex= */ 0,
             /* positionMs= */ 0,
             /* contentPositionMs= */ 0,
@@ -1534,10 +1630,10 @@ public class RemoteCastPlayerTest {
             /* adIndexInAdGroup= */ C.INDEX_UNSET);
     Player.PositionInfo newPosition =
         new Player.PositionInfo(
-            /* windowUid= */ 1,
+            /* windowUid= */ uid,
             /* mediaItemIndex= */ 0,
             mediaItems.get(0),
-            /* periodUid= */ 1,
+            /* periodUid= */ uid,
             /* periodIndex= */ 0,
             /* positionMs= */ 1234,
             /* contentPositionMs= */ 1234,
@@ -1595,6 +1691,9 @@ public class RemoteCastPlayerTest {
         /* durationsMs= */ durationsFirstMs,
         /* positionMs= */ C.TIME_UNSET,
         /* notifyStatusUpdate= */ true);
+    Timeline timeline = remoteCastPlayer.getCurrentTimeline();
+    Object oldUid = timeline.getWindow(0, new Timeline.Window()).uid;
+    Object newUid = timeline.getWindow(1, new Timeline.Window()).uid;
     updateTimeLine(
         mediaItems,
         mediaQueueItemIds,
@@ -1606,10 +1705,10 @@ public class RemoteCastPlayerTest {
 
     Player.PositionInfo oldPosition =
         new Player.PositionInfo(
-            /* windowUid= */ 1,
+            /* windowUid= */ oldUid,
             /* mediaItemIndex= */ 0,
             mediaItems.get(0),
-            /* periodUid= */ 1,
+            /* periodUid= */ oldUid,
             /* periodIndex= */ 0,
             /* positionMs= */ 12500,
             /* contentPositionMs= */ 12500,
@@ -1617,10 +1716,10 @@ public class RemoteCastPlayerTest {
             /* adIndexInAdGroup= */ C.INDEX_UNSET);
     Player.PositionInfo newPosition =
         new Player.PositionInfo(
-            /* windowUid= */ 2,
+            /* windowUid= */ newUid,
             /* mediaItemIndex= */ 1,
             mediaItems.get(1),
-            /* periodUid= */ 2,
+            /* periodUid= */ newUid,
             /* periodIndex= */ 1,
             /* positionMs= */ 0,
             /* contentPositionMs= */ 0,
@@ -1658,14 +1757,16 @@ public class RemoteCastPlayerTest {
         durationsMs,
         positionMs,
         /* notifyStatusUpdate= */ true);
+    Timeline timeline = remoteCastPlayer.getCurrentTimeline();
+    Object uid = timeline.getWindow(0, new Timeline.Window()).uid;
     remoteCastPlayer.seekBack();
 
     Player.PositionInfo oldPosition =
         new Player.PositionInfo(
-            /* windowUid= */ 1,
+            /* windowUid= */ uid,
             /* mediaItemIndex= */ 0,
             mediaItems.get(0),
-            /* periodUid= */ 1,
+            /* periodUid= */ uid,
             /* periodIndex= */ 0,
             /* positionMs= */ 2 * C.DEFAULT_SEEK_BACK_INCREMENT_MS,
             /* contentPositionMs= */ 2 * C.DEFAULT_SEEK_BACK_INCREMENT_MS,
@@ -1673,10 +1774,10 @@ public class RemoteCastPlayerTest {
             /* adIndexInAdGroup= */ C.INDEX_UNSET);
     Player.PositionInfo newPosition =
         new Player.PositionInfo(
-            /* windowUid= */ 1,
+            /* windowUid= */ uid,
             /* mediaItemIndex= */ 0,
             mediaItems.get(0),
-            /* periodUid= */ 1,
+            /* periodUid= */ uid,
             /* periodIndex= */ 0,
             /* positionMs= */ C.DEFAULT_SEEK_BACK_INCREMENT_MS,
             /* contentPositionMs= */ C.DEFAULT_SEEK_BACK_INCREMENT_MS,
@@ -1712,14 +1813,16 @@ public class RemoteCastPlayerTest {
         durationsMs,
         positionMs,
         /* notifyStatusUpdate= */ true);
+    Timeline timeline = remoteCastPlayer.getCurrentTimeline();
+    Object uid = timeline.getWindow(0, new Timeline.Window()).uid;
     remoteCastPlayer.seekForward();
 
     Player.PositionInfo oldPosition =
         new Player.PositionInfo(
-            /* windowUid= */ 1,
+            /* windowUid= */ uid,
             /* mediaItemIndex= */ 0,
             mediaItems.get(0),
-            /* periodUid= */ 1,
+            /* periodUid= */ uid,
             /* periodIndex= */ 0,
             /* positionMs= */ 0,
             /* contentPositionMs= */ 0,
@@ -1727,10 +1830,10 @@ public class RemoteCastPlayerTest {
             /* adIndexInAdGroup= */ C.INDEX_UNSET);
     Player.PositionInfo newPosition =
         new Player.PositionInfo(
-            /* windowUid= */ 1,
+            /* windowUid= */ uid,
             /* mediaItemIndex= */ 0,
             mediaItems.get(0),
-            /* periodUid= */ 1,
+            /* periodUid= */ uid,
             /* periodIndex= */ 0,
             /* positionMs= */ C.DEFAULT_SEEK_FORWARD_INCREMENT_MS,
             /* contentPositionMs= */ C.DEFAULT_SEEK_FORWARD_INCREMENT_MS,
@@ -3075,6 +3178,7 @@ public class RemoteCastPlayerTest {
       MediaQueueItem mediaQueueItem = mock(MediaQueueItem.class);
       when(mediaQueueItem.getItemId()).thenReturn(mediaQueueItemId);
       when(mediaQueueItem.getMedia()).thenReturn(mediaInfo);
+      when(mockMediaStatus.getItemById(mediaQueueItemId)).thenReturn(mediaQueueItem);
       queueItems.add(mediaQueueItem);
       if (mediaQueueItemId == currentItemId) {
         when(mockRemoteMediaClient.getCurrentItem()).thenReturn(mediaQueueItem);

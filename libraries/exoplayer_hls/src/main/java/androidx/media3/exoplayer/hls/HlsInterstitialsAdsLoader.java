@@ -52,7 +52,6 @@ import android.util.LongSparseArray;
 import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
-import androidx.concurrent.futures.CallbackToFutureAdapter;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdPlaybackState.AdGroup;
 import androidx.media3.common.AdPlaybackState.SkipInfo;
@@ -87,8 +86,10 @@ import androidx.media3.exoplayer.source.ads.AdsMediaSource;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -1036,29 +1037,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
    */
   @CanIgnoreReturnValue
   public ListenableFuture<Boolean> setWithAssetListResetAsync(Object adsId, int adGroupIndex) {
-    return CallbackToFutureAdapter.getFuture(
-        completer -> {
-          // Create the task to be posted to the player looper
-          Runnable resetTask =
-              () -> {
-                try {
-                  // Execute the existing synchronous reset logic
-                  boolean result = setWithAssetListReset(adsId, adGroupIndex);
-                  completer.set(result);
-                } catch (RuntimeException e) {
-                  completer.setException(e);
-                }
-              };
-
-          Handler handler = this.handler;
-          handler.post(resetTask);
-
-          // Provide a cancellation listener to remove the task if the future is cancelled
-          completer.addCancellationListener(
-              () -> handler.removeCallbacks(resetTask), directExecutor());
-
-          return "setWithAssetListReset for adsId=" + adsId + " at index=" + adGroupIndex;
-        });
+    return postResetTask(() -> setWithAssetListReset(adsId, adGroupIndex));
   }
 
   /**
@@ -1086,32 +1065,31 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
   @CanIgnoreReturnValue
   public ListenableFuture<Boolean> setWithAssetListResetAsync(
       Object adsId, String interstitialsId) {
-    return CallbackToFutureAdapter.getFuture(
-        completer -> {
-          // Create the task to be posted to the player looper
-          Runnable resetTask =
-              () -> {
-                try {
-                  // Execute the existing synchronous reset logic
-                  boolean result = setWithAssetListReset(adsId, interstitialsId);
-                  completer.set(result);
-                } catch (RuntimeException e) {
-                  completer.setException(e);
-                }
-              };
+    return postResetTask(() -> setWithAssetListReset(adsId, interstitialsId));
+  }
 
-          Handler handler = this.handler;
-          handler.post(resetTask);
+  private ListenableFuture<Boolean> postResetTask(Supplier<Boolean> resetAction) {
+    SettableFuture<Boolean> future = SettableFuture.create();
+    Runnable resetTask =
+        () -> {
+          try {
+            future.set(resetAction.get());
+          } catch (RuntimeException e) {
+            future.setException(e);
+          }
+        };
 
-          // Provide a cancellation listener to remove the task if the future is cancelled
-          completer.addCancellationListener(
-              () -> handler.removeCallbacks(resetTask), directExecutor());
+    handler.post(resetTask);
 
-          return "setWithAssetListReset for adsId="
-              + adsId
-              + " with interstitialsId="
-              + interstitialsId;
-        });
+    future.addListener(
+        () -> {
+          if (future.isCancelled()) {
+            handler.removeCallbacks(resetTask);
+          }
+        },
+        directExecutor());
+
+    return future;
   }
 
   private boolean validateAdGroupForReset(Interstitial interstitial, AdGroup adGroup) {

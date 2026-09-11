@@ -36,7 +36,6 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil;
-import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.UnstableApi;
@@ -80,7 +79,6 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     private @C.Priority int codecPriority;
     private boolean shouldConfigureOperatingRate;
     private MediaCodecSelector mediaCodecSelector;
-    private boolean dynamicSchedulingEnabled;
 
     /** Creates a new {@link Builder}. */
     public Builder(Context context) {
@@ -168,29 +166,6 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
       return this;
     }
 
-    /**
-     * Sets whether decoder dynamic scheduling is enabled.
-     *
-     * <p>If enabled, the {@link ExoPlayerAssetLoader} can change how often the rendering loop for
-     * {@linkplain DefaultCodec decoders} created by this factory is run.
-     *
-     * <p>On some devices, setting this to {@code true} will {@linkplain
-     * DefaultCodec#queueInputBuffer feed} and {@linkplain DefaultCodec#releaseOutputBuffer drain}
-     * decoders more frequently, and will lead to improved performance.
-     *
-     * <p>The default value is {@code false}.
-     *
-     * <p>This method is experimental, and will be renamed or removed in a future release.
-     *
-     * @param dynamicSchedulingEnabled Whether to enable dynamic scheduling.
-     */
-    @CanIgnoreReturnValue
-    @ExperimentalApi // TODO: b/369523131 - Remove once feature is enabled by default.
-    public Builder experimentalSetDynamicSchedulingEnabled(boolean dynamicSchedulingEnabled) {
-      this.dynamicSchedulingEnabled = dynamicSchedulingEnabled;
-      return this;
-    }
-
     /** Creates an instance of {@link DefaultDecoderFactory}, using defaults if values are unset. */
     public DefaultDecoderFactory build() {
       return new DefaultDecoderFactory(this);
@@ -203,7 +178,6 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
   private final @C.Priority int codecPriority;
   private final boolean shouldConfigureOperatingRate;
   private final MediaCodecSelector mediaCodecSelector;
-  private final boolean dynamicSchedulingEnabled;
 
   /**
    * @deprecated Use {@link Builder} instead.
@@ -237,7 +211,6 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     this.codecPriority = builder.codecPriority;
     this.shouldConfigureOperatingRate = builder.shouldConfigureOperatingRate;
     this.mediaCodecSelector = builder.mediaCodecSelector;
-    this.dynamicSchedulingEnabled = builder.dynamicSchedulingEnabled;
   }
 
   @Override
@@ -370,15 +343,6 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
             codecInitExceptions);
     listener.onCodecInitialized(codec.getName(), codecInitExceptions);
     return codec;
-  }
-
-  /**
-   * Returns whether decoder dynamic scheduling is enabled.
-   *
-   * <p>See {@link Builder#experimentalSetDynamicSchedulingEnabled}.
-   */
-  public boolean isDynamicSchedulingEnabled() {
-    return dynamicSchedulingEnabled;
   }
 
   private DefaultCodec createCodecFromDecoderInfos(

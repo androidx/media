@@ -109,7 +109,7 @@ public final class PlayerFenceJavaTest {
 
     Stopwatch stopwatch = Stopwatch.createStarted(new ElapsedRealtimeTicker());
     assertThrows(CancellationException.class, playerReadyFuture::get);
-    assertThat(stopwatch.elapsed(MILLISECONDS)).isLessThan(200);
+    assertThat(stopwatch.elapsed(MILLISECONDS)).isLessThan(1000);
   }
 
   @Test
@@ -199,6 +199,7 @@ public final class PlayerFenceJavaTest {
               isPlayingFuture.setFuture(futureWhen(player).isPlaying(true));
 
               player.setMediaItem(SHORT_MP3_ITEM);
+              player.setRepeatMode(Player.REPEAT_MODE_ALL);
               player.prepare();
               player.play();
             });

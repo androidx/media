@@ -86,7 +86,8 @@ internal fun Modifier.reportPointerDown(onPointerDownChange: (Boolean) -> Unit):
  *
  * @param onPointerDownChange Lambda invoked with `true` when any pointer goes down, and `false`
  *   when the last pointer goes up.
- * @param onPointerMove Lambda invoked when the pointer moves within the Composable.
+ * @param onPointerMove Lambda invoked when a pointer hovers/moves within the Composable without
+ *   being pressed.
  * @param onToggleControls Lambda invoked to show/hide player controls, typically used on a single
  *   tap.
  * @param seekBackButtonState State object for handling seek back actions and providing seek
@@ -158,7 +159,7 @@ internal fun Modifier.playerGestures(
               }
               val isAnyPressed = event.changes.any { it.pressed }
               onPointerDownChange?.invoke(isAnyPressed)
-              if (event.type == PointerEventType.Move) {
+              if (event.type == PointerEventType.Move && !isAnyPressed) {
                 onPointerMove?.invoke()
               }
             }

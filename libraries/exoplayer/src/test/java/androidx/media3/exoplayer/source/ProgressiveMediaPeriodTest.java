@@ -888,6 +888,19 @@ public final class ProgressiveMediaPeriodTest {
         /* executorReleased= */ null);
   }
 
+  private static ProgressiveMediaPeriod createMediaPeriod(Uri uri, MediaPeriod.Callback callback)
+      throws TimeoutException {
+    return createMediaPeriod(
+        uri,
+        new AssetDataSource(ApplicationProvider.getApplicationContext()),
+        new DefaultLoadErrorHandlingPolicy(),
+        new BundledExtractorsAdapter(new DefaultExtractorsFactory()),
+        /* imageDurationUs= */ C.TIME_UNSET,
+        /* executor= */ null,
+        /* executorReleased= */ null,
+        callback);
+  }
+
   private static ProgressiveMediaPeriod createMediaPeriod(
       Uri uri,
       DataSource dataSource,
@@ -896,6 +909,35 @@ public final class ProgressiveMediaPeriodTest {
       long imageDurationUs,
       @Nullable Executor executor,
       @Nullable Consumer<Executor> executorReleased)
+      throws TimeoutException {
+    return createMediaPeriod(
+        uri,
+        dataSource,
+        loadErrorHandlingPolicy,
+        extractor,
+        imageDurationUs,
+        executor,
+        executorReleased,
+        new MediaPeriod.Callback() {
+          @Override
+          public void onPrepared(MediaPeriod mediaPeriod) {}
+
+          @Override
+          public void onContinueLoadingRequested(MediaPeriod source) {
+            source.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+          }
+        });
+  }
+
+  private static ProgressiveMediaPeriod createMediaPeriod(
+      Uri uri,
+      DataSource dataSource,
+      LoadErrorHandlingPolicy loadErrorHandlingPolicy,
+      ProgressiveMediaExtractor extractor,
+      long imageDurationUs,
+      @Nullable Executor executor,
+      @Nullable Consumer<Executor> executorReleased,
+      MediaPeriod.Callback callback)
       throws TimeoutException {
     AtomicBoolean sourceInfoRefreshCalled = new AtomicBoolean(false);
     ProgressiveMediaPeriod.Listener sourceInfoRefreshListener =
@@ -930,11 +972,12 @@ public final class ProgressiveMediaPeriodTest {
           public void onPrepared(MediaPeriod mediaPeriod) {
             sourceInfoRefreshCalledBeforeOnPrepared.set(sourceInfoRefreshCalled.get());
             prepareCallbackCalled.set(true);
+            callback.onPrepared(mediaPeriod);
           }
 
           @Override
           public void onContinueLoadingRequested(MediaPeriod source) {
-            source.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+            callback.onContinueLoadingRequested(source);
           }
         },
         /* positionUs= */ 0);
@@ -1831,7 +1874,6 @@ public final class ProgressiveMediaPeriodTest {
             streams,
             streamResetFlags,
             /* positionUs= */ 0);
-
     // Initial load until buffered.
     boolean unusedLoad =
         mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
@@ -1841,7 +1883,6 @@ public final class ProgressiveMediaPeriodTest {
           return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
         });
     shadowOf(Looper.getMainLooper()).idle();
-
     // Read first sample to advance read index past 0.
     FormatHolder formatHolder = new FormatHolder();
     DecoderInputBuffer buffer =
@@ -1855,13 +1896,11 @@ public final class ProgressiveMediaPeriodTest {
     long firstSampleTimeUs = buffer.timeUs;
     assertThat(firstSampleTimeUs).isGreaterThan(0);
 
-    // Seek back to position 0 (same as last seek position).
     long seekTimeUs = mediaPeriod.seekToUs(0);
-    assertThat(seekTimeUs).isEqualTo(0);
 
+    assertThat(seekTimeUs).isEqualTo(0);
     // Verify in-buffer seek was successful and loading is not restarted.
     assertThat(mediaPeriod.isLoading()).isFalse();
-
     // Verify reading starts again from the first sample.
     buffer.clear();
     readResult = streams[1].readData(formatHolder, buffer, /* readFlags= */ 0);
@@ -1871,7 +1910,143 @@ public final class ProgressiveMediaPeriodTest {
     }
     assertThat(readResult).isEqualTo(C.RESULT_BUFFER_READ);
     assertThat(buffer.timeUs).isEqualTo(firstSampleTimeUs);
+    mediaPeriod.release();
+  }
 
+  @Test
+  public void onLoadCompleted_withEndPositionSet_immediatelyTransitionsToClippedFinished()
+      throws Exception {
+    ProgressiveMediaPeriod mediaPeriod =
+        createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    boolean[] streamResetFlags = new boolean[trackGroups.length];
+    selections[0] =
+        new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
+    long unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            streamResetFlags,
+            /* positionUs= */ 0);
+
+    // Configure clip end at 300ms before load finishes.
+    long unusedEndPosition = mediaPeriod.setEndPositionUs(300_000);
+    boolean unusedLoad =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+
+    // Run until the load completes without explicitly calling reevaluateBuffer.
+    runMainLooperUntil(() -> !mediaPeriod.isLoading());
+    shadowOf(Looper.getMainLooper()).idle();
+
+    // Verify upstream buffers beyond 300ms were immediately discarded on load completion.
+    FormatHolder formatHolder = new FormatHolder();
+    DecoderInputBuffer buffer =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
+    int readResult = streams[0].readData(formatHolder, buffer, /* readFlags= */ 0);
+    assertThat(readResult).isEqualTo(C.RESULT_FORMAT_READ);
+    long lastReadTimeUs = C.TIME_UNSET;
+    while (true) {
+      buffer.clear();
+      readResult = streams[0].readData(formatHolder, buffer, /* readFlags= */ 0);
+      if (readResult == C.RESULT_BUFFER_READ && !buffer.isEndOfStream()) {
+        lastReadTimeUs = buffer.timeUs;
+      } else {
+        break;
+      }
+    }
+    assertThat(lastReadTimeUs).isAtMost(300_000);
+    assertThat(buffer.isEndOfStream()).isTrue();
+    mediaPeriod.release();
+  }
+
+  @Test
+  public void seekToUs_inIdleStateAfterClipExtension_seeksInsideBuffer() throws Exception {
+    AtomicBoolean allowContinueLoading = new AtomicBoolean(true);
+    ProgressiveMediaPeriod mediaPeriod =
+        createMediaPeriod(
+            Uri.parse("asset://android_asset/media/mp4/sample.mp4"),
+            new MediaPeriod.Callback() {
+              @Override
+              public void onPrepared(MediaPeriod mediaPeriod) {}
+
+              @Override
+              public void onContinueLoadingRequested(MediaPeriod source) {
+                if (allowContinueLoading.get()) {
+                  source.continueLoading(
+                      new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+                }
+              }
+            });
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    boolean[] streamResetFlags = new boolean[trackGroups.length];
+    selections[0] =
+        new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
+    long unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            streamResetFlags,
+            /* positionUs= */ 0);
+
+    // Initial load clipped at 300ms until loading finishes.
+    long unusedEndPosition1 = mediaPeriod.setEndPositionUs(300_000);
+    boolean unusedLoad =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    runMainLooperUntil(
+        () -> {
+          mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
+          return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
+        });
+    shadowOf(Looper.getMainLooper()).idle();
+
+    // Extend end position to 600ms (transitions state to STATE_IDLE).
+    allowContinueLoading.set(false);
+    long unusedEndPosition2 = mediaPeriod.setEndPositionUs(600_000);
+    assertThat(mediaPeriod.isLoading()).isFalse();
+
+    // Seek to 0 while in STATE_IDLE.
+    long seekTimeUs = mediaPeriod.seekToUs(0);
+    assertThat(seekTimeUs).isEqualTo(0);
+    // Verify in-buffer seek was successful and buffered samples were not discarded.
+    assertThat(mediaPeriod.getBufferedPositionUs()).isAtLeast(300_000);
+    assertThat(mediaPeriod.isLoading()).isFalse();
+
+    // Continue loading to new end position and verify stream plays up to 600ms without losing
+    // samples.
+    allowContinueLoading.set(true);
+    boolean unusedLoad2 =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    runMainLooperUntil(
+        () -> {
+          mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
+          return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
+        });
+    shadowOf(Looper.getMainLooper()).idle();
+
+    FormatHolder formatHolder = new FormatHolder();
+    DecoderInputBuffer buffer =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
+    int readResult = streams[0].readData(formatHolder, buffer, /* readFlags= */ 0);
+    assertThat(readResult).isEqualTo(C.RESULT_FORMAT_READ);
+    long lastReadTimeUs = C.TIME_UNSET;
+    while (true) {
+      buffer.clear();
+      readResult = streams[0].readData(formatHolder, buffer, /* readFlags= */ 0);
+      if (readResult == C.RESULT_BUFFER_READ && !buffer.isEndOfStream()) {
+        lastReadTimeUs = buffer.timeUs;
+      } else {
+        break;
+      }
+    }
+    assertThat(lastReadTimeUs).isGreaterThan(300_000);
+    assertThat(lastReadTimeUs).isAtMost(600_000);
+    assertThat(buffer.isEndOfStream()).isTrue();
     mediaPeriod.release();
   }
 

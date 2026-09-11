@@ -16,17 +16,23 @@
 package androidx.media3.effect;
 
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
+import static androidx.media3.effect.DefaultGlFrameProcessor.COLORSPACE_HDR_HLG;
+import static androidx.media3.effect.DefaultGlFrameProcessor.COLORSPACE_SDR_SRGB;
 import static androidx.media3.effect.FrameProcessorUtils.releaseOpenGl;
 import static androidx.media3.effect.FrameProcessorUtils.setupOpenGl;
 import static androidx.media3.effect.FrameProcessorUtils.shutdownGlExecutorService;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_COLOR_TEST_1080P_HLG10;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromFocusedGlFramebuffer;
+import static androidx.media3.test.utils.BitmapPixelTestUtil.createFp16BitmapFromFocusedGlFramebuffer;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
+import static androidx.media3.test.utils.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -36,12 +42,15 @@ import android.hardware.HardwareBuffer;
 import android.media.Image;
 import android.media.ImageReader;
 import android.media.MediaFormat;
+import android.opengl.GLES30;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
@@ -250,6 +259,99 @@ public final class HardwareBufferToGlTextureConverterTest {
 
   @SdkSuppress(minSdkVersion = 31)
   @Test
+  public void convert_withHlgHardwareBufferAndToneMapping_outputsCorrectGlTexture()
+      throws Exception {
+    assumeDeviceSupportsOpenGlToneMapping(
+        testName.getMethodName(), MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
+
+    int width = 1920;
+    int height = 1080;
+
+    ImageReader inputImageReader =
+        ImageReader.newInstance(
+            width,
+            height,
+            // Make sure ImageReader reads 10 bit YUV data.
+            ImageFormat.YCBCR_P010,
+            /* maxImages= */ 1,
+            HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
+
+    AtomicReference<MediaFormat> inputMediaFormat = new AtomicReference<>();
+    DecodeOneFrameUtil.decodeOneMediaItemFrame(
+        MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri),
+        new DecodeOneFrameUtil.Listener() {
+          @Override
+          public void onContainerExtracted(MediaFormat mediaFormat) {}
+
+          @Override
+          public void onFrameDecoded(MediaFormat mediaFormat) {
+            inputMediaFormat.set(mediaFormat);
+          }
+        },
+        inputImageReader.getSurface());
+
+    Image inputImage = checkNotNull(inputImageReader.acquireLatestImage());
+    HardwareBuffer inputHardwareBuffer = checkNotNull(inputImage.getHardwareBuffer());
+
+    Format inputFormat =
+        MediaFormatUtil.createFormatFromMediaFormat(inputMediaFormat.get())
+            .buildUpon()
+            .setWidth(width)
+            .setHeight(height)
+            .build();
+
+    assumeTrue(GlUtil.isYuvTargetExtensionSupported());
+
+    converter =
+        new HardwareBufferToGlTextureConverter(
+            context,
+            HardwareBufferJni.INSTANCE,
+            /* outputColorInfo= */ DefaultGlFrameProcessor.COLORSPACE_SDR_SRGB,
+            e -> {
+              throw new AssertionError(e);
+            });
+
+    AtomicReference<Frame> completedFrame = new AtomicReference<>();
+    FrameProcessor.Listener listener =
+        new FrameProcessor.Listener() {
+          @Override
+          public void onWakeup() {}
+
+          @Override
+          public void onError(VideoFrameProcessingException exception) {
+            throw new AssertionError(exception);
+          }
+
+          @Override
+          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
+            if (releaseFence != null) {
+              assertThat(releaseFence.awaitMs(FENCE_TIMEOUT_MS)).isTrue();
+              releaseFence.close();
+            }
+            inputHardwareBuffer.close();
+            inputImage.close();
+            completedFrame.set(frame);
+          }
+        };
+
+    HardwareBufferFrame inputHardwareBufferFrame =
+        new DefaultHardwareBufferFrame.Builder(inputHardwareBuffer).setFormat(inputFormat).build();
+    Bitmap expectedBitmap =
+        BitmapPixelTestUtil.readBitmap(
+            "test-generated-goldens/sample_mp4_first_frame/electrical_colors/tone_map_hlg_to_sdr.png");
+
+    Bitmap actualBitmap = convertAndCaptureBitmap(inputHardwareBufferFrame, listener);
+
+    assertThat(
+            getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+                expectedBitmap, actualBitmap, testName.getMethodName()))
+        .isLessThan(MAX_PIXEL_DIFFERENCE);
+    assertThat(completedFrame.get()).isSameInstanceAs(inputHardwareBufferFrame);
+    inputImageReader.close();
+  }
+
+  @SdkSuppress(minSdkVersion = 31)
+  @Test
   public void convert_withRgba8888HardwareBufferAndColorConversion_outputsCorrectGlTexture()
       throws Exception {
     Bitmap expectedBitmap = BitmapPixelTestUtil.readBitmap("media/png/first_frame_1920x1080.png");
@@ -418,44 +520,6 @@ public final class HardwareBufferToGlTextureConverterTest {
     assertThat(completedFrame.get()).isSameInstanceAs(inputHardwareBufferFrame);
   }
 
-  private Bitmap convertAndCaptureBitmap(
-      HardwareBufferFrame hardwareBufferFrame, FrameProcessor.Listener listener) throws Exception {
-    AtomicReference<Bitmap> actualBitmap = new AtomicReference<>();
-    CountDownLatch bitmapCaptured = new CountDownLatch(1);
-    glExecutorService
-        .submit(
-            () -> {
-              try {
-                setupOpenGl(checkNotNull(glObjectsProvider));
-                GlTextureFrame glTextureFrame =
-                    converter.convert(
-                        /* hardwareBufferFrame= */ hardwareBufferFrame,
-                        glExecutorService,
-                        /* listenerExecutor= */ directExecutor(),
-                        listener);
-
-                int textureWidth = glTextureFrame.glTextureInfo.width;
-                int textureHeight = glTextureFrame.glTextureInfo.height;
-                int fboId = GlUtil.createFboForTexture(glTextureFrame.glTextureInfo.texId);
-                GlUtil.focusFramebufferUsingCurrentContext(fboId, textureWidth, textureHeight);
-                actualBitmap.set(
-                    createArgb8888BitmapFromFocusedGlFramebuffer(textureWidth, textureHeight));
-                glTextureFrame.release(/* releaseFence= */ null);
-                assertThat(glTextureFrame.format.rotationDegrees).isEqualTo(0);
-                GlUtil.deleteFbo(fboId);
-                // createArgb8888BitmapFromFocusedGlFramebuffer calls glReadPixels, which syncs
-                // OpenGL
-                bitmapCaptured.countDown();
-              } catch (GlException | VideoFrameProcessingException e) {
-                throw new IllegalStateException(e);
-              }
-            })
-        .get();
-
-    assertThat(bitmapCaptured.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
-    return actualBitmap.get();
-  }
-
   @SdkSuppress(minSdkVersion = 31)
   @Test
   public void convert_releaseAfterReleasingGlResources_doesNotThrow() throws Exception {
@@ -472,7 +536,7 @@ public final class HardwareBufferToGlTextureConverterTest {
         .submit(
             () -> {
               try {
-                setupOpenGl(checkNotNull(glObjectsProvider));
+                int unused = setupOpenGl(checkNotNull(glObjectsProvider));
                 GlTextureFrame glTextureFrame =
                     converter.convert(
                         hardwareBufferFrame,
@@ -500,5 +564,200 @@ public final class HardwareBufferToGlTextureConverterTest {
         .get();
 
     hardwareBuffer.close();
+  }
+
+  @SdkSuppress(minSdkVersion = 34)
+  @Test
+  public void convert_withUltraHdrBitmapAndHdrOutput_outputsCorrectGlTexture() throws Exception {
+    assertUltraHdrConversion(COLORSPACE_HDR_HLG);
+  }
+
+  @SdkSuppress(minSdkVersion = 34)
+  @Test
+  public void convert_withUltraHdrBitmapAndSdrOutput_outputsCorrectToneMappedGlTexture()
+      throws Exception {
+    assertUltraHdrConversion(COLORSPACE_SDR_SRGB);
+  }
+
+  @SdkSuppress(minSdkVersion = 34)
+  @Test
+  public void convert_withUltraHdr_releaseAfterReleasingGlResources_doesNotThrow()
+      throws Exception {
+    Bitmap ultraHdrBitmap = BitmapPixelTestUtil.readBitmap("media/jpeg/ultraHDR.jpg");
+    assertThat(ultraHdrBitmap.hasGainmap()).isTrue();
+    Bitmap hardwareBitmap = ultraHdrBitmap.copy(Bitmap.Config.HARDWARE, /* isMutable= */ false);
+    HardwareBuffer hardwareBuffer = hardwareBitmap.getHardwareBuffer();
+
+    converter =
+        new HardwareBufferToGlTextureConverter(
+            context,
+            HardwareBufferJni.INSTANCE,
+            COLORSPACE_HDR_HLG,
+            e -> {
+              throw new IllegalStateException(e);
+            });
+
+    int width = ultraHdrBitmap.getWidth();
+    int height = ultraHdrBitmap.getHeight();
+    Format inputFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.IMAGE_JPEG_R)
+            .setWidth(width)
+            .setHeight(height)
+            .setColorInfo(ColorInfo.SRGB_BT709_FULL)
+            .build();
+
+    HardwareBufferFrame hardwareBufferFrame =
+        new DefaultHardwareBufferFrame.Builder(hardwareBuffer)
+            .setFormat(inputFormat)
+            .setInternalImage(ultraHdrBitmap)
+            .build();
+
+    glExecutorService
+        .submit(
+            () -> {
+              try {
+                int unused = setupOpenGl(checkNotNull(glObjectsProvider));
+                GlTextureFrame glTextureFrame =
+                    converter.convert(
+                        hardwareBufferFrame,
+                        glExecutorService,
+                        directExecutor(),
+                        new FrameProcessor.Listener() {
+                          @Override
+                          public void onWakeup() {}
+
+                          @Override
+                          public void onError(VideoFrameProcessingException exception) {
+                            throw new IllegalStateException(exception);
+                          }
+
+                          @Override
+                          public void onFrameProcessed(
+                              Frame frame, @Nullable SyncFenceWrapper releaseFence) {}
+                        });
+
+                converter.releaseGlResources(hardwareBufferFrame);
+                // This should be no-op as GL resources are already released.
+                glTextureFrame.release(/* releaseFence= */ null);
+              } catch (GlException | VideoFrameProcessingException e) {
+                throw new IllegalStateException(e);
+              }
+            })
+        .get();
+
+    hardwareBuffer.close();
+  }
+
+  private Bitmap convertAndCaptureBitmap(
+      HardwareBufferFrame hardwareBufferFrame, FrameProcessor.Listener listener) throws Exception {
+    AtomicReference<Bitmap> actualBitmap = new AtomicReference<>();
+    CountDownLatch bitmapCaptured = new CountDownLatch(1);
+    glExecutorService
+        .submit(
+            () -> {
+              try {
+                int unused = setupOpenGl(checkNotNull(glObjectsProvider));
+                GlTextureFrame glTextureFrame =
+                    converter.convert(
+                        /* hardwareBufferFrame= */ hardwareBufferFrame,
+                        glExecutorService,
+                        /* listenerExecutor= */ directExecutor(),
+                        listener);
+
+                int textureWidth = glTextureFrame.glTextureInfo.width;
+                int textureHeight = glTextureFrame.glTextureInfo.height;
+                int fboId = GlUtil.createFboForTexture(glTextureFrame.glTextureInfo.texId);
+                GlUtil.focusFramebufferUsingCurrentContext(fboId, textureWidth, textureHeight);
+                int[] params = new int[1];
+                GLES30.glGetFramebufferAttachmentParameteriv(
+                    GLES30.GL_FRAMEBUFFER,
+                    GLES30.GL_COLOR_ATTACHMENT0,
+                    GLES30.GL_FRAMEBUFFER_ATTACHMENT_RED_SIZE,
+                    params,
+                    /* offset= */ 0);
+                if (params[0] > 8) {
+                  actualBitmap.set(
+                      createFp16BitmapFromFocusedGlFramebuffer(textureWidth, textureHeight));
+                } else {
+                  actualBitmap.set(
+                      createArgb8888BitmapFromFocusedGlFramebuffer(textureWidth, textureHeight));
+                }
+                glTextureFrame.release(/* releaseFence= */ null);
+                assertThat(glTextureFrame.format.rotationDegrees).isEqualTo(0);
+                GlUtil.deleteFbo(fboId);
+                bitmapCaptured.countDown();
+              } catch (GlException | VideoFrameProcessingException e) {
+                throw new IllegalStateException(e);
+              }
+            })
+        .get();
+
+    assertThat(bitmapCaptured.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
+    return actualBitmap.get();
+  }
+
+  @RequiresApi(34)
+  private void assertUltraHdrConversion(ColorInfo outputColorInfo) throws Exception {
+    Bitmap ultraHdrBitmap = BitmapPixelTestUtil.readBitmap("media/jpeg/ultraHDR.jpg");
+    assertThat(ultraHdrBitmap.hasGainmap()).isTrue();
+    Bitmap hardwareBitmap = ultraHdrBitmap.copy(Bitmap.Config.HARDWARE, /* isMutable= */ false);
+    HardwareBuffer hardwareBuffer = hardwareBitmap.getHardwareBuffer();
+
+    AtomicReference<VideoFrameProcessingException> errorReference = new AtomicReference<>();
+    converter =
+        new HardwareBufferToGlTextureConverter(
+            context, HardwareBufferJni.INSTANCE, outputColorInfo, errorReference::set);
+
+    AtomicReference<Frame> completedFrame = new AtomicReference<>();
+    CountDownLatch frameProcessed = new CountDownLatch(1);
+    FrameProcessor.Listener listener =
+        new FrameProcessor.Listener() {
+          @Override
+          public void onWakeup() {}
+
+          @Override
+          public void onError(VideoFrameProcessingException exception) {
+            errorReference.set(exception);
+          }
+
+          @Override
+          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
+            if (releaseFence != null) {
+              assertThat(releaseFence.awaitMs(FENCE_TIMEOUT_MS)).isTrue();
+              releaseFence.close();
+            }
+            hardwareBuffer.close();
+            completedFrame.set(frame);
+            frameProcessed.countDown();
+          }
+        };
+
+    int width = ultraHdrBitmap.getWidth();
+    int height = ultraHdrBitmap.getHeight();
+    Format inputFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.IMAGE_JPEG_R)
+            .setWidth(width)
+            .setHeight(height)
+            .setColorInfo(ColorInfo.SRGB_BT709_FULL)
+            .build();
+
+    HardwareBufferFrame hardwareBufferFrame =
+        new DefaultHardwareBufferFrame.Builder(hardwareBuffer)
+            .setFormat(inputFormat)
+            .setInternalImage(ultraHdrBitmap)
+            .build();
+
+    Bitmap actualBitmap = convertAndCaptureBitmap(hardwareBufferFrame, listener);
+
+    assertThat(actualBitmap.getWidth()).isEqualTo(width);
+    assertThat(actualBitmap.getHeight()).isEqualTo(height);
+    if (ColorInfo.isTransferHdr(outputColorInfo)) {
+      assertThat(actualBitmap.getConfig()).isEqualTo(Bitmap.Config.RGBA_F16);
+    }
+    assertThat(frameProcessed.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(errorReference.get()).isNull();
+    assertThat(completedFrame.get()).isSameInstanceAs(hardwareBufferFrame);
   }
 }

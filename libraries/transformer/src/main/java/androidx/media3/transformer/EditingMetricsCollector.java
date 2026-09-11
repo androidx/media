@@ -20,25 +20,55 @@ import static androidx.media3.common.util.Util.usToMs;
 
 import android.content.Context;
 import android.hardware.DataSpace;
+import android.media.metrics.BundleSession;
 import android.media.metrics.EditingEndedEvent;
 import android.media.metrics.EditingSession;
 import android.media.metrics.LogSessionId;
 import android.media.metrics.MediaItemInfo;
 import android.media.metrics.MediaMetricsManager;
+import android.os.PersistableBundle;
 import android.util.Size;
 import android.util.SparseIntArray;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
+import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.audio.AudioProcessor;
+import androidx.media3.common.audio.ChannelMixingAudioProcessor;
+import androidx.media3.common.audio.GainProcessor;
+import androidx.media3.common.audio.SonicAudioProcessor;
+import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.SystemClock;
+import androidx.media3.effect.AlphaScale;
+import androidx.media3.effect.ByteBufferGlEffect;
+import androidx.media3.effect.ColorLut;
+import androidx.media3.effect.Crop;
+import androidx.media3.effect.FrameCache;
+import androidx.media3.effect.FrameDropEffect;
+import androidx.media3.effect.GaussianBlur;
+import androidx.media3.effect.GlEffect;
+import androidx.media3.effect.HslAdjustment;
+import androidx.media3.effect.LanczosResample;
+import androidx.media3.effect.OverlayEffect;
+import androidx.media3.effect.Presentation;
+import androidx.media3.effect.RgbMatrix;
+import androidx.media3.effect.ScaleAndRotateTransformation;
+import androidx.media3.effect.SeparableConvolution;
+import androidx.media3.effect.TimestampWrapper;
+import androidx.media3.exoplayer.audio.ChannelMappingAudioProcessor;
+import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor;
+import androidx.media3.exoplayer.audio.TrimmingAudioProcessor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * A metrics collector that collects editing events and forwards them to {@link MetricsReporter}.
@@ -60,6 +90,9 @@ import java.util.List;
      * <p>The method should be called at most once.
      */
     void reportMetrics(EditingEndedEvent editingEndedEvent);
+
+    /** Reports effect metrics using a {@link PersistableBundle}. */
+    default void reportEffectMetrics(PersistableBundle bundle) {}
   }
 
   /**
@@ -89,11 +122,13 @@ import java.util.List;
     /** The {@link EditingSession} to report collected metrics to. */
     @Nullable private EditingSession editingSession;
 
+    @Nullable private final MediaMetricsManager mediaMetricsManager;
+
     private boolean metricsReported;
+    private boolean effectMetricsReported;
 
     private DefaultMetricsReporter(Context context) {
-      @Nullable
-      MediaMetricsManager mediaMetricsManager =
+      mediaMetricsManager =
           (MediaMetricsManager) context.getSystemService(Context.MEDIA_METRICS_SERVICE);
       if (mediaMetricsManager != null) {
         editingSession = mediaMetricsManager.createEditingSession();
@@ -105,6 +140,23 @@ import java.util.List;
       if (!metricsReported && editingSession != null) {
         editingSession.reportEditingEndedEvent(editingEndedEvent);
         metricsReported = true;
+      }
+    }
+
+    @Override
+    public void reportEffectMetrics(PersistableBundle bundle) {
+      if (!effectMetricsReported && mediaMetricsManager != null) {
+        if (editingSession != null) {
+          LogSessionId logSessionId = editingSession.getSessionId();
+          if (logSessionId != null) {
+            bundle.putString(KEY_PRIMARY_LOG_SESSION_ID, logSessionId.getStringId());
+          }
+        }
+        bundle.putInt(BundleSession.KEY_STATSD_ATOM, STATSD_ATOM_MEDIA_PROCESSING_EVENT_REPORTED);
+        try (BundleSession bundleSession = mediaMetricsManager.createBundleSession()) {
+          bundleSession.reportBundleMetrics(bundle);
+          effectMetricsReported = true;
+        }
       }
     }
 
@@ -212,6 +264,33 @@ import java.util.List;
   }
 
   private static final int SUCCESS_PROGRESS_PERCENTAGE = 100;
+
+  // Constants for Atom 1279 (MediaProcessingEventReported) and BundleSession keys.
+  @VisibleForTesting static final String KEY_PRIMARY_LOG_SESSION_ID = "primary_log_session_id";
+  @VisibleForTesting static final String KEY_PROCESSOR_NAME = "processor_name";
+  @VisibleForTesting static final String KEY_COMPONENTS = "components";
+  @VisibleForTesting static final String KEY_COMPONENT_SCOPES = "component_scopes";
+  @VisibleForTesting static final String KEY_METRICS = "metrics";
+  @VisibleForTesting static final String KEY_METRIC_VALUES = "metric_values";
+  private static final int STATSD_ATOM_MEDIA_PROCESSING_EVENT_REPORTED = 1279;
+
+  // Media3 Component category enums for Atom 1279.
+  @VisibleForTesting static final int COMPONENT_MEDIA3_EFFECT_COLOR = 100;
+  @VisibleForTesting static final int COMPONENT_MEDIA3_EFFECT_SPATIAL = 101;
+  @VisibleForTesting static final int COMPONENT_MEDIA3_EFFECT_CONVOLUTION = 102;
+  @VisibleForTesting static final int COMPONENT_MEDIA3_EFFECT_OVERLAY = 103;
+  @VisibleForTesting static final int COMPONENT_MEDIA3_EFFECT_TEMPORAL = 104;
+  @VisibleForTesting static final int COMPONENT_MEDIA3_EFFECT_BUFFER = 105;
+  @VisibleForTesting static final int COMPONENT_MEDIA3_EFFECT_CUSTOM = 199;
+
+  @VisibleForTesting static final int COMPONENT_MEDIA3_AUDIO_SPEED_AND_PITCH = 200;
+  @VisibleForTesting static final int COMPONENT_MEDIA3_AUDIO_CHANNEL_MANIPULATION = 201;
+  @VisibleForTesting static final int COMPONENT_MEDIA3_AUDIO_TEMPORAL_TRIM = 202;
+  @VisibleForTesting static final int COMPONENT_MEDIA3_AUDIO_PROCESSOR_CUSTOM = 299;
+
+  // Quantitative Metric keys for Atom 1279.
+  @VisibleForTesting static final int METRIC_ROTATION_DEGREES = 301;
+
   private final long startTimeMs;
   private final boolean compositionHasAudioProcessors;
   private final boolean compositionHasVideoEffects;
@@ -250,9 +329,13 @@ import java.util.List;
   /**
    * Called when export completes with success.
    *
+   * @param composition The exported {@link Composition}.
    * @param exportResult The {@link ExportResult} of the export.
+   * @param isExportResumed Whether the export was resumed.
    */
-  public void onExportSuccess(ExportResult exportResult, boolean isExportResumed) {
+  public void onExportSuccess(
+      Composition composition, ExportResult exportResult, boolean isExportResumed) {
+    reportEffectMetrics(composition);
     EditingEndedEvent.Builder editingEndedEventBuilder =
         createEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_SUCCEEDED)
             .setFinalProgressPercent(SUCCESS_PROGRESS_PERCENTAGE);
@@ -277,16 +360,20 @@ import java.util.List;
   /**
    * Called when export completes with an error.
    *
+   * @param composition The exported {@link Composition}.
    * @param progressPercentage The progress of the export operation in percent. Value is {@link
    *     C#PERCENTAGE_UNSET} if unknown or between 0 and 100 inclusive.
    * @param exportException The {@link ExportException} describing the exception.
    * @param exportResult The {@link ExportResult} of the export.
+   * @param isExportResumed Whether the export was resumed.
    */
   public void onExportError(
+      Composition composition,
       int progressPercentage,
       ExportException exportException,
       ExportResult exportResult,
       boolean isExportResumed) {
+    reportEffectMetrics(composition);
     EditingEndedEvent.Builder editingEndedEventBuilder =
         createEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_ERROR)
             .setErrorCode(getEditingEndedEventErrorCode(exportException.errorCode));
@@ -314,10 +401,12 @@ import java.util.List;
   /**
    * Called when export is cancelled.
    *
+   * @param composition The exported {@link Composition}.
    * @param progressPercentage The progress of the export operation in percent. Value is {@link
    *     C#PERCENTAGE_UNSET} if unknown or between 0 and 100 inclusive.
    */
-  public void onExportCancelled(int progressPercentage) {
+  public void onExportCancelled(Composition composition, int progressPercentage) {
+    reportEffectMetrics(composition);
     EditingEndedEvent.Builder editingEndedEventBuilder =
         createEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_CANCELED);
     if (progressPercentage != C.PERCENTAGE_UNSET) {
@@ -515,5 +604,192 @@ import java.util.List;
     if (compositionHasVideoEffects) {
       editingEndedEventBuilder.addOperationType(EditingEndedEvent.OPERATION_TYPE_VIDEO_EDIT);
     }
+  }
+
+  private static final class ExtractedEffectMetrics {
+    final ImmutableList<Integer> components;
+    final ImmutableList<Integer> scopes;
+    final ImmutableList<Integer> metricKeys;
+    final ImmutableList<Long> metricValues;
+
+    ExtractedEffectMetrics(
+        ImmutableList<Integer> components,
+        ImmutableList<Integer> scopes,
+        ImmutableList<Integer> metricKeys,
+        ImmutableList<Long> metricValues) {
+      this.components = components;
+      this.scopes = scopes;
+      this.metricKeys = metricKeys;
+      this.metricValues = metricValues;
+    }
+  }
+
+  private static final class MetricEntry {
+    final int key;
+    final long value;
+
+    MetricEntry(int key, long value) {
+      this.key = key;
+      this.value = value;
+    }
+  }
+
+  /** Reports video effects and audio processors telemetry for the given {@link Composition}. */
+  private void reportEffectMetrics(Composition composition) {
+    ExtractedEffectMetrics metrics = extractEffectMetrics(composition);
+    if (metrics.components.isEmpty()) {
+      return;
+    }
+
+    PersistableBundle bundle = new PersistableBundle();
+    bundle.putString(KEY_PROCESSOR_NAME, exporterName);
+
+    int[] componentsArray = new int[metrics.components.size()];
+    int[] scopesArray = new int[metrics.scopes.size()];
+    for (int i = 0; i < metrics.components.size(); i++) {
+      componentsArray[i] = metrics.components.get(i);
+      scopesArray[i] = metrics.scopes.get(i);
+    }
+    bundle.putIntArray(KEY_COMPONENTS, componentsArray);
+    bundle.putIntArray(KEY_COMPONENT_SCOPES, scopesArray);
+
+    if (!metrics.metricKeys.isEmpty()) {
+      int[] metricsArray = new int[metrics.metricKeys.size()];
+      long[] metricValuesArray = new long[metrics.metricValues.size()];
+      for (int i = 0; i < metrics.metricKeys.size(); i++) {
+        metricsArray[i] = metrics.metricKeys.get(i);
+        metricValuesArray[i] = metrics.metricValues.get(i);
+      }
+      bundle.putIntArray(KEY_METRICS, metricsArray);
+      bundle.putLongArray(KEY_METRIC_VALUES, metricValuesArray);
+    }
+
+    metricsReporter.reportEffectMetrics(bundle);
+  }
+
+  private static ExtractedEffectMetrics extractEffectMetrics(Composition composition) {
+    ImmutableList.Builder<Integer> componentListBuilder = ImmutableList.builder();
+    ImmutableList.Builder<Integer> scopeListBuilder = ImmutableList.builder();
+    ImmutableList.Builder<Integer> metricKeyListBuilder = ImmutableList.builder();
+    ImmutableList.Builder<Long> metricValueListBuilder = ImmutableList.builder();
+
+    Set<String> processedTuples = new HashSet<>();
+
+    // Scope 0: Composition level
+    extractFromEffects(
+        composition.effects.videoEffects,
+        composition.effects.audioProcessors,
+        /* scope= */ 0,
+        componentListBuilder,
+        scopeListBuilder,
+        metricKeyListBuilder,
+        metricValueListBuilder,
+        processedTuples);
+
+    // Scope 1..N: MediaItem level
+    int itemScope = 1;
+    for (EditedMediaItemSequence sequence : composition.sequences) {
+      for (EditedMediaItem item : sequence.editedMediaItems) {
+        extractFromEffects(
+            item.effects.videoEffects,
+            item.effects.audioProcessors,
+            itemScope++,
+            componentListBuilder,
+            scopeListBuilder,
+            metricKeyListBuilder,
+            metricValueListBuilder,
+            processedTuples);
+      }
+    }
+
+    return new ExtractedEffectMetrics(
+        componentListBuilder.build(),
+        scopeListBuilder.build(),
+        metricKeyListBuilder.build(),
+        metricValueListBuilder.build());
+  }
+
+  private static void extractFromEffects(
+      List<Effect> videoEffects,
+      List<AudioProcessor> audioProcessors,
+      int scope,
+      ImmutableList.Builder<Integer> componentListBuilder,
+      ImmutableList.Builder<Integer> scopeListBuilder,
+      ImmutableList.Builder<Integer> metricKeyListBuilder,
+      ImmutableList.Builder<Long> metricValueListBuilder,
+      Set<String> processedTuples) {
+    for (Effect effect : videoEffects) {
+      if (effect instanceof TimestampWrapper) {
+        effect = ((TimestampWrapper) effect).glEffect;
+      }
+      int componentEnum = getComponentEnumForVideoEffect(effect);
+      String tupleKey = componentEnum + ":" + scope;
+      if (processedTuples.add(tupleKey)) {
+        componentListBuilder.add(componentEnum);
+        scopeListBuilder.add(scope);
+      }
+      for (MetricEntry metricEntry : extractMetricsForVideoEffect(effect)) {
+        metricKeyListBuilder.add(metricEntry.key);
+        metricValueListBuilder.add(metricEntry.value);
+      }
+    }
+    for (AudioProcessor audioProcessor : audioProcessors) {
+      int componentEnum = getComponentEnumForAudioProcessor(audioProcessor);
+      String tupleKey = componentEnum + ":" + scope;
+      if (processedTuples.add(tupleKey)) {
+        componentListBuilder.add(componentEnum);
+        scopeListBuilder.add(scope);
+      }
+    }
+  }
+
+  private static int getComponentEnumForVideoEffect(Effect effect) {
+    if (effect instanceof RgbMatrix
+        || effect instanceof ColorLut
+        || effect instanceof HslAdjustment
+        || effect instanceof AlphaScale) {
+      return COMPONENT_MEDIA3_EFFECT_COLOR;
+    } else if (effect instanceof Crop
+        || effect instanceof Presentation
+        || effect instanceof ScaleAndRotateTransformation
+        || effect instanceof LanczosResample) {
+      return COMPONENT_MEDIA3_EFFECT_SPATIAL;
+    } else if (effect instanceof SeparableConvolution || effect instanceof GaussianBlur) {
+      return COMPONENT_MEDIA3_EFFECT_CONVOLUTION;
+    } else if (effect instanceof OverlayEffect) {
+      return COMPONENT_MEDIA3_EFFECT_OVERLAY;
+    } else if (effect instanceof FrameDropEffect) {
+      return COMPONENT_MEDIA3_EFFECT_TEMPORAL;
+    } else if (effect instanceof ByteBufferGlEffect || effect instanceof FrameCache) {
+      return COMPONENT_MEDIA3_EFFECT_BUFFER;
+    } else if (effect instanceof GlEffect) {
+      return COMPONENT_MEDIA3_EFFECT_CUSTOM;
+    }
+    return COMPONENT_MEDIA3_EFFECT_CUSTOM;
+  }
+
+  private static int getComponentEnumForAudioProcessor(AudioProcessor audioProcessor) {
+    if (audioProcessor instanceof SonicAudioProcessor
+        || audioProcessor instanceof SpeedChangingAudioProcessor) {
+      return COMPONENT_MEDIA3_AUDIO_SPEED_AND_PITCH;
+    } else if (audioProcessor instanceof GainProcessor
+        || audioProcessor instanceof ChannelMixingAudioProcessor
+        || audioProcessor instanceof ChannelMappingAudioProcessor) {
+      return COMPONENT_MEDIA3_AUDIO_CHANNEL_MANIPULATION;
+    } else if (audioProcessor instanceof SilenceSkippingAudioProcessor
+        || audioProcessor instanceof TrimmingAudioProcessor) {
+      return COMPONENT_MEDIA3_AUDIO_TEMPORAL_TRIM;
+    }
+    return COMPONENT_MEDIA3_AUDIO_PROCESSOR_CUSTOM;
+  }
+
+  private static ImmutableList<MetricEntry> extractMetricsForVideoEffect(Effect effect) {
+    if (effect instanceof ScaleAndRotateTransformation) {
+      ScaleAndRotateTransformation transformation = (ScaleAndRotateTransformation) effect;
+      return ImmutableList.of(
+          new MetricEntry(
+              METRIC_ROTATION_DEGREES, (long) Math.round(transformation.rotationDegrees)));
+    }
+    return ImmutableList.of();
   }
 }

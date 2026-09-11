@@ -24,6 +24,7 @@ import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AdViewProvider;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
@@ -215,6 +216,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     liveMaxSpeed = C.RATE_UNSET;
     parseSubtitlesDuringExtraction = true;
     loadOnlySelectedTracks = true;
+    enableClippingInMediaPeriod = Flags.isEnabled(Flags.FLAG_ENABLE_CLIPPING_IN_MEDIA_PERIOD);
   }
 
   @CanIgnoreReturnValue
@@ -235,16 +237,6 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
       SubtitleParser.Factory subtitleParserFactory) {
     this.subtitleParserFactory = checkNotNull(subtitleParserFactory);
     delegateFactoryLoader.setSubtitleParserFactory(subtitleParserFactory);
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  @Override
-  @UnstableApi
-  public DefaultMediaSourceFactory experimentalSetCodecsToParseWithinGopSampleDependencies(
-      @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
-    delegateFactoryLoader.setCodecsToParseWithinGopSampleDependencies(
-        codecsToParseWithinGopSampleDependencies);
     return this;
   }
 
@@ -509,13 +501,12 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
   }
 
   /**
-   * Sets whether an experimental setting to delegate end position clipping to a wrapped {@link
-   * MediaPeriod} is enabled.
+   * Sets whether to delegate end-position clipping to {@link MediaPeriod} instances.
    *
-   * <p>The default value is {@code false}.
+   * <p>The default value is determined by {@link Flags#FLAG_ENABLE_CLIPPING_IN_MEDIA_PERIOD}.
    *
-   * @param enableClippingInMediaPeriod Whether the end clipping should be delegated to the wrapped
-   *     {@link MediaPeriod}.
+   * @param enableClippingInMediaPeriod Whether to delegate end-position clipping to {@link
+   *     MediaPeriod} instances.
    * @return This factory, for convenience.
    */
   @ExperimentalApi // TODO: b/474538573 - Remove once clipping in media period is default.
@@ -598,10 +589,9 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     List<MediaItem.SubtitleConfiguration> subtitleConfigurations =
         castNonNull(mediaItem.localConfiguration).subtitleConfigurations;
     if (!subtitleConfigurations.isEmpty()) {
-      MediaSource[] mediaSources = new MediaSource[subtitleConfigurations.size() + 1];
-      mediaSources[0] = mediaSource;
-      for (int i = 0; i < subtitleConfigurations.size(); i++) {
-        if (parseSubtitlesDuringExtraction) {
+      if (parseSubtitlesDuringExtraction) {
+        MediaSource[] subtitleMediaSources = new MediaSource[subtitleConfigurations.size()];
+        for (int i = 0; i < subtitleConfigurations.size(); i++) {
           Format format =
               new Format.Builder()
                   .setSampleMimeType(subtitleConfigurations.get(i).mimeType)
@@ -636,10 +626,17 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
           if (loadErrorHandlingPolicy != null) {
             progressiveMediaSourceFactory.setLoadErrorHandlingPolicy(loadErrorHandlingPolicy);
           }
-          mediaSources[i + 1] =
+          subtitleMediaSources[i] =
               progressiveMediaSourceFactory.createMediaSource(
                   MediaItem.fromUri(subtitleConfigurations.get(i).uri.toString()));
-        } else {
+        }
+        mediaSource =
+            new SideloadedSubtitlesMediaSource(
+                mediaSource, subtitleConfigurations, subtitleMediaSources);
+      } else {
+        MediaSource[] mediaSources = new MediaSource[subtitleConfigurations.size() + 1];
+        mediaSources[0] = mediaSource;
+        for (int i = 0; i < subtitleConfigurations.size(); i++) {
           SingleSampleMediaSource.Factory singleSampleMediaSourceFactory =
               new SingleSampleMediaSource.Factory(dataSourceFactory);
           if (loadErrorHandlingPolicy != null) {
@@ -649,9 +646,8 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
               singleSampleMediaSourceFactory.createMediaSource(
                   subtitleConfigurations.get(i), /* durationUs= */ C.TIME_UNSET);
         }
+        mediaSource = new MergingMediaSource(mediaSources);
       }
-
-      mediaSource = new MergingMediaSource(mediaSources);
     }
     return maybeWrapWithAdsMediaSource(
         mediaItem, maybeClipMediaSource(mediaItem, mediaSource, enableClippingInMediaPeriod));
@@ -716,7 +712,6 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     private DataSource.@MonotonicNonNull Factory dataSourceFactory;
     private boolean parseSubtitlesDuringExtraction;
     private SubtitleParser.Factory subtitleParserFactory;
-    private @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies;
     private boolean loadOnlySelectedTracks;
     @Nullable private CmcdConfiguration.Factory cmcdConfigurationFactory;
     @Nullable private DrmSessionManagerProvider drmSessionManagerProvider;
@@ -731,7 +726,6 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
       mediaSourceFactories = new HashMap<>();
       parseSubtitlesDuringExtraction = true;
       loadOnlySelectedTracks = true;
-      codecsToParseWithinGopSampleDependencies = C.VIDEO_CODEC_FLAG_H264 | C.VIDEO_CODEC_FLAG_H265;
     }
 
     public @C.ContentType int[] getSupportedTypes() {
@@ -763,8 +757,6 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
       }
       mediaSourceFactory.setSubtitleParserFactory(subtitleParserFactory);
       mediaSourceFactory.experimentalParseSubtitlesDuringExtraction(parseSubtitlesDuringExtraction);
-      mediaSourceFactory.experimentalSetCodecsToParseWithinGopSampleDependencies(
-          codecsToParseWithinGopSampleDependencies);
       mediaSourceFactories.put(contentType, mediaSourceFactory);
       return mediaSourceFactory;
     }
@@ -794,13 +786,6 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
       for (MediaSource.Factory mediaSourceFactory : mediaSourceFactories.values()) {
         mediaSourceFactory.setSubtitleParserFactory(subtitleParserFactory);
       }
-    }
-
-    public void setCodecsToParseWithinGopSampleDependencies(
-        @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
-      this.codecsToParseWithinGopSampleDependencies = codecsToParseWithinGopSampleDependencies;
-      extractorsFactory.experimentalSetCodecsToParseWithinGopSampleDependencies(
-          codecsToParseWithinGopSampleDependencies);
     }
 
     public void setCmcdConfigurationFactory(CmcdConfiguration.Factory cmcdConfigurationFactory) {

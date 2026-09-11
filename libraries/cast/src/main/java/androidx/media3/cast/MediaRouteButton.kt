@@ -27,7 +27,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -174,7 +173,7 @@ private fun MediaRouterState.MediaRouteControllerDialog(onDismissRequest: () -> 
 internal fun MediaRouteButtonContainer(content: @Composable MediaRouterState.() -> Unit) {
   val context = LocalContext.current
   var selector by remember { mutableStateOf(MediaRouteSelector.EMPTY) }
-  LaunchedEffect(context) {
+  DisposableEffect(context) {
     val cast = Cast.getSingletonInstance(context)
     cast.ensureInitialized(context)
     val mediaRouteSelectorListener: MediaRouteSelectorListener =
@@ -187,6 +186,7 @@ internal fun MediaRouteButtonContainer(content: @Composable MediaRouterState.() 
     if (currentSelector != null) {
       selector = currentSelector
     }
+    onDispose { cast.unregisterListener(mediaRouteSelectorListener) }
   }
   if (!selector.isEmpty) {
     rememberMediaRouterState(context, selector).content()

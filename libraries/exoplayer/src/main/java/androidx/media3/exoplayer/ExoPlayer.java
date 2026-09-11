@@ -40,6 +40,7 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
@@ -248,17 +249,6 @@ public interface ExoPlayer extends Player {
      */
     @UnstableApi public static final int DEFAULT_STUCK_SUPPRESSED_DETECTION_TIMEOUT_MS = 600_000;
 
-    /**
-     * Static override to allow stuck playing detection. If {@code false}, the provided timeouts
-     * default to {@link Integer#MAX_VALUE} instead of {@link
-     * #DEFAULT_STUCK_PLAYING_DETECTION_TIMEOUT_MS} and {@link
-     * #DEFAULT_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS}.
-     *
-     * <p>This value is experimental and will be removed in a future release.
-     */
-    @ExperimentalApi // TODO: b/443074686 - Remove once global opt-out no longer needed.
-    public static boolean experimentalEnableStuckPlayingDetection = true;
-
     /* package */ final Context context;
 
     /* package */ Clock clock;
@@ -301,10 +291,8 @@ public interface ExoPlayer extends Player {
     /* package */ boolean buildCalled;
     /* package */ boolean suppressPlaybackOnUnsuitableOutput;
     /* package */ String playerName;
-    /* package */ boolean dynamicSchedulingEnabled;
     /* package */ SuitableOutputChecker suitableOutputChecker;
     /* package */ boolean enforceAdPlaybackOnTimelineRefresh;
-    /* package */ boolean perStreamMediaProgressionEnabled;
 
     /**
      * Creates a builder.
@@ -361,7 +349,6 @@ public interface ExoPlayer extends Player {
      *   <li>{@code usePlatformDiagnostics}: {@code true}
      *   <li>{@link Clock}: {@link Clock#DEFAULT}
      *   <li>{@code playbackLooper}: {@code null} (create new thread)
-     *   <li>{@code dynamicSchedulingEnabled}: {@code true}
      * </ul>
      *
      * @param context A {@link Context}.
@@ -523,11 +510,11 @@ public interface ExoPlayer extends Player {
       detachSurfaceTimeoutMs = DEFAULT_DETACH_SURFACE_TIMEOUT_MS;
       stuckBufferingDetectionTimeoutMs = DEFAULT_STUCK_BUFFERING_DETECTION_TIMEOUT_MS;
       stuckPlayingDetectionTimeoutMs =
-          experimentalEnableStuckPlayingDetection
+          Flags.isEnabled(Flags.FLAG_ENABLE_STUCK_PLAYING_DETECTION)
               ? DEFAULT_STUCK_PLAYING_DETECTION_TIMEOUT_MS
               : Integer.MAX_VALUE;
       stuckPlayingNotEndingTimeoutMs =
-          experimentalEnableStuckPlayingDetection
+          Flags.isEnabled(Flags.FLAG_ENABLE_STUCK_PLAYING_DETECTION)
               ? DEFAULT_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS
               : Integer.MAX_VALUE;
       stuckSuppressedDetectionTimeoutMs = DEFAULT_STUCK_SUPPRESSED_DETECTION_TIMEOUT_MS;
@@ -535,7 +522,6 @@ public interface ExoPlayer extends Player {
       playerName = "";
       priority = C.PRIORITY_PLAYBACK;
       suitableOutputChecker = new DefaultSuitableOutputChecker();
-      dynamicSchedulingEnabled = true;
       enforceAdPlaybackOnTimelineRefresh = true;
     }
 
@@ -554,51 +540,6 @@ public interface ExoPlayer extends Player {
     public Builder experimentalSetForegroundModeTimeoutMs(long timeoutMs) {
       checkState(!buildCalled);
       foregroundModeTimeoutMs = timeoutMs;
-      return this;
-    }
-
-    /**
-     * Sets whether dynamic scheduling is enabled.
-     *
-     * <p>If enabled, ExoPlayer's playback loop will run as rarely as possible by scheduling work
-     * for when {@link Renderer} progress can be made.
-     *
-     * <p>If a custom {@link AudioSink} is used then it must correctly implement {@link
-     * AudioSink#getAudioTrackBufferSizeUs()} to enable dynamic scheduling for audio playback.
-     *
-     * <p>Enabled by default (value is {@code true}).
-     *
-     * <p>This method is experimental, and will be renamed or removed in a future release.
-     *
-     * @param dynamicSchedulingEnabled Whether to enable dynamic scheduling.
-     */
-    @CanIgnoreReturnValue
-    @ExperimentalApi // TODO: b/500985770 - Remove this method.
-    public Builder experimentalSetDynamicSchedulingEnabled(boolean dynamicSchedulingEnabled) {
-      checkState(!buildCalled);
-      this.dynamicSchedulingEnabled = dynamicSchedulingEnabled;
-      return this;
-    }
-
-    /**
-     * Sets whether ExoPlayer can advance its media processing on a per-stream basis.
-     *
-     * <p>The default is {@code false}.
-     *
-     * <p>If {@code false} then ExoPlayer will not start processing the next item in the playlist
-     * until it has finished with the current item. If {@code true} then ExoPlayer may enable
-     * renderers on subsequent playlist items as each finishes processing media. Enabling this
-     * feature can reduce startup latency between media items.
-     *
-     * <p>This method is experimental, and will be renamed or removed in a future release.
-     *
-     * @param perStreamMediaProgressionEnabled Whether to enable media progression per stream.
-     */
-    @CanIgnoreReturnValue
-    @ExperimentalApi // TODO: b/510217604 - Remove this method.
-    public Builder enablePerStreamMediaProgression(boolean perStreamMediaProgressionEnabled) {
-      checkState(!buildCalled);
-      this.perStreamMediaProgressionEnabled = perStreamMediaProgressionEnabled;
       return this;
     }
 
@@ -1842,23 +1783,48 @@ public interface ExoPlayer extends Player {
   int getVideoChangeFrameRateStrategy();
 
   /**
+   * Adds a listener to receive video frame metadata events.
+   *
+   * @param listener The listener to add.
+   */
+  @UnstableApi
+  void addVideoFrameMetadataListener(VideoFrameMetadataListener listener);
+
+  /**
+   * Removes a listener to receive video frame metadata events.
+   *
+   * @param listener The listener to remove.
+   */
+  @UnstableApi
+  void removeVideoFrameMetadataListener(VideoFrameMetadataListener listener);
+
+  /**
    * Sets a listener to receive video frame metadata events.
    *
-   * <p>This method is intended to be called by the same component that sets the {@link Surface}
-   * onto which video will be rendered. If using ExoPlayer's standard UI components, this method
-   * should not be called directly from application code.
+   * <p>Calling this method is equivalent to calling {@link
+   * #removeVideoFrameMetadataListener(VideoFrameMetadataListener)} for the listener previously set
+   * with this method (if any), and then calling {@link
+   * #addVideoFrameMetadataListener(VideoFrameMetadataListener)} with {@code listener} (if
+   * non-null).
    *
    * @param listener The listener.
+   * @deprecated Use {@link #addVideoFrameMetadataListener(VideoFrameMetadataListener)} and {@link
+   *     #removeVideoFrameMetadataListener(VideoFrameMetadataListener)} instead.
    */
+  @Deprecated
   @UnstableApi
   void setVideoFrameMetadataListener(VideoFrameMetadataListener listener);
 
   /**
-   * Clears the listener which receives video frame metadata events if it matches the one passed.
-   * Else does nothing.
+   * Clears the listener which receives video frame metadata events.
+   *
+   * <p>Calling this method is equivalent to calling {@link
+   * #removeVideoFrameMetadataListener(VideoFrameMetadataListener)}.
    *
    * @param listener The listener to clear.
+   * @deprecated Use {@link #removeVideoFrameMetadataListener(VideoFrameMetadataListener)} instead.
    */
+  @Deprecated
   @UnstableApi
   void clearVideoFrameMetadataListener(VideoFrameMetadataListener listener);
 

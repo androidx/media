@@ -377,10 +377,7 @@ public final class Mp4ExtractorParameterizedTest {
   private static ExtractorAsserts.ExtractorFactory getExtractorFactory(
       boolean subtitlesParsedDuringExtraction) {
     SubtitleParser.Factory subtitleParserFactory;
-    @Mp4Extractor.Flags
-    int flags =
-        Mp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES
-            | Mp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265;
+    @Mp4Extractor.Flags int flags = 0;
     if (subtitlesParsedDuringExtraction) {
       subtitleParserFactory = new DefaultSubtitleParserFactory();
     } else {

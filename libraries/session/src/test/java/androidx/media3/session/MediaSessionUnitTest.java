@@ -18,10 +18,14 @@ package androidx.media3.session;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 
+import android.app.PendingIntent;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.support.v4.media.session.PlaybackStateCompat;
 import androidx.media3.common.MediaLibraryInfo;
+import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.session.legacy.MediaSessionManager;
@@ -285,6 +289,80 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
 
     session.getPlayer().prepare();
     ShadowLooper.idleMainLooper();
+  }
+
+  @Test
+  public void setSessionActivity_updatesSessionActivity() {
+    Intent intent = new Intent("test_action");
+    PendingIntent sessionActivity =
+        PendingIntent.getActivity(
+            getApplicationContext(), /* requestCode= */ 0, intent, PendingIntent.FLAG_IMMUTABLE);
+
+    session.setSessionActivity(sessionActivity);
+    ShadowLooper.idleMainLooper();
+
+    assertThat(session.getSessionActivity()).isEqualTo(sessionActivity);
+
+    session.setSessionActivity(null);
+    ShadowLooper.idleMainLooper();
+
+    assertThat(session.getSessionActivity()).isNull();
+  }
+
+  @Test
+  public void builder_withSessionExtras_setsLegacyExtras() {
+    Bundle extras = new Bundle();
+    extras.putString("test_key", "test_value");
+    MediaSession testSession =
+        new MediaSession.Builder(
+                getApplicationContext(), new TestExoPlayerBuilder(getApplicationContext()).build())
+            .setId("session_with_extras")
+            .setSessionExtras(extras)
+            .build();
+
+    assertThat(
+            testSession
+                .getImpl()
+                .getMediaSessionLegacyStub()
+                .getLegacyExtras()
+                .getString("test_key"))
+        .isEqualTo("test_value");
+
+    testSession.release();
+  }
+
+  @SuppressWarnings("deprecation") // Using MediaSessionCompat to test platform interoperability
+  @Test
+  public void setPlaybackException_standaloneSession_setsAndClearsPlatformSessionErrorState() {
+    PlaybackException exception =
+        new PlaybackException(
+            "error_msg", /* cause= */ null, PlaybackException.ERROR_CODE_REMOTE_ERROR);
+
+    session.setPlaybackException(exception);
+    ShadowLooper.idleMainLooper();
+
+    assertThat(
+            session
+                .getImpl()
+                .getMediaSessionLegacyStub()
+                .getSessionCompat()
+                .getController()
+                .getPlaybackState()
+                .getState())
+        .isEqualTo(PlaybackStateCompat.STATE_ERROR);
+
+    session.setPlaybackException(null);
+    ShadowLooper.idleMainLooper();
+
+    assertThat(
+            session
+                .getImpl()
+                .getMediaSessionLegacyStub()
+                .getSessionCompat()
+                .getController()
+                .getPlaybackState()
+                .getState())
+        .isNotEqualTo(PlaybackStateCompat.STATE_ERROR);
   }
 
   private static MediaSession.ControllerInfo createMinimalLegacyControllerInfo(

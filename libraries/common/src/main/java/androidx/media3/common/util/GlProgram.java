@@ -68,6 +68,32 @@ public final class GlProgram {
   }
 
   /**
+   * Compiles a GL shader program from a vertex shader resource and one or more fragment shader
+   * resource IDs.
+   *
+   * <p>When multiple fragment shader resource IDs are passed, their sources are concatenated in
+   * order.
+   *
+   * @param context The {@link Context}.
+   * @param vertexShaderResId The resource ID of a vertex shader program.
+   * @param firstFragmentShaderResId The resource ID of the primary fragment shader program.
+   * @param additionalFragmentShaderResIds Optional additional resource IDs of fragment shader
+   *     programs.
+   * @throws IOException When failing to read shader files.
+   */
+  public GlProgram(
+      Context context,
+      int vertexShaderResId,
+      int firstFragmentShaderResId,
+      int... additionalFragmentShaderResIds)
+      throws IOException, GlUtil.GlException {
+    this(
+        Util.loadRawResource(context, vertexShaderResId),
+        assembleFragmentShaderSources(
+            context, firstFragmentShaderResId, additionalFragmentShaderResIds));
+  }
+
+  /**
    * Compiles a GL shader program from vertex and fragment shader GLSL GLES20 code.
    *
    * @param context The {@link Context}.
@@ -126,6 +152,16 @@ public final class GlProgram {
       uniformByName.put(uniform.name, uniform);
     }
     GlUtil.checkGlError();
+  }
+
+  private static String assembleFragmentShaderSources(
+      Context context, int firstResId, int... additionalResIds) throws IOException {
+    StringBuilder fullShader = new StringBuilder();
+    fullShader.append(Util.loadRawResource(context, firstResId)).append("\n");
+    for (int resId : additionalResIds) {
+      fullShader.append(Util.loadRawResource(context, resId)).append("\n");
+    }
+    return fullShader.toString();
   }
 
   private static void addShader(int programId, int type, String glsl) throws GlUtil.GlException {

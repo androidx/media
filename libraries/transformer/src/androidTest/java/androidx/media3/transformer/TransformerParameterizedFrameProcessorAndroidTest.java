@@ -15,7 +15,6 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.CompositionAssetInfo.MULTI_SEQUENCE_CONFIGS;
 import static androidx.media3.test.utils.CompositionAssetInfo.MULTI_SEQUENCE_VIDEO_CONFIGS;
@@ -50,15 +49,12 @@ import org.junit.runner.RunWith;
 @SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
 public final class TransformerParameterizedFrameProcessorAndroidTest {
 
-  private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 10_000;
-
   @Rule public final TestName testName;
 
   private final Context context;
 
   @Rule
-  public final GlFrameProcessorTestRule glFrameProcessorTestRule =
-      new GlFrameProcessorTestRule(TEST_TIMEOUT_MS);
+  public final GlFrameProcessorTestRule glFrameProcessorTestRule = new GlFrameProcessorTestRule();
 
   private String testId;
 

@@ -134,6 +134,29 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
   }
 
   @Test
+  public void transmux_withLocationMetadataWithAltitude_writesSameLocationMetadataWithAltitude()
+      throws Exception {
+    Mp4LocationData expectedLocationData =
+        new Mp4LocationData(/* latitude= */ 45f, /* longitude= */ -90f, /* altitude= */ 120.5f);
+    Muxer.Factory inAppMuxerFactory =
+        new InAppMp4Muxer.Factory(
+            metadataEntries -> {
+              metadataEntries.removeIf((Metadata.Entry entry) -> entry instanceof Mp4LocationData);
+              metadataEntries.add(expectedLocationData);
+            });
+    Transformer transformer =
+        new TestTransformerBuilder(context).setMuxerFactory(inAppMuxerFactory).build();
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE_PATH));
+
+    transformer.start(mediaItem, outputPath);
+    TransformerTestRunner.runLooper(transformer);
+
+    Mp4LocationData actualLocationData =
+        retrieveMetadata(context, outputPath, Mp4LocationData.class);
+    assertThat(actualLocationData).isEqualTo(expectedLocationData);
+  }
+
+  @Test
   public void transmux_withXmpData_completesSuccessfully() throws Exception {
     String xmpSampleData = "media/xmp/sample_datetime_xmp.xmp";
     byte[] xmpData = androidx.media3.test.utils.TestUtil.getByteArray(context, xmpSampleData);

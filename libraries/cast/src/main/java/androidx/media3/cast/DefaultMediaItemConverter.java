@@ -28,6 +28,7 @@ import com.google.android.gms.cast.MediaInfo;
 import com.google.android.gms.cast.MediaMetadata;
 import com.google.android.gms.cast.MediaQueueItem;
 import com.google.android.gms.common.images.WebImage;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.UUID;
@@ -91,6 +92,15 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
       }
       if (metadata.containsKey(MediaMetadata.KEY_TRACK_NUMBER)) {
         metadataBuilder.setTrackNumber(metadata.getInt(MediaMetadata.KEY_TRACK_NUMBER));
+      }
+      if (metadata.containsKey(MediaMetadata.KEY_RELEASE_DATE)) {
+        @Nullable Calendar releaseDate = metadata.getDate(MediaMetadata.KEY_RELEASE_DATE);
+        if (releaseDate != null) {
+          metadataBuilder.setReleaseYear(releaseDate.get(Calendar.YEAR));
+          // Month is 0-indexed in Calendar, but 1-indexed in MediaMetadata.
+          metadataBuilder.setReleaseMonth(releaseDate.get(Calendar.MONTH) + 1);
+          metadataBuilder.setReleaseDay(releaseDate.get(Calendar.DAY_OF_MONTH));
+        }
       }
     }
     // TODO: b/526548538 - Get rid of custom keys in media3 when equivalent CastSDK fields are
@@ -167,6 +177,18 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
     }
     if (mediaItem.mediaMetadata.trackNumber != null) {
       metadata.putInt(MediaMetadata.KEY_TRACK_NUMBER, mediaItem.mediaMetadata.trackNumber);
+    }
+    if (mediaItem.mediaMetadata.releaseYear != null) {
+      Calendar calendar = Calendar.getInstance();
+      calendar.clear();
+      calendar.set(
+          mediaItem.mediaMetadata.releaseYear,
+          mediaItem.mediaMetadata.releaseMonth != null
+              // Month is 0-indexed in Calendar.
+              ? mediaItem.mediaMetadata.releaseMonth - 1
+              : 0,
+          mediaItem.mediaMetadata.releaseDay != null ? mediaItem.mediaMetadata.releaseDay : 1);
+      metadata.putDate(MediaMetadata.KEY_RELEASE_DATE, calendar);
     }
     String contentUrl = mediaItem.localConfiguration.uri.toString();
     String contentId =

@@ -25,6 +25,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
+import androidx.media3.exoplayer.dash.manifest.BaseUrl;
 import androidx.media3.exoplayer.dash.manifest.DashManifest;
 import androidx.media3.exoplayer.dash.manifest.DashManifestParser;
 import androidx.media3.exoplayer.dash.manifest.Period;
@@ -49,16 +50,38 @@ import java.util.Map;
 public final class DashUtil {
 
   /**
-   * Builds a {@link DataSpec} for a given {@link RangedUri} belonging to {@link Representation}.
+   * Builds a {@link DataSpec} for a given {@link RangedUri} belonging to {@link Representation} and
+   * {@link BaseUrl}.
    *
    * @param representation The {@link Representation} to which the request belongs.
-   * @param baseUrl The base url with which to resolve the request URI.
+   * @param baseUrl The {@link BaseUrl} to which the request belongs.
    * @param requestUri The {@link RangedUri} of the data to request.
    * @param flags Flags to be set on the returned {@link DataSpec}. See {@link
    *     DataSpec.Builder#setFlags(int)}.
    * @param httpRequestHeaders The {@link DataSpec#httpRequestHeaders}.
    * @return The {@link DataSpec}.
    */
+  public static DataSpec buildDataSpec(
+      Representation representation,
+      BaseUrl baseUrl,
+      RangedUri requestUri,
+      int flags,
+      Map<String, String> httpRequestHeaders) {
+    return new DataSpec.Builder()
+        .setUri(requestUri.resolveUri(baseUrl.url))
+        .setLocation(baseUrl.serviceLocation)
+        .setPosition(requestUri.start)
+        .setLength(requestUri.length)
+        .setKey(resolveCacheKey(representation, requestUri))
+        .setFlags(flags)
+        .setHttpRequestHeaders(httpRequestHeaders)
+        .build();
+  }
+
+  /**
+   * @deprecated Use {@link #buildDataSpec(Representation, BaseUrl, RangedUri, int, Map)} instead.
+   */
+  @Deprecated
   public static DataSpec buildDataSpec(
       Representation representation,
       String baseUrl,
@@ -73,30 +96,6 @@ public final class DashUtil {
         .setFlags(flags)
         .setHttpRequestHeaders(httpRequestHeaders)
         .build();
-  }
-
-  /**
-   * @deprecated Use {@link #buildDataSpec(Representation, String, RangedUri, int, Map)} instead.
-   */
-  @Deprecated
-  public static DataSpec buildDataSpec(
-      Representation representation, String baseUrl, RangedUri requestUri, int flags) {
-    return buildDataSpec(
-        representation, baseUrl, requestUri, flags, /* httpRequestHeaders= */ ImmutableMap.of());
-  }
-
-  /**
-   * @deprecated Use {@link #buildDataSpec(Representation, String, RangedUri, int, Map)} instead.
-   */
-  @Deprecated
-  public static DataSpec buildDataSpec(
-      Representation representation, RangedUri requestUri, int flags) {
-    return buildDataSpec(
-        representation,
-        representation.baseUrls.get(0).url,
-        requestUri,
-        flags,
-        /* httpRequestHeaders= */ ImmutableMap.of());
   }
 
   /**
@@ -308,7 +307,7 @@ public final class DashUtil {
     DataSpec dataSpec =
         DashUtil.buildDataSpec(
             representation,
-            representation.baseUrls.get(baseUrlIndex).url,
+            representation.baseUrls.get(baseUrlIndex),
             requestUri,
             /* flags= */ 0,
             /* httpRequestHeaders= */ ImmutableMap.of());

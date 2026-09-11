@@ -26,6 +26,7 @@ import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.view.Surface;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -34,8 +35,10 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.FilteringMediaSource;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.MergingMediaSource;
+import androidx.media3.test.utils.BindFlag;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
@@ -90,11 +93,14 @@ public final class MergingPlaylistPlaybackTest {
 
   // TODO: b/510217604 - Remove parameterization.
   @ParameterizedRobolectricTestRunner.Parameter(5)
+  @BindFlag(Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION)
   public Boolean perStreamMediaProgressionEnabled;
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
       ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
+
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
 
   @Test
   public void transitionBetweenDifferentMergeConfigurations() throws Exception {
@@ -105,7 +111,6 @@ public final class MergingPlaylistPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Player.Listener listener = mock(Player.Listener.class);
     player.addListener(listener);
@@ -153,7 +158,6 @@ public final class MergingPlaylistPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
-            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Player.Listener listener = mock(Player.Listener.class);
     player.addListener(listener);

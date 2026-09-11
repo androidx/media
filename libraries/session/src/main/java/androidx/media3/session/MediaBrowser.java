@@ -50,6 +50,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /**
  * Browses media content offered by a {@link MediaLibraryService} in addition to the {@link
  * MediaController} functions.
+ *
+ * <h2 id="BackwardCompatibility">Backward interoperability</h2>
+ *
+ * <p>The browser is backwards-compatible when connected to a legacy {@code
+ * androidx.media.MediaBrowserServiceCompat} or {@code android.service.media.MediaBrowserService}
+ * (unless otherwise stated).
  */
 public final class MediaBrowser extends MediaController {
 

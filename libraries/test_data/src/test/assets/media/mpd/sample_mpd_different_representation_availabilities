@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011"
+     type="static" mediaPresentationDuration="PT60S" minBufferTime="PT2S">
+  <Period id="p0" duration="PT60S">
+    <AdaptationSet id="1" contentType="video" mimeType="video/mp4" segmentAlignment="true">
+      <Representation id="v1" bandwidth="2000000" width="1920" height="1080" codecs="avc1.4d401f">
+        <SegmentTemplate timescale="1000" initialization="v1-init.mp4" media="v1-$Time$.mp4">
+          <SegmentTimeline>
+            <S t="0" d="2000" r="29" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+      <Representation id="v2" bandwidth="1000000" width="1280" height="720" codecs="avc1.4d401f">
+        <SegmentTemplate timescale="90000" initialization="v2-init.mp4" media="v2-$Time$.mp4">
+          <SegmentTimeline>
+            <S t="900" d="180000" r="29" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+    <AdaptationSet id="2" contentType="audio" mimeType="audio/mp4" lang="en" segmentAlignment="true">
+      <Representation id="a1" bandwidth="128000" audioSamplingRate="48000" codecs="mp4a.40.2">
+        <SegmentTemplate timescale="48000" initialization="a1-init.mp4" media="a1-$Time$.mp4">
+          <SegmentTimeline>
+            <S t="0" d="96000" r="28" />
+            <S d="95040" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+      <Representation id="a2" bandwidth="192000" audioSamplingRate="44100" codecs="mp4a.40.2">
+        <SegmentTemplate timescale="44100" initialization="a2-init.mp4" media="a2-$Time$.mp4">
+          <SegmentTimeline>
+            <S t="2205" d="88200" r="28" />
+            <S d="87318" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>

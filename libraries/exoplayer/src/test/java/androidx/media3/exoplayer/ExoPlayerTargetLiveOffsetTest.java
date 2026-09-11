@@ -27,6 +27,7 @@ import android.content.Context;
 import android.net.Uri;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
@@ -37,12 +38,14 @@ import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -50,10 +53,13 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public final class ExoPlayerTargetLiveOffsetTest {
 
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
+
   private Context context;
 
   @Before
   public void setUp() {
+    Flags.disableFlag(Flags.FLAG_DYNAMIC_SCHEDULING);
     context = ApplicationProvider.getApplicationContext();
   }
 

@@ -17,19 +17,32 @@ package androidx.media3.transformer;
 
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
+import static androidx.media3.transformer.TransformerUtil.END_OF_STREAM_ASYNC_FRAME;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.graphics.Bitmap;
+import android.graphics.Gainmap;
 import android.graphics.ImageFormat;
+import android.hardware.HardwareBuffer;
 import android.os.HandlerThread;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ConstantRateTimestampIterator;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.Util;
+import androidx.media3.common.video.AsyncFrame;
+import androidx.media3.common.video.Frame;
 import androidx.media3.effect.HardwareBufferFrame;
+import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.transformer.HardwareBufferFrameReader.RendererWakeupListener;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -41,6 +54,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 
 /** Robolectric tests for {@link HardwareBufferFrameReader}. */
 @RunWith(AndroidJUnit4.class)
@@ -73,7 +87,8 @@ public class HardwareBufferFrameReaderTest {
             /* defaultSurfacePixelFormat= */ ImageFormat.YUV_420_888,
             new DefaultImageReaderAdapter.Factory(),
             /* listener= */ e -> hardwareBufferFrameReaderException.set(e),
-            SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null));
+            SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null),
+            /* hardwareBufferJniWrapper= */ null);
   }
 
   @After
@@ -374,5 +389,208 @@ public class HardwareBufferFrameReaderTest {
     assertThat(receivedFrames.get(0).presentationTimeUs).isEqualTo(0);
     assertThat(receivedFrames.get(1).presentationTimeUs).isEqualTo(33_333);
     assertThat(hardwareBufferFrameReaderException.get()).isNull();
+  }
+
+  @Test
+  public void outputBitmap_withSdrBitmap_outputsImageRawFormatWithSdrColorTransfer() {
+    Bitmap bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+    TimestampIterator singleFrame =
+        new ConstantRateTimestampIterator(/* durationUs= */ 1_000, /* frameRate= */ 1f);
+
+    hardwareBufferFrameReader.outputBitmap(
+        bitmap,
+        /* timestampIterator= */ singleFrame,
+        /* sequenceOffsetUs= */ 0,
+        /* indexOfItem= */ 0);
+
+    assertThat(receivedFrames).hasSize(1);
+    Format format = receivedFrames.get(0).format;
+    assertThat(format.sampleMimeType).isEqualTo(MimeTypes.IMAGE_RAW);
+    assertThat(format.colorInfo).isNotNull();
+    assertThat(format.colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_SDR);
+    assertThat(hardwareBufferFrameReaderException.get()).isNull();
+  }
+
+  @Config(sdk = 34)
+  @Test
+  public void outputBitmap_withUltraHdrBitmap_outputsImageJpegRFormatWithSrgbColorTransfer() {
+    Bitmap bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+    Bitmap gainmapBitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ALPHA_8);
+    Gainmap gainmap = new Gainmap(gainmapBitmap);
+    bitmap.setGainmap(gainmap);
+    TimestampIterator singleFrame =
+        new ConstantRateTimestampIterator(/* durationUs= */ 1_000, /* frameRate= */ 1f);
+
+    hardwareBufferFrameReader.outputBitmap(
+        bitmap,
+        /* timestampIterator= */ singleFrame,
+        /* sequenceOffsetUs= */ 0,
+        /* indexOfItem= */ 0);
+
+    assertThat(receivedFrames).hasSize(1);
+    Format format = receivedFrames.get(0).format;
+    assertThat(format.sampleMimeType).isEqualTo(MimeTypes.IMAGE_JPEG_R);
+    assertThat(format.colorInfo).isNotNull();
+    assertThat(format.colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_SRGB);
+    assertThat(format.colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_BT709);
+    assertThat(format.colorInfo.colorRange).isEqualTo(C.COLOR_RANGE_FULL);
+    assertThat(hardwareBufferFrameReaderException.get()).isNull();
+  }
+
+  @Test
+  public void
+      outputBitmap_withBitmapToHardwareBufferConverter_reusesHardwareBufferForRepeatedBitmap() {
+    HardwareBufferJniWrapper mockJniWrapper = mock(HardwareBufferJniWrapper.class);
+    when(mockJniWrapper.nativeCopyBitmapToHardwareBuffer(any(), any())).thenReturn(true);
+
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)).build();
+    Composition composition =
+        new Composition.Builder(withAudioFrom(ImmutableList.of(editedMediaItem))).build();
+    List<HardwareBufferFrame> frames = new ArrayList<>();
+    HardwareBufferFrameReader frameReader =
+        new HardwareBufferFrameReader(
+            composition,
+            /* sequenceIndex= */ 0,
+            /* frameConsumer= */ frames::add,
+            handlerThread.getLooper(),
+            /* defaultSurfacePixelFormat= */ ImageFormat.YUV_420_888,
+            new DefaultImageReaderAdapter.Factory(),
+            /* listener= */ e -> hardwareBufferFrameReaderException.set(e),
+            SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null),
+            mockJniWrapper);
+
+    TimestampIterator thirtyFrames =
+        new ConstantRateTimestampIterator(/* durationUs= */ 1_000_000, /* frameRate= */ 30f);
+    Bitmap bitmap = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888);
+
+    frameReader.outputBitmap(bitmap, thirtyFrames, /* sequenceOffsetUs= */ 0, /* indexOfItem= */ 0);
+
+    assertThat(frames).hasSize(2);
+    assertThat(frames.get(0).hardwareBuffer).isNotNull();
+    assertThat(frames.get(1).hardwareBuffer).isNotNull();
+    assertThat(frames.get(0).hardwareBuffer).isSameInstanceAs(frames.get(1).hardwareBuffer);
+    assertThat(frames.get(0).internalFrame).isSameInstanceAs(bitmap);
+    assertThat(frames.get(1).internalFrame).isSameInstanceAs(bitmap);
+    assertThat(frames.get(0).presentationTimeUs).isEqualTo(0);
+    assertThat(frames.get(0).sequencePresentationTimeUs).isEqualTo(0);
+    assertThat(frames.get(1).presentationTimeUs).isEqualTo(33_333);
+    assertThat(frames.get(1).sequencePresentationTimeUs).isEqualTo(33_333);
+
+    frames.get(0).release(/* releaseFence= */ null);
+    shadowOf(handlerThread.getLooper()).idle();
+
+    assertThat(frames).hasSize(3);
+    assertThat(frames.get(2).hardwareBuffer).isSameInstanceAs(frames.get(0).hardwareBuffer);
+    assertThat(frames.get(2).internalFrame).isSameInstanceAs(bitmap);
+    assertThat(frames.get(2).presentationTimeUs).isEqualTo(66_667);
+    assertThat(frames.get(2).sequencePresentationTimeUs).isEqualTo(66_667);
+    assertThat(hardwareBufferFrameReaderException.get()).isNull();
+
+    frames.get(1).release(/* releaseFence= */ null);
+    frames.get(2).release(/* releaseFence= */ null);
+    frameReader.release();
+  }
+
+  @Test
+  public void outputBitmap_withConverterAndDifferentBitmap_createsNewHardwareBuffer() {
+    HardwareBufferJniWrapper mockJniWrapper = mock(HardwareBufferJniWrapper.class);
+    when(mockJniWrapper.nativeCopyBitmapToHardwareBuffer(any(), any())).thenReturn(true);
+
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)).build();
+    Composition composition =
+        new Composition.Builder(withAudioFrom(ImmutableList.of(editedMediaItem))).build();
+    List<HardwareBufferFrame> frames = new ArrayList<>();
+    HardwareBufferFrameReader frameReader =
+        new HardwareBufferFrameReader(
+            composition,
+            /* sequenceIndex= */ 0,
+            /* frameConsumer= */ frames::add,
+            handlerThread.getLooper(),
+            /* defaultSurfacePixelFormat= */ ImageFormat.YUV_420_888,
+            new DefaultImageReaderAdapter.Factory(),
+            /* listener= */ e -> hardwareBufferFrameReaderException.set(e),
+            SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null),
+            mockJniWrapper);
+
+    TimestampIterator singleFrame1 =
+        new ConstantRateTimestampIterator(/* durationUs= */ 1_000, /* frameRate= */ 1f);
+    TimestampIterator singleFrame2 =
+        new ConstantRateTimestampIterator(/* durationUs= */ 1_000, /* frameRate= */ 1f);
+    Bitmap bitmap1 = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888);
+    Bitmap bitmap2 = Bitmap.createBitmap(20, 20, Bitmap.Config.ARGB_8888);
+
+    frameReader.outputBitmap(
+        bitmap1, singleFrame1, /* sequenceOffsetUs= */ 0, /* indexOfItem= */ 0);
+    frameReader.outputBitmap(
+        bitmap2, singleFrame2, /* sequenceOffsetUs= */ 1_000, /* indexOfItem= */ 1);
+
+    assertThat(frames).hasSize(2);
+    assertThat(frames.get(0).hardwareBuffer).isNotNull();
+    assertThat(frames.get(1).hardwareBuffer).isNotNull();
+    assertThat(frames.get(0).hardwareBuffer).isNotSameInstanceAs(frames.get(1).hardwareBuffer);
+
+    frameReader.release();
+  }
+
+  @Test
+  public void toAsyncFrame_withEndOfStreamFrame_returnsEndOfStreamAsyncFrame() {
+    assertThat(HardwareBufferFrameReader.toAsyncFrame(HardwareBufferFrame.END_OF_STREAM_FRAME))
+        .isSameInstanceAs(END_OF_STREAM_ASYNC_FRAME);
+  }
+
+  @Test
+  public void toAsyncFrame_withNullHardwareBuffer_throwsNullPointerException() {
+    HardwareBufferFrame effectFrame =
+        new HardwareBufferFrame.Builder(
+                /* hardwareBuffer= */ null,
+                directExecutor(),
+                /* releaseCallback= */ releaseFence -> {})
+            .setInternalFrame(
+                Bitmap.createBitmap(/* width= */ 16, /* height= */ 16, Bitmap.Config.ARGB_8888))
+            .build();
+    assertThrows(
+        NullPointerException.class, () -> HardwareBufferFrameReader.toAsyncFrame(effectFrame));
+  }
+
+  @Test
+  @SuppressWarnings("deprecation") // Creates deprecated CompositionFrameMetadata.
+  public void toAsyncFrame_withValidFrame_createsAsyncFrameWithoutOriginalEffectFrame() {
+    HardwareBuffer hardwareBuffer =
+        HardwareBuffer.create(
+            /* width= */ 16,
+            /* height= */ 16,
+            /* format= */ HardwareBuffer.RGBA_8888,
+            /* layers= */ 1,
+            /* usage= */ 0);
+    try {
+      EditedMediaItem editedMediaItem =
+          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)).build();
+      EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem));
+      Composition composition = new Composition.Builder(sequence).build();
+      CompositionFrameMetadata compositionFrameMetadata =
+          new CompositionFrameMetadata(composition, /* sequenceIndex= */ 0, /* itemIndex= */ 0);
+      HardwareBufferFrame effectFrame =
+          new HardwareBufferFrame.Builder(
+                  hardwareBuffer, directExecutor(), /* releaseCallback= */ releaseFence -> {})
+              .setPresentationTimeUs(100_000L)
+              .setSequencePresentationTimeUs(120_000L)
+              .setReleaseTimeNs(500_000L)
+              .setMetadata(compositionFrameMetadata)
+              .build();
+
+      AsyncFrame asyncFrame = HardwareBufferFrameReader.toAsyncFrame(effectFrame);
+
+      assertThat(asyncFrame.frame.getContentTimeUs()).isEqualTo(120_000L);
+      assertThat(asyncFrame.frame.getMetadata())
+          .containsEntry(Frame.KEY_PRESENTATION_TIME_US, 100_000L);
+      assertThat(asyncFrame.frame.getMetadata()).containsEntry(Frame.KEY_DISPLAY_TIME_NS, 500_000L);
+      assertThat(asyncFrame.frame.getMetadata())
+          .containsEntry(
+              CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA, compositionFrameMetadata);
+    } finally {
+      hardwareBuffer.close();
+    }
   }
 }

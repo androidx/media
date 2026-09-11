@@ -65,6 +65,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.C.TrackType;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.Effect;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.IllegalSeekPositionException;
 import androidx.media3.common.MediaItem;
@@ -230,6 +231,8 @@ import java.util.function.IntConsumer;
   private float unmuteVolume;
   private boolean skipSilenceEnabled;
   private CueGroup currentCueGroup;
+  // TODO(b/552972009): Remove when deprecated set/clearVideoFrameMetadataListener methods are
+  // removed.
   @Nullable private VideoFrameMetadataListener videoFrameMetadataListener;
   @Nullable private CameraMotionListener cameraMotionListener;
   private boolean throwsWhenUsingWrongThread;
@@ -269,7 +272,8 @@ import java.util.function.IntConsumer;
               + MediaLibraryInfo.VERSION_SLASHY
               + "] ["
               + Util.DEVICE_DEBUG_INFO
-              + "]");
+              + "] "
+              + Flags.getLogString());
       applicationContext = builder.context.getApplicationContext();
       analyticsCollector = builder.analyticsCollectorFunction.apply(builder.clock);
       priority = builder.priority;
@@ -394,8 +398,6 @@ import java.util.function.IntConsumer;
               builder.livePlaybackSpeedControl,
               builder.releaseTimeoutMs,
               pauseAtEndOfMediaItems,
-              builder.dynamicSchedulingEnabled,
-              builder.perStreamMediaProgressionEnabled,
               applicationLooper,
               clock,
               playbackInfoUpdateListener,
@@ -1893,25 +1895,43 @@ import java.util.function.IntConsumer;
   }
 
   @Override
-  public void setVideoFrameMetadataListener(VideoFrameMetadataListener listener) {
+  public void addVideoFrameMetadataListener(VideoFrameMetadataListener listener) {
     verifyApplicationThread();
-    videoFrameMetadataListener = listener;
     createMessageInternal(frameMetadataListener)
-        .setType(FrameMetadataListener.MSG_SET_VIDEO_FRAME_METADATA_LISTENER)
+        .setType(FrameMetadataListener.MSG_ADD_VIDEO_FRAME_METADATA_LISTENER)
+        .setPayload(checkNotNull(listener))
+        .send();
+  }
+
+  @Override
+  public void removeVideoFrameMetadataListener(VideoFrameMetadataListener listener) {
+    verifyApplicationThread();
+    if (Objects.equals(videoFrameMetadataListener, checkNotNull(listener))) {
+      videoFrameMetadataListener = null;
+    }
+    createMessageInternal(frameMetadataListener)
+        .setType(FrameMetadataListener.MSG_REMOVE_VIDEO_FRAME_METADATA_LISTENER)
         .setPayload(listener)
         .send();
   }
 
   @Override
-  public void clearVideoFrameMetadataListener(VideoFrameMetadataListener listener) {
+  @Deprecated
+  public void setVideoFrameMetadataListener(VideoFrameMetadataListener listener) {
     verifyApplicationThread();
-    if (videoFrameMetadataListener != listener) {
-      return;
+    if (videoFrameMetadataListener != null) {
+      removeVideoFrameMetadataListener(videoFrameMetadataListener);
     }
-    createMessageInternal(frameMetadataListener)
-        .setType(FrameMetadataListener.MSG_SET_VIDEO_FRAME_METADATA_LISTENER)
-        .setPayload(null)
-        .send();
+    videoFrameMetadataListener = listener;
+    if (listener != null) {
+      addVideoFrameMetadataListener(listener);
+    }
+  }
+
+  @Override
+  @Deprecated
+  public void clearVideoFrameMetadataListener(VideoFrameMetadataListener listener) {
+    removeVideoFrameMetadataListener(listener);
   }
 
   @Override
@@ -3704,24 +3724,32 @@ import java.util.function.IntConsumer;
   private static final class FrameMetadataListener
       implements VideoFrameMetadataListener, CameraMotionListener, PlayerMessage.Target {
 
-    public static final @MessageType int MSG_SET_VIDEO_FRAME_METADATA_LISTENER =
-        Renderer.MSG_SET_VIDEO_FRAME_METADATA_LISTENER;
-
     public static final @MessageType int MSG_SET_CAMERA_MOTION_LISTENER =
         Renderer.MSG_SET_CAMERA_MOTION_LISTENER;
 
     public static final @MessageType int MSG_SET_SPHERICAL_SURFACE_VIEW = Renderer.MSG_CUSTOM_BASE;
+    private static final @MessageType int MSG_ADD_VIDEO_FRAME_METADATA_LISTENER =
+        Renderer.MSG_CUSTOM_BASE + 1;
+    private static final @MessageType int MSG_REMOVE_VIDEO_FRAME_METADATA_LISTENER =
+        Renderer.MSG_CUSTOM_BASE + 2;
 
-    @Nullable private VideoFrameMetadataListener videoFrameMetadataListener;
+    private final CopyOnWriteArraySet<VideoFrameMetadataListener> videoFrameMetadataListeners;
     @Nullable private CameraMotionListener cameraMotionListener;
     @Nullable private VideoFrameMetadataListener internalVideoFrameMetadataListener;
     @Nullable private CameraMotionListener internalCameraMotionListener;
 
+    private FrameMetadataListener() {
+      videoFrameMetadataListeners = new CopyOnWriteArraySet<>();
+    }
+
     @Override
     public void handleMessage(@MessageType int messageType, @Nullable Object message) {
       switch (messageType) {
-        case MSG_SET_VIDEO_FRAME_METADATA_LISTENER:
-          videoFrameMetadataListener = (VideoFrameMetadataListener) message;
+        case MSG_ADD_VIDEO_FRAME_METADATA_LISTENER:
+          videoFrameMetadataListeners.add((VideoFrameMetadataListener) checkNotNull(message));
+          break;
+        case MSG_REMOVE_VIDEO_FRAME_METADATA_LISTENER:
+          videoFrameMetadataListeners.remove(message);
           break;
         case MSG_SET_CAMERA_MOTION_LISTENER:
           cameraMotionListener = (CameraMotionListener) message;
@@ -3762,8 +3790,8 @@ import java.util.function.IntConsumer;
         internalVideoFrameMetadataListener.onVideoFrameAboutToBeRendered(
             presentationTimeUs, releaseTimeNs, format, mediaFormat);
       }
-      if (videoFrameMetadataListener != null) {
-        videoFrameMetadataListener.onVideoFrameAboutToBeRendered(
+      for (VideoFrameMetadataListener listener : videoFrameMetadataListeners) {
+        listener.onVideoFrameAboutToBeRendered(
             presentationTimeUs, releaseTimeNs, format, mediaFormat);
       }
     }

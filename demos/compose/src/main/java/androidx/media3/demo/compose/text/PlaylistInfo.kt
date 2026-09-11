@@ -21,6 +21,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -35,7 +36,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.C
 import androidx.media3.common.Player
+import androidx.media3.common.util.BitmapLoader
 import androidx.media3.common.util.Util
+import androidx.media3.ui.compose.Artwork
 import androidx.media3.ui.compose.state.PlaylistState
 import androidx.media3.ui.compose.state.rememberPlaylistState
 
@@ -45,6 +48,7 @@ internal fun PlaylistInfoBottomSheet(
   player: Player?,
   onDismissRequest: () -> Unit,
   modifier: Modifier = Modifier,
+  bitmapLoader: BitmapLoader? = null,
 ) {
   val playlistState = rememberPlaylistState(player)
   ModalBottomSheet(
@@ -55,16 +59,21 @@ internal fun PlaylistInfoBottomSheet(
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
       PlaylistTitle(playlistState)
       PlaylistStats(playlistState)
-      PlaylistAsCards(playlistState, onDismissRequest)
+      PlaylistAsCards(playlistState, onDismissRequest, bitmapLoader)
     }
   }
 }
 
 @Composable
-private fun PlaylistAsCards(playlistState: PlaylistState, onDismissRequest: () -> Unit) {
+private fun PlaylistAsCards(
+  playlistState: PlaylistState,
+  onDismissRequest: () -> Unit,
+  bitmapLoader: BitmapLoader? = null,
+) {
   LazyColumn(horizontalAlignment = Alignment.CenterHorizontally) {
     items(playlistState.mediaItemCount) { index ->
       val chosen = index == playlistState.currentMediaItemIndex
+      val meta = playlistState.getMediaItemAt(index).mediaMetadata
       Card(
         shape = RoundedCornerShape(4.dp),
         border = BorderStroke(6.dp, MaterialTheme.colorScheme.inversePrimary).takeIf { chosen },
@@ -81,7 +90,17 @@ private fun PlaylistAsCards(playlistState: PlaylistState, onDismissRequest: () -
             onDismissRequest()
           },
       ) {
-        CurrentItemInfo(playlistState.getMediaItemAt(index).mediaMetadata, Modifier.padding(16.dp))
+        CurrentItemInfo(
+          meta = meta,
+          modifier = Modifier.padding(16.dp),
+          artwork = {
+            Artwork(
+              metadata = meta,
+              modifier = Modifier.padding(end = 16.dp).size(64.dp),
+              bitmapLoader = bitmapLoader,
+            )
+          },
+        )
       }
     }
   }

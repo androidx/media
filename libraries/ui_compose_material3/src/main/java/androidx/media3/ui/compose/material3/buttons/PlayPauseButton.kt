@@ -16,9 +16,12 @@
 
 package androidx.media3.ui.compose.material3.buttons
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButtonColors
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
@@ -26,12 +29,17 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.buttons.PlayPauseButton as PlayPauseStateContainer
 import androidx.media3.ui.compose.material3.PlayerTokens
 import androidx.media3.ui.compose.material3.R
+import androidx.media3.ui.compose.state.DisplayMode
 import androidx.media3.ui.compose.state.PlayPauseButtonState
+import androidx.media3.ui.compose.state.SHOW_BUFFERING_ALWAYS
+import androidx.media3.ui.compose.state.SHOW_REPLAY_ON_ENDED
+import androidx.media3.ui.compose.state.SHOW_RETRY_ON_ERROR
 
 /**
  * A Material3 [IconButton][androidx.compose.material3.IconButton] that plays or pauses the current
@@ -42,14 +50,17 @@ import androidx.media3.ui.compose.state.PlayPauseButtonState
  * [PlayPauseButtonState] instance derived from the provided [player].
  *
  * @param player The [Player] to control.
- * @param modifier The [Modifier] to be applied to the button.
+ * @param modifier The [Modifier] to be applied to the button container.
+ * @param displayMode The [DisplayMode] determining under which conditions buffering, replay, or
+ *   retry indicators should be shown. Defaults to [SHOW_BUFFERING_ALWAYS] combined with
+ *   [SHOW_REPLAY_ON_ENDED] and [SHOW_RETRY_ON_ERROR].
  * @param painter The supplier for [Painter] used for the icon displayed on the button. This is a
  *   composable lambda with [PlayPauseButtonState] as its receiver, allowing the icon to be updated
  *   based on the button's current state (e.g., [PlayPauseButtonState.showPlay]).
  * @param iconSize The size of the icon.
  * @param contentDescription The content description for accessibility purposes.
  * @param colors [IconButtonColors] that will be used to resolve the colors used for this icon
- *   button in different states. See [IconButtonDefaults.iconButtonColors].
+ *   button and buffering indicator. See [IconButtonDefaults.iconButtonColors].
  * @param tint Tint to be applied to [painter]. If [Color.Unspecified] is provided, then no tint is
  *   applied.
  * @param onClick The action to be performed when the button is clicked. This lambda has
@@ -67,6 +78,8 @@ import androidx.media3.ui.compose.state.PlayPauseButtonState
 fun PlayPauseButton(
   player: Player?,
   modifier: Modifier = Modifier,
+  displayMode: @DisplayMode Int =
+    SHOW_BUFFERING_ALWAYS or SHOW_REPLAY_ON_ENDED or SHOW_RETRY_ON_ERROR,
   painter: @Composable PlayPauseButtonState.() -> Painter = defaultPlayPausePainterIcon,
   iconSize: Dp = PlayerTokens.MediumIconSize,
   contentDescription: @Composable PlayPauseButtonState.() -> String =
@@ -79,17 +92,26 @@ fun PlayPauseButton(
   // This avoids shadowing the PlayPauseButtonState's onClick() *member function*
   // inside the PlayPauseStateContainer's lambda.
   val customOnClick: PlayPauseButtonState.() -> Unit = onClick
-  PlayPauseStateContainer(player) {
-    ClickableIconButton(
-      modifier,
-      isEnabled,
-      icon = painter(),
-      contentDescription = contentDescription(),
-      iconSize = iconSize,
-      colors = colors,
-      tint = tint,
-      onClick = { customOnClick() },
-    )
+  PlayPauseStateContainer(player, displayMode) {
+    Box(contentAlignment = Alignment.Center) {
+      if (showBuffering) {
+        CircularProgressIndicator(
+          modifier = Modifier.matchParentSize(),
+          color = if (isEnabled) colors.contentColor else colors.disabledContentColor,
+          strokeWidth = 3.dp,
+        )
+      }
+      ClickableIconButton(
+        modifier = modifier,
+        enabled = isEnabled,
+        icon = painter(),
+        contentDescription = contentDescription(),
+        iconSize = iconSize,
+        colors = colors,
+        tint = tint,
+        onClick = { customOnClick() },
+      )
+    }
   }
 }
 
@@ -102,14 +124,17 @@ fun PlayPauseButton(
  * [PlayPauseButtonState] instance derived from the provided [player].
  *
  * @param player The [Player] to control.
- * @param modifier The [Modifier] to be applied to the button.
+ * @param modifier The [Modifier] to be applied to the button container.
+ * @param displayMode The [DisplayMode] determining under which conditions buffering, replay, or
+ *   retry indicators should be shown. Defaults to [SHOW_BUFFERING_ALWAYS] combined with
+ *   [SHOW_REPLAY_ON_ENDED] and [SHOW_RETRY_ON_ERROR].
  * @param imageVector The supplier for [ImageVector] used for the icon displayed on the button. This
  *   is a composable lambda with [PlayPauseButtonState] as its receiver, allowing the icon to be
  *   updated based on the button's current state (e.g., [PlayPauseButtonState.showPlay]).
  * @param iconSize The size of the icon.
  * @param contentDescription The content description for accessibility purposes.
  * @param colors [IconButtonColors] that will be used to resolve the colors used for this icon
- *   button in different states. See [IconButtonDefaults.iconButtonColors].
+ *   button and buffering indicator. See [IconButtonDefaults.iconButtonColors].
  * @param tint Tint to be applied to [imageVector]. If [Color.Unspecified] is provided, then no tint
  *   is applied.
  * @param onClick The action to be performed when the button is clicked. This lambda has
@@ -128,6 +153,8 @@ fun PlayPauseButton(
 fun PlayPauseButton(
   player: Player?,
   modifier: Modifier = Modifier,
+  displayMode: @DisplayMode Int =
+    SHOW_BUFFERING_ALWAYS or SHOW_REPLAY_ON_ENDED or SHOW_RETRY_ON_ERROR,
   imageVector: PlayPauseButtonState.() -> ImageVector,
   iconSize: Dp = PlayerTokens.MediumIconSize,
   contentDescription: @Composable PlayPauseButtonState.() -> String =
@@ -140,28 +167,45 @@ fun PlayPauseButton(
   // This avoids shadowing the PlayPauseButtonState's onClick() *member function*
   // inside the PlayPauseStateContainer's lambda.
   val customOnClick: PlayPauseButtonState.() -> Unit = onClick
-  PlayPauseStateContainer(player) {
-    ClickableIconButton(
-      modifier,
-      isEnabled,
-      icon = imageVector(),
-      contentDescription = contentDescription(),
-      iconSize = iconSize,
-      colors = colors,
-      tint = tint,
-      onClick = { customOnClick() },
-    )
+  PlayPauseStateContainer(player, displayMode) {
+    Box(contentAlignment = Alignment.Center) {
+      if (showBuffering) {
+        CircularProgressIndicator(
+          modifier = Modifier.matchParentSize(),
+          color = if (isEnabled) colors.contentColor else colors.disabledContentColor,
+          strokeWidth = 3.dp,
+        )
+      }
+      ClickableIconButton(
+        modifier = modifier,
+        enabled = isEnabled,
+        icon = imageVector(),
+        contentDescription = contentDescription(),
+        iconSize = iconSize,
+        colors = colors,
+        tint = tint,
+        onClick = { customOnClick() },
+      )
+    }
   }
 }
 
 private val defaultPlayPauseContentDescription: @Composable PlayPauseButtonState.() -> String =
   @Composable {
-    if (showPlay) stringResource(R.string.playpause_button_play)
-    else stringResource(R.string.playpause_button_pause)
+    when {
+      showReplay -> stringResource(R.string.playpause_button_replay)
+      showRetry -> stringResource(R.string.playpause_button_retry)
+      showPlay -> stringResource(R.string.playpause_button_play)
+      else -> stringResource(R.string.playpause_button_pause)
+    }
   }
 
 private val defaultPlayPausePainterIcon: @Composable PlayPauseButtonState.() -> Painter =
   @Composable {
-    if (showPlay) painterResource(R.drawable.media3_icon_play)
-    else painterResource(R.drawable.media3_icon_pause)
+    when {
+      showRetry -> painterResource(R.drawable.media3_icon_retry)
+      showReplay -> painterResource(R.drawable.media3_icon_replay)
+      showPlay -> painterResource(R.drawable.media3_icon_play)
+      else -> painterResource(R.drawable.media3_icon_pause)
+    }
   }

@@ -56,6 +56,7 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Effect;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MimeTypes;
@@ -81,7 +82,6 @@ import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.PlayerMessage.Target;
-import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.ScrubbingModeParameters;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
@@ -158,9 +158,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private static final String KEY_CROP_BOTTOM = "crop-bottom";
   private static final String KEY_CROP_TOP = "crop-top";
 
-  // TODO: b/388762778 - Replace with MediaFormat.KEY_HDR_ST2094_50_INFO once compile SDK is 37.
-  private static final String KEY_HDR_ST2094_50_INFO = "hdr-st2094-50-info";
-
   // Long edge length in pixels for standard video formats, in decreasing in order.
   private static final int[] STANDARD_LONG_EDGE_VIDEO_PX =
       new int[] {1920, 1600, 1440, 1280, 960, 854, 640, 540, 480};
@@ -222,7 +219,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private final VideoFrameReleaseControl videoFrameReleaseControl;
   private final VideoFrameReleaseControl.FrameReleaseInfo videoFrameReleaseInfo;
   private final FixedFrameRateEstimator frameRateEstimator;
-  @Nullable private final Av1SampleDependencyParser av1SampleDependencyParser;
+  private final Av1SampleDependencyParser av1SampleDependencyParser;
 
   /**
    * The earliest time threshold, in microseconds, after which decoder input buffers may be dropped.
@@ -232,8 +229,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Nullable private final VideoFrameReleaseEarlyTimeForecaster videoFrameReleaseEarlyTimeForecaster;
 
   private final PriorityQueue<Long> discardedDecoderInputBufferTimestamps;
-  private final boolean enableMediaCodecBufferDecodeOnlyFlag;
-  private final boolean enableDurationToProgressUs;
 
   private @MonotonicNonNull CodecMaxValues codecMaxValues;
   private boolean codecNeedsSetOutputSurfaceWorkaround;
@@ -286,10 +281,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     private int maxDroppedFramesToNotify;
     private float assumedMinimumCodecOperatingRate;
     @Nullable private VideoSink videoSink;
-    private boolean parseAv1SampleDependencies;
     private long lateThresholdToDropDecoderInputUs;
-    private boolean enableMediaCodecBufferDecodeOnlyFlag;
-    private boolean enableDurationToProgressUs;
     private long earlySchedulingThresholdUs;
     private boolean skipBuffersWithIdenticalReleaseTime;
 
@@ -303,7 +295,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       this.mediaCodecSelector = MediaCodecSelector.DEFAULT;
       this.codecAdapterFactory = MediaCodecAdapter.Factory.getDefault(context);
       this.assumedMinimumCodecOperatingRate = 0;
-      this.parseAv1SampleDependencies = true;
       this.lateThresholdToDropDecoderInputUs = DEFAULT_LATE_THRESHOLD_TO_DROP_DECODER_INPUT_US;
       this.earlySchedulingThresholdUs = DEFAULT_EARLY_SCHEDULING_THRESHOLD_US;
       this.skipBuffersWithIdenticalReleaseTime = true;
@@ -405,22 +396,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
 
     /**
-     * Sets whether {@link MimeTypes#VIDEO_AV1} bitstream parsing for sample dependency information
-     * is enabled. Knowing which input frames are not depended on can speed up seeking and reduce
-     * dropped frames.
-     *
-     * <p>Defaults to {@code true}.
-     *
-     * <p>This method is experimental and will be renamed or removed in a future release.
-     */
-    @CanIgnoreReturnValue
-    @ExperimentalApi // TODO: b/470365670 - Remove method once config is enabled by default.
-    public Builder experimentalSetParseAv1SampleDependencies(boolean parseAv1SampleDependencies) {
-      this.parseAv1SampleDependencies = parseAv1SampleDependencies;
-      return this;
-    }
-
-    /**
      * Sets the late threshold for rendered output buffers, in microseconds, after which decoder
      * input buffers may be dropped.
      *
@@ -439,50 +414,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     public Builder experimentalSetLateThresholdToDropDecoderInputUs(
         long lateThresholdToDropDecoderInputUs) {
       this.lateThresholdToDropDecoderInputUs = lateThresholdToDropDecoderInputUs;
-      return this;
-    }
-
-    /**
-     * Sets whether the {@link MediaCodec#BUFFER_FLAG_DECODE_ONLY} flag will be included when
-     * queuing decode-only input buffers to the decoder.
-     *
-     * <p>If {@code false}, then only if the decoder is set up in tunneling mode will decode-only
-     * input buffers be queued with the {@link MediaCodec#BUFFER_FLAG_DECODE_ONLY} flag. The default
-     * value is {@code false}.
-     *
-     * <p>Requires API 34.
-     *
-     * <p>This method is experimental and will be renamed or removed in a future release.
-     */
-    @RequiresApi(34)
-    @CanIgnoreReturnValue
-    @ExperimentalApi // TODO: b/470367414 - Run experiments and enable by default.
-    public Builder experimentalSetEnableMediaCodecBufferDecodeOnlyFlag(
-        boolean enableMediaCodecBufferDecodeOnlyFlag) {
-      this.enableMediaCodecBufferDecodeOnlyFlag = enableMediaCodecBufferDecodeOnlyFlag;
-      return this;
-    }
-
-    /**
-     * Sets whether the {@link #getDurationToProgressUs} is enabled.
-     *
-     * <p>When ExoPlayer's {@link ExoPlayer.Builder#experimentalSetDynamicSchedulingEnabled dynamic
-     * scheduling} is enabled, ExoPlayer uses {@link Renderer#getDurationToProgressUs} to better
-     * align when it wakes the CPU with when player progress can be made.
-     *
-     * <p>If {@code true}, then if the {@link MediaCodec} decoder is set up in asynchronous mode
-     * with a registered {@link MediaCodec.Callback} listener, {@link #getDurationToProgressUs} will
-     * return durations based on the next output frame's presentation time. This will increase CPU
-     * Idle time thereby reducing power consumption. The default value is {@code false}.
-     *
-     * <p>This method is experimental and will be renamed or removed in a future release.
-     *
-     * @see ExoPlayer.Builder#experimentalSetDynamicSchedulingEnabled(boolean)
-     */
-    @CanIgnoreReturnValue
-    @ExperimentalApi // TODO: b/369523131 - Remove once experiment is complete.
-    public Builder setEnableDurationToProgressUs(boolean enableDurationToProgressUs) {
-      this.enableDurationToProgressUs = enableDurationToProgressUs;
       return this;
     }
 
@@ -507,14 +438,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
      * Sets whether to skip buffers that have an identical release time as the previous released
      * buffer.
      *
-     * <p>This method is experimental and will be renamed or removed in a future release.
-     *
      * @param skipBuffersWithIdenticalReleaseTime Whether to skip buffers with identical release
      *     time.
      * @return This builder.
      */
     @CanIgnoreReturnValue
-    @ExperimentalApi // TODO: b/321230611 - Remove after next release.
     public Builder setSkipBuffersWithIdenticalReleaseTime(
         boolean skipBuffersWithIdenticalReleaseTime) {
       this.skipBuffersWithIdenticalReleaseTime = skipBuffersWithIdenticalReleaseTime;
@@ -716,8 +644,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     reportedVideoSize = null;
     rendererPriority = C.PRIORITY_PLAYBACK;
     startPositionUs = C.TIME_UNSET;
-    av1SampleDependencyParser =
-        builder.parseAv1SampleDependencies ? new Av1SampleDependencyParser() : null;
+    av1SampleDependencyParser = new Av1SampleDependencyParser();
     discardedDecoderInputBufferTimestamps = new PriorityQueue<>();
     if (builder.lateThresholdToDropDecoderInputUs != C.TIME_UNSET) {
       minEarlyUsToDropDecoderInput = -builder.lateThresholdToDropDecoderInputUs;
@@ -727,8 +654,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       minEarlyUsToDropDecoderInput = C.TIME_UNSET;
       videoFrameReleaseEarlyTimeForecaster = null;
     }
-    enableMediaCodecBufferDecodeOnlyFlag = builder.enableMediaCodecBufferDecodeOnlyFlag;
-    enableDurationToProgressUs = builder.enableDurationToProgressUs;
     nextOutputBufferToProcessPresentationTimeUs = C.TIME_UNSET;
     scrubbingModeParameters = null;
   }
@@ -905,10 +830,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   /**
    * Returns a list of decoders that can decode media in the specified format, in the priority order
-   * specified by the {@link MediaCodecSelector}. Note that since the {@link MediaCodecSelector}
-   * only has access to {@link Format#sampleMimeType}, the list is not ordered to account for
-   * whether each decoder supports the details of the format (e.g., taking into account the format's
-   * profile, level, resolution and so on). {@link
+   * specified by the {@link MediaCodecSelector}. Note that for formats other than Dolby Vision,
+   * since the {@link MediaCodecSelector} only has access to {@link Format#sampleMimeType}, the list
+   * is not filtered or ordered to account for whether each decoder supports the details of the
+   * format (e.g., taking into account the format's profile, level, resolution and so on). {@link
    * MediaCodecUtil#getDecoderInfosSortedByFormatSupport} can be used to further sort the list into
    * an order where decoders that fully support the format come first.
    *
@@ -931,14 +856,23 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       return ImmutableList.of();
     }
     if (SDK_INT >= 26
-        && MimeTypes.VIDEO_DOLBY_VISION.equals(format.sampleMimeType)
+        && format.sampleMimeType.equals(MimeTypes.VIDEO_DOLBY_VISION)
         && !Api26.doesDisplaySupportDolbyVision(context)) {
       List<MediaCodecInfo> alternativeDecoderInfos =
-          MediaCodecUtil.getAlternativeDecoderInfos(
-              mediaCodecSelector, format, requiresSecureDecoder, requiresTunnelingDecoder);
+          MediaCodecUtil.getAlternativeDecoderInfosFilteredByFormatSupport(
+              context, mediaCodecSelector, format, requiresSecureDecoder, requiresTunnelingDecoder);
+      if (alternativeDecoderInfos.isEmpty()) {
+        alternativeDecoderInfos =
+            MediaCodecUtil.getAlternativeDecoderInfos(
+                mediaCodecSelector, format, requiresSecureDecoder, requiresTunnelingDecoder);
+      }
       if (!alternativeDecoderInfos.isEmpty()) {
         return alternativeDecoderInfos;
       }
+    }
+    if (format.sampleMimeType.equals(MimeTypes.VIDEO_DOLBY_VISION)) {
+      return MediaCodecUtil.getDecoderInfosSoftMatchFilteredByFormatSupport(
+          context, mediaCodecSelector, format, requiresSecureDecoder, requiresTunnelingDecoder);
     }
     return MediaCodecUtil.getDecoderInfosSoftMatch(
         mediaCodecSelector, format, requiresSecureDecoder, requiresTunnelingDecoder);
@@ -1003,7 +937,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           mayRenderStartOfStream
               ? RELEASE_FIRST_FRAME_IMMEDIATELY
               : RELEASE_FIRST_FRAME_WHEN_STARTED;
-      experimentalEnableProcessedStreamChangedAtStart();
     } else {
       videoFrameReleaseControl.setClock(getClock());
       int firstFrameReleaseInstruction =
@@ -1484,9 +1417,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     consecutiveDroppedInputBufferCount = 0;
     isFlushRequired = false;
     nextOutputBufferToProcessPresentationTimeUs = C.TIME_UNSET;
-    if (av1SampleDependencyParser != null) {
-      av1SampleDependencyParser.reset();
-    }
+    av1SampleDependencyParser.reset();
   }
 
   @Override
@@ -1581,7 +1512,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Override
   protected long getDurationToProgressUs(
       long positionUs, long elapsedRealtimeUs, boolean isOnBufferAvailableListenerRegistered) {
-    if (!enableDurationToProgressUs || !isOnBufferAvailableListenerRegistered) {
+    if (!Flags.isEnabled(Flags.FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS)
+        || !isOnBufferAvailableListenerRegistered) {
       return super.getDurationToProgressUs(
           positionUs, elapsedRealtimeUs, isOnBufferAvailableListenerRegistered);
     }
@@ -1827,7 +1759,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           }
         }
       }
-      if (isAv1 && av1SampleDependencyParser != null && buffer.isKeyFrame()) {
+      if (isAv1 && buffer.isKeyFrame()) {
         av1SampleDependencyParser.queueInputBuffer(bufferData);
       }
     }
@@ -1843,7 +1775,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Override
   protected int getCodecBufferFlags(DecoderInputBuffer buffer) {
     if (SDK_INT >= 34
-        && (enableMediaCodecBufferDecodeOnlyFlag
+        && (Flags.isEnabled(Flags.FLAG_ENABLE_MEDIACODEC_BUFFER_DECODE_ONLY)
             || (scrubbingModeParameters != null && scrubbingModeParameters.useDecodeOnlyFlag)
             || tunneling)
         && isBufferBeforeStartTime(buffer)
@@ -1880,8 +1812,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (buffer.notDependedOn()) {
       bufferDiscarded = true;
       buffer.clear();
-    } else if (av1SampleDependencyParser != null
-        && checkNotNull(getCodecInfo()).mimeType.equals(MimeTypes.VIDEO_AV1)
+    } else if (checkNotNull(getCodecInfo()).mimeType.equals(MimeTypes.VIDEO_AV1)
         && buffer.data != null) {
       boolean skipFrameHeaders =
           isBufferBeforeStartTime
@@ -2063,7 +1994,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         isApplyingContainerHagcMetadata = hagcData.length > 0;
         if (isApplyingContainerHagcMetadata) {
           Bundle codecParameters = new Bundle();
-          codecParameters.putByteArray(KEY_HDR_ST2094_50_INFO, hagcData);
+          codecParameters.putByteArray(MediaFormat.KEY_HDR_ST2094_50_INFO, hagcData);
           checkNotNull(getCodec()).setParameters(codecParameters);
         }
       }
@@ -2238,6 +2169,12 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (!tunneling) {
       buffersInCodecCount--;
     }
+  }
+
+  @Override
+  @ExperimentalApi // TODO: b/470373575 - Remove this method.
+  protected boolean shouldProcessStreamChangeAtStart() {
+    return videoSink != null;
   }
 
   @Override

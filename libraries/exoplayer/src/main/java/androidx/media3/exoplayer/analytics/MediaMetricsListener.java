@@ -39,9 +39,11 @@ import android.system.OsConstants;
 import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.C.ContentType;
 import androidx.media3.common.DrmInitData;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
@@ -140,6 +142,14 @@ public final class MediaMetricsListener
   private int audioUnderruns;
   private boolean reportedEventsForCurrentSession;
 
+  // Experiment ID encoding for reporting Media3 flag state via PlaybackMetrics.addExperimentId.
+  // Distinct, non-colliding base offsets are used to avoid collisions with other reporting systems.
+  // Only deviations from the default state are reported, keeping the footprint at zero for the vast
+  // majority of sessions running the default configuration.
+  private static final long CANARY_MODE_DISABLED_EXPERIMENT_ID = 7_000_000_000_000_000_000L;
+  private static final long FLAG_ENABLED_EXPERIMENT_ID_OFFSET = 7_001_000_000_000_000_000L;
+  private static final long FLAG_DISABLED_EXPERIMENT_ID_OFFSET = 7_002_000_000_000_000_000L;
+
   /**
    * Creates the listener.
    *
@@ -183,6 +193,7 @@ public final class MediaMetricsListener
         new PlaybackMetrics.Builder()
             .setPlayerName(MediaLibraryInfo.TAG)
             .setPlayerVersion(MediaLibraryInfo.VERSION);
+    addFlagExperimentIds(metricsBuilder);
     maybeUpdateTimelineMetadata(eventTime.timeline, eventTime.mediaPeriodId);
   }
 
@@ -635,6 +646,19 @@ public final class MediaMetricsListener
     currentAudioFormat = null;
     currentTextFormat = null;
     reportedEventsForCurrentSession = false;
+  }
+
+  @VisibleForTesting
+  /* package */ static void addFlagExperimentIds(PlaybackMetrics.Builder builder) {
+    if (!Flags.isCanaryModeEnabled()) {
+      builder = builder.addExperimentId(CANARY_MODE_DISABLED_EXPERIMENT_ID);
+    }
+    for (int flag : Flags.getEnabledOverrides()) {
+      builder = builder.addExperimentId(FLAG_ENABLED_EXPERIMENT_ID_OFFSET + flag);
+    }
+    for (int flag : Flags.getDisabledOverrides()) {
+      builder = builder.addExperimentId(FLAG_DISABLED_EXPERIMENT_ID_OFFSET + flag);
+    }
   }
 
   private static int getTrackChangeReason(@C.SelectionReason int trackSelectionReason) {

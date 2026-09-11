@@ -15,12 +15,21 @@
  */
 package androidx.media3.muxer;
 
+import static androidx.media3.common.util.Util.getPcmFormat;
+import static androidx.media3.common.util.Util.isPcmEncodingBigEndian;
+import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
+import static androidx.media3.muxer.MuxerTestUtil.getFakeSampleAndSampleInfo;
+import static androidx.media3.test.utils.TestUtil.buildDoubleTestSamples;
+import static androidx.media3.test.utils.TestUtil.buildFloatTestSamples;
+import static androidx.media3.test.utils.TestUtil.createByteArray;
+import static androidx.media3.test.utils.TestUtil.createByteBuffer;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
+import android.util.Pair;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -33,18 +42,23 @@ import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
+import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.Random;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestParameterInjector;
 import org.robolectric.annotation.Config;
 
 /** End to end instrumentation tests for {@link FragmentedMp4Muxer}. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public class FragmentedMp4MuxerEndToEndTest {
   private static final String H264_MP4 = "mp4/sample_no_bframes.mp4";
   private static final String H265_HDR10_MP4 = "mp4/hdr10-720p.mp4";
@@ -82,6 +96,57 @@ public class FragmentedMp4MuxerEndToEndTest {
         MuxerTestUtil.getExpectedDumpFilePath(
             MuxerTestUtil.getSubstitutedPath(H265_HDR10_MP4, MuxerTestUtil.MP4)
                 + "_fragmented_box_structure"));
+  }
+
+  @Test
+  public void createFragmentedMp4File_withDolbyVisionTrack_ftypContainsDby1CompatibleBrand()
+      throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Format dolbyVisionFormat =
+        FAKE_VIDEO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dvav.09.02")
+            .build();
+    Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L, /* isVideo= */ true);
+
+    try (FragmentedMp4Muxer muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel()).build()) {
+      int trackId = muxer.addTrack(dolbyVisionFormat);
+      muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+    }
+
+    byte[] outputFileBytes = TestUtil.getByteArrayFromFilePath(outputFilePath);
+    assertThat(MuxerTestUtil.ftypBoxContainsCompatibleBrand(outputFileBytes, "dby1")).isTrue();
+  }
+
+  @Test
+  public void createFragmentedMp4File_withAudioPcmFloat_writesAndExtractsCorrectSamples(
+      @TestParameter(valuesProvider = FloatPcmEncodingValuesProvider.class) @C.PcmEncoding
+          int pcmEncoding)
+      throws Exception {
+    File outputFile = temporaryFolder.newFile();
+    Format pcmFloatFormat = getPcmFormat(pcmEncoding, /* channels= */ 1, /* sampleRate= */ 48_000);
+    ByteBuffer sampleBuffer = getTestSamplesForEncoding(pcmEncoding);
+    byte[] sampleData = createByteArray(sampleBuffer.duplicate());
+    BufferInfo bufferInfo =
+        new BufferInfo(/* presentationTimeUs= */ 0L, sampleData.length, C.BUFFER_FLAG_KEY_FRAME);
+
+    try (FragmentedMp4Muxer muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFile).getChannel()).build()) {
+      int trackId = muxer.addTrack(pcmFloatFormat);
+      muxer.writeSampleData(trackId, sampleBuffer, bufferInfo);
+    }
+
+    FakeExtractorOutput extractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new FragmentedMp4Extractor(new DefaultSubtitleParserFactory()), outputFile.getPath());
+    FakeTrackOutput trackOutput = extractorOutput.trackOutputs.valueAt(0);
+    Format extractedFormat = checkNotNull(trackOutput.lastFormat);
+    assertThat(extractedFormat.sampleMimeType).isEqualTo(MimeTypes.AUDIO_RAW);
+    assertThat(extractedFormat.pcmEncoding).isEqualTo(pcmEncoding);
+    assertThat(trackOutput.getSampleData(/* index= */ 0)).isEqualTo(sampleData);
   }
 
   @Test
@@ -476,5 +541,60 @@ public class FragmentedMp4MuxerEndToEndTest {
     muxer.close();
 
     assertThrows(IllegalStateException.class, muxer::close);
+  }
+
+  @Test
+  public void createFragmentedMp4File_withMultipleTracks_preservesTrackIds() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    try (FragmentedMp4Muxer muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel()).build()) {
+      int videoTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int audioTrackId = muxer.addTrack(MuxerTestUtil.FAKE_AUDIO_FORMAT);
+
+      assertThat(videoTrackId).isEqualTo(1);
+      assertThat(audioTrackId).isEqualTo(2);
+
+      Pair<ByteBuffer, BufferInfo> videoSample =
+          getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L, /* isVideo= */ true);
+      muxer.writeSampleData(videoTrackId, videoSample.first, videoSample.second);
+
+      Pair<ByteBuffer, BufferInfo> audioSample =
+          getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L, /* isVideo= */ false);
+      muxer.writeSampleData(audioTrackId, audioSample.first, audioSample.second);
+    }
+
+    FragmentedMp4Extractor extractor =
+        new FragmentedMp4Extractor(new DefaultSubtitleParserFactory());
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(extractor, outputFilePath);
+
+    assertThat(fakeExtractorOutput.numberOfTracks).isEqualTo(2);
+    assertThat(fakeExtractorOutput.trackOutputs.get(0).lastFormat.sampleMimeType)
+        .isEqualTo(FAKE_VIDEO_FORMAT.sampleMimeType);
+    assertThat(fakeExtractorOutput.trackOutputs.get(1).lastFormat.sampleMimeType)
+        .isEqualTo(MuxerTestUtil.FAKE_AUDIO_FORMAT.sampleMimeType);
+  }
+
+  private static ByteBuffer getTestSamplesForEncoding(@C.PcmEncoding int pcmEncoding) {
+    Random random = new Random(/* seed= */ 0);
+    ByteBuffer sampleBuffer;
+    if (pcmEncoding == C.ENCODING_PCM_DOUBLE || pcmEncoding == C.ENCODING_PCM_DOUBLE_BIG_ENDIAN) {
+      sampleBuffer = createByteBuffer(buildDoubleTestSamples(/* length= */ 100, random));
+    } else {
+      sampleBuffer = createByteBuffer(buildFloatTestSamples(/* length= */ 100, random));
+    }
+    return sampleBuffer.order(
+        isPcmEncodingBigEndian(pcmEncoding) ? ByteOrder.BIG_ENDIAN : ByteOrder.LITTLE_ENDIAN);
+  }
+
+  private static final class FloatPcmEncodingValuesProvider extends TestParameterValuesProvider {
+    @Override
+    protected ImmutableList<?> provideValues(TestParameterValuesProvider.Context context) {
+      return ImmutableList.of(
+          value(C.ENCODING_PCM_FLOAT).withName("ENCODING_PCM_FLOAT"),
+          value(C.ENCODING_PCM_FLOAT_BIG_ENDIAN).withName("ENCODING_PCM_FLOAT_BIG_ENDIAN"),
+          value(C.ENCODING_PCM_DOUBLE).withName("ENCODING_PCM_DOUBLE"),
+          value(C.ENCODING_PCM_DOUBLE_BIG_ENDIAN).withName("ENCODING_PCM_DOUBLE_BIG_ENDIAN"));
+    }
   }
 }

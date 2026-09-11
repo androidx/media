@@ -223,6 +223,56 @@ public final class MediaCodecUtil {
   }
 
   /**
+   * Returns a list of decoders that can decode media in the specified format, in the priority order
+   * specified by the {@link MediaCodecSelector}. Unlike {@link #getDecoderInfosSoftMatch}, this
+   * method may exclude decoders that match the sample MIME type but do not support relevant format
+   * details.
+   *
+   * <p>This list is more complete than {@link #getDecoderInfos}, as it also considers alternative
+   * MIME types that are a close match using {@link #getAlternativeCodecMimeType}.
+   *
+   * @param context The application context.
+   * @param mediaCodecSelector The decoder selector.
+   * @param format The {@link Format} for which a decoder is required.
+   * @param requiresSecureDecoder Whether a secure decoder is required.
+   * @param requiresTunnelingDecoder Whether a tunneling decoder is required.
+   * @return A list of {@link MediaCodecInfo}s corresponding to decoders. May be empty.
+   * @throws DecoderQueryException Thrown if there was an error querying decoders.
+   */
+  @RequiresNonNull("#3.sampleMimeType")
+  public static List<MediaCodecInfo> getDecoderInfosSoftMatchFilteredByFormatSupport(
+      Context context,
+      MediaCodecSelector mediaCodecSelector,
+      Format format,
+      boolean requiresSecureDecoder,
+      boolean requiresTunnelingDecoder)
+      throws DecoderQueryException {
+
+    List<MediaCodecInfo> decoderInfos =
+        mediaCodecSelector.getDecoderInfos(
+            format.sampleMimeType, requiresSecureDecoder, requiresTunnelingDecoder);
+
+    List<MediaCodecInfo> filteredDecoderInfos =
+        ImmutableList.<MediaCodecInfo>builder()
+            .addAll(filterDecoderInfosByFormatSupport(context, decoderInfos, format))
+            .addAll(
+                getAlternativeDecoderInfosFilteredByFormatSupport(
+                    context,
+                    mediaCodecSelector,
+                    format,
+                    requiresSecureDecoder,
+                    requiresTunnelingDecoder))
+            .build();
+
+    if (!filteredDecoderInfos.isEmpty()) {
+      return filteredDecoderInfos;
+    }
+
+    return getDecoderInfosSoftMatch(
+        mediaCodecSelector, format, requiresSecureDecoder, requiresTunnelingDecoder);
+  }
+
+  /**
    * Returns a list of decoders for {@linkplain #getAlternativeCodecMimeType alternative MIME types}
    * that can decode samples of the provided {@link Format}, in the priority order specified by the
    * {@link MediaCodecSelector}.
@@ -252,6 +302,48 @@ public final class MediaCodecUtil {
     }
     return mediaCodecSelector.getDecoderInfos(
         alternativeMimeType, requiresSecureDecoder, requiresTunnelingDecoder);
+  }
+
+  /**
+   * Returns a list of decoders for {@linkplain #getAlternativeCodecMimeType alternative MIME types}
+   * that can decode samples of the provided {@link Format}, in the priority order specified by the
+   * {@link MediaCodecSelector}. Unlike {@link #getAlternativeDecoderInfos}, this method excludes
+   * decoders that do not support relevant format details.
+   *
+   * @param context The application context.
+   * @param mediaCodecSelector The decoder selector.
+   * @param format The {@link Format} for which an alternative decoder is required.
+   * @param requiresSecureDecoder Whether a secure decoder is required.
+   * @param requiresTunnelingDecoder Whether a tunneling decoder is required.
+   * @return A list of {@link MediaCodecInfo}s corresponding to alternative decoders. May be empty.
+   * @throws DecoderQueryException Thrown if there was an error querying decoders.
+   */
+  public static List<MediaCodecInfo> getAlternativeDecoderInfosFilteredByFormatSupport(
+      Context context,
+      MediaCodecSelector mediaCodecSelector,
+      Format format,
+      boolean requiresSecureDecoder,
+      boolean requiresTunnelingDecoder)
+      throws DecoderQueryException {
+    @Nullable String alternativeMimeType = getAlternativeCodecMimeType(format);
+    if (alternativeMimeType == null) {
+      return ImmutableList.of();
+    }
+    List<MediaCodecInfo> alternativeDecoderInfos =
+        mediaCodecSelector.getDecoderInfos(
+            alternativeMimeType, requiresSecureDecoder, requiresTunnelingDecoder);
+    return filterDecoderInfosByFormatSupport(context, alternativeDecoderInfos, format);
+  }
+
+  private static ImmutableList<MediaCodecInfo> filterDecoderInfosByFormatSupport(
+      Context context, List<MediaCodecInfo> decoderInfos, Format format) {
+    ImmutableList.Builder<MediaCodecInfo> result = ImmutableList.builder();
+    for (MediaCodecInfo decoderInfo : decoderInfos) {
+      if (decoderInfo.isFormatSupported(context, format)) {
+        result.add(decoderInfo);
+      }
+    }
+    return result.build();
   }
 
   /**

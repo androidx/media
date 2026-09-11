@@ -58,6 +58,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
@@ -246,7 +247,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             + MediaLibraryInfo.VERSION_SLASHY
             + "] ["
             + Util.DEVICE_DEBUG_INFO
-            + "]");
+            + "] "
+            + Flags.getLogString());
     internalHandlerThread = new HandlerThread("Transformer:Internal");
     internalHandlerThread.start();
     sequenceAssetLoaders = new ArrayList<>();

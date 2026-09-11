@@ -82,11 +82,9 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
 
     private SubtitleParser.Factory subtitleParserFactory;
     private boolean parseSubtitlesDuringExtraction;
-    private @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies;
 
     public Factory() {
       subtitleParserFactory = new DefaultSubtitleParserFactory();
-      codecsToParseWithinGopSampleDependencies = C.VIDEO_CODEC_FLAG_H264 | C.VIDEO_CODEC_FLAG_H265;
     }
 
     @CanIgnoreReturnValue
@@ -101,14 +99,6 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
     public Factory experimentalParseSubtitlesDuringExtraction(
         boolean parseSubtitlesDuringExtraction) {
       this.parseSubtitlesDuringExtraction = parseSubtitlesDuringExtraction;
-      return this;
-    }
-
-    @Override
-    @CanIgnoreReturnValue
-    public Factory experimentalSetCodecsToParseWithinGopSampleDependencies(
-        @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
-      this.codecsToParseWithinGopSampleDependencies = codecsToParseWithinGopSampleDependencies;
       return this;
     }
 
@@ -177,9 +167,6 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
         if (!parseSubtitlesDuringExtraction) {
           flags |= FragmentedMp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA;
         }
-        flags |=
-            FragmentedMp4Extractor.codecsToParseWithinGopSampleDependenciesAsFlags(
-                codecsToParseWithinGopSampleDependencies);
         extractor =
             new FragmentedMp4Extractor(
                 subtitleParserFactory,

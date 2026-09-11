@@ -26,6 +26,7 @@ import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
@@ -52,6 +53,7 @@ import androidx.media3.test.utils.FakeMediaPeriod;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeRenderer;
 import androidx.media3.test.utils.FakeTimeline;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -59,6 +61,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
@@ -70,6 +73,8 @@ import org.robolectric.shadows.ShadowPackageManager;
 @RunWith(AndroidJUnit4.class)
 public class ExoPlayerStuckPlayerDetectionTest {
 
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
+
   private static final int TIMEOUT_MS = 10_000;
 
   private Context context;
@@ -77,7 +82,7 @@ public class ExoPlayerStuckPlayerDetectionTest {
   @Before
   public void setUp() {
     context = ApplicationProvider.getApplicationContext();
-    ExoPlayer.Builder.experimentalEnableStuckPlayingDetection = true;
+    Flags.enableFlag(Flags.FLAG_ENABLE_STUCK_PLAYING_DETECTION);
   }
 
   @Test

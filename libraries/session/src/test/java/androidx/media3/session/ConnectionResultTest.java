@@ -17,7 +17,9 @@ package androidx.media3.session;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Player;
@@ -47,6 +49,8 @@ public class ConnectionResultTest {
     assertThat(connectionResult.availablePlayerCommands)
         .isEqualTo(MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS);
     assertThat(connectionResult.customLayout).isNull();
+    assertThat(connectionResult.sessionExtras).isNull();
+    assertThat(connectionResult.sessionActivity).isNull();
     assertThat(connectionResult.isAccepted).isTrue();
 
     mediaSession.getPlayer().release();
@@ -58,17 +62,26 @@ public class ConnectionResultTest {
     Context context = ApplicationProvider.getApplicationContext();
     MediaSession mediaSession =
         new MediaSession.Builder(context, new TestExoPlayerBuilder(context).build()).build();
+    Bundle extras = new Bundle();
+    extras.putString("key", "value");
+    PendingIntent sessionActivity =
+        PendingIntent.getActivity(
+            context, /* requestCode= */ 0, new Intent(), PendingIntent.FLAG_IMMUTABLE);
 
     MediaSession.ConnectionResult connectionResult =
         new MediaSession.ConnectionResult.AcceptedResultBuilder(mediaSession)
             .setAvailableSessionCommands(SessionCommands.EMPTY)
             .setAvailablePlayerCommands(Player.Commands.EMPTY)
             .setCustomLayout(ImmutableList.of())
+            .setSessionExtras(extras)
+            .setSessionActivity(sessionActivity)
             .build();
 
     assertThat(connectionResult.availableSessionCommands.commands).isEmpty();
     assertThat(connectionResult.availablePlayerCommands.size()).isEqualTo(0);
     assertThat(connectionResult.customLayout).isEmpty();
+    assertThat(connectionResult.sessionExtras).isEqualTo(extras);
+    assertThat(connectionResult.sessionActivity).isEqualTo(sessionActivity);
     assertThat(connectionResult.isAccepted).isTrue();
 
     mediaSession.getPlayer().release();

@@ -21,9 +21,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
+import androidx.media3.cast.CastTimeline.ItemData;
+import androidx.media3.cast.CastTimeline.ItemUid;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.Player;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import com.google.android.gms.cast.MediaInfo;
@@ -31,9 +32,13 @@ import com.google.android.gms.cast.MediaQueueItem;
 import com.google.android.gms.cast.MediaStatus;
 import com.google.android.gms.cast.framework.media.MediaQueue;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient;
+import com.google.common.collect.ImmutableList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * Creates {@link CastTimeline CastTimelines} from cast receiver app status updates.
@@ -43,12 +48,19 @@ import java.util.List;
  */
 /* package */ final class CastTimelineTracker {
   private static final String TAG = "CastTlTracker";
+  /* package */ static final String KEY_SYNTHETIC_ID = "m3-syntheticId";
 
   // Maximum number of queue item IDs fetched from the remote client per pass. This is also the
   // cache size configured on MediaQueue to prevent cache evictions during multi-pass fetching.
   @VisibleForTesting /* package */ static final int MAX_FETCH_COUNT = 20;
 
-  private final SparseArray<CastTimeline.ItemData> itemIdToData;
+  private final Map<ItemUid, ItemData> itemIdToData;
+  private final Map<ItemUid, MediaItem> mediaItemsBySyntheticId;
+  // Maps the receiver assigned id to the synthetic id for media items. The synthetic id is used as
+  // the stable uid of the media item in CastTimeline and abstracts away the receiver assigned id
+  // from consumers.
+  private final SparseArray<ItemUid> receiverItemIdToUid;
+  private final Map<ItemUid, Integer> uidToReceiverItemId;
   private final MediaItemConverter mediaItemConverter;
   @VisibleForTesting /* package */ final HashMap<String, MediaItem> mediaItemsByContentId;
 
@@ -60,36 +72,61 @@ import java.util.List;
    */
   public CastTimelineTracker(MediaItemConverter mediaItemConverter) {
     this.mediaItemConverter = mediaItemConverter;
-    itemIdToData = new SparseArray<>();
+    itemIdToData = new HashMap<>();
+    mediaItemsBySyntheticId = new HashMap<>();
+    receiverItemIdToUid = new SparseArray<>();
+    uidToReceiverItemId = new HashMap<>();
     mediaItemsByContentId = new HashMap<>();
   }
 
   /**
-   * Called when media items {@linkplain Player#setMediaItems have been set to the playlist} and are
-   * sent to the cast playback queue. A future queue update of the {@link RemoteMediaClient} will
-   * reflect this addition.
-   *
-   * @param mediaItems The media items that have been set.
-   * @param mediaQueueItems The corresponding media queue items.
+   * Returns the {@link ItemUid} associated with {@code receiverItemId}, or {@code null} if not
+   * found.
    */
-  public void onMediaItemsSet(List<MediaItem> mediaItems, MediaQueueItem[] mediaQueueItems) {
-    mediaItemsByContentId.clear();
-    onMediaItemsAdded(mediaItems, mediaQueueItems);
+  @Nullable
+  public ItemUid getItemUid(int receiverItemId) {
+    return receiverItemIdToUid.get(receiverItemId);
   }
 
   /**
-   * Called when media items {@linkplain Player#addMediaItems(List) have been added} and are sent to
-   * the cast playback queue. A future queue update of the {@link RemoteMediaClient} will reflect
-   * this addition.
-   *
-   * @param mediaItems The media items that have been added.
-   * @param mediaQueueItems The corresponding media queue items.
+   * Returns the receiver item ID for {@code uid}, or {@link MediaQueueItem#INVALID_ITEM_ID} if not
+   * found.
    */
-  public void onMediaItemsAdded(List<MediaItem> mediaItems, MediaQueueItem[] mediaQueueItems) {
-    for (int i = 0; i < mediaItems.size(); i++) {
-      mediaItemsByContentId.put(
-          checkNotNull(mediaQueueItems[i].getMedia()).getContentId(), mediaItems.get(i));
+  public int getReceiverItemId(@Nullable Object uid) {
+    if (uid == null || !(uid instanceof ItemUid)) {
+      return MediaQueueItem.INVALID_ITEM_ID;
     }
+    Integer receiverId = uidToReceiverItemId.get(uid);
+    return receiverId != null ? receiverId : MediaQueueItem.INVALID_ITEM_ID;
+  }
+
+  /** Resets all item data and UID mappings. */
+  public void reset() {
+    itemIdToData.clear();
+    mediaItemsBySyntheticId.clear();
+    receiverItemIdToUid.clear();
+    uidToReceiverItemId.clear();
+    mediaItemsByContentId.clear();
+  }
+
+  /**
+   * Prepares {@link MediaQueueItem}s for the given {@link MediaItem}s and registers them with
+   * unique synthetic IDs in the tracker.
+   *
+   * @param mediaItems The media items to convert and register.
+   * @return The array of enriched {@link MediaQueueItem}s to send to the Cast receiver.
+   */
+  public MediaQueueItem[] registerMediaItems(List<MediaItem> mediaItems) {
+    MediaQueueItem[] mediaQueueItems = new MediaQueueItem[mediaItems.size()];
+    for (int i = 0; i < mediaItems.size(); i++) {
+      MediaItem mediaItem = mediaItems.get(i);
+      ItemUid itemUid = ItemUid.generateItemUid();
+      MediaQueueItem queueItem = mediaItemConverter.toMediaQueueItem(mediaItem);
+      MediaQueueItem updatedMediaQueueItem = attachSyntheticId(queueItem, itemUid);
+      mediaQueueItems[i] = updatedMediaQueueItem;
+      registerMediaItem(itemUid, mediaItem, updatedMediaQueueItem);
+    }
+    return mediaQueueItems;
   }
 
   /**
@@ -138,7 +175,8 @@ import java.util.List;
     for (int step = 0; step < itemIds.length; step++) {
       int i = (currentItemIndex + step) % itemIds.length;
       int itemId = itemIds[i];
-      CastTimeline.ItemData itemData = itemIdToData.get(itemId);
+      ItemUid uid = getOrCreateItemUid(itemId);
+      ItemData itemData = itemIdToData.get(uid);
       if (itemData == null || itemData.mediaItem == MediaItem.EMPTY) {
         boolean fetchIfNeeded = fetchCount < MAX_FETCH_COUNT;
         MediaQueueItem queueItem = mediaQueue.getItemAtIndex(i, fetchIfNeeded);
@@ -156,24 +194,44 @@ import java.util.List;
     // ensures that active runtime playback state is preserved and not overwritten by stale queue
     // item metadata.
     MediaInfo currentMediaInfo = checkNotNull(mediaStatus.getMediaInfo());
-    String currentContentId = currentMediaInfo.getContentId();
-    MediaItem mediaItem = mediaItemsByContentId.get(currentContentId);
+    ItemUid currentItemUid = getOrCreateItemUid(currentItemId, currentMediaInfo);
+    @Nullable MediaItem mediaItem = getMediaItem(currentItemUid, currentMediaInfo);
     updateItemData(
-        currentItemId,
+        currentItemUid,
         mediaItem != null ? mediaItem : MediaItem.EMPTY,
         currentMediaInfo,
-        currentContentId,
+        currentMediaInfo.getContentId(),
         /* defaultPositionUs= */ C.TIME_UNSET);
 
-    return new CastTimeline(itemIds, itemIdToData);
+    ImmutableList.Builder<ItemUid> uids = ImmutableList.builderWithExpectedSize(itemIds.length);
+    for (int itemId : itemIds) {
+      uids.add(getOrCreateItemUid(itemId));
+    }
+    return new CastTimeline(uids.build(), itemIdToData);
+  }
+
+  /**
+   * Registers a media item with its corresponding synthetic ID.
+   *
+   * @param itemUid The unique {@link ItemUid} generated for the item.
+   * @param mediaItem The {@link MediaItem}.
+   * @param queueItem The {@link MediaQueueItem} associated with the media item.
+   */
+  private void registerMediaItem(ItemUid itemUid, MediaItem mediaItem, MediaQueueItem queueItem) {
+    mediaItemsBySyntheticId.put(itemUid, mediaItem);
+    @Nullable MediaInfo mediaInfo = queueItem.getMedia();
+    if (mediaInfo != null && mediaInfo.getContentId() != null) {
+      mediaItemsByContentId.put(mediaInfo.getContentId(), mediaItem);
+    }
   }
 
   private void updateItemDataFromQueueItem(MediaQueueItem queueItem) {
     long defaultPositionUs = (long) (queueItem.getStartTime() * C.MICROS_PER_SECOND);
     @Nullable MediaInfo mediaInfo = queueItem.getMedia();
     String contentId = mediaInfo != null ? mediaInfo.getContentId() : UNKNOWN_CONTENT_ID;
-    @Nullable MediaItem mediaItem = mediaItemsByContentId.get(contentId);
-    if (mediaItem == null) {
+    ItemUid itemUid = getOrCreateItemUid(queueItem.getItemId(), queueItem.getMedia());
+    @Nullable MediaItem mediaItem = getMediaItem(itemUid, mediaInfo);
+    if (mediaItem == null || mediaItem == MediaItem.EMPTY) {
       try {
         mediaItem = mediaItemConverter.toMediaItem(queueItem);
       } catch (Exception e) {
@@ -183,7 +241,7 @@ import java.util.List;
       }
     }
     updateItemData(
-        queueItem.getItemId(),
+        itemUid,
         mediaItem != null ? mediaItem : MediaItem.EMPTY,
         mediaInfo,
         contentId,
@@ -191,12 +249,15 @@ import java.util.List;
   }
 
   private void updateItemData(
-      int itemId,
+      ItemUid uid,
       MediaItem mediaItem,
       @Nullable MediaInfo mediaInfo,
       String contentId,
       long defaultPositionUs) {
-    CastTimeline.ItemData previousData = itemIdToData.get(itemId, CastTimeline.ItemData.EMPTY);
+    ItemData previousData = itemIdToData.get(uid);
+    if (previousData == null) {
+      previousData = ItemData.EMPTY;
+    }
     long durationUs = CastUtils.getStreamDurationUs(mediaInfo);
     if (durationUs == C.TIME_UNSET) {
       durationUs = previousData.durationUs;
@@ -214,26 +275,115 @@ import java.util.List;
       mediaItem = previousData.mediaItem;
     }
     itemIdToData.put(
-        itemId,
+        uid,
         previousData.copyWithNewValues(
             durationUs, defaultPositionUs, isLive, mediaItem, contentId));
   }
 
   private void removeUnusedItemDataEntries(int[] itemIds) {
-    HashSet<Integer> scratchItemIds = new HashSet<>(/* initialCapacity= */ itemIds.length * 2);
+    HashSet<Integer> activeReceiverIds = new HashSet<>(/* initialCapacity= */ itemIds.length * 2);
     for (int id : itemIds) {
-      scratchItemIds.add(id);
+      activeReceiverIds.add(id);
     }
 
-    int index = 0;
-    while (index < itemIdToData.size()) {
-      if (!scratchItemIds.contains(itemIdToData.keyAt(index))) {
-        CastTimeline.ItemData itemData = itemIdToData.valueAt(index);
-        mediaItemsByContentId.remove(itemData.contentId);
-        itemIdToData.removeAt(index);
-      } else {
-        index++;
+    for (int i = receiverItemIdToUid.size() - 1; i >= 0; i--) {
+      int receiverId = receiverItemIdToUid.keyAt(i);
+      if (!activeReceiverIds.contains(receiverId)) {
+        ItemUid uid = receiverItemIdToUid.valueAt(i);
+        receiverItemIdToUid.removeAt(i);
+        uidToReceiverItemId.remove(uid);
+        mediaItemsBySyntheticId.remove(uid);
+        ItemData data = itemIdToData.remove(uid);
+        if (data != null) {
+          mediaItemsByContentId.remove(data.contentId);
+        }
       }
     }
+  }
+
+  /**
+   * Returns the {@link MediaItem} associated with the given {@link ItemUid} and {@link MediaInfo}.
+   * The method tries to look up the media item using the {@link ItemUid} first and then the {@link
+   * MediaInfo#getContentId()} if the {@link ItemUid} is not found.
+   *
+   * @param uid The {@link ItemUid} of the media item.
+   * @param mediaInfo The {@link MediaInfo} of the media item.
+   * @return The {@link MediaItem} associated with the given {@link ItemUid} and {@link MediaInfo},
+   *     or {@code null} if not found.
+   */
+  @Nullable
+  private MediaItem getMediaItem(ItemUid uid, @Nullable MediaInfo mediaInfo) {
+    MediaItem mediaItem = mediaItemsBySyntheticId.get(uid);
+    if (mediaItem != null) {
+      return mediaItem;
+    }
+    ItemData itemData = itemIdToData.get(uid);
+    if (itemData != null && itemData.mediaItem != MediaItem.EMPTY) {
+      return itemData.mediaItem;
+    }
+    if (mediaInfo != null && mediaInfo.getContentId() != null) {
+      return mediaItemsByContentId.get(mediaInfo.getContentId());
+    }
+    return null;
+  }
+
+  /**
+   * Returns the existing {@link ItemUid} for {@code receiverItemId}, or creates and caches a new
+   * one if none exists.
+   */
+  private ItemUid getOrCreateItemUid(int receiverItemId) {
+    return getOrCreateItemUid(receiverItemId, /* mediaInfo= */ null);
+  }
+
+  /**
+   * Returns the existing {@link ItemUid} for {@code receiverItemId}, or creates and caches a new
+   * one using synthetic ID extracted from {@code mediaInfo} (or a randomly generated ID if not
+   * present).
+   */
+  private ItemUid getOrCreateItemUid(int receiverItemId, @Nullable MediaInfo mediaInfo) {
+    ItemUid uid = receiverItemIdToUid.get(receiverItemId);
+    if (uid == null) {
+      @Nullable ItemUid syntheticUid = getSyntheticItemUid(mediaInfo);
+      // The syntheticUid can be absent if the media item is from a sender that does not add
+      // synthetic IDs. In that case, we generate a random ID and associate the media item with it.
+      uid = syntheticUid != null ? syntheticUid : ItemUid.generateItemUid();
+      receiverItemIdToUid.put(receiverItemId, uid);
+      uidToReceiverItemId.put(uid, receiverItemId);
+    }
+    return uid;
+  }
+
+  /**
+   * Enriches the given {@link MediaQueueItem} by embedding the synthetic ID into its {@link
+   * MediaInfo#getCustomData()} at the top-level under key {@code "m3-syntheticId"}. If {@code
+   * customData} is {@code null}, indicating a custom converter, it is left unchanged.
+   */
+  private static MediaQueueItem attachSyntheticId(MediaQueueItem queueItem, ItemUid syntheticId) {
+    MediaInfo mediaInfo = queueItem.getMedia();
+    if (mediaInfo == null) {
+      return queueItem;
+    }
+    JSONObject customData = mediaInfo.getCustomData();
+    if (customData != null) {
+      try {
+        customData.put(KEY_SYNTHETIC_ID, syntheticId.toString());
+      } catch (JSONException e) {
+        Log.w(TAG, "Failed to attach syntheticId to customData");
+      }
+    }
+    return queueItem;
+  }
+
+  @Nullable
+  private static ItemUid getSyntheticItemUid(@Nullable MediaInfo mediaInfo) {
+    if (mediaInfo == null) {
+      return null;
+    }
+    @Nullable JSONObject customData = mediaInfo.getCustomData();
+    if (customData == null || customData.isNull(KEY_SYNTHETIC_ID)) {
+      return null;
+    }
+    String syntheticId = customData.optString(KEY_SYNTHETIC_ID);
+    return !syntheticId.isEmpty() ? ItemUid.of(syntheticId) : null;
   }
 }
