@@ -110,8 +110,8 @@ import java.io.IOException;
           // Internal SDR texture
           setupInternalSdrGlProgram(requestedOutputColorInfo);
           copyGlProgram = checkNotNull(sdrInternalCopyGlProgram);
-          copyGlProgram.setIntUniform("uInputColorTransfer", inputColorInfo.colorTransfer);
         }
+        copyGlProgram.setIntUniform("uInputColorGamut", inputColorInfo.colorSpace);
       }
       copyGlProgram.setFloatsUniform("uTexTransformationMatrix", textureTransformMatrix);
       copyGlProgram.setSamplerTexIdUniform("uTexSampler", inputTexId, /* texUnitIndex= */ 0);
@@ -315,11 +315,11 @@ import java.io.IOException;
           new GlProgram(
               context,
               R.raw.vertex_shader_transformation_es2,
-              R.raw.fragment_shader_transformation_sdr_internal_es2);
+              R.raw.color_conversions_es2,
+              R.raw.fragment_shader_transformation_sdr_internal_color_conversion_es2);
       setupCommonAttributesAndUniforms(sdrInternalCopyGlProgram);
-      // WORKING_COLOR_SPACE_DEFAULT
-      sdrInternalCopyGlProgram.setIntUniform("uSdrWorkingColorSpace", 0);
       sdrInternalCopyGlProgram.setIntUniform("uOutputColorTransfer", outputColorInfo.colorTransfer);
+      sdrInternalCopyGlProgram.setIntUniform("uOutputColorGamut", outputColorInfo.colorSpace);
     }
   }
 
@@ -330,11 +330,11 @@ import java.io.IOException;
           new GlProgram(
               context,
               R.raw.vertex_shader_transformation_es2,
-              R.raw.fragment_shader_transformation_sdr_external_es2);
+              R.raw.color_conversions_es2,
+              R.raw.fragment_shader_transformation_sdr_external_color_conversion_es2);
       setupCommonAttributesAndUniforms(sdrExternalCopyGlProgram);
-      // WORKING_COLOR_SPACE_DEFAULT
-      sdrExternalCopyGlProgram.setIntUniform("uSdrWorkingColorSpace", 0);
       sdrExternalCopyGlProgram.setIntUniform("uOutputColorTransfer", outputColorInfo.colorTransfer);
+      sdrExternalCopyGlProgram.setIntUniform("uOutputColorGamut", outputColorInfo.colorSpace);
     }
   }
 
