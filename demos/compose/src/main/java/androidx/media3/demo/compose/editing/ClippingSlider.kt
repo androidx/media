@@ -42,6 +42,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -78,6 +79,7 @@ import androidx.media3.ui.compose.state.observeState
 import androidx.media3.ui.compose.state.rememberProgressStateWithTickCount
 import com.google.common.collect.ImmutableList
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -164,6 +166,7 @@ private const val POSITION_THUMB_HEIGHT_RATIO = 1.1f
  *   and 1.0.
  * @param onProgressChangeFinished A callback that is invoked when the user finishes dragging the
  *   playback position thumb.
+ * @param scope The [CoroutineScope] to use for listening to player progress updates.
  * @param minClippedDurationMs The minimum allowed duration of the clipped range in milliseconds.
  *   The slider will prevent the user from selecting a range shorter than this value.
  * @param colors The [ClippingSliderColors] used to style the slider.
@@ -183,6 +186,7 @@ fun ClippingSlider(
   onClippingRangeChangeFinished: (() -> Unit)? = null,
   onProgressChange: ((Float) -> Unit)? = null,
   onProgressChangeFinished: (() -> Unit)? = null,
+  scope: CoroutineScope = rememberCoroutineScope(),
   minClippedDurationMs: Long = 1000L,
   colors: ClippingSliderColors = ClippingSliderDefaults.colors(),
   shape: RoundedCornerShape = RoundedCornerShape(percent = 30),
@@ -200,6 +204,7 @@ fun ClippingSlider(
       onClippingRangeChangeFinished = onClippingRangeChangeFinished,
       onProgressChange = onProgressChange,
       onProgressChangeFinished = onProgressChangeFinished,
+      scope = scope,
     )
 
   LaunchedEffect(state.isUserInteracting, minClippedDurationMs, state.durationMs) {
@@ -688,9 +693,14 @@ private fun rememberClippingSliderState(
   onClippingRangeChangeFinished: (() -> Unit)? = null,
   onProgressChange: ((Float) -> Unit)? = null,
   onProgressChangeFinished: (() -> Unit)? = null,
+  scope: CoroutineScope = rememberCoroutineScope(),
 ): ClippingSliderState {
   val positionProgressState =
-    rememberProgressStateWithTickCount(player, totalTickCount = positionTickCount)
+    rememberProgressStateWithTickCount(
+      player = player,
+      totalTickCount = positionTickCount,
+      scope = scope,
+    )
   val currentOnClippingRangeChange by rememberUpdatedState(onClippingRangeChange)
   val currentOnClippingRangeChangeFinished by rememberUpdatedState(onClippingRangeChangeFinished)
   val currentOnProgressChange by rememberUpdatedState(onProgressChange)
