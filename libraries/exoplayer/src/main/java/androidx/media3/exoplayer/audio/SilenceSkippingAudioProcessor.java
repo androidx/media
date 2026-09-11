@@ -27,6 +27,9 @@ import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
+import com.google.common.primitives.Shorts;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -34,8 +37,8 @@ import java.lang.annotation.Target;
 import java.nio.ByteBuffer;
 
 /**
- * An {@link AudioProcessor} that skips silence in the input stream. Input and output are 16-bit
- * PCM.
+ * An {@link AudioProcessor} that skips silence in the input stream. Input and output are any linear
+ * PCM formats.
  */
 @UnstableApi
 public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
@@ -147,6 +150,7 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
   private final long maxSilenceToKeepDurationUs;
 
   private int bytesPerFrame;
+  private int bytesPerSample;
   private boolean enabled;
   private @State int state;
   private long skippedFrames;
@@ -261,7 +265,7 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
   @Override
   protected AudioFormat onConfigure(AudioFormat inputAudioFormat)
       throws UnhandledAudioFormatException {
-    if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT) {
+    if (!Util.isEncodingLinearPcm(inputAudioFormat.encoding)) {
       throw new UnhandledAudioFormatException(inputAudioFormat);
     }
     if (inputAudioFormat.sampleRate == Format.NO_VALUE) {
@@ -306,7 +310,8 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
   @Override
   public void onFlush(StreamMetadata streamMetadata) {
     if (isActive()) {
-      bytesPerFrame = inputAudioFormat.channelCount * 2;
+      bytesPerSample = Util.getByteDepth(inputAudioFormat.encoding);
+      bytesPerFrame = inputAudioFormat.channelCount * bytesPerSample;
       // Divide by 2 to allow the buffer to be split into two bytesPerFrame aligned parts.
       int maybeSilenceBufferSize =
           alignToBytePerFrameBoundary(
@@ -650,11 +655,7 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
     }
 
     int lastFrameIdx = (size / bytesPerFrame) - 1;
-    for (int idx = 0; idx < size; idx += 2) {
-      byte mostSignificantByte = sampleBuffer[idx + 1];
-      byte leastSignificantByte = sampleBuffer[idx];
-      int sample = twoByteSampleToInt(mostSignificantByte, leastSignificantByte);
-
+    for (int idx = 0; idx < size; idx += bytesPerSample) {
       int volumeModificationPercentage;
       if (volumeChangeType == FADE_OUT) {
         volumeModificationPercentage =
@@ -665,9 +666,158 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
       } else {
         volumeModificationPercentage = minVolumeToKeepPercentageWhenMuting;
       }
+      checkState(
+          volumeModificationPercentage >= 0
+              && volumeModificationPercentage <= 100); // --> calculations below will not overflow
 
-      sample = (sample * volumeModificationPercentage) / 100;
-      sampleIntToTwoBigEndianBytes(sampleBuffer, idx, sample);
+      // To avoid floating point math when not using a float-based format, change the variable type
+      // based on the encoding.
+      switch (inputAudioFormat.encoding) {
+        case C.ENCODING_PCM_8BIT:
+          int sample8bit = (sampleBuffer[idx] & 0xFF) - 128;
+          sample8bit = (sample8bit * volumeModificationPercentage) / 100;
+          sampleBuffer[idx] = (byte) (sample8bit + 128);
+          break;
+        case C.ENCODING_PCM_16BIT:
+          int sample16le = Shorts.fromBytes(sampleBuffer[idx + 1], sampleBuffer[idx]);
+          sample16le = (sample16le * volumeModificationPercentage) / 100;
+          sampleBuffer[idx] = (byte) (sample16le);
+          sampleBuffer[idx + 1] = (byte) (sample16le >> 8);
+          break;
+        case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
+          int sample16be = Shorts.fromBytes(sampleBuffer[idx], sampleBuffer[idx + 1]);
+          sample16be = (sample16be * volumeModificationPercentage) / 100;
+          sampleBuffer[idx + 1] = (byte) (sample16be);
+          sampleBuffer[idx] = (byte) (sample16be >> 8);
+          break;
+        case C.ENCODING_PCM_24BIT:
+          int sample24le =
+              ((sampleBuffer[idx + 2] & 0xFF) << 24
+                      | (sampleBuffer[idx + 1] & 0xFF) << 16
+                      | (sampleBuffer[idx] & 0xFF) << 8)
+                  >> 8;
+          sample24le = (sample24le * volumeModificationPercentage) / 100;
+          sampleBuffer[idx] = (byte) (sample24le);
+          sampleBuffer[idx + 1] = (byte) (sample24le >> 8);
+          sampleBuffer[idx + 2] = (byte) (sample24le >> 16);
+          break;
+        case C.ENCODING_PCM_24BIT_BIG_ENDIAN:
+          int sample24be =
+              ((sampleBuffer[idx] & 0xFF) << 24
+                      | (sampleBuffer[idx + 1] & 0xFF) << 16
+                      | (sampleBuffer[idx + 2] & 0xFF) << 8)
+                  >> 8;
+          sample24be = (sample24be * volumeModificationPercentage) / 100;
+          sampleBuffer[idx + 2] = (byte) (sample24be);
+          sampleBuffer[idx + 1] = (byte) (sample24be >> 8);
+          sampleBuffer[idx] = (byte) (sample24be >> 16);
+          break;
+        case C.ENCODING_PCM_32BIT:
+          long sample32le =
+              Ints.fromBytes(
+                  sampleBuffer[idx + 3],
+                  sampleBuffer[idx + 2],
+                  sampleBuffer[idx + 1],
+                  sampleBuffer[idx]);
+          sample32le = (sample32le * volumeModificationPercentage) / 100;
+          sampleBuffer[idx] = (byte) (sample32le);
+          sampleBuffer[idx + 1] = (byte) (sample32le >> 8);
+          sampleBuffer[idx + 2] = (byte) (sample32le >> 16);
+          sampleBuffer[idx + 3] = (byte) (sample32le >> 24);
+          break;
+        case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
+          long sample32be =
+              Ints.fromBytes(
+                  sampleBuffer[idx],
+                  sampleBuffer[idx + 1],
+                  sampleBuffer[idx + 2],
+                  sampleBuffer[idx + 3]);
+          sample32be = (sample32be * volumeModificationPercentage) / 100;
+          sampleBuffer[idx + 3] = (byte) (sample32be);
+          sampleBuffer[idx + 2] = (byte) (sample32be >> 8);
+          sampleBuffer[idx + 1] = (byte) (sample32be >> 16);
+          sampleBuffer[idx] = (byte) (sample32be >> 24);
+          break;
+        case C.ENCODING_PCM_FLOAT:
+          float sampleF32le =
+              Float.intBitsToFloat(
+                  Ints.fromBytes(
+                      sampleBuffer[idx + 3],
+                      sampleBuffer[idx + 2],
+                      sampleBuffer[idx + 1],
+                      sampleBuffer[idx]));
+          sampleF32le = sampleF32le * (volumeModificationPercentage / 100f);
+          int f32leBytes = Float.floatToRawIntBits(sampleF32le);
+          sampleBuffer[idx] = (byte) (f32leBytes);
+          sampleBuffer[idx + 1] = (byte) (f32leBytes >> 8);
+          sampleBuffer[idx + 2] = (byte) (f32leBytes >> 16);
+          sampleBuffer[idx + 3] = (byte) (f32leBytes >> 24);
+          break;
+        case C.ENCODING_PCM_FLOAT_BIG_ENDIAN:
+          float sampleF32be =
+              Float.intBitsToFloat(
+                  Ints.fromBytes(
+                      sampleBuffer[idx],
+                      sampleBuffer[idx + 1],
+                      sampleBuffer[idx + 2],
+                      sampleBuffer[idx + 3]));
+          sampleF32be = sampleF32be * (volumeModificationPercentage / 100f);
+          int f32beBytes = Float.floatToRawIntBits(sampleF32be);
+          sampleBuffer[idx + 3] = (byte) (f32beBytes);
+          sampleBuffer[idx + 2] = (byte) (f32beBytes >> 8);
+          sampleBuffer[idx + 1] = (byte) (f32beBytes >> 16);
+          sampleBuffer[idx] = (byte) (f32beBytes >> 24);
+          break;
+        case C.ENCODING_PCM_DOUBLE:
+          double sampleF64le =
+              Double.longBitsToDouble(
+                  Longs.fromBytes(
+                      sampleBuffer[idx + 7],
+                      sampleBuffer[idx + 6],
+                      sampleBuffer[idx + 5],
+                      sampleBuffer[idx + 4],
+                      sampleBuffer[idx + 3],
+                      sampleBuffer[idx + 2],
+                      sampleBuffer[idx + 1],
+                      sampleBuffer[idx]));
+          sampleF64le = sampleF64le * (volumeModificationPercentage / 100.0);
+          long f64leBytes = Double.doubleToRawLongBits(sampleF64le);
+          sampleBuffer[idx] = (byte) (f64leBytes);
+          sampleBuffer[idx + 1] = (byte) (f64leBytes >> 8);
+          sampleBuffer[idx + 2] = (byte) (f64leBytes >> 16);
+          sampleBuffer[idx + 3] = (byte) (f64leBytes >> 24);
+          sampleBuffer[idx + 4] = (byte) (f64leBytes >> 32);
+          sampleBuffer[idx + 5] = (byte) (f64leBytes >> 40);
+          sampleBuffer[idx + 6] = (byte) (f64leBytes >> 48);
+          sampleBuffer[idx + 7] = (byte) (f64leBytes >> 56);
+          break;
+        case C.ENCODING_PCM_DOUBLE_BIG_ENDIAN:
+          double sampleF64be =
+              Double.longBitsToDouble(
+                  Longs.fromBytes(
+                      sampleBuffer[idx],
+                      sampleBuffer[idx + 1],
+                      sampleBuffer[idx + 2],
+                      sampleBuffer[idx + 3],
+                      sampleBuffer[idx + 4],
+                      sampleBuffer[idx + 5],
+                      sampleBuffer[idx + 6],
+                      sampleBuffer[idx + 7]));
+          sampleF64be = sampleF64be * (volumeModificationPercentage / 100.0);
+          long f64beBytes = Double.doubleToRawLongBits(sampleF64be);
+          sampleBuffer[idx + 7] = (byte) (f64beBytes);
+          sampleBuffer[idx + 6] = (byte) (f64beBytes >> 8);
+          sampleBuffer[idx + 5] = (byte) (f64beBytes >> 16);
+          sampleBuffer[idx + 4] = (byte) (f64beBytes >> 24);
+          sampleBuffer[idx + 3] = (byte) (f64beBytes >> 32);
+          sampleBuffer[idx + 2] = (byte) (f64beBytes >> 40);
+          sampleBuffer[idx + 1] = (byte) (f64beBytes >> 48);
+          sampleBuffer[idx] = (byte) (f64beBytes >> 56);
+          break;
+        case C.ENCODING_INVALID:
+        case Format.NO_VALUE:
+          throw new IllegalStateException();
+      }
     }
   }
 
@@ -689,27 +839,6 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
             / AVOID_TRUNCATION_FACTOR);
   }
 
-  private static int twoByteSampleToInt(byte mostSignificantByte, byte leastSignificantByte) {
-    return ((leastSignificantByte & 0xFF) | mostSignificantByte << 8);
-  }
-
-  /**
-   * Converts {@code sample} into the corresponding big-endian 16bit bytes within {@code byteArray}.
-   */
-  private static void sampleIntToTwoBigEndianBytes(byte[] byteArray, int startIndex, int sample) {
-    // Avoid 16-bit-integer overflow when writing back the manipulated data.
-    if (sample >= Short.MAX_VALUE) {
-      byteArray[startIndex] = (byte) 0xFF;
-      byteArray[startIndex + 1] = (byte) 0x7F;
-    } else if (sample <= Short.MIN_VALUE) {
-      byteArray[startIndex] = (byte) 0x00;
-      byteArray[startIndex + 1] = (byte) 0x80;
-    } else {
-      byteArray[startIndex] = (byte) (sample & 0xFF);
-      byteArray[startIndex + 1] = (byte) (sample >> 8);
-    }
-  }
-
   /**
    * Copies remaining bytes from {@code data} to populate a new output buffer from the processor.
    */
@@ -729,9 +858,8 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
    * classified as a noisy frame, or the limit of the buffer if no such frame exists.
    */
   private int findNoisePosition(ByteBuffer buffer) {
-    // The input is in ByteOrder.nativeOrder(), which is little endian on Android.
-    for (int i = buffer.position() + 1; i < buffer.limit(); i += 2) {
-      if (isNoise(buffer.get(i), buffer.get(i - 1))) {
+    for (int i = buffer.position() + bytesPerSample - 1; i < buffer.limit(); i += bytesPerSample) {
+      if (isNoise(buffer, i - bytesPerSample + 1)) {
         // Round to the start of the frame.
         return bytesPerFrame * (i / bytesPerFrame);
       }
@@ -744,9 +872,8 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
    * from the byte position to the limit are classified as silent.
    */
   private int findNoiseLimit(ByteBuffer buffer) {
-    // The input is in ByteOrder.nativeOrder(), which is little endian on Android.
-    for (int i = buffer.limit() - 1; i >= buffer.position(); i -= 2) {
-      if (isNoise(buffer.get(i), buffer.get(i - 1))) {
+    for (int i = buffer.limit() - 1; i >= buffer.position(); i -= bytesPerSample) {
+      if (isNoise(buffer, i - bytesPerSample + 1)) {
         // Return the start of the next frame.
         return bytesPerFrame * (i / bytesPerFrame) + bytesPerFrame;
       }
@@ -755,11 +882,12 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
   }
 
   /**
-   * Whether the given two bytes represent a short signed PCM value that is greater than {@link
+   * Whether the given sample represents a PCM sample that is greater than {@link
    * #silenceThresholdLevel}.
    */
-  private boolean isNoise(byte mostSignificantByte, byte leastSignificantByte) {
-    return Math.abs(twoByteSampleToInt(mostSignificantByte, leastSignificantByte))
-        > silenceThresholdLevel;
+  private boolean isNoise(ByteBuffer buffer, int position) {
+    short sample =
+        (short) (PcmAudioUtil.readAs32BitIntPcm(buffer, position, inputAudioFormat.encoding) >> 16);
+    return Math.abs(sample) > silenceThresholdLevel;
   }
 }
