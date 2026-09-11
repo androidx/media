@@ -30,19 +30,20 @@ JOBS="$(nproc 2> /dev/null || sysctl -n hw.ncpu 2> /dev/null || echo 4)"
 echo "Using $JOBS jobs for make"
 COMMON_OPTIONS="
     --target-os=android
-    --enable-static
-    --disable-shared
+    --disable-static
+    --enable-shared
     --disable-doc
     --disable-programs
     --disable-everything
     --disable-avdevice
-    --disable-avformat
-    --disable-swscale
+    --enable-avformat
+    --enable-swscale
     --disable-postproc
     --disable-avfilter
     --disable-symver
     --enable-swresample
     --extra-ldexeflags=-pie
+    --extra-ldflags="-Wl,-z,max-page-size=16384"
     --disable-v4l2-m2m
     --disable-vulkan
     "
@@ -84,7 +85,7 @@ cd "${FFMPEG_MODULE_PATH}/jni/ffmpeg"
     --ranlib="${TOOLCHAIN_PREFIX}/llvm-ranlib" \
     --strip="${TOOLCHAIN_PREFIX}/llvm-strip" \
     --extra-cflags="-march=armv7-a -mfloat-abi=softfp" \
-    --extra-ldflags="-Wl,--fix-cortex-a8" \
+    --extra-ldflags="-Wl,--fix-cortex-a8 -Wl,-z,max-page-size=16384" \
     ${COMMON_OPTIONS}
 make -j$JOBS
 make install-libs
