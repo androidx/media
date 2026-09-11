@@ -441,7 +441,7 @@ public final class MediaFormatUtil {
             mediaFormat, MediaFormat.KEY_FRAME_RATE, /* defaultValue= */ Format.NO_VALUE);
     // Some devices may produce non-positive frame rates from MediaFormat.
     // See b/493371202 for more information.
-    if (frameRate <= 0f) {
+    if (frameRate <= 0f || Float.isNaN(frameRate)) {
       frameRate = Format.NO_VALUE;
     }
     return frameRate;

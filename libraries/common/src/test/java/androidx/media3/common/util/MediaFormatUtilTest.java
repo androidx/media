@@ -79,6 +79,16 @@ public class MediaFormatUtilTest {
   }
 
   @Test
+  public void createFormatFromMediaFormat_withNanFrameRate_setsFrameRateToNoValue() {
+    MediaFormat mediaFormat = new MediaFormat();
+    mediaFormat.setFloat(MediaFormat.KEY_FRAME_RATE, Float.NaN);
+
+    Format format = MediaFormatUtil.createFormatFromMediaFormat(mediaFormat);
+
+    assertThat(format.frameRate).isEqualTo(Format.NO_VALUE);
+  }
+
+  @Test
   public void createFormatFromMediaFormat_withContradictoryChannelMask_dropsChannelMask() {
     MediaFormat mediaFormat = new MediaFormat();
     mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 2);
