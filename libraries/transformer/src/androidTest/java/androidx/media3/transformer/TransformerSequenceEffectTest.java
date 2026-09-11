@@ -413,6 +413,7 @@ public final class TransformerSequenceEffectTest {
         || Ascii.equalsIgnoreCase(Build.MODEL, "sm-f926u1")
         || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g781n")
         || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g781v")
+        || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g781w")
         || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g981u1")
         || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g986u1")
         || Ascii.equalsIgnoreCase(Build.MODEL, "sm-n981u")
