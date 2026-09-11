@@ -218,7 +218,12 @@ internal fun LongFormPlayerScreen(
               showControls = false
               seekOverlayState.show(it)
             },
-            fastForwardActionArea = { offset -> offset.x >= size.width / 2 },
+            // Only allow fast-forwarding if we are NOT showing the play button (i.e., we are
+            // playing)
+            // and the press is on the right half of the screen.
+            fastForwardActionArea = { offset ->
+              !playPauseButtonState.showPlay && offset.x >= size.width / 2
+            },
             onFastForward = {
               showControls = false
               showFastForward = it
