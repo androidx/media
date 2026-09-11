@@ -87,7 +87,7 @@ public final class DefaultHardwareBufferFrameTest {
       assertWithMessage("Release callback timed out")
           .that(callbackLatch.await(TEST_TIMEOUT_MS, MILLISECONDS))
           .isTrue();
-      verify(mockReleaseFence).awaitMs(500);
+      verify(mockReleaseFence).awaitMs(2000);
       verify(mockReleaseFence).close();
       verify(mockCallback).release(null);
     }
@@ -209,9 +209,9 @@ public final class DefaultHardwareBufferFrameTest {
       assertWithMessage("Release callback timed out")
           .that(callbackLatch.await(TEST_TIMEOUT_MS, MILLISECONDS))
           .isTrue();
-      verify(mockReleaseFence1).awaitMs(500);
+      verify(mockReleaseFence1).awaitMs(2000);
       verify(mockReleaseFence1).close();
-      verify(mockReleaseFence2).awaitMs(500);
+      verify(mockReleaseFence2).awaitMs(2000);
       verify(mockReleaseFence2).close();
       verify(mockCallback).release(null);
     }
@@ -261,7 +261,7 @@ public final class DefaultHardwareBufferFrameTest {
       assertWithMessage("Release callback timed out")
           .that(callbackLatch.await(TEST_TIMEOUT_MS, MILLISECONDS))
           .isTrue();
-      verify(mockReleaseFence).awaitMs(500);
+      verify(mockReleaseFence).awaitMs(2000);
       verify(mockReleaseFence).close();
       verify(mockCallback).release(null);
     }

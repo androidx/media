@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,7 +37,8 @@ import java.util.concurrent.RejectedExecutionException;
  */
 /* package */ final class FrameSharedState {
 
-  private static final long RELEASE_TIMEOUT_MS = 500;
+  private static final String TAG = "FrameSharedState";
+  private static final long RELEASE_TIMEOUT_MS = 2000;
   private static final ExecutorService FENCE_WAIT_EXECUTOR =
       Util.newSingleThreadExecutor("FrameSharedState:FenceWaitThread");
 
@@ -105,7 +107,9 @@ import java.util.concurrent.RejectedExecutionException;
           () -> {
             try {
               for (int i = 0; i < fencesToWaitOn.size(); i++) {
-                checkState(fencesToWaitOn.get(i).awaitMs(RELEASE_TIMEOUT_MS));
+                if (!fencesToWaitOn.get(i).awaitMs(RELEASE_TIMEOUT_MS)) {
+                  Log.w(TAG, "Timed out waiting for release fence to signal.");
+                }
               }
             } finally {
               closeAll(fencesToWaitOn);

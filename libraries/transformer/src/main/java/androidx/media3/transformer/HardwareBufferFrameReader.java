@@ -37,6 +37,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.HandlerWrapper;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.Util;
 import androidx.media3.common.video.AsyncFrame;
@@ -94,6 +95,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private static final int DEFAULT_FRAME_RATE = 30;
   private static final String TAG = "HBFrameReader";
+  private static final long RELEASE_TIMEOUT_MS = 2000;
 
   private final Composition composition;
   private final int sequenceIndex;
@@ -542,13 +544,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       @Nullable ImageAdapter image,
       @Nullable HardwareBuffer hardwareBuffer,
       @Nullable SyncFenceWrapper releaseFence) {
+    if (releaseFence != null) {
+      // TODO: b/475744934 - Use the NDK to set the fence on the Image.
+      if (!releaseFence.awaitMs(RELEASE_TIMEOUT_MS)) {
+        Log.w(TAG, "Timed out waiting for release fence to signal.");
+      }
+      releaseFence.close();
+    }
     synchronized (this) {
       framesInUse--;
-      if (releaseFence != null) {
-        // TODO: b/475744934 - Use the NDK to set the fence on the Image.
-        checkState(releaseFence.awaitMs(500));
-        releaseFence.close();
-      }
       if (SDK_INT >= 26 && hardwareBuffer != null) {
         hardwareBuffer.close();
       }

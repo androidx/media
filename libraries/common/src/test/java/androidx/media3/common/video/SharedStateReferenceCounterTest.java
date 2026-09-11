@@ -134,6 +134,43 @@ public final class SharedStateReferenceCounterTest {
   }
 
   @Test
+  public void
+      release_withReleaseCallbackAndFenceTimeout_awaitsAllFencesClosesAndDelegatesToCallback()
+          throws Exception {
+    CountDownLatch callbackLatch = new CountDownLatch(1);
+    FakeReleaseCallback fakeCallback = new FakeReleaseCallback();
+    ReleaseCallback callback =
+        fence -> {
+          fakeCallback.release(fence);
+          callbackLatch.countDown();
+        };
+    SyncFenceWrapper mockTimedOutFence = mock(SyncFenceWrapper.class);
+    SyncFenceWrapper mockSignaledFence = mock(SyncFenceWrapper.class);
+    when(mockTimedOutFence.awaitMs(anyLong())).thenReturn(false);
+    when(mockSignaledFence.awaitMs(anyLong())).thenReturn(true);
+    SharedStateReferenceCounter counter1 =
+        new SharedStateReferenceCounter.Builder(directExecutor(), callback).build();
+    SharedStateReferenceCounter counter2 =
+        new SharedStateReferenceCounter.Builder(counter1.getSharedState())
+            .shouldIncrementReferenceCount()
+            .build();
+
+    counter1.release(mockTimedOutFence);
+    counter2.release(mockSignaledFence);
+
+    assertWithMessage("Release callback timed out")
+        .that(callbackLatch.await(TEST_TIMEOUT_MS, MILLISECONDS))
+        .isTrue();
+    assertThat(counter1.isReleased()).isTrue();
+    assertThat(counter2.isReleased()).isTrue();
+    verify(mockTimedOutFence).awaitMs(anyLong());
+    verify(mockTimedOutFence).close();
+    verify(mockSignaledFence).awaitMs(anyLong());
+    verify(mockSignaledFence).close();
+    assertThat(fakeCallback.getReleaseCount()).isEqualTo(1);
+  }
+
+  @Test
   public void release_alreadyReleasedWithCallback_closesFenceWithoutInvokingCallback() {
     FakeReleaseCallback callback = new FakeReleaseCallback();
     SyncFenceWrapper mockReleaseFence = mock(SyncFenceWrapper.class);
