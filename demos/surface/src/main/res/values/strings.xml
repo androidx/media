@@ -15,7 +15,7 @@
 -->
 <resources>
 
-  <string name="application_name">ExoPlayer SurfaceControl demo</string>
+  <string name="application_name">Media3 SurfaceControl Demo</string>
   <string name="no_output_label">No output</string>
   <string name="full_screen_label">Full screen</string>
   <string name="new_activity_label">New activity</string>
