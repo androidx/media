@@ -1013,6 +1013,9 @@ public final class Format {
    *   <li>HLS variants: The {@code SCORE} attribute defined on the corresponding {@code
    *       EXT-X-STREAM-INF} and {@code EXT-X-I-FRAME-STREAM-INF} tags in the multivariant playlist,
    *       or {@link #NO_VALUE} if not present.
+   *   <li>DASH representations: The {@code selectionPriority} attribute defined on the
+   *       corresponding {@code Representation}, inherited from the parent {@code AdaptationSet}, or
+   *       {@code 1} if not present.
    *   <li>All the other types of media: Always {@link #NO_VALUE}.
    * </ul>
    */
