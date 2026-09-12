@@ -98,9 +98,8 @@ import java.io.IOException;
           copyGlProgram = checkNotNull(checkNotNull(hdrInternalCopyGlProgram));
         }
 
+        // Not setting output related uniforms, they were set during creating the GlProgram.
         copyGlProgram.setIntUniform("uInputColorTransfer", inputColorInfo.colorTransfer);
-        // Intentionally not setting uOutputColorTransfer, it's set during creating the GlProgram.
-        copyGlProgram.setIntUniform("uOutputColorGamut", requestedOutputColorInfo.colorSpace);
       } else {
         // SDR input
         if (isExternalTexture) {
@@ -290,6 +289,7 @@ import java.io.IOException;
       setupCommonAttributesAndUniforms(hdrExternalCopyGlProgram);
 
       hdrExternalCopyGlProgram.setIntUniform("uOutputColorTransfer", outputColorInfo.colorTransfer);
+      hdrExternalCopyGlProgram.setIntUniform("uOutputColorGamut", outputColorInfo.colorSpace);
     }
   }
 
@@ -305,6 +305,7 @@ import java.io.IOException;
               R.raw.fragment_shader_transformation_hdr_internal_color_conversion_es3);
       setupCommonAttributesAndUniforms(hdrInternalCopyGlProgram);
       hdrInternalCopyGlProgram.setIntUniform("uOutputColorTransfer", outputColorInfo.colorTransfer);
+      hdrInternalCopyGlProgram.setIntUniform("uOutputColorGamut", outputColorInfo.colorSpace);
     }
   }
 
