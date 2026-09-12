@@ -429,6 +429,11 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
       // using it (see b/290725189).
       return true;
     }
+    if (SDK_INT == 34 && Ascii.equalsIgnoreCase(Build.MODEL, "xq-dq72")) {
+      // The Sony Xperia 1 V drops empty EOS output buffer when tone-mapping HDR to SDR (see
+      // b/558024432).
+      return true;
+    }
     return false;
   }
 
