@@ -26,11 +26,13 @@ import android.content.IntentFilter;
 import android.media.AudioDeviceCallback;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
+import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.lang.reflect.Field;
@@ -42,10 +44,11 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
+import org.robolectric.util.ReflectionHelpers;
 
 /** Tests that raw OEM audio-device callbacks are serialized on the receiver handler. */
 @RunWith(AndroidJUnit4.class)
-@Config(sdk = 23)
+@Config(sdk = 29)
 public class AudioCapabilitiesReceiverWrongThreadTest {
 
   private static final String PLAYBACK_THREAD_NAME = "ExoPlayer:Playback";
@@ -54,9 +57,18 @@ public class AudioCapabilitiesReceiverWrongThreadTest {
 
   private HandlerThread playbackThread;
   private Handler playbackHandler;
+  private String originalManufacturer;
+  private String originalModel;
+  private boolean originalEnableWorkarounds;
 
   @Before
   public void setUp() {
+    originalManufacturer = Build.MANUFACTURER;
+    originalModel = Build.MODEL;
+    originalEnableWorkarounds = MediaLibraryInfo.enableWorkarounds();
+    ReflectionHelpers.setStaticField(Build.class, "MANUFACTURER", "SkyworthDigital");
+    ReflectionHelpers.setStaticField(Build.class, "MODEL", "XStream-Smart-Box-002");
+    MediaLibraryInfo.setEnableWorkarounds(true);
     playbackThread = new HandlerThread(PLAYBACK_THREAD_NAME);
     playbackThread.start();
     playbackHandler = new Handler(playbackThread.getLooper());
@@ -64,6 +76,9 @@ public class AudioCapabilitiesReceiverWrongThreadTest {
 
   @After
   public void tearDown() throws Exception {
+    ReflectionHelpers.setStaticField(Build.class, "MANUFACTURER", originalManufacturer);
+    ReflectionHelpers.setStaticField(Build.class, "MODEL", originalModel);
+    MediaLibraryInfo.setEnableWorkarounds(originalEnableWorkarounds);
     playbackThread.quitSafely();
     playbackThread.join(TimeUnit.SECONDS.toMillis(TEST_TIMEOUT_SECONDS));
   }
@@ -76,6 +91,35 @@ public class AudioCapabilitiesReceiverWrongThreadTest {
   @Test
   public void rawThreadDeviceRemoval_notifiesListenerOnReceiverHandler() throws Exception {
     assertRawThreadCallbackIsDeliveredOnReceiverHandler(/* added= */ false);
+  }
+
+  @Test
+  public void disabledWorkarounds_rawThreadDeviceAddition_notifiesListenerOnOemThread()
+      throws Exception {
+    MediaLibraryInfo.setEnableWorkarounds(false);
+
+    CapabilityContext context =
+        new CapabilityContext(ApplicationProvider.getApplicationContext());
+    TrackingListener listener = new TrackingListener();
+    AtomicReference<AudioDeviceCallback> callbackReference = new AtomicReference<>();
+    AtomicReference<AudioCapabilitiesReceiver> receiverReference = new AtomicReference<>();
+
+    runOnPlayback(
+        () -> {
+          AudioCapabilitiesReceiver receiver = new AudioCapabilitiesReceiver(context, listener);
+          listener.receiver = receiver;
+          receiver.register();
+          receiverReference.set(receiver);
+          callbackReference.set(getPrivateField(receiver, "audioDeviceCallback"));
+        });
+
+    AtomicReference<Throwable> callbackFailure =
+        invokeFromRawOemThread(checkNotNull(callbackReference.get()), /* added= */ true);
+
+    assertThat(callbackFailure.get()).isNull();
+    assertThat(listener.threadName).isEqualTo(OEM_THREAD_NAME);
+    assertThat(listener.looperName).isEqualTo("null");
+    runOnPlayback(() -> checkNotNull(receiverReference.get()).unregister());
   }
 
   private void assertRawThreadCallbackIsDeliveredOnReceiverHandler(boolean added)
