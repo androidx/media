@@ -27,9 +27,11 @@ import android.database.ContentObserver;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Handler;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.audio.AudioManagerCompat;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -225,6 +227,14 @@ public final class AudioCapabilitiesReceiver {
             context, audioAttributes, routedDevice, spatializerChannelMasks));
   }
 
+  private static boolean deviceNeedsAudioDeviceCallbackThreadingWorkaround() {
+    return MediaLibraryInfo.enableWorkarounds()
+        && SDK_INT < 38
+        && (("Jio".equals(Build.MANUFACTURER) && "JHSA400".equals(Build.MODEL))
+            || ("SkyworthDigital".equals(Build.MANUFACTURER)
+                && "XStream-Smart-Box-002".equals(Build.MODEL)));
+  }
+
   private final class HdmiAudioPlugBroadcastReceiver extends BroadcastReceiver {
 
     @Override
@@ -267,18 +277,27 @@ public final class AudioCapabilitiesReceiver {
   private final class AudioDeviceCallback extends android.media.AudioDeviceCallback {
     @Override
     public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) {
-      handler.post(AudioCapabilitiesReceiver.this::updateCurrentAudioCapabilities);
+      if (deviceNeedsAudioDeviceCallbackThreadingWorkaround()) {
+        handler.post(AudioCapabilitiesReceiver.this::updateCurrentAudioCapabilities);
+      } else {
+        updateCurrentAudioCapabilities();
+      }
     }
 
     @Override
     public void onAudioDevicesRemoved(AudioDeviceInfo[] removedDevices) {
-      handler.post(
+      Runnable updateAudioCapabilities =
           () -> {
             if (Util.contains(removedDevices, routedDevice)) {
               routedDevice = null;
             }
             updateCurrentAudioCapabilities();
-          });
+          };
+      if (deviceNeedsAudioDeviceCallbackThreadingWorkaround()) {
+        handler.post(updateAudioCapabilities);
+      } else {
+        updateAudioCapabilities.run();
+      }
     }
   }
 }
