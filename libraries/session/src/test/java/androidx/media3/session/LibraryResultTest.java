@@ -166,4 +166,14 @@ public class LibraryResultTest {
     assertThat(errorLibraryResultFromBundle.completionTimeMs)
         .isEqualTo(errorLibraryResult.completionTimeMs);
   }
+
+  @Test
+  public void roundTripViaBundleForLocalProcess_yieldsSameInstance() {
+    LibraryResult<SessionError> errorLibraryResult =
+        LibraryResult.ofError(new SessionError(ERROR_NOT_SUPPORTED, "error message", new Bundle()));
+    LibraryResult<?> unbundledLibraryResult =
+        LibraryResult.fromUnknownBundle(errorLibraryResult.toBundleForLocalProcess());
+
+    assertThat(errorLibraryResult == unbundledLibraryResult).isTrue();
+  }
 }

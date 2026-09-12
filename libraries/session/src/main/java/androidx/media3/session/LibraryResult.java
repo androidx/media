@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.annotation.SuppressLint;
+import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.SystemClock;
@@ -337,6 +338,7 @@ public final class LibraryResult<V> {
   private static final String FIELD_VALUE = Util.intToStringMaxRadix(3);
   private static final String FIELD_VALUE_TYPE = Util.intToStringMaxRadix(4);
   private static final String FIELD_SESSION_ERROR = Util.intToStringMaxRadix(5);
+  private static final String FIELD_IN_PROCESS_BINDER = Util.intToStringMaxRadix(6);
 
   /**
    * @deprecated Use {@link #toBundle(int)} instead.
@@ -382,6 +384,17 @@ public final class LibraryResult<V> {
         // value must be null for both these types, so we should have returned above.
         throw new IllegalStateException();
     }
+    return bundle;
+  }
+
+  /**
+   * Returns a {@link Bundle} containing the entirety of this {@link #LibraryResult} object without
+   * bundling it, for use in local process communication only.
+   */
+  @UnstableApi
+  public Bundle toBundleForLocalProcess() {
+    Bundle bundle = new Bundle();
+    bundle.putBinder(FIELD_IN_PROCESS_BINDER, new InProcessBinder());
     return bundle;
   }
 
@@ -484,6 +497,13 @@ public final class LibraryResult<V> {
    */
   private static LibraryResult<?> fromBundle(
       Bundle bundle, @Nullable @ValueType Integer expectedType, int interfaceVersion) {
+    IBinder inProcessBinder = bundle.getBinder(FIELD_IN_PROCESS_BINDER);
+    if (inProcessBinder instanceof LibraryResult<?>.InProcessBinder) {
+      LibraryResult<?> result =
+          ((LibraryResult<?>.InProcessBinder) inProcessBinder).getLibraryResult();
+      checkState(expectedType == null || expectedType == result.valueType);
+      return result;
+    }
     int resultCode = bundle.getInt(FIELD_RESULT_CODE, /* defaultValue= */ RESULT_SUCCESS);
     long completionTimeMs =
         bundle.getLong(FIELD_COMPLETION_TIME_MS, /* defaultValue= */ SystemClock.elapsedRealtime());
@@ -541,4 +561,10 @@ public final class LibraryResult<V> {
 
   /** The value type isn't known because the result is carrying an error. */
   private static final int VALUE_TYPE_ERROR = 4;
+
+  private final class InProcessBinder extends Binder {
+    public LibraryResult<V> getLibraryResult() {
+      return LibraryResult.this;
+    }
+  }
 }
