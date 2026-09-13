@@ -527,22 +527,60 @@ public final class Ac3Util {
   }
 
   /**
-   * Reads the number of audio samples represented by the given (E-)AC-3 syncframe. The buffer's
-   * position is not modified.
+   * Reads the number of audio samples represented by the given (E-)AC-3 syncframe or access
+   * unit. For E-AC-3 access units, this uses the longest non-dependent substream timeline. 
+   * The buffer's position is not modified.
    *
-   * @param buffer The {@link ByteBuffer} from which to read the syncframe.
-   * @return The number of audio samples represented by the syncframe.
+   * @param buffer The {@link ByteBuffer} from which to read the syncframe or access unit.
+   * @return The number of audio samples represented by the syncframe or access unit.
    */
   public static int parseAc3SyncframeAudioSampleCount(ByteBuffer buffer) {
     // Parse the bitstream ID for AC-3 and E-AC-3 (see subsections 4.3, E.1.2 and E.1.3.1.6).
     boolean isEac3 = ((buffer.get(buffer.position() + 5) & 0xF8) >> 3) > 10;
-    if (isEac3) {
-      int fscod = (buffer.get(buffer.position() + 4) & 0xC0) >> 6;
-      int numblkscod = fscod == 0x03 ? 3 : (buffer.get(buffer.position() + 4) & 0x30) >> 4;
-      return BLOCKS_PER_SYNCFRAME_BY_NUMBLKSCOD[numblkscod] * AUDIO_SAMPLES_PER_AUDIO_BLOCK;
-    } else {
-      return AC3_SYNCFRAME_AUDIO_SAMPLE_COUNT;
+    return isEac3
+        ? parseEAc3SyncframeOrAccessUnitAudioSampleCount(buffer)
+        : AC3_SYNCFRAME_AUDIO_SAMPLE_COUNT;
+  }
+
+  private static int parseEAc3SyncframeOrAccessUnitAudioSampleCount(ByteBuffer buffer) {
+    int firstSyncframeAudioBlockCount =
+        parseEAc3SyncframeAudioBlockCount(buffer, buffer.position());
+    int[] audioBlocksBySubstreamId = new int[8];
+    int maxAudioBlockCount = 0;
+    int position = buffer.position();
+    int limit = buffer.limit();
+    while (position + 6 <= limit && hasAc3Syncword(buffer, position)) {
+      int syncframeSize = parseEAc3SyncframeSize(buffer, position);
+      if (syncframeSize < 6 || position + syncframeSize > limit) {
+        break;
+      }
+      int syncframeAudioBlockCount = parseEAc3SyncframeAudioBlockCount(buffer, position);
+      int streamType = (buffer.get(position + 2) & 0xC0) >> 6;
+      if (streamType != SyncFrameInfo.STREAM_TYPE_TYPE1) {
+        int substreamId = (buffer.get(position + 2) & 0x38) >> 3;
+        audioBlocksBySubstreamId[substreamId] += syncframeAudioBlockCount;
+        maxAudioBlockCount = Math.max(maxAudioBlockCount, audioBlocksBySubstreamId[substreamId]);
+      }
+      position += syncframeSize;
     }
+    return (maxAudioBlockCount != 0 ? maxAudioBlockCount : firstSyncframeAudioBlockCount)
+        * AUDIO_SAMPLES_PER_AUDIO_BLOCK;
+  }
+
+  private static int parseEAc3SyncframeAudioBlockCount(ByteBuffer buffer, int offset) {
+    int fscod = (buffer.get(offset + 4) & 0xC0) >> 6;
+    int numblkscod = fscod == 0x03 ? 3 : (buffer.get(offset + 4) & 0x30) >> 4;
+    return BLOCKS_PER_SYNCFRAME_BY_NUMBLKSCOD[numblkscod];
+  }
+
+  private static int parseEAc3SyncframeSize(ByteBuffer buffer, int offset) {
+    int frameSize = (buffer.get(offset + 2) & 0x07) << 8;
+    frameSize |= buffer.get(offset + 3) & 0xFF;
+    return (frameSize + 1) * 2;
+  }
+
+  private static boolean hasAc3Syncword(ByteBuffer buffer, int offset) {
+    return (buffer.get(offset) & 0xFF) == 0x0B && (buffer.get(offset + 1) & 0xFF) == 0x77;
   }
 
   /**
