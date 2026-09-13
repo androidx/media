@@ -571,6 +571,30 @@
         ]
       },
       {
+        "name": "CBCS - CENC - CBCS",
+        "playlist": [
+          {
+            "uri": "https://storage.googleapis.com/wvmedia/cbcs/h264/tears/tears_aes_cbcs.mpd",
+            "clip_end_position_ms": 10000,
+            "drm_scheme": "widevine",
+            "drm_license_uri": "https://proxy.uat.widevine.com/proxy?provider=widevine_test"
+          },
+          {
+            "uri": "https://storage.googleapis.com/wvmedia/cenc/h264/tears/tears.mpd",
+            "clip_start_position_ms": 10000,
+            "clip_end_position_ms": 15000,
+            "drm_scheme": "widevine",
+            "drm_license_uri": "https://proxy.uat.widevine.com/proxy?provider=widevine_test"
+          },
+          {
+            "uri": "https://storage.googleapis.com/wvmedia/cbcs/h264/tears/tears_aes_cbcs.mpd",
+            "clip_start_position_ms": 15000,
+            "drm_scheme": "widevine",
+            "drm_license_uri": "https://proxy.uat.widevine.com/proxy?provider=widevine_test"
+          }
+        ]
+      },
+      {
         "name": "Manual ad insertion",
         "playlist": [
           {
