@@ -141,6 +141,14 @@ public final class FragmentedMp4ExtractorParameterizedTest {
   }
 
   @Test
+  public void sampleWithDolbyTrueHdTrack() throws Exception {
+    assertExtractorBehavior(
+        /* closedCaptionFormats= */ ImmutableList.of(),
+        "media/mp4/sample_dthd_fragmented.mp4",
+        /* peekLimit= */ 750);
+  }
+
+  @Test
   public void sampleWithAc4Track() throws Exception {
     assertExtractorBehavior(
         /* closedCaptionFormats= */ ImmutableList.of(),
