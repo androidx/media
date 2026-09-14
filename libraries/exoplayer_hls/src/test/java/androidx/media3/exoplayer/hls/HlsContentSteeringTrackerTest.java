@@ -31,6 +31,7 @@ import static org.robolectric.Shadows.shadowOf;
 
 import android.net.Uri;
 import android.os.Looper;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -52,6 +53,7 @@ import java.nio.charset.Charset;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -71,6 +73,7 @@ public final class HlsContentSteeringTrackerTest {
   @Mock private HlsPlaylistTracker mockPlaylistTracker;
   @Mock private HlsContentSteeringTracker.Callback mockContentSteeringTrackerCallback;
   private AtomicInteger currentPathwayUpdateCount;
+  @Nullable private HlsContentSteeringTracker contentSteeringTracker;
 
   @Before
   public void setUp() {
@@ -82,10 +85,17 @@ public final class HlsContentSteeringTrackerTest {
         .onCurrentPathwayUpdated(any(), any(), anyLong());
   }
 
+  @After
+  public void tearDown() {
+    if (contentSteeringTracker != null) {
+      contentSteeringTracker.release();
+    }
+  }
+
   @Test
   public void start_withValidInitialPathwayId_picksTheInitialPathwayAndNotifyCallback() {
     AtomicReference<TimeoutException> timeoutExceptionRef = new AtomicReference<>();
-    HlsContentSteeringTracker contentSteeringTracker =
+    contentSteeringTracker =
         runContentSteeringTracker(
             new FakeDataSource(),
             /* initialPathwayId= */ "CDN-B",
@@ -129,7 +139,7 @@ public final class HlsContentSteeringTrackerTest {
                 .endData());
 
     AtomicReference<TimeoutException> timeoutExceptionRef = new AtomicReference<>();
-    HlsContentSteeringTracker contentSteeringTracker =
+    contentSteeringTracker =
         runContentSteeringTracker(
             fakeDataSource,
             /* initialPathwayId= */ "CDN-A",
@@ -186,7 +196,7 @@ public final class HlsContentSteeringTrackerTest {
                 .endData());
 
     AtomicReference<TimeoutException> timeoutExceptionRef = new AtomicReference<>();
-    HlsContentSteeringTracker contentSteeringTracker =
+    contentSteeringTracker =
         runContentSteeringTracker(
             fakeDataSource,
             /* initialPathwayId= */ "CDN-A",
@@ -258,7 +268,7 @@ public final class HlsContentSteeringTrackerTest {
                 .endData());
 
     AtomicReference<TimeoutException> timeoutExceptionRef = new AtomicReference<>();
-    HlsContentSteeringTracker contentSteeringTracker =
+    contentSteeringTracker =
         runContentSteeringTracker(
             fakeDataSource,
             /* initialPathwayId= */ "CDN-A",
@@ -329,7 +339,7 @@ public final class HlsContentSteeringTrackerTest {
                 .endData());
 
     AtomicReference<TimeoutException> timeoutExceptionRef = new AtomicReference<>();
-    HlsContentSteeringTracker contentSteeringTracker =
+    contentSteeringTracker =
         runContentSteeringTracker(
             fakeDataSource,
             /* initialPathwayId= */ "CDN-A",
@@ -375,7 +385,7 @@ public final class HlsContentSteeringTrackerTest {
                 .endData());
 
     AtomicReference<TimeoutException> timeoutExceptionRef = new AtomicReference<>();
-    HlsContentSteeringTracker contentSteeringTracker =
+    contentSteeringTracker =
         runContentSteeringTracker(
             fakeDataSource,
             /* initialPathwayId= */ "CDN-A",
@@ -413,7 +423,7 @@ public final class HlsContentSteeringTrackerTest {
                 .endData());
     AtomicReference<TimeoutException> timeoutExceptionRef = new AtomicReference<>();
 
-    HlsContentSteeringTracker contentSteeringTracker =
+    contentSteeringTracker =
         runContentSteeringTracker(
             fakeDataSource,
             /* initialPathwayId= */ "CDN-A",
@@ -454,7 +464,7 @@ public final class HlsContentSteeringTrackerTest {
     FakeDataSource fakeDataSource = new FakeDataSource(fakeDataSet);
     AtomicReference<TimeoutException> timeoutExceptionRef = new AtomicReference<>();
 
-    HlsContentSteeringTracker contentSteeringTracker =
+    contentSteeringTracker =
         runContentSteeringTracker(
             fakeDataSource,
             /* initialPathwayId= */ "CDN-A",
@@ -497,7 +507,7 @@ public final class HlsContentSteeringTrackerTest {
     FakeDataSource fakeDataSource = new FakeDataSource(fakeDataSet);
     AtomicReference<TimeoutException> timeoutExceptionRef = new AtomicReference<>();
 
-    HlsContentSteeringTracker contentSteeringTracker =
+    contentSteeringTracker =
         runContentSteeringTracker(
             fakeDataSource,
             /* initialPathwayId= */ "CDN-A",
@@ -539,7 +549,7 @@ public final class HlsContentSteeringTrackerTest {
     FakeDataSource fakeDataSource = new FakeDataSource(fakeDataSet);
     AtomicReference<TimeoutException> timeoutExceptionRef = new AtomicReference<>();
 
-    HlsContentSteeringTracker contentSteeringTracker =
+    contentSteeringTracker =
         runContentSteeringTracker(
             fakeDataSource,
             /* initialPathwayId= */ "CDN-A",
@@ -572,7 +582,7 @@ public final class HlsContentSteeringTrackerTest {
                 .appendReadData(getBytes(steeringManifest))
                 .endData());
     AtomicReference<TimeoutException> timeoutExceptionRef = new AtomicReference<>();
-    HlsContentSteeringTracker contentSteeringTracker =
+    contentSteeringTracker =
         runContentSteeringTracker(
             fakeDataSource,
             /* initialPathwayId= */ "CDN-A",
@@ -623,7 +633,7 @@ public final class HlsContentSteeringTrackerTest {
                 .appendReadData(getBytes(steeringManifest))
                 .endData());
     AtomicReference<TimeoutException> timeoutExceptionRef = new AtomicReference<>();
-    HlsContentSteeringTracker contentSteeringTracker =
+    contentSteeringTracker =
         runContentSteeringTracker(
             fakeDataSource,
             /* initialPathwayId= */ "CDN-A",
@@ -645,7 +655,7 @@ public final class HlsContentSteeringTrackerTest {
   public void
       excludeCurrentPathway_beforeFirstPathwayPriorityListAvailable_excludesUnsuccessfullyAndDoesNotUpdatePathway() {
     AtomicReference<TimeoutException> timeoutExceptionRef = new AtomicReference<>();
-    HlsContentSteeringTracker contentSteeringTracker =
+    contentSteeringTracker =
         runContentSteeringTracker(
             new FakeDataSource(),
             /* initialPathwayId= */ "CDN-A",
@@ -713,7 +723,7 @@ public final class HlsContentSteeringTrackerTest {
       Clock clock,
       int awaitedCurrentPathwayUpdateCount,
       AtomicReference<TimeoutException> timeoutExceptionRef) {
-    HlsContentSteeringTracker contentSteeringTracker =
+    contentSteeringTracker =
         new HlsContentSteeringTracker(
             dataType -> fakeDataSource,
             /* downloadExecutorSupplier= */ null,
