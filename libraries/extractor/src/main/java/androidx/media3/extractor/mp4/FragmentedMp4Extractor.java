@@ -502,7 +502,12 @@ public class FragmentedMp4Extractor implements Extractor {
       trackBundle.resetFragmentInfo();
       if (trackBundle.trueHdSampleRechunker != null) {
         // Drop the partially accumulated chunk: its samples are no longer in the sample queue.
-        trackBundle.trueHdSampleRechunker.reset();
+        if (timeUs == 0) {
+          // BundledChunkExtractor uses seek(0, 0) between consecutive segment inputs.
+          trackBundle.trueHdSampleRechunker.resetSampleCount();
+        } else {
+          trackBundle.trueHdSampleRechunker.reset();
+        }
       }
     }
     pendingMetadataSampleInfos.clear();
