@@ -928,20 +928,18 @@ public final class MediaItemExportTest {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
     // TODO: b/484325763 - Investigate refactoring `WatchdogTimer` to use `Clock` interface for
     //  deterministic testing.
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     MediaSource.Factory mediaSourceFactory =
         new DefaultMediaSourceFactory(
-            context, new SlowExtractorsFactory(/* delayBetweenReadsMs= */ 100));
+            context, new SlowExtractorsFactory(/* delayBetweenReadsMs= */ 1000));
     Codec.DecoderFactory decoderFactory = new DefaultDecoderFactory.Builder(context).build();
     AssetLoader.Factory assetLoaderFactory =
-        new ExoPlayerAssetLoader.Factory(
-            context,
-            decoderFactory,
-            new FakeClock(/* isAutoAdvancing= */ true),
-            mediaSourceFactory);
+        new ExoPlayerAssetLoader.Factory(context, decoderFactory, clock, mediaSourceFactory);
     Transformer transformer =
         new TestTransformerBuilder(context)
+            .setClock(clock)
             .setMuxerFactory(muxerFactory)
-            .setMaxDelayBetweenMuxerSamplesMs(10)
+            .setMaxDelayBetweenMuxerSamplesMs(500)
             .setAssetLoaderFactory(assetLoaderFactory)
             .build();
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO);
