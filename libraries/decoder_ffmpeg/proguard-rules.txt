@@ -2,9 +2,9 @@
 
 # This prevents the names of native methods from being obfuscated. The class names are
 # kept as well (a -keep rule keeps the matched classes), which the JNI layer relies on:
-# FfmpegLibrary is found by name in JNI_OnLoad and the video decoder's native methods
-# are bound via the Java_androidx_media3_decoder_ffmpeg_ExperimentalFfmpegVideoDecoder_*
-# symbols, i.e. the class name must not be renamed by R8.
+# FfmpegLibrary, FfmpegAudioDecoder and ExperimentalFfmpegVideoDecoder are all found by
+# name in JNI_OnLoad and their native methods are bound there via RegisterNatives, so
+# neither the classes nor their native methods may be renamed or stripped by R8.
 -keep,includedescriptorclasses class androidx.media3.decoder.ffmpeg.** {
     native <methods>;
 }

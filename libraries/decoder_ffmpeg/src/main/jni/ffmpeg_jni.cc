@@ -47,37 +47,6 @@ extern "C" {
 #define LOGD(...) \
   ((void)__android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__))
 
-#define LIBRARY_FUNC(RETURN_TYPE, NAME, ...)                               \
-  extern "C" {                                                             \
-  JNIEXPORT RETURN_TYPE                                                    \
-  Java_androidx_media3_decoder_ffmpeg_FfmpegLibrary_##NAME(JNIEnv* env,    \
-                                                           jobject thiz,   \
-                                                           ##__VA_ARGS__); \
-  }                                                                        \
-  JNIEXPORT RETURN_TYPE                                                    \
-  Java_androidx_media3_decoder_ffmpeg_FfmpegLibrary_##NAME(                \
-      JNIEnv* env, jobject thiz, ##__VA_ARGS__)
-
-#define AUDIO_DECODER_FUNC(RETURN_TYPE, NAME, ...)               \
-  extern "C" {                                                   \
-  JNIEXPORT RETURN_TYPE                                          \
-  Java_androidx_media3_decoder_ffmpeg_FfmpegAudioDecoder_##NAME( \
-      JNIEnv* env, jobject thiz, ##__VA_ARGS__);                 \
-  }                                                              \
-  JNIEXPORT RETURN_TYPE                                          \
-  Java_androidx_media3_decoder_ffmpeg_FfmpegAudioDecoder_##NAME( \
-      JNIEnv* env, jobject thiz, ##__VA_ARGS__)
-
-#define VIDEO_DECODER_FUNC(RETURN_TYPE, NAME, ...)                             \
-  extern "C" {                                                                 \
-  JNIEXPORT RETURN_TYPE                                                        \
-      Java_androidx_media3_decoder_ffmpeg_ExperimentalFfmpegVideoDecoder_##NAME( \
-          JNIEnv *env, jobject thiz, ##__VA_ARGS__);                           \
-  }                                                                            \
-  JNIEXPORT RETURN_TYPE                                                        \
-      Java_androidx_media3_decoder_ffmpeg_ExperimentalFfmpegVideoDecoder_##NAME( \
-          JNIEnv *env, jobject thiz, ##__VA_ARGS__)
-
 #define ERROR_STRING_BUFFER_LENGTH 256
 
 // Output format corresponding to AudioFormat.ENCODING_PCM_16BIT.
@@ -706,8 +675,8 @@ JniContext *createVideoContext(JNIEnv *env,
 }
 
 
-VIDEO_DECODER_FUNC(jlong, ffmpegInitialize, jstring codecName, jbyteArray extraData, jint threads, jint degree,
-                   jint width, jint height) {
+jlong ffmpegVideoInitialize(JNIEnv* env, jobject thiz, jstring codecName, jbyteArray extraData, jint threads, jint degree,
+                            jint width, jint height) {
     auto *codec = getCodecByName(env, codecName);
     if (!codec) {
         LOGE("Codec not found.");
@@ -718,7 +687,7 @@ VIDEO_DECODER_FUNC(jlong, ffmpegInitialize, jstring codecName, jbyteArray extraD
 }
 
 
-VIDEO_DECODER_FUNC(jlong, ffmpegReset, jlong jContext) {
+jlong ffmpegVideoReset(JNIEnv* env, jobject thiz, jlong jContext) {
     JniContext *const jniContext = reinterpret_cast<JniContext *>(jContext);
     if (!jniContext || !jniContext->codecContext) {
         LOGE("Tried to reset without a context.");
@@ -729,7 +698,7 @@ VIDEO_DECODER_FUNC(jlong, ffmpegReset, jlong jContext) {
     return (jlong) jniContext;
 }
 
-VIDEO_DECODER_FUNC(void, ffmpegRelease, jlong jContext) {
+void ffmpegVideoRelease(JNIEnv* env, jobject thiz, jlong jContext) {
     JniContext *const jniContext = reinterpret_cast<JniContext *>(jContext);
     if (!jniContext) {
         return;
@@ -757,8 +726,8 @@ VIDEO_DECODER_FUNC(void, ffmpegRelease, jlong jContext) {
 }
 
 
-VIDEO_DECODER_FUNC(jint, ffmpegSendPacket, jlong jContext, jobject encodedData,
-                   jint length, jlong inputTimeUs) {
+jint ffmpegVideoSendPacket(JNIEnv* env, jobject thiz, jlong jContext, jobject encodedData,
+                          jint length, jlong inputTimeUs) {
     JniContext *const jniContext = reinterpret_cast<JniContext *>(jContext);
     if (!jniContext || !encodedData) {
         LOGE("Invalid context or input buffer.");
@@ -799,8 +768,8 @@ VIDEO_DECODER_FUNC(jint, ffmpegSendPacket, jlong jContext, jobject encodedData,
     return result;
 }
 
-VIDEO_DECODER_FUNC(jint, ffmpegReceiveFrame, jlong jContext, jint outputMode, jobject jOutputBuffer,
-                   jboolean decodeOnly) {
+jint ffmpegVideoReceiveFrame(JNIEnv* env, jobject thiz, jlong jContext, jint outputMode, jobject jOutputBuffer,
+                             jboolean decodeOnly) {
     JniContext *const jniContext = reinterpret_cast<JniContext *>(jContext);
     AVCodecContext *avContext = jniContext->codecContext;
     int result = 0;
@@ -911,8 +880,8 @@ VIDEO_DECODER_FUNC(jint, ffmpegReceiveFrame, jlong jContext, jint outputMode, jo
     return result;
 }
 
-VIDEO_DECODER_FUNC(jint, ffmpegRenderFrame, jlong jContext, jobject jSurface,
-                   jobject jOutputBuffer, jint displayedWidth, jint displayedHeight) {
+jint ffmpegVideoRenderFrame(JNIEnv* env, jobject thiz, jlong jContext, jobject jSurface,
+                            jobject jOutputBuffer, jint displayedWidth, jint displayedHeight) {
     JniContext *const jniContext = reinterpret_cast<JniContext *>(jContext);
     if (!jniContext->MaybeAcquireNativeWindow(env, jSurface)) {
         return VIDEO_DECODER_ERROR_OTHER;
@@ -1049,6 +1018,38 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
                            sizeof(kFfmpegLibraryMethods) /
                                sizeof(kFfmpegLibraryMethods[0])) < 0) {
     LOGE("JNI_OnLoad: RegisterNatives failed for FfmpegLibrary");
+    return -1;
+  }
+
+  jclass videoDecoderClazz = env->FindClass(
+      "androidx/media3/decoder/ffmpeg/ExperimentalFfmpegVideoDecoder");
+  if (!videoDecoderClazz) {
+    LOGE("JNI_OnLoad: FindClass failed for ExperimentalFfmpegVideoDecoder");
+    return -1;
+  }
+  static const JNINativeMethod kExperimentalFfmpegVideoDecoderMethods[] = {
+      {"ffmpegInitialize",
+       "(Ljava/lang/String;[BIIII)J",
+       reinterpret_cast<void*>(ffmpegVideoInitialize)},
+      {"ffmpegReset", "(J)J", reinterpret_cast<void*>(ffmpegVideoReset)},
+      {"ffmpegRelease", "(J)V", reinterpret_cast<void*>(ffmpegVideoRelease)},
+      {"ffmpegRenderFrame",
+       "(JLandroid/view/Surface;Landroidx/media3/decoder/"
+       "VideoDecoderOutputBuffer;II)I",
+       reinterpret_cast<void*>(ffmpegVideoRenderFrame)},
+      {"ffmpegSendPacket",
+       "(JLjava/nio/ByteBuffer;IJ)I",
+       reinterpret_cast<void*>(ffmpegVideoSendPacket)},
+      {"ffmpegReceiveFrame",
+       "(JILandroidx/media3/decoder/VideoDecoderOutputBuffer;Z)I",
+       reinterpret_cast<void*>(ffmpegVideoReceiveFrame)},
+  };
+  if (env->RegisterNatives(videoDecoderClazz,
+                           kExperimentalFfmpegVideoDecoderMethods,
+                           sizeof(kExperimentalFfmpegVideoDecoderMethods) /
+                               sizeof(kExperimentalFfmpegVideoDecoderMethods[0])) <
+      0) {
+    LOGE("JNI_OnLoad: RegisterNatives failed for ExperimentalFfmpegVideoDecoder");
     return -1;
   }
 
