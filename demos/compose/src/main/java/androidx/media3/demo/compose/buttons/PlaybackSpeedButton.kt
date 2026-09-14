@@ -35,6 +35,7 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.contentColorFor
@@ -83,7 +84,6 @@ import kotlin.math.round
  *   content is a [PlaybackSpeedBottomSheet].
  */
 @androidx.annotation.OptIn(UnstableApi::class)
-@OptIn(ExperimentalMaterial3Api::class) // for rememberModalBottomSheetState
 @Composable
 fun PlaybackSpeedBottomSheetButton(
   player: Player?,
@@ -270,11 +270,18 @@ private fun PlaybackSpeedSlider(
   speedStep: Float,
   modifier: Modifier = Modifier,
 ) {
+  val steps = ((speedRange.endInclusive - speedRange.start) / speedStep).toInt() - 1
+  val sliderState =
+    remember(speedRange, speedStep) {
+      SliderState(value = state.playbackSpeed, steps = steps, trackRange = speedRange)
+    }
+  sliderState.value = state.playbackSpeed
   Slider(
-    value = state.playbackSpeed,
-    onValueChange = { newSpeed -> state.updatePlaybackSpeed(newSpeed) },
-    valueRange = speedRange,
-    steps = ((speedRange.endInclusive - speedRange.start) / speedStep).toInt() - 1,
+    state = sliderState,
+    onValueChange = { newSpeed ->
+      state.updatePlaybackSpeed(newSpeed)
+      sliderState.value = newSpeed
+    },
     colors =
       SliderDefaults.colors(
         activeTickColor = Color.Transparent,

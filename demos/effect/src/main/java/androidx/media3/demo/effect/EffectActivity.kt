@@ -43,6 +43,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -82,7 +83,6 @@ class EffectActivity : ComponentActivity() {
     setContent { EffectDemo(viewModel) }
   }
 
-  @OptIn(ExperimentalApi::class)
   @Composable
   private fun EffectDemo(viewModel: EffectViewModel) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -200,10 +200,16 @@ class EffectActivity : ComponentActivity() {
               style = MaterialTheme.typography.bodyLarge,
               modifier = Modifier.padding(dimensionResource(id = R.dimen.large_padding)).weight(1f),
             )
+            val sliderState = remember {
+              SliderState(value = uiState.contrastValue, trackRange = -1f..1f)
+            }
+            sliderState.value = uiState.contrastValue
             Slider(
-              value = uiState.contrastValue,
-              onValueChange = { viewModel.updateContrast(it) },
-              valueRange = -1f..1f,
+              state = sliderState,
+              onValueChange = {
+                viewModel.updateContrast(it)
+                sliderState.value = it
+              },
               modifier = Modifier.weight(4f),
             )
           }
@@ -275,13 +281,17 @@ class EffectActivity : ComponentActivity() {
                 modifier =
                   Modifier.padding(dimensionResource(id = R.dimen.large_padding)).weight(1f),
               )
+              val sliderState = remember {
+                SliderState(value = uiState.textOverlayAlpha, trackRange = 0f..1f)
+              }
+              sliderState.value = uiState.textOverlayAlpha
               Slider(
-                value = uiState.textOverlayAlpha,
+                state = sliderState,
                 onValueChange = { newAlphaValue ->
                   val newRoundedAlphaValue = "%.2f".format(Locale.ROOT, newAlphaValue).toFloat()
                   viewModel.updateTextAlpha(newRoundedAlphaValue)
+                  sliderState.value = newRoundedAlphaValue
                 },
-                valueRange = 0f..1f,
                 modifier = Modifier.weight(2f),
               )
             }
