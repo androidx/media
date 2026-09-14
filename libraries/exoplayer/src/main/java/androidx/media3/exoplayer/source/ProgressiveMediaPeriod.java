@@ -70,6 +70,7 @@ import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.SeekMap.SeekPoints;
 import androidx.media3.extractor.SeekMap.Unseekable;
 import androidx.media3.extractor.SeekPoint;
+import androidx.media3.extractor.TrackAwareSeekMap;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.metadata.icy.IcyHeaders;
 import com.google.common.collect.ImmutableMap;
@@ -375,7 +376,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         loadingStateMachine.hasSeenFirstTrackSelection()
             ? oldEnabledTrackCount == 0
             : positionUs != 0 && !isSingleSample;
-    boolean hasPreroll = false;
+    boolean legacyHasPreroll = false;
     // Select new tracks.
     for (int i = 0; i < selections.length; i++) {
       if (streams[i] == null && selections[i] != null) {
@@ -386,9 +387,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         checkState(!trackEnabledStates[track]);
         enabledTrackCount++;
         trackEnabledStates[track] = true;
-        hasPreroll |= selection.getSelectedFormat().hasPrerollSamples;
-        SampleStream stream =
-            new SampleStreamImpl(track, selection.getSelectedFormat().hasPrerollSamples);
+        boolean trackHasPrerollAtStart = trackHasPreroll(track, positionUs);
+        legacyHasPreroll |=
+            selection.getSelectedFormat().hasPrerollSamples
+                || trackHasPreroll(track, /* positionUs= */ 0);
+        SampleStream stream = new SampleStreamImpl(track, trackHasPrerollAtStart);
         if (Build.VERSION.SDK_INT >= 37
             && !isT35TrackExplicitlySelected
             && MimeTypes.isVideo(selection.getSelectedFormat().sampleMimeType)) {
@@ -435,7 +438,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
     }
 
-    loadingStateMachine.onTrackSelection(hasPreroll, enabledTrackCount);
+    loadingStateMachine.onTrackSelection(legacyHasPreroll, enabledTrackCount);
 
     boolean hasEnabledAudioVideoTracks = false;
     for (int i = 0; i < tracks.length; i++) {
@@ -1249,6 +1252,32 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           (type != C.TRACK_TYPE_VIDEO && type != C.TRACK_TYPE_IMAGE) || trackEnabledStates[i];
     }
     return selectedForLoading;
+  }
+
+  private boolean trackHasPreroll(int trackIndex, long positionUs) {
+    if (isSingleSample) {
+      return false;
+    }
+    assertPrepared();
+    Format format = trackState.tracks.get(trackIndex).getFormat(0);
+    if (SampleQueue.isDiscardingAllSamplesToStartTime(format)) {
+      return false;
+    }
+    if (seekMap.isSeekable()) {
+      int extractorTrackId = sampleQueueTrackIds[trackIndex].id;
+      SeekPoints seekPoints;
+      if (seekMap instanceof TrackAwareSeekMap) {
+        TrackAwareSeekMap trackAwareSeekMap = (TrackAwareSeekMap) seekMap;
+        seekPoints =
+            trackAwareSeekMap.isSeekable(extractorTrackId)
+                ? trackAwareSeekMap.getSeekPoints(positionUs, extractorTrackId)
+                : seekMap.getSeekPoints(positionUs);
+      } else {
+        seekPoints = seekMap.getSeekPoints(positionUs);
+      }
+      return seekPoints.first.timeUs < positionUs;
+    }
+    return false;
   }
 
   private final class SampleStreamImpl implements SampleStream {

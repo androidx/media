@@ -727,8 +727,11 @@ public final class ServerSideAdInsertionMediaSourceTest {
     verify(listener, times(12)).onDownstreamFormatChanged(any(), any());
     assertThat(contentPositionAfterSeekMs).isEqualTo(1_600);
     assertThat(positionAfterSeekMs).isEqualTo(0); // Beginning of second ad.
-    // Assert renderers played through without reset, except for the seek.
-    verify(listener, times(2)).onVideoEnabled(any(), any());
+    // Assert renderers played through without reset, except for the seek. With per-stream media
+    // progression, the content period after the seek reports a preroll because of the 1-second gap
+    // in contentResumeOffsetUs, resetting the video renderer once more. Audio has no preroll and is
+    // not reset.
+    verify(listener, times(perStreamMediaProgressionEnabled ? 3 : 2)).onVideoEnabled(any(), any());
     verify(listener, times(2)).onAudioEnabled(any(), any());
     // Assert playback progression was smooth (=no unexpected delays that cause audio to underrun)
     verify(listener, never()).onAudioUnderrun(any(), anyInt(), anyLong(), anyLong());
@@ -855,6 +858,315 @@ public final class ServerSideAdInsertionMediaSourceTest {
     } while (result != C.RESULT_BUFFER_READ || !buffer.isEndOfStream());
 
     assertThat(readSamples).containsExactly(0L, 200L, 400L, 600L, 800L).inOrder();
+  }
+
+  @Test
+  public void getFlags_firstStreamWithAlreadyPlayedPrerollAdGroup_keepsPrerollFlag()
+      throws Exception {
+    TrackGroup trackGroup = new TrackGroup(new Format.Builder().build());
+    Timeline timeline = new FakeTimeline();
+    Object periodUid = timeline.getUidOfPeriod(/* periodIndex= */ 0);
+    AdPlaybackState adPlaybackState =
+        createAdPlaybackStateWithPlayedPrerollAndMidroll(/* adsId= */ new Object());
+    DefaultAllocator allocator =
+        new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024);
+    ServerSideAdInsertionMediaSource mediaSource =
+        prepareSourceWithPrerollFlagInChildStreams(
+            timeline, periodUid, adPlaybackState, trackGroup, allocator);
+    // The already played preroll ad group is skipped, so the first media period of the stream is a
+    // content period whose next ad group is the midroll at index 1.
+    MediaSource.MediaPeriodId contentPeriodId =
+        new MediaSource.MediaPeriodId(
+            periodUid, /* windowSequenceNumber= */ 0, /* nextAdGroupIndex= */ 1);
+    MediaPeriod mediaPeriod =
+        mediaSource.createPeriod(contentPeriodId, allocator, /* startPositionUs= */ 0);
+    prepareMediaPeriod(mediaPeriod, /* positionUs= */ 0);
+
+    SampleStream[] streams = selectSingleTrack(mediaPeriod, trackGroup, /* positionUs= */ 0);
+
+    assertThat(streams[0].getFlags()).isEqualTo(SampleStream.FLAG_HAS_PREROLL);
+  }
+
+  @Test
+  public void getFlags_firstStreamStartingAfterSourceStreamStart_keepsPrerollFlag()
+      throws Exception {
+    TrackGroup trackGroup = new TrackGroup(new Format.Builder().build());
+    Timeline timeline = new FakeTimeline();
+    Object periodUid = timeline.getUidOfPeriod(/* periodIndex= */ 0);
+    AdPlaybackState adPlaybackState =
+        createAdPlaybackStateWithPlayedPrerollAndMidroll(/* adsId= */ new Object());
+    DefaultAllocator allocator =
+        new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024);
+    ServerSideAdInsertionMediaSource mediaSource =
+        prepareSourceWithPrerollFlagInChildStreams(
+            timeline, periodUid, adPlaybackState, trackGroup, allocator);
+    // The content period starts at a non-zero position and its next ad group is the midroll at
+    // index 1, but it still triggers the track selection of the wrapped period at that position, so
+    // any preroll the wrapped period reports belongs to this stream.
+    MediaSource.MediaPeriodId contentPeriodId =
+        new MediaSource.MediaPeriodId(
+            periodUid, /* windowSequenceNumber= */ 0, /* nextAdGroupIndex= */ 1);
+    MediaPeriod mediaPeriod =
+        mediaSource.createPeriod(contentPeriodId, allocator, /* startPositionUs= */ 100_000);
+    prepareMediaPeriod(mediaPeriod, /* positionUs= */ 100_000);
+
+    SampleStream[] streams = selectSingleTrack(mediaPeriod, trackGroup, /* positionUs= */ 100_000);
+
+    assertThat(streams[0].getFlags()).isEqualTo(SampleStream.FLAG_HAS_PREROLL);
+  }
+
+  @Test
+  public void getFlags_streamOfPeriodAfterInStreamTransition_removesPrerollFlag() throws Exception {
+    TrackGroup trackGroup = new TrackGroup(new Format.Builder().build());
+    Timeline timeline = new FakeTimeline();
+    Object periodUid = timeline.getUidOfPeriod(/* periodIndex= */ 0);
+    AdPlaybackState adPlaybackState =
+        createAdPlaybackStateWithPlayedPrerollAndMidroll(/* adsId= */ new Object());
+    DefaultAllocator allocator =
+        new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024);
+    ServerSideAdInsertionMediaSource mediaSource =
+        prepareSourceWithPrerollFlagInChildStreams(
+            timeline, periodUid, adPlaybackState, trackGroup, allocator);
+    MediaSource.MediaPeriodId contentPeriodId =
+        new MediaSource.MediaPeriodId(
+            periodUid, /* windowSequenceNumber= */ 0, /* nextAdGroupIndex= */ 1);
+    MediaPeriod contentMediaPeriod =
+        mediaSource.createPeriod(contentPeriodId, allocator, /* startPositionUs= */ 0);
+    prepareMediaPeriod(contentMediaPeriod, /* positionUs= */ 0);
+    SampleStream[] unusedContentStreams =
+        selectSingleTrack(contentMediaPeriod, trackGroup, /* positionUs= */ 0);
+    // The midroll ad period continues reading the same stream right after the content period.
+    MediaSource.MediaPeriodId midrollAdPeriodId =
+        new MediaSource.MediaPeriodId(
+            periodUid,
+            /* adGroupIndex= */ 1,
+            /* adIndexInAdGroup= */ 0,
+            /* windowSequenceNumber= */ 0);
+    MediaPeriod adMediaPeriod =
+        mediaSource.createPeriod(midrollAdPeriodId, allocator, /* startPositionUs= */ 0);
+    prepareMediaPeriod(adMediaPeriod, /* positionUs= */ 0);
+
+    SampleStream[] streams = selectSingleTrack(adMediaPeriod, trackGroup, /* positionUs= */ 0);
+
+    assertThat(streams[0].getFlags()).isEqualTo(0);
+  }
+
+  @Test
+  public void getFlags_firstStreamOfPrerollAd_keepsPrerollFlag() throws Exception {
+    TrackGroup trackGroup = new TrackGroup(new Format.Builder().build());
+    Timeline timeline = new FakeTimeline();
+    Object periodUid = timeline.getUidOfPeriod(/* periodIndex= */ 0);
+    AdPlaybackState adPlaybackState =
+        createAdPlaybackStateWithPrerollAndMidroll(/* adsId= */ new Object());
+    DefaultAllocator allocator =
+        new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024);
+    ServerSideAdInsertionMediaSource mediaSource =
+        prepareSourceWithPrerollFlagInChildStreams(
+            timeline, periodUid, adPlaybackState, trackGroup, allocator);
+    MediaSource.MediaPeriodId prerollAdPeriodId =
+        new MediaSource.MediaPeriodId(
+            periodUid,
+            /* adGroupIndex= */ 0,
+            /* adIndexInAdGroup= */ 0,
+            /* windowSequenceNumber= */ 0);
+    MediaPeriod mediaPeriod =
+        mediaSource.createPeriod(prerollAdPeriodId, allocator, /* startPositionUs= */ 0);
+    prepareMediaPeriod(mediaPeriod, /* positionUs= */ 0);
+
+    SampleStream[] streams = selectSingleTrack(mediaPeriod, trackGroup, /* positionUs= */ 0);
+
+    assertThat(streams[0].getFlags()).isEqualTo(SampleStream.FLAG_HAS_PREROLL);
+  }
+
+  @Test
+  public void getFlags_firstStreamStartingInsidePrerollAd_keepsPrerollFlag() throws Exception {
+    TrackGroup trackGroup = new TrackGroup(new Format.Builder().build());
+    Timeline timeline = new FakeTimeline();
+    Object periodUid = timeline.getUidOfPeriod(/* periodIndex= */ 0);
+    AdPlaybackState adPlaybackState =
+        createAdPlaybackStateWithPrerollAndMidroll(/* adsId= */ new Object());
+    DefaultAllocator allocator =
+        new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024);
+    ServerSideAdInsertionMediaSource mediaSource =
+        prepareSourceWithPrerollFlagInChildStreams(
+            timeline, periodUid, adPlaybackState, trackGroup, allocator);
+    // Playback resumes in the middle of the preroll ad, which triggers a new track selection of the
+    // wrapped period at that position, so any preroll it reports belongs to this stream.
+    MediaSource.MediaPeriodId prerollAdPeriodId =
+        new MediaSource.MediaPeriodId(
+            periodUid,
+            /* adGroupIndex= */ 0,
+            /* adIndexInAdGroup= */ 0,
+            /* windowSequenceNumber= */ 0);
+    MediaPeriod mediaPeriod =
+        mediaSource.createPeriod(prerollAdPeriodId, allocator, /* startPositionUs= */ 100_000);
+    prepareMediaPeriod(mediaPeriod, /* positionUs= */ 100_000);
+
+    SampleStream[] streams = selectSingleTrack(mediaPeriod, trackGroup, /* positionUs= */ 100_000);
+
+    assertThat(streams[0].getFlags()).isEqualTo(SampleStream.FLAG_HAS_PREROLL);
+  }
+
+  @Test
+  public void getFlags_streamOfContentPeriodAfterInStreamTransitionFromAd_removesPrerollFlag()
+      throws Exception {
+    TrackGroup trackGroup = new TrackGroup(new Format.Builder().build());
+    Timeline timeline = new FakeTimeline();
+    Object periodUid = timeline.getUidOfPeriod(/* periodIndex= */ 0);
+    AdPlaybackState adPlaybackState =
+        createAdPlaybackStateWithPlayedPrerollAndMidroll(/* adsId= */ new Object());
+    DefaultAllocator allocator =
+        new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024);
+    ServerSideAdInsertionMediaSource mediaSource =
+        prepareSourceWithPrerollFlagInChildStreams(
+            timeline, periodUid, adPlaybackState, trackGroup, allocator);
+    MediaSource.MediaPeriodId midrollAdPeriodId =
+        new MediaSource.MediaPeriodId(
+            periodUid,
+            /* adGroupIndex= */ 1,
+            /* adIndexInAdGroup= */ 0,
+            /* windowSequenceNumber= */ 0);
+    MediaPeriod adMediaPeriod =
+        mediaSource.createPeriod(midrollAdPeriodId, allocator, /* startPositionUs= */ 0);
+    prepareMediaPeriod(adMediaPeriod, /* positionUs= */ 0);
+    SampleStream[] unusedAdStreams =
+        selectSingleTrack(adMediaPeriod, trackGroup, /* positionUs= */ 0);
+    // The content period continues reading the same stream right after the midroll ad. The midroll
+    // is inserted at stream position 500_000, which is content position 300_000.
+    MediaSource.MediaPeriodId contentPeriodId =
+        new MediaSource.MediaPeriodId(
+            periodUid, /* windowSequenceNumber= */ 0, /* nextAdGroupIndex= */ C.INDEX_UNSET);
+    MediaPeriod contentMediaPeriod =
+        mediaSource.createPeriod(contentPeriodId, allocator, /* startPositionUs= */ 300_000);
+    prepareMediaPeriod(contentMediaPeriod, /* positionUs= */ 300_000);
+
+    SampleStream[] streams =
+        selectSingleTrack(contentMediaPeriod, trackGroup, /* positionUs= */ 300_000);
+
+    assertThat(streams[0].getFlags()).isEqualTo(0);
+  }
+
+  /**
+   * Returns an {@link AdPlaybackState} with an unplayed server-side inserted preroll ad group and
+   * an unplayed server-side inserted midroll ad group.
+   */
+  private static AdPlaybackState createAdPlaybackStateWithPrerollAndMidroll(Object adsId) {
+    AdPlaybackState adPlaybackState =
+        addAdGroupToAdPlaybackState(
+            new AdPlaybackState(adsId),
+            /* fromPositionUs= */ 0,
+            /* contentResumeOffsetUs= */ 0,
+            /* adDurationsUs...= */ 200_000);
+    return addAdGroupToAdPlaybackState(
+        adPlaybackState,
+        /* fromPositionUs= */ 500_000,
+        /* contentResumeOffsetUs= */ 0,
+        /* adDurationsUs...= */ 100_000);
+  }
+
+  /**
+   * Returns an {@link AdPlaybackState} with an already played server-side inserted preroll ad group
+   * and an unplayed server-side inserted midroll ad group.
+   */
+  private static AdPlaybackState createAdPlaybackStateWithPlayedPrerollAndMidroll(Object adsId) {
+    return createAdPlaybackStateWithPrerollAndMidroll(adsId)
+        .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);
+  }
+
+  /**
+   * Creates and prepares a {@link ServerSideAdInsertionMediaSource} whose wrapped media period
+   * creates sample streams reporting {@link SampleStream#FLAG_HAS_PREROLL}.
+   */
+  private static ServerSideAdInsertionMediaSource prepareSourceWithPrerollFlagInChildStreams(
+      Timeline timeline,
+      Object periodUid,
+      AdPlaybackState adPlaybackState,
+      TrackGroup trackGroup,
+      Allocator allocator)
+      throws Exception {
+    FakeMediaPeriod childMediaPeriod =
+        new FakeMediaPeriod(
+            new TrackGroupArray(trackGroup),
+            allocator,
+            /* trackDataFactory= */ (format, mediaPeriodId) -> ImmutableList.of(),
+            new MediaSourceEventListener.EventDispatcher()
+                .withParameters(
+                    /* windowIndex= */ 0,
+                    new MediaSource.MediaPeriodId(/* periodUid= */ new Object())),
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* deferOnPrepared= */ false) {
+          @Override
+          protected FakeSampleStream createSampleStream(
+              Allocator allocator,
+              @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+              DrmSessionManager drmSessionManager,
+              DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+              Format initialFormat,
+              List<FakeSampleStream.FakeSampleStreamItem> fakeSampleStreamItems) {
+            FakeSampleStream sampleStream =
+                new FakeSampleStream(
+                    allocator,
+                    mediaSourceEventDispatcher,
+                    drmSessionManager,
+                    drmEventDispatcher,
+                    initialFormat,
+                    fakeSampleStreamItems);
+            sampleStream.setFlags(SampleStream.FLAG_HAS_PREROLL);
+            return sampleStream;
+          }
+        };
+    FakeMediaSource childMediaSource =
+        new FakeMediaSource(timeline) {
+          @Override
+          protected MediaPeriod createMediaPeriod(
+              MediaPeriodId id,
+              TrackGroupArray trackGroupArray,
+              Allocator allocator,
+              MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+              DrmSessionManager drmSessionManager,
+              DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+              @Nullable TransferListener transferListener) {
+            return childMediaPeriod;
+          }
+        };
+    ServerSideAdInsertionMediaSource mediaSource =
+        new ServerSideAdInsertionMediaSource(childMediaSource, /* adPlaybackStateUpdater= */ null);
+    mediaSource.setAdPlaybackStates(ImmutableMap.of(periodUid, adPlaybackState), timeline);
+    AtomicBoolean sourcePrepared = new AtomicBoolean();
+    mediaSource.prepareSource(
+        (source, newTimeline) -> sourcePrepared.set(true), PlayerId.UNSET, BandwidthMeter.NO_OP);
+    RobolectricUtil.runMainLooperUntil(sourcePrepared::get);
+    return mediaSource;
+  }
+
+  private static void prepareMediaPeriod(MediaPeriod mediaPeriod, long positionUs)
+      throws Exception {
+    AtomicBoolean periodPrepared = new AtomicBoolean();
+    mediaPeriod.prepare(
+        new MediaPeriod.Callback() {
+          @Override
+          public void onPrepared(MediaPeriod mediaPeriod) {
+            periodPrepared.set(true);
+          }
+
+          @Override
+          public void onContinueLoadingRequested(MediaPeriod source) {}
+        },
+        positionUs);
+    RobolectricUtil.runMainLooperUntil(periodPrepared::get);
+  }
+
+  private static SampleStream[] selectSingleTrack(
+      MediaPeriod mediaPeriod, TrackGroup trackGroup, long positionUs) {
+    SampleStream[] streams = new SampleStream[1];
+    mediaPeriod.selectTracks(
+        new ExoTrackSelection[] {new FixedTrackSelection(trackGroup, /* track= */ 0)},
+        /* mayRetainStreamFlags= */ new boolean[] {false},
+        streams,
+        /* streamResetFlags= */ new boolean[] {false},
+        positionUs);
+    return streams;
   }
 
   @Test

@@ -177,6 +177,20 @@ public class SampleQueue implements TrackOutput {
         allocator, checkNotNull(drmSessionManager), checkNotNull(drmEventDispatcher));
   }
 
+  /**
+   * Returns whether samples earlier than {@linkplain #setStartTimeUs the start time} will be
+   * discarded for the given format.
+   *
+   * <p>This returns {@code true} for audio formats where {@linkplain
+   * MimeTypes#allSamplesAreSyncSamples all samples are sync samples}.
+   *
+   * @param format The {@link Format} to check.
+   * @return Whether all samples earlier than the start time will be discarded for the given format.
+   */
+  public static boolean isDiscardingAllSamplesToStartTime(Format format) {
+    return canDiscardAllSamplesToStartTime(format.sampleMimeType, format.codecs);
+  }
+
   protected SampleQueue(
       Allocator allocator,
       @Nullable DrmSessionManager drmSessionManager,
@@ -252,9 +266,9 @@ public class SampleQueue implements TrackOutput {
   }
 
   /**
-   * Sets the start time for the queue. Samples with earlier timestamps will be discarded for audio
-   * formats if {@linkplain MimeTypes#allSamplesAreSyncSamples all samples are sync samples} in the
-   * given input format.
+   * Sets the start time for the queue. Samples with earlier timestamps will be discarded if
+   * {@linkplain #isDiscardingAllSamplesToStartTime(Format) discarding to start time is supported}
+   * for the input format.
    *
    * @param startTimeUs The start time, in microseconds.
    */
@@ -556,8 +570,9 @@ public class SampleQueue implements TrackOutput {
   /**
    * Attempts to seek the read position to the keyframe before or at the specified time.
    *
-   * <p>For audio formats where {@linkplain MimeTypes#allSamplesAreSyncSamples all samples are sync
-   * samples}, it seeks the read position to the first sample at or after the specified time.
+   * <p>For formats where {@linkplain #isDiscardingAllSamplesToStartTime(Format) discarding to start
+   * time is supported}, it seeks the read position to the first sample at or after the specified
+   * time.
    *
    * @param timeUs The time to seek to.
    * @param allowTimeBeyondBuffer Whether the operation can succeed if {@code timeUs} is beyond the
@@ -1306,13 +1321,13 @@ public class SampleQueue implements TrackOutput {
   }
 
   private static boolean canDiscardAllSamplesToStartTime(
-      @Nullable String mimeType, @Nullable String codec) {
+      @Nullable String mimeType, @Nullable String codecs) {
     // We can only discard up to the start time immediately if the samples are guaranteed to be all
     // sync samples. This optimization is also only possible for audio tracks where the inherent
     // duration of a sample is negligible, and it doesn't affect playback if a partial sample is
     // dropped.
     @C.TrackType int trackType = MimeTypes.getTrackType(mimeType);
-    return trackType == C.TRACK_TYPE_AUDIO && MimeTypes.allSamplesAreSyncSamples(mimeType, codec);
+    return trackType == C.TRACK_TYPE_AUDIO && MimeTypes.allSamplesAreSyncSamples(mimeType, codecs);
   }
 
   /** A holder for sample metadata not held by {@link DecoderInputBuffer}. */

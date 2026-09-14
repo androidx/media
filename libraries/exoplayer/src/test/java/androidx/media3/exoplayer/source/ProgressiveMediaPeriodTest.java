@@ -55,6 +55,8 @@ import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.ExtractorsFactory;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
+import androidx.media3.extractor.SeekPoint;
+import androidx.media3.extractor.TrackAwareSeekMap;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.png.PngExtractor;
 import androidx.media3.extractor.text.SubtitleParser;
@@ -766,6 +768,312 @@ public final class ProgressiveMediaPeriodTest {
             /* positionUs= */ 0);
 
     assertThat(streams[0]).isInstanceOf(MergingMetadataSampleStream.class);
+    mediaPeriod.release();
+  }
+
+  @Test
+  public void selectTracks_midGopPositionOnVideoTrack_returnsFlagHasPreroll() throws Exception {
+    ProgressiveMediaPeriod mediaPeriod =
+        createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    // Select video track (track 0).
+    selections[0] = new FakeTrackSelection(trackGroups.get(0), 0);
+    long unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            new boolean[trackGroups.length],
+            /* positionUs= */ 500_000);
+
+    assertThat(streams[0].getFlags()).isEqualTo(SampleStream.FLAG_HAS_PREROLL);
+    mediaPeriod.release();
+  }
+
+  @Test
+  public void selectTracks_onSyncAudioTrack_returnsZero() throws Exception {
+    ProgressiveMediaPeriod mediaPeriod =
+        createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    // Select audio track (track 1), which has AAC sync samples.
+    selections[1] = new FakeTrackSelection(trackGroups.get(1), 0);
+    long unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            new boolean[trackGroups.length],
+            /* positionUs= */ 500_000);
+
+    // Sync audio discards samples before start time and never delivers preroll.
+    assertThat(streams[1].getFlags()).isEqualTo(0);
+    mediaPeriod.release();
+  }
+
+  @Test
+  public void selectTracks_withSeekMap_keyframeMatchesSeekPosition_returnsZero() throws Exception {
+    ProgressiveMediaExtractor extractor =
+        new ProgressiveMediaExtractor() {
+          @Override
+          public void init(
+              DataReader dataReader,
+              Uri uri,
+              Map<String, List<String>> responseHeaders,
+              long position,
+              long length,
+              ExtractorOutput output) {
+            output
+                .track(0, C.TRACK_TYPE_VIDEO)
+                .format(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build());
+            output.endTracks();
+            // SeekMap with keyframes at 0 and 1_000_000 Us.
+            output.seekMap(
+                new SeekMap() {
+                  @Override
+                  public boolean isSeekable() {
+                    return true;
+                  }
+
+                  @Override
+                  public long getDurationUs() {
+                    return 2_000_000;
+                  }
+
+                  @Override
+                  public SeekPoints getSeekPoints(long timeUs) {
+                    SeekPoint seekPoint =
+                        timeUs >= 1_000_000 ? new SeekPoint(1_000_000, 100) : new SeekPoint(0, 0);
+                    return new SeekPoints(seekPoint);
+                  }
+                });
+          }
+
+          @Override
+          public void release() {}
+
+          @Override
+          public void disableSeekingOnMp3Streams() {}
+
+          @Override
+          public long getCurrentInputPosition() {
+            return 0;
+          }
+
+          @Override
+          public void seek(long position, long timeUs) {}
+
+          @Override
+          public int read(PositionHolder positionHolder) {
+            return Extractor.RESULT_END_OF_INPUT;
+          }
+        };
+
+    ProgressiveMediaPeriod mediaPeriod =
+        createMediaPeriod(
+            Uri.parse("asset://android_asset/media/mp4/sample.mp4"),
+            extractor,
+            /* imageDurationUs= */ C.TIME_UNSET,
+            /* executor= */ null,
+            /* executorReleased= */ null);
+
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    selections[0] = new FakeTrackSelection(trackGroups.get(0), 0);
+    long unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            new boolean[trackGroups.length],
+            /* positionUs= */ 1_000_000);
+
+    // Exact keyframe (1_000_000) results in seek point at 1_000_000 == 1_000_000 -> no preroll.
+    assertThat(streams[0].getFlags()).isEqualTo(0);
+
+    mediaPeriod.release();
+  }
+
+  @Test
+  public void selectTracks_withTrackAwareSeekMap_reportsPrerollForTrack() throws Exception {
+    ProgressiveMediaExtractor extractor =
+        new ProgressiveMediaExtractor() {
+          @Override
+          public void init(
+              DataReader dataReader,
+              Uri uri,
+              Map<String, List<String>> responseHeaders,
+              long position,
+              long length,
+              ExtractorOutput output) {
+            output
+                .track(0, C.TRACK_TYPE_VIDEO)
+                .format(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build());
+            output.endTracks();
+            output.seekMap(
+                new TrackAwareSeekMap() {
+                  @Override
+                  public boolean isSeekable() {
+                    return true;
+                  }
+
+                  @Override
+                  public boolean isSeekable(int trackId) {
+                    return trackId == 0;
+                  }
+
+                  @Override
+                  public long getDurationUs() {
+                    return 2_000_000;
+                  }
+
+                  @Override
+                  public SeekPoints getSeekPoints(long timeUs) {
+                    return new SeekPoints(new SeekPoint(0, 0));
+                  }
+
+                  @Override
+                  public SeekPoints getSeekPoints(long timeUs, int trackId) {
+                    SeekPoint seekPoint =
+                        timeUs >= 1_000_000 ? new SeekPoint(1_000_000, 100) : new SeekPoint(0, 0);
+                    return new SeekPoints(seekPoint);
+                  }
+                });
+          }
+
+          @Override
+          public void release() {}
+
+          @Override
+          public void disableSeekingOnMp3Streams() {}
+
+          @Override
+          public long getCurrentInputPosition() {
+            return 0;
+          }
+
+          @Override
+          public void seek(long position, long timeUs) {}
+
+          @Override
+          public int read(PositionHolder positionHolder) {
+            return Extractor.RESULT_END_OF_INPUT;
+          }
+        };
+
+    ProgressiveMediaPeriod mediaPeriod =
+        createMediaPeriod(
+            Uri.parse("asset://android_asset/media/mp4/sample.mp4"),
+            extractor,
+            /* imageDurationUs= */ C.TIME_UNSET,
+            /* executor= */ null,
+            /* executorReleased= */ null);
+
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    selections[0] = new FakeTrackSelection(trackGroups.get(0), 0);
+    long unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            new boolean[trackGroups.length],
+            /* positionUs= */ 500_000);
+
+    // Mid-GOP (500_000) results in seek point at 0 < 500_000 -> preroll.
+    assertThat(streams[0].getFlags()).isEqualTo(SampleStream.FLAG_HAS_PREROLL);
+
+    mediaPeriod.release();
+  }
+
+  @Test
+  public void selectTracks_toNegativePosition_evaluatesPrerollFromSeekMap() throws Exception {
+    ProgressiveMediaExtractor extractor =
+        new ProgressiveMediaExtractor() {
+          @Override
+          public void init(
+              DataReader dataReader,
+              Uri uri,
+              Map<String, List<String>> responseHeaders,
+              long position,
+              long length,
+              ExtractorOutput output) {
+            output
+                .track(0, C.TRACK_TYPE_VIDEO)
+                .format(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build());
+            output.endTracks();
+            // SeekMap with keyframes at -1_000_000 and -500_000 Us.
+            output.seekMap(
+                new SeekMap() {
+                  @Override
+                  public boolean isSeekable() {
+                    return true;
+                  }
+
+                  @Override
+                  public long getDurationUs() {
+                    return 2_000_000;
+                  }
+
+                  @Override
+                  public SeekPoints getSeekPoints(long timeUs) {
+                    SeekPoint seekPoint =
+                        timeUs >= -500_000
+                            ? new SeekPoint(-500_000, 100)
+                            : new SeekPoint(-1_000_000, 0);
+                    return new SeekPoints(seekPoint);
+                  }
+                });
+          }
+
+          @Override
+          public void release() {}
+
+          @Override
+          public void disableSeekingOnMp3Streams() {}
+
+          @Override
+          public long getCurrentInputPosition() {
+            return 0;
+          }
+
+          @Override
+          public void seek(long position, long timeUs) {}
+
+          @Override
+          public int read(PositionHolder positionHolder) {
+            return Extractor.RESULT_END_OF_INPUT;
+          }
+        };
+
+    ProgressiveMediaPeriod mediaPeriod =
+        createMediaPeriod(
+            Uri.parse("asset://android_asset/media/mp4/sample.mp4"),
+            extractor,
+            /* imageDurationUs= */ C.TIME_UNSET,
+            /* executor= */ null,
+            /* executorReleased= */ null);
+
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    selections[0] = new FakeTrackSelection(trackGroups.get(0), 0);
+    long unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            new boolean[trackGroups.length],
+            /* positionUs= */ -250_000);
+
+    // Position -250_000 results in seek point at -500_000 < -250_000 -> preroll.
+    assertThat(streams[0].getFlags()).isEqualTo(SampleStream.FLAG_HAS_PREROLL);
+
     mediaPeriod.release();
   }
 

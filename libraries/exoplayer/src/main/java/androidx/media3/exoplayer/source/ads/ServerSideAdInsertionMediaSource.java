@@ -890,7 +890,9 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
             streams[i] = null;
             lastDownstreamFormatChangeData[i] = null;
           } else if (streams[i] == null || streamResetFlags[i]) {
-            streams[i] = new SampleStreamImpl(mediaPeriod, /* streamIndex= */ i);
+            streams[i] =
+                new SampleStreamImpl(
+                    mediaPeriod, /* streamIndex= */ i, /* isReusedStream= */ false);
             lastDownstreamFormatChangeData[i] = null;
           }
         }
@@ -905,7 +907,8 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
           if (streamResetFlags[i]) {
             streams[i] =
                 Objects.equals(trackSelections[i], selections[i])
-                    ? new SampleStreamImpl(mediaPeriod, /* streamIndex= */ i)
+                    ? new SampleStreamImpl(
+                        mediaPeriod, /* streamIndex= */ i, /* isReusedStream= */ true)
                     : new EmptySampleStream();
           }
         } else {
@@ -1299,10 +1302,12 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
 
     private final MediaPeriodImpl mediaPeriod;
     private final int streamIndex;
+    private final boolean isReusedStream;
 
-    public SampleStreamImpl(MediaPeriodImpl mediaPeriod, int streamIndex) {
+    private SampleStreamImpl(MediaPeriodImpl mediaPeriod, int streamIndex, boolean isReusedStream) {
       this.mediaPeriod = mediaPeriod;
       this.streamIndex = streamIndex;
+      this.isReusedStream = isReusedStream;
     }
 
     @Override
@@ -1331,16 +1336,23 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
     public @SampleStream.Flags int getFlags() {
       @Nullable SampleStream childStream = mediaPeriod.sharedPeriod.sampleStreams[streamIndex];
       @SampleStream.Flags int childFlags = childStream == null ? 0 : childStream.getFlags();
-      // The strict duration flag should only be applied to the very last stream of the content,
-      // not for in-stream transitions (e.g. ad to content or content to ad).
-      boolean isAtEndOfSourceStream =
-          mediaPeriod.mediaPeriodId.nextAdGroupIndex == C.INDEX_UNSET
-              && !mediaPeriod.mediaPeriodId.isAd();
-      if (isAtEndOfSourceStream) {
-        return childFlags;
-      } else {
-        return childFlags & ~SampleStream.FLAG_STRICT_DURATION;
+      // The preroll flag should only be applied to the first stream of the wrapped period, not to
+      // reused streams across in-stream transitions (e.g. ad to content or content to ad). The
+      // strict duration flag should only be applied to the very last stream of the content.
+      if (isReusedStream) {
+        childFlags &= ~(SampleStream.FLAG_HAS_PREROLL | SampleStream.FLAG_MAYBE_HAS_PREROLL);
       }
+      if (!isAtEndOfSourceStream(mediaPeriod.mediaPeriodId)) {
+        childFlags &= ~SampleStream.FLAG_STRICT_DURATION;
+      }
+      return childFlags;
     }
+  }
+
+  private static boolean isAtEndOfSourceStream(MediaPeriodId mediaPeriodId) {
+    if (mediaPeriodId.isAd()) {
+      return false;
+    }
+    return mediaPeriodId.nextAdGroupIndex == C.INDEX_UNSET;
   }
 }

@@ -1050,6 +1050,28 @@ public final class SampleQueueTest {
   }
 
   @Test
+  public void isDiscardingAllSamplesToStartTime() {
+    Format syncAudioAacWithCodecs =
+        new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).setCodecs("mp4a.40.2").build();
+    Format syncAudioAacWithoutCodecs =
+        new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build();
+    Format syncAudioAacInvalidCodecs =
+        new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).setCodecs("invalid").build();
+    Format syncAudioRaw = new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_RAW).build();
+    Format syncVideoApv = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_APV).build();
+    Format formatWithoutMimeType = new Format.Builder().build();
+
+    assertThat(SampleQueue.isDiscardingAllSamplesToStartTime(FORMAT_SYNC_SAMPLE_ONLY_1)).isTrue();
+    assertThat(SampleQueue.isDiscardingAllSamplesToStartTime(FORMAT_1)).isFalse();
+    assertThat(SampleQueue.isDiscardingAllSamplesToStartTime(syncAudioAacWithCodecs)).isTrue();
+    assertThat(SampleQueue.isDiscardingAllSamplesToStartTime(syncAudioAacWithoutCodecs)).isFalse();
+    assertThat(SampleQueue.isDiscardingAllSamplesToStartTime(syncAudioAacInvalidCodecs)).isFalse();
+    assertThat(SampleQueue.isDiscardingAllSamplesToStartTime(syncAudioRaw)).isTrue();
+    assertThat(SampleQueue.isDiscardingAllSamplesToStartTime(syncVideoApv)).isFalse();
+    assertThat(SampleQueue.isDiscardingAllSamplesToStartTime(formatWithoutMimeType)).isFalse();
+  }
+
+  @Test
   public void discardToEnd() {
     writeTestData();
     // Should discard everything.
