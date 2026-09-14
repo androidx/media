@@ -212,6 +212,8 @@ public class DashManifestTest {
             .isEqualTo(expectedAdaptationSet.accessibilityDescriptors);
         assertThat(actualAdaptationSet.representations)
             .isEqualTo(expectedAdaptationSet.representations);
+        assertThat(actualAdaptationSet.producerReferenceTimes)
+            .isEqualTo(expectedAdaptationSet.producerReferenceTimes);
       }
     }
   }
@@ -272,6 +274,7 @@ public class DashManifestTest {
         Arrays.asList(representations),
         /* accessibilityDescriptors= */ Collections.emptyList(),
         /* essentialProperties= */ Collections.emptyList(),
-        /* supplementalProperties= */ Collections.emptyList());
+        /* supplementalProperties= */ Collections.emptyList(),
+        /* producerReferenceTimes= */ ImmutableList.of());
   }
 }

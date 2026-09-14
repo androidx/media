@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.dash.manifest;
 
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
+import com.google.common.collect.ImmutableList;
 import java.util.Collections;
 import java.util.List;
 
@@ -48,6 +49,9 @@ public class AdaptationSet {
   /** Supplemental properties in the adaptation set. */
   public final List<Descriptor> supplementalProperties;
 
+  /** {@link ProducerReferenceTime} instances in the adaptation set. */
+  public final ImmutableList<ProducerReferenceTime> producerReferenceTimes;
+
   /**
    * @param id A non-negative identifier for the adaptation set that's unique in the scope of its
    *     containing period, or {@link #ID_UNSET} if not specified.
@@ -56,7 +60,10 @@ public class AdaptationSet {
    * @param accessibilityDescriptors Accessibility descriptors in the adaptation set.
    * @param essentialProperties Essential properties in the adaptation set.
    * @param supplementalProperties Supplemental properties in the adaptation set.
+   * @deprecated Use {@link #AdaptationSet(long, int, List, List, List, List, ImmutableList)}
+   *     instead.
    */
+  @Deprecated
   public AdaptationSet(
       long id,
       @C.TrackType int type,
@@ -64,11 +71,40 @@ public class AdaptationSet {
       List<Descriptor> accessibilityDescriptors,
       List<Descriptor> essentialProperties,
       List<Descriptor> supplementalProperties) {
+    this(
+        id,
+        type,
+        representations,
+        accessibilityDescriptors,
+        essentialProperties,
+        supplementalProperties,
+        /* producerReferenceTimes= */ ImmutableList.of());
+  }
+
+  /**
+   * @param id A non-negative identifier for the adaptation set that's unique in the scope of its
+   *     containing period, or {@link #ID_UNSET} if not specified.
+   * @param type The {@link C.TrackType track type} of the adaptation set.
+   * @param representations {@link Representation}s in the adaptation set.
+   * @param accessibilityDescriptors Accessibility descriptors in the adaptation set.
+   * @param essentialProperties Essential properties in the adaptation set.
+   * @param supplementalProperties Supplemental properties in the adaptation set.
+   * @param producerReferenceTimes {@link ProducerReferenceTime} instances in the adaptation set.
+   */
+  public AdaptationSet(
+      long id,
+      @C.TrackType int type,
+      List<Representation> representations,
+      List<Descriptor> accessibilityDescriptors,
+      List<Descriptor> essentialProperties,
+      List<Descriptor> supplementalProperties,
+      ImmutableList<ProducerReferenceTime> producerReferenceTimes) {
     this.id = id;
     this.type = type;
     this.representations = Collections.unmodifiableList(representations);
     this.accessibilityDescriptors = Collections.unmodifiableList(accessibilityDescriptors);
     this.essentialProperties = Collections.unmodifiableList(essentialProperties);
     this.supplementalProperties = Collections.unmodifiableList(supplementalProperties);
+    this.producerReferenceTimes = producerReferenceTimes;
   }
 }

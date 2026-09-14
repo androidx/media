@@ -294,7 +294,8 @@ public class DashManifest implements FilterableManifest<DashManifest> {
               copyRepresentations,
               adaptationSet.accessibilityDescriptors,
               adaptationSet.essentialProperties,
-              adaptationSet.supplementalProperties));
+              adaptationSet.supplementalProperties,
+              adaptationSet.producerReferenceTimes));
     } while (key.periodIndex == periodIndex);
     // Add back the last key which doesn't belong to the period being processed
     keys.addFirst(key);

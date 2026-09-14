@@ -370,7 +370,7 @@ public class DashManifestParser extends DefaultHandler
       throws XmlPullParserException, IOException {
     String[] defaultServiceLocation =
         parseCommaSeparatedList(xpp, "defaultServiceLocation", new String[0]);
-    boolean queryBeforeStart = "true".equals(xpp.getAttributeValue(null, "queryBeforeStart"));
+    boolean queryBeforeStart = parseBoolean(xpp, "queryBeforeStart", /* defaultValue= */ false);
     String serverUriString = parseText(xpp, "ContentSteering").trim();
     Uri serverUri = UriUtil.resolveToUri(documentBaseUri.toString(), serverUriString);
     return new ContentSteering(serverUri, defaultServiceLocation, queryBeforeStart);
@@ -534,6 +534,7 @@ public class DashManifestParser extends DefaultHandler
     ArrayList<Descriptor> roleDescriptors = new ArrayList<>();
     ArrayList<Descriptor> essentialProperties = new ArrayList<>();
     ArrayList<Descriptor> supplementalProperties = new ArrayList<>();
+    ImmutableList.Builder<ProducerReferenceTime> producerReferenceTimes = ImmutableList.builder();
     List<RepresentationInfo> representationInfos = new ArrayList<>();
     ArrayList<BaseUrl> baseUrls = new ArrayList<>();
 
@@ -568,6 +569,8 @@ public class DashManifestParser extends DefaultHandler
         essentialProperties.add(parseDescriptor(xpp, "EssentialProperty"));
       } else if (XmlPullParserUtil.isStartTag(xpp, "SupplementalProperty")) {
         supplementalProperties.add(parseDescriptor(xpp, "SupplementalProperty"));
+      } else if (XmlPullParserUtil.isStartTag(xpp, "ProducerReferenceTime")) {
+        producerReferenceTimes.add(parseProducerReferenceTime(xpp));
       } else if (XmlPullParserUtil.isStartTag(xpp, "Representation")) {
         RepresentationInfo representationInfo =
             parseRepresentation(
@@ -653,7 +656,8 @@ public class DashManifestParser extends DefaultHandler
         representations,
         accessibilityDescriptors,
         essentialProperties,
-        supplementalProperties);
+        supplementalProperties,
+        producerReferenceTimes.build());
   }
 
   protected AdaptationSet buildAdaptationSet(
@@ -662,14 +666,63 @@ public class DashManifestParser extends DefaultHandler
       List<Representation> representations,
       List<Descriptor> accessibilityDescriptors,
       List<Descriptor> essentialProperties,
-      List<Descriptor> supplementalProperties) {
+      List<Descriptor> supplementalProperties,
+      ImmutableList<ProducerReferenceTime> producerReferenceTimes) {
     return new AdaptationSet(
         id,
         contentType,
         representations,
         accessibilityDescriptors,
         essentialProperties,
-        supplementalProperties);
+        supplementalProperties,
+        producerReferenceTimes);
+  }
+
+  protected ProducerReferenceTime parseProducerReferenceTime(XmlPullParser xpp)
+      throws XmlPullParserException, IOException {
+    long id = parseLong(xpp, "id", ProducerReferenceTime.ID_UNSET);
+    boolean inband = parseBoolean(xpp, "inband", /* defaultValue= */ false);
+    @ProducerReferenceTime.ProducerReferenceTimeType
+    int type = parseProducerReferenceTimeType(xpp.getAttributeValue(null, "type"));
+    String applicationScheme = xpp.getAttributeValue(null, "applicationScheme");
+    long wallClockTimeMs = parseDateTime(xpp, "wallClockTime", C.TIME_UNSET);
+    long presentationTime = parseLong(xpp, "presentationTime", C.TIME_UNSET);
+    UtcTimingElement utcTiming = null;
+    do {
+      xpp.next();
+      if (XmlPullParserUtil.isStartTag(xpp, "UTCTiming")) {
+        utcTiming = parseUtcTiming(xpp);
+      } else {
+        maybeSkipTag(xpp);
+      }
+    } while (!XmlPullParserUtil.isEndTag(xpp, "ProducerReferenceTime"));
+
+    return buildProducerReferenceTime(
+        id, inband, type, applicationScheme, wallClockTimeMs, presentationTime, utcTiming);
+  }
+
+  protected @ProducerReferenceTime.ProducerReferenceTimeType int parseProducerReferenceTimeType(
+      @Nullable String type) {
+    if (type == null || Ascii.equalsIgnoreCase("encoder", type)) {
+      return ProducerReferenceTime.TYPE_ENCODER;
+    } else if (Ascii.equalsIgnoreCase("captured", type)) {
+      return ProducerReferenceTime.TYPE_CAPTURED;
+    } else if (Ascii.equalsIgnoreCase("application", type)) {
+      return ProducerReferenceTime.TYPE_APPLICATION;
+    }
+    return ProducerReferenceTime.TYPE_ENCODER;
+  }
+
+  protected ProducerReferenceTime buildProducerReferenceTime(
+      long id,
+      boolean inband,
+      @ProducerReferenceTime.ProducerReferenceTimeType int type,
+      @Nullable String applicationScheme,
+      long wallClockTimeMs,
+      long presentationTime,
+      @Nullable UtcTimingElement utcTiming) {
+    return new ProducerReferenceTime(
+        id, inband, type, applicationScheme, wallClockTimeMs, presentationTime, utcTiming);
   }
 
   protected @C.TrackType int parseContentType(XmlPullParser xpp) {
@@ -2106,6 +2159,11 @@ public class DashManifestParser extends DefaultHandler
   protected static String parseString(XmlPullParser xpp, String name, String defaultValue) {
     String value = xpp.getAttributeValue(null, name);
     return value == null ? defaultValue : value;
+  }
+
+  protected static boolean parseBoolean(XmlPullParser xpp, String name, boolean defaultValue) {
+    String value = xpp.getAttributeValue(null, name);
+    return value == null ? defaultValue : value.equals("true") || value.equals("1");
   }
 
   protected static String[] parseCommaSeparatedList(

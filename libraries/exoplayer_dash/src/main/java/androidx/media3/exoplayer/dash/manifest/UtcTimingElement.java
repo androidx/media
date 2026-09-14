@@ -15,7 +15,9 @@
  */
 package androidx.media3.exoplayer.dash.manifest;
 
+import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
+import java.util.Objects;
 
 /** Represents a UTCTiming element. */
 @UnstableApi
@@ -27,6 +29,24 @@ public final class UtcTimingElement {
   public UtcTimingElement(String schemeIdUri, String value) {
     this.schemeIdUri = schemeIdUri;
     this.value = value;
+  }
+
+  @Override
+  public boolean equals(@Nullable Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof UtcTimingElement)) {
+      return false;
+    }
+    UtcTimingElement other = (UtcTimingElement) obj;
+    return Objects.equals(this.schemeIdUri, other.schemeIdUri)
+        && Objects.equals(this.value, other.value);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(schemeIdUri, value);
   }
 
   @Override

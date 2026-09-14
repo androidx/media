@@ -123,7 +123,8 @@ public final class DashUtilTest {
         Arrays.asList(representations),
         /* accessibilityDescriptors= */ Collections.emptyList(),
         /* essentialProperties= */ Collections.emptyList(),
-        /* supplementalProperties= */ Collections.emptyList());
+        /* supplementalProperties= */ Collections.emptyList(),
+        /* producerReferenceTimes= */ ImmutableList.of());
   }
 
   private static Representation newRepresentation(DrmInitData drmInitData) {

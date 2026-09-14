@@ -140,6 +140,8 @@
     *   Support whitespace-separated lists of `@id` values in trick mode
         (`http://dashif.org/guidelines/trickmode`) descriptor `@value`
         attributes ([#3315](https://github.com/androidx/media/issues/3315)).
+    *   Support parsing `<ProducerReferenceTime>` in `DashManifestParser` and
+        expose it in `AdaptationSet.producerReferenceTimes`.
 *   Smooth Streaming extension:
 *   RTSP extension:
     *   Fix an `IllegalStateException` crash that occurred when processing

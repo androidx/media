@@ -367,7 +367,8 @@ public final class DashContentSteeringTrackerTest {
             ImmutableList.of(representation),
             /* accessibilityDescriptors= */ ImmutableList.of(),
             /* essentialProperties= */ ImmutableList.of(),
-            /* supplementalProperties= */ ImmutableList.of());
+            /* supplementalProperties= */ ImmutableList.of(),
+            /* producerReferenceTimes= */ ImmutableList.of());
     Period period =
         new Period(/* id= */ "period1", /* startMs= */ 0, ImmutableList.of(adaptationSet));
     return new DashManifest(

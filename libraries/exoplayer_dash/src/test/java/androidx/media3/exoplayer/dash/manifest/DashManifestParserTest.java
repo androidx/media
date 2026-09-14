@@ -1185,6 +1185,113 @@ public class DashManifestParserTest {
     assertThat(manifest.contentSteering.queryBeforeStart).isTrue();
   }
 
+  @Test
+  public void parseProducerReferenceTime_capturedType_parsedCorrectly() throws Exception {
+    DashManifestParser parser = new DashManifestParser();
+    XmlPullParser xpp = XmlPullParserFactory.newInstance().newPullParser();
+    xpp.setInput(
+        new StringReader(
+            "<ProducerReferenceTime id=\"1\" inband=\"true\" type=\"captured\""
+                + " wallClockTime=\"2026-08-28T10:00:00.000Z\" presentationTime=\"1000\"/>"
+                + NEXT_TAG));
+    xpp.next();
+
+    ProducerReferenceTime prt = parser.parseProducerReferenceTime(xpp);
+
+    assertThat(prt.id).isEqualTo(1);
+    assertThat(prt.inband).isTrue();
+    assertThat(prt.type).isEqualTo(ProducerReferenceTime.TYPE_CAPTURED);
+    assertThat(prt.wallClockTimeMs).isEqualTo(Util.parseXsDateTime("2026-08-28T10:00:00.000Z"));
+    assertThat(prt.presentationTime).isEqualTo(1000);
+    assertThat(prt.applicationScheme).isNull();
+    assertThat(prt.utcTiming).isNull();
+    assertNextTag(xpp);
+  }
+
+  @Test
+  public void parseProducerReferenceTime_withUtcTimingAndDefaults_parsedCorrectly()
+      throws Exception {
+    DashManifestParser parser = new DashManifestParser();
+    XmlPullParser xpp = XmlPullParserFactory.newInstance().newPullParser();
+    xpp.setInput(
+        new StringReader(
+            "<ProducerReferenceTime id=\"2\" wallClockTime=\"2026-08-28T10:00:00.000Z\""
+                + " presentationTime=\"0\">"
+                + "<UTCTiming schemeIdUri=\"urn:mpeg:dash:utc:http-xsdate:2014\""
+                + " value=\"https://time.example.com\"/>"
+                + "</ProducerReferenceTime>"
+                + NEXT_TAG));
+    xpp.next();
+
+    ProducerReferenceTime prt = parser.parseProducerReferenceTime(xpp);
+
+    assertThat(prt.id).isEqualTo(2);
+    assertThat(prt.inband).isFalse();
+    assertThat(prt.type).isEqualTo(ProducerReferenceTime.TYPE_ENCODER);
+    assertThat(prt.wallClockTimeMs).isEqualTo(Util.parseXsDateTime("2026-08-28T10:00:00.000Z"));
+    assertThat(prt.presentationTime).isEqualTo(0);
+    assertThat(prt.utcTiming)
+        .isEqualTo(
+            new UtcTimingElement("urn:mpeg:dash:utc:http-xsdate:2014", "https://time.example.com"));
+    assertNextTag(xpp);
+  }
+
+  @Test
+  public void parseProducerReferenceTime_applicationType_parsedCorrectly() throws Exception {
+    DashManifestParser parser = new DashManifestParser();
+    XmlPullParser xpp = XmlPullParserFactory.newInstance().newPullParser();
+    xpp.setInput(
+        new StringReader(
+            "<ProducerReferenceTime id=\"3\" type=\"application\""
+                + " applicationScheme=\"urn:custom:scheme\""
+                + " wallClockTime=\"2026-08-28T10:00:00.000Z\" presentationTime=\"500\"/>"
+                + NEXT_TAG));
+    xpp.next();
+
+    ProducerReferenceTime prt = parser.parseProducerReferenceTime(xpp);
+
+    assertThat(prt.id).isEqualTo(3);
+    assertThat(prt.type).isEqualTo(ProducerReferenceTime.TYPE_APPLICATION);
+    assertThat(prt.applicationScheme).isEqualTo("urn:custom:scheme");
+    assertThat(prt.wallClockTimeMs).isEqualTo(Util.parseXsDateTime("2026-08-28T10:00:00.000Z"));
+    assertThat(prt.presentationTime).isEqualTo(500);
+    assertNextTag(xpp);
+  }
+
+  @Test
+  public void parseAdaptationSet_withProducerReferenceTime_parsedCorrectly() throws Exception {
+    DashManifestParser parser = new DashManifestParser();
+    XmlPullParser xpp = XmlPullParserFactory.newInstance().newPullParser();
+    xpp.setInput(
+        new StringReader(
+            "<AdaptationSet id=\"0\" contentType=\"video\">"
+                + "<ProducerReferenceTime id=\"1\" type=\"captured\""
+                + " wallClockTime=\"2026-08-28T10:00:00.000Z\" presentationTime=\"0\"/>"
+                + "<Representation id=\"1\" bandwidth=\"1000\"/>"
+                + "</AdaptationSet>"
+                + NEXT_TAG));
+    xpp.next();
+
+    AdaptationSet adaptationSet =
+        parser.parseAdaptationSet(
+            xpp,
+            /* parentBaseUrls= */ ImmutableList.of(new BaseUrl("https://example.com")),
+            /* segmentBase= */ null,
+            /* periodDurationMs= */ C.TIME_UNSET,
+            /* baseUrlAvailabilityTimeOffsetUs= */ C.TIME_UNSET,
+            /* segmentBaseAvailabilityTimeOffsetUs= */ C.TIME_UNSET,
+            /* periodStartUnixTimeMs= */ C.TIME_UNSET,
+            /* timeShiftBufferDepthMs= */ C.TIME_UNSET,
+            /* dvbProfileDeclared= */ false);
+
+    assertThat(adaptationSet.producerReferenceTimes).hasSize(1);
+    ProducerReferenceTime prt = adaptationSet.producerReferenceTimes.get(0);
+    assertThat(prt.id).isEqualTo(1);
+    assertThat(prt.type).isEqualTo(ProducerReferenceTime.TYPE_CAPTURED);
+    assertThat(prt.wallClockTimeMs).isEqualTo(Util.parseXsDateTime("2026-08-28T10:00:00.000Z"));
+    assertNextTag(xpp);
+  }
+
   private static List<Descriptor> buildCea608AccessibilityDescriptors(String value) {
     return Collections.singletonList(new Descriptor("urn:scte:dash:cc:cea-608:2015", value, null));
   }
