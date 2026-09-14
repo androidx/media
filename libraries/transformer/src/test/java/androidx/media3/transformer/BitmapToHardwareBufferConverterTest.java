@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.effect;
+package androidx.media3.transformer;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -23,6 +23,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import android.graphics.Bitmap;
+import androidx.media3.effect.HardwareBufferFrame;
+import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;

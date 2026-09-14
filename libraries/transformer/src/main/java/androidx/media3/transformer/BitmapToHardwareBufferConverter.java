@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.effect;
+package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -29,8 +29,9 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Consumer;
-import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.video.SyncFenceWrapper;
+import androidx.media3.effect.HardwareBufferFrame;
+import androidx.media3.effect.HardwareBufferJniWrapper;
 import java.time.Duration;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -50,8 +51,7 @@ import java.util.concurrent.RejectedExecutionException;
  * references.
  */
 @RequiresApi(26)
-@ExperimentalApi // TODO: b/479415385 - remove when packet consumer is production-ready.
-public final class BitmapToHardwareBufferConverter implements AutoCloseable {
+/* package */ final class BitmapToHardwareBufferConverter implements AutoCloseable {
 
   private static final Duration RELEASE_TIMEOUT = Duration.ofMillis(500);
 
@@ -83,7 +83,7 @@ public final class BitmapToHardwareBufferConverter implements AutoCloseable {
    * @param errorCallback The {@link Consumer<VideoFrameProcessingException>} called when waiting or
    *     closing the created {@link HardwareBuffer}s fails.
    */
-  public BitmapToHardwareBufferConverter(
+  /* package */ BitmapToHardwareBufferConverter(
       HardwareBufferJniWrapper hardwareBufferJniWrapper,
       ExecutorService internalExecutor,
       Executor errorExecutor,
@@ -101,7 +101,7 @@ public final class BitmapToHardwareBufferConverter implements AutoCloseable {
    * <p>The caller must call {@link HardwareBufferFrame#release(SyncFenceWrapper)} on the returned
    * frame when finished with it.
    */
-  public HardwareBufferFrame getOrCreateRetainedFrame(Bitmap nextBitmap) {
+  /* package */ HardwareBufferFrame getOrCreateRetainedFrame(Bitmap nextBitmap) {
     synchronized (this) {
       checkState(!internalExecutor.isShutdown());
       // Check whether the current bitmap should be updated.
@@ -167,7 +167,7 @@ public final class BitmapToHardwareBufferConverter implements AutoCloseable {
   }
 
   /** Releases the cached frame and resets state. */
-  public void flush() {
+  /* package */ void flush() {
     synchronized (this) {
       if (currentFrame != null) {
         currentFrame.release(/* releaseFence= */ null);

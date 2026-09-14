@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.effect;
+package androidx.media3.transformer;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -32,6 +32,7 @@ import android.opengl.EGLSurface;
 import android.opengl.GLES20;
 import android.os.Build;
 import androidx.media3.common.util.GlUtil;
+import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.test.filters.SdkSuppress;
