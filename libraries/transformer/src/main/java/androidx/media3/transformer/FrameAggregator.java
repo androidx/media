@@ -48,6 +48,7 @@ import java.util.Queue;
   private final Consumer<Integer> onFlush;
   private final List<FrameQueue> inputFrameQueues;
   private final int numSequences;
+
   @Nullable private final Rational frameRate;
 
   private volatile boolean isEnded;
@@ -423,15 +424,16 @@ import java.util.Queue;
    * {@link C#TIME_UNSET}.
    */
   private static long getVirtualFrameIndexCeil(long timeUs, @Nullable Rational frameRate) {
-    // TODO: b/525309275 - Consider subtracting a small tolerance (e.g. 0.5 us) from timeUs before
-    // calculating the ceiling. Without it, the first available frame after a seek/flush might be
-    // dropped if its timestamp was rounded up to the nearest microsecond by upstream components,
-    // causing the strict ceiling division to overshoot and snap to the next virtual tick.
     if (frameRate == null || timeUs == C.TIME_UNSET) {
       return C.INDEX_UNSET;
     }
+    // Virtual clock ticks represent fractional values (e.g., 66_666.666... us at 30 fps), but
+    // upstream timestamps are integer-quantized and may be rounded up to the next microsecond
+    // (e.g., 66_667 us). Strict ceiling division on such rounded-up timestamps would overshoot to
+    // the next virtual tick (e.g., 100_000 us). Subtract 1 us to absorb this quantization error.
+    long adjustedTimeUs = Math.max(0, timeUs - 1);
     return Util.scaleLargeValue(
-        /* value= */ timeUs,
+        /* value= */ adjustedTimeUs,
         /* multiplier= */ frameRate.getNumerator(),
         /* divisor= */ 1_000_000L * frameRate.getDenominator(),
         RoundingMode.CEILING);

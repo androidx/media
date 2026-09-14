@@ -1421,7 +1421,7 @@ public class FrameAggregatorTest {
   }
 
   @Test
-  public void queueFrame_withFrameRateAndStartsAtVirtualTick_dropsDueToUpstreamRounding() {
+  public void queueFrame_withFrameRateAndStartsAtVirtualTick_retainsAndOutputsFrame() {
     FrameAggregator frameAggregator =
         new FrameAggregator(
             /* numSequences= */ 2,
@@ -1430,23 +1430,14 @@ public class FrameAggregatorTest {
             /* onFlush= */ flushedSequences::add);
     registerAllSequences(frameAggregator, /* numSequences= */ 2);
 
-    // TODO: b/525309275 - Consider adding a tolerance to getVirtualFrameIndexCeil.
-    // Right now, perfectly aligned frames might be dropped due to upstream integer rounding.
-    // 66_667 is the nearest-integer rounded timestamp for the 2nd tick at 30fps (66666.666... us).
-    // When we calculate the exact index: ceil((66_667 * 30) / 1_000_000) = ceil(2.00001) = 3.
-    //
     /*
      * Pacing / Retiming Timeline (Target Virtual Clock: 30 FPS):
      *
      * Virtual Ticks:         [Tick 2: 66_667us]    [Tick 3: 100_000us]
      * ----------------------------------------------------------------
-     * Seq 0 (Primary):                             | (Drop 66_667us) |
-     * Seq 1 (Secondary):                           | (Wait)          |
+     * Seq 0 (Primary):       | 66_667us        |
+     * Seq 1 (Secondary):     | 66_667us        |
      */
-    //
-    // The virtual clock starts at tick 3 (100_000us) because the ceiling logic overshoots to 3.
-    // Because the incoming 66_667us frames are strictly older than the target time of 100_000us,
-    // they are dropped, and the aggregator outputs nothing until the next frames arrive.
     AsyncFrame primaryFrame =
         createFrame(/* presentationTimeUs= */ 66_667, /* sequencePresentationTimeUs= */ 66_667);
     AsyncFrame secondaryFrame =
@@ -1455,10 +1446,14 @@ public class FrameAggregatorTest {
     frameAggregator.queueFrame(primaryFrame, /* sequenceIndex= */ 0);
     frameAggregator.queueFrame(secondaryFrame, /* sequenceIndex= */ 1);
 
-    assertThat(outputFrames).isEmpty(); // Dropped
-    // Only the primary frame is dropped initially because the matcher aborts checking further
-    // sequences as soon as the primary queue is empty.
-    assertThat(releasedFrameTimestamps).containsExactly(66_667L);
+    // Frame 2 at 66_667us is retained and emitted for Tick 2.
+    assertThat(outputFrames).hasSize(1);
+    assertOutputPacket(
+        outputFrames.get(0),
+        /* expectedSize= */ 2,
+        /* expectedPresentationTimeUs= */ 66_667,
+        /* expectedSequencePresentationTimeUs= */ 66_667);
+    assertThat(releasedFrameTimestamps).isEmpty();
   }
 
   @Test
@@ -1601,6 +1596,35 @@ public class FrameAggregatorTest {
     assertThat(outputFrames).hasSize(2); // Post-seek Virtual Tick emitted
     assertOutputPacket(
         Iterables.getLast(outputFrames), /* expectedSize= */ 2, /* expectedTimeUs= */ 100_000);
+  }
+
+  @Test
+  public void
+      flush_withFrameRateAndSeekToFrameAlignedWithRoundedMicrosecond_retainsAndOutputsFrame() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(
+            /* numSequences= */ 1,
+            /* frameRate= */ new Rational(30, 1),
+            /* downstreamConsumer= */ this::recordOutputFrames,
+            /* onFlush= */ flushedSequences::add);
+    registerAllSequences(frameAggregator, /* numSequences= */ 1);
+
+    frameAggregator.queueFrame(
+        createFrame(/* presentationTimeUs= */ 0, /* sequencePresentationTimeUs= */ 0),
+        /* sequenceIndex= */ 0);
+
+    assertThat(outputFrames).hasSize(1); // Pre-seek Virtual Tick emitted
+
+    // Seek to 66_667us (Frame 2 at 30fps)
+    frameAggregator.flush(/* sequenceIndex= */ 0);
+
+    frameAggregator.queueFrame(
+        createFrame(/* presentationTimeUs= */ 66_667, /* sequencePresentationTimeUs= */ 66_667),
+        /* sequenceIndex= */ 0);
+
+    assertThat(outputFrames).hasSize(2);
+    assertOutputPacket(
+        Iterables.getLast(outputFrames), /* expectedSize= */ 1, /* expectedTimeUs= */ 66_667);
   }
 
   @Test
