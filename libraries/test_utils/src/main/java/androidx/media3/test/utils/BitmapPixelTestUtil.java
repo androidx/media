@@ -35,6 +35,7 @@ import android.media.Image;
 import android.opengl.GLES20;
 import android.opengl.GLES30;
 import android.os.Build;
+import android.util.Half;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.GlUtil;
@@ -47,6 +48,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
+import java.nio.ShortBuffer;
 import java.util.Arrays;
 
 /** Utilities for pixel tests. */
@@ -526,8 +530,42 @@ public class BitmapPixelTestUtil {
   @RequiresApi(26) // Bitmap.Config.RGBA_F16
   public static Bitmap createFp16BitmapFromFocusedGlFramebuffer(int width, int height)
       throws GlUtil.GlException {
+    int channelCount = 4;
+    int bytesPerFp16 = 2;
+    int pixelSize = channelCount * bytesPerFp16;
+    int[] readType = new int[1];
+    GLES20.glGetIntegerv(GLES20.GL_IMPLEMENTATION_COLOR_READ_TYPE, readType, /* offset= */ 0);
+    GlUtil.checkGlError();
+    if (readType[0] == GLES20.GL_FLOAT) {
+      int floatsPerRow = width * channelCount;
+      FloatBuffer rowFloatBuffer =
+          ByteBuffer.allocateDirect(floatsPerRow * Float.BYTES)
+              .order(ByteOrder.nativeOrder())
+              .asFloatBuffer();
+      ByteBuffer halfBuffer =
+          ByteBuffer.allocateDirect(width * height * pixelSize).order(ByteOrder.nativeOrder());
+      ShortBuffer shortBuffer = halfBuffer.asShortBuffer();
+      for (int y = height - 1; y >= 0; y--) {
+        rowFloatBuffer.rewind();
+        GLES20.glReadPixels(
+            /* x= */ 0,
+            /* y= */ y,
+            width,
+            /* height= */ 1,
+            GLES20.GL_RGBA,
+            GLES20.GL_FLOAT,
+            rowFloatBuffer);
+        GlUtil.checkGlError();
+        rowFloatBuffer.rewind();
+        copyFloatsToHalfBuffer(rowFloatBuffer, shortBuffer, floatsPerRow);
+      }
+      halfBuffer.rewind();
+      Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGBA_F16);
+      bitmap.copyPixelsFromBuffer(halfBuffer);
+      return bitmap;
+    }
     return createBitmapFromFocusedGlFrameBuffer(
-        width, height, /* pixelSize= */ 8, GLES30.GL_HALF_FLOAT, Bitmap.Config.RGBA_F16);
+        width, height, pixelSize, GLES30.GL_HALF_FLOAT, Bitmap.Config.RGBA_F16);
   }
 
   private static Bitmap createBitmapFromFocusedGlFrameBuffer(
@@ -544,6 +582,15 @@ public class BitmapPixelTestUtil {
     bitmap.copyPixelsFromBuffer(pixelBuffer);
     // Flip the bitmap as its positive y-axis points down while OpenGL's positive y-axis points up.
     return flipBitmapVertically(bitmap);
+  }
+
+  @RequiresApi(26) // Half.toHalf
+  @SuppressWarnings("HalfFloat") // Writes 16-bit half-precision floats into the buffer.
+  private static void copyFloatsToHalfBuffer(
+      FloatBuffer source, ShortBuffer destination, int count) {
+    for (int i = 0; i < count; i++) {
+      destination.put(Half.toHalf(source.get()));
+    }
   }
 
   /**
