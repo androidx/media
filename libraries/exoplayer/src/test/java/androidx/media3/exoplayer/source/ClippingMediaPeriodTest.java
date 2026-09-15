@@ -573,4 +573,59 @@ public class ClippingMediaPeriodTest {
     assertThat(sampleStreams[0].getFlags())
         .isEqualTo(FLAG_MAYBE_HAS_PREROLL | FLAG_STRICT_DURATION);
   }
+
+  @Test
+  public void selectTracks_withStartAndEndClippingAndChildStreamMaybeHasPreroll_setsFlagHasPreroll()
+      throws Exception {
+    TrackGroupArray trackGroups = new TrackGroupArray(VIDEO_TRACK_GROUP);
+    FakeMediaPeriod mediaPeriod =
+        new FakeMediaPeriod(
+            trackGroups,
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* trackDataFactory= */ (format, mediaPeriodId) -> ImmutableList.of(),
+            new MediaSourceEventListener.EventDispatcher()
+                .withParameters(
+                    /* windowIndex= */ 0,
+                    new MediaSource.MediaPeriodId(/* periodUid= */ new Object())),
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* deferOnPrepared= */ false) {
+          @Override
+          protected FakeSampleStream createSampleStream(
+              Allocator allocator,
+              @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+              DrmSessionManager drmSessionManager,
+              DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+              Format initialFormat,
+              List<FakeSampleStream.FakeSampleStreamItem> fakeSampleStreamItems) {
+            return new FakeSampleStream(
+                allocator,
+                mediaSourceEventDispatcher,
+                drmSessionManager,
+                drmEventDispatcher,
+                initialFormat,
+                fakeSampleStreamItems) {
+              @Override
+              public int getFlags() {
+                return FLAG_MAYBE_HAS_PREROLL;
+              }
+            };
+          }
+        };
+
+    ClippingMediaPeriod clippingMediaPeriod =
+        new ClippingMediaPeriod(
+            mediaPeriod,
+            /* enableInitialDiscontinuity= */ true,
+            /* startUs= */ 250,
+            /* endUs= */ 500);
+
+    SampleStream[] sampleStreams =
+        prepareMediaPeriodAndSelectTracks(
+            clippingMediaPeriod, /* preparePositionUs= */ 250, trackGroups);
+
+    // The clip sets a non-zero start position, so it introduces preroll and overrides the child's
+    // FLAG_MAYBE_HAS_PREROLL with FLAG_HAS_PREROLL.
+    assertThat(sampleStreams[0].getFlags()).isEqualTo(FLAG_HAS_PREROLL | FLAG_STRICT_DURATION);
+  }
 }
