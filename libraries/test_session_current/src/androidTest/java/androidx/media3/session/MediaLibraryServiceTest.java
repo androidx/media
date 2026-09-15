@@ -18,6 +18,7 @@ package androidx.media3.session;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assume.assumeTrue;
 
 import android.app.UiAutomation;
 import android.content.ComponentName;
@@ -25,6 +26,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
 import androidx.media3.common.MediaItem;
@@ -57,6 +59,10 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 @MediumTest
 public class MediaLibraryServiceTest {
+
+  // Build.VERSION_CODES_FULL.CINNAMON_BUN_2 (SDK 37.2). Defined locally as a constant because
+  // the symbol is not present in all android-37 compile SDK stubs used by Gradle.
+  private static final int VERSION_CODES_FULL_CINNAMON_BUN_2 = 3700002;
 
   @Rule public final RemoteControllerTestRule controllerTestRule = new RemoteControllerTestRule();
 
@@ -132,9 +138,16 @@ public class MediaLibraryServiceTest {
   }
 
   @Ignore("Failing: b/517062718")
-  @SdkSuppress(minSdkVersion = 30) // Emulators up to API 29 don't have bluetooth service.
+  @SdkSuppress(
+      minSdkVersion = 30,
+      maxSdkVersion = 37) // Emulators up to API 29 don't have bluetooth service.
   @Test
   public void mediaLibraryService_isRecognizedAsAvrcpBrowsable() throws Exception {
+    // Bluetooth AVRCP lazy initialization (b/544875015) in Android 37.2+ trunk_staging defers
+    // MediaPlayerList initialization until an AVRCP device connects, so dumpsys
+    // bluetooth_manager no longer lists browsable packages without a connected device.
+    assumeTrue(getSdkIntFull() < VERSION_CODES_FULL_CINNAMON_BUN_2);
+
     UiAutomation uiAutomation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
     String packageName = context.getPackageName();
 
@@ -215,5 +228,12 @@ public class MediaLibraryServiceTest {
       }
     }
     return output.toString();
+  }
+
+  private static int getSdkIntFull() {
+    if (SDK_INT < 36) {
+      return SDK_INT * 100_000;
+    }
+    return Build.VERSION.SDK_INT_FULL;
   }
 }
