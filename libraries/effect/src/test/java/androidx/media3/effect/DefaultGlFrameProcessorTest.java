@@ -335,7 +335,7 @@ public final class DefaultGlFrameProcessorTest {
                 fakeFrameWriterGlTextureFrameConsumer,
                 new DefaultGlTextureFrameCompositor.Factory(
                     /* compositorGlProgramFactory= */ FakeCompositorGlProgram::new,
-                    /* texturePoolFactory= */ outputColorInfo ->
+                    /* texturePoolFactory= */ workingColorSpace ->
                         new TexturePool(
                             /* textureAllocator= */ (width,
                                 height,
@@ -1435,7 +1435,7 @@ public final class DefaultGlFrameProcessorTest {
         fakeFrameWriterGlTextureFrameConsumer,
         new DefaultGlTextureFrameCompositor.Factory(
             /* compositorGlProgramFactory= */ FakeCompositorGlProgram::new,
-            /* texturePoolFactory= */ outputColorInfo ->
+            /* texturePoolFactory= */ workingColorSpace ->
                 new TexturePool(
                     /* textureAllocator= */ (width, height, useHighPrecisionColorComponents) -> 100,
                     /* useHighPrecisionColorComponents= */ false,
@@ -1456,7 +1456,7 @@ public final class DefaultGlFrameProcessorTest {
         fakeFrameWriterGlTextureFrameConsumer,
         new DefaultGlTextureFrameCompositor.Factory(
             /* compositorGlProgramFactory= */ FakeCompositorGlProgram::new,
-            /* texturePoolFactory= */ outputColorInfo ->
+            /* texturePoolFactory= */ workingColorSpace ->
                 new TexturePool(
                     /* textureAllocator= */ (width, height, useHighPrecisionColorComponents) -> 100,
                     /* useHighPrecisionColorComponents= */ false,

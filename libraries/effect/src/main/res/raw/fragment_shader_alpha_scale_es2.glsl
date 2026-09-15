@@ -13,10 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// ES 2 fragment shader that samples from a (non-external) texture with
+// Fragment shader that samples from a (non-external) texture with
 // uTexSampler, and multiplies its alpha value by uAlphaScale.
 
-precision mediump float;
+precision highp float;
 uniform sampler2D uTexSampler;
 uniform float uAlphaScale;
 varying vec2 vTexSamplingCoord;

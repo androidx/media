@@ -19,6 +19,7 @@ import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.effect.FrameProcessorUtils.createAndBindEglImage;
 import static androidx.media3.effect.FrameProcessorUtils.releaseEglImageTexture;
 import static androidx.media3.effect.FrameProcessorUtils.runAllAndAccumulateExceptions;
+import static androidx.media3.effect.FrameProcessorUtils.useHighPrecisionColorComponents;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getFirst;
 
@@ -136,7 +137,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
       internalTexId =
           GlUtil.createTexture(
-              outputWidth, outputHeight, needsHighPrecisionTexture(outputColorInfo));
+              outputWidth, outputHeight, useHighPrecisionColorComponents(outputColorInfo));
 
       MatrixUtils.populateTransformationMatrix(
           textureTransformMatrix,
@@ -316,11 +317,5 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return ((DefaultHardwareBufferFrame) hardwareBufferFrame).getInternalImage();
     }
     return null;
-  }
-
-  private static boolean needsHighPrecisionTexture(ColorInfo outputColorInfo) {
-    // Use FP16 for all HDR content, and RGB_LINEAR.
-    return ColorInfo.isWideColorGamut(outputColorInfo)
-        || outputColorInfo.colorTransfer == C.COLOR_TRANSFER_LINEAR;
   }
 }

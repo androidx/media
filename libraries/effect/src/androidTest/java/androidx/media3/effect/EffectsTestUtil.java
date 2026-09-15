@@ -25,7 +25,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.graphics.Bitmap;
+import android.opengl.EGL14;
+import android.opengl.EGLContext;
+import android.opengl.EGLDisplay;
+import android.opengl.EGLSurface;
 import android.text.SpannableString;
+import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
@@ -34,6 +39,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Consumer;
+import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.test.utils.TextureBitmapReader;
@@ -205,6 +211,35 @@ import java.util.concurrent.atomic.AtomicReference;
     Exception videoFrameProcessingException = videoFrameProcessingExceptionReference.get();
     if (videoFrameProcessingException != null) {
       throw videoFrameProcessingException;
+    }
+  }
+
+  /**
+   * Creates an {@link EGLContext} and focused {@link EGLSurface}, falling back to OpenGL ES 2.0 if
+   * 3.0 fails.
+   */
+  public static Pair<EGLContext, EGLSurface> createFocusedEglContextWithFallback(
+      EGLDisplay eglDisplay, int[] configAttributes) throws GlUtil.GlException {
+    try {
+      return createFocusedEglContext(eglDisplay, /* openGlVersion= */ 3, configAttributes);
+    } catch (GlUtil.GlException e) {
+      return createFocusedEglContext(eglDisplay, /* openGlVersion= */ 2, configAttributes);
+    }
+  }
+
+  /**
+   * Creates an {@link EGLContext} and focused {@link EGLSurface} for the given OpenGL ES version.
+   */
+  private static Pair<EGLContext, EGLSurface> createFocusedEglContext(
+      EGLDisplay eglDisplay, int openGlVersion, int[] configAttributes) throws GlUtil.GlException {
+    EGLContext eglContext =
+        GlUtil.createEglContext(EGL14.EGL_NO_CONTEXT, eglDisplay, openGlVersion, configAttributes);
+    try {
+      EGLSurface eglSurface = GlUtil.createFocusedPlaceholderEglSurface(eglContext, eglDisplay);
+      return Pair.create(eglContext, eglSurface);
+    } catch (GlUtil.GlException e) {
+      GlUtil.destroyEglContext(eglDisplay, eglContext);
+      throw e;
     }
   }
 

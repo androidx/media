@@ -36,7 +36,7 @@ import java.util.Iterator;
   }
 
   /* package */ interface Factory {
-    TexturePool create(ColorInfo outputColorInfo);
+    TexturePool create(ColorInfo workingColorSpace);
   }
 
   private final TextureAllocator textureAllocator;

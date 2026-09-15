@@ -18,6 +18,7 @@ package androidx.media3.effect;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITION_SEQUENCE_INDEX;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITOR_SETTINGS;
 import static androidx.media3.effect.FrameProcessorUtils.runAllAndAccumulateExceptions;
+import static androidx.media3.effect.FrameProcessorUtils.useHighPrecisionColorComponents;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -68,9 +69,9 @@ import java.util.concurrent.Executor;
     public Factory(CompositorGlProgram.Factory compositorGlProgramFactory) {
       this(
           compositorGlProgramFactory,
-          outputColorInfo ->
+          workingColorSpace ->
               new TexturePool(
-                  /* useHighPrecisionColorComponents= */ ColorInfo.isTransferHdr(outputColorInfo),
+                  useHighPrecisionColorComponents(workingColorSpace),
                   /* capacity= */ DEFAULT_COMPOSITOR_CAPACITY));
     }
 
@@ -91,13 +92,13 @@ import java.util.concurrent.Executor;
     @Override
     public GlTextureFrameCompositor create(
         GlObjectsProvider glObjectsProvider,
-        ColorInfo outputColorInfo,
+        ColorInfo workingColorSpace,
         Consumer<VideoFrameProcessingException> errorConsumer,
         Executor glExecutor,
         GlTextureFrameConsumer downstreamConsumer) {
       return new DefaultGlTextureFrameCompositor(
           glObjectsProvider,
-          texturePoolFactory.create(outputColorInfo),
+          texturePoolFactory.create(workingColorSpace),
           errorConsumer,
           compositorGlProgramFactory.create(),
           glExecutor,

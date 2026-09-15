@@ -38,7 +38,8 @@ import java.util.concurrent.Executor;
      * Creates a {@link GlTextureFrameCompositor}.
      *
      * @param glObjectsProvider The {@link GlObjectsProvider} for OpenGL operations.
-     * @param outputColorInfo The {@link ColorInfo} for the output texture.
+     * @param workingColorSpace The {@link ColorInfo} representing the working color space that all
+     *     inputs and the output of the compositor should be in.
      * @param errorConsumer A consumer for {@link VideoFrameProcessingException}.
      * @param glExecutor The {@link Executor} running OpenGL tasks on the GL thread.
      * @param downstreamConsumer The downstream {@link GlTextureFrameConsumer}.
@@ -46,7 +47,7 @@ import java.util.concurrent.Executor;
      */
     GlTextureFrameCompositor create(
         GlObjectsProvider glObjectsProvider,
-        ColorInfo outputColorInfo,
+        ColorInfo workingColorSpace,
         Consumer<VideoFrameProcessingException> errorConsumer,
         Executor glExecutor,
         GlTextureFrameConsumer downstreamConsumer);

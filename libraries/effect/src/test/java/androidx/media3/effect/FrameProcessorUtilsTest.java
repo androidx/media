@@ -16,6 +16,7 @@
 package androidx.media3.effect;
 
 import static androidx.media3.effect.FrameProcessorUtils.runAllAndAccumulateExceptions;
+import static androidx.media3.effect.FrameProcessorUtils.useHighPrecisionColorComponents;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
@@ -23,6 +24,8 @@ import android.opengl.EGL14;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
+import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -181,6 +184,61 @@ public final class FrameProcessorUtilsTest {
             FrameProcessorUtils.setupOpenGl(
                 glObjectsProvider, /* isSurfacelessContextExtensionSupported= */ false));
     assertThat(glObjectsProvider.requestedVersions).containsExactly(2);
+  }
+
+  @Test
+  public void useHighPrecisionColorComponents_withHdrHlg_returnsTrue() {
+    ColorInfo hdrHlg =
+        new ColorInfo.Builder()
+            .setColorSpace(C.COLOR_SPACE_BT2020)
+            .setColorTransfer(C.COLOR_TRANSFER_HLG)
+            .build();
+
+    assertThat(useHighPrecisionColorComponents(hdrHlg)).isTrue();
+  }
+
+  @Test
+  public void useHighPrecisionColorComponents_withSdrLinear_returnsTrue() {
+    ColorInfo sdrLinear =
+        new ColorInfo.Builder()
+            .setColorSpace(C.COLOR_SPACE_BT709)
+            .setColorTransfer(C.COLOR_TRANSFER_LINEAR)
+            .build();
+
+    assertThat(useHighPrecisionColorComponents(sdrLinear)).isTrue();
+  }
+
+  @Test
+  public void useHighPrecisionColorComponents_withSdrSrgb_returnsFalse() {
+    assertThat(useHighPrecisionColorComponents(ColorInfo.SDR_BT709_LIMITED)).isFalse();
+  }
+
+  @Test
+  public void useHighPrecisionColorComponents_withHighBitdepth_returnsTrue() {
+    ColorInfo tenBitColorInfo =
+        new ColorInfo.Builder()
+            .setColorSpace(C.COLOR_SPACE_BT709)
+            .setColorTransfer(C.COLOR_TRANSFER_SDR)
+            .setLumaBitdepth(10)
+            .build();
+
+    assertThat(useHighPrecisionColorComponents(tenBitColorInfo)).isTrue();
+  }
+
+  @Test
+  public void useHighPrecisionColorComponents_withWideColorGamut_returnsTrue() {
+    ColorInfo wideColorGamut =
+        new ColorInfo.Builder()
+            .setColorSpace(C.COLOR_SPACE_BT2020)
+            .setColorTransfer(C.COLOR_TRANSFER_SDR)
+            .build();
+
+    assertThat(useHighPrecisionColorComponents(wideColorGamut)).isTrue();
+  }
+
+  @Test
+  public void useHighPrecisionColorComponents_withNullColorInfo_returnsFalse() {
+    assertThat(useHighPrecisionColorComponents(null)).isFalse();
   }
 
   private static class TestGlObjectsProvider implements GlObjectsProvider {

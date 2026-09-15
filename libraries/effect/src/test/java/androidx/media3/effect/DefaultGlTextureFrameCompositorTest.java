@@ -313,7 +313,7 @@ public final class DefaultGlTextureFrameCompositorTest {
     try (GlTextureFrameCompositor compositor =
         factory.create(
             new FakeGlObjectsProvider(),
-            /* outputColorInfo= */ ColorInfo.SDR_BT709_LIMITED,
+            /* workingColorSpace= */ ColorInfo.SDR_BT709_LIMITED,
             /* errorConsumer= */ errorReference::set,
             /* glExecutor= */ directExecutor(),
             downstreamConsumer)) {
@@ -328,7 +328,7 @@ public final class DefaultGlTextureFrameCompositorTest {
     DefaultGlTextureFrameCompositor.Factory factory =
         new DefaultGlTextureFrameCompositor.Factory(
             /* compositorGlProgramFactory= */ () -> compositorGlProgram,
-            /* texturePoolFactory= */ outputColorInfo ->
+            /* texturePoolFactory= */ workingColorSpace ->
                 new TexturePool(
                     /* textureAllocator= */ (width, height, useHighPrecisionColorComponents) ->
                         FAKE_GL_TEXTURE_ID,
@@ -338,7 +338,7 @@ public final class DefaultGlTextureFrameCompositorTest {
     try (GlTextureFrameCompositor compositor =
         factory.create(
             new FakeGlObjectsProvider(),
-            /* outputColorInfo= */ ColorInfo.SDR_BT709_LIMITED,
+            /* workingColorSpace= */ ColorInfo.SDR_BT709_LIMITED,
             /* errorConsumer= */ errorReference::set,
             /* glExecutor= */ directExecutor(),
             downstreamConsumer)) {

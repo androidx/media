@@ -26,6 +26,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Consumer;
@@ -312,6 +313,20 @@ public final class FrameProcessorUtils {
       }
     }
     return firstException;
+  }
+
+  /**
+   * Returns whether the color space requires high precision (16-bit floating-point) color
+   * components.
+   */
+  public static boolean useHighPrecisionColorComponents(@Nullable ColorInfo colorInfo) {
+    if (colorInfo == null) {
+      return false;
+    }
+    return colorInfo.colorTransfer == C.COLOR_TRANSFER_LINEAR
+        || ColorInfo.isTransferHdr(colorInfo)
+        || ColorInfo.isWideColorGamut(colorInfo)
+        || colorInfo.lumaBitdepth > 8;
   }
 
   private FrameProcessorUtils() {}
