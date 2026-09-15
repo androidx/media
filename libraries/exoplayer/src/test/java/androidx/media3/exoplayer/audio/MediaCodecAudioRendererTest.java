@@ -283,6 +283,80 @@ public class MediaCodecAudioRendererTest {
   }
 
   @Test
+  public void
+      onOutputFormatChanged_afterDecryptOnlyCodecReleased_usesBypassFormatNotDecryptOnlyFormat()
+          throws Exception {
+    // Regression test for a DRM -> non-DRM period transition. A DRM protected period that is played
+    // back directly (passthrough) uses a codec only for decryption, which sets the renderer's
+    // decryptOnlyCodecFormat. When the codec is released while transitioning to a following non-DRM
+    // period that uses codec bypass, decryptOnlyCodecFormat must be cleared, otherwise the stale
+    // (multichannel) DRM format would be wrongly used to configure the AudioSink for the non-DRM
+    // (stereo) period.
+    Format drmPassthroughFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_AC4)
+            .setChannelCount(6)
+            .setSampleRate(48000)
+            .build();
+    Format bypassFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_AC4)
+            .setChannelCount(2)
+            .setSampleRate(48000)
+            .build();
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ bypassFormat,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    mediaCodecAudioRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {bypassFormat},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    // Configure a decrypt-only (raw) codec for the DRM period, which sets decryptOnlyCodecFormat.
+    MediaCodecInfo decryptOnlyCodecInfo =
+        MediaCodecInfo.newInstance(
+            /* name= */ "raw-decoder",
+            /* mimeType= */ MimeTypes.AUDIO_RAW,
+            /* codecMimeType= */ MimeTypes.AUDIO_RAW,
+            /* capabilities= */ null,
+            /* hardwareAccelerated= */ false,
+            /* softwareOnly= */ true,
+            /* vendor= */ false,
+            /* forceDisableAdaptive= */ false,
+            /* forceSecure= */ false);
+    mediaCodecAudioRenderer.getMediaCodecConfiguration(
+        decryptOnlyCodecInfo,
+        drmPassthroughFormat,
+        /* crypto= */ null,
+        /* codecOperatingRate= */ 0);
+    // Release the decrypt-only codec, as happens when transitioning to the following non-DRM period.
+    mediaCodecAudioRenderer.resetCodecStateForRelease();
+    MediaFormat mediaFormat = new MediaFormat();
+    mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 2);
+    mediaFormat.setInteger(MediaFormat.KEY_SAMPLE_RATE, 48000);
+
+    // Direct playback with codec bypass for the non-DRM period (getCodec() == null).
+    mediaCodecAudioRenderer.onOutputFormatChanged(bypassFormat, mediaFormat);
+
+    ArgumentCaptor<AudioSink.AudioSinkConfig> configCaptor =
+        ArgumentCaptor.forClass(AudioSink.AudioSinkConfig.class);
+    verify(audioSink, atLeastOnce()).configure(configCaptor.capture());
+    assertThat(configCaptor.getValue().format).isEqualTo(bypassFormat);
+  }
+
+  @Test
   public void render_configuresAudioSink_afterFormatChange() throws Exception {
     Format changedFormat = AUDIO_AAC.buildUpon().setSampleRate(48_000).setEncoderDelay(400).build();
     FakeSampleStream fakeSampleStream =

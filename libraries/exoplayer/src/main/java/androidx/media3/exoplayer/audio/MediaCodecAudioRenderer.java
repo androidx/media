@@ -821,6 +821,12 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   }
 
   @Override
+  protected void resetCodecStateForRelease() {
+    super.resetCodecStateForRelease();
+    decryptOnlyCodecFormat = null;
+  }
+
+  @Override
   protected void onRelease() {
     audioSink.release();
     if (SDK_INT >= 35 && loudnessCodecController != null) {
