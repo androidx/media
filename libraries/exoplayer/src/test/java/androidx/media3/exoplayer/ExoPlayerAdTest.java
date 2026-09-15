@@ -25,6 +25,7 @@ import static androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition.D
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.play;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.mockito.AdditionalMatchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -42,6 +43,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.Flags;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -51,6 +53,7 @@ import androidx.media3.common.Player.PositionInfo;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Timeline.Period;
 import androidx.media3.common.Timeline.Window;
+import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSpec;
@@ -58,19 +61,29 @@ import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.ExoPlayer.PreloadConfiguration;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
+import androidx.media3.exoplayer.drm.DrmSessionManagerProvider;
 import androidx.media3.exoplayer.source.MediaPeriod;
+import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
+import androidx.media3.exoplayer.source.SampleStream;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.source.ads.AdsMediaSource;
 import androidx.media3.exoplayer.source.ads.ServerSideAdInsertionMediaSource;
 import androidx.media3.exoplayer.upstream.Allocator;
+import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.test.utils.ActionSchedule;
 import androidx.media3.test.utils.ActionSchedule.PlayerRunnable;
+import androidx.media3.test.utils.BindFlag;
 import androidx.media3.test.utils.ExoPlayerTestRunner;
 import androidx.media3.test.utils.FakeAdsLoader;
 import androidx.media3.test.utils.FakeMediaPeriod;
+import androidx.media3.test.utils.FakeMediaPeriod.TrackDataFactory;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeMediaSourceFactory;
+import androidx.media3.test.utils.FakeSampleStream;
+import androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
 import androidx.media3.test.utils.FakeVideoRenderer;
@@ -112,11 +125,13 @@ public class ExoPlayerAdTest {
    */
   private static final int TIMEOUT_MS = 10_000;
 
-  @Parameters(name = "preload={0}")
+  @Parameters(name = "preload={0} perStream={2}")
   public static ImmutableList<Object[]> params() {
     return ImmutableList.of(
-        new Object[] {false, new PreloadConfiguration(C.TIME_UNSET)},
-        new Object[] {true, new PreloadConfiguration(5_000_000L)});
+        new Object[] {false, new PreloadConfiguration(C.TIME_UNSET), false},
+        new Object[] {false, new PreloadConfiguration(C.TIME_UNSET), true},
+        new Object[] {true, new PreloadConfiguration(5_000_000L), false},
+        new Object[] {true, new PreloadConfiguration(5_000_000L), true});
   }
 
   @Rule
@@ -131,6 +146,11 @@ public class ExoPlayerAdTest {
 
   @Parameter(1)
   public ExoPlayer.PreloadConfiguration preloadConfiguration;
+
+  // TODO: b/510217604 - Remove parameterization.
+  @Parameter(2)
+  @BindFlag(Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION)
+  public boolean perStreamMediaProgressionEnabled;
 
   private Context context;
 
@@ -2426,6 +2446,294 @@ public class ExoPlayerAdTest {
     assertThat(videoRenderer.get().positionResetCount).isEqualTo(1);
     assertThat(timeline.getPeriod(0, new Timeline.Period()).adPlaybackState.adGroupCount)
         .isEqualTo(2);
+  }
+
+  @Test
+  public void playAds_returningFromSegmentAlignedMidRoll_keepsRenderersEnabled() throws Exception {
+    PrerollMeasurement measurement =
+        playAdsWithMidRolls(
+            /* firstAdGroupTimeUs= */ 20_000_000L, /* secondAdGroupTimeUs= */ 40_000_000L);
+
+    assertWithMessage("expected the content source to deliver no preroll")
+        .that(measurement.prerollSamplesSkipped + measurement.prerollSamplesRendered)
+        .isEqualTo(0);
+    // With per-stream media progression enabled, the renderer avoids resets because the period has
+    // no preroll.
+    int expectedEnabledCount = perStreamMediaProgressionEnabled ? 1 : 2;
+    assertWithMessage("[renderer enable count, preroll samples rendered]")
+        .that(ImmutableList.of(measurement.enabledCount, measurement.prerollSamplesRendered))
+        .isEqualTo(ImmutableList.of(expectedEnabledCount, 0));
+  }
+
+  @Test
+  public void playAds_returningFromMidSegmentMidRoll_skipsPrerollOfClippedPeriodsOnly()
+      throws Exception {
+    PrerollMeasurement measurement =
+        playAdsWithMidRolls(
+            /* firstAdGroupTimeUs= */ 25_000_000L, /* secondAdGroupTimeUs= */ 45_000_000L);
+
+    assertWithMessage("expected the content source to deliver preroll samples")
+        .that(measurement.prerollSamplesSkipped + measurement.prerollSamplesRendered)
+        .isGreaterThan(0);
+    // With per-stream media progression enabled, the preroll of the unclipped last
+    // content period is also treated as decode-only at the cost of one additional renderer enable.
+    int expectedEnabledCount = perStreamMediaProgressionEnabled ? 3 : 2;
+    int expectedPrerollSamplesRendered = perStreamMediaProgressionEnabled ? 0 : 50;
+    assertWithMessage("[renderer enable count, preroll samples rendered]")
+        .that(ImmutableList.of(measurement.enabledCount, measurement.prerollSamplesRendered))
+        .isEqualTo(ImmutableList.of(expectedEnabledCount, expectedPrerollSamplesRendered));
+  }
+
+  /** The result of one {@link #playAdsWithMidRolls} playback. */
+  private static final class PrerollMeasurement {
+    public final int enabledCount;
+    public final int prerollSamplesSkipped;
+    public final int prerollSamplesRendered;
+
+    private PrerollMeasurement(
+        int enabledCount, int prerollSamplesSkipped, int prerollSamplesRendered) {
+      this.enabledCount = enabledCount;
+      this.prerollSamplesSkipped = prerollSamplesSkipped;
+      this.prerollSamplesRendered = prerollSamplesRendered;
+    }
+  }
+
+  /**
+   * Plays content with two mid-roll ad groups ('A a B b C') and measures renderer enables and
+   * preroll samples across transitions.
+   */
+  private PrerollMeasurement playAdsWithMidRolls(long firstAdGroupTimeUs, long secondAdGroupTimeUs)
+      throws Exception {
+    AtomicReference<PrerollTrackingVideoRenderer> videoRenderer = new AtomicReference<>();
+    RenderersFactory renderersFactory =
+        (handler, videoListener, audioListener, textOutput, metadataOutput) -> {
+          videoRenderer.set(
+              new PrerollTrackingVideoRenderer(
+                  SystemClock.DEFAULT.createHandler(handler.getLooper(), /* callback= */ null),
+                  videoListener));
+          return new Renderer[] {videoRenderer.get()};
+        };
+    Timeline primaryContentTimeline =
+        new FakeTimeline(
+            new TimelineWindowDefinition.Builder()
+                .setWindowPositionInFirstPeriodUs(0L)
+                .setDurationUs(60_000_000L)
+                .build());
+    // Two mid-rolls, placed so that the content period between them has a next ad group while the
+    // content period after the last ad group has none.
+    AdPlaybackState adPlaybackState =
+        new AdPlaybackState(
+                "adsId", /* adGroupTimesUs...= */ firstAdGroupTimeUs, secondAdGroupTimeUs)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+            .withAdDurationsUs(/* adGroupIndex= */ 0, 5_000_000L)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 0,
+                MediaItem.fromUri("http://example.com/ad_0_0"))
+            .withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 1)
+            .withAdDurationsUs(/* adGroupIndex= */ 1, 5_000_000L)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 1,
+                /* adIndexInAdGroup= */ 0,
+                MediaItem.fromUri("http://example.com/ad_1_0"));
+    // The ads use the same format as the content, so that the renderer can be kept enabled across
+    // the content/ad transitions.
+    MediaSource.Factory adMediaSourceFactory =
+        new MediaSource.Factory() {
+          @Override
+          public MediaSource.Factory setDrmSessionManagerProvider(
+              DrmSessionManagerProvider drmSessionManagerProvider) {
+            throw new UnsupportedOperationException();
+          }
+
+          @Override
+          public MediaSource.Factory setLoadErrorHandlingPolicy(
+              LoadErrorHandlingPolicy loadErrorHandlingPolicy) {
+            throw new UnsupportedOperationException();
+          }
+
+          @Override
+          public @C.ContentType int[] getSupportedTypes() {
+            return new int[] {C.CONTENT_TYPE_OTHER};
+          }
+
+          @Override
+          public MediaSource createMediaSource(MediaItem mediaItem) {
+            return new FakeMediaSource(
+                new FakeTimeline(
+                    new TimelineWindowDefinition.Builder()
+                        .setMediaItem(mediaItem)
+                        .setDurationUs(5_000_000L)
+                        .build()),
+                ExoPlayerTestRunner.VIDEO_FORMAT);
+          }
+        };
+    FakeAdsLoader fakeAdsLoader = new FakeAdsLoader();
+    AdsMediaSource adsMediaSource =
+        new AdsMediaSource(
+            new PrerollEmittingMediaSource(
+                primaryContentTimeline,
+                TrackDataFactory.samplesWithRateDurationAndKeyframeInterval(
+                    /* initialSampleTimeUs= */ 0,
+                    /* sampleRate= */ CONTENT_SAMPLES_PER_SECOND,
+                    /* durationUs= */ 60_000_000L,
+                    /* keyFrameInterval= */ CONTENT_SAMPLES_PER_SEGMENT),
+                ExoPlayerTestRunner.VIDEO_FORMAT),
+            new DataSpec(Uri.EMPTY),
+            "adsId",
+            /* adMediaSourceFactory= */ adMediaSourceFactory,
+            fakeAdsLoader,
+            /* adViewProvider= */ () -> null,
+            /* useLazyContentSourcePreparation= */ true,
+            /* useAdMediaSourceClipping= */ true);
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context).setRenderersFactory(renderersFactory))
+            .build();
+    player.setMediaSource(adsMediaSource);
+    player.prepare();
+    advance(player)
+        .untilBackgroundThreadCondition(
+            (Supplier<Boolean>) () -> fakeAdsLoader.eventListeners.get("adsId") != null);
+    fakeAdsLoader.eventListeners.get("adsId").onAdPlaybackState(adPlaybackState);
+
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    int enabledCount = videoRenderer.get().enabledCount;
+    int prerollSamplesSkipped = videoRenderer.get().prerollSamplesSkipped;
+    int prerollSamplesRendered = videoRenderer.get().prerollSamplesRendered;
+    player.release();
+
+    return new PrerollMeasurement(enabledCount, prerollSamplesSkipped, prerollSamplesRendered);
+  }
+
+  /** The number of content samples per second produced by the content source. */
+  private static final float CONTENT_SAMPLES_PER_SECOND = 10;
+
+  /** The duration of a content "segment", i.e. the spacing between content sync samples. */
+  private static final long CONTENT_SEGMENT_DURATION_US = 10_000_000L;
+
+  private static final int CONTENT_SAMPLES_PER_SEGMENT =
+      (int) (CONTENT_SAMPLES_PER_SECOND * CONTENT_SEGMENT_DURATION_US / C.MICROS_PER_SECOND);
+
+  /** Returns the start of the segment containing {@code positionUs}. */
+  private static long contentSegmentStartUs(long positionUs) {
+    return (positionUs / CONTENT_SEGMENT_DURATION_US) * CONTENT_SEGMENT_DURATION_US;
+  }
+
+  /**
+   * A {@link FakeMediaSource} whose periods deliver samples from the start of the segment
+   * containing the period's start position, rather than from exactly that position.
+   */
+  private static final class PrerollEmittingMediaSource extends FakeMediaSource {
+
+    private final TrackDataFactory trackDataFactory;
+
+    public PrerollEmittingMediaSource(
+        Timeline timeline, TrackDataFactory trackDataFactory, Format... formats) {
+      super(timeline, formats);
+      this.trackDataFactory = trackDataFactory;
+    }
+
+    @Override
+    protected MediaPeriod createMediaPeriod(
+        MediaPeriodId id,
+        TrackGroupArray trackGroupArray,
+        Allocator allocator,
+        MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+        DrmSessionManager drmSessionManager,
+        DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+        @Nullable TransferListener transferListener) {
+      return new FakeMediaPeriod(
+          trackGroupArray,
+          allocator,
+          trackDataFactory,
+          mediaSourceEventDispatcher,
+          drmSessionManager,
+          drmEventDispatcher,
+          /* deferOnPrepared= */ false) {
+
+        private long preparePositionUs;
+
+        @Override
+        public synchronized void prepare(MediaPeriod.Callback callback, long positionUs) {
+          preparePositionUs = positionUs;
+          super.prepare(callback, positionUs);
+        }
+
+        @Override
+        protected FakeSampleStream createSampleStream(
+            Allocator allocator,
+            @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+            DrmSessionManager drmSessionManager,
+            DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+            Format initialFormat,
+            List<FakeSampleStreamItem> fakeSampleStreamItems) {
+          long segmentStartUs = contentSegmentStartUs(preparePositionUs);
+          boolean hasPreroll = segmentStartUs < preparePositionUs;
+          return new FakeSampleStream(
+              allocator,
+              mediaSourceEventDispatcher,
+              drmSessionManager,
+              drmEventDispatcher,
+              initialFormat,
+              fakeSampleStreamItems) {
+            @Override
+            public void writeData(long startPositionUs) {
+              // Deliver from the start of the containing segment, not from startPositionUs.
+              super.writeData(segmentStartUs);
+            }
+
+            @Override
+            public @SampleStream.Flags int getFlags() {
+              // Report preroll exactly, as a real chunk-loading source does.
+              return super.getFlags() | (hasPreroll ? SampleStream.FLAG_HAS_PREROLL : 0);
+            }
+          };
+        }
+      };
+    }
+  }
+
+  /**
+   * A {@link FakeVideoRenderer} that counts preroll samples, split by whether they would have been
+   * treated as decode-only.
+   */
+  private static final class PrerollTrackingVideoRenderer extends FakeVideoRenderer {
+
+    /** Preroll samples correctly treated as decode-only. */
+    public int prerollSamplesSkipped;
+
+    /** Preroll samples that would have been rendered, i.e. dropped or shown as stale content. */
+    public int prerollSamplesRendered;
+
+    private long streamStartPositionUs;
+
+    public PrerollTrackingVideoRenderer(
+        HandlerWrapper handler, VideoRendererEventListener eventListener) {
+      super(handler, eventListener);
+    }
+
+    @Override
+    protected void onStreamChanged(
+        Format[] formats, long startPositionUs, long offsetUs, MediaPeriodId mediaPeriodId)
+        throws ExoPlaybackException {
+      super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
+      streamStartPositionUs = startPositionUs;
+    }
+
+    @Override
+    protected boolean shouldProcessBuffer(long bufferTimeUs, long playbackPositionUs) {
+      boolean shouldProcess = super.shouldProcessBuffer(bufferTimeUs, playbackPositionUs);
+      if (shouldProcess && bufferTimeUs < streamStartPositionUs) {
+        if (bufferTimeUs < getLastResetPositionUs()) {
+          prerollSamplesSkipped++;
+        } else {
+          prerollSamplesRendered++;
+        }
+      }
+      return shouldProcess;
+    }
   }
 
   @Test

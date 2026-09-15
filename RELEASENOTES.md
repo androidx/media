@@ -33,6 +33,9 @@
         enabled ([#3286](https://github.com/androidx/media/issues/3286)).
     *   Remove experimental
         `DefaultMediaCodecAdapterFactory.setAsyncCryptoSynchronizationEnabled(boolean)`.
+    *   Avoid unnecessary renderer re-enables and glitches when returning from
+        interstitials/ads into content clipped at the end
+        ([#3371](https://github.com/androidx/media/issues/3371)).
 *   CompositionPlayer:
     *   Support configuring the frame rate of video frame aggregation via
         `Composition.Builder.setVideoFrameAggregationParameters` for playback
