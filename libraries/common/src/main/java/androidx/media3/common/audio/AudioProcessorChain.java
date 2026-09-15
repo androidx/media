@@ -15,6 +15,7 @@
  */
 package androidx.media3.common.audio;
 
+import androidx.media3.common.Format;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.util.UnstableApi;
 
@@ -33,7 +34,7 @@ public interface AudioProcessorChain {
    * during initialization, but audio processors may change state to become active/inactive during
    * playback.
    */
-  AudioProcessor[] getAudioProcessors();
+  AudioProcessor[] getAudioProcessors(Format inputFormat);
 
   /**
    * Configures audio processors to apply the specified playback parameters immediately, returning
@@ -50,7 +51,7 @@ public interface AudioProcessorChain {
    * value. Only called when processors have no input pending.
    *
    * @param skipSilenceEnabled Whether silences should be skipped in the audio stream.
-   * @return The new value.
+   * @return The value that was actually applied.
    */
   boolean applySkipSilenceEnabled(boolean skipSilenceEnabled);
 
