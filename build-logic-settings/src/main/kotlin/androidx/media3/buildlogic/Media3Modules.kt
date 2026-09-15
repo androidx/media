@@ -115,6 +115,13 @@ object Media3Modules {
         ),
       "lib-effect-ndk" to
         Media3Module("libraries/effect_ndk", "media3-effect-ndk", "Media3 Effect NDK module"),
+      "lib-effect-play-services" to
+        Media3Module(
+          "libraries/effect_play_services",
+          "media3-effect-play-services",
+          "Media3 Effect Play Services module",
+          allowKt = false,
+        ),
       "lib-exoplayer" to
         Media3Module(
           "libraries/exoplayer",
