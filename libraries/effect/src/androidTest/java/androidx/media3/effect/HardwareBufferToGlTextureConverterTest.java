@@ -17,16 +17,19 @@ package androidx.media3.effect;
 
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.effect.DefaultGlFrameProcessor.COLORSPACE_HDR_HLG;
+import static androidx.media3.effect.DefaultGlFrameProcessor.COLORSPACE_HDR_LINEAR;
 import static androidx.media3.effect.DefaultGlFrameProcessor.COLORSPACE_SDR_SRGB;
 import static androidx.media3.effect.FrameProcessorUtils.releaseOpenGl;
 import static androidx.media3.effect.FrameProcessorUtils.setupOpenGl;
 import static androidx.media3.effect.FrameProcessorUtils.shutdownGlExecutorService;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_COLOR_TEST_1080P_HLG10;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromFocusedGlFramebuffer;
+import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapWithSolidColor;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createFp16BitmapFromFocusedGlFramebuffer;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.test.utils.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
+import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
@@ -37,6 +40,7 @@ import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
 import android.hardware.HardwareBuffer;
@@ -44,6 +48,7 @@ import android.media.Image;
 import android.media.ImageReader;
 import android.media.MediaFormat;
 import android.opengl.GLES30;
+import android.util.Half;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
@@ -66,9 +71,16 @@ import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.media3.test.utils.AssetInfo;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.media3.test.utils.DecodeOneFrameUtil;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.media3.test.utils.TestUtil;
 import androidx.test.filters.SdkSuppress;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
@@ -81,7 +93,7 @@ import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /** Instrumentation tests for {@link HardwareBufferToGlTextureConverter}. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(TestParameterInjector.class)
 @SdkSuppress(minSdkVersion = 29)
 public final class HardwareBufferToGlTextureConverterTest {
 
@@ -90,6 +102,38 @@ public final class HardwareBufferToGlTextureConverterTest {
   private static final float MAX_PIXEL_DIFFERENCE = 10.f;
   private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000L : 10_000L;
   private static final long FENCE_TIMEOUT_MS = 1_000L;
+  private static final ImmutableList<SolidColorTestCase> SOLID_COLOR_TEST_CASES =
+      ImmutableList.of(
+          new SolidColorTestCase(
+              /* name= */ "BLACK",
+              /* inputSrgbColor= */ Color.BLACK,
+              /* expectedHlgRgb= */ Color.valueOf(0.0f, 0.0f, 0.0f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(0.0f, 0.0f, 0.0f)),
+          new SolidColorTestCase(
+              /* name= */ "WHITE",
+              /* inputSrgbColor= */ Color.WHITE,
+              /* expectedHlgRgb= */ Color.valueOf(1.0f, 1.0f, 1.0f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(1.0f, 1.0f, 1.0f)),
+          new SolidColorTestCase(
+              /* name= */ "GRAY_128",
+              /* inputSrgbColor= */ Color.rgb(128, 128, 128),
+              /* expectedHlgRgb= */ Color.valueOf(0.7585f, 0.7585f, 0.7585f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(0.2787f, 0.2787f, 0.2787f)),
+          new SolidColorTestCase(
+              /* name= */ "RED",
+              /* inputSrgbColor= */ Color.RED,
+              /* expectedHlgRgb= */ Color.valueOf(0.9618f, 0.5174f, 0.2523f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(0.8122f, 0.0894f, 0.0212f)),
+          new SolidColorTestCase(
+              /* name= */ "GREEN",
+              /* inputSrgbColor= */ Color.GREEN,
+              /* expectedHlgRgb= */ Color.valueOf(0.8030f, 0.9949f, 0.5271f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(0.3482f, 0.9724f, 0.0931f)),
+          new SolidColorTestCase(
+              /* name= */ "BLUE",
+              /* inputSrgbColor= */ Color.BLUE,
+              /* expectedHlgRgb= */ Color.valueOf(0.4487f, 0.2298f, 1.0f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(0.0671f, 0.0176f, 1.0f)));
 
   private final Context context = getApplicationContext();
 
@@ -502,6 +546,198 @@ public final class HardwareBufferToGlTextureConverterTest {
 
   @SdkSuppress(minSdkVersion = 31)
   @Test
+  public void convert_withRgba8888HardwareBufferAndSdrToHdrConversion_outputsCorrectGlTexture()
+      throws Exception {
+    Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap("media/png/first_frame_1920x1080.png");
+    Bitmap hardwareBitmap = inputBitmap.copy(Bitmap.Config.HARDWARE, /* isMutable= */ false);
+    HardwareBuffer hardwareBuffer = checkNotNull(hardwareBitmap.getHardwareBuffer());
+    assertThat(hardwareBuffer.getFormat()).isEqualTo(HardwareBuffer.RGBA_8888);
+
+    Format inputFormat =
+        new Format.Builder()
+            .setWidth(inputBitmap.getWidth())
+            .setHeight(inputBitmap.getHeight())
+            .setColorInfo(ColorInfo.SRGB_BT709_FULL)
+            .build();
+    HardwareBufferFrame inputHardwareBufferFrame =
+        new DefaultHardwareBufferFrame.Builder(hardwareBuffer).setFormat(inputFormat).build();
+
+    try {
+      ColorInfo hlgColorInfo =
+          new ColorInfo.Builder()
+              .setColorSpace(C.COLOR_SPACE_BT2020)
+              .setColorTransfer(C.COLOR_TRANSFER_HLG)
+              .build();
+
+      converter =
+          new HardwareBufferToGlTextureConverter(
+              context,
+              HardwareBufferJni.INSTANCE,
+              // Forces SDR - HDR upsampling
+              /* outputColorInfo= */ hlgColorInfo,
+              e -> {
+                throw new AssertionError(e);
+              });
+
+      AtomicReference<Frame> completedFrame = new AtomicReference<>();
+      FrameProcessor.Listener listener =
+          new FrameProcessor.Listener() {
+            @Override
+            public void onWakeup() {}
+
+            @Override
+            public void onError(VideoFrameProcessingException exception) {
+              throw new AssertionError(exception);
+            }
+
+            @Override
+            public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
+              if (releaseFence != null) {
+                assertThat(releaseFence.awaitMs(FENCE_TIMEOUT_MS)).isTrue();
+                releaseFence.close();
+              }
+              completedFrame.set(frame);
+            }
+          };
+
+      Bitmap expectedBitmap =
+          BitmapPixelTestUtil.readBitmap(
+              Util.formatInvariant(
+                  "test-generated-goldens/HardwareBufferToGlTextureConverterTest/%s.png",
+                  testName.getMethodName()));
+
+      Bitmap actualBitmap = convertAndCaptureBitmap(inputHardwareBufferFrame, listener);
+
+      assertBitmapsAreSimilar(expectedBitmap, actualBitmap, TestUtil.PSNR_THRESHOLD);
+      assertThat(completedFrame.get()).isSameInstanceAs(inputHardwareBufferFrame);
+    } finally {
+      hardwareBuffer.close();
+    }
+  }
+
+  /**
+   * Tests SDR to HDR (HLG) conversion.
+   *
+   * <p>Expected Value Calculation:
+   *
+   * <ul>
+   *   <li>Input SDR electrical values in {@code [0.0, 1.0]} are linearized using the sRGB EOTF
+   *       (ITU-R BT.709 display light).
+   *   <li>Display light is converted to BT.2020 scene light using {@code BT709_TO_XYZ}, an inverse
+   *       HLG OOTF scaling in XYZ luminance ({@code Y^(-1/6)} for system gamma = 1.2), and {@code
+   *       XYZ_TO_BT2020} per ITU-R BT.2408 section 5.1.1.
+   *   <li>The resulting scene light is encoded into HLG electrical signal using the HLG OETF per
+   *       ITU-R BT.2100-2 Table 5.
+   * </ul>
+   */
+  @SdkSuppress(minSdkVersion = 31)
+  @Test
+  public void convert_withSolidColorSdrBuffersAndHlgOutput_outputsCorrectValues(
+      @TestParameter(valuesProvider = SolidColorTestCasesProvider.class)
+          SolidColorTestCase testCase)
+      throws Exception {
+    assertSolidColorSdrUpsampling(
+        /* outputColorInfo= */ COLORSPACE_HDR_HLG,
+        testCase.inputSrgbColor,
+        testCase.expectedHlgRgb);
+  }
+
+  /**
+   * Tests SDR to HDR (Linear) conversion.
+   *
+   * <p>Expected Value Calculation:
+   *
+   * <ul>
+   *   <li>Input SDR electrical values in {@code [0.0, 1.0]} are linearized using the sRGB EOTF
+   *       (ITU-R BT.709 display light).
+   *   <li>Display light is converted to BT.2020 scene light using {@code BT709_TO_XYZ}, an inverse
+   *       HLG OOTF scaling in XYZ luminance ({@code Y^(-1/6)} for system gamma = 1.2), and {@code
+   *       XYZ_TO_BT2020} per ITU-R BT.2408 section 5.1.1.
+   *   <li>Output is kept in optical linear BT.2020 scene light without applying an OETF.
+   * </ul>
+   */
+  @SdkSuppress(minSdkVersion = 31)
+  @Test
+  public void convert_withSolidColorSdrBuffersAndHdrLinearOutput_outputsCorrectValues(
+      @TestParameter(valuesProvider = SolidColorTestCasesProvider.class)
+          SolidColorTestCase testCase)
+      throws Exception {
+    assertSolidColorSdrUpsampling(
+        /* outputColorInfo= */ COLORSPACE_HDR_LINEAR,
+        testCase.inputSrgbColor,
+        testCase.expectedBt2020LinearRgb);
+  }
+
+  @RequiresApi(31)
+  private void assertSolidColorSdrUpsampling(
+      ColorInfo outputColorInfo, int inputSrgbColor, Color expectedOutputColorRgb)
+      throws Exception {
+    int width = 64;
+    int height = 64;
+
+    Bitmap inputBitmap = createArgb8888BitmapWithSolidColor(width, height, inputSrgbColor);
+    Bitmap hardwareBitmap = inputBitmap.copy(Bitmap.Config.HARDWARE, /* isMutable= */ false);
+    HardwareBuffer hardwareBuffer = checkNotNull(hardwareBitmap.getHardwareBuffer());
+    HardwareBufferFrame inputHardwareBufferFrame =
+        new DefaultHardwareBufferFrame.Builder(hardwareBuffer)
+            .setFormat(
+                new Format.Builder()
+                    .setWidth(width)
+                    .setHeight(height)
+                    .setColorInfo(ColorInfo.SRGB_BT709_FULL)
+                    .build())
+            .build();
+
+    try {
+      converter =
+          new HardwareBufferToGlTextureConverter(
+              context,
+              HardwareBufferJni.INSTANCE,
+              /* outputColorInfo= */ outputColorInfo,
+              e -> {
+                throw new AssertionError(e);
+              });
+
+      AtomicReference<Frame> completedFrame = new AtomicReference<>();
+      FrameProcessor.Listener listener =
+          new FrameProcessor.Listener() {
+            @Override
+            public void onWakeup() {}
+
+            @Override
+            public void onError(VideoFrameProcessingException exception) {
+              throw new AssertionError(exception);
+            }
+
+            @Override
+            public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
+              if (releaseFence != null) {
+                assertThat(releaseFence.awaitMs(FENCE_TIMEOUT_MS)).isTrue();
+                releaseFence.close();
+              }
+              completedFrame.set(frame);
+            }
+          };
+
+      Bitmap expectedBitmap =
+          createFp16BitmapWithSolidColor(
+              width,
+              height,
+              expectedOutputColorRgb.red(),
+              expectedOutputColorRgb.green(),
+              expectedOutputColorRgb.blue());
+
+      Bitmap actualBitmap = convertAndCaptureBitmap(inputHardwareBufferFrame, listener);
+
+      assertBitmapsAreSimilar(expectedBitmap, actualBitmap, TestUtil.PSNR_THRESHOLD);
+      assertThat(completedFrame.get()).isSameInstanceAs(inputHardwareBufferFrame);
+    } finally {
+      hardwareBuffer.close();
+    }
+  }
+
+  @SdkSuppress(minSdkVersion = 31)
+  @Test
   public void convert_withRgba8888HardwareBufferAndRotation_outputsCorrectGlTexture()
       throws Exception {
     int rotationDegrees = 90;
@@ -850,5 +1086,62 @@ public final class HardwareBufferToGlTextureConverterTest {
     assertThat(frameProcessed.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(errorReference.get()).isNull();
     assertThat(completedFrame.get()).isSameInstanceAs(hardwareBufferFrame);
+  }
+
+  private static Bitmap createFp16BitmapWithSolidColor(
+      int width, int height, float r, float g, float b) {
+    // Half.toHalf returns a short. Mask to prevent sign-extension when upcasting.
+    long rHalf = (long) Half.toHalf(r) & 0xFFFFL;
+    long gHalf = (long) Half.toHalf(g) & 0xFFFFL;
+    long bHalf = (long) Half.toHalf(b) & 0xFFFFL;
+    long aHalf = (long) Half.toHalf(1.0f) & 0xFFFFL;
+
+    long pixelColor;
+    if (ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN) {
+      pixelColor = rHalf | (gHalf << 16) | (bHalf << 32) | (aHalf << 48);
+    } else {
+      pixelColor = (rHalf << 48) | (gHalf << 32) | (bHalf << 16) | aHalf;
+    }
+
+    int numPixels = width * height;
+    long[] pixels = new long[numPixels];
+    Arrays.fill(pixels, pixelColor);
+
+    ByteBuffer buffer = ByteBuffer.allocateDirect(numPixels * 8).order(ByteOrder.nativeOrder());
+    buffer.asLongBuffer().put(pixels);
+    buffer.rewind();
+
+    Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGBA_F16);
+    bitmap.copyPixelsFromBuffer(buffer);
+    return bitmap;
+  }
+
+  private static final class SolidColorTestCase {
+    final String name;
+    final int inputSrgbColor;
+    final Color expectedHlgRgb;
+    final Color expectedBt2020LinearRgb;
+
+    SolidColorTestCase(
+        String name, int inputSrgbColor, Color expectedHlgRgb, Color expectedBt2020LinearRgb) {
+      this.name = name;
+      this.inputSrgbColor = inputSrgbColor;
+      this.expectedHlgRgb = expectedHlgRgb;
+      this.expectedBt2020LinearRgb = expectedBt2020LinearRgb;
+    }
+
+    @Override
+    public String toString() {
+      return name;
+    }
+  }
+
+  private static final class SolidColorTestCasesProvider extends TestParameterValuesProvider {
+    @Override
+    protected ImmutableList<SolidColorTestCase> provideValues(
+        com.google.testing.junit.testparameterinjector.TestParameterValuesProvider.Context
+            context) {
+      return SOLID_COLOR_TEST_CASES;
+    }
   }
 }

@@ -27,6 +27,7 @@ import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.graphics.Color;
 import android.media.MediaCodec;
 import android.net.Uri;
@@ -35,6 +36,7 @@ import android.os.Looper;
 import android.os.Parcel;
 import android.view.SurfaceView;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -461,6 +463,38 @@ public class TestUtil {
   private static double getPsnr(Bitmap firstBitmap, Bitmap secondBitmap) {
     assertThat(firstBitmap.getWidth()).isEqualTo(secondBitmap.getWidth());
     assertThat(firstBitmap.getHeight()).isEqualTo(secondBitmap.getHeight());
+    assertThat(firstBitmap.getConfig()).isEqualTo(secondBitmap.getConfig());
+    if (SDK_INT >= 29 && firstBitmap.getConfig() == Config.RGBA_F16) {
+      return getPsnrFloat(firstBitmap, secondBitmap);
+    } else {
+      return getPsnrInt8(firstBitmap, secondBitmap);
+    }
+  }
+
+  @RequiresApi(29)
+  private static double getPsnrFloat(Bitmap firstBitmap, Bitmap secondBitmap) {
+    int width = firstBitmap.getWidth();
+    int height = firstBitmap.getHeight();
+    double mse = 0.0;
+
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        Color firstColor = firstBitmap.getColor(x, y);
+        Color secondColor = secondBitmap.getColor(x, y);
+
+        float dr = firstColor.red() - secondColor.red();
+        float dg = firstColor.green() - secondColor.green();
+        float db = firstColor.blue() - secondColor.blue();
+
+        mse += (dr * dr) + (dg * dg) + (db * db);
+      }
+    }
+
+    double normalizedMse = mse / (width * height * 3);
+    return 10.0 * Math.log10(1.0 / normalizedMse);
+  }
+
+  private static double getPsnrInt8(Bitmap firstBitmap, Bitmap secondBitmap) {
     long mse = 0;
     for (int i = 0; i < firstBitmap.getWidth(); i++) {
       for (int j = 0; j < firstBitmap.getHeight(); j++) {

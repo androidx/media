@@ -61,6 +61,10 @@ import java.io.IOException;
   /**
    * Copies the content of an input texture to an output texture.
    *
+   * <p>The {@code requestedOutputColorInfo.colorTransfer} is configured during shader
+   * initialization and must remain invariant across calls for this {@link GlTextureCopier}
+   * instance.
+   *
    * @param inputTexId The ID of the input texture.
    * @param outputTexId The ID of the output texture.
    * @param outputWidth The width of the output texture.
@@ -82,11 +86,13 @@ import java.io.IOException;
       float[] textureTransformMatrix,
       boolean isExternalTexture)
       throws VideoFrameProcessingException {
+    // Assuming BT.2020 color space for HDR.
     boolean isInputHdr = ColorInfo.isWideColorGamut(inputColorInfo);
+    boolean isOutputHdr = ColorInfo.isWideColorGamut(requestedOutputColorInfo);
 
     try {
       GlProgram copyGlProgram;
-      if (isInputHdr) {
+      if (isInputHdr || isOutputHdr) {
         if (isExternalTexture) {
           setupExternalHdrGlProgram(requestedOutputColorInfo);
           copyGlProgram = checkNotNull(hdrExternalCopyGlProgram);
@@ -95,7 +101,7 @@ import java.io.IOException;
         } else {
           // Internal HDR texture
           setupInternalHdrGlProgram(requestedOutputColorInfo);
-          copyGlProgram = checkNotNull(checkNotNull(hdrInternalCopyGlProgram));
+          copyGlProgram = checkNotNull(hdrInternalCopyGlProgram);
         }
 
         // Not setting output related uniforms, they were set during creating the GlProgram.
