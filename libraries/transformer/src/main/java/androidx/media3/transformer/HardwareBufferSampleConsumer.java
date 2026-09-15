@@ -112,7 +112,9 @@ import androidx.media3.transformer.HardwareBufferFrameReader.Listener;
     // The editedMediaItems passed to this method are different instances to those in the
     // composition, so they cannot be directly compared. Assume that media items are processed in
     // order, so every onMediaItemChanged call increments the media item index.
-    currentMediaItemIndex++;
+    EditedMediaItemSequence sequence = composition.sequences.get(sequenceIndex);
+    currentMediaItemIndex =
+        EditedMediaItemSequence.getEditedMediaItemIndex(sequence, currentMediaItemIndex + 1);
     currentTimeOffsetUs += nextTimeOffsetUs;
     nextTimeOffsetUs = durationUs;
   }
@@ -143,8 +145,8 @@ import androidx.media3.transformer.HardwareBufferFrameReader.Listener;
 
   @Override
   public void signalEndOfVideoInput() {
-    if (currentMediaItemIndex
-        == composition.sequences.get(sequenceIndex).editedMediaItems.size() - 1) {
+    EditedMediaItemSequence sequence = composition.sequences.get(sequenceIndex);
+    if (sequence.isLooping || currentMediaItemIndex == sequence.editedMediaItems.size() - 1) {
       hardwareBufferFrameReader.queueEndOfStream();
     }
   }

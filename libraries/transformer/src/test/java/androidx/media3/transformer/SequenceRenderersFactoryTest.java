@@ -15,9 +15,12 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
+import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static org.mockito.Mockito.mock;
 import static org.robolectric.Shadows.shadowOf;
 
@@ -29,6 +32,7 @@ import android.os.Looper;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.ConstantRateTimestampIterator;
 import androidx.media3.common.util.SystemClock;
@@ -40,16 +44,20 @@ import androidx.media3.exoplayer.RendererConfiguration;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
-import androidx.media3.exoplayer.image.ImageDecoder;
+import androidx.media3.exoplayer.drm.DrmSessionEventListener;
+import androidx.media3.exoplayer.drm.DrmSessionManager;
+import androidx.media3.exoplayer.image.ExternallyLoadedImageDecoder;
 import androidx.media3.exoplayer.metadata.MetadataOutput;
 import androidx.media3.exoplayer.source.MediaSource;
-import androidx.media3.exoplayer.source.SampleStream;
 import androidx.media3.exoplayer.text.TextOutput;
+import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
+import androidx.media3.test.utils.FakeSampleStream;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.After;
@@ -178,6 +186,37 @@ public final class SequenceRenderersFactoryTest {
     assertThat(fakeWakeupListener.onWakeupCalled).isFalse();
   }
 
+  @Test
+  @SuppressWarnings("deprecation") // Uses deprecated CompositionFrameMetadata.
+  public void hardwareBufferImageRenderer_loopingSequence_wrapsItemIndexInFrameMetadata()
+      throws Exception {
+    List<HardwareBufferFrame> receivedFrames = new ArrayList<>();
+    EditedMediaItemSequence loopingSequence =
+        new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_AUDIO))
+            .addItems(createSequence().editedMediaItems)
+            .setIsLooping(true)
+            .build();
+    HardwareBufferFrameReader hardwareBufferFrameReader =
+        createHardwareBufferFrameReader(loopingSequence, receivedFrames, handlerThread.getLooper());
+    Renderer imageRenderer =
+        createRenderer(
+            createFactoryForHardwareBuffer(() -> hardwareBufferFrameReader), C.TRACK_TYPE_IMAGE);
+    Timeline timeline =
+        new CompositionPlayer.CompositionForwardingTimeline(
+            new FakeTimeline(
+                new FakeTimeline.TimelineWindowDefinition(/* periodCount= */ 2, /* id= */ 0)),
+            loopingSequence);
+    enableRenderer(imageRenderer, timeline, /* periodIndex= */ 1);
+
+    while (receivedFrames.isEmpty()) {
+      imageRenderer.render(/* positionUs= */ 0L, /* elapsedRealtimeUs= */ 0L);
+    }
+
+    CompositionFrameMetadata metadata =
+        (CompositionFrameMetadata) receivedFrames.get(0).getMetadata();
+    assertThat(metadata.itemIndex).isEqualTo(0);
+  }
+
   private static SequenceRenderersFactory createFactoryForHardwareBuffer(
       Supplier<HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier) {
     return SequenceRenderersFactory.createForHardwareBuffer(
@@ -185,7 +224,10 @@ public final class SequenceRenderersFactoryTest {
         new PlaybackAudioGraphWrapper(
             new DefaultAudioMixer.Factory(),
             new DefaultAudioSink.Builder(getApplicationContext()).build()),
-        /* imageDecoderFactory= */ mock(ImageDecoder.Factory.class),
+        new ExternallyLoadedImageDecoder.Factory(
+            request ->
+                immediateFuture(
+                    Bitmap.createBitmap(/* width= */ 1, /* height= */ 1, Bitmap.Config.ARGB_8888))),
         /* inputIndex= */ 0,
         /* videoPrewarmingEnabled= */ false,
         /* compositionRendererListener= */ mock(
@@ -221,7 +263,7 @@ public final class SequenceRenderersFactoryTest {
 
   private static HardwareBufferFrameReader createHardwareBufferFrameReader(
       EditedMediaItemSequence sequence, List<HardwareBufferFrame> receivedFrames, Looper looper) {
-    Composition composition = new Composition.Builder(sequence).build();
+    Composition composition = new Composition.Builder(sequence, createSequence()).build();
     return new HardwareBufferFrameReader(
         composition,
         /* sequenceIndex= */ 0,
@@ -236,18 +278,39 @@ public final class SequenceRenderersFactoryTest {
 
   private static void enableRenderer(Renderer renderer, Timeline timeline)
       throws ExoPlaybackException {
+    enableRenderer(renderer, timeline, /* periodIndex= */ 0);
+  }
+
+  private static void enableRenderer(Renderer renderer, Timeline timeline, int periodIndex)
+      throws ExoPlaybackException {
+    Format imageFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.APPLICATION_EXTERNALLY_LOADED_IMAGE)
+            .setTileCountHorizontal(1)
+            .setTileCountVertical(1)
+            .build();
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            imageFormat,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0L, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
     renderer.init(/* index= */ 0, PlayerId.UNSET, SystemClock.DEFAULT);
     renderer.setTimeline(timeline);
     renderer.enable(
         RendererConfiguration.DEFAULT,
-        new Format[] {new Format.Builder().build()},
-        mock(SampleStream.class),
+        new Format[] {imageFormat},
+        fakeSampleStream,
         /* positionUs= */ 0L,
         /* joining= */ false,
-        /* mayRenderStartOfStream= */ false,
+        /* mayRenderStartOfStream= */ true,
         /* startPositionUs= */ 0L,
         /* offsetUs= */ 0L,
-        new MediaSource.MediaPeriodId(timeline.getUidOfPeriod(0)));
+        new MediaSource.MediaPeriodId(timeline.getUidOfPeriod(periodIndex)));
   }
 
   private static final class FakeWakeupListener implements Renderer.WakeupListener {

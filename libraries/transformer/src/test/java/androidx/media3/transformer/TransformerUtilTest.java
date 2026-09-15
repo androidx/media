@@ -17,6 +17,7 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.MimeTypes.VIDEO_H264;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioAndVideoFrom;
+import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
 import static androidx.media3.transformer.MuxerWrapper.MUXER_MODE_DEFAULT;
 import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_VIDEO;
@@ -29,14 +30,19 @@ import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.Timeline;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.audio.ToInt16PcmAudioProcessor;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.ScaleAndRotateTransformation;
+import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.test.utils.FakeTimeline;
+import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -223,6 +229,67 @@ public final class TransformerUtilTest {
                 muxerWrapper,
                 /* hasFrameProcessorFactory= */ true))
         .isTrue();
+  }
+
+  @Test
+  public void getEditedMediaItemIndex_nonLoopingSequence_returnsPeriodIndex() {
+    EditedMediaItem item1 =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO)).build();
+    EditedMediaItem item2 =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO)).build();
+    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(item1, item2));
+    Timeline timeline =
+        new CompositionPlayer.CompositionForwardingTimeline(
+            new FakeTimeline(new TimelineWindowDefinition.Builder().setPeriodCount(2).build()),
+            sequence);
+
+    assertThat(
+            TransformerUtil.getEditedMediaItemIndex(
+                timeline, new MediaSource.MediaPeriodId(timeline.getUidOfPeriod(0))))
+        .isEqualTo(0);
+    assertThat(
+            TransformerUtil.getEditedMediaItemIndex(
+                timeline, new MediaSource.MediaPeriodId(timeline.getUidOfPeriod(1))))
+        .isEqualTo(1);
+  }
+
+  @Test
+  public void getEditedMediaItemIndex_loopingSequence_returnsModuloWrappedIndex() {
+    EditedMediaItem item1 =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO)).build();
+    EditedMediaItem item2 =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO)).build();
+    EditedMediaItemSequence sequence =
+        new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_AUDIO))
+            .addItems(ImmutableList.of(item1, item2))
+            .setIsLooping(true)
+            .build();
+    Timeline timeline =
+        new CompositionPlayer.CompositionForwardingTimeline(
+            new FakeTimeline(new TimelineWindowDefinition.Builder().setPeriodCount(5).build()),
+            sequence);
+
+    // Repetitions wrap: 0, 1, 0, 1, 0
+    assertThat(
+            TransformerUtil.getEditedMediaItemIndex(
+                timeline, new MediaSource.MediaPeriodId(timeline.getUidOfPeriod(0))))
+        .isEqualTo(0);
+    assertThat(
+            TransformerUtil.getEditedMediaItemIndex(
+                timeline, new MediaSource.MediaPeriodId(timeline.getUidOfPeriod(1))))
+        .isEqualTo(1);
+    assertThat(
+            TransformerUtil.getEditedMediaItemIndex(
+                timeline, new MediaSource.MediaPeriodId(timeline.getUidOfPeriod(2))))
+        .isEqualTo(0);
+    assertThat(
+            TransformerUtil.getEditedMediaItemIndex(
+                timeline, new MediaSource.MediaPeriodId(timeline.getUidOfPeriod(3))))
+        .isEqualTo(1);
+    assertThat(
+            TransformerUtil.getEditedMediaItemIndex(
+                timeline, new MediaSource.MediaPeriodId(timeline.getUidOfPeriod(4))))
+        .isEqualTo(0);
   }
 
   private static final class NoOpMuxerListenerImpl implements MuxerWrapper.Listener {

@@ -3365,6 +3365,51 @@ public class CompositionPlayerTest {
     runPlaybackAndAssertFps(composition, FPS_60);
   }
 
+  @Test
+  @SuppressWarnings("deprecation") // Uses deprecated CompositionFrameMetadata.
+  public void playback_withLoopingSecondarySequence_wrapsItemIndexInFrameMetadata()
+      throws Exception {
+    EditedMediaItemSequence primarySequence =
+        EditedMediaItemSequence.withVideoFrom(
+            ImmutableList.of(
+                new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                    .setDurationUs(1_000_000L)
+                    .build()));
+    EditedMediaItemSequence loopingSecondarySequence =
+        new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_VIDEO))
+            .addItem(
+                new EditedMediaItem.Builder(MediaItem.fromUri(JPG_ASSET.uri))
+                    .setDurationUs(200_000L)
+                    .setFrameRate(30)
+                    .build())
+            .setIsLooping(true)
+            .build();
+    Composition composition =
+        new Composition.Builder(primarySequence, loopingSecondarySequence).build();
+
+    player = setupAndPrepareHardwareBufferPlayer(composition, frameProcessorFactory);
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
+
+    player.play();
+    advance(player).untilState(STATE_ENDED);
+
+    int secondarySequenceFrameCount = 0;
+    for (CapturingFrameProcessor.Event event : frameProcessor.getQueuedEvents()) {
+      if (event instanceof FramesEvent) {
+        for (AsyncFrame asyncFrame : ((FramesEvent) event).frames) {
+          ImmutableMap<String, Object> metadata = asyncFrame.frame.getMetadata();
+          Integer sequenceIndex =
+              (Integer) metadata.get(DefaultGlFrameProcessor.KEY_COMPOSITION_SEQUENCE_INDEX);
+          if (sequenceIndex != null && sequenceIndex == 1) {
+            secondarySequenceFrameCount++;
+            assertThat(metadata.get(Composition.KEY_COMPOSITION_ITEM_INDEX)).isEqualTo(0);
+          }
+        }
+      }
+    }
+    assertThat(secondarySequenceFrameCount).isGreaterThan(10);
+  }
+
   /**
    * Plays {@link CompositionPlayer} to {@code playToPositionUs}, verifies the expected timestamps,
    * then plays to the end.

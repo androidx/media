@@ -24,6 +24,7 @@ import static org.robolectric.Shadows.shadowOf;
 import android.graphics.Bitmap;
 import android.os.HandlerThread;
 import android.os.Looper;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
@@ -33,6 +34,7 @@ import androidx.media3.common.util.SystemClock;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.List;
@@ -161,6 +163,7 @@ public class HardwareBufferSampleConsumerTest {
   }
 
   @Test
+  @SuppressWarnings("deprecation") // Uses deprecated CompositionFrameMetadata.
   public void onMediaItemChanged_accumulatesOffsetsAcrossMultipleItems() {
     Bitmap bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
     long item1DurationUs = 1_000_000;
@@ -239,6 +242,67 @@ public class HardwareBufferSampleConsumerTest {
     assertThat(frame3.sequencePresentationTimeUs).isEqualTo(expectedOffsetUs3);
     assertThat(frame3.releaseTimeNs).isEqualTo(expectedOffsetUs3 * 1000);
     assertThat(((CompositionFrameMetadata) frame3.getMetadata()).itemIndex).isEqualTo(2);
+  }
+
+  @Test
+  @SuppressWarnings("deprecation") // Uses deprecated CompositionFrameMetadata.
+  public void onMediaItemChanged_withLoopingSequence_wrapsItemIndex() {
+    sampleConsumer.release();
+    EditedMediaItem item1 =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)).build();
+    EditedMediaItem item2 =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)).build();
+    EditedMediaItemSequence loopingSequence =
+        new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_AUDIO))
+            .addItems(ImmutableList.of(item1, item2))
+            .setIsLooping(true)
+            .build();
+    EditedMediaItem primaryItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)).build();
+    EditedMediaItemSequence primarySequence = withAudioFrom(ImmutableList.of(primaryItem));
+    Composition composition = new Composition.Builder(primarySequence, loopingSequence).build();
+    Looper looper = handlerThread.getLooper();
+    HandlerWrapper handlerWrapper = SystemClock.DEFAULT.createHandler(looper, /* callback= */ null);
+    sampleConsumer =
+        new HardwareBufferSampleConsumer(
+            composition,
+            /* sequenceIndex= */ 1,
+            looper,
+            handlerWrapper,
+            frame -> receivedFrames.add(frame),
+            error -> errorRef.set(error),
+            /* hardwareBufferJniWrapper= */ null);
+    Bitmap bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+    Format format = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build();
+
+    for (int expectedItemIndex : new int[] {0, 1, 0}) {
+      sampleConsumer.onMediaItemChanged(
+          /* editedMediaItem= */ null,
+          /* durationUs= */ 100_000,
+          /* decodedFormat= */ format,
+          /* isLast= */ false,
+          /* positionOffsetUs= */ 0);
+      assertThat(
+              sampleConsumer.queueInputBitmap(
+                  bitmap,
+                  new ConstantRateTimestampIterator(/* durationUs= */ 1_000, /* frameRate= */ 30f)))
+          .isEqualTo(GraphInput.INPUT_RESULT_SUCCESS);
+      shadowOf(handlerThread.getLooper()).idle();
+
+      assertThat(receivedFrames).hasSize(1);
+      assertThat(((CompositionFrameMetadata) receivedFrames.get(0).getMetadata()).itemIndex)
+          .isEqualTo(expectedItemIndex);
+      receivedFrames.get(0).release(/* releaseFence= */ null);
+      shadowOf(handlerThread.getLooper()).idle();
+      receivedFrames.clear();
+    }
+
+    sampleConsumer.signalEndOfVideoInput();
+    shadowOf(handlerThread.getLooper()).idle();
+
+    assertThat(receivedFrames).isNotEmpty();
+    assertThat(Iterables.getLast(receivedFrames))
+        .isEqualTo(HardwareBufferFrame.END_OF_STREAM_FRAME);
   }
 
   @Test

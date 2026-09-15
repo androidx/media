@@ -489,9 +489,21 @@ public final class TransformerUtil {
    * @param mediaPeriodId The {@link MediaPeriodId} associated to the {@link EditedMediaItem}.
    */
   public static EditedMediaItem getEditedMediaItem(Timeline timeline, MediaPeriodId mediaPeriodId) {
+    EditedMediaItemSequence sequence = getEditedMediaItemSequence(timeline, mediaPeriodId);
+    return sequence.editedMediaItems.get(getEditedMediaItemIndex(timeline, mediaPeriodId));
+  }
+
+  /**
+   * Returns the index of the {@link EditedMediaItem} corresponding to {@code mediaPeriodId} within
+   * {@code timeline}.
+   *
+   * @param timeline The {@link Timeline} associated to the {@link EditedMediaItem}.
+   * @param mediaPeriodId The {@link MediaPeriodId} associated to the {@link EditedMediaItem}.
+   */
+  public static int getEditedMediaItemIndex(Timeline timeline, MediaPeriodId mediaPeriodId) {
     int index = timeline.getIndexOfPeriod(mediaPeriodId.periodUid);
     EditedMediaItemSequence sequence = getEditedMediaItemSequence(timeline, mediaPeriodId);
-    return EditedMediaItemSequence.getEditedMediaItem(sequence, index);
+    return EditedMediaItemSequence.getEditedMediaItemIndex(sequence, index);
   }
 
   /**

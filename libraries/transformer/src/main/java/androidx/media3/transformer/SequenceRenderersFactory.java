@@ -25,6 +25,7 @@ import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMME
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_STARTED;
 import static androidx.media3.transformer.TransformerUtil.getEditedMediaItem;
+import static androidx.media3.transformer.TransformerUtil.getEditedMediaItemIndex;
 import static androidx.media3.transformer.TransformerUtil.getOffsetToCompositionTimeUs;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -1077,7 +1078,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     private int indexOfCurrentItem() {
-      return getTimeline().getIndexOfPeriod(checkNotNull(getMediaPeriodId()).periodUid);
+      return getEditedMediaItemIndex(getTimeline(), checkNotNull(getMediaPeriodId()));
     }
   }
 
@@ -1223,7 +1224,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         return false;
       }
       checkNotNull(timestampIterator);
-      int indexOfItem = getTimeline().getIndexOfPeriod(checkNotNull(getMediaPeriodId()).periodUid);
+      int indexOfItem = getEditedMediaItemIndex(getTimeline(), checkNotNull(getMediaPeriodId()));
       long sequenceOffsetUs = getStreamOffsetUs() + offsetToCompositionTimeUs;
       checkNotNull(hardwareBufferFrameReader)
           .outputBitmap(outputImage, timestampIterator, sequenceOffsetUs, indexOfItem);
