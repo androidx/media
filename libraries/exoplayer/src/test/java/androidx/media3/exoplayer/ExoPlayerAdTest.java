@@ -2448,14 +2448,6 @@ public class ExoPlayerAdTest {
         .isEqualTo(2);
   }
 
-  /**
-   * Returns to content from mid-rolls that are placed exactly on a content segment boundary, so
-   * that the content periods resume at a sync sample and there is no preroll to skip.
-   *
-   * <p>This is the case reported in <a href="https://github.com/androidx/media/issues/3371">issue
-   * #3371</a>, whose stream uses {@code X-SNAP="IN"}. Since no content period delivers preroll,
-   * nothing needs resetting and the renderer must simply stay enabled for the whole playback.
-   */
   @Test
   public void playAds_returningFromSegmentAlignedMidRoll_keepsRenderersEnabled() throws Exception {
     PrerollMeasurement measurement =
@@ -2465,40 +2457,14 @@ public class ExoPlayerAdTest {
     assertWithMessage("expected the content source to deliver no preroll")
         .that(measurement.prerollSamplesSkipped + measurement.prerollSamplesRendered)
         .isEqualTo(0);
-    // The renderer only avoids the reset where the initial discontinuity is decided from the
-    // stream's reported preroll. The legacy path decides it from a heuristic on the enable
-    // position, which cannot tell a segment-aligned resume from a mid-segment one, so it still
-    // resets once. See ClippingMediaPeriod.shouldKeepInitialDiscontinuity.
+    // With per-stream media progression enabled, the renderer avoids resets because the period has
+    // no preroll.
     int expectedEnabledCount = perStreamMediaProgressionEnabled ? 1 : 2;
     assertWithMessage("[renderer enable count, preroll samples rendered]")
         .that(ImmutableList.of(measurement.enabledCount, measurement.prerollSamplesRendered))
         .isEqualTo(ImmutableList.of(expectedEnabledCount, 0));
   }
 
-  /**
-   * Returns to content from mid-rolls that are placed mid-segment, so that every content period
-   * resumes part-way through a segment and really does deliver preroll.
-   *
-   * <p>No preroll sample may be rendered. Content periods that carry preroll still need their
-   * renderer reset, because {@code MediaCodecRenderer} decides decode-only purely from {@code
-   * getLastResetPositionUs()}, which only {@code Renderer.enable()}/{@code resetPosition()} update
-   * — never {@code replaceStream()}. The renderer enable count is asserted alongside the rendered
-   * count so that a change trading one for the other is visible rather than looking like a fix.
-   *
-   * <p>The first content period is wrapped in a {@link ClippingMediaPeriod} and so is reset and
-   * skips its preroll correctly. The <b>last</b> content period is not wrapped, because it has no
-   * following ad group, and nothing turns its preroll into a discontinuity — so gate-closed it
-   * renders 5 s of already-played content, half a segment, a separate, pre-existing defect that
-   * this change does not address; the 50 rendered samples asserted below pin it. Gate-open the
-   * reading-period transition already honours the preroll flags the stream reports for this
-   * unclipped period too, so the defect is absent, at the cost of a third renderer enable.
-   *
-   * <p>The assertion pins the current behaviour rather than the desired behaviour so that the
-   * defect is visible and any change to it is deliberate. Gate-closed the desired value is
-   * {@code [2, 0]}, and reaching it needs the reading-period transition to honour the preroll
-   * flags that streams now report, for periods that are not clipped — confirmed gate-open, where
-   * those flags are honoured and the rendered count drops to 0.
-   */
   @Test
   public void playAds_returningFromMidSegmentMidRoll_skipsPrerollOfClippedPeriodsOnly()
       throws Exception {
@@ -2509,11 +2475,8 @@ public class ExoPlayerAdTest {
     assertWithMessage("expected the content source to deliver preroll samples")
         .that(measurement.prerollSamplesSkipped + measurement.prerollSamplesRendered)
         .isGreaterThan(0);
-    // Gate-open, the preroll flags the streams report are honoured for the unclipped last content
-    // period too, so its preroll becomes decode-only and none of it is rendered -- at the cost of
-    // one additional renderer enable. These content periods genuinely have preroll and report it
-    // honestly, so stopping the fabrication (Change A) changes nothing for them: the numbers here
-    // are unaffected by that change.
+    // With per-stream media progression enabled, the preroll of the unclipped last
+    // content period is also treated as decode-only at the cost of one additional renderer enable.
     int expectedEnabledCount = perStreamMediaProgressionEnabled ? 3 : 2;
     int expectedPrerollSamplesRendered = perStreamMediaProgressionEnabled ? 0 : 50;
     assertWithMessage("[renderer enable count, preroll samples rendered]")
@@ -2536,20 +2499,11 @@ public class ExoPlayerAdTest {
   }
 
   /**
-   * Plays content with two mid-roll ad groups at the given positions and measures how the video
-   * renderer was driven across the ad-to-content transitions.
-   *
-   * <p>Playback structure is 'A a B b C', where A, B and C are content periods and a and b are ads.
-   * {@link AdsMediaSource} wraps A and B (the content periods that have a following ad group) in a
-   * {@link ClippingMediaPeriod}, but not C, so the two shapes described in the analysis of issue
-   * #3371 are both exercised in a single playback.
-   *
-   * <p>The content source models preroll explicitly: a plain {@link FakeMediaSource} cannot express
-   * it, because {@link FakeSampleStream#writeData} only ever writes samples at or after the
-   * requested position.
+   * Plays content with two mid-roll ad groups ('A a B b C') and measures renderer enables and
+   * preroll samples across transitions.
    */
-  private PrerollMeasurement playAdsWithMidRolls(
-      long firstAdGroupTimeUs, long secondAdGroupTimeUs) throws Exception {
+  private PrerollMeasurement playAdsWithMidRolls(long firstAdGroupTimeUs, long secondAdGroupTimeUs)
+      throws Exception {
     AtomicReference<PrerollTrackingVideoRenderer> videoRenderer = new AtomicReference<>();
     RenderersFactory renderersFactory =
         (handler, videoListener, audioListener, textOutput, metadataOutput) -> {
@@ -2670,12 +2624,6 @@ public class ExoPlayerAdTest {
   /**
    * A {@link FakeMediaSource} whose periods deliver samples from the start of the segment
    * containing the period's start position, rather than from exactly that position.
-   *
-   * <p>This models what a real adaptive source does: HLS and DASH load whole segments/chunks, so a
-   * period prepared part-way through a segment delivers the samples between the preceding sync
-   * sample and the requested position as preroll, and relies on the renderer to decode them without
-   * rendering them. A plain {@link FakeMediaSource} cannot express this, because {@link
-   * FakeSampleStream#writeData} only writes samples at or after the requested position.
    */
   private static final class PrerollEmittingMediaSource extends FakeMediaSource {
 
@@ -2748,11 +2696,8 @@ public class ExoPlayerAdTest {
   }
 
   /**
-   * A {@link FakeVideoRenderer} that counts samples belonging to the preroll of the stream it is
-   * currently reading, split by whether the renderer would have treated them as decode-only.
-   *
-   * <p>The decode-only condition mirrors {@code MediaCodecRenderer}: a buffer is decode-only if its
-   * timestamp is before {@link #getLastResetPositionUs()}.
+   * A {@link FakeVideoRenderer} that counts preroll samples, split by whether they would have been
+   * treated as decode-only.
    */
   private static final class PrerollTrackingVideoRenderer extends FakeVideoRenderer {
 
@@ -2771,10 +2716,7 @@ public class ExoPlayerAdTest {
 
     @Override
     protected void onStreamChanged(
-        Format[] formats,
-        long startPositionUs,
-        long offsetUs,
-        MediaPeriodId mediaPeriodId)
+        Format[] formats, long startPositionUs, long offsetUs, MediaPeriodId mediaPeriodId)
         throws ExoPlaybackException {
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
       streamStartPositionUs = startPositionUs;

@@ -352,17 +352,17 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
   }
 
   private static boolean shouldKeepInitialDiscontinuity(
-      long startUs,
+      long enablePositionUs,
       long requestedPositionUs,
       @NullableType ExoTrackSelection[] selections,
       int streamIndex) {
-    // If the source adjusted the start position to be before the requested position, we need to
+    // If the source adjusted the enable position to be before the requested position, we need to
     // report a discontinuity to ensure renderers decode-only the samples before the requested start
     // position.
-    if (startUs < requestedPositionUs) {
+    if (enablePositionUs < requestedPositionUs) {
       return true;
     }
-    // If the clipping start position is non-zero, the clipping sample streams will adjust
+    // If the enable position is non-zero, the clipping sample streams will adjust
     // timestamps on buffers they read from the unclipped sample streams. These adjusted buffer
     // timestamps can be negative, because sample streams provide buffers starting at a key-frame,
     // which may be before the clipping start point. When the renderer reads a buffer with a
@@ -371,7 +371,7 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
     // discontinuity which resets the renderers before they read the clipping sample stream.
     // However, for tracks where all samples are sync samples, we assume they have random access
     // seek behaviour and do not need an initial discontinuity to reset the renderer.
-    if (startUs != 0) {
+    if (enablePositionUs != 0) {
       if (selections[streamIndex] != null) {
         Format selectedFormat = selections[streamIndex].getSelectedFormat();
         return !MimeTypes.allSamplesAreSyncSamples(
@@ -476,8 +476,6 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
       // point. With a zero clipping start the samples delivered are exactly the samples the wrapped
       // period delivers, so its own report is exact and must not be overwritten with the
       // conservative assumption made by the enable-position heuristic.
-      // TODO: ProgressiveMediaPeriod reports only Format.hasPrerollSamples, not seek-induced
-      // preroll, so the wrapped period's report is currently only exact for chunk-based sources.
       if (startUs != 0 && hasPreroll) {
         flags &= ~FLAG_MAYBE_HAS_PREROLL;
         flags |= FLAG_HAS_PREROLL;

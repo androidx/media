@@ -33,12 +33,8 @@
         enabled ([#3286](https://github.com/androidx/media/issues/3286)).
     *   Remove experimental
         `DefaultMediaCodecAdapterFactory.setAsyncCryptoSynchronizationEnabled(boolean)`.
-    *   Fix an issue where returning from a client-side inserted ad to a content
-        period that resumes on a sync sample could reset the renderers
-        unnecessarily. `ClippingMediaPeriod` no longer reports
-        `SampleStream.FLAG_HAS_PREROLL` for clips that only set an end position,
-        where the wrapped period's own report is exact. Only takes effect when
-        per-stream media progression is enabled
+    *   Avoid unnecessary renderer re-enables and glitches when returning from
+        interstitials/ads into content clipped at the end
         ([#3371](https://github.com/androidx/media/issues/3371)).
 *   CompositionPlayer:
     *   Support configuring the frame rate of video frame aggregation via
