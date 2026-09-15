@@ -158,7 +158,7 @@ public final class DefaultAudioSinkTest {
             .setAudioProcessorChain(
                 new AudioProcessorChain() {
                   @Override
-                  public AudioProcessor[] getAudioProcessors() {
+                  public AudioProcessor[] getAudioProcessors(Format format) {
                     return new AudioProcessor[0];
                   }
 
