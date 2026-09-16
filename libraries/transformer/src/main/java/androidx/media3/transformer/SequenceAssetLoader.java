@@ -322,7 +322,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Nullable
   @Override
-  public SampleConsumerWrapper onOutputFormat(Format format) throws ExportException {
+  public SampleConsumer onOutputFormat(Format format) throws ExportException {
     @C.TrackType int trackType = getProcessedTrackType(format.sampleMimeType);
     DebugTraceUtil.logEvent(
         COMPONENT_ASSET_LOADER,
@@ -834,19 +834,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       try {
         boolean shouldRetry = false;
         if (audioPending) {
-          @Nullable
-          SampleConsumerWrapper sampleConsumerWrapper = onOutputFormat(audioTrackDecodedFormat);
-          if (sampleConsumerWrapper == null) {
+          @Nullable SampleConsumer sampleConsumer = onOutputFormat(audioTrackDecodedFormat);
+          if (sampleConsumer == null) {
             shouldRetry = true;
           } else {
-            sampleConsumerWrapper.onAudioGapSignalled();
+            ((SampleConsumerWrapper) sampleConsumer).onAudioGapSignalled();
             producedAudio = true;
           }
         }
         if (videoPending) {
-          @Nullable
-          SampleConsumerWrapper sampleConsumerWrapper = onOutputFormat(BLANK_IMAGE_BITMAP_FORMAT);
-          if (sampleConsumerWrapper == null) {
+          @Nullable SampleConsumer sampleConsumer = onOutputFormat(BLANK_IMAGE_BITMAP_FORMAT);
+          if (sampleConsumer == null) {
             shouldRetry = true;
           } else {
             insertBlankFrames(getBlankImageBitmap());
