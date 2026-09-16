@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.video;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static android.view.Display.DEFAULT_DISPLAY;
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_MAX_INPUT_SIZE_EXCEEDED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_VIDEO_FRAME_RATE_CHANGED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_VIDEO_MAX_RESOLUTION_EXCEEDED;
@@ -53,6 +54,7 @@ import android.view.Surface;
 import androidx.annotation.CallSuper;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Effect;
@@ -1008,6 +1010,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   /** Creates a {@link PlaybackVideoGraphWrapper} instance. */
+  @RestrictTo(LIBRARY_GROUP)
   protected PlaybackVideoGraphWrapper createPlaybackVideoGraphWrapper(
       Context context, VideoFrameReleaseControl videoFrameReleaseControl) {
     // TODO: b/391109644 - Add a more explicit API to enable replaying.

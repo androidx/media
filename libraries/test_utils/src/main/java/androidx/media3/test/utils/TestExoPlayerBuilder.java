@@ -15,6 +15,7 @@
  */
 package androidx.media3.test.utils;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -22,6 +23,7 @@ import android.content.Context;
 import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
 import androidx.media3.common.Flags;
 import androidx.media3.common.util.Clock;
@@ -277,6 +279,7 @@ public class TestExoPlayerBuilder {
    */
   @CanIgnoreReturnValue
   @RequiresApi(35)
+  @RestrictTo(LIBRARY_GROUP)
   public TestExoPlayerBuilder setSuitableOutputChecker(
       SuitableOutputChecker suitableOutputChecker) {
     this.suitableOutputChecker = suitableOutputChecker;
