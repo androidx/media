@@ -21,7 +21,6 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.ExperimentalApi;
 
 /** Wrapper for {@link HardwareBuffer} JNI methods. */
-@RequiresApi(26)
 @ExperimentalApi // TODO: b/498176910 - Remove once Frame is production ready.
 public interface HardwareBufferNativeHelpers {
 
@@ -40,6 +39,7 @@ public interface HardwareBufferNativeHelpers {
    * @param hb The destination hardware buffer.
    * @return Whether the copy is successful.
    */
+  @RequiresApi(26)
   boolean nativeCopyBitmapToHardwareBuffer(Bitmap bitmap, HardwareBuffer hb);
 
   /**
@@ -56,5 +56,6 @@ public interface HardwareBufferNativeHelpers {
    * @param dstHb The destination hardware buffer.
    * @return Whether the copy is successful.
    */
+  @RequiresApi(26)
   boolean nativeCopyHardwareBufferToHardwareBuffer(HardwareBuffer srcHb, HardwareBuffer dstHb);
 }

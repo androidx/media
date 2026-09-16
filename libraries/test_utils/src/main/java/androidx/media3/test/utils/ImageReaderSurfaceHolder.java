@@ -145,7 +145,10 @@ public final class ImageReaderSurfaceHolder implements SurfaceHolder, AutoClosea
 
   private void triggerCallbacks() {
     ImageReader reader = imageReader;
-    if (reader != null && (reader.getWidth() != width || reader.getHeight() != height)) {
+    if (reader != null
+        && (reader.getWidth() != width
+            || reader.getHeight() != height
+            || reader.getImageFormat() != format)) {
       reader.getSurface().release();
       reader.close();
       imageReader = null;

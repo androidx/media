@@ -22,7 +22,6 @@ import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.video.HardwareBufferNativeHelpers;
 
 /** Fake class to simulate {@link HardwareBufferNativeHelpers}. */
-@RequiresApi(26)
 @ExperimentalApi // TODO: b/498176910 - Remove once Frame is production ready.
 public class FakeHardwareBufferNativeHelpers implements HardwareBufferNativeHelpers {
 
@@ -33,11 +32,13 @@ public class FakeHardwareBufferNativeHelpers implements HardwareBufferNativeHelp
     shouldSucceed = true;
   }
 
+  @RequiresApi(26)
   @Override
   public boolean nativeCopyBitmapToHardwareBuffer(Bitmap bitmap, HardwareBuffer hb) {
     return shouldSucceed;
   }
 
+  @RequiresApi(26)
   @Override
   public boolean nativeCopyHardwareBufferToHardwareBuffer(
       HardwareBuffer srcHb, HardwareBuffer dstHb) {

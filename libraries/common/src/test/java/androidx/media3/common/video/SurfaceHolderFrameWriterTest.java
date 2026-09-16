@@ -20,6 +20,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static org.junit.Assert.assertThrows;
 import static org.robolectric.Shadows.shadowOf;
 
+import android.graphics.ImageFormat;
 import android.hardware.HardwareBuffer;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -27,11 +28,14 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
+import androidx.media3.common.video.DefaultImagePlanesFrame.DefaultPlane;
 import androidx.media3.common.video.SurfaceHolderFrameWriter.Listener;
 import androidx.media3.test.utils.FakeHardwareBufferNativeHelpers;
 import androidx.media3.test.utils.ImageReaderSurfaceHolder;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import java.nio.ByteBuffer;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.After;
@@ -40,9 +44,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
 
-/** Unit tests for {@link HardwareBufferPool}. */
+/** Unit tests for {@link SurfaceHolderFrameWriter}. */
 @RunWith(AndroidJUnit4.class)
-@Config(minSdk = 28)
 public final class SurfaceHolderFrameWriterTest {
 
   private static final int WIDTH = 640;
@@ -62,11 +65,20 @@ public final class SurfaceHolderFrameWriterTest {
           .setColorTransfer(C.COLOR_TRANSFER_HLG)
           .build();
 
+  private static final Format DEFAULT_FORMAT =
+      new Format.Builder()
+          .setWidth(WIDTH)
+          .setHeight(HEIGHT)
+          .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+          .build();
+
   private ImageReaderSurfaceHolder surfaceHolder;
   private SurfaceHolderFrameWriter frameWriter;
   private AtomicBoolean onEnded;
   private Executor executor;
   private HandlerThread callbackThread;
+  private Listener listener;
+  private FakeHardwareBufferNativeHelpers hardwareBufferNativeHelpers;
 
   @Before
   public void setUp() {
@@ -74,11 +86,10 @@ public final class SurfaceHolderFrameWriterTest {
     callbackThread.start();
     Handler callbackHandler = new Handler(callbackThread.getLooper());
     surfaceHolder = new ImageReaderSurfaceHolder(callbackHandler);
-    FakeHardwareBufferNativeHelpers hardwareBufferNativeHelpers =
-        new FakeHardwareBufferNativeHelpers();
+    hardwareBufferNativeHelpers = new FakeHardwareBufferNativeHelpers();
     onEnded = new AtomicBoolean();
     executor = directExecutor();
-    Listener listener =
+    listener =
         new Listener() {
           @Override
           public void onFrameAboutToBeRendered(
@@ -153,18 +164,29 @@ public final class SurfaceHolderFrameWriterTest {
   }
 
   @Test
-  public void queueInputFrame_withInvalidFrameType_throwsIllegalArgumentException() {
+  @Config(maxSdk = 27)
+  public void configure_nonYv12PixelFormatBelowApi28_throwsIllegalArgumentException() {
     Format format =
         new Format.Builder()
             .setWidth(WIDTH)
             .setHeight(HEIGHT)
+            .setPixelFormat(HardwareBuffer.RGB_565)
             .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
             .build();
+
+    assertThrows(
+        IllegalArgumentException.class, () -> frameWriter.configure(format, /* usage= */ 0));
+  }
+
+  @Test
+  public void queueInputFrame_withInvalidFrameType_throwsIllegalArgumentException() {
+    // SurfaceHolderFrameWriter requires DefaultImagePlanesFrame below API 28, or
+    // DefaultHardwareBufferFrame on API 28 and above.
     Frame invalidFrame =
         new Frame() {
           @Override
           public Format getFormat() {
-            return format;
+            return DEFAULT_FORMAT;
           }
 
           @Override
@@ -177,11 +199,48 @@ public final class SurfaceHolderFrameWriterTest {
             return 0;
           }
         };
-    frameWriter.configure(format, /* usage= */ 0);
+    frameWriter.configure(DEFAULT_FORMAT, /* usage= */ 0);
 
     assertThrows(
         IllegalArgumentException.class,
         () -> frameWriter.queueInputFrame(invalidFrame, /* writeCompleteFence= */ null));
+  }
+
+  @Test
+  @Config(minSdk = 28)
+  public void queueInputFrame_withImagePlanesFrameOnApi28AndAbove_throwsIllegalArgumentException() {
+    DefaultImagePlanesFrame imagePlanesFrame =
+        new DefaultImagePlanesFrame.Builder(
+                ImmutableList.of(
+                    new DefaultPlane(
+                        ByteBuffer.allocate(1), /* rowStride= */ 1, /* pixelStride= */ 1)))
+            .setFormat(DEFAULT_FORMAT)
+            .build();
+    frameWriter.configure(DEFAULT_FORMAT, /* usage= */ 0);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> frameWriter.queueInputFrame(imagePlanesFrame, /* writeCompleteFence= */ null));
+  }
+
+  @Test
+  @Config(minSdk = 26, maxSdk = 27)
+  public void queueInputFrame_withHardwareBufferFrameBelowApi28_throwsIllegalArgumentException() {
+    try (HardwareBuffer hardwareBuffer =
+        HardwareBuffer.create(
+            WIDTH,
+            HEIGHT,
+            HardwareBuffer.RGBA_8888,
+            /* layers= */ 1,
+            HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE)) {
+      DefaultHardwareBufferFrame hardwareBufferFrame =
+          new DefaultHardwareBufferFrame.Builder(hardwareBuffer).setFormat(DEFAULT_FORMAT).build();
+      frameWriter.configure(DEFAULT_FORMAT, /* usage= */ 0);
+
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> frameWriter.queueInputFrame(hardwareBufferFrame, /* writeCompleteFence= */ null));
+    }
   }
 
   @Test
@@ -203,8 +262,8 @@ public final class SurfaceHolderFrameWriterTest {
   }
 
   @Test
-  @Config(sdk = 32)
-  public void getInfo_hdrFormatOnApi32_returnsFalse() {
+  @Config(maxSdk = 32)
+  public void getInfo_hdrFormatBelowApi33_returnsFalse() {
     Format format =
         new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).setColorInfo(PQ_COLOR_INFO).build();
     assertThat(frameWriter.getInfo().isSupported(format, /* usage= */ 0L)).isFalse();
@@ -236,13 +295,7 @@ public final class SurfaceHolderFrameWriterTest {
 
   @Test
   public void getInfo_sdrFormat_returnsTrue() {
-    Format format =
-        new Format.Builder()
-            .setWidth(WIDTH)
-            .setHeight(HEIGHT)
-            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
-            .build();
-    assertThat(frameWriter.getInfo().isSupported(format, /* usage= */ 0L)).isTrue();
+    assertThat(frameWriter.getInfo().isSupported(DEFAULT_FORMAT, /* usage= */ 0L)).isTrue();
   }
 
   @Test
@@ -250,5 +303,60 @@ public final class SurfaceHolderFrameWriterTest {
     frameWriter.signalEndOfStream();
 
     assertThat(onEnded.get()).isTrue();
+  }
+
+  @Test
+  @Config(maxSdk = 27)
+  public void getInfo_nonYv12PixelFormatBelowApi28_returnsFalse() {
+    Format format =
+        new Format.Builder()
+            .setWidth(WIDTH)
+            .setHeight(HEIGHT)
+            .setPixelFormat(HardwareBuffer.RGB_565)
+            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+            .build();
+
+    assertThat(frameWriter.getInfo().isSupported(format, /* usage= */ 0L)).isFalse();
+  }
+
+  @Test
+  @Config(maxSdk = 27)
+  public void getInfo_yv12PixelFormatBelowApi28_returnsTrue() {
+    Format format =
+        new Format.Builder()
+            .setWidth(WIDTH)
+            .setHeight(HEIGHT)
+            .setPixelFormat(ImageFormat.YV12)
+            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+            .build();
+
+    assertThat(frameWriter.getInfo().isSupported(format, /* usage= */ 0L)).isTrue();
+  }
+
+  @Test
+  @Config(maxSdk = 27)
+  public void create_withNativeHelpersBelowApi28_doesNotThrow() {
+    try (SurfaceHolderFrameWriter writer =
+        SurfaceHolderFrameWriter.create(
+            surfaceHolder, executor, listener, executor, hardwareBufferNativeHelpers)) {
+      assertThat(writer).isNotNull();
+    }
+  }
+
+  @Test
+  @Config(maxSdk = 32)
+  public void create_withoutNativeHelpersBelowApi33_throwsIllegalStateException() {
+    assertThrows(
+        IllegalStateException.class,
+        () -> SurfaceHolderFrameWriter.create(surfaceHolder, executor, listener, executor));
+  }
+
+  @Test
+  @Config(minSdk = 33)
+  public void create_withoutNativeHelpersOnApi33AndAbove_doesNotThrow() {
+    try (SurfaceHolderFrameWriter writer =
+        SurfaceHolderFrameWriter.create(surfaceHolder, executor, listener, executor)) {
+      assertThat(writer).isNotNull();
+    }
   }
 }

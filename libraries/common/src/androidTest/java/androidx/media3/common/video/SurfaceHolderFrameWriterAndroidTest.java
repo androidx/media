@@ -15,10 +15,13 @@
  */
 package androidx.media3.common.video;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import android.graphics.ImageFormat;
 import android.graphics.PixelFormat;
 import android.hardware.HardwareBuffer;
 import android.media.Image;
@@ -36,6 +39,7 @@ import androidx.media3.test.utils.FakeHardwareBufferNativeHelpers;
 import androidx.media3.test.utils.ImageReaderSurfaceHolder;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -48,7 +52,6 @@ import org.junit.runner.RunWith;
 
 // TODO: b/507446982 - Fix blocking dequeueInputFrame call and enable on API 28.
 /** Instrumentation tests for {@link SurfaceHolderFrameWriter}. */
-@SdkSuppress(minSdkVersion = 29)
 @RunWith(AndroidJUnit4.class)
 public final class SurfaceHolderFrameWriterAndroidTest {
 
@@ -126,11 +129,59 @@ public final class SurfaceHolderFrameWriterAndroidTest {
     assertThat(wakeupLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
     asyncFrame = asyncFrameRef.get();
     assertThat(asyncFrame).isNotNull();
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 28)
+  public void dequeueInputFrame_onApi28AndAbove_returnsHardwareBufferMatchingFormatAndDimensions()
+      throws Exception {
+    Format format =
+        new Format.Builder()
+            .setWidth(WIDTH)
+            .setHeight(HEIGHT)
+            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+            .build();
+    frameWriter.configure(format, /* usage= */ Frame.USAGE_GPU_SAMPLED_IMAGE);
+
+    AsyncFrame asyncFrame = dequeueInputFrameWithTimeout(frameWriter);
+
     HardwareBufferFrame frame = (HardwareBufferFrame) asyncFrame.frame;
     assertThat(frame.getFormat()).isEqualTo(format);
     assertThat(frame.getHardwareBuffer().getHeight()).isEqualTo(HEIGHT);
     assertThat(frame.getHardwareBuffer().getWidth()).isEqualTo(WIDTH);
     assertThat(frame.getHardwareBuffer().getFormat()).isEqualTo(HardwareBuffer.RGBA_8888);
+  }
+
+  @Test
+  @SdkSuppress(maxSdkVersion = 27)
+  public void dequeueInputFrame_belowApi28_returnsImagePlanesMatchingFormatAndDimensions()
+      throws Exception {
+    Format format =
+        new Format.Builder()
+            .setWidth(WIDTH)
+            .setHeight(HEIGHT)
+            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+            .build();
+    frameWriter.configure(format, /* usage= */ 0);
+
+    AsyncFrame asyncFrame = dequeueInputFrameWithTimeout(frameWriter);
+
+    ImagePlanesFrame frame = (ImagePlanesFrame) asyncFrame.frame;
+    assertThat(frame.getFormat()).isEqualTo(format);
+    ImmutableList<ImagePlanesFrame.Plane> planes = frame.getPlanes();
+    assertThat(planes).hasSize(3);
+
+    ImagePlanesFrame.Plane yPlane = planes.get(0);
+    assertThat(yPlane.getBuffer()).isNotNull();
+    assertThat(yPlane.getRowStride()).isAtLeast(WIDTH);
+
+    ImagePlanesFrame.Plane uPlane = planes.get(1);
+    assertThat(uPlane.getBuffer()).isNotNull();
+    assertThat(uPlane.getRowStride()).isAtLeast((WIDTH / 2) * uPlane.getPixelStride());
+
+    ImagePlanesFrame.Plane vPlane = planes.get(2);
+    assertThat(vPlane.getBuffer()).isNotNull();
+    assertThat(vPlane.getRowStride()).isAtLeast((WIDTH / 2) * vPlane.getPixelStride());
   }
 
   @Test
@@ -163,14 +214,9 @@ public final class SurfaceHolderFrameWriterAndroidTest {
     allowSurfaceHolderExecution.open();
 
     assertThat(wakeupLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
-    HardwareBufferFrame frame = (HardwareBufferFrame) asyncFrameRef.get().frame;
+    Frame frame = asyncFrameRef.get().frame;
+    Frame outputFrame = createOutputFrame(frame, displayTimeNs, contentTimeUs);
 
-    HardwareBufferFrame outputFrame =
-        frame
-            .buildUpon()
-            .setMetadata(ImmutableMap.of(Frame.KEY_DISPLAY_TIME_NS, displayTimeNs))
-            .setContentTimeUs(contentTimeUs)
-            .build();
     frameWriter.queueInputFrame(outputFrame, /* writeCompleteFence= */ null);
 
     assertThat(listener.renderedLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -180,6 +226,7 @@ public final class SurfaceHolderFrameWriterAndroidTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 29) // TODO(b/507446982): Enable on all APIs when issue is fixed.
   public void dequeueThenQueue_multipleFrames_notifiesListener() throws Exception {
     long contentTimeUs = 100_000L;
     long displayTimeNs = Clock.DEFAULT.nanoTime();
@@ -209,14 +256,9 @@ public final class SurfaceHolderFrameWriterAndroidTest {
     allowSurfaceHolderExecution.open();
 
     assertThat(wakeupLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
-    HardwareBufferFrame frame = (HardwareBufferFrame) asyncFrameRef.get().frame;
+    Frame frame = asyncFrameRef.get().frame;
+    Frame outputFrame = createOutputFrame(frame, displayTimeNs, contentTimeUs);
 
-    HardwareBufferFrame outputFrame =
-        frame
-            .buildUpon()
-            .setMetadata(ImmutableMap.of(Frame.KEY_DISPLAY_TIME_NS, displayTimeNs))
-            .setContentTimeUs(contentTimeUs)
-            .build();
     frameWriter.queueInputFrame(outputFrame, /* writeCompleteFence= */ null);
 
     assertThat(listener.renderedLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -238,14 +280,8 @@ public final class SurfaceHolderFrameWriterAndroidTest {
               });
 
       assertThat(asyncFrame).isNotNull();
-      frame = (HardwareBufferFrame) asyncFrame.frame;
-
-      outputFrame =
-          frame
-              .buildUpon()
-              .setMetadata(ImmutableMap.of(Frame.KEY_DISPLAY_TIME_NS, displayTimeNs))
-              .setContentTimeUs(contentTimeUs)
-              .build();
+      frame = asyncFrame.frame;
+      outputFrame = createOutputFrame(frame, displayTimeNs, contentTimeUs);
       frameWriter.queueInputFrame(outputFrame, /* writeCompleteFence= */ null);
 
       assertThat(listener.renderedLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -258,6 +294,7 @@ public final class SurfaceHolderFrameWriterAndroidTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 29) // TODO(b/507446982): Enable on all APIs when issue is fixed.
   public void dequeueThenConfigure_returnsNewFormatOnNextDequeue() throws Exception {
     AtomicReference<AsyncFrame> asyncFrameRef = new AtomicReference<>();
     AtomicReference<CountDownLatch> wakeupLatchRef = new AtomicReference<>(new CountDownLatch(1));
@@ -291,7 +328,7 @@ public final class SurfaceHolderFrameWriterAndroidTest {
     allowSurfaceHolderExecution.open();
 
     assertThat(wakeupLatchRef.get().await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
-    HardwareBufferFrame frame1 = (HardwareBufferFrame) asyncFrameRef.get().frame;
+    Frame frame1 = asyncFrameRef.get().frame;
     assertThat(frame1.getFormat()).isEqualTo(format1);
 
     frameWriter.queueInputFrame(frame1, /* writeCompleteFence= */ null);
@@ -325,7 +362,7 @@ public final class SurfaceHolderFrameWriterAndroidTest {
     allowSurfaceHolderExecution.open();
 
     assertThat(wakeupLatchRef.get().await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
-    HardwareBufferFrame frame2 = (HardwareBufferFrame) asyncFrameRef.get().frame;
+    Frame frame2 = asyncFrameRef.get().frame;
     assertThat(frame2.getFormat()).isEqualTo(format2);
 
     frameWriter.queueInputFrame(frame2, /* writeCompleteFence= */ null);
@@ -375,10 +412,8 @@ public final class SurfaceHolderFrameWriterAndroidTest {
   }
 
   @Test
-  public void configure_propagatesPixelFormat() throws Exception {
-    AtomicReference<AsyncFrame> asyncFrameRef = new AtomicReference<>();
-    CountDownLatch wakeupLatch = new CountDownLatch(1);
-    ConditionVariable allowSurfaceHolderExecution = new ConditionVariable();
+  @SdkSuppress(minSdkVersion = 28)
+  public void configure_onApi28AndAbove_propagatesPixelFormat() throws Exception {
     Format format =
         new Format.Builder()
             .setWidth(WIDTH)
@@ -386,68 +421,80 @@ public final class SurfaceHolderFrameWriterAndroidTest {
             .setPixelFormat(HardwareBuffer.RGB_565)
             .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
             .build();
-    Future<?> unused =
-        surfaceHolderExecutor.submit(() -> allowSurfaceHolderExecution.block(TEST_TIMEOUT_MS));
 
     frameWriter.configure(format, /* usage= */ Frame.USAGE_GPU_SAMPLED_IMAGE);
-    AsyncFrame asyncFrame =
-        frameWriter.dequeueInputFrame(
-            /* wakeupExecutor= */ directExecutor(),
-            /* wakeupListener= */ () -> {
-              asyncFrameRef.set(frameWriter.dequeueInputFrame(directExecutor(), () -> {}));
-              wakeupLatch.countDown();
-            });
+    AsyncFrame asyncFrame = dequeueInputFrameWithTimeout(frameWriter);
 
-    assertThat(asyncFrame).isNull();
-
-    allowSurfaceHolderExecution.open();
-
-    assertThat(wakeupLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
-    asyncFrame = asyncFrameRef.get();
-    assertThat(asyncFrame).isNotNull();
     HardwareBufferFrame frame = (HardwareBufferFrame) asyncFrame.frame;
     assertThat(frame.getFormat()).isEqualTo(format);
     assertThat(frame.getHardwareBuffer().getFormat()).isEqualTo(HardwareBuffer.RGB_565);
   }
 
   @Test
-  public void configure_withoutPixelFormat_propagatesDefaultSdrPixelFormat() throws Exception {
-    AtomicReference<AsyncFrame> asyncFrameRef = new AtomicReference<>();
-    CountDownLatch wakeupLatch = new CountDownLatch(1);
-    ConditionVariable allowSurfaceHolderExecution = new ConditionVariable();
+  @SdkSuppress(maxSdkVersion = 27)
+  public void configure_belowApi28_propagatesPixelFormat() throws Exception {
+    Format format =
+        new Format.Builder()
+            .setWidth(WIDTH)
+            .setHeight(HEIGHT)
+            .setPixelFormat(ImageFormat.YV12)
+            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+            .build();
+
+    frameWriter.configure(format, /* usage= */ 0);
+    AsyncFrame asyncFrame = dequeueInputFrameWithTimeout(frameWriter);
+
+    ImagePlanesFrame frame = (ImagePlanesFrame) asyncFrame.frame;
+    assertThat(frame.getFormat()).isEqualTo(format);
+    assertThat(checkNotNull(surfaceHolder.imageReader).getImageFormat())
+        .isEqualTo(ImageFormat.YV12);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 28)
+  public void
+      configure_withSdrFormatWithoutPixelFormatOnApi28AndAbove_propagatesDefaultSdrPixelFormat()
+          throws Exception {
     Format format =
         new Format.Builder()
             .setWidth(WIDTH)
             .setHeight(HEIGHT)
             .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
             .build();
-    Future<?> unused =
-        surfaceHolderExecutor.submit(() -> allowSurfaceHolderExecution.block(TEST_TIMEOUT_MS));
-
     frameWriter.configure(format, /* usage= */ Frame.USAGE_GPU_SAMPLED_IMAGE);
-    AsyncFrame asyncFrame =
-        frameWriter.dequeueInputFrame(
-            /* wakeupExecutor= */ directExecutor(),
-            /* wakeupListener= */ () -> {
-              asyncFrameRef.set(frameWriter.dequeueInputFrame(directExecutor(), () -> {}));
-              wakeupLatch.countDown();
-            });
 
-    assertThat(asyncFrame).isNull();
+    AsyncFrame asyncFrame = dequeueInputFrameWithTimeout(frameWriter);
 
-    allowSurfaceHolderExecution.open();
-
-    assertThat(wakeupLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
-    asyncFrame = asyncFrameRef.get();
-    assertThat(asyncFrame).isNotNull();
+    assertThat(asyncFrame.frame.getFormat().pixelFormat).isEqualTo(Format.NO_VALUE);
+    assertThat(asyncFrame.frame).isInstanceOf(HardwareBufferFrame.class);
     HardwareBufferFrame frame = (HardwareBufferFrame) asyncFrame.frame;
-    assertThat(frame.getFormat().pixelFormat).isEqualTo(Format.NO_VALUE);
     assertThat(frame.getHardwareBuffer().getFormat()).isEqualTo(HardwareBuffer.RGBA_8888);
   }
 
   @Test
+  @SdkSuppress(maxSdkVersion = 27)
+  public void configure_withSdrFormatWithoutPixelFormatBelowApi28_propagatesDefaultSdrPixelFormat()
+      throws Exception {
+    Format format =
+        new Format.Builder()
+            .setWidth(WIDTH)
+            .setHeight(HEIGHT)
+            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+            .build();
+    frameWriter.configure(format, /* usage= */ Frame.USAGE_GPU_SAMPLED_IMAGE);
+
+    AsyncFrame asyncFrame = dequeueInputFrameWithTimeout(frameWriter);
+
+    assertThat(asyncFrame.frame.getFormat().pixelFormat).isEqualTo(Format.NO_VALUE);
+    assertThat(asyncFrame.frame).isInstanceOf(ImagePlanesFrame.class);
+    assertThat(checkNotNull(surfaceHolder.imageReader).getImageFormat())
+        .isEqualTo(ImageFormat.YV12);
+  }
+
+  @Test
   @SdkSuppress(minSdkVersion = 34)
-  public void configure_withoutPixelFormat_propagatesDefaultHdrPixelFormat() throws Exception {
+  public void configure_withHdrFormatWithoutPixelFormat_propagatesDefaultHdrPixelFormat()
+      throws Exception {
     AtomicReference<AsyncFrame> asyncFrameRef = new AtomicReference<>();
     CountDownLatch wakeupLatch = new CountDownLatch(1);
     ConditionVariable allowSurfaceHolderExecution = new ConditionVariable();
@@ -534,6 +581,43 @@ public final class SurfaceHolderFrameWriterAndroidTest {
     try (Image image = surfaceHolder.imageReader.acquireNextImage()) {
       assertThat(image).isNotNull();
     }
+  }
+
+  @SuppressWarnings("PatternMatchingInstanceof") // TODO(b/561916275): Remove when issue is fixed.
+  private static Frame createOutputFrame(Frame frame, long displayTimeNs, long contentTimeUs) {
+    if (frame instanceof HardwareBufferFrame) {
+      return ((HardwareBufferFrame) frame)
+          .buildUpon()
+          .setMetadata(ImmutableMap.of(Frame.KEY_DISPLAY_TIME_NS, displayTimeNs))
+          .setContentTimeUs(contentTimeUs)
+          .build();
+    } else if (frame instanceof ImagePlanesFrame) {
+      return ((ImagePlanesFrame) frame)
+          .buildUpon()
+          .setMetadata(ImmutableMap.of(Frame.KEY_DISPLAY_TIME_NS, displayTimeNs))
+          .setContentTimeUs(contentTimeUs)
+          .build();
+    }
+    throw new IllegalArgumentException("Unsupported frame type: " + frame.getClass());
+  }
+
+  private AsyncFrame dequeueInputFrameWithTimeout(SurfaceHolderFrameWriter frameWriter)
+      throws InterruptedException {
+    AtomicReference<AsyncFrame> asyncFrameRef = new AtomicReference<>();
+    CountDownLatch wakeupLatch = new CountDownLatch(1);
+    AsyncFrame asyncFrame =
+        frameWriter.dequeueInputFrame(
+            /* wakeupExecutor= */ directExecutor(),
+            /* wakeupListener= */ () -> {
+              asyncFrameRef.set(frameWriter.dequeueInputFrame(directExecutor(), () -> {}));
+              wakeupLatch.countDown();
+            });
+    if (asyncFrame != null) {
+      return asyncFrame;
+    }
+    checkState(
+        wakeupLatch.await(TEST_TIMEOUT_MS, MILLISECONDS), "Timed out waiting for input frame.");
+    return checkNotNull(asyncFrameRef.get());
   }
 
   private void waitHandlerIdle(Handler handler) throws InterruptedException {
