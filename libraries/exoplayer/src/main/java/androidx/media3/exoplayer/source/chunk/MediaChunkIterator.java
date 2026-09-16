@@ -103,4 +103,16 @@ public interface MediaChunkIterator {
 
   /** Resets the iterator to the initial position. */
   void reset();
+
+  /**
+   * Returns the index in the steering priority list of the locations (e.g., DASH service location
+   * or HLS pathway) for the current media chunks, or {@code Integer.MAX_VALUE} if steering is
+   * inactive or unavailable.
+   *
+   * <p>The returned index is only meaningful relatively among candidate tracks (i.e. a lower
+   * numerical value indicates a higher priority, with {@code 0} being the top priority).
+   */
+  default int getLocationSteeringPriorityIndex() {
+    return Integer.MAX_VALUE;
+  }
 }

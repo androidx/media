@@ -342,6 +342,7 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
   private long lastBufferEvaluationMs;
   @Nullable private MediaChunk lastBufferEvaluationMediaChunk;
   private long latestBitrateEstimate;
+  private final int[] latestLocationSteeringPriority;
 
   /**
    * @param group The {@link TrackGroup}.
@@ -498,6 +499,8 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
     reason = C.SELECTION_REASON_UNKNOWN;
     lastBufferEvaluationMs = C.TIME_UNSET;
     latestBitrateEstimate = C.RATE_UNSET_INT;
+    latestLocationSteeringPriority = new int[length];
+    Arrays.fill(latestLocationSteeringPriority, Integer.MAX_VALUE);
   }
 
   @CallSuper
@@ -529,7 +532,12 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
     long nowMs = clock.elapsedRealtime();
     long chunkDurationUs = getNextChunkDurationUs(mediaChunkIterators, queue);
     long effectiveBitrate = getAllocatedBandwidth(chunkDurationUs);
-
+    for (int i = 0; i < length; i++) {
+      latestLocationSteeringPriority[i] =
+          i < mediaChunkIterators.length
+              ? mediaChunkIterators[i].getLocationSteeringPriorityIndex()
+              : Integer.MAX_VALUE;
+    }
     // Make initial selection
     if (reason == C.SELECTION_REASON_UNKNOWN) {
       reason = C.SELECTION_REASON_INITIAL;
@@ -551,15 +559,20 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
       // Revert back to the previous selection if conditions are not suitable for switching.
       long minDurationForQualityIncreaseUs =
           minDurationForQualityIncreaseUs(availableDurationUs, chunkDurationUs);
+      int locationPriorityForPreviousSelectedIndex =
+          latestLocationSteeringPriority[previousSelectedIndex];
+      int locationPriorityForNewSelectedIndex = latestLocationSteeringPriority[newSelectedIndex];
       if (newSelectedIndex < previousSelectedIndex
           && bufferedDurationUs < minDurationForQualityIncreaseUs) {
-        // The selected track is higher priority, but we have insufficient buffer to safely switch
-        // up. Defer switching up for now.
+        // The selected track is higher in track format priority, but we have insufficient buffer to
+        // safely switch up. Defer switching up for now.
         newSelectedIndex = previousSelectedIndex;
       } else if (newSelectedIndex > previousSelectedIndex
-          && bufferedDurationUs >= maxDurationForQualityDecreaseUs) {
-        // The selected track is lower priority, but we have sufficient buffer to defer switching
-        // down for now.
+          && bufferedDurationUs >= maxDurationForQualityDecreaseUs
+          && locationPriorityForNewSelectedIndex >= locationPriorityForPreviousSelectedIndex) {
+        // The selected track is lower in track format priority, but we have sufficient buffer to
+        // defer switching down for now. Note that we only consider deferring if we are not
+        // improving the steering priority.
         newSelectedIndex = previousSelectedIndex;
       }
     }
@@ -683,17 +696,24 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
    */
   private int determineIdealSelectedIndex(long nowMs, long effectiveBitrate) {
     int lowestBitrateAllowedIndex = 0;
+    int bestIndex = C.INDEX_UNSET;
+    int bestLocationSteeringPriority = Integer.MAX_VALUE;
     for (int i = 0; i < length; i++) {
       if (nowMs == Long.MIN_VALUE || !isTrackExcluded(i, nowMs)) {
         Format format = getFormat(i);
         if (canSelectFormat(format, format.bitrate, effectiveBitrate)) {
-          return i;
+          int locationSteeringPriority = latestLocationSteeringPriority[i];
+          if (bestIndex == C.INDEX_UNSET
+              || locationSteeringPriority < bestLocationSteeringPriority) {
+            bestLocationSteeringPriority = locationSteeringPriority;
+            bestIndex = i;
+          }
         } else {
           lowestBitrateAllowedIndex = i;
         }
       }
     }
-    return lowestBitrateAllowedIndex;
+    return bestIndex != C.INDEX_UNSET ? bestIndex : lowestBitrateAllowedIndex;
   }
 
   private long minDurationForQualityIncreaseUs(long availableDurationUs, long chunkDurationUs) {

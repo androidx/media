@@ -16,13 +16,14 @@
 package androidx.media3.exoplayer.dash;
 
 import static androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy.DEFAULT_LOCATION_EXCLUSION_MS;
+import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -52,6 +53,7 @@ import androidx.media3.exoplayer.source.chunk.BundledChunkExtractor;
 import androidx.media3.exoplayer.source.chunk.Chunk;
 import androidx.media3.exoplayer.source.chunk.ChunkHolder;
 import androidx.media3.exoplayer.source.chunk.MediaChunk;
+import androidx.media3.exoplayer.source.chunk.MediaChunkIterator;
 import androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection;
 import androidx.media3.exoplayer.trackselection.FixedTrackSelection;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
@@ -74,8 +76,10 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.robolectric.shadows.ShadowSystemClock;
 
 /** Unit test for {@link DefaultDashChunkSource}. */
@@ -782,6 +786,440 @@ public class DefaultDashChunkSourceTest {
   }
 
   @Test
+  public void
+      getNextChunk_withContentSteeringAndMultipleTrackFormatsEligible_getsChunkWithHighestSteeringPriority()
+          throws Exception {
+    DashManifest manifest =
+        new DashManifestParser()
+            .parse(
+                Uri.parse("https://example.com/test.mpd"),
+                TestUtil.getInputStream(
+                    ApplicationProvider.getApplicationContext(),
+                    SAMPLE_MPD_VOD_LOCATION_AND_TRACK_FALLBACK));
+    String steeringManifest =
+        "{\"VERSION\": 1, \"TTL\": 300, \"PATHWAY-PRIORITY\": [\"d\", \"c\", \"b\", \"a\"]}";
+    AtomicBoolean steeringPriorityUpdated = new AtomicBoolean();
+    BaseUrlExclusionList baseUrlExclusionList =
+        new BaseUrlExclusionList(new Random(/* seed= */ 1234));
+    DashContentSteeringTracker.Callback callback =
+        serviceLocationPriority -> {
+          baseUrlExclusionList.updateServiceLocationSteeringPriority(serviceLocationPriority);
+          steeringPriorityUpdated.set(true);
+        };
+    DashContentSteeringTracker contentSteeringTracker =
+        createDashContentSteeringTracker(manifest, steeringManifest, callback);
+    contentSteeringTracker.start(
+        Uri.parse("https://example.com/steering"),
+        ImmutableList.of(),
+        new MediaSourceEventListener.EventDispatcher());
+    runMainLooperUntil(steeringPriorityUpdated::get);
+    assertThat(contentSteeringTracker.getCurrentServiceLocationPriority())
+        .containsExactly("d", "c", "b", "a")
+        .inOrder();
+    Format format0 = manifest.getPeriod(0).adaptationSets.get(0).representations.get(0).format;
+    Format format1 = manifest.getPeriod(0).adaptationSets.get(0).representations.get(1).format;
+    // Sets a high bitrate estimate so that all track formats are eligible.
+    AdaptiveTrackSelection adaptiveTrackSelection =
+        spy(
+            new AdaptiveTrackSelection(
+                new TrackGroup(format0, format1),
+                new int[] {0, 1},
+                new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
+                    .setInitialBitrateEstimate(10_000_000)
+                    .build()));
+    DashChunkSource chunkSource =
+        new DefaultDashChunkSource(
+            new BundledChunkExtractor.Factory(),
+            new LoaderErrorThrower.Placeholder(),
+            manifest,
+            baseUrlExclusionList,
+            /* periodIndex= */ 0,
+            /* adaptationSetIndices= */ new int[] {0},
+            adaptiveTrackSelection,
+            C.TRACK_TYPE_VIDEO,
+            new FakeDataSource(),
+            /* elapsedRealtimeOffsetMs= */ 0,
+            /* maxSegmentsPerLoad= */ 1,
+            /* enableEventMessageTrack= */ false,
+            /* closedCaptionFormats= */ ImmutableList.of(),
+            /* playerTrackEmsgHandler= */ null,
+            PlayerId.UNSET,
+            /* cmcdConfiguration= */ null,
+            contentSteeringTracker);
+    ChunkHolder output = new ChunkHolder();
+
+    chunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).build(),
+        /* loadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of(),
+        output);
+
+    ArgumentCaptor<MediaChunkIterator[]> iteratorsCaptor =
+        ArgumentCaptor.forClass(MediaChunkIterator[].class);
+    verify(adaptiveTrackSelection)
+        .updateSelectedTrack(anyLong(), anyLong(), anyLong(), any(), iteratorsCaptor.capture());
+    MediaChunkIterator[] iterators = iteratorsCaptor.getValue();
+    assertThat(iterators).hasLength(2);
+    int trackIndexForFormat0 = adaptiveTrackSelection.indexOf(format0);
+    int trackIndexForFormat1 = adaptiveTrackSelection.indexOf(format1);
+    // Format 0 has service location "c" whose steering priority is relatively the highest, which is
+    // at index 1 in the global steering priority list ["d",
+    // "c", "b", "a"].
+    assertThat(iterators[trackIndexForFormat0].getLocationSteeringPriorityIndex()).isEqualTo(1);
+    // Format 1 has service location "d" whose steering priority is relatively the highest, which is
+    // at index 0 in the global steering priority list ["d",
+    // "c", "b", "a"].
+    assertThat(iterators[trackIndexForFormat1].getLocationSteeringPriorityIndex()).isEqualTo(0);
+    // Verify output chunk is from preferred track 1 (format 1) and service location "d".
+    assertThat(output.chunk).isNotNull();
+    assertThat(output.chunk.trackFormat).isEqualTo(format1);
+    assertThat(output.chunk.dataSpec.location).isEqualTo("d");
+    assertThat(output.chunk.dataSpec.uri)
+        .isEqualTo(Uri.parse("http://video.com/baseUrl/d/video_0_1300000.m4s"));
+
+    contentSteeringTracker.release();
+  }
+
+  @Test
+  public void
+      getNextChunk_withContentSteeringAndMultipleTrackFormatsEligibleAndHaveSameSteeringPriority_getsChunkWithHighestTrackFormatPriority()
+          throws Exception {
+    DashManifest manifest =
+        new DashManifestParser()
+            .parse(
+                Uri.parse("https://example.com/test.mpd"),
+                TestUtil.getInputStream(
+                    ApplicationProvider.getApplicationContext(),
+                    SAMPLE_MPD_VOD_LOCATION_AND_TRACK_FALLBACK));
+    String steeringManifest =
+        "{\"VERSION\": 1, \"TTL\": 300, \"PATHWAY-PRIORITY\": [\"b\", \"a\", \"c\", \"d\"]}";
+    AtomicBoolean steeringPriorityUpdated = new AtomicBoolean();
+    BaseUrlExclusionList baseUrlExclusionList =
+        new BaseUrlExclusionList(new Random(/* seed= */ 1234));
+    DashContentSteeringTracker.Callback callback =
+        serviceLocationPriority -> {
+          baseUrlExclusionList.updateServiceLocationSteeringPriority(serviceLocationPriority);
+          steeringPriorityUpdated.set(true);
+        };
+    DashContentSteeringTracker contentSteeringTracker =
+        createDashContentSteeringTracker(manifest, steeringManifest, callback);
+    contentSteeringTracker.start(
+        Uri.parse("https://example.com/steering"),
+        ImmutableList.of(),
+        new MediaSourceEventListener.EventDispatcher());
+    runMainLooperUntil(steeringPriorityUpdated::get);
+    assertThat(contentSteeringTracker.getCurrentServiceLocationPriority())
+        .containsExactly("b", "a", "c", "d")
+        .inOrder();
+
+    Format format0 = manifest.getPeriod(0).adaptationSets.get(0).representations.get(0).format;
+    Format format1 = manifest.getPeriod(0).adaptationSets.get(0).representations.get(1).format;
+    // Sets a high bitrate estimate so that all track formats are eligible.
+    AdaptiveTrackSelection adaptiveTrackSelection =
+        spy(
+            new AdaptiveTrackSelection(
+                new TrackGroup(format0, format1),
+                new int[] {0, 1},
+                new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
+                    .setInitialBitrateEstimate(10_000_000)
+                    .build()));
+    DashChunkSource chunkSource =
+        new DefaultDashChunkSource(
+            new BundledChunkExtractor.Factory(),
+            new LoaderErrorThrower.Placeholder(),
+            manifest,
+            baseUrlExclusionList,
+            /* periodIndex= */ 0,
+            /* adaptationSetIndices= */ new int[] {0},
+            adaptiveTrackSelection,
+            C.TRACK_TYPE_VIDEO,
+            new FakeDataSource(),
+            /* elapsedRealtimeOffsetMs= */ 0,
+            /* maxSegmentsPerLoad= */ 1,
+            /* enableEventMessageTrack= */ false,
+            /* closedCaptionFormats= */ ImmutableList.of(),
+            /* playerTrackEmsgHandler= */ null,
+            PlayerId.UNSET,
+            /* cmcdConfiguration= */ null,
+            contentSteeringTracker);
+    ChunkHolder output = new ChunkHolder();
+
+    chunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).build(),
+        /* loadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of(),
+        output);
+
+    ArgumentCaptor<MediaChunkIterator[]> iteratorsCaptor =
+        ArgumentCaptor.forClass(MediaChunkIterator[].class);
+    verify(adaptiveTrackSelection)
+        .updateSelectedTrack(anyLong(), anyLong(), anyLong(), any(), iteratorsCaptor.capture());
+    MediaChunkIterator[] iterators = iteratorsCaptor.getValue();
+    assertThat(iterators).hasLength(2);
+    int trackIndexForFormat0 = adaptiveTrackSelection.indexOf(format0);
+    int trackIndexForFormat1 = adaptiveTrackSelection.indexOf(format1);
+    // Format 0 has service location "b" whose steering priority is relatively the highest, which is
+    // at index 0 in the global steering priority list ["b",
+    // "a", "c", "d"].
+    assertThat(iterators[trackIndexForFormat0].getLocationSteeringPriorityIndex()).isEqualTo(0);
+    // Format 1 has service location "b" whose steering priority is relatively the highest, which is
+    // at index 0 in the global steering priority list ["b",
+    // "a", "c", "d"].
+    assertThat(iterators[trackIndexForFormat1].getLocationSteeringPriorityIndex()).isEqualTo(0);
+    // Verify output chunk is from preferred track 1 (format 1) and service location "b". As
+    // the two formats are both eligible and have the same steering priority, then the one with
+    // higher track format priority (higher bitrate) is selected.
+    assertThat(output.chunk).isNotNull();
+    assertThat(output.chunk.trackFormat).isEqualTo(format1);
+    assertThat(output.chunk.dataSpec.location).isEqualTo("b");
+    assertThat(output.chunk.dataSpec.uri)
+        .isEqualTo(Uri.parse("http://video.com/baseUrl/b/video_0_1300000.m4s"));
+
+    contentSteeringTracker.release();
+  }
+
+  @Test
+  public void
+      getNextChunk_withContentSteeringAndOnlyOneEligibleTrackFormatWhoseSteeringPriorityIsNotTheHighest_getsChunkWithTheEligibleTrackFormat()
+          throws Exception {
+    DashManifest manifest =
+        new DashManifestParser()
+            .parse(
+                Uri.parse("https://example.com/test.mpd"),
+                TestUtil.getInputStream(
+                    ApplicationProvider.getApplicationContext(),
+                    SAMPLE_MPD_VOD_LOCATION_AND_TRACK_FALLBACK));
+    String steeringManifest =
+        "{\"VERSION\": 1, \"TTL\": 300, \"PATHWAY-PRIORITY\": [\"d\", \"c\", \"b\", \"a\"]}";
+    AtomicBoolean steeringPriorityUpdated = new AtomicBoolean();
+    BaseUrlExclusionList baseUrlExclusionList =
+        new BaseUrlExclusionList(new Random(/* seed= */ 1234));
+    DashContentSteeringTracker.Callback callback =
+        serviceLocationPriority -> {
+          baseUrlExclusionList.updateServiceLocationSteeringPriority(serviceLocationPriority);
+          steeringPriorityUpdated.set(true);
+        };
+    DashContentSteeringTracker contentSteeringTracker =
+        createDashContentSteeringTracker(manifest, steeringManifest, callback);
+    contentSteeringTracker.start(
+        Uri.parse("https://example.com/steering"),
+        ImmutableList.of(),
+        new MediaSourceEventListener.EventDispatcher());
+    runMainLooperUntil(steeringPriorityUpdated::get);
+    assertThat(contentSteeringTracker.getCurrentServiceLocationPriority())
+        .containsExactly("d", "c", "b", "a")
+        .inOrder();
+
+    Format format0 = manifest.getPeriod(0).adaptationSets.get(0).representations.get(0).format;
+    Format format1 = manifest.getPeriod(0).adaptationSets.get(0).representations.get(1).format;
+    // Sets a bitrate estimate which makes only one of the track formats eligible.
+    AdaptiveTrackSelection adaptiveTrackSelection =
+        spy(
+            new AdaptiveTrackSelection(
+                new TrackGroup(format0, format1),
+                new int[] {0, 1},
+                new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
+                    .setInitialBitrateEstimate(1_000_000)
+                    .build()));
+    DashChunkSource chunkSource =
+        new DefaultDashChunkSource(
+            new BundledChunkExtractor.Factory(),
+            new LoaderErrorThrower.Placeholder(),
+            manifest,
+            baseUrlExclusionList,
+            /* periodIndex= */ 0,
+            /* adaptationSetIndices= */ new int[] {0},
+            adaptiveTrackSelection,
+            C.TRACK_TYPE_VIDEO,
+            new FakeDataSource(),
+            /* elapsedRealtimeOffsetMs= */ 0,
+            /* maxSegmentsPerLoad= */ 1,
+            /* enableEventMessageTrack= */ false,
+            /* closedCaptionFormats= */ ImmutableList.of(),
+            /* playerTrackEmsgHandler= */ null,
+            PlayerId.UNSET,
+            /* cmcdConfiguration= */ null,
+            contentSteeringTracker);
+    ChunkHolder output = new ChunkHolder();
+
+    chunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).build(),
+        /* loadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of(),
+        output);
+
+    ArgumentCaptor<MediaChunkIterator[]> iteratorsCaptor =
+        ArgumentCaptor.forClass(MediaChunkIterator[].class);
+    verify(adaptiveTrackSelection)
+        .updateSelectedTrack(anyLong(), anyLong(), anyLong(), any(), iteratorsCaptor.capture());
+    MediaChunkIterator[] iterators = iteratorsCaptor.getValue();
+    assertThat(iterators).hasLength(2);
+    int trackIndexForFormat0 = adaptiveTrackSelection.indexOf(format0);
+    int trackIndexForFormat1 = adaptiveTrackSelection.indexOf(format1);
+    // Format 0 has service location "c" whose steering priority is relatively the highest, which is
+    // at index 1 in the global steering priority list ["d",
+    // "c", "b", "a"].
+    assertThat(iterators[trackIndexForFormat0].getLocationSteeringPriorityIndex()).isEqualTo(1);
+    // Format 1 has service location "d" whose steering priority is relatively the highest, which is
+    // at index 0 in the global steering priority list ["d",
+    // "c", "b", "a"].
+    assertThat(iterators[trackIndexForFormat1].getLocationSteeringPriorityIndex()).isEqualTo(0);
+    // Verify output chunk is from preferred track 0 (format 0) and service location "c".
+    // Even format 1 has higher steering priority, its chunk is not selected because its track
+    // format is not eligible.
+    assertThat(output.chunk).isNotNull();
+    assertThat(output.chunk.trackFormat).isEqualTo(format0);
+    assertThat(output.chunk.dataSpec.location).isEqualTo("c");
+    assertThat(output.chunk.dataSpec.uri)
+        .isEqualTo(Uri.parse("http://video.com/baseUrl/c/video_0_500000.m4s"));
+
+    contentSteeringTracker.release();
+  }
+
+  @Test
+  public void
+      getNextChunk_withoutContentSteeringAndMultipleTrackFormatsEligible_getsChunkWithHighestTrackFormatPriority()
+          throws Exception {
+    DashManifest manifest =
+        new DashManifestParser()
+            .parse(
+                Uri.parse("https://example.com/test.mpd"),
+                TestUtil.getInputStream(
+                    ApplicationProvider.getApplicationContext(),
+                    SAMPLE_MPD_VOD_LOCATION_AND_TRACK_FALLBACK));
+    Format format0 = manifest.getPeriod(0).adaptationSets.get(0).representations.get(0).format;
+    Format format1 = manifest.getPeriod(0).adaptationSets.get(0).representations.get(1).format;
+    // Sets a high bitrate estimate so that all track formats are eligible.
+    AdaptiveTrackSelection adaptiveTrackSelection =
+        spy(
+            new AdaptiveTrackSelection(
+                new TrackGroup(format0, format1),
+                new int[] {0, 1},
+                new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
+                    .setInitialBitrateEstimate(10_000_000)
+                    .build()));
+    DashChunkSource chunkSource =
+        new DefaultDashChunkSource(
+            new BundledChunkExtractor.Factory(),
+            new LoaderErrorThrower.Placeholder(),
+            manifest,
+            new BaseUrlExclusionList(),
+            /* periodIndex= */ 0,
+            /* adaptationSetIndices= */ new int[] {0},
+            adaptiveTrackSelection,
+            C.TRACK_TYPE_VIDEO,
+            new FakeDataSource(),
+            /* elapsedRealtimeOffsetMs= */ 0,
+            /* maxSegmentsPerLoad= */ 1,
+            /* enableEventMessageTrack= */ false,
+            /* closedCaptionFormats= */ ImmutableList.of(),
+            /* playerTrackEmsgHandler= */ null,
+            PlayerId.UNSET,
+            /* cmcdConfiguration= */ null,
+            /* contentSteeringTracker= */ null);
+    ChunkHolder output = new ChunkHolder();
+
+    chunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).build(),
+        /* loadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of(),
+        output);
+
+    ArgumentCaptor<MediaChunkIterator[]> iteratorsCaptor =
+        ArgumentCaptor.forClass(MediaChunkIterator[].class);
+    verify(adaptiveTrackSelection)
+        .updateSelectedTrack(anyLong(), anyLong(), anyLong(), any(), iteratorsCaptor.capture());
+    MediaChunkIterator[] iterators = iteratorsCaptor.getValue();
+    assertThat(iterators).hasLength(2);
+    int trackIndexForFormat0 = adaptiveTrackSelection.indexOf(format0);
+    int trackIndexForFormat1 = adaptiveTrackSelection.indexOf(format1);
+    assertThat(iterators[trackIndexForFormat0].getLocationSteeringPriorityIndex())
+        .isEqualTo(Integer.MAX_VALUE);
+    assertThat(iterators[trackIndexForFormat1].getLocationSteeringPriorityIndex())
+        .isEqualTo(Integer.MAX_VALUE);
+    // Verify output chunk is from preferred track 1 (format 1) and service location "b". As
+    // the two formats are both eligible, then the one with higher track format priority (higher
+    // bitrate) is selected.
+    // Within the track 1, the location "b" is selected because its BaseUrl.priority value is the
+    // lowest.
+    assertThat(output.chunk).isNotNull();
+    assertThat(output.chunk.trackFormat).isEqualTo(format1);
+    assertThat(output.chunk.dataSpec.location).isEqualTo("b");
+    assertThat(output.chunk.dataSpec.uri)
+        .isEqualTo(Uri.parse("http://video.com/baseUrl/b/video_0_1300000.m4s"));
+  }
+
+  @Test
+  public void
+      getNextChunk_withoutContentSteeringAndOnlyOneEligibleTrackFormat_getsChunkWithTheEligibleTrackFormat()
+          throws Exception {
+    DashManifest manifest =
+        new DashManifestParser()
+            .parse(
+                Uri.parse("https://example.com/test.mpd"),
+                TestUtil.getInputStream(
+                    ApplicationProvider.getApplicationContext(),
+                    SAMPLE_MPD_VOD_LOCATION_AND_TRACK_FALLBACK));
+    Format format0 = manifest.getPeriod(0).adaptationSets.get(0).representations.get(0).format;
+    Format format1 = manifest.getPeriod(0).adaptationSets.get(0).representations.get(1).format;
+    // Sets a bitrate estimate which makes only one of the track formats eligible.
+    AdaptiveTrackSelection adaptiveTrackSelection =
+        spy(
+            new AdaptiveTrackSelection(
+                new TrackGroup(format0, format1),
+                new int[] {0, 1},
+                new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
+                    .setInitialBitrateEstimate(1_000_000)
+                    .build()));
+    DashChunkSource chunkSource =
+        new DefaultDashChunkSource(
+            new BundledChunkExtractor.Factory(),
+            new LoaderErrorThrower.Placeholder(),
+            manifest,
+            new BaseUrlExclusionList(),
+            /* periodIndex= */ 0,
+            /* adaptationSetIndices= */ new int[] {0},
+            adaptiveTrackSelection,
+            C.TRACK_TYPE_VIDEO,
+            new FakeDataSource(),
+            /* elapsedRealtimeOffsetMs= */ 0,
+            /* maxSegmentsPerLoad= */ 1,
+            /* enableEventMessageTrack= */ false,
+            /* closedCaptionFormats= */ ImmutableList.of(),
+            /* playerTrackEmsgHandler= */ null,
+            PlayerId.UNSET,
+            /* cmcdConfiguration= */ null,
+            /* contentSteeringTracker= */ null);
+    ChunkHolder output = new ChunkHolder();
+
+    chunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).build(),
+        /* loadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of(),
+        output);
+
+    ArgumentCaptor<MediaChunkIterator[]> iteratorsCaptor =
+        ArgumentCaptor.forClass(MediaChunkIterator[].class);
+    verify(adaptiveTrackSelection)
+        .updateSelectedTrack(anyLong(), anyLong(), anyLong(), any(), iteratorsCaptor.capture());
+    MediaChunkIterator[] iterators = iteratorsCaptor.getValue();
+    assertThat(iterators).hasLength(2);
+    int trackIndexForFormat0 = adaptiveTrackSelection.indexOf(format0);
+    int trackIndexForFormat1 = adaptiveTrackSelection.indexOf(format1);
+    assertThat(iterators[trackIndexForFormat0].getLocationSteeringPriorityIndex())
+        .isEqualTo(Integer.MAX_VALUE);
+    assertThat(iterators[trackIndexForFormat1].getLocationSteeringPriorityIndex())
+        .isEqualTo(Integer.MAX_VALUE);
+    // Verify output chunk is from preferred track 0 (format 0) and service location "a".
+    // Within track 0, the location "a" is selected because its BaseUrl.priority is the lowest.
+    assertThat(output.chunk).isNotNull();
+    assertThat(output.chunk.trackFormat).isEqualTo(format0);
+    assertThat(output.chunk.dataSpec.location).isEqualTo("a");
+    assertThat(output.chunk.dataSpec.uri)
+        .isEqualTo(Uri.parse("http://video.com/baseUrl/a/video_0_500000.m4s"));
+  }
+
+  @Test
   public void updateManifest_representationWithZeroSegments_doesNotThrow() throws Exception {
     DashManifestParser parser = new DashManifestParser();
     DashManifest emptyManifest =
@@ -996,11 +1434,6 @@ public class DefaultDashChunkSourceTest {
   @Test
   public void onChunkLoadError_withContentSteering_trackFallbackFirstWhenAvailable()
       throws Exception {
-    DashContentSteeringTracker contentSteeringTracker = createDashContentSteeringTracker();
-    contentSteeringTracker.start(
-        Uri.parse("https://example.com/steering"),
-        ImmutableList.of("b", "a"),
-        new MediaSourceEventListener.EventDispatcher());
     DashManifest manifest =
         new DashManifestParser()
             .parse(
@@ -1008,6 +1441,23 @@ public class DefaultDashChunkSourceTest {
                 TestUtil.getInputStream(
                     ApplicationProvider.getApplicationContext(),
                     SAMPLE_MPD_VOD_LOCATION_AND_TRACK_FALLBACK));
+    String steeringManifest =
+        "{\"VERSION\": 1, \"TTL\": 300, \"PATHWAY-PRIORITY\": [\"b\", \"a\", \"c\", \"d\"]}";
+    AtomicBoolean steeringPriorityUpdated = new AtomicBoolean();
+    BaseUrlExclusionList baseUrlExclusionList =
+        new BaseUrlExclusionList(new Random(/* seed= */ 1234));
+    DashContentSteeringTracker.Callback callback =
+        serviceLocationPriority -> {
+          baseUrlExclusionList.updateServiceLocationSteeringPriority(serviceLocationPriority);
+          steeringPriorityUpdated.set(true);
+        };
+    DashContentSteeringTracker contentSteeringTracker =
+        createDashContentSteeringTracker(manifest, steeringManifest, callback);
+    contentSteeringTracker.start(
+        Uri.parse("https://example.com/steering"),
+        ImmutableList.of(),
+        new MediaSourceEventListener.EventDispatcher());
+    runMainLooperUntil(steeringPriorityUpdated::get);
     Format format0 = manifest.getPeriod(0).adaptationSets.get(0).representations.get(0).format;
     Format format1 = manifest.getPeriod(0).adaptationSets.get(0).representations.get(1).format;
     ImmutableList<BaseUrl> baseUrls =
@@ -1019,9 +1469,6 @@ public class DefaultDashChunkSourceTest {
                 new int[] {0, 1},
                 new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
                     .build()));
-    BaseUrlExclusionList baseUrlExclusionList =
-        new BaseUrlExclusionList(new Random(/* seed= */ 1234));
-    baseUrlExclusionList.updateServiceLocationSteeringPriority(ImmutableList.of("b", "a", "c"));
     // Before the chunk load error, all 3 locations (a, b, and c) are available.
     assertThat(baseUrlExclusionList.getServiceLocationCountAfterExclusion(baseUrls)).isEqualTo(3);
     DashChunkSource chunkSource =
@@ -1087,11 +1534,6 @@ public class DefaultDashChunkSourceTest {
   @Test
   public void onChunkLoadError_withContentSteering_locationFallbackIfTrackFallbackUnavailable()
       throws Exception {
-    DashContentSteeringTracker contentSteeringTracker = createDashContentSteeringTracker();
-    contentSteeringTracker.start(
-        Uri.parse("https://example.com/steering"),
-        ImmutableList.of("a", "b"),
-        new MediaSourceEventListener.EventDispatcher());
     DashManifest manifest =
         new DashManifestParser()
             .parse(
@@ -1099,6 +1541,23 @@ public class DefaultDashChunkSourceTest {
                 TestUtil.getInputStream(
                     ApplicationProvider.getApplicationContext(),
                     SAMPLE_MPD_VOD_LOCATION_AND_TRACK_FALLBACK));
+    String steeringManifest =
+        "{\"VERSION\": 1, \"TTL\": 300, \"PATHWAY-PRIORITY\": [\"a\", \"b\", \"c\", \"d\"]}";
+    AtomicBoolean steeringPriorityUpdated = new AtomicBoolean();
+    BaseUrlExclusionList baseUrlExclusionList =
+        new BaseUrlExclusionList(new Random(/* seed= */ 1234));
+    DashContentSteeringTracker.Callback callback =
+        serviceLocationPriority -> {
+          baseUrlExclusionList.updateServiceLocationSteeringPriority(serviceLocationPriority);
+          steeringPriorityUpdated.set(true);
+        };
+    DashContentSteeringTracker contentSteeringTracker =
+        createDashContentSteeringTracker(manifest, steeringManifest, callback);
+    contentSteeringTracker.start(
+        Uri.parse("https://example.com/steering"),
+        ImmutableList.of(),
+        new MediaSourceEventListener.EventDispatcher());
+    runMainLooperUntil(steeringPriorityUpdated::get);
     Format format0 = manifest.getPeriod(0).adaptationSets.get(0).representations.get(0).format;
     Format format1 = manifest.getPeriod(0).adaptationSets.get(0).representations.get(1).format;
     ImmutableList<BaseUrl> baseUrls =
@@ -1110,9 +1569,6 @@ public class DefaultDashChunkSourceTest {
                 new int[] {0, 1},
                 new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
                     .build()));
-    BaseUrlExclusionList baseUrlExclusionList =
-        new BaseUrlExclusionList(new Random(/* seed= */ 1234));
-    baseUrlExclusionList.updateServiceLocationSteeringPriority(ImmutableList.of("a", "b", "c"));
     // Before the chunk load error, all 3 locations (a, b, and c) are available.
     assertThat(baseUrlExclusionList.getServiceLocationCountAfterExclusion(baseUrls)).isEqualTo(3);
     DashChunkSource chunkSource =
@@ -1250,17 +1706,19 @@ public class DefaultDashChunkSourceTest {
         loadEventInfo, mediaLoadData, invalidResponseCodeException, errorCount);
   }
 
-  private static DashContentSteeringTracker createDashContentSteeringTracker() throws Exception {
-    DashManifest manifest =
-        new DashManifestParser()
-            .parse(
-                Uri.parse("https://example.com/test.mpd"),
-                TestUtil.getInputStream(
-                    ApplicationProvider.getApplicationContext(), SAMPLE_MPD_VOD_LOCATION_FALLBACK));
+  private static DashContentSteeringTracker createDashContentSteeringTracker(
+      DashManifest manifest,
+      String steeringManifestJson,
+      DashContentSteeringTracker.Callback callback) {
+    FakeDataSet fakeDataSet =
+        new FakeDataSet()
+            .newDefaultData()
+            .appendReadData(steeringManifestJson.getBytes(UTF_8))
+            .endData();
     return new DashContentSteeringTracker(
-        FakeDataSource::new,
+        () -> new FakeDataSource(fakeDataSet),
         /* downloadExecutorSupplier= */ null,
-        mock(DashContentSteeringTracker.Callback.class),
+        callback,
         /* mediaTransferListener= */ null,
         manifest);
   }

@@ -72,6 +72,7 @@ public final class DashContentSteeringTracker extends BaseContentSteeringTracker
   @Nullable private DashManifest manifest;
   private Map<String, Set<Location>> availableManifestLocations;
   private Map<String, Set<BaseUrl>> availableBaseUrls;
+  @Nullable private ImmutableList<String> initialPathwayIds;
 
   /**
    * Creates a {@link DashContentSteeringTracker}.
@@ -128,8 +129,25 @@ public final class DashContentSteeringTracker extends BaseContentSteeringTracker
     return throughputEstimator;
   }
 
+  /**
+   * Returns the current service location priority, or {@code null} if the tracker is inactive or no
+   * priority has been established.
+   */
+  @Nullable
+  public ImmutableList<String> getCurrentServiceLocationPriority() {
+    if (!isActive()) {
+      return null;
+    }
+    @Nullable ImmutableList<String> currentPathwayPriority = getCurrentPathwayPriority();
+    if (currentPathwayPriority != null) {
+      return currentPathwayPriority;
+    }
+    return initialPathwayIds == null || initialPathwayIds.isEmpty() ? null : initialPathwayIds;
+  }
+
   @Override
   protected void onStart(ImmutableList<String> initialPathwayIds) {
+    this.initialPathwayIds = initialPathwayIds;
     if (callback != null && !initialPathwayIds.isEmpty()) {
       callback.onServiceLocationPriorityUpdated(initialPathwayIds);
     }
@@ -201,6 +219,7 @@ public final class DashContentSteeringTracker extends BaseContentSteeringTracker
     if (callback != null) {
       callback.onServiceLocationPriorityUpdated(null);
     }
+    initialPathwayIds = null;
     availableManifestLocations.clear();
     availableBaseUrls.clear();
     steeringQueryParamsProviders.clear();

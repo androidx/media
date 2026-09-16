@@ -20,6 +20,7 @@
       </Representation>
       <Representation id="1" codecs="avc1.4d4015" width="512" height="288" frameRate="25" bandwidth="1300000">
         <BaseURL serviceLocation="b" dvb:priority="1" dvb:weight="1">http://video.com/baseUrl/b/</BaseURL>
+        <BaseURL serviceLocation="d" dvb:priority="2" dvb:weight="1">http://video.com/baseUrl/d/</BaseURL>
       </Representation>
     </AdaptationSet>
   </Period>

@@ -685,6 +685,185 @@ public final class AdaptiveTrackSelectionTest {
 
   @Test
   public void
+      updateSelectedTrack_withDifferentLocationSteeringPriorities_selectsHigherPriorityTrack() {
+    Format format1 = videoFormat(/* bitrate= */ 500, /* width= */ 320, /* height= */ 240);
+    Format format2 = videoFormat(/* bitrate= */ 1000, /* width= */ 640, /* height= */ 480);
+    TrackGroup trackGroup = new TrackGroup(format1, format2);
+    AdaptiveTrackSelection adaptiveTrackSelection = prepareAdaptiveTrackSelection(trackGroup);
+    // Set bitrate estimate to 2000kbps so that both formats are eligible for selection.
+    when(mockBandwidthMeter.getBitrateEstimate()).thenReturn(2000L);
+    MediaChunkIterator[] iterators = new MediaChunkIterator[2];
+    iterators[adaptiveTrackSelection.indexOf(format1)] =
+        createMediaChunkIteratorWithSteeringPriorityIndex(
+            TEST_CHUNK_DURATION_US, /* steeringPriorityIndex= */ 0);
+    iterators[adaptiveTrackSelection.indexOf(format2)] =
+        createMediaChunkIteratorWithSteeringPriorityIndex(
+            TEST_CHUNK_DURATION_US, /* steeringPriorityIndex= */ 1);
+    adaptiveTrackSelection.enable();
+
+    adaptiveTrackSelection.updateSelectedTrack(
+        /* playbackPositionUs= */ 0,
+        /* bufferedDurationUs= */ 0,
+        /* availableDurationUs= */ C.TIME_UNSET,
+        /* queue= */ ImmutableList.of(),
+        iterators);
+
+    // Format 1 is selected because it has higher steering priority (0 < 1), despite lower bitrate.
+    assertThat(adaptiveTrackSelection.getSelectedFormat()).isEqualTo(format1);
+  }
+
+  @Test
+  public void
+      updateSelectedTrack_whenSwitchingToPreferredSteeringLocationWithLowerBitrate_switchesImmediately() {
+    Format format1 = videoFormat(/* bitrate= */ 500, /* width= */ 320, /* height= */ 240);
+    Format format2 = videoFormat(/* bitrate= */ 1000, /* width= */ 640, /* height= */ 480);
+    TrackGroup trackGroup = new TrackGroup(format1, format2);
+    AdaptiveTrackSelection adaptiveTrackSelection =
+        prepareAdaptiveTrackSelectionWithMaxDurationForQualityDecreaseMs(trackGroup, 20000);
+
+    // Initial state: Format2 (1000kbps) on Priority 0, Format1 (500kbps) on Priority 1.
+    MediaChunkIterator[] initialIterators = new MediaChunkIterator[2];
+    initialIterators[adaptiveTrackSelection.indexOf(format1)] =
+        createMediaChunkIteratorWithSteeringPriorityIndex(
+            TEST_CHUNK_DURATION_US, /* steeringPriorityIndex= */ 1);
+    initialIterators[adaptiveTrackSelection.indexOf(format2)] =
+        createMediaChunkIteratorWithSteeringPriorityIndex(
+            TEST_CHUNK_DURATION_US, /* steeringPriorityIndex= */ 0);
+    when(mockBandwidthMeter.getBitrateEstimate()).thenReturn(2000L);
+    adaptiveTrackSelection.enable();
+    adaptiveTrackSelection.updateSelectedTrack(
+        /* playbackPositionUs= */ 0,
+        /* bufferedDurationUs= */ 30_000_000,
+        /* availableDurationUs= */ C.TIME_UNSET,
+        /* queue= */ ImmutableList.of(),
+        initialIterators);
+    assertThat(adaptiveTrackSelection.getSelectedFormat()).isEqualTo(format2);
+
+    // Steering priority update: Format1 (500kbps) becomes Priority 0, Format2 (1000kbps) becomes
+    // Priority 1.
+    MediaChunkIterator[] updatedIterators = new MediaChunkIterator[2];
+    updatedIterators[adaptiveTrackSelection.indexOf(format1)] =
+        createMediaChunkIteratorWithSteeringPriorityIndex(
+            TEST_CHUNK_DURATION_US, /* steeringPriorityIndex= */ 0);
+    updatedIterators[adaptiveTrackSelection.indexOf(format2)] =
+        createMediaChunkIteratorWithSteeringPriorityIndex(
+            TEST_CHUNK_DURATION_US, /* steeringPriorityIndex= */ 1);
+    FakeMediaChunk chunk =
+        new FakeMediaChunk(format2, /* startTimeUs= */ 0, /* endTimeUs= */ 30_000_000);
+    ImmutableList<FakeMediaChunk> queue = ImmutableList.of(chunk);
+
+    // Buffered duration (30s) is greater than maxDurationForQualityDecreaseMs (20s) though.
+    // The switch to format1 (lower bitrate) MUST happen immediately because format1 is on the
+    // preferred steering location.
+    adaptiveTrackSelection.updateSelectedTrack(
+        /* playbackPositionUs= */ 0,
+        /* bufferedDurationUs= */ 30_000_000,
+        /* availableDurationUs= */ C.TIME_UNSET,
+        queue,
+        updatedIterators);
+    assertThat(adaptiveTrackSelection.getSelectedFormat()).isEqualTo(format1);
+  }
+
+  @Test
+  public void
+      updateSelectedTrack_whenSwitchingToLessPreferredLocationDueToBandwidthDowngrade_defersSwitchDownWhenBufferIsSufficient() {
+    Format format1 = videoFormat(/* bitrate= */ 500, /* width= */ 320, /* height= */ 240);
+    Format format2 = videoFormat(/* bitrate= */ 1000, /* width= */ 640, /* height= */ 480);
+    TrackGroup trackGroup = new TrackGroup(format1, format2);
+    AdaptiveTrackSelection adaptiveTrackSelection =
+        prepareAdaptiveTrackSelectionWithMaxDurationForQualityDecreaseMs(trackGroup, 20000);
+
+    // Initial state: Format2 (1000kbps) on Priority 0, Format1 (500kbps) on Priority 1.
+    MediaChunkIterator[] iterators = new MediaChunkIterator[2];
+    iterators[adaptiveTrackSelection.indexOf(format1)] =
+        createMediaChunkIteratorWithSteeringPriorityIndex(
+            TEST_CHUNK_DURATION_US, /* steeringPriorityIndex= */ 1);
+    iterators[adaptiveTrackSelection.indexOf(format2)] =
+        createMediaChunkIteratorWithSteeringPriorityIndex(
+            TEST_CHUNK_DURATION_US, /* steeringPriorityIndex= */ 0);
+    when(mockBandwidthMeter.getBitrateEstimate()).thenReturn(2000L);
+    adaptiveTrackSelection.enable();
+    adaptiveTrackSelection.updateSelectedTrack(
+        /* playbackPositionUs= */ 0,
+        /* bufferedDurationUs= */ 30_000_000,
+        /* availableDurationUs= */ C.TIME_UNSET,
+        /* queue= */ ImmutableList.of(),
+        iterators);
+    assertThat(adaptiveTrackSelection.getSelectedFormat()).isEqualTo(format2);
+
+    // Bandwidth downgrade.
+    when(mockBandwidthMeter.getBitrateEstimate()).thenReturn(500L);
+    FakeMediaChunk chunk =
+        new FakeMediaChunk(format2, /* startTimeUs= */ 0, /* endTimeUs= */ 30_000_000);
+    ImmutableList<FakeMediaChunk> queue = ImmutableList.of(chunk);
+
+    // Bandwidth drops to 500kbps. Format1 (Priority 1) becomes the eligible track, but because
+    // format1 has a lower steering priority (1 > 0) and buffer is sufficient (30s >= 20s),
+    // the switch down is deferred to stay on the preferred location (format2) as long as possible.
+    adaptiveTrackSelection.updateSelectedTrack(
+        /* playbackPositionUs= */ 0,
+        /* bufferedDurationUs= */ 30_000_000,
+        /* availableDurationUs= */ C.TIME_UNSET,
+        queue,
+        iterators);
+    assertThat(adaptiveTrackSelection.getSelectedFormat()).isEqualTo(format2);
+  }
+
+  @Test
+  public void
+      updateSelectedTrack_whenSwitchingToPreferredLocationWithHigherBitrate_defersSwitchUpWhenBufferInsufficient() {
+    Format format1 = videoFormat(/* bitrate= */ 500, /* width= */ 320, /* height= */ 240);
+    Format format2 = videoFormat(/* bitrate= */ 1000, /* width= */ 640, /* height= */ 480);
+    TrackGroup trackGroup = new TrackGroup(format1, format2);
+    AdaptiveTrackSelection adaptiveTrackSelection =
+        prepareAdaptiveTrackSelectionWithMinDurationForQualityIncreaseMs(trackGroup, 10_000);
+
+    // Initial state: Format1 (500kbps) on Priority 0, Format2 (1000kbps) on Priority 1.
+    MediaChunkIterator[] initialIterators = new MediaChunkIterator[2];
+    initialIterators[adaptiveTrackSelection.indexOf(format1)] =
+        createMediaChunkIteratorWithSteeringPriorityIndex(
+            TEST_CHUNK_DURATION_US, /* steeringPriorityIndex= */ 0);
+    initialIterators[adaptiveTrackSelection.indexOf(format2)] =
+        createMediaChunkIteratorWithSteeringPriorityIndex(
+            TEST_CHUNK_DURATION_US, /* steeringPriorityIndex= */ 1);
+    when(mockBandwidthMeter.getBitrateEstimate()).thenReturn(2000L);
+    adaptiveTrackSelection.enable();
+    adaptiveTrackSelection.updateSelectedTrack(
+        /* playbackPositionUs= */ 0,
+        /* bufferedDurationUs= */ 5_000_000,
+        /* availableDurationUs= */ C.TIME_UNSET,
+        /* queue= */ ImmutableList.of(),
+        initialIterators);
+    assertThat(adaptiveTrackSelection.getSelectedFormat()).isEqualTo(format1);
+
+    // Steering priority update: Format2 (1000kbps) becomes Priority 0, Format1 (500kbps) becomes
+    // Priority 1.
+    MediaChunkIterator[] updatedIterators = new MediaChunkIterator[2];
+    updatedIterators[adaptiveTrackSelection.indexOf(format1)] =
+        createMediaChunkIteratorWithSteeringPriorityIndex(
+            TEST_CHUNK_DURATION_US, /* steeringPriorityIndex= */ 1);
+    updatedIterators[adaptiveTrackSelection.indexOf(format2)] =
+        createMediaChunkIteratorWithSteeringPriorityIndex(
+            TEST_CHUNK_DURATION_US, /* steeringPriorityIndex= */ 0);
+    FakeMediaChunk chunk =
+        new FakeMediaChunk(format1, /* startTimeUs= */ 0, /* endTimeUs= */ 5_000_000);
+    ImmutableList<FakeMediaChunk> queue = ImmutableList.of(chunk);
+
+    // Buffered duration (5s) < minDurationForQualityIncreaseMs (10s).
+    // Switching to format2 is a quality increase (higher bitrate) and improving of steering
+    // priority though,
+    // it must defer until buffer is sufficient.
+    adaptiveTrackSelection.updateSelectedTrack(
+        /* playbackPositionUs= */ 0,
+        /* bufferedDurationUs= */ 5_000_000,
+        /* availableDurationUs= */ C.TIME_UNSET,
+        queue,
+        updatedIterators);
+    assertThat(adaptiveTrackSelection.getSelectedFormat()).isEqualTo(format1);
+  }
+
+  @Test
+  public void
       builderCreateTrackSelections_withSingleAdaptiveGroup_usesCorrectAdaptationCheckpoints() {
     Format formatFixed1 = new Format.Builder().setAverageBitrate(500).build();
     Format formatFixed2 = new Format.Builder().setAverageBitrate(1000).build();
@@ -984,24 +1163,34 @@ public final class AdaptiveTrackSelectionTest {
     MediaChunkIterator[] iterators = new MediaChunkIterator[trackGroup.length];
     for (int i = 0; i < trackGroup.length; i++) {
       iterators[i] =
-          new BaseMediaChunkIterator(/* fromIndex= */ 0, /* toIndex= */ 0) {
-            @Override
-            public DataSpec getDataSpec() {
-              return new DataSpec.Builder().setUri("https://test.example").build();
-            }
-
-            @Override
-            public long getChunkStartTimeUs() {
-              return 123_456_789;
-            }
-
-            @Override
-            public long getChunkEndTimeUs() {
-              return 123_456_789 + chunkDurationUs;
-            }
-          };
+          createMediaChunkIteratorWithSteeringPriorityIndex(chunkDurationUs, Integer.MAX_VALUE);
     }
     return iterators;
+  }
+
+  private static MediaChunkIterator createMediaChunkIteratorWithSteeringPriorityIndex(
+      long chunkDurationUs, int steeringPriorityIndex) {
+    return new BaseMediaChunkIterator(/* fromIndex= */ 0, /* toIndex= */ 0) {
+      @Override
+      public DataSpec getDataSpec() {
+        return new DataSpec.Builder().setUri("https://test.example").build();
+      }
+
+      @Override
+      public long getChunkStartTimeUs() {
+        return 123_456_789;
+      }
+
+      @Override
+      public long getChunkEndTimeUs() {
+        return 123_456_789 + chunkDurationUs;
+      }
+
+      @Override
+      public int getLocationSteeringPriorityIndex() {
+        return steeringPriorityIndex;
+      }
+    };
   }
 
   private int[] selectedAllTracksInGroup(TrackGroup trackGroup) {

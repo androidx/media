@@ -421,7 +421,11 @@ public class DefaultDashChunkSource implements DashChunkSource {
           representationHolder = updateSelectedBaseUrl(/* trackIndex= */ i);
           chunkIterators[i] =
               new RepresentationSegmentIterator(
-                  representationHolder, segmentNum, lastAvailableSegmentNum, nowPeriodTimeUs);
+                  representationHolder,
+                  segmentNum,
+                  lastAvailableSegmentNum,
+                  nowPeriodTimeUs,
+                  contentSteeringTracker);
         }
       }
     }
@@ -978,6 +982,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
 
     private final RepresentationHolder representationHolder;
     private final long nowPeriodTimeUs;
+    @Nullable private final DashContentSteeringTracker contentSteeringTracker;
 
     /**
      * Creates iterator.
@@ -987,15 +992,33 @@ public class DefaultDashChunkSource implements DashChunkSource {
      * @param lastAvailableSegmentNum The number of the last available segment.
      * @param nowPeriodTimeUs The current time in microseconds since the start of the period used
      *     for calculating if segments are available at full network speed.
+     * @param contentSteeringTracker The {@link DashContentSteeringTracker}, or {@code null}.
      */
     public RepresentationSegmentIterator(
         RepresentationHolder representation,
         long firstAvailableSegmentNum,
         long lastAvailableSegmentNum,
-        long nowPeriodTimeUs) {
+        long nowPeriodTimeUs,
+        @Nullable DashContentSteeringTracker contentSteeringTracker) {
       super(/* fromIndex= */ firstAvailableSegmentNum, /* toIndex= */ lastAvailableSegmentNum);
       this.representationHolder = representation;
       this.nowPeriodTimeUs = nowPeriodTimeUs;
+      this.contentSteeringTracker = contentSteeringTracker;
+    }
+
+    @Override
+    public int getLocationSteeringPriorityIndex() {
+      if (contentSteeringTracker == null) {
+        return Integer.MAX_VALUE;
+      }
+      @Nullable
+      ImmutableList<String> priorityList =
+          contentSteeringTracker.getCurrentServiceLocationPriority();
+      if (priorityList == null) {
+        return Integer.MAX_VALUE;
+      }
+      int index = priorityList.indexOf(representationHolder.selectedBaseUrl.serviceLocation);
+      return index != -1 ? index : Integer.MAX_VALUE;
     }
 
     @Override

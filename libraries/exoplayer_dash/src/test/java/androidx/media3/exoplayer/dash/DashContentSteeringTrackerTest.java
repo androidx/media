@@ -391,6 +391,49 @@ public final class DashContentSteeringTrackerTest {
             /* queryBeforeStart= */ true));
   }
 
+  @Test
+  public void getCurrentServiceLocationPriority_beforeStart_returnsNull() {
+    assertThat(contentSteeringTracker.getCurrentServiceLocationPriority()).isNull();
+  }
+
+  @Test
+  public void
+      getCurrentServiceLocationPriority_afterStartWithInitialServiceLocations_returnsPriorityList() {
+    contentSteeringTracker.start(
+        Uri.parse(TEST_INITIAL_STEERING_URI_STRING),
+        ImmutableList.of("CDN-A"),
+        new MediaSourceEventListener.EventDispatcher());
+
+    assertThat(contentSteeringTracker.getCurrentServiceLocationPriority()).containsExactly("CDN-A");
+  }
+
+  @Test
+  public void
+      getCurrentServiceLocationPriority_afterStartWithEmptyInitialServiceLocations_returnsNull() {
+    contentSteeringTracker.start(
+        Uri.parse(TEST_INITIAL_STEERING_URI_STRING),
+        ImmutableList.of(),
+        new MediaSourceEventListener.EventDispatcher());
+
+    assertThat(contentSteeringTracker.getCurrentServiceLocationPriority()).isNull();
+  }
+
+  @Test
+  public void
+      getCurrentServiceLocationPriority_withUpdatedServiceLocationPriority_returnsPriorityList()
+          throws Exception {
+    contentSteeringTracker.start(
+        Uri.parse(TEST_INITIAL_STEERING_URI_STRING),
+        ImmutableList.of("CDN-A"),
+        new MediaSourceEventListener.EventDispatcher());
+    // Wait until the steering manifest updated from the data source.
+    runMainLooperUntil(() -> serviceLocationPriorityUpdateCount.get() >= 2);
+
+    assertThat(contentSteeringTracker.getCurrentServiceLocationPriority())
+        .containsExactly("CDN-B", "CDN-A", "CDN-C")
+        .inOrder();
+  }
+
   private static byte[] getBytes(String jsonString) {
     return jsonString.getBytes(Charset.defaultCharset());
   }

@@ -142,6 +142,8 @@
         attributes ([#3315](https://github.com/androidx/media/issues/3315)).
     *   Support parsing `<ProducerReferenceTime>` in `DashManifestParser` and
         expose it in `AdaptationSet.producerReferenceTimes`.
+    *   Add support for DASH Content Steering
+        ([#1689](https://github.com/androidx/media/issues/1689)).
 *   Smooth Streaming extension:
 *   RTSP extension:
     *   Fix an `IllegalStateException` crash that occurred when processing
