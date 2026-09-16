@@ -29,7 +29,7 @@ import static androidx.media3.test.utils.BitmapPixelTestUtil.createFp16BitmapFro
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.test.utils.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
-import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
+import static androidx.media3.test.utils.TestUtil.assertFp16BitmapsAreSimilar;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
@@ -608,7 +608,7 @@ public final class HardwareBufferToGlTextureConverterTest {
 
       Bitmap actualBitmap = convertAndCaptureBitmap(inputHardwareBufferFrame, listener);
 
-      assertBitmapsAreSimilar(expectedBitmap, actualBitmap, TestUtil.PSNR_THRESHOLD);
+      assertFp16BitmapsAreSimilar(expectedBitmap, actualBitmap, TestUtil.PSNR_THRESHOLD);
       assertThat(completedFrame.get()).isSameInstanceAs(inputHardwareBufferFrame);
     } finally {
       hardwareBuffer.close();
@@ -729,7 +729,7 @@ public final class HardwareBufferToGlTextureConverterTest {
 
       Bitmap actualBitmap = convertAndCaptureBitmap(inputHardwareBufferFrame, listener);
 
-      assertBitmapsAreSimilar(expectedBitmap, actualBitmap, TestUtil.PSNR_THRESHOLD);
+      assertFp16BitmapsAreSimilar(expectedBitmap, actualBitmap, TestUtil.PSNR_THRESHOLD);
       assertThat(completedFrame.get()).isSameInstanceAs(inputHardwareBufferFrame);
     } finally {
       hardwareBuffer.close();

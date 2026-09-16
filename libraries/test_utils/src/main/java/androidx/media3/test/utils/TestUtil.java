@@ -451,28 +451,29 @@ public class TestUtil {
   }
 
   /**
-   * Calculates the Peak-Signal-to-Noise-Ratio value for 2 bitmaps.
+   * Asserts whether actual FP16 bitmap is very similar to the expected FP16 bitmap at some quality
+   * level.
    *
-   * <p>This is the logarithmic decibel(dB) value of the average mean-squared-error of normalized
-   * (0.0-1.0) R/G/B values from the two bitmaps. The higher the value, the more similar they are.
+   * <p>This is defined as their PSNR value is greater than or equal to the threshold. The higher
+   * the threshold, the more similar they are.
    *
-   * @param firstBitmap The first bitmap.
-   * @param secondBitmap The second bitmap.
-   * @return The PSNR value calculated from these 2 bitmaps.
+   * @param expectedBitmap The expected FP16 bitmap.
+   * @param actualBitmap The actual FP16 bitmap.
+   * @param psnrThresholdDb The PSNR threshold (in dB), at or above which bitmaps are considered
+   *     very similar.
    */
-  private static double getPsnr(Bitmap firstBitmap, Bitmap secondBitmap) {
-    assertThat(firstBitmap.getWidth()).isEqualTo(secondBitmap.getWidth());
-    assertThat(firstBitmap.getHeight()).isEqualTo(secondBitmap.getHeight());
-    assertThat(firstBitmap.getConfig()).isEqualTo(secondBitmap.getConfig());
-    if (SDK_INT >= 29 && firstBitmap.getConfig() == Config.RGBA_F16) {
-      return getPsnrFloat(firstBitmap, secondBitmap);
-    } else {
-      return getPsnrInt8(firstBitmap, secondBitmap);
-    }
+  @RequiresApi(29)
+  public static void assertFp16BitmapsAreSimilar(
+      Bitmap expectedBitmap, Bitmap actualBitmap, double psnrThresholdDb) {
+    assertThat(getPsnrFloat(expectedBitmap, actualBitmap)).isAtLeast(psnrThresholdDb);
   }
 
   @RequiresApi(29)
   private static double getPsnrFloat(Bitmap firstBitmap, Bitmap secondBitmap) {
+    assertThat(firstBitmap.getWidth()).isEqualTo(secondBitmap.getWidth());
+    assertThat(firstBitmap.getHeight()).isEqualTo(secondBitmap.getHeight());
+    assertThat(firstBitmap.getConfig()).isEqualTo(Config.RGBA_F16);
+    assertThat(secondBitmap.getConfig()).isEqualTo(Config.RGBA_F16);
     int width = firstBitmap.getWidth();
     int height = firstBitmap.getHeight();
     double mse = 0.0;
@@ -494,7 +495,19 @@ public class TestUtil {
     return 10.0 * Math.log10(1.0 / normalizedMse);
   }
 
-  private static double getPsnrInt8(Bitmap firstBitmap, Bitmap secondBitmap) {
+  /**
+   * Calculates the Peak-Signal-to-Noise-Ratio value for 2 bitmaps.
+   *
+   * <p>This is the logarithmic decibel(dB) value of the average mean-squared-error of normalized
+   * (0.0-1.0) R/G/B values from the two bitmaps. The higher the value, the more similar they are.
+   *
+   * @param firstBitmap The first bitmap.
+   * @param secondBitmap The second bitmap.
+   * @return The PSNR value calculated from these 2 bitmaps.
+   */
+  private static double getPsnr(Bitmap firstBitmap, Bitmap secondBitmap) {
+    assertThat(firstBitmap.getWidth()).isEqualTo(secondBitmap.getWidth());
+    assertThat(firstBitmap.getHeight()).isEqualTo(secondBitmap.getHeight());
     long mse = 0;
     for (int i = 0; i < firstBitmap.getWidth(); i++) {
       for (int j = 0; j < firstBitmap.getHeight(); j++) {
