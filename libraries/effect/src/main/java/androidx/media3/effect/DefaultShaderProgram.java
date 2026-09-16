@@ -282,6 +282,13 @@ public final class DefaultShaderProgram extends BaseGlShaderProgram
       boolean sampleWithNearest)
       throws VideoFrameProcessingException {
     boolean isInputTransferHdr = ColorInfo.isTransferHdr(inputColorInfo);
+    if (isInputTransferHdr) {
+      // In HDR editing mode the decoder output is sampled in YUV.
+      if (!GlUtil.isYuvTargetExtensionSupported()) {
+        throw new VideoFrameProcessingException(
+            "The EXT_YUV_target extension is required for HDR editing input.");
+      }
+    }
     int vertexShaderResId =
         isInputTransferHdr
             ? R.raw.vertex_shader_transformation_es3
@@ -292,11 +299,6 @@ public final class DefaultShaderProgram extends BaseGlShaderProgram
             : R.raw.fragment_shader_transformation_sdr_external_es2;
     GlProgram glProgram = createGlProgram(context, vertexShaderResId, fragmentShaderResId);
     if (isInputTransferHdr) {
-      // In HDR editing mode the decoder output is sampled in YUV.
-      if (!GlUtil.isYuvTargetExtensionSupported()) {
-        throw new VideoFrameProcessingException(
-            "The EXT_YUV_target extension is required for HDR editing input.");
-      }
       glProgram.setFloatsUniform(
           "uYuvToRgbColorTransform",
           inputColorInfo.colorRange == C.COLOR_RANGE_FULL
