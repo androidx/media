@@ -83,7 +83,8 @@ import java.util.concurrent.Future;
       boolean playIfSuppressed,
       boolean isPeriodicPositionUpdateEnabled,
       @MediaLibrarySession.LibraryErrorReplicationMode int libraryErrorReplicationMode,
-      @Nullable String packageNameOverride) {
+      @Nullable String packageNameOverride,
+      @Nullable Boolean systemUiPlaybackResumptionOptIn) {
     super(
         instance,
         context,
@@ -100,7 +101,8 @@ import java.util.concurrent.Future;
         playIfSuppressed,
         isPeriodicPositionUpdateEnabled,
         /* useLegacySurfaceHandling= */ false,
-        packageNameOverride);
+        packageNameOverride,
+        systemUiPlaybackResumptionOptIn);
     this.instance = instance;
     this.callback = callback;
     this.libraryErrorReplicationMode = libraryErrorReplicationMode;
