@@ -132,6 +132,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public void configure(Format format, @Frame.Usage long usage) {
     // TODO(b/531659135): Take usage flags into account when setting up the ImageWriter.
+    checkState(configuredFormat == null, "configure() must only be called once");
     configuredFormat = format;
     listenerExecutor.execute(() -> listener.onFormatConfigured(format));
   }

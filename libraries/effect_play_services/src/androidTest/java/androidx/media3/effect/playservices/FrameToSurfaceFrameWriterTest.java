@@ -73,6 +73,16 @@ public final class FrameToSurfaceFrameWriterTest {
   }
 
   @Test
+  public void configure_calledMultipleTimes_throwsIllegalStateException() {
+    Format format = new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).build();
+    frameWriter.configure(format, Frame.USAGE_GPU_COLOR_OUTPUT);
+
+    assertThrows(
+        IllegalStateException.class,
+        () -> frameWriter.configure(format, Frame.USAGE_GPU_COLOR_OUTPUT));
+  }
+
+  @Test
   public void dequeueInputFrame_whenAtCapacity_returnsNullUntilReleased() {
     Format format = new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).build();
     frameWriter.configure(format, Frame.USAGE_GPU_COLOR_OUTPUT);
