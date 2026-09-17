@@ -121,6 +121,7 @@ public final class WebServerDispatcher extends Dispatcher {
       private byte[] requestBody;
       private byte @MonotonicNonNull [] data;
       private boolean supportsRangeRequests;
+      private int nonRangeResponseCode;
       private boolean includesContentLengthInRangeResponses;
       private boolean resolvesToUnknownLength;
       private @GzipSupport int gzipSupport;
@@ -131,6 +132,7 @@ public final class WebServerDispatcher extends Dispatcher {
         this.httpMethod = HTTP_METHOD_GET;
         this.requestHeaders = ImmutableListMultimap.of();
         this.requestBody = EMPTY_BYTE_ARRAY;
+        this.nonRangeResponseCode = 200;
         this.includesContentLengthInRangeResponses = true;
         this.gzipSupport = GZIP_SUPPORT_DISABLED;
         this.extraResponseHeaders = ImmutableListMultimap.of();
@@ -143,6 +145,7 @@ public final class WebServerDispatcher extends Dispatcher {
         this.requestBody = resource.getRequestBody();
         this.data = resource.getData();
         this.supportsRangeRequests = resource.supportsRangeRequests();
+        this.nonRangeResponseCode = resource.getNonRangeResponseCode();
         this.includesContentLengthInRangeResponses =
             resource.includesContentLengthInRangeResponses();
         this.resolvesToUnknownLength = resource.resolvesToUnknownLength();
@@ -230,6 +233,19 @@ public final class WebServerDispatcher extends Dispatcher {
       }
 
       /**
+       * Sets the HTTP response code to use when a range is not supported or not requested.
+       *
+       * <p>Defaults to 200.
+       *
+       * @return this builder, for convenience.
+       */
+      @CanIgnoreReturnValue
+      public Builder setNonRangeResponseCode(int nonRangeResponseCode) {
+        this.nonRangeResponseCode = nonRangeResponseCode;
+        return this;
+      }
+
+      /**
        * Sets if RFC 7233 HTTP 206 range responses should include a {@code Content-Length} header.
        *
        * <p>Setting this to false allows simulating servers or proxies that only include the {@code
@@ -304,6 +320,7 @@ public final class WebServerDispatcher extends Dispatcher {
             requestBody,
             checkNotNull(data),
             supportsRangeRequests,
+            nonRangeResponseCode,
             includesContentLengthInRangeResponses,
             resolvesToUnknownLength,
             gzipSupport,
@@ -317,6 +334,7 @@ public final class WebServerDispatcher extends Dispatcher {
     private final byte[] requestBody;
     private final byte[] data;
     private final boolean supportsRangeRequests;
+    private final int nonRangeResponseCode;
     private final boolean includesContentLengthInRangeResponses;
     private final boolean resolvesToUnknownLength;
     private final @GzipSupport int gzipSupport;
@@ -329,6 +347,7 @@ public final class WebServerDispatcher extends Dispatcher {
         byte[] requestBody,
         byte[] data,
         boolean supportsRangeRequests,
+        int nonRangeResponseCode,
         boolean includesContentLengthInRangeResponses,
         boolean resolvesToUnknownLength,
         @GzipSupport int gzipSupport,
@@ -339,10 +358,16 @@ public final class WebServerDispatcher extends Dispatcher {
       this.requestBody = requestBody;
       this.data = data;
       this.supportsRangeRequests = supportsRangeRequests;
+      this.nonRangeResponseCode = nonRangeResponseCode;
       this.includesContentLengthInRangeResponses = includesContentLengthInRangeResponses;
       this.resolvesToUnknownLength = resolvesToUnknownLength;
       this.gzipSupport = gzipSupport;
       this.extraResponseHeaders = extraResponseHeaders;
+    }
+
+    /** The HTTP response code when a range is not supported or not requested. */
+    public int getNonRangeResponseCode() {
+      return nonRangeResponseCode;
     }
 
     /** Returns the path this resource is available at. */
@@ -497,6 +522,7 @@ public final class WebServerDispatcher extends Dispatcher {
 
     @Nullable String rangeHeader = request.getHeader(HttpHeaders.RANGE);
     if (!resource.supportsRangeRequests() || rangeHeader == null) {
+      response.setResponseCode(resource.getNonRangeResponseCode());
       setResponseBody(
           response,
           preferredContentCoding,

@@ -91,6 +91,15 @@ public class HttpDataSourceTestEnv extends ExternalResource {
           .setExtraResponseHeaders(EXTRA_HEADERS)
           .build();
 
+  public static final WebServerDispatcher.Resource RANGE_NOT_SUPPORTED_NON_AUTHORITATIVE =
+      new WebServerDispatcher.Resource.Builder()
+          .setPath("/doesnt/support/range-requests-non-authoritative")
+          .setData(TestUtil.buildTestData(/* length= */ 20, seed++))
+          .supportsRangeRequests(false)
+          .setNonRangeResponseCode(203)
+          .setExtraResponseHeaders(EXTRA_HEADERS)
+          .build();
+
   public static final WebServerDispatcher.Resource GZIP_ENABLED =
       new WebServerDispatcher.Resource.Builder()
           .setPath("/gzip/enabled")
@@ -139,6 +148,7 @@ public class HttpDataSourceTestEnv extends ExternalResource {
         createTestResource("range not supported", RANGE_NOT_SUPPORTED),
         createTestResource(
             "range not supported, length unknown", RANGE_NOT_SUPPORTED_LENGTH_UNKNOWN),
+        createTestResource("range not supported (203)", RANGE_NOT_SUPPORTED_NON_AUTHORITATIVE),
         // TODO: crbug.com/41313195 - Set these back to false when CronetDataSource and
         //  HttpEngineDataSource are able to set Accept-Encoding: identity.
         createTestResource("gzip enabled", GZIP_ENABLED, /* mayResolveToUnknownLength= */ true),
@@ -196,6 +206,7 @@ public class HttpDataSourceTestEnv extends ExternalResource {
                 RANGE_SUPPORTED_LENGTH_UNKNOWN,
                 RANGE_NOT_SUPPORTED,
                 RANGE_NOT_SUPPORTED_LENGTH_UNKNOWN,
+                RANGE_NOT_SUPPORTED_NON_AUTHORITATIVE,
                 GZIP_ENABLED,
                 GZIP_FORCED,
                 POST_EMPTY_REQUEST_BODY,
