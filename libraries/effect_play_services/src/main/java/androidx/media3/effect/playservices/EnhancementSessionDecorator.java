@@ -28,6 +28,7 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ExperimentalApi;
+import androidx.media3.common.util.HandlerExecutor;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
@@ -111,8 +112,8 @@ public final class EnhancementSessionDecorator implements FrameProcessor {
   @GuardedBy("lock")
   private @State int state;
 
-  // Safe because this::handleError is only invoked asynchronously on handlerThread.
-  @SuppressWarnings("methodref.receiver.bound")
+  // Safe because handleError is only invoked asynchronously on handlerThread.
+  @SuppressWarnings("method.invocation")
   private EnhancementSessionDecorator(
       FrameProcessor.Factory baseFrameProcessorFactory,
       FrameWriter downstreamOutput,
@@ -126,7 +127,8 @@ public final class EnhancementSessionDecorator implements FrameProcessor {
     handlerThread = new HandlerThread("EnhancementDecorator");
     handlerThread.start();
     handler = new Handler(handlerThread.getLooper());
-    handlerExecutor = new HandlerExecutor(handler, this::handleError);
+    handlerExecutor =
+        new HandlerExecutor(handler, e -> handleError(VideoFrameProcessingException.from(e)));
 
     surfaceToFrameWriterAdapter =
         new SurfaceToFrameWriterAdapter(
