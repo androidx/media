@@ -29,8 +29,10 @@ import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIM
 import static androidx.media3.test.utils.AssetInfo.MP4_PORTRAIT_ASSET;
 import static androidx.media3.test.utils.AssetInfo.PNG_ASSET_LINES_1080P;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_LUMA;
+import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
+import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
 import static androidx.media3.transformer.AndroidTestUtil.extractBitmapsFromVideo;
 import static androidx.media3.transformer.SequenceEffectTestUtil.NO_EFFECT;
 import static androidx.media3.transformer.SequenceEffectTestUtil.PSNR_THRESHOLD;
@@ -50,13 +52,14 @@ import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.os.Build;
+import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.effect.BitmapOverlay;
 import androidx.media3.effect.DefaultGlFrameProcessor;
 import androidx.media3.effect.DefaultGlObjectsProvider;
@@ -70,7 +73,6 @@ import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.test.core.app.ApplicationProvider;
-import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import java.io.File;
@@ -388,72 +390,47 @@ public final class TransformerSequenceEffectTest {
 
   @Test
   public void export_image_samplesFromTextureCorrectly() throws Exception {
-    assumeFormatsSupported(
-        context,
-        testId,
-        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat,
-        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat);
     Composition composition =
         createVideoOnlyComposition(
             /* presentation= */ null,
             new EditedMediaItem.Builder(
                     new MediaItem.Builder()
                         .setUri(PNG_ASSET_LINES_1080P.uri)
-                        .setImageDurationMs(C.MILLIS_PER_SECOND / 4)
+                        // A duration of one frame at 30 fps produces exactly 1 frame.
+                        .setImageDurationMs(C.MILLIS_PER_SECOND / 30)
                         .build())
                 .setFrameRate(30)
                 .build());
-    // Some devices need a very high bitrate to avoid encoding artifacts.
-    int bitrate = 30_000_000;
-    if (Ascii.equalsIgnoreCase(Build.MODEL, "mi a2 lite")
-        || Ascii.equalsIgnoreCase(Build.MODEL, "redmi 8")
-        || Ascii.equalsIgnoreCase(Build.MODEL, "sm-f711u1")
-        || Ascii.equalsIgnoreCase(Build.MODEL, "sm-t870")
-        || Ascii.equalsIgnoreCase(Build.MODEL, "sm-f916u1")
-        || Ascii.equalsIgnoreCase(Build.MODEL, "sm-f926u1")
-        || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g781n")
-        || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g781v")
-        || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g781w")
-        || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g981u1")
-        || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g986u1")
-        || Ascii.equalsIgnoreCase(Build.MODEL, "sm-n981u")
-        || Ascii.equalsIgnoreCase(Build.MODEL, "tb-q706")
-        || Ascii.equalsIgnoreCase(Build.MODEL, "moto g04")
-        || Ascii.equalsIgnoreCase(Build.MODEL, "moto e13")
-        || Ascii.equalsIgnoreCase(Build.MODEL, "rmx3760")) {
-      // And some devices need a lower bitrate because VideoDecodingWrapper fails to decode high
-      // bitrate output, or FrameworkMuxer fails to mux.
-      bitrate = 10_000_000;
-    }
-    Codec.EncoderFactory encoderFactory =
-        new DefaultEncoderFactory.Builder(context)
-            .setRequestedVideoEncoderSettings(
-                new VideoEncoderSettings.Builder().setBitrate(bitrate).build())
-            .build();
+    SingleFrameCapturingEncoder.Factory capturingEncoderFactory =
+        new SingleFrameCapturingEncoder.Factory();
     Transformer transformer =
         createTransformerBuilder()
-            .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(encoderFactory))
-            .setVideoMimeType("video/avc")
+            .setEncoderFactory(capturingEncoderFactory)
+            .setMaxDelayBetweenMuxerSamplesMs(C.TIME_UNSET)
+            .setMuxerFactory(
+                new NoWriteMuxer.Factory(
+                    /* audioMimeTypes= */ ImmutableList.of(MimeTypes.AUDIO_AAC),
+                    /* videoMimeTypes= */ ImmutableList.of(MimeTypes.VIDEO_H264)))
             .build();
 
-    ExportTestResult result =
-        new TransformerAndroidTestRunner.Builder(context, transformer)
-            .build()
-            .run(testId, composition);
+    new TransformerAndroidTestRunner.Builder(context, transformer).build().run(testId, composition);
 
-    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+    Bitmap actualBitmap = capturingEncoderFactory.getLastBitmap();
+    assertThat(actualBitmap).isNotNull();
+    Bitmap expectedBitmap =
+        readBitmap(
+            checkNotNull(Uri.parse(PNG_ASSET_LINES_1080P.uri).getPath()).replaceFirst("^/", ""));
+    maybeSaveTestBitmap(testId, /* bitmapLabel= */ "0", actualBitmap, /* path= */ null);
     // The PSNR threshold was chosen based on:
     // Pixel 8 with coordinate rounding error during texture sampling, gets PSNR 23.4.
     // After fix -> 29.5
     // rmx3563 with bug fix achieves PSNR 28.8
-    assertFramesMatchExpectedPsnrAndSave(
-        context,
-        testId,
-        checkNotNull(result.filePath),
+    assertBitmapsAreSimilar(
+        expectedBitmap,
+        actualBitmap,
         // TODO: b/530130453 - Lowering PSNR because DefaultGlFrameProcessor doesn't yet process
         //  frames in linear colors.
-        /* psnrThreshold= */ useDefaultGlFrameProcessor ? 24 : 28.5f,
-        /* frameCount= */ 2);
+        useDefaultGlFrameProcessor ? 24 : 28.5f);
   }
 
   @Test
