@@ -173,6 +173,7 @@ public class EncoderFrameWriter implements FrameWriter {
     checkState(imageWriter != null);
     checkArgument(frame instanceof DefaultHardwareBufferFrame);
     DefaultHardwareBufferFrame hardwareBufferFrame = (DefaultHardwareBufferFrame) frame;
+    hardwareBufferFrame.getHardwareBuffer().close();
     @Nullable Image image = (Image) hardwareBufferFrame.getInternalImage();
     checkArgument(image != null);
     // The downstream encoder uses the image timestamp as the presentation timestamp.
@@ -182,6 +183,8 @@ public class EncoderFrameWriter implements FrameWriter {
       try {
         image.setFence(writeCompleteFence.asSyncFence());
       } catch (IOException e) {
+        image.close();
+        writeCompleteFence.close();
         listenerExecutor.execute(() -> listener.onError(VideoFrameProcessingException.from(e)));
         return;
       }
