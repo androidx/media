@@ -64,7 +64,8 @@ const mat3 XYZ_TO_BT2020 =
 
 // Matrix values based on computeXYZMatrix(BT709Primaries, D65WhitePoint)
 // References:
-// - ITU-R BT.709-6: Parameter values for the HDTV standard for production and international programme exchange.
+// - ITU-R BT.709-6: Parameter values for the HDTV standard for production and international
+//   programme exchange.
 // Column-major representation:
 const mat3 BT709_TO_XYZ =
     mat3(0.41239080, 0.21263901, 0.01933082,
@@ -73,7 +74,8 @@ const mat3 BT709_TO_XYZ =
 
 // Matrix values based on computeXYZMatrix(BT709Primaries, D65WhitePoint) inverted
 // References:
-// - ITU-R BT.709-6: Parameter values for the HDTV standard for production and international programme exchange.
+// - ITU-R BT.709-6: Parameter values for the HDTV standard for production and international
+//   programme exchange.
 // Column-major representation:
 const mat3 XYZ_TO_BT709 =
     mat3(3.24096994, -0.96924364, 0.05563008,
@@ -100,9 +102,30 @@ const highp mat3 BT2020_LIMITED_RANGE_YUV_TO_RGB =
         0.0000, -0.1881, 2.1502,
         1.6853, -0.6530, 0.0000);
 
+// ITU-R BT.2408 diffuse white reference, expressed in scene-referred light.
+//
+// BT.2408 defines diffuse white as 203 nits of display light, which for HLG is the 75% signal
+// level. This pipeline works in scene-referred light: hlgEotf is the inverse OETF, and the SDR and
+// PQ ingress paths apply an inverse OOTF to reach scene light. The anchor is therefore expressed
+// in scene light as well, as hlgEotf(0.75) = 0.2649626. The HLG scene-to-display OOTF maps that
+// to 1000.0 * pow(0.2649626, 1.2) = 203 nits on a nominal 1000-nit display.
+//
+// Scaling scene light by HLG_DIFFUSE_WHITE_SCALE_UP makes 1.0 represent diffuse white, and peak
+// scene light evaluate to ~3.7741.
+//
+// The two factors are exact inverses, so scaling up on ingress and down on egress round-trips
+// without loss.
+// References:
+// - ITU-R Report BT.2408: Guidance for operational practices in HDR television production.
+const highp float HLG_DIFFUSE_WHITE_SCALE_DOWN = 0.2649626;  // hlgEotf(0.75)
+const highp float HLG_DIFFUSE_WHITE_SCALE_UP = 1.0 / HLG_DIFFUSE_WHITE_SCALE_DOWN;  // ~3.7741
+
 // BT.2100 / BT.2020 HLG EOTF for 3-channel RGB.
 // Converts scene-referred non-linear electrical values [0.0, 1.0] to linear optical scene light
 // in BT.2020 color space.
+//
+// BT.2100 technically defines the HLG EOTF as OOTF(OETF^-1(E)), which lands in display light.
+// This function applies only OETF^-1, so that all processing is done in scene light.
 // References:
 // - ITU-R Recommendation BT.2100-2 (Table 5: "Hybrid Log-Gamma reference OETF / EOTF"):
 //   https://www.itu.int/dms_pubrec/itu-r/rec/bt/R-REC-BT.2100-3-202502-I!!PDF-E.pdf
@@ -129,6 +152,11 @@ highp vec3 hlgEotf(highp vec3 hlgElectrical) {
 
 // BT.2100 / BT.2020 HLG OETF for 3-channel RGB.
 // Converts linear optical scene light in BT.2020 color space to electrical HLG values [0.0, 1.0].
+//
+// Expects optical scene light normalized to [0.0, 1.0]. Callers converting from the linear HDR
+// optical working space (where 1.0 represents the BT.2408 203-nit diffuse white reference) must
+// scale the optical signal down by HLG_DIFFUSE_WHITE_SCALE_DOWN first, to normalize it back to
+// [0.0, 1.0].
 // References:
 // - ITU-R Recommendation BT.2100-2 (Table 5: "Hybrid Log-Gamma reference OETF / EOTF"):
 //   https://www.itu.int/dms_pubrec/itu-r/rec/bt/R-REC-BT.2100-3-202502-I!!PDF-E.pdf
@@ -153,6 +181,11 @@ highp vec3 hlgOetf(highp vec3 linearColor) {
 // display-referred (expecting display-adapted electrical values for a standard monitor). This
 // method applies HLG scene-light to display-light OOTF before converting color gamut.
 //
+// Expects optical scene light normalized to [0.0, 1.0]. Callers converting from the linear HDR
+// optical working space (where 1.0 represents the BT.2408 203-nit diffuse white reference) must
+// scale the optical signal down by HLG_DIFFUSE_WHITE_SCALE_DOWN first, to normalize it back to
+// [0.0, 1.0].
+//
 // System Gamma Formula (ITU-R BT.2100-2 Table 5, Note 5b):
 //   gamma = 1.2 + 0.42 * log10(L_W / 1000.0)
 // where L_W is the nominal peak display luminance in nits (cd/m^2).
@@ -161,8 +194,9 @@ highp vec3 hlgOetf(highp vec3 linearColor) {
 //
 // Chromaticity Preservation:
 // In CIE XYZ space, Y (linearXyz[1]) is perceptual luminance, while X and Z carry color ratios.
-// Multiplying the entire XYZ vector by (Y)^(gamma - 1.0) scales the luminance to Y * Y^(gamma-1) = Y^gamma
-// while perfectly preserving the X/Y and Z/Y ratios, resulting in zero hue shift or color distortion.
+// Multiplying the entire XYZ vector by (Y)^(gamma - 1.0) scales the luminance to
+// Y * Y^(gamma-1) = Y^gamma while perfectly preserving the X/Y and Z/Y ratios, resulting in zero
+// hue shift or color distortion.
 //
 // References:
 // - ITU-R BT.2100-2 ("HLG Reference OOTF"):
@@ -197,7 +231,8 @@ highp vec3 transformBt709DisplayToBt2020Scene(highp vec3 linearBt709Display) {
 
 // Transforms electrical SDR to linear optical SDR using the sRGB EOTF.
 // References:
-// - IEC 61966-2-1: Multimedia systems and equipment - Colour measurement and management - Part 2-1: Colour management - Default RGB colour space - sRGB
+// - IEC 61966-2-1: Multimedia systems and equipment - Colour measurement and management -
+//   Part 2-1: Colour management - Default RGB colour space - sRGB
 // - Khronos Data Format Specification 1.3 (TRANSFER_SRGB):
 //   https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.inline.html#TRANSFER_SRGB
 // - Android RenderEngine ProgramCache:
@@ -210,7 +245,8 @@ highp vec3 srgbEotf(highp vec3 electricalColor) {
 
 // Transforms linear optical light to electrical SDR using the sRGB OETF.
 // References:
-// - IEC 61966-2-1: Multimedia systems and equipment - Colour measurement and management - Part 2-1: Colour management - Default RGB colour space - sRGB
+// - IEC 61966-2-1: Multimedia systems and equipment - Colour measurement and management -
+//   Part 2-1: Colour management - Default RGB colour space - sRGB
 // - Khronos Data Format Specification 1.3 (TRANSFER_SRGB):
 //   https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.inline.html#TRANSFER_SRGB
 // - Android RenderEngine ProgramCache:
@@ -271,23 +307,33 @@ highp vec3 processColor(
   }
 
   // 2. SDR -> HDR (Gamut expansion + display to scene OOTF)
+  // sdrElectricalToHdrSceneLinear anchors SDR reference white on diffuse white, so its output is
+  // already in the linear HDR optical working space and needs no ingress scaling. Egress to an
+  // electrical transfer scales down by HLG_DIFFUSE_WHITE_SCALE_DOWN, mapping SDR reference white
+  // to the BT.2408 75% HLG signal level (203 nits) rather than to HLG peak.
+  // TODO(b/545590806): Support PQ (ST 2084) HDR output processing.
   if (!isInputHdr && isOutputHdr) {
-      highp vec3 hdrSceneLinear = sdrElectricalToHdrSceneLinear(inputRgbElectricalColor);
+    highp vec3 hdrSceneLinear = sdrElectricalToHdrSceneLinear(inputRgbElectricalColor);
     return (outputColorTransfer == COLOR_TRANSFER_LINEAR)
         ? hdrSceneLinear
-        : hlgOetf(hdrSceneLinear);
+        : hlgOetf(hdrSceneLinear * HLG_DIFFUSE_WHITE_SCALE_DOWN);
   }
 
   // 3. HDR -> HDR (Same gamut, pass-through or linearize)
   // TODO(b/545590806): Support PQ (ST 2084) HDR output processing.
-  // TODO(b/545590806): Support fixing 203 nit diffuse white (BT.2408) on input and output.
   if (isInputHdr && isOutputHdr) {
+    // Scales optical scene light up by HLG_DIFFUSE_WHITE_SCALE_UP, so that 1.0 represents the
+    // BT.2408 203-nit diffuse white reference and peak optical scene light evaluates to ~3.7741.
+    // Egress back to an electrical transfer scales by HLG_DIFFUSE_WHITE_SCALE_DOWN, inverting this
+    // exactly.
     return (outputColorTransfer == COLOR_TRANSFER_LINEAR)
-        ? hlgEotf(inputRgbElectricalColor)
+        ? hlgEotf(inputRgbElectricalColor) * HLG_DIFFUSE_WHITE_SCALE_UP
         : inputRgbElectricalColor;
   }
 
   // 4. HDR -> SDR (Tone-mapping + Gamut reduction)
+  // This path never enters the linear working space, so the BT.2408 ingress scale-up and egress
+  // scale-down cancel out and no scaling is applied.
   // TODO(b/545591397): Support PQ (ST 2084) tone mapping.
   highp vec3 sdrDisplayLinear = hdrElectricalToSdrDisplayLinear(inputRgbElectricalColor);
   return (outputColorTransfer == COLOR_TRANSFER_LINEAR)

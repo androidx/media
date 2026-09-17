@@ -112,27 +112,27 @@ public final class HardwareBufferToGlTextureConverterTest {
           new SolidColorTestCase(
               /* name= */ "WHITE",
               /* inputSrgbColor= */ Color.WHITE,
-              /* expectedHlgRgb= */ Color.valueOf(1.0f, 1.0f, 1.0f),
+              /* expectedHlgRgb= */ Color.valueOf(0.75f, 0.75f, 0.75f),
               /* expectedBt2020LinearRgb= */ Color.valueOf(1.0f, 1.0f, 1.0f)),
           new SolidColorTestCase(
               /* name= */ "GRAY_128",
               /* inputSrgbColor= */ Color.rgb(128, 128, 128),
-              /* expectedHlgRgb= */ Color.valueOf(0.7585f, 0.7585f, 0.7585f),
+              /* expectedHlgRgb= */ Color.valueOf(0.4707f, 0.4707f, 0.4707f),
               /* expectedBt2020LinearRgb= */ Color.valueOf(0.2787f, 0.2787f, 0.2787f)),
           new SolidColorTestCase(
               /* name= */ "RED",
               /* inputSrgbColor= */ Color.RED,
-              /* expectedHlgRgb= */ Color.valueOf(0.9618f, 0.5174f, 0.2523f),
+              /* expectedHlgRgb= */ Color.valueOf(0.7087f, 0.2666f, 0.1298f),
               /* expectedBt2020LinearRgb= */ Color.valueOf(0.8122f, 0.0894f, 0.0212f)),
           new SolidColorTestCase(
               /* name= */ "GREEN",
               /* inputSrgbColor= */ Color.GREEN,
-              /* expectedHlgRgb= */ Color.valueOf(0.8030f, 0.9949f, 0.5271f),
+              /* expectedHlgRgb= */ Color.valueOf(0.5250f, 0.7445f, 0.2720f),
               /* expectedBt2020LinearRgb= */ Color.valueOf(0.3482f, 0.9724f, 0.0931f)),
           new SolidColorTestCase(
               /* name= */ "BLUE",
               /* inputSrgbColor= */ Color.BLUE,
-              /* expectedHlgRgb= */ Color.valueOf(0.4487f, 0.2298f, 1.0f),
+              /* expectedHlgRgb= */ Color.valueOf(0.2309f, 0.1183f, 0.75f),
               /* expectedBt2020LinearRgb= */ Color.valueOf(0.0671f, 0.0176f, 1.0f)));
 
   private final Context context = getApplicationContext();
@@ -626,6 +626,9 @@ public final class HardwareBufferToGlTextureConverterTest {
    *   <li>Display light is converted to BT.2020 scene light using {@code BT709_TO_XYZ}, an inverse
    *       HLG OOTF scaling in XYZ luminance ({@code Y^(-1/6)} for system gamma = 1.2), and {@code
    *       XYZ_TO_BT2020} per ITU-R BT.2408 section 5.1.1.
+   *   <li>Scene light is scaled down by the BT.2408 diffuse white factor {@code hlgEotf(0.75)}, so
+   *       that SDR reference white maps to the 75% HLG signal level (203 nits) rather than to HLG
+   *       peak.
    *   <li>The resulting scene light is encoded into HLG electrical signal using the HLG OETF per
    *       ITU-R BT.2100-2 Table 5.
    * </ul>
@@ -654,6 +657,9 @@ public final class HardwareBufferToGlTextureConverterTest {
    *       HLG OOTF scaling in XYZ luminance ({@code Y^(-1/6)} for system gamma = 1.2), and {@code
    *       XYZ_TO_BT2020} per ITU-R BT.2408 section 5.1.1.
    *   <li>Output is kept in optical linear BT.2020 scene light without applying an OETF.
+   *   <li>No scaling is applied: the scene light is already anchored on the BT.2408 diffuse white
+   *       reference, so SDR reference white maps to {@code 1.0}, the same value that HDR diffuse
+   *       white ({@code hlgEotf(0.75)}, 203 nits) maps to in this working space.
    * </ul>
    */
   @SdkSuppress(minSdkVersion = 31)
