@@ -800,7 +800,7 @@ public class ChunkSampleStream<T extends ChunkSource>
 
   @Override
   public @Flags int getFlags() {
-    if (needToEvaluateInitialDiscontinuity) {
+    if (needToEvaluateInitialDiscontinuity && !loadingFinished && !loader.hasFatalError()) {
       return FLAG_MAYBE_HAS_PREROLL;
     }
     return hasInitialDiscontinuity ? FLAG_HAS_PREROLL : 0;

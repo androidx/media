@@ -16,6 +16,9 @@
 package androidx.media3.exoplayer.source.chunk;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doAnswer;
 
 import android.net.Uri;
 import androidx.annotation.Nullable;
@@ -30,6 +33,7 @@ import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
+import androidx.media3.exoplayer.source.SampleStream;
 import androidx.media3.exoplayer.source.SequenceableLoader;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
@@ -216,5 +220,56 @@ public final class ChunkSampleStreamTest {
 
     // Verify that the seek fell back to reset instead of succeeding inside the buffer.
     assertThat(chunkSampleStream.isPendingReset()).isTrue();
+  }
+
+  @Test
+  public void getFlags_beforeChunksLoaded_returnsFlagMaybeHasPreroll() {
+    chunkSampleStream = createChunkSampleStreamHandlingInitialDiscontinuity();
+
+    @SampleStream.Flags int flags = chunkSampleStream.getFlags();
+
+    assertThat(flags).isEqualTo(SampleStream.FLAG_MAYBE_HAS_PREROLL);
+  }
+
+  @Test
+  public void getFlags_loadingFinishedWithoutMediaChunks_returnsZero() {
+    chunkSampleStream = createChunkSampleStreamHandlingInitialDiscontinuity();
+    doAnswer(
+            invocation -> {
+              ChunkHolder chunkHolder = invocation.getArgument(3);
+              chunkHolder.endOfStream = true;
+              return null;
+            })
+        .when(mockChunkSource)
+        .getNextChunk(any(), anyLong(), any(), any());
+
+    assertThat(
+            chunkSampleStream.continueLoading(
+                new LoadingInfo.Builder()
+                    .setPlaybackPositionUs(/* playbackPositionUs= */ 0)
+                    .build()))
+        .isTrue();
+
+    // No media chunk will ever be loaded, so the initial discontinuity can never be evaluated and
+    // the stream must not stay stuck on FLAG_MAYBE_HAS_PREROLL.
+    assertThat(chunkSampleStream.getFlags()).isEqualTo(0);
+  }
+
+  private ChunkSampleStream<ChunkSource> createChunkSampleStreamHandlingInitialDiscontinuity() {
+    return new ChunkSampleStream<>(
+        /* primaryTrackType= */ C.TRACK_TYPE_VIDEO,
+        /* embeddedTrackTypes= */ null,
+        /* embeddedTrackFormats= */ null,
+        mockChunkSource,
+        mockCallback,
+        allocator,
+        /* positionUs= */ 0,
+        DrmSessionManager.DRM_UNSUPPORTED,
+        mockDrmEventDispatcher,
+        new DefaultLoadErrorHandlingPolicy(),
+        mockMediaSourceEventDispatcher,
+        /* handleInitialDiscontinuity= */ true,
+        /* firstChunkStartTimeUs= */ C.TIME_UNSET,
+        /* downloadExecutor= */ null);
   }
 }

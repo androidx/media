@@ -737,6 +737,40 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   }
 
   /**
+   * Returns the stream flags for the given track group index.
+   *
+   * @param trackGroupIndex The index of the track group.
+   * @return The {@link SampleStream.Flags} for the stream.
+   */
+  public @SampleStream.Flags int getStreamFlags(int trackGroupIndex) {
+    assertIsPrepared();
+    Format playlistFormat = trackGroups.get(trackGroupIndex).getFormat(0);
+    if (SampleQueue.isDiscardingAllSamplesToStartTime(playlistFormat)) {
+      return 0;
+    }
+    if (mediaChunks.isEmpty()) {
+      return loadingFinished || loader.hasFatalError() ? 0 : SampleStream.FLAG_MAYBE_HAS_PREROLL;
+    }
+    long resetPositionUs = isPendingReset() ? pendingResetPositionUs : lastSeekPositionUs;
+    if (resetPositionUs == C.TIME_UNSET || mediaChunks.get(0).startTimeUs >= resetPositionUs) {
+      return 0;
+    }
+    if (trackGroupToSampleQueueIndex != null) {
+      int sampleQueueIndex = trackGroupToSampleQueueIndex[trackGroupIndex];
+      if (sampleQueueIndex == C.INDEX_UNSET) {
+        return 0;
+      }
+      @Nullable Format upstreamFormat = sampleQueues[sampleQueueIndex].getUpstreamFormat();
+      if (upstreamFormat != null) {
+        return SampleQueue.isDiscardingAllSamplesToStartTime(upstreamFormat)
+            ? 0
+            : SampleStream.FLAG_HAS_PREROLL;
+      }
+    }
+    return loadingFinished || loader.hasFatalError() ? 0 : SampleStream.FLAG_MAYBE_HAS_PREROLL;
+  }
+
+  /**
    * Sets the end position at which the period stops loading and providing samples.
    *
    * <p>If a value other than {@link C#TIME_END_OF_SOURCE} is set, the implementation will stop

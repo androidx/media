@@ -87,6 +87,11 @@ import java.io.IOException;
         : 0;
   }
 
+  @Override
+  public @Flags int getFlags() {
+    return sampleStreamWrapper.getStreamFlags(trackGroupIndex);
+  }
+
   // Internal methods.
 
   private boolean hasValidSampleQueueIndex() {

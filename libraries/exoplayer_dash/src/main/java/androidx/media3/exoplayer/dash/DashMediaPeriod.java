@@ -50,6 +50,7 @@ import androidx.media3.exoplayer.source.EmptySampleStream;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.source.MediaSourceEventListener.EventDispatcher;
+import androidx.media3.exoplayer.source.SampleQueue;
 import androidx.media3.exoplayer.source.SampleStream;
 import androidx.media3.exoplayer.source.SequenceableLoader;
 import androidx.media3.exoplayer.source.TrackGroupArray;
@@ -948,7 +949,7 @@ import java.util.regex.Pattern;
             positionUs, manifest, periodIndex, trackGroupInfo.adaptationSetIndices);
     boolean handleInitialDiscontinuity =
         canReportInitialDiscontinuity
-            && !areAllSamplesSyncSamples(
+            && !isDiscardingAllSamplesToStartTime(
                 manifest, periodIndex, trackGroupInfo.adaptationSetIndices, selection);
     DashChunkSource chunkSource =
         chunkSourceFactory.createDashChunkSource(
@@ -1010,7 +1011,7 @@ import java.util.regex.Pattern;
     return C.TIME_UNSET;
   }
 
-  private static boolean areAllSamplesSyncSamples(
+  private static boolean isDiscardingAllSamplesToStartTime(
       DashManifest manifest,
       int periodIndex,
       int[] adaptationSetIndices,
@@ -1023,8 +1024,7 @@ import java.util.regex.Pattern;
     ImmutableList<Representation> representations = representationsBuilder.build();
     for (int i = 0; i < trackSelection.length(); i++) {
       Representation representation = representations.get(trackSelection.getIndexInTrackGroup(i));
-      if (!MimeTypes.allSamplesAreSyncSamples(
-          representation.format.sampleMimeType, representation.format.codecs)) {
+      if (!SampleQueue.isDiscardingAllSamplesToStartTime(representation.format)) {
         return false;
       }
     }

@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.dash;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -51,6 +52,7 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
@@ -397,6 +399,59 @@ public final class DashMediaPeriodTest {
             /* positionUs= */ 0L);
 
     assertThat(sampleStreams[0]).isNotNull();
+  }
+
+  @Test
+  public void selectTracks_syncAudioTrack_reportsZeroStreamFlags() throws IOException {
+    DashManifest manifest = parseManifest("media/mpd/sample_mpd_vod");
+    DashMediaPeriod dashMediaPeriod = createDashMediaPeriod(manifest, /* periodIndex= */ 0);
+    TrackGroupArray trackGroups = dashMediaPeriod.getTrackGroups();
+    // Track group 0 is video (avc1), track group 1 is audio (mp4a.40.2).
+    ExoTrackSelection videoSelection = new FixedTrackSelection(trackGroups.get(0), /* track= */ 0);
+    ExoTrackSelection audioSelection = new FixedTrackSelection(trackGroups.get(1), /* track= */ 0);
+    SampleStream[] sampleStreams = new SampleStream[2];
+
+    long unused =
+        dashMediaPeriod.selectTracks(
+            new ExoTrackSelection[] {videoSelection, audioSelection},
+            new boolean[2],
+            sampleStreams,
+            new boolean[2],
+            /* positionUs= */ 1_000_000L);
+
+    // Video stream with mid-segment resumption (first chunk start 0 < seek position 1s) has
+    // preroll.
+    assertThat(sampleStreams[0].getFlags()).isEqualTo(SampleStream.FLAG_HAS_PREROLL);
+    // Sync audio track discards samples up to start time; reports 0.
+    assertThat(sampleStreams[1].getFlags()).isEqualTo(0);
+  }
+
+  @Test
+  public void selectTracks_midSegmentResumption_videoApv_reportsFlagHasPreroll()
+      throws IOException {
+    String apvManifestXml =
+        TestUtil.getString(ApplicationProvider.getApplicationContext(), "media/mpd/sample_mpd_vod")
+            .replace("mimeType=\"video/mp4\"", "mimeType=\"" + MimeTypes.VIDEO_APV + "\"")
+            .replace("codecs=\"avc1.4d401e\"", "");
+    DashManifest manifest =
+        new DashManifestParser()
+            .parse(Uri.EMPTY, new ByteArrayInputStream(apvManifestXml.getBytes(UTF_8)));
+    DashMediaPeriod dashMediaPeriod = createDashMediaPeriod(manifest, /* periodIndex= */ 0);
+    TrackGroupArray trackGroups = dashMediaPeriod.getTrackGroups();
+    ExoTrackSelection selection = new FixedTrackSelection(trackGroups.get(0), /* track= */ 0);
+    SampleStream[] sampleStreams = new SampleStream[1];
+
+    long unused =
+        dashMediaPeriod.selectTracks(
+            new ExoTrackSelection[] {selection},
+            new boolean[1],
+            sampleStreams,
+            new boolean[1],
+            /* positionUs= */ 1_000_000L);
+
+    // Even though APV only contains sync frames, it is a video format and SampleQueue does not
+    // discard samples to start time; preroll flag must be reported.
+    assertThat(sampleStreams[0].getFlags()).isEqualTo(SampleStream.FLAG_HAS_PREROLL);
   }
 
   private static DashMediaPeriod createDashMediaPeriod(DashManifest manifest, int periodIndex) {
