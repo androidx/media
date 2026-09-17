@@ -155,6 +155,8 @@
         track reselection, session teardown, or uri redirection.
     *   Fix issue where seeking again prior to playback restart could cause an
         `IllegalStateException` crash.
+    *   Fix issue where seeking backward while a seek is already pending could
+        cause audio dropout and video playback freeze.
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
 *   MIDI extension:
 *   Leanback extension:

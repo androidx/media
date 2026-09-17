@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.rtsp;
 
 import static androidx.media3.exoplayer.rtsp.RtspRequest.METHOD_DESCRIBE;
 import static androidx.media3.exoplayer.rtsp.RtspRequest.METHOD_OPTIONS;
+import static androidx.media3.exoplayer.rtsp.RtspRequest.METHOD_PAUSE;
 import static androidx.media3.exoplayer.rtsp.RtspRequest.METHOD_PLAY;
 import static androidx.media3.exoplayer.rtsp.RtspRequest.METHOD_SETUP;
 import static androidx.media3.exoplayer.rtsp.RtspRequest.METHOD_TEARDOWN;
@@ -57,6 +58,11 @@ public final class RtspServer implements Closeable {
     /** Returns an RTSP PLAY {@link RtspResponse response}. */
     default RtspResponse getPlayResponse() {
       return RtspTestUtils.RTSP_ERROR_METHOD_NOT_ALLOWED;
+    }
+
+    /** Returns an RTSP PAUSE {@link RtspResponse response}. */
+    default RtspResponse getPauseResponse() {
+      return new RtspResponse(/* status= */ 200, RtspHeaders.EMPTY);
     }
 
     /** Returns an RTSP TEARDOWN {@link RtspResponse response}. */
@@ -153,6 +159,10 @@ public final class RtspServer implements Closeable {
 
         case METHOD_PLAY:
           sendResponse(responseProvider.getPlayResponse(), cSeq);
+          break;
+
+        case METHOD_PAUSE:
+          sendResponse(responseProvider.getPauseResponse(), cSeq);
           break;
 
         case METHOD_TEARDOWN:

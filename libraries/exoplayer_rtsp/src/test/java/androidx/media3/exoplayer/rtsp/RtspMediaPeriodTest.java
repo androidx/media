@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.rtsp;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.lang.Math.min;
 
 import android.net.Uri;
 import androidx.annotation.Nullable;
@@ -30,11 +31,14 @@ import androidx.media3.exoplayer.source.SampleStream;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.FixedTrackSelection;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
+import androidx.media3.test.utils.TestUtil;
 import androidx.media3.test.utils.robolectric.RobolectricUtil;
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
-import java.util.concurrent.CountDownLatch;
+import java.util.List;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -286,6 +290,200 @@ public final class RtspMediaPeriodTest {
     assertThat(mediaPeriod.getBufferedPositionUs()).isEqualTo(5000000);
   }
 
+  @Test
+  public void seekToUs_toEarlierPositionWhileSeekPending_buffersSamplesFromNewPosition()
+      throws Exception {
+    FakeRtpDataChannelFactory rtpDataChannelFactory = new FakeRtpDataChannelFactory();
+    RtpPacketStreamDump aacLcStreamDump =
+        RtpPacketStreamDump.parse(
+            TestUtil.getString(
+                    ApplicationProvider.getApplicationContext(), "media/rtsp/aac-dump.json")
+                .replace("profile-level-id=1", "profile-level-id=2"));
+    rtspServer =
+        new RtspServer(
+            new TestResponseProvider(
+                aacLcStreamDump,
+                /* getPlayResponseReference= */ null,
+                /* isWwwAuthenticationMode= */ false));
+    mediaPeriod =
+        new RtspMediaPeriod(
+            new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE),
+            rtpDataChannelFactory,
+            RtspTestUtils.getTestUri(rtspServer.startAndGetPortNumber()),
+            /* listener= */ timing -> {},
+            /* userAgent= */ "ExoPlayer:RtspPeriodTest",
+            /* socketFactory= */ SocketFactory.getDefault(),
+            /* debugLoggingEnabled= */ false);
+    mediaPeriod.prepare(mediaPeriodCallback, /* positionUs= */ 0);
+    RobolectricUtil.runMainLooperUntil(() -> trackGroupAtomicReference.get() != null);
+    SampleStream[] sampleStreams = new SampleStream[1];
+    mediaPeriod.selectTracks(
+        new ExoTrackSelection[] {
+          new FixedTrackSelection(trackGroupAtomicReference.get(), /* track= */ 0)
+        },
+        /* mayRetainStreamFlags= */ new boolean[] {false},
+        sampleStreams,
+        /* streamResetFlags= */ new boolean[] {true},
+        /* positionUs= */ 0);
+
+    mediaPeriod.seekToUs(10_000_000);
+    mediaPeriod.seekToUs(500_000);
+    RobolectricUtil.runMainLooperUntil(() -> mediaPeriod.getBufferedPositionUs() == 0);
+    rtpDataChannelFactory.getDataChannel().enqueuePackets(aacLcStreamDump.packets);
+    RobolectricUtil.runMainLooperUntil(
+        rtpDataChannelFactory.getDataChannel()::areAllPacketsProcessed);
+
+    assertThat(mediaPeriod.getBufferedPositionUs()).isEqualTo(640_000);
+  }
+
+  @Test
+  public void
+      seekToUs_toEarlierPositionDuringPlayingStateWhilePausePending_buffersSamplesFromNewPosition()
+          throws Exception {
+    AtomicBoolean getPlayResponseReference = new AtomicBoolean();
+    FakeRtpDataChannelFactory rtpDataChannelFactory = new FakeRtpDataChannelFactory();
+    RtpPacketStreamDump aacLcStreamDump =
+        RtpPacketStreamDump.parse(
+            TestUtil.getString(
+                    ApplicationProvider.getApplicationContext(), "media/rtsp/aac-dump.json")
+                .replace("profile-level-id=1", "profile-level-id=2"));
+    rtspServer =
+        new RtspServer(
+            new TestResponseProvider(
+                aacLcStreamDump,
+                /* getPlayResponseReference= */ getPlayResponseReference,
+                /* isWwwAuthenticationMode= */ false));
+    mediaPeriod =
+        new RtspMediaPeriod(
+            new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE),
+            rtpDataChannelFactory,
+            RtspTestUtils.getTestUri(rtspServer.startAndGetPortNumber()),
+            /* listener= */ timing -> {},
+            /* userAgent= */ "ExoPlayer:RtspPeriodTest",
+            /* socketFactory= */ SocketFactory.getDefault(),
+            /* debugLoggingEnabled= */ false);
+    mediaPeriod.prepare(mediaPeriodCallback, /* positionUs= */ 0);
+    RobolectricUtil.runMainLooperUntil(() -> trackGroupAtomicReference.get() != null);
+    SampleStream[] sampleStreams = new SampleStream[1];
+    mediaPeriod.selectTracks(
+        new ExoTrackSelection[] {
+          new FixedTrackSelection(trackGroupAtomicReference.get(), /* track= */ 0)
+        },
+        /* mayRetainStreamFlags= */ new boolean[] {false},
+        sampleStreams,
+        /* streamResetFlags= */ new boolean[] {true},
+        /* positionUs= */ 0);
+    RobolectricUtil.runMainLooperUntil(getPlayResponseReference::get);
+
+    // Seek forward then backward while in RTSP_STATE_PLAYING waiting for PAUSE response.
+    mediaPeriod.seekToUs(10_000_000);
+    mediaPeriod.seekToUs(500_000);
+    RobolectricUtil.runMainLooperUntil(() -> mediaPeriod.getBufferedPositionUs() == 0);
+    rtpDataChannelFactory.getDataChannel().enqueuePackets(aacLcStreamDump.packets);
+    RobolectricUtil.runMainLooperUntil(
+        rtpDataChannelFactory.getDataChannel()::areAllPacketsProcessed);
+
+    assertThat(mediaPeriod.getBufferedPositionUs()).isEqualTo(640_000);
+  }
+
+  @Test
+  public void seekToUs_withinBufferedRange_retainsBufferedPosition() throws Exception {
+    AtomicBoolean getPlayResponseReference = new AtomicBoolean();
+    FakeRtpDataChannelFactory rtpDataChannelFactory = new FakeRtpDataChannelFactory();
+    RtpPacketStreamDump aacLcStreamDump =
+        RtpPacketStreamDump.parse(
+            TestUtil.getString(
+                    ApplicationProvider.getApplicationContext(), "media/rtsp/aac-dump.json")
+                .replace("profile-level-id=1", "profile-level-id=2"));
+    rtspServer =
+        new RtspServer(
+            new TestResponseProvider(
+                aacLcStreamDump,
+                /* getPlayResponseReference= */ getPlayResponseReference,
+                /* isWwwAuthenticationMode= */ false));
+    mediaPeriod =
+        new RtspMediaPeriod(
+            new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE),
+            rtpDataChannelFactory,
+            RtspTestUtils.getTestUri(rtspServer.startAndGetPortNumber()),
+            /* listener= */ timing -> {},
+            /* userAgent= */ "ExoPlayer:RtspPeriodTest",
+            /* socketFactory= */ SocketFactory.getDefault(),
+            /* debugLoggingEnabled= */ false);
+    mediaPeriod.prepare(mediaPeriodCallback, /* positionUs= */ 0);
+    RobolectricUtil.runMainLooperUntil(() -> trackGroupAtomicReference.get() != null);
+    SampleStream[] sampleStreams = new SampleStream[1];
+    mediaPeriod.selectTracks(
+        new ExoTrackSelection[] {
+          new FixedTrackSelection(trackGroupAtomicReference.get(), /* track= */ 0)
+        },
+        /* mayRetainStreamFlags= */ new boolean[] {false},
+        sampleStreams,
+        /* streamResetFlags= */ new boolean[] {true},
+        /* positionUs= */ 0);
+    RobolectricUtil.runMainLooperUntil(getPlayResponseReference::get);
+    rtpDataChannelFactory.getDataChannel().enqueuePackets(aacLcStreamDump.packets);
+    RobolectricUtil.runMainLooperUntil(
+        rtpDataChannelFactory.getDataChannel()::areAllPacketsProcessed);
+    assertThat(mediaPeriod.getBufferedPositionUs()).isEqualTo(640_000);
+
+    mediaPeriod.seekToUs(200_000);
+
+    assertThat(mediaPeriod.getBufferedPositionUs()).isEqualTo(640_000);
+  }
+
+  @Test
+  public void seekToUs_duringReadyStateWhilePlayResponseInFlight_requestsNewPlayAtLatestPosition()
+      throws Exception {
+    AtomicBoolean getPlayResponseReference = new AtomicBoolean();
+    FakeRtpDataChannelFactory rtpDataChannelFactory = new FakeRtpDataChannelFactory();
+    RtpPacketStreamDump aacLcStreamDump =
+        RtpPacketStreamDump.parse(
+            TestUtil.getString(
+                    ApplicationProvider.getApplicationContext(), "media/rtsp/aac-dump.json")
+                .replace("profile-level-id=1", "profile-level-id=2"));
+    rtspServer =
+        new RtspServer(
+            new TestResponseProvider(
+                aacLcStreamDump,
+                /* getPlayResponseReference= */ getPlayResponseReference,
+                /* isWwwAuthenticationMode= */ false));
+    mediaPeriod =
+        new RtspMediaPeriod(
+            new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE),
+            rtpDataChannelFactory,
+            RtspTestUtils.getTestUri(rtspServer.startAndGetPortNumber()),
+            /* listener= */ timing -> {},
+            /* userAgent= */ "ExoPlayer:RtspPeriodTest",
+            /* socketFactory= */ SocketFactory.getDefault(),
+            /* debugLoggingEnabled= */ false);
+    mediaPeriod.prepare(mediaPeriodCallback, /* positionUs= */ 0);
+    RobolectricUtil.runMainLooperUntil(() -> trackGroupAtomicReference.get() != null);
+    SampleStream[] sampleStreams = new SampleStream[1];
+    mediaPeriod.selectTracks(
+        new ExoTrackSelection[] {
+          new FixedTrackSelection(trackGroupAtomicReference.get(), /* track= */ 0)
+        },
+        /* mayRetainStreamFlags= */ new boolean[] {false},
+        sampleStreams,
+        /* streamResetFlags= */ new boolean[] {true},
+        /* positionUs= */ 10_000_000);
+    RobolectricUtil.runMainLooperUntil(getPlayResponseReference::get);
+
+    // Seek to 500_000 us while in RTSP_STATE_READY before the client processes the first PLAY
+    // response on the main looper.
+    getPlayResponseReference.set(false);
+    mediaPeriod.seekToUs(500_000);
+    RobolectricUtil.runMainLooperUntil(getPlayResponseReference::get);
+    RobolectricUtil.runMainLooperUntil(() -> mediaPeriod.getBufferedPositionUs() == 0);
+
+    rtpDataChannelFactory.getDataChannel().enqueuePackets(aacLcStreamDump.packets);
+    RobolectricUtil.runMainLooperUntil(
+        rtpDataChannelFactory.getDataChannel()::areAllPacketsProcessed);
+
+    assertThat(mediaPeriod.getBufferedPositionUs()).isEqualTo(640_000);
+  }
+
   private static class TestResponseProvider implements RtspServer.ResponseProvider {
     private static final String SESSION_ID = "00000000";
 
@@ -307,7 +505,7 @@ public final class RtspMediaPeriodTest {
       return new RtspResponse(
           /* status= */ 200,
           new RtspHeaders.Builder()
-              .add(RtspHeaders.PUBLIC, "OPTIONS, DESCRIBE, SETUP, PLAY")
+              .add(RtspHeaders.PUBLIC, "OPTIONS, DESCRIBE, SETUP, PLAY, PAUSE")
               .build());
     }
 
@@ -370,7 +568,22 @@ public final class RtspMediaPeriodTest {
   }
 
   private static final class FakeRtpDataChannel implements RtpDataChannel {
-    private final CountDownLatch blockReadLatch = new CountDownLatch(1);
+    private final LinkedBlockingQueue<byte[]> packetQueue = new LinkedBlockingQueue<>();
+    private final AtomicBoolean allPacketsProcessed = new AtomicBoolean();
+
+    private void enqueuePackets(List<String> hexPackets) {
+      allPacketsProcessed.set(false);
+      for (String hexPacket : hexPackets) {
+        packetQueue.add(Util.getBytesFromHexString(hexPacket));
+      }
+      // Enqueue an empty sentinel packet so read() knows when all preceding packets have been
+      // extracted and processed by the background loader thread.
+      packetQueue.add(new byte[0]);
+    }
+
+    private boolean areAllPacketsProcessed() {
+      return allPacketsProcessed.get();
+    }
 
     @Override
     public String getTransport() {
@@ -413,19 +626,35 @@ public final class RtspMediaPeriodTest {
     @Override
     public int read(byte[] buffer, int offset, int length) {
       try {
-        // Block the read thread until interrupted, simulating a healthy, empty UDP socket.
-        blockReadLatch.await();
+        byte[] packet = packetQueue.take();
+        if (packet.length == 0) {
+          if (packetQueue.isEmpty()) {
+            allPacketsProcessed.set(true);
+          }
+          // Block the read thread until a packet is available or interrupted, simulating a UDP
+          // socket.
+          packet = packetQueue.take();
+        }
+        int bytesToRead = min(length, packet.length);
+        System.arraycopy(packet, /* srcPos= */ 0, buffer, offset, bytesToRead);
+        return bytesToRead;
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
+        return C.RESULT_END_OF_INPUT;
       }
-      return C.RESULT_END_OF_INPUT;
     }
   }
 
   private static final class FakeRtpDataChannelFactory implements RtpDataChannel.Factory {
+    private final FakeRtpDataChannel dataChannel = new FakeRtpDataChannel();
+
     @Override
     public RtpDataChannel createAndOpenDataChannel(int trackId) {
-      return new FakeRtpDataChannel();
+      return dataChannel;
+    }
+
+    private FakeRtpDataChannel getDataChannel() {
+      return dataChannel;
     }
 
     @Override

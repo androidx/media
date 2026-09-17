@@ -286,14 +286,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     discardBuffer(positionUs, /* toKeyframe= */ false);
-    requestedSeekPositionUs = positionUs;
 
     if (isSeekPending()) {
+      requestedSeekPositionUs = positionUs;
       switch (rtspClient.getState()) {
         case RtspClient.RTSP_STATE_READY:
           // PLAY request is sent, yet to receive the response. requestedSeekPositionUs stores the
           // new position to do another seek upon receiving the PLAY response.
-          return positionUs;
+          break;
         case RtspClient.RTSP_STATE_PLAYING:
         // Pending PAUSE response, updates client with the newest seek position for the following
         // PLAY request.
@@ -303,16 +303,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           // request.
           pendingSeekPositionUs = positionUs;
           rtspClient.seekToUs(pendingSeekPositionUs);
-          return positionUs;
+          break;
         default:
           throw new IllegalStateException();
       }
+      for (int i = 0; i < rtspLoaderWrappers.size(); i++) {
+        rtspLoaderWrappers.get(i).seekTo(positionUs);
+      }
+      return positionUs;
     }
 
     if (seekInsideBufferUs(positionUs)) {
       return positionUs;
     }
 
+    requestedSeekPositionUs = positionUs;
     pendingSeekPositionUs = positionUs;
 
     if (loadingFinished) {
@@ -664,8 +669,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           requestedSeekPositionUs = C.TIME_UNSET;
         } else {
           // Resets pendingSeekPositionUs to perform a fresh RTSP seek.
+          long seekPositionUs = requestedSeekPositionUs;
           pendingSeekPositionUs = C.TIME_UNSET;
-          seekToUs(requestedSeekPositionUs);
+          requestedSeekPositionUs = C.TIME_UNSET;
+          seekToUs(seekPositionUs);
         }
       } else if (pendingSeekPositionUsForTcpRetry != C.TIME_UNSET && isUsingRtpTcp) {
         seekToUs(pendingSeekPositionUsForTcpRetry);
