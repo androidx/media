@@ -36,6 +36,9 @@
     *   Avoid unnecessary renderer re-enables and glitches when returning from
         interstitials/ads into content clipped at the end
         ([#3371](https://github.com/androidx/media/issues/3371)).
+    *   Fix an issue where a renderer error on an upcoming playlist item could
+        prematurely interrupt current playback when
+        `Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION` is enabled.
 *   CompositionPlayer:
     *   Support configuring the frame rate of video frame aggregation via
         `Composition.Builder.setVideoFrameAggregationParameters` for playback

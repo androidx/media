@@ -1016,6 +1016,332 @@ public final class ExoPlayerTest {
 
   @Test
   public void
+      rendererError_inAdvancedPeriodWithPerStreamMediaProgressionEnabled_doesNotDisruptCurrentPlayback()
+          throws Exception {
+    if (!perStreamMediaProgressionEnabled) {
+      return;
+    }
+
+    AtomicBoolean allowVideoEndOfStream = new AtomicBoolean(false);
+    AtomicInteger audioPeriod2ErrorCount = new AtomicInteger(0);
+    Format textFormat = new Format.Builder().setSampleMimeType(MimeTypes.TEXT_VTT).build();
+    RenderersFactory renderersFactory =
+        (handler, videoListener, audioListener, textOutput, metadataOutput) ->
+            new Renderer[] {
+              // Video Renderer remains active on Period 1 until allowVideoEndOfStream is true.
+              new FakeVideoRenderer(
+                  SystemClock.DEFAULT.createHandler(handler.getLooper(), /* callback= */ null),
+                  videoListener) {
+                @Override
+                public boolean isEnded() {
+                  return allowVideoEndOfStream.get() && super.isEnded();
+                }
+              },
+              // Text Renderer finishes Period 1 at 0ms and advances early to Period 2.
+              new FakeRenderer(C.TRACK_TYPE_TEXT),
+              // Audio Renderer throws an error when its reading period advances to Period 2.
+              new FakeAudioRenderer(
+                  SystemClock.DEFAULT.createHandler(handler.getLooper(), /* callback= */ null),
+                  audioListener) {
+                @Override
+                protected void onStreamChanged(
+                    Format[] formats,
+                    long startPositionUs,
+                    long offsetUs,
+                    MediaSource.MediaPeriodId mediaPeriodId)
+                    throws ExoPlaybackException {
+                  super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
+                  int periodIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
+                  if (periodIndex == 1) {
+                    audioPeriod2ErrorCount.incrementAndGet();
+                    throw ExoPlaybackException.createForRenderer(
+                        new Exception("Audio error while reading ahead into Period 2"),
+                        getName(),
+                        getIndex(),
+                        formats[0],
+                        C.FORMAT_HANDLED,
+                        mediaPeriodId,
+                        /* isRecoverable= */ false,
+                        PlaybackException.ERROR_CODE_DECODER_INIT_FAILED);
+                  }
+                }
+              }
+            };
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context).setRenderersFactory(renderersFactory))
+            .build();
+    // Period 1: Text and Audio reach end-of-stream immediately at 0ms, while Video stays active in
+    // Period 1 until allowVideoEndOfStream is set to true.
+    TrackGroupArray trackGroupArray =
+        new TrackGroupArray(
+            new TrackGroup(ExoPlayerTestRunner.AUDIO_FORMAT),
+            new TrackGroup(ExoPlayerTestRunner.VIDEO_FORMAT),
+            new TrackGroup(textFormat));
+    MediaSource mediaSource1 =
+        new FakeMediaSource(
+            new FakeTimeline(),
+            DrmSessionManager.DRM_UNSUPPORTED,
+            /* trackDataFactory= */ null,
+            /* syncSampleTimesUs= */ null,
+            trackGroupArray) {
+          @Override
+          protected MediaPeriod createMediaPeriod(
+              MediaPeriodId id,
+              TrackGroupArray trackGroupArray,
+              Allocator allocator,
+              MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+              DrmSessionManager drmSessionManager,
+              DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+              TransferListener transferListener) {
+            return new FakeMediaPeriod(
+                trackGroupArray,
+                allocator,
+                FakeMediaPeriod.TrackDataFactory.singleSampleWithTimeUs(0),
+                mediaSourceEventDispatcher,
+                drmSessionManager,
+                drmEventDispatcher,
+                /* deferOnPrepared= */ false) {
+              @Override
+              protected FakeSampleStream createSampleStream(
+                  Allocator allocator,
+                  MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+                  DrmSessionManager drmSessionManager,
+                  DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+                  Format initialFormat,
+                  List<FakeSampleStream.FakeSampleStreamItem> fakeSampleStreamItems) {
+                return new FakeSampleStream(
+                    allocator,
+                    mediaSourceEventDispatcher,
+                    drmSessionManager,
+                    drmEventDispatcher,
+                    initialFormat,
+                    fakeSampleStreamItems) {
+                  @Override
+                  public boolean isReady() {
+                    return true;
+                  }
+
+                  @Override
+                  public int readData(
+                      FormatHolder formatHolder,
+                      DecoderInputBuffer buffer,
+                      @ReadFlags int readFlags) {
+                    int result = super.readData(formatHolder, buffer, readFlags);
+                    if (MimeTypes.isVideo(initialFormat.sampleMimeType)
+                        && !allowVideoEndOfStream.get()
+                        && result == C.RESULT_BUFFER_READ
+                        && buffer.isEndOfStream()) {
+                      buffer.clear();
+                      return C.RESULT_NOTHING_READ;
+                    }
+                    return result;
+                  }
+                };
+              }
+            };
+          }
+        };
+    MediaSource mediaSource2 =
+        new FakeMediaSource(
+            new FakeTimeline(),
+            ExoPlayerTestRunner.VIDEO_FORMAT,
+            ExoPlayerTestRunner.AUDIO_FORMAT,
+            textFormat);
+    player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2));
+    player.prepare();
+    player.play();
+
+    // Wait until Audio advances early to Period 2 and throws the error, which rolls back the
+    // early-reading streams without disrupting Period 1's active video playback.
+    runMainLooperUntil(() -> audioPeriod2ErrorCount.get() >= 1);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    assertThat(audioPeriod2ErrorCount.get()).isEqualTo(1);
+
+    // Period 1 playback continues uninterrupted in STATE_READY.
+    assertThat(player.getPlaybackState()).isEqualTo(Player.STATE_READY);
+    assertThat(player.getPlayerError()).isNull();
+    assertThat(player.getCurrentMediaItemIndex()).isEqualTo(0);
+
+    // Once Video finishes reading Period 1, all streams advance to Period 2 and the error on
+    // Period 2 is reported at the transition point.
+    allowVideoEndOfStream.set(true);
+    ExoPlaybackException error = runUntilError(player);
+    assertThat(audioPeriod2ErrorCount.get()).isEqualTo(2);
+    assertThat(player.getPlaybackState()).isEqualTo(Player.STATE_IDLE);
+    assertThat(player.getCurrentMediaItemIndex()).isEqualTo(1);
+    assertThat(error.errorCode).isEqualTo(PlaybackException.ERROR_CODE_DECODER_INIT_FAILED);
+
+    player.release();
+  }
+
+  @Test
+  public void
+      rendererError_inThirdPeriodWhileEarliestReadingPeriodIsSecondPeriod_doesNotDisruptFirstOrSecondPeriodPlayback()
+          throws Exception {
+    if (!perStreamMediaProgressionEnabled) {
+      return;
+    }
+
+    AtomicBoolean allowPeriod2VideoEndOfStream = new AtomicBoolean(false);
+    AtomicInteger audioPeriod3ErrorCount = new AtomicInteger(0);
+    RenderersFactory renderersFactory =
+        (handler, videoListener, audioListener, textOutput, metadataOutput) ->
+            new Renderer[] {
+              new FakeVideoRenderer(
+                  SystemClock.DEFAULT.createHandler(handler.getLooper(), /* callback= */ null),
+                  videoListener),
+              new FakeAudioRenderer(
+                  SystemClock.DEFAULT.createHandler(handler.getLooper(), /* callback= */ null),
+                  audioListener) {
+                @Override
+                protected void onStreamChanged(
+                    Format[] formats,
+                    long startPositionUs,
+                    long offsetUs,
+                    MediaSource.MediaPeriodId mediaPeriodId)
+                    throws ExoPlaybackException {
+                  super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
+                  int periodIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
+                  if (periodIndex == 2) {
+                    audioPeriod3ErrorCount.incrementAndGet();
+                    throw ExoPlaybackException.createForRenderer(
+                        new Exception("Audio error while reading ahead into Period 3"),
+                        getName(),
+                        getIndex(),
+                        formats[0],
+                        C.FORMAT_HANDLED,
+                        mediaPeriodId,
+                        /* isRecoverable= */ false,
+                        PlaybackException.ERROR_CODE_DECODER_INIT_FAILED);
+                  }
+                }
+              }
+            };
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context).setRenderersFactory(renderersFactory))
+            .build();
+    TrackGroupArray trackGroupArray =
+        new TrackGroupArray(
+            new TrackGroup(ExoPlayerTestRunner.AUDIO_FORMAT),
+            new TrackGroup(ExoPlayerTestRunner.VIDEO_FORMAT));
+    // Period 1 (5s): Both Video and Audio reach end-of-stream immediately at 0ms and advance their
+    // reading periods to Period 2 while Period 1 is still playing.
+    MediaSource mediaSource1 =
+        new FakeMediaSource(
+            new FakeTimeline(
+                new TimelineWindowDefinition.Builder()
+                    .setDurationUs(5 * C.MICROS_PER_SECOND)
+                    .build()),
+            ExoPlayerTestRunner.VIDEO_FORMAT,
+            ExoPlayerTestRunner.AUDIO_FORMAT);
+    // Period 2 (2s): Audio reaches end-of-stream immediately and advances to Period 3 (at 7s,
+    // within the 10s reading-ahead threshold), while Video stays reading Period 2 until
+    // allowPeriod2VideoEndOfStream is set to true.
+    MediaSource mediaSource2 =
+        new FakeMediaSource(
+            new FakeTimeline(
+                new TimelineWindowDefinition.Builder()
+                    .setDurationUs(2 * C.MICROS_PER_SECOND)
+                    .build()),
+            DrmSessionManager.DRM_UNSUPPORTED,
+            /* trackDataFactory= */ null,
+            /* syncSampleTimesUs= */ null,
+            trackGroupArray) {
+          @Override
+          protected MediaPeriod createMediaPeriod(
+              MediaPeriodId id,
+              TrackGroupArray trackGroupArray,
+              Allocator allocator,
+              MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+              DrmSessionManager drmSessionManager,
+              DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+              TransferListener transferListener) {
+            return new FakeMediaPeriod(
+                trackGroupArray,
+                allocator,
+                FakeMediaPeriod.TrackDataFactory.singleSampleWithTimeUs(0),
+                mediaSourceEventDispatcher,
+                drmSessionManager,
+                drmEventDispatcher,
+                /* deferOnPrepared= */ false) {
+              @Override
+              protected FakeSampleStream createSampleStream(
+                  Allocator allocator,
+                  MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+                  DrmSessionManager drmSessionManager,
+                  DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+                  Format initialFormat,
+                  List<FakeSampleStream.FakeSampleStreamItem> fakeSampleStreamItems) {
+                return new FakeSampleStream(
+                    allocator,
+                    mediaSourceEventDispatcher,
+                    drmSessionManager,
+                    drmEventDispatcher,
+                    initialFormat,
+                    fakeSampleStreamItems) {
+                  @Override
+                  public boolean isReady() {
+                    return true;
+                  }
+
+                  @Override
+                  public int readData(
+                      FormatHolder formatHolder,
+                      DecoderInputBuffer buffer,
+                      @ReadFlags int readFlags) {
+                    int result = super.readData(formatHolder, buffer, readFlags);
+                    if (MimeTypes.isVideo(initialFormat.sampleMimeType)
+                        && !allowPeriod2VideoEndOfStream.get()
+                        && result == C.RESULT_BUFFER_READ
+                        && buffer.isEndOfStream()) {
+                      buffer.clear();
+                      return C.RESULT_NOTHING_READ;
+                    }
+                    return result;
+                  }
+                };
+              }
+            };
+          }
+        };
+    MediaSource mediaSource3 =
+        new FakeMediaSource(
+            new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT);
+    player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2, mediaSource3));
+    player.prepare();
+    player.play();
+
+    // Wait until Audio advances to Period 3 and throws the error while Period 1 is still playing
+    // and Video is reading Period 2 (earliestReadingPeriod == Period 2).
+    runMainLooperUntil(() -> audioPeriod3ErrorCount.get() >= 1);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    assertThat(audioPeriod3ErrorCount.get()).isEqualTo(1);
+    assertThat(player.getPlaybackState()).isEqualTo(Player.STATE_READY);
+    assertThat(player.getPlayerError()).isNull();
+    assertThat(player.getCurrentMediaItemIndex()).isEqualTo(0);
+
+    // Playback transitions smoothly from Period 1 to Period 2 without error.
+    runMainLooperUntil(() -> player.getCurrentMediaItemIndex() == 1);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    assertThat(player.getPlaybackState()).isEqualTo(Player.STATE_READY);
+    assertThat(player.getPlayerError()).isNull();
+    assertThat(audioPeriod3ErrorCount.get()).isEqualTo(1);
+
+    // Once Video finishes reading Period 2, all streams advance to Period 3 and report the error.
+    allowPeriod2VideoEndOfStream.set(true);
+    ExoPlaybackException error = runUntilError(player);
+    assertThat(audioPeriod3ErrorCount.get()).isEqualTo(2);
+    assertThat(player.getPlaybackState()).isEqualTo(Player.STATE_IDLE);
+    assertThat(player.getCurrentMediaItemIndex()).isEqualTo(2);
+    assertThat(error.errorCode).isEqualTo(PlaybackException.ERROR_CODE_DECODER_INIT_FAILED);
+
+    player.release();
+  }
+
+  @Test
+  public void
       playLiveStreams_withPerStreamMediaProgressionEnabled_doesNotAdvanceReadingPeriodPerStream()
           throws Exception {
     if (!perStreamMediaProgressionEnabled) {

@@ -2530,6 +2530,59 @@ public final class MediaPeriodQueueTest {
         .inOrder();
   }
 
+  @Test
+  public void
+      removeAfter_withEarliestReadingPeriodAheadOfPlayingPeriod_clampsRemovedReadingPeriodToNewTail() {
+    AnalyticsCollector analyticsCollector = new DefaultAnalyticsCollector(Clock.DEFAULT);
+    analyticsCollector.setPlayer(
+        new ExoPlayer.Builder(ApplicationProvider.getApplicationContext()).build(),
+        Looper.getMainLooper());
+    HandlerWrapper handler =
+        Clock.DEFAULT.createHandler(Looper.getMainLooper(), /* callback= */ null);
+    mediaPeriodQueue =
+        new MediaPeriodQueue(
+            analyticsCollector,
+            handler,
+            (info, rendererPositionOffsetUs) ->
+                new MediaPeriodHolder(
+                    rendererCapabilities,
+                    rendererPositionOffsetUs,
+                    trackSelector,
+                    allocator,
+                    mediaSourceList,
+                    info,
+                    new TrackSelectorResult(
+                        new RendererConfiguration[0],
+                        new ExoTrackSelection[0],
+                        Tracks.EMPTY,
+                        /* info= */ null),
+                    /* targetPreloadBufferDurationUs= */ 5_000_000L,
+                    /* usesStreamPrerollFlags= */ false),
+            PreloadConfiguration.DEFAULT,
+            /* rendererCount= */ 2);
+    setupTimelines(new FakeTimeline(), new FakeTimeline(), new FakeTimeline());
+    MediaPeriodHolder period1 =
+        mediaPeriodQueue.enqueueNextMediaPeriodHolder(getNextMediaPeriodInfo());
+    MediaPeriodHolder period2 =
+        mediaPeriodQueue.enqueueNextMediaPeriodHolder(getNextMediaPeriodInfo());
+    MediaPeriodHolder period3 =
+        mediaPeriodQueue.enqueueNextMediaPeriodHolder(getNextMediaPeriodInfo());
+    // Renderer 0 advances to period2; Renderer 1 advances to period3.
+    assertThat(mediaPeriodQueue.advanceReadingPeriod(/* index= */ 0)).isEqualTo(period2);
+    assertThat(mediaPeriodQueue.advanceReadingPeriod(/* index= */ 1)).isEqualTo(period2);
+    assertThat(mediaPeriodQueue.advanceReadingPeriod(/* index= */ 1)).isEqualTo(period3);
+    assertThat(mediaPeriodQueue.getPlayingPeriod()).isEqualTo(period1);
+    assertThat(mediaPeriodQueue.getEarliestReadingPeriod()).isEqualTo(period2);
+
+    mediaPeriodQueue.removeAfter(period2);
+
+    assertThat(mediaPeriodQueue.getPlayingPeriod()).isEqualTo(period1);
+    assertThat(mediaPeriodQueue.getLoadingPeriod()).isEqualTo(period2);
+    assertThat(mediaPeriodQueue.getEarliestReadingPeriod()).isEqualTo(period2);
+    assertThat(mediaPeriodQueue.getReadingPeriod(/* index= */ 0)).isEqualTo(period2);
+    assertThat(mediaPeriodQueue.getReadingPeriod(/* index= */ 1)).isEqualTo(period2);
+  }
+
   private void setupAdTimeline(long... adGroupTimesUs) {
     adPlaybackState =
         new AdPlaybackState(/* adsId= */ new Object(), adGroupTimesUs)

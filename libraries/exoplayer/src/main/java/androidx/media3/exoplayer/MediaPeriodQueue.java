@@ -561,8 +561,8 @@ import java.util.Objects;
       mediaPeriodHolder = checkNotNull(mediaPeriodHolder.getNext());
       for (int i = 0; i < readingPeriods.length; i++) {
         if (mediaPeriodHolder.equals(readingPeriods[i])) {
-          readingPeriods[i] = playing;
-          prewarmingPeriods[i] = playing;
+          readingPeriods[i] = loading;
+          prewarmingPeriods[i] = loading;
           removedResult |= UPDATE_PERIOD_QUEUE_ALTERED_READING_PERIOD;
           removedResult |= UPDATE_PERIOD_QUEUE_ALTERED_PREWARMING_PERIOD;
         }

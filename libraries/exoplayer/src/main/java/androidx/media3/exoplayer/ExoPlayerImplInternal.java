@@ -919,6 +919,29 @@ import java.util.Objects;
           maybeContinueLoading();
           handler.sendEmptyMessage(MSG_DO_SOME_WORK);
         }
+      } else if (e.type == ExoPlaybackException.TYPE_RENDERER
+          && e.mediaPeriodId != null
+          && isPeriodAfterEarliestReadingPeriod(e.mediaPeriodId)) {
+        // Disable pre-warming renderers and any renderers reading periods after the earliest
+        // reading period before removing those periods from the queue. Note that disabling an
+        // early-reading renderer flushes any remaining buffered tail it had for the current period.
+        disableAndResetPrewarmingRenderers();
+        MediaPeriodHolder earliestReadingPeriod = checkNotNull(queue.getEarliestReadingPeriod());
+        for (int i = 0; i < renderers.length; i++) {
+          if (i == e.rendererIndex || queue.getReadingPeriod(i) != earliestReadingPeriod) {
+            try {
+              disableRenderer(i);
+            } catch (ExoPlaybackException disableException) {
+              Log.e(TAG, "Failed to disable renderer.", disableException);
+            }
+            renderers[i].reset();
+          }
+        }
+        queue.removeAfter(earliestReadingPeriod);
+        if (playbackInfo.playbackState != Player.STATE_ENDED) {
+          maybeContinueLoading();
+          handler.sendEmptyMessage(MSG_DO_SOME_WORK);
+        }
       } else {
         if (pendingRecoverableRendererError != null) {
           pendingRecoverableRendererError.addSuppressed(e);
@@ -2406,6 +2429,21 @@ import java.util.Objects;
       return false;
     }
     return renderers[rendererIndex].isPrewarmingPeriod(queue.getPrewarmingPeriod(rendererIndex));
+  }
+
+  private boolean isPeriodAfterEarliestReadingPeriod(MediaPeriodId periodId) {
+    @Nullable MediaPeriodHolder earliestReadingPeriod = queue.getEarliestReadingPeriod();
+    if (earliestReadingPeriod == null) {
+      return false;
+    }
+    MediaPeriodHolder period = earliestReadingPeriod.getNext();
+    while (period != null) {
+      if (period.info.id.equals(periodId)) {
+        return true;
+      }
+      period = period.getNext();
+    }
+    return false;
   }
 
   private void reselectTracksInternalAndSeek() throws ExoPlaybackException {
