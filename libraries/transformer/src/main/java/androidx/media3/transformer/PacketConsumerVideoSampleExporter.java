@@ -35,6 +35,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Consumer;
+import androidx.media3.common.util.HandlerExecutor;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Util;
 import androidx.media3.common.video.AsyncFrame;
@@ -137,12 +138,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               .build();
     }
 
+    Executor playbackExecutor = new HandlerExecutor(playbackHandler, componentListener);
     if (SDK_INT >= 33) {
       frameWriter =
           new EncoderFrameWriter(
               strictEncoderFactory,
               componentListener,
-              playbackHandler::post,
+              playbackExecutor,
               playbackHandler,
               logSessionId);
     } else {
@@ -152,7 +154,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               context,
               strictEncoderFactory,
               componentListener,
-              playbackHandler::post,
+              playbackExecutor,
               new DefaultGlObjectsProvider(),
               listeningDecorator(Util.newSingleThreadExecutor("GlEncoderFrameWriter::Thread")),
               hardwareBufferJniWrapper,
@@ -317,7 +319,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final class ComponentListener
       implements GlEncoderFrameWriter.Listener,
           EncoderFrameWriter.Listener,
-          FrameProcessor.Listener {
+          FrameProcessor.Listener,
+          HandlerExecutor.Listener {
 
     @Override
     public Format onConfigure(Format requestedFormat) {
@@ -363,11 +366,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       finalFramePresentationTimeUs = C.TIME_UNSET;
     }
 
-    @Override
-    public void onError(VideoFrameProcessingException e) {
-      errorConsumer.accept(ExportException.createForVideoFrameProcessingException(e));
-    }
-
     // FrameProcessor.Listener methods
 
     @Override
@@ -378,6 +376,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
       inFlightFrameManager.onFrameProcessed(frame, releaseFence);
+    }
+
+    @Override
+    public void onError(VideoFrameProcessingException e) {
+      errorConsumer.accept(ExportException.createForVideoFrameProcessingException(e));
+    }
+
+    // HandlerExecutor.Listener methods
+
+    @Override
+    public void onError(RuntimeException e) {
+      onError(VideoFrameProcessingException.from(e));
     }
   }
 
@@ -425,28 +435,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return DEFAULT_OUTPUT_MIME_TYPE;
     } else {
       return inputSampleMimeType;
-    }
-  }
-
-  private static final class HandlerExecutor implements Executor {
-    private final HandlerWrapper handler;
-    private final ComponentListener componentListener;
-
-    private HandlerExecutor(HandlerWrapper handler, ComponentListener componentListener) {
-      this.handler = handler;
-      this.componentListener = componentListener;
-    }
-
-    @Override
-    public void execute(Runnable command) {
-      handler.post(
-          () -> {
-            try {
-              command.run();
-            } catch (RuntimeException e) {
-              componentListener.onError(VideoFrameProcessingException.from(e));
-            }
-          });
     }
   }
 }

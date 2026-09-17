@@ -30,6 +30,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
+import androidx.media3.common.util.HandlerExecutor;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameWriter;
@@ -106,7 +107,8 @@ import java.util.concurrent.Executor;
     this.downstreamOutput = downstreamOutput;
     this.hardwareBufferNativeHelpers = hardwareBufferNativeHelpers;
     this.handler = handler;
-    this.handlerExecutor = new HandlerExecutor(handler, listener::onError);
+    this.handlerExecutor =
+        new HandlerExecutor(handler, e -> listener.onError(VideoFrameProcessingException.from(e)));
     this.listener = listener;
   }
 

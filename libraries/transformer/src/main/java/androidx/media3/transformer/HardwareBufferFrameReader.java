@@ -36,6 +36,7 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Consumer;
+import androidx.media3.common.util.HandlerExecutor;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.TimestampIterator;
@@ -101,8 +102,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Consumer<HardwareBufferFrame> frameConsumer;
   private final ImageReaderAdapter imageReader;
   private final Listener listener;
-  private final HandlerWrapper listenerHandler;
-  private final PlaybackExecutor playbackExecutor;
+  private final Executor playbackExecutor;
 
   // TODO: b/478781219 - Ensure this class is only accessed from a single thread.
   /**
@@ -160,7 +160,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.sequenceIndex = sequenceIndex;
     this.frameConsumer = frameConsumer;
     this.listener = listener;
-    this.listenerHandler = listenerHandler;
     this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
     // The width and height are sensible defaults for tests and are typically ignored when writing
     // from MediaCodec.
@@ -172,10 +171,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             /* maxImages= */ CAPACITY,
             /* usage= */ SDK_INT >= 29 ? HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE : 0);
     Handler playbackHandler = new Handler(playbackLooper);
-    playbackExecutor = new PlaybackExecutor(playbackHandler);
+    playbackExecutor =
+        new HandlerExecutor(playbackHandler, e -> listenerHandler.post(() -> listener.onError(e)));
     rendererWakeupListenerList = new ArrayList<>();
-    imageReader.setOnImageAvailableListener(playbackExecutor, playbackHandler);
     pendingFrameInfo = new ArrayDeque<>();
+    imageReader.setOnImageAvailableListener(
+        reader -> {
+          try {
+            pollImage();
+          } catch (RuntimeException e) {
+            listenerHandler.post(() -> listener.onError(e));
+          }
+        },
+        playbackHandler);
   }
 
   /** Returns a Surface which can be used to produce frames into. */
@@ -574,40 +582,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return Api33.resolveColorInfoFromBitmap(bitmap);
     }
     return ColorInfo.SRGB_BT709_FULL;
-  }
-
-  /**
-   * A {@link Executor} which executes commands on a {@link Handler} and propagates {@linkplain
-   * RuntimeException errors} to the {@link Listener}.
-   */
-  private class PlaybackExecutor implements Consumer<ImageReaderAdapter>, Executor {
-
-    final Handler playbackHandler;
-
-    PlaybackExecutor(Handler playbackHandler) {
-      this.playbackHandler = playbackHandler;
-    }
-
-    @Override
-    public void execute(Runnable command) {
-      playbackHandler.post(
-          () -> {
-            try {
-              command.run();
-            } catch (RuntimeException e) {
-              listenerHandler.post(() -> listener.onError(e));
-            }
-          });
-    }
-
-    @Override
-    public void accept(ImageReaderAdapter reader) {
-      try {
-        pollImage();
-      } catch (RuntimeException e) {
-        listenerHandler.post(() -> listener.onError(e));
-      }
-    }
   }
 
   private static final class FrameInfo {

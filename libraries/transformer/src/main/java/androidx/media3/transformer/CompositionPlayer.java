@@ -73,6 +73,7 @@ import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.GlUtil;
+import androidx.media3.common.util.HandlerExecutor;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
@@ -2427,7 +2428,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
           PlaybackVideoGraphWrapper.Listener,
           CompositionVideoPacketReleaseControl.Listener,
           SurfaceHolderFrameWriter.Listener,
-          FrameProcessor.Listener {
+          FrameProcessor.Listener,
+          HandlerExecutor.Listener {
 
     // AudioFocusManager.PlayerControl methods. Called on the application thread.
 
@@ -2553,18 +2555,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       }
     }
 
-    @Override
-    public void onError(VideoFrameProcessingException videoFrameProcessingException) {
-      // The error will also be surfaced from the underlying ExoPlayer instance via
-      // PlayerListener.onPlayerError, and it will arrive to the composition player twice.
-      applicationHandler.post(
-          () ->
-              maybeUpdatePlaybackError(
-                  "Error processing video frames",
-                  videoFrameProcessingException,
-                  PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED));
-    }
-
     // FrameProcessor.Listener methods
 
     @Override
@@ -2578,27 +2568,24 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         videoPacketReleaseControl.onFrameProcessed(frame, onCompleteFence);
       }
     }
-  }
-
-  private static final class HandlerExecutor implements Executor {
-    private final HandlerWrapper handler;
-    private final InternalListener internalListener;
-
-    private HandlerExecutor(HandlerWrapper handler, InternalListener internalListener) {
-      this.handler = handler;
-      this.internalListener = internalListener;
-    }
 
     @Override
-    public void execute(Runnable command) {
-      handler.post(
-          () -> {
-            try {
-              command.run();
-            } catch (RuntimeException e) {
-              internalListener.onError(e);
-            }
-          });
+    public void onError(VideoFrameProcessingException videoFrameProcessingException) {
+      // The error will also be surfaced from the underlying ExoPlayer instance via
+      // PlayerListener.onPlayerError, and it will arrive to the composition player twice.
+      applicationHandler.post(
+          () ->
+              maybeUpdatePlaybackError(
+                  "Error processing video frames",
+                  videoFrameProcessingException,
+                  PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED));
+    }
+
+    // HandlerExecutor.Listener methods
+
+    @Override
+    public void onError(RuntimeException e) {
+      onError(VideoFrameProcessingException.from(e));
     }
   }
 }

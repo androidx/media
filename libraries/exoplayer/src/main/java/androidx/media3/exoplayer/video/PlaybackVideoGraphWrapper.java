@@ -50,6 +50,7 @@ import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
+import androidx.media3.common.util.HandlerExecutor;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
@@ -600,6 +601,8 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
         throw new VideoSink.VideoSinkException(e, sourceFormat);
       }
       handler = clock.createHandler(checkNotNull(Looper.myLooper()), /* callback= */ null);
+      Executor listenerExecutor =
+          new HandlerExecutor(handler, e -> onError(VideoFrameProcessingException.from(e)));
       try {
         // TODO: b/412585856 - Allow setting CompositorSetting and CompositionEffects dynamically.
         videoGraph =
@@ -608,7 +611,7 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
                 outputColorInfo,
                 DebugViewProvider.NONE,
                 /* listener= */ this,
-                /* listenerExecutor= */ handler::post,
+                listenerExecutor,
                 /* initialTimestampOffsetUs= */ 0,
                 /* renderFramesAutomatically= */ false);
         videoGraph.setCompositionEffects(compositionEffects);
@@ -623,7 +626,7 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
         maybeSetOutputSurfaceInfo(surface, size.getWidth(), size.getHeight());
       }
       defaultVideoSink.initialize(sourceFormat);
-      defaultVideoSink.setListener(new DefaultVideoSinkListener(), /* executor= */ handler::post);
+      defaultVideoSink.setListener(new DefaultVideoSinkListener(), listenerExecutor);
       state = STATE_INITIALIZED;
     } else {
       if (!isInitialized()) {
