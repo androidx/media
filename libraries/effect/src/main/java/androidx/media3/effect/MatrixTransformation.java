@@ -15,7 +15,11 @@
  */
 package androidx.media3.effect;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.graphics.Matrix;
+import androidx.annotation.RestrictTo;
+import androidx.media3.common.MetricsProvider;
 import androidx.media3.common.util.UnstableApi;
 
 /**
@@ -29,7 +33,7 @@ import androidx.media3.common.util.UnstableApi;
  * applicable.
  */
 @UnstableApi
-public interface MatrixTransformation extends GlMatrixTransformation {
+public interface MatrixTransformation extends GlMatrixTransformation, MetricsProvider {
   /**
    * Returns the 3x3 transformation {@link Matrix} to apply to the frame with the given timestamp.
    */
@@ -38,5 +42,11 @@ public interface MatrixTransformation extends GlMatrixTransformation {
   @Override
   default float[] getGlMatrixArray(long presentationTimeUs) {
     return MatrixUtils.getGlMatrixArray(getMatrix(presentationTimeUs));
+  }
+
+  @Override
+  @RestrictTo(LIBRARY_GROUP)
+  default void populateMetrics(MetricConsumer consumer) {
+    consumer.setCategory(MetricConsumer.CATEGORY_EFFECT_SPATIAL);
   }
 }

@@ -15,14 +15,17 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
+import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.MetricsProvider;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.util.UnstableApi;
@@ -38,7 +41,8 @@ import java.nio.ByteBuffer;
  * PCM.
  */
 @UnstableApi
-public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
+public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor
+    implements MetricsProvider {
 
   /**
    * Default fraction of the original silence to keep. Between [0, 1]. 1 means keep all silence. 0
@@ -761,5 +765,11 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
   private boolean isNoise(byte mostSignificantByte, byte leastSignificantByte) {
     return Math.abs(twoByteSampleToInt(mostSignificantByte, leastSignificantByte))
         > silenceThresholdLevel;
+  }
+
+  @Override
+  @RestrictTo(LIBRARY_GROUP)
+  public void populateMetrics(MetricConsumer consumer) {
+    consumer.setCategory(MetricConsumer.CATEGORY_AUDIO_TEMPORAL_TRIM);
   }
 }

@@ -15,10 +15,13 @@
  */
 package androidx.media3.common.audio;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
+import androidx.annotation.RestrictTo;
+import androidx.media3.common.MetricsProvider;
 import androidx.media3.common.util.UnstableApi;
 import java.nio.ByteBuffer;
 
@@ -28,7 +31,8 @@ import java.nio.ByteBuffer;
  * possible input channel count before using the audio processor. Input and output are 16-bit PCM.
  */
 @UnstableApi
-public final class ChannelMixingAudioProcessor extends BaseAudioProcessor {
+public final class ChannelMixingAudioProcessor extends BaseAudioProcessor
+    implements MetricsProvider {
 
   private final SparseArray<ChannelMixingMatrix> matrixByInputChannelCount;
 
@@ -90,5 +94,11 @@ public final class ChannelMixingAudioProcessor extends BaseAudioProcessor {
         /* accumulate= */ false,
         /* clipFloatOutput= */ true);
     outputBuffer.flip();
+  }
+
+  @Override
+  @RestrictTo(LIBRARY_GROUP)
+  public void populateMetrics(MetricConsumer consumer) {
+    consumer.setCategory(MetricConsumer.CATEGORY_AUDIO_CHANNEL_MANIPULATION);
   }
 }

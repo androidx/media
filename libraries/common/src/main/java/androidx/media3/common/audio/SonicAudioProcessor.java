@@ -15,14 +15,17 @@
  */
 package androidx.media3.common.audio;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.abs;
 
 import androidx.annotation.FloatRange;
 import androidx.annotation.Nullable;
+import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.MetricsProvider;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.nio.ByteBuffer;
@@ -32,7 +35,7 @@ import java.nio.ByteOrder;
  * An {@link AudioProcessor} that uses the Sonic library to modify audio speed/pitch/sample rate.
  */
 @UnstableApi
-public final class SonicAudioProcessor implements AudioProcessor {
+public final class SonicAudioProcessor implements AudioProcessor, MetricsProvider {
 
   /** Indicates that the output sample rate should be the same as the input. */
   public static final int SAMPLE_RATE_NO_CHANGE = -1;
@@ -310,5 +313,14 @@ public final class SonicAudioProcessor implements AudioProcessor {
     inputBytes = 0;
     outputBytes = 0;
     inputEnded = false;
+  }
+
+  @Override
+  @RestrictTo(LIBRARY_GROUP)
+  public void populateMetrics(MetricConsumer consumer) {
+    consumer.setCategory(MetricConsumer.CATEGORY_AUDIO_SPEED_AND_PITCH);
+    if (speed != 1.0f) {
+      consumer.addMetric(MetricConsumer.METRIC_SPEED_MULTIPLIER, Math.round(speed * 10000));
+    }
   }
 }

@@ -16,17 +16,20 @@
 
 package androidx.media3.effect;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import android.content.Context;
 import androidx.annotation.FloatRange;
+import androidx.annotation.RestrictTo;
+import androidx.media3.common.MetricsProvider;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /** Adjusts the HSL (Hue, Saturation, and Lightness) of a frame. */
 @UnstableApi
-public final class HslAdjustment implements GlEffect {
+public final class HslAdjustment implements GlEffect, MetricsProvider {
 
   /** A builder for {@code HslAdjustment} instances. */
   public static final class Builder {
@@ -124,5 +127,11 @@ public final class HslAdjustment implements GlEffect {
   @Override
   public boolean isNoOp(int inputWidth, int inputHeight) {
     return hueAdjustmentDegrees == 0f && saturationAdjustment == 0f && lightnessAdjustment == 0f;
+  }
+
+  @Override
+  @RestrictTo(LIBRARY_GROUP)
+  public void populateMetrics(MetricConsumer consumer) {
+    consumer.setCategory(MetricConsumer.CATEGORY_EFFECT_COLOR);
   }
 }

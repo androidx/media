@@ -15,13 +15,16 @@
  */
 package androidx.media3.effect;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
 import android.opengl.GLES20;
+import androidx.annotation.RestrictTo;
 import androidx.media3.common.GlTextureInfo;
+import androidx.media3.common.MetricsProvider;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlRect;
 import androidx.media3.common.util.Size;
@@ -39,7 +42,7 @@ import java.util.concurrent.Future;
  * available such as another GPU context, FPGAs, or NPUs.
  */
 @UnstableApi
-public class ByteBufferGlEffect<T> implements GlEffect {
+public class ByteBufferGlEffect<T> implements GlEffect, MetricsProvider {
 
   private static final int DEFAULT_QUEUE_SIZE = 6;
   private static final int DEFAULT_PENDING_PIXEL_BUFFER_QUEUE_SIZE = 1;
@@ -200,5 +203,11 @@ public class ByteBufferGlEffect<T> implements GlEffect {
         /* queueSize= */ DEFAULT_QUEUE_SIZE,
         new ByteBufferConcurrentEffect<>(
             /* pendingPixelBufferQueueSize= */ DEFAULT_PENDING_PIXEL_BUFFER_QUEUE_SIZE, processor));
+  }
+
+  @Override
+  @RestrictTo(LIBRARY_GROUP)
+  public void populateMetrics(MetricConsumer consumer) {
+    consumer.setCategory(MetricConsumer.CATEGORY_EFFECT_BUFFER);
   }
 }

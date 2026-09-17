@@ -15,10 +15,13 @@
  */
 package androidx.media3.effect;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import android.content.Context;
 import androidx.annotation.IntRange;
+import androidx.annotation.RestrictTo;
+import androidx.media3.common.MetricsProvider;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.UnstableApi;
 
@@ -29,7 +32,7 @@ import androidx.media3.common.util.UnstableApi;
  * the possible fluctuation in video frame processing time between frames.
  */
 @UnstableApi
-public final class FrameCache implements GlEffect {
+public final class FrameCache implements GlEffect, MetricsProvider {
   /** The capacity of the frame cache. */
   public final int capacity;
 
@@ -53,5 +56,11 @@ public final class FrameCache implements GlEffect {
   public GlShaderProgram toGlShaderProgram(Context context, boolean useHdr)
       throws VideoFrameProcessingException {
     return new FrameCacheGlShaderProgram(context, capacity, useHdr);
+  }
+
+  @Override
+  @RestrictTo(LIBRARY_GROUP)
+  public void populateMetrics(MetricConsumer consumer) {
+    consumer.setCategory(MetricConsumer.CATEGORY_EFFECT_BUFFER);
   }
 }

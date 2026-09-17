@@ -16,14 +16,18 @@
 
 package androidx.media3.effect;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
+import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
+import androidx.media3.common.MetricsProvider;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.UnstableApi;
 
 /** Drops frames to lower average frame rate to around {@code targetFrameRate}. */
 @UnstableApi
-public final class FrameDropEffect implements GlEffect {
+public final class FrameDropEffect implements GlEffect, MetricsProvider {
 
   private final float inputFrameRate;
   private final float targetFrameRate;
@@ -63,6 +67,11 @@ public final class FrameDropEffect implements GlEffect {
     return new FrameDropEffect(expectedFrameRate, targetFrameRate);
   }
 
+  private FrameDropEffect(float inputFrameRate, float targetFrameRate) {
+    this.inputFrameRate = inputFrameRate;
+    this.targetFrameRate = targetFrameRate;
+  }
+
   @Override
   public GlShaderProgram toGlShaderProgram(Context context, boolean useHdr)
       throws VideoFrameProcessingException {
@@ -73,8 +82,9 @@ public final class FrameDropEffect implements GlEffect {
     }
   }
 
-  private FrameDropEffect(float inputFrameRate, float targetFrameRate) {
-    this.inputFrameRate = inputFrameRate;
-    this.targetFrameRate = targetFrameRate;
+  @Override
+  @RestrictTo(LIBRARY_GROUP)
+  public void populateMetrics(MetricConsumer consumer) {
+    consumer.setCategory(MetricConsumer.CATEGORY_EFFECT_TEMPORAL);
   }
 }

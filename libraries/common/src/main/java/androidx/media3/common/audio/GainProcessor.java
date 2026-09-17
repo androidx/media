@@ -15,6 +15,7 @@
  */
 package androidx.media3.common.audio;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static androidx.media3.common.util.Util.durationUsToSampleCount;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -22,7 +23,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
 import androidx.annotation.IntRange;
+import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
+import androidx.media3.common.MetricsProvider;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
@@ -30,7 +33,7 @@ import java.util.Objects;
 
 /** Applies {@linkplain GainProvider gain automation} over an audio stream. */
 @UnstableApi
-public final class GainProcessor extends BaseAudioProcessor {
+public final class GainProcessor extends BaseAudioProcessor implements MetricsProvider {
 
   /** Interface that provides sample-level gain automation to be applied on an audio stream. */
   public interface GainProvider {
@@ -152,5 +155,11 @@ public final class GainProcessor extends BaseAudioProcessor {
   @Override
   public void onReset() {
     readFrames = 0;
+  }
+
+  @Override
+  @RestrictTo(LIBRARY_GROUP)
+  public void populateMetrics(MetricConsumer consumer) {
+    consumer.setCategory(MetricConsumer.CATEGORY_AUDIO_CHANNEL_MANIPULATION);
   }
 }

@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static androidx.media3.common.util.Util.getByteDepth;
 import static androidx.media3.common.util.Util.getInt24;
 import static androidx.media3.common.util.Util.isEncodingLinearPcm;
@@ -22,7 +23,9 @@ import static androidx.media3.common.util.Util.putInt24;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
+import androidx.media3.common.MetricsProvider;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.util.UnstableApi;
@@ -34,7 +37,8 @@ import java.nio.ByteBuffer;
  * channels. This can be used to reorder, duplicate or discard channels.
  */
 @UnstableApi
-public final class ChannelMappingAudioProcessor extends BaseAudioProcessor {
+public final class ChannelMappingAudioProcessor extends BaseAudioProcessor
+    implements MetricsProvider {
 
   @Nullable private ImmutableIntArray pendingOutputChannels;
   @Nullable private ImmutableIntArray outputChannels;
@@ -143,5 +147,11 @@ public final class ChannelMappingAudioProcessor extends BaseAudioProcessor {
   protected void onReset() {
     outputChannels = null;
     pendingOutputChannels = null;
+  }
+
+  @Override
+  @RestrictTo(LIBRARY_GROUP)
+  public void populateMetrics(MetricConsumer consumer) {
+    consumer.setCategory(MetricConsumer.CATEGORY_AUDIO_CHANNEL_MANIPULATION);
   }
 }

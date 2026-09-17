@@ -36,33 +36,12 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
+import androidx.media3.common.MetricsProvider;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.AudioProcessor;
-import androidx.media3.common.audio.ChannelMixingAudioProcessor;
-import androidx.media3.common.audio.GainProcessor;
-import androidx.media3.common.audio.SonicAudioProcessor;
-import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.SystemClock;
-import androidx.media3.effect.AlphaScale;
-import androidx.media3.effect.ByteBufferGlEffect;
-import androidx.media3.effect.ColorLut;
-import androidx.media3.effect.Crop;
-import androidx.media3.effect.FrameCache;
-import androidx.media3.effect.FrameDropEffect;
-import androidx.media3.effect.GaussianBlur;
-import androidx.media3.effect.GlEffect;
-import androidx.media3.effect.HslAdjustment;
-import androidx.media3.effect.LanczosResample;
-import androidx.media3.effect.OverlayEffect;
-import androidx.media3.effect.Presentation;
-import androidx.media3.effect.RgbMatrix;
-import androidx.media3.effect.ScaleAndRotateTransformation;
-import androidx.media3.effect.SeparableConvolution;
 import androidx.media3.effect.TimestampWrapper;
-import androidx.media3.exoplayer.audio.ChannelMappingAudioProcessor;
-import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor;
-import androidx.media3.exoplayer.audio.TrimmingAudioProcessor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.util.ArrayList;
@@ -289,7 +268,10 @@ import java.util.Set;
   @VisibleForTesting static final int COMPONENT_MEDIA3_AUDIO_PROCESSOR_CUSTOM = 299;
 
   // Quantitative Metric keys for Atom 1279.
+  @VisibleForTesting static final int METRIC_SPEED_MULTIPLIER = 300;
   @VisibleForTesting static final int METRIC_ROTATION_DEGREES = 301;
+  @VisibleForTesting static final int METRIC_FILTER_SAMPLE_COUNT = 302;
+  @VisibleForTesting static final int METRIC_OVERLAY_COUNT = 303;
 
   private final long startTimeMs;
   private final boolean compositionHasAudioProcessors;
@@ -606,35 +588,10 @@ import java.util.Set;
     }
   }
 
-  private static final class ExtractedEffectMetrics {
-    final ImmutableList<Integer> components;
-    final ImmutableList<Integer> scopes;
-    final ImmutableList<Integer> metricKeys;
-    final ImmutableList<Long> metricValues;
-
-    ExtractedEffectMetrics(
-        ImmutableList<Integer> components,
-        ImmutableList<Integer> scopes,
-        ImmutableList<Integer> metricKeys,
-        ImmutableList<Long> metricValues) {
-      this.components = components;
-      this.scopes = scopes;
-      this.metricKeys = metricKeys;
-      this.metricValues = metricValues;
-    }
-  }
-
-  private static final class MetricEntry {
-    final int key;
-    final long value;
-
-    MetricEntry(int key, long value) {
-      this.key = key;
-      this.value = value;
-    }
-  }
-
-  /** Reports video effects and audio processors telemetry for the given {@link Composition}. */
+  /**
+   * Reports video effects and audio processors diagnostic metrics for the given {@link
+   * Composition}.
+   */
   private void reportEffectMetrics(Composition composition) {
     ExtractedEffectMetrics metrics = extractEffectMetrics(composition);
     if (metrics.components.isEmpty()) {
@@ -722,19 +679,29 @@ import java.util.Set;
       if (effect instanceof TimestampWrapper) {
         effect = ((TimestampWrapper) effect).glEffect;
       }
-      int componentEnum = getComponentEnumForVideoEffect(effect);
+      ComponentMetricConsumer consumer =
+          new ComponentMetricConsumer(
+              COMPONENT_MEDIA3_EFFECT_CUSTOM, metricKeyListBuilder, metricValueListBuilder);
+      if (effect instanceof MetricsProvider) {
+        ((MetricsProvider) effect).populateMetrics(consumer);
+      }
+      int componentEnum = consumer.getComponentCategory();
       String tupleKey = componentEnum + ":" + scope;
       if (processedTuples.add(tupleKey)) {
         componentListBuilder.add(componentEnum);
         scopeListBuilder.add(scope);
-      }
-      for (MetricEntry metricEntry : extractMetricsForVideoEffect(effect)) {
-        metricKeyListBuilder.add(metricEntry.key);
-        metricValueListBuilder.add(metricEntry.value);
       }
     }
     for (AudioProcessor audioProcessor : audioProcessors) {
-      int componentEnum = getComponentEnumForAudioProcessor(audioProcessor);
+      ComponentMetricConsumer consumer =
+          new ComponentMetricConsumer(
+              COMPONENT_MEDIA3_AUDIO_PROCESSOR_CUSTOM,
+              metricKeyListBuilder,
+              metricValueListBuilder);
+      if (audioProcessor instanceof MetricsProvider) {
+        ((MetricsProvider) audioProcessor).populateMetrics(consumer);
+      }
+      int componentEnum = consumer.getComponentCategory();
       String tupleKey = componentEnum + ":" + scope;
       if (processedTuples.add(tupleKey)) {
         componentListBuilder.add(componentEnum);
@@ -743,53 +710,96 @@ import java.util.Set;
     }
   }
 
-  private static int getComponentEnumForVideoEffect(Effect effect) {
-    if (effect instanceof RgbMatrix
-        || effect instanceof ColorLut
-        || effect instanceof HslAdjustment
-        || effect instanceof AlphaScale) {
-      return COMPONENT_MEDIA3_EFFECT_COLOR;
-    } else if (effect instanceof Crop
-        || effect instanceof Presentation
-        || effect instanceof ScaleAndRotateTransformation
-        || effect instanceof LanczosResample) {
-      return COMPONENT_MEDIA3_EFFECT_SPATIAL;
-    } else if (effect instanceof SeparableConvolution || effect instanceof GaussianBlur) {
-      return COMPONENT_MEDIA3_EFFECT_CONVOLUTION;
-    } else if (effect instanceof OverlayEffect) {
-      return COMPONENT_MEDIA3_EFFECT_OVERLAY;
-    } else if (effect instanceof FrameDropEffect) {
-      return COMPONENT_MEDIA3_EFFECT_TEMPORAL;
-    } else if (effect instanceof ByteBufferGlEffect || effect instanceof FrameCache) {
-      return COMPONENT_MEDIA3_EFFECT_BUFFER;
-    } else if (effect instanceof GlEffect) {
-      return COMPONENT_MEDIA3_EFFECT_CUSTOM;
+  private static int mapCategoryToComponentEnum(
+      @MetricsProvider.MetricConsumer.Category int category) {
+    switch (category) {
+      case MetricsProvider.MetricConsumer.CATEGORY_EFFECT_COLOR:
+        return COMPONENT_MEDIA3_EFFECT_COLOR;
+      case MetricsProvider.MetricConsumer.CATEGORY_EFFECT_SPATIAL:
+        return COMPONENT_MEDIA3_EFFECT_SPATIAL;
+      case MetricsProvider.MetricConsumer.CATEGORY_EFFECT_CONVOLUTION:
+        return COMPONENT_MEDIA3_EFFECT_CONVOLUTION;
+      case MetricsProvider.MetricConsumer.CATEGORY_EFFECT_OVERLAY:
+        return COMPONENT_MEDIA3_EFFECT_OVERLAY;
+      case MetricsProvider.MetricConsumer.CATEGORY_EFFECT_TEMPORAL:
+        return COMPONENT_MEDIA3_EFFECT_TEMPORAL;
+      case MetricsProvider.MetricConsumer.CATEGORY_EFFECT_BUFFER:
+        return COMPONENT_MEDIA3_EFFECT_BUFFER;
+      case MetricsProvider.MetricConsumer.CATEGORY_EFFECT_CUSTOM:
+        return COMPONENT_MEDIA3_EFFECT_CUSTOM;
+      case MetricsProvider.MetricConsumer.CATEGORY_AUDIO_SPEED_AND_PITCH:
+        return COMPONENT_MEDIA3_AUDIO_SPEED_AND_PITCH;
+      case MetricsProvider.MetricConsumer.CATEGORY_AUDIO_CHANNEL_MANIPULATION:
+        return COMPONENT_MEDIA3_AUDIO_CHANNEL_MANIPULATION;
+      case MetricsProvider.MetricConsumer.CATEGORY_AUDIO_TEMPORAL_TRIM:
+        return COMPONENT_MEDIA3_AUDIO_TEMPORAL_TRIM;
+      case MetricsProvider.MetricConsumer.CATEGORY_AUDIO_PROCESSOR_CUSTOM:
+        return COMPONENT_MEDIA3_AUDIO_PROCESSOR_CUSTOM;
+      default:
+        throw new IllegalArgumentException("Unknown category: " + category);
     }
-    return COMPONENT_MEDIA3_EFFECT_CUSTOM;
   }
 
-  private static int getComponentEnumForAudioProcessor(AudioProcessor audioProcessor) {
-    if (audioProcessor instanceof SonicAudioProcessor
-        || audioProcessor instanceof SpeedChangingAudioProcessor) {
-      return COMPONENT_MEDIA3_AUDIO_SPEED_AND_PITCH;
-    } else if (audioProcessor instanceof GainProcessor
-        || audioProcessor instanceof ChannelMixingAudioProcessor
-        || audioProcessor instanceof ChannelMappingAudioProcessor) {
-      return COMPONENT_MEDIA3_AUDIO_CHANNEL_MANIPULATION;
-    } else if (audioProcessor instanceof SilenceSkippingAudioProcessor
-        || audioProcessor instanceof TrimmingAudioProcessor) {
-      return COMPONENT_MEDIA3_AUDIO_TEMPORAL_TRIM;
+  private static int mapMetricKeyToId(@MetricsProvider.MetricConsumer.MetricKey int metricKey) {
+    switch (metricKey) {
+      case MetricsProvider.MetricConsumer.METRIC_SPEED_MULTIPLIER:
+        return METRIC_SPEED_MULTIPLIER;
+      case MetricsProvider.MetricConsumer.METRIC_ROTATION_DEGREES:
+        return METRIC_ROTATION_DEGREES;
+      case MetricsProvider.MetricConsumer.METRIC_FILTER_SAMPLE_COUNT:
+        return METRIC_FILTER_SAMPLE_COUNT;
+      case MetricsProvider.MetricConsumer.METRIC_OVERLAY_COUNT:
+        return METRIC_OVERLAY_COUNT;
+      default:
+        throw new IllegalArgumentException("Unknown metric key: " + metricKey);
     }
-    return COMPONENT_MEDIA3_AUDIO_PROCESSOR_CUSTOM;
   }
 
-  private static ImmutableList<MetricEntry> extractMetricsForVideoEffect(Effect effect) {
-    if (effect instanceof ScaleAndRotateTransformation) {
-      ScaleAndRotateTransformation transformation = (ScaleAndRotateTransformation) effect;
-      return ImmutableList.of(
-          new MetricEntry(
-              METRIC_ROTATION_DEGREES, (long) Math.round(transformation.rotationDegrees)));
+  private static final class ComponentMetricConsumer implements MetricsProvider.MetricConsumer {
+    private final ImmutableList.Builder<Integer> metricKeyListBuilder;
+    private final ImmutableList.Builder<Long> metricValueListBuilder;
+    private int componentCategory;
+
+    /* package */ ComponentMetricConsumer(
+        int defaultCategory,
+        ImmutableList.Builder<Integer> metricKeyListBuilder,
+        ImmutableList.Builder<Long> metricValueListBuilder) {
+      this.componentCategory = defaultCategory;
+      this.metricKeyListBuilder = metricKeyListBuilder;
+      this.metricValueListBuilder = metricValueListBuilder;
     }
-    return ImmutableList.of();
+
+    @Override
+    public void setCategory(@Category int category) {
+      this.componentCategory = mapCategoryToComponentEnum(category);
+    }
+
+    @Override
+    public void addMetric(@MetricKey int metricKey, long metricValue) {
+      metricKeyListBuilder.add(mapMetricKeyToId(metricKey));
+      metricValueListBuilder.add(metricValue);
+    }
+
+    /* package */ int getComponentCategory() {
+      return componentCategory;
+    }
+  }
+
+  private static final class ExtractedEffectMetrics {
+    /* package */ final ImmutableList<Integer> components;
+    /* package */ final ImmutableList<Integer> scopes;
+    /* package */ final ImmutableList<Integer> metricKeys;
+    /* package */ final ImmutableList<Long> metricValues;
+
+    /* package */ ExtractedEffectMetrics(
+        ImmutableList<Integer> components,
+        ImmutableList<Integer> scopes,
+        ImmutableList<Integer> metricKeys,
+        ImmutableList<Long> metricValues) {
+      this.components = components;
+      this.scopes = scopes;
+      this.metricKeys = metricKeys;
+      this.metricValues = metricValues;
+    }
   }
 }

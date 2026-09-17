@@ -15,10 +15,13 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static androidx.media3.common.util.Util.isEncodingLinearPcm;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
+import androidx.annotation.RestrictTo;
+import androidx.media3.common.MetricsProvider;
 import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -26,7 +29,7 @@ import java.nio.ByteBuffer;
 
 /** Audio processor for trimming samples from the start/end of data. */
 @UnstableApi
-public final class TrimmingAudioProcessor extends BaseAudioProcessor {
+public final class TrimmingAudioProcessor extends BaseAudioProcessor implements MetricsProvider {
 
   private int trimStartFrames;
   private int trimEndFrames;
@@ -191,5 +194,11 @@ public final class TrimmingAudioProcessor extends BaseAudioProcessor {
   @Override
   protected void onReset() {
     endBuffer = Util.EMPTY_BYTE_ARRAY;
+  }
+
+  @Override
+  @RestrictTo(LIBRARY_GROUP)
+  public void populateMetrics(MetricConsumer consumer) {
+    consumer.setCategory(MetricConsumer.CATEGORY_AUDIO_TEMPORAL_TRIM);
   }
 }

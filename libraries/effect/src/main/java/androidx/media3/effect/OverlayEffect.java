@@ -15,7 +15,11 @@
  */
 package androidx.media3.effect;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
+import androidx.annotation.RestrictTo;
+import androidx.media3.common.MetricsProvider;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
@@ -30,7 +34,7 @@ import java.util.List;
  * DefaultVideoFrameProcessor#WORKING_COLOR_SPACE_LINEAR linear} working color space or HDR input.
  */
 @UnstableApi
-public final class OverlayEffect implements GlEffect {
+public final class OverlayEffect implements GlEffect, MetricsProvider {
 
   private final ImmutableList<TextureOverlay> overlays;
 
@@ -49,5 +53,12 @@ public final class OverlayEffect implements GlEffect {
   public BaseGlShaderProgram toGlShaderProgram(Context context, boolean useHdr)
       throws VideoFrameProcessingException {
     return new OverlayShaderProgram(context, useHdr, overlays);
+  }
+
+  @Override
+  @RestrictTo(LIBRARY_GROUP)
+  public void populateMetrics(MetricConsumer consumer) {
+    consumer.setCategory(MetricConsumer.CATEGORY_EFFECT_OVERLAY);
+    consumer.addMetric(MetricConsumer.METRIC_OVERLAY_COUNT, overlays.size());
   }
 }

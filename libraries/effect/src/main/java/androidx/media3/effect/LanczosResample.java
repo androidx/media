@@ -15,6 +15,7 @@
  */
 package androidx.media3.effect;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.abs;
 import static java.lang.Math.min;
@@ -23,6 +24,8 @@ import static java.lang.Math.round;
 import android.content.Context;
 import androidx.annotation.FloatRange;
 import androidx.annotation.IntRange;
+import androidx.annotation.RestrictTo;
+import androidx.media3.common.MetricsProvider;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
@@ -34,7 +37,7 @@ import androidx.media3.common.util.UnstableApi;
  * <p>The filter rescales images in both dimensions with the same scaling factor.
  */
 @UnstableApi
-public final class LanczosResample implements GlEffect {
+public final class LanczosResample implements GlEffect, MetricsProvider {
   // Default value for the radius, or alpha parameter used by Lanczos filter. A value of 3 is
   // used by ffmpeg (https://ffmpeg.org/ffmpeg-scaler.html), libplacebo, or Apple's vImage library.
   private static final float DEFAULT_RADIUS = 3f;
@@ -126,6 +129,12 @@ public final class LanczosResample implements GlEffect {
         < NO_OP_THRESHOLD;
   }
 
+  @Override
+  @RestrictTo(LIBRARY_GROUP)
+  public void populateMetrics(MetricConsumer consumer) {
+    consumer.setCategory(MetricConsumer.CATEGORY_EFFECT_SPATIAL);
+  }
+
   /**
    * Returns the scaling factor required to fit an input image into a target rectangle.
    *
@@ -143,6 +152,19 @@ public final class LanczosResample implements GlEffect {
       return (float) targetWidth / inputWidth;
     } else {
       return (float) targetHeight / inputHeight;
+    }
+  }
+
+  private static Size getTargetSize(
+      int inputWidth,
+      int inputHeight,
+      int longSide,
+      int shortSide,
+      boolean assumeLandscapeOrientation) {
+    if (assumeLandscapeOrientation || inputWidth > inputHeight) {
+      return new Size(longSide, shortSide);
+    } else {
+      return new Size(shortSide, longSide);
     }
   }
 
@@ -196,19 +218,6 @@ public final class LanczosResample implements GlEffect {
               targetSize.getWidth(),
               targetSize.getHeight());
       return new Size(round(inputSize.getWidth() * scale), round(inputSize.getHeight() * scale));
-    }
-  }
-
-  private static Size getTargetSize(
-      int inputWidth,
-      int inputHeight,
-      int longSide,
-      int shortSide,
-      boolean assumeLandscapeOrientation) {
-    if (assumeLandscapeOrientation || inputWidth > inputHeight) {
-      return new Size(longSide, shortSide);
-    } else {
-      return new Size(shortSide, longSide);
     }
   }
 }

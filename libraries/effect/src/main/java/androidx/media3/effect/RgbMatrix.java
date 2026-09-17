@@ -16,7 +16,11 @@
 
 package androidx.media3.effect;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
+import androidx.annotation.RestrictTo;
+import androidx.media3.common.MetricsProvider;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
@@ -25,7 +29,7 @@ import com.google.common.collect.ImmutableList;
  * Specifies a 4x4 RGB color transformation matrix to apply to each frame in the fragment shader.
  */
 @UnstableApi
-public interface RgbMatrix extends GlEffect {
+public interface RgbMatrix extends GlEffect, MetricsProvider {
 
   /**
    * Returns the 4x4 RGB transformation {@linkplain android.opengl.Matrix matrix} to apply to the
@@ -47,5 +51,11 @@ public interface RgbMatrix extends GlEffect {
         /* matrixTransformations= */ ImmutableList.of(),
         /* rgbMatrices= */ ImmutableList.of(this),
         useHdr);
+  }
+
+  @Override
+  @RestrictTo(LIBRARY_GROUP)
+  default void populateMetrics(MetricConsumer consumer) {
+    consumer.setCategory(MetricConsumer.CATEGORY_EFFECT_COLOR);
   }
 }

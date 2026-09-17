@@ -15,7 +15,11 @@
  */
 package androidx.media3.effect;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
+import androidx.annotation.RestrictTo;
+import androidx.media3.common.MetricsProvider;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.UnstableApi;
 
@@ -26,7 +30,7 @@ import androidx.media3.common.util.UnstableApi;
  * second pass.
  */
 @UnstableApi
-public abstract class SeparableConvolution implements GlEffect {
+public abstract class SeparableConvolution implements GlEffect, MetricsProvider {
   private final float scaleWidth;
   private final float scaleHeight;
 
@@ -60,5 +64,11 @@ public abstract class SeparableConvolution implements GlEffect {
       throws VideoFrameProcessingException {
     return new SeparableConvolutionShaderProgram(
         context, useHdr, /* convolution= */ this, scaleWidth, scaleHeight);
+  }
+
+  @Override
+  @RestrictTo(LIBRARY_GROUP)
+  public void populateMetrics(MetricConsumer consumer) {
+    consumer.setCategory(MetricConsumer.CATEGORY_EFFECT_CONVOLUTION);
   }
 }

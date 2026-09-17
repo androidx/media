@@ -16,7 +16,11 @@
 
 package androidx.media3.effect;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
+import androidx.annotation.RestrictTo;
+import androidx.media3.common.MetricsProvider;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.UnstableApi;
@@ -26,7 +30,7 @@ import androidx.media3.common.util.UnstableApi;
  * shader.
  */
 @UnstableApi
-public interface ColorLut extends GlEffect {
+public interface ColorLut extends GlEffect, MetricsProvider {
 
   /**
    * Returns the OpenGL texture ID of the LUT to apply to the pixels of the frame with the given
@@ -44,5 +48,11 @@ public interface ColorLut extends GlEffect {
   default GlShaderProgram toGlShaderProgram(Context context, boolean useHdr)
       throws VideoFrameProcessingException {
     return new ColorLutShaderProgram(context, /* colorLut= */ this, useHdr);
+  }
+
+  @Override
+  @RestrictTo(LIBRARY_GROUP)
+  default void populateMetrics(MetricConsumer consumer) {
+    consumer.setCategory(MetricConsumer.CATEGORY_EFFECT_COLOR);
   }
 }

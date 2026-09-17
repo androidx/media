@@ -15,7 +15,10 @@
  */
 package androidx.media3.effect;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import androidx.annotation.FloatRange;
+import androidx.annotation.RestrictTo;
 import androidx.media3.common.util.UnstableApi;
 
 /**
@@ -54,5 +57,13 @@ public final class GaussianBlur extends SeparableConvolution {
   @Override
   public ConvolutionFunction1D getConvolution(long presentationTimeUs) {
     return new GaussianFunction(sigma, numStandardDeviations);
+  }
+
+  @Override
+  @RestrictTo(LIBRARY_GROUP)
+  public void populateMetrics(MetricConsumer consumer) {
+    super.populateMetrics(consumer);
+    int sampleCount = Math.round(2 * sigma * numStandardDeviations) + 1;
+    consumer.addMetric(MetricConsumer.METRIC_FILTER_SAMPLE_COUNT, sampleCount);
   }
 }

@@ -16,6 +16,7 @@
 
 package androidx.media3.common.audio;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static androidx.media3.common.util.SpeedProviderUtil.getNextSpeedChangeSamplePosition;
 import static androidx.media3.common.util.SpeedProviderUtil.getSampleAlignedSpeed;
 import static androidx.media3.common.util.Util.durationUsToSampleCount;
@@ -32,6 +33,7 @@ import androidx.annotation.RestrictTo.Scope;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.MetricsProvider;
 import androidx.media3.common.util.LongArrayQueue;
 import androidx.media3.common.util.SpeedProviderUtil;
 import androidx.media3.common.util.SpeedProviderUtil.SpeedProviderMapper;
@@ -47,7 +49,7 @@ import java.util.function.LongConsumer;
  * An {@link AudioProcessor} that changes the speed of audio samples depending on their timestamp.
  */
 @UnstableApi
-public final class SpeedChangingAudioProcessor implements AudioProcessor {
+public final class SpeedChangingAudioProcessor implements AudioProcessor, MetricsProvider {
 
   private final Object lock;
 
@@ -425,5 +427,11 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
     }
     framesRead = 0;
     endOfStreamQueuedToSonic = false;
+  }
+
+  @Override
+  @RestrictTo(LIBRARY_GROUP)
+  public void populateMetrics(MetricConsumer consumer) {
+    consumer.setCategory(MetricConsumer.CATEGORY_AUDIO_SPEED_AND_PITCH);
   }
 }

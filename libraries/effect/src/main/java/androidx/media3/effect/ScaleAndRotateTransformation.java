@@ -15,12 +15,14 @@
  */
 package androidx.media3.effect;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import android.graphics.Matrix;
+import androidx.annotation.RestrictTo;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
@@ -170,5 +172,14 @@ public final class ScaleAndRotateTransformation implements MatrixTransformation 
     return checkNotNull(adjustedTransformationMatrix).isIdentity()
         && inputWidth == outputSize.getWidth()
         && inputHeight == outputSize.getHeight();
+  }
+
+  @Override
+  @RestrictTo(LIBRARY_GROUP)
+  public void populateMetrics(MetricConsumer consumer) {
+    MatrixTransformation.super.populateMetrics(consumer);
+    if (rotationDegrees != 0f) {
+      consumer.addMetric(MetricConsumer.METRIC_ROTATION_DEGREES, Math.round(rotationDegrees));
+    }
   }
 }

@@ -31,11 +31,15 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.audio.AudioProcessor;
+import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.effect.Crop;
+import androidx.media3.effect.GaussianBlur;
+import androidx.media3.effect.OverlayEffect;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -350,18 +354,15 @@ public final class EditingMetricsCollectorTest {
 
   @Test
   public void onExportSuccess_withVideoEffect_populatesSpatialComponentAndScope() {
-    // Arrange
     AtomicReference<PersistableBundle> bundleReference = new AtomicReference<>();
     EditingMetricsCollector collector = createCollectorForEffectMetrics(bundleReference);
     Crop crop =
         new Crop(/* left= */ -0.5f, /* right= */ 0.5f, /* bottom= */ -0.5f, /* top= */ 0.5f);
     Composition composition = createCompositionWithVideoEffects(crop);
 
-    // Act
     collector.onExportSuccess(
         composition, createDefaultExportResult(), /* isExportResumed= */ false);
 
-    // Assert
     PersistableBundle bundle = bundleReference.get();
     assertThat(bundle).isNotNull();
     assertThat(bundle.getString(EditingMetricsCollector.KEY_PROCESSOR_NAME))
@@ -378,17 +379,14 @@ public final class EditingMetricsCollectorTest {
 
   @Test
   public void onExportSuccess_withAudioProcessor_populatesSpeedAndPitchComponent() {
-    // Arrange
     AtomicReference<PersistableBundle> bundleReference = new AtomicReference<>();
     EditingMetricsCollector collector = createCollectorForEffectMetrics(bundleReference);
     SonicAudioProcessor sonicAudioProcessor = new SonicAudioProcessor();
     Composition composition = createCompositionWithAudioProcessors(sonicAudioProcessor);
 
-    // Act
     collector.onExportSuccess(
         composition, createDefaultExportResult(), /* isExportResumed= */ false);
 
-    // Assert
     PersistableBundle bundle = bundleReference.get();
     assertThat(bundle).isNotNull();
     assertThat(bundle.getString(EditingMetricsCollector.KEY_PROCESSOR_NAME))
@@ -405,18 +403,15 @@ public final class EditingMetricsCollectorTest {
 
   @Test
   public void onExportSuccess_withScaleAndRotate_extractsRotationMetric() {
-    // Arrange
     AtomicReference<PersistableBundle> bundleReference = new AtomicReference<>();
     EditingMetricsCollector collector = createCollectorForEffectMetrics(bundleReference);
     ScaleAndRotateTransformation scaleAndRotate =
         new ScaleAndRotateTransformation.Builder().setRotationDegrees(90).build();
     Composition composition = createCompositionWithVideoEffects(scaleAndRotate);
 
-    // Act
     collector.onExportSuccess(
         composition, createDefaultExportResult(), /* isExportResumed= */ false);
 
-    // Assert
     PersistableBundle bundle = bundleReference.get();
     assertThat(bundle).isNotNull();
     assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_COMPONENTS))
@@ -432,7 +427,6 @@ public final class EditingMetricsCollectorTest {
 
   @Test
   public void onExportSuccess_withChainedRotations_extractsAllRotationMetricsInOrder() {
-    // Arrange
     AtomicReference<PersistableBundle> bundleReference = new AtomicReference<>();
     EditingMetricsCollector collector = createCollectorForEffectMetrics(bundleReference);
     ScaleAndRotateTransformation rotation90 =
@@ -441,11 +435,9 @@ public final class EditingMetricsCollectorTest {
         new ScaleAndRotateTransformation.Builder().setRotationDegrees(180).build();
     Composition composition = createCompositionWithVideoEffects(rotation90, rotation180);
 
-    // Act
     collector.onExportSuccess(
         composition, createDefaultExportResult(), /* isExportResumed= */ false);
 
-    // Assert
     PersistableBundle bundle = bundleReference.get();
     assertThat(bundle).isNotNull();
     assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_METRICS))
@@ -461,8 +453,97 @@ public final class EditingMetricsCollectorTest {
   }
 
   @Test
+  public void onExportSuccess_withGaussianBlur_extractsFilterSampleCountMetric() {
+    AtomicReference<PersistableBundle> bundleReference = new AtomicReference<>();
+    EditingMetricsCollector collector = createCollectorForEffectMetrics(bundleReference);
+    GaussianBlur gaussianBlur =
+        new GaussianBlur(/* sigma= */ 5.0f, /* numStandardDeviations= */ 2.0f);
+    Composition composition = createCompositionWithVideoEffects(gaussianBlur);
+
+    collector.onExportSuccess(
+        composition, createDefaultExportResult(), /* isExportResumed= */ false);
+
+    PersistableBundle bundle = bundleReference.get();
+    assertThat(bundle).isNotNull();
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_COMPONENTS))
+        .asList()
+        .containsExactly(EditingMetricsCollector.COMPONENT_MEDIA3_EFFECT_CONVOLUTION);
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_METRICS))
+        .asList()
+        .containsExactly(EditingMetricsCollector.METRIC_FILTER_SAMPLE_COUNT);
+    assertThat(bundle.getLongArray(EditingMetricsCollector.KEY_METRIC_VALUES))
+        .asList()
+        .containsExactly(21L);
+  }
+
+  @Test
+  public void onExportSuccess_withOverlayEffect_extractsOverlayCountMetric() {
+    AtomicReference<PersistableBundle> bundleReference = new AtomicReference<>();
+    EditingMetricsCollector collector = createCollectorForEffectMetrics(bundleReference);
+    OverlayEffect overlayEffect = new OverlayEffect(ImmutableList.of());
+    Composition composition = createCompositionWithVideoEffects(overlayEffect);
+
+    collector.onExportSuccess(
+        composition, createDefaultExportResult(), /* isExportResumed= */ false);
+
+    PersistableBundle bundle = bundleReference.get();
+    assertThat(bundle).isNotNull();
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_COMPONENTS))
+        .asList()
+        .containsExactly(EditingMetricsCollector.COMPONENT_MEDIA3_EFFECT_OVERLAY);
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_METRICS))
+        .asList()
+        .containsExactly(EditingMetricsCollector.METRIC_OVERLAY_COUNT);
+    assertThat(bundle.getLongArray(EditingMetricsCollector.KEY_METRIC_VALUES))
+        .asList()
+        .containsExactly(0L);
+  }
+
+  @Test
+  public void onExportSuccess_withSonicAudioProcessorCustomSpeed_extractsSpeedMultiplierMetric() {
+    AtomicReference<PersistableBundle> bundleReference = new AtomicReference<>();
+    EditingMetricsCollector collector = createCollectorForEffectMetrics(bundleReference);
+    SonicAudioProcessor sonicAudioProcessor = new SonicAudioProcessor();
+    sonicAudioProcessor.setSpeed(1.5f);
+    Composition composition = createCompositionWithAudioProcessors(sonicAudioProcessor);
+
+    collector.onExportSuccess(
+        composition, createDefaultExportResult(), /* isExportResumed= */ false);
+
+    PersistableBundle bundle = bundleReference.get();
+    assertThat(bundle).isNotNull();
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_COMPONENTS))
+        .asList()
+        .containsExactly(EditingMetricsCollector.COMPONENT_MEDIA3_AUDIO_SPEED_AND_PITCH);
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_METRICS))
+        .asList()
+        .containsExactly(EditingMetricsCollector.METRIC_SPEED_MULTIPLIER);
+    assertThat(bundle.getLongArray(EditingMetricsCollector.KEY_METRIC_VALUES))
+        .asList()
+        .containsExactly(15000L);
+  }
+
+  @Test
+  public void onExportSuccess_withSonicAudioProcessorDefaultSpeed_doesNotExtractSpeedMetric() {
+    AtomicReference<PersistableBundle> bundleReference = new AtomicReference<>();
+    EditingMetricsCollector collector = createCollectorForEffectMetrics(bundleReference);
+    SonicAudioProcessor sonicAudioProcessor = new SonicAudioProcessor();
+    Composition composition = createCompositionWithAudioProcessors(sonicAudioProcessor);
+
+    collector.onExportSuccess(
+        composition, createDefaultExportResult(), /* isExportResumed= */ false);
+
+    PersistableBundle bundle = bundleReference.get();
+    assertThat(bundle).isNotNull();
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_COMPONENTS))
+        .asList()
+        .containsExactly(EditingMetricsCollector.COMPONENT_MEDIA3_AUDIO_SPEED_AND_PITCH);
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_METRICS)).isNull();
+    assertThat(bundle.getLongArray(EditingMetricsCollector.KEY_METRIC_VALUES)).isNull();
+  }
+
+  @Test
   public void onExportSuccess_withMultipleEffectsSameScope_deduplicatesComponents() {
-    // Arrange
     AtomicReference<PersistableBundle> bundleReference = new AtomicReference<>();
     EditingMetricsCollector collector = createCollectorForEffectMetrics(bundleReference);
     Crop crop =
@@ -471,11 +552,9 @@ public final class EditingMetricsCollectorTest {
         new ScaleAndRotateTransformation.Builder().setRotationDegrees(90).build();
     Composition composition = createCompositionWithVideoEffects(crop, scaleAndRotate);
 
-    // Act
     collector.onExportSuccess(
         composition, createDefaultExportResult(), /* isExportResumed= */ false);
 
-    // Assert
     PersistableBundle bundle = bundleReference.get();
     assertThat(bundle).isNotNull();
     // Both Crop and ScaleAndRotate are SPATIAL (101) in the same scope, so components array
@@ -489,16 +568,70 @@ public final class EditingMetricsCollectorTest {
   }
 
   @Test
+  public void onExportSuccess_withScaleAndRotateZeroRotation_doesNotExtractRotationMetric() {
+    AtomicReference<PersistableBundle> bundleReference = new AtomicReference<>();
+    EditingMetricsCollector collector = createCollectorForEffectMetrics(bundleReference);
+    ScaleAndRotateTransformation scaleAndRotate =
+        new ScaleAndRotateTransformation.Builder().setScale(2f, 2f).setRotationDegrees(0f).build();
+    Composition composition = createCompositionWithVideoEffects(scaleAndRotate);
+
+    collector.onExportSuccess(
+        composition, createDefaultExportResult(), /* isExportResumed= */ false);
+
+    PersistableBundle bundle = bundleReference.get();
+    assertThat(bundle).isNotNull();
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_COMPONENTS))
+        .asList()
+        .containsExactly(EditingMetricsCollector.COMPONENT_MEDIA3_EFFECT_SPATIAL);
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_METRICS)).isNull();
+    assertThat(bundle.getLongArray(EditingMetricsCollector.KEY_METRIC_VALUES)).isNull();
+  }
+
+  @Test
+  public void onExportSuccess_withCustomEffectAndAudioProcessor_fallsBackToCustomComponents() {
+    AtomicReference<PersistableBundle> bundleReference = new AtomicReference<>();
+    EditingMetricsCollector collector = createCollectorForEffectMetrics(bundleReference);
+    Effect customEffect = new Effect() {};
+    AudioProcessor customAudioProcessor =
+        new BaseAudioProcessor() {
+          @Override
+          public void queueInput(ByteBuffer inputBuffer) {}
+        };
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.EMPTY))
+                            .setEffects(
+                                new Effects(
+                                    /* audioProcessors= */ ImmutableList.of(customAudioProcessor),
+                                    /* videoEffects= */ ImmutableList.of(customEffect)))
+                            .build())))
+            .build();
+
+    collector.onExportSuccess(
+        composition, createDefaultExportResult(), /* isExportResumed= */ false);
+
+    PersistableBundle bundle = bundleReference.get();
+    assertThat(bundle).isNotNull();
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_COMPONENTS))
+        .asList()
+        .containsExactly(
+            EditingMetricsCollector.COMPONENT_MEDIA3_EFFECT_CUSTOM,
+            EditingMetricsCollector.COMPONENT_MEDIA3_AUDIO_PROCESSOR_CUSTOM);
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_COMPONENT_SCOPES))
+        .asList()
+        .containsExactly(1, 1);
+  }
+
+  @Test
   public void onExportSuccess_withoutEffects_doesNotReportEffectMetrics() {
-    // Arrange
     AtomicReference<PersistableBundle> bundleReference = new AtomicReference<>();
     EditingMetricsCollector collector = createCollectorForEffectMetrics(bundleReference);
 
-    // Act
     collector.onExportSuccess(
         EMPTY_COMPOSITION, createDefaultExportResult(), /* isExportResumed= */ false);
 
-    // Assert
     assertThat(bundleReference.get()).isNull();
   }
 
