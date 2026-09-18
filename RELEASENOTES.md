@@ -43,6 +43,11 @@
     *   Support configuring the frame rate of video frame aggregation via
         `Composition.Builder.setVideoFrameAggregationParameters` for playback
         workflows.
+    *   Fix frame drops in multi-sequence compositions caused by timestamp
+        quantization or rounding mismatches, by selecting the frame with the
+        closest timestamp during frame aggregation. This is enabled from API 29
+        only, as it requires holding one additional frame in flight per video
+        sequence.
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
 *   Transformer:
     *   Fix a segmentation fault during release by introducing
@@ -52,6 +57,11 @@
     *   Support configuring the frame rate of video frame aggregation via
         `Composition.Builder.setVideoFrameAggregationParameters` for export
         workflows.
+    *   Fix frame drops in multi-sequence compositions caused by timestamp
+        quantization or rounding mismatches, by selecting the frame with the
+        closest timestamp during frame aggregation. This is enabled from API 29
+        only, as it requires holding one additional frame in flight per video
+        sequence.
 *   Track Selection:
     *   Fix an issue where an SDR track was incorrectly preferred over a
         supported Dolby Vision track on some devices

@@ -24,6 +24,9 @@ import static androidx.media3.effect.DebugTraceUtil.EVENT_SEEK_TO;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_SET_COMPOSITION;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_SET_VIDEO_OUTPUT;
 import static androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper.LATE_US_TO_DROP_INPUT_FRAME;
+import static androidx.media3.transformer.FrameAggregator.STRATEGY_EXPECT_NO_FRAMES;
+import static androidx.media3.transformer.FrameAggregator.STRATEGY_MATCH_FRAME_AT_OR_AFTER_TARGET;
+import static androidx.media3.transformer.FrameAggregator.STRATEGY_MATCH_FRAME_CLOSEST_TO_TARGET;
 import static androidx.media3.transformer.TransformerUtil.containsSpeedChangingEffects;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -122,6 +125,7 @@ import androidx.media3.exoplayer.video.VideoSink;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.amr.AmrExtractor;
 import androidx.media3.extractor.ts.AdtsExtractor;
+import androidx.media3.transformer.FrameAggregator.AggregationStrategy;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -1671,8 +1675,18 @@ public final class CompositionPlayer extends SimpleBasePlayer {
               checkNotNull(videoPacketReleaseControl),
               hardwareBufferFrameReaderSupplier,
               lateThresholdToDropInputUs);
-      // Ensure the FrameAggregator ignores audio only sequences.
-      checkNotNull(currentFrameAggregator).registerSequence(sequenceIndex, sequenceContainsVideo);
+      @AggregationStrategy int aggregationStrategy;
+      if (!sequenceContainsVideo) {
+        // Audio only sequences never produce video frames.
+        aggregationStrategy = STRATEGY_EXPECT_NO_FRAMES;
+      } else if (HardwareBufferFrameReader.CAPACITY >= 3) {
+        // Retaining the previous frame in FrameAggregator requires reader capacity >= 3 since
+        // CompositionVideoPacketReleaseControl also retains a frame downstream.
+        aggregationStrategy = STRATEGY_MATCH_FRAME_CLOSEST_TO_TARGET;
+      } else {
+        aggregationStrategy = STRATEGY_MATCH_FRAME_AT_OR_AFTER_TARGET;
+      }
+      checkNotNull(currentFrameAggregator).registerSequence(sequenceIndex, aggregationStrategy);
     } else {
       VideoSink inputSink = checkNotNull(playbackVideoGraphWrapper).getSink(sequenceIndex);
       renderersFactory =

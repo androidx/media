@@ -20,8 +20,12 @@ import static androidx.media3.transformer.TransformerUtil.END_OF_STREAM_ASYNC_FR
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.max;
+import static java.lang.annotation.ElementType.TYPE_USE;
+import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 import android.util.Rational;
+import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -32,6 +36,10 @@ import androidx.media3.common.video.DefaultHardwareBufferFrame;
 import androidx.media3.common.video.Frame;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 import java.math.RoundingMode;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -43,6 +51,33 @@ import java.util.Queue;
  * ImmutableList<AsyncFrame>}.
  */
 /* package */ class FrameAggregator implements AutoCloseable {
+
+  /** Defines how frames from a registered sequence are used during aggregation. */
+  @Documented
+  @Retention(SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({
+    STRATEGY_EXPECT_NO_FRAMES,
+    STRATEGY_MATCH_FRAME_AT_OR_AFTER_TARGET,
+    STRATEGY_MATCH_FRAME_CLOSEST_TO_TARGET
+  })
+  /* package */ @interface AggregationStrategy {}
+
+  /**
+   * Expects no frames from the sequence, so the aggregator never waits for it.
+   *
+   * <p>Used for sequences with no video track.
+   */
+  /* package */ static final int STRATEGY_EXPECT_NO_FRAMES = 1;
+
+  /** Matches the first frame with a timestamp at or after the target timestamp. */
+  /* package */ static final int STRATEGY_MATCH_FRAME_AT_OR_AFTER_TARGET = 2;
+
+  /**
+   * Matches whichever of the preceding and following frames is closest to the target timestamp,
+   * breaking ties in favor of the preceding frame.
+   */
+  /* package */ static final int STRATEGY_MATCH_FRAME_CLOSEST_TO_TARGET = 3;
 
   private final Consumer<ImmutableList<AsyncFrame>> downstreamConsumer;
   private final Consumer<Integer> onFlush;
@@ -100,19 +135,20 @@ import java.util.Queue;
   }
 
   /**
-   * Registers the given {@code sequenceIndex} with the {@link FrameAggregator}, and indicates
-   * whether it should be considered when aggregating frames.
+   * Registers the given {@code sequenceIndex} with the {@link FrameAggregator}.
    *
    * <p>All sequences must be registered before frames are queued.
    *
+   * @param sequenceIndex The index of the sequence to register.
+   * @param aggregationStrategy The {@link AggregationStrategy} for this sequence.
    * @throws IllegalArgumentException If {@code sequenceIndex} is negative or greater than or equal
    *     to the number of sequences.
    */
-  public void registerSequence(int sequenceIndex, boolean shouldAggregate) {
+  public void registerSequence(int sequenceIndex, @AggregationStrategy int aggregationStrategy) {
     checkArgument(sequenceIndex >= 0);
     checkArgument(sequenceIndex < numSequences);
     checkState(!isClosed);
-    inputFrameQueues.get(sequenceIndex).initialize(shouldAggregate);
+    inputFrameQueues.get(sequenceIndex).initialize(aggregationStrategy);
   }
 
   /**
@@ -443,19 +479,19 @@ import java.util.Queue;
   private static class FrameQueue {
     final Queue<AsyncFrame> frames;
     private boolean isRegistered;
-    private boolean shouldAggregate;
+    private @AggregationStrategy int aggregationStrategy;
     private boolean isEnded;
 
     FrameQueue() {
       frames = new ArrayDeque<>();
       // Force FrameAggregator to wait for frames for this sequence, until initialize is called.
-      shouldAggregate = true;
+      aggregationStrategy = STRATEGY_MATCH_FRAME_CLOSEST_TO_TARGET;
     }
 
-    void initialize(boolean shouldAggregate) {
+    void initialize(@AggregationStrategy int aggregationStrategy) {
       checkState(!isRegistered);
       this.isRegistered = true;
-      this.shouldAggregate = shouldAggregate;
+      this.aggregationStrategy = aggregationStrategy;
     }
 
     void setIsEnded(boolean isEnded) {
@@ -464,33 +500,45 @@ import java.util.Queue;
 
     boolean getIsEnded() {
       checkState(isRegistered);
-      return isEnded || !shouldAggregate;
+      return isEnded || aggregationStrategy == STRATEGY_EXPECT_NO_FRAMES;
     }
 
     /**
      * Finds the best matching frame for the given target frame's sequence presentation timestamp.
      *
-     * <p>This method iterates through the frame queue, releasing any frames with presentation
-     * timestamps strictly less than the {@code targetFrame}'s sequencePresentationTimeUs. This
-     * ensures that we don't hold onto frames that can no longer be used for matching.
+     * <p>When {@code aggregationStrategy} is {@link #STRATEGY_MATCH_FRAME_CLOSEST_TO_TARGET},
+     * retains the previous frame relative to {@code targetFrame} and selects the closer frame
+     * between the previous and following frames, breaking ties in favor of the previous frame.
      *
-     * <p>The first frame remaining in the queue, which will have a presentation timestamp greater
-     * than or equal to the {@code targetFrame}'s sequencePresentationTimeUs, is considered the
-     * match. This frame is not removed from the queue by this method, as it might be needed to
+     * <p>When {@code aggregationStrategy} is {@link #STRATEGY_MATCH_FRAME_AT_OR_AFTER_TARGET}, this
+     * method iterates through the frame queue, releasing any frames with presentation timestamps
+     * strictly less than {@code targetFrame}'s sequence presentation timestamp. The first remaining
+     * frame (with timestamp greater than or equal to {@code targetFrame}) is considered the match.
+     *
+     * <p>Matched frames are not removed from the queue by this method, as they might be needed to
      * match subsequent primary frames (i.e., upsampling the secondary stream).
      *
      * <p>This matching strategy is deterministic: for a given state of the queue and a given {@code
-     * targetFrame}, the result of this method will always be the same. It's designed to be
-     * efficient by only retaining the necessary frames in the secondary queue – effectively keeping
-     * only the secondary frames that are current or in the future relative to the last processed
-     * primary frame timestamp.
+     * targetFrame}, the result of this method will always be the same. It is designed to be
+     * efficient by keeping only secondary frames with timestamps greater than or equal to {@code
+     * targetFrame}, plus at most one preceding frame when {@code aggregationStrategy} is {@link
+     * #STRATEGY_MATCH_FRAME_CLOSEST_TO_TARGET}.
      *
      * <p>Corner Cases:
      *
      * <ul>
-     *   <li>If the queue is empty, returns null.
-     *   <li>If all frames in the queue are older than {@code targetFrame}, all frames are released,
-     *       and it returns null.
+     *   <li>If the queue is empty, returns {@code null}.
+     *   <li>If all frames in the queue are older than {@code targetFrame}, returns {@code null}:
+     *       <ul>
+     *         <li>When {@code aggregationStrategy} is {@link
+     *             #STRATEGY_MATCH_FRAME_AT_OR_AFTER_TARGET}, all queued frames are released
+     *             immediately.
+     *         <li>When {@code aggregationStrategy} is {@link
+     *             #STRATEGY_MATCH_FRAME_CLOSEST_TO_TARGET}, all queued frames except the most
+     *             recent one are released; the most recent frame remains queued to be compared
+     *             against a future frame (or until released by {@link #flush(int)} or {@link
+     *             #close()}).
+     *       </ul>
      * </ul>
      *
      * @param targetFrame The primary frame for which to find a matching secondary frame.
@@ -499,23 +547,76 @@ import java.util.Queue;
      */
     @Nullable
     private AsyncFrame getMatchingFrame(AsyncFrame targetFrame) {
-      long targetTime = targetFrame.frame.getContentTimeUs();
+      long targetTimeUs = targetFrame.frame.getContentTimeUs();
       if (frames.isEmpty()) {
         return null;
       }
 
-      while (!frames.isEmpty()) {
-        AsyncFrame nextFrame = checkNotNull(frames.peek());
-        if (nextFrame.frame.getContentTimeUs() < targetTime) {
+      if (aggregationStrategy == STRATEGY_MATCH_FRAME_AT_OR_AFTER_TARGET) {
+        discardAllFramesBefore(targetTimeUs);
+        return frames.peek();
+      }
+
+      discardPrecedingFramesExceptMostRecent(targetTimeUs);
+
+      AsyncFrame firstFrame = checkNotNull(frames.peek());
+      if (firstFrame.frame.getContentTimeUs() >= targetTimeUs) {
+        return firstFrame;
+      }
+
+      if (frames.size() >= 2) {
+        AsyncFrame previousFrame = firstFrame;
+        AsyncFrame nextFrame = Iterables.get(frames, 1);
+        long previousDiffUs = targetTimeUs - previousFrame.frame.getContentTimeUs();
+        long nextDiffUs = nextFrame.frame.getContentTimeUs() - targetTimeUs;
+        if (nextDiffUs < previousDiffUs) {
           frames.poll();
-          TransformerUtil.releaseIfNeeded(nextFrame.frame, /* releaseFence= */ null);
+          TransformerUtil.releaseIfNeeded(previousFrame.frame, /* releaseFence= */ null);
+          return nextFrame;
+        }
+        return previousFrame;
+      }
+
+      return null;
+    }
+
+    /**
+     * Discards all queued frames with presentation timestamps strictly less than {@code
+     * targetTimeUs}.
+     */
+    private void discardAllFramesBefore(long targetTimeUs) {
+      while (!frames.isEmpty()) {
+        AsyncFrame asyncFrame = checkNotNull(frames.peek());
+        if (asyncFrame.frame.getContentTimeUs() < targetTimeUs) {
+          frames.poll();
+          TransformerUtil.releaseIfNeeded(asyncFrame.frame, /* releaseFence= */ null);
         } else {
-          // Found the first frame >= targetTime
           break;
         }
       }
+    }
 
-      return frames.peek();
+    /**
+     * Discards all frames with presentation timestamp <= {@code targetTimeUs} except the most
+     * recent one.
+     *
+     * <p>Any older frames are discarded because they are strictly farther from {@code targetTimeUs}
+     * than the retained frame.
+     */
+    private void discardPrecedingFramesExceptMostRecent(long targetTimeUs) {
+      int precedingFrameCount = 0;
+      for (AsyncFrame asyncFrame : frames) {
+        if (asyncFrame.frame.getContentTimeUs() <= targetTimeUs) {
+          precedingFrameCount++;
+        } else {
+          break;
+        }
+      }
+      int framesToDiscard = max(0, precedingFrameCount - 1);
+      for (int i = 0; i < framesToDiscard; i++) {
+        AsyncFrame asyncFrame = checkNotNull(frames.poll());
+        TransformerUtil.releaseIfNeeded(asyncFrame.frame, /* releaseFence= */ null);
+      }
     }
   }
 

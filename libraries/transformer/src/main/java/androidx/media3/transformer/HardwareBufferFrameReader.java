@@ -91,7 +91,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *
    * <p>Using 2 images seems to work on older API levels in our tests, and allows double buffering.
    */
-  private static final int CAPACITY = 2;
+  /* package */ static final int CAPACITY = SDK_INT >= 29 ? 3 : 2;
 
   private static final int DEFAULT_FRAME_RATE = 30;
   private static final String TAG = "HBFrameReader";

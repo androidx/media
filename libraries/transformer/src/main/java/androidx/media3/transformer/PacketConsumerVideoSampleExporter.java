@@ -17,6 +17,9 @@ package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
+import static androidx.media3.transformer.FrameAggregator.STRATEGY_EXPECT_NO_FRAMES;
+import static androidx.media3.transformer.FrameAggregator.STRATEGY_MATCH_FRAME_AT_OR_AFTER_TARGET;
+import static androidx.media3.transformer.FrameAggregator.STRATEGY_MATCH_FRAME_CLOSEST_TO_TARGET;
 import static androidx.media3.transformer.TransformerUtil.END_OF_STREAM_ASYNC_FRAME;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -48,6 +51,7 @@ import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.transformer.Codec.EncoderFactory;
+import androidx.media3.transformer.FrameAggregator.AggregationStrategy;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayDeque;
 import java.util.List;
@@ -208,10 +212,20 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               hardwareBufferJniWrapper);
       sampleConsumerBuilder.add(sampleConsumer);
       // TODO: b/496585841 - Handle single asset items with TRACK_TYPE_NONE.
-      // Ensure the FrameAggregator ignores audio only sequences.
-      boolean shouldAggregateSequence =
+      boolean sequenceContainsVideo =
           composition.sequences.get(sequenceIndex).trackTypes.contains(TRACK_TYPE_VIDEO);
-      frameAggregator.registerSequence(sequenceIndex, shouldAggregateSequence);
+      @AggregationStrategy int aggregationStrategy;
+      if (!sequenceContainsVideo) {
+        // Audio only sequences never produce video frames.
+        aggregationStrategy = STRATEGY_EXPECT_NO_FRAMES;
+      } else if (HardwareBufferFrameReader.CAPACITY >= 3) {
+        // Retaining the previous frame in FrameAggregator requires reader capacity >= 3 since
+        // InFlightFrameManager also holds a frame in flight downstream.
+        aggregationStrategy = STRATEGY_MATCH_FRAME_CLOSEST_TO_TARGET;
+      } else {
+        aggregationStrategy = STRATEGY_MATCH_FRAME_AT_OR_AFTER_TARGET;
+      }
+      frameAggregator.registerSequence(sequenceIndex, aggregationStrategy);
     }
     sampleConsumers = sampleConsumerBuilder.build();
   }

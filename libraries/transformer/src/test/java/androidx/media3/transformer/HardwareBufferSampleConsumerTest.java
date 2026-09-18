@@ -17,7 +17,9 @@ package androidx.media3.transformer;
 
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
+import static androidx.media3.transformer.HardwareBufferFrameReader.CAPACITY;
 import static com.google.common.truth.Truth.assertThat;
+import static java.lang.Math.round;
 import static org.junit.Assert.assertThrows;
 import static org.robolectric.Shadows.shadowOf;
 
@@ -103,25 +105,23 @@ public class HardwareBufferSampleConsumerTest {
         .isEqualTo(GraphInput.INPUT_RESULT_SUCCESS);
     shadowOf(handlerThread.getLooper()).idle();
 
-    assertThat(receivedFrames).hasSize(2);
-
-    HardwareBufferFrame frame1 = receivedFrames.get(0);
-    // The frame.hardwareBuffer should also be non null, but in roboelectric HardwareBuffers are not
-    // created properly so this is tested in the AndroidTest.
-    assertThat(frame1.presentationTimeUs).isEqualTo(0);
-    assertThat(frame1.sequencePresentationTimeUs).isEqualTo(0);
-    assertThat(frame1.releaseTimeNs).isEqualTo(0);
-    assertThat(((CompositionFrameMetadata) frame1.getMetadata()).itemIndex).isEqualTo(0);
-    // For bitmaps, the format is currently hardcoded in HardwareBufferFrameReader.
-    assertThat(frame1.format).isNotNull();
-    assertThat(frame1.format.sampleMimeType).isEqualTo(MimeTypes.IMAGE_RAW);
-
-    HardwareBufferFrame frame2 = receivedFrames.get(1);
-    assertThat(frame2.presentationTimeUs).isEqualTo(33_333);
-    assertThat(frame2.sequencePresentationTimeUs).isEqualTo(33_333);
-    assertThat(frame2.releaseTimeNs).isEqualTo(33_333 * 1000);
-    assertThat(((CompositionFrameMetadata) frame2.getMetadata()).itemIndex).isEqualTo(0);
-    assertThat(frame2.format.sampleMimeType).isEqualTo(MimeTypes.IMAGE_RAW);
+    // The reader outputs frames up to its capacity before any frame is released. The capacity is 2
+    // below API 29 and 3 from API 29, and the timestamp iterator produces 3 frames, so the reader
+    // outputs exactly CAPACITY frames.
+    assertThat(receivedFrames).hasSize(CAPACITY);
+    for (int i = 0; i < CAPACITY; i++) {
+      HardwareBufferFrame frame = receivedFrames.get(i);
+      long expectedPresentationTimeUs = round(i * (C.MICROS_PER_SECOND / 30f));
+      // The frame.hardwareBuffer should also be non null, but in roboelectric HardwareBuffers are
+      // not created properly so this is tested in the AndroidTest.
+      assertThat(frame.presentationTimeUs).isEqualTo(expectedPresentationTimeUs);
+      assertThat(frame.sequencePresentationTimeUs).isEqualTo(expectedPresentationTimeUs);
+      assertThat(frame.releaseTimeNs).isEqualTo(expectedPresentationTimeUs * 1000);
+      assertThat(getCompositionFrameMetadata(frame).itemIndex).isEqualTo(0);
+      // For bitmaps, the format is currently hardcoded in HardwareBufferFrameReader.
+      assertThat(frame.format).isNotNull();
+      assertThat(frame.format.sampleMimeType).isEqualTo(MimeTypes.IMAGE_RAW);
+    }
   }
 
   @Test
@@ -342,5 +342,10 @@ public class HardwareBufferSampleConsumerTest {
     assertThat(receivedFrames).isNotEmpty();
     assertThat(Iterables.getLast(receivedFrames))
         .isEqualTo(HardwareBufferFrame.END_OF_STREAM_FRAME);
+  }
+
+  @SuppressWarnings("deprecation") // Uses deprecated CompositionFrameMetadata.
+  private static CompositionFrameMetadata getCompositionFrameMetadata(HardwareBufferFrame frame) {
+    return (CompositionFrameMetadata) frame.getMetadata();
   }
 }

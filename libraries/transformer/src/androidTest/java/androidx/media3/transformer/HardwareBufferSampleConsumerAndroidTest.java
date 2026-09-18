@@ -17,6 +17,7 @@ package androidx.media3.transformer;
 
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
+import static androidx.media3.transformer.HardwareBufferFrameReader.CAPACITY;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -72,7 +73,7 @@ public class HardwareBufferSampleConsumerAndroidTest {
   @Test
   public void queueInputARGB888Bitmap_outputsHardwareBufferFrameWithBitmap()
       throws InterruptedException {
-    CountDownLatch framesReceivedLatch = new CountDownLatch(2);
+    CountDownLatch framesReceivedLatch = new CountDownLatch(CAPACITY);
     sampleConsumer =
         createSampleConsumer(
             /* onFrame= */ (frame) -> {
@@ -96,11 +97,11 @@ public class HardwareBufferSampleConsumerAndroidTest {
         .isEqualTo(GraphInput.INPUT_RESULT_SUCCESS);
 
     assertThat(framesReceivedLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(receivedFrames).hasSize(2);
-    assertThat(receivedFrames.get(0).hardwareBuffer).isNull();
-    assertThat(receivedFrames.get(0).internalFrame).isSameInstanceAs(bitmap);
-    assertThat(receivedFrames.get(1).hardwareBuffer).isNull();
-    assertThat(receivedFrames.get(1).internalFrame).isSameInstanceAs(bitmap);
+    assertThat(receivedFrames).hasSize(CAPACITY);
+    for (int i = 0; i < CAPACITY; i++) {
+      assertThat(receivedFrames.get(i).hardwareBuffer).isNull();
+      assertThat(receivedFrames.get(i).internalFrame).isSameInstanceAs(bitmap);
+    }
   }
 
   private HardwareBufferSampleConsumer createSampleConsumer(Consumer<HardwareBufferFrame> onFrame) {

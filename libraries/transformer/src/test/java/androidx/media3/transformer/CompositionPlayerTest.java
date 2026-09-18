@@ -2898,7 +2898,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void
-      frameProcessor_twoVideoSequencesMismatchedFrameRates_seek_decodesExtraSecondaryFrames()
+      frameProcessor_twoVideoSequencesMismatchedFrameRates_seek_outputsClosestSecondaryFrame()
           throws Exception {
 
     Composition composition =
@@ -2923,8 +2923,8 @@ public class CompositionPlayerTest {
     CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
     assertThat(frameProcessor).isNotNull();
 
-    // Seek to 466ms, primary will resolve to 480_000, secondary will resolve to 466_667, then
-    // decode an extra frame and output 533_333.
+    // Seek to 466ms, primary will resolve to 480_000, secondary will output the closer frame
+    // 466_666.
     player.setScrubbingModeEnabled(true);
     player.seekTo(466);
     player.setScrubbingModeEnabled(false);
@@ -2932,10 +2932,10 @@ public class CompositionPlayerTest {
     // Because extra frames need to be decoded, advancing until the player is ready is not enough,
     // we need to wait until the FrameProcessor receives the new frames.
     advance(player).untilState(STATE_READY);
-    runMainLooperUntilContentTimesUs(frameProcessor, ImmutableList.of(480_000L, 533_333L));
+    runMainLooperUntilContentTimesUs(frameProcessor, ImmutableList.of(480_000L, 466_666L));
 
     assertThat(frameProcessor.getQueuedContentTimesUs())
-        .containsExactly(ImmutableList.of(0L, 0L), ImmutableList.of(480_000L, 533_333L))
+        .containsExactly(ImmutableList.of(0L, 0L), ImmutableList.of(480_000L, 466_666L))
         .inOrder();
   }
 
@@ -3366,7 +3366,6 @@ public class CompositionPlayerTest {
   }
 
   @Test
-  @SuppressWarnings("deprecation") // Uses deprecated CompositionFrameMetadata.
   public void playback_withLoopingSecondarySequence_wrapsItemIndexInFrameMetadata()
       throws Exception {
     EditedMediaItemSequence primarySequence =
