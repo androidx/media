@@ -956,7 +956,6 @@ public final class BoxParser {
     long[] editedTimestamps = new long[editedSampleCount];
     long pts = 0;
     int sampleIndex = 0;
-    boolean hasPrerollSamples = false;
     for (int i = 0; i < track.editListDurations.length(); i++) {
       long editMediaTime = track.editListMediaTimes.get(i);
       int startIndex = startIndices[i];
@@ -972,9 +971,6 @@ public final class BoxParser {
         long timeInSegmentUs =
             Util.scaleLargeTimestamp(
                 timestamps[j] - editMediaTime, C.MICROS_PER_SECOND, track.timescale);
-        if (timeInSegmentUs < 0) {
-          hasPrerollSamples = true;
-        }
         editedTimestamps[sampleIndex] = ptsUs + timeInSegmentUs;
         if (copyMetadata && editedSizes[sampleIndex] > editedMaximumSize) {
           editedMaximumSize = sizes[j];
@@ -990,10 +986,6 @@ public final class BoxParser {
     }
     long editedDurationUs =
         Util.scaleLargeTimestamp(pts, C.MICROS_PER_SECOND, track.movieTimescale);
-    if (hasPrerollSamples) {
-      Format format = track.format.buildUpon().setHasPrerollSamples(true).build();
-      track = track.buildUpon().setFormat(format).build();
-    }
     return new TrackSampleTable(
         track,
         editedOffsets,

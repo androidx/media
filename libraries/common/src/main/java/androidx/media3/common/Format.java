@@ -177,7 +177,6 @@ public final class Format {
     @Nullable private List<byte[]> initializationData;
     @Nullable private DrmInitData drmInitData;
     private long subsampleOffsetUs;
-    private boolean hasPrerollSamples;
 
     // Video specific.
 
@@ -282,7 +281,6 @@ public final class Format {
       this.initializationData = format.initializationData;
       this.drmInitData = format.drmInitData;
       this.subsampleOffsetUs = format.subsampleOffsetUs;
-      this.hasPrerollSamples = format.hasPrerollSamples;
       // Video specific.
       this.width = format.width;
       this.height = format.height;
@@ -603,18 +601,6 @@ public final class Format {
     @CanIgnoreReturnValue
     public Builder setSubsampleOffsetUs(long subsampleOffsetUs) {
       this.subsampleOffsetUs = subsampleOffsetUs;
-      return this;
-    }
-
-    /**
-     * Sets {@link Format#hasPrerollSamples}. The default value is {@code false}.
-     *
-     * @param hasPrerollSamples The {@link Format#hasPrerollSamples}.
-     * @return The builder.
-     */
-    @CanIgnoreReturnValue
-    public Builder setHasPrerollSamples(boolean hasPrerollSamples) {
-      this.hasPrerollSamples = hasPrerollSamples;
       return this;
     }
 
@@ -1131,15 +1117,6 @@ public final class Format {
    */
   @UnstableApi public final long subsampleOffsetUs;
 
-  /**
-   * Indicates whether the stream contains preroll samples.
-   *
-   * <p>When this field is set to {@code true}, it means that the stream includes decode-only
-   * samples that occur before the intended playback start position. These samples are necessary for
-   * decoding but are not meant to be rendered and should be skipped after decoding.
-   */
-  @UnstableApi public final boolean hasPrerollSamples;
-
   // Video specific.
 
   /** The width of the video in pixels, or {@link #NO_VALUE} if unknown or not applicable. */
@@ -1340,7 +1317,6 @@ public final class Format {
         builder.initializationData == null ? Collections.emptyList() : builder.initializationData;
     drmInitData = builder.drmInitData;
     subsampleOffsetUs = builder.subsampleOffsetUs;
-    hasPrerollSamples = builder.hasPrerollSamples;
     // Video specific.
     width = builder.width;
     height = builder.height;

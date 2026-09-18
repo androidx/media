@@ -663,23 +663,36 @@ public final class ProgressiveMediaPeriodTest {
               long position,
               long length,
               ExtractorOutput output) {
-            // Provide custom formats that have pre-roll samples.
+            // Provide custom non-sync formats and a SeekMap whose first seek point precedes 0 to
+            // indicate pre-roll samples.
             output
                 .track(0, C.TRACK_TYPE_AUDIO)
                 .format(
                     new Format.Builder()
                         .setSampleMimeType(MimeTypes.AUDIO_AAC)
-                        .setHasPrerollSamples(true)
+                        .setCodecs("mp4a.40.42")
                         .build());
             output
                 .track(1, C.TRACK_TYPE_VIDEO)
-                .format(
-                    new Format.Builder()
-                        .setSampleMimeType(MimeTypes.VIDEO_H264)
-                        .setHasPrerollSamples(true)
-                        .build());
+                .format(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build());
             output.endTracks();
-            output.seekMap(new SeekMap.Unseekable(C.TIME_UNSET));
+            output.seekMap(
+                new SeekMap() {
+                  @Override
+                  public boolean isSeekable() {
+                    return true;
+                  }
+
+                  @Override
+                  public long getDurationUs() {
+                    return C.TIME_UNSET;
+                  }
+
+                  @Override
+                  public SeekPoints getSeekPoints(long timeUs) {
+                    return new SeekPoints(new SeekPoint(/* timeUs= */ -100_000, /* position= */ 0));
+                  }
+                });
           }
 
           @Override
@@ -725,7 +738,8 @@ public final class ProgressiveMediaPeriodTest {
             /* streamResetFlags= */ new boolean[2],
             /* positionUs= */ 0);
 
-    // Verify initial discontinuity for first track selection.
+    // Verify initial discontinuity and stream preroll flag for first track selection.
+    assertThat(streams[0].getFlags()).isEqualTo(SampleStream.FLAG_HAS_PREROLL);
     assertThat(mediaPeriod.readDiscontinuity()).isEqualTo(0);
 
     // 2. Simulate seeking to a non-zero position.
@@ -742,9 +756,36 @@ public final class ProgressiveMediaPeriodTest {
             /* streamResetFlags= */ new boolean[2],
             /* positionUs= */ seekPositionUs);
 
-    // Verify no extra discontinuity when selecting the second stream.
+    // Verify no extra discontinuity when selecting the second stream, while the joined stream
+    // reports its own preroll flag.
+    assertThat(streams[1].getFlags()).isEqualTo(SampleStream.FLAG_HAS_PREROLL);
     assertThat(mediaPeriod.readDiscontinuity()).isEqualTo(C.TIME_UNSET);
 
+    mediaPeriod.release();
+  }
+
+  @Test
+  public void selectTracks_mp4WithEditListPreroll_reportsPrerollForVideoAndZeroForSyncAudio()
+      throws Exception {
+    ProgressiveMediaPeriod mediaPeriod =
+        createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample_edit_list.mp4"));
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    selections[0] = new FakeTrackSelection(trackGroups.get(0), 0);
+    selections[1] = new FakeTrackSelection(trackGroups.get(1), 0);
+
+    long unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            new boolean[trackGroups.length],
+            /* positionUs= */ 0);
+
+    assertThat(streams[0].getFlags()).isEqualTo(SampleStream.FLAG_HAS_PREROLL);
+    assertThat(streams[1].getFlags()).isEqualTo(0);
+    assertThat(mediaPeriod.readDiscontinuity()).isEqualTo(0);
     mediaPeriod.release();
   }
 

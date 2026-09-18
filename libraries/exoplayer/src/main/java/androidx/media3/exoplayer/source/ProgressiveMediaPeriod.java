@@ -388,9 +388,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         enabledTrackCount++;
         trackEnabledStates[track] = true;
         boolean trackHasPrerollAtStart = trackHasPreroll(track, positionUs);
-        legacyHasPreroll |=
-            selection.getSelectedFormat().hasPrerollSamples
-                || trackHasPreroll(track, /* positionUs= */ 0);
+        legacyHasPreroll |= trackHasPreroll(track, /* positionUs= */ 0);
         SampleStream stream = new SampleStreamImpl(track, trackHasPrerollAtStart);
         if (Build.VERSION.SDK_INT >= 37
             && !isT35TrackExplicitlySelected
