@@ -15,8 +15,10 @@
  */
 package androidx.media3.test.utils;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
+import static java.lang.Math.max;
 import static java.util.Objects.hash;
 
 import androidx.annotation.Nullable;
@@ -162,10 +164,10 @@ public final class FrameProcessorTestUtil {
   /**
    * Calculates the expected events from the primary and secondary sequence timestamps.
    *
-   * <p>For each primary timestamp, this utility selects the smallest secondary timestamp greater
-   * than or equal to the primary. If there is no matching secondary timestamp, then that sequence
-   * is omitted. This matches the logic in androidx.media3.transformer.FrameAggregator when the
-   * primary sequence drives the aggregation.
+   * <p>For each primary timestamp, selects the closest secondary timestamp between the preceding
+   * and following frames on API 29+, or the smallest secondary timestamp greater than or equal to
+   * the primary timestamp below API 29. If there is no matching secondary timestamp, that sequence
+   * is omitted.
    *
    * @param primaryContentTimesUs Timestamps of the primary sequence.
    * @param primarySeqIndex Index of the primary sequence.
@@ -189,25 +191,72 @@ public final class FrameProcessorTestUtil {
       for (int i = 0; i < secondarySequencesContentTimesUs.size(); i++) {
         Queue<Long> queue = secondarySequencesContentTimesUs.get(i);
         int seqIndex = secondarySeqIndices.get(i);
-
-        // Drain the secondary sequence while it's timestamp is less than the primary timestamp.
-        while (!queue.isEmpty()) {
-          long peekedTime = checkNotNull(queue.peek());
-          if (peekedTime < primaryTime) {
-            queue.poll();
-          } else {
-            break;
+        if (SDK_INT >= 29) {
+          advanceToClosestSecondaryTimeUs(queue, primaryTime);
+        } else {
+          // Drain the secondary sequence while it's timestamp is less than the primary timestamp.
+          while (!queue.isEmpty()) {
+            long peekedTime = checkNotNull(queue.peek());
+            if (peekedTime < primaryTime) {
+              queue.poll();
+            } else {
+              break;
+            }
           }
         }
 
         if (!queue.isEmpty()) {
-          // Guaranteed to be the smallest timestamp >= to the primary time.
+          // Guaranteed to be the smallest timestamp >= to the primary time on API < 29, or the
+          // closest timestamp on API 29+.
           packet.add(new ExpectedFrame(checkNotNull(queue.peek()), seqIndex));
         }
       }
       expectedEvents.add(packet);
     }
     return expectedEvents.build();
+  }
+
+  /**
+   * Advances {@code queue} to the frame closest to {@code targetTimeUs}.
+   *
+   * <p>Retains at most one frame at or before {@code targetTimeUs}, or empties {@code queue} if the
+   * secondary sequence has ended before {@code targetTimeUs}.
+   */
+  private static void advanceToClosestSecondaryTimeUs(Queue<Long> queue, long targetTimeUs) {
+    if (queue.isEmpty()) {
+      return;
+    }
+    int precedingFrameCount = 0;
+    for (long timeUs : queue) {
+      if (timeUs <= targetTimeUs) {
+        precedingFrameCount++;
+      } else {
+        break;
+      }
+    }
+    int framesToDiscard = max(0, precedingFrameCount - 1);
+    for (int i = 0; i < framesToDiscard; i++) {
+      queue.poll();
+    }
+
+    long firstTimeUs = checkNotNull(queue.peek());
+    // No preceding frame exists, or it matches targetTimeUs.
+    if (firstTimeUs >= targetTimeUs) {
+      return;
+    }
+
+    if (queue.size() >= 2) {
+      long previousTimeUs = firstTimeUs;
+      long nextTimeUs = Iterables.get(queue, 1);
+      long previousDiffUs = targetTimeUs - previousTimeUs;
+      long nextDiffUs = nextTimeUs - targetTimeUs;
+      if (nextDiffUs < previousDiffUs) {
+        queue.poll();
+      }
+      return;
+    }
+
+    queue.poll();
   }
 
   /**
