@@ -150,9 +150,13 @@ import java.nio.ByteBuffer;
   /**
    * Reads from the metadata stream into the cache until a metadata sample with a PTS greater than
    * {@code videoPtsUs} is encountered, or the metadata stream has no more data.
+   *
+   * <p>If the cache already contains a sample beyond {@code videoPtsUs}, no further reads are
+   * performed to avoid aggressive prefetching and premature cache eviction.
    */
   private void populateMetadataCache(long videoPtsUs) {
-    if (metadataStreamEnded) {
+    if (metadataStreamEnded
+        || (lastMetadataPtsUs != C.TIME_UNSET && lastMetadataPtsUs > videoPtsUs)) {
       return;
     }
     while (true) {
