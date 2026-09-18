@@ -28,6 +28,9 @@ set(libopus_jni_root "${CMAKE_CURRENT_SOURCE_DIR}")
 add_subdirectory("${libopus_jni_root}/libopus"
                  EXCLUDE_FROM_ALL)
 
+set_target_properties(opus PROPERTIES
+                      C_VISIBILITY_PRESET hidden)
+
 # Add the include directory from libopus.
 include_directories ("${libopus_jni_root}/libopus/include")
 
