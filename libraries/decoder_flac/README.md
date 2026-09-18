@@ -22,7 +22,7 @@ your media3 check-out):
 
 ```shell
 cd libraries/decoder_flac/src/main/jni && \
-git clone https://github.com/xiph/flac.git --depth=1 libflac
+git clone https://github.com/xiph/flac.git --branch 1.5.0 --depth=1 libflac
 ```
 
 * [Install CMake][]

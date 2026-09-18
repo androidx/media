@@ -44,7 +44,7 @@ HOST_PLATFORM="linux-x86_64"
 
 ```
 cd "${AV1_MODULE_PATH}/jni" && \
-git clone https://github.com/google/cpu_features
+git clone https://github.com/google/cpu_features --branch v0.9.0 --depth=1
 ```
 
 *   Install [Meson][] (0.49 or higher), [Ninja][], and, for x86* targets,
@@ -54,7 +54,7 @@ git clone https://github.com/google/cpu_features
 
 ```
 cd "${AV1_MODULE_PATH}/jni" && \
-git clone https://code.videolan.org/videolan/dav1d.git
+git clone https://code.videolan.org/videolan/dav1d.git --branch 1.5.4 --depth=1
 ```
 
 *   Execute `build_dav1d.sh` to build `libdav1d.a` for all supported
