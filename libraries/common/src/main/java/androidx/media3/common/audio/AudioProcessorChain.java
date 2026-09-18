@@ -15,6 +15,7 @@
  */
 package androidx.media3.common.audio;
 
+import androidx.media3.common.Format;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.util.UnstableApi;
 
@@ -33,7 +34,7 @@ public interface AudioProcessorChain {
    * during initialization, but audio processors may change state to become active/inactive during
    * playback.
    */
-  AudioProcessor[] getAudioProcessors();
+  AudioProcessor[] getAudioProcessors(Format format);
 
   /**
    * Configures audio processors to apply the specified playback parameters immediately, returning
