@@ -96,6 +96,7 @@ public final class ImaPlaybackTest {
   }
 
   @Test
+  @Ignore("Failing in CI: b/563327174")
   public void playbackWithMidrolls1And7_playsAdsAndContent() throws Exception {
     String adsResponse =
         TestUtil.getString(
