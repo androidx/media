@@ -406,14 +406,14 @@ public final class AviExtractor implements Extractor {
       int chunkId = body.readLittleEndianInt();
       int flags = body.readLittleEndianInt();
       long offset = body.readLittleEndianInt() + seekOffset;
-      body.skipBytes(4); // Ignore size.
+      int size = body.readLittleEndianInt();
       ChunkReader chunkReader = getChunkReader(chunkId);
       if (chunkReader == null) {
         // We ignore unknown chunk IDs.
         continue;
       }
       chunkReader.appendIndexChunk(
-          offset, /* isKeyFrame= */ (flags & AVIIF_KEYFRAME) == AVIIF_KEYFRAME);
+          offset, size, /* isKeyFrame= */ (flags & AVIIF_KEYFRAME) == AVIIF_KEYFRAME);
     }
     for (ChunkReader chunkReader : chunkReaders) {
       chunkReader.commitIndex();
