@@ -23,6 +23,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
+import static java.lang.Math.min;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -538,26 +539,30 @@ public class BitmapPixelTestUtil {
     GlUtil.checkGlError();
     if (readType[0] == GLES20.GL_FLOAT) {
       int floatsPerRow = width * channelCount;
-      FloatBuffer rowFloatBuffer =
-          ByteBuffer.allocateDirect(floatsPerRow * Float.BYTES)
+      int bytesPerRow = floatsPerRow * Float.BYTES;
+      // Cap the direct float buffer size to avoid OutOfMemoryError.
+      int maxBufferBytes = 16 * 1024 * 1024;
+      int rowsPerRead = max(1, min(height, maxBufferBytes / bytesPerRow));
+      FloatBuffer floatBuffer =
+          ByteBuffer.allocateDirect(rowsPerRead * bytesPerRow)
               .order(ByteOrder.nativeOrder())
               .asFloatBuffer();
       ByteBuffer halfBuffer =
           ByteBuffer.allocateDirect(width * height * pixelSize).order(ByteOrder.nativeOrder());
       ShortBuffer shortBuffer = halfBuffer.asShortBuffer();
-      for (int y = height - 1; y >= 0; y--) {
-        rowFloatBuffer.rewind();
+      for (int y = 0; y < height; y += rowsPerRead) {
+        int rowsToRead = min(rowsPerRead, height - y);
+        floatBuffer.rewind();
         GLES20.glReadPixels(
-            /* x= */ 0,
-            /* y= */ y,
-            width,
-            /* height= */ 1,
-            GLES20.GL_RGBA,
-            GLES20.GL_FLOAT,
-            rowFloatBuffer);
+            /* x= */ 0, y, width, rowsToRead, GLES20.GL_RGBA, GLES20.GL_FLOAT, floatBuffer);
         GlUtil.checkGlError();
-        rowFloatBuffer.rewind();
-        copyFloatsToHalfBuffer(rowFloatBuffer, shortBuffer, floatsPerRow);
+        floatBuffer.rewind();
+        for (int r = 0; r < rowsToRead; r++) {
+          // Flip vertically: OpenGL row (y + r) from the bottom maps to Bitmap row
+          // (height - 1 - (y + r)) from the top.
+          shortBuffer.position((height - 1 - (y + r)) * floatsPerRow);
+          copyFloatsToHalfBuffer(floatBuffer, shortBuffer, floatsPerRow);
+        }
       }
       halfBuffer.rewind();
       Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGBA_F16);

@@ -985,7 +985,6 @@ public final class HardwareBufferToGlTextureConverterTest {
   private Bitmap convertAndCaptureBitmap(
       HardwareBufferFrame hardwareBufferFrame, FrameProcessor.Listener listener) throws Exception {
     AtomicReference<Bitmap> actualBitmap = new AtomicReference<>();
-    CountDownLatch bitmapCaptured = new CountDownLatch(1);
     glExecutorService
         .submit(
             () -> {
@@ -1019,15 +1018,17 @@ public final class HardwareBufferToGlTextureConverterTest {
                 glTextureFrame.release(/* releaseFence= */ null);
                 assertThat(glTextureFrame.format.rotationDegrees).isEqualTo(0);
                 GlUtil.deleteFbo(fboId);
-                bitmapCaptured.countDown();
               } catch (GlException | VideoFrameProcessingException e) {
                 throw new IllegalStateException(e);
               }
             })
-        .get();
+        .get(TEST_TIMEOUT_MS, MILLISECONDS);
+    // glTextureFrame.release() posts releaseTextureCallback (which invokes
+    // listener.onFrameProcessed directly) onto glExecutorService. Wait for that queued
+    // task to finish.
+    glExecutorService.submit(() -> {}).get(TEST_TIMEOUT_MS, MILLISECONDS);
 
-    assertThat(bitmapCaptured.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
-    return actualBitmap.get();
+    return checkNotNull(actualBitmap.get());
   }
 
   @RequiresApi(34)
