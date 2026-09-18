@@ -79,13 +79,16 @@ import java.util.Map;
 
   @Override
   protected boolean parsePayload(ParsableByteArray data, long timeUs) {
+    if (data.bytesLeft() == 0) {
+      return false;
+    }
     int nameType = readAmfType(data);
     if (nameType != AMF_TYPE_STRING) {
       // Ignore segments with unexpected name type.
       return false;
     }
-    String name = readAmfString(data);
-    if (!NAME_METADATA.equals(name)) {
+    @Nullable String name = readAmfString(data);
+    if (name == null || !NAME_METADATA.equals(name)) {
       // We're only interested in metadata.
       return false;
     }
@@ -98,7 +101,11 @@ import java.util.Map;
       // We're not interested in this metadata.
       return false;
     }
-    Map<String, Object> metadata = readAmfEcmaArray(data);
+    @Nullable Map<String, Object> metadata = readAmfEcmaArray(data);
+    if (metadata == null) {
+      // The metadata was malformed; ignore it rather than propagating a parse failure.
+      return false;
+    }
     // Set the duration to the value contained in the metadata, if present.
     @Nullable Object durationSecondsObj = metadata.get(KEY_DURATION);
     if (durationSecondsObj instanceof Double) {
@@ -116,7 +123,8 @@ import java.util.Map;
       if (positionsObj instanceof List && timesSecondsObj instanceof List) {
         List<?> positions = (List<?>) positionsObj;
         List<?> timesSeconds = (List<?>) timesSecondsObj;
-        int keyFrameCount = timesSeconds.size();
+        // Guard against malformed metadata where the two arrays have different lengths.
+        int keyFrameCount = Math.min(timesSeconds.size(), positions.size());
         keyFrameTimesUs = new long[keyFrameCount];
         keyFrameTagPositions = new long[keyFrameCount];
         for (int i = 0; i < keyFrameCount; i++) {
@@ -156,7 +164,11 @@ import java.util.Map;
    * @param data The buffer from which to read.
    * @return The value read from the buffer.
    */
+  @Nullable
   private static Double readAmfDouble(ParsableByteArray data) {
+    if (data.bytesLeft() < 8) {
+      return null;
+    }
     return Double.longBitsToDouble(data.readLong());
   }
 
@@ -164,10 +176,17 @@ import java.util.Map;
    * Read a string from an AMF encoded buffer.
    *
    * @param data The buffer from which to read.
-   * @return The value read from the buffer.
+   * @return The value read from the buffer, or null if the buffer does not contain enough data.
    */
+  @Nullable
   private static String readAmfString(ParsableByteArray data) {
+    if (data.bytesLeft() < 2) {
+      return null;
+    }
     int size = data.readUnsignedShort();
+    if (data.bytesLeft() < size) {
+      return null;
+    }
     int position = data.getPosition();
     data.skipBytes(size);
     return new String(data.getData(), position, size);
@@ -177,14 +196,26 @@ import java.util.Map;
    * Read an array from an AMF encoded buffer.
    *
    * @param data The buffer from which to read.
-   * @return The value read from the buffer.
+   * @return The value read from the buffer, or null if the buffer was exhausted before the
+   *     declared element count was reached (malformed data).
    */
+  @Nullable
   private static ArrayList<Object> readAmfStrictArray(ParsableByteArray data) {
+    if (data.bytesLeft() < 4) {
+      return null;
+    }
     int count = data.readUnsignedIntToInt();
-    ArrayList<Object> list = new ArrayList<>(count);
+    if (count < 0) {
+      return null;
+    }
+    ArrayList<Object> list = new ArrayList<>(Math.min(count, 1024));
     for (int i = 0; i < count; i++) {
+      if (data.bytesLeft() <= 0) {
+        // Malformed: declared count exceeds the data actually present. Return what we have.
+        return list;
+      }
       int type = readAmfType(data);
-      Object value = readAmfData(data, type);
+      @Nullable Object value = readAmfData(data, type);
       if (value != null) {
         list.add(value);
       }
@@ -196,21 +227,28 @@ import java.util.Map;
    * Read an object from an AMF encoded buffer.
    *
    * @param data The buffer from which to read.
-   * @return The value read from the buffer.
+   * @return The value read from the buffer, or null if the buffer was exhausted before an end
+   *     marker was found (malformed data).
    */
+  @Nullable
   private static HashMap<String, Object> readAmfObject(ParsableByteArray data) {
     HashMap<String, Object> array = new HashMap<>();
-    while (true) {
-      String key = readAmfString(data);
+    while (data.bytesLeft() > 0) {
+      @Nullable String key = readAmfString(data);
+      if (key == null || data.bytesLeft() == 0) {
+        // Malformed: missing end marker. Return what we've parsed so far.
+        return array;
+      }
       int type = readAmfType(data);
       if (type == AMF_TYPE_END_MARKER) {
-        break;
+        return array;
       }
-      Object value = readAmfData(data, type);
+      @Nullable Object value = readAmfData(data, type);
       if (value != null) {
         array.put(key, value);
       }
     }
+    // Ran out of data without an end marker.
     return array;
   }
 
@@ -218,15 +256,30 @@ import java.util.Map;
    * Read an ECMA array from an AMF encoded buffer.
    *
    * @param data The buffer from which to read.
-   * @return The value read from the buffer.
+   * @return The value read from the buffer, or null if the buffer was exhausted before the
+   *     declared element count was reached (malformed data).
    */
+  @Nullable
   private static HashMap<String, Object> readAmfEcmaArray(ParsableByteArray data) {
+    if (data.bytesLeft() < 4) {
+      return null;
+    }
     int count = data.readUnsignedIntToInt();
-    HashMap<String, Object> array = new HashMap<>(count);
+    if (count < 0) {
+      return null;
+    }
+    HashMap<String, Object> array = new HashMap<>(Math.min(count, 1024));
     for (int i = 0; i < count; i++) {
-      String key = readAmfString(data);
+      if (data.bytesLeft() <= 0) {
+        // Malformed: declared count exceeds the data actually present. Return what we have.
+        return array;
+      }
+      @Nullable String key = readAmfString(data);
+      if (key == null || data.bytesLeft() == 0) {
+        return array;
+      }
       int type = readAmfType(data);
-      Object value = readAmfData(data, type);
+      @Nullable Object value = readAmfData(data, type);
       if (value != null) {
         array.put(key, value);
       }
@@ -238,10 +291,15 @@ import java.util.Map;
    * Read a date from an AMF encoded buffer.
    *
    * @param data The buffer from which to read.
-   * @return The value read from the buffer.
+   * @return The value read from the buffer, or null if the buffer does not contain enough data.
    */
+  @Nullable
   private static Date readAmfDate(ParsableByteArray data) {
-    Date date = new Date((long) readAmfDouble(data).doubleValue());
+    @Nullable Double millis = readAmfDouble(data);
+    if (millis == null || data.bytesLeft() < 2) {
+      return null;
+    }
+    Date date = new Date((long) millis.doubleValue());
     data.skipBytes(2); // Skip reserved bytes.
     return date;
   }
@@ -252,7 +310,7 @@ import java.util.Map;
       case AMF_TYPE_NUMBER:
         return readAmfDouble(data);
       case AMF_TYPE_BOOLEAN:
-        return readAmfBoolean(data);
+        return data.bytesLeft() > 0 ? readAmfBoolean(data) : null;
       case AMF_TYPE_STRING:
         return readAmfString(data);
       case AMF_TYPE_OBJECT:
