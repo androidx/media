@@ -22,6 +22,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.media.AudioFormat;
@@ -64,8 +65,7 @@ public class AudioTrackPositionTrackerTest {
   private final AudioTrack audioTrack = createDefaultAudioTrack();
 
   @Test
-  public void
-      getCurrentPositionUs_withoutExpectRawPlaybackHeadReset_returnsPositionWithWrappedValue() {
+  public void getCurrentPositionUs_withoutExpectRawPlaybackHeadReset_doesNotReturnWrappedValue() {
     AudioTrackPositionTracker audioTrackPositionTracker =
         new AudioTrackPositionTracker(
             mock(AudioTrackPositionTracker.Listener.class),
@@ -76,18 +76,18 @@ public class AudioTrackPositionTrackerTest {
             MIN_BUFFER_SIZE);
     audioTrackPositionTracker.start();
     audioTrack.play();
-    // Advance and write to audio track at least twice to move rawHeadPosition past wrap point.
+    // Advance and write to audio track at least twice.
     for (int i = 0; i < 2; i++) {
       writeBytesAndAdvanceTime(audioTrack);
       long unused = audioTrackPositionTracker.getCurrentPositionUs(LARGE_WRITTEN_FRAMES);
     }
 
-    // Reset audio track and write bytes to simulate position overflow.
+    // Reset audio track and write bytes without expecting playback head reset.
     audioTrack.flush();
     writeBytesAndAdvanceTime(audioTrack);
 
     assertThat(audioTrackPositionTracker.getCurrentPositionUs(LARGE_WRITTEN_FRAMES))
-        .isGreaterThan(4294967296L);
+        .isLessThan(Util.sampleCountToDurationUs(1L << 32, SAMPLE_RATE));
   }
 
   @Test
@@ -191,8 +191,13 @@ public class AudioTrackPositionTrackerTest {
   }
 
   @Test
-  public void getCurrentPositionUs_withoutAudioTrackResetsExpectPosition_returnsWrappedValue() {
-    // Set tracker to expect playback head reset to simulate expected track transition.
+  public void getCurrentPositionUs_withPlaybackHeadPositionWrapAround_returnsWrappedValue() {
+    AudioTrack audioTrack = mock(AudioTrack.class);
+    when(audioTrack.getSampleRate()).thenReturn(SAMPLE_RATE);
+    when(audioTrack.getPlayState()).thenReturn(AudioTrack.PLAYSTATE_PLAYING);
+    when(audioTrack.getPlaybackHeadPosition())
+        .thenReturn(-1) // 0xFFFFFFFFL (4,294,967,295 frames)
+        .thenReturn(SAMPLE_RATE); // 44100 frames (wrapped around past 2^32)
     AudioTrackPositionTracker audioTrackPositionTracker =
         new AudioTrackPositionTracker(
             mock(AudioTrackPositionTracker.Listener.class),
@@ -202,19 +207,102 @@ public class AudioTrackPositionTrackerTest {
             OUTPUT_PCM_FRAME_SIZE,
             MIN_BUFFER_SIZE);
     audioTrackPositionTracker.start();
-    audioTrack.play();
 
-    // Advance and write to audio track at least twice to move rawHeadPosition past wrap point.
-    for (int i = 0; i < 2; i++) {
-      writeBytesAndAdvanceTime(audioTrack);
-      long unused = audioTrackPositionTracker.getCurrentPositionUs(LARGE_WRITTEN_FRAMES);
-    }
-    // Reset audio track and write bytes to simulate position overflow.
-    audioTrack.flush();
-    writeBytesAndAdvanceTime(audioTrack);
+    long writtenFrames = 5_000_000_000L;
+    // Advance and sample to establish rawHeadPosition near 2^32.
+    long unused = audioTrackPositionTracker.getCurrentPositionUs(writtenFrames);
+    clock.advanceTime(TIME_TO_ADVANCE_MS);
+    long positionUs = audioTrackPositionTracker.getCurrentPositionUs(writtenFrames);
 
-    assertThat(audioTrackPositionTracker.getCurrentPositionUs(LARGE_WRITTEN_FRAMES))
-        .isGreaterThan(4294967296L);
+    assertThat(positionUs).isGreaterThan(Util.sampleCountToDurationUs(1L << 32, SAMPLE_RATE));
+  }
+
+  @Test
+  public void getCurrentPositionUs_withDecreasingPlaybackHeadPosition_doesNotReturnWrappedValue() {
+    AudioTrack audioTrack = mock(AudioTrack.class);
+    when(audioTrack.getSampleRate()).thenReturn(SAMPLE_RATE);
+    when(audioTrack.getPlayState()).thenReturn(AudioTrack.PLAYSTATE_PLAYING);
+    when(audioTrack.getPlaybackHeadPosition()).thenReturn(SAMPLE_RATE * 2).thenReturn(SAMPLE_RATE);
+    AudioTrackPositionTracker audioTrackPositionTracker =
+        new AudioTrackPositionTracker(
+            mock(AudioTrackPositionTracker.Listener.class),
+            clock,
+            audioTrack,
+            C.ENCODING_PCM_16BIT,
+            OUTPUT_PCM_FRAME_SIZE,
+            MIN_BUFFER_SIZE);
+    audioTrackPositionTracker.start();
+
+    long unused = audioTrackPositionTracker.getCurrentPositionUs(LARGE_WRITTEN_FRAMES);
+    clock.advanceTime(TIME_TO_ADVANCE_MS);
+    long positionUs = audioTrackPositionTracker.getCurrentPositionUs(LARGE_WRITTEN_FRAMES);
+
+    assertThat(positionUs).isLessThan(Util.sampleCountToDurationUs(1L << 32, SAMPLE_RATE));
+  }
+
+  @Test
+  public void
+      getCurrentPositionUs_withResidualPlaybackHeadPositionResettingToZero_doesNotReturnWrappedValue() {
+    AudioTrack audioTrack = mock(AudioTrack.class);
+    when(audioTrack.getSampleRate()).thenReturn(SAMPLE_RATE);
+    when(audioTrack.getPlayState()).thenReturn(AudioTrack.PLAYSTATE_PLAYING);
+    // Simulate initial residual head position from a prior track on direct/passthrough HAL stream,
+    // which then resets to 0.
+    when(audioTrack.getPlaybackHeadPosition()).thenReturn(24_576).thenReturn(0);
+    AudioTrackPositionTracker audioTrackPositionTracker =
+        new AudioTrackPositionTracker(
+            mock(AudioTrackPositionTracker.Listener.class),
+            clock,
+            audioTrack,
+            C.ENCODING_PCM_16BIT,
+            OUTPUT_PCM_FRAME_SIZE,
+            MIN_BUFFER_SIZE);
+    audioTrackPositionTracker.start();
+
+    long unused = audioTrackPositionTracker.getCurrentPositionUs(LARGE_WRITTEN_FRAMES);
+    clock.advanceTime(TIME_TO_ADVANCE_MS);
+    long positionUs = audioTrackPositionTracker.getCurrentPositionUs(LARGE_WRITTEN_FRAMES);
+
+    assertThat(positionUs).isLessThan(Util.sampleCountToDurationUs(1L << 32, SAMPLE_RATE));
+    // Verify that the position is within normal elapsed time (< 5s), not wrapped past 2^32 frames
+    // (~27 hours) or clamped to LARGE_WRITTEN_FRAMES (~6.3 hours).
+    assertThat(positionUs).isLessThan(Util.msToUs(5000));
+  }
+
+  @Test
+  public void
+      getCurrentPositionUs_withUnexpectedDecreasingPlaybackHeadPosition_clearsStaleOffsets() {
+    AudioTrack audioTrack = mock(AudioTrack.class);
+    when(audioTrack.getSampleRate()).thenReturn(SAMPLE_RATE);
+    when(audioTrack.getPlayState()).thenReturn(AudioTrack.PLAYSTATE_PLAYING);
+    when(audioTrack.getPlaybackHeadPosition())
+        .thenReturn(SAMPLE_RATE * 2)
+        .thenReturn(SAMPLE_RATE)
+        .thenReturn(SAMPLE_RATE + (SAMPLE_RATE / 2));
+    AudioTrackPositionTracker audioTrackPositionTracker =
+        new AudioTrackPositionTracker(
+            mock(AudioTrackPositionTracker.Listener.class),
+            clock,
+            audioTrack,
+            C.ENCODING_PCM_16BIT,
+            OUTPUT_PCM_FRAME_SIZE,
+            MIN_BUFFER_SIZE);
+    audioTrackPositionTracker.start();
+
+    // Sample initial head position to populate playhead offset.
+    long initialPositionUs = audioTrackPositionTracker.getCurrentPositionUs(LARGE_WRITTEN_FRAMES);
+    assertThat(initialPositionUs).isEqualTo(2_000_000L);
+
+    clock.advanceTime(TIME_TO_ADVANCE_MS);
+    // Head position unexpectedly drops to SAMPLE_RATE (1 second). Tracker should reset sync params
+    // and report 1 second instead of averaging with or extrapolating from the stale playhead offset
+    // (which would report 2 seconds).
+    long positionUs = audioTrackPositionTracker.getCurrentPositionUs(LARGE_WRITTEN_FRAMES);
+    assertThat(positionUs).isEqualTo(1_000_000L);
+
+    clock.advanceTime(500L);
+    long postDropPositionUs = audioTrackPositionTracker.getCurrentPositionUs(LARGE_WRITTEN_FRAMES);
+    assertThat(postDropPositionUs).isEqualTo(1_500_000L);
   }
 
   @Test

@@ -31,6 +31,10 @@
     *   Fix an issue where Player.getCurrentPosition() could return stale values
         (updating only a few times per second) when dynamic scheduling is
         enabled ([#3286](https://github.com/androidx/media/issues/3286)).
+    *   Fix an issue where an unexpected decrease or reset in the `AudioTrack`
+        playback head position could be incorrectly treated as an integer
+        overflow, causing playback to stall in buffering
+        ([#3407](https://github.com/androidx/media/issues/3407)).
     *   Remove experimental
         `DefaultMediaCodecAdapterFactory.setAsyncCryptoSynchronizationEnabled(boolean)`.
     *   Avoid unnecessary renderer re-enables and glitches when returning from

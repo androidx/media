@@ -119,6 +119,13 @@ import java.lang.reflect.Method;
 
   private static final long FORCE_RESET_WORKAROUND_TIMEOUT_MS = 200;
 
+  /**
+   * The minimum distance between the previous and current raw playback head position to treat a
+   * decrease in position as a 32-bit unsigned integer wrap-around rather than an unexpected
+   * position decrease or reset.
+   */
+  private static final long MIN_RAW_PLAYBACK_HEAD_POSITION_WRAP_DISTANCE = 1L << 31;
+
   private static final int MAX_PLAYHEAD_OFFSET_COUNT = 10;
   private static final int MIN_PLAYHEAD_OFFSET_SAMPLE_INTERVAL_US = 30_000;
   private static final int MIN_LATENCY_SAMPLE_INTERVAL_US = 50_0000;
@@ -551,9 +558,13 @@ import java.lang.reflect.Method;
       if (expectRawPlaybackHeadReset) {
         sumRawPlaybackHeadPosition += this.rawPlaybackHeadPosition;
         expectRawPlaybackHeadReset = false;
-      } else {
+      } else if (this.rawPlaybackHeadPosition - rawPlaybackHeadPosition
+          >= MIN_RAW_PLAYBACK_HEAD_POSITION_WRAP_DISTANCE) {
         // The value must have wrapped around.
         rawPlaybackHeadWrapCount++;
+      } else {
+        resetSyncParams();
+        audioTimestampPoller.reset();
       }
     }
     this.rawPlaybackHeadPosition = rawPlaybackHeadPosition;

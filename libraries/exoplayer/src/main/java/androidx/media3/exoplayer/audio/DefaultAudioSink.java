@@ -1374,7 +1374,7 @@ public final class DefaultAudioSink implements AudioSink {
         && (SDK_INT < 29
             || !audioOutput.isOffloadedPlayback()
             || !handledOffloadOnPresentationEnded)
-        && hasAudioOutputPendingData(getWrittenFrames());
+        && (outputBuffer != null || hasAudioOutputPendingData(getWrittenFrames()));
   }
 
   @Override

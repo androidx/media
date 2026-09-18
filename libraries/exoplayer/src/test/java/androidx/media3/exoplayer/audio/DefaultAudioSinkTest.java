@@ -1591,7 +1591,7 @@ public final class DefaultAudioSinkTest {
 
   @Config(minSdk = 30)
   @Test
-  public void hasPendingData_withZeroBytesOffloadEncodedFrameWritten_returnsFalse()
+  public void hasPendingData_withZeroBytesOffloadEncodedFrameWritten_returnsTrue()
       throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     // Create a custom AudioOutputProvider that blocks all writes.
@@ -1636,12 +1636,59 @@ public final class DefaultAudioSinkTest {
         AudioManager.DIRECT_PLAYBACK_OFFLOAD_SUPPORTED);
     configureDefaultAudioSinkWithOffload();
 
+    assertThat(defaultAudioSink.hasPendingData()).isFalse();
+
     ByteBuffer largeBuffer = ByteBuffer.allocateDirect(11 * 1024).order(ByteOrder.nativeOrder());
     boolean handled =
         defaultAudioSink.handleBuffer(
             largeBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 32);
     assertThat(handled).isFalse();
 
+    assertThat(defaultAudioSink.hasPendingData()).isTrue();
+
+    defaultAudioSink.flush();
+    assertThat(defaultAudioSink.hasPendingData()).isFalse();
+  }
+
+  @Test
+  public void hasPendingData_withUnwrittenPendingOutputBuffer_returnsTrue() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(context).build()) {
+          @Override
+          public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+            return new ForwardingAudioOutput(super.getAudioOutput(config)) {
+              @Override
+              public boolean write(
+                  ByteBuffer buffer, int encodedAccessUnitCount, long presentationTimeUs)
+                  throws WriteException {
+                return false;
+              }
+            };
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context).setAudioOutputProvider(audioOutputProvider).build();
+    configureDefaultAudioSink(CHANNEL_COUNT_STEREO);
+
+    assertThat(defaultAudioSink.hasPendingData()).isFalse();
+
+    defaultAudioSink.handleBuffer(
+        create1Sec44100HzSilenceBuffer(),
+        /* presentationTimeUs= */ 0,
+        /* encodedAccessUnitCount= */ 1);
+    assertThat(defaultAudioSink.hasPendingData()).isTrue();
+
+    boolean handledSecondBuffer =
+        defaultAudioSink.handleBuffer(
+            create1Sec44100HzSilenceBuffer(),
+            /* presentationTimeUs= */ 1_000_000,
+            /* encodedAccessUnitCount= */ 1);
+    assertThat(handledSecondBuffer).isFalse();
+    assertThat(defaultAudioSink.hasPendingData()).isTrue();
+
+    defaultAudioSink.flush();
     assertThat(defaultAudioSink.hasPendingData()).isFalse();
   }
 
