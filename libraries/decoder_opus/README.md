@@ -22,7 +22,10 @@ your media3 check-out):
 
 ```shell
 cd libraries/decoder_opus/src/main/jni && \
-git clone https://github.com/xiph/opus.git --depth=1 libopus
+git clone https://github.com/xiph/opus.git \
+    --branch v1.6.1 \
+    --depth=1 \
+    libopus
 ```
 
 * [Install CMake][]
