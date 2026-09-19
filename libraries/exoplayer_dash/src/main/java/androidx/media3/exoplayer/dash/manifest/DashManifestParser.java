@@ -524,6 +524,7 @@ public class DashManifestParser extends DefaultHandler
     float frameRate = parseFrameRate(xpp, Format.NO_VALUE);
     int audioChannels = Format.NO_VALUE;
     int audioSamplingRate = parseInt(xpp, "audioSamplingRate", Format.NO_VALUE);
+    int selectionPriority = parseInt(xpp, "selectionPriority", /* defaultValue= */ 1);
     String language = xpp.getAttributeValue(null, "lang");
     String label = xpp.getAttributeValue(null, "label");
     List<Label> labels = new ArrayList<>();
@@ -585,6 +586,7 @@ public class DashManifestParser extends DefaultHandler
                 frameRate,
                 audioChannels,
                 audioSamplingRate,
+                selectionPriority,
                 language,
                 roleDescriptors,
                 accessibilityDescriptors,
@@ -855,6 +857,7 @@ public class DashManifestParser extends DefaultHandler
       float adaptationSetFrameRate,
       int adaptationSetAudioChannels,
       int adaptationSetAudioSamplingRate,
+      int adaptationSetSelectionPriority,
       @Nullable String adaptationSetLanguage,
       List<Descriptor> adaptationSetRoleDescriptors,
       List<Descriptor> adaptationSetAccessibilityDescriptors,
@@ -882,6 +885,7 @@ public class DashManifestParser extends DefaultHandler
     float frameRate = parseFrameRate(xpp, adaptationSetFrameRate);
     int audioChannels = adaptationSetAudioChannels;
     int audioSamplingRate = parseInt(xpp, "audioSamplingRate", adaptationSetAudioSamplingRate);
+    int selectionPriority = parseInt(xpp, "selectionPriority", adaptationSetSelectionPriority);
     String drmSchemeType = null;
     ArrayList<SchemeData> drmSchemeDatas = new ArrayList<>();
     ArrayList<Descriptor> inbandEventStreams = new ArrayList<>();
@@ -958,6 +962,7 @@ public class DashManifestParser extends DefaultHandler
             audioChannels,
             audioSamplingRate,
             bandwidth,
+            selectionPriority,
             adaptationSetLanguage,
             adaptationSetRoleDescriptors,
             adaptationSetAccessibilityDescriptors,
@@ -994,6 +999,7 @@ public class DashManifestParser extends DefaultHandler
       int audioChannels,
       int audioSamplingRate,
       int bitrate,
+      float selectionPriority,
       @Nullable String language,
       List<Descriptor> roleDescriptors,
       List<Descriptor> accessibilityDescriptors,
@@ -1030,6 +1036,7 @@ public class DashManifestParser extends DefaultHandler
             .setSampleMimeType(sampleMimeType)
             .setCodecs(codecs)
             .setPeakBitrate(bitrate)
+            .setSelectionPriority(selectionPriority)
             .setSelectionFlags(selectionFlags)
             .setRoleFlags(roleFlags)
             .setColorInfo(colorInfo)

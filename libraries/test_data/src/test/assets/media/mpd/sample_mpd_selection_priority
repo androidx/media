@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MPD type="static" duration="1s" mediaPresentationDuration="PT1S">
+ <Period>
+  <AdaptationSet
+      id="0"
+      mimeType="video/mp4"
+      codecs="avc1.4d401f"
+      contentType="video"
+      selectionPriority="3">
+   <Representation id="video-360p" bandwidth="1000000" width="640" height="360"/>
+   <Representation
+       id="video-720p"
+       bandwidth="2000000"
+       width="1280"
+       height="720"
+       selectionPriority="5"/>
+  </AdaptationSet>
+  <AdaptationSet id="1" mimeType="audio/mp4" codecs="mp4a.40.2" contentType="audio">
+   <Representation id="audio" bandwidth="128000" audioSamplingRate="48000">
+    <AudioChannelConfiguration
+        schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011"
+        value="2"/>
+   </Representation>
+  </AdaptationSet>
+ </Period>
+</MPD>
