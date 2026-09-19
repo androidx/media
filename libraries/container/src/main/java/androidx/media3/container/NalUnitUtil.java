@@ -135,6 +135,15 @@ public final class NalUnitUtil {
   /** H.265 suffixed supplemental enhancement information (SUFFIX_SEI_NUT). */
   public static final int H265_NAL_UNIT_TYPE_SUFFIX_SEI = 40;
 
+  /**
+   * H.265 unspecified NAL unit type carrying a Dolby Vision RPU (enhancement metadata) in
+   * profile 5/7/8 streams.
+   */
+  public static final int H265_NAL_UNIT_TYPE_DV_RPU = 62;
+
+  /** H.265 unspecified NAL unit type carrying a Dolby Vision enhancement layer. */
+  public static final int H265_NAL_UNIT_TYPE_DV_EL = 63;
+
   /** H.265 unspecified NAL unit. */
   public static final int H265_NAL_UNIT_TYPE_UNSPECIFIED = 48;
 
