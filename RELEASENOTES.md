@@ -43,6 +43,9 @@
     *   Fix an issue where a renderer error on an upcoming playlist item could
         prematurely interrupt current playback when
         `Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION` is enabled.
+    *   Fix a `NullPointerException` that could occur if `ExoPlayer`
+        transitioned renderers to an unprepared media period when
+        `Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION` is enabled.
 *   CompositionPlayer:
     *   Support configuring the frame rate of video frame aggregation via
         `Composition.Builder.setVideoFrameAggregationParameters` for playback

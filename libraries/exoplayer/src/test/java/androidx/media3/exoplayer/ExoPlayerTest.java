@@ -1342,6 +1342,138 @@ public final class ExoPlayerTest {
 
   @Test
   public void
+      play_withNonPreparedPeriodAndPartialRendererTransitionBeforePrepared_enablesAllRenderersOncePrepared()
+          throws Exception {
+    AtomicBoolean allowVideoEndOfStream = new AtomicBoolean(false);
+    AtomicReference<FakeAudioRenderer> audioRendererRef = new AtomicReference<>();
+    RenderersFactory renderersFactory =
+        (handler, videoListener, audioListener, textOutput, metadataOutput) -> {
+          FakeVideoRenderer videoRenderer =
+              new FakeVideoRenderer(
+                  SystemClock.DEFAULT.createHandler(handler.getLooper(), /* callback= */ null),
+                  videoListener) {
+                @Override
+                public boolean isEnded() {
+                  return allowVideoEndOfStream.get() && super.isEnded();
+                }
+              };
+          FakeAudioRenderer audioRenderer =
+              new FakeAudioRenderer(
+                  SystemClock.DEFAULT.createHandler(handler.getLooper(), /* callback= */ null),
+                  audioListener);
+          audioRendererRef.set(audioRenderer);
+          return new Renderer[] {videoRenderer, audioRenderer};
+        };
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context).setRenderersFactory(renderersFactory))
+            .build();
+    MediaSource mediaSource1 =
+        new FakeMediaSource(
+            new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT);
+    FakeMediaSource mediaSource2 =
+        new FakeMediaSource(
+            new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT);
+    mediaSource2.setPeriodDefersOnPreparedCallback(true);
+    player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2));
+    player.prepare();
+    player.play();
+
+    // Advance until Period 1 reaches its end position (10s) and Audio renderer has ended and been
+    // disabled while Period 2 is still unprepared and Video renderer has not yet reported
+    // isEnded().
+    advance(player).untilPositionAtLeast(/* mediaItemIndex= */ 0, /* positionMs= */ 10_000);
+    runMainLooperUntil(() -> audioRendererRef.get().getState() == Renderer.STATE_DISABLED);
+    FakeMediaPeriod deferredPeriod2 =
+        (FakeMediaPeriod) mediaSource2.getLastCreatedActiveMediaPeriod();
+
+    // Complete preparation of Period 2 while playingPeriod is still Period 1.
+    deferredPeriod2.setPreparationComplete();
+    advance(player).untilPendingCommandsAreFullyHandled();
+
+    // Allow Video renderer to finish Period 1 so playback transitions to Period 2.
+    allowVideoEndOfStream.set(true);
+    advance(player).untilStartOfMediaItem(/* mediaItemIndex= */ 1);
+
+    // Verify that the Audio renderer (which ended and disabled while Period 2 was unprepared) is
+    // properly re-enabled for Period 2.
+    assertThat(audioRendererRef.get().getState()).isNotEqualTo(Renderer.STATE_DISABLED);
+    assertThat(audioRendererRef.get().getStream()).isNotNull();
+    assertThat(audioRendererRef.get().enabledCount).isEqualTo(2);
+
+    advance(player).untilState(Player.STATE_ENDED);
+
+    player.release();
+  }
+
+  @Test
+  public void
+      play_withNonPreparedPeriodAndCompleteRendererTransitionBeforePrepared_enablesAllRenderersOncePrepared()
+          throws Exception {
+    AtomicBoolean allowVideoEndOfStream = new AtomicBoolean(false);
+    AtomicReference<FakeAudioRenderer> audioRendererRef = new AtomicReference<>();
+    RenderersFactory renderersFactory =
+        (handler, videoListener, audioListener, textOutput, metadataOutput) -> {
+          FakeVideoRenderer videoRenderer =
+              new FakeVideoRenderer(
+                  SystemClock.DEFAULT.createHandler(handler.getLooper(), /* callback= */ null),
+                  videoListener) {
+                @Override
+                public boolean isEnded() {
+                  return allowVideoEndOfStream.get() && super.isEnded();
+                }
+              };
+          FakeAudioRenderer audioRenderer =
+              new FakeAudioRenderer(
+                  SystemClock.DEFAULT.createHandler(handler.getLooper(), /* callback= */ null),
+                  audioListener);
+          audioRendererRef.set(audioRenderer);
+          return new Renderer[] {videoRenderer, audioRenderer};
+        };
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context).setRenderersFactory(renderersFactory))
+            .build();
+    MediaSource mediaSource1 =
+        new FakeMediaSource(
+            new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT);
+    FakeMediaSource mediaSource2 =
+        new FakeMediaSource(
+            new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT);
+    mediaSource2.setPeriodDefersOnPreparedCallback(true);
+    player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2));
+    player.prepare();
+    player.play();
+
+    // Advance until Period 1 reaches its end position (10s) and Audio renderer has ended and been
+    // disabled while Period 2 is still unprepared and Video renderer has not yet reported
+    // isEnded().
+    advance(player).untilPositionAtLeast(/* mediaItemIndex= */ 0, /* positionMs= */ 10_000);
+    runMainLooperUntil(() -> audioRendererRef.get().getState() == Renderer.STATE_DISABLED);
+    FakeMediaPeriod deferredPeriod2 =
+        (FakeMediaPeriod) mediaSource2.getLastCreatedActiveMediaPeriod();
+
+    // Now allow Video renderer to also finish Period 1 while Period 2 is STILL unprepared.
+    allowVideoEndOfStream.set(true);
+    advance(player).untilState(Player.STATE_BUFFERING);
+    assertThat(player.getCurrentMediaItemIndex()).isEqualTo(1);
+
+    // Complete preparation of Period 2 after playingPeriod has already advanced to Period 2.
+    deferredPeriod2.setPreparationComplete();
+    advance(player).untilState(Player.STATE_READY);
+
+    // Verify that the Audio renderer is properly re-enabled for Period 2.
+    assertThat(audioRendererRef.get().getState()).isNotEqualTo(Renderer.STATE_DISABLED);
+    assertThat(audioRendererRef.get().getStream()).isNotNull();
+    assertThat(audioRendererRef.get().enabledCount).isEqualTo(2);
+
+    advance(player).untilState(Player.STATE_ENDED);
+
+    player.release();
+  }
+
+  @Test
+  public void
       playLiveStreams_withPerStreamMediaProgressionEnabled_doesNotAdvanceReadingPeriodPerStream()
           throws Exception {
     if (!perStreamMediaProgressionEnabled) {

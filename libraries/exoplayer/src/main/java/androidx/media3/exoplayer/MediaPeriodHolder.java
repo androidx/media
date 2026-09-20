@@ -35,6 +35,7 @@ import androidx.media3.exoplayer.trackselection.TrackSelector;
 import androidx.media3.exoplayer.trackselection.TrackSelectorResult;
 import androidx.media3.exoplayer.upstream.Allocator;
 import java.io.IOException;
+import java.util.Arrays;
 
 /** Holds a {@link MediaPeriod} with information required to play it as part of a timeline. */
 /* package */ final class MediaPeriodHolder {
@@ -211,6 +212,7 @@ import java.io.IOException;
   public void handlePrepared(float playbackSpeed, Timeline timeline, boolean playWhenReady)
       throws ExoPlaybackException {
     prepared = true;
+    Arrays.fill(renderersInCorrectState, false);
     trackGroups = mediaPeriod.getTrackGroups();
     TrackSelectorResult selectorResult = selectTracks(playbackSpeed, timeline, playWhenReady);
     long requestedStartPositionUs = info.startPositionUs;

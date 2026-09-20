@@ -3214,19 +3214,30 @@ import java.util.Objects;
   }
 
   private void maybeUpdateReadingRenderersPerStream() throws ExoPlaybackException {
+    boolean allUpdated = true;
     for (int i = 0; i < renderers.length; i++) {
       @Nullable MediaPeriodHolder readingPeriod = queue.getReadingPeriod(/* index= */ i);
       if (readingPeriod == null
-          || Objects.equals(queue.getPlayingPeriod(), readingPeriod)
+          || queue.getPlayingPeriod() == readingPeriod
           || readingPeriod.isRendererInCorrectState(/* index= */ i)) {
         // Not reading ahead or all renderers updated.
         continue;
       }
 
       if (updateRendererForTransition(i)) {
-        // Only if all streams for reading period has all renderers in correct state then its true
-        queue.getReadingPeriod(/* index= */ i).setRendererToCorrectState(/* index= */ i);
+        if (readingPeriod.prepared) {
+          readingPeriod.setRendererToCorrectState(/* index= */ i);
+        }
+      } else {
+        allUpdated = false;
       }
+    }
+    @Nullable MediaPeriodHolder earliestReadingPeriod = queue.getEarliestReadingPeriod();
+    if (earliestReadingPeriod != null
+        && queue.getPlayingPeriod() != earliestReadingPeriod
+        && !earliestReadingPeriod.prepared
+        && allUpdated) {
+      setAllRenderersToCorrectState(earliestReadingPeriod);
     }
   }
 
