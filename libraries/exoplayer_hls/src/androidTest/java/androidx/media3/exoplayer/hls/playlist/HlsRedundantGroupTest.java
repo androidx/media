@@ -20,7 +20,10 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
 import android.net.Uri;
+import androidx.media3.common.Format;
+import androidx.media3.common.Metadata;
 import androidx.media3.common.ParserException;
+import androidx.media3.exoplayer.hls.HlsTrackMetadataEntry;
 import androidx.media3.exoplayer.hls.playlist.HlsRedundantGroup.GroupKey;
 import androidx.media3.test.utils.ExoPlayerTestRunner;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -317,6 +320,8 @@ public class HlsRedundantGroupTest {
 
     assertThat(variantRedundantGroups).hasSize(2);
     HlsRedundantGroup firstVariantRedundantGroup = variantRedundantGroups.get(0);
+    assertThat(firstVariantRedundantGroup.groupKey.format.id).isEqualTo("0");
+    assertThat(firstVariantRedundantGroup.groupKey.format.metadata).isNotNull();
     assertThat(firstVariantRedundantGroup.groupKey.format.bitrate).isEqualTo(1280000);
     assertThat(firstVariantRedundantGroup.groupKey.stableId).isEqualTo("Video-128");
     assertThat(firstVariantRedundantGroup.groupKey.name).isNull();
@@ -327,6 +332,8 @@ public class HlsRedundantGroupTest {
         .containsExactly(Uri.parse("https://example.com/low/video.m3u8"));
 
     HlsRedundantGroup secondVariantRedundantGroup = variantRedundantGroups.get(1);
+    assertThat(secondVariantRedundantGroup.groupKey.format.id).isEqualTo("1");
+    assertThat(secondVariantRedundantGroup.groupKey.format.metadata).isNotNull();
     assertThat(secondVariantRedundantGroup.groupKey.format.bitrate).isEqualTo(7680000);
     assertThat(secondVariantRedundantGroup.groupKey.stableId).isEqualTo("Video-768");
     assertThat(secondVariantRedundantGroup.groupKey.name).isNull();
@@ -338,6 +345,8 @@ public class HlsRedundantGroupTest {
 
     assertThat(audioRedundantGroups).hasSize(1);
     HlsRedundantGroup audioRedundantGroup = audioRedundantGroups.get(0);
+    assertThat(audioRedundantGroup.groupKey.format.id).isEqualTo("A:English");
+    assertThat(audioRedundantGroup.groupKey.format.metadata).isNotNull();
     assertThat(audioRedundantGroup.groupKey.format.language).isEqualTo("en");
     assertThat(audioRedundantGroup.groupKey.stableId).isEqualTo("Audio-37262");
     assertThat(audioRedundantGroup.groupKey.name).isEqualTo("English");
@@ -863,6 +872,34 @@ public class HlsRedundantGroupTest {
     HlsRedundantGroup redundantGroup2 = new HlsRedundantGroup(groupKey, pathwayId, PLAYLIST_URI);
 
     assertThat(redundantGroup1).isNotEqualTo(redundantGroup2);
+  }
+
+  @Test
+  public void groupKeyEquals_withDifferentFormatIdAndMetadata_returnsTrue() {
+    Metadata metadata1 =
+        new Metadata(new HlsTrackMetadataEntry("group1", "name1", ImmutableList.of()));
+    Metadata metadata2 =
+        new Metadata(new HlsTrackMetadataEntry("group2", "name2", ImmutableList.of()));
+    Format format1 = new Format.Builder().setId("0").setMetadata(metadata1).build();
+    Format format2 = new Format.Builder().setId("1").setMetadata(metadata2).build();
+
+    GroupKey groupKey1 = new GroupKey(format1, /* stableId= */ null);
+    GroupKey groupKey2 = new GroupKey(format2, /* stableId= */ null);
+
+    assertThat(groupKey1).isEqualTo(groupKey2);
+    assertThat(groupKey1.hashCode()).isEqualTo(groupKey2.hashCode());
+  }
+
+  @Test
+  public void groupKeyConstructor_formatWithIdAndMetadata_preservesFormatIdAndMetadata() {
+    Metadata metadata =
+        new Metadata(new HlsTrackMetadataEntry("group", "name", ImmutableList.of()));
+    Format format = new Format.Builder().setId("0").setMetadata(metadata).build();
+
+    GroupKey groupKey = new GroupKey(format, /* stableId= */ null);
+
+    assertThat(groupKey.format.id).isEqualTo("0");
+    assertThat(groupKey.format.metadata).isEqualTo(metadata);
   }
 
   private static HlsMultivariantPlaylist parseMultivariantPlaylist(String playlistString)

@@ -27,8 +27,10 @@ import static org.mockito.Mockito.when;
 
 import android.net.Uri;
 import android.os.SystemClock;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.datasource.DataSource;
@@ -268,6 +270,136 @@ public final class HlsMediaPeriodTest {
         .isFalse();
   }
 
+  @Test
+  public void prepare_withVariantsAndRenditions_preservesFormatIdAndMetadata() {
+    Metadata variantMetadata1 =
+        new Metadata(
+            new HlsTrackMetadataEntry(
+                /* groupId= */ null, /* name= */ null, /* variantInfos= */ ImmutableList.of()));
+    Metadata variantMetadata2 =
+        new Metadata(
+            new HlsTrackMetadataEntry(
+                /* groupId= */ "backup", /* name= */ null, /* variantInfos= */ ImmutableList.of()));
+    Metadata audioMetadata =
+        new Metadata(
+            new HlsTrackMetadataEntry(
+                /* groupId= */ "audio",
+                /* name= */ "English",
+                /* variantInfos= */ ImmutableList.of()));
+    Metadata subtitleMetadata =
+        new Metadata(
+            new HlsTrackMetadataEntry(
+                /* groupId= */ "sub",
+                /* name= */ "English",
+                /* variantInfos= */ ImmutableList.of()));
+    HlsMultivariantPlaylist multivariantPlaylist =
+        createMultivariantPlaylist(
+            /* variants= */ ImmutableList.of(
+                createMuxedVideoAudioVariant(
+                    Uri.parse("https://variant1"),
+                    /* peakBitrate= */ 400000,
+                    /* id= */ "0",
+                    variantMetadata1),
+                createMuxedVideoAudioVariant(
+                    Uri.parse("https://backup/variant1"),
+                    /* peakBitrate= */ 400000,
+                    /* id= */ "1",
+                    variantMetadata2)),
+            /* audios= */ ImmutableList.of(
+                createAudioRendition(
+                    Uri.parse("https://audio1"),
+                    /* language= */ "en",
+                    /* id= */ "audio:English",
+                    audioMetadata,
+                    /* groupId= */ "audio",
+                    /* name= */ "English")),
+            /* subtitles= */ ImmutableList.of(
+                createSubtitleRendition(
+                    Uri.parse("https://subtitle1"),
+                    /* language= */ "en",
+                    /* id= */ "sub:English",
+                    subtitleMetadata,
+                    /* groupId= */ "sub",
+                    /* name= */ "English")),
+            /* muxedAudioFormat= */ null,
+            /* muxedCaptionFormats= */ ImmutableList.of());
+
+    HlsMediaPeriod mediaPeriod = createMediaPeriod(multivariantPlaylist);
+
+    TrackGroupArray expectedGroups =
+        new TrackGroupArray(
+            new TrackGroup(
+                "main",
+                new Format.Builder()
+                    .setId("0")
+                    .setContainerMimeType(MimeTypes.APPLICATION_M3U8)
+                    .setCodecs("avc1.100.41")
+                    .setSampleMimeType(VIDEO_H264)
+                    .setPeakBitrate(400000)
+                    .setMetadata(variantMetadata1)
+                    .build()),
+            new TrackGroup(
+                "main:id3",
+                new Format.Builder()
+                    .setId("ID3")
+                    .setSampleMimeType(APPLICATION_ID3)
+                    .setPrimaryTrackGroupId("main")
+                    .build()),
+            new TrackGroup(
+                "audio:English",
+                createAudioFormat("en")
+                    .buildUpon()
+                    .setId("audio:English")
+                    .setMetadata(audioMetadata)
+                    .build()),
+            new TrackGroup(
+                "audio:English:id3",
+                new Format.Builder()
+                    .setId("ID3")
+                    .setSampleMimeType(APPLICATION_ID3)
+                    .setPrimaryTrackGroupId("audio:English")
+                    .build()),
+            new TrackGroup(
+                "subtitle:English",
+                createSubtitleFormat("en")
+                    .buildUpon()
+                    .setId("sub:English")
+                    .setMetadata(subtitleMetadata)
+                    .build()));
+    MediaPeriodAsserts.assertTrackGroups(mediaPeriod, expectedGroups);
+  }
+
+  private static HlsMediaPeriod createMediaPeriod(HlsMultivariantPlaylist multivariantPlaylist) {
+    HlsExtractorFactory mockHlsExtractorFactory = mock(HlsExtractorFactory.class);
+    when(mockHlsExtractorFactory.getOutputTextFormat(any()))
+        .then(invocation -> invocation.getArguments()[0]);
+    HlsDataSourceFactory mockDataSourceFactory = mock(HlsDataSourceFactory.class);
+    when(mockDataSourceFactory.createDataSource(anyInt())).thenReturn(mock(DataSource.class));
+    HlsPlaylistTracker mockPlaylistTracker = mock(HlsPlaylistTracker.class);
+    setupPlaylistTracker(mockPlaylistTracker, multivariantPlaylist);
+    MediaPeriodId mediaPeriodId = new MediaPeriodId(/* periodUid= */ new Object());
+    return new HlsMediaPeriod(
+        mockHlsExtractorFactory,
+        mockPlaylistTracker,
+        mockDataSourceFactory,
+        mock(TransferListener.class),
+        /* cmcdConfiguration= */ null,
+        mock(DrmSessionManager.class),
+        new DrmSessionEventListener.EventDispatcher()
+            .withParameters(/* windowIndex= */ 0, mediaPeriodId),
+        mock(LoadErrorHandlingPolicy.class),
+        new MediaSourceEventListener.EventDispatcher()
+            .withParameters(/* windowIndex= */ 0, mediaPeriodId),
+        mock(Allocator.class),
+        mock(CompositeSequenceableLoaderFactory.class),
+        /* allowChunklessPreparation= */ true,
+        HlsMediaSource.METADATA_TYPE_ID3,
+        /* useSessionKeys= */ false,
+        PlayerId.UNSET,
+        /* timestampAdjusterInitializationTimeoutMs= */ 0,
+        /* downloadExecutorSupplier= */ null);
+  }
+
   private static HlsMultivariantPlaylist createMultivariantPlaylist(
       List<Variant> variants,
       List<Rendition> audios,
@@ -291,12 +423,19 @@ public final class HlsMediaPeriodTest {
   }
 
   private static Variant createMuxedVideoAudioVariant(Uri url, int peakBitrate) {
+    return createMuxedVideoAudioVariant(url, peakBitrate, /* id= */ null, /* metadata= */ null);
+  }
+
+  private static Variant createMuxedVideoAudioVariant(
+      Uri url, int peakBitrate, @Nullable String id, @Nullable Metadata metadata) {
     return createVariant(
         url,
         new Format.Builder()
+            .setId(id)
             .setContainerMimeType(MimeTypes.APPLICATION_M3U8)
             .setCodecs("avc1.100.41,mp4a.40.2")
             .setPeakBitrate(peakBitrate)
+            .setMetadata(metadata)
             .build());
   }
 
@@ -311,11 +450,41 @@ public final class HlsMediaPeriodTest {
   }
 
   private static Rendition createAudioRendition(Uri url, String language) {
-    return createRendition(url, createAudioFormat(language), "", "");
+    return createAudioRendition(
+        url, language, /* id= */ null, /* metadata= */ null, /* groupId= */ "", /* name= */ "");
+  }
+
+  private static Rendition createAudioRendition(
+      Uri url,
+      String language,
+      @Nullable String id,
+      @Nullable Metadata metadata,
+      String groupId,
+      String name) {
+    return createRendition(
+        url,
+        createAudioFormat(language).buildUpon().setId(id).setMetadata(metadata).build(),
+        groupId,
+        name);
   }
 
   private static Rendition createSubtitleRendition(Uri url, String language) {
-    return createRendition(url, createSubtitleFormat(language), "", "");
+    return createSubtitleRendition(
+        url, language, /* id= */ null, /* metadata= */ null, /* groupId= */ "", /* name= */ "");
+  }
+
+  private static Rendition createSubtitleRendition(
+      Uri url,
+      String language,
+      @Nullable String id,
+      @Nullable Metadata metadata,
+      String groupId,
+      String name) {
+    return createRendition(
+        url,
+        createSubtitleFormat(language).buildUpon().setId(id).setMetadata(metadata).build(),
+        groupId,
+        name);
   }
 
   private static Variant createVariant(Uri url, Format format) {

@@ -401,10 +401,12 @@ public final class HlsRedundantGroup {
   public static class GroupKey {
 
     /**
-     * The {@link Format} shared by the {@linkplain Variant grouped variants} or the {@linkplain
-     * Rendition grouped renditions}.
+     * The representative {@link Format} for the {@linkplain Variant grouped variants} or the
+     * {@linkplain Rendition grouped renditions}.
      */
     public final Format format;
+
+    private final Format normalizedFormat;
 
     /**
      * The stable identifier shared by variants or renditions, or {@code null}.
@@ -440,8 +442,9 @@ public final class HlsRedundantGroup {
      * @param name See {@link #name}.
      */
     public GroupKey(Format format, @Nullable String stableId, @Nullable String name) {
+      this.format = format;
       // Normalize the format to ensure only fields affecting identity are part of the key.
-      this.format = format.buildUpon().setId(null).setMetadata(null).build();
+      this.normalizedFormat = format.buildUpon().setId(null).setMetadata(null).build();
       this.stableId = stableId;
       this.name = name;
     }
@@ -455,14 +458,14 @@ public final class HlsRedundantGroup {
         return false;
       }
       GroupKey groupKey = (GroupKey) other;
-      return Objects.equals(format, groupKey.format)
+      return Objects.equals(normalizedFormat, groupKey.normalizedFormat)
           && Objects.equals(stableId, groupKey.stableId)
           && Objects.equals(name, groupKey.name);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(format, stableId, name);
+      return Objects.hash(normalizedFormat, stableId, name);
     }
   }
 

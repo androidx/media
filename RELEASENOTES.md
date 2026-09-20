@@ -156,6 +156,9 @@
 *   Cronet extension:
 *   RTMP extension:
 *   HLS extension:
+    *   Fix regression where `Format.id` and `Format.metadata` were `null` for
+        exposed HLS tracks
+        ([#3402](https://github.com/androidx/media/issues/3402)).
 *   DASH extension:
     *   Support whitespace-separated lists of `@id` values in trick mode
         (`http://dashif.org/guidelines/trickmode`) descriptor `@value`
