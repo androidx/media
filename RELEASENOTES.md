@@ -91,6 +91,9 @@
         content, by stripping the `private_stream_1` sub-stream header from each
         PES packet in `PsExtractor` before the payload is passed to the audio
         reader ([#3327](https://github.com/androidx/media/issues/3327)).
+    *   Fix failure in `FragmentedMp4Extractor` when a version 1 `tfdt` box
+        encodes a negative `baseMediaDecodeTime`
+        ([#3412](https://github.com/androidx/media/issues/3412)).
 *   Inspector:
     *   Support retrieving XMP metadata from MP4 files using
         `MetadataRetriever`.

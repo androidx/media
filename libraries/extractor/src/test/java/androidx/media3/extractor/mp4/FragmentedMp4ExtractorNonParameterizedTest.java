@@ -16,15 +16,20 @@
 package androidx.media3.extractor.mp4;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.US_ASCII;
 
 import androidx.media3.extractor.SniffFailure;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.test.utils.FakeExtractorInput;
+import androidx.media3.test.utils.FakeExtractorOutput;
+import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.primitives.Bytes;
+import com.google.common.primitives.Longs;
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -78,6 +83,26 @@ public final class FragmentedMp4ExtractorNonParameterizedTest {
 
     assertThat(extractor.sniff(input)).isFalse();
     assertThat(input.getMaxPeekLimit()).isLessThan(500);
+  }
+
+  @Test
+  public void read_withNegativeVersion1TfdtBaseMediaDecodeTime_outputsShiftedSampleTimestamps()
+      throws Exception {
+    byte[] data =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), "media/mp4/sample_ac3_fragmented.mp4");
+    int tfdtTypeIndex = Bytes.indexOf(data, "tfdt".getBytes(US_ASCII));
+    // Overwrite the 64-bit version 1 baseMediaDecodeTime with -336 (-7000 us at 48 kHz).
+    System.arraycopy(Longs.toByteArray(-336L), 0, data, tfdtTypeIndex + 8, 8);
+    FragmentedMp4Extractor extractor =
+        new FragmentedMp4Extractor(SubtitleParser.Factory.UNSUPPORTED);
+
+    FakeExtractorOutput output = TestUtil.extractAllSamplesFromByteArray(extractor, data);
+
+    FakeTrackOutput trackOutput = output.trackOutputs.get(0);
+    assertThat(trackOutput.getSampleCount()).isEqualTo(9);
+    assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(-7_000L);
+    assertThat(trackOutput.getSampleTimeUs(1)).isEqualTo(25_000L);
   }
 
   private static FakeExtractorInput createInputForSample(String sample) throws IOException {

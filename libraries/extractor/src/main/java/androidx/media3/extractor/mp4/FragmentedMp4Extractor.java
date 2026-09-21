@@ -1288,7 +1288,12 @@ public class FragmentedMp4Extractor implements Extractor {
     tfdt.setPosition(Mp4Box.HEADER_SIZE);
     int fullAtom = tfdt.readInt();
     int version = BoxParser.parseFullBoxVersion(fullAtom);
-    return version == 1 ? tfdt.readUnsignedLongToLong() : tfdt.readUnsignedInt();
+    // The BMFF spec (ISO/IEC 14496-12) states that baseMediaDecodeTime should be an
+    // unsigned integer, however some streams violate the spec and use signed integers in
+    // version 1 tfdt boxes. It's safe to always decode version 1 values as signed integers
+    // here, because unsigned integers will still be parsed correctly (unless their top bit
+    // is set, which is never true in practice).
+    return version == 1 ? tfdt.readLong() : tfdt.readUnsignedInt();
   }
 
   private static boolean isEdtsListDurationForEntireMediaTimeline(Track track) {
