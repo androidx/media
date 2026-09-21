@@ -101,12 +101,12 @@ public final class TtmlParser implements SubtitleParser {
               + "(?:(\\.[0-9]+)|:([0-9][0-9])(?:\\.([0-9]+))?)?$");
   private static final Pattern OFFSET_TIME =
       Pattern.compile("^([0-9]+(?:\\.[0-9]+)?)(h|m|s|ms|f|t)$");
-  private static final Pattern FONT_SIZE = Pattern.compile("^(([0-9]*.)?[0-9]+)(px|em|%)$");
-  static final Pattern SIGNED_PERCENTAGE = Pattern.compile("^([-+]?\\d+\\.?\\d*?)%$");
+  private static final Pattern FONT_SIZE = Pattern.compile("^(([0-9]*\\.)?[0-9]+)(px|em|%)$");
+  static final Pattern SIGNED_PERCENTAGE = Pattern.compile("^([-+]?\\d+(?:\\.\\d*)?)%$");
   static final Pattern PERCENTAGE_COORDINATES =
-      Pattern.compile("^([-+]?\\d+\\.?\\d*?)% ([-+]?\\d+\\.?\\d*?)%$");
+      Pattern.compile("^([-+]?\\d+(?:\\.\\d*)?)% ([-+]?\\d+(?:\\.\\d*)?)%$");
   private static final Pattern PIXEL_COORDINATES =
-      Pattern.compile("^([-+]?\\d+\\.?\\d*?)px ([-+]?\\d+\\.?\\d*?)px$");
+      Pattern.compile("^([-+]?\\d+(?:\\.\\d*)?)px ([-+]?\\d+(?:\\.\\d*)?)px$");
   private static final Pattern CELL_RESOLUTION = Pattern.compile("^(\\d+) (\\d+)$");
 
   private static final int DEFAULT_FRAME_RATE = 30;

@@ -18,6 +18,7 @@ package androidx.media3.extractor.text.ttml;
 import static androidx.media3.test.utils.truth.SpannedSubject.assertThat;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import android.text.Layout;
 import android.text.Spanned;
@@ -711,6 +712,68 @@ public final class TtmlParserTest {
     assertThat(String.valueOf(spanned)).isEqualTo("empty");
     assertThat(spanned).hasNoRelativeSizeSpanBetween(0, spanned.length());
     assertThat(spanned).hasNoAbsoluteSizeSpanBetween(0, spanned.length());
+  }
+
+  @Test
+  public void parse_fontSizeWithNonDotSeparator_ignoresFontSize() {
+    String ttml =
+        "<tt xmlns=\"http://www.w3.org/ns/ttml\""
+            + " xmlns:tts=\"http://www.w3.org/2006/10/ttaf1#style\">"
+            + "<body><div>"
+            + "<p begin=\"10s\" end=\"18s\" tts:fontSize=\"12,5px\">comma decimal</p>"
+            + "</div></body></tt>";
+    TtmlParser ttmlParser = new TtmlParser();
+    List<CuesWithTiming> allCues = new ArrayList<>();
+
+    ttmlParser.parse(ttml.getBytes(UTF_8), OutputOptions.allCues(), allCues::add);
+
+    assertThat(allCues).hasSize(1);
+    Spanned spanned = getOnlyCueTextAtIndex(allCues, 0);
+    assertThat(spanned.toString()).isEqualTo("comma decimal");
+    assertThat(spanned).hasNoRelativeSizeSpanBetween(0, spanned.length());
+    assertThat(spanned).hasNoAbsoluteSizeSpanBetween(0, spanned.length());
+  }
+
+  @Test
+  public void parse_longInvalidStyleAndRegionNumericAttributes_ignoresAttributes() {
+    String longMalformedNumber = "9".repeat(100_000) + "X";
+    String ttml =
+        "<tt xmlns=\"http://www.w3.org/ns/ttml\""
+            + " xmlns:tts=\"http://www.w3.org/2006/10/ttaf1#style\""
+            + " tts:extent=\""
+            + longMalformedNumber
+            + " "
+            + longMalformedNumber
+            + "\">"
+            + "<head><layout>"
+            + "<region xml:id=\"r1\" tts:origin=\""
+            + longMalformedNumber
+            + " "
+            + longMalformedNumber
+            + "\""
+            + " tts:extent=\""
+            + longMalformedNumber
+            + " "
+            + longMalformedNumber
+            + "\"/>"
+            + "</layout></head>"
+            + "<body><div>"
+            + "<p begin=\"10s\" end=\"18s\" region=\"r1\""
+            + " tts:fontSize=\""
+            + longMalformedNumber
+            + "\""
+            + " tts:shear=\""
+            + longMalformedNumber
+            + "\">text</p>"
+            + "</div></body></tt>";
+    TtmlParser ttmlParser = new TtmlParser();
+    List<CuesWithTiming> allCues = new ArrayList<>();
+
+    ttmlParser.parse(ttml.getBytes(UTF_8), OutputOptions.allCues(), allCues::add);
+
+    assertThat(allCues).hasSize(1);
+    Spanned spanned = getOnlyCueTextAtIndex(allCues, 0);
+    assertThat(spanned.toString()).isEqualTo("text");
   }
 
   @Test
