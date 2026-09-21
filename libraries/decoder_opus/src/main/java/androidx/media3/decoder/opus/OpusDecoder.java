@@ -204,7 +204,8 @@ public final class OpusDecoder
             new CryptoException(opusGetErrorCode(nativeDecoderContext), message);
         return new OpusDecoderException(message, cause);
       } else {
-        return new OpusDecoderException("Decode error: " + opusGetErrorMessage(result));
+        return new OpusDecoderException(
+            "Decode error: " + opusGetErrorMessage(nativeDecoderContext));
       }
     }
 

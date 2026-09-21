@@ -56,6 +56,7 @@
         only, as it requires holding one additional frame in flight per video
         sequence.
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+    *   Opus extension: Fix native crash when decoding invalid Opus data.
 *   Transformer:
     *   Fix a segmentation fault during release by introducing
         `AssetLoader.stop()` and `AssetLoader.isStopped()` methods to verify

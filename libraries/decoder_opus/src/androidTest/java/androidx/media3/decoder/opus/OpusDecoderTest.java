@@ -177,6 +177,29 @@ public final class OpusDecoderTest {
     decoderMono.release();
   }
 
+  @Test
+  public void decode_invalidInputData_returnsDecoderException() throws OpusDecoderException {
+    assertThat(OpusLibrary.isAvailable()).isTrue();
+    OpusDecoder decoder =
+        new OpusDecoder(
+            /* numInputBuffers= */ 0,
+            /* numOutputBuffers= */ 0,
+            /* initialInputBufferSize= */ 0,
+            createInitializationData(/* preSkipNanos= */ 0),
+            /* cryptoConfig= */ null,
+            /* outputFloat= */ false);
+    // TOC byte 0x03 indicates code 3 (arbitrary frame count), which requires a second byte.
+    DecoderInputBuffer input =
+        createInputBuffer(decoder, new byte[] {0x03}, /* supplementalData= */ null);
+    SimpleDecoderOutputBuffer output = decoder.createOutputBuffer();
+
+    OpusDecoderException exception = decoder.decode(input, output, false);
+
+    assertThat(exception).isNotNull();
+    assertThat(exception).hasMessageThat().contains("Decode error:");
+    decoder.release();
+  }
+
   private static long sampleCountToNanoseconds(long sampleCount) {
     return (sampleCount * C.NANOS_PER_SECOND) / OpusDecoder.SAMPLE_RATE;
   }
