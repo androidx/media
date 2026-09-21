@@ -230,9 +230,9 @@ public final class AudioCapabilitiesReceiver {
   private static boolean deviceNeedsAudioDeviceCallbackThreadingWorkaround() {
     return MediaLibraryInfo.enableWorkarounds()
         && SDK_INT < 38
-        && (("Jio".equals(Build.MANUFACTURER) && "JHSA400".equals(Build.MODEL))
-            || ("SkyworthDigital".equals(Build.MANUFACTURER)
-                && "XStream-Smart-Box-002".equals(Build.MODEL)));
+        && ((Objects.equals(Build.MANUFACTURER, "Jio") && Objects.equals(Build.MODEL, "JHSA400"))
+            || (Objects.equals(Build.MANUFACTURER, "SkyworthDigital")
+                && Objects.equals(Build.MODEL, "XStream-Smart-Box-002")));
   }
 
   private final class HdmiAudioPlugBroadcastReceiver extends BroadcastReceiver {
@@ -278,7 +278,7 @@ public final class AudioCapabilitiesReceiver {
     @Override
     public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) {
       if (deviceNeedsAudioDeviceCallbackThreadingWorkaround()) {
-        handler.post(AudioCapabilitiesReceiver.this::updateCurrentAudioCapabilities);
+        Util.postOrRun(handler, AudioCapabilitiesReceiver.this::updateCurrentAudioCapabilities);
       } else {
         updateCurrentAudioCapabilities();
       }
@@ -294,7 +294,7 @@ public final class AudioCapabilitiesReceiver {
             updateCurrentAudioCapabilities();
           };
       if (deviceNeedsAudioDeviceCallbackThreadingWorkaround()) {
-        handler.post(updateAudioCapabilities);
+        Util.postOrRun(handler, updateAudioCapabilities);
       } else {
         updateAudioCapabilities.run();
       }
