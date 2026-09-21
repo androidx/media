@@ -644,7 +644,7 @@ private fun ProgressSlider(
       Slider(
         state = state,
         enabled = enabled,
-        onValueChange = onValueChange,
+        onValueChange = onValueChange ?: { state.value = it },
         onValueChangeFinished = onValueChangeFinished,
         modifier =
           Modifier.fillMaxWidth()
