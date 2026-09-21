@@ -28,7 +28,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 
 import android.content.Context;
-import android.hardware.HardwareBuffer;
 import android.opengl.GLES20;
 import android.util.SparseArray;
 import androidx.annotation.GuardedBy;
@@ -52,7 +51,6 @@ import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.FrameWriter;
-import androidx.media3.common.video.HardwareBufferFrame;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import java.util.Collections;
@@ -73,30 +71,28 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 @RequiresApi(26)
 public final class DefaultGlFrameProcessor implements FrameProcessor {
 
-  /** Converts from {@link HardwareBuffer} to {@link GlTextureFrame}. */
-  interface HardwareBufferConverter extends AutoCloseable {
+  /** Converts from {@link Frame} to {@link GlTextureFrame}. */
+  interface FrameToGlTextureConverter extends AutoCloseable {
 
     @VisibleForTesting
     /* package */ interface Factory {
-      HardwareBufferConverter create(ColorInfo outputColorInfo);
+      FrameToGlTextureConverter create(
+          ColorInfo outputColorInfo, Consumer<VideoFrameProcessingException> errorConsumer);
     }
 
     // TODO: b/517424999 - Unify the listeners to follow the same pattern as FrameProcessor.
     /**
-     * Converts from {@link HardwareBufferFrame} to {@link GlTextureFrame}.
+     * Converts from {@link Frame} to {@link GlTextureFrame}.
      *
      * <p>The returned {@link GlTextureFrame}'s texture is in standard OpenGL coordinate space
      * (upright, Y-up, with origin at bottom-left of the image).
      */
     GlTextureFrame convert(
-        HardwareBufferFrame hardwareBufferFrame,
-        Executor glExecutor,
-        Executor listenerExecutor,
-        Listener listener)
+        Frame frame, Executor glExecutor, Executor listenerExecutor, Listener listener)
         throws VideoFrameProcessingException;
 
     /**
-     * Releases the resources for a converted {@link HardwareBufferFrame}.
+     * Releases the resources for a converted {@link Frame}.
      *
      * <p>Don't call this method if the {@linkplain #convert converted} {@link GlTextureFrame} is
      * accepted by a downstream {@link GlTextureFrameConsumer}.
@@ -105,10 +101,9 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
      * that was passed in via {@link #convert}.
      *
      * <p>This is used when a converted frame is rejected by downstream pipeline consumers,
-     * preserving the underlying {@code HardwareBuffer} for subsequent queue retries.
+     * preserving the underlying frame for subsequent queue retries.
      */
-    void releaseGlResources(HardwareBufferFrame hardwareBufferFrame)
-        throws VideoFrameProcessingException;
+    void releaseGlResources(Frame frame) throws VideoFrameProcessingException;
 
     @Override
     void close() throws VideoFrameProcessingException;
@@ -119,7 +114,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     private final Context context;
     private final GlObjectsProvider glObjectsProvider;
     private final ExecutorService glExecutorService;
-    @Nullable private final HardwareBufferConverter.Factory hardwareBufferConverterFactory;
+    private final FrameToGlTextureConverter.Factory frameToGlTextureConverterFactory;
     @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
     @Nullable private final GlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
     private final GlTextureFrameCompositor.Factory glTextureFrameCompositorFactory;
@@ -148,7 +143,10 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       this.glObjectsProvider = glObjectsProvider;
       this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
       this.glExecutorService = glExecutorService;
-      hardwareBufferConverterFactory = null;
+      this.frameToGlTextureConverterFactory =
+          (outputColorInfo, errorConsumer) ->
+              new HardwareBufferToGlTextureConverter(
+                  this.context, hardwareBufferJniWrapper, outputColorInfo, errorConsumer);
       frameWriterGlTextureFrameConsumer = null;
       glTextureFrameCompositorFactory =
           new DefaultGlTextureFrameCompositor.Factory(
@@ -169,14 +167,14 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
         Context context,
         GlObjectsProvider glObjectsProvider,
         ListeningExecutorService glExecutorService,
-        HardwareBufferConverter.Factory hardwareBufferConverterFactory,
+        FrameToGlTextureConverter.Factory frameToGlTextureConverterFactory,
         GlTextureFrameConsumer frameWriterGlTextureFrameConsumer,
         GlTextureFrameCompositor.Factory glTextureFrameCompositorFactory,
         @Nullable Boolean isSurfacelessContextExtensionSupported) {
       this.context = context;
       this.glObjectsProvider = glObjectsProvider;
       this.glExecutorService = glExecutorService;
-      this.hardwareBufferConverterFactory = hardwareBufferConverterFactory;
+      this.frameToGlTextureConverterFactory = frameToGlTextureConverterFactory;
       this.frameWriterGlTextureFrameConsumer = frameWriterGlTextureFrameConsumer;
       this.glTextureFrameCompositorFactory = glTextureFrameCompositorFactory;
       this.isSurfacelessContextExtensionSupported = isSurfacelessContextExtensionSupported;
@@ -193,23 +191,11 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
         frameWriterGlTextureFrameConsumer =
             new FrameWriterGlTextureFrameConsumer(context, output, hardwareBufferJniWrapper);
       }
-      HardwareBufferConverter.Factory hardwareBufferConverterFactory =
-          this.hardwareBufferConverterFactory;
-      if (hardwareBufferConverterFactory == null && hardwareBufferJniWrapper != null) {
-        HardwareBufferJniWrapper nonNullHardwareBufferJniWrapper = hardwareBufferJniWrapper;
-        hardwareBufferConverterFactory =
-            outputColorInfo ->
-                new HardwareBufferToGlTextureConverter(
-                    context,
-                    nonNullHardwareBufferJniWrapper,
-                    outputColorInfo,
-                    e -> listenerExecutor.execute(() -> listener.onError(e)));
-      }
       return new DefaultGlFrameProcessor(
           context,
           listeningDecorator(glExecutorService),
           glObjectsProvider,
-          checkNotNull(hardwareBufferConverterFactory),
+          frameToGlTextureConverterFactory,
           checkNotNull(frameWriterGlTextureFrameConsumer),
           glTextureFrameCompositorFactory,
           isSurfacelessContextExtensionSupported,
@@ -301,7 +287,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   private final Context context;
   private final GlObjectsProvider glObjectsProvider;
   private final ListeningExecutorService glExecutorService;
-  private final HardwareBufferConverter.Factory hardwareBufferConverterFactory;
+  private final FrameToGlTextureConverter.Factory frameToGlTextureConverterFactory;
   private final GlTextureFrameCompositor.Factory glTextureFrameCompositorFactory;
   private final GlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
   private final Executor listenerExecutor;
@@ -318,7 +304,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   private @MonotonicNonNull GlTextureFrameAggregator frameAggregator;
   private @MonotonicNonNull GlTextureFrameCompositor compositingProcessor;
   private @MonotonicNonNull GlTextureFrameProcessorChain postProcessingChain;
-  private @MonotonicNonNull HardwareBufferConverter hardwareBufferConverter;
+  private @MonotonicNonNull FrameToGlTextureConverter frameToGlTextureConverter;
 
   @GuardedBy("lock")
   @Nullable
@@ -348,7 +334,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       Context context,
       ListeningExecutorService glExecutorService,
       GlObjectsProvider glObjectsProvider,
-      HardwareBufferConverter.Factory hardwareBufferConverterFactory,
+      FrameToGlTextureConverter.Factory frameToGlTextureConverterFactory,
       GlTextureFrameConsumer frameWriterGlTextureFrameConsumer,
       GlTextureFrameCompositor.Factory glTextureFrameCompositorFactory,
       @Nullable Boolean isSurfacelessContextExtensionSupported,
@@ -358,7 +344,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     this.context = context;
     this.glObjectsProvider = glObjectsProvider;
     this.glExecutorService = glExecutorService;
-    this.hardwareBufferConverterFactory = hardwareBufferConverterFactory;
+    this.frameToGlTextureConverterFactory = frameToGlTextureConverterFactory;
     this.frameWriterGlTextureFrameConsumer = frameWriterGlTextureFrameConsumer;
     this.glTextureFrameCompositorFactory = glTextureFrameCompositorFactory;
     this.isSurfacelessContextExtensionSupported = isSurfacelessContextExtensionSupported;
@@ -475,8 +461,8 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
         () -> {
           ImmutableList.Builder<ThrowingRunnable<?>> closeActions = ImmutableList.builder();
           closeActions.addAll(getReleaseUnqueuedFramesActions());
-          if (hardwareBufferConverter != null) {
-            closeActions.add(hardwareBufferConverter::close);
+          if (frameToGlTextureConverter != null) {
+            closeActions.add(frameToGlTextureConverter::close);
           }
           for (int i = 0; i < preProcessingChains.size(); i++) {
             GlTextureFrameProcessorChain processorChain = preProcessingChains.valueAt(i);
@@ -501,8 +487,8 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   }
 
   private void initializePipeline() {
-    hardwareBufferConverter =
-        hardwareBufferConverterFactory.create(checkNotNull(workingColorSpace));
+    frameToGlTextureConverter =
+        frameToGlTextureConverterFactory.create(checkNotNull(workingColorSpace), errorConsumer);
     postProcessingChain =
         new GlTextureFrameProcessorChain(
             context,
@@ -583,9 +569,8 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       convertedGlTextureFrames.put(
           sequenceIndex,
           checkNotNull(
-              checkNotNull(hardwareBufferConverter)
-                  .convert(
-                      (HardwareBufferFrame) frame, glExecutorService, listenerExecutor, listener)));
+              checkNotNull(frameToGlTextureConverter)
+                  .convert(frame, glExecutorService, listenerExecutor, listener)));
     }
   }
 

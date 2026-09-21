@@ -38,6 +38,7 @@ import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.common.video.SyncFenceWrapper;
+import androidx.media3.effect.DefaultGlFrameProcessor.FrameToGlTextureConverter;
 import androidx.media3.effect.GlTextureFrameCompositor.CompositorGlProgram;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
@@ -307,24 +308,23 @@ public final class GlFrameProcessorTestUtil {
     }
   }
 
-  /** Fake {@link DefaultGlFrameProcessor.HardwareBufferConverter} for testing. */
-  public static final class FakeHardwareBufferConverter
-      implements DefaultGlFrameProcessor.HardwareBufferConverter {
+  /** Fake {@link FrameToGlTextureConverter} for testing. */
+  public static final class FakeFrameToGlTextureConverter implements FrameToGlTextureConverter {
     public int framesReceived;
     public int framesWithGlResourceReleased;
     private final Runnable releaseListener;
 
-    public FakeHardwareBufferConverter(Runnable releaseListener) {
+    public FakeFrameToGlTextureConverter(Runnable releaseListener) {
       this.releaseListener = releaseListener;
     }
 
-    public FakeHardwareBufferConverter() {
+    public FakeFrameToGlTextureConverter() {
       this.releaseListener = () -> {};
     }
 
     @Override
     public GlTextureFrame convert(
-        HardwareBufferFrame hardwareBufferFrame,
+        Frame frame,
         Executor glExecutor,
         Executor listenerExecutor,
         FrameProcessor.Listener listener) {
@@ -341,19 +341,17 @@ public final class GlFrameProcessorTestUtil {
                 releaseListener.run();
                 if (listener != null) {
                   listenerExecutor.execute(
-                      () ->
-                          listener.onFrameProcessed(
-                              hardwareBufferFrame, /* onCompleteFence= */ null));
+                      () -> listener.onFrameProcessed(frame, /* onCompleteFence= */ null));
                 }
               })
-          .setPresentationTimeUs(hardwareBufferFrame.getContentTimeUs())
-          .setFormat(hardwareBufferFrame.getFormat())
-          .setMetadata(hardwareBufferFrame.getMetadata())
+          .setPresentationTimeUs(frame.getContentTimeUs())
+          .setFormat(frame.getFormat())
+          .setMetadata(frame.getMetadata())
           .build();
     }
 
     @Override
-    public void releaseGlResources(HardwareBufferFrame hardwareBufferFrame) {
+    public void releaseGlResources(Frame frame) {
       framesWithGlResourceReleased++;
     }
 

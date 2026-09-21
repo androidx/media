@@ -20,6 +20,7 @@ import static androidx.media3.effect.FrameProcessorUtils.createAndBindEglImage;
 import static androidx.media3.effect.FrameProcessorUtils.releaseEglImageTexture;
 import static androidx.media3.effect.FrameProcessorUtils.runAllAndAccumulateExceptions;
 import static androidx.media3.effect.FrameProcessorUtils.useHighPrecisionColorComponents;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getFirst;
 
@@ -45,6 +46,7 @@ import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
+import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.common.video.SyncFenceWrapper;
@@ -61,7 +63,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 @ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.
 @RequiresApi(26)
 /* package */ final class HardwareBufferToGlTextureConverter
-    implements DefaultGlFrameProcessor.HardwareBufferConverter {
+    implements DefaultGlFrameProcessor.FrameToGlTextureConverter {
 
   private static final String TAG = "HB2GLConverter";
 
@@ -98,11 +100,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   @Override
   public GlTextureFrame convert(
-      HardwareBufferFrame hardwareBufferFrame,
-      Executor glExecutor,
-      Executor listenerExecutor,
-      FrameProcessor.Listener listener)
+      Frame frame, Executor glExecutor, Executor listenerExecutor, FrameProcessor.Listener listener)
       throws VideoFrameProcessingException {
+    checkArgument(
+        frame instanceof HardwareBufferFrame, "Expected HardwareBufferFrame, got: %s", frame);
+    HardwareBufferFrame hardwareBufferFrame = (HardwareBufferFrame) frame;
 
     HardwareBuffer hardwareBuffer = checkNotNull(hardwareBufferFrame.getHardwareBuffer());
     boolean isExternalTexture = hardwareBuffer.getFormat() != HardwareBuffer.RGBA_8888;
@@ -274,8 +276,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void releaseGlResources(HardwareBufferFrame hardwareBufferFrame)
-      throws VideoFrameProcessingException {
+  public void releaseGlResources(Frame frame) throws VideoFrameProcessingException {
+    checkArgument(
+        frame instanceof HardwareBufferFrame, "Expected HardwareBufferFrame, got: %s", frame);
+    HardwareBufferFrame hardwareBufferFrame = (HardwareBufferFrame) frame;
     Integer activeGainmapTexId = activeGainmapTextures.remove(hardwareBufferFrame);
     EglImageTextureWrapper wrapper = activeEglImageTextureWrappers.remove(hardwareBufferFrame);
 

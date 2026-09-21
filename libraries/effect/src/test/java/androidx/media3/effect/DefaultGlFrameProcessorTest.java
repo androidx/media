@@ -46,19 +46,22 @@ import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Util;
 import androidx.media3.common.video.AsyncFrame;
+import androidx.media3.common.video.DefaultImagePlanesFrame;
+import androidx.media3.common.video.DefaultImagePlanesFrame.DefaultPlane;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.GlFrameProcessorTestUtil.FakeCompositorGlProgram;
+import androidx.media3.effect.GlFrameProcessorTestUtil.FakeFrameToGlTextureConverter;
 import androidx.media3.effect.GlFrameProcessorTestUtil.FakeGlShaderProgram;
 import androidx.media3.effect.GlFrameProcessorTestUtil.FakeGlTextureFrameConsumer;
-import androidx.media3.effect.GlFrameProcessorTestUtil.FakeHardwareBufferConverter;
 import androidx.media3.effect.GlFrameProcessorTestUtil.FakeHardwareBufferFrame;
 import androidx.media3.effect.GlFrameProcessorTestUtil.NoOpFrameWriter;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
@@ -89,7 +92,7 @@ public final class DefaultGlFrameProcessorTest {
   private Queue<Runnable> queuedFrameProcessedTasks;
   private Executor testExecutor;
 
-  private FakeHardwareBufferConverter fakeHardwareBufferConverter;
+  private FakeFrameToGlTextureConverter fakeFrameToGlTextureConverter;
   private AtomicInteger glTextureFramesReleased;
   private FakeGlShaderProgram fakeGlShaderProgram;
   private FakeGlTextureFrameConsumer fakeFrameWriterGlTextureFrameConsumer;
@@ -102,8 +105,8 @@ public final class DefaultGlFrameProcessorTest {
   public void setUp() {
     frameWriter = new NoOpFrameWriter();
     glTextureFramesReleased = new AtomicInteger();
-    fakeHardwareBufferConverter =
-        new FakeHardwareBufferConverter(glTextureFramesReleased::incrementAndGet);
+    fakeFrameToGlTextureConverter =
+        new FakeFrameToGlTextureConverter(glTextureFramesReleased::incrementAndGet);
     fakeGlShaderProgram = new FakeGlShaderProgram();
     fakeFrameWriterGlTextureFrameConsumer = new FakeGlTextureFrameConsumer(frameWriter);
     fakeEffect = (context, useHdr) -> fakeGlShaderProgram;
@@ -149,7 +152,7 @@ public final class DefaultGlFrameProcessorTest {
     assertThat(processor.queue(ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null))))
         .isTrue();
     waitUntilGlThreadFinishes();
-    assertThat(fakeHardwareBufferConverter.framesReceived).isEqualTo(1);
+    assertThat(fakeFrameToGlTextureConverter.framesReceived).isEqualTo(1);
     assertThat(fakeGlShaderProgram.framesReceived).isEqualTo(1);
     assertThat(fakeFrameWriterGlTextureFrameConsumer.framesReceived).isEqualTo(1);
     assertThat(frameWriter.queuedFrames).isEqualTo(1);
@@ -330,8 +333,8 @@ public final class DefaultGlFrameProcessorTest {
                 context,
                 glObjectsProvider,
                 glExecutorService,
-                /* hardwareBufferConverterFactory= */ outputColorInfo ->
-                    fakeHardwareBufferConverter,
+                /* frameToGlTextureConverterFactory= */ (outputColorInfo, errorConsumer) ->
+                    fakeFrameToGlTextureConverter,
                 fakeFrameWriterGlTextureFrameConsumer,
                 new DefaultGlTextureFrameCompositor.Factory(
                     /* compositorGlProgramFactory= */ FakeCompositorGlProgram::new,
@@ -421,7 +424,7 @@ public final class DefaultGlFrameProcessorTest {
     assertThat(processor.queue(ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null))))
         .isTrue();
     waitUntilGlThreadFinishes();
-    assertThat(fakeHardwareBufferConverter.framesReceived).isEqualTo(1);
+    assertThat(fakeFrameToGlTextureConverter.framesReceived).isEqualTo(1);
     assertThat(fakeGlShaderProgram.framesReceived).isEqualTo(1);
     assertThat(fakeFrameWriterGlTextureFrameConsumer.framesReceived).isEqualTo(1);
     assertThat(frameWriter.queuedFrames).isEqualTo(1);
@@ -432,6 +435,21 @@ public final class DefaultGlFrameProcessorTest {
     assertThat(fakeGlShaderProgram.signalEndOfCurrentInputStreamCalled).isTrue();
     assertThat(fakeFrameWriterGlTextureFrameConsumer.signalEndOfStreamCalled).isTrue();
     assertThat(frameWriter.signalEndOfStreamCalled).isTrue();
+  }
+
+  @Test
+  public void queue_imagePlanesFrame_propagatesToAllPipelineComponents() throws Exception {
+    Frame frame = createFakeImagePlanesFrame(fakeEffect);
+
+    boolean queued =
+        processor.queue(ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null)));
+    waitUntilGlThreadFinishes();
+
+    assertThat(queued).isTrue();
+    assertThat(fakeFrameToGlTextureConverter.framesReceived).isEqualTo(1);
+    assertThat(fakeGlShaderProgram.framesReceived).isEqualTo(1);
+    assertThat(fakeFrameWriterGlTextureFrameConsumer.framesReceived).isEqualTo(1);
+    assertThat(frameWriter.queuedFrames).isEqualTo(1);
   }
 
   @Test
@@ -523,7 +541,7 @@ public final class DefaultGlFrameProcessorTest {
       waitUntilGlThreadFinishes();
       executeAllQueuedTasks(queuedFrameProcessedTasks);
       assertThat(completedFrames).containsExactly(frame0, frame1, frame2);
-      assertThat(fakeHardwareBufferConverter.framesReceived).isEqualTo(3);
+      assertThat(fakeFrameToGlTextureConverter.framesReceived).isEqualTo(3);
       assertThat(fakeGlShaderProgram.framesReceived).isEqualTo(1);
       assertThat(fakeFrameWriterGlTextureFrameConsumer.framesReceived).isEqualTo(1);
       assertThat(frameWriter.queuedFrames).isEqualTo(1);
@@ -575,7 +593,7 @@ public final class DefaultGlFrameProcessorTest {
       waitUntilGlThreadFinishes();
       executeAllQueuedTasks(queuedFrameProcessedTasks);
       assertThat(completedFrames).containsExactly(frame0, frame1, frame2);
-      assertThat(fakeHardwareBufferConverter.framesReceived).isEqualTo(3);
+      assertThat(fakeFrameToGlTextureConverter.framesReceived).isEqualTo(3);
       // fakeGlShaderProgram is wired to frame 0.
       assertThat(fakeGlShaderProgram.framesReceived).isEqualTo(1);
       assertThat(fakeFrameWriterGlTextureFrameConsumer.framesReceived).isEqualTo(1);
@@ -715,7 +733,7 @@ public final class DefaultGlFrameProcessorTest {
     assertThat(processor.queue(ImmutableList.of(new AsyncFrame(frame3, /* acquireFence= */ null))))
         .isFalse();
     waitUntilGlThreadFinishes();
-    assertThat(fakeHardwareBufferConverter.framesReceived).isEqualTo(2);
+    assertThat(fakeFrameToGlTextureConverter.framesReceived).isEqualTo(2);
     assertThat(glTextureFramesReleased.get()).isEqualTo(0);
     assertThat(fakeFrameWriterGlTextureFrameConsumer.framesReceived).isEqualTo(0);
 
@@ -739,7 +757,7 @@ public final class DefaultGlFrameProcessorTest {
         .isTrue();
     waitUntilGlThreadFinishes();
 
-    assertThat(fakeHardwareBufferConverter.framesReceived).isEqualTo(2);
+    assertThat(fakeFrameToGlTextureConverter.framesReceived).isEqualTo(2);
     assertThat(glTextureFramesReleased.get()).isEqualTo(1);
 
     processor.close();
@@ -781,7 +799,7 @@ public final class DefaultGlFrameProcessorTest {
         .isFalse(); // Rejected by frameAggregator
     waitUntilGlThreadFinishes();
 
-    assertThat(fakeHardwareBufferConverter.framesReceived).isEqualTo(3);
+    assertThat(fakeFrameToGlTextureConverter.framesReceived).isEqualTo(3);
     assertThat(glTextureFramesReleased.get()).isEqualTo(1);
 
     processor.close();
@@ -1431,7 +1449,8 @@ public final class DefaultGlFrameProcessorTest {
         context,
         new GlFrameProcessorTestUtil.FakeGlObjectsProvider(),
         glExecutorService,
-        outputColorInfo -> fakeHardwareBufferConverter,
+        /* frameToGlTextureConverterFactory= */ (outputColorInfo, errorConsumer) ->
+            fakeFrameToGlTextureConverter,
         fakeFrameWriterGlTextureFrameConsumer,
         new DefaultGlTextureFrameCompositor.Factory(
             /* compositorGlProgramFactory= */ FakeCompositorGlProgram::new,
@@ -1449,9 +1468,9 @@ public final class DefaultGlFrameProcessorTest {
         context,
         new GlFrameProcessorTestUtil.FakeGlObjectsProvider(),
         glExecutorService,
-        /* hardwareBufferConverterFactory= */ outputColorInfo -> {
+        /* frameToGlTextureConverterFactory= */ (outputColorInfo, errorConsumer) -> {
           colorInfoConsumer.accept(outputColorInfo);
-          return fakeHardwareBufferConverter;
+          return fakeFrameToGlTextureConverter;
         },
         fakeFrameWriterGlTextureFrameConsumer,
         new DefaultGlTextureFrameCompositor.Factory(
@@ -1464,19 +1483,33 @@ public final class DefaultGlFrameProcessorTest {
         /* isSurfacelessContextExtensionSupported= */ true);
   }
 
-  private static Frame createFakeHardwareBufferFrame(
+  private static ImmutableMap<String, Object> createFrameMetadata(
       int sequenceIndex, @Nullable GlEffect itemEffect) {
-    ImmutableMap.Builder<String, Object> metadataBuilder = new ImmutableMap.Builder<>();
-    metadataBuilder
+    return ImmutableMap.<String, Object>builder()
         .put(KEY_COMPOSITION_SEQUENCE_INDEX, sequenceIndex)
         .put(KEY_COMPOSITOR_SETTINGS, VideoCompositorSettings.DEFAULT)
-        .put(DefaultGlFrameProcessor.KEY_COMPOSITION_EFFECTS, ImmutableList.of());
-    if (itemEffect != null) {
-      metadataBuilder.put(KEY_ITEM_EFFECTS, ImmutableList.of(itemEffect));
-    } else {
-      metadataBuilder.put(KEY_ITEM_EFFECTS, ImmutableList.of());
-    }
-    return new FakeHardwareBufferFrame(metadataBuilder.buildOrThrow());
+        .put(KEY_COMPOSITION_EFFECTS, ImmutableList.of())
+        .put(
+            KEY_ITEM_EFFECTS,
+            itemEffect == null ? ImmutableList.of() : ImmutableList.of(itemEffect))
+        .buildOrThrow();
+  }
+
+  private static Frame createFakeHardwareBufferFrame(
+      int sequenceIndex, @Nullable GlEffect itemEffect) {
+    return new FakeHardwareBufferFrame(createFrameMetadata(sequenceIndex, itemEffect));
+  }
+
+  private static Frame createFakeImagePlanesFrame(GlEffect itemEffect) {
+    return new DefaultImagePlanesFrame.Builder(
+            ImmutableList.of(
+                new DefaultPlane(
+                    ByteBuffer.allocateDirect(16), /* rowStride= */ 4, /* pixelStride= */ 1)),
+            /* releaseExecutor= */ Runnable::run,
+            /* releaseCallback= */ unused -> {})
+        .setFormat(new Format.Builder().setWidth(4).setHeight(4).build())
+        .setMetadata(createFrameMetadata(/* sequenceIndex= */ 0, itemEffect))
+        .build();
   }
 
   private ColorInfo queueFrameAndGetColorInfo(Format format, boolean forceUnsupportedFormat)
@@ -1516,9 +1549,9 @@ public final class DefaultGlFrameProcessorTest {
             context,
             glObjectsProvider,
             glExecutorService,
-            /* hardwareBufferConverterFactory= */ outputColorInfo -> {
+            /* frameToGlTextureConverterFactory= */ (outputColorInfo, errorConsumer) -> {
               actualColorInfo.set(outputColorInfo);
-              return fakeHardwareBufferConverter;
+              return fakeFrameToGlTextureConverter;
             },
             fakeFrameWriterGlTextureFrameConsumer,
             new DefaultGlTextureFrameCompositor.Factory(
