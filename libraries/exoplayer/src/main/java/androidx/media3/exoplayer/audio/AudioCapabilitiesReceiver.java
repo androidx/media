@@ -30,6 +30,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.audio.AudioManagerCompat;
@@ -61,7 +62,7 @@ public final class AudioCapabilitiesReceiver {
   private final Context context;
   private final Listener listener;
   private final Handler handler;
-  private final AudioDeviceCallback audioDeviceCallback;
+  @VisibleForTesting final android.media.AudioDeviceCallback audioDeviceCallback;
   private final BroadcastReceiver hdmiAudioPlugBroadcastReceiver;
   @Nullable private final ExternalSurroundSoundSettingObserver externalSurroundSoundSettingObserver;
   @Nullable private SpatializerWrapper spatializer;

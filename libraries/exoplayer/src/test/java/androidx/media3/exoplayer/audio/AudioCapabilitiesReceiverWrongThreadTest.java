@@ -15,234 +15,141 @@
  */
 package androidx.media3.exoplayer.audio;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
+import static org.robolectric.Shadows.shadowOf;
 
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.ContextWrapper;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.media.AudioDeviceCallback;
 import android.media.AudioDeviceInfo;
-import android.media.AudioManager;
-import android.os.Build;
-import android.os.Handler;
-import android.os.HandlerThread;
 import android.os.Looper;
-import androidx.annotation.Nullable;
+import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
-import androidx.media3.common.MediaLibraryInfo;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import java.lang.reflect.Field;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
-import org.robolectric.util.ReflectionHelpers;
+import org.robolectric.shadows.ShadowBuild;
 
 /** Tests that raw OEM audio-device callbacks are serialized on the receiver handler. */
 @RunWith(AndroidJUnit4.class)
-@Config(sdk = 29)
-public class AudioCapabilitiesReceiverWrongThreadTest {
+@Config(maxSdk = 37) // The workaround is disabled from API 38+
+public final class AudioCapabilitiesReceiverWrongThreadTest {
 
-  private static final String PLAYBACK_THREAD_NAME = "ExoPlayer:Playback";
-  private static final String OEM_THREAD_NAME = "AudioMonitorHdmiThread";
-  private static final long TEST_TIMEOUT_SECONDS = 5;
+  private static final AudioCapabilities OVERRIDDEN_AUDIO_CAPABILITIES =
+      new AudioCapabilities(
+          new int[] {C.ENCODING_AC3},
+          /* maxChannelCount= */ 6,
+          /* speakerLayoutChannelMasks= */ ImmutableList.of(),
+          /* spatializerChannelMasks= */ ImmutableList.of());
 
-  private HandlerThread playbackThread;
-  private Handler playbackHandler;
-  private String originalManufacturer;
-  private String originalModel;
-  private boolean originalEnableWorkarounds;
+  private ExecutorService wrongThreadExecutor;
 
   @Before
   public void setUp() {
-    originalManufacturer = Build.MANUFACTURER;
-    originalModel = Build.MODEL;
-    originalEnableWorkarounds = MediaLibraryInfo.enableWorkarounds();
-    ReflectionHelpers.setStaticField(Build.class, "MANUFACTURER", "SkyworthDigital");
-    ReflectionHelpers.setStaticField(Build.class, "MODEL", "XStream-Smart-Box-002");
-    MediaLibraryInfo.setEnableWorkarounds(true);
-    playbackThread = new HandlerThread(PLAYBACK_THREAD_NAME);
-    playbackThread.start();
-    playbackHandler = new Handler(playbackThread.getLooper());
+    ShadowBuild.setManufacturer("SkyworthDigital");
+    ShadowBuild.setModel("XStream-Smart-Box-002");
+    wrongThreadExecutor = Executors.newSingleThreadExecutor();
   }
 
   @After
-  public void tearDown() throws Exception {
-    ReflectionHelpers.setStaticField(Build.class, "MANUFACTURER", originalManufacturer);
-    ReflectionHelpers.setStaticField(Build.class, "MODEL", originalModel);
-    MediaLibraryInfo.setEnableWorkarounds(originalEnableWorkarounds);
-    playbackThread.quitSafely();
-    playbackThread.join(TimeUnit.SECONDS.toMillis(TEST_TIMEOUT_SECONDS));
+  public void tearDown() {
+    wrongThreadExecutor.shutdownNow();
   }
 
   @Test
-  public void rawThreadDeviceAddition_notifiesListenerOnReceiverHandler() throws Exception {
-    assertRawThreadCallbackIsDeliveredOnReceiverHandler(/* added= */ true);
-  }
-
-  @Test
-  public void rawThreadDeviceRemoval_notifiesListenerOnReceiverHandler() throws Exception {
-    assertRawThreadCallbackIsDeliveredOnReceiverHandler(/* added= */ false);
-  }
-
-  @Test
-  public void disabledWorkarounds_rawThreadDeviceAddition_notifiesListenerOnOemThread()
+  public void onAudioDevicesAdded_fromBackgroundThreadWithoutLooper_notifiesListenerOnLooperThread()
       throws Exception {
-    MediaLibraryInfo.setEnableWorkarounds(false);
-
-    CapabilityContext context =
-        new CapabilityContext(ApplicationProvider.getApplicationContext());
     TrackingListener listener = new TrackingListener();
-    AtomicReference<AudioDeviceCallback> callbackReference = new AtomicReference<>();
-    AtomicReference<AudioCapabilitiesReceiver> receiverReference = new AtomicReference<>();
+    AudioCapabilitiesReceiver audioCapabilitiesReceiver =
+        new AudioCapabilitiesReceiver(
+            ApplicationProvider.getApplicationContext(),
+            listener,
+            new AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
+            /* routedDevice= */ null);
+    AudioCapabilities unused = audioCapabilitiesReceiver.register();
+    audioCapabilitiesReceiver.overrideCapabilities(OVERRIDDEN_AUDIO_CAPABILITIES);
 
-    runOnPlayback(
-        () -> {
-          AudioCapabilitiesReceiver receiver = new AudioCapabilitiesReceiver(context, listener);
-          listener.receiver = receiver;
-          receiver.register();
-          receiverReference.set(receiver);
-          callbackReference.set(getPrivateField(receiver, "audioDeviceCallback"));
-        });
+    wrongThreadExecutor
+        .submit(
+            () ->
+                audioCapabilitiesReceiver.audioDeviceCallback.onAudioDevicesAdded(
+                    new AudioDeviceInfo[0]))
+        .get();
+    shadowOf(Looper.getMainLooper()).idle();
 
-    AtomicReference<Throwable> callbackFailure =
-        invokeFromRawOemThread(checkNotNull(callbackReference.get()), /* added= */ true);
-
-    assertThat(callbackFailure.get()).isNull();
-    assertThat(listener.threadName).isEqualTo(OEM_THREAD_NAME);
-    assertThat(listener.looperName).isEqualTo("null");
-    runOnPlayback(() -> checkNotNull(receiverReference.get()).unregister());
+    assertThat(listener.invocationCount.get()).isEqualTo(3);
+    assertThat(listener.looperlessThreads).isEmpty();
   }
 
-  private void assertRawThreadCallbackIsDeliveredOnReceiverHandler(boolean added)
+  @Test
+  public void
+      onAudioDevicesRemoved_fromBackgroundThreadWithoutLooper_notifiesListenerOnLooperThread()
+          throws Exception {
+    TrackingListener listener = new TrackingListener();
+    AudioCapabilitiesReceiver audioCapabilitiesReceiver =
+        new AudioCapabilitiesReceiver(
+            ApplicationProvider.getApplicationContext(),
+            listener,
+            new AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
+            /* routedDevice= */ null);
+    AudioCapabilities unused = audioCapabilitiesReceiver.register();
+    audioCapabilitiesReceiver.overrideCapabilities(OVERRIDDEN_AUDIO_CAPABILITIES);
+
+    wrongThreadExecutor
+        .submit(
+            () ->
+                audioCapabilitiesReceiver.audioDeviceCallback.onAudioDevicesRemoved(
+                    new AudioDeviceInfo[0]))
+        .get();
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertThat(listener.invocationCount.get()).isEqualTo(3);
+    assertThat(listener.looperlessThreads).isEmpty();
+  }
+
+  @Test
+  public void onAudioDevicesAdded_onNonWorkaroundDevice_notifiesListenerOnCallingLooperlessThread()
       throws Exception {
-    CapabilityContext context =
-        new CapabilityContext(ApplicationProvider.getApplicationContext());
+    ShadowBuild.setModel("OtherModel");
     TrackingListener listener = new TrackingListener();
-    AtomicReference<AudioDeviceCallback> callbackReference = new AtomicReference<>();
-    AtomicReference<AudioCapabilitiesReceiver> receiverReference = new AtomicReference<>();
+    AudioCapabilitiesReceiver audioCapabilitiesReceiver =
+        new AudioCapabilitiesReceiver(
+            ApplicationProvider.getApplicationContext(),
+            listener,
+            new AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
+            /* routedDevice= */ null);
+    AudioCapabilities unused = audioCapabilitiesReceiver.register();
+    audioCapabilitiesReceiver.overrideCapabilities(OVERRIDDEN_AUDIO_CAPABILITIES);
 
-    runOnPlayback(
-        () -> {
-          AudioCapabilitiesReceiver receiver =
-              new AudioCapabilitiesReceiver(context, listener);
-          listener.receiver = receiver;
-          receiver.register();
-          receiverReference.set(receiver);
-          callbackReference.set(getPrivateField(receiver, "audioDeviceCallback"));
-        });
+    wrongThreadExecutor
+        .submit(
+            () ->
+                audioCapabilitiesReceiver.audioDeviceCallback.onAudioDevicesAdded(
+                    new AudioDeviceInfo[0]))
+        .get();
+    shadowOf(Looper.getMainLooper()).idle();
 
-    AtomicReference<Throwable> callbackFailure =
-        invokeFromRawOemThread(checkNotNull(callbackReference.get()), added);
-    runOnPlayback(() -> {});
-
-    assertThat(callbackFailure.get()).isNull();
-    assertThat(listener.threadName).isEqualTo(PLAYBACK_THREAD_NAME);
-    assertThat(listener.looperName).isEqualTo(PLAYBACK_THREAD_NAME);
-    assertThat(listener.stateAtListener)
-        .isEqualTo(getPrivateField(receiverReference.get(), "audioCapabilities"));
-  }
-
-  private AtomicReference<Throwable> invokeFromRawOemThread(
-      AudioDeviceCallback callback, boolean added) throws Exception {
-    AtomicReference<Throwable> callbackFailure = new AtomicReference<>();
-    Thread oemThread =
-        new Thread(
-            () -> {
-              try {
-                assertThat(Looper.myLooper()).isNull();
-                if (added) {
-                  callback.onAudioDevicesAdded(new AudioDeviceInfo[0]);
-                } else {
-                  callback.onAudioDevicesRemoved(new AudioDeviceInfo[0]);
-                }
-              } catch (Throwable throwable) {
-                callbackFailure.set(throwable);
-              }
-            },
-            OEM_THREAD_NAME);
-    oemThread.start();
-    oemThread.join(TimeUnit.SECONDS.toMillis(TEST_TIMEOUT_SECONDS));
-    assertThat(oemThread.isAlive()).isFalse();
-    return callbackFailure;
-  }
-
-  private void runOnPlayback(Runnable action) throws Exception {
-    CountDownLatch complete = new CountDownLatch(1);
-    AtomicReference<Throwable> failure = new AtomicReference<>();
-    playbackHandler.post(
-        () -> {
-          try {
-            action.run();
-          } catch (Throwable throwable) {
-            failure.set(throwable);
-          } finally {
-            complete.countDown();
-          }
-        });
-    assertThat(complete.await(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
-    if (failure.get() != null) {
-      throw new AssertionError("Playback-thread action failed", failure.get());
-    }
-  }
-
-  @SuppressWarnings("unchecked")
-  private static <T> T getPrivateField(Object target, String fieldName) {
-    try {
-      Field field = target.getClass().getDeclaredField(fieldName);
-      field.setAccessible(true);
-      return (T) field.get(target);
-    } catch (ReflectiveOperationException exception) {
-      throw new AssertionError("Could not read private field " + fieldName, exception);
-    }
+    assertThat(listener.invocationCount.get()).isEqualTo(3);
+    assertThat(listener.looperlessThreads).hasSize(1);
   }
 
   private static final class TrackingListener implements AudioCapabilitiesReceiver.Listener {
-    @Nullable AudioCapabilitiesReceiver receiver;
-    String threadName;
-    String looperName;
-    AudioCapabilities stateAtListener;
+    private final Set<Thread> looperlessThreads = Sets.newConcurrentHashSet();
+    private final AtomicInteger invocationCount = new AtomicInteger();
 
     @Override
     public void onAudioCapabilitiesChanged(AudioCapabilities audioCapabilities) {
-      threadName = Thread.currentThread().getName();
-      Looper looper = Looper.myLooper();
-      looperName = looper == null ? "null" : looper.getThread().getName();
-      stateAtListener = getPrivateField(checkNotNull(receiver), "audioCapabilities");
-    }
-  }
-
-  private static final class CapabilityContext extends ContextWrapper {
-    private int nextEncoding = C.ENCODING_AC3;
-
-    CapabilityContext(Context base) {
-      super(base);
-    }
-
-    @Override
-    public Context getApplicationContext() {
-      return this;
-    }
-
-    @Override
-    public Intent registerReceiver(BroadcastReceiver receiver, IntentFilter filter) {
-      if (receiver != null) {
-        return super.registerReceiver(receiver, filter);
+      invocationCount.incrementAndGet();
+      if (Looper.myLooper() == null) {
+        looperlessThreads.add(Thread.currentThread());
       }
-      int encoding = nextEncoding;
-      nextEncoding = nextEncoding == C.ENCODING_AC3 ? C.ENCODING_DTS : C.ENCODING_AC3;
-      return new Intent(AudioManager.ACTION_HDMI_AUDIO_PLUG)
-          .putExtra(AudioManager.EXTRA_AUDIO_PLUG_STATE, 1)
-          .putExtra(AudioManager.EXTRA_ENCODINGS, new int[] {encoding})
-          .putExtra(AudioManager.EXTRA_MAX_CHANNEL_COUNT, 6);
     }
   }
 }
