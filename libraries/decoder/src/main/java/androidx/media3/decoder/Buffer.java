@@ -18,6 +18,7 @@ package androidx.media3.decoder;
 import androidx.annotation.CallSuper;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
+import org.checkerframework.dataflow.qual.Pure;
 
 /** Base class for buffers with flags. */
 @UnstableApi
@@ -32,6 +33,7 @@ public abstract class Buffer {
   }
 
   /** Returns whether the {@link C#BUFFER_FLAG_FIRST_SAMPLE} flag is set. */
+  @Pure
   public final boolean isFirstSample() {
     return getFlag(C.BUFFER_FLAG_FIRST_SAMPLE);
   }
@@ -41,26 +43,31 @@ public abstract class Buffer {
    *
    * <p>If this is set, all other attributes of the buffer should be ignored.
    */
+  @Pure
   public final boolean isEndOfStream() {
     return getFlag(C.BUFFER_FLAG_END_OF_STREAM);
   }
 
   /** Returns whether the {@link C#BUFFER_FLAG_KEY_FRAME} flag is set. */
+  @Pure
   public final boolean isKeyFrame() {
     return getFlag(C.BUFFER_FLAG_KEY_FRAME);
   }
 
   /** Returns whether the {@link C#BUFFER_FLAG_LAST_SAMPLE} flag is set. */
+  @Pure
   public final boolean isLastSample() {
     return getFlag(C.BUFFER_FLAG_LAST_SAMPLE);
   }
 
   /** Returns whether the {@link C#BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA} flag is set. */
+  @Pure
   public final boolean hasSupplementalData() {
     return getFlag(C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA);
   }
 
   /** Returns whether the {@link C#BUFFER_FLAG_NOT_DEPENDED_ON} flag is set. */
+  @Pure
   public final boolean notDependedOn() {
     return getFlag(C.BUFFER_FLAG_NOT_DEPENDED_ON);
   }
@@ -100,6 +107,7 @@ public abstract class Buffer {
    * @param flag The flag to check.
    * @return Whether the flag is set.
    */
+  @Pure
   protected final boolean getFlag(@C.BufferFlags int flag) {
     return (flags & flag) == flag;
   }
