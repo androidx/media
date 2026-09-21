@@ -3006,44 +3006,6 @@ public class TransformerEndToEndTest {
     assertThat(readBytes.get() / 2).isWithin(3).of(38588);
   }
 
-  @Test
-  public void setSpeed_withNoOtherEffects_transcodesAndAppliesEffect() throws Exception {
-    Transformer transformer = new Transformer.Builder(context).build();
-    SpeedProvider speedProvider =
-        TestSpeedProvider.createWithStartTimes(
-            new long[] {0L, 300_000, 600_000}, new float[] {4f, 0.5f, 2f});
-    // Use a WAV file without any effects so that the EditedMediaItem is a candidate for
-    // transmuxing.
-    EditedMediaItem input =
-        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
-            .setSpeed(speedProvider)
-            .build();
-
-    TransformerAndroidTestRunner testRunner =
-        new TransformerAndroidTestRunner.Builder(context, transformer).build();
-    ExportTestResult result = testRunner.run(testId, input);
-
-    // TODO: b/479474095 - Enable this assertion once ExportResult reports the right operation for
-    // single asset exports that bypass the decoder.
-    // assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSCODED);
-    // Assert that decoder is bypassed for WAV file.
-    assertThat(result.exportResult.processedInputs.get(0).audioDecoderName).isNull();
-
-    // When Transformer transmuxes a file, it skips the entire effects pipeline. We should make sure
-    // that the file is processed and the speed adjustment is applied.
-    AtomicInteger bytesRead = new AtomicInteger();
-    EditedMediaItem speedAdjustedOutput =
-        new EditedMediaItem.Builder(MediaItem.fromUri(result.filePath))
-            .setEffects(fromProcessors(createByteCountingAudioProcessor(bytesRead)))
-            .build();
-
-    testRunner.run(testId, speedAdjustedOutput);
-
-    // Allow 0.05ms of tolerance because of encoder dropping frames (b/475182836).
-    // 300ms / 4 + 300ms / 0.5 + 400ms / 2 = 875ms -> 38588 frames.
-    assertThat(bytesRead.get() / 2).isWithin(2300).of(38588);
-  }
-
   // HE-AAC profile support is available from API 29.
   @SdkSuppress(minSdkVersion = 29)
   @Test
@@ -3074,6 +3036,36 @@ public class TransformerEndToEndTest {
     Format format = createFormatFromMediaFormat(mediaFormat);
     Pair<Integer, Integer> profileAndLevel = CodecSpecificDataUtil.getCodecProfileAndLevel(format);
     assertThat(profileAndLevel.first).isEqualTo(AACObjectHE);
+  }
+
+  @Test
+  public void export_withRawAudioAndSetBitrate_encodes() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(
+                new DefaultEncoderFactory.Builder(context)
+                    .setRequestedAudioEncoderSettings(
+                        new AudioEncoderSettings.Builder().setBitrate(1024).build())
+                    .build())
+            .build();
+    MediaItem mediaItem = MediaItem.fromUri(WAV_ASSET.uri);
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, mediaItem);
+
+    assertThat(result.exportResult.audioMimeType).isEqualTo(MimeTypes.AUDIO_AAC);
+
+    try (MetadataRetriever r =
+        new MetadataRetriever.Builder(context, MediaItem.fromUri(result.filePath)).build()) {
+      assertThat(r.retrieveTrackGroups().get().get(0).getFormat(0).sampleMimeType)
+          .isEqualTo(MimeTypes.AUDIO_AAC);
+      long duration = r.retrieveDurationUs().get();
+      // Allow at most 2048 samples of divergence (2048@44.1KHz -> 46_440us).
+      assertThat(duration).isWithin(46_440).of(1_000_000);
+    }
   }
 
   // On API 23, the encoder output format does not seem to contain bitrate, hence the test fails.

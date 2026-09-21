@@ -34,6 +34,7 @@ import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MimeTypes;
@@ -55,6 +56,7 @@ import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.muxer.Muxer;
+import androidx.media3.transformer.Codec.EncoderFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -64,6 +66,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -197,6 +200,7 @@ public final class Transformer {
      *   <li>{@link MimeTypes#AUDIO_AAC}
      *   <li>{@link MimeTypes#AUDIO_AMR_NB}
      *   <li>{@link MimeTypes#AUDIO_AMR_WB}
+     *   <li>{@link MimeTypes#AUDIO_RAW}
      * </ul>
      *
      * If the MIME type is not supported, {@link Transformer} will fallback to a supported MIME type
@@ -878,7 +882,7 @@ public final class Transformer {
     this.assetLoaderFactory = assetLoaderFactory;
     this.audioMixerFactory = audioMixerFactory;
     this.videoFrameProcessorFactory = videoFrameProcessorFactory;
-    this.encoderFactory = encoderFactory;
+    this.encoderFactory = new TransformerEncoderFactory(encoderFactory);
     this.muxerFactory = muxerFactory;
     this.looper = looper;
     this.debugViewProvider = debugViewProvider;
@@ -1441,6 +1445,33 @@ public final class Transformer {
         muxerName,
         compositionHasAudioProcessors,
         compositionHasVideoEffects);
+  }
+
+  /**
+   * An {@link EncoderFactory} implementation that wraps another {@link EncoderFactory} instance and
+   * adds workarounds for existing issues.
+   *
+   * <p>{@link DefaultEncoderFactory} returns {@link DefaultCodec} instances, which does not allow
+   * other implementations of {@link Codec}.
+   */
+  // TODO(b/550318509): Consolidate this logic in a real EncoderFactory once the "default" encoder
+  //  factory can return non-MediaCodec encoders.
+  /* package */ static final class TransformerEncoderFactory extends ForwardingEncoderFactory {
+
+    public TransformerEncoderFactory(EncoderFactory factory) {
+      super(factory);
+    }
+
+    @Override
+    public Codec createForAudioEncoding(Format format, @Nullable LogSessionId logSessionId)
+        throws ExportException {
+      if (Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_RAW)
+          && !super.audioNeedsEncoding()) {
+        return new PassthroughAudioCodec(format);
+      }
+
+      return super.createForAudioEncoding(format, logSessionId);
+    }
   }
 
   private final class ExportOperationListener implements ExportOperation.Listener {

@@ -31,9 +31,11 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.muxer.MuxerException;
+import androidx.media3.transformer.Codec.EncoderFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Exporter that processes media data.
@@ -155,6 +157,19 @@ import java.util.List;
   /**
    * Finds a {@linkplain MimeTypes MIME type} that is supported by the encoder and the muxer.
    *
+   * <p>This is identical to calling {@code
+   * #findSupportedMimeTypeForEncoderAndMuxer(requestedFormat, muxerSupportedMimeTypes, null)}.
+   */
+  @Nullable
+  protected static String findSupportedMimeTypeForEncoderAndMuxer(
+      Format requestedFormat, List<String> muxerSupportedMimeTypes) {
+    return findSupportedMimeTypeForEncoderAndMuxer(
+        requestedFormat, muxerSupportedMimeTypes, /* encoderFactory= */ null);
+  }
+
+  /**
+   * Finds a {@linkplain MimeTypes MIME type} that is supported by the encoder and the muxer.
+   *
    * <p>The {@linkplain Format requestedFormat} determines what support is checked.
    *
    * <ul>
@@ -169,11 +184,14 @@ import java.util.List;
    * @param requestedFormat The {@link Format} requested.
    * @param muxerSupportedMimeTypes The list of sample {@linkplain MimeTypes MIME types} that the
    *     muxer supports.
+   * @param encoderFactory The provided {@link EncoderFactory}.
    * @return A supported {@linkplain MimeTypes MIME type}, or {@code null} if none are supported.
    */
   @Nullable
   protected static String findSupportedMimeTypeForEncoderAndMuxer(
-      Format requestedFormat, List<String> muxerSupportedMimeTypes) {
+      Format requestedFormat,
+      List<String> muxerSupportedMimeTypes,
+      @Nullable EncoderFactory encoderFactory) {
     boolean isVideo = MimeTypes.isVideo(checkNotNull(requestedFormat.sampleMimeType));
 
     ImmutableSet.Builder<String> mimeTypesToCheckSetBuilder =
@@ -195,7 +213,10 @@ import java.util.List;
         if (!getSupportedEncodersForHdrEditing(mimeType, requestedFormat.colorInfo).isEmpty()) {
           return mimeType;
         }
-      } else if (!getSupportedEncoders(mimeType).isEmpty()) {
+      } else if ((Objects.equals(requestedFormat.sampleMimeType, MimeTypes.AUDIO_RAW)
+              && encoderFactory != null
+              && !encoderFactory.audioNeedsEncoding())
+          || !getSupportedEncoders(mimeType).isEmpty()) {
         return mimeType;
       }
     }

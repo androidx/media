@@ -70,6 +70,9 @@
         closest timestamp during frame aggregation. This is enabled from API 29
         only, as it requires holding one additional frame in flight per video
         sequence.
+    *   Respect `Transformer#setAudioMimeType(AUDIO_RAW)` when `AudioProcessors`
+        are used. Prior to this fix, requesting `MimeTypes.AUDIO_RAW` and
+        applying an `AudioProcessor` resulted in compressed output.
 *   Track Selection:
     *   Fix an issue where an SDR track was incorrectly preferred over a
         supported Dolby Vision track on some devices

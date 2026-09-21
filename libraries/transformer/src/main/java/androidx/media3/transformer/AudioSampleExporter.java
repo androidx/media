@@ -97,7 +97,8 @@ import org.checkerframework.dataflow.qual.Pure;
                 .setSampleMimeType(
                     findSupportedMimeTypeForEncoderAndMuxer(
                         requestedEncoderFormat,
-                        muxerWrapper.getSupportedSampleMimeTypes(C.TRACK_TYPE_AUDIO)))
+                        muxerWrapper.getSupportedSampleMimeTypes(C.TRACK_TYPE_AUDIO),
+                        encoderFactory))
                 .build(),
             logSessionId);
 

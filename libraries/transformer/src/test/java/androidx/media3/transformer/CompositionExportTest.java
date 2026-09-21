@@ -169,9 +169,7 @@ public class CompositionExportTest {
 
   @Test
   public void start_longVideoCompositionWithLoopingAudio_producesExpectedResult() throws Exception {
-    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
-    Transformer transformer =
-        new TestTransformerBuilder(context).setMuxerFactory(muxerFactory).build();
+    Transformer transformer = new TestTransformerBuilder(context).build();
     EditedMediaItemSequence loopingAudioSequence =
         new EditedMediaItemSequence.Builder(ImmutableSet.of(TRACK_TYPE_AUDIO))
             .addItem(
@@ -182,7 +180,6 @@ public class CompositionExportTest {
     EditedMediaItem videoEditedMediaItem =
         new EditedMediaItem.Builder(
                 MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S))
-            .setRemoveAudio(true)
             .build();
     EditedMediaItemSequence videoSequence =
         EditedMediaItemSequence.withVideoFrom(
@@ -194,8 +191,11 @@ public class CompositionExportTest {
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
 
     // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
-    assertThat(exportResult.approximateDurationMs).isEqualTo(31_065);
-    // FILE_AUDIO_RAW duration is 1000ms. Input 32 times to cover the 31_053ms duration.
+    // The video's duration is 15_534ms, so the video sequence has a duration of 31_068ms. However,
+    // the looping sequence is not truncated mid-buffer (b/530852636), so the audio sequence outputs
+    // 31_100ms, aligned with WavExtractor's 100ms buffers.
+    assertThat(exportResult.approximateDurationMs).isEqualTo(31_100);
+    // FILE_AUDIO_RAW duration is 1000ms. Input 32 times to cover the 31_068ms duration + 2 videos.
     assertThat(exportResult.processedInputs).hasSize(34);
     assertThat(exportResult.channelCount).isEqualTo(1);
     assertThat(exportResult.fileSizeBytes).isEqualTo(5_692_714);

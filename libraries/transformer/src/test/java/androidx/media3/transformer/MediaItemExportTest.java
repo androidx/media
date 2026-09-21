@@ -16,6 +16,7 @@
 
 package androidx.media3.transformer;
 
+import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.media3.test.utils.TestUtil.createByteCountingAudioProcessor;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runLooperUntil;
 import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_AAC;
@@ -70,12 +71,14 @@ import android.util.Pair;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.C.TrackType;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.SonicAudioProcessor;
+import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.audio.ToInt16PcmAudioProcessor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.effect.Contrast;
@@ -89,9 +92,16 @@ import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.ExtractorsFactory;
 import androidx.media3.extractor.PositionHolder;
+import androidx.media3.inspector.MetadataRetriever;
+import androidx.media3.muxer.Muxer;
+import androidx.media3.muxer.MuxerException;
+import androidx.media3.muxer.SeekableMuxerOutput;
+import androidx.media3.muxer.WavMuxer;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.Media3FlagsRule;
+import androidx.media3.test.utils.PassthroughAudioProcessor;
+import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.media3.test.utils.TestTransformerBuilder;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
@@ -315,6 +325,59 @@ public final class MediaItemExportTest {
     ExportResult result = TransformerTestRunner.runLooper(transformer);
 
     assertThat(result.optimizationResult).isEqualTo(OPTIMIZATION_NONE);
+  }
+
+  @Test
+  public void export_wavFileWithAudioProcessor_outputsRawPcmSamples() throws Exception {
+    // TODO(b/562454033): Use default muxer factory once pipeline signals exact audio duration.
+    Transformer transformer =
+        new TestTransformerBuilder(context).setMuxerFactory(new WavMuxerFactory()).build();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+            .setEffects(createAudioEffects(new PassthroughAudioProcessor()))
+            .build();
+    String outputFile = outputDir.newFile().getPath();
+
+    transformer.start(item, outputFile);
+    ExportResult result = TransformerTestRunner.runLooper(transformer);
+
+    assertThat(result.audioMimeType).isEqualTo(MimeTypes.AUDIO_RAW);
+    assertThat(result.approximateDurationMs).isEqualTo(1_000);
+
+    try (MetadataRetriever r =
+        new MetadataRetriever.Builder(context, MediaItem.fromUri(outputFile)).build()) {
+      assertThat(r.retrieveTrackGroups().get().get(0).getFormat(0).sampleMimeType)
+          .isEqualTo(MimeTypes.AUDIO_RAW);
+      assertThat(r.retrieveDurationUs().get()).isEqualTo(1_000_000);
+    }
+  }
+
+  @Test
+  public void setSpeed_onRawAudioTrackWithNoOtherEffects_appliesEffect() throws Exception {
+    // TODO(b/562454033): Use default muxer factory once pipeline signals exact audio duration.
+    Transformer transformer =
+        new TestTransformerBuilder(context).setMuxerFactory(new WavMuxerFactory()).build();
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithStartTimes(
+            new long[] {0L, 300_000, 600_000}, new float[] {4f, 0.5f, 2f});
+    // Use a WAV file without any effects so that the EditedMediaItem is a candidate for
+    // transmuxing.
+    EditedMediaItem input =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setSpeed(speedProvider)
+            .build();
+
+    String outputPath = outputDir.newFile().getPath();
+    transformer.start(input, outputPath);
+    TransformerTestRunner.runLooper(transformer);
+
+    try (MetadataRetriever retriever =
+        new MetadataRetriever.Builder(context, MediaItem.fromUri(outputPath)).build()) {
+      assertThat(retriever.retrieveTrackGroups().get().get(0).getFormat(0).sampleMimeType)
+          .isEqualTo(MimeTypes.AUDIO_RAW);
+      // Allow one sample of tolerance per speed region (3 * 1_000_000 / 44_100 Hz = ~68us)
+      assertThat(retriever.retrieveDurationUs().get()).isWithin(68).of(875_000);
+    }
   }
 
   @Test
@@ -1744,6 +1807,22 @@ public final class MediaItemExportTest {
         getDumpFileName(
             /* originalFileName= */ FILE_VIDEO_ELST_TRIM_IDR_DURATION,
             /* modifications...= */ "transmuxed"));
+  }
+
+  private static final class WavMuxerFactory implements Muxer.Factory {
+    @Override
+    public Muxer create(String path) throws MuxerException {
+      try {
+        return new WavMuxer(SeekableMuxerOutput.of(path));
+      } catch (Exception ex) {
+        throw new MuxerException("Failed to create WavMuxer.", ex);
+      }
+    }
+
+    @Override
+    public ImmutableList<String> getSupportedSampleMimeTypes(@TrackType int trackType) {
+      return ImmutableList.of(MimeTypes.AUDIO_RAW);
+    }
   }
 
   private Pair<ImmutableList<@Transformer.ProgressState Integer>, ImmutableList<Integer>>
