@@ -21,6 +21,7 @@ import static androidx.media3.common.MimeTypes.AUDIO_AAC;
 import static androidx.media3.common.MimeTypes.VIDEO_H264;
 import static androidx.media3.common.MimeTypes.VIDEO_MP4;
 import static androidx.media3.test.utils.TestUtil.buildTestData;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
@@ -34,6 +35,8 @@ import android.media.metrics.MediaMetricsManager;
 import android.media.metrics.PlaybackSession;
 import android.net.Uri;
 import android.os.PersistableBundle;
+import android.system.ErrnoException;
+import android.system.Os;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
@@ -63,6 +66,8 @@ import com.google.common.base.Function;
 import com.google.common.io.Files;
 import com.google.common.primitives.Bytes;
 import java.io.File;
+import java.io.FileDescriptor;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -1163,7 +1168,41 @@ public class MediaExtractorCompatTest {
         .isEqualTo(MediaCodecInfo.CodecProfileLevel.AVCLevel1);
   }
 
+  @Test
+  public void setDataSource_withFileDescriptor_closesDuplicatedFileDescriptorOnRelease()
+      throws IOException {
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          extractorOutput.endTracks();
+          return Extractor.RESULT_END_OF_INPUT;
+        });
+    File file = tempFolder.newFile();
+    try (FileInputStream inputStream = new FileInputStream(file)) {
+      FileDescriptor fd = inputStream.getFD();
+      mediaExtractorCompat.setDataSource(fd);
+      assertThrows(IllegalStateException.class, () -> mediaExtractorCompat.setDataSource(fd));
+    }
+
+    assertThat(getOpenFileDescriptorCount(file)).isEqualTo(1);
+    mediaExtractorCompat.release();
+    assertThat(getOpenFileDescriptorCount(file)).isEqualTo(0);
+  }
+
   // Internal methods.
+
+  private static int getOpenFileDescriptorCount(File file) {
+    int count = 0;
+    for (File fdEntry : checkNotNull(new File("/proc/self/fd").listFiles())) {
+      try {
+        if (Os.readlink(fdEntry.getAbsolutePath()).endsWith(file.getName())) {
+          count++;
+        }
+      } catch (ErrnoException e) {
+        // FD may have been closed concurrently; ignore.
+      }
+    }
+    return count;
+  }
 
   private void assertReadSample(int trackIndex, long timeUs, int size, byte... sampleData) {
     assertThat(mediaExtractorCompat.getSampleTrackIndex()).isEqualTo(trackIndex);

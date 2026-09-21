@@ -131,35 +131,44 @@ public class MediaExtractorContractTest {
 
   @Test
   @SdkSuppress(minSdkVersion = 24)
-  public void setDataSource_withAssetFileDescriptor_returnsCorrectTrackCount() throws IOException {
-    AssetFileDescriptor afd = context.getAssets().openFd("media/mp4/sample.mp4");
-
-    mediaExtractorProxy.setDataSource(afd);
+  public void setDataSource_withAssetFileDescriptor_extractsSamplesAfterClosingFd()
+      throws IOException {
+    try (AssetFileDescriptor afd = context.getAssets().openFd("media/mp4/sample.mp4")) {
+      mediaExtractorProxy.setDataSource(afd);
+    }
 
     assertThat(mediaExtractorProxy.getTrackCount()).isEqualTo(2);
+    mediaExtractorProxy.selectTrack(0);
+    mediaExtractorProxy.seekTo(/* timeUs= */ 0, MediaExtractorCompat.SEEK_TO_CLOSEST_SYNC);
+    assertThat(mediaExtractorProxy.advance()).isTrue();
   }
 
   @Test
-  public void setDataSource_withFileDescriptor_returnsCorrectTrackCount() throws IOException {
+  public void setDataSource_withFileDescriptor_extractsSamplesAfterClosingFd() throws IOException {
     File file = tempFolder.newFile();
     Files.write(TestUtil.getByteArray(context, /* fileName= */ "media/mp4/sample.mp4"), file);
-
     try (FileInputStream inputStream = new FileInputStream(file)) {
       mediaExtractorProxy.setDataSource(inputStream.getFD());
     }
 
     assertThat(mediaExtractorProxy.getTrackCount()).isEqualTo(2);
+    mediaExtractorProxy.selectTrack(0);
+    mediaExtractorProxy.seekTo(/* timeUs= */ 0, MediaExtractorCompat.SEEK_TO_CLOSEST_SYNC);
+    assertThat(mediaExtractorProxy.advance()).isTrue();
   }
 
   @Test
-  public void setDataSource_withFileDescriptorOffsetAndLength_returnsCorrectTrackCount()
+  public void setDataSource_withFileDescriptorOffsetAndLength_extractsSamplesAfterClosingFd()
       throws IOException {
-    AssetFileDescriptor afd = context.getAssets().openFd("media/mp4/sample.mp4");
-
-    mediaExtractorProxy.setDataSource(
-        afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+    try (AssetFileDescriptor afd = context.getAssets().openFd("media/mp4/sample.mp4")) {
+      mediaExtractorProxy.setDataSource(
+          afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+    }
 
     assertThat(mediaExtractorProxy.getTrackCount()).isEqualTo(2);
+    mediaExtractorProxy.selectTrack(0);
+    mediaExtractorProxy.seekTo(/* timeUs= */ 0, MediaExtractorCompat.SEEK_TO_CLOSEST_SYNC);
+    assertThat(mediaExtractorProxy.advance()).isTrue();
   }
 
   @Test
@@ -236,13 +245,16 @@ public class MediaExtractorContractTest {
   }
 
   @Test
-  public void setDataSource_withContentUri_returnsCorrectTrackCount() throws IOException {
+  public void setDataSource_withContentUri_extractsSamples() throws IOException {
     Uri contentUri =
         AssetContentProvider.buildUri(AUTHORITY, "media/mp4/sample.mp4", /* pipeMode= */ false);
 
     mediaExtractorProxy.setDataSource(context, contentUri, /* headers= */ null);
 
     assertThat(mediaExtractorProxy.getTrackCount()).isEqualTo(2);
+    mediaExtractorProxy.selectTrack(0);
+    mediaExtractorProxy.seekTo(/* timeUs= */ 0, MediaExtractorCompat.SEEK_TO_CLOSEST_SYNC);
+    assertThat(mediaExtractorProxy.advance()).isTrue();
   }
 
   @Test

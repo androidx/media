@@ -35,6 +35,8 @@ import android.media.MediaFormat;
 import android.media.metrics.LogSessionId;
 import android.net.Uri;
 import android.os.PersistableBundle;
+import android.system.ErrnoException;
+import android.system.Os;
 import android.util.Pair;
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
@@ -113,6 +115,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
   private boolean hasBeenPrepared;
   private long offsetInCurrentFile;
   @Nullable private DataSource currentDataSource;
+  @Nullable private FileDescriptor duplicatedFileDescriptor;
   @Nullable private SeekPoint pendingSeek;
 
   @Nullable private SeekMap seekMap;
@@ -201,6 +204,9 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
   /**
    * Sets the data source using the media stream obtained from the provided {@link FileDescriptor}.
    *
+   * <p>Note: The caller is responsible for closing the {@link FileDescriptor}. It is safe to do so
+   * immediately after this method returns.
+   *
    * @param fileDescriptor The {@link FileDescriptor} for the file to extract from.
    * @throws IOException If an error occurs while extracting the media.
    * @throws UnrecognizedInputFormatException If none of the available extractors successfully
@@ -215,6 +221,9 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
    * Sets the data source using the media stream obtained from the provided {@link FileDescriptor},
    * with a specified {@code offset} and {@code length}.
    *
+   * <p>Note: The caller is responsible for closing the {@link FileDescriptor}. It is safe to do so
+   * immediately after this method returns.
+   *
    * @param fileDescriptor The {@link FileDescriptor} for the file to extract from.
    * @param offset The offset into the file where the data to be extracted starts, in bytes.
    * @param length The length of the data to be extracted, in bytes, or {@link C#LENGTH_UNSET} if it
@@ -226,8 +235,14 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
    */
   /* package */ void setDataSource(FileDescriptor fileDescriptor, long offset, long length)
       throws IOException {
+    checkState(!hasBeenPrepared);
+    try {
+      duplicatedFileDescriptor = Os.dup(fileDescriptor);
+    } catch (ErrnoException e) {
+      throw new IOException("Failed to duplicate FileDescriptor.", e);
+    }
     FileDescriptorDataSource fileDescriptorDataSource =
-        new FileDescriptorDataSource(fileDescriptor, offset, length);
+        new FileDescriptorDataSource(duplicatedFileDescriptor, offset, length);
     prepareDataSource(fileDescriptorDataSource, buildDataSpec(Uri.EMPTY, /* position= */ 0));
   }
 
@@ -322,38 +337,42 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
     offsetInCurrentFile = dataSpec.position;
     currentDataSource = dataSource;
 
-    long length = currentDataSource.open(dataSpec);
-    progressiveMediaExtractor.init(
-        currentDataSource,
-        checkNotNull(currentDataSource.getUri()),
-        currentDataSource.getResponseHeaders(),
-        /* position= */ 0,
-        length,
-        new ExtractorOutputImpl());
+    try {
+      long length = currentDataSource.open(dataSpec);
+      progressiveMediaExtractor.init(
+          currentDataSource,
+          checkNotNull(currentDataSource.getUri()),
+          currentDataSource.getResponseHeaders(),
+          /* position= */ 0,
+          length,
+          new ExtractorOutputImpl());
 
-    boolean preparing = true;
-    Throwable error = null;
-    while (preparing) {
-      int result;
-      try {
-        result = progressiveMediaExtractor.read(positionHolder);
-      } catch (Exception | OutOfMemoryError e) {
-        // This value is ignored but initializes result to avoid static analysis errors.
-        result = Extractor.RESULT_END_OF_INPUT;
-        error = e;
+      boolean preparing = true;
+      Throwable error = null;
+      while (preparing) {
+        int result;
+        try {
+          result = progressiveMediaExtractor.read(positionHolder);
+        } catch (Exception | OutOfMemoryError e) {
+          // This value is ignored but initializes result to avoid static analysis errors.
+          result = Extractor.RESULT_END_OF_INPUT;
+          error = e;
+        }
+        preparing = !tracksEnded || upstreamFormatsCount < sampleQueues.size() || seekMap == null;
+        if (error != null || (preparing && result == Extractor.RESULT_END_OF_INPUT)) {
+          // TODO(b/178501820): Support files with incomplete track information.
+          String message =
+              error != null
+                  ? "Exception encountered while parsing input media."
+                  : "Reached end of input before preparation completed.";
+          throw ParserException.createForMalformedContainer(message, /* cause= */ error);
+        } else if (result == Extractor.RESULT_SEEK) {
+          reopenCurrentDataSource(positionHolder.position);
+        }
       }
-      preparing = !tracksEnded || upstreamFormatsCount < sampleQueues.size() || seekMap == null;
-      if (error != null || (preparing && result == Extractor.RESULT_END_OF_INPUT)) {
-        // TODO(b/178501820): Support files with incomplete track information.
-        release(); // Release resources as soon as possible, in case we are low on memory.
-        String message =
-            error != null
-                ? "Exception encountered while parsing input media."
-                : "Reached end of input before preparation completed.";
-        throw ParserException.createForMalformedContainer(message, /* cause= */ error);
-      } else if (result == Extractor.RESULT_SEEK) {
-        reopenCurrentDataSource(positionHolder.position);
-      }
+    } catch (Exception | OutOfMemoryError e) {
+      release(); // Release resources as soon as possible, in case we are low on memory.
+      throw e;
     }
     // At this point, we know how many tracks we have, and their format.
   }
@@ -373,6 +392,14 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
     pendingSeek = null;
     DataSourceUtil.closeQuietly(currentDataSource);
     currentDataSource = null;
+    if (duplicatedFileDescriptor != null) {
+      try {
+        Os.close(duplicatedFileDescriptor);
+      } catch (ErrnoException e) {
+        Log.e(TAG, "Failed to close duplicated file descriptor.", e);
+      }
+      duplicatedFileDescriptor = null;
+    }
   }
 
   /** Returns the number of tracks found in the data source. */

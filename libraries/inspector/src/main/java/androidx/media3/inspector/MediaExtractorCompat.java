@@ -170,6 +170,9 @@ public final class MediaExtractorCompat {
   /**
    * Sets the data source using the media stream obtained from the provided {@link FileDescriptor}.
    *
+   * <p>Note: The caller is responsible for closing the {@link FileDescriptor}. It is safe to do so
+   * immediately after this method returns.
+   *
    * @param fileDescriptor The {@link FileDescriptor} for the file to extract from.
    * @throws IOException If an error occurs while extracting the media.
    * @throws UnrecognizedInputFormatException If none of the available extractors successfully
@@ -183,6 +186,9 @@ public final class MediaExtractorCompat {
   /**
    * Sets the data source using the media stream obtained from the provided {@link FileDescriptor},
    * with a specified {@code offset} and {@code length}.
+   *
+   * <p>Note: The caller is responsible for closing the {@link FileDescriptor}. It is safe to do so
+   * immediately after this method returns.
    *
    * @param fileDescriptor The {@link FileDescriptor} for the file to extract from.
    * @param offset The offset into the file where the data to be extracted starts, in bytes.
