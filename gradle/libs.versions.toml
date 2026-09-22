@@ -73,6 +73,7 @@ lottieVersion = "6.6.0"
 mockitoVersion = "3.12.4"
 okhttpVersion = "4.12.0"
 playServicesCronetVersion = "18.0.1"
+playServicesMediaEffectEnhancementVersion = "16.0.0-beta08"
 playServicesTfliteVersion = "16.1.0"
 protobufVersion = "4.31.1"
 robolectricVersion = "4.16.1"
@@ -160,6 +161,7 @@ okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhtt
 okhttp-urlconnection = { group = "com.squareup.okhttp3", name = "okhttp-urlconnection", version.ref = "okhttpVersion" }
 okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttpVersion" }
 play-services-cronet = { group = "com.google.android.gms", name = "play-services-cronet", version.ref = "playServicesCronetVersion" }
+play-services-media-effect-enhancement = { group = "com.google.android.gms", name = "play-services-media-effect-enhancement", version.ref = "playServicesMediaEffectEnhancementVersion" }
 play-services-tflite-java = { group = "com.google.android.gms", name = "play-services-tflite-java", version.ref = "playServicesTfliteVersion" }
 play-services-tflite-support = { group = "com.google.android.gms", name = "play-services-tflite-support", version.ref = "playServicesTfliteVersion" }
 protobuf-java = { group = "com.google.protobuf", name = "protobuf-java", version.ref = "protobufVersion" }

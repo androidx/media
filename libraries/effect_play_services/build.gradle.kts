@@ -25,6 +25,11 @@ dependencies {
   implementation(libs.guava)
   api(project(":lib-common"))
   implementation(project(":lib-effect-ndk"))
+  implementation(libs.play.services.media.effect.enhancement)
+
+  testImplementation(libs.androidx.test.ext.junit)
+  testImplementation(libs.robolectric)
+  testImplementation(libs.truth)
 
   androidTestImplementation(project(":lib-transformer"))
   androidTestImplementation(project(":test-utils"))
