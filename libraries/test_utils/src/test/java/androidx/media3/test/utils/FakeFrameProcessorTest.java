@@ -17,18 +17,13 @@ package androidx.media3.test.utils;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
-import androidx.media3.common.video.FrameProcessor;
-import androidx.media3.common.video.FrameWriter;
-import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import java.util.concurrent.Executor;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -36,40 +31,12 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public final class FakeFrameProcessorTest {
 
-  /** A simple Fake {@link FrameWriter} for testing. */
-  private static final FrameWriter FRAME_WRITER =
-      new FrameWriter() {
-
-        @Override
-        public Info getInfo() {
-          throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void configure(Format format, @Frame.Usage long usage) {}
-
-        @Nullable
-        @Override
-        public AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener) {
-          return null;
-        }
-
-        @Override
-        public void queueInputFrame(Frame frame, @Nullable SyncFenceWrapper writeCompleteFence) {}
-
-        @Override
-        public void signalEndOfStream() {}
-
-        @Override
-        public void close() {}
-      };
-
   @Test
   public void factoryCreate_returnsProcessorAndMaintainsReference() {
     FakeFrameProcessor.Factory factory =
         new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ false);
 
-    FakeFrameProcessor processor = factory.create(FRAME_WRITER);
+    FakeFrameProcessor processor = factory.create(new FakeFrameWriter());
 
     assertThat(processor).isNotNull();
     assertThat(factory.createdProcessor).isSameInstanceAs(processor);
@@ -79,7 +46,7 @@ public final class FakeFrameProcessorTest {
   public void close_doesNotThrow() {
     FakeFrameProcessor processor =
         new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ false)
-            .create(FRAME_WRITER);
+            .create(new FakeFrameWriter());
 
     // Should complete without exceptions.
     processor.close();
@@ -87,56 +54,30 @@ public final class FakeFrameProcessorTest {
 
   @Test
   public void queue_withCompleteIncomingFramesTrue_invokesCompletionListener() throws Exception {
-    boolean[] listenerInvoked = new boolean[1];
-    FrameProcessor.Listener listener =
-        new FrameProcessor.Listener() {
-          @Override
-          public void onWakeup() {}
-
-          @Override
-          public void onError(VideoFrameProcessingException exception) {}
-
-          @Override
-          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper onCompleteFence) {
-            listenerInvoked[0] = true;
-          }
-        };
+    FakeFrameProcessor.Listener listener = new FakeFrameProcessor.Listener();
     FakeFrameProcessor processor =
         new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ true)
-            .create(FRAME_WRITER, Runnable::run, listener);
+            .create(new FakeFrameWriter(), Runnable::run, listener);
     AsyncFrame frame = new AsyncFrame(createPlaceholderFrame(), /* acquireFence= */ null);
     ImmutableList<AsyncFrame> frames = ImmutableList.of(frame);
 
     boolean queued = processor.queue(frames);
 
     assertThat(queued).isTrue();
-    assertThat(listenerInvoked[0]).isTrue();
+    assertThat(listener.processedFrames).containsExactly(frame.frame);
   }
 
   @Test
   public void triggerError_invokesOnErrorListener() throws Exception {
-    VideoFrameProcessingException[] exceptionHolder = new VideoFrameProcessingException[1];
-    FrameProcessor.Listener listener =
-        new FrameProcessor.Listener() {
-          @Override
-          public void onWakeup() {}
-
-          @Override
-          public void onError(VideoFrameProcessingException exception) {
-            exceptionHolder[0] = exception;
-          }
-
-          @Override
-          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper onCompleteFence) {}
-        };
+    FakeFrameProcessor.Listener listener = new FakeFrameProcessor.Listener();
     FakeFrameProcessor processor =
         new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ false)
-            .create(FRAME_WRITER, Runnable::run, listener);
+            .create(new FakeFrameWriter(), Runnable::run, listener);
     VideoFrameProcessingException exception = new VideoFrameProcessingException("Test error");
 
     processor.triggerError(exception);
 
-    assertThat(exceptionHolder[0]).isSameInstanceAs(exception);
+    assertThat(listener.error.get()).isSameInstanceAs(exception);
   }
 
   private static Frame createPlaceholderFrame() {

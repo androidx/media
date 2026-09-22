@@ -27,17 +27,50 @@ import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.SyncFenceWrapper;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** A fake {@link FrameProcessor} implementation. */
 @RequiresApi(26)
 @ExperimentalApi // TODO: b/498176910 Remove once FrameProcessor is production ready.
 public class FakeFrameProcessor implements FrameProcessor {
 
+  /** A fake {@link FrameProcessor.Listener} implementation for tests. */
+  public static class Listener implements FrameProcessor.Listener {
+
+    public final List<Frame> processedFrames;
+    public final AtomicReference<VideoFrameProcessingException> error;
+
+    /** Creates a new instance. */
+    public Listener() {
+      processedFrames = new CopyOnWriteArrayList<>();
+      error = new AtomicReference<>();
+    }
+
+    @Override
+    public void onWakeup() {}
+
+    @Override
+    public void onError(VideoFrameProcessingException exception) {
+      error.set(exception);
+    }
+
+    @Override
+    public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper onCompleteFence) {
+      if (onCompleteFence != null) {
+        onCompleteFence.close();
+      }
+      processedFrames.add(frame);
+    }
+  }
+
   /** A factory for {@link FakeFrameProcessor} implementations. */
   public static class Factory implements FrameProcessor.Factory {
 
     @Nullable public FakeFrameProcessor createdProcessor;
+
     private final boolean shouldCompleteIncomingFrames;
 
     /**
@@ -52,7 +85,7 @@ public class FakeFrameProcessor implements FrameProcessor {
 
     @Override
     public FakeFrameProcessor create(
-        FrameWriter output, Executor listenerExecutor, Listener listener) {
+        FrameWriter output, Executor listenerExecutor, FrameProcessor.Listener listener) {
       createdProcessor =
           new FakeFrameProcessor(output, listenerExecutor, listener, shouldCompleteIncomingFrames);
       return createdProcessor;
@@ -60,29 +93,18 @@ public class FakeFrameProcessor implements FrameProcessor {
 
     /** Helper create method for tests that don't need to specify listener. */
     public FakeFrameProcessor create(FrameWriter output) {
-      createdProcessor =
-          new FakeFrameProcessor(
-              output,
-              /* listenerExecutor= */ Runnable::run,
-              new Listener() {
-                @Override
-                public void onWakeup() {}
-
-                @Override
-                public void onError(VideoFrameProcessingException exception) {}
-
-                @Override
-                public void onFrameProcessed(
-                    Frame frame, @Nullable SyncFenceWrapper onCompleteFence) {}
-              },
-              shouldCompleteIncomingFrames);
-      return createdProcessor;
+      return create(output, directExecutor(), new Listener());
     }
   }
 
-  private final FrameWriter output;
+  public final FrameWriter output;
+  public final AtomicBoolean eosSignaled;
+  public final AtomicBoolean closed;
+
+  public int queuedFramesCount;
+
   private final Executor listenerExecutor;
-  private final Listener listener;
+  private final FrameProcessor.Listener listener;
   private final boolean shouldCompleteIncomingFrames;
 
   private boolean configured;
@@ -90,9 +112,11 @@ public class FakeFrameProcessor implements FrameProcessor {
   private FakeFrameProcessor(
       FrameWriter output,
       Executor listenerExecutor,
-      Listener listener,
+      FrameProcessor.Listener listener,
       boolean shouldCompleteIncomingFrames) {
     this.output = output;
+    this.eosSignaled = new AtomicBoolean();
+    this.closed = new AtomicBoolean();
     this.listenerExecutor = listenerExecutor;
     this.listener = listener;
     this.shouldCompleteIncomingFrames = shouldCompleteIncomingFrames;
@@ -100,6 +124,7 @@ public class FakeFrameProcessor implements FrameProcessor {
 
   @Override
   public boolean queue(List<AsyncFrame> frames) {
+    queuedFramesCount++;
     if (!configured && !frames.isEmpty()) {
       output.configure(frames.get(0).frame.getFormat(), /* usage= */ 0);
       configured = true;
@@ -107,6 +132,9 @@ public class FakeFrameProcessor implements FrameProcessor {
       AsyncFrame placeholderFrame =
           output.dequeueInputFrame(directExecutor(), /* wakeupListener= */ () -> {});
       if (placeholderFrame != null) {
+        if (placeholderFrame.acquireFence != null) {
+          placeholderFrame.acquireFence.close();
+        }
         // This forces lazy configuration on some FrameWriter implementations.
         output.queueInputFrame(placeholderFrame.frame, /* writeCompleteFence= */ null);
       }
@@ -122,11 +150,14 @@ public class FakeFrameProcessor implements FrameProcessor {
 
   @Override
   public void signalEndOfStream() {
+    eosSignaled.set(true);
     output.signalEndOfStream();
   }
 
   @Override
-  public void close() {}
+  public void close() {
+    closed.set(true);
+  }
 
   /** Simulates a video frame processing error by notifying the listener. */
   public void triggerError(VideoFrameProcessingException exception) {

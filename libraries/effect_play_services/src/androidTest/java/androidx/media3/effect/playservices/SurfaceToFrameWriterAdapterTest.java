@@ -28,22 +28,15 @@ import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
-import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
-import androidx.media3.common.video.Frame;
-import androidx.media3.common.video.FrameWriter;
-import androidx.media3.common.video.SyncFenceWrapper;
+import androidx.media3.test.utils.FakeFrameWriter;
 import androidx.media3.test.utils.FakeHardwareBufferNativeHelpers;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
@@ -60,6 +53,7 @@ public final class SurfaceToFrameWriterAdapterTest {
   private static final int HEIGHT = 128;
   private static final int TIMEOUT_MS = 1_000;
 
+  private List<HardwareBuffer> buffersToRelease;
   private FakeFrameWriter fakeDownstreamOutput;
   private FakeHardwareBufferNativeHelpers fakeNativeHelpers;
   private HandlerThread handlerThread;
@@ -67,10 +61,10 @@ public final class SurfaceToFrameWriterAdapterTest {
   private TestListener testListener;
   private SurfaceToFrameWriterAdapter writer;
   @Nullable private ImageWriter testProducerWriter;
-  private final List<HardwareBuffer> buffersToRelease = new ArrayList<>();
 
   @Before
   public void setUp() {
+    buffersToRelease = new ArrayList<>();
     handlerThread = new HandlerThread("SurfaceToFrameWriterAdapterTestThread");
     handlerThread.start();
     handler = new Handler(handlerThread.getLooper());
@@ -412,63 +406,16 @@ public final class SurfaceToFrameWriterAdapterTest {
         .build();
   }
 
-  private static class FakeFrameWriter implements FrameWriter {
-    @Nullable Format configuredFormat;
-    final List<Frame> queuedFrames = new ArrayList<>();
-    final AtomicBoolean eosSignaled = new AtomicBoolean(false);
-    final CountDownLatch eosLatch = new CountDownLatch(1);
-    CountDownLatch frameLatch = new CountDownLatch(1);
-    final CountDownLatch dequeueAttemptedLatch = new CountDownLatch(1);
-
-    private final Queue<AsyncFrame> availableFrames = new ArrayDeque<>();
-    @Nullable private Runnable wakeupListener;
-
-    /** Makes a frame available to be returned by the next {@link #dequeueInputFrame} call. */
-    void prepareInputFrame(Frame frame) {
-      availableFrames.add(new AsyncFrame(frame, /* acquireFence= */ null));
-      if (wakeupListener != null) {
-        wakeupListener.run();
-      }
-    }
-
-    @Override
-    public void configure(Format format, long usage) {
-      this.configuredFormat = format;
-    }
-
-    @Override
-    @Nullable
-    public AsyncFrame dequeueInputFrame(Executor executor, Runnable wakeupListener) {
-      this.wakeupListener = wakeupListener;
-      dequeueAttemptedLatch.countDown();
-      return availableFrames.poll();
-    }
-
-    @Override
-    public void queueInputFrame(Frame frame, @Nullable SyncFenceWrapper writeCompleteFence) {
-      queuedFrames.add(frame);
-      frameLatch.countDown();
-    }
-
-    @Override
-    public void signalEndOfStream() {
-      eosSignaled.set(true);
-      eosLatch.countDown();
-    }
-
-    @Override
-    public Info getInfo() {
-      return (format, usage) -> true;
-    }
-
-    @Override
-    public void close() {}
-  }
-
   private static class TestListener implements SurfaceToFrameWriterAdapter.Listener {
-    final AtomicInteger imageReleasedCount = new AtomicInteger(0);
-    final AtomicReference<VideoFrameProcessingException> error = new AtomicReference<>();
-    final CountDownLatch errorLatch = new CountDownLatch(1);
+    final AtomicInteger imageReleasedCount;
+    final AtomicReference<VideoFrameProcessingException> error;
+    final CountDownLatch errorLatch;
+
+    TestListener() {
+      imageReleasedCount = new AtomicInteger(0);
+      error = new AtomicReference<>();
+      errorLatch = new CountDownLatch(1);
+    }
 
     @Override
     public void onFrameReleased() {

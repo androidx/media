@@ -17,19 +17,13 @@ package androidx.media3.test.utils;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
-import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
-import androidx.media3.common.video.FrameProcessor;
-import androidx.media3.common.video.FrameWriter;
-import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.List;
-import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,45 +32,33 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public final class CapturingFrameProcessorTest {
 
-  private static final FrameProcessor.Listener FAKE_LISTENER =
-      new FrameProcessor.Listener() {
-        @Override
-        public void onWakeup() {}
-
-        @Override
-        public void onError(VideoFrameProcessingException exception) {}
-
-        @Override
-        public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper onCompleteFence) {}
-      };
-
   @Test
   public void signalEndOfStream_addsEosEventAndSignalsOutput() {
-    TestFrameWriter frameWriter = new TestFrameWriter();
+    FakeFrameWriter frameWriter = new FakeFrameWriter();
     FakeFrameProcessor.Factory fakeFactory =
         new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ false);
     CapturingFrameProcessor.Factory capturingFactory =
         new CapturingFrameProcessor.Factory(fakeFactory);
     CapturingFrameProcessor processor =
-        capturingFactory.create(frameWriter, Runnable::run, FAKE_LISTENER);
+        capturingFactory.create(frameWriter, Runnable::run, new FakeFrameProcessor.Listener());
 
     processor.signalEndOfStream();
 
     ImmutableList<CapturingFrameProcessor.Event> events = processor.getQueuedEvents();
     assertThat(events).hasSize(1);
     assertThat(events.get(0)).isInstanceOf(CapturingFrameProcessor.EosEvent.class);
-    assertThat(frameWriter.signalEndOfStreamCalled).isTrue();
+    assertThat(frameWriter.eosSignaled.get()).isTrue();
   }
 
   @Test
   public void queueAndSignalEndOfStream_maintainsOrder() {
-    TestFrameWriter frameWriter = new TestFrameWriter();
+    FakeFrameWriter frameWriter = new FakeFrameWriter();
     FakeFrameProcessor.Factory fakeFactory =
         new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ false);
     CapturingFrameProcessor.Factory capturingFactory =
         new CapturingFrameProcessor.Factory(fakeFactory);
     CapturingFrameProcessor processor =
-        capturingFactory.create(frameWriter, Runnable::run, FAKE_LISTENER);
+        capturingFactory.create(frameWriter, Runnable::run, new FakeFrameProcessor.Listener());
     ImmutableList<AsyncFrame> frames = ImmutableList.of();
 
     boolean queued = processor.queue(frames);
@@ -91,13 +73,13 @@ public final class CapturingFrameProcessorTest {
 
   @Test
   public void queue_multipleTimes_addsMultipleEvents() throws Exception {
-    TestFrameWriter frameWriter = new TestFrameWriter();
+    FakeFrameWriter frameWriter = new FakeFrameWriter();
     FakeFrameProcessor.Factory fakeFactory =
         new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ false);
     CapturingFrameProcessor.Factory capturingFactory =
         new CapturingFrameProcessor.Factory(fakeFactory);
     CapturingFrameProcessor processor =
-        capturingFactory.create(frameWriter, Runnable::run, FAKE_LISTENER);
+        capturingFactory.create(frameWriter, Runnable::run, new FakeFrameProcessor.Listener());
 
     // First queue call
     AsyncFrame frame1 = new AsyncFrame(createPlaceholderFrame(), /* acquireFence= */ null);
@@ -124,14 +106,14 @@ public final class CapturingFrameProcessorTest {
 
   @Test
   public void queue_withOnQueueListener_invokesListenerWhenQueued() {
-    TestFrameWriter frameWriter = new TestFrameWriter();
+    FakeFrameWriter frameWriter = new FakeFrameWriter();
     FakeFrameProcessor.Factory fakeFactory =
         new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ false);
     AtomicReference<List<AsyncFrame>> receivedFrames = new AtomicReference<>();
     CapturingFrameProcessor.Factory capturingFactory =
         new CapturingFrameProcessor.Factory(fakeFactory, receivedFrames::set);
     CapturingFrameProcessor processor =
-        capturingFactory.create(frameWriter, Runnable::run, FAKE_LISTENER);
+        capturingFactory.create(frameWriter, Runnable::run, new FakeFrameProcessor.Listener());
     AsyncFrame frame = new AsyncFrame(createPlaceholderFrame(), /* acquireFence= */ null);
     ImmutableList<AsyncFrame> frames = ImmutableList.of(frame);
 
@@ -158,36 +140,5 @@ public final class CapturingFrameProcessorTest {
         return 0;
       }
     };
-  }
-
-  /** A simple Fake {@link FrameWriter} for testing. */
-  private static final class TestFrameWriter implements FrameWriter {
-
-    private boolean signalEndOfStreamCalled;
-
-    @Override
-    public Info getInfo() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void configure(Format format, @Frame.Usage long usage) {}
-
-    @Nullable
-    @Override
-    public AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener) {
-      return null;
-    }
-
-    @Override
-    public void queueInputFrame(Frame frame, @Nullable SyncFenceWrapper writeCompleteFence) {}
-
-    @Override
-    public void signalEndOfStream() {
-      signalEndOfStreamCalled = true;
-    }
-
-    @Override
-    public void close() {}
   }
 }
