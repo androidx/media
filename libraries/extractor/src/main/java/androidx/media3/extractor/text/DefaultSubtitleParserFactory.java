@@ -55,19 +55,20 @@ public final class DefaultSubtitleParserFactory implements SubtitleParser.Factor
 
   @Nullable private final CharsetDetector charsetDetector;
 
-  /** Creates an instance that defaults to UTF-8 for SubRip subtitles without a byte order mark. */
+  /** Creates an instance. */
   public DefaultSubtitleParserFactory() {
     this(/* charsetDetector= */ null);
   }
 
   /**
-   * Creates an instance that uses {@code charsetDetector} for standalone SubRip subtitles without a
-   * byte order mark.
+   * Creates an instance that passes {@code charsetDetector} to delegate factories (where relevant).
    *
-   * <p>The detector is not used for SubRip subtitles embedded in a media container because these
-   * samples may contain only a small part of the subtitle file.
+   * <p>The detector is only passed to delegate factories that support it, and only when the charset
+   * may be ambiguous. For example, it won't be passed to {@link SubripParser} when handling SRT
+   * data extracted from a Matroska container, because the Matroska spec requires that this must be
+   * in UTF-8.
    *
-   * @param charsetDetector The detector to use, or {@code null} to default to UTF-8.
+   * @param charsetDetector The detector to use, or {@code null}.
    */
   public DefaultSubtitleParserFactory(@Nullable CharsetDetector charsetDetector) {
     this.charsetDetector = charsetDetector;

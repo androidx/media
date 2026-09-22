@@ -204,22 +204,29 @@ public final class SubripParser implements SubtitleParser {
   /**
    * Returns the charset to use for line parsing.
    *
-   * <p>A byte order mark takes precedence. Otherwise, input detected as anything other than UTF-8
-   * or US-ASCII is transcoded to UTF-8 in {@link #parsableByteArray} first.
+   * <p>A byte order mark takes precedence, otherwise the data is passed to {@link
+   * #charsetDetector}.
+   *
+   * <p>If the detected charset isn't supported by {@link ParsableByteArray} then the underlying
+   * data is transcoded to UTF-8 before this method returns.
    */
   private Charset detectCharset(byte[] data, int offset, int length) {
     @Nullable Charset utfCharset = parsableByteArray.readUtfCharsetFromBom();
     if (utfCharset != null) {
       return utfCharset;
     }
-    @Nullable
-    Charset detectedCharset =
-        charsetDetector != null ? charsetDetector.detect(data, offset, length) : null;
-    Charset charset = detectedCharset != null ? detectedCharset : StandardCharsets.UTF_8;
-    if (charset.equals(StandardCharsets.UTF_8) || charset.equals(StandardCharsets.US_ASCII)) {
+    if (charsetDetector == null) {
+      return StandardCharsets.UTF_8;
+    }
+    @Nullable Charset charset = charsetDetector.detect(data, offset, length);
+    if (charset == null) {
+      return StandardCharsets.UTF_8;
+    }
+    if (ParsableByteArray.isCharsetSupported(charset)) {
       return charset;
     }
-    // Normalize detected input to UTF-8 so line parsing uses a single code path.
+    // ParsableByteArray doesn't support directly reading the detected charset, so we transcode
+    // the data to UTF-8 (which is supported).
     parsableByteArray.reset(
         new String(data, offset, length, charset).getBytes(StandardCharsets.UTF_8));
     return StandardCharsets.UTF_8;
