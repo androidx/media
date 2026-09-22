@@ -67,7 +67,7 @@ moof (2964 bytes):
     tfdt (20 bytes):
       Data = length 12, hash F634ABE0
     trun (1100 bytes):
-      Data = length 1092, hash D9998121
+      Data = length 1092, hash 6DDDF022
   traf (1788 bytes):
     tfhd (24 bytes):
       Data = length 16, hash 67B5C2D5

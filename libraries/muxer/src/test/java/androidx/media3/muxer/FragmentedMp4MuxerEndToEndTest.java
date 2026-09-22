@@ -357,6 +357,70 @@ public class FragmentedMp4MuxerEndToEndTest {
     assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(43990L);
   }
 
+  /**
+   * A fragmented MP4 file states its timeline twice: as the {@code tfdt} of each fragment, and as
+   * the sum of the {@code trun} sample durations. The two must agree.
+   *
+   * <p>Frames within a group of pictures are 33367us apart, but only 32000us separate the last
+   * frame of a group from the next key frame, so the last sample duration of a fragment cannot be
+   * copied from the preceding one.
+   */
+  @Test
+  public void writeSampleData_withShorterFrameDurationBeforeKeyFrame_fragmentsAreContiguous()
+      throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    long frameDurationUs = 33_367L;
+    long frameDurationBeforeKeyFrameUs = 32_000L;
+    int framesPerGroupOfPictures = 5;
+    int groupOfPicturesCount = 3;
+
+    try (FragmentedMp4Muxer muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel())
+            .setFragmentDurationMs(100)
+            .build()) {
+      int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      long presentationTimeUs = 0L;
+      for (int i = 0; i < groupOfPicturesCount; i++) {
+        for (int j = 0; j < framesPerGroupOfPictures; j++) {
+          ByteBuffer sampleData =
+              getFakeSampleAndSampleInfo(presentationTimeUs, /* isVideo= */ true).first;
+          muxer.writeSampleData(
+              trackId,
+              sampleData,
+              new BufferInfo(
+                  presentationTimeUs,
+                  sampleData.remaining(),
+                  /* flags= */ j == 0 ? C.BUFFER_FLAG_KEY_FRAME : 0));
+          presentationTimeUs +=
+              j == framesPerGroupOfPictures - 1 ? frameDurationBeforeKeyFrameUs : frameDurationUs;
+        }
+      }
+    }
+
+    FakeTrackOutput fromTfdt =
+        TestUtil.extractAllSamplesFromFilePath(
+                new FragmentedMp4Extractor(new DefaultSubtitleParserFactory()), outputFilePath)
+            .trackOutputs
+            .get(0);
+    FakeTrackOutput fromDurations =
+        TestUtil.extractAllSamplesFromFilePath(
+                new FragmentedMp4Extractor(
+                    new DefaultSubtitleParserFactory(),
+                    FragmentedMp4Extractor.FLAG_WORKAROUND_IGNORE_TFDT_BOX),
+                outputFilePath)
+            .trackOutputs
+            .get(0);
+    ImmutableList.Builder<Long> tfdtSampleTimesUs = ImmutableList.builder();
+    for (int i = 0; i < fromTfdt.getSampleCount(); i++) {
+      tfdtSampleTimesUs.add(fromTfdt.getSampleTimeUs(i));
+    }
+    ImmutableList.Builder<Long> durationSampleTimesUs = ImmutableList.builder();
+    for (int i = 0; i < fromDurations.getSampleCount(); i++) {
+      durationSampleTimesUs.add(fromDurations.getSampleTimeUs(i));
+    }
+    assertThat(durationSampleTimesUs.build()).isEqualTo(tfdtSampleTimesUs.build());
+  }
+
   @Test
   public void write_negativeInitialSampleTimestamp_clampsBaseMediaDecodeTimeToZero()
       throws Exception {

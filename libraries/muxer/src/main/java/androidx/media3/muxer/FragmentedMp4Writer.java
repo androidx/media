@@ -164,7 +164,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       track.parsedCsd = createAv1CodecConfigurationRecord(byteBuffer.duplicate());
     }
     if (shouldFlushPendingSamples(track, bufferInfo)) {
-      createFragment();
+      createFragment(/* nextFragmentFirstSampleTimeUs= */ bufferInfo.presentationTimeUs);
     }
     track.writeSampleData(byteBuffer, bufferInfo);
     if (track.pendingSamplesBufferInfo.isEmpty()) {
@@ -196,7 +196,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     checkState(!isClosed, "FragmentedMp4Writer is closed.");
     isClosed = true;
     try {
-      createFragment();
+      // There is no next fragment, so the last sample duration keeps the end of track behaviour.
+      createFragment(/* nextFragmentFirstSampleTimeUs= */ C.TIME_UNSET);
       writeMfraBox();
     } finally {
       outputChannel.close();
@@ -299,7 +300,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // LINT.ThenChange(:mfra_indexing_logic)
   }
 
-  private void createFragment() throws IOException {
+  /**
+   * Writes all pending samples into a new fragment.
+   *
+   * <p>Pass {@link C#TIME_UNSET} for the last fragment.
+   */
+  private void createFragment(long nextFragmentFirstSampleTimeUs) throws IOException {
     /* Each fragment looks like:
     moof
         mfhd
@@ -336,7 +342,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
     }
 
-    ImmutableList<ProcessedTrackInfo> trackInfos = processAllTracks();
+    ImmutableList<ProcessedTrackInfo> trackInfos = processAllTracks(nextFragmentFirstSampleTimeUs);
     ImmutableList<ByteBuffer> trafBoxes = createTrafBoxes(trackInfos, moofBoxStartPosition);
     if (trafBoxes.isEmpty()) {
       return;
@@ -384,18 +390,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     linearByteBufferAllocator.reset();
   }
 
-  private ImmutableList<ProcessedTrackInfo> processAllTracks() {
+  private ImmutableList<ProcessedTrackInfo> processAllTracks(long nextFragmentFirstSampleTimeUs) {
     ImmutableList.Builder<ProcessedTrackInfo> trackInfos = new ImmutableList.Builder<>();
     for (int i = 0; i < tracks.size(); i++) {
       Track track = tracks.get(i);
       if (!track.pendingSamplesBufferInfo.isEmpty()) {
-        trackInfos.add(processTrack(track.id, track));
+        long trackNextSampleTimeUs =
+            track.equals(videoTrack) ? nextFragmentFirstSampleTimeUs : C.TIME_UNSET;
+        trackInfos.add(processTrack(track.id, track, trackNextSampleTimeUs));
       }
     }
     return trackInfos.build();
   }
 
-  private ProcessedTrackInfo processTrack(int trackId, Track track) {
+  private ProcessedTrackInfo processTrack(
+      int trackId, Track track, long nextFragmentFirstSampleTimeUs) {
     checkState(track.pendingSamplesByteBuffer.size() == track.pendingSamplesBufferInfo.size());
 
     ImmutableList.Builder<ByteBuffer> pendingSamplesByteBuffer = new ImmutableList.Builder<>();
@@ -424,12 +433,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     boolean hasBFrame = false;
     ImmutableList<BufferInfo> pendingSamplesBufferInfo = pendingSamplesBufferInfoBuilder.build();
+    long fragmentEndTimestampUs =
+        nextFragmentFirstSampleTimeUs != C.TIME_UNSET
+            ? nextFragmentFirstSampleTimeUs
+            : track.endOfStreamTimestampUs;
     List<Integer> sampleDurations =
         Boxes.convertPresentationTimestampsToDurationsVu(
             pendingSamplesBufferInfo,
             track.videoUnitTimebase(),
             LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS,
-            track.endOfStreamTimestampUs);
+            fragmentEndTimestampUs);
 
     List<Integer> sampleCompositionTimeOffsets =
         Boxes.calculateSampleCompositionTimeOffsets(
