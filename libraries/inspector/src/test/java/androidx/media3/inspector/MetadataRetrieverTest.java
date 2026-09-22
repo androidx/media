@@ -39,6 +39,7 @@ import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.TrackGroupArray;
+import androidx.media3.exoplayer.source.UnrecognizedInputFormatException;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.metadata.MotionPhotoMetadata;
 import androidx.media3.extractor.metadata.mp4.SlowMotionData;
@@ -584,6 +585,23 @@ public class MetadataRetrieverTest {
               ExecutionException.class,
               () -> trackGroupsFuture.get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS));
       assertThat(thrown).hasCauseThat().isSameInstanceAs(runtimeException);
+    }
+  }
+
+  @Test
+  public void retrieveMetadata_malformedMediaItemWithDefaultClock_failsFast() throws Exception {
+    MediaItem mediaItem = MediaItem.fromUri("data:,fake");
+
+    // Deliberately omit setClock(clock) to verify Clock.DEFAULT fails fast when SystemClock does
+    // not advance (as in Robolectric), so the 100ms delayed poll never fires.
+    try (MetadataRetriever retriever = new MetadataRetriever.Builder(context, mediaItem).build()) {
+      ListenableFuture<TrackGroupArray> trackGroupsFuture = retriever.retrieveTrackGroups();
+
+      ExecutionException thrown =
+          assertThrows(
+              ExecutionException.class,
+              () -> trackGroupsFuture.get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS));
+      assertThat(thrown).hasCauseThat().isInstanceOf(UnrecognizedInputFormatException.class);
     }
   }
 }

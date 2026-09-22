@@ -31,10 +31,14 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
+import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.analytics.PlayerId;
+import androidx.media3.exoplayer.source.LoadEventInfo;
+import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
@@ -322,6 +326,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       private static final int ERROR_POLL_INTERVAL_MS = 100;
 
       private final MediaSourceCaller mediaSourceCaller;
+      private final MediaSourceEventListener mediaSourceEventListener;
       private @MonotonicNonNull MediaSource mediaSource;
       private @MonotonicNonNull MediaPeriod mediaPeriod;
       private @MonotonicNonNull Timeline timeline;
@@ -329,6 +334,20 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
       private MediaSourceHandlerCallback() {
         mediaSourceCaller = new MediaSourceCaller();
+        mediaSourceEventListener =
+            new MediaSourceEventListener() {
+              @Override
+              public void onLoadError(
+                  int windowIndex,
+                  @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+                  LoadEventInfo loadEventInfo,
+                  MediaLoadData mediaLoadData,
+                  IOException error,
+                  boolean wasCanceled) {
+                // Trigger an immediate check to see if this error fails source/period preparation.
+                mediaSourceHandler.sendEmptyMessage(MESSAGE_CHECK_FOR_FAILURE);
+              }
+            };
       }
 
       @Override
@@ -341,6 +360,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             case MESSAGE_PREPARE_SOURCE:
               MediaItem mediaItem = (MediaItem) msg.obj;
               mediaSource = mediaSourceFactory.createMediaSource(mediaItem);
+              mediaSource.addEventListener(
+                  Util.createHandlerForCurrentLooper(), mediaSourceEventListener);
               mediaSource.prepareSource(mediaSourceCaller, PlayerId.UNSET, BandwidthMeter.NO_OP);
               mediaSourceHandler.sendEmptyMessage(MESSAGE_CHECK_FOR_FAILURE);
               return true;
@@ -351,6 +372,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 } else {
                   mediaPeriod.maybeThrowPrepareError();
                 }
+                mediaSourceHandler.removeMessages(MESSAGE_CHECK_FOR_FAILURE);
                 mediaSourceHandler.sendEmptyMessageDelayed(
                     MESSAGE_CHECK_FOR_FAILURE, /* delayMs= */ ERROR_POLL_INTERVAL_MS);
               } catch (IOException e) {
@@ -368,6 +390,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   checkNotNull(mediaSource).releasePeriod(mediaPeriod);
                 }
                 if (mediaSource != null) {
+                  mediaSource.removeEventListener(mediaSourceEventListener);
                   mediaSource.releaseSource(mediaSourceCaller);
                 }
               } finally {
