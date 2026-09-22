@@ -26,6 +26,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
 import android.opengl.GLES20;
@@ -60,8 +61,10 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeoutException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -255,6 +258,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   public static final String KEY_FRAME_DISCONTINUITY_NUMBER = "KEY_FRAME_DISCONTINUITY_NUMBER";
 
   private static final String TAG = "GlFrameProcessor";
+  private static final long RELEASE_TIMEOUT_MS = 1_000;
 
   /** An SDR color space with BT.709 / sRGB color primaries, and linear transfer function. */
   /* package */ static final ColorInfo COLORSPACE_SDR_LINEAR =
@@ -454,10 +458,13 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   @Override
   public void close() {
     synchronized (lock) {
+      if (closed) {
+        return;
+      }
       closed = true;
       pendingFrames = null;
     }
-    submitToGlExecutor(
+    Callable<Void> releaseTask =
         () -> {
           ImmutableList.Builder<ThrowingRunnable<?>> closeActions = ImmutableList.builder();
           closeActions.addAll(getReleaseUnqueuedFramesActions());
@@ -483,7 +490,15 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
           }
           runAllAndAccumulateExceptions(closeActions.build().toArray(new ThrowingRunnable<?>[0]));
           return null;
-        });
+        };
+    try {
+      Object unused = glExecutorService.submit(releaseTask).get(RELEASE_TIMEOUT_MS, MILLISECONDS);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      errorConsumer.accept(VideoFrameProcessingException.from(e));
+    } catch (ExecutionException | TimeoutException e) {
+      errorConsumer.accept(VideoFrameProcessingException.from(e));
+    }
   }
 
   private void initializePipeline() {
@@ -576,6 +591,9 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
 
   private void handleError(Exception exception) {
     synchronized (lock) {
+      if (closed) {
+        return;
+      }
       pendingFrames = null;
     }
     runAllAndAccumulateExceptions(
@@ -588,7 +606,9 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
 
   private void onFramesQueued() {
     synchronized (lock) {
-      if (checkNotNull(pendingFrames).size() != glTextureFramesQueuedDownstream.size()) {
+      if (closed
+          || pendingFrames == null
+          || pendingFrames.size() != glTextureFramesQueuedDownstream.size()) {
         return;
       }
     }

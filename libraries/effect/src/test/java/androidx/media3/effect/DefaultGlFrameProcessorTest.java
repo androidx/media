@@ -1429,19 +1429,64 @@ public final class DefaultGlFrameProcessorTest {
   public void close_withPendingFramesInShader_releasesFrames() throws Exception {
     fakeGlShaderProgram.delayProcessing = true;
     Frame frame = createFakeHardwareBufferFrame(/* sequenceIndex= */ 0, fakeEffect);
-
     assertThat(processor.queue(ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null))))
         .isTrue();
     waitUntilGlThreadFinishes();
-
-    // Frame is in shader, not released yet.
     assertThat(glTextureFramesReleased.get()).isEqualTo(0);
 
     processor.close();
+
+    // Frame should be released synchronously by close().
+    assertThat(glTextureFramesReleased.get()).isEqualTo(1);
+  }
+
+  @Test
+  public void close_calledTwice_releasesResourcesOnce() throws Exception {
+    TestGlObjectsProvider glObjectsProvider = new TestGlObjectsProvider(/* failVersion3= */ false);
+    DefaultGlFrameProcessor customProcessor =
+        new DefaultGlFrameProcessor.Factory(
+                context,
+                glObjectsProvider,
+                glExecutorService,
+                /* frameToGlTextureConverterFactory= */ (outputColorInfo, errorConsumer) ->
+                    fakeFrameToGlTextureConverter,
+                fakeFrameWriterGlTextureFrameConsumer,
+                new DefaultGlTextureFrameCompositor.Factory(
+                    /* compositorGlProgramFactory= */ FakeCompositorGlProgram::new,
+                    /* texturePoolFactory= */ workingColorSpace ->
+                        new TexturePool(
+                            /* textureAllocator= */ (width,
+                                height,
+                                useHighPrecisionColorComponents) -> 100,
+                            /* useHighPrecisionColorComponents= */ false,
+                            /* capacity= */ COMPOSITOR_CAPACITY)),
+                /* isSurfacelessContextExtensionSupported= */ true)
+            .create(
+                frameWriter,
+                glExecutorService,
+                new FrameProcessor.Listener() {
+                  @Override
+                  public void onWakeup() {}
+
+                  @Override
+                  public void onError(VideoFrameProcessingException exception) {
+                    throw new AssertionError(exception);
+                  }
+
+                  @Override
+                  public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper fence) {}
+                });
+    Frame frame = createFakeHardwareBufferFrame(/* sequenceIndex= */ 0, fakeEffect);
+    assertThat(
+            customProcessor.queue(
+                ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null))))
+        .isTrue();
     waitUntilGlThreadFinishes();
 
-    // Frame should be released on close.
-    assertThat(glTextureFramesReleased.get()).isEqualTo(1);
+    customProcessor.close();
+    customProcessor.close();
+
+    assertThat(glObjectsProvider.releaseCount.get()).isEqualTo(1);
   }
 
   private DefaultGlFrameProcessor.Factory createDefaultGlFrameProcessorFactory() {
@@ -1593,6 +1638,7 @@ public final class DefaultGlFrameProcessorTest {
     private final boolean failVersion3;
     private final boolean failSurfaceCreation;
     final AtomicBoolean releaseCalled = new AtomicBoolean();
+    final AtomicInteger releaseCount = new AtomicInteger();
 
     TestGlObjectsProvider(boolean failVersion3) {
       this(failVersion3, /* failSurfaceCreation= */ false);
@@ -1635,6 +1681,7 @@ public final class DefaultGlFrameProcessorTest {
     @Override
     public void release(EGLDisplay eglDisplay) {
       releaseCalled.set(true);
+      releaseCount.incrementAndGet();
     }
   }
 }
