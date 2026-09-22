@@ -42,7 +42,7 @@ import androidx.media3.test.utils.ImmutableByteArray;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.SdkSuppress;
-import com.google.common.base.Function;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import java.io.File;
@@ -85,12 +85,11 @@ public class MediaExtractorContractTest {
           0x72, 0x73, 0x2A, 0x02, 0x53, 0x44);
 
   @Parameters(name = "{0}")
-  public static ImmutableList<Function<Context, MediaExtractorProxy>>
-      mediaExtractorProxyFactories() {
+  public static ImmutableList<Supplier<MediaExtractorProxy>> mediaExtractorProxyFactories() {
     return ImmutableList.of(
-        new Function<Context, MediaExtractorProxy>() {
+        new Supplier<MediaExtractorProxy>() {
           @Override
-          public MediaExtractorProxy apply(Context context) {
+          public MediaExtractorProxy get() {
             return new FrameworkMediaExtractorProxy();
           }
 
@@ -99,10 +98,10 @@ public class MediaExtractorContractTest {
             return FrameworkMediaExtractorProxy.class.getSimpleName();
           }
         },
-        new Function<Context, MediaExtractorProxy>() {
+        new Supplier<MediaExtractorProxy>() {
           @Override
-          public MediaExtractorProxy apply(Context context) {
-            return new CompatMediaExtractorProxy(context);
+          public MediaExtractorProxy get() {
+            return new CompatMediaExtractorProxy();
           }
 
           @Override
@@ -113,7 +112,7 @@ public class MediaExtractorContractTest {
   }
 
   @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
-  @Parameter public Function<Context, MediaExtractorProxy> mediaExtractorProxyFactory;
+  @Parameter public Supplier<MediaExtractorProxy> mediaExtractorProxyFactory;
 
   private MediaExtractorProxy mediaExtractorProxy;
   private Context context;
@@ -121,7 +120,7 @@ public class MediaExtractorContractTest {
   @Before
   public void setUp() {
     context = ApplicationProvider.getApplicationContext();
-    mediaExtractorProxy = mediaExtractorProxyFactory.apply(context);
+    mediaExtractorProxy = mediaExtractorProxyFactory.get();
   }
 
   @After
@@ -515,8 +514,8 @@ public class MediaExtractorContractTest {
 
     private final MediaExtractorCompat mediaExtractorCompat;
 
-    public CompatMediaExtractorProxy(Context context) {
-      this.mediaExtractorCompat = new MediaExtractorCompat(context);
+    private CompatMediaExtractorProxy() {
+      this.mediaExtractorCompat = new MediaExtractorCompat();
     }
 
     @Override

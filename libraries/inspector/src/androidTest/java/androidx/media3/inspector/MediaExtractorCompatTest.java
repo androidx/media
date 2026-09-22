@@ -488,7 +488,7 @@ public class MediaExtractorCompatTest {
     // We don't use the global mediaExtractorCompat because we want to use a real extractor in this
     // case, which is the Mp4 extractor.
     MediaExtractorCompat mediaExtractorCompat =
-        new MediaExtractorCompat(ApplicationProvider.getApplicationContext());
+        new MediaExtractorCompat((Context) ApplicationProvider.getApplicationContext());
     // The asset is an uninterleaved mp4 file.
     mediaExtractorCompat.setDataSource(
         Uri.parse("asset:///media/mp4/mv_with_2_top_shots.mp4"), /* offset= */ 0);
@@ -1186,6 +1186,37 @@ public class MediaExtractorCompatTest {
     assertThat(getOpenFileDescriptorCount(file)).isEqualTo(1);
     mediaExtractorCompat.release();
     assertThat(getOpenFileDescriptorCount(file)).isEqualTo(0);
+  }
+
+  // Happy-path extraction with the Context-less MediaExtractorCompat() constructor is tested by
+  // MediaExtractorContractTest.
+
+  @Test
+  public void setDataSource_withoutContextAndAssetUri_throwsIOException() {
+    MediaExtractorCompat extractor = new MediaExtractorCompat();
+    Uri assetUri = Uri.parse("asset:///media/mp4/sample.mp4");
+
+    assertThrows(IOException.class, () -> extractor.setDataSource(assetUri, /* offset= */ 0));
+    extractor.release();
+  }
+
+  @Test
+  public void setDataSource_withoutContextAndFileAssetUri_throwsIOException() {
+    MediaExtractorCompat extractor = new MediaExtractorCompat();
+    Uri fileAssetUri = Uri.parse("file:///android_asset/media/mp4/sample.mp4");
+
+    assertThrows(IOException.class, () -> extractor.setDataSource(fileAssetUri, /* offset= */ 0));
+    extractor.release();
+  }
+
+  @Test
+  public void setDataSource_withoutContextAndContentUri_throwsIOException() {
+    MediaExtractorCompat extractor = new MediaExtractorCompat();
+
+    assertThrows(
+        IOException.class,
+        () -> extractor.setDataSource("content://authority/media/mp4/sample.mp4"));
+    extractor.release();
   }
 
   // Internal methods.

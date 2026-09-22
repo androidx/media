@@ -16,6 +16,8 @@
 package androidx.media3.inspector;
 
 import static androidx.annotation.VisibleForTesting.NONE;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
@@ -34,8 +36,13 @@ import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
+import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.DefaultDataSource;
+import androidx.media3.datasource.DefaultHttpDataSource;
+import androidx.media3.datasource.FileDataSource;
+import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.source.BundledExtractorsAdapter;
 import androidx.media3.exoplayer.source.ProgressiveMediaExtractor;
 import androidx.media3.exoplayer.source.UnrecognizedInputFormatException;
@@ -43,11 +50,14 @@ import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorsFactory;
+import com.google.common.base.Ascii;
+import com.google.common.collect.ImmutableMap;
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -85,9 +95,39 @@ public final class MediaExtractorCompat {
 
   private final MediaExtractorCompatInternal delegate;
 
-  /** Creates a new instance. */
+  /**
+   * Creates a new instance using a {@link DefaultExtractorsFactory} and a default {@link
+   * DataSource.Factory} that supports local files and HTTP/HTTPS streams.
+   *
+   * <p>Note: Without a {@link Context}, {@code content://} and {@code android.resource://} URIs are
+   * only supported via {@link #setDataSource(Context, Uri, Map)}. For full {@link
+   * DefaultDataSource} support (including {@code asset://} URIs), use {@link
+   * #MediaExtractorCompat(Context)}.
+   */
+  public MediaExtractorCompat() {
+    this(new DefaultExtractorsFactory(), MediaExtractorDataSource.FACTORY);
+  }
+
+  /**
+   * Creates a new instance using a {@link DefaultExtractorsFactory} and a {@link
+   * DefaultDataSource.Factory} configured with the given {@link Context}.
+   */
   public MediaExtractorCompat(Context context) {
     this(new DefaultExtractorsFactory(), new DefaultDataSource.Factory(context));
+  }
+
+  /**
+   * Creates a new instance using the given {@link ProgressiveMediaExtractor} and a default {@link
+   * DataSource.Factory} that supports local files and HTTP/HTTPS streams.
+   *
+   * <p>Note: Without a {@link Context}, {@code content://} and {@code android.resource://} URIs are
+   * only supported via {@link #setDataSource(Context, Uri, Map)}. For full {@link
+   * DefaultDataSource} support (including {@code asset://} URIs), use {@link
+   * #MediaExtractorCompat(ProgressiveMediaExtractor, DataSource.Factory)} with a {@link
+   * DefaultDataSource.Factory}.
+   */
+  public MediaExtractorCompat(ProgressiveMediaExtractor progressiveMediaExtractor) {
+    this(progressiveMediaExtractor, MediaExtractorDataSource.FACTORY);
   }
 
   /**
@@ -446,5 +486,75 @@ public final class MediaExtractorCompat {
   @VisibleForTesting(otherwise = NONE)
   public Allocator getAllocator() {
     return delegate.getAllocator();
+  }
+
+  /**
+   * A {@link DataSource} that supports only the URI schemes handled by framework {@link
+   * MediaExtractor} when no {@link Context} is provided (local files and HTTP/HTTPS streams).
+   */
+  private static final class MediaExtractorDataSource implements DataSource {
+
+    private static final DataSource.Factory FACTORY = MediaExtractorDataSource::new;
+
+    @Nullable private DataSource fileDataSource;
+    @Nullable private DataSource httpDataSource;
+    @Nullable private DataSource currentDataSource;
+
+    @Override
+    public void addTransferListener(TransferListener transferListener) {
+      // Do nothing: MediaExtractorCompatInternal never registers a TransferListener.
+    }
+
+    @Override
+    public long open(DataSpec dataSpec) throws IOException {
+      checkState(currentDataSource == null);
+      String scheme = dataSpec.uri.getScheme();
+      if (Util.isLocalFileUri(dataSpec.uri)) {
+        String uriPath = dataSpec.uri.getPath();
+        if (uriPath != null && uriPath.startsWith("/android_asset/")) {
+          throw new IOException("Asset URIs require a Context: " + dataSpec.uri);
+        }
+        if (fileDataSource == null) {
+          fileDataSource = new FileDataSource();
+        }
+        currentDataSource = fileDataSource;
+      } else if (scheme != null
+          && (Ascii.equalsIgnoreCase(scheme, "http") || Ascii.equalsIgnoreCase(scheme, "https"))) {
+        if (httpDataSource == null) {
+          httpDataSource = new DefaultHttpDataSource.Factory().createDataSource();
+        }
+        currentDataSource = httpDataSource;
+      } else {
+        throw new IOException("Unsupported URI scheme without a Context: " + scheme);
+      }
+      return currentDataSource.open(dataSpec);
+    }
+
+    @Override
+    public int read(byte[] buffer, int offset, int length) throws IOException {
+      return checkNotNull(currentDataSource).read(buffer, offset, length);
+    }
+
+    @Override
+    @Nullable
+    public Uri getUri() {
+      return currentDataSource == null ? null : currentDataSource.getUri();
+    }
+
+    @Override
+    public Map<String, List<String>> getResponseHeaders() {
+      return currentDataSource == null ? ImmutableMap.of() : currentDataSource.getResponseHeaders();
+    }
+
+    @Override
+    public void close() throws IOException {
+      if (currentDataSource != null) {
+        try {
+          currentDataSource.close();
+        } finally {
+          currentDataSource = null;
+        }
+      }
+    }
   }
 }
