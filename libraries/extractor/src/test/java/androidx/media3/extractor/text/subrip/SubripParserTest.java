@@ -26,7 +26,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.text.Cue;
 import androidx.media3.extractor.text.CharsetDetector;
 import androidx.media3.extractor.text.CuesWithTiming;
@@ -340,7 +339,7 @@ public final class SubripParserTest {
     UTF_8("This is a UTF-8 subtitle.", StandardCharsets.UTF_8),
     US_ASCII("This is an ASCII subtitle.", StandardCharsets.US_ASCII);
 
-    @Nullable private final Charset charset;
+    private final Charset charset;
     private final String text;
 
     private CharsetTestCase(String text, Charset charset) {
@@ -350,7 +349,8 @@ public final class SubripParserTest {
   }
 
   @Test
-  public void parseWithCharsetDetector_outputsDecodedText(@TestParameter CharsetTestCase testCase) {
+  public void parse_withCharsetDetector_outputsDecodedText(
+      @TestParameter CharsetTestCase testCase) {
     byte[] bytes =
         ("1\r\n" + "00:00:00,000 --> 00:00:05,000\r\n" + testCase.text + "\r\n")
             .getBytes(testCase.charset);
@@ -364,7 +364,7 @@ public final class SubripParserTest {
   }
 
   @Test
-  public void parseAtOffsetWithCharsetDetector_passesRequestedRangeToDetector() {
+  public void parse_atOffsetWithCharsetDetector_passesRequestedRangeToDetector() {
     Charset charset = Charset.forName("GB18030");
     int offset = 5;
     int padding = 7;
