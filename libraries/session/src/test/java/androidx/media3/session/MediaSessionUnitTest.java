@@ -17,9 +17,13 @@ package androidx.media3.session;
 
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.app.PendingIntent;
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -32,11 +36,13 @@ import androidx.media3.session.legacy.MediaSessionManager;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.ByteArrayOutputStream;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 
 /** Tests for {@link MediaSession}. */
@@ -363,6 +369,43 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
                 .getPlaybackState()
                 .getState())
         .isNotEqualTo(PlaybackStateCompat.STATE_ERROR);
+  }
+
+  @Test
+  @Config(sdk = {30, 31})
+  public void buildAndRelease_pendingIntentThrowsSecurityException_doesNotThrow() {
+    Context context = getApplicationContext();
+    ComponentName receiverComponent =
+        new ComponentName(context, "androidx.media3.session.MediaButtonReceiver");
+    shadowOf(context.getPackageManager()).addReceiverIfNotPresent(receiverComponent);
+    shadowOf(context.getPackageManager())
+        .addIntentFilterForReceiver(
+            receiverComponent, new IntentFilter(Intent.ACTION_MEDIA_BUTTON));
+    // Seed ShadowPendingIntent with a broadcast PendingIntent whose filterEquals throws
+    // SecurityException whenever PendingIntent.getBroadcast is called for ACTION_MEDIA_BUTTON.
+    PendingIntent.getBroadcast(
+        context,
+        /* requestCode= */ 0,
+        new Intent() {
+          @Override
+          public boolean filterEquals(Intent other) {
+            if (other != null && Objects.equals(other.getAction(), Intent.ACTION_MEDIA_BUTTON)) {
+              throw new SecurityException("Too many PendingIntent created");
+            }
+            return super.filterEquals(other);
+          }
+        },
+        /* flags= */ PendingIntent.FLAG_IMMUTABLE);
+    Player player = new TestExoPlayerBuilder(context).build();
+
+    MediaSession testSession =
+        new MediaSession.Builder(context, player)
+            .setId("session_pending_intent_security_exception")
+            .build();
+    testSession.release();
+
+    assertThat(testSession.getImpl().isReleased()).isTrue();
+    player.release();
   }
 
   private static MediaSession.ControllerInfo createMinimalLegacyControllerInfo(

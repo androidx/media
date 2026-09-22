@@ -141,6 +141,8 @@
 *   Session:
     *   Add `MediaConstants.EXTRAS_KEY_PLAYLIST_ID` to populate
         `MediaMetadata.playlistId` from legacy metadata and descriptions.
+    *   Fix `SecurityException` crash when creating or releasing a
+        `MediaSession` on devices that enforce strict `PendingIntent` limits.
 *   UI:
     *   Add `TrackSelectionState` and `TrackSelectionParametersState` classes
         and their corresponding Composable state remember functions to the

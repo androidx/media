@@ -26,8 +26,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.media.MediaDescription;
@@ -292,26 +290,17 @@ public class MediaSessionCompat {
   public static final String KEY_SESSION2_TOKEN = "android.support.v4.media.session.SESSION_TOKEN2";
 
   /**
-   * Creates a new session with a specified media button receiver (a component name and/or a pending
-   * intent). You must call {@link #release()} when finished with the session.
+   * Creates a new session. You must call {@link #release()} when finished with the session.
    *
    * <p>The session will automatically be registered with the system but will not be published until
    * {@link #setActive(boolean) setActive(true)} is called.
    *
-   * <p>For API 20 or earlier, note that a media button receiver is required for handling {@link
-   * Intent#ACTION_MEDIA_BUTTON}. This constructor will attempt to find an appropriate {@link
-   * BroadcastReceiver} from your manifest if it's not specified. See {@link MediaButtonReceiver}
-   * for more details. The {@code sessionInfo} can include additional unchanging information about
-   * this session. For example, it can include the version of the application, or other app-specific
-   * unchanging information.
+   * <p>The {@code sessionInfo} can include additional unchanging information about this session.
+   * For example, it can include the version of the application, or other app-specific unchanging
+   * information.
    *
    * @param context The context to use to create the session.
    * @param tag A short name for debugging purposes.
-   * @param mbrComponent The component name for your media button receiver.
-   * @param mbrIntent The PendingIntent for your receiver component that handles media button
-   *     events. This is optional and will be used on between {@link
-   *     android.os.Build.VERSION_CODES#JELLY_BEAN_MR2} and {@link
-   *     android.os.Build.VERSION_CODES#KITKAT_WATCH} instead of the component name.
    * @param sessionInfo A bundle for additional information about this session, or {@link
    *     Bundle#EMPTY} if none. Controllers can get this information by calling {@link
    *     MediaControllerCompat#getSessionInfo()}. An {@link IllegalArgumentException} will be thrown
@@ -322,14 +311,11 @@ public class MediaSessionCompat {
   @SuppressWarnings({
     "method.invocation.invalid",
     "argument.type.incompatible",
-    "assignment.type.incompatible",
-    "PendingIntentMutability"
+    "assignment.type.incompatible"
   }) // registering listener from constructor
   public MediaSessionCompat(
       Context context,
       String tag,
-      @Nullable ComponentName mbrComponent,
-      @Nullable PendingIntent mbrIntent,
       @Nullable Bundle sessionInfo,
       @Nullable String packageNameOverride) {
     if (TextUtils.isEmpty(tag)) {
@@ -340,25 +326,6 @@ public class MediaSessionCompat {
             != PERMISSION_GRANTED) {
       throw new SecurityException(
           "must have OVERRIDE_MEDIA_SESSION_OWNER permission to override package name");
-    }
-
-    if (mbrComponent == null) {
-      mbrComponent = MediaButtonReceiver.getMediaButtonReceiverComponent(context);
-      if (mbrComponent == null) {
-        Log.i(TAG, "Couldn't find a unique registered media button receiver in the given context.");
-      }
-    }
-    if (mbrComponent != null && mbrIntent == null) {
-      // construct a PendingIntent for the media button
-      Intent mediaButtonIntent = new Intent(Intent.ACTION_MEDIA_BUTTON);
-      // the associated intent will be handled by the component being registered
-      mediaButtonIntent.setComponent(mbrComponent);
-      mbrIntent =
-          PendingIntent.getBroadcast(
-              context,
-              0 /* requestCode, ignored */,
-              mediaButtonIntent,
-              Build.VERSION.SDK_INT >= 31 ? PendingIntent.FLAG_MUTABLE : 0);
     }
 
     if (VERSION.SDK_INT >= 37) {
@@ -374,7 +341,6 @@ public class MediaSessionCompat {
     Looper myLooper = Looper.myLooper();
     Handler handler = new Handler(myLooper != null ? myLooper : Looper.getMainLooper());
     setCallback(new Callback() {}, handler);
-    impl.setMediaButtonReceiver(mbrIntent);
 
     controller = new MediaControllerCompat(context, this);
   }
@@ -414,7 +380,7 @@ public class MediaSessionCompat {
    *
    * @param mbr The {@link PendingIntent} to send the media button event to.
    */
-  public void setMediaButtonReceiver(PendingIntent mbr) {
+  public void setMediaButtonReceiver(@Nullable PendingIntent mbr) {
     impl.setMediaButtonReceiver(mbr);
   }
 
@@ -1363,7 +1329,6 @@ public class MediaSessionCompat {
         clearCurrentControllerInfo(sessionImpl);
       }
 
-      @RequiresApi(24)
       @Override
       public void onPrepare() {
         MediaSessionImplApi23 sessionImpl = getSessionImplIfCallbackIsSet();
@@ -1375,7 +1340,6 @@ public class MediaSessionCompat {
         clearCurrentControllerInfo(sessionImpl);
       }
 
-      @RequiresApi(24)
       @Override
       public void onPrepareFromMediaId(@Nullable String mediaId, @Nullable Bundle extras) {
         MediaSessionImplApi23 sessionImpl = getSessionImplIfCallbackIsSet();
@@ -1388,7 +1352,6 @@ public class MediaSessionCompat {
         clearCurrentControllerInfo(sessionImpl);
       }
 
-      @RequiresApi(24)
       @Override
       public void onPrepareFromSearch(@Nullable String query, @Nullable Bundle extras) {
         MediaSessionImplApi23 sessionImpl = getSessionImplIfCallbackIsSet();
@@ -1401,7 +1364,6 @@ public class MediaSessionCompat {
         clearCurrentControllerInfo(sessionImpl);
       }
 
-      @RequiresApi(24)
       @Override
       public void onPrepareFromUri(@Nullable Uri uri, @Nullable Bundle extras) {
         MediaSessionImplApi23 sessionImpl = getSessionImplIfCallbackIsSet();
@@ -2134,17 +2096,13 @@ public class MediaSessionCompat {
     @Nullable
     @Override
     public String getCallingPackage() {
-      if (android.os.Build.VERSION.SDK_INT < 24) {
-        return null;
-      } else {
-        try {
-          Method getCallingPackageMethod = sessionFwk.getClass().getMethod("getCallingPackage");
-          return (String) getCallingPackageMethod.invoke(sessionFwk);
-        } catch (Exception e) {
-          Log.e(TAG, "Cannot execute MediaSession.getCallingPackage()", e);
-        }
-        return null;
+      try {
+        Method getCallingPackageMethod = sessionFwk.getClass().getMethod("getCallingPackage");
+        return (String) getCallingPackageMethod.invoke(sessionFwk);
+      } catch (Exception e) {
+        Log.e(TAG, "Cannot execute MediaSession.getCallingPackage()", e);
       }
+      return null;
     }
 
     @Nullable
