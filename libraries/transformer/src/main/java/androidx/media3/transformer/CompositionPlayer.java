@@ -27,6 +27,7 @@ import static androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper.LATE_US_
 import static androidx.media3.transformer.FrameAggregator.STRATEGY_EXPECT_NO_FRAMES;
 import static androidx.media3.transformer.FrameAggregator.STRATEGY_MATCH_FRAME_AT_OR_AFTER_TARGET;
 import static androidx.media3.transformer.FrameAggregator.STRATEGY_MATCH_FRAME_CLOSEST_TO_TARGET;
+import static androidx.media3.transformer.TransformerUtil.END_OF_STREAM_ASYNC_FRAME;
 import static androidx.media3.transformer.TransformerUtil.containsSpeedChangingEffects;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -89,7 +90,6 @@ import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
-import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.TimestampAdjustment;
@@ -1645,14 +1645,12 @@ public final class CompositionPlayer extends SimpleBasePlayer {
                   new HardwareBufferFrameReader(
                       composition,
                       sequenceIndex,
-                      /* frameConsumer= */ hardwareBufferFrame -> {
-                        if (hardwareBufferFrame == HardwareBufferFrame.END_OF_STREAM_FRAME) {
+                      /* frameConsumer= */ asyncFrame -> {
+                        if (asyncFrame == END_OF_STREAM_ASYNC_FRAME) {
                           checkNotNull(currentFrameAggregator).queueEndOfStream(sequenceIndex);
                         } else {
                           checkNotNull(currentFrameAggregator)
-                              .queueFrame(
-                                  HardwareBufferFrameReader.toAsyncFrame(hardwareBufferFrame),
-                                  sequenceIndex);
+                              .queueFrame(asyncFrame, sequenceIndex);
                         }
                       },
                       checkNotNull(playbackThread).getLooper(),

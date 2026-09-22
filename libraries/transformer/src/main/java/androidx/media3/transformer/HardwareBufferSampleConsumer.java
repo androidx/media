@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.transformer.TransformerUtil.END_OF_STREAM_ASYNC_FRAME;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -28,15 +29,19 @@ import androidx.media3.common.Format;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.TimestampIterator;
-import androidx.media3.effect.HardwareBufferFrame;
+import androidx.media3.common.video.AsyncFrame;
+import androidx.media3.common.video.DefaultHardwareBufferFrame;
+import androidx.media3.common.video.Frame;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.transformer.HardwareBufferFrameReader.Listener;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * A {@link GraphInput} that wraps {@link HardwareBufferFrameReader}.
  *
- * <p>Offsets {@link HardwareBufferFrame#releaseTimeNs} based on preceding media item durations to
- * ensure a continuous timeline within the sequence.
+ * <p>Offsets {@link Frame#KEY_DISPLAY_TIME_NS} based on preceding media item durations to ensure a
+ * continuous timeline within the sequence.
  */
 /* package */ final class HardwareBufferSampleConsumer implements GraphInput {
 
@@ -58,8 +63,7 @@ import androidx.media3.transformer.HardwareBufferFrameReader.Listener;
    * @param playbackLooper The {@link Looper} for playback operations.
    * @param listenerHandler The {@link HandlerWrapper} for scheduling to dispatch {@link Listener}
    *     callbacks.
-   * @param frameConsumer The {@link Consumer<HardwareBufferFrame>} to which processed frames are
-   *     output.
+   * @param frameConsumer The {@link Consumer<AsyncFrame>} to which processed frames are output.
    * @param errorConsumer A consumer to accept {@link ExportException}s if errors occur.
    * @param hardwareBufferJniWrapper An optional {@link HardwareBufferJniWrapper} used to convert
    *     software bitmaps to hardware buffers.
@@ -69,24 +73,30 @@ import androidx.media3.transformer.HardwareBufferFrameReader.Listener;
       int sequenceIndex,
       Looper playbackLooper,
       HandlerWrapper listenerHandler,
-      Consumer<HardwareBufferFrame> frameConsumer,
+      Consumer<AsyncFrame> frameConsumer,
       Consumer<ExportException> errorConsumer,
       @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper) {
     this.composition = composition;
     this.sequenceIndex = sequenceIndex;
     // Modify the release times of frames exiting the hardwareBufferFrameReader to account for
     // item duration.
-    Consumer<HardwareBufferFrame> intermediateConsumer =
-        (hardwareBufferFrame) -> {
-          if (hardwareBufferFrame != HardwareBufferFrame.END_OF_STREAM_FRAME) {
+    Consumer<AsyncFrame> intermediateConsumer =
+        (asyncFrame) -> {
+          if (asyncFrame != END_OF_STREAM_ASYNC_FRAME) {
             // The frame's sequencePresentationTimeUs is already adjusted by the
             // HardwareBufferFrameReader to be monotonic across the entire sequence.
             // Adjust the release times so they are valid for the encoder.
-            long releaseTimeNs = hardwareBufferFrame.sequencePresentationTimeUs * 1000;
-            hardwareBufferFrame =
-                hardwareBufferFrame.buildUpon().setReleaseTimeNs(releaseTimeNs).build();
+            long releaseTimeNs = asyncFrame.frame.getContentTimeUs() * 1000;
+            Map<String, Object> updatedMetadata = new HashMap<>(asyncFrame.frame.getMetadata());
+            updatedMetadata.put(Frame.KEY_DISPLAY_TIME_NS, releaseTimeNs);
+            Frame frame =
+                ((DefaultHardwareBufferFrame) asyncFrame.frame)
+                    .buildUpon()
+                    .setMetadata(updatedMetadata)
+                    .build();
+            asyncFrame = new AsyncFrame(frame, asyncFrame.acquireFence);
           }
-          frameConsumer.accept(hardwareBufferFrame);
+          frameConsumer.accept(asyncFrame);
         };
     this.hardwareBufferFrameReader =
         new HardwareBufferFrameReader(

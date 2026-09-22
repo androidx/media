@@ -18,10 +18,13 @@ package androidx.media3.transformer;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
+import static androidx.media3.transformer.TransformerUtil.releaseIfNeeded;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.graphics.Bitmap;
@@ -37,7 +40,8 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.util.ConstantRateTimestampIterator;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.Util;
-import androidx.media3.effect.HardwareBufferFrame;
+import androidx.media3.common.video.AsyncFrame;
+import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RendererConfiguration;
@@ -101,7 +105,7 @@ public final class SequenceRenderersFactoryTest {
   @Test
   public void hardwareBufferImageRenderer_onEnabledRegistersWakeupListener_onDisabledUnregisters()
       throws Exception {
-    List<HardwareBufferFrame> receivedFrames = new ArrayList<>();
+    List<AsyncFrame> receivedFrames = new ArrayList<>();
     EditedMediaItemSequence sequence = createSequence();
     HardwareBufferFrameReader hardwareBufferFrameReader =
         createHardwareBufferFrameReader(sequence, receivedFrames, handlerThread.getLooper());
@@ -119,7 +123,7 @@ public final class SequenceRenderersFactoryTest {
         new ConstantRateTimestampIterator(/* durationUs= */ 1_000_000, /* frameRate= */ 2f),
         /* sequenceOffsetUs= */ 0,
         /* indexOfItem= */ 0);
-    receivedFrames.get(0).release(/* releaseFence= */ null);
+    releaseIfNeeded(receivedFrames.get(0).frame, /* releaseFence= */ null);
     shadowOf(handlerThread.getLooper()).idle();
 
     assertThat(fakeWakeupListener.onWakeupCalled).isTrue();
@@ -127,7 +131,7 @@ public final class SequenceRenderersFactoryTest {
     fakeWakeupListener.onWakeupCalled = false;
     imageRenderer.disable();
 
-    receivedFrames.get(1).release(/* releaseFence= */ null);
+    releaseIfNeeded(receivedFrames.get(1).frame, /* releaseFence= */ null);
     shadowOf(handlerThread.getLooper()).idle();
 
     assertThat(fakeWakeupListener.onWakeupCalled).isFalse();
@@ -152,7 +156,7 @@ public final class SequenceRenderersFactoryTest {
   @Test
   public void hardwareBufferVideoRenderer_onEnabledRegistersWakeupListener_onDisabledUnregisters()
       throws Exception {
-    List<HardwareBufferFrame> receivedFrames = new ArrayList<>();
+    List<AsyncFrame> receivedFrames = new ArrayList<>();
     EditedMediaItemSequence sequence = createSequence();
     HardwareBufferFrameReader hardwareBufferFrameReader =
         createHardwareBufferFrameReader(sequence, receivedFrames, handlerThread.getLooper());
@@ -172,7 +176,7 @@ public final class SequenceRenderersFactoryTest {
         new ConstantRateTimestampIterator(/* durationUs= */ 1_000_000, /* frameRate= */ 2f),
         /* sequenceOffsetUs= */ 0,
         /* indexOfItem= */ 0);
-    receivedFrames.get(0).release(/* releaseFence= */ null);
+    releaseIfNeeded(receivedFrames.get(0).frame, /* releaseFence= */ null);
     shadowOf(handlerThread.getLooper()).idle();
 
     assertThat(fakeWakeupListener.onWakeupCalled).isTrue();
@@ -180,7 +184,7 @@ public final class SequenceRenderersFactoryTest {
     fakeWakeupListener.onWakeupCalled = false;
     videoRenderer.disable();
 
-    receivedFrames.get(1).release(/* releaseFence= */ null);
+    releaseIfNeeded(receivedFrames.get(1).frame, /* releaseFence= */ null);
     shadowOf(handlerThread.getLooper()).idle();
 
     assertThat(fakeWakeupListener.onWakeupCalled).isFalse();
@@ -190,7 +194,7 @@ public final class SequenceRenderersFactoryTest {
   @SuppressWarnings("deprecation") // Uses deprecated CompositionFrameMetadata.
   public void hardwareBufferImageRenderer_loopingSequence_wrapsItemIndexInFrameMetadata()
       throws Exception {
-    List<HardwareBufferFrame> receivedFrames = new ArrayList<>();
+    List<AsyncFrame> receivedFrames = new ArrayList<>();
     EditedMediaItemSequence loopingSequence =
         new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_AUDIO))
             .addItems(createSequence().editedMediaItems)
@@ -213,7 +217,12 @@ public final class SequenceRenderersFactoryTest {
     }
 
     CompositionFrameMetadata metadata =
-        (CompositionFrameMetadata) receivedFrames.get(0).getMetadata();
+        (CompositionFrameMetadata)
+            receivedFrames
+                .get(0)
+                .frame
+                .getMetadata()
+                .get(CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA);
     assertThat(metadata.itemIndex).isEqualTo(0);
   }
 
@@ -262,8 +271,10 @@ public final class SequenceRenderersFactoryTest {
   }
 
   private static HardwareBufferFrameReader createHardwareBufferFrameReader(
-      EditedMediaItemSequence sequence, List<HardwareBufferFrame> receivedFrames, Looper looper) {
+      EditedMediaItemSequence sequence, List<AsyncFrame> receivedFrames, Looper looper) {
     Composition composition = new Composition.Builder(sequence, createSequence()).build();
+    HardwareBufferJniWrapper mockJniWrapper = mock(HardwareBufferJniWrapper.class);
+    when(mockJniWrapper.nativeCopyBitmapToHardwareBuffer(any(), any())).thenReturn(true);
     return new HardwareBufferFrameReader(
         composition,
         /* sequenceIndex= */ 0,
@@ -273,7 +284,7 @@ public final class SequenceRenderersFactoryTest {
         new DefaultImageReaderAdapter.Factory(),
         /* listener= */ e -> {},
         SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null),
-        /* hardwareBufferJniWrapper= */ null);
+        mockJniWrapper);
   }
 
   private static void enableRenderer(Renderer renderer, Timeline timeline)

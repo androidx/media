@@ -48,7 +48,6 @@ import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.effect.DefaultGlObjectsProvider;
-import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.transformer.Codec.EncoderFactory;
 import androidx.media3.transformer.FrameAggregator.AggregationStrategy;
@@ -180,25 +179,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         new ImmutableList.Builder<>();
     for (int i = 0; i < composition.sequences.size(); i++) {
       int sequenceIndex = i;
-      Consumer<HardwareBufferFrame> frameConsumer =
+      Consumer<AsyncFrame> frameConsumer =
           // TODO: b/478781219 - Remove the handlerWrapper.post once HardwareBufferSampleConsumer is
           // only accessed from a single thread.
-          (frame) ->
+          (asyncFrame) ->
               handlerWrapper.post(
                   () -> {
                     // Frames may be produced by the underlying players after Transformer has been
                     // canceled. Immediately release these frames.
                     if (released) {
-                      if (frame != HardwareBufferFrame.END_OF_STREAM_FRAME) {
-                        frame.release(/* releaseFence= */ null);
-                      }
+                      TransformerUtil.releaseIfNeeded(asyncFrame.frame, /* releaseFence= */ null);
                       return;
                     }
-                    if (frame == HardwareBufferFrame.END_OF_STREAM_FRAME) {
+                    if (asyncFrame == END_OF_STREAM_ASYNC_FRAME) {
                       checkNotNull(frameAggregator).queueEndOfStream(sequenceIndex);
                     } else {
-                      checkNotNull(frameAggregator)
-                          .queueFrame(HardwareBufferFrameReader.toAsyncFrame(frame), sequenceIndex);
+                      checkNotNull(frameAggregator).queueFrame(asyncFrame, sequenceIndex);
                     }
                   });
       HardwareBufferSampleConsumer sampleConsumer =

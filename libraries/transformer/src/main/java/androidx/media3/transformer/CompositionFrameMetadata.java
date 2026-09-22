@@ -26,19 +26,18 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.video.Frame;
 import androidx.media3.effect.DefaultGlFrameProcessor;
-import androidx.media3.effect.HardwareBufferFrame;
 import com.google.common.collect.ImmutableMap;
 
 /**
- * Metadata included on {@link HardwareBufferFrame}s in {@link CompositionPlayer}.
+ * Metadata included on frames in {@link CompositionPlayer}.
  *
  * <p>Applications can extend this class to add custom metadata.
  *
  * @deprecated Use similar keys in {@link DefaultGlFrameProcessor} instead.
  */
 @ExperimentalApi // TODO: b/470355043 - Publish CompositionPlayer.
-@Deprecated // TODO: b/498547782 - Remove with effect.HardwareBufferFrame.
-public class CompositionFrameMetadata implements HardwareBufferFrame.Metadata {
+@Deprecated // TODO: b/498547782 - Remove once all callers migrate to Frame metadata keys.
+public class CompositionFrameMetadata {
 
   /** Converts the {@link CompositionFrameMetadata} to a map for {@link Frame#getMetadata()}. */
   @RequiresApi(26)

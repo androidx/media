@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.transformer.TransformerUtil.releaseIfNeeded;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static org.junit.Assert.assertThrows;
@@ -23,7 +24,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import android.graphics.Bitmap;
-import androidx.media3.effect.HardwareBufferFrame;
+import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.concurrent.ExecutorService;
@@ -76,11 +77,11 @@ public final class BitmapToHardwareBufferConverterTest {
     HardwareBufferFrame frame1 = converter.getOrCreateRetainedFrame(bitmap);
     HardwareBufferFrame frame2 = converter.getOrCreateRetainedFrame(bitmap);
 
-    assertThat(frame1.hardwareBuffer).isNotNull();
-    assertThat(frame1.hardwareBuffer).isSameInstanceAs(frame2.hardwareBuffer);
+    assertThat(frame1.getHardwareBuffer()).isNotNull();
+    assertThat(frame1.getHardwareBuffer()).isSameInstanceAs(frame2.getHardwareBuffer());
 
-    frame1.release(/* releaseFence= */ null);
-    frame2.release(/* releaseFence= */ null);
+    releaseIfNeeded(frame1, /* releaseFence= */ null);
+    releaseIfNeeded(frame2, /* releaseFence= */ null);
   }
 
   @Test
@@ -91,12 +92,12 @@ public final class BitmapToHardwareBufferConverterTest {
     HardwareBufferFrame frame1 = converter.getOrCreateRetainedFrame(bitmap1);
     HardwareBufferFrame frame2 = converter.getOrCreateRetainedFrame(bitmap2);
 
-    assertThat(frame1.hardwareBuffer).isNotNull();
-    assertThat(frame2.hardwareBuffer).isNotNull();
-    assertThat(frame1.hardwareBuffer).isNotSameInstanceAs(frame2.hardwareBuffer);
+    assertThat(frame1.getHardwareBuffer()).isNotNull();
+    assertThat(frame2.getHardwareBuffer()).isNotNull();
+    assertThat(frame1.getHardwareBuffer()).isNotSameInstanceAs(frame2.getHardwareBuffer());
 
-    frame1.release(/* releaseFence= */ null);
-    frame2.release(/* releaseFence= */ null);
+    releaseIfNeeded(frame1, /* releaseFence= */ null);
+    releaseIfNeeded(frame2, /* releaseFence= */ null);
   }
 
   @Test
@@ -107,12 +108,12 @@ public final class BitmapToHardwareBufferConverterTest {
     converter.flush();
     HardwareBufferFrame frame2 = converter.getOrCreateRetainedFrame(bitmap);
 
-    assertThat(frame1.hardwareBuffer).isNotNull();
-    assertThat(frame2.hardwareBuffer).isNotNull();
-    assertThat(frame1.hardwareBuffer).isNotSameInstanceAs(frame2.hardwareBuffer);
+    assertThat(frame1.getHardwareBuffer()).isNotNull();
+    assertThat(frame2.getHardwareBuffer()).isNotNull();
+    assertThat(frame1.getHardwareBuffer()).isNotSameInstanceAs(frame2.getHardwareBuffer());
 
-    frame1.release(/* releaseFence= */ null);
-    frame2.release(/* releaseFence= */ null);
+    releaseIfNeeded(frame1, /* releaseFence= */ null);
+    releaseIfNeeded(frame2, /* releaseFence= */ null);
   }
 
   @Test

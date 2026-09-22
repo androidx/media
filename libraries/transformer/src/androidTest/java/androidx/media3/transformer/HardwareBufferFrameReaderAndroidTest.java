@@ -17,6 +17,8 @@ package androidx.media3.transformer;
 
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
+import static androidx.media3.transformer.TransformerUtil.END_OF_STREAM_ASYNC_FRAME;
+import static androidx.media3.transformer.TransformerUtil.releaseIfNeeded;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
@@ -39,7 +41,10 @@ import androidx.media3.common.util.ConstantRateTimestampIterator;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.Util;
-import androidx.media3.effect.HardwareBufferFrame;
+import androidx.media3.common.video.AsyncFrame;
+import androidx.media3.common.video.DefaultHardwareBufferFrame;
+import androidx.media3.common.video.Frame;
+import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
@@ -59,6 +64,7 @@ import org.junit.runner.RunWith;
  * frames into a Surface seems unsupported on robolectric.
  */
 @RunWith(AndroidJUnit4.class)
+@SdkSuppress(minSdkVersion = 28)
 public class HardwareBufferFrameReaderAndroidTest {
 
   private static final long TEST_TIMEOUT_MS = 10_000;
@@ -70,16 +76,19 @@ public class HardwareBufferFrameReaderAndroidTest {
           .build();
 
   private Composition composition;
-  private BlockingQueue<HardwareBufferFrame> receivedFrames;
+  private BlockingQueue<AsyncFrame> receivedFrames;
   private HardwareBufferFrameReader hardwareBufferFrameReader;
   private HandlerThread handlerThread;
   private AtomicReference<Exception> hardwareBufferFrameReaderException;
 
   @Before
   public void setUp() {
-    EditedMediaItem editedMediaItem =
+    EditedMediaItem editedMediaItem1 =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)).build();
-    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem));
+    EditedMediaItem editedMediaItem2 =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)).build();
+    EditedMediaItemSequence sequence =
+        withAudioFrom(ImmutableList.of(editedMediaItem1, editedMediaItem2));
     composition = new Composition.Builder(sequence).build();
     handlerThread = new HandlerThread("HardwareBufferFrameReaderTest");
     handlerThread.start();
@@ -96,7 +105,7 @@ public class HardwareBufferFrameReaderAndroidTest {
             new DefaultImageReaderAdapter.Factory(),
             e -> hardwareBufferFrameReaderException.set(e),
             SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), null),
-            /* hardwareBufferJniWrapper= */ null);
+            /* hardwareBufferJniWrapper= */ HardwareBufferJni.INSTANCE);
   }
 
   @After
@@ -106,29 +115,27 @@ public class HardwareBufferFrameReaderAndroidTest {
   }
 
   @Test
+  @SuppressWarnings("deprecation") // Uses deprecated CompositionFrameMetadata.
   public void frameReader_queueFrameViaSurface_receivesFrame() throws Exception {
     hardwareBufferFrameReader.queueFrameViaSurface(
         /* presentationTimeUs= */ 0, /* sequenceOffsetUs= */ 0, /* indexOfItem= */ 0, TEST_FORMAT);
     produceFrameToFrameReaderSurface(/* presentationTimeUs= */ 0);
 
-    HardwareBufferFrame receivedFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+    AsyncFrame receivedFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
 
     assertThat(hardwareBufferFrameReaderException.get()).isNull();
     assertThat(receivedFrame).isNotNull();
-    assertThat(receivedFrame.presentationTimeUs).isEqualTo(0);
-    assertThat(receivedFrame.sequencePresentationTimeUs).isEqualTo(0);
-    assertThat(receivedFrame.format).isEqualTo(TEST_FORMAT);
-    assertThat(receivedFrame.internalFrame).isNotNull();
-    assertThat(receivedFrame.getMetadata()).isInstanceOf(CompositionFrameMetadata.class);
-    CompositionFrameMetadata compositionFrameMetadata =
-        (CompositionFrameMetadata) receivedFrame.getMetadata();
+    assertThat(getPresentationTimeUs(receivedFrame)).isEqualTo(0);
+    assertThat(receivedFrame.frame.getContentTimeUs()).isEqualTo(0);
+    assertThat(receivedFrame.frame.getFormat()).isEqualTo(TEST_FORMAT);
+    assertThat(getInternalImage(receivedFrame)).isNotNull();
+    CompositionFrameMetadata compositionFrameMetadata = getCompositionFrameMetadata(receivedFrame);
     assertThat(compositionFrameMetadata.composition).isEqualTo(composition);
     assertThat(compositionFrameMetadata.sequenceIndex).isEqualTo(0);
     assertThat(compositionFrameMetadata.itemIndex).isEqualTo(0);
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 28)
   public void frameReader_releaseSurfaceFrame_closesTheHardwareBuffer() throws Exception {
     hardwareBufferFrameReader.queueFrameViaSurface(
         /* presentationTimeUs= */ 1234,
@@ -136,11 +143,12 @@ public class HardwareBufferFrameReaderAndroidTest {
         /* indexOfItem= */ 0,
         TEST_FORMAT);
     produceFrameToFrameReaderSurface(/* presentationTimeUs= */ 1234);
-    HardwareBufferFrame receivedFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
-    assertThat(receivedFrame).isNotNull();
-    HardwareBuffer hardwareBuffer = checkNotNull(receivedFrame.hardwareBuffer);
 
-    receivedFrame.release(/* releaseFence= */ null);
+    AsyncFrame receivedFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+    assertThat(receivedFrame).isNotNull();
+    HardwareBuffer hardwareBuffer = checkNotNull(getHardwareBuffer(receivedFrame));
+
+    releaseIfNeeded(receivedFrame.frame, /* releaseFence= */ null);
     flushHandlerThread();
 
     assertThat(hardwareBuffer.isClosed()).isTrue();
@@ -156,11 +164,12 @@ public class HardwareBufferFrameReaderAndroidTest {
         new ConstantRateTimestampIterator(/* durationUs= */ 1_000_000, /* frameRate= */ 30f),
         /* sequenceOffsetUs= */ 0,
         /* indexOfItem= */ 1);
-    HardwareBufferFrame receivedFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
-    assertThat(receivedFrame).isNotNull();
-    HardwareBuffer hardwareBuffer = checkNotNull(receivedFrame.hardwareBuffer);
 
-    receivedFrame.release(/* releaseFence= */ null);
+    AsyncFrame receivedFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+    assertThat(receivedFrame).isNotNull();
+    HardwareBuffer hardwareBuffer = checkNotNull(getHardwareBuffer(receivedFrame));
+
+    releaseIfNeeded(receivedFrame.frame, /* releaseFence= */ null);
     flushHandlerThread();
 
     // Closing the HardwareBuffer is handled by garbage collection.
@@ -177,10 +186,11 @@ public class HardwareBufferFrameReaderAndroidTest {
         TEST_FORMAT);
     checkState(!hardwareBufferFrameReader.canAcceptFrameViaSurface());
     produceFrameToFrameReaderSurface(/* presentationTimeUs= */ 1234);
-    HardwareBufferFrame receivedFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+
+    AsyncFrame receivedFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
     assertThat(receivedFrame).isNotNull();
 
-    receivedFrame.release(/* releaseFence= */ null);
+    releaseIfNeeded(receivedFrame.frame, /* releaseFence= */ null);
     flushHandlerThread();
 
     assertThat(hardwareBufferFrameReader.canAcceptFrameViaSurface()).isTrue();
@@ -198,16 +208,18 @@ public class HardwareBufferFrameReaderAndroidTest {
     hardwareBufferFrameReader.addRendererWakeupListener(() -> onWakeupCalled.set(true));
     assertThat(hardwareBufferFrameReader.canAcceptFrameViaSurface()).isFalse();
     produceFrameToFrameReaderSurface(/* presentationTimeUs= */ 1234);
-    HardwareBufferFrame receivedFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+
+    AsyncFrame receivedFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
     assertThat(receivedFrame).isNotNull();
 
-    receivedFrame.release(/* releaseFence= */ null);
+    releaseIfNeeded(receivedFrame.frame, /* releaseFence= */ null);
     flushHandlerThread();
 
     assertThat(onWakeupCalled.get()).isTrue();
   }
 
   @Test
+  @SuppressWarnings("deprecation") // Uses deprecated CompositionFrameMetadata.
   public void produceSurfaceFrame_withPendingBitmap_outputsBitmap() throws Exception {
     // SRGB ColorTransfer is replaced with SDR.
     ColorInfo expectedColorInfo =
@@ -236,16 +248,14 @@ public class HardwareBufferFrameReaderAndroidTest {
         /* indexOfItem= */ 1);
 
     produceFrameToFrameReaderSurface(/* presentationTimeUs= */ 1234);
-    HardwareBufferFrame firstFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
-    HardwareBufferFrame secondFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+    AsyncFrame firstFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+    AsyncFrame secondFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
 
     assertThat(firstFrame).isNotNull();
     assertThat(secondFrame).isNotNull();
-    assertThat(secondFrame.internalFrame).isInstanceOf(Bitmap.class);
-    assertThat(secondFrame.getMetadata()).isInstanceOf(CompositionFrameMetadata.class);
-    assertThat(secondFrame.format).isEqualTo(expectedBitmapFormat);
-    CompositionFrameMetadata bitmapFrameMetadata =
-        (CompositionFrameMetadata) secondFrame.getMetadata();
+    assertThat(getInternalImage(secondFrame)).isInstanceOf(Bitmap.class);
+    assertThat(secondFrame.frame.getFormat()).isEqualTo(expectedBitmapFormat);
+    CompositionFrameMetadata bitmapFrameMetadata = getCompositionFrameMetadata(secondFrame);
     assertThat(bitmapFrameMetadata.composition).isEqualTo(composition);
     assertThat(bitmapFrameMetadata.sequenceIndex).isEqualTo(0);
     assertThat(bitmapFrameMetadata.itemIndex).isEqualTo(1);
@@ -265,17 +275,18 @@ public class HardwareBufferFrameReaderAndroidTest {
 
     produceFrameToFrameReaderSurface(frameTimeUs);
 
-    HardwareBufferFrame firstFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
-    HardwareBufferFrame secondFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+    AsyncFrame firstFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+    AsyncFrame secondFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+    AsyncFrame shouldBeNull = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
     flushHandlerThread();
 
     assertThat(hardwareBufferFrameReaderException.get()).isNull();
     assertThat(firstFrame).isNotNull();
-    assertThat(firstFrame.presentationTimeUs).isEqualTo(frameTimeUs);
-    assertThat(firstFrame.sequencePresentationTimeUs).isEqualTo(frameTimeUs);
-    assertThat(firstFrame.format).isEqualTo(TEST_FORMAT);
-    assertThat(secondFrame).isEqualTo(HardwareBufferFrame.END_OF_STREAM_FRAME);
-    assertThat(receivedFrames).isEmpty();
+    assertThat(getPresentationTimeUs(firstFrame)).isEqualTo(frameTimeUs);
+    assertThat(firstFrame.frame.getContentTimeUs()).isEqualTo(frameTimeUs);
+    assertThat(firstFrame.frame.getFormat()).isEqualTo(TEST_FORMAT);
+    assertThat(secondFrame).isEqualTo(END_OF_STREAM_ASYNC_FRAME);
+    assertThat(shouldBeNull).isNull();
   }
 
   @Test
@@ -289,22 +300,24 @@ public class HardwareBufferFrameReaderAndroidTest {
         /* indexOfItem= */ 0,
         TEST_FORMAT);
 
-    HardwareBufferFrame receivedEos = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+    AsyncFrame receivedEos = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
 
     assertThat(hardwareBufferFrameReaderException.get()).isNull();
-    assertThat(receivedEos).isEqualTo(HardwareBufferFrame.END_OF_STREAM_FRAME);
+    assertThat(receivedEos).isEqualTo(END_OF_STREAM_ASYNC_FRAME);
 
     produceFrameToFrameReaderSurface(frameTimeUs);
 
-    HardwareBufferFrame firstFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+    AsyncFrame firstFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+    AsyncFrame shouldBeNull = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
     flushHandlerThread();
 
     assertThat(hardwareBufferFrameReaderException.get()).isNull();
     assertThat(firstFrame).isNotNull();
-    assertThat(firstFrame.presentationTimeUs).isEqualTo(frameTimeUs);
-    assertThat(firstFrame.sequencePresentationTimeUs).isEqualTo(frameTimeUs);
-    assertThat(firstFrame.format).isEqualTo(TEST_FORMAT);
-    assertThat(receivedFrames).isEmpty();
+
+    assertThat(getPresentationTimeUs(firstFrame)).isEqualTo(frameTimeUs);
+    assertThat(firstFrame.frame.getContentTimeUs()).isEqualTo(frameTimeUs);
+    assertThat(firstFrame.frame.getFormat()).isEqualTo(TEST_FORMAT);
+    assertThat(shouldBeNull).isNull();
   }
 
   @Test
@@ -337,31 +350,31 @@ public class HardwareBufferFrameReaderAndroidTest {
         format3);
 
     produceFrameToFrameReaderSurface(frameTimeUs1);
-    HardwareBufferFrame recFrame1 = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+    AsyncFrame recFrame1 = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
     assertThat(recFrame1).isNotNull();
-    assertThat(recFrame1.presentationTimeUs).isEqualTo(frameTimeUs1);
-    assertThat(recFrame1.sequencePresentationTimeUs).isEqualTo(frameTimeUs1);
-    assertThat(recFrame1.format).isEqualTo(format1);
-    recFrame1.release(/* releaseFence= */ null);
+    assertThat(getPresentationTimeUs(recFrame1)).isEqualTo(frameTimeUs1);
+    assertThat(recFrame1.frame.getContentTimeUs()).isEqualTo(frameTimeUs1);
+    assertThat(recFrame1.frame.getFormat()).isEqualTo(format1);
+    releaseIfNeeded(recFrame1.frame, /* releaseFence= */ null);
 
     produceFrameToFrameReaderSurface(frameTimeUs2);
-    HardwareBufferFrame recFrame2 = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+    AsyncFrame recFrame2 = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
     assertThat(recFrame2).isNotNull();
-    assertThat(recFrame2.presentationTimeUs).isEqualTo(frameTimeUs2);
-    assertThat(recFrame2.sequencePresentationTimeUs).isEqualTo(frameTimeUs2);
-    assertThat(recFrame2.format).isEqualTo(format2);
-    recFrame2.release(/* releaseFence= */ null);
+    assertThat(getPresentationTimeUs(recFrame2)).isEqualTo(frameTimeUs2);
+    assertThat(recFrame2.frame.getContentTimeUs()).isEqualTo(frameTimeUs2);
+    assertThat(recFrame2.frame.getFormat()).isEqualTo(format2);
+    releaseIfNeeded(recFrame2.frame, /* releaseFence= */ null);
 
-    HardwareBufferFrame recEos = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
-    assertThat(recEos).isEqualTo(HardwareBufferFrame.END_OF_STREAM_FRAME);
+    AsyncFrame recEos = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+    assertThat(recEos).isEqualTo(END_OF_STREAM_ASYNC_FRAME);
 
     produceFrameToFrameReaderSurface(frameTimeUs3);
-    HardwareBufferFrame recFrame3 = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+    AsyncFrame recFrame3 = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
     assertThat(recFrame3).isNotNull();
-    assertThat(recFrame3.presentationTimeUs).isEqualTo(frameTimeUs3);
-    assertThat(recFrame3.sequencePresentationTimeUs).isEqualTo(frameTimeUs3);
-    assertThat(recFrame3.format).isEqualTo(format3);
-    recFrame3.release(/* releaseFence= */ null);
+    assertThat(getPresentationTimeUs(recFrame3)).isEqualTo(frameTimeUs3);
+    assertThat(recFrame3.frame.getContentTimeUs()).isEqualTo(frameTimeUs3);
+    assertThat(recFrame3.frame.getFormat()).isEqualTo(format3);
+    releaseIfNeeded(recFrame3.frame, /* releaseFence= */ null);
 
     flushHandlerThread();
     assertThat(receivedFrames).isEmpty();
@@ -382,9 +395,9 @@ public class HardwareBufferFrameReaderAndroidTest {
         nullColorInfoFormat);
     produceFrameToFrameReaderSurface(frameTimeUs1);
 
-    HardwareBufferFrame recFrame1 = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+    AsyncFrame recFrame1 = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
     assertThat(recFrame1).isNotNull();
-    assertThat(recFrame1.format).isEqualTo(expectedFormat);
+    assertThat(recFrame1.frame.getFormat()).isEqualTo(expectedFormat);
   }
 
   @Test
@@ -410,13 +423,12 @@ public class HardwareBufferFrameReaderAndroidTest {
         unsetColorSpaceFormat);
     produceFrameToFrameReaderSurface(frameTimeUs1);
 
-    HardwareBufferFrame recFrame1 = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+    AsyncFrame recFrame1 = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
     assertThat(recFrame1).isNotNull();
-    assertThat(recFrame1.format).isEqualTo(expectedFormat);
+    assertThat(recFrame1.frame.getFormat()).isEqualTo(expectedFormat);
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 26)
   public void
       outputBitmap_withBitmapToHardwareBufferConverter_reusesHardwareBufferForRepeatedBitmap()
           throws Exception {
@@ -440,32 +452,33 @@ public class HardwareBufferFrameReaderAndroidTest {
           /* sequenceOffsetUs= */ 0,
           /* indexOfItem= */ 0);
 
-      HardwareBufferFrame frame1 = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
-      HardwareBufferFrame frame2 = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+      AsyncFrame frame1 = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+      AsyncFrame frame2 = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
 
       assertThat(hardwareBufferFrameReaderException.get()).isNull();
       assertThat(frame1).isNotNull();
       assertThat(frame2).isNotNull();
-      assertThat(frame1.hardwareBuffer).isNotNull();
-      assertThat(frame2.hardwareBuffer).isNotNull();
-      assertThat(frame1.hardwareBuffer).isSameInstanceAs(frame2.hardwareBuffer);
-      assertThat(frame1.hardwareBuffer.isClosed()).isFalse();
-      assertThat(frame1.internalFrame).isSameInstanceAs(bitmap);
-      assertThat(frame2.internalFrame).isSameInstanceAs(bitmap);
-      assertThat(frame1.presentationTimeUs).isEqualTo(0);
-      assertThat(frame1.sequencePresentationTimeUs).isEqualTo(0);
-      assertThat(frame2.presentationTimeUs).isEqualTo(33_333);
-      assertThat(frame2.sequencePresentationTimeUs).isEqualTo(33_333);
+      HardwareBuffer hardwareBuffer1 = getHardwareBuffer(frame1);
+      HardwareBuffer hardwareBuffer2 = getHardwareBuffer(frame2);
+      assertThat(hardwareBuffer1).isNotNull();
+      assertThat(hardwareBuffer2).isNotNull();
+      assertThat(hardwareBuffer1).isSameInstanceAs(hardwareBuffer2);
+      assertThat(hardwareBuffer1.isClosed()).isFalse();
+      assertThat(getInternalImage(frame1)).isSameInstanceAs(bitmap);
+      assertThat(getInternalImage(frame2)).isSameInstanceAs(bitmap);
+      assertThat(getPresentationTimeUs(frame1)).isEqualTo(0);
+      assertThat(frame1.frame.getContentTimeUs()).isEqualTo(0);
+      assertThat(getPresentationTimeUs(frame2)).isEqualTo(33_333);
+      assertThat(frame2.frame.getContentTimeUs()).isEqualTo(33_333);
 
-      frame1.release(/* releaseFence= */ null);
-      frame2.release(/* releaseFence= */ null);
+      releaseIfNeeded(frame1.frame, /* releaseFence= */ null);
+      releaseIfNeeded(frame2.frame, /* releaseFence= */ null);
     } finally {
       frameReader.release();
     }
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 26)
   public void
       outputBitmap_withBitmapToHardwareBufferConverter_differentBitmap_createsNewHardwareBuffer()
           throws Exception {
@@ -494,25 +507,26 @@ public class HardwareBufferFrameReaderAndroidTest {
       frameReader.outputBitmap(
           bitmap2, singleFrame2, /* sequenceOffsetUs= */ 1_000, /* indexOfItem= */ 1);
 
-      HardwareBufferFrame frame1 = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
-      HardwareBufferFrame frame2 = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+      AsyncFrame frame1 = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+      AsyncFrame frame2 = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
 
       assertThat(hardwareBufferFrameReaderException.get()).isNull();
       assertThat(frame1).isNotNull();
       assertThat(frame2).isNotNull();
-      assertThat(frame1.hardwareBuffer).isNotNull();
-      assertThat(frame2.hardwareBuffer).isNotNull();
-      assertThat(frame1.hardwareBuffer).isNotSameInstanceAs(frame2.hardwareBuffer);
+      HardwareBuffer hardwareBuffer1 = getHardwareBuffer(frame1);
+      HardwareBuffer hardwareBuffer2 = getHardwareBuffer(frame2);
+      assertThat(hardwareBuffer1).isNotNull();
+      assertThat(hardwareBuffer2).isNotNull();
+      assertThat(hardwareBuffer1).isNotSameInstanceAs(hardwareBuffer2);
 
-      frame1.release(/* releaseFence= */ null);
-      frame2.release(/* releaseFence= */ null);
+      releaseIfNeeded(frame1.frame, /* releaseFence= */ null);
+      releaseIfNeeded(frame2.frame, /* releaseFence= */ null);
     } finally {
       frameReader.release();
     }
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 26)
   public void
       outputBitmap_withBitmapToHardwareBufferConverter_releaseOutputFrameAndReader_closesHardwareBuffer()
           throws Exception {
@@ -536,11 +550,11 @@ public class HardwareBufferFrameReaderAndroidTest {
           /* sequenceOffsetUs= */ 0,
           /* indexOfItem= */ 0);
 
-      HardwareBufferFrame receivedFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+      AsyncFrame receivedFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
       assertThat(receivedFrame).isNotNull();
-      HardwareBuffer hardwareBuffer = checkNotNull(receivedFrame.hardwareBuffer);
+      HardwareBuffer hardwareBuffer = checkNotNull(getHardwareBuffer(receivedFrame));
 
-      receivedFrame.release(/* releaseFence= */ null);
+      releaseIfNeeded(receivedFrame.frame, /* releaseFence= */ null);
       frameReader.release();
 
       flushHandlerThread();
@@ -565,5 +579,27 @@ public class HardwareBufferFrameReaderAndroidTest {
       image.setTimestamp(presentationTimeUs * 1000);
       imageWriter.queueInputImage(image);
     }
+  }
+
+  private static long getPresentationTimeUs(AsyncFrame asyncFrame) {
+    return checkNotNull((Long) asyncFrame.frame.getMetadata().get(Frame.KEY_PRESENTATION_TIME_US));
+  }
+
+  private static Object getInternalImage(AsyncFrame asyncFrame) {
+    return ((DefaultHardwareBufferFrame) asyncFrame.frame).getInternalImage();
+  }
+
+  private static HardwareBuffer getHardwareBuffer(AsyncFrame asyncFrame) {
+    return ((HardwareBufferFrame) asyncFrame.frame).getHardwareBuffer();
+  }
+
+  @SuppressWarnings("deprecation") // Uses deprecated CompositionFrameMetadata.
+  private static CompositionFrameMetadata getCompositionFrameMetadata(AsyncFrame asyncFrame) {
+    return (CompositionFrameMetadata)
+        checkNotNull(
+            asyncFrame
+                .frame
+                .getMetadata()
+                .get(CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA));
   }
 }

@@ -17,9 +17,9 @@ package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.transformer.CompositionFrameMetadata.asFrameMetadata;
+import static androidx.media3.transformer.TransformerUtil.END_OF_STREAM_ASYNC_FRAME;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.graphics.Bitmap;
 import android.graphics.ColorSpace;
@@ -44,8 +44,8 @@ import androidx.media3.common.util.Util;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
 import androidx.media3.common.video.Frame;
+import androidx.media3.common.video.ReleaseCallback;
 import androidx.media3.common.video.SyncFenceWrapper;
-import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.exoplayer.Renderer;
 import com.google.common.collect.ImmutableMap;
@@ -57,10 +57,7 @@ import java.util.Queue;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
-/**
- * An adaptor between a sequence player and a {@link Consumer} of {@link HardwareBufferFrame}
- * instances.
- */
+/** An adaptor between a sequence player and a {@link Consumer} of {@link AsyncFrame} instances. */
 /* package */ final class HardwareBufferFrameReader {
 
   /** A listener for events. */
@@ -99,7 +96,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private final Composition composition;
   private final int sequenceIndex;
-  private final Consumer<HardwareBufferFrame> frameConsumer;
+  private final Consumer<AsyncFrame> frameConsumer;
   private final ImageReaderAdapter imageReader;
   private final Listener listener;
   private final Executor playbackExecutor;
@@ -149,7 +146,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   /* package */ HardwareBufferFrameReader(
       Composition composition,
       int sequenceIndex,
-      Consumer<HardwareBufferFrame> frameConsumer,
+      Consumer<AsyncFrame> frameConsumer,
       Looper playbackLooper,
       int defaultSurfacePixelFormat,
       ImageReaderAdapter.Factory imageReaderAdapterFactory,
@@ -307,7 +304,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             itemPresentationTimeUs * 1000);
 
         frameConsumer.accept(
-            createHardwareBufferFrameFromImage(
+            createAsyncFrameFromImage(
                 image, itemPresentationTimeUs, sequenceOffsetUs, indexOfItem, frameInfo.format));
         maybeOutputPendingBitmaps();
         maybeWakeupVideoRenderer();
@@ -320,8 +317,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   /**
-   * Forwards a {@link HardwareBufferFrame#END_OF_STREAM_FRAME} to the downstream consumer after all
-   * pending frames have been forwarded.
+   * Forwards a {@link TransformerUtil#END_OF_STREAM_ASYNC_FRAME} to the downstream consumer after
+   * all pending frames have been forwarded.
    */
   void queueEndOfStream() {
     synchronized (this) {
@@ -402,14 +399,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         long itemPresentationTimeUs = frameInfo.timestampIterator.next();
         long sequenceOffsetUs = frameInfo.sequenceOffsetUs;
         framesInUse++;
-        HardwareBufferFrame hardwareBufferFrame =
-            createHardwareBufferFrameFromBitmap(
+        AsyncFrame asyncFrame =
+            createAsyncFrameFromBitmap(
                 checkNotNull(frameInfo.bitmap),
                 itemPresentationTimeUs,
                 sequenceOffsetUs,
                 frameInfo.itemIndex,
                 frameInfo.format);
-        frameConsumer.accept(hardwareBufferFrame);
+        frameConsumer.accept(asyncFrame);
       }
     }
     maybeOutputEndOfStream();
@@ -419,48 +416,34 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     synchronized (this) {
       @Nullable FrameInfo frameInfo = pendingFrameInfo.peek();
       while (frameInfo == FrameInfo.END_OF_STREAM) {
-        frameConsumer.accept(HardwareBufferFrame.END_OF_STREAM_FRAME);
+        frameConsumer.accept(END_OF_STREAM_ASYNC_FRAME);
         pendingFrameInfo.remove();
         frameInfo = pendingFrameInfo.peek();
       }
     }
   }
 
-  private HardwareBufferFrame createHardwareBufferFrameFromImage(
+  @SuppressWarnings("NewApi")
+  private AsyncFrame createAsyncFrameFromImage(
       ImageAdapter image,
       long presentationTimeUs,
       long sequenceOffsetUs,
       int indexOfItem,
       Format format) {
-    HardwareBufferFrame.Builder frameBuilder;
     // TODO: b/449956936 - Add support for HardwareBuffer on API 26 using Media NDK methods such as
     // AImage_getHardwareBuffer.
-    if (SDK_INT >= 28) {
-      HardwareBuffer hardwareBuffer = checkNotNull(image.getHardwareBuffer());
-      checkState(!hardwareBuffer.isClosed());
-      frameBuilder =
-          new HardwareBufferFrame.Builder(
-              hardwareBuffer,
-              playbackExecutor,
-              /* releaseCallback= */ (releaseFence) -> {
-                // TODO: b/449956936 - Notify the video renderer's WakeupListener that new capacity
-                // is freed up, and run another render loop.
-                releaseFrame(image, hardwareBuffer, releaseFence);
-              });
-    } else {
-      // TODO: b/449956936 - Support earlier API levels via HardwareBufferFrame.internalFrame.
-      frameBuilder =
-          new HardwareBufferFrame.Builder(
-              /* hardwareBuffer= */ null,
-              playbackExecutor,
-              /* releaseCallback= */ (releaseFence) -> {
-                releaseFrame(image, /* hardwareBuffer= */ null, releaseFence);
-              });
-    }
-    // TODO: b/449956936 - Set the acquire fence from image on the frameBuilder.
-    frameBuilder.setInternalFrame(image.getInternalImage());
-    return createHardwareBufferFrame(
-        frameBuilder, presentationTimeUs, sequenceOffsetUs, indexOfItem, format);
+    // TODO(b/531653682): Support frame types not backed by HardwareBuffer.
+    HardwareBuffer hardwareBuffer = checkNotNull(image.getHardwareBuffer());
+    checkState(!hardwareBuffer.isClosed());
+    return createAsyncFrame(
+        hardwareBuffer,
+        image.getInternalImage(),
+        playbackExecutor,
+        /* releaseCallback= */ (releaseFence) -> releaseFrame(image, hardwareBuffer, releaseFence),
+        presentationTimeUs,
+        sequenceOffsetUs,
+        indexOfItem,
+        format);
   }
 
   @Nullable
@@ -479,52 +462,49 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return bitmapToHardwareBufferConverter;
   }
 
-  private HardwareBufferFrame createHardwareBufferFrameFromBitmap(
+  private AsyncFrame createAsyncFrameFromBitmap(
       Bitmap bitmap, long presentationTimeUs, long sequenceOffsetUs, int itemIndex, Format format) {
-    HardwareBufferFrame.Builder frameBuilder;
     // TODO: b/449956936 - Copy the Bitmap into a HardwareBuffer using NDK on earlier API levels.
     if (SDK_INT >= 31 && checkNotNull(bitmap).getConfig() == Bitmap.Config.HARDWARE) {
-      HardwareBuffer hardwareBuffer = checkNotNull(bitmap).getHardwareBuffer();
+      HardwareBuffer hardwareBuffer = checkNotNull(bitmap.getHardwareBuffer());
       checkState(!hardwareBuffer.isClosed());
-      frameBuilder =
-          new HardwareBufferFrame.Builder(
-              hardwareBuffer,
-              playbackExecutor,
-              /* releaseCallback= */ (releaseFence) -> {
-                // Do not manually release the hardware buffer backing the bitmap, it will be reused
-                // when the bitmap is repeated, and cleaned up when the bitmap is garbage collected.
-                releaseFrame(/* image= */ null, /* hardwareBuffer= */ null, releaseFence);
-              });
-    } else if (SDK_INT >= 26 && getOrCreateBitmapToHardwareBufferConverter() != null) {
-      HardwareBufferFrame retainedHandle =
-          checkNotNull(getOrCreateBitmapToHardwareBufferConverter())
-              .getOrCreateRetainedFrame(bitmap);
-      frameBuilder =
-          new HardwareBufferFrame.Builder(
-              checkNotNull(retainedHandle.hardwareBuffer),
-              playbackExecutor,
-              /* releaseCallback= */ (releaseFence) -> {
-                retainedHandle.release(releaseFence);
-                releaseFrame(
-                    /* image= */ null, /* hardwareBuffer= */ null, /* releaseFence= */ null);
-              });
-    } else {
-      frameBuilder =
-          new HardwareBufferFrame.Builder(
-              /* hardwareBuffer= */ null,
-              playbackExecutor,
-              /* releaseCallback= */ (releaseFence) -> {
-                releaseFrame(/* image= */ null, /* hardwareBuffer= */ null, releaseFence);
-              });
+      return createAsyncFrame(
+          hardwareBuffer,
+          bitmap,
+          playbackExecutor,
+          /* releaseCallback= */ (releaseFence) -> {
+            // Do not manually release the hardware buffer backing the bitmap, it will be reused
+            // when the bitmap is repeated, and cleaned up when the bitmap is garbage collected.
+            releaseFrame(/* image= */ null, /* hardwareBuffer= */ null, releaseFence);
+          },
+          presentationTimeUs,
+          sequenceOffsetUs,
+          itemIndex,
+          format);
     }
-    frameBuilder.setInternalFrame(bitmap);
-    return createHardwareBufferFrame(
-        frameBuilder, presentationTimeUs, sequenceOffsetUs, itemIndex, format);
+    // TODO(b/531653682): Support frame types not backed by HardwareBuffer.
+    DefaultHardwareBufferFrame retainedHandle =
+        checkNotNull(getOrCreateBitmapToHardwareBufferConverter()).getOrCreateRetainedFrame(bitmap);
+    return createAsyncFrame(
+        checkNotNull(retainedHandle.getHardwareBuffer()),
+        bitmap,
+        playbackExecutor,
+        /* releaseCallback= */ (releaseFence) -> {
+          retainedHandle.release(releaseFence);
+          releaseFrame(/* image= */ null, /* hardwareBuffer= */ null, /* releaseFence= */ null);
+        },
+        presentationTimeUs,
+        sequenceOffsetUs,
+        itemIndex,
+        format);
   }
 
-  @SuppressWarnings("deprecation") // TODO: b/498547782 - Remove with effect.HardwareBufferFrame.
-  private HardwareBufferFrame createHardwareBufferFrame(
-      HardwareBufferFrame.Builder frameBuilder,
+  @SuppressWarnings({"deprecation", "NewApi"}) // Uses deprecated CompositionFrameMetadata.
+  private AsyncFrame createAsyncFrame(
+      HardwareBuffer hardwareBuffer,
+      @Nullable Object internalImage,
+      Executor releaseExecutor,
+      ReleaseCallback releaseCallback,
       long presentationTimeUs,
       long sequenceOffsetUs,
       int itemIndex,
@@ -539,12 +519,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       format = format.buildUpon().setColorInfo(adjustedColorInfo).build();
     }
     long sequencePresentationTimeUs = presentationTimeUs + sequenceOffsetUs;
-    return frameBuilder
-        .setPresentationTimeUs(presentationTimeUs)
-        .setSequencePresentationTimeUs(sequencePresentationTimeUs)
-        .setMetadata(new CompositionFrameMetadata(composition, sequenceIndex, itemIndex))
-        .setFormat(format)
-        .build();
+    CompositionFrameMetadata compositionFrameMetadata =
+        new CompositionFrameMetadata(composition, sequenceIndex, itemIndex);
+    ImmutableMap<String, Object> metadata =
+        ImmutableMap.<String, Object>builder()
+            .put(Frame.KEY_PRESENTATION_TIME_US, presentationTimeUs)
+            .put(CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA, compositionFrameMetadata)
+            .putAll(asFrameMetadata(compositionFrameMetadata))
+            .buildOrThrow();
+    DefaultHardwareBufferFrame frame =
+        new DefaultHardwareBufferFrame.Builder(hardwareBuffer, releaseExecutor, releaseCallback)
+            .setContentTimeUs(sequencePresentationTimeUs)
+            .setMetadata(metadata)
+            .setFormat(format)
+            .setInternalImage(internalImage)
+            .build();
+    return new AsyncFrame(frame, /* acquireFence= */ null);
   }
 
   private void releaseFrame(
@@ -678,34 +668,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           return ColorInfo.SRGB_BT709_FULL;
       }
     }
-  }
-
-  @SuppressWarnings({"deprecation", "NewApi"})
-  /* package */ static AsyncFrame toAsyncFrame(HardwareBufferFrame effectFrame) {
-    if (effectFrame == HardwareBufferFrame.END_OF_STREAM_FRAME) {
-      return TransformerUtil.END_OF_STREAM_ASYNC_FRAME;
-    }
-    checkNotNull(effectFrame.hardwareBuffer);
-    ImmutableMap.Builder<String, Object> metadataBuilder =
-        ImmutableMap.<String, Object>builder()
-            .put(Frame.KEY_PRESENTATION_TIME_US, effectFrame.presentationTimeUs)
-            .put(Frame.KEY_DISPLAY_TIME_NS, effectFrame.releaseTimeNs);
-    if (effectFrame.getMetadata() instanceof CompositionFrameMetadata) {
-      CompositionFrameMetadata compositionFrameMetadata =
-          (CompositionFrameMetadata) effectFrame.getMetadata();
-      metadataBuilder
-          .put(CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA, compositionFrameMetadata)
-          .putAll(asFrameMetadata(compositionFrameMetadata));
-    }
-    DefaultHardwareBufferFrame commonFrame =
-        new DefaultHardwareBufferFrame.Builder(
-                effectFrame.hardwareBuffer, directExecutor(), effectFrame::release)
-            .setFormat(effectFrame.format)
-            .setContentTimeUs(effectFrame.sequencePresentationTimeUs)
-            .setMetadata(metadataBuilder.buildOrThrow())
-            .setInternalImage(effectFrame.internalFrame)
-            .build();
-    return new AsyncFrame(commonFrame, effectFrame.acquireFence);
   }
 
   @RequiresApi(34)

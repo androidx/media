@@ -18,10 +18,12 @@ package androidx.media3.transformer;
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
 import static androidx.media3.transformer.HardwareBufferFrameReader.CAPACITY;
+import static androidx.media3.transformer.TransformerUtil.releaseIfNeeded;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.graphics.Bitmap;
+import android.hardware.HardwareBuffer;
 import android.os.HandlerThread;
 import android.os.Looper;
 import androidx.media3.common.Format;
@@ -31,12 +33,16 @@ import androidx.media3.common.util.ConstantRateTimestampIterator;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.SystemClock;
-import androidx.media3.effect.HardwareBufferFrame;
+import androidx.media3.common.video.AsyncFrame;
+import androidx.media3.common.video.DefaultHardwareBufferFrame;
+import androidx.media3.common.video.HardwareBufferFrame;
+import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
@@ -48,11 +54,12 @@ import org.junit.runner.RunWith;
  * hardware buffers seems unsupported on robolectric.
  */
 @RunWith(AndroidJUnit4.class)
+@SdkSuppress(minSdkVersion = 26)
 public class HardwareBufferSampleConsumerAndroidTest {
 
   private static final long TEST_TIMEOUT_MS = 500L;
   private HardwareBufferSampleConsumer sampleConsumer;
-  private List<HardwareBufferFrame> receivedFrames;
+  private BlockingQueue<AsyncFrame> receivedFrames;
   private HandlerThread handlerThread;
   private AtomicReference<ExportException> errorRef;
 
@@ -61,7 +68,7 @@ public class HardwareBufferSampleConsumerAndroidTest {
     handlerThread = new HandlerThread("HardwareBufferSampleConsumerTest");
     handlerThread.start();
     errorRef = new AtomicReference<>();
-    receivedFrames = new ArrayList<>();
+    receivedFrames = new LinkedBlockingQueue<>();
   }
 
   @After
@@ -98,13 +105,17 @@ public class HardwareBufferSampleConsumerAndroidTest {
 
     assertThat(framesReceivedLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(receivedFrames).hasSize(CAPACITY);
-    for (int i = 0; i < CAPACITY; i++) {
-      assertThat(receivedFrames.get(i).hardwareBuffer).isNull();
-      assertThat(receivedFrames.get(i).internalFrame).isSameInstanceAs(bitmap);
+    for (int i = 0; i < 3; i++) {
+      AsyncFrame frame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+      assertThat(frame).isNotNull();
+      assertThat(getHardwareBuffer(frame)).isNotNull();
+      assertThat(getInternalImage(frame)).isSameInstanceAs(bitmap);
+      releaseIfNeeded(frame.frame, /* releaseFence= */ null);
     }
+    assertThat(receivedFrames).isEmpty();
   }
 
-  private HardwareBufferSampleConsumer createSampleConsumer(Consumer<HardwareBufferFrame> onFrame) {
+  private HardwareBufferSampleConsumer createSampleConsumer(Consumer<AsyncFrame> onFrame) {
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)).build();
     EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem));
@@ -120,6 +131,14 @@ public class HardwareBufferSampleConsumerAndroidTest {
         handlerWrapper,
         onFrame,
         error -> errorRef.set(error),
-        /* hardwareBufferJniWrapper= */ null);
+        HardwareBufferJni.INSTANCE);
+  }
+
+  private static HardwareBuffer getHardwareBuffer(AsyncFrame asyncFrame) {
+    return ((HardwareBufferFrame) asyncFrame.frame).getHardwareBuffer();
+  }
+
+  private static Object getInternalImage(AsyncFrame asyncFrame) {
+    return ((DefaultHardwareBufferFrame) asyncFrame.frame).getInternalImage();
   }
 }

@@ -29,8 +29,8 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Consumer;
+import androidx.media3.common.video.DefaultHardwareBufferFrame;
 import androidx.media3.common.video.SyncFenceWrapper;
-import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import java.time.Duration;
 import java.util.concurrent.Executor;
@@ -39,8 +39,8 @@ import java.util.concurrent.RejectedExecutionException;
 
 // TODO: b/475511702 - Handle HDR bitmaps.
 /**
- * Converts {@link Bitmap} instances into {@link HardwareBuffer}-backed {@link HardwareBufferFrame}
- * instances.
+ * Converts {@link Bitmap} instances into {@link HardwareBuffer}-backed {@link
+ * DefaultHardwareBufferFrame} instances.
  *
  * <p>This converter caches the underlying {@link HardwareBuffer} as long as the input {@link
  * Bitmap} remains the same (verified via {@link Bitmap#getGenerationId()}). It uses JNI to copy
@@ -62,7 +62,7 @@ import java.util.concurrent.RejectedExecutionException;
 
   @GuardedBy("this")
   @Nullable
-  private HardwareBufferFrame currentFrame;
+  private DefaultHardwareBufferFrame currentFrame;
 
   @GuardedBy("this")
   @Nullable
@@ -95,13 +95,12 @@ import java.util.concurrent.RejectedExecutionException;
   }
 
   /**
-   * Returns a retained {@link HardwareBufferFrame} containing the {@link HardwareBuffer} for the
-   * given {@link Bitmap}.
+   * Returns a retained {@link DefaultHardwareBufferFrame} containing the {@link HardwareBuffer} for
+   * the given {@link Bitmap}.
    *
-   * <p>The caller must call {@link HardwareBufferFrame#release(SyncFenceWrapper)} on the returned
-   * frame when finished with it.
+   * <p>The caller must release the returned frame when finished with it.
    */
-  /* package */ HardwareBufferFrame getOrCreateRetainedFrame(Bitmap nextBitmap) {
+  /* package */ DefaultHardwareBufferFrame getOrCreateRetainedFrame(Bitmap nextBitmap) {
     synchronized (this) {
       checkState(!internalExecutor.isShutdown());
       // Check whether the current bitmap should be updated.
@@ -117,10 +116,12 @@ import java.util.concurrent.RejectedExecutionException;
 
       if (currentFrame == null) {
         HardwareBuffer buffer = null;
+        boolean bitmapOwnsBuffer = false;
         try {
           if (SDK_INT >= 31 && nextBitmap.getConfig() == Config.HARDWARE) {
             // Input is HARDWARE and API >= 31: Direct access to HardwareBuffer is possible.
             buffer = nextBitmap.getHardwareBuffer();
+            bitmapOwnsBuffer = buffer != null;
           }
           // Fallback to the native helper when the HardwareBuffer retrieved from the Bitmap was
           // null, or SDK_INT < 31.
@@ -143,26 +144,31 @@ import java.util.concurrent.RejectedExecutionException;
 
           currentBitmap = nextBitmap;
           HardwareBuffer currentBuffer = buffer;
+          boolean shouldCloseBuffer = !bitmapOwnsBuffer;
           currentFrame =
-              new HardwareBufferFrame.Builder(
+              new DefaultHardwareBufferFrame.Builder(
                       buffer,
                       /* releaseExecutor= */ directExecutor(),
-                      /* releaseCallback= */ (fence) -> releaseBuffer(currentBuffer, fence))
+                      /* releaseCallback= */ (fence) -> {
+                        if (shouldCloseBuffer) {
+                          releaseBuffer(currentBuffer, fence);
+                        }
+                      })
                   .build();
           // Save the generationId from after the native copy, as AndroidBitmap_unlockPixels can
           // cause the generationId to increment.
           currentBitmapGenerationId = nextBitmap.getGenerationId();
         } catch (IllegalStateException e) {
-          // If the native copy failed, the buffer is not wrapped in a HardwareBufferFrame, so
-          // it needs to be closed here to avoid leaking.
-          if (buffer != null) {
+          // If the native copy failed, the buffer is not wrapped in a DefaultHardwareBufferFrame,
+          // so it needs to be closed here to avoid leaking.
+          if (buffer != null && !bitmapOwnsBuffer) {
             buffer.close();
           }
           throw e;
         }
       }
 
-      return checkNotNull(currentFrame).retain();
+      return checkNotNull(currentFrame).buildUpon().shouldIncrementReferenceCount().build();
     }
   }
 
