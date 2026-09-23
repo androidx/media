@@ -107,7 +107,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     HardwareBufferFrame hardwareBufferFrame = (HardwareBufferFrame) frame;
 
     HardwareBuffer hardwareBuffer = checkNotNull(hardwareBufferFrame.getHardwareBuffer());
-    boolean isExternalTexture = hardwareBuffer.getFormat() != HardwareBuffer.RGBA_8888;
+    boolean isExternalTexture = !isRgbHardwareBuffer(hardwareBuffer.getFormat());
     int outputTexId;
     @Nullable EglImageTextureWrapper eglImageTextureWrapper = null;
     int internalTexId = C.INDEX_UNSET;
@@ -321,5 +321,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return ((DefaultHardwareBufferFrame) hardwareBufferFrame).getInternalImage();
     }
     return null;
+  }
+
+  private static boolean isRgbHardwareBuffer(int format) {
+    return format == HardwareBuffer.RGBA_8888
+        || format == HardwareBuffer.RGBA_FP16
+        || format == HardwareBuffer.RGBA_1010102;
   }
 }

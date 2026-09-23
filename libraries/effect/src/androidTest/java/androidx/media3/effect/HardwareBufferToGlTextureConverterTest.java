@@ -18,6 +18,7 @@ package androidx.media3.effect;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.effect.DefaultGlFrameProcessor.COLORSPACE_HDR_HLG;
 import static androidx.media3.effect.DefaultGlFrameProcessor.COLORSPACE_HDR_LINEAR;
+import static androidx.media3.effect.DefaultGlFrameProcessor.COLORSPACE_SDR_LINEAR;
 import static androidx.media3.effect.DefaultGlFrameProcessor.COLORSPACE_SDR_SRGB;
 import static androidx.media3.effect.FrameProcessorUtils.releaseOpenGl;
 import static androidx.media3.effect.FrameProcessorUtils.setupOpenGl;
@@ -99,41 +100,95 @@ public final class HardwareBufferToGlTextureConverterTest {
 
   @Rule public final TestName testName = new TestName();
   private static final AssetInfo TEST_VIDEO_ASSET = AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
+  private static final ColorInfo PQ_INPUT_COLOR =
+      new ColorInfo.Builder()
+          .setColorSpace(C.COLOR_SPACE_BT2020)
+          .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+          .setColorRange(C.COLOR_RANGE_FULL)
+          .build();
   private static final float MAX_PIXEL_DIFFERENCE = 10.f;
   private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000L : 10_000L;
   private static final long FENCE_TIMEOUT_MS = 1_000L;
+  private static final int SOLID_COLOR_BITMAP_SIZE = 64;
   private static final ImmutableList<SolidColorTestCase> SOLID_COLOR_TEST_CASES =
       ImmutableList.of(
           new SolidColorTestCase(
-              /* name= */ "BLACK",
+              /* name= */ "SRGB_BLACK",
               /* inputSrgbColor= */ Color.BLACK,
               /* expectedHlgRgb= */ Color.valueOf(0.0f, 0.0f, 0.0f),
               /* expectedBt2020LinearRgb= */ Color.valueOf(0.0f, 0.0f, 0.0f)),
           new SolidColorTestCase(
-              /* name= */ "WHITE",
+              /* name= */ "SRGB_WHITE",
               /* inputSrgbColor= */ Color.WHITE,
               /* expectedHlgRgb= */ Color.valueOf(0.75f, 0.75f, 0.75f),
               /* expectedBt2020LinearRgb= */ Color.valueOf(1.0f, 1.0f, 1.0f)),
           new SolidColorTestCase(
-              /* name= */ "GRAY_128",
+              /* name= */ "SRGB_GRAY_128",
               /* inputSrgbColor= */ Color.rgb(128, 128, 128),
               /* expectedHlgRgb= */ Color.valueOf(0.4707f, 0.4707f, 0.4707f),
               /* expectedBt2020LinearRgb= */ Color.valueOf(0.2787f, 0.2787f, 0.2787f)),
           new SolidColorTestCase(
-              /* name= */ "RED",
+              /* name= */ "SRGB_RED",
               /* inputSrgbColor= */ Color.RED,
               /* expectedHlgRgb= */ Color.valueOf(0.7087f, 0.2666f, 0.1298f),
               /* expectedBt2020LinearRgb= */ Color.valueOf(0.8122f, 0.0894f, 0.0212f)),
           new SolidColorTestCase(
-              /* name= */ "GREEN",
+              /* name= */ "SRGB_GREEN",
               /* inputSrgbColor= */ Color.GREEN,
               /* expectedHlgRgb= */ Color.valueOf(0.5250f, 0.7445f, 0.2720f),
               /* expectedBt2020LinearRgb= */ Color.valueOf(0.3482f, 0.9724f, 0.0931f)),
           new SolidColorTestCase(
-              /* name= */ "BLUE",
+              /* name= */ "SRGB_BLUE",
               /* inputSrgbColor= */ Color.BLUE,
               /* expectedHlgRgb= */ Color.valueOf(0.2309f, 0.1183f, 0.75f),
               /* expectedBt2020LinearRgb= */ Color.valueOf(0.0671f, 0.0176f, 1.0f)));
+
+  private static final ImmutableList<SolidColorTestCase> PQ_SOLID_COLOR_TEST_CASES =
+      ImmutableList.of(
+          new SolidColorTestCase(
+              /* name= */ "PQ_BLACK",
+              /* inputPqColor= */ Color.valueOf(0.0f, 0.0f, 0.0f),
+              /* expectedHlgRgb= */ Color.valueOf(0.0f, 0.0f, 0.0f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(0.0f, 0.0f, 0.0f),
+              /* expectedSdrLinearRgb= */ Color.valueOf(0.0f, 0.0f, 0.0f)),
+          // Diffuse White (203 nits): the linear working space is anchored here, so Bt2020 Linear
+          // is 1.0. HLG = 0.7501, SDR Linear = 0.4060 (203 / 500 nits).
+          new SolidColorTestCase(
+              /* name= */ "PQ_DIFFUSE_WHITE",
+              /* inputPqColor= */ Color.valueOf(0.5807f, 0.5807f, 0.5807f),
+              /* expectedHlgRgb= */ Color.valueOf(0.7501f, 0.7501f, 0.7501f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(0.9995f, 0.9995f, 0.9995f),
+              /* expectedSdrLinearRgb= */ Color.valueOf(0.4060f, 0.4060f, 0.4060f)),
+          new SolidColorTestCase(
+              /* name= */ "PQ_ONE_THOUSAND_NITS",
+              /* inputPqColor= */ Color.valueOf(0.7518f, 0.7518f, 0.7518f),
+              /* expectedHlgRgb= */ Color.valueOf(1.0f, 1.0f, 1.0f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(3.7733f, 3.7733f, 3.7733f),
+              /* expectedSdrLinearRgb= */ Color.valueOf(1.0f, 1.0f, 1.0f)),
+          new SolidColorTestCase(
+              /* name= */ "PQ_TEN_THOUSAND_NITS",
+              /* inputPqColor= */ Color.valueOf(1.0f, 1.0f, 1.0f),
+              /* expectedHlgRgb= */ Color.valueOf(1.0f, 1.0f, 1.0f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(25.7128f, 25.7128f, 25.7128f),
+              /* expectedSdrLinearRgb= */ Color.valueOf(1.0f, 1.0f, 1.0f)),
+          new SolidColorTestCase(
+              /* name= */ "PQ_PRIMARY_RED",
+              /* inputPqColor= */ Color.valueOf(1.0f, 0.0f, 0.0f),
+              /* expectedHlgRgb= */ Color.valueOf(1.0f, 0.0f, 0.0f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(32.1296f, 0.0f, 0.0f),
+              /* expectedSdrLinearRgb= */ Color.valueOf(1.6605f, -0.1246f, -0.0182f)),
+          new SolidColorTestCase(
+              /* name= */ "PQ_PRIMARY_GREEN",
+              /* inputPqColor= */ Color.valueOf(0.0f, 1.0f, 0.0f),
+              /* expectedHlgRgb= */ Color.valueOf(0.0f, 1.0f, 0.0f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(0.0f, 27.4333f, 0.0f),
+              /* expectedSdrLinearRgb= */ Color.valueOf(-0.5876f, 1.1329f, -0.1006f)),
+          new SolidColorTestCase(
+              /* name= */ "PQ_PRIMARY_BLUE",
+              /* inputPqColor= */ Color.valueOf(0.0f, 0.0f, 1.0f),
+              /* expectedHlgRgb= */ Color.valueOf(0.0f, 0.0f, 1.0f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(0.0f, 0.0f, 41.1754f),
+              /* expectedSdrLinearRgb= */ Color.valueOf(-0.0728f, -0.0083f, 1.1187f)));
 
   private final Context context = getApplicationContext();
 
@@ -177,7 +232,7 @@ public final class HardwareBufferToGlTextureConverterTest {
 
   @SdkSuppress(minSdkVersion = 31)
   @Test
-  public void convert_withARGB8888HardwareBuffer_outputsCorrectGlTexture() throws Exception {
+  public void convert_withArgb8888HardwareBuffer_outputsCorrectGlTexture() throws Exception {
     Bitmap expectedBitmap = BitmapPixelTestUtil.readBitmap("media/png/first_frame_1920x1080.png");
     Bitmap hardwareBitmap = expectedBitmap.copy(Bitmap.Config.HARDWARE, /* isMutable= */ false);
     HardwareBuffer hardwareBuffer = hardwareBitmap.getHardwareBuffer();
@@ -615,24 +670,6 @@ public final class HardwareBufferToGlTextureConverterTest {
     }
   }
 
-  /**
-   * Tests SDR to HDR (HLG) conversion.
-   *
-   * <p>Expected Value Calculation:
-   *
-   * <ul>
-   *   <li>Input SDR electrical values in {@code [0.0, 1.0]} are linearized using the sRGB EOTF
-   *       (ITU-R BT.709 display light).
-   *   <li>Display light is converted to BT.2020 scene light using {@code BT709_TO_XYZ}, an inverse
-   *       HLG OOTF scaling in XYZ luminance ({@code Y^(-1/6)} for system gamma = 1.2), and {@code
-   *       XYZ_TO_BT2020} per ITU-R BT.2408 section 5.1.1.
-   *   <li>Scene light is scaled down by the BT.2408 diffuse white factor {@code hlgEotf(0.75)}, so
-   *       that SDR reference white maps to the 75% HLG signal level (203 nits) rather than to HLG
-   *       peak.
-   *   <li>The resulting scene light is encoded into HLG electrical signal using the HLG OETF per
-   *       ITU-R BT.2100-2 Table 5.
-   * </ul>
-   */
   @SdkSuppress(minSdkVersion = 31)
   @Test
   public void convert_withSolidColorSdrBuffersAndHlgOutput_outputsCorrectValues(
@@ -657,9 +694,6 @@ public final class HardwareBufferToGlTextureConverterTest {
    *       HLG OOTF scaling in XYZ luminance ({@code Y^(-1/6)} for system gamma = 1.2), and {@code
    *       XYZ_TO_BT2020} per ITU-R BT.2408 section 5.1.1.
    *   <li>Output is kept in optical linear BT.2020 scene light without applying an OETF.
-   *   <li>No scaling is applied: the scene light is already anchored on the BT.2408 diffuse white
-   *       reference, so SDR reference white maps to {@code 1.0}, the same value that HDR diffuse
-   *       white ({@code hlgEotf(0.75)}, 203 nits) maps to in this working space.
    * </ul>
    */
   @SdkSuppress(minSdkVersion = 31)
@@ -674,14 +708,51 @@ public final class HardwareBufferToGlTextureConverterTest {
         testCase.expectedBt2020LinearRgb);
   }
 
-  @RequiresApi(31)
-  private void assertSolidColorSdrUpsampling(
-      ColorInfo outputColorInfo, int inputSrgbColor, Color expectedOutputColorRgb)
+  @SdkSuppress(minSdkVersion = 31)
+  @Test
+  public void convert_withSolidColorPqBuffersAndHdrLinearOutput_outputsCorrectValues(
+      @TestParameter(valuesProvider = PqSolidColorTestCasesProvider.class)
+          SolidColorTestCase testCase)
       throws Exception {
-    int width = 64;
-    int height = 64;
+    assertSolidColorPqConversion(
+        /* outputColorInfo= */ COLORSPACE_HDR_LINEAR,
+        /* inputPqColor= */ checkNotNull(testCase.inputPqColor),
+        testCase.expectedBt2020LinearRgb);
+  }
 
-    Bitmap inputBitmap = createArgb8888BitmapWithSolidColor(width, height, inputSrgbColor);
+  @SdkSuppress(minSdkVersion = 31)
+  @Test
+  public void convert_withSolidColorPqBuffersAndHlgOutput_outputsCorrectValues(
+      @TestParameter(valuesProvider = PqSolidColorTestCasesProvider.class)
+          SolidColorTestCase testCase)
+      throws Exception {
+    assertSolidColorPqConversion(
+        /* outputColorInfo= */ COLORSPACE_HDR_HLG,
+        /* inputPqColor= */ checkNotNull(testCase.inputPqColor),
+        testCase.expectedHlgRgb);
+  }
+
+  @SdkSuppress(minSdkVersion = 31)
+  @Test
+  public void convert_withSolidColorPqBuffersAndSdrLinearOutput_outputsCorrectValues(
+      @TestParameter(valuesProvider = PqSolidColorTestCasesProvider.class)
+          SolidColorTestCase testCase)
+      throws Exception {
+    assertSolidColorPqConversion(
+        /* outputColorInfo= */ COLORSPACE_SDR_LINEAR,
+        /* inputPqColor= */ checkNotNull(testCase.inputPqColor),
+        checkNotNull(testCase.expectedSdrLinearRgb));
+  }
+
+  @RequiresApi(31)
+  private void assertSolidColorConversion(
+      Bitmap inputBitmap,
+      ColorInfo inputColorInfo,
+      ColorInfo outputColorInfo,
+      Color expectedOutputColorRgb)
+      throws Exception {
+    int width = inputBitmap.getWidth();
+    int height = inputBitmap.getHeight();
     Bitmap hardwareBitmap = inputBitmap.copy(Bitmap.Config.HARDWARE, /* isMutable= */ false);
     HardwareBuffer hardwareBuffer = checkNotNull(hardwareBitmap.getHardwareBuffer());
     HardwareBufferFrame inputHardwareBufferFrame =
@@ -690,7 +761,7 @@ public final class HardwareBufferToGlTextureConverterTest {
                 new Format.Builder()
                     .setWidth(width)
                     .setHeight(height)
-                    .setColorInfo(ColorInfo.SRGB_BT709_FULL)
+                    .setColorInfo(inputColorInfo)
                     .build())
             .build();
 
@@ -740,6 +811,36 @@ public final class HardwareBufferToGlTextureConverterTest {
     } finally {
       hardwareBuffer.close();
     }
+  }
+
+  @RequiresApi(31)
+  private void assertSolidColorSdrUpsampling(
+      ColorInfo outputColorInfo, int inputSrgbColor, Color expectedOutputColorRgb)
+      throws Exception {
+    assertSolidColorConversion(
+        createArgb8888BitmapWithSolidColor(
+            /* width= */ SOLID_COLOR_BITMAP_SIZE,
+            /* height= */ SOLID_COLOR_BITMAP_SIZE,
+            inputSrgbColor),
+        ColorInfo.SRGB_BT709_FULL,
+        outputColorInfo,
+        expectedOutputColorRgb);
+  }
+
+  @RequiresApi(31)
+  private void assertSolidColorPqConversion(
+      ColorInfo outputColorInfo, Color inputPqColor, Color expectedOutputColorRgb)
+      throws Exception {
+    assertSolidColorConversion(
+        createFp16BitmapWithSolidColor(
+            /* width= */ SOLID_COLOR_BITMAP_SIZE,
+            /* height= */ SOLID_COLOR_BITMAP_SIZE,
+            inputPqColor.red(),
+            inputPqColor.green(),
+            inputPqColor.blue()),
+        /* inputColorInfo= */ PQ_INPUT_COLOR,
+        outputColorInfo,
+        expectedOutputColorRgb);
   }
 
   @SdkSuppress(minSdkVersion = 31)
@@ -992,7 +1093,7 @@ public final class HardwareBufferToGlTextureConverterTest {
                 int unused = setupOpenGl(checkNotNull(glObjectsProvider));
                 GlTextureFrame glTextureFrame =
                     converter.convert(
-                        /* hardwareBufferFrame= */ hardwareBufferFrame,
+                        hardwareBufferFrame,
                         glExecutorService,
                         /* listenerExecutor= */ directExecutor(),
                         listener);
@@ -1126,15 +1227,33 @@ public final class HardwareBufferToGlTextureConverterTest {
   private static final class SolidColorTestCase {
     final String name;
     final int inputSrgbColor;
+    @Nullable final Color inputPqColor;
     final Color expectedHlgRgb;
     final Color expectedBt2020LinearRgb;
+    @Nullable final Color expectedSdrLinearRgb;
 
     SolidColorTestCase(
         String name, int inputSrgbColor, Color expectedHlgRgb, Color expectedBt2020LinearRgb) {
       this.name = name;
       this.inputSrgbColor = inputSrgbColor;
+      this.inputPqColor = null;
       this.expectedHlgRgb = expectedHlgRgb;
       this.expectedBt2020LinearRgb = expectedBt2020LinearRgb;
+      this.expectedSdrLinearRgb = null;
+    }
+
+    SolidColorTestCase(
+        String name,
+        Color inputPqColor,
+        Color expectedHlgRgb,
+        Color expectedBt2020LinearRgb,
+        Color expectedSdrLinearRgb) {
+      this.name = name;
+      this.inputSrgbColor = Color.BLACK;
+      this.inputPqColor = inputPqColor;
+      this.expectedHlgRgb = expectedHlgRgb;
+      this.expectedBt2020LinearRgb = expectedBt2020LinearRgb;
+      this.expectedSdrLinearRgb = expectedSdrLinearRgb;
     }
 
     @Override
@@ -1149,6 +1268,15 @@ public final class HardwareBufferToGlTextureConverterTest {
         com.google.testing.junit.testparameterinjector.TestParameterValuesProvider.Context
             context) {
       return SOLID_COLOR_TEST_CASES;
+    }
+  }
+
+  private static final class PqSolidColorTestCasesProvider extends TestParameterValuesProvider {
+    @Override
+    protected ImmutableList<SolidColorTestCase> provideValues(
+        com.google.testing.junit.testparameterinjector.TestParameterValuesProvider.Context
+            context) {
+      return PQ_SOLID_COLOR_TEST_CASES;
     }
   }
 }

@@ -274,14 +274,39 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
           .setColorTransfer(C.COLOR_TRANSFER_SRGB)
           .build();
 
-  /** An HDR color space with BT.2020 color primaries, and linear transfer function. */
+  /**
+   * An HDR color space with BT.2020 color primaries, and linear transfer function.
+   *
+   * <p>Values are anchored on the ITU-R BT.2408 203-nit diffuse white reference, so {@code 1.0}
+   * represents diffuse white and the 1,000-nit reference peak evaluates to {@code ~3.7741}.
+   *
+   * <p>When input is PQ, PQ electrical values are linearized using the SMPTE ST 2084 EOTF,
+   * normalized against the 1,000-nit reference display peak, converted to scene light with the
+   * inverse HLG OOTF, and scaled onto the diffuse white anchor. Light above the reference peak
+   * (1000 nits) is not clipped.
+   *
+   * <p>The values are always scene-referred.
+   */
   /* package */ static final ColorInfo COLORSPACE_HDR_LINEAR =
       new ColorInfo.Builder()
           .setColorSpace(C.COLOR_SPACE_BT2020)
           .setColorTransfer(C.COLOR_TRANSFER_LINEAR)
           .build();
 
-  /** An HDR color space with BT.2020 color primaries, and HLG transfer function. */
+  /**
+   * An HDR color space with BT.2020 color primaries, and HLG transfer function.
+   *
+   * <p>When input is PQ, PQ electrical values are converted to optical linear light in nits and
+   * normalized against the 1,000-nit HLG reference display peak. The resulting display light is
+   * converted to scene light via inverse HLG OOTF (system gamma 1.2) and encoded into an HLG
+   * electrical signal using the BT.2100 HLG OETF.
+   *
+   * <p>HLG signal cannot represent light above the reference peak (1000 nits), so scene light above
+   * the signal range is scaled down to fit before the OETF, all three channels are scaled equally
+   * to preserve chromaticity.
+   *
+   * <p>The values are always scene-referred.
+   */
   /* package */ static final ColorInfo COLORSPACE_HDR_HLG =
       new ColorInfo.Builder()
           .setColorSpace(C.COLOR_SPACE_BT2020)
