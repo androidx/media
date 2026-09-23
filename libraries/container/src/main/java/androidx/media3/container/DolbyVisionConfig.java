@@ -28,31 +28,38 @@ public final class DolbyVisionConfig {
    *
    * @param data A {@link ParsableByteArray}, whose position is set to the start of the Dolby Vision
    *     configuration data to parse.
-   * @return The {@link DolbyVisionConfig} corresponding to the configuration, or {@code null} if
-   *     the configuration isn't supported.
+   * @return The {@link DolbyVisionConfig} corresponding to the configuration.
    */
-  @Nullable
   public static DolbyVisionConfig parse(ParsableByteArray data) {
     data.skipBytes(2); // dv_version_major, dv_version_minor
     int profileData = data.readUnsignedByte();
     int dvProfile = (profileData >> 1);
     int dvLevel = ((profileData & 0x1) << 5) | ((data.readUnsignedByte() >> 3) & 0x1F);
-    String codecsPrefix;
+    @Nullable String codecsPrefix;
     if (dvProfile == 4 || dvProfile == 5 || dvProfile == 7 || dvProfile == 8) {
       codecsPrefix = "dvhe";
     } else if (dvProfile == 9) {
       codecsPrefix = "dvav";
     } else if (dvProfile == 10) {
       codecsPrefix = "dav1";
+    } else if (dvProfile == 20) {
+      codecsPrefix = "dvh1";
     } else {
-      return null;
+      // Unrecognized profile. Leave codecs unset so that the track is still reported as Dolby
+      // Vision, but with no codecs string: track/decoder selection then correctly treats it as
+      // unsupported instead of silently falling back to the base codec's MIME type.
+      // See MediaCodecInfo.isCodecProfileAndLevelSupported.
+      codecsPrefix = null;
     }
+    @Nullable
     String codecs =
-        codecsPrefix
-            + (dvProfile < 10 ? ".0" : ".")
-            + dvProfile
-            + (dvLevel < 10 ? ".0" : ".")
-            + dvLevel;
+        codecsPrefix == null
+            ? null
+            : codecsPrefix
+                + (dvProfile < 10 ? ".0" : ".")
+                + dvProfile
+                + (dvLevel < 10 ? ".0" : ".")
+                + dvLevel;
     return new DolbyVisionConfig(dvProfile, dvLevel, codecs);
   }
 
@@ -62,10 +69,13 @@ public final class DolbyVisionConfig {
   /** The level number. */
   public final int level;
 
-  /** The RFC 6381 codecs string. */
-  public final String codecs;
+  /**
+   * The RFC 6381 codecs string, or {@code null} if the profile isn't recognized and so a codecs
+   * string can't be constructed.
+   */
+  @Nullable public final String codecs;
 
-  private DolbyVisionConfig(int profile, int level, String codecs) {
+  private DolbyVisionConfig(int profile, int level, @Nullable String codecs) {
     this.profile = profile;
     this.level = level;
     this.codecs = codecs;

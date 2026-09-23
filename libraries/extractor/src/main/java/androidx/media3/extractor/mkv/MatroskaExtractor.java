@@ -2721,13 +2721,10 @@ public class MatroskaExtractor implements Extractor {
       }
 
       if (dolbyVisionConfigBytes != null) {
-        @Nullable
         DolbyVisionConfig dolbyVisionConfig =
             DolbyVisionConfig.parse(new ParsableByteArray(this.dolbyVisionConfigBytes));
-        if (dolbyVisionConfig != null) {
-          codecs = dolbyVisionConfig.codecs;
-          mimeType = MimeTypes.VIDEO_DOLBY_VISION;
-        }
+        codecs = dolbyVisionConfig.codecs;
+        mimeType = MimeTypes.VIDEO_DOLBY_VISION;
       }
 
       @C.SelectionFlags int selectionFlags = 0;

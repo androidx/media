@@ -389,6 +389,22 @@ public final class MediaCodecInfoTest {
   }
 
   @Test
+  public void isFormatSupported_dolbyVisionWithNoCodecsString_returnsFalse() {
+    // Simulates an unrecognized/unsupported Dolby Vision profile, for which the container
+    // extractors report the Dolby Vision MIME type but no codecs string.
+    Format formatDolbyVisionUnknownProfile =
+        new Format.Builder()
+            .setSampleMimeType(VIDEO_DOLBY_VISION)
+            .setWidth(1920)
+            .setHeight(1080)
+            .build();
+    MediaCodecInfo codecInfo = buildDolbyVisionCodecInfo();
+    Context context = ApplicationProvider.getApplicationContext();
+
+    assertThat(codecInfo.isFormatSupported(context, formatDolbyVisionUnknownProfile)).isFalse();
+  }
+
+  @Test
   public void canReuseCodec_eac3_returnsYesWithoutReconfiguration() {
     MediaCodecInfo codecInfo =
         new MediaCodecInfo(
