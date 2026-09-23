@@ -16,10 +16,10 @@
 package androidx.media3.effect;
 
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
-import static androidx.media3.effect.DefaultGlFrameProcessor.COLORSPACE_HDR_HLG;
-import static androidx.media3.effect.DefaultGlFrameProcessor.COLORSPACE_HDR_LINEAR;
-import static androidx.media3.effect.DefaultGlFrameProcessor.COLORSPACE_SDR_LINEAR;
-import static androidx.media3.effect.DefaultGlFrameProcessor.COLORSPACE_SDR_SRGB;
+import static androidx.media3.effect.DefaultGlFrameProcessor.BT2020_HLG;
+import static androidx.media3.effect.DefaultGlFrameProcessor.BT2020_LINEAR;
+import static androidx.media3.effect.DefaultGlFrameProcessor.BT709_LINEAR;
+import static androidx.media3.effect.DefaultGlFrameProcessor.BT709_SRGB;
 import static androidx.media3.effect.FrameProcessorUtils.releaseOpenGl;
 import static androidx.media3.effect.FrameProcessorUtils.setupOpenGl;
 import static androidx.media3.effect.FrameProcessorUtils.shutdownGlExecutorService;
@@ -408,7 +408,7 @@ public final class HardwareBufferToGlTextureConverterTest {
         new HardwareBufferToGlTextureConverter(
             context,
             HardwareBufferJni.INSTANCE,
-            /* outputColorInfo= */ COLORSPACE_SDR_SRGB,
+            /* outputColorInfo= */ BT709_SRGB,
             e -> {
               throw new AssertionError(e);
             });
@@ -553,7 +553,7 @@ public final class HardwareBufferToGlTextureConverterTest {
         new HardwareBufferToGlTextureConverter(
             context,
             HardwareBufferJni.INSTANCE,
-            /* outputColorInfo= */ COLORSPACE_SDR_SRGB,
+            /* outputColorInfo= */ BT709_SRGB,
             /* errorConsumer= */ e -> {
               throw new AssertionError(e);
             });
@@ -677,9 +677,7 @@ public final class HardwareBufferToGlTextureConverterTest {
           SolidColorTestCase testCase)
       throws Exception {
     assertSolidColorSdrUpsampling(
-        /* outputColorInfo= */ COLORSPACE_HDR_HLG,
-        testCase.inputSrgbColor,
-        testCase.expectedHlgRgb);
+        /* outputColorInfo= */ BT2020_HLG, testCase.inputSrgbColor, testCase.expectedHlgRgb);
   }
 
   /**
@@ -703,7 +701,7 @@ public final class HardwareBufferToGlTextureConverterTest {
           SolidColorTestCase testCase)
       throws Exception {
     assertSolidColorSdrUpsampling(
-        /* outputColorInfo= */ COLORSPACE_HDR_LINEAR,
+        /* outputColorInfo= */ BT2020_LINEAR,
         testCase.inputSrgbColor,
         testCase.expectedBt2020LinearRgb);
   }
@@ -715,7 +713,7 @@ public final class HardwareBufferToGlTextureConverterTest {
           SolidColorTestCase testCase)
       throws Exception {
     assertSolidColorPqConversion(
-        /* outputColorInfo= */ COLORSPACE_HDR_LINEAR,
+        /* outputColorInfo= */ BT2020_LINEAR,
         /* inputPqColor= */ checkNotNull(testCase.inputPqColor),
         testCase.expectedBt2020LinearRgb);
   }
@@ -727,7 +725,7 @@ public final class HardwareBufferToGlTextureConverterTest {
           SolidColorTestCase testCase)
       throws Exception {
     assertSolidColorPqConversion(
-        /* outputColorInfo= */ COLORSPACE_HDR_HLG,
+        /* outputColorInfo= */ BT2020_HLG,
         /* inputPqColor= */ checkNotNull(testCase.inputPqColor),
         testCase.expectedHlgRgb);
   }
@@ -739,7 +737,7 @@ public final class HardwareBufferToGlTextureConverterTest {
           SolidColorTestCase testCase)
       throws Exception {
     assertSolidColorPqConversion(
-        /* outputColorInfo= */ COLORSPACE_SDR_LINEAR,
+        /* outputColorInfo= */ BT709_LINEAR,
         /* inputPqColor= */ checkNotNull(testCase.inputPqColor),
         checkNotNull(testCase.expectedSdrLinearRgb));
   }
@@ -1003,14 +1001,14 @@ public final class HardwareBufferToGlTextureConverterTest {
   @SdkSuppress(minSdkVersion = 34)
   @Test
   public void convert_withUltraHdrBitmapAndHdrOutput_outputsCorrectGlTexture() throws Exception {
-    assertUltraHdrConversion(COLORSPACE_HDR_HLG);
+    assertUltraHdrConversion(BT2020_HLG);
   }
 
   @SdkSuppress(minSdkVersion = 34)
   @Test
   public void convert_withUltraHdrBitmapAndSdrOutput_outputsCorrectToneMappedGlTexture()
       throws Exception {
-    assertUltraHdrConversion(COLORSPACE_SDR_SRGB);
+    assertUltraHdrConversion(BT709_SRGB);
   }
 
   @SdkSuppress(minSdkVersion = 34)
@@ -1026,7 +1024,7 @@ public final class HardwareBufferToGlTextureConverterTest {
         new HardwareBufferToGlTextureConverter(
             context,
             HardwareBufferJni.INSTANCE,
-            COLORSPACE_HDR_HLG,
+            BT2020_HLG,
             e -> {
               throw new IllegalStateException(e);
             });

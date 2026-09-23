@@ -414,7 +414,7 @@ public final class DefaultGlFrameProcessorTest {
     ColorInfo actualColorInfo =
         queueFrameAndGetColorInfo(format, /* forceUnsupportedFormat= */ false);
 
-    assertThat(actualColorInfo).isEqualTo(DefaultGlFrameProcessor.COLORSPACE_HDR_HLG);
+    assertThat(actualColorInfo).isEqualTo(DefaultGlFrameProcessor.BT2020_HLG);
   }
 
   @Test

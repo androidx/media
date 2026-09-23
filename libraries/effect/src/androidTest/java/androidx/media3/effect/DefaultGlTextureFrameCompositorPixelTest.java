@@ -15,8 +15,8 @@
  */
 package androidx.media3.effect;
 
-import static androidx.media3.effect.DefaultGlFrameProcessor.COLORSPACE_HDR_HLG;
-import static androidx.media3.effect.DefaultGlFrameProcessor.COLORSPACE_SDR_SRGB;
+import static androidx.media3.effect.DefaultGlFrameProcessor.BT2020_HLG;
+import static androidx.media3.effect.DefaultGlFrameProcessor.BT709_SRGB;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITION_SEQUENCE_INDEX;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITOR_SETTINGS;
 import static androidx.media3.effect.EffectsTestUtil.createFocusedEglContextWithFallback;
@@ -116,7 +116,7 @@ public final class DefaultGlTextureFrameCompositorPixelTest {
   @Test
   @SdkSuppress(minSdkVersion = 33)
   public void composite_singleHdrSequence_passesThroughHdrFrame() throws Exception {
-    Format hlgFormat = new Format.Builder().setColorInfo(COLORSPACE_HDR_HLG).build();
+    Format hlgFormat = new Format.Builder().setColorInfo(BT2020_HLG).build();
     assumeTrue("Device does not support OpenGL ES 3.0", GlUtil.getContextMajorVersion() >= 3);
 
     Bitmap hlgBitmap = readBitmapUnpremultipliedAlpha(ORIGINAL_HLG10_PNG_ASSET_PATH);
@@ -164,7 +164,7 @@ public final class DefaultGlTextureFrameCompositorPixelTest {
     GlTextureFrameCompositor compositor =
         factory.create(
             glObjectsProvider,
-            COLORSPACE_HDR_HLG,
+            BT2020_HLG,
             /* errorConsumer= */ exception -> {
               throw new AssertionError(exception);
             },
@@ -177,7 +177,7 @@ public final class DefaultGlTextureFrameCompositorPixelTest {
         .isTrue();
 
     GlTextureFrame outputFrame = checkNotNull(outputFrameRef.get());
-    assertThat(outputFrame.format.colorInfo).isEqualTo(COLORSPACE_HDR_HLG);
+    assertThat(outputFrame.format.colorInfo).isEqualTo(BT2020_HLG);
     assertThat(outputFrame.glTextureInfo.texId).isEqualTo(texId);
 
     outputFrame.release(/* releaseFence= */ null);
@@ -187,7 +187,7 @@ public final class DefaultGlTextureFrameCompositorPixelTest {
   @Test
   @SdkSuppress(minSdkVersion = 33)
   public void composite_twoHdrSequences_withOpaqueOverlay_outputsCorrectTexture() throws Exception {
-    Format hlgFormat = new Format.Builder().setColorInfo(COLORSPACE_HDR_HLG).build();
+    Format hlgFormat = new Format.Builder().setColorInfo(BT2020_HLG).build();
     assumeTrue("Device does not support OpenGL ES 3.0", GlUtil.getContextMajorVersion() >= 3);
 
     Bitmap hlgBitmap = readBitmapUnpremultipliedAlpha(ORIGINAL_HLG10_PNG_ASSET_PATH);
@@ -260,7 +260,7 @@ public final class DefaultGlTextureFrameCompositorPixelTest {
     GlTextureFrameCompositor compositor =
         factory.create(
             glObjectsProvider,
-            COLORSPACE_HDR_HLG,
+            BT2020_HLG,
             /* errorConsumer= */ exception -> {
               throw new AssertionError(exception);
             },
@@ -273,7 +273,7 @@ public final class DefaultGlTextureFrameCompositorPixelTest {
         .isTrue();
 
     GlTextureFrame outputFrame = checkNotNull(outputFrameRef.get());
-    assertThat(outputFrame.format.colorInfo).isEqualTo(COLORSPACE_HDR_HLG);
+    assertThat(outputFrame.format.colorInfo).isEqualTo(BT2020_HLG);
 
     int outputFbo = GlUtil.createFboForTexture(outputFrame.glTextureInfo.texId);
     frameBuffersToDelete.add(outputFbo);
@@ -298,7 +298,7 @@ public final class DefaultGlTextureFrameCompositorPixelTest {
   @Test
   @SdkSuppress(minSdkVersion = 26)
   public void composite_twoSdrSequences_withOpaqueOverlay_outputsCorrectTexture() throws Exception {
-    Format sdrFormat = new Format.Builder().setColorInfo(COLORSPACE_SDR_SRGB).build();
+    Format sdrFormat = new Format.Builder().setColorInfo(BT709_SRGB).build();
 
     Bitmap sdrBitmap = readBitmapUnpremultipliedAlpha(ORIGINAL_SDR_PNG_ASSET_PATH);
     int width = sdrBitmap.getWidth();
@@ -370,7 +370,7 @@ public final class DefaultGlTextureFrameCompositorPixelTest {
     GlTextureFrameCompositor compositor =
         factory.create(
             glObjectsProvider,
-            COLORSPACE_SDR_SRGB,
+            BT709_SRGB,
             /* errorConsumer= */ exception -> {
               throw new AssertionError(exception);
             },
@@ -383,7 +383,7 @@ public final class DefaultGlTextureFrameCompositorPixelTest {
         .isTrue();
 
     GlTextureFrame outputFrame = checkNotNull(outputFrameRef.get());
-    assertThat(outputFrame.format.colorInfo).isEqualTo(COLORSPACE_SDR_SRGB);
+    assertThat(outputFrame.format.colorInfo).isEqualTo(BT709_SRGB);
 
     int outputFbo = GlUtil.createFboForTexture(outputFrame.glTextureInfo.texId);
     frameBuffersToDelete.add(outputFbo);

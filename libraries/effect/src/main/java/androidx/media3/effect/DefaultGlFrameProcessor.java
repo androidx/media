@@ -261,14 +261,14 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   private static final long RELEASE_TIMEOUT_MS = 1_000;
 
   /** An SDR color space with BT.709 / sRGB color primaries, and linear transfer function. */
-  /* package */ static final ColorInfo COLORSPACE_SDR_LINEAR =
+  /* package */ static final ColorInfo BT709_LINEAR =
       new ColorInfo.Builder()
           .setColorSpace(C.COLOR_SPACE_BT709)
           .setColorTransfer(C.COLOR_TRANSFER_LINEAR)
           .build();
 
   /** An SDR color space with BT.709 / sRGB color primaries, and sRGB transfer function. */
-  /* package */ static final ColorInfo COLORSPACE_SDR_SRGB =
+  /* package */ static final ColorInfo BT709_SRGB =
       new ColorInfo.Builder()
           .setColorSpace(C.COLOR_SPACE_BT709)
           .setColorTransfer(C.COLOR_TRANSFER_SRGB)
@@ -287,7 +287,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
    *
    * <p>The values are always scene-referred.
    */
-  /* package */ static final ColorInfo COLORSPACE_HDR_LINEAR =
+  /* package */ static final ColorInfo BT2020_LINEAR =
       new ColorInfo.Builder()
           .setColorSpace(C.COLOR_SPACE_BT2020)
           .setColorTransfer(C.COLOR_TRANSFER_LINEAR)
@@ -307,7 +307,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
    *
    * <p>The values are always scene-referred.
    */
-  /* package */ static final ColorInfo COLORSPACE_HDR_HLG =
+  /* package */ static final ColorInfo BT2020_HLG =
       new ColorInfo.Builder()
           .setColorSpace(C.COLOR_SPACE_BT2020)
           .setColorTransfer(C.COLOR_TRANSFER_HLG)
@@ -691,17 +691,17 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     ColorInfo inputColorInfo = format.colorInfo == null ? SDR_BT709_LIMITED : format.colorInfo;
     if (Objects.equals(format.sampleMimeType, MimeTypes.IMAGE_JPEG_R)
         && inputColorInfo.colorTransfer == C.COLOR_TRANSFER_SRGB) {
-      return COLORSPACE_HDR_HLG;
+      return BT2020_HLG;
     }
     if (isWideColorGamut(inputColorInfo)) {
       // TODO(b/545552444) Support HDR in the pipeline. If colorspace is not set, the pipeline
       //  should preserve HDR if possible.
       // Force tone map to SDR.
-      return COLORSPACE_SDR_SRGB;
+      return BT709_SRGB;
     } else {
       // All SDR input are treated as sRGB.
       // TODO(b/545591224): Allow converting outputting to other gamut, for example BT.601.
-      return COLORSPACE_SDR_SRGB;
+      return BT709_SRGB;
     }
   }
 }
