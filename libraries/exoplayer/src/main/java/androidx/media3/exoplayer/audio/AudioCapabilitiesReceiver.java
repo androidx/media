@@ -27,12 +27,10 @@ import android.database.ContentObserver;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Handler;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
-import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.audio.AudioManagerCompat;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -228,14 +226,6 @@ public final class AudioCapabilitiesReceiver {
             context, audioAttributes, routedDevice, spatializerChannelMasks));
   }
 
-  private static boolean deviceNeedsAudioDeviceCallbackThreadingWorkaround() {
-    return MediaLibraryInfo.enableWorkarounds()
-        && SDK_INT < 38
-        && ((Objects.equals(Build.MANUFACTURER, "Jio") && Objects.equals(Build.MODEL, "JHSA400"))
-            || (Objects.equals(Build.MANUFACTURER, "SkyworthDigital")
-                && Objects.equals(Build.MODEL, "XStream-Smart-Box-002")));
-  }
-
   private final class HdmiAudioPlugBroadcastReceiver extends BroadcastReceiver {
 
     @Override
@@ -278,27 +268,25 @@ public final class AudioCapabilitiesReceiver {
   private final class AudioDeviceCallback extends android.media.AudioDeviceCallback {
     @Override
     public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) {
-      if (deviceNeedsAudioDeviceCallbackThreadingWorkaround()) {
-        Util.postOrRun(handler, AudioCapabilitiesReceiver.this::updateCurrentAudioCapabilities);
-      } else {
-        updateCurrentAudioCapabilities();
-      }
+      // Some devices are known to invoke this callback on the wrong thread:
+      // https://github.com/androidx/media/issues/3386.
+      // This workaround can be removed when minSdk is bumped to API 38.
+      Util.postOrRun(handler, AudioCapabilitiesReceiver.this::updateCurrentAudioCapabilities);
     }
 
     @Override
     public void onAudioDevicesRemoved(AudioDeviceInfo[] removedDevices) {
-      Runnable updateAudioCapabilities =
+      // Some devices are known to invoke this callback on the wrong thread:
+      // https://github.com/androidx/media/issues/3386.
+      // This workaround can be removed when minSdk is bumped to API 38.
+      Util.postOrRun(
+          handler,
           () -> {
             if (Util.contains(removedDevices, routedDevice)) {
               routedDevice = null;
             }
             updateCurrentAudioCapabilities();
-          };
-      if (deviceNeedsAudioDeviceCallbackThreadingWorkaround()) {
-        Util.postOrRun(handler, updateAudioCapabilities);
-      } else {
-        updateAudioCapabilities.run();
-      }
+          });
     }
   }
 }

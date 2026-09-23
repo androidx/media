@@ -35,11 +35,9 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
-import org.robolectric.shadows.ShadowBuild;
 
 /** Tests that raw OEM audio-device callbacks are serialized on the receiver handler. */
 @RunWith(AndroidJUnit4.class)
-@Config(maxSdk = 37) // The workaround is disabled from API 38+
 public final class AudioCapabilitiesReceiverWrongThreadTest {
 
   private static final AudioCapabilities OVERRIDDEN_AUDIO_CAPABILITIES =
@@ -53,8 +51,6 @@ public final class AudioCapabilitiesReceiverWrongThreadTest {
 
   @Before
   public void setUp() {
-    ShadowBuild.setManufacturer("SkyworthDigital");
-    ShadowBuild.setModel("XStream-Smart-Box-002");
     wrongThreadExecutor = Executors.newSingleThreadExecutor();
   }
 
@@ -64,6 +60,7 @@ public final class AudioCapabilitiesReceiverWrongThreadTest {
   }
 
   @Test
+  @Config(maxSdk = 37) // The workaround isn't needed from API 38+
   public void onAudioDevicesAdded_fromBackgroundThreadWithoutLooper_notifiesListenerOnLooperThread()
       throws Exception {
     TrackingListener listener = new TrackingListener();
@@ -89,6 +86,7 @@ public final class AudioCapabilitiesReceiverWrongThreadTest {
   }
 
   @Test
+  @Config(maxSdk = 37) // The workaround isn't needed from API 38+
   public void
       onAudioDevicesRemoved_fromBackgroundThreadWithoutLooper_notifiesListenerOnLooperThread()
           throws Exception {
@@ -115,9 +113,7 @@ public final class AudioCapabilitiesReceiverWrongThreadTest {
   }
 
   @Test
-  public void onAudioDevicesAdded_onNonWorkaroundDevice_notifiesListenerOnCallingLooperlessThread()
-      throws Exception {
-    ShadowBuild.setModel("OtherModel");
+  public void onAudioDevicesAdded_onCorrectLooperThread_doesntRePost() throws Exception {
     TrackingListener listener = new TrackingListener();
     AudioCapabilitiesReceiver audioCapabilitiesReceiver =
         new AudioCapabilitiesReceiver(
@@ -128,16 +124,11 @@ public final class AudioCapabilitiesReceiverWrongThreadTest {
     AudioCapabilities unused = audioCapabilitiesReceiver.register();
     audioCapabilitiesReceiver.overrideCapabilities(OVERRIDDEN_AUDIO_CAPABILITIES);
 
-    wrongThreadExecutor
-        .submit(
-            () ->
-                audioCapabilitiesReceiver.audioDeviceCallback.onAudioDevicesAdded(
-                    new AudioDeviceInfo[0]))
-        .get();
-    shadowOf(Looper.getMainLooper()).idle();
+    audioCapabilitiesReceiver.audioDeviceCallback.onAudioDevicesAdded(new AudioDeviceInfo[0]);
 
+    // Assert the listener is invoked immediately without needing to idle the main looper.
     assertThat(listener.invocationCount.get()).isEqualTo(3);
-    assertThat(listener.looperlessThreads).hasSize(1);
+    assertThat(listener.looperlessThreads).hasSize(0);
   }
 
   private static final class TrackingListener implements AudioCapabilitiesReceiver.Listener {
