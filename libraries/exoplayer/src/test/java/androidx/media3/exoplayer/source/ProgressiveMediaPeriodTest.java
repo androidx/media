@@ -20,6 +20,12 @@ import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLoop
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.net.Uri;
@@ -48,6 +54,7 @@ import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.Extractor;
@@ -2397,6 +2404,261 @@ public final class ProgressiveMediaPeriodTest {
     assertThat(lastReadTimeUs).isAtMost(600_000);
     assertThat(buffer.isEndOfStream()).isTrue();
     mediaPeriod.release();
+  }
+
+  @Test
+  public void onLoadError_vod_returnsDontRetryFatalAndReportsCanceledWhenRetriesExhausted()
+      throws Exception {
+    MediaSourceEventListener.EventDispatcher mockEventDispatcher =
+        mock(MediaSourceEventListener.EventDispatcher.class);
+    DataSource dataSource = new AssetDataSource(ApplicationProvider.getApplicationContext());
+    ProgressiveMediaExtractor extractor =
+        new BundledExtractorsAdapter(Mp4Extractor.newFactory(SubtitleParser.Factory.UNSUPPORTED));
+    ProgressiveMediaPeriod mediaPeriod =
+        new ProgressiveMediaPeriod(
+            Uri.parse("asset://android_asset/media/mp4/sample.mp4"),
+            dataSource,
+            extractor,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            new DefaultLoadErrorHandlingPolicy(),
+            mockEventDispatcher,
+            (durationUs, seekMap, isLive) -> {},
+            new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE),
+            /* customCacheKey= */ null,
+            ProgressiveMediaSource.DEFAULT_LOADING_CHECK_INTERVAL_BYTES,
+            /* loadOnlySelectedTracks= */ true,
+            /* singleTrackId= */ 0,
+            /* singleTrackFormat= */ null,
+            /* singleSampleDurationUs= */ C.TIME_UNSET,
+            /* downloadExecutor= */ null);
+    mediaPeriod.seekMap(new SeekMap.Unseekable(/* durationUs= */ 10_000_000));
+    shadowOf(Looper.getMainLooper()).idle();
+    ProgressiveMediaPeriod.ExtractingLoadable loadable =
+        mediaPeriod
+        .new ExtractingLoadable(
+            Uri.parse("asset://android_asset/media/mp4/sample.mp4"),
+            dataSource,
+            extractor,
+            mediaPeriod,
+            new ConditionVariable());
+
+    Loader.LoadErrorAction actionWithinLimit =
+        mediaPeriod.onLoadError(
+            loadable,
+            /* elapsedRealtimeMs= */ 0,
+            /* loadDurationMs= */ 0,
+            new IOException("Transient error"),
+            /* errorCount= */ 3);
+    Loader.LoadErrorAction actionExhausted =
+        mediaPeriod.onLoadError(
+            loadable,
+            /* elapsedRealtimeMs= */ 0,
+            /* loadDurationMs= */ 0,
+            new IOException("Transient error"),
+            /* errorCount= */ 4);
+    boolean continueLoadingAfterFatalError =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    mediaPeriod.release();
+
+    assertThat(actionWithinLimit.isRetry()).isTrue();
+    verify(mockEventDispatcher)
+        .loadError(
+            any(),
+            eq(C.DATA_TYPE_MEDIA),
+            anyInt(),
+            any(),
+            anyInt(),
+            any(),
+            anyLong(),
+            anyLong(),
+            any(),
+            eq(false));
+    assertThat(actionExhausted).isEqualTo(Loader.DONT_RETRY_FATAL);
+    verify(mockEventDispatcher)
+        .loadError(
+            any(),
+            eq(C.DATA_TYPE_MEDIA),
+            anyInt(),
+            any(),
+            anyInt(),
+            any(),
+            anyLong(),
+            anyLong(),
+            any(),
+            eq(true));
+    assertThat(continueLoadingAfterFatalError).isFalse();
+  }
+
+  @Test
+  public void onLoadError_live_usesLiveDataTypeAndMinimumRetryCount() throws Exception {
+    MediaSourceEventListener.EventDispatcher mockEventDispatcher =
+        mock(MediaSourceEventListener.EventDispatcher.class);
+    DataSource dataSource = new AssetDataSource(ApplicationProvider.getApplicationContext());
+    ProgressiveMediaExtractor extractor =
+        new BundledExtractorsAdapter(Mp4Extractor.newFactory(SubtitleParser.Factory.UNSUPPORTED));
+    ProgressiveMediaPeriod mediaPeriod =
+        new ProgressiveMediaPeriod(
+            Uri.parse("asset://android_asset/media/mp4/sample.mp4"),
+            dataSource,
+            extractor,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            new DefaultLoadErrorHandlingPolicy(),
+            mockEventDispatcher,
+            (durationUs, seekMap, isLive) -> {},
+            new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE),
+            /* customCacheKey= */ null,
+            ProgressiveMediaSource.DEFAULT_LOADING_CHECK_INTERVAL_BYTES,
+            /* loadOnlySelectedTracks= */ true,
+            /* singleTrackId= */ 0,
+            /* singleTrackFormat= */ null,
+            /* singleSampleDurationUs= */ C.TIME_UNSET,
+            /* downloadExecutor= */ null);
+    mediaPeriod.seekMap(new SeekMap.Unseekable(/* durationUs= */ C.TIME_UNSET));
+    shadowOf(Looper.getMainLooper()).idle();
+    ProgressiveMediaPeriod.ExtractingLoadable loadable =
+        mediaPeriod
+        .new ExtractingLoadable(
+            Uri.parse("asset://android_asset/media/mp4/sample.mp4"),
+            dataSource,
+            extractor,
+            mediaPeriod,
+            new ConditionVariable());
+
+    Loader.LoadErrorAction actionWithinLimit =
+        mediaPeriod.onLoadError(
+            loadable,
+            /* elapsedRealtimeMs= */ 0,
+            /* loadDurationMs= */ 0,
+            new IOException("Transient error"),
+            /* errorCount= */ 6);
+    Loader.LoadErrorAction actionExhausted =
+        mediaPeriod.onLoadError(
+            loadable,
+            /* elapsedRealtimeMs= */ 0,
+            /* loadDurationMs= */ 0,
+            new IOException("Transient error"),
+            /* errorCount= */ 7);
+    boolean continueLoadingAfterFatalError =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    mediaPeriod.release();
+
+    assertThat(actionWithinLimit.isRetry()).isTrue();
+    verify(mockEventDispatcher)
+        .loadError(
+            any(),
+            eq(C.DATA_TYPE_MEDIA_PROGRESSIVE_LIVE),
+            anyInt(),
+            any(),
+            anyInt(),
+            any(),
+            anyLong(),
+            anyLong(),
+            any(),
+            eq(false));
+    assertThat(actionExhausted).isEqualTo(Loader.DONT_RETRY_FATAL);
+    verify(mockEventDispatcher)
+        .loadError(
+            any(),
+            eq(C.DATA_TYPE_MEDIA_PROGRESSIVE_LIVE),
+            anyInt(),
+            any(),
+            anyInt(),
+            any(),
+            anyLong(),
+            anyLong(),
+            any(),
+            eq(true));
+    assertThat(continueLoadingAfterFatalError).isFalse();
+  }
+
+  @Test
+  public void onLoadError_whenMadeProgress_resetsEffectiveErrorCountAndRetries() throws Exception {
+    MediaSourceEventListener.EventDispatcher mockEventDispatcher =
+        mock(MediaSourceEventListener.EventDispatcher.class);
+    DataSource dataSource = new AssetDataSource(ApplicationProvider.getApplicationContext());
+    ProgressiveMediaExtractor extractor =
+        new BundledExtractorsAdapter(Mp4Extractor.newFactory(SubtitleParser.Factory.UNSUPPORTED));
+    ProgressiveMediaPeriod mediaPeriod =
+        new ProgressiveMediaPeriod(
+            Uri.parse("asset://android_asset/media/mp4/sample.mp4"),
+            dataSource,
+            extractor,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            new DefaultLoadErrorHandlingPolicy(),
+            mockEventDispatcher,
+            (durationUs, seekMap, isLive) -> {},
+            new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE),
+            /* customCacheKey= */ null,
+            ProgressiveMediaSource.DEFAULT_LOADING_CHECK_INTERVAL_BYTES,
+            /* loadOnlySelectedTracks= */ true,
+            /* singleTrackId= */ 0,
+            /* singleTrackFormat= */ null,
+            /* singleSampleDurationUs= */ C.TIME_UNSET,
+            /* downloadExecutor= */ null);
+    mediaPeriod.prepare(
+        new MediaPeriod.Callback() {
+          @Override
+          public void onPrepared(MediaPeriod period) {}
+
+          @Override
+          public void onContinueLoadingRequested(MediaPeriod source) {}
+        },
+        /* positionUs= */ 0);
+    runMainLooperUntil(() -> !mediaPeriod.isLoading());
+    // Select track 0 so continueLoading triggers startLoading() with initial sample count recorded.
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    boolean[] streamResetFlags = new boolean[trackGroups.length];
+    selections[0] =
+        new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
+    long unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            streamResetFlags,
+            /* positionUs= */ 0);
+    // Extract samples by running until loading finishes, so extractedSamplesCount > initial count.
+    boolean unusedLoad =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    runMainLooperUntil(() -> !mediaPeriod.isLoading());
+    ProgressiveMediaPeriod.ExtractingLoadable loadable =
+        mediaPeriod
+        .new ExtractingLoadable(
+            Uri.parse("asset://android_asset/media/mp4/sample.mp4"),
+            dataSource,
+            extractor,
+            mediaPeriod,
+            new ConditionVariable());
+
+    // Even with errorCount=4 (exceeding default minRetryCount=3), because madeProgress is true,
+    // effectiveErrorCount becomes 1 and the load should be retried.
+    Loader.LoadErrorAction action =
+        mediaPeriod.onLoadError(
+            loadable,
+            /* elapsedRealtimeMs= */ 0,
+            /* loadDurationMs= */ 0,
+            new IOException("Transient error after progress"),
+            /* errorCount= */ 4);
+    mediaPeriod.release();
+
+    assertThat(action.isRetry()).isTrue();
+    verify(mockEventDispatcher)
+        .loadError(
+            any(),
+            eq(C.DATA_TYPE_MEDIA),
+            anyInt(),
+            any(),
+            anyInt(),
+            any(),
+            anyLong(),
+            anyLong(),
+            any(),
+            eq(false));
   }
 
   private static final class ExecutionTrackingThread extends Thread {

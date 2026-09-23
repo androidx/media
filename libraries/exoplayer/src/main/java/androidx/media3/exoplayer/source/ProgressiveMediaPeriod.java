@@ -779,7 +779,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     mediaSourceEventDispatcher.loadStarted(
         loadEventInfo.build(),
-        C.DATA_TYPE_MEDIA,
+        dataType,
         C.TRACK_TYPE_UNKNOWN,
         /* trackFormat= */ null,
         C.SELECTION_REASON_UNKNOWN,
@@ -812,7 +812,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     loadErrorHandlingPolicy.onLoadTaskConcluded(loadable.loadTaskId);
     mediaSourceEventDispatcher.loadCompleted(
         loadEventInfo,
-        C.DATA_TYPE_MEDIA,
+        dataType,
         C.TRACK_TYPE_UNKNOWN,
         /* trackFormat= */ null,
         C.SELECTION_REASON_UNKNOWN,
@@ -841,7 +841,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     loadErrorHandlingPolicy.onLoadTaskConcluded(loadable.loadTaskId);
     mediaSourceEventDispatcher.loadCanceled(
         loadEventInfo,
-        C.DATA_TYPE_MEDIA,
+        dataType,
         C.TRACK_TYPE_UNKNOWN,
         /* trackFormat= */ null,
         C.SELECTION_REASON_UNKNOWN,
@@ -880,7 +880,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             .build();
     MediaLoadData mediaLoadData =
         new MediaLoadData(
-            C.DATA_TYPE_MEDIA,
+            dataType,
             C.TRACK_TYPE_UNKNOWN,
             /* trackFormat= */ null,
             C.SELECTION_REASON_UNKNOWN,
@@ -888,16 +888,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             /* mediaStartTimeMs= */ Util.usToMs(loadable.seekTimeUs),
             Util.usToMs(durationUs));
     LoadErrorAction loadErrorAction;
+    int extractedSamplesCount = getExtractedSamplesCount();
+    boolean madeProgress =
+        loadingStateMachine.hasExtractedProgressSinceLoadStart(extractedSamplesCount);
+    int effectiveErrorCount = madeProgress ? 1 : errorCount;
     long retryDelayMs =
-        loadErrorHandlingPolicy.getRetryDelayMsFor(
-            new LoadErrorInfo(loadEventInfo, mediaLoadData, error, errorCount));
+        effectiveErrorCount > loadErrorHandlingPolicy.getMinimumLoadableRetryCount(dataType)
+            ? C.TIME_UNSET
+            : loadErrorHandlingPolicy.getRetryDelayMsFor(
+                new LoadErrorInfo(loadEventInfo, mediaLoadData, error, effectiveErrorCount));
     if (retryDelayMs == C.TIME_UNSET) {
       loadErrorAction = Loader.DONT_RETRY_FATAL;
       loadingStateMachine.onFatalLoadError();
     } else /* the load should be retried */ {
-      int extractedSamplesCount = getExtractedSamplesCount();
-      boolean madeProgress =
-          loadingStateMachine.hasExtractedProgressSinceLoadStart(extractedSamplesCount);
       loadErrorAction =
           configureRetry(loadable, extractedSamplesCount)
               ? Loader.createRetryAction(/* resetErrorCount= */ madeProgress, retryDelayMs)
@@ -907,7 +910,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     boolean wasCanceled = !loadErrorAction.isRetry();
     mediaSourceEventDispatcher.loadError(
         loadEventInfo,
-        C.DATA_TYPE_MEDIA,
+        dataType,
         C.TRACK_TYPE_UNKNOWN,
         /* trackFormat= */ null,
         C.SELECTION_REASON_UNKNOWN,
