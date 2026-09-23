@@ -59,9 +59,12 @@ import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.media3.transformer.VideoEncoderSettings;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
+import androidx.test.uiautomator.UiDevice;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import java.io.File;
+import java.io.IOException;
 import org.junit.AssumptionViolatedException;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -189,18 +192,22 @@ public class ExportTest {
   public void export8K24() throws Exception {
     // Reference: b/244711282#comment5
     assumeFalse(
-        "Some devices are capable of instantiating only either one 8K decoder or one 8K encoder",
-        Ascii.equalsIgnoreCase(Build.MODEL, "tb-q706")
-            || Ascii.equalsIgnoreCase(Build.MODEL, "sm-f916u1")
-            || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g981u1")
-            || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g781n")
-            || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g781v")
-            || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g781w")
-            || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g986u1")
-            || Ascii.equalsIgnoreCase(Build.MODEL, "sm-n981u")
-            || Ascii.equalsIgnoreCase(Build.MODEL, "le2121")
-            || Ascii.equalsIgnoreCase(Build.MODEL, "seahawk")
-            || Ascii.equalsIgnoreCase(Build.MODEL, "sm-t870"));
+        "Some SoCs are unable to create two concurrent 8k codecs.",
+        SDK_INT >= 31
+            && Ascii.equalsIgnoreCase(Build.SOC_MANUFACTURER, "qti")
+            && Ascii.toLowerCase(Build.SOC_MODEL).contains("sm8250"));
+
+    // On API 31- there is no standardized way to access SoC information, so we need to rely on
+    // OEM-specific workarounds. In this case, ro.hardware.chipname is specific to Samsung devices.
+    String socManufacturer = getSysProp("ro.hardware");
+    String socModel = getSysProp("ro.hardware.chipname");
+
+    assumeFalse(
+        "Some SoCs are unable to create two concurrent 8k codecs.",
+        SDK_INT < 31
+            && Ascii.equalsIgnoreCase(socManufacturer, "qcom")
+            && Ascii.equalsIgnoreCase(socModel, "sm8250"));
+
     assumeFormatsSupported(
         context, testId, /* inputFormat= */ MP4_ASSET_8K24.videoFormat, /* outputFormat= */ null);
     Transformer transformer =
@@ -423,5 +430,10 @@ public class ExportTest {
     Pair<Integer, Integer> profileAndLevel = CodecSpecificDataUtil.getCodecProfileAndLevel(format);
     assertThat(profileAndLevel.first).isAtMost(AVCProfileHigh);
     assertThat(profileAndLevel.second).isAtMost(AVCLevel41);
+  }
+
+  private static String getSysProp(String name) throws IOException {
+    UiDevice uiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+    return uiDevice.executeShellCommand("getprop " + name).trim();
   }
 }
