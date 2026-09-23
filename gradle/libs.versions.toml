@@ -3,7 +3,7 @@ releaseVersion = "1.11.1"
 releaseVersionCode = "1011001300"
 # SDK
 appTargetSdkVersion = "34"
-minSdkVersion = "23"
+minSdkVersion = "24"
 libTestTargetSdkVersion = "36"
 compileSdkVersion = "37"
 # See https://developer.android.com/training/cars/media/automotive-os#automotive-module

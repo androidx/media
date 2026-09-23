@@ -219,6 +219,8 @@
         `DashUtil.buildDataSpec(Representation, String, RangedUri, int)`. Use
         `DashUtil.buildDataSpec(Representation, BaseUrl, RangedUri, int,
         Map<String, String>)` instead.
+*   Build:
+    *   Increase Gradle `minSdk` to 24.
 
 ## 1.11
 

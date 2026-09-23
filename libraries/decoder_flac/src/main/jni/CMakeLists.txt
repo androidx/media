@@ -23,7 +23,7 @@ set(CMAKE_CXX_STANDARD 11)
 project(libflacJNI C CXX)
 
 # Suppress pointer cast alignment warnings from upstream libflac source.
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-cast-align")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-cast-align -DHAVE_FSEEKO")
 
 set(libflac_jni_root "${CMAKE_CURRENT_SOURCE_DIR}")
 

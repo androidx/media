@@ -27,9 +27,6 @@ android {
     targetCompatibility = JavaVersion.VERSION_11
   }
 
-  // TODO: b/520274937 - Move to commonConfig.kt
-  defaultConfig { minSdk = 24 }
-
   buildTypes {
     getByName("release") {
       isShrinkResources = true
