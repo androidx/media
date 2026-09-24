@@ -38,7 +38,6 @@ import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.common.video.SyncFenceWrapper;
-import androidx.media3.effect.DefaultGlFrameProcessor.FrameToGlTextureConverter;
 import androidx.media3.effect.GlTextureFrameCompositor.CompositorGlProgram;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;

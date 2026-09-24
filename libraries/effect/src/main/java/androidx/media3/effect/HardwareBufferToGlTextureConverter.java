@@ -62,8 +62,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 @ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.
 @RequiresApi(26)
-/* package */ final class HardwareBufferToGlTextureConverter
-    implements DefaultGlFrameProcessor.FrameToGlTextureConverter {
+/* package */ final class HardwareBufferToGlTextureConverter implements FrameToGlTextureConverter {
 
   private static final String TAG = "HB2GLConverter";
 

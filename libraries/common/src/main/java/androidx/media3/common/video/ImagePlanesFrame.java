@@ -37,7 +37,12 @@ public interface ImagePlanesFrame extends Frame {
 
   /** Represents a single data plane of the frame. */
   interface Plane {
-    /** Returns the {@link ByteBuffer} containing the plane data. */
+    /**
+     * Returns the {@link ByteBuffer} containing the plane data.
+     *
+     * <p>The returned buffer is guaranteed to be a {@linkplain ByteBuffer#isDirect() direct} {@link
+     * ByteBuffer}.
+     */
     ByteBuffer getBuffer();
 
     /** Returns the row stride of the plane, in bytes. */

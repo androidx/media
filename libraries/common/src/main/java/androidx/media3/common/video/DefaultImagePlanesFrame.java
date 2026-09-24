@@ -44,8 +44,17 @@ public final class DefaultImagePlanesFrame implements ImagePlanesFrame, Referenc
     private final int rowStride;
     private final int pixelStride;
 
+    /**
+     * Creates an instance.
+     *
+     * @param buffer The {@linkplain ByteBuffer#isDirect() direct} {@link ByteBuffer} containing the
+     *     plane data.
+     * @param rowStride The positive row stride of the plane, in bytes.
+     * @param pixelStride The positive pixel stride of the plane, in bytes.
+     */
     public DefaultPlane(ByteBuffer buffer, int rowStride, int pixelStride) {
       this.buffer = checkNotNull(buffer);
+      checkArgument(buffer.isDirect(), "Plane buffer must be a direct ByteBuffer.");
       checkArgument(rowStride > 0, "rowStride must be positive: %s", rowStride);
       checkArgument(pixelStride > 0, "pixelStride must be positive: %s", pixelStride);
       this.rowStride = rowStride;

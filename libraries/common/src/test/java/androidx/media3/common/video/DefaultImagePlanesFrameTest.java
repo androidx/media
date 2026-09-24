@@ -35,6 +35,15 @@ import org.junit.runner.RunWith;
 public final class DefaultImagePlanesFrameTest {
 
   @Test
+  public void defaultPlaneConstructor_withNonDirectBuffer_throwsIllegalArgumentException() {
+    ByteBuffer nonDirectBuffer = ByteBuffer.allocate(64);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new DefaultPlane(nonDirectBuffer, /* rowStride= */ 8, /* pixelStride= */ 1));
+  }
+
+  @Test
   public void buildUpon_buildWithoutModifications_returnsNewHandleWithSameProperties() {
     ImmutableList<ImagePlanesFrame.Plane> planes = createSamplePlanes();
     Format format = new Format.Builder().setWidth(128).setHeight(128).build();

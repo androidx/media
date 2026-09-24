@@ -74,44 +74,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 @RequiresApi(26)
 public final class DefaultGlFrameProcessor implements FrameProcessor {
 
-  /** Converts from {@link Frame} to {@link GlTextureFrame}. */
-  interface FrameToGlTextureConverter extends AutoCloseable {
-
-    @VisibleForTesting
-    /* package */ interface Factory {
-      FrameToGlTextureConverter create(
-          ColorInfo outputColorInfo, Consumer<VideoFrameProcessingException> errorConsumer);
-    }
-
-    // TODO: b/517424999 - Unify the listeners to follow the same pattern as FrameProcessor.
-    /**
-     * Converts from {@link Frame} to {@link GlTextureFrame}.
-     *
-     * <p>The returned {@link GlTextureFrame}'s texture is in standard OpenGL coordinate space
-     * (upright, Y-up, with origin at bottom-left of the image).
-     */
-    GlTextureFrame convert(
-        Frame frame, Executor glExecutor, Executor listenerExecutor, Listener listener)
-        throws VideoFrameProcessingException;
-
-    /**
-     * Releases the resources for a converted {@link Frame}.
-     *
-     * <p>Don't call this method if the {@linkplain #convert converted} {@link GlTextureFrame} is
-     * accepted by a downstream {@link GlTextureFrameConsumer}.
-     *
-     * <p>This releases associated resources without notifying the {@link Listener#onFrameProcessed}
-     * that was passed in via {@link #convert}.
-     *
-     * <p>This is used when a converted frame is rejected by downstream pipeline consumers,
-     * preserving the underlying frame for subsequent queue retries.
-     */
-    void releaseGlResources(Frame frame) throws VideoFrameProcessingException;
-
-    @Override
-    void close() throws VideoFrameProcessingException;
-  }
-
   /** A {@link FrameProcessor.Factory} that creates {@link DefaultGlFrameProcessor} instances. */
   public static final class Factory implements FrameProcessor.Factory {
     private final Context context;
@@ -606,11 +568,16 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       if (!waitAndCloseFence(asyncFrame)) {
         GLES20.glFinish();
       }
-      convertedGlTextureFrames.put(
-          sequenceIndex,
-          checkNotNull(
-              checkNotNull(frameToGlTextureConverter)
-                  .convert(frame, glExecutorService, listenerExecutor, listener)));
+      @Nullable
+      GlTextureFrame convertedFrame =
+          checkNotNull(frameToGlTextureConverter)
+              .convert(frame, glExecutorService, listenerExecutor, listener);
+      if (convertedFrame == null) {
+        // The converter was closed while this batch was being converted.
+        Log.w(TAG, "Converter closed, dropping frame for sequence = " + sequenceIndex);
+        continue;
+      }
+      convertedGlTextureFrames.put(sequenceIndex, convertedFrame);
     }
   }
 
