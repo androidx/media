@@ -66,6 +66,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      * Called when a frame with the given presentation timestamp (in microseconds) is about to be
      * queued into the {@link Surface}.
      *
+     * <p>While the queued {@link Image} is stamped with a synthetic monotonically increasing
+     * timestamp from {@link MonotonicTimestampGenerator}, this callback passes the original
+     * upstream {@code presentationTimeUs}.
+     *
      * <p>Used in conjunction with {@link #onFrameReleased()} to ensure only one frame is on the
      * {@link Surface} at any one point so that the {@link Surface} does not drop frames.
      */
@@ -97,6 +101,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   // without locking.
   private final AtomicInteger inFlightCount;
   private final AtomicReference<@NullableType WakeupListenerHolder> pendingWakeup;
+  private final MonotonicTimestampGenerator timestampGenerator;
 
   private volatile @MonotonicNonNull ImageWriter imageWriter;
 
@@ -107,6 +112,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.listener = listener;
     this.inFlightCount = new AtomicInteger(0);
     this.pendingWakeup = new AtomicReference<>();
+    timestampGenerator = new MonotonicTimestampGenerator();
   }
 
   /** Sets the target output {@link Surface} and wakes up any waiting upstream producer. */
@@ -186,7 +192,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     Image image = (Image) checkNotNull(hardwareBufferFrame.getInternalImage());
     try {
       long presentationTimeUs = frame.getContentTimeUs();
-      image.setTimestamp(presentationTimeUs * 1000L);
+      image.setTimestamp(timestampGenerator.getNextTimestampNs());
       if (writeCompleteFence != null) {
         image.setFence(writeCompleteFence.asSyncFence());
       }

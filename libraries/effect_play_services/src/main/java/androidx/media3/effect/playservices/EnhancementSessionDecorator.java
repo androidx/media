@@ -44,6 +44,25 @@ import java.util.concurrent.Executor;
 /**
  * A {@link FrameProcessor} decorator that routes video frames through GMS Core {@code
  * EnhancementSession}.
+ *
+ * <p>Timestamp handling across the surface bridge:
+ *
+ * <ol>
+ *   <li>{@link FrameToSurfaceFrameWriter} receives an upstream {@link Frame} with {@code
+ *       presentationTimeUs}, stamps the {@link android.media.Image} with a synthetic strictly
+ *       increasing nanosecond timestamp from {@link MonotonicTimestampGenerator} (required because
+ *       the underlying MediaPipe graph rejects non-increasing timestamps on seeks), and notifies
+ *       {@link FrameToSurfaceFrameWriter.Listener#onFrameQueued(long)} with the original {@code
+ *       presentationTimeUs}.
+ *   <li>{@link EnhancementSessionDecorator} forwards {@code presentationTimeUs} from {@code
+ *       onFrameQueued} to {@link SurfaceToFrameWriterAdapter#onInputFrameQueued(long)}.
+ *   <li>{@link SurfaceToFrameWriterAdapter} stores {@code presentationTimeUs} in a FIFO queue and
+ *       restores it onto the output {@link Frame} when the processed image arrives on the output
+ *       {@link Surface}. A 1:1 FIFO queue is guaranteed to match because {@link
+ *       FrameToSurfaceFrameWriter} enforces at most one frame in flight ({@code
+ *       MAX_IN_FLIGHT_FRAMES = 1}), waiting for {@link
+ *       SurfaceToFrameWriterAdapter.Listener#onFrameReleased()} before queuing the next frame.
+ * </ol>
  */
 @ExperimentalApi
 @RequiresApi(33)
@@ -234,7 +253,7 @@ public final class EnhancementSessionDecorator implements FrameProcessor {
 
     @Override
     public void onFrameQueued(long presentationTimeUs) {
-      surfaceToFrameWriterAdapter.onInputFrameQueued();
+      surfaceToFrameWriterAdapter.onInputFrameQueued(presentationTimeUs);
     }
 
     @Override

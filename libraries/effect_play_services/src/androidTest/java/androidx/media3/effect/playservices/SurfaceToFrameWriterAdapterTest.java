@@ -110,7 +110,7 @@ public final class SurfaceToFrameWriterAdapterTest {
     Surface surface = configureWriter(WIDTH, HEIGHT, inputFormat);
 
     long expectedPtsUs = 42_000L;
-    onInputFrameQueued();
+    onInputFrameQueued(expectedPtsUs);
 
     fakeDownstreamOutput.prepareInputFrame(createHardwareBufferFrame(WIDTH, HEIGHT));
     produceInputFrame(surface, expectedPtsUs);
@@ -127,8 +127,8 @@ public final class SurfaceToFrameWriterAdapterTest {
     Format inputFormat = new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).build();
     Surface surface = configureWriter(WIDTH, HEIGHT, inputFormat);
 
-    onInputFrameQueued();
-    onInputFrameQueued();
+    onInputFrameQueued(/* presentationTimeUs= */ 10_000L);
+    onInputFrameQueued(/* presentationTimeUs= */ 20_000L);
 
     fakeDownstreamOutput.frameLatch = new CountDownLatch(2);
     fakeDownstreamOutput.prepareInputFrame(createHardwareBufferFrame(WIDTH, HEIGHT));
@@ -144,12 +144,36 @@ public final class SurfaceToFrameWriterAdapterTest {
   }
 
   @Test
+  public void draining_whenInputTimestampsDecreaseOnSeek_restoresOriginalPresentationTimestamps()
+      throws Exception {
+    Format inputFormat = new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).build();
+    Surface surface = configureWriter(WIDTH, HEIGHT, inputFormat);
+
+    // Simulate a seek backwards where input presentation timestamps decrease (100ms -> 20ms).
+    onInputFrameQueued(/* presentationTimeUs= */ 100_000L);
+    onInputFrameQueued(/* presentationTimeUs= */ 20_000L);
+
+    fakeDownstreamOutput.frameLatch = new CountDownLatch(2);
+    fakeDownstreamOutput.prepareInputFrame(createHardwareBufferFrame(WIDTH, HEIGHT));
+    fakeDownstreamOutput.prepareInputFrame(createHardwareBufferFrame(WIDTH, HEIGHT));
+
+    // Surface receives strictly increasing monotonic timestamps from Google Play services.
+    produceInputFrame(surface, /* presentationTimeUs= */ 1_000_000L);
+    produceInputFrame(surface, /* presentationTimeUs= */ 1_001_000L);
+
+    assertThat(fakeDownstreamOutput.frameLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(fakeDownstreamOutput.queuedFrames).hasSize(2);
+    assertThat(fakeDownstreamOutput.queuedFrames.get(0).getContentTimeUs()).isEqualTo(100_000L);
+    assertThat(fakeDownstreamOutput.queuedFrames.get(1).getContentTimeUs()).isEqualTo(20_000L);
+  }
+
+  @Test
   public void draining_extraFramesBeyondInputCount_triggersOnError() throws Exception {
     Format inputFormat = new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).build();
     Surface surface = configureWriter(WIDTH, HEIGHT, inputFormat);
 
     // Only 1 frame registered on input.
-    onInputFrameQueued();
+    onInputFrameQueued(/* presentationTimeUs= */ 0L);
 
     fakeDownstreamOutput.prepareInputFrame(createHardwareBufferFrame(WIDTH, HEIGHT));
     fakeDownstreamOutput.prepareInputFrame(createHardwareBufferFrame(WIDTH, HEIGHT));
@@ -177,8 +201,8 @@ public final class SurfaceToFrameWriterAdapterTest {
     Format inputFormat = new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).build();
     Surface surface = configureWriter(WIDTH, HEIGHT, inputFormat);
 
-    onInputFrameQueued();
-    onInputFrameQueued();
+    onInputFrameQueued(/* presentationTimeUs= */ 0L);
+    onInputFrameQueued(/* presentationTimeUs= */ 1_000L);
 
     // Input EOS arrives before outputs have been drained.
     onEndOfStream();
@@ -216,7 +240,7 @@ public final class SurfaceToFrameWriterAdapterTest {
     Format inputFormat = new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).build();
     Surface surface = configureWriter(WIDTH, HEIGHT, inputFormat);
 
-    onInputFrameQueued();
+    onInputFrameQueued(/* presentationTimeUs= */ 0L);
     fakeDownstreamOutput.prepareInputFrame(createHardwareBufferFrame(WIDTH, HEIGHT));
 
     produceInputFrame(surface);
@@ -236,7 +260,7 @@ public final class SurfaceToFrameWriterAdapterTest {
     Format inputFormat = new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).build();
     Surface surface = configureWriter(WIDTH, HEIGHT, inputFormat);
 
-    onInputFrameQueued();
+    onInputFrameQueued(/* presentationTimeUs= */ 0L);
     fakeNativeHelpers.shouldSucceed = false;
 
     fakeDownstreamOutput.prepareInputFrame(createHardwareBufferFrame(WIDTH, HEIGHT));
@@ -303,7 +327,7 @@ public final class SurfaceToFrameWriterAdapterTest {
   public void close_whenFrameHeldInPendingImage_closesCleanlyWithoutError() throws Exception {
     Format inputFormat = new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).build();
     Surface surface = configureWriter(WIDTH, HEIGHT, inputFormat);
-    onInputFrameQueued();
+    onInputFrameQueued(/* presentationTimeUs= */ 0L);
     produceInputFrame(surface);
 
     assertThat(fakeDownstreamOutput.dequeueAttemptedLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -319,8 +343,8 @@ public final class SurfaceToFrameWriterAdapterTest {
     return runOnHandler(() -> writer.configure(width, height, inputFormat));
   }
 
-  private void onInputFrameQueued() throws Exception {
-    runOnHandler(writer::onInputFrameQueued);
+  private void onInputFrameQueued(long presentationTimeUs) throws Exception {
+    runOnHandler(() -> writer.onInputFrameQueued(presentationTimeUs));
   }
 
   private void onEndOfStream() throws Exception {

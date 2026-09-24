@@ -31,6 +31,7 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.HandlerExecutor;
+import androidx.media3.common.util.LongArrayQueue;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameWriter;
@@ -76,6 +77,7 @@ import java.util.concurrent.Executor;
   private final Handler handler;
   private final Executor handlerExecutor;
   private final Listener listener;
+  private final LongArrayQueue inputPresentationTimestampsUs;
 
   @Nullable private ImageReader imageReader;
   @Nullable private Surface surface;
@@ -110,6 +112,7 @@ import java.util.concurrent.Executor;
     this.handlerExecutor =
         new HandlerExecutor(handler, e -> listener.onError(VideoFrameProcessingException.from(e)));
     this.listener = listener;
+    inputPresentationTimestampsUs = new LongArrayQueue();
   }
 
   /**
@@ -150,11 +153,15 @@ import java.util.concurrent.Executor;
   /**
    * Notifies the adapter that an input frame is queued to the surface.
    *
+   * <p>Records the original upstream {@code presentationTimeUs} (forwarded by {@link
+   * EnhancementSessionDecorator} from {@link FrameToSurfaceFrameWriter.Listener#onFrameQueued}).
+   *
    * <p>Must be called on a handler thread.
    */
-  public void onInputFrameQueued() {
+  public void onInputFrameQueued(long presentationTimeUs) {
     checkState(Looper.myLooper() == handler.getLooper());
     checkState(!isClosed && !isEndOfStreamReceived);
+    inputPresentationTimestampsUs.add(presentationTimeUs);
     totalInputFramesCount++;
   }
 
@@ -214,6 +221,7 @@ import java.util.concurrent.Executor;
       return;
     }
     isClosed = true;
+    inputPresentationTimestampsUs.clear();
     if (pendingImage != null) {
       pendingImage.close();
       pendingImage = null;
@@ -295,7 +303,7 @@ import java.util.concurrent.Executor;
           newFrame =
               ((HardwareBufferFrame) targetFrame.frame)
                   .buildUpon()
-                  .setContentTimeUs(sourceImage.getTimestamp() / 1000L)
+                  .setContentTimeUs(inputPresentationTimestampsUs.remove())
                   .build();
         } else {
           copyException =

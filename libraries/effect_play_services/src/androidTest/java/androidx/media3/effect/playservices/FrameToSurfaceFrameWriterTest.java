@@ -147,7 +147,7 @@ public final class FrameToSurfaceFrameWriterTest {
   }
 
   @Test
-  public void queueInputFrame_queuesImageWithPresentationTimestamp() {
+  public void queueInputFrame_assignsMonotonicTimestampAndNotifiesListenerWithOriginalPts() {
     Format format = new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).build();
     frameWriter.configure(format, Frame.USAGE_GPU_COLOR_OUTPUT);
 
@@ -160,8 +160,47 @@ public final class FrameToSurfaceFrameWriterTest {
 
     try (Image outputImage = imageReader.acquireLatestImage()) {
       assertThat(outputImage).isNotNull();
-      assertThat(outputImage.getTimestamp()).isEqualTo(123_456_000L);
+      assertThat(outputImage.getTimestamp()).isEqualTo(0L);
       assertThat(testListener.lastQueuedPtsUs.get()).isEqualTo(123_456L);
+    }
+  }
+
+  @Test
+  public void
+      queueInputFrame_whenPresentationTimestampsDecreaseOnSeek_assignsIncreasingImageTimestamps() {
+    Format format = new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).build();
+    frameWriter.configure(format, Frame.USAGE_GPU_COLOR_OUTPUT);
+
+    AsyncFrame firstAsyncFrame = frameWriter.dequeueInputFrame(Runnable::run, () -> {});
+    assertThat(firstAsyncFrame).isNotNull();
+    DefaultHardwareBufferFrame firstFrame =
+        ((DefaultHardwareBufferFrame) firstAsyncFrame.frame)
+            .buildUpon()
+            .setContentTimeUs(500_000L)
+            .build();
+    frameWriter.queueInputFrame(firstFrame, /* writeCompleteFence= */ null);
+
+    try (Image firstImage = imageReader.acquireLatestImage()) {
+      assertThat(firstImage).isNotNull();
+      assertThat(firstImage.getTimestamp()).isEqualTo(0L);
+      assertThat(testListener.lastQueuedPtsUs.get()).isEqualTo(500_000L);
+    }
+    frameWriter.onFrameReleased();
+
+    // Simulate a seek backwards (500ms -> 100ms).
+    AsyncFrame secondAsyncFrame = frameWriter.dequeueInputFrame(Runnable::run, () -> {});
+    assertThat(secondAsyncFrame).isNotNull();
+    DefaultHardwareBufferFrame secondFrame =
+        ((DefaultHardwareBufferFrame) secondAsyncFrame.frame)
+            .buildUpon()
+            .setContentTimeUs(100_000L)
+            .build();
+    frameWriter.queueInputFrame(secondFrame, /* writeCompleteFence= */ null);
+
+    try (Image secondImage = imageReader.acquireLatestImage()) {
+      assertThat(secondImage).isNotNull();
+      assertThat(secondImage.getTimestamp()).isEqualTo(1_000L);
+      assertThat(testListener.lastQueuedPtsUs.get()).isEqualTo(100_000L);
     }
   }
 
