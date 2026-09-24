@@ -59,6 +59,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.ExoPlayer.PreloadConfiguration;
+import androidx.media3.exoplayer.analytics.PlaybackStatsListener;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.drm.DrmSessionManagerProvider;
@@ -2665,6 +2666,37 @@ public class ExoPlayerAdTest {
     assertThat(newPositions.get(1).adGroupIndex).isEqualTo(C.INDEX_UNSET);
     assertThat(newPositions.get(1).positionMs).isEqualTo(5_000L);
     assertThat(newPositions.get(1).contentPositionMs).isEqualTo(5_000L);
+  }
+
+  @Test
+  public void stop_duringLiveStreamPrerollAdWithPlaybackStatsListener_doesNotCrash()
+      throws Exception {
+    AdPlaybackState adPlaybackState =
+        FakeTimeline.createAdPlaybackState(
+            /* adsPerAdGroup= */ 1,
+            /* adGroupTimesUs...= */ DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US);
+    Timeline fakeTimeline =
+        new FakeTimeline(
+            new TimelineWindowDefinition.Builder()
+                .setLive(true)
+                .setAdPlaybackStates(ImmutableList.of(adPlaybackState))
+                .build());
+    FakeMediaSource fakeMediaSource =
+        new FakeMediaSource(fakeTimeline, ExoPlayerTestRunner.VIDEO_FORMAT);
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    player.addAnalyticsListener(
+        new PlaybackStatsListener(/* keepHistory= */ false, /* callback= */ null));
+    player.setMediaSource(fakeMediaSource);
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_READY);
+    assertThat(player.isPlayingAd()).isTrue();
+
+    player.stop();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.setVolume(0f);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.release();
   }
 
   /**

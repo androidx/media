@@ -96,6 +96,7 @@ import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
+import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.ExoPlaybackException;
@@ -2077,6 +2078,98 @@ public final class DefaultAnalyticsCollectorTest {
     long videoDisableTimeMs = videoDisabledEventTime.getValue().realtimeMs;
     assertThat(videoDisableTimeMs).isGreaterThan(releaseTimeMs);
     assertThat(releasedEventTime.getValue().realtimeMs).isGreaterThan(videoDisableTimeMs);
+  }
+
+  @Test
+  public void onVolumeChanged_afterStopDuringLiveStreamPrerollAd_reportsEventTimeWithAdTimeline()
+      throws Exception {
+    AdPlaybackState adPlaybackState =
+        FakeTimeline.createAdPlaybackState(
+            /* adsPerAdGroup= */ 1,
+            /* adGroupTimesUs...= */ TimelineWindowDefinition
+                .DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US);
+    Timeline liveTimelineWithPreroll =
+        new FakeTimeline(
+            new TimelineWindowDefinition.Builder()
+                .setLive(true)
+                .setAdPlaybackStates(ImmutableList.of(adPlaybackState))
+                .build());
+    ExoPlayer player = setupPlayer();
+    AnalyticsListener analyticsListener = mock(AnalyticsListener.class);
+    player.addAnalyticsListener(analyticsListener);
+    player.setMediaSource(
+        new FakeMediaSource(liveTimelineWithPreroll, ExoPlayerTestRunner.VIDEO_FORMAT));
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_READY);
+    assertThat(player.isPlayingAd()).isTrue();
+
+    player.stop();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.setVolume(0f);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.release();
+
+    ArgumentCaptor<AnalyticsListener.EventTime> eventTimeCaptor =
+        ArgumentCaptor.forClass(AnalyticsListener.EventTime.class);
+    verify(analyticsListener).onVolumeChanged(eventTimeCaptor.capture(), eq(0f));
+    AnalyticsListener.EventTime eventTime = eventTimeCaptor.getValue();
+    assertThat(eventTime.mediaPeriodId).isNotNull();
+    assertThat(eventTime.mediaPeriodId.isAd()).isTrue();
+    Timeline.Period period =
+        eventTime.timeline.getPeriodByUid(eventTime.mediaPeriodId.periodUid, new Timeline.Period());
+    assertThat(period.getAdGroupCount()).isEqualTo(1);
+    assertThat(period.getAdGroupTimeUs(eventTime.mediaPeriodId.adGroupIndex))
+        .isEqualTo(TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US);
+  }
+
+  @Test
+  public void
+      onVolumeChanged_afterStopDuringLiveStreamContentBeforeMidrollAd_reportsEventTimeWithAdTimeline()
+          throws Exception {
+    long midrollAdGroupTimeUs =
+        TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US + 5 * C.MICROS_PER_SECOND;
+    AdPlaybackState adPlaybackState =
+        FakeTimeline.createAdPlaybackState(
+            /* adsPerAdGroup= */ 1, /* adGroupTimesUs...= */ midrollAdGroupTimeUs);
+    Timeline liveTimelineWithMidroll =
+        new FakeTimeline(
+            new TimelineWindowDefinition.Builder()
+                .setLive(true)
+                .setAdPlaybackStates(ImmutableList.of(adPlaybackState))
+                .build());
+    ExoPlayer player = setupPlayer();
+    AnalyticsListener analyticsListener = mock(AnalyticsListener.class);
+    player.addAnalyticsListener(analyticsListener);
+    player.setMediaSource(
+        new FakeMediaSource(liveTimelineWithMidroll, ExoPlayerTestRunner.VIDEO_FORMAT));
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_READY);
+    assertThat(player.isPlayingAd()).isFalse();
+
+    player.stop();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.setVolume(0f);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.release();
+
+    ArgumentCaptor<AnalyticsListener.EventTime> eventTimeCaptor =
+        ArgumentCaptor.forClass(AnalyticsListener.EventTime.class);
+    verify(analyticsListener).onVolumeChanged(eventTimeCaptor.capture(), eq(0f));
+    // Verify that the volume changed event was reported for a content period pointing to the
+    // upcoming ad group.
+    AnalyticsListener.EventTime eventTime = eventTimeCaptor.getValue();
+    assertThat(eventTime.mediaPeriodId).isNotNull();
+    assertThat(eventTime.mediaPeriodId.isAd()).isFalse();
+    assertThat(eventTime.mediaPeriodId.nextAdGroupIndex).isEqualTo(0);
+    assertThat(eventTime.eventPlaybackPositionMs).isLessThan(Util.usToMs(midrollAdGroupTimeUs));
+    // Verify that the ad group time matches the original timeline.
+    Timeline.Period period =
+        eventTime.timeline.getPeriodByUid(eventTime.mediaPeriodId.periodUid, new Timeline.Period());
+    assertThat(period.getAdGroupCount()).isEqualTo(1);
+    assertThat(period.getAdGroupTimeUs(eventTime.mediaPeriodId.nextAdGroupIndex))
+        .isEqualTo(midrollAdGroupTimeUs);
   }
 
   private void populateEventIds(Timeline timeline) {

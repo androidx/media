@@ -1163,7 +1163,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
       if (mediaPeriodId == null) {
         return;
       }
-      if (preferredTimeline.getIndexOfPeriod(mediaPeriodId.periodUid) != C.INDEX_UNSET) {
+      if (isMediaPeriodIdInTimeline(mediaPeriodId, preferredTimeline, period)) {
         mediaPeriodTimelinesBuilder.put(mediaPeriodId, preferredTimeline);
       } else {
         @Nullable Timeline existingTimeline = mediaPeriodTimelines.get(mediaPeriodId);
@@ -1171,6 +1171,22 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
           mediaPeriodTimelinesBuilder.put(mediaPeriodId, existingTimeline);
         }
       }
+    }
+
+    private static boolean isMediaPeriodIdInTimeline(
+        MediaPeriodId mediaPeriodId, Timeline timeline, Period period) {
+      int periodIndex = timeline.getIndexOfPeriod(mediaPeriodId.periodUid);
+      if (periodIndex == C.INDEX_UNSET) {
+        return false;
+      }
+      timeline.getPeriod(periodIndex, period);
+      if (mediaPeriodId.isAd()) {
+        return mediaPeriodId.adGroupIndex < period.getAdGroupCount()
+            && mediaPeriodId.adIndexInAdGroup
+                < period.getAdCountInAdGroup(mediaPeriodId.adGroupIndex);
+      }
+      return mediaPeriodId.nextAdGroupIndex == C.INDEX_UNSET
+          || mediaPeriodId.nextAdGroupIndex < period.getAdGroupCount();
     }
 
     @Nullable

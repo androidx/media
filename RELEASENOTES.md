@@ -49,6 +49,9 @@
     *   Fix an issue where video frames could be unexpectedly skipped or dropped
         during dynamic scheduling when
         `Flags.FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS` is enabled.
+    *   Fix an `ArrayIndexOutOfBoundsException` in analytics listeners when
+        stopping playback during an ad on a live stream
+        ([#3423](https://github.com/androidx/media/issues/3423)).
 *   CompositionPlayer:
     *   Support configuring the frame rate of video frame aggregation via
         `Composition.Builder.setVideoFrameAggregationParameters` for playback
