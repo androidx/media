@@ -306,8 +306,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             new LoadErrorInfo(loadEventInfo, mediaLoadData, error, errorCount));
     boolean errorCanBePropagated =
         retryDelay == C.TIME_UNSET
-            || errorCount
-                >= loadErrorHandlingPolicy.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA);
+            || errorCount > loadErrorHandlingPolicy.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA);
 
     LoadErrorAction action;
     if (treatLoadErrorsAsEndOfStream && errorCanBePropagated) {
@@ -316,7 +315,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       action = Loader.DONT_RETRY;
     } else {
       action =
-          retryDelay != C.TIME_UNSET
+          !errorCanBePropagated
               ? Loader.createRetryAction(/* resetErrorCount= */ false, retryDelay)
               : Loader.DONT_RETRY_FATAL;
     }
