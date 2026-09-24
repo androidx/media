@@ -92,6 +92,10 @@
         by default.
     *   Mp4Extractor: Fix location metadata parsing from `xyz` boxes containing
         altitude coordinates to populate `Mp4LocationData`.
+    *   FragmentedMp4Extractor: Fix silent playback of Dolby TrueHD in
+        fragmented MP4 by rechunking TrueHD samples into groups of
+        `Ac3Util.TRUEHD_RECHUNK_SAMPLE_COUNT`, as `Mp4Extractor` already does
+        ([#1519](https://github.com/androidx/media/issues/1519)).
     *   Add `ExtractorUtil.getFramesPerEncodedSample` to calculate the number of
         audio frames per sample for encoded audio formats
         ([#3367](https://github.com/androidx/media/issues/3367)).

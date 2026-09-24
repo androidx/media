@@ -46,6 +46,7 @@ import androidx.media3.container.Mp4Box.ContainerBox;
 import androidx.media3.container.Mp4Box.LeafBox;
 import androidx.media3.container.NalUnitUtil;
 import androidx.media3.container.ReorderingBufferQueue;
+import androidx.media3.extractor.Ac3Util;
 import androidx.media3.extractor.Ac4Util;
 import androidx.media3.extractor.CeaUtil;
 import androidx.media3.extractor.ChunkIndex;
@@ -62,6 +63,7 @@ import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.SniffFailure;
 import androidx.media3.extractor.TrackAwareSeekMap;
 import androidx.media3.extractor.TrackOutput;
+import androidx.media3.extractor.TrueHdSampleRechunker;
 import androidx.media3.extractor.metadata.emsg.EventMessage;
 import androidx.media3.extractor.metadata.emsg.EventMessageEncoder;
 import androidx.media3.extractor.text.SubtitleParser;
@@ -496,7 +498,17 @@ public class FragmentedMp4Extractor implements Extractor {
   public void seek(long position, long timeUs) {
     int trackCount = trackBundles.size();
     for (int i = 0; i < trackCount; i++) {
-      trackBundles.valueAt(i).resetFragmentInfo();
+      TrackBundle trackBundle = trackBundles.valueAt(i);
+      trackBundle.resetFragmentInfo();
+      if (trackBundle.trueHdSampleRechunker != null) {
+        // Drop the partially accumulated chunk: its samples are no longer in the sample queue.
+        if (timeUs == 0) {
+          // BundledChunkExtractor uses seek(0, 0) between consecutive segment inputs.
+          trackBundle.trueHdSampleRechunker.resetSampleCount();
+        } else {
+          trackBundle.trueHdSampleRechunker.reset();
+        }
+      }
     }
     pendingMetadataSampleInfos.clear();
     pendingMetadataSampleBytes = 0;
@@ -525,6 +537,7 @@ public class FragmentedMp4Extractor implements Extractor {
               upfrontSidxScanComplete = true;
               return Extractor.RESULT_SEEK;
             } else {
+              outputPendingTrueHdSampleMetadata();
               reorderingBufferQueue.flush();
               return Extractor.RESULT_END_OF_INPUT;
             }
@@ -555,6 +568,20 @@ public class FragmentedMp4Extractor implements Extractor {
           if (readSample(input)) {
             return RESULT_CONTINUE;
           }
+      }
+    }
+  }
+
+  /**
+   * Outputs the metadata of any TrueHD chunk that has fewer than {@link
+   * Ac3Util#TRUEHD_RECHUNK_SAMPLE_COUNT} samples, so that the tail of the stream isn't dropped.
+   */
+  private void outputPendingTrueHdSampleMetadata() {
+    for (int i = 0; i < trackBundles.size(); i++) {
+      TrackBundle trackBundle = trackBundles.valueAt(i);
+      if (trackBundle.trueHdSampleRechunker != null) {
+        trackBundle.trueHdSampleRechunker.outputPendingSampleMetadata(
+            trackBundle.output, /* cryptoData= */ null);
       }
     }
   }
@@ -1713,6 +1740,19 @@ public class FragmentedMp4Extractor implements Extractor {
         input.skipFully(Mp4Box.HEADER_SIZE);
       }
 
+      if (trackBundle.trueHdSampleRechunker != null) {
+        if (trackBundle.getEncryptionBoxIfEncrypted() != null) {
+          // Encrypted samples carry their own CryptoData, so they are output individually. Commit
+          // the pending chunk before any of this sample's data reaches the output, because the
+          // chunk's metadata is relative to the end of the data written so far.
+          trackBundle.trueHdSampleRechunker.outputPendingSampleMetadata(
+              trackBundle.output, /* cryptoData= */ null);
+        } else {
+          // Peek the syncframe before anything is written to the output, so that a failed read can
+          // be retried without writing any sample data twice.
+          trackBundle.trueHdSampleRechunker.startSample(input);
+        }
+      }
       if (MimeTypes.AUDIO_AC4.equals(trackBundle.moovSampleTable.track.format.sampleMimeType)) {
         // AC4 samples need to be prefixed with a clear sample header.
         sampleBytesWritten =
@@ -1859,7 +1899,19 @@ public class FragmentedMp4Extractor implements Extractor {
       cryptoData = encryptionBox.cryptoData;
     }
 
-    output.sampleMetadata(sampleTimeUs, sampleFlags, sampleSize, 0, cryptoData);
+    // TrueHD samples are emitted in groups of Ac3Util#TRUEHD_RECHUNK_SAMPLE_COUNT, because
+    // ExtractorUtil#getFramesPerEncodedSample derives the duration of a TrueHD buffer by
+    // multiplying the audio sample count of its first syncframe by that same constant. Emitting one
+    // container sample per buffer makes the audio sink advance its clock
+    // TRUEHD_RECHUNK_SAMPLE_COUNT times too fast, which surfaces as
+    // AudioSink$UnexpectedDiscontinuityException. Mp4Extractor already rechunks this way.
+    @Nullable TrueHdSampleRechunker trueHdSampleRechunker = trackBundle.trueHdSampleRechunker;
+    if (trueHdSampleRechunker != null && cryptoData == null) {
+      trueHdSampleRechunker.sampleMetadata(
+          output, sampleTimeUs, sampleFlags, sampleSize, /* offset= */ 0, /* cryptoData= */ null);
+    } else {
+      output.sampleMetadata(sampleTimeUs, sampleFlags, sampleSize, /* offset= */ 0, cryptoData);
+    }
 
     // After we have the sampleTimeUs, we can commit all the pending metadata samples
     outputPendingMetadataSamples(sampleTimeUs);
@@ -2280,6 +2332,12 @@ public class FragmentedMp4Extractor implements Extractor {
     public final TrackFragment fragment;
     public final ParsableByteArray scratch;
 
+    /**
+     * Rechunks TrueHD samples into groups of {@link Ac3Util#TRUEHD_RECHUNK_SAMPLE_COUNT}, or null
+     * if the track doesn't carry TrueHD.
+     */
+    @Nullable public final TrueHdSampleRechunker trueHdSampleRechunker;
+
     public TrackSampleTable moovSampleTable;
     public DefaultSampleValues defaultSampleValues;
     public int currentSampleIndex;
@@ -2313,6 +2371,10 @@ public class FragmentedMp4Extractor implements Extractor {
       scratch = new ParsableByteArray();
       encryptionSignalByte = new ParsableByteArray(1);
       defaultInitializationVector = new ParsableByteArray();
+      trueHdSampleRechunker =
+          MimeTypes.AUDIO_TRUEHD.equals(baseFormat.sampleMimeType)
+              ? new TrueHdSampleRechunker()
+              : null;
       if (DtsUtil.isDtsBaseAudioMimeType(baseFormat.sampleMimeType)) {
         pendingFormat = baseFormat;
       }
