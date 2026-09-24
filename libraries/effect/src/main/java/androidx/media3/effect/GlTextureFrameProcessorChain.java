@@ -15,6 +15,7 @@
  */
 package androidx.media3.effect;
 
+import static androidx.media3.common.ColorInfo.isWideColorGamut;
 import static androidx.media3.effect.FrameProcessorUtils.runAllAndAccumulateExceptions;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -23,6 +24,7 @@ import static com.google.common.collect.Iterables.getLast;
 
 import android.content.Context;
 import androidx.annotation.RequiresApi;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Effect;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -49,22 +51,37 @@ import java.util.concurrent.Executor;
   private final List<Effect> currentEffects;
   private final GlTextureFrameConsumer downstreamFrameConsumer;
   private final String effectKey;
+  private final ColorInfo workingColorSpace;
 
   private GlTextureFrameConsumer firstGlTextureFrameConsumer;
 
+  /**
+   * Creates an instance.
+   *
+   * @param context The {@link Context}.
+   * @param glObjectsProvider The {@link GlObjectsProvider}.
+   * @param glExecutorService The {@link ListeningExecutorService} to execute OpenGL commands on.
+   * @param errorConsumer The {@link Consumer} to report errors to.
+   * @param downstreamFrameConsumer The {@link GlTextureFrameConsumer} to output frames to.
+   * @param effectKey The {@linkplain GlTextureFrame#getMetadata() frame metadata} key holding the
+   *     {@linkplain Effect effects} to apply.
+   * @param workingColorSpace The {@link ColorInfo} that frames are processed in.
+   */
   public GlTextureFrameProcessorChain(
       Context context,
       GlObjectsProvider glObjectsProvider,
       ListeningExecutorService glExecutorService,
       Consumer<VideoFrameProcessingException> errorConsumer,
       GlTextureFrameConsumer downstreamFrameConsumer,
-      String effectKey) {
+      String effectKey,
+      ColorInfo workingColorSpace) {
     this.context = context;
     this.glObjectsProvider = glObjectsProvider;
     this.glExecutorService = glExecutorService;
     this.errorConsumer = errorConsumer;
     this.downstreamFrameConsumer = downstreamFrameConsumer;
     this.effectKey = effectKey;
+    this.workingColorSpace = workingColorSpace;
     this.firstGlTextureFrameConsumer = downstreamFrameConsumer;
     effectProcessorChain = new ArrayList<>();
     currentEffects = new ArrayList<>();
@@ -111,6 +128,14 @@ import java.util.concurrent.Executor;
     ImmutableList.Builder<GlMatrixTransformation> matrixTransformationBuilder =
         new ImmutableList.Builder<>();
     ImmutableList.Builder<RgbMatrix> colorTransformationBuilder = new ImmutableList.Builder<>();
+    // TODO: b/562926844 - Derive useHdr per effect from the preceding effect's output color space,
+    //   once effects can change the color space.
+    // TODO: b/545584738 - GlEffect currently overloads useHdr to mean both color gamut (BT.2020 vs
+    //   BT.709) and texture precision (GL_RGBA16F vs GL_RGBA8). For BT709_LINEAR, the
+    //   gamut is BT.709 (useHdr = false), causing BaseGlShaderProgram to allocate 8-bit textures
+    //   (GL_RGBA8) and band in linear light. Pass ColorInfo to effects instead of a boolean, or
+    //   decouple gamut from texture precision.
+    boolean useHdr = isWideColorGamut(workingColorSpace);
     try {
       for (int i = 0; i < effects.size(); i++) {
         Effect effect = effects.get(i);
@@ -133,15 +158,15 @@ import java.util.concurrent.Executor;
         ImmutableList<RgbMatrix> colorTransformations = colorTransformationBuilder.build();
 
         if (!matrixTransformations.isEmpty() || !colorTransformations.isEmpty()) {
-          newProcessorChain.add(createMergedProcessor(matrixTransformations, colorTransformations));
+          newProcessorChain.add(
+              createMergedProcessor(matrixTransformations, colorTransformations, useHdr));
           matrixTransformationBuilder = new ImmutableList.Builder<>();
           colorTransformationBuilder = new ImmutableList.Builder<>();
         }
 
-        // TODO: b/505721737 - Support HDR.
         newProcessorChain.add(
             new GlShaderProgramAdapter(
-                glEffect.toGlShaderProgram(context, /* useHdr= */ false),
+                glEffect.toGlShaderProgram(context, useHdr),
                 glObjectsProvider,
                 glExecutorService,
                 errorConsumer));
@@ -153,7 +178,8 @@ import java.util.concurrent.Executor;
 
       if (!remainingMatrixTransformations.isEmpty() || !remainingColorTransformations.isEmpty()) {
         newProcessorChain.add(
-            createMergedProcessor(remainingMatrixTransformations, remainingColorTransformations));
+            createMergedProcessor(
+                remainingMatrixTransformations, remainingColorTransformations, useHdr));
       }
     } catch (VideoFrameProcessingException | RuntimeException e) {
       for (int j = 0; j < newProcessorChain.size(); j++) {
@@ -189,12 +215,12 @@ import java.util.concurrent.Executor;
   }
 
   private GlTextureFrameProcessor createMergedProcessor(
-      List<GlMatrixTransformation> matrixTransformations, List<RgbMatrix> colorTransformations)
+      List<GlMatrixTransformation> matrixTransformations,
+      List<RgbMatrix> colorTransformations,
+      boolean useHdr)
       throws VideoFrameProcessingException {
-    // TODO: b/505721737 - Support HDR.
     return new GlShaderProgramAdapter(
-        DefaultShaderProgram.create(
-            context, matrixTransformations, colorTransformations, /* useHdr= */ false),
+        DefaultShaderProgram.create(context, matrixTransformations, colorTransformations, useHdr),
         glObjectsProvider,
         glExecutorService,
         errorConsumer);

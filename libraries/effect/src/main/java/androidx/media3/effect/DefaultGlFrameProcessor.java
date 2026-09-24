@@ -489,8 +489,9 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   }
 
   private void initializePipeline() {
+    ColorInfo workingColorSpace = checkNotNull(this.workingColorSpace);
     frameToGlTextureConverter =
-        frameToGlTextureConverterFactory.create(checkNotNull(workingColorSpace), errorConsumer);
+        frameToGlTextureConverterFactory.create(workingColorSpace, errorConsumer);
     postProcessingChain =
         new GlTextureFrameProcessorChain(
             context,
@@ -498,11 +499,12 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
             glExecutorService,
             errorConsumer,
             frameWriterGlTextureFrameConsumer,
-            KEY_COMPOSITION_EFFECTS);
+            KEY_COMPOSITION_EFFECTS,
+            workingColorSpace);
     compositingProcessor =
         glTextureFrameCompositorFactory.create(
             glObjectsProvider,
-            checkNotNull(workingColorSpace),
+            workingColorSpace,
             errorConsumer,
             glExecutorService,
             postProcessingChain);
@@ -538,7 +540,8 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
                 glExecutorService,
                 errorConsumer,
                 checkNotNull(frameAggregator).getInputConsumer(sequenceIndex),
-                KEY_ITEM_EFFECTS);
+                KEY_ITEM_EFFECTS,
+                checkNotNull(this.workingColorSpace));
         preProcessingChains.put(sequenceIndex, processingChain);
       }
 

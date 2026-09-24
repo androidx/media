@@ -15,14 +15,20 @@
  */
 package androidx.media3.effect;
 
+import static androidx.media3.effect.DefaultGlFrameProcessor.BT2020_HLG;
+import static androidx.media3.effect.DefaultGlFrameProcessor.BT2020_LINEAR;
+import static androidx.media3.effect.DefaultGlFrameProcessor.BT709_LINEAR;
+import static androidx.media3.effect.DefaultGlFrameProcessor.BT709_SRGB;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_ITEM_EFFECTS;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Effect;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
@@ -37,6 +43,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -57,14 +64,7 @@ public final class GlTextureFrameProcessorChainTest {
     downstreamFrameConsumer = new FakeGlTextureFrameConsumer(/* frameWriter= */ null);
     glExecutorService = listeningDecorator(Util.newSingleThreadExecutor("Effect:GlThread"));
 
-    glTextureFrameProcessorChain =
-        new GlTextureFrameProcessorChain(
-            context,
-            new DefaultGlObjectsProvider(),
-            glExecutorService,
-            /* errorConsumer= */ e -> {},
-            downstreamFrameConsumer,
-            KEY_ITEM_EFFECTS);
+    glTextureFrameProcessorChain = createProcessorChain(BT709_SRGB);
   }
 
   @After
@@ -229,6 +229,68 @@ public final class GlTextureFrameProcessorChainTest {
     // constructor arguments, and their individual toGlShaderProgram(...) method is skipped.
     assertThat(matrixToGlShaderProgramCalled.get()).isFalse();
     assertThat(rgbToGlShaderProgramCalled.get()).isFalse();
+  }
+
+  @Test
+  public void queue_withHdrHlgWorkingColorSpace_createsShaderProgramWithHdrGamut()
+      throws Exception {
+    assertThat(queueFrameAndGetEffectUseHdr(BT2020_HLG)).isTrue();
+  }
+
+  @Test
+  public void queue_withLinearHdrWorkingColorSpace_createsShaderProgramWithHdrGamut()
+      throws Exception {
+    assertThat(queueFrameAndGetEffectUseHdr(BT2020_LINEAR)).isTrue();
+  }
+
+  @Test
+  public void queue_withSdrSrgbWorkingColorSpace_createsShaderProgramWithSdrGamut()
+      throws Exception {
+    assertThat(queueFrameAndGetEffectUseHdr(BT709_SRGB)).isFalse();
+  }
+
+  @Test
+  public void queue_withLinearSdrWorkingColorSpace_createsShaderProgramWithSdrGamut()
+      throws Exception {
+    // This pins the gamut decision only, as linear SDR colors are BT.709 rather than BT.2020. It is
+    // not an endorsement of the 8-bit output textures that useHdr being false also selects, see the
+    // TODOs in GlTextureFrameProcessorChain.configure().
+    assertThat(queueFrameAndGetEffectUseHdr(BT709_LINEAR)).isFalse();
+  }
+
+  /**
+   * Queues a frame with a single {@link GlEffect} through a chain configured with the given {@code
+   * workingColorSpace}, and returns the {@code useHdr} value the chain used to create the effect's
+   * {@link GlShaderProgram}.
+   */
+  private boolean queueFrameAndGetEffectUseHdr(ColorInfo workingColorSpace) throws Exception {
+    AtomicReference<Boolean> effectUseHdr = new AtomicReference<>();
+    GlEffect fakeEffect =
+        (context, useHdr) -> {
+          effectUseHdr.set(useHdr);
+          return new FakeGlShaderProgram();
+        };
+    glTextureFrameProcessorChain = createProcessorChain(workingColorSpace);
+    GlTextureFrame frame = createGlTextureFrameWithEffects(ImmutableList.of(fakeEffect));
+
+    assertThat(
+            glTextureFrameProcessorChain.queue(
+                frame, glExecutorService, /* wakeupListener= */ () -> {}))
+        .isTrue();
+    waitUntilGlThreadFinishes();
+
+    return checkNotNull(effectUseHdr.get());
+  }
+
+  private GlTextureFrameProcessorChain createProcessorChain(ColorInfo workingColorSpace) {
+    return new GlTextureFrameProcessorChain(
+        context,
+        new DefaultGlObjectsProvider(),
+        glExecutorService,
+        /* errorConsumer= */ e -> {},
+        downstreamFrameConsumer,
+        KEY_ITEM_EFFECTS,
+        workingColorSpace);
   }
 
   private void waitUntilGlThreadFinishes() throws ExecutionException, InterruptedException {
