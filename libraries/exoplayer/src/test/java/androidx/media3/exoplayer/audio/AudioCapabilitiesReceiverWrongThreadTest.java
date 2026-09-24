@@ -70,7 +70,7 @@ public final class AudioCapabilitiesReceiverWrongThreadTest {
             listener,
             new AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
             /* routedDevice= */ null);
-    AudioCapabilities unused = audioCapabilitiesReceiver.register();
+    AudioCapabilities _ = audioCapabilitiesReceiver.register();
     audioCapabilitiesReceiver.overrideCapabilities(OVERRIDDEN_AUDIO_CAPABILITIES);
 
     wrongThreadExecutor
@@ -97,7 +97,7 @@ public final class AudioCapabilitiesReceiverWrongThreadTest {
             listener,
             new AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
             /* routedDevice= */ null);
-    AudioCapabilities unused = audioCapabilitiesReceiver.register();
+    AudioCapabilities _ = audioCapabilitiesReceiver.register();
     audioCapabilitiesReceiver.overrideCapabilities(OVERRIDDEN_AUDIO_CAPABILITIES);
 
     wrongThreadExecutor
@@ -121,14 +121,14 @@ public final class AudioCapabilitiesReceiverWrongThreadTest {
             listener,
             new AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
             /* routedDevice= */ null);
-    AudioCapabilities unused = audioCapabilitiesReceiver.register();
+    AudioCapabilities _ = audioCapabilitiesReceiver.register();
     audioCapabilitiesReceiver.overrideCapabilities(OVERRIDDEN_AUDIO_CAPABILITIES);
 
     audioCapabilitiesReceiver.audioDeviceCallback.onAudioDevicesAdded(new AudioDeviceInfo[0]);
 
     // Assert the listener is invoked immediately without needing to idle the main looper.
     assertThat(listener.invocationCount.get()).isEqualTo(3);
-    assertThat(listener.looperlessThreads).hasSize(0);
+    assertThat(listener.looperlessThreads).isEmpty();
   }
 
   private static final class TrackingListener implements AudioCapabilitiesReceiver.Listener {
