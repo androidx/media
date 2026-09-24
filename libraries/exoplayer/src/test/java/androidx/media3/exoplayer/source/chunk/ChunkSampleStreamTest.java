@@ -62,14 +62,16 @@ public final class ChunkSampleStreamTest {
 
   @Mock private ChunkSource mockChunkSource;
   @Mock private SequenceableLoader.Callback<ChunkSampleStream<ChunkSource>> mockCallback;
-  @Mock private DrmSessionEventListener.EventDispatcher mockDrmEventDispatcher;
-  @Mock private MediaSourceEventListener.EventDispatcher mockMediaSourceEventDispatcher;
 
+  private DrmSessionEventListener.EventDispatcher drmEventDispatcher;
+  private MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher;
   private ChunkSampleStream<ChunkSource> chunkSampleStream;
   private DefaultAllocator allocator;
 
   @Before
   public void setUp() {
+    drmEventDispatcher = new DrmSessionEventListener.EventDispatcher();
+    mediaSourceEventDispatcher = new MediaSourceEventListener.EventDispatcher();
     allocator =
         new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 65536);
     chunkSampleStream =
@@ -82,9 +84,9 @@ public final class ChunkSampleStreamTest {
             allocator,
             /* positionUs= */ 0,
             DrmSessionManager.DRM_UNSUPPORTED,
-            mockDrmEventDispatcher,
+            drmEventDispatcher,
             new DefaultLoadErrorHandlingPolicy(),
-            mockMediaSourceEventDispatcher,
+            mediaSourceEventDispatcher,
             /* handleInitialDiscontinuity= */ false,
             /* firstChunkStartTimeUs= */ C.TIME_UNSET,
             /* downloadExecutor= */ null);
@@ -182,9 +184,9 @@ public final class ChunkSampleStreamTest {
             allocator,
             /* positionUs= */ 0,
             DrmSessionManager.DRM_UNSUPPORTED,
-            mockDrmEventDispatcher,
+            drmEventDispatcher,
             new DefaultLoadErrorHandlingPolicy(),
-            mockMediaSourceEventDispatcher,
+            mediaSourceEventDispatcher,
             /* handleInitialDiscontinuity= */ false,
             /* firstChunkStartTimeUs= */ C.TIME_UNSET,
             /* downloadExecutor= */ null);
@@ -265,9 +267,9 @@ public final class ChunkSampleStreamTest {
         allocator,
         /* positionUs= */ 0,
         DrmSessionManager.DRM_UNSUPPORTED,
-        mockDrmEventDispatcher,
+        drmEventDispatcher,
         new DefaultLoadErrorHandlingPolicy(),
-        mockMediaSourceEventDispatcher,
+        mediaSourceEventDispatcher,
         /* handleInitialDiscontinuity= */ true,
         /* firstChunkStartTimeUs= */ C.TIME_UNSET,
         /* downloadExecutor= */ null);

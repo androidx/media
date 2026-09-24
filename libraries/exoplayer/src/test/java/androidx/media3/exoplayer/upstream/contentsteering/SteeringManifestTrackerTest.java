@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.upstream.contentsteering;
 
+import static androidx.media3.common.util.Util.createHandlerForCurrentLooper;
 import static androidx.media3.exoplayer.upstream.contentsteering.SteeringManifestTracker.FALLBACK_DELAY_UNTIL_NEXT_LOAD_MS;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.truth.Truth.assertThat;
@@ -23,17 +24,18 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.net.Uri;
 import android.os.Looper;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.exoplayer.source.LoadEventInfo;
+import androidx.media3.exoplayer.source.MediaLoadData;
+import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.test.utils.FakeClock;
 import androidx.test.core.app.ApplicationProvider;
@@ -83,6 +85,9 @@ public final class SteeringManifestTrackerTest {
   private FakeClock clock;
   private AtomicInteger loadStartedCount;
   private AtomicInteger loadCompletedOrErrorCount;
+  private List<Integer> completedDataTypes;
+  private List<Integer> errorDataTypes;
+  private List<Boolean> errorWasCanceled;
   private MediaSourceEventListener.EventDispatcher eventDispatcher;
 
   @Before
@@ -98,36 +103,52 @@ public final class SteeringManifestTrackerTest {
     clock = new FakeClock(/* isAutoAdvancing= */ true);
     loadStartedCount = new AtomicInteger();
     loadCompletedOrErrorCount = new AtomicInteger();
-    eventDispatcher =
-        spy(
-            new MediaSourceEventListener.EventDispatcher() {
+    completedDataTypes = new ArrayList<>();
+    errorDataTypes = new ArrayList<>();
+    errorWasCanceled = new ArrayList<>();
+    eventDispatcher = new MediaSourceEventListener.EventDispatcher();
+    eventDispatcher.addEventListener(
+        createHandlerForCurrentLooper(),
+        new MediaSourceEventListener() {
+          @Override
+          public void onLoadStarted(
+              int windowIndex,
+              @Nullable MediaPeriodId mediaPeriodId,
+              LoadEventInfo loadEventInfo,
+              MediaLoadData mediaLoadData,
+              int retryCount) {
+            loadStartedCount.incrementAndGet();
+          }
 
-              @Override
-              public void loadStarted(
-                  LoadEventInfo loadEventInfo, @C.DataType int dataType, int retryCount) {
-                loadStartedCount.incrementAndGet();
-              }
+          @Override
+          public void onLoadCompleted(
+              int windowIndex,
+              @Nullable MediaPeriodId mediaPeriodId,
+              LoadEventInfo loadEventInfo,
+              MediaLoadData mediaLoadData) {
+            completedDataTypes.add(mediaLoadData.dataType);
+            loadCompletedOrErrorCount.incrementAndGet();
+            // We advance the clock for FALLBACK_DELAY_UNTIL_NEXT_LOAD_MS (5 min) to avoid
+            // that the test times out while waiting for the next reload.
+            clock.advanceTime(FALLBACK_DELAY_UNTIL_NEXT_LOAD_MS);
+          }
 
-              @Override
-              public void loadCompleted(LoadEventInfo loadEventInfo, @C.DataType int dataType) {
-                loadCompletedOrErrorCount.incrementAndGet();
-                // We advance the clock for FALLBACK_DELAY_UNTIL_NEXT_LOAD_MS (5 min) to avoid
-                // that the test times out while waiting for the next reload.
-                clock.advanceTime(FALLBACK_DELAY_UNTIL_NEXT_LOAD_MS);
-              }
-
-              @Override
-              public void loadError(
-                  LoadEventInfo loadEventInfo,
-                  @C.DataType int dataType,
-                  IOException error,
-                  boolean wasCanceled) {
-                loadCompletedOrErrorCount.incrementAndGet();
-                // We advance the clock for FALLBACK_DELAY_UNTIL_NEXT_LOAD_MS (5 min) to avoid
-                // that the test times out while waiting for the next reload.
-                clock.advanceTime(FALLBACK_DELAY_UNTIL_NEXT_LOAD_MS);
-              }
-            });
+          @Override
+          public void onLoadError(
+              int windowIndex,
+              @Nullable MediaPeriodId mediaPeriodId,
+              LoadEventInfo loadEventInfo,
+              MediaLoadData mediaLoadData,
+              IOException error,
+              boolean wasCanceled) {
+            errorDataTypes.add(mediaLoadData.dataType);
+            errorWasCanceled.add(wasCanceled);
+            loadCompletedOrErrorCount.incrementAndGet();
+            // We advance the clock for FALLBACK_DELAY_UNTIL_NEXT_LOAD_MS (5 min) to avoid
+            // that the test times out while waiting for the next reload.
+            clock.advanceTime(FALLBACK_DELAY_UNTIL_NEXT_LOAD_MS);
+          }
+        });
   }
 
   @After
@@ -177,8 +198,12 @@ public final class SteeringManifestTrackerTest {
         .inOrder();
     verify(mockCallback, never())
         .onSteeringManifestLoadError(/* error= */ any(), /* canceled= */ anyBoolean());
-    verify(eventDispatcher, times(4))
-        .loadCompleted(/* loadEventInfo= */ any(), eq(C.DATA_TYPE_STEERING_MANIFEST));
+    assertThat(completedDataTypes)
+        .containsExactly(
+            C.DATA_TYPE_STEERING_MANIFEST,
+            C.DATA_TYPE_STEERING_MANIFEST,
+            C.DATA_TYPE_STEERING_MANIFEST,
+            C.DATA_TYPE_STEERING_MANIFEST);
     assertThat(timeoutExceptionRef.get()).isNull();
   }
 
@@ -214,14 +239,10 @@ public final class SteeringManifestTrackerTest {
         .containsExactly("CDN-B", "CDN-A")
         .inOrder();
     verify(mockCallback).onSteeringManifestLoadError(/* error= */ any(), /* canceled= */ eq(true));
-    verify(eventDispatcher, times(2))
-        .loadCompleted(/* loadEventInfo= */ any(), eq(C.DATA_TYPE_STEERING_MANIFEST));
-    verify(eventDispatcher)
-        .loadError(
-            /* loadEventInfo= */ any(),
-            eq(C.DATA_TYPE_STEERING_MANIFEST),
-            /* error= */ any(),
-            /* wasCanceled= */ eq(true));
+    assertThat(completedDataTypes)
+        .containsExactly(C.DATA_TYPE_STEERING_MANIFEST, C.DATA_TYPE_STEERING_MANIFEST);
+    assertThat(errorDataTypes).containsExactly(C.DATA_TYPE_STEERING_MANIFEST);
+    assertThat(errorWasCanceled).containsExactly(true);
     assertThat(timeoutExceptionRef.get()).isNotNull();
   }
 
@@ -256,14 +277,10 @@ public final class SteeringManifestTrackerTest {
         .containsExactly("CDN-B", "CDN-A")
         .inOrder();
     verify(mockCallback).onSteeringManifestLoadError(/* error= */ any(), /* canceled= */ eq(false));
-    verify(eventDispatcher, times(2))
-        .loadCompleted(/* loadEventInfo= */ any(), eq(C.DATA_TYPE_STEERING_MANIFEST));
-    verify(eventDispatcher)
-        .loadError(
-            /* loadEventInfo= */ any(),
-            eq(C.DATA_TYPE_STEERING_MANIFEST),
-            /* error= */ any(),
-            /* wasCanceled= */ eq(false));
+    assertThat(completedDataTypes)
+        .containsExactly(C.DATA_TYPE_STEERING_MANIFEST, C.DATA_TYPE_STEERING_MANIFEST);
+    assertThat(errorDataTypes).containsExactly(C.DATA_TYPE_STEERING_MANIFEST);
+    assertThat(errorWasCanceled).containsExactly(false);
     assertThat(timeoutExceptionRef.get()).isNull();
   }
 
@@ -299,14 +316,10 @@ public final class SteeringManifestTrackerTest {
         .containsExactly("CDN-B", "CDN-A")
         .inOrder();
     verify(mockCallback).onSteeringManifestLoadError(/* error= */ any(), /* canceled= */ eq(false));
-    verify(eventDispatcher, times(2))
-        .loadCompleted(/* loadEventInfo= */ any(), eq(C.DATA_TYPE_STEERING_MANIFEST));
-    verify(eventDispatcher)
-        .loadError(
-            /* loadEventInfo= */ any(),
-            eq(C.DATA_TYPE_STEERING_MANIFEST),
-            /* error= */ any(),
-            /* wasCanceled= */ eq(false));
+    assertThat(completedDataTypes)
+        .containsExactly(C.DATA_TYPE_STEERING_MANIFEST, C.DATA_TYPE_STEERING_MANIFEST);
+    assertThat(errorDataTypes).containsExactly(C.DATA_TYPE_STEERING_MANIFEST);
+    assertThat(errorWasCanceled).containsExactly(false);
     assertThat(timeoutExceptionRef.get()).isNull();
   }
 
@@ -342,14 +355,10 @@ public final class SteeringManifestTrackerTest {
         .containsExactly("CDN-B", "CDN-A")
         .inOrder();
     verify(mockCallback).onSteeringManifestLoadError(/* error= */ any(), /* canceled= */ eq(false));
-    verify(eventDispatcher, times(2))
-        .loadCompleted(/* loadEventInfo= */ any(), eq(C.DATA_TYPE_STEERING_MANIFEST));
-    verify(eventDispatcher)
-        .loadError(
-            /* loadEventInfo= */ any(),
-            eq(C.DATA_TYPE_STEERING_MANIFEST),
-            /* error= */ any(),
-            /* wasCanceled= */ eq(false));
+    assertThat(completedDataTypes)
+        .containsExactly(C.DATA_TYPE_STEERING_MANIFEST, C.DATA_TYPE_STEERING_MANIFEST);
+    assertThat(errorDataTypes).containsExactly(C.DATA_TYPE_STEERING_MANIFEST);
+    assertThat(errorWasCanceled).containsExactly(false);
     assertThat(timeoutExceptionRef.get()).isNull();
   }
 
@@ -380,14 +389,9 @@ public final class SteeringManifestTrackerTest {
         .containsExactly("CDN-A", "CDN-B")
         .inOrder();
     verify(mockCallback).onSteeringManifestLoadError(/* error= */ any(), /* canceled= */ eq(false));
-    verify(eventDispatcher)
-        .loadCompleted(/* loadEventInfo= */ any(), eq(C.DATA_TYPE_STEERING_MANIFEST));
-    verify(eventDispatcher)
-        .loadError(
-            /* loadEventInfo= */ any(),
-            eq(C.DATA_TYPE_STEERING_MANIFEST),
-            /* error= */ any(),
-            /* wasCanceled= */ eq(false));
+    assertThat(completedDataTypes).containsExactly(C.DATA_TYPE_STEERING_MANIFEST);
+    assertThat(errorDataTypes).containsExactly(C.DATA_TYPE_STEERING_MANIFEST);
+    assertThat(errorWasCanceled).containsExactly(false);
     assertThat(timeoutExceptionRef.get()).isNull();
   }
 

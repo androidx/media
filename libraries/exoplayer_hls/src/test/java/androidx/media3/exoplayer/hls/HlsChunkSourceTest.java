@@ -1812,9 +1812,9 @@ public class HlsChunkSourceTest {
             /* positionUs= */ 0,
             /* muxedAudioFormat= */ null,
             mock(DrmSessionManager.class),
-            mock(DrmSessionEventListener.EventDispatcher.class),
+            new DrmSessionEventListener.EventDispatcher(),
             mock(LoadErrorHandlingPolicy.class),
-            mock(MediaSourceEventListener.EventDispatcher.class),
+            new MediaSourceEventListener.EventDispatcher(),
             /* metadataType= */ HlsMediaSource.METADATA_TYPE_ID3,
             /* downloadExecutor= */ null);
     mediaChunk.init(sampleStreamWrapper, ImmutableList.of());

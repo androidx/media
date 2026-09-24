@@ -16,16 +16,11 @@
 package androidx.media3.exoplayer.source;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.common.util.Util.createHandlerForCurrentLooper;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.net.Uri;
@@ -71,6 +66,7 @@ import androidx.media3.test.utils.FakeTrackSelection;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -2409,8 +2405,25 @@ public final class ProgressiveMediaPeriodTest {
   @Test
   public void onLoadError_vod_returnsDontRetryFatalAndReportsCanceledWhenRetriesExhausted()
       throws Exception {
-    MediaSourceEventListener.EventDispatcher mockEventDispatcher =
-        mock(MediaSourceEventListener.EventDispatcher.class);
+    MediaSourceEventListener.EventDispatcher eventDispatcher =
+        new MediaSourceEventListener.EventDispatcher();
+    List<Integer> dataTypes = new ArrayList<>();
+    List<Boolean> wasCanceledEvents = new ArrayList<>();
+    eventDispatcher.addEventListener(
+        createHandlerForCurrentLooper(),
+        new MediaSourceEventListener() {
+          @Override
+          public void onLoadError(
+              int windowIndex,
+              @Nullable MediaPeriodId mediaPeriodId,
+              LoadEventInfo loadEventInfo,
+              MediaLoadData mediaLoadData,
+              IOException error,
+              boolean wasCanceled) {
+            dataTypes.add(mediaLoadData.dataType);
+            wasCanceledEvents.add(wasCanceled);
+          }
+        });
     DataSource dataSource = new AssetDataSource(ApplicationProvider.getApplicationContext());
     ProgressiveMediaExtractor extractor =
         new BundledExtractorsAdapter(Mp4Extractor.newFactory(SubtitleParser.Factory.UNSUPPORTED));
@@ -2422,7 +2435,7 @@ public final class ProgressiveMediaPeriodTest {
             DrmSessionManager.DRM_UNSUPPORTED,
             new DrmSessionEventListener.EventDispatcher(),
             new DefaultLoadErrorHandlingPolicy(),
-            mockEventDispatcher,
+            eventDispatcher,
             (durationUs, seekMap, isLive) -> {},
             new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE),
             /* customCacheKey= */ null,
@@ -2462,38 +2475,33 @@ public final class ProgressiveMediaPeriodTest {
     mediaPeriod.release();
 
     assertThat(actionWithinLimit.isRetry()).isTrue();
-    verify(mockEventDispatcher)
-        .loadError(
-            any(),
-            eq(C.DATA_TYPE_MEDIA),
-            anyInt(),
-            any(),
-            anyInt(),
-            any(),
-            anyLong(),
-            anyLong(),
-            any(),
-            eq(false));
     assertThat(actionExhausted).isEqualTo(Loader.DONT_RETRY_FATAL);
-    verify(mockEventDispatcher)
-        .loadError(
-            any(),
-            eq(C.DATA_TYPE_MEDIA),
-            anyInt(),
-            any(),
-            anyInt(),
-            any(),
-            anyLong(),
-            anyLong(),
-            any(),
-            eq(true));
+    assertThat(dataTypes).containsExactly(C.DATA_TYPE_MEDIA, C.DATA_TYPE_MEDIA);
+    assertThat(wasCanceledEvents).containsExactly(false, true).inOrder();
     assertThat(continueLoadingAfterFatalError).isFalse();
   }
 
   @Test
   public void onLoadError_live_usesLiveDataTypeAndMinimumRetryCount() throws Exception {
-    MediaSourceEventListener.EventDispatcher mockEventDispatcher =
-        mock(MediaSourceEventListener.EventDispatcher.class);
+    MediaSourceEventListener.EventDispatcher eventDispatcher =
+        new MediaSourceEventListener.EventDispatcher();
+    List<Integer> dataTypes = new ArrayList<>();
+    List<Boolean> wasCanceledEvents = new ArrayList<>();
+    eventDispatcher.addEventListener(
+        createHandlerForCurrentLooper(),
+        new MediaSourceEventListener() {
+          @Override
+          public void onLoadError(
+              int windowIndex,
+              @Nullable MediaPeriodId mediaPeriodId,
+              LoadEventInfo loadEventInfo,
+              MediaLoadData mediaLoadData,
+              IOException error,
+              boolean wasCanceled) {
+            dataTypes.add(mediaLoadData.dataType);
+            wasCanceledEvents.add(wasCanceled);
+          }
+        });
     DataSource dataSource = new AssetDataSource(ApplicationProvider.getApplicationContext());
     ProgressiveMediaExtractor extractor =
         new BundledExtractorsAdapter(Mp4Extractor.newFactory(SubtitleParser.Factory.UNSUPPORTED));
@@ -2505,7 +2513,7 @@ public final class ProgressiveMediaPeriodTest {
             DrmSessionManager.DRM_UNSUPPORTED,
             new DrmSessionEventListener.EventDispatcher(),
             new DefaultLoadErrorHandlingPolicy(),
-            mockEventDispatcher,
+            eventDispatcher,
             (durationUs, seekMap, isLive) -> {},
             new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE),
             /* customCacheKey= */ null,
@@ -2545,38 +2553,34 @@ public final class ProgressiveMediaPeriodTest {
     mediaPeriod.release();
 
     assertThat(actionWithinLimit.isRetry()).isTrue();
-    verify(mockEventDispatcher)
-        .loadError(
-            any(),
-            eq(C.DATA_TYPE_MEDIA_PROGRESSIVE_LIVE),
-            anyInt(),
-            any(),
-            anyInt(),
-            any(),
-            anyLong(),
-            anyLong(),
-            any(),
-            eq(false));
     assertThat(actionExhausted).isEqualTo(Loader.DONT_RETRY_FATAL);
-    verify(mockEventDispatcher)
-        .loadError(
-            any(),
-            eq(C.DATA_TYPE_MEDIA_PROGRESSIVE_LIVE),
-            anyInt(),
-            any(),
-            anyInt(),
-            any(),
-            anyLong(),
-            anyLong(),
-            any(),
-            eq(true));
+    assertThat(dataTypes)
+        .containsExactly(C.DATA_TYPE_MEDIA_PROGRESSIVE_LIVE, C.DATA_TYPE_MEDIA_PROGRESSIVE_LIVE);
+    assertThat(wasCanceledEvents).containsExactly(false, true).inOrder();
     assertThat(continueLoadingAfterFatalError).isFalse();
   }
 
   @Test
   public void onLoadError_whenMadeProgress_resetsEffectiveErrorCountAndRetries() throws Exception {
-    MediaSourceEventListener.EventDispatcher mockEventDispatcher =
-        mock(MediaSourceEventListener.EventDispatcher.class);
+    MediaSourceEventListener.EventDispatcher eventDispatcher =
+        new MediaSourceEventListener.EventDispatcher();
+    List<Integer> dataTypes = new ArrayList<>();
+    List<Boolean> wasCanceledEvents = new ArrayList<>();
+    eventDispatcher.addEventListener(
+        createHandlerForCurrentLooper(),
+        new MediaSourceEventListener() {
+          @Override
+          public void onLoadError(
+              int windowIndex,
+              @Nullable MediaPeriodId mediaPeriodId,
+              LoadEventInfo loadEventInfo,
+              MediaLoadData mediaLoadData,
+              IOException error,
+              boolean wasCanceled) {
+            dataTypes.add(mediaLoadData.dataType);
+            wasCanceledEvents.add(wasCanceled);
+          }
+        });
     DataSource dataSource = new AssetDataSource(ApplicationProvider.getApplicationContext());
     ProgressiveMediaExtractor extractor =
         new BundledExtractorsAdapter(Mp4Extractor.newFactory(SubtitleParser.Factory.UNSUPPORTED));
@@ -2588,7 +2592,7 @@ public final class ProgressiveMediaPeriodTest {
             DrmSessionManager.DRM_UNSUPPORTED,
             new DrmSessionEventListener.EventDispatcher(),
             new DefaultLoadErrorHandlingPolicy(),
-            mockEventDispatcher,
+            eventDispatcher,
             (durationUs, seekMap, isLive) -> {},
             new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE),
             /* customCacheKey= */ null,
@@ -2647,18 +2651,8 @@ public final class ProgressiveMediaPeriodTest {
     mediaPeriod.release();
 
     assertThat(action.isRetry()).isTrue();
-    verify(mockEventDispatcher)
-        .loadError(
-            any(),
-            eq(C.DATA_TYPE_MEDIA),
-            anyInt(),
-            any(),
-            anyInt(),
-            any(),
-            anyLong(),
-            anyLong(),
-            any(),
-            eq(false));
+    assertThat(dataTypes).containsExactly(C.DATA_TYPE_MEDIA);
+    assertThat(wasCanceledEvents).containsExactly(false);
   }
 
   private static final class ExecutionTrackingThread extends Thread {

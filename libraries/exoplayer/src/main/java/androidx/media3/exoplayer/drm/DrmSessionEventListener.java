@@ -98,7 +98,7 @@ public interface DrmSessionEventListener {
   default void onDrmSessionReleased(int windowIndex, @Nullable MediaPeriodId mediaPeriodId) {}
 
   /** Dispatches events to {@link DrmSessionEventListener DrmSessionEventListeners}. */
-  class EventDispatcher {
+  final class EventDispatcher {
 
     /** The timeline window index reported with the events. */
     public final int windowIndex;

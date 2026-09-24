@@ -145,7 +145,7 @@ public interface MediaSourceEventListener {
       int windowIndex, @Nullable MediaPeriodId mediaPeriodId, MediaLoadData mediaLoadData) {}
 
   /** Dispatches events to {@link MediaSourceEventListener MediaSourceEventListeners}. */
-  class EventDispatcher {
+  final class EventDispatcher {
 
     /** The timeline window index reported with the events. */
     public final int windowIndex;
