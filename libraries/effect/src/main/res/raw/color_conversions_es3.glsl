@@ -357,18 +357,24 @@ highp vec3 pqElectricalToHlgElectrical(highp vec3 pqElectricalColor) {
 
 // Converts PQ electrical BT.2020 to linear BT.709 display light.
 // Compresses PQ display light (assumed to peak at 1,000 nits) down to 0-500 nits of SDR display
-// light, then converts the color gamut to BT.709. The tone curve is a 1:1 pass-through below the
-// knee followed by two cubic Hermite segments rolling off the highlights. It is driven by
-// max(R, G, B), and all three channels are scaled by the same ratio so that chromaticity is
-// preserved in linear space.
+// light using the parametric tone-mapping curve from Report ITU-R BT.2446-1 (Section 6.1.4,
+// Method C), then converts the color gamut to BT.709. The tone curve is driven by max(R, G, B),
+// and all three channels are scaled by the same ratio so that chromaticity is preserved in linear
+// space.
 //
-// The knee and the control points follow the AOSP RenderEngine implementation, with its x0 and y0
-// set to zero:
-// https://cs.android.com/android/platform/superproject/main/+/main:frameworks/native/libs/renderengine/gl/ProgramCache.cpp;l=343-397;drc=1b988a4ee33de9cab9740ddc1ee70b1734c8e622
+// Report ITU-R BT.2446-1, Method C defines a two-segment piecewise curve:
+//   Y_SDR = k1 * Y_HDR                                   for Y_HDR < Y_HDR_ip
+//   Y_SDR = k2 * ln(Y_HDR / Y_HDR_ip - k3) + k4          for Y_HDR >= Y_HDR_ip
 //
-// TODO(b/564332150): Replace the roll-off with Report ITU-R BT.2446, Method C, whose logarithmic
-//  segment is continuous in both value and first derivative at the inflection point. Its published
-//  constants k1 to k4 target a 120 nit output and would have to be re-derived for this target.
+// Its published constants target a 100/120-nit SDR display and are re-derived here for
+// maxInputNits = 1000.0 and maxOutputNits = 500.0:
+// 1. Linear pass-through (k1 = 1.0): Leaves BT.2408 diffuse white (203 nits) and midtones untouched
+//    at 1:1 nits below the inflection point.
+// 2. Inflection point (Y_HDR_ip = 292.5 nits): Placed at 80% of the SDR electrical range
+//    (0.80^2.4 = 58.5% optical luminance, 292.5 nits).
+// 3. C1 derivative smoothness at Y_HDR_ip: k2 = k1 * (1.0 - k3) * Y_HDR_ip = 98.8682714.
+// 4. C0 value continuity at Y_HDR_ip: k4 = k1 * Y_HDR_ip - k2 * ln(1.0 - k3) = 399.7400703.
+// 5. Peak normalization Y_SDR(1000.0) = 500.0: Solves k3 = 0.6619888.
 highp vec3 pqElectricalToBt709DisplayLinear(highp vec3 pqElectricalColor) {
   highp vec3 nitsIn = pqEotf(pqElectricalColor) * 10000.0;
   highp float maxColorIn = max(nitsIn.r, max(nitsIn.g, nitsIn.b));
@@ -380,33 +386,15 @@ highp vec3 pqElectricalToBt709DisplayLinear(highp vec3 pqElectricalColor) {
   const highp float maxOutputNits = 500.0;
   highp float nits = min(maxColorIn, maxInputNits);
 
-  // Control points. The curve is 1:1 below x1, leaving diffuse white and midtones untouched.
-  highp float x1 = maxOutputNits * 0.75;
-  highp float y1 = x1;
-  highp float x2 = x1 + (maxInputNits - x1) / 2.0;
-  highp float y2 = y1 + (maxOutputNits - y1) * 0.75;
-  // Horizontal distances between the last three control points.
-  highp float h12 = x2 - x1;
-  highp float h23 = maxInputNits - x2;
-  // Tangents at the last three control points.
-  highp float m1 = (y2 - y1) / h12;
-  highp float m3 = (maxOutputNits - y2) / h23;
-  highp float m2 = (m1 + m3) / 2.0;
+  const highp float k1 = 1.0;
+  const highp float k2 = 98.8682714;
+  const highp float k3 = 0.6619888;
+  const highp float k4 = 399.7400703;
+  const highp float inflectionPointNits = 292.5;
 
-  highp float maxColorOut;
-  if (nits < x1) {
-    maxColorOut = nits;
-  } else if (nits < x2) {
-    // Interpolate [x1, x2] onto [y1, y2].
-    highp float t = (nits - x1) / h12;
-    maxColorOut = (y1 * (1.0 + 2.0 * t) + h12 * m1 * t) * (1.0 - t) * (1.0 - t) +
-                  (y2 * (3.0 - 2.0 * t) + h12 * m2 * (t - 1.0)) * t * t;
-  } else {
-    // Interpolate [x2, maxInputNits] onto [y2, maxOutputNits].
-    highp float t = (nits - x2) / h23;
-    maxColorOut = (y2 * (1.0 + 2.0 * t) + h23 * m2 * t) * (1.0 - t) * (1.0 - t) +
-                  (maxOutputNits * (3.0 - 2.0 * t) + h23 * m3 * (t - 1.0)) * t * t;
-  }
+  highp float lowBranch = k1 * nits;
+  highp float highBranch = k2 * log(max(nits / inflectionPointNits - k3, 1e-6)) + k4;
+  highp float maxColorOut = mix(lowBranch, highBranch, step(inflectionPointNits, nits));
 
   // Chromaticity preservation:
   // Scaling linear RGB by the tone mapping ratio (maxColorOut / maxColorIn) preserves original

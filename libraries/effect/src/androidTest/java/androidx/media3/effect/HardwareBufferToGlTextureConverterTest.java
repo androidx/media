@@ -159,6 +159,14 @@ public final class HardwareBufferToGlTextureConverterTest {
               /* expectedHlgRgb= */ Color.valueOf(0.7501f, 0.7501f, 0.7501f),
               /* expectedBt2020LinearRgb= */ Color.valueOf(0.9995f, 0.9995f, 0.9995f),
               /* expectedSdrLinearRgb= */ Color.valueOf(0.4060f, 0.4060f, 0.4060f)),
+          // 500 nits (0.6768 in FP16 -> 500.8 nits): above the 292.5-nit knee, BT.2446 Method C
+          // compresses 500.8 nits to 404.6 nits SDR, which normalizes to 404.6 / 500 = 0.8092.
+          new SolidColorTestCase(
+              /* name= */ "PQ_FIVE_HUNDRED_NITS",
+              /* inputPqColor= */ Color.valueOf(0.6766f, 0.6766f, 0.6766f),
+              /* expectedHlgRgb= */ Color.valueOf(0.8935f, 0.8935f, 0.8935f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(2.1210f, 2.1210f, 2.1210f),
+              /* expectedSdrLinearRgb= */ Color.valueOf(0.8092f, 0.8092f, 0.8092f)),
           new SolidColorTestCase(
               /* name= */ "PQ_ONE_THOUSAND_NITS",
               /* inputPqColor= */ Color.valueOf(0.7518f, 0.7518f, 0.7518f),
