@@ -504,8 +504,10 @@ public final class DefaultHlsPlaylistTracker
             .build();
     MediaLoadData mediaLoadData = new MediaLoadData(loadable.type);
     long retryDelayMs =
-        loadErrorHandlingPolicy.getRetryDelayMsFor(
-            new LoadErrorInfo(loadEventInfo, mediaLoadData, error, errorCount));
+        errorCount > loadErrorHandlingPolicy.getMinimumLoadableRetryCount(loadable.type)
+            ? C.TIME_UNSET
+            : loadErrorHandlingPolicy.getRetryDelayMsFor(
+                new LoadErrorInfo(loadEventInfo, mediaLoadData, error, errorCount));
     boolean isFatal = retryDelayMs == C.TIME_UNSET;
     eventDispatcher.loadError(loadEventInfo, loadable.type, error, isFatal);
     if (isFatal) {
@@ -1090,7 +1092,10 @@ public final class DefaultHlsPlaylistTracker
           notifyPlaylistError(playlistUrl, loadErrorInfo, /* forceRetry= */ false);
       LoadErrorAction loadErrorAction;
       if (exclusionFailed) {
-        long retryDelay = loadErrorHandlingPolicy.getRetryDelayMsFor(loadErrorInfo);
+        long retryDelay =
+            errorCount > loadErrorHandlingPolicy.getMinimumLoadableRetryCount(loadable.type)
+                ? C.TIME_UNSET
+                : loadErrorHandlingPolicy.getRetryDelayMsFor(loadErrorInfo);
         loadErrorAction =
             retryDelay != C.TIME_UNSET
                 ? Loader.createRetryAction(false, retryDelay)

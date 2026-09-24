@@ -1089,7 +1089,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     boolean isMediaChunk = isMediaChunk(loadable);
     if (isMediaChunk
         && !((HlsMediaChunk) loadable).isPublished()
-        && error instanceof HttpDataSource.InvalidResponseCodeException) {
+        && error instanceof HttpDataSource.InvalidResponseCodeException
+        && errorCount <= loadErrorHandlingPolicy.getMinimumLoadableRetryCount(loadable.type)) {
       int responseCode = ((HttpDataSource.InvalidResponseCodeException) error).responseCode;
       if (responseCode == 410 || responseCode == 404) {
         // According to RFC 8216, Section 6.2.6 a server should respond with an HTTP 404 (Not found)
@@ -1138,7 +1139,10 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       }
       loadErrorAction = Loader.DONT_RETRY;
     } else /* did not exclude */ {
-      long retryDelayMs = loadErrorHandlingPolicy.getRetryDelayMsFor(loadErrorInfo);
+      long retryDelayMs =
+          errorCount > loadErrorHandlingPolicy.getMinimumLoadableRetryCount(loadable.type)
+              ? C.TIME_UNSET
+              : loadErrorHandlingPolicy.getRetryDelayMsFor(loadErrorInfo);
       loadErrorAction =
           retryDelayMs != C.TIME_UNSET
               ? Loader.createRetryAction(/* resetErrorCount= */ false, retryDelayMs)

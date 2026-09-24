@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.hls;
 
+import static androidx.media3.common.util.Util.createHandlerForCurrentLooper;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,19 +28,28 @@ import static org.robolectric.Shadows.shadowOf;
 
 import android.net.Uri;
 import android.os.Looper;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
+import androidx.media3.datasource.DataSpec;
+import androidx.media3.datasource.HttpDataSource;
 import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist;
+import androidx.media3.exoplayer.source.LoadEventInfo;
+import androidx.media3.exoplayer.source.MediaLoadData;
+import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.source.SampleStream;
+import androidx.media3.exoplayer.source.chunk.Chunk;
 import androidx.media3.exoplayer.upstream.Allocator;
+import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.TrackOutput;
@@ -47,6 +57,9 @@ import androidx.media3.test.utils.FakeDataSource;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 import org.junit.Rule;
@@ -87,9 +100,10 @@ public final class HlsSampleStreamWrapperTest {
             /* positionUs= */ 0L,
             /* muxedAudioFormat= */ null,
             mock(DrmSessionManager.class),
-            mock(DrmSessionEventListener.EventDispatcher.class),
+            new DrmSessionEventListener.EventDispatcher(),
             mock(LoadErrorHandlingPolicy.class),
-            mock(MediaSourceEventListener.EventDispatcher.class),
+            new MediaSourceEventListener.EventDispatcher()
+                .withParameters(/* windowIndex= */ 0, new MediaSource.MediaPeriodId(new Object())),
             /* metadataType= */ HlsMediaSource.METADATA_TYPE_ID3,
             /* downloadExecutor= */ ReleasableExecutor.from(directExecutor(), e -> {}));
     sampleStreamWrapper.prepareWithMultivariantPlaylistInfo(
@@ -461,9 +475,9 @@ public final class HlsSampleStreamWrapperTest {
             /* positionUs= */ 1_500_000L,
             /* muxedAudioFormat= */ null,
             mock(DrmSessionManager.class),
-            mock(DrmSessionEventListener.EventDispatcher.class),
+            new DrmSessionEventListener.EventDispatcher(),
             mock(LoadErrorHandlingPolicy.class),
-            mock(MediaSourceEventListener.EventDispatcher.class),
+            new MediaSourceEventListener.EventDispatcher(),
             /* metadataType= */ HlsMediaSource.METADATA_TYPE_ID3,
             /* downloadExecutor= */ ReleasableExecutor.from(directExecutor(), e -> {}));
     sampleStreamWrapper.prepareWithMultivariantPlaylistInfo(
@@ -565,9 +579,9 @@ public final class HlsSampleStreamWrapperTest {
             positionUs,
             /* muxedAudioFormat= */ null,
             mock(DrmSessionManager.class),
-            mock(DrmSessionEventListener.EventDispatcher.class),
+            new DrmSessionEventListener.EventDispatcher(),
             mock(LoadErrorHandlingPolicy.class),
-            mock(MediaSourceEventListener.EventDispatcher.class),
+            new MediaSourceEventListener.EventDispatcher(),
             /* metadataType= */ HlsMediaSource.METADATA_TYPE_ID3,
             /* downloadExecutor= */ ReleasableExecutor.from(directExecutor(), e -> {}));
     sampleStreamWrapper.prepareWithMultivariantPlaylistInfo(
@@ -645,5 +659,221 @@ public final class HlsSampleStreamWrapperTest {
         /* isIndependent= */ true,
         PlayerId.UNSET,
         /* cmcdDataFactory= */ null);
+  }
+
+  @Test
+  public void onLoadError_whenRetriesExhausted_returnsDontRetryFatalAndReportsCanceled() {
+    MediaSourceEventListener.EventDispatcher eventDispatcher =
+        new MediaSourceEventListener.EventDispatcher();
+    List<Boolean> wasCanceledEvents = new ArrayList<>();
+    eventDispatcher.addEventListener(
+        createHandlerForCurrentLooper(),
+        new MediaSourceEventListener() {
+          @Override
+          public void onLoadError(
+              int windowIndex,
+              @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+              LoadEventInfo loadEventInfo,
+              MediaLoadData mediaLoadData,
+              IOException error,
+              boolean wasCanceled) {
+            wasCanceledEvents.add(wasCanceled);
+          }
+        });
+    HlsSampleStreamWrapper sampleStreamWrapper =
+        new HlsSampleStreamWrapper(
+            /* uid= */ "uid",
+            C.TRACK_TYPE_VIDEO,
+            mock(HlsSampleStreamWrapper.Callback.class),
+            mockChunkSource,
+            /* overridingDrmInitData= */ ImmutableMap.of(),
+            mock(Allocator.class),
+            /* positionUs= */ 0L,
+            /* muxedAudioFormat= */ null,
+            mock(DrmSessionManager.class),
+            new DrmSessionEventListener.EventDispatcher(),
+            new DefaultLoadErrorHandlingPolicy(),
+            eventDispatcher,
+            /* metadataType= */ HlsMediaSource.METADATA_TYPE_ID3,
+            /* downloadExecutor= */ ReleasableExecutor.from(directExecutor(), e -> {}));
+    Chunk chunk =
+        new Chunk(
+            new FakeDataSource(),
+            new DataSpec(Uri.parse("http://example.com/chunk.ts")),
+            C.DATA_TYPE_MEDIA,
+            new Format.Builder().build(),
+            C.SELECTION_REASON_UNKNOWN,
+            /* trackSelectionData= */ null,
+            /* startTimeUs= */ 0,
+            /* endTimeUs= */ 1_000_000,
+            /* steeredPathwayId= */ null) {
+          @Override
+          public void cancelLoad() {}
+
+          @Override
+          public void load() {}
+        };
+    when(mockChunkSource.onChunkError(any(), any())).thenReturn(false);
+
+    Loader.LoadErrorAction actionWithinLimit =
+        sampleStreamWrapper.onLoadError(
+            chunk,
+            /* elapsedRealtimeMs= */ 0,
+            /* loadDurationMs= */ 0,
+            new IOException("Transient error"),
+            /* errorCount= */ 3);
+    Loader.LoadErrorAction actionExhausted =
+        sampleStreamWrapper.onLoadError(
+            chunk,
+            /* elapsedRealtimeMs= */ 0,
+            /* loadDurationMs= */ 0,
+            new IOException("Transient error"),
+            /* errorCount= */ 4);
+
+    assertThat(actionWithinLimit.isRetry()).isTrue();
+    assertThat(actionExhausted).isEqualTo(Loader.DONT_RETRY_FATAL);
+    assertThat(wasCanceledEvents).containsExactly(false, true).inOrder();
+  }
+
+  @Test
+  public void onLoadError_unpublishedPreloadPartHttp404_stopsRetryingWhenRetriesExhausted() {
+    MediaSourceEventListener.EventDispatcher eventDispatcher =
+        new MediaSourceEventListener.EventDispatcher();
+    List<Boolean> wasCanceledEvents = new ArrayList<>();
+    eventDispatcher.addEventListener(
+        createHandlerForCurrentLooper(),
+        new MediaSourceEventListener() {
+          @Override
+          public void onLoadError(
+              int windowIndex,
+              @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+              LoadEventInfo loadEventInfo,
+              MediaLoadData mediaLoadData,
+              IOException error,
+              boolean wasCanceled) {
+            wasCanceledEvents.add(wasCanceled);
+          }
+        });
+    HlsSampleStreamWrapper sampleStreamWrapper =
+        new HlsSampleStreamWrapper(
+            /* uid= */ "uid",
+            C.TRACK_TYPE_VIDEO,
+            mock(HlsSampleStreamWrapper.Callback.class),
+            mockChunkSource,
+            /* overridingDrmInitData= */ ImmutableMap.of(),
+            mock(Allocator.class),
+            /* positionUs= */ 0L,
+            /* muxedAudioFormat= */ null,
+            mock(DrmSessionManager.class),
+            new DrmSessionEventListener.EventDispatcher(),
+            new DefaultLoadErrorHandlingPolicy(),
+            eventDispatcher,
+            /* metadataType= */ HlsMediaSource.METADATA_TYPE_ID3,
+            /* downloadExecutor= */ ReleasableExecutor.from(directExecutor(), e -> {}));
+    HlsMediaPlaylist.Part preloadPart =
+        new HlsMediaPlaylist.Part(
+            /* url= */ "preload.ts",
+            /* initializationSegment= */ null,
+            /* durationUs= */ 1_000_000L,
+            /* relativeDiscontinuitySequence= */ 0,
+            /* relativeStartTimeUs= */ 0L,
+            /* drmInitData= */ null,
+            /* fullSegmentEncryptionKeyUri= */ null,
+            /* encryptionIV= */ null,
+            /* byteRangeOffset= */ 0,
+            /* byteRangeLength= */ C.LENGTH_UNSET,
+            /* hasGapTag= */ false,
+            /* isIndependent= */ true,
+            /* isPreload= */ true);
+    HlsMediaPlaylist playlist =
+        new HlsMediaPlaylist(
+            HlsMediaPlaylist.PLAYLIST_TYPE_UNKNOWN,
+            /* baseUri= */ "http://example.com/",
+            /* tags= */ ImmutableList.of(),
+            /* startOffsetUs= */ C.TIME_UNSET,
+            /* preciseStart= */ false,
+            /* startTimeUs= */ 0L,
+            /* hasDiscontinuitySequence= */ false,
+            /* discontinuitySequence= */ 0,
+            /* mediaSequence= */ 0L,
+            /* version= */ 7,
+            /* targetDurationUs= */ 4_000_000L,
+            /* partTargetDurationUs= */ C.TIME_UNSET,
+            /* hasIndependentSegments= */ true,
+            /* hasEndTag= */ false,
+            /* hasProgramDateTime= */ false,
+            /* protectionSchemes= */ null,
+            /* segments= */ ImmutableList.of(),
+            /* trailingParts= */ ImmutableList.of(preloadPart),
+            new HlsMediaPlaylist.ServerControl(
+                /* skipUntilUs= */ C.TIME_UNSET,
+                /* canSkipDateRanges= */ false,
+                /* holdBackUs= */ C.TIME_UNSET,
+                /* partHoldBackUs= */ C.TIME_UNSET,
+                /* canBlockReload= */ false),
+            /* renditionReports= */ ImmutableMap.of(),
+            /* interstitials= */ ImmutableList.of(),
+            /* lastSeenInitSegment= */ null);
+    HlsMediaChunk preloadChunk =
+        HlsMediaChunk.createInstance(
+            mockExtractorFactory,
+            new FakeDataSource(),
+            new Format.Builder().build(),
+            /* startOfPlaylistInPeriodUs= */ 0L,
+            playlist,
+            new HlsChunkSource.SegmentBaseHolder(
+                playlist.trailingParts.get(0), /* mediaSequence= */ 0, /* partIndex= */ 0),
+            Uri.parse("http://example.com/preload.ts"),
+            /* steeredPathwayId= */ null,
+            /* muxedCaptionFormats= */ null,
+            C.SELECTION_REASON_INITIAL,
+            /* trackSelectionData= */ null,
+            /* isPrimaryTimestampSource= */ true,
+            new TimestampAdjusterProvider(),
+            /* timestampAdjusterInitializationTimeoutMs= */ 0,
+            /* previousChunk= */ null,
+            /* mediaSegmentKey= */ null,
+            /* initSegmentKey= */ null,
+            /* shouldSpliceIn= */ false,
+            /* isIndependent= */ true,
+            PlayerId.UNSET,
+            /* cmcdDataFactory= */ null);
+    when(mockChunkSource.onChunkError(any(), any())).thenReturn(false);
+    when(mockChunkSource.createFallbackOptions(any(Chunk.class)))
+        .thenReturn(
+            new LoadErrorHandlingPolicy.FallbackOptions(
+                /* numberOfLocations= */ 1,
+                /* numberOfExcludedLocations= */ 0,
+                /* numberOfTracks= */ 1,
+                /* numberOfExcludedTracks= */ 0,
+                /* locationSteeringActive= */ false));
+    HttpDataSource.InvalidResponseCodeException http404Exception =
+        new HttpDataSource.InvalidResponseCodeException(
+            /* responseCode= */ 404,
+            /* responseMessage= */ "Not Found",
+            /* cause= */ null,
+            ImmutableMap.of(),
+            new DataSpec(Uri.parse("http://example.com/preload.ts")),
+            new byte[0]);
+
+    Loader.LoadErrorAction actionWithinLimit =
+        sampleStreamWrapper.onLoadError(
+            preloadChunk,
+            /* elapsedRealtimeMs= */ 0,
+            /* loadDurationMs= */ 0,
+            http404Exception,
+            /* errorCount= */ 3);
+    Loader.LoadErrorAction actionExhausted =
+        sampleStreamWrapper.onLoadError(
+            preloadChunk,
+            /* elapsedRealtimeMs= */ 0,
+            /* loadDurationMs= */ 0,
+            http404Exception,
+            /* errorCount= */ 4);
+
+    assertThat(preloadChunk.isPublished()).isFalse();
+    assertThat(actionWithinLimit).isEqualTo(Loader.RETRY);
+    assertThat(actionExhausted).isEqualTo(Loader.DONT_RETRY_FATAL);
+    assertThat(wasCanceledEvents).containsExactly(true);
   }
 }

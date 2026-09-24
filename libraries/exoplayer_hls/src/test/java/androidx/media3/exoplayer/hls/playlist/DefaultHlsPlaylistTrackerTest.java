@@ -34,10 +34,13 @@ import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
+import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.upstream.Loader;
+import androidx.media3.exoplayer.upstream.ParsingLoadable;
 import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.test.utils.TestUtil;
 import androidx.media3.test.utils.robolectric.RobolectricUtil;
@@ -1094,6 +1097,83 @@ public class DefaultHlsPlaylistTrackerTest {
         loadCompletedMediaLoadDataCaptor.getAllValues(),
         "CDN-A",
         "CDN-A-CLONE");
+  }
+
+  @Test
+  public void onLoadError_whenRetriesExhausted_reportsCanceledTrue() throws Exception {
+    mockWebServer.enqueue(
+        new MockResponse()
+            .setResponseCode(200)
+            .setBody(
+                new Buffer()
+                    .writeUtf8("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1280000\nmedia.m3u8\n")));
+    mockWebServer.enqueue(new MockResponse().setResponseCode(500));
+    mockWebServer.enqueue(new MockResponse().setResponseCode(500));
+    mockWebServer.enqueue(new MockResponse().setResponseCode(500));
+    mockWebServer.enqueue(new MockResponse().setResponseCode(500));
+    DefaultHlsPlaylistTracker defaultHlsPlaylistTracker =
+        new DefaultHlsPlaylistTracker(
+            dataType -> new DefaultHttpDataSource.Factory().createDataSource(),
+            new DefaultLoadErrorHandlingPolicy(/* minimumLoadableRetryCount= */ 3) {
+              @Override
+              public long getRetryDelayMsFor(LoadErrorInfo loadErrorInfo) {
+                return 0;
+              }
+            },
+            new DefaultHlsPlaylistParserFactory(),
+            /* cmcdConfiguration= */ null,
+            /* downloadExecutorSupplier= */ () ->
+                ReleasableExecutor.from(directExecutor(), e -> {}));
+    MediaSourceEventListener.EventDispatcher eventDispatcher =
+        new MediaSourceEventListener.EventDispatcher();
+    List<Boolean> wasCanceledEvents = new ArrayList<>();
+    eventDispatcher.addEventListener(
+        Util.createHandlerForCurrentLooper(),
+        new MediaSourceEventListener() {
+          @Override
+          public void onLoadError(
+              int windowIndex,
+              @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+              LoadEventInfo loadEventInfo,
+              MediaLoadData mediaLoadData,
+              IOException error,
+              boolean wasCanceled) {
+            wasCanceledEvents.add(wasCanceled);
+          }
+        });
+    ParsingLoadable<HlsPlaylist> multivariantLoadable =
+        new ParsingLoadable.Builder<>(
+                new DefaultHttpDataSource.Factory().createDataSource(),
+                Uri.parse("http://example.com/multivariant.m3u8"),
+                C.DATA_TYPE_MANIFEST,
+                new HlsPlaylistParser())
+            .build();
+
+    defaultHlsPlaylistTracker.start(
+        Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
+        eventDispatcher,
+        mediaPlaylist -> {},
+        BandwidthMeter.NO_OP);
+    RobolectricUtil.runMainLooperUntil(() -> wasCanceledEvents.contains(true));
+    Loader.LoadErrorAction actionWithinLimit =
+        defaultHlsPlaylistTracker.onLoadError(
+            multivariantLoadable,
+            /* elapsedRealtimeMs= */ 0,
+            /* loadDurationMs= */ 0,
+            new IOException("Transient error"),
+            /* errorCount= */ 3);
+    Loader.LoadErrorAction actionExhausted =
+        defaultHlsPlaylistTracker.onLoadError(
+            multivariantLoadable,
+            /* elapsedRealtimeMs= */ 0,
+            /* loadDurationMs= */ 0,
+            new IOException("Transient error"),
+            /* errorCount= */ 4);
+    defaultHlsPlaylistTracker.stop();
+
+    assertThat(actionWithinLimit.isRetry()).isTrue();
+    assertThat(actionExhausted).isEqualTo(Loader.DONT_RETRY_FATAL);
+    assertThat(wasCanceledEvents).containsExactly(false, false, false, true, false, true).inOrder();
   }
 
   private List<HttpUrl> enqueueWebServerResponses(String[] paths, MockResponse... mockResponses) {
