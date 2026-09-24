@@ -1016,6 +1016,10 @@ public class DashManifestParser extends DefaultHandler
       colorInfo = Util.getColorInfoForDolbyVision(codecs, supplementalCodecs, supplementalProfiles);
       codecs = supplementalCodecs != null ? supplementalCodecs : codecs;
     }
+    if (colorInfo == null
+        && (MimeTypes.isVideo(sampleMimeType) || MimeTypes.isVideo(containerMimeType))) {
+      colorInfo = parseColorInfoFromProperties(essentialProperties, supplementalProperties);
+    }
     @C.SelectionFlags int selectionFlags = parseSelectionFlagsFromRoleDescriptors(roleDescriptors);
     @C.RoleFlags int roleFlags = parseRoleFlagsFromRoleDescriptors(roleDescriptors);
     roleFlags |= parseRoleFlagsFromAccessibilityDescriptors(accessibilityDescriptors);
@@ -1881,6 +1885,101 @@ public class DashManifestParser extends DefaultHandler
       }
     }
     return null;
+  }
+
+  /**
+   * Parses given descriptors for CICP color information (ISO/IEC 23091-2).
+   *
+   * @param essentialProperties List of essential property descriptors.
+   * @param supplementalProperties List of supplemental property descriptors.
+   * @return The parsed {@link ColorInfo}, or {@code null} if no CICP color information is found.
+   */
+  @Nullable
+  protected ColorInfo parseColorInfoFromProperties(
+      List<Descriptor> essentialProperties, List<Descriptor> supplementalProperties) {
+    @C.ColorSpace int colorSpace = Format.NO_VALUE;
+    @C.ColorSpace int matrixColorSpace = Format.NO_VALUE;
+    @C.ColorTransfer int colorTransfer = Format.NO_VALUE;
+    @C.ColorRange int colorRange = Format.NO_VALUE;
+
+    int totalSize = supplementalProperties.size() + essentialProperties.size();
+    for (int i = 0; i < totalSize; i++) {
+      Descriptor descriptor =
+          i < supplementalProperties.size()
+              ? supplementalProperties.get(i)
+              : essentialProperties.get(i - supplementalProperties.size());
+      if (descriptor.value == null) {
+        continue;
+      }
+      switch (descriptor.schemeIdUri) {
+        case "urn:mpeg:mpegB:cicp:ColourPrimaries":
+          try {
+            int parsedColorSpace =
+                ColorInfo.isoColorPrimariesToColorSpace(Integer.parseInt(descriptor.value.trim()));
+            if (parsedColorSpace != Format.NO_VALUE) {
+              colorSpace = parsedColorSpace;
+            }
+          } catch (NumberFormatException e) {
+            // Ignore property if it's malformed.
+          }
+          break;
+        case "urn:mpeg:mpegB:cicp:TransferCharacteristics":
+          try {
+            int parsedColorTransfer =
+                ColorInfo.isoTransferCharacteristicsToColorTransfer(
+                    Integer.parseInt(descriptor.value.trim()));
+            if (parsedColorTransfer != Format.NO_VALUE) {
+              colorTransfer = parsedColorTransfer;
+            }
+          } catch (NumberFormatException e) {
+            // Ignore property if it's malformed.
+          }
+          break;
+        case "urn:mpeg:mpegB:cicp:MatrixCoefficients":
+          try {
+            int value = Integer.parseInt(descriptor.value.trim());
+            if (value == 1) {
+              matrixColorSpace = C.COLOR_SPACE_BT709;
+            } else if (value == 5 || value == 6) {
+              matrixColorSpace = C.COLOR_SPACE_BT601;
+            } else if (value == 9 || value == 10) {
+              matrixColorSpace = C.COLOR_SPACE_BT2020;
+            }
+          } catch (NumberFormatException e) {
+            // Ignore property if it's malformed.
+          }
+          break;
+        case "urn:mpeg:mpegB:cicp:VideoFullRangeFlag":
+          try {
+            int value = Integer.parseInt(descriptor.value.trim());
+            if (value == 0) {
+              colorRange = C.COLOR_RANGE_LIMITED;
+            } else if (value == 1) {
+              colorRange = C.COLOR_RANGE_FULL;
+            }
+          } catch (NumberFormatException e) {
+            // Ignore property if it's malformed.
+          }
+          break;
+        default:
+          break;
+      }
+    }
+    if (colorSpace == Format.NO_VALUE) {
+      colorSpace = matrixColorSpace;
+    }
+    if (colorSpace == Format.NO_VALUE || colorTransfer == Format.NO_VALUE) {
+      return null;
+    }
+    if ((colorTransfer == C.COLOR_TRANSFER_ST2084 || colorTransfer == C.COLOR_TRANSFER_HLG)
+        && colorSpace != C.COLOR_SPACE_BT2020) {
+      return null;
+    }
+    return new ColorInfo.Builder()
+        .setColorSpace(colorSpace)
+        .setColorTransfer(colorTransfer)
+        .setColorRange(colorRange)
+        .build();
   }
 
   // Utility methods.

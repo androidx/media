@@ -21,6 +21,7 @@ import static org.junit.Assert.assertThrows;
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
 import androidx.media3.common.Label;
@@ -1289,6 +1290,176 @@ public class DashManifestParserTest {
     assertThat(prt.id).isEqualTo(1);
     assertThat(prt.type).isEqualTo(ProducerReferenceTime.TYPE_CAPTURED);
     assertThat(prt.wallClockTimeMs).isEqualTo(Util.parseXsDateTime("2026-08-28T10:00:00.000Z"));
+    assertNextTag(xpp);
+  }
+
+  @Test
+  public void parseAdaptationSet_withCicpHdr10EssentialProperties_populatesColorInfo()
+      throws Exception {
+    DashManifestParser parser = new DashManifestParser();
+    XmlPullParser xpp = XmlPullParserFactory.newInstance().newPullParser();
+    xpp.setInput(
+        new StringReader(
+            "<AdaptationSet id=\"0\" contentType=\"video\" mimeType=\"video/mp4\""
+                + " codecs=\"hev1.2.4.L153.B0\">"
+                + "<EssentialProperty schemeIdUri=\"urn:mpeg:mpegB:cicp:ColourPrimaries\""
+                + " value=\"9\"/>"
+                + "<EssentialProperty schemeIdUri=\"urn:mpeg:mpegB:cicp:TransferCharacteristics\""
+                + " value=\"16\"/>"
+                + "<EssentialProperty schemeIdUri=\"urn:mpeg:mpegB:cicp:MatrixCoefficients\""
+                + " value=\"9\"/>"
+                + "<EssentialProperty schemeIdUri=\"urn:mpeg:mpegB:cicp:VideoFullRangeFlag\""
+                + " value=\"0\"/>"
+                + "<Representation id=\"1\" bandwidth=\"1000\" width=\"3840\" height=\"2160\"/>"
+                + "</AdaptationSet>"
+                + NEXT_TAG));
+    xpp.next();
+
+    AdaptationSet adaptationSet =
+        parser.parseAdaptationSet(
+            xpp,
+            /* parentBaseUrls= */ ImmutableList.of(new BaseUrl("https://example.com")),
+            /* segmentBase= */ null,
+            /* periodDurationMs= */ C.TIME_UNSET,
+            /* baseUrlAvailabilityTimeOffsetUs= */ C.TIME_UNSET,
+            /* segmentBaseAvailabilityTimeOffsetUs= */ C.TIME_UNSET,
+            /* periodStartUnixTimeMs= */ C.TIME_UNSET,
+            /* timeShiftBufferDepthMs= */ C.TIME_UNSET,
+            /* dvbProfileDeclared= */ false);
+
+    assertThat(adaptationSet.representations).hasSize(1);
+    ColorInfo colorInfo = adaptationSet.representations.get(0).format.colorInfo;
+    assertThat(colorInfo).isNotNull();
+    assertThat(colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_BT2020);
+    assertThat(colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_ST2084);
+    assertThat(colorInfo.colorRange).isEqualTo(C.COLOR_RANGE_LIMITED);
+    assertNextTag(xpp);
+  }
+
+  @Test
+  public void parseAdaptationSet_withCicpHlgSupplementalProperties_populatesColorInfo()
+      throws Exception {
+    DashManifestParser parser = new DashManifestParser();
+    XmlPullParser xpp = XmlPullParserFactory.newInstance().newPullParser();
+    xpp.setInput(
+        new StringReader(
+            "<AdaptationSet id=\"0\" contentType=\"video\" mimeType=\"video/mp4\""
+                + " codecs=\"hev1.2.4.L153.B0\">"
+                + "<SupplementalProperty schemeIdUri=\"urn:mpeg:mpegB:cicp:ColourPrimaries\""
+                + " value=\"9\"/>"
+                + "<SupplementalProperty"
+                + " schemeIdUri=\"urn:mpeg:mpegB:cicp:TransferCharacteristics\" value=\"18\"/>"
+                + "<Representation id=\"1\" bandwidth=\"1000\" width=\"3840\" height=\"2160\"/>"
+                + "</AdaptationSet>"
+                + NEXT_TAG));
+    xpp.next();
+
+    AdaptationSet adaptationSet =
+        parser.parseAdaptationSet(
+            xpp,
+            /* parentBaseUrls= */ ImmutableList.of(new BaseUrl("https://example.com")),
+            /* segmentBase= */ null,
+            /* periodDurationMs= */ C.TIME_UNSET,
+            /* baseUrlAvailabilityTimeOffsetUs= */ C.TIME_UNSET,
+            /* segmentBaseAvailabilityTimeOffsetUs= */ C.TIME_UNSET,
+            /* periodStartUnixTimeMs= */ C.TIME_UNSET,
+            /* timeShiftBufferDepthMs= */ C.TIME_UNSET,
+            /* dvbProfileDeclared= */ false);
+
+    assertThat(adaptationSet.representations).hasSize(1);
+    ColorInfo colorInfo = adaptationSet.representations.get(0).format.colorInfo;
+    assertThat(colorInfo).isNotNull();
+    assertThat(colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_BT2020);
+    assertThat(colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_HLG);
+    assertThat(colorInfo.colorRange).isEqualTo(Format.NO_VALUE);
+    assertNextTag(xpp);
+  }
+
+  @Test
+  public void
+      parseAdaptationSet_withMatrixCoefficientsFallbackAndRepresentationOverride_populatesColorInfo()
+          throws Exception {
+    DashManifestParser parser = new DashManifestParser();
+    XmlPullParser xpp = XmlPullParserFactory.newInstance().newPullParser();
+    xpp.setInput(
+        new StringReader(
+            "<AdaptationSet id=\"0\" contentType=\"video\" mimeType=\"video/mp4\""
+                + " codecs=\"hev1.2.4.L153.B0\">"
+                + "<SupplementalProperty schemeIdUri=\"urn:mpeg:mpegB:cicp:MatrixCoefficients\""
+                + " value=\"9\"/>"
+                + "<SupplementalProperty"
+                + " schemeIdUri=\"urn:mpeg:mpegB:cicp:TransferCharacteristics\" value=\"18\"/>"
+                + "<Representation id=\"1\" bandwidth=\"1000\" width=\"3840\" height=\"2160\">"
+                + "<EssentialProperty schemeIdUri=\"urn:mpeg:mpegB:cicp:TransferCharacteristics\""
+                + " value=\"16\"/>"
+                + "<EssentialProperty schemeIdUri=\"urn:mpeg:mpegB:cicp:VideoFullRangeFlag\""
+                + " value=\"1\"/>"
+                + "</Representation>"
+                + "</AdaptationSet>"
+                + NEXT_TAG));
+    xpp.next();
+
+    AdaptationSet adaptationSet =
+        parser.parseAdaptationSet(
+            xpp,
+            /* parentBaseUrls= */ ImmutableList.of(new BaseUrl("https://example.com")),
+            /* segmentBase= */ null,
+            /* periodDurationMs= */ C.TIME_UNSET,
+            /* baseUrlAvailabilityTimeOffsetUs= */ C.TIME_UNSET,
+            /* segmentBaseAvailabilityTimeOffsetUs= */ C.TIME_UNSET,
+            /* periodStartUnixTimeMs= */ C.TIME_UNSET,
+            /* timeShiftBufferDepthMs= */ C.TIME_UNSET,
+            /* dvbProfileDeclared= */ false);
+
+    assertThat(adaptationSet.representations).hasSize(1);
+    ColorInfo colorInfo = adaptationSet.representations.get(0).format.colorInfo;
+    assertThat(colorInfo).isNotNull();
+    assertThat(colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_BT2020);
+    assertThat(colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_ST2084);
+    assertThat(colorInfo.colorRange).isEqualTo(C.COLOR_RANGE_FULL);
+    assertNextTag(xpp);
+  }
+
+  @Test
+  public void parseAdaptationSet_withIncompleteOrMalformedCicpProperties_leavesColorInfoNull()
+      throws Exception {
+    DashManifestParser parser = new DashManifestParser();
+    XmlPullParser xpp = XmlPullParserFactory.newInstance().newPullParser();
+    xpp.setInput(
+        new StringReader(
+            "<AdaptationSet id=\"0\" contentType=\"video\" mimeType=\"video/mp4\""
+                + " codecs=\"hev1.2.4.L153.B0\">"
+                + "<Representation id=\"1\" bandwidth=\"1000\" width=\"3840\" height=\"2160\">"
+                + "<EssentialProperty schemeIdUri=\"urn:mpeg:mpegB:cicp:ColourPrimaries\""
+                + " value=\"9\"/>"
+                + "<EssentialProperty schemeIdUri=\"urn:mpeg:mpegB:cicp:TransferCharacteristics\""
+                + " value=\"invalid\"/>"
+                + "</Representation>"
+                + "<Representation id=\"2\" bandwidth=\"1000\" width=\"3840\" height=\"2160\">"
+                + "<EssentialProperty schemeIdUri=\"urn:mpeg:mpegB:cicp:ColourPrimaries\""
+                + " value=\"1\"/>"
+                + "<EssentialProperty schemeIdUri=\"urn:mpeg:mpegB:cicp:TransferCharacteristics\""
+                + " value=\"16\"/>"
+                + "</Representation>"
+                + "</AdaptationSet>"
+                + NEXT_TAG));
+    xpp.next();
+
+    AdaptationSet adaptationSet =
+        parser.parseAdaptationSet(
+            xpp,
+            /* parentBaseUrls= */ ImmutableList.of(new BaseUrl("https://example.com")),
+            /* segmentBase= */ null,
+            /* periodDurationMs= */ C.TIME_UNSET,
+            /* baseUrlAvailabilityTimeOffsetUs= */ C.TIME_UNSET,
+            /* segmentBaseAvailabilityTimeOffsetUs= */ C.TIME_UNSET,
+            /* periodStartUnixTimeMs= */ C.TIME_UNSET,
+            /* timeShiftBufferDepthMs= */ C.TIME_UNSET,
+            /* dvbProfileDeclared= */ false);
+
+    assertThat(adaptationSet.representations).hasSize(2);
+    assertThat(adaptationSet.representations.get(0).format.colorInfo).isNull();
+    assertThat(adaptationSet.representations.get(1).format.colorInfo).isNull();
     assertNextTag(xpp);
   }
 

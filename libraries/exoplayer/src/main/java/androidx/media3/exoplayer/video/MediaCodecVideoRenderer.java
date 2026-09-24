@@ -56,6 +56,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Flags;
@@ -98,6 +99,7 @@ import androidx.media3.exoplayer.video.VideoRendererEventListener.EventDispatche
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.List;
 import java.util.PriorityQueue;
 import org.checkerframework.checker.initialization.qual.Initialized;
@@ -2694,9 +2696,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
     boolean haveUnknownDimensions = false;
     for (Format streamFormat : streamFormats) {
-      if (format.colorInfo != null && streamFormat.colorInfo == null) {
-        // streamFormat likely has incomplete color information. Copy the complete color information
-        // from format to avoid codec re-use being ruled out for only this reason.
+      if (format.colorInfo != null
+          && isPartialColorInfoCompatible(format.colorInfo, streamFormat.colorInfo)) {
+        // streamFormat likely has incomplete color information (for example, when parsed from a
+        // manifest without container-level metadata). Copy the complete color information from
+        // format to avoid codec re-use being ruled out for only this reason.
         streamFormat = streamFormat.buildUpon().setColorInfo(format.colorInfo).build();
       }
       if (codecInfo.canReuseCodec(format, streamFormat).result != REUSE_RESULT_NO) {
@@ -2722,6 +2726,25 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       }
     }
     return new CodecMaxValues(maxWidth, maxHeight, maxInputSize);
+  }
+
+  private static boolean isPartialColorInfoCompatible(
+      ColorInfo fullColorInfo, @Nullable ColorInfo partialColorInfo) {
+    if (partialColorInfo == null) {
+      return true;
+    }
+    return (partialColorInfo.colorSpace == Format.NO_VALUE
+            || partialColorInfo.colorSpace == fullColorInfo.colorSpace)
+        && (partialColorInfo.colorRange == Format.NO_VALUE
+            || partialColorInfo.colorRange == fullColorInfo.colorRange)
+        && (partialColorInfo.colorTransfer == Format.NO_VALUE
+            || partialColorInfo.colorTransfer == fullColorInfo.colorTransfer)
+        && (partialColorInfo.hdrStaticInfo == null
+            || Arrays.equals(partialColorInfo.hdrStaticInfo, fullColorInfo.hdrStaticInfo))
+        && (partialColorInfo.lumaBitdepth == Format.NO_VALUE
+            || partialColorInfo.lumaBitdepth == fullColorInfo.lumaBitdepth)
+        && (partialColorInfo.chromaBitdepth == Format.NO_VALUE
+            || partialColorInfo.chromaBitdepth == fullColorInfo.chromaBitdepth);
   }
 
   @Override

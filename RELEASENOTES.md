@@ -172,6 +172,11 @@
         exposed HLS tracks
         ([#3402](https://github.com/androidx/media/issues/3402)).
 *   DASH extension:
+    *   Parse CICP color information (`ColourPrimaries`,
+        `TransferCharacteristics`, `MatrixCoefficients`, and
+        `VideoFullRangeFlag`) from `EssentialProperty` and
+        `SupplementalProperty` descriptors into `Format.colorInfo`
+        ([#3426](https://github.com/androidx/media/issues/3426)).
     *   Support whitespace-separated lists of `@id` values in trick mode
         (`http://dashif.org/guidelines/trickmode`) descriptor `@value`
         attributes ([#3315](https://github.com/androidx/media/issues/3315)).

@@ -142,6 +142,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadows.MediaCodecInfoBuilder;
 import org.robolectric.shadows.ShadowDisplay;
 import org.robolectric.shadows.ShadowLooper;
 import org.robolectric.shadows.ShadowMediaCodec;
@@ -6062,6 +6063,127 @@ public class MediaCodecVideoRendererTest {
                 createMediaCodecInfo(MimeTypes.VIDEO_DIVX),
                 createFormat(MimeTypes.VIDEO_DIVX, /* width= */ 1920, /* height= */ 1080)))
         .isEqualTo(Format.NO_VALUE);
+  }
+
+  @Test
+  @Config(minSdk = 29)
+  public void
+      getCodecMaxValues_streamFormatWithIncompleteMatchingHdrColorInfo_includesStreamFormatMaxDimensions() {
+    MediaFormat adaptiveFormat =
+        MediaFormat.createVideoFormat(MimeTypes.VIDEO_H265, /* width= */ 3840, /* height= */ 2160);
+    adaptiveFormat.setFeatureEnabled(CodecCapabilities.FEATURE_AdaptivePlayback, true);
+    CodecCapabilities capabilities =
+        MediaCodecInfoBuilder.CodecCapabilitiesBuilder.newBuilder()
+            .setMediaFormat(adaptiveFormat)
+            .setColorFormats(new int[0])
+            .setProfileLevels(new CodecProfileLevel[0])
+            .build();
+    MediaCodecInfo adaptiveCodecInfo =
+        MediaCodecInfo.newInstance(
+            /* name= */ MimeTypes.VIDEO_H265,
+            /* mimeType= */ MimeTypes.VIDEO_H265,
+            /* codecMimeType= */ MimeTypes.VIDEO_H265,
+            capabilities,
+            /* hardwareAccelerated= */ true,
+            /* softwareOnly= */ false,
+            /* vendor= */ true,
+            /* forceDisableAdaptive= */ false,
+            /* forceSecure= */ false);
+    Format extracted1080pFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setWidth(1920)
+            .setHeight(1080)
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                    .setColorRange(C.COLOR_RANGE_LIMITED)
+                    .setHdrStaticInfo(new byte[] {1, 2, 3})
+                    .setLumaBitdepth(10)
+                    .setChromaBitdepth(10)
+                    .build())
+            .build();
+    Format manifest4kStreamFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setWidth(3840)
+            .setHeight(2160)
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                    .build())
+            .build();
+
+    MediaCodecVideoRenderer.CodecMaxValues codecMaxValues =
+        mediaCodecVideoRenderer.getCodecMaxValues(
+            adaptiveCodecInfo,
+            extracted1080pFormat,
+            new Format[] {extracted1080pFormat, manifest4kStreamFormat});
+
+    assertThat(codecMaxValues.width).isEqualTo(3840);
+    assertThat(codecMaxValues.height).isEqualTo(2160);
+  }
+
+  @Test
+  @Config(minSdk = 29)
+  public void
+      getCodecMaxValues_streamFormatWithMismatchedHdrColorTransfer_excludesStreamFormatMaxDimensions() {
+    MediaFormat adaptiveFormat =
+        MediaFormat.createVideoFormat(MimeTypes.VIDEO_H265, /* width= */ 3840, /* height= */ 2160);
+    adaptiveFormat.setFeatureEnabled(CodecCapabilities.FEATURE_AdaptivePlayback, true);
+    CodecCapabilities capabilities =
+        MediaCodecInfoBuilder.CodecCapabilitiesBuilder.newBuilder()
+            .setMediaFormat(adaptiveFormat)
+            .setColorFormats(new int[0])
+            .setProfileLevels(new CodecProfileLevel[0])
+            .build();
+    MediaCodecInfo adaptiveCodecInfo =
+        MediaCodecInfo.newInstance(
+            /* name= */ MimeTypes.VIDEO_H265,
+            /* mimeType= */ MimeTypes.VIDEO_H265,
+            /* codecMimeType= */ MimeTypes.VIDEO_H265,
+            capabilities,
+            /* hardwareAccelerated= */ true,
+            /* softwareOnly= */ false,
+            /* vendor= */ true,
+            /* forceDisableAdaptive= */ false,
+            /* forceSecure= */ false);
+    Format extracted1080pPqFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setWidth(1920)
+            .setHeight(1080)
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                    .setColorRange(C.COLOR_RANGE_LIMITED)
+                    .setLumaBitdepth(10)
+                    .setChromaBitdepth(10)
+                    .build())
+            .build();
+    Format manifest4kHlgStreamFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setWidth(3840)
+            .setHeight(2160)
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorTransfer(C.COLOR_TRANSFER_HLG)
+                    .build())
+            .build();
+
+    MediaCodecVideoRenderer.CodecMaxValues codecMaxValues =
+        mediaCodecVideoRenderer.getCodecMaxValues(
+            adaptiveCodecInfo,
+            extracted1080pPqFormat,
+            new Format[] {extracted1080pPqFormat, manifest4kHlgStreamFormat});
+
+    assertThat(codecMaxValues.width).isEqualTo(1920);
+    assertThat(codecMaxValues.height).isEqualTo(1080);
   }
 
   @Test
