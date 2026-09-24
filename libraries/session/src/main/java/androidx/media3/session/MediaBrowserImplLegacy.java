@@ -403,14 +403,18 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             public void onResult(
                 String action, @Nullable Bundle extras, @Nullable Bundle resultData) {
               Bundle mergedBundles = new Bundle(extras);
-              mergedBundles.putAll(resultData);
+              if (resultData != null) {
+                mergedBundles.putAll(resultData);
+              }
               settable.set(new SessionResult(SessionResult.RESULT_SUCCESS, mergedBundles));
             }
 
             @Override
             public void onError(String action, @Nullable Bundle extras, @Nullable Bundle data) {
               Bundle mergedBundles = new Bundle(extras);
-              mergedBundles.putAll(data);
+              if (data != null) {
+                mergedBundles.putAll(data);
+              }
               settable.set(new SessionResult(SessionResult.RESULT_ERROR_UNKNOWN, mergedBundles));
             }
           });
