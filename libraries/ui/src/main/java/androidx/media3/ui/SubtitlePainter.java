@@ -52,6 +52,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   /** Ratio of inner padding to font size. */
   private static final float INNER_PADDING_RATIO = 0.125f;
 
+  /** The height of the last drawn cue, or 0 if no cue was drawn. */
+  private int lastDrawnCueHeight;
+
   // Styled dimensions.
   private final float outlineWidth;
   private final float shadowRadius;
@@ -218,11 +221,25 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     if (isTextCue) {
       checkNotNull(cueText);
       setupTextLayout();
+      lastDrawnCueHeight = textLayout != null ? textLayout.getHeight() : 0;
     } else {
       checkNotNull(cueBitmap);
       setupBitmapLayout();
+      lastDrawnCueHeight = bitmapRect != null ? bitmapRect.height() : 0;
     }
     drawLayout(canvas, isTextCue);
+  }
+
+  /**
+   * Returns the height of the last drawn cue.
+   *
+   * <p>This can be used to stack multiple cues without overlap by adjusting the drawing bounds for
+   * subsequent cues by this amount.
+   *
+   * @return The height of the last drawn cue in pixels, or 0 if no cue was drawn.
+   */
+  public int getLastDrawnCueHeight() {
+    return lastDrawnCueHeight;
   }
 
   @RequiresNonNull("cueText")
