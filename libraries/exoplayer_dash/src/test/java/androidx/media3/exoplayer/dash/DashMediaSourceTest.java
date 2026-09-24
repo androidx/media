@@ -21,8 +21,15 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.net.Uri;
+import android.os.Looper;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaItem.LiveConfiguration;
@@ -36,6 +43,8 @@ import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.datasource.FileDataSource;
 import androidx.media3.exoplayer.analytics.PlayerId;
+import androidx.media3.exoplayer.dash.manifest.DashManifest;
+import androidx.media3.exoplayer.dash.manifest.DashManifestParser;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -43,6 +52,7 @@ import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
 import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.test.utils.TestUtil;
@@ -1346,6 +1356,48 @@ public final class DashMediaSourceTest {
     // The window uses the narrowest overlapping range: [50ms, 59.98s], duration = 59.93s.
     assertThat(window.positionInFirstPeriodUs).isEqualTo(50_000L);
     assertThat(window.getDurationMs()).isEqualTo(59_930L);
+  }
+
+  @Test
+  public void
+      onManifestLoadError_whenRetriesExhausted_returnsDontRetryFatalAndReportsCanceledTrue() {
+    DashMediaSource mediaSource =
+        new DashMediaSource.Factory(new DefaultHttpDataSource.Factory())
+            .setLoadErrorHandlingPolicy(
+                new DefaultLoadErrorHandlingPolicy(/* minimumLoadableRetryCount= */ 3))
+            .createMediaSource(MediaItem.fromUri("http://example.com/manifest.mpd"));
+    MediaSourceEventListener mockListener = mock(MediaSourceEventListener.class);
+    mediaSource.addEventListener(createHandlerForCurrentLooper(), mockListener);
+    ParsingLoadable<DashManifest> loadable =
+        new ParsingLoadable.Builder<>(
+                new DefaultHttpDataSource.Factory().createDataSource(),
+                Uri.parse("http://example.com/manifest.mpd"),
+                C.DATA_TYPE_MANIFEST,
+                new DashManifestParser())
+            .build();
+
+    Loader.LoadErrorAction actionWithinLimit =
+        mediaSource.onManifestLoadError(
+            loadable,
+            /* elapsedRealtimeMs= */ 0,
+            /* loadDurationMs= */ 0,
+            new IOException("Transient error"),
+            /* errorCount= */ 3);
+    Loader.LoadErrorAction actionExhausted =
+        mediaSource.onManifestLoadError(
+            loadable,
+            /* elapsedRealtimeMs= */ 0,
+            /* loadDurationMs= */ 0,
+            new IOException("Transient error"),
+            /* errorCount= */ 4);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertThat(actionWithinLimit.isRetry()).isTrue();
+    verify(mockListener)
+        .onLoadError(anyInt(), any(), any(), any(), any(IOException.class), eq(false));
+    assertThat(actionExhausted).isEqualTo(Loader.DONT_RETRY_FATAL);
+    verify(mockListener)
+        .onLoadError(anyInt(), any(), any(), any(), any(IOException.class), eq(true));
   }
 
   private static Window prepareAndWaitForTimelineRefresh(MediaSource mediaSource) throws Exception {

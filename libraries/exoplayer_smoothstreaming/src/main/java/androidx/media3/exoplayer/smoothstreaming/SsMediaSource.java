@@ -592,8 +592,10 @@ public final class SsMediaSource extends BaseMediaSource
             .build();
     MediaLoadData mediaLoadData = new MediaLoadData(loadable.type);
     long retryDelayMs =
-        loadErrorHandlingPolicy.getRetryDelayMsFor(
-            new LoadErrorInfo(loadEventInfo, mediaLoadData, error, errorCount));
+        errorCount > loadErrorHandlingPolicy.getMinimumLoadableRetryCount(loadable.type)
+            ? C.TIME_UNSET
+            : loadErrorHandlingPolicy.getRetryDelayMsFor(
+                new LoadErrorInfo(loadEventInfo, mediaLoadData, error, errorCount));
     LoadErrorAction loadErrorAction =
         retryDelayMs == C.TIME_UNSET
             ? Loader.DONT_RETRY_FATAL

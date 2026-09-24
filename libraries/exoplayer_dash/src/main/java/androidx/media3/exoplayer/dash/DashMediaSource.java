@@ -931,7 +931,10 @@ public final class DashMediaSource extends BaseMediaSource {
     }
 
     // If fallback is not available or rejected, fall back to retry delay or fatal error.
-    long retryDelayMs = loadErrorHandlingPolicy.getRetryDelayMsFor(loadErrorInfo);
+    long retryDelayMs =
+        errorCount > loadErrorHandlingPolicy.getMinimumLoadableRetryCount(loadable.type)
+            ? C.TIME_UNSET
+            : loadErrorHandlingPolicy.getRetryDelayMsFor(loadErrorInfo);
     LoadErrorAction loadErrorAction =
         retryDelayMs == C.TIME_UNSET
             ? Loader.DONT_RETRY_FATAL
