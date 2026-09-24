@@ -1542,31 +1542,24 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       return max(DEFAULT_DURATION_TO_PROGRESS_US, durationUs);
     }
 
-    try {
-      @VideoFrameReleaseControl.FrameReleaseAction
-      int frameReleaseAction =
-          videoFrameReleaseControl.getFrameReleaseAction(
-              nextOutputBufferToProcessPresentationTimeUs,
-              positionUs,
-              elapsedRealtimeUs,
-              getOutputStreamStartPositionUs(),
-              /* isDecodeOnlyFrame= */ false,
-              /* isLastFrame= */ false,
-              frameRateEstimator.getFrameDurationNs(),
-              frameRateEstimator.getFrameIndex(),
-              videoFrameReleaseInfo);
-      if (frameReleaseAction != VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER) {
-        return 0;
-      }
-      long durationUs = videoFrameReleaseInfo.getEarlyUs();
-      // Rebase duration to the start of this iteration of the rendering loop.
-      durationUs += Util.msToUs(getClock().elapsedRealtime()) - elapsedRealtimeUs;
-      // Set a lower bound of waking within 1.5*VSync rate at 60 fps(25 ms).
-      return max(0, durationUs - 25_000);
-    } catch (ExoPlaybackException exoPlaybackException) {
-      Log.w(TAG, "Error while evaluating frame release action");
+    @VideoFrameReleaseControl.FrameReleaseAction
+    int frameReleaseAction =
+        videoFrameReleaseControl.probeFrameReleaseAction(
+            nextOutputBufferToProcessPresentationTimeUs,
+            positionUs,
+            elapsedRealtimeUs,
+            getOutputStreamStartPositionUs(),
+            frameRateEstimator.getFrameDurationNs(),
+            frameRateEstimator.getFrameIndex(),
+            videoFrameReleaseInfo);
+    if (frameReleaseAction != VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER) {
+      return 0;
     }
-    return DEFAULT_DURATION_TO_PROGRESS_US;
+    long durationUs = videoFrameReleaseInfo.getEarlyUs();
+    // Rebase duration to the start of this iteration of the rendering loop.
+    durationUs += Util.msToUs(getClock().elapsedRealtime()) - elapsedRealtimeUs;
+    // Set a lower bound of waking within 1.5*VSync rate at 60 fps(25 ms).
+    return max(0, durationUs - 25_000);
   }
 
   @Override

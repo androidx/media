@@ -1516,6 +1516,397 @@ public class VideoFrameReleaseControlTest {
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_SCHEDULED);
   }
 
+  @Test
+  public void
+      probeFrameReleaseAction_withSamePresentationTimeBeforeRelease_returnsScheduledWithoutColliding()
+          throws ExoPlaybackException {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
+    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setClock(clock);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
+    videoFrameReleaseControl.onStarted();
+    videoFrameReleaseControl.setVsyncData(
+        /* vsyncSampleTimeNs= */ 0, /* vsyncDurationNs= */ 16_666_666);
+    int unused =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 0,
+            /* positionUs= */ 0,
+            /* elapsedRealtimeUs= */ 0,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            /* frameDurationNs= */ 8_333_333,
+            /* frameIndex= */ 0L,
+            frameReleaseInfo);
+    videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+    clock.advanceTime(8);
+
+    int probeAction =
+        videoFrameReleaseControl.probeFrameReleaseAction(
+            /* presentationTimeUs= */ 8_333,
+            /* positionUs= */ 8_333,
+            /* elapsedRealtimeUs= */ 8_000,
+            /* outputStreamStartPositionUs= */ 0,
+            /* frameDurationNs= */ 8_333_333,
+            /* frameIndex= */ 1L,
+            frameReleaseInfo);
+    long probedReleaseTimeNs = frameReleaseInfo.getReleaseTimeNs();
+    int releaseAction =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 8_333,
+            /* positionUs= */ 8_333,
+            /* elapsedRealtimeUs= */ 8_000,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            /* frameDurationNs= */ 8_333_333,
+            /* frameIndex= */ 1L,
+            frameReleaseInfo);
+    long releasedReleaseTimeNs = frameReleaseInfo.getReleaseTimeNs();
+
+    assertThat(probeAction).isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_SCHEDULED);
+    assertThat(releaseAction).isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_SCHEDULED);
+    assertThat(releasedReleaseTimeNs).isEqualTo(probedReleaseTimeNs);
+  }
+
+  @Test
+  public void probeFrameReleaseAction_withSamePresentationTime_isIdempotentForSkip()
+      throws ExoPlaybackException {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
+    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setClock(clock);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
+    videoFrameReleaseControl.onStarted();
+    videoFrameReleaseControl.setVsyncData(
+        /* vsyncSampleTimeNs= */ 0, /* vsyncDurationNs= */ 16_666_666);
+    int unused =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 0,
+            /* positionUs= */ 0,
+            /* elapsedRealtimeUs= */ 0,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            /* frameDurationNs= */ 8_333_333,
+            /* frameIndex= */ 0L,
+            frameReleaseInfo);
+    videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+    clock.advanceTime(8);
+    unused =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 8_333,
+            /* positionUs= */ 8_333,
+            /* elapsedRealtimeUs= */ 8_000,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            /* frameDurationNs= */ 8_333_333,
+            /* frameIndex= */ 1L,
+            frameReleaseInfo);
+    clock.advanceTime(8);
+    unused =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 16_666,
+            /* positionUs= */ 16_666,
+            /* elapsedRealtimeUs= */ 16_000,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            /* frameDurationNs= */ 8_333_333,
+            /* frameIndex= */ 2L,
+            frameReleaseInfo);
+    clock.advanceTime(8);
+
+    int probedSkipAction =
+        videoFrameReleaseControl.probeFrameReleaseAction(
+            /* presentationTimeUs= */ 25_000,
+            /* positionUs= */ 25_000,
+            /* elapsedRealtimeUs= */ 24_000,
+            /* outputStreamStartPositionUs= */ 0,
+            /* frameDurationNs= */ 8_333_333,
+            /* frameIndex= */ 3L,
+            frameReleaseInfo);
+    int nonProbedSkipAction =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 25_000,
+            /* positionUs= */ 25_000,
+            /* elapsedRealtimeUs= */ 24_000,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            /* frameDurationNs= */ 8_333_333,
+            /* frameIndex= */ 3L,
+            frameReleaseInfo);
+
+    assertThat(probedSkipAction).isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_SKIP);
+    assertThat(nonProbedSkipAction).isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_SKIP);
+  }
+
+  @Test
+  public void probeFrameReleaseAction_withSamePresentationTime_isIdempotentForDrop()
+      throws ExoPlaybackException {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
+    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setClock(clock);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
+    videoFrameReleaseControl.onStarted();
+    videoFrameReleaseControl.setVsyncData(
+        /* vsyncSampleTimeNs= */ 0, /* vsyncDurationNs= */ 16_666_666);
+    int unused =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 0,
+            /* positionUs= */ 0,
+            /* elapsedRealtimeUs= */ 0,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            /* frameDurationNs= */ 8_333_333,
+            /* frameIndex= */ 0L,
+            frameReleaseInfo);
+    videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+    clock.advanceTime(8);
+    unused =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 8_333,
+            /* positionUs= */ 8_333,
+            /* elapsedRealtimeUs= */ 8_000,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            /* frameDurationNs= */ 8_333_333,
+            /* frameIndex= */ 1L,
+            frameReleaseInfo);
+    clock.advanceTime(41);
+    unused =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 16_667,
+            /* positionUs= */ 16_667,
+            /* elapsedRealtimeUs= */ 49_000,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            /* frameDurationNs= */ 8_333_333,
+            /* frameIndex= */ 2L,
+            frameReleaseInfo);
+
+    int probedDropAction =
+        videoFrameReleaseControl.probeFrameReleaseAction(
+            /* presentationTimeUs= */ 25_000,
+            /* positionUs= */ 16_667,
+            /* elapsedRealtimeUs= */ 49_000,
+            /* outputStreamStartPositionUs= */ 0,
+            /* frameDurationNs= */ 8_333_333,
+            /* frameIndex= */ 3L,
+            frameReleaseInfo);
+    int nonProbedDropAction =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 25_000,
+            /* positionUs= */ 16_667,
+            /* elapsedRealtimeUs= */ 49_000,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            /* frameDurationNs= */ 8_333_333,
+            /* frameIndex= */ 3L,
+            frameReleaseInfo);
+
+    assertThat(probedDropAction).isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_DROP);
+    assertThat(nonProbedDropAction).isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_DROP);
+  }
+
+  @Test
+  public void
+      probeFrameReleaseAction_withDifferentPresentationTime_doesNotMutateStateForSubsequentFrames()
+          throws ExoPlaybackException {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
+    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setClock(clock);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
+    videoFrameReleaseControl.onStarted();
+    videoFrameReleaseControl.setVsyncData(
+        /* vsyncSampleTimeNs= */ 0, /* vsyncDurationNs= */ 16_666_666);
+    int unused =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 0,
+            /* positionUs= */ 0,
+            /* elapsedRealtimeUs= */ 0,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            /* frameDurationNs= */ 8_333_333,
+            /* frameIndex= */ 0L,
+            frameReleaseInfo);
+    videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+    clock.advanceTime(8);
+    unused =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 8_333,
+            /* positionUs= */ 8_333,
+            /* elapsedRealtimeUs= */ 8_000,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            /* frameDurationNs= */ 8_333_333,
+            /* frameIndex= */ 1L,
+            frameReleaseInfo);
+    clock.advanceTime(8);
+
+    int probedAction =
+        videoFrameReleaseControl.probeFrameReleaseAction(
+            /* presentationTimeUs= */ 16_666,
+            /* positionUs= */ 16_666,
+            /* elapsedRealtimeUs= */ 16_000,
+            /* outputStreamStartPositionUs= */ 0,
+            /* frameDurationNs= */ 8_333_333,
+            /* frameIndex= */ 2L,
+            frameReleaseInfo);
+    clock.advanceTime(8);
+    int nextFrameAction =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 25_000,
+            /* positionUs= */ 25_000,
+            /* elapsedRealtimeUs= */ 24_000,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            /* frameDurationNs= */ 8_333_333,
+            /* frameIndex= */ 3L,
+            frameReleaseInfo);
+
+    assertThat(probedAction).isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_SCHEDULED);
+    assertThat(nextFrameAction).isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_SCHEDULED);
+    assertThat(frameReleaseInfo.getReleaseTimeNs()).isEqualTo(3_333_334);
+  }
+
+  @Test
+  public void probeFrameReleaseAction_whenShouldIgnoreFrameIsTrue_returnsDropInsteadOfIgnore()
+      throws ExoPlaybackException {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
+    VideoFrameReleaseControl videoFrameReleaseControl =
+        new VideoFrameReleaseControl(
+            ApplicationProvider.getApplicationContext(),
+            new TestFrameTimingEvaluator(
+                /* shouldForceRelease= */ false,
+                /* shouldDropFrame= */ true,
+                /* shouldIgnoreFrame= */ true),
+            /* allowedJoiningTimeMs= */ 0,
+            /* skipBuffersWithIdenticalReleaseTime= */ true);
+    videoFrameReleaseControl.setOutputSurface(surface);
+    videoFrameReleaseControl.setClock(clock);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
+    videoFrameReleaseControl.onStarted();
+    int unused =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 0,
+            /* positionUs= */ 0,
+            /* elapsedRealtimeUs= */ 0,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            /* frameDurationNs= */ 16_666_666,
+            /* frameIndex= */ 0L,
+            frameReleaseInfo);
+    videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+    clock.advanceTime(600);
+
+    int probedAction =
+        videoFrameReleaseControl.probeFrameReleaseAction(
+            /* presentationTimeUs= */ 16_666,
+            /* positionUs= */ 600_000,
+            /* elapsedRealtimeUs= */ 600_000,
+            /* outputStreamStartPositionUs= */ 0,
+            /* frameDurationNs= */ 16_666_666,
+            /* frameIndex= */ 1L,
+            frameReleaseInfo);
+    int nonProbedAction =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 16_666,
+            /* positionUs= */ 600_000,
+            /* elapsedRealtimeUs= */ 600_000,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            /* frameDurationNs= */ 16_666_666,
+            /* frameIndex= */ 1L,
+            frameReleaseInfo);
+
+    assertThat(probedAction).isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_DROP);
+    assertThat(nonProbedAction).isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IGNORE);
+  }
+
+  @Test
+  public void probeFrameReleaseAction_rightAfterOnStarted_doesNotMutateInitialPositionUs()
+      throws ExoPlaybackException {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
+    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setClock(clock);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
+    int unused =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 0,
+            /* positionUs= */ 0,
+            /* elapsedRealtimeUs= */ 0,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            /* frameDurationNs= */ 16_666_666,
+            /* frameIndex= */ 0L,
+            frameReleaseInfo);
+    videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+    videoFrameReleaseControl.onStarted();
+
+    int probeAtStartAction =
+        videoFrameReleaseControl.probeFrameReleaseAction(
+            /* presentationTimeUs= */ 16_666,
+            /* positionUs= */ 0,
+            /* elapsedRealtimeUs= */ 0,
+            /* outputStreamStartPositionUs= */ 0,
+            /* frameDurationNs= */ 16_666_666,
+            /* frameIndex= */ 1L,
+            frameReleaseInfo);
+    int firstNonProbeAtStartAction =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 16_666,
+            /* positionUs= */ 10_000,
+            /* elapsedRealtimeUs= */ 10_000,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            /* frameDurationNs= */ 16_666_666,
+            /* frameIndex= */ 1L,
+            frameReleaseInfo);
+    int secondNonProbeAfterAdvancingAction =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 16_666,
+            /* positionUs= */ 16_000,
+            /* elapsedRealtimeUs= */ 16_000,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            /* frameDurationNs= */ 16_666_666,
+            /* frameIndex= */ 1L,
+            frameReleaseInfo);
+
+    assertThat(probeAtStartAction)
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
+    assertThat(firstNonProbeAtStartAction)
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
+    assertThat(secondNonProbeAfterAdvancingAction)
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_SCHEDULED);
+  }
+
   private VideoFrameReleaseControl createVideoFrameReleaseControl() {
     return createVideoFrameReleaseControl(/* allowedJoiningTimeMs= */ 0);
   }

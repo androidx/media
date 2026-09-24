@@ -46,6 +46,9 @@
     *   Fix a `NullPointerException` that could occur if `ExoPlayer`
         transitioned renderers to an unprepared media period when
         `Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION` is enabled.
+    *   Fix an issue where video frames could be unexpectedly skipped or dropped
+        during dynamic scheduling when
+        `Flags.FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS` is enabled.
 *   CompositionPlayer:
     *   Support configuring the frame rate of video frame aggregation via
         `Composition.Builder.setVideoFrameAggregationParameters` for playback

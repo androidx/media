@@ -262,6 +262,30 @@ public final class VideoFrameReleaseHelper {
     return snappedTimeNs - (vsyncDurationNs * VSYNC_OFFSET_PERCENTAGE) / 100;
   }
 
+  /* package */ long probeAdjustedReleaseTime(
+      long releaseTimeNs, long presentationTimeUs, long frameDurationNs, long frameIndex) {
+    long savedLastAdjustedFrameIndex = lastAdjustedFrameIndex;
+    long savedLastAdjustedReleaseTimeNs = lastAdjustedReleaseTimeNs;
+    long savedLastAdjustedPresentationTimeUs = lastAdjustedPresentationTimeUs;
+    long savedLastVsyncHysteresisOffsetNs = lastVsyncHysteresisOffsetNs;
+    long savedPendingLastAdjustedFrameIndex = pendingLastAdjustedFrameIndex;
+    long savedPendingLastAdjustedReleaseTimeNs = pendingLastAdjustedReleaseTimeNs;
+    long savedPendingLastPresentationTimeUs = pendingLastPresentationTimeUs;
+    long savedPendingVsyncHysteresisOffsetNs = pendingVsyncHysteresisOffsetNs;
+    try {
+      return adjustReleaseTime(releaseTimeNs, presentationTimeUs, frameDurationNs, frameIndex);
+    } finally {
+      lastAdjustedFrameIndex = savedLastAdjustedFrameIndex;
+      lastAdjustedReleaseTimeNs = savedLastAdjustedReleaseTimeNs;
+      lastAdjustedPresentationTimeUs = savedLastAdjustedPresentationTimeUs;
+      lastVsyncHysteresisOffsetNs = savedLastVsyncHysteresisOffsetNs;
+      pendingLastAdjustedFrameIndex = savedPendingLastAdjustedFrameIndex;
+      pendingLastAdjustedReleaseTimeNs = savedPendingLastAdjustedReleaseTimeNs;
+      pendingLastPresentationTimeUs = savedPendingLastPresentationTimeUs;
+      pendingVsyncHysteresisOffsetNs = savedPendingVsyncHysteresisOffsetNs;
+    }
+  }
+
   @VisibleForTesting
   public void setVsyncData(long vsyncSampleTimeNs, long vsyncDurationNs) {
     checkNotNull(vsyncSampler).sampledVsyncTimeNs = vsyncSampleTimeNs;

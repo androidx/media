@@ -48,7 +48,8 @@ public final class VideoFrameReleaseControl {
 
   /**
    * The frame release action returned by {@link #getFrameReleaseAction(long, long, long, long,
-   * boolean, boolean, long, long, FrameReleaseInfo)}.
+   * boolean, boolean, long, long, FrameReleaseInfo)} or {@link #probeFrameReleaseAction(long, long,
+   * long, long, long, long, FrameReleaseInfo)}.
    *
    * <p>One of {@link #FRAME_RELEASE_IMMEDIATELY}, {@link #FRAME_RELEASE_SCHEDULED}, {@link
    * #FRAME_RELEASE_DROP}, {@link #FRAME_RELEASE_IGNORE}, {@link #FRAME_RELEASE_SKIP} or {@link
@@ -419,72 +420,60 @@ public final class VideoFrameReleaseControl {
       long frameIndex,
       FrameReleaseInfo frameReleaseInfo)
       throws ExoPlaybackException {
-    frameReleaseInfo.reset();
+    return getFrameReleaseActionInternal(
+        presentationTimeUs,
+        positionUs,
+        elapsedRealtimeUs,
+        outputStreamStartPositionUs,
+        isDecodeOnlyFrame,
+        isLastFrame,
+        frameDurationNs,
+        frameIndex,
+        /* onlyProbe= */ false,
+        frameReleaseInfo);
+  }
 
-    if (started && initialPositionUs == C.TIME_UNSET) {
-      initialPositionUs = positionUs;
-    }
-
-    frameReleaseInfo.earlyUs =
-        calculateEarlyTimeUs(positionUs, elapsedRealtimeUs, presentationTimeUs);
-
-    if (isDecodeOnlyFrame && !isLastFrame) {
-      return FRAME_RELEASE_SKIP;
-    }
-    if (!hasOutputSurface && requiresOutputSurface) {
-      // Skip frames in sync with playback, so we'll be at the right frame if a surface is set.
-      if (frameTimingEvaluator.shouldIgnoreFrame(
-          frameReleaseInfo.earlyUs,
+  /**
+   * Probes the expected {@link FrameReleaseAction} and populates {@code frameReleaseInfo} for a
+   * pending video frame without mutating release state or invoking {@link
+   * FrameTimingEvaluator#shouldIgnoreFrame}.
+   *
+   * @param presentationTimeUs The presentation time of the video frame, in microseconds.
+   * @param positionUs The current playback position, in microseconds.
+   * @param elapsedRealtimeUs {@link android.os.SystemClock#elapsedRealtime()} in microseconds,
+   *     taken approximately at the time the playback position was {@code positionUs}.
+   * @param outputStreamStartPositionUs The stream's start position, in microseconds.
+   * @param frameDurationNs The estimated fixed frame duration in nanoseconds, or {@link
+   *     C#TIME_UNSET} if unknown.
+   * @param frameIndex A monotonically increasing index for the frame, or {@link C#INDEX_UNSET} if
+   *     unknown.
+   * @param frameReleaseInfo A {@link FrameReleaseInfo} that will be filled with timing details.
+   * @return The expected {@link FrameReleaseAction} for the frame.
+   */
+  public @FrameReleaseAction int probeFrameReleaseAction(
+      long presentationTimeUs,
+      long positionUs,
+      long elapsedRealtimeUs,
+      long outputStreamStartPositionUs,
+      long frameDurationNs,
+      long frameIndex,
+      FrameReleaseInfo frameReleaseInfo) {
+    try {
+      return getFrameReleaseActionInternal(
+          presentationTimeUs,
           positionUs,
           elapsedRealtimeUs,
-          isLastFrame,
-          /* treatDroppedBuffersAsSkipped= */ true)) {
-        return FRAME_RELEASE_IGNORE;
-      }
-      if (started && frameReleaseInfo.earlyUs < 30_000) {
-        return FRAME_RELEASE_SKIP;
-      }
-      frameReadyWithoutSurface = true;
-      return FRAME_RELEASE_TRY_AGAIN_LATER;
+          outputStreamStartPositionUs,
+          /* isDecodeOnlyFrame= */ false,
+          /* isLastFrame= */ false,
+          frameDurationNs,
+          frameIndex,
+          /* onlyProbe= */ true,
+          frameReleaseInfo);
+    } catch (ExoPlaybackException e) {
+      // Never thrown when onlyProbe is true because shouldIgnoreFrame is not called.
+      throw new IllegalStateException(e);
     }
-    if (!requiresOutputSurface) {
-      frameReadyWithoutSurface = true;
-    }
-    if (shouldForceRelease(positionUs, frameReleaseInfo.earlyUs, outputStreamStartPositionUs)) {
-      updateReleasedFrameState(clock.nanoTime(), presentationTimeUs);
-      return FRAME_RELEASE_IMMEDIATELY;
-    }
-    if (!started || positionUs == initialPositionUs) {
-      return FRAME_RELEASE_TRY_AGAIN_LATER;
-    }
-
-    // Calculate release time and adjust earlyUs to screen vsync.
-    long systemTimeNs = clock.nanoTime();
-    frameReleaseInfo.releaseTimeNs =
-        frameReleaseHelper.adjustReleaseTime(
-            systemTimeNs + (frameReleaseInfo.earlyUs * 1_000),
-            presentationTimeUs,
-            frameDurationNs,
-            frameIndex);
-    frameReleaseInfo.earlyUs = (frameReleaseInfo.releaseTimeNs - systemTimeNs) / 1_000;
-    // While joining, late frames are skipped while we catch up with the playback position.
-    boolean treatDropAsSkip =
-        joiningDeadlineMs != C.TIME_UNSET && !joiningRenderNextFrameImmediately;
-    if (frameTimingEvaluator.shouldIgnoreFrame(
-        frameReleaseInfo.earlyUs, positionUs, elapsedRealtimeUs, isLastFrame, treatDropAsSkip)) {
-      return FRAME_RELEASE_IGNORE;
-    } else if (frameTimingEvaluator.shouldDropFrame(
-        frameReleaseInfo.earlyUs, elapsedRealtimeUs, isLastFrame)) {
-      // While joining, dropped buffers are considered skipped.
-      return treatDropAsSkip ? FRAME_RELEASE_SKIP : FRAME_RELEASE_DROP;
-    } else if (frameReleaseInfo.earlyUs > earlySchedulingThresholdUs) {
-      return FRAME_RELEASE_TRY_AGAIN_LATER;
-    } else if (skipBuffersWithIdenticalReleaseTime
-        && frameReleaseInfo.releaseTimeNs == lastFrameReleaseTimeNs) {
-      return treatSameReleaseTimeAsDropped() ? FRAME_RELEASE_DROP : FRAME_RELEASE_SKIP;
-    }
-    updateReleasedFrameState(frameReleaseInfo.releaseTimeNs, presentationTimeUs);
-    return FRAME_RELEASE_SCHEDULED;
   }
 
   /** Resets the release control. */
@@ -591,6 +580,108 @@ public final class VideoFrameReleaseControl {
       default:
         throw new IllegalStateException();
     }
+  }
+
+  /**
+   * Returns a {@link FrameReleaseAction} for a video frame which instructs the caller what to do
+   * with the frame.
+   *
+   * <p>When {@code onlyProbe} is {@code true}, this method evaluates the release action and
+   * populates {@code frameReleaseInfo} without mutating release state or calling {@link
+   * FrameTimingEvaluator#shouldIgnoreFrame}.
+   */
+  private @FrameReleaseAction int getFrameReleaseActionInternal(
+      long presentationTimeUs,
+      long positionUs,
+      long elapsedRealtimeUs,
+      long outputStreamStartPositionUs,
+      boolean isDecodeOnlyFrame,
+      boolean isLastFrame,
+      long frameDurationNs,
+      long frameIndex,
+      boolean onlyProbe,
+      FrameReleaseInfo frameReleaseInfo)
+      throws ExoPlaybackException {
+    frameReleaseInfo.reset();
+
+    if (!onlyProbe && started && initialPositionUs == C.TIME_UNSET) {
+      initialPositionUs = positionUs;
+    }
+
+    frameReleaseInfo.earlyUs =
+        calculateEarlyTimeUs(positionUs, elapsedRealtimeUs, presentationTimeUs);
+
+    if (isDecodeOnlyFrame && !isLastFrame) {
+      return FRAME_RELEASE_SKIP;
+    }
+    if (!hasOutputSurface && requiresOutputSurface) {
+      // Skip frames in sync with playback, so we'll be at the right frame if a surface is set.
+      if (!onlyProbe
+          && frameTimingEvaluator.shouldIgnoreFrame(
+              frameReleaseInfo.earlyUs,
+              positionUs,
+              elapsedRealtimeUs,
+              isLastFrame,
+              /* treatDroppedBuffersAsSkipped= */ true)) {
+        return FRAME_RELEASE_IGNORE;
+      }
+      if (started && frameReleaseInfo.earlyUs < 30_000) {
+        return FRAME_RELEASE_SKIP;
+      }
+      if (!onlyProbe) {
+        frameReadyWithoutSurface = true;
+      }
+      return FRAME_RELEASE_TRY_AGAIN_LATER;
+    }
+    if (!onlyProbe && !requiresOutputSurface) {
+      frameReadyWithoutSurface = true;
+    }
+    if (shouldForceRelease(positionUs, frameReleaseInfo.earlyUs, outputStreamStartPositionUs)) {
+      if (!onlyProbe) {
+        updateReleasedFrameState(clock.nanoTime(), presentationTimeUs);
+      }
+      return FRAME_RELEASE_IMMEDIATELY;
+    }
+    if (!started || initialPositionUs == C.TIME_UNSET || positionUs == initialPositionUs) {
+      return FRAME_RELEASE_TRY_AGAIN_LATER;
+    }
+
+    long systemTimeNs = clock.nanoTime();
+    long unadjustedReleaseTimeNs = systemTimeNs + (frameReleaseInfo.earlyUs * 1_000);
+    frameReleaseInfo.releaseTimeNs =
+        onlyProbe
+            ? frameReleaseHelper.probeAdjustedReleaseTime(
+                unadjustedReleaseTimeNs, presentationTimeUs, frameDurationNs, frameIndex)
+            : frameReleaseHelper.adjustReleaseTime(
+                unadjustedReleaseTimeNs, presentationTimeUs, frameDurationNs, frameIndex);
+    frameReleaseInfo.earlyUs = (frameReleaseInfo.releaseTimeNs - systemTimeNs) / 1_000;
+
+    // While joining, late frames are skipped while we catch up with the playback position.
+    boolean treatDropAsSkip =
+        joiningDeadlineMs != C.TIME_UNSET && !joiningRenderNextFrameImmediately;
+    if (!onlyProbe
+        && frameTimingEvaluator.shouldIgnoreFrame(
+            frameReleaseInfo.earlyUs,
+            positionUs,
+            elapsedRealtimeUs,
+            isLastFrame,
+            treatDropAsSkip)) {
+      return FRAME_RELEASE_IGNORE;
+    }
+    if (frameTimingEvaluator.shouldDropFrame(
+        frameReleaseInfo.earlyUs, elapsedRealtimeUs, isLastFrame)) {
+      // While joining, dropped buffers are considered skipped.
+      return treatDropAsSkip ? FRAME_RELEASE_SKIP : FRAME_RELEASE_DROP;
+    } else if (frameReleaseInfo.earlyUs > earlySchedulingThresholdUs) {
+      return FRAME_RELEASE_TRY_AGAIN_LATER;
+    } else if (skipBuffersWithIdenticalReleaseTime
+        && frameReleaseInfo.releaseTimeNs == lastFrameReleaseTimeNs) {
+      return treatSameReleaseTimeAsDropped() ? FRAME_RELEASE_DROP : FRAME_RELEASE_SKIP;
+    }
+    if (!onlyProbe) {
+      updateReleasedFrameState(frameReleaseInfo.releaseTimeNs, presentationTimeUs);
+    }
+    return FRAME_RELEASE_SCHEDULED;
   }
 
   private void resetReleasedFrameState() {

@@ -6851,12 +6851,14 @@ public class MediaCodecVideoRendererTest {
       codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
 
-    // Invocation should drop to keyframe as current output buffer is very, very late.
-    long durationToProgressIncurringDropUs =
+    // Invocation should return 0 as current output buffer is very, very late and needs dropping.
+    long durationToProgressBeforeDropUs =
         mediaCodecVideoRenderer.getDurationToProgressUs(
             /* positionUs= */ 600_001,
             SystemClock.elapsedRealtime() * 1000,
             /* isOnBufferAvailableListenerRegistered= */ true);
+
+    mediaCodecVideoRenderer.render(600_001, SystemClock.elapsedRealtime() * 1000);
 
     long durationToProgressPostDropUs =
         mediaCodecVideoRenderer.getDurationToProgressUs(
@@ -6870,8 +6872,62 @@ public class MediaCodecVideoRendererTest {
     verify(eventListener).onVideoEnabled(argumentDecoderCounters.capture());
     DecoderCounters decoderCounters = argumentDecoderCounters.getValue();
     assertThat(decoderCounters.droppedBufferCount).isEqualTo(3);
-    assertThat(durationToProgressIncurringDropUs).isEqualTo(0);
+    assertThat(durationToProgressBeforeDropUs).isEqualTo(0);
     assertThat(durationToProgressPostDropUs).isEqualTo(10_000);
+  }
+
+  @Test
+  public void getDurationToProgressUs_whenFrameBecomesSchedulable_doesNotSkipFrameOnNextRender()
+      throws Exception {
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ VIDEO_H264,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 75_000),
+                oneByteSample(/* timeUs= */ 150_000),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    mediaCodecVideoRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {VIDEO_H264},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        /* mediaPeriodId= */ new MediaSource.MediaPeriodId(new Object()));
+    mediaCodecVideoRenderer.start();
+    for (int i = 0; i < 6; i++) {
+      // Render first frame (0 us) and process up to second frame (75_000 us), which is held with
+      // TRY_AGAIN_LATER because earlyUs (75_000) > 50_000.
+      mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
+    }
+
+    // Query duration at positionUs = 30_000 so earlyUs = 45_000 <= 50_000 (FRAME_RELEASE_SCHEDULED)
+    long durationToProgressUs =
+        mediaCodecVideoRenderer.getDurationToProgressUs(
+            /* positionUs= */ 30_000,
+            SystemClock.elapsedRealtime() * 1000,
+            /* isOnBufferAvailableListenerRegistered= */ true);
+    // Subsequent render at positionUs = 30_000 should schedule the 75_000 us frame, not skip it.
+    mediaCodecVideoRenderer.render(30_000, SystemClock.elapsedRealtime() * 1000);
+
+    shadowOf(testMainLooper).idle();
+    ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
+        ArgumentCaptor.forClass(DecoderCounters.class);
+    verify(eventListener).onVideoEnabled(argumentDecoderCounters.capture());
+    DecoderCounters decoderCounters = argumentDecoderCounters.getValue();
+    assertThat(durationToProgressUs).isEqualTo(0);
+    assertThat(decoderCounters.renderedOutputBufferCount).isEqualTo(2);
+    assertThat(decoderCounters.skippedOutputBufferCount).isEqualTo(0);
+    assertThat(decoderCounters.droppedBufferCount).isEqualTo(0);
   }
 
   @Test
