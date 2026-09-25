@@ -117,7 +117,13 @@ public final class SubripParser implements SubtitleParser {
       Consumer<CuesWithTiming> output) {
     parsableByteArray.reset(data, /* limit= */ offset + length);
     parsableByteArray.setPosition(offset);
-    Charset charset = detectCharset(data, offset, length);
+    Charset charset = detectCharset();
+    if (!ParsableByteArray.isCharsetSupported(charset)) {
+      // ParsableByteArray doesn't support directly reading the detected charset, so we transcode
+      // the data to UTF-8 (which is supported).
+      transcodeToUtf8(charset);
+      charset = StandardCharsets.UTF_8;
+    }
 
     @Nullable
     List<CuesWithTiming> cuesWithTimingBeforeRequestedStartTimeUs =
@@ -202,7 +208,7 @@ public final class SubripParser implements SubtitleParser {
   }
 
   /**
-   * Returns the charset to use for line parsing.
+   * Returns the charset to use for line parsing of {@link #parsableByteArray}.
    *
    * <p>A byte order mark takes precedence, otherwise the data is passed to {@link
    * #charsetDetector}.
@@ -210,7 +216,7 @@ public final class SubripParser implements SubtitleParser {
    * <p>If the detected charset isn't supported by {@link ParsableByteArray} then the underlying
    * data is transcoded to UTF-8 before this method returns.
    */
-  private Charset detectCharset(byte[] data, int offset, int length) {
+  private Charset detectCharset() {
     @Nullable Charset utfCharset = parsableByteArray.readUtfCharsetFromBom();
     if (utfCharset != null) {
       return utfCharset;
@@ -218,18 +224,24 @@ public final class SubripParser implements SubtitleParser {
     if (charsetDetector == null) {
       return StandardCharsets.UTF_8;
     }
-    @Nullable Charset charset = charsetDetector.detect(data, offset, length);
-    if (charset == null) {
-      return StandardCharsets.UTF_8;
-    }
-    if (ParsableByteArray.isCharsetSupported(charset)) {
-      return charset;
-    }
-    // ParsableByteArray doesn't support directly reading the detected charset, so we transcode
-    // the data to UTF-8 (which is supported).
+    @Nullable
+    Charset charset =
+        charsetDetector.detect(
+            parsableByteArray.getData(),
+            parsableByteArray.getPosition(),
+            parsableByteArray.bytesLeft());
+    return charset != null ? charset : StandardCharsets.UTF_8;
+  }
+
+  /** Transcodes the data behind {@link #parsableByteArray} from {@code sourceCharset} to UTF-8. */
+  private void transcodeToUtf8(Charset sourceCharset) {
     parsableByteArray.reset(
-        new String(data, offset, length, charset).getBytes(StandardCharsets.UTF_8));
-    return StandardCharsets.UTF_8;
+        new String(
+                parsableByteArray.getData(),
+                parsableByteArray.getPosition(),
+                parsableByteArray.bytesLeft(),
+                sourceCharset)
+            .getBytes(StandardCharsets.UTF_8));
   }
 
   /**
