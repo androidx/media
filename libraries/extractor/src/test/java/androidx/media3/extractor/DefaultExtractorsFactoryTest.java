@@ -15,9 +15,11 @@
  */
 package androidx.media3.extractor;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.net.Uri;
+import androidx.annotation.Nullable;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.extractor.amr.AmrExtractor;
 import androidx.media3.extractor.avi.AviExtractor;
@@ -40,8 +42,11 @@ import androidx.media3.extractor.ts.PsExtractor;
 import androidx.media3.extractor.ts.TsExtractor;
 import androidx.media3.extractor.wav.WavExtractor;
 import androidx.media3.extractor.webp.WebpExtractor;
+import androidx.media3.test.utils.FakeExtractorInput;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.io.EOFException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -75,14 +80,14 @@ public final class DefaultExtractorsFactoryTest {
             AdtsExtractor.class,
             Ac3Extractor.class,
             Ac4Extractor.class,
-            Mp3Extractor.class,
             AviExtractor.class,
             JpegExtractor.class,
             PngExtractor.class,
             WebpExtractor.class,
             BmpExtractor.class,
             HeifExtractor.class,
-            AvifExtractor.class)
+            AvifExtractor.class,
+            Mp3Extractor.class)
         .inOrder();
   }
 
@@ -132,6 +137,38 @@ public final class DefaultExtractorsFactoryTest {
             HeifExtractor.class,
             AvifExtractor.class)
         .inOrder();
+  }
+
+  @Test
+  public void createExtractors_jpegWithEmbeddedMp3SyncBytes_sniffsJpegBeforeMp3() throws Exception {
+    // JPEG header (SOI + SOS) followed by a 417-byte MP3 frame.
+    byte[] data =
+        Arrays.copyOf(
+            new byte[] {
+              (byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xDA,
+              (byte) 0xFF, (byte) 0xFB, (byte) 0x90, (byte) 0x64
+            },
+            4 + 417);
+    FakeExtractorInput input = new FakeExtractorInput.Builder().setData(data).build();
+    Extractor[] extractors = new DefaultExtractorsFactory().createExtractors();
+
+    @Nullable Extractor matchedExtractor = null;
+    for (Extractor extractor : extractors) {
+      input.resetPeekPosition();
+      try {
+        if (extractor.sniff(input)) {
+          matchedExtractor = extractor;
+          break;
+        }
+      } catch (EOFException e) {
+        // Ignore EOF during sniffing.
+      }
+    }
+
+    assertThat(checkNotNull(matchedExtractor).getUnderlyingImplementation())
+        .isInstanceOf(JpegExtractor.class);
+    input.resetPeekPosition();
+    assertThat(new Mp3Extractor().sniff(input)).isTrue();
   }
 
   private static List<Class<? extends Extractor>> getUnderlyingExtractorClasses(

@@ -102,8 +102,8 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
 
   // Extractors order is optimized according to
   // https://docs.google.com/document/d/1w2mKaWMxfz2Ei8-LdxqbPs1VLe_oudB-eryXXw9OvQQ.
-  // The JPEG extractor appears after audio/video extractors because we expect audio/video input to
-  // be more common.
+  // Image extractors appear after audio/video extractors because we expect audio/video input to
+  // be more common. MP3 is an exception and is sniffed last (see below).
   private static final int[] DEFAULT_EXTRACTOR_ORDER =
       new int[] {
         FileTypes.FLV,
@@ -118,7 +118,6 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
         FileTypes.ADTS,
         FileTypes.AC3,
         FileTypes.AC4,
-        FileTypes.MP3,
         // The following extractors are not part of the optimized ordering, and were appended
         // without further analysis.
         FileTypes.AVI,
@@ -128,7 +127,11 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
         FileTypes.WEBP,
         FileTypes.BMP,
         FileTypes.HEIF,
-        FileTypes.AVIF
+        FileTypes.AVIF,
+        // MP3 is last (as in the optimized ordering doc) because Mp3Extractor.sniff() scans up to
+        // 128 KB for frame headers and can falsely match other formats (e.g. JPEG). New extractors
+        // should be added before MP3.
+        FileTypes.MP3
       };
 
   private static final ExtensionLoader FLAC_EXTENSION_LOADER =
