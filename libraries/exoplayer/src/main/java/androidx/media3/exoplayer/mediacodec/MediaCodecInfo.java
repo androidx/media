@@ -343,6 +343,13 @@ public final class MediaCodecInfo {
     }
 
     if (codecProfileAndLevel == null) {
+      if (MimeTypes.VIDEO_DOLBY_VISION.equals(format.sampleMimeType)) {
+        // Unlike other MIME types, an unknown or unset Dolby Vision profile/level must not be
+        // assumed to be supported: a decoder that merely advertises support for the Dolby Vision
+        // MIME type (for some other profile) could otherwise be selected to play back a Dolby
+        // Vision profile/bitstream it was never designed to decode.
+        return false;
+      }
       // If we don't know any better, we assume that the profile and level are supported.
       return true;
     }
