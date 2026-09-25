@@ -46,9 +46,6 @@ import java.util.Objects;
  *   <li>DVB ({@link DvbParser})
  *   <li>TTML ({@link TtmlParser})
  * </ul>
- *
- * <p>A {@link CharsetDetector} can be provided to detect the character encoding of standalone
- * SubRip subtitles without a byte order mark.
  */
 @UnstableApi
 public final class DefaultSubtitleParserFactory implements SubtitleParser.Factory {
@@ -62,11 +59,6 @@ public final class DefaultSubtitleParserFactory implements SubtitleParser.Factor
 
   /**
    * Creates an instance that passes {@code charsetDetector} to delegate factories (where relevant).
-   *
-   * <p>The detector is only passed to delegate factories that support it, and only when the charset
-   * may be ambiguous. For example, it won't be passed to {@link SubripParser} when handling SRT
-   * data extracted from a Matroska container, because the Matroska spec requires that this must be
-   * in UTF-8.
    *
    * @param charsetDetector The detector to use, or {@code null}.
    */
@@ -130,7 +122,7 @@ public final class DefaultSubtitleParserFactory implements SubtitleParser.Factor
         case MimeTypes.APPLICATION_MP4VTT:
           return new Mp4WebvttParser();
         case MimeTypes.APPLICATION_SUBRIP:
-          return new SubripParser(isStandaloneSubrip(format) ? charsetDetector : null);
+          return new SubripParser(charsetDetector, format);
         case MimeTypes.APPLICATION_TX3G:
           return new Tx3gParser(format.initializationData);
         case MimeTypes.APPLICATION_PGS:
@@ -146,9 +138,5 @@ public final class DefaultSubtitleParserFactory implements SubtitleParser.Factor
       }
     }
     throw new IllegalArgumentException("Unsupported MIME type: " + mimeType);
-  }
-
-  private static boolean isStandaloneSubrip(Format format) {
-    return format.containerMimeType == null || MimeTypes.isText(format.containerMimeType);
   }
 }

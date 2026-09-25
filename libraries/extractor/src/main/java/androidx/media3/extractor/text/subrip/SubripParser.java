@@ -26,6 +26,7 @@ import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Format.CueReplacementBehavior;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.Log;
@@ -84,23 +85,27 @@ public final class SubripParser implements SubtitleParser {
   private final ArrayList<String> tags;
   private final ParsableByteArray parsableByteArray;
   @Nullable private final CharsetDetector charsetDetector;
+  private final Format format;
 
+  /** Creates an instance. */
   public SubripParser() {
-    this(/* charsetDetector= */ null);
+    this(/* charsetDetector= */ null, new Format.Builder().build());
   }
 
   /**
-   * Creates an instance that uses {@code charsetDetector} when the input doesn't contain a byte
-   * order mark.
+   * Creates an instance that uses {@code charsetDetector} when the charset of the input is
+   * ambiguous.
    *
-   * @param charsetDetector The detector to use, or {@code null} to default to UTF-8 when the input
-   *     doesn't contain a byte order mark.
+   * @param charsetDetector The detector to use, or {@code null} to default to UTF-8 when the
+   *     charset of the input can't be determined by other means.
+   * @param format The format of the subrip track.
    */
-  public SubripParser(@Nullable CharsetDetector charsetDetector) {
+  public SubripParser(@Nullable CharsetDetector charsetDetector, Format format) {
     textBuilder = new StringBuilder();
     tags = new ArrayList<>();
     parsableByteArray = new ParsableByteArray();
     this.charsetDetector = charsetDetector;
+    this.format = format;
   }
 
   @Override
@@ -121,7 +126,13 @@ public final class SubripParser implements SubtitleParser {
     if (!ParsableByteArray.isCharsetSupported(charset)) {
       // ParsableByteArray doesn't support directly reading the detected charset, so we transcode
       // the data to UTF-8 (which is supported).
-      transcodeToUtf8(charset);
+      parsableByteArray.reset(
+          new String(
+                  parsableByteArray.getData(),
+                  parsableByteArray.getPosition(),
+                  parsableByteArray.bytesLeft(),
+                  charset)
+              .getBytes(StandardCharsets.UTF_8));
       charset = StandardCharsets.UTF_8;
     }
 
@@ -210,13 +221,20 @@ public final class SubripParser implements SubtitleParser {
   /**
    * Returns the charset to use for line parsing of {@link #parsableByteArray}.
    *
-   * <p>A byte order mark takes precedence, otherwise the data is passed to {@link
-   * #charsetDetector}.
+   * <p>The result is derived from, in order:
    *
-   * <p>If the detected charset isn't supported by {@link ParsableByteArray} then the underlying
-   * data is transcoded to UTF-8 before this method returns.
+   * <ol>
+   *   <li>Content from a Matroska container is assumed to always be UTF-8 (per spec).
+   *   <li>A byte order mark in the data, if present.
+   *   <li>The result of calling {@link #charsetDetector}, if non-null.
+   *   <li>Fallback to assuming UTF-8.
+   * </ol>
    */
   private Charset detectCharset() {
+    if (MimeTypes.isMatroska(format.containerMimeType)) {
+      // Subrip muxed into a Matroska container is always UTF-8.
+      return StandardCharsets.UTF_8;
+    }
     @Nullable Charset utfCharset = parsableByteArray.readUtfCharsetFromBom();
     if (utfCharset != null) {
       return utfCharset;
@@ -231,17 +249,6 @@ public final class SubripParser implements SubtitleParser {
             parsableByteArray.getPosition(),
             parsableByteArray.bytesLeft());
     return charset != null ? charset : StandardCharsets.UTF_8;
-  }
-
-  /** Transcodes the data behind {@link #parsableByteArray} from {@code sourceCharset} to UTF-8. */
-  private void transcodeToUtf8(Charset sourceCharset) {
-    parsableByteArray.reset(
-        new String(
-                parsableByteArray.getData(),
-                parsableByteArray.getPosition(),
-                parsableByteArray.bytesLeft(),
-                sourceCharset)
-            .getBytes(StandardCharsets.UTF_8));
   }
 
   /**
