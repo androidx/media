@@ -102,30 +102,35 @@ const highp mat3 BT2020_LIMITED_RANGE_YUV_TO_RGB =
         0.0000, -0.1881, 2.1502,
         1.6853, -0.6530, 0.0000);
 
-// ITU-R BT.2408 diffuse white reference, expressed in scene-referred light.
+// Direct linear gamut conversion matrices (column-major):
+const highp mat3 BT709_TO_BT2020 = XYZ_TO_BT2020 * BT709_TO_XYZ;
+const highp mat3 BT2020_TO_BT709 = XYZ_TO_BT709 * BT2020_TO_XYZ;
+
+// Relative luminance weights for BT.2020 primaries (second row of BT2020_TO_XYZ).
+const highp vec3 BT2020_LUMINANCE_WEIGHTS = vec3(0.26270021, 0.67799807, 0.05930172);
+
+// ITU-R BT.2408 diffuse white reference, expressed in display-referred light.
 //
 // BT.2408 defines diffuse white as 203 nits of display light, which for HLG is the 75% signal
-// level. This pipeline works in scene-referred light: hlgEotf is the inverse OETF, and the SDR and
-// PQ ingress paths apply an inverse OOTF to reach scene light. The anchor is therefore expressed
-// in scene light as well, as hlgEotf(0.75) = 0.2649626. The HLG scene-to-display OOTF maps that
-// to 1000.0 * pow(0.2649626, 1.2) = 203 nits on a nominal 1000-nit display.
+// level: hlgEotf(0.75) = pow(hlgInverseOetf(0.75), 1.2) = pow(0.26496256, 1.2) = 0.2031521
+// (203.1521 nits on a nominal 1000-nit reference display).
 //
-// Scaling scene light by HLG_DIFFUSE_WHITE_SCALE_UP makes 1.0 represent diffuse white, and peak
-// scene light evaluate to ~3.7741.
+// Scaling display light by HDR_DIFFUSE_WHITE_SCALE_UP makes 1.0 represent 203-nit diffuse white:
+// - 1.0 = 203.15 nits (SDR reference white / HLG 75% / PQ 0.5807)
+// - ~4.9224 = 1,000 nits (nominal HLG / HDR10 peak)
+// - ~49.2242 = 10,000 nits (PQ absolute peak)
 //
 // The two factors are exact inverses, so scaling up on ingress and down on egress round-trips
 // without loss.
 // References:
 // - ITU-R Report BT.2408: Guidance for operational practices in HDR television production.
-const highp float HLG_DIFFUSE_WHITE_SCALE_DOWN = 0.2649626;  // hlgEotf(0.75)
-const highp float HLG_DIFFUSE_WHITE_SCALE_UP = 1.0 / HLG_DIFFUSE_WHITE_SCALE_DOWN;  // ~3.7741
+const highp float HDR_DIFFUSE_WHITE_SCALE_DOWN = 0.2031521;  // hlgEotf(0.75) = 203.1521 / 1000.0
+const highp float HDR_DIFFUSE_WHITE_SCALE_UP = 1.0 / HDR_DIFFUSE_WHITE_SCALE_DOWN;  // ~4.9224197
 
-// BT.2100 / BT.2020 HLG EOTF for 3-channel RGB.
-// Converts scene-referred non-linear electrical values [0.0, 1.0] to linear optical scene light
-// in BT.2020 color space.
+// BT.2100 / BT.2020 HLG Inverse OETF for 3-channel RGB.
+// Converts non-linear electrical HLG values [0.0, 1.0] to normalized linear optical scene light
+// [0.0, 1.0] in BT.2020 color space.
 //
-// BT.2100 technically defines the HLG EOTF as OOTF(OETF^-1(E)), which lands in display light.
-// This function applies only OETF^-1, so that all processing is done in scene light.
 // References:
 // - ITU-R Recommendation BT.2100-2 (Table 5: "Hybrid Log-Gamma reference OETF / EOTF"):
 //   https://www.itu.int/dms_pubrec/itu-r/rec/bt/R-REC-BT.2100-3-202502-I!!PDF-E.pdf
@@ -141,7 +146,7 @@ const highp float HLG_DIFFUSE_WHITE_SCALE_UP = 1.0 / HLG_DIFFUSE_WHITE_SCALE_DOW
 // a = 0.17883277
 // b = 1.0 - 4.0 * a = 0.28466892
 // c = 0.5 - a * ln(4.0 * a) = 0.55991073
-highp vec3 hlgEotf(highp vec3 hlgElectrical) {
+highp vec3 hlgInverseOetf(highp vec3 hlgElectrical) {
   const highp float a = 0.17883277;
   const highp float b = 0.28466892;
   const highp float c = 0.55991073;
@@ -150,13 +155,36 @@ highp vec3 hlgEotf(highp vec3 hlgElectrical) {
   return mix(lowBranch, highBranch, step(0.5, hlgElectrical));
 }
 
-// BT.2100 / BT.2020 HLG OETF for 3-channel RGB.
-// Converts linear optical scene light in BT.2020 color space to electrical HLG values [0.0, 1.0].
+// BT.2100 / BT.2020 HLG EOTF for 3-channel RGB.
+// Converts non-linear electrical HLG values [0.0, 1.0] to normalized linear optical display light
+// [0.0, 1.0] (where 1.0 = 1,000 nits) by applying OOTF(OETF^-1(E)) with nominal system gamma = 1.2.
+highp vec3 hlgEotf(highp vec3 hlgElectrical) {
+  highp vec3 sceneLinear = hlgInverseOetf(hlgElectrical);
+  highp float sceneLuminanceY = max(dot(sceneLinear, BT2020_LUMINANCE_WEIGHTS), 1e-6);
+  return sceneLinear * pow(sceneLuminanceY, 0.2);
+}
+
+// BT.2100 / BT.2020 HLG Inverse OOTF for 3-channel RGB.
+// Converts normalized linear optical display light [0.0, 1.0] (1.0 = 1,000 nits) in BT.2020 color
+// space to normalized linear optical scene light [0.0, 1.0] using the inverse HLG OOTF (gamma = 1.2,
+// exponent = 1/1.2 - 1 = -1/6).
 //
-// Expects optical scene light normalized to [0.0, 1.0]. Callers converting from the linear HDR
-// optical working space (where 1.0 represents the BT.2408 203-nit diffuse white reference) must
-// scale the optical signal down by HLG_DIFFUSE_WHITE_SCALE_DOWN first, to normalize it back to
+// Scene light values exceeding 1.0 (either from display light above 1,000 nits or saturated
+// primaries near 1,000 nits where Y_d < 1.0) are scaled down to [0.0, 1.0] while preserving
+// chromaticity.
+// TODO(b/564898615): Roll off with the BT.2408 Annex 5 EETF instead of a single ratio, once the
+//  mastering peak is known.
+highp vec3 hlgInverseOotf(highp vec3 displayLinear) {
+  displayLinear = max(displayLinear, vec3(0.0));
+  highp float displayLuminanceY = max(dot(displayLinear, BT2020_LUMINANCE_WEIGHTS), 1e-6);
+  highp vec3 sceneLinear = displayLinear * pow(displayLuminanceY, -0.16666667);
+  return sceneLinear / max(1.0, max(sceneLinear.r, max(sceneLinear.g, sceneLinear.b)));
+}
+
+// BT.2100 / BT.2020 HLG OETF for 3-channel RGB.
+// Converts linear optical scene light [0.0, 1.0] in BT.2020 color space to electrical HLG values
 // [0.0, 1.0].
+//
 // References:
 // - ITU-R Recommendation BT.2100-2 (Table 5: "Hybrid Log-Gamma reference OETF / EOTF"):
 //   https://www.itu.int/dms_pubrec/itu-r/rec/bt/R-REC-BT.2100-3-202502-I!!PDF-E.pdf
@@ -204,10 +232,7 @@ highp vec3 pqEotf(highp vec3 pqElectricalColor) {
 // display-referred (expecting display-adapted electrical values for a standard monitor). This
 // method applies HLG scene-light to display-light OOTF before converting color gamut.
 //
-// Expects optical scene light normalized to [0.0, 1.0]. Callers converting from the linear HDR
-// optical working space (where 1.0 represents the BT.2408 203-nit diffuse white reference) must
-// scale the optical signal down by HLG_DIFFUSE_WHITE_SCALE_DOWN first, to normalize it back to
-// [0.0, 1.0].
+// Expects optical scene light normalized to [0.0, 1.0].
 //
 // System Gamma Formula (ITU-R BT.2100-2 Table 5, Note 5b):
 //   gamma = 1.2 + 0.42 * log10(L_W / 1000.0)
@@ -234,22 +259,6 @@ highp vec3 linearBt2020SceneToLinearBt709Display(highp vec3 linearRgbBt2020) {
   highp float luminanceY = max(linearXyz[1], 1e-6);
   linearXyz *= pow(luminanceY, hlgGamma - 1.0);
   return clamp((XYZ_TO_BT709 * linearXyz), 0.0, 1.0);
-}
-
-// Transforms linear optical BT.709 display light to linear optical BT.2020 scene light
-// applying the inverse HLG OOTF with luminance scaling (ITU-R BT.2100 Table 5 / BT.2408 §5.1.1).
-//
-// System Gamma Formula:
-//   Inverse HLG OOTF exponent: (1.0 / 1.2) - 1.0 = -1.0 / 6.0 = -0.16666667
-// for a 1000-nit HLG reference display (ITU-R BT.2100-2 Table 5).
-highp vec3 transformBt709DisplayToBt2020Scene(highp vec3 linearBt709Display) {
-  const highp float hlgInverseOotfExponent = -0.16666667;
-  linearBt709Display = clamp(linearBt709Display, 0.0, 1.0);
-  highp vec3 linearXyz = BT709_TO_XYZ * linearBt709Display;
-  // Guard against near-zero luminance to avoid NaN/Inf on mobile GPUs with negative exponent.
-  highp float luminanceY = max(linearXyz[1], 1e-6);
-  linearXyz *= pow(luminanceY, hlgInverseOotfExponent);
-  return clamp((XYZ_TO_BT2020 * linearXyz), 0.0, 1.0);
 }
 
 // Transforms electrical SDR to linear optical SDR using the sRGB EOTF.
@@ -298,61 +307,41 @@ highp vec3 yuvToRgb(highp vec3 yuv, int inputColorTransfer, int isInputColorRang
   return clamp(yuvToRgbMatrix * (yuv - yuvOffset), 0.0, 1.0);
 }
 
-// Relative luminance weights for BT.2020 primaries.
-const highp vec3 BT2020_LUMINANCE_WEIGHTS = vec3(0.26270021, 0.67799807, 0.05930172);
-
-// Converts SDR electrical BT.709 to linear optical BT.2020 scene light.
-highp vec3 sdrElectricalToHdrSceneLinear(highp vec3 sdrElectricalColor) {
-  return transformBt709DisplayToBt2020Scene(srgbEotf(sdrElectricalColor));
+// Converts SDR electrical BT.709 to linear optical BT.2020 display light, in the linear HDR
+// optical working space where 1.0 represents both SDR reference white and BT.2408 203-nit diffuse
+// white.
+highp vec3 sdrElectricalToHdrDisplayLinear(highp vec3 sdrElectricalColor) {
+  return clamp(BT709_TO_BT2020 * srgbEotf(sdrElectricalColor), 0.0, 1.0);
 }
 
 // Converts HDR HLG electrical BT.2020 to linear optical BT.709 display light.
 highp vec3 hlgElectricalToSdrDisplayLinear(highp vec3 hlgElectricalColor) {
-  return linearBt2020SceneToLinearBt709Display(hlgEotf(hlgElectricalColor));
+  return linearBt2020SceneToLinearBt709Display(hlgInverseOetf(hlgElectricalColor));
 }
 
-// Converts PQ electrical BT.2020 to linear optical BT.2020 scene light, in the linear HDR optical
-// working space where 1.0 represents the BT.2408 203-nit diffuse white reference.
-// Normalizes PQ display light against the reference peak luminance, applies the inverse HLG OOTF
-// to obtain scene light, and anchors it on diffuse white.
-// Reference: Report ITU-R BT.2408, Section 6 ("Conversion between PQ and HLG").
-//
-highp vec3 pqElectricalToHdrSceneLinear(highp vec3 pqElectricalColor) {
-  highp vec3 nitsIn = pqEotf(pqElectricalColor) * 10000.0;
-  const highp float referencePeakNits = 1000.0;
-  highp vec3 displayLinear = nitsIn / referencePeakNits;
-
-  // Display-to-scene conversion via inverse HLG OOTF (ITU-R BT.2100-3, Table 5, Note 5i):
-  // HLG is scene-referred, whereas PQ is display-referred. For a nominal 1,000-nit reference display,
-  // the HLG system gamma is gamma = 1.2. Converting display light E_d [0.0, 1.0] to scene light E_s
-  // applies the inverse OOTF:
-  //   E_s = E_d * (Y_d)^(1/gamma - 1)
-  // Exponent:
-  //   1 / 1.2 - 1 = approx -0.16666667.
-  // Note: Inverse OOTF is driven by true display luminance (Y_d).
-  highp float displayLuminanceY = max(dot(displayLinear, BT2020_LUMINANCE_WEIGHTS), 1e-6);
-  // displayLinear is now sceneLinear.
-  displayLinear *= pow(displayLuminanceY, -0.16666667);
-
-  // Scale onto the BT.2408 diffuse white anchor, so that PQ ingress agrees with the HLG and SDR
-  // ingress paths: 203 nits of display light maps to 1.0, and the 1,000-nit peak to ~3.7741.
-  return displayLinear * HLG_DIFFUSE_WHITE_SCALE_UP;
+// Converts HDR HLG electrical BT.2020 to linear optical BT.2020 display light, in the linear HDR
+// optical working space where 1.0 represents the BT.2408 203-nit diffuse white reference.
+highp vec3 hlgElectricalToHdrDisplayLinear(highp vec3 hlgElectricalColor) {
+  return hlgEotf(hlgElectricalColor) * HDR_DIFFUSE_WHITE_SCALE_UP;
 }
 
-// Converts PQ electrical BT.2020 to HLG electrical BT.2020.
-// Egress from the linear HDR optical working space scales down by HLG_DIFFUSE_WHITE_SCALE_DOWN,
-// which inverts the ingress scale exactly, so the diffuse white anchor cancels out here.
-//
-// HLG signal cannot represent light above the 1,000-nit reference peak, so scene light is scaled
-// down to 1.0, preserving chromaticity.
-// TODO(b/564898615): Roll off with the BT.2408 Annex 5 EETF instead of a single ratio, once the
-//  mastering peak is known.
-highp vec3 pqElectricalToHlgElectrical(highp vec3 pqElectricalColor) {
-  highp vec3 sceneLinear =
-      pqElectricalToHdrSceneLinear(pqElectricalColor) * HLG_DIFFUSE_WHITE_SCALE_DOWN;
-  // Scale down to [0.0, 1.0] to fit in the HLG signal range.
-  sceneLinear /= max(1.0, max(sceneLinear.r, max(sceneLinear.g, sceneLinear.b)));
-  return hlgOetf(sceneLinear);
+// Converts PQ electrical BT.2020 to linear optical BT.2020 display light, in the linear HDR
+// optical working space where 1.0 represents the BT.2408 203-nit diffuse white reference.
+highp vec3 pqElectricalToHdrDisplayLinear(highp vec3 pqElectricalColor) {
+  // PQ reference peak is 10,000 nits, normalize against 1,000 nits
+  highp vec3 displayLinear = pqEotf(pqElectricalColor) * 10.0;
+  return displayLinear * HDR_DIFFUSE_WHITE_SCALE_UP;
+}
+
+// Converts linear optical BT.2020 display light (anchored at 1.0 = 203-nit diffuse white) to HLG
+// electrical BT.2020.
+// Egress from the linear HDR optical working space scales down by HDR_DIFFUSE_WHITE_SCALE_DOWN
+// (normalizing 1,000 nits to 1.0), applies the inverse HLG OOTF to obtain scene light, and encodes
+// with the HLG OETF.
+highp vec3 hdrDisplayLinearToHlgElectrical(highp vec3 hdrDisplayLinear) {
+  // Display light is referenced at 1000 nits.
+  highp vec3 displayLinear = hdrDisplayLinear * HDR_DIFFUSE_WHITE_SCALE_DOWN;
+  return hlgOetf(hlgInverseOotf(displayLinear));
 }
 
 // Converts PQ electrical BT.2020 to linear BT.709 display light.
@@ -407,12 +396,12 @@ highp vec3 pqElectricalToBt709DisplayLinear(highp vec3 pqElectricalColor) {
   // path clamps in hardware and srgbOetf tolerates negatives, so out-of-gamut values only survive
   // on the high-precision linear output path.
   // TODO(b/545591397): Apply perceptual soft gamut compression instead.
-  return XYZ_TO_BT709 * (BT2020_TO_XYZ * displayLinearBt2020);
+  return BT2020_TO_BT709 * displayLinearBt2020;
 }
 
 // Processes input electrical color (SDR BT.709 or HDR BT.2020), applying EOTF/OETF
 // transformations and tone mapping based on the requested output color gamut and transfer.
-// HDR outputs are always in scene-referred light.
+// Linear outputs (COLOR_TRANSFER_LINEAR) are always in display-referred light.
 // TODO(b/549154420): Measure performance cost of branches in fragment shaders versus simpler
 // specialized shader variants generated in Java.
 highp vec3 processColor(
@@ -430,33 +419,33 @@ highp vec3 processColor(
         : inputRgbElectricalColor;
   }
 
-  // 2. SDR -> HDR (Gamut expansion + display to scene OOTF)
-  // sdrElectricalToHdrSceneLinear anchors SDR reference white on diffuse white, so its output is
-  // already in the linear HDR optical working space and needs no ingress scaling. Egress to an
-  // electrical transfer scales down by HLG_DIFFUSE_WHITE_SCALE_DOWN, mapping SDR reference white
-  // to the BT.2408 75% HLG signal level (203 nits) rather than to HLG peak.
+  // 2. SDR -> HDR (Gamut expansion to display-referred linear HDR; inverse OOTF + OETF if HLG output)
+  // sdrElectricalToHdrDisplayLinear anchors SDR reference white (1.0) directly on the BT.2408
+  // 203-nit diffuse white reference (1.0). Egress to HLG scales down to [0.0, 1.0], applies the
+  // inverse HLG OOTF to obtain scene light, and encodes with the HLG OETF (mapping 1.0 to 0.75).
   // TODO(b/545590806): Support PQ (ST 2084) HDR output processing.
   if (!isInputHdr && isOutputHdr) {
-    highp vec3 hdrSceneLinear = sdrElectricalToHdrSceneLinear(inputRgbElectricalColor);
+    highp vec3 hdrDisplayLinear = sdrElectricalToHdrDisplayLinear(inputRgbElectricalColor);
     return (outputColorTransfer == COLOR_TRANSFER_LINEAR)
-        ? hdrSceneLinear
-        : hlgOetf(hdrSceneLinear * HLG_DIFFUSE_WHITE_SCALE_DOWN);
+        ? hdrDisplayLinear
+        : hdrDisplayLinearToHlgElectrical(hdrDisplayLinear);
   }
 
-  // 3. HDR -> HDR (Same gamut, pass-through or linearize)
+  // 3. HDR -> HDR (Same gamut, pass-through or linearize to display light)
   if (isInputHdr && isOutputHdr) {
     if (inputColorTransfer == COLOR_TRANSFER_ST2084) {
+      highp vec3 hdrDisplayLinear = pqElectricalToHdrDisplayLinear(inputRgbElectricalColor);
       if (outputColorTransfer == COLOR_TRANSFER_LINEAR) {
-        return pqElectricalToHdrSceneLinear(inputRgbElectricalColor);
+        return hdrDisplayLinear;
       } else if (outputColorTransfer == COLOR_TRANSFER_HLG) {
-        return pqElectricalToHlgElectrical(inputRgbElectricalColor);
+        return hdrDisplayLinearToHlgElectrical(hdrDisplayLinear);
       }
       // Green for visible error.
       return vec3(0.0f, 1.0f, 0.0f);
     }
     // HLG input
     return (outputColorTransfer == COLOR_TRANSFER_LINEAR)
-        ? hlgEotf(inputRgbElectricalColor) * HLG_DIFFUSE_WHITE_SCALE_UP
+        ? hlgElectricalToHdrDisplayLinear(inputRgbElectricalColor)
         : inputRgbElectricalColor;
   }
 

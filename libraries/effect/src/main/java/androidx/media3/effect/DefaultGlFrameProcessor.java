@@ -239,15 +239,14 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   /**
    * An HDR color space with BT.2020 color primaries, and linear transfer function.
    *
-   * <p>Values are anchored on the ITU-R BT.2408 203-nit diffuse white reference, so {@code 1.0}
-   * represents diffuse white and the 1,000-nit reference peak evaluates to {@code ~3.7741}.
+   * <p>Values are display-referred linear optical light anchored on the ITU-R BT.2408 203-nit
+   * diffuse white reference, so {@code 1.0} represents diffuse white, the 1,000-nit HLG reference
+   * peak evaluates to {@code ~4.9224}, and the 10,000-nit PQ peak evaluates to {@code ~49.2242}.
    *
-   * <p>When input is PQ, PQ electrical values are linearized using the SMPTE ST 2084 EOTF,
-   * normalized against the 1,000-nit reference display peak, converted to scene light with the
-   * inverse HLG OOTF, and scaled onto the diffuse white anchor. Light above the reference peak
-   * (1000 nits) is not clipped.
-   *
-   * <p>The values are always scene-referred.
+   * <p>When input is HLG, HLG scene-referred electrical values are converted to display light using
+   * the ITU-R BT.2100 HLG EOTF ({@code OOTF_1.2(OETF^-1(E))}) and scaled onto the diffuse white
+   * anchor. When input is PQ, PQ electrical values are linearized using the SMPTE ST 2084 EOTF and
+   * scaled onto the diffuse white anchor.
    */
   /* package */ static final ColorInfo BT2020_LINEAR =
       new ColorInfo.Builder()
@@ -263,9 +262,10 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
    * converted to scene light via inverse HLG OOTF (system gamma 1.2) and encoded into an HLG
    * electrical signal using the BT.2100 HLG OETF.
    *
-   * <p>HLG signal cannot represent light above the reference peak (1000 nits), so scene light above
-   * the signal range is scaled down to fit before the OETF, all three channels are scaled equally
-   * to preserve chromaticity.
+   * <p>HLG signal cannot represent scene light above 1.0 (either from display light above the
+   * 1,000-nit reference peak or saturated primaries where inverse OOTF boosts channel values above
+   * 1.0), so scene light is scaled down to fit in {@code [0.0, 1.0]} after the inverse HLG OOTF and
+   * before the OETF; all channels are scaled equally to preserve chromaticity.
    *
    * <p>The values are always scene-referred.
    */
