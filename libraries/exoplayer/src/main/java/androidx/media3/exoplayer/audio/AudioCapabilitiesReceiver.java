@@ -29,6 +29,7 @@ import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Handler;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.audio.AudioManagerCompat;
 import androidx.media3.common.util.UnstableApi;
@@ -59,7 +60,7 @@ public final class AudioCapabilitiesReceiver {
   private final Context context;
   private final Listener listener;
   private final Handler handler;
-  private final AudioDeviceCallback audioDeviceCallback;
+  @VisibleForTesting final android.media.AudioDeviceCallback audioDeviceCallback;
   private final BroadcastReceiver hdmiAudioPlugBroadcastReceiver;
   @Nullable private final ExternalSurroundSoundSettingObserver externalSurroundSoundSettingObserver;
   @Nullable private SpatializerWrapper spatializer;
@@ -267,15 +268,25 @@ public final class AudioCapabilitiesReceiver {
   private final class AudioDeviceCallback extends android.media.AudioDeviceCallback {
     @Override
     public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) {
-      updateCurrentAudioCapabilities();
+      // Some devices are known to invoke this callback on the wrong thread:
+      // https://github.com/androidx/media/issues/3386.
+      // This workaround can be removed when minSdk is bumped to API 38.
+      Util.postOrRun(handler, AudioCapabilitiesReceiver.this::updateCurrentAudioCapabilities);
     }
 
     @Override
     public void onAudioDevicesRemoved(AudioDeviceInfo[] removedDevices) {
-      if (Util.contains(removedDevices, routedDevice)) {
-        routedDevice = null;
-      }
-      updateCurrentAudioCapabilities();
+      // Some devices are known to invoke this callback on the wrong thread:
+      // https://github.com/androidx/media/issues/3386.
+      // This workaround can be removed when minSdk is bumped to API 38.
+      Util.postOrRun(
+          handler,
+          () -> {
+            if (Util.contains(removedDevices, routedDevice)) {
+              routedDevice = null;
+            }
+            updateCurrentAudioCapabilities();
+          });
     }
   }
 }
