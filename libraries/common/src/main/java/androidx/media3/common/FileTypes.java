@@ -23,6 +23,7 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.UnstableApi;
+import com.google.common.base.Ascii;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -267,7 +268,9 @@ public final class FileTypes {
     @Nullable String filename = uri.getLastPathSegment();
     if (filename == null) {
       return FileTypes.UNKNOWN;
-    } else if (filename.endsWith(EXTENSION_AC3) || filename.endsWith(EXTENSION_EC3)) {
+    }
+    filename = Ascii.toLowerCase(filename);
+    if (filename.endsWith(EXTENSION_AC3) || filename.endsWith(EXTENSION_EC3)) {
       return FileTypes.AC3;
     } else if (filename.endsWith(EXTENSION_AC4)) {
       return FileTypes.AC4;

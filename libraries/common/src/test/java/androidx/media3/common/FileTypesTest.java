@@ -86,6 +86,16 @@ public class FileTypesTest {
   }
 
   @Test
+  public void inferFileFormat_fromUriWithMixedCaseExtension_returnsExpectedFormat() {
+    assertThat(inferFileTypeFromUri(Uri.parse("filename.JPG"))).isEqualTo(FileTypes.JPEG);
+    assertThat(inferFileTypeFromUri(Uri.parse("filename.Jpg"))).isEqualTo(FileTypes.JPEG);
+    assertThat(
+            inferFileTypeFromUri(
+                Uri.parse("http://www.example.com/FILENAME.MP3?Query=MyQuery#Fragment")))
+        .isEqualTo(FileTypes.MP3);
+  }
+
+  @Test
   public void inferFileFormat_fromUriWithUnknownExtension_returnsUnknownFormat() {
     assertThat(inferFileTypeFromUri(Uri.parse("filename.unknown"))).isEqualTo(FileTypes.UNKNOWN);
   }
