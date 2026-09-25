@@ -463,6 +463,23 @@ public final class DashMediaPeriodTest {
     MediaPeriodId mediaPeriodId = new MediaPeriodId(/* periodUid= */ new Object());
     when(chunkSourceFactory.getOutputTextFormat(any()))
         .then(invocation -> invocation.getArguments()[0]);
+    when(chunkSourceFactory.createDashChunkSource(
+            any(),
+            any(),
+            any(),
+            anyInt(),
+            any(),
+            any(),
+            anyInt(),
+            anyLong(),
+            anyBoolean(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any()))
+        .thenReturn(mock(DashChunkSource.class));
     return new DashMediaPeriod(
         /* id= */ periodIndex,
         manifest,

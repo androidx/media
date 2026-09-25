@@ -87,6 +87,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -391,11 +392,10 @@ public final class DashPlaybackTest {
     // Ensure the loading error is processed by the player, and the segment is subsequently
     // successfully loaded, before playback starts (otherwise in the test playback progresses too
     // quickly, and completes (without any subtitles) before the load error is encountered). The
-    // 4 load errors allow for the default 3 retries, plus a final failure which propagates to
-    // TextRenderer.
+    // 3 load errors allow for the default 3 retries before the final retry succeeds.
     advance(player)
         .ignoringNonFatalErrors()
-        .untilBackgroundThreadCondition(() -> secondSubtitleFailureCount.get() == 4);
+        .untilBackgroundThreadCondition(() -> secondSubtitleFailureCount.get() == 3);
     secondSubtitleResolves.set(true);
     advance(player)
         .ignoringNonFatalErrors()
@@ -922,6 +922,42 @@ public final class DashPlaybackTest {
 
     DumpFileAsserts.assertOutput(
         applicationContext, playbackOutput, "playbackdumps/dash/multi-period-with-offset.dump");
+  }
+
+  @Test
+  public void multiPeriod_period1FirstChunkFailsWithRetriableError_propagatesError()
+      throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext, clock);
+    DataSource.Factory failingDataSourceFactory =
+        new ResolvingDataSource.Factory(
+            new DefaultDataSource.Factory(applicationContext),
+            dataSpec -> {
+              if (dataSpec.uri.toString().contains("period1.video.mp4")) {
+                throw new EOFException("Simulated retriable failure for period 1");
+              }
+              return dataSpec;
+            });
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(clock)
+            .setMediaSourceFactory(new DefaultMediaSourceFactory(failingDataSourceFactory))
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    player.setMediaItem(
+        MediaItem.fromUri("asset:///media/dash/multi-track-with-offset/multi-period.mpd"));
+
+    player.prepare();
+    player.play();
+    ExoPlaybackException error = TestPlayerRunHelper.runUntilError(player);
+    player.release();
+    surface.release();
+
+    assertThat(error).isNotNull();
+    assertThat(error).hasCauseThat().isInstanceOf(EOFException.class);
   }
 
   @Test

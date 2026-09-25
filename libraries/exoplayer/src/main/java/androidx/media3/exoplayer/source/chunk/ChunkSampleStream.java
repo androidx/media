@@ -615,7 +615,10 @@ public class ChunkSampleStream<T extends ChunkSource>
 
     if (loadErrorAction == null) {
       // The load was not cancelled. Either the load must be retried or the error propagated.
-      long retryDelayMs = loadErrorHandlingPolicy.getRetryDelayMsFor(loadErrorInfo);
+      long retryDelayMs =
+          errorCount > loadErrorHandlingPolicy.getMinimumLoadableRetryCount(loadable.type)
+              ? C.TIME_UNSET
+              : loadErrorHandlingPolicy.getRetryDelayMsFor(loadErrorInfo);
       loadErrorAction =
           retryDelayMs != C.TIME_UNSET
               ? Loader.createRetryAction(/* resetErrorCount= */ false, retryDelayMs)
@@ -772,7 +775,7 @@ public class ChunkSampleStream<T extends ChunkSource>
   public boolean mayHaveInitialDiscontinuity() {
     return (needToEvaluateInitialDiscontinuity || hasInitialDiscontinuity)
         && !loadingFinished
-        && !loader.hasFatalError();
+        && !hasFatalError();
   }
 
   /**
@@ -800,7 +803,7 @@ public class ChunkSampleStream<T extends ChunkSource>
 
   @Override
   public @Flags int getFlags() {
-    if (needToEvaluateInitialDiscontinuity && !loadingFinished && !loader.hasFatalError()) {
+    if (needToEvaluateInitialDiscontinuity && !loadingFinished && !hasFatalError()) {
       return FLAG_MAYBE_HAS_PREROLL;
     }
     return hasInitialDiscontinuity ? FLAG_HAS_PREROLL : 0;
@@ -850,6 +853,15 @@ public class ChunkSampleStream<T extends ChunkSource>
     }
     mediaSourceEventDispatcher.upstreamDiscarded(
         primaryTrackType, clippedDurationUs, largestQueuedTimestampUs);
+  }
+
+  private boolean hasFatalError() {
+    try {
+      maybeThrowError();
+      return false;
+    } catch (IOException e) {
+      return true;
+    }
   }
 
   private void discardUpstream(int preferredQueueSize) {

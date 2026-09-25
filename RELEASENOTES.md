@@ -9,6 +9,11 @@
     *   Add `MediaMetadata.playlistId` and
         `MediaMetadata.Builder.setPlaylistId(String)`.
 *   ExoPlayer:
+    *   Fix an issue where DASH multi-period playback gets stuck when the next
+        period's first chunk fails to load
+        ([#3396](https://github.com/androidx/media/issues/3396)).
+    *   Report `wasCanceled = true` in `AnalyticsListener.onLoadError` and
+        `MediaSourceEventListener.onLoadError` when load retries are exhausted.
     *   Support registering multiple `VideoFrameMetadataListener` instances via
         `ExoPlayer.addVideoFrameMetadataListener` and
         `ExoPlayer.removeVideoFrameMetadataListener`, deprecating

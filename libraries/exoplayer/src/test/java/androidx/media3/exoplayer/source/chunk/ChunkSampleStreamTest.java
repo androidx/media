@@ -15,10 +15,12 @@
  */
 package androidx.media3.exoplayer.source.chunk;
 
+import static androidx.media3.common.util.Util.createHandlerForCurrentLooper;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 
 import android.net.Uri;
 import androidx.annotation.Nullable;
@@ -32,11 +34,16 @@ import androidx.media3.datasource.DataSpec;
 import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
+import androidx.media3.exoplayer.source.LoadEventInfo;
+import androidx.media3.exoplayer.source.MediaLoadData;
+import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.source.SampleStream;
 import androidx.media3.exoplayer.source.SequenceableLoader;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.upstream.Loader;
+import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.test.utils.FakeAdaptiveDataSet;
 import androidx.media3.test.utils.FakeChunkSource;
@@ -44,6 +51,7 @@ import androidx.media3.test.utils.FakeDataSource;
 import androidx.media3.test.utils.FakeTrackSelection;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import org.junit.Before;
@@ -255,6 +263,79 @@ public final class ChunkSampleStreamTest {
     // No media chunk will ever be loaded, so the initial discontinuity can never be evaluated and
     // the stream must not stay stuck on FLAG_MAYBE_HAS_PREROLL.
     assertThat(chunkSampleStream.getFlags()).isEqualTo(0);
+  }
+
+  @Test
+  public void onLoadError_whenRetriesExhausted_returnsDontRetryFatalAndReportsCanceled() {
+    List<Boolean> wasCanceledEvents = new ArrayList<>();
+    mediaSourceEventDispatcher.addEventListener(
+        createHandlerForCurrentLooper(),
+        new MediaSourceEventListener() {
+          @Override
+          public void onLoadError(
+              int windowIndex,
+              @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+              LoadEventInfo loadEventInfo,
+              MediaLoadData mediaLoadData,
+              IOException error,
+              boolean wasCanceled) {
+            wasCanceledEvents.add(wasCanceled);
+          }
+        });
+    Chunk testChunk =
+        new Chunk(
+            new FakeDataSource(),
+            new DataSpec(Uri.parse("http://example.com/chunk")),
+            C.DATA_TYPE_MEDIA,
+            new Format.Builder().build(),
+            C.SELECTION_REASON_UNKNOWN,
+            /* trackSelectionData= */ null,
+            /* startTimeUs= */ 0,
+            /* endTimeUs= */ 1_000_000,
+            /* steeredPathwayId= */ null) {
+          @Override
+          public void cancelLoad() {}
+
+          @Override
+          public void load() {}
+        };
+
+    LoadErrorAction actionWithinRetryLimit =
+        chunkSampleStream.onLoadError(
+            testChunk,
+            /* elapsedRealtimeMs= */ 0,
+            /* loadDurationMs= */ 0,
+            new IOException("Transient error"),
+            /* errorCount= */ 3);
+    LoadErrorAction actionRetriesExhausted =
+        chunkSampleStream.onLoadError(
+            testChunk,
+            /* elapsedRealtimeMs= */ 0,
+            /* loadDurationMs= */ 0,
+            new IOException("Transient error"),
+            /* errorCount= */ 4);
+
+    assertThat(actionWithinRetryLimit.isRetry()).isTrue();
+    assertThat(actionRetriesExhausted).isEqualTo(Loader.DONT_RETRY_FATAL);
+    assertThat(wasCanceledEvents).containsExactly(false, true).inOrder();
+  }
+
+  @Test
+  public void mayHaveInitialDiscontinuity_whenChunkSourceThrowsError_returnsFalse()
+      throws Exception {
+    ChunkSampleStream<ChunkSource> streamWithDiscontinuity =
+        createChunkSampleStreamHandlingInitialDiscontinuity();
+
+    boolean initialDiscontinuityBeforeError = streamWithDiscontinuity.mayHaveInitialDiscontinuity();
+    int flagsBeforeError = streamWithDiscontinuity.getFlags();
+    doThrow(new IOException("Manifest refresh failed")).when(mockChunkSource).maybeThrowError();
+    boolean initialDiscontinuityAfterError = streamWithDiscontinuity.mayHaveInitialDiscontinuity();
+    int flagsAfterError = streamWithDiscontinuity.getFlags();
+
+    assertThat(initialDiscontinuityBeforeError).isTrue();
+    assertThat(flagsBeforeError).isEqualTo(SampleStream.FLAG_MAYBE_HAS_PREROLL);
+    assertThat(initialDiscontinuityAfterError).isFalse();
+    assertThat(flagsAfterError).isEqualTo(0);
   }
 
   private ChunkSampleStream<ChunkSource> createChunkSampleStreamHandlingInitialDiscontinuity() {
