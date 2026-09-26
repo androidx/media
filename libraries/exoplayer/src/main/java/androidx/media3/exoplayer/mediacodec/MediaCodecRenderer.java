@@ -378,6 +378,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private float codecOperatingRate;
   @Nullable private ArrayDeque<MediaCodecInfo> availableCodecInfos;
   @Nullable private DecoderInitializationException preferredDecoderInitializationException;
+  private final Set<String> decoderNamesThatFailedDuringDecoding = new HashSet<>();
   @Nullable private MediaCodecInfo codecInfo;
   private @AdaptationWorkaroundMode int codecAdaptationWorkaroundMode;
   private boolean codecNeedsSosFlushWorkaround;
@@ -427,8 +428,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    * @param codecAdapterFactory A factory for {@link MediaCodecAdapter} instances.
    * @param mediaCodecSelector A decoder selector.
    * @param enableDecoderFallback Whether to enable fallback to lower-priority decoders if decoder
-   *     initialization fails. This may result in using a decoder that is less efficient or slower
-   *     than the primary decoder.
+   *     initialization fails, or if a decoder that already initialized successfully fails while
+   *     decoding and another decoder is available for the format. This may result in using a
+   *     decoder that is less efficient or slower than the primary decoder.
    * @param assumedMinimumCodecOperatingRate A codec operating rate that all codecs instantiated by
    *     this renderer are assumed to meet implicitly (i.e. without the operating rate being set
    *     explicitly using {@link MediaFormat#KEY_OPERATING_RATE}).
@@ -846,6 +848,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     inputFormat = null;
     setOutputStreamInfo(OutputStreamInfo.UNSET);
     pendingOutputStreamChanges.clear();
+    decoderNamesThatFailedDuringDecoding.clear();
     if (bypassEnabled) {
       disableBypass();
     } else {
@@ -989,10 +992,32 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         onCodecError(e);
         boolean isRecoverable =
             (e instanceof CodecException) && ((CodecException) e).isRecoverable();
+        MediaCodecInfo failedCodecInfo = getCodecInfo();
         if (isRecoverable) {
           releaseCodec();
         }
-        MediaCodecDecoderException exception = createDecoderException(e, getCodecInfo());
+        if (enableDecoderFallback
+            && failedCodecInfo != null
+            && decoderNamesThatFailedDuringDecoding.add(failedCodecInfo.name)) {
+          // A decoder that already initialized successfully has failed while decoding. Unlike an
+          // initialization failure, nothing else guarantees this decoder won't be selected again,
+          // so record it as failed and force a fresh, filtered codec selection on the next
+          // initialization attempt. If no other decoder is available, that attempt will itself
+          // fail with a DecoderInitializationException, which is surfaced through the usual path.
+          if (!isRecoverable) {
+            try {
+              releaseCodec();
+            } catch (IllegalStateException releaseException) {
+              // The codec already failed in a way its own error reporting classified as
+              // unrecoverable, so failing again while being torn down is expected. releaseCodec()
+              // clears the codec state in a finally block before this propagates, so the renderer
+              // is left in a valid state to select a different decoder.
+            }
+          }
+          availableCodecInfos = null;
+          return;
+        }
+        MediaCodecDecoderException exception = createDecoderException(e, failedCodecInfo);
         @PlaybackException.ErrorCode
         int errorCode =
             exception.errorCode == CodecException.ERROR_RECLAIMED
@@ -1291,6 +1316,16 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       try {
         List<MediaCodecInfo> allAvailableCodecInfos =
             getAvailableCodecInfos(mediaCryptoRequiresSecureDecoder);
+        if (!decoderNamesThatFailedDuringDecoding.isEmpty()) {
+          List<MediaCodecInfo> codecInfosExcludingRuntimeFailures = new ArrayList<>();
+          for (int i = 0; i < allAvailableCodecInfos.size(); i++) {
+            MediaCodecInfo candidate = allAvailableCodecInfos.get(i);
+            if (!decoderNamesThatFailedDuringDecoding.contains(candidate.name)) {
+              codecInfosExcludingRuntimeFailures.add(candidate);
+            }
+          }
+          allAvailableCodecInfos = codecInfosExcludingRuntimeFailures;
+        }
         availableCodecInfos = new ArrayDeque<>();
         if (enableDecoderFallback) {
           availableCodecInfos.addAll(allAvailableCodecInfos);

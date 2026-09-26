@@ -122,6 +122,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Bytes;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
+import java.lang.reflect.Constructor;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -129,6 +130,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.PriorityQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.junit.After;
@@ -1961,6 +1963,133 @@ public class MediaCodecVideoRendererTest {
     assertThat(decoderCounters.droppedBufferCount).isEqualTo(2);
     assertThat(decoderCounters.maxConsecutiveDroppedBufferCount).isEqualTo(2);
     assertThat(decoderCounters.droppedToKeyframeCount).isEqualTo(0);
+  }
+
+  /**
+   * Constructs a real {@link MediaCodec.CodecException} via reflection, since its constructor is
+   * not public. This matches what a real device raises when a decoder fails at runtime; a plain
+   * {@link IllegalStateException} thrown from application code is not recognized the same way.
+   */
+  private static MediaCodec.CodecException createCodecException() {
+    try {
+      Constructor<MediaCodec.CodecException> constructor =
+          MediaCodec.CodecException.class.getDeclaredConstructor(
+              Integer.TYPE, Integer.TYPE, String.class);
+      constructor.setAccessible(true);
+      return constructor.newInstance(
+          /* errorCode= */ 0, /* actionCode= */ 0, /* detailMessage= */ "Simulated decoder failure");
+    } catch (ReflectiveOperationException e) {
+      throw new AssertionError(e);
+    }
+  }
+
+  @Test
+  public void render_decoderFailsAfterInitializingWithFallbackEnabled_recoversWithOtherDecoder()
+      throws Exception {
+    String failingDecoderName = "test.decoder.fails-after-initializing";
+    String otherDecoderName = "test.decoder.other";
+    AtomicInteger failingDecoderProcessCallCount = new AtomicInteger();
+    ShadowMediaCodec.addDecoder(
+        failingDecoderName,
+        new ShadowMediaCodec.CodecConfig(
+            /* inputBufferSize= */ 2_000_000,
+            /* outputBufferSize= */ 2_000_000,
+            /* codec= */ (in, out) -> {
+              if (failingDecoderProcessCallCount.incrementAndGet() == 2) {
+                throw createCodecException();
+              }
+            }));
+    AtomicInteger otherDecoderProcessCallCount = new AtomicInteger();
+    ShadowMediaCodec.addDecoder(
+        otherDecoderName,
+        new ShadowMediaCodec.CodecConfig(
+            /* inputBufferSize= */ 2_000_000,
+            /* outputBufferSize= */ 2_000_000,
+            /* codec= */ (in, out) -> otherDecoderProcessCallCount.incrementAndGet()));
+    MediaCodecSelector twoDecoderSelector =
+        (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) ->
+            ImmutableList.of(
+                MediaCodecInfo.newInstance(
+                    /* name= */ failingDecoderName,
+                    /* mimeType= */ mimeType,
+                    /* codecMimeType= */ mimeType,
+                    /* capabilities= */ null,
+                    /* hardwareAccelerated= */ true,
+                    /* softwareOnly= */ false,
+                    /* vendor= */ true,
+                    /* forceDisableAdaptive= */ false,
+                    /* forceSecure= */ requiresSecureDecoder),
+                MediaCodecInfo.newInstance(
+                    /* name= */ otherDecoderName,
+                    /* mimeType= */ mimeType,
+                    /* codecMimeType= */ mimeType,
+                    /* capabilities= */ null,
+                    /* hardwareAccelerated= */ false,
+                    /* softwareOnly= */ true,
+                    /* vendor= */ false,
+                    /* forceDisableAdaptive= */ false,
+                    /* forceSecure= */ requiresSecureDecoder));
+    List<FakeSampleStream.FakeSampleStreamItem> samples = new ArrayList<>();
+    for (int i = 0; i < 10; i++) {
+      samples.add(oneByteSample(/* timeUs= */ i * 33_333L, C.BUFFER_FLAG_KEY_FRAME));
+    }
+    samples.add(END_OF_STREAM_ITEM);
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ VIDEO_H264,
+            samples);
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    mediaCodecVideoRenderer =
+        new MediaCodecVideoRenderer(
+            new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
+                .setCodecAdapterFactory(codecAdapterFactory)
+                .setMediaCodecSelector(twoDecoderSelector)
+                .setAllowedJoiningTimeMs(0)
+                .setEnableDecoderFallback(true)
+                .setEventHandler(new Handler(testMainLooper))
+                .setEventListener(eventListener)
+                .setMaxDroppedFramesToNotify(1)) {
+          @Override
+          protected @Capabilities int supportsFormat(
+              MediaCodecSelector mediaCodecSelector, Format format) {
+            return RendererCapabilities.create(C.FORMAT_HANDLED);
+          }
+        };
+    mediaCodecVideoRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
+    mediaCodecVideoRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {VIDEO_H264},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    mediaCodecVideoRenderer.start();
+
+    // Render enough times for the failing decoder to be selected, hit the simulated failure on
+    // its second sample, and for the renderer to select and start feeding the other decoder.
+    // Reaching end-of-stream is not needed to verify the recovery, so this stops well short of it.
+    long positionUs = 0;
+    for (int i = 0; i < 20; i++) {
+      mediaCodecVideoRenderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
+      ShadowLooper.idleMainLooper();
+      positionUs += 10_000;
+    }
+
+    // Confirms the failing decoder was actually used and hit the simulated failure, and that the
+    // renderer recovered by selecting the other decoder and continuing to feed it, instead of the
+    // failure propagating as a fatal ExoPlaybackException (which would have caused this test to
+    // fail with an uncaught exception from render()).
+    assertThat(failingDecoderProcessCallCount.get()).isAtLeast(2);
+    assertThat(otherDecoderProcessCallCount.get()).isAtLeast(1);
   }
 
   // TODO: b/390604981 - Run the test on older SDK levels to ensure it uses a MediaCodec shadow
