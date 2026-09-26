@@ -19,9 +19,10 @@ android {
   sourceSets { getByName("androidTest").assets.directories.add("../test_data/src/test/assets") }
 }
 
-// Configure the native build only if ffmpeg is present to avoid gradle sync
-// failures if ffmpeg hasn't been built according to the README instructions.
-if (project.file("src/main/jni/ffmpeg").exists()) {
+// Configure the native build only if ffmpeg and libyuv are present to avoid
+// gradle sync failures if ffmpeg/libyuv haven't been built according to the
+// README instructions.
+if (project.file("src/main/jni/ffmpeg").exists() && project.file("src/main/jni/libyuv").exists()) {
   android.externalNativeBuild.cmake.path = file("src/main/jni/CMakeLists.txt")
   // LINT.IfChange
   // Should match cmake_minimum_required.
