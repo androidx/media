@@ -467,6 +467,10 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       mediaFormat.setString(MediaFormat.KEY_TEMPORAL_LAYERING, temporalSchema);
     }
 
+    if (supportedVideoEncoderSettings.complexity != VideoEncoderSettings.NO_VALUE) {
+      mediaFormat.setInteger(MediaFormat.KEY_COMPLEXITY, supportedVideoEncoderSettings.complexity);
+    }
+
     return new DefaultCodec(
         context,
         encoderSupportedFormat,

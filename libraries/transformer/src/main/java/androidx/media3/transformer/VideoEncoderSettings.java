@@ -84,6 +84,7 @@ public final class VideoEncoderSettings {
     private int maxBFrames;
     private int numNonBidirectionalTemporalLayers;
     private int numBidirectionalTemporalLayers;
+    private int complexity;
 
     /** Creates a new instance. */
     public Builder() {
@@ -98,6 +99,7 @@ public final class VideoEncoderSettings {
       this.maxBFrames = NO_VALUE;
       this.numNonBidirectionalTemporalLayers = NO_VALUE;
       this.numBidirectionalTemporalLayers = NO_VALUE;
+      this.complexity = NO_VALUE;
     }
 
     private Builder(VideoEncoderSettings videoEncoderSettings) {
@@ -113,6 +115,7 @@ public final class VideoEncoderSettings {
       this.numNonBidirectionalTemporalLayers =
           videoEncoderSettings.numNonBidirectionalTemporalLayers;
       this.numBidirectionalTemporalLayers = videoEncoderSettings.numBidirectionalTemporalLayers;
+      this.complexity = videoEncoderSettings.complexity;
     }
 
     /**
@@ -247,6 +250,22 @@ public final class VideoEncoderSettings {
       return this;
     }
 
+    /**
+     * Sets the encoding complexity. The default value is {@link #NO_VALUE} which indicates that no
+     * {@linkplain MediaFormat#KEY_COMPLEXITY complexity} will be set for the encoder.
+     *
+     * <p>The valid range of values depends on the encoder, and is exposed by {@link
+     * MediaCodecInfo.EncoderCapabilities#getComplexityRange()}.
+     *
+     * @param complexity The {@linkplain MediaFormat#KEY_COMPLEXITY encoding complexity}.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setComplexity(int complexity) {
+      this.complexity = complexity;
+      return this;
+    }
+
     /** Builds the instance. */
     public VideoEncoderSettings build() {
       return new VideoEncoderSettings(
@@ -260,7 +279,8 @@ public final class VideoEncoderSettings {
           repeatPreviousFrameIntervalUs,
           maxBFrames,
           numNonBidirectionalTemporalLayers,
-          numBidirectionalTemporalLayers);
+          numBidirectionalTemporalLayers,
+          complexity);
     }
   }
 
@@ -303,6 +323,9 @@ public final class VideoEncoderSettings {
   /** The requested number of bidirectional temporal layers requested from the encoder. */
   public final int numBidirectionalTemporalLayers;
 
+  /** The {@linkplain MediaFormat#KEY_COMPLEXITY encoding complexity}. */
+  public final int complexity;
+
   private VideoEncoderSettings(
       int bitrate,
       int bitrateMode,
@@ -314,7 +337,8 @@ public final class VideoEncoderSettings {
       long repeatPreviousFrameIntervalUs,
       int maxBFrames,
       int numNonBidirectionalTemporalLayers,
-      int numBidirectionalTemporalLayers) {
+      int numBidirectionalTemporalLayers,
+      int complexity) {
     this.bitrate = bitrate;
     this.bitrateMode = bitrateMode;
     this.profile = profile;
@@ -326,6 +350,7 @@ public final class VideoEncoderSettings {
     this.maxBFrames = maxBFrames;
     this.numNonBidirectionalTemporalLayers = numNonBidirectionalTemporalLayers;
     this.numBidirectionalTemporalLayers = numBidirectionalTemporalLayers;
+    this.complexity = complexity;
   }
 
   /**
@@ -354,7 +379,8 @@ public final class VideoEncoderSettings {
         && repeatPreviousFrameIntervalUs == that.repeatPreviousFrameIntervalUs
         && maxBFrames == that.maxBFrames
         && numNonBidirectionalTemporalLayers == that.numNonBidirectionalTemporalLayers
-        && numBidirectionalTemporalLayers == that.numBidirectionalTemporalLayers;
+        && numBidirectionalTemporalLayers == that.numBidirectionalTemporalLayers
+        && complexity == that.complexity;
   }
 
   @Override
@@ -373,6 +399,7 @@ public final class VideoEncoderSettings {
     result = 31 * result + maxBFrames;
     result = 31 * result + numNonBidirectionalTemporalLayers;
     result = 31 * result + numBidirectionalTemporalLayers;
+    result = 31 * result + complexity;
     return result;
   }
 
@@ -401,6 +428,8 @@ public final class VideoEncoderSettings {
         + numNonBidirectionalTemporalLayers
         + ", numBidirectionalTemporalLayers="
         + numBidirectionalTemporalLayers
+        + ", complexity="
+        + complexity
         + '}';
   }
 }
