@@ -26,11 +26,13 @@ import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Format.CueReplacementBehavior;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.extractor.text.CharsetDetector;
 import androidx.media3.extractor.text.CuesWithTiming;
 import androidx.media3.extractor.text.SubtitleParser;
 import com.google.common.collect.ImmutableList;
@@ -82,11 +84,28 @@ public final class SubripParser implements SubtitleParser {
   private final StringBuilder textBuilder;
   private final ArrayList<String> tags;
   private final ParsableByteArray parsableByteArray;
+  @Nullable private final CharsetDetector charsetDetector;
+  private final Format format;
 
+  /** Creates an instance. */
   public SubripParser() {
+    this(/* charsetDetector= */ null, new Format.Builder().build());
+  }
+
+  /**
+   * Creates an instance that uses {@code charsetDetector} when the charset of the input is
+   * ambiguous.
+   *
+   * @param charsetDetector The detector to use, or {@code null} to default to UTF-8 when the
+   *     charset of the input can't be determined by other means.
+   * @param format The format of the subrip track.
+   */
+  public SubripParser(@Nullable CharsetDetector charsetDetector, Format format) {
     textBuilder = new StringBuilder();
     tags = new ArrayList<>();
     parsableByteArray = new ParsableByteArray();
+    this.charsetDetector = charsetDetector;
+    this.format = format;
   }
 
   @Override
@@ -103,7 +122,19 @@ public final class SubripParser implements SubtitleParser {
       Consumer<CuesWithTiming> output) {
     parsableByteArray.reset(data, /* limit= */ offset + length);
     parsableByteArray.setPosition(offset);
-    Charset charset = detectUtfCharset(parsableByteArray);
+    Charset charset = detectCharset();
+    if (!ParsableByteArray.isCharsetSupported(charset)) {
+      // ParsableByteArray doesn't support directly reading the detected charset, so we transcode
+      // the data to UTF-8 (which is supported).
+      parsableByteArray.reset(
+          new String(
+                  parsableByteArray.getData(),
+                  parsableByteArray.getPosition(),
+                  parsableByteArray.bytesLeft(),
+                  charset)
+              .getBytes(StandardCharsets.UTF_8));
+      charset = StandardCharsets.UTF_8;
+    }
 
     @Nullable
     List<CuesWithTiming> cuesWithTimingBeforeRequestedStartTimeUs =
@@ -188,11 +219,35 @@ public final class SubripParser implements SubtitleParser {
   }
 
   /**
-   * Determine UTF encoding of the byte array from a byte order mark (BOM), defaulting to UTF-8 if
-   * no BOM is found.
+   * Returns the charset to use for line parsing of {@link #parsableByteArray}.
+   *
+   * <p>The result is derived from, in order:
+   *
+   * <ol>
+   *   <li>Content from a Matroska container is assumed to always be UTF-8 (per spec).
+   *   <li>A byte order mark in the data, if present.
+   *   <li>The result of calling {@link #charsetDetector}, if non-null.
+   *   <li>Fallback to assuming UTF-8.
+   * </ol>
    */
-  private Charset detectUtfCharset(ParsableByteArray data) {
-    @Nullable Charset charset = data.readUtfCharsetFromBom();
+  private Charset detectCharset() {
+    if (MimeTypes.isMatroska(format.containerMimeType)) {
+      // Subrip muxed into a Matroska container is always UTF-8.
+      return StandardCharsets.UTF_8;
+    }
+    @Nullable Charset utfCharset = parsableByteArray.readUtfCharsetFromBom();
+    if (utfCharset != null) {
+      return utfCharset;
+    }
+    if (charsetDetector == null) {
+      return StandardCharsets.UTF_8;
+    }
+    @Nullable
+    Charset charset =
+        charsetDetector.detect(
+            parsableByteArray.getData(),
+            parsableByteArray.getPosition(),
+            parsableByteArray.bytesLeft());
     return charset != null ? charset : StandardCharsets.UTF_8;
   }
 

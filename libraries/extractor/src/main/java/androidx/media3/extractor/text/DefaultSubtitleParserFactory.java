@@ -50,6 +50,22 @@ import java.util.Objects;
 @UnstableApi
 public final class DefaultSubtitleParserFactory implements SubtitleParser.Factory {
 
+  @Nullable private final CharsetDetector charsetDetector;
+
+  /** Creates an instance. */
+  public DefaultSubtitleParserFactory() {
+    this(/* charsetDetector= */ null);
+  }
+
+  /**
+   * Creates an instance that passes {@code charsetDetector} to delegate factories (where relevant).
+   *
+   * @param charsetDetector The detector to use, or {@code null}.
+   */
+  public DefaultSubtitleParserFactory(@Nullable CharsetDetector charsetDetector) {
+    this.charsetDetector = charsetDetector;
+  }
+
   @Override
   public boolean supportsFormat(Format format) {
     @Nullable String mimeType = format.sampleMimeType;
@@ -106,7 +122,7 @@ public final class DefaultSubtitleParserFactory implements SubtitleParser.Factor
         case MimeTypes.APPLICATION_MP4VTT:
           return new Mp4WebvttParser();
         case MimeTypes.APPLICATION_SUBRIP:
-          return new SubripParser();
+          return new SubripParser(charsetDetector, format);
         case MimeTypes.APPLICATION_TX3G:
           return new Tx3gParser(format.initializationData);
         case MimeTypes.APPLICATION_PGS:

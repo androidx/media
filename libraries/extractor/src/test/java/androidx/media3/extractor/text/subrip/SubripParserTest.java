@@ -17,24 +17,39 @@ package androidx.media3.extractor.text.subrip;
 
 import static androidx.media3.common.Format.CUE_REPLACEMENT_BEHAVIOR_MERGE;
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.text.Cue;
+import androidx.media3.extractor.text.CharsetDetector;
 import androidx.media3.extractor.text.CuesWithTiming;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.extractor.text.SubtitleParser.OutputOptions;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.primitives.Bytes;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestParameterInjector;
 
 /** Unit test for {@link SubripParser}. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public final class SubripParserTest {
 
   private static final String EMPTY_FILE = "media/subrip/empty";
@@ -53,6 +68,9 @@ public final class SubripParserTest {
   private static final String TYPICAL_NO_HOURS_AND_MILLIS =
       "media/subrip/typical_no_hours_and_millis";
   private static final String TYPICAL_BAD_TIMESTAMPS = "media/subrip/typical_bad_timestamps";
+
+  private static final Format STANDALONE_SUBRIP_FORMAT =
+      new Format.Builder().setContainerMimeType(MimeTypes.APPLICATION_SUBRIP).build();
 
   @Test
   public void cueReplacementBehaviorIsMerge() {
@@ -132,8 +150,24 @@ public final class SubripParserTest {
   }
 
   @Test
-  public void parseTypicalWithByteOrderMark() throws IOException {
-    SubripParser parser = new SubripParser();
+  public void parseTypical_charsetDetectorReturnsNull_assumesUtf8() throws IOException {
+    SubripParser parser =
+        new SubripParser(
+            /* charsetDetector= */ (data, offset, length) -> null, STANDALONE_SUBRIP_FORMAT);
+    byte[] bytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL_FILE);
+
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
+
+    assertThat(allCues).hasSize(3);
+    assertTypicalCue1(allCues.get(0));
+    assertTypicalCue2(allCues.get(1));
+    assertTypicalCue3(allCues.get(2));
+  }
+
+  @Test
+  public void parseTypicalWithByteOrderMark_doesNotCallCharsetDetector() throws IOException {
+    CharsetDetector charsetDetector = mock(CharsetDetector.class);
+    SubripParser parser = new SubripParser(charsetDetector, STANDALONE_SUBRIP_FORMAT);
     byte[] bytes =
         TestUtil.getByteArray(
             ApplicationProvider.getApplicationContext(), TYPICAL_WITH_BYTE_ORDER_MARK);
@@ -144,6 +178,30 @@ public final class SubripParserTest {
     assertTypicalCue1(allCues.get(0));
     assertTypicalCue2(allCues.get(1));
     assertTypicalCue3(allCues.get(2));
+    verify(charsetDetector, never())
+        .detect(/* data= */ any(), /* offset= */ anyInt(), /* length= */ anyInt());
+  }
+
+  @Test
+  public void parseTypicalWithByteOrderMark_inMkvContainer_doesNotCallCharsetDetector()
+      throws IOException {
+    CharsetDetector charsetDetector = mock(CharsetDetector.class);
+    SubripParser parser =
+        new SubripParser(
+            charsetDetector,
+            new Format.Builder().setContainerMimeType(MimeTypes.VIDEO_MATROSKA).build());
+    byte[] bytes =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), TYPICAL_WITH_BYTE_ORDER_MARK);
+
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
+
+    assertThat(allCues).hasSize(3);
+    assertTypicalCue1(allCues.get(0));
+    assertTypicalCue2(allCues.get(1));
+    assertTypicalCue3(allCues.get(2));
+    verify(charsetDetector, never())
+        .detect(/* data= */ any(), /* offset= */ anyInt(), /* length= */ anyInt());
   }
 
   @Test
@@ -234,6 +292,28 @@ public final class SubripParserTest {
   }
 
   @Test
+  public void parseTypicalUtf16LittleEndian_inMkv_doesNotCallCharsetDetector_producesGarbage()
+      throws IOException {
+    CharsetDetector charsetDetector = mock(CharsetDetector.class);
+    SubripParser parser =
+        new SubripParser(
+            charsetDetector,
+            new Format.Builder().setContainerMimeType(MimeTypes.VIDEO_MATROSKA).build());
+    byte[] bytes =
+        TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL_UTF16LE);
+
+    ImmutableList<CuesWithTiming> _ = parseAllCues(parser, bytes);
+
+    // Don't assert the specific output, since it's effectively undefined behaviour. This test
+    // exists to assert we don't call CharsetDetector for every subtitle sample from a container
+    // where the charset is defined by the spec - because most CharsetDetector implementations
+    // are statistical (and so rely on longer documents than a single subtitle) and also potentially
+    // slow (so we don't want to call it for every text sample).
+    verify(charsetDetector, never())
+        .detect(/* data= */ any(), /* offset= */ anyInt(), /* length= */ anyInt());
+  }
+
+  @Test
   public void parseTypicalUtf16BigEndian() throws IOException {
     SubripParser parser = new SubripParser();
     byte[] bytes =
@@ -301,6 +381,64 @@ public final class SubripParserTest {
     ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
     assertTypicalCue1(Iterables.getOnlyElement(allCues));
+  }
+
+  private enum CharsetTestCase {
+    GB18030("起来 快起来", Charset.forName("GB18030")),
+    EUC_KR("이것은 한국어 자막 테스트입니다.", Charset.forName("EUC-KR")),
+    SHIFT_JIS("これは日本語の字幕テストです。", Charset.forName("Shift_JIS")),
+    UTF_8("This is a UTF-8 subtitle.", StandardCharsets.UTF_8),
+    US_ASCII("This is an ASCII subtitle.", StandardCharsets.US_ASCII);
+
+    private final Charset charset;
+    private final String text;
+
+    private CharsetTestCase(String text, Charset charset) {
+      this.charset = charset;
+      this.text = text;
+    }
+  }
+
+  @Test
+  public void parse_withCharsetDetector_outputsDecodedText(
+      @TestParameter CharsetTestCase testCase) {
+    byte[] bytes =
+        ("1\r\n" + "00:00:00,000 --> 00:00:05,000\r\n" + testCase.text + "\r\n")
+            .getBytes(testCase.charset);
+    SubripParser parser =
+        new SubripParser(
+            /* charsetDetector= */ (data, offset, length) -> testCase.charset,
+            STANDALONE_SUBRIP_FORMAT);
+
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
+
+    assertThat(allCues).hasSize(1);
+    assertThat(allCues.get(0).cues.get(0).text.toString()).isEqualTo(testCase.text);
+  }
+
+  @Test
+  public void parse_atOffsetWithCharsetDetector_passesRequestedRangeToDetector() {
+    Charset charset = Charset.forName("GB18030");
+    int offset = 5;
+    int padding = 7;
+    String text = "这是一个字幕测试。";
+    byte[] bytes =
+        Bytes.concat(
+            new byte[offset],
+            ("1\r\n" + "00:00:00,000 --> 00:00:05,000\r\n" + text + "\r\n").getBytes(charset),
+            new byte[padding]);
+    int subtitleLength = bytes.length - offset - padding;
+    CharsetDetector charsetDetector = mock(CharsetDetector.class);
+    when(charsetDetector.detect(/* data= */ any(), /* offset= */ anyInt(), /* length= */ anyInt()))
+        .thenReturn(charset);
+    SubripParser parser = new SubripParser(charsetDetector, STANDALONE_SUBRIP_FORMAT);
+
+    List<CuesWithTiming> allCues = new ArrayList<>();
+    parser.parse(bytes, offset, subtitleLength, OutputOptions.allCues(), allCues::add);
+
+    assertThat(allCues).hasSize(1);
+    assertThat(allCues.get(0).cues.get(0).text.toString()).isEqualTo(text);
+    verify(charsetDetector).detect(same(bytes), eq(offset), eq(subtitleLength));
   }
 
   private static ImmutableList<CuesWithTiming> parseAllCues(SubtitleParser parser, byte[] data) {

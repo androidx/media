@@ -16,6 +16,7 @@
 package androidx.media3.common.util;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 
@@ -781,6 +782,14 @@ public final class ParsableByteArray {
       }
     }
     return null;
+  }
+
+  /**
+   * Returns whether the provided {@link Charset} is supported when passed to methods like {@link
+   * #peekChar(Charset)} and {@link #readLine(Charset)}.
+   */
+  public static boolean isCharsetSupported(Charset charset) {
+    return SUPPORTED_CHARSETS_FOR_READLINE.contains(checkNotNull(charset));
   }
 
   /**
