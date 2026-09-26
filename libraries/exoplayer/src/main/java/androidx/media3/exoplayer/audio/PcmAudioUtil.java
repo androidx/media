@@ -39,7 +39,7 @@ public final class PcmAudioUtil {
    */
   public static ByteBuffer rampUpVolume(
       ByteBuffer buffer,
-      @C.Encoding int pcmEncoding,
+      @C.PcmEncoding int pcmEncoding,
       int pcmFrameSize,
       int startFrameIndex,
       int rampFrameCount) {
@@ -62,40 +62,57 @@ public final class PcmAudioUtil {
   }
 
   /**
-   * Reads a single-channel PCM value from the buffer and returns it as a 32-bit integer PCM value.
+   * Reads a single-channel PCM value from the buffer and returns it as a 32-bit integer PCM value,
+   * reading from the current buffer positon and advancing it.
    *
    * @param buffer The {@link ByteBuffer} to read from.
    * @param pcmEncoding The {@link C.Encoding} of the PCM data in the buffer.
    * @return The 32-bit PCM value of the read buffer.
    */
-  public static int readAs32BitIntPcm(ByteBuffer buffer, @C.Encoding int pcmEncoding) {
+  public static int readAs32BitIntPcm(ByteBuffer buffer, @C.PcmEncoding int pcmEncoding) {
+    int ret = readAs32BitIntPcm(buffer, buffer.position(), pcmEncoding);
+    buffer.position(buffer.position() + Util.getByteDepth(pcmEncoding));
+    return ret;
+  }
+
+  /**
+   * Reads a single-channel PCM value from the buffer and returns it as a 32-bit integer PCM value,
+   * reading from the supplied {@code position} and not changing the buffer position.
+   *
+   * @param buffer The {@link ByteBuffer} to read from.
+   * @param pcmEncoding The {@link C.Encoding} of the PCM data in the buffer.
+   * @return The 32-bit PCM value of the read buffer.
+   */
+  public static int readAs32BitIntPcm(
+      ByteBuffer buffer, int position, @C.PcmEncoding int pcmEncoding) {
     switch (pcmEncoding) {
       case C.ENCODING_PCM_8BIT:
-        return ((buffer.get() & 0xFF) - 128) << 24;
+        return ((buffer.get(position) & 0xFF) - 128) << 24;
       case C.ENCODING_PCM_16BIT:
-        return ((buffer.get() & 0xFF) << 16) | ((buffer.get() & 0xFF) << 24);
+        return ((buffer.get(position) & 0xFF) << 16) | ((buffer.get(position + 1) & 0xFF) << 24);
       case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
-        return ((buffer.get() & 0xFF) << 24) | ((buffer.get() & 0xFF) << 16);
+        return ((buffer.get(position) & 0xFF) << 24) | ((buffer.get(position + 1) & 0xFF) << 16);
       case C.ENCODING_PCM_24BIT:
-        return ((buffer.get() & 0xFF) << 8)
-            | ((buffer.get() & 0xFF) << 16)
-            | ((buffer.get() & 0xFF) << 24);
+        return ((buffer.get(position) & 0xFF) << 8)
+            | ((buffer.get(position + 1) & 0xFF) << 16)
+            | ((buffer.get(position + 2) & 0xFF) << 24);
       case C.ENCODING_PCM_24BIT_BIG_ENDIAN:
-        return ((buffer.get() & 0xFF) << 24)
-            | ((buffer.get() & 0xFF) << 16)
-            | ((buffer.get() & 0xFF) << 8);
+        return ((buffer.get(position) & 0xFF) << 24)
+            | ((buffer.get(position + 1) & 0xFF) << 16)
+            | ((buffer.get(position + 2) & 0xFF) << 8);
       case C.ENCODING_PCM_32BIT:
-        return (buffer.get() & 0xFF)
-            | ((buffer.get() & 0xFF) << 8)
-            | ((buffer.get() & 0xFF) << 16)
-            | ((buffer.get() & 0xFF) << 24);
+        return (buffer.get(position) & 0xFF)
+            | ((buffer.get(position + 1) & 0xFF) << 8)
+            | ((buffer.get(position + 2) & 0xFF) << 16)
+            | ((buffer.get(position + 3) & 0xFF) << 24);
       case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
-        return ((buffer.get() & 0xFF) << 24)
-            | ((buffer.get() & 0xFF) << 16)
-            | ((buffer.get() & 0xFF) << 8)
-            | (buffer.get() & 0xFF);
+        return ((buffer.get(position) & 0xFF) << 24)
+            | ((buffer.get(position + 1) & 0xFF) << 16)
+            | ((buffer.get(position + 2) & 0xFF) << 8)
+            | (buffer.get(position + 3) & 0xFF);
       case C.ENCODING_PCM_FLOAT:
-        float floatValue = Util.constrainValue(buffer.getFloat(), /* min= */ -1f, /* max= */ 1f);
+        float floatValue =
+            Util.constrainValue(buffer.getFloat(position), /* min= */ -1f, /* max= */ 1f);
         if (floatValue < 0) {
           return (int) (-floatValue * Integer.MIN_VALUE);
         } else {
@@ -104,7 +121,7 @@ public final class PcmAudioUtil {
       case C.ENCODING_PCM_FLOAT_BIG_ENDIAN:
         float floatBeValue =
             Util.constrainValue(
-                Float.intBitsToFloat(Integer.reverseBytes(buffer.getInt())),
+                Float.intBitsToFloat(Integer.reverseBytes(buffer.getInt(position))),
                 /* min= */ -1f,
                 /* max= */ 1f);
         if (floatBeValue < 0) {
@@ -113,7 +130,8 @@ public final class PcmAudioUtil {
           return (int) (floatBeValue * Integer.MAX_VALUE);
         }
       case C.ENCODING_PCM_DOUBLE:
-        double doubleValue = Util.constrainValue(buffer.getDouble(), /* min= */ -1f, /* max= */ 1f);
+        double doubleValue =
+            Util.constrainValue(buffer.getDouble(position), /* min= */ -1f, /* max= */ 1f);
         if (doubleValue < 0) {
           return (int) (-doubleValue * Integer.MIN_VALUE);
         } else {
@@ -122,7 +140,7 @@ public final class PcmAudioUtil {
       case C.ENCODING_PCM_DOUBLE_BIG_ENDIAN:
         double doubleBeValue =
             Util.constrainValue(
-                Double.longBitsToDouble(Long.reverseBytes(buffer.getLong())),
+                Double.longBitsToDouble(Long.reverseBytes(buffer.getLong(position))),
                 /* min= */ -1f,
                 /* max= */ 1f);
         if (doubleBeValue < 0) {
