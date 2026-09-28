@@ -24,7 +24,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.GlObjectsProvider;
@@ -48,7 +47,6 @@ import java.util.concurrent.Executor;
  *
  * <p>Methods in this class must be called on a GL thread.
  */
-@RequiresApi(26)
 /* package */ final class DefaultGlTextureFrameCompositor implements GlTextureFrameCompositor {
 
   private static final int DEFAULT_COMPOSITOR_CAPACITY = 2;

@@ -40,18 +40,15 @@ import androidx.media3.common.video.SyncFenceWrapper;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import java.time.Duration;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 
 /** Utility methods for FrameProcessor implementations. */
 @ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.
-@RequiresApi(26)
 public final class FrameProcessorUtils {
 
   private static final String TAG = "FrameProcessorUtils";
   private static final long TIMEOUT_MS = 500;
-  private static final Duration FENCE_TIMEOUT_DURATION = Duration.ofMillis(TIMEOUT_MS);
 
   /** Data class holding handles to {@code EglImage}, texture ID and frame buffer object ID. */
   public static final class EglImageTextureWrapper {
@@ -172,6 +169,7 @@ public final class FrameProcessorUtils {
    *
    * <p>This method should only be called on the thread that owns the OpenGL context.
    */
+  @RequiresApi(26)
   public static EglImageTextureWrapper createAndBindEglImage(
       EGLDisplay eglDisplay,
       HardwareBuffer buffer,
@@ -204,6 +202,7 @@ public final class FrameProcessorUtils {
   }
 
   /** Releases the EGL image, focused frame buffer object, and texture. */
+  @RequiresApi(26)
   public static void releaseEglImageTexture(
       EglImageTextureWrapper eglImageTextureWrapper, HardwareBufferJniWrapper jniWrapper)
       throws GlException {
@@ -228,7 +227,7 @@ public final class FrameProcessorUtils {
       return true;
     }
 
-    boolean fenceSignaled = acquireFence.await(FENCE_TIMEOUT_DURATION);
+    boolean fenceSignaled = acquireFence.awaitMs(TIMEOUT_MS);
     acquireFence.close();
     return fenceSignaled;
   }

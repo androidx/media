@@ -18,7 +18,6 @@ package androidx.media3.test.utils;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.video.AsyncFrame;
@@ -33,7 +32,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** A fake {@link FrameProcessor} implementation. */
-@RequiresApi(26)
 @ExperimentalApi // TODO: b/498176910 Remove once FrameProcessor is production ready.
 public class FakeFrameProcessor implements FrameProcessor {
 

@@ -23,7 +23,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ThrowingRunnable;
@@ -43,7 +42,6 @@ import java.util.concurrent.Executor;
  * <p>All methods must be called on a GL thread.
  */
 // TODO: b/524240959 - Consider sharing logic with FrameAggregator.
-@RequiresApi(26)
 /* package */ final class GlTextureFrameAggregator implements AutoCloseable {
   private final GlTextureFrameCompositor compositingProcessor;
   private final ListeningExecutorService glExecutorService;

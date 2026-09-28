@@ -39,6 +39,7 @@ import android.os.Build;
 import android.util.Half;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -287,6 +288,41 @@ public class BitmapPixelTestUtil {
     int[] colors = new int[width * height];
     Arrays.fill(colors, color);
     return Bitmap.createBitmap(colors, width, height, Bitmap.Config.ARGB_8888);
+  }
+
+  /**
+   * Returns a solid {@link Bitmap.Config#RGBA_F16} {@link Bitmap} with every pixel having the same
+   * color and an alpha value of {@code 1.0f}.
+   *
+   * @param width The width of image to create, in pixels.
+   * @param height The height of image to create, in pixels.
+   * @param r The red component.
+   * @param g The green component.
+   * @param b The blue component.
+   */
+  @RequiresApi(26)
+  @SuppressWarnings("HalfFloat")
+  public static Bitmap createFp16BitmapWithSolidColor(
+      int width, int height, float r, float g, float b) {
+    long rHalf = (long) Half.toHalf(r) & 0xFFFFL;
+    long gHalf = (long) Half.toHalf(g) & 0xFFFFL;
+    long bHalf = (long) Half.toHalf(b) & 0xFFFFL;
+    long aHalf = (long) Half.toHalf(1.0f) & 0xFFFFL;
+    long pixelColor;
+    if (ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN) {
+      pixelColor = rHalf | (gHalf << 16) | (bHalf << 32) | (aHalf << 48);
+    } else {
+      pixelColor = (rHalf << 48) | (gHalf << 32) | (bHalf << 16) | aHalf;
+    }
+    int numPixels = width * height;
+    long[] pixels = new long[numPixels];
+    Arrays.fill(pixels, pixelColor);
+    ByteBuffer buffer = ByteBuffer.allocateDirect(numPixels * 8).order(ByteOrder.nativeOrder());
+    buffer.asLongBuffer().put(pixels);
+    buffer.rewind();
+    Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGBA_F16);
+    bitmap.copyPixelsFromBuffer(buffer);
+    return bitmap;
   }
 
   /**
@@ -571,6 +607,42 @@ public class BitmapPixelTestUtil {
     }
     return createBitmapFromFocusedGlFrameBuffer(
         width, height, pixelSize, GLES30.GL_HALF_FLOAT, Bitmap.Config.RGBA_F16);
+  }
+
+  /**
+   * Creates a {@link Bitmap.Config#ARGB_8888} bitmap with the values of the specified {@link
+   * GlTextureInfo}.
+   *
+   * <p>Must be called with an active OpenGL context on the current thread.
+   */
+  public static Bitmap createArgb8888BitmapFromGlTexture(GlTextureInfo glTextureInfo)
+      throws GlUtil.GlException {
+    int fboId = GlUtil.createFboForTexture(glTextureInfo.texId);
+    try {
+      GlUtil.focusFramebufferUsingCurrentContext(fboId, glTextureInfo.width, glTextureInfo.height);
+      return createArgb8888BitmapFromFocusedGlFramebuffer(
+          glTextureInfo.width, glTextureInfo.height);
+    } finally {
+      GlUtil.deleteFbo(fboId);
+    }
+  }
+
+  /**
+   * Creates a {@link Bitmap.Config#RGBA_F16} bitmap with the values of the specified {@link
+   * GlTextureInfo}.
+   *
+   * <p>Must be called with an active OpenGL context on the current thread.
+   */
+  @RequiresApi(26)
+  public static Bitmap createFp16BitmapFromGlTexture(GlTextureInfo glTextureInfo)
+      throws GlUtil.GlException {
+    int fboId = GlUtil.createFboForTexture(glTextureInfo.texId);
+    try {
+      GlUtil.focusFramebufferUsingCurrentContext(fboId, glTextureInfo.width, glTextureInfo.height);
+      return createFp16BitmapFromFocusedGlFramebuffer(glTextureInfo.width, glTextureInfo.height);
+    } finally {
+      GlUtil.deleteFbo(fboId);
+    }
   }
 
   private static Bitmap createBitmapFromFocusedGlFrameBuffer(

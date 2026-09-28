@@ -65,7 +65,6 @@ import org.junit.runner.RunWith;
 
 /** Pixel tests for {@link DefaultGlTextureFrameCompositor}. */
 @RunWith(AndroidJUnit4.class)
-@SdkSuppress(minSdkVersion = 26)
 public final class DefaultGlTextureFrameCompositorPixelTest {
 
   private static final String ORIGINAL_HLG10_PNG_ASSET_PATH =
@@ -296,7 +295,6 @@ public final class DefaultGlTextureFrameCompositorPixelTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 26)
   public void composite_twoSdrSequences_withOpaqueOverlay_outputsCorrectTexture() throws Exception {
     Format sdrFormat = new Format.Builder().setColorInfo(BT709_SRGB).build();
 

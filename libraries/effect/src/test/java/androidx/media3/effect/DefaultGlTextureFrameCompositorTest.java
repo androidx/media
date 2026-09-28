@@ -30,7 +30,6 @@ import androidx.media3.effect.GlFrameProcessorTestUtil.FakeCompositorGlProgram;
 import androidx.media3.effect.GlFrameProcessorTestUtil.FakeGlObjectsProvider;
 import androidx.media3.effect.GlFrameProcessorTestUtil.FakeGlTextureFrameConsumer;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.concurrent.ExecutorService;
@@ -41,7 +40,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Unit tests for {@link DefaultGlTextureFrameCompositor}. */
-@SdkSuppress(minSdkVersion = 26)
 @RunWith(AndroidJUnit4.class)
 public final class DefaultGlTextureFrameCompositorTest {
 

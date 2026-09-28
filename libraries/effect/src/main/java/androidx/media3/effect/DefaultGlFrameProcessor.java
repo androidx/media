@@ -71,10 +71,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * A {@link FrameProcessor} implementation that executes a chain of {@link GlTextureFrameConsumer}s.
  */
 @ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.
-@RequiresApi(26)
 public final class DefaultGlFrameProcessor implements FrameProcessor {
 
   /** A {@link FrameProcessor.Factory} that creates {@link DefaultGlFrameProcessor} instances. */
+  // TODO: b/531653682 - Remove @RequiresApi(26) once the pipeline supports API 24+ end to end.
+  @RequiresApi(26)
   public static final class Factory implements FrameProcessor.Factory {
     private final Context context;
     private final GlObjectsProvider glObjectsProvider;

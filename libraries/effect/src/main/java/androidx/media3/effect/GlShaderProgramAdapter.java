@@ -22,7 +22,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
@@ -50,7 +49,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  *
  * <p>The underlying {@link GlShaderProgram} must not alter frame presentation times.
  */
-@RequiresApi(26)
 @ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.
 /* package */ final class GlShaderProgramAdapter
     implements GlTextureFrameProcessor, InputListener, OutputListener {

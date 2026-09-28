@@ -23,7 +23,6 @@ import static com.google.common.collect.Iterables.getFirst;
 import static com.google.common.collect.Iterables.getLast;
 
 import android.content.Context;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Effect;
 import androidx.media3.common.GlObjectsProvider;
@@ -41,7 +40,6 @@ import java.util.concurrent.Executor;
  * A {@link GlTextureFrameConsumer} that creates and executes a chain of {@link
  * GlShaderProgramAdapter}s.
  */
-@RequiresApi(26)
 /* package */ final class GlTextureFrameProcessorChain implements GlTextureFrameConsumer {
   private final Context context;
   private final GlObjectsProvider glObjectsProvider;
