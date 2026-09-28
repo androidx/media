@@ -15,7 +15,10 @@
  */
 package androidx.media3.effect.playservices;
 
+import android.graphics.Bitmap;
+import android.view.Surface;
 import androidx.annotation.Nullable;
+import com.google.android.gms.media.effect.enhancement.EnhancementCallback;
 import com.google.android.gms.media.effect.enhancement.EnhancementClient;
 import com.google.android.gms.media.effect.enhancement.EnhancementOptions;
 import com.google.android.gms.media.effect.enhancement.EnhancementSession;
@@ -29,6 +32,31 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
   private EnhancementSessionTestUtil() {}
 
+  /** Fake {@link EnhancementSession} for tests. */
+  /* package */ static final class FakeEnhancementSession implements EnhancementSession {
+    /* package */ final AtomicBoolean isReleased = new AtomicBoolean(false);
+
+    @Override
+    public Surface getInputSurface() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setOutputSurface(
+        Surface surface, EnhancementOptions options, EnhancementCallback callback) {}
+
+    @Override
+    public void process(Bitmap bitmap, EnhancementOptions options, EnhancementCallback callback) {}
+
+    @Override
+    public void release() {
+      isReleased.set(true);
+    }
+
+    @Override
+    public void cancel() {}
+  }
+
   /** Fake {@link EnhancementSessionManager.Client} for tests. */
   /* package */ static final class FakeClient implements EnhancementSessionManager.Client {
 
@@ -41,6 +69,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     @Nullable /* package */ Task<EnhancementSession> createSessionTask;
     /* package */ boolean autoTriggerSessionCallback;
     @Nullable /* package */ EnhancementSessionCallback savedSessionCallback;
+    @Nullable /* package */ EnhancementOptions lastOptions;
 
     @Nullable private final EnhancementSession sessionToReturn;
 
@@ -77,6 +106,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     public Task<EnhancementSession> createSession(
         EnhancementOptions options, EnhancementSessionCallback callback) {
       createSessionCalled.set(true);
+      lastOptions = options;
       savedSessionCallback = callback;
       if (autoTriggerSessionCallback && sessionToReturn != null) {
         callback.onSessionCreated(sessionToReturn);

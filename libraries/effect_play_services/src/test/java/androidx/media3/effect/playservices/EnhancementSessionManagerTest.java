@@ -19,20 +19,16 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static org.junit.Assert.assertThrows;
 
-import android.graphics.Bitmap;
-import android.view.Surface;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.android.gms.common.api.CommonStatusCodes;
 import com.google.android.gms.common.api.Status;
-import com.google.android.gms.media.effect.enhancement.EnhancementCallback;
 import com.google.android.gms.media.effect.enhancement.EnhancementMode;
 import com.google.android.gms.media.effect.enhancement.EnhancementOptions;
 import com.google.android.gms.media.effect.enhancement.EnhancementSession;
 import com.google.android.gms.tasks.TaskCompletionSource;
 import com.google.android.gms.tasks.Tasks;
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
@@ -49,13 +45,13 @@ public final class EnhancementSessionManagerTest {
   private static final int HEIGHT = 480;
 
   private EnhancementSessionTestUtil.FakeClient fakeClient;
-  private FakeEnhancementSession fakeSession;
+  private EnhancementSessionTestUtil.FakeEnhancementSession fakeSession;
   private TestListener testListener;
   private EnhancementSessionManager sessionManager;
 
   @Before
   public void setUp() {
-    fakeSession = new FakeEnhancementSession();
+    fakeSession = new EnhancementSessionTestUtil.FakeEnhancementSession();
     fakeClient = new EnhancementSessionTestUtil.FakeClient(fakeSession);
     testListener = new TestListener();
     sessionManager = new EnhancementSessionManager(directExecutor(), testListener, fakeClient);
@@ -403,30 +399,6 @@ public final class EnhancementSessionManagerTest {
                 /* isTonemappingEnabled= */ false,
                 /* isDeblurAndDenoiseVideoEnabled= */ false,
                 /* isUpscaleVideoEnabled= */ false));
-  }
-
-  private static class FakeEnhancementSession implements EnhancementSession {
-    final AtomicBoolean isReleased = new AtomicBoolean(false);
-
-    @Override
-    public Surface getInputSurface() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void setOutputSurface(
-        Surface surface, EnhancementOptions options, EnhancementCallback callback) {}
-
-    @Override
-    public void process(Bitmap bitmap, EnhancementOptions options, EnhancementCallback callback) {}
-
-    @Override
-    public void release() {
-      isReleased.set(true);
-    }
-
-    @Override
-    public void cancel() {}
   }
 
   private static class TestListener implements EnhancementSessionManager.Listener {

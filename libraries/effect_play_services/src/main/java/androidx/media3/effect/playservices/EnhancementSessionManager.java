@@ -23,7 +23,6 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
-import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.VideoFrameProcessingException;
 import com.google.android.gms.common.api.Status;
 import com.google.android.gms.media.effect.enhancement.Enhancement;
@@ -88,15 +87,10 @@ import java.util.concurrent.Executor;
   /**
    * Creates an instance.
    *
-   * @param context The application context.
    * @param handlerExecutor The executor on which session callbacks and listener events are run.
    * @param listener The listener notified of session readiness or errors.
+   * @param client The client used to query support, install the module, and create sessions.
    */
-  public EnhancementSessionManager(Context context, Executor handlerExecutor, Listener listener) {
-    this(handlerExecutor, listener, new PlayServicesClientAdapter(context));
-  }
-
-  @VisibleForTesting
   /* package */ EnhancementSessionManager(
       Executor handlerExecutor, Listener listener, Client client) {
     this.handlerExecutor = handlerExecutor;

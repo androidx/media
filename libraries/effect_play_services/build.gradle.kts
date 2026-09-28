@@ -27,10 +27,13 @@ dependencies {
   implementation(project(":lib-effect-ndk"))
   implementation(libs.play.services.media.effect.enhancement)
 
+  testImplementation(project(":test-utils"))
   testImplementation(libs.androidx.test.ext.junit)
   testImplementation(libs.robolectric)
   testImplementation(libs.truth)
 
+  androidTestImplementation(project(":lib-effect"))
+  androidTestImplementation(project(":lib-extractor"))
   androidTestImplementation(project(":lib-transformer"))
   androidTestImplementation(project(":test-utils"))
   androidTestImplementation(project(":lib-inspector-frame"))

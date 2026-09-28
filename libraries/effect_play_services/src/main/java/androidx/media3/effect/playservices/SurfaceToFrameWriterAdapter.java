@@ -17,7 +17,6 @@ package androidx.media3.effect.playservices;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.graphics.PixelFormat;
 import android.hardware.HardwareBuffer;
@@ -37,7 +36,6 @@ import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.common.video.HardwareBufferNativeHelpers;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 
 /**
@@ -47,22 +45,18 @@ import java.util.concurrent.Executor;
  * <p>Handles {@link ImageReader} buffer acquisition, native hardware buffer copying, and
  * end-of-stream signaling.
  *
- * <p>Thread safety: All public methods ({@link #configure}, {@link #onInputFrameQueued}, {@link
- * #onEndOfStream}) must be called on the thread associated with the {@link Handler} passed to the
- * constructor. {@link #close} may be called from any thread.
+ * <p>Thread safety: All methods must be called on the thread associated with the {@link Handler}
+ * passed to the constructor.
  */
 @RequiresApi(33)
 /* package */ final class SurfaceToFrameWriterAdapter implements AutoCloseable {
 
   private static final int MAX_IMAGES = 1;
-  private static final long CLOSE_TIMEOUT_MS = 500L;
 
   /**
    * Listener for {@link SurfaceToFrameWriterAdapter} events.
    *
-   * <p>All methods are invoked on the handler thread, with the exception of {@link #onError} if
-   * {@link #close()} is called from an external thread and times out or is interrupted waiting for
-   * cleanup on the handler thread (in which case it is invoked directly on the calling thread).
+   * <p>All methods are invoked on the handler thread.
    */
   interface Listener {
     /** Called on the handler thread when an output frame has been released back to the surface. */
@@ -183,40 +177,7 @@ import java.util.concurrent.Executor;
    */
   @Override
   public void close() {
-    if (isClosed) {
-      return;
-    }
-    if (Looper.myLooper() != handler.getLooper()) {
-      CountDownLatch latch = new CountDownLatch(1);
-      boolean posted =
-          handler.post(
-              () -> {
-                try {
-                  close();
-                } finally {
-                  latch.countDown();
-                }
-              });
-      if (posted) {
-        try {
-          if (!latch.await(CLOSE_TIMEOUT_MS, MILLISECONDS)) {
-            listener.onError(
-                new VideoFrameProcessingException(
-                    "Timeout waiting for SurfaceToFrameWriterAdapter to close"));
-          }
-        } catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
-          listener.onError(new VideoFrameProcessingException(e));
-        }
-      } else {
-        closeInternal();
-      }
-      return;
-    }
-    closeInternal();
-  }
-
-  private void closeInternal() {
+    checkState(Looper.myLooper() == handler.getLooper());
     if (isClosed) {
       return;
     }

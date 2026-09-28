@@ -284,46 +284,6 @@ public final class SurfaceToFrameWriterAdapterTest {
   }
 
   @Test
-  public void close_fromNonHandlerThread_releasesSurfacesAndCleansUp() throws Exception {
-    Format inputFormat = new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).build();
-    Surface unused = configureWriter(WIDTH, HEIGHT, inputFormat);
-    // Call close() directly from test thread (which is not handler thread).
-    writer.close();
-
-    // Further close calls do not throw.
-    writer.close();
-  }
-
-  @Test
-  public void close_whenHandlerThreadBlocked_reportsTimeoutError() throws Exception {
-    Format inputFormat = new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).build();
-    Surface unused = configureWriter(WIDTH, HEIGHT, inputFormat);
-    CountDownLatch blockLatch = new CountDownLatch(1);
-    CountDownLatch taskRunningLatch = new CountDownLatch(1);
-    handler.post(
-        () -> {
-          taskRunningLatch.countDown();
-          try {
-            blockLatch.await();
-          } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-          }
-        });
-    assertThat(taskRunningLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-
-    try {
-      writer.close();
-      assertThat(testListener.errorLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-      assertThat(testListener.error.get()).isNotNull();
-      assertThat(testListener.error.get())
-          .hasMessageThat()
-          .contains("Timeout waiting for SurfaceToFrameWriterAdapter to close");
-    } finally {
-      blockLatch.countDown();
-    }
-  }
-
-  @Test
   public void close_whenFrameHeldInPendingImage_closesCleanlyWithoutError() throws Exception {
     Format inputFormat = new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).build();
     Surface surface = configureWriter(WIDTH, HEIGHT, inputFormat);
