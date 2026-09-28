@@ -55,6 +55,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.Player.Listener;
 import androidx.media3.common.Player.PositionInfo;
 import androidx.media3.common.util.ConditionVariable;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession;
@@ -70,6 +71,7 @@ import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.MediumTest;
+import androidx.test.filters.SdkSuppress;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -219,6 +221,54 @@ public class MediaSessionServiceTest {
         .isSameInstanceAs(onDisconnectedCommandControllerInfos.get(0));
     assertThat(onGetSessionControllerInfos.get(0))
         .isSameInstanceAs(connectedControllerManagerControllerInfos.get(0));
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 31, maxSdkVersion = 32)
+  public void play_serviceNotInForeground_getControllerForCurrentRequestReturnsCallingController()
+      throws Exception {
+    TestServiceRegistry testServiceRegistry = TestServiceRegistry.getInstance();
+    AtomicReference<ControllerInfo> onGetSessionControllerInfo = new AtomicReference<>();
+    SettableFuture<@NullableType ControllerInfo> playCommandControllerInfo =
+        SettableFuture.create();
+    AtomicReference<MediaSession> session = new AtomicReference<>();
+    testServiceRegistry.setOnGetSessionHandler(
+        controllerInfo -> {
+          if (session.get() != null) {
+            return session.get();
+          }
+          onGetSessionControllerInfo.set(controllerInfo);
+          Player player = new ExoPlayer.Builder(context).build();
+          player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+          player.prepare();
+          ForwardingPlayer forwardingPlayer =
+              new ForwardingPlayer(player) {
+                @Override
+                public void play() {
+                  playCommandControllerInfo.set(session.get().getControllerForCurrentRequest());
+                }
+              };
+          session.set(new MediaSession.Builder(context, forwardingPlayer).build());
+          return session.get();
+        });
+    RemoteMediaController controller =
+        controllerTestRule.createRemoteController(
+            token, /* waitForConnection= */ true, /* connectionHints= */ Bundle.EMPTY);
+    try {
+      controller.play();
+
+      assertThat(playCommandControllerInfo.get(TIMEOUT_MS, MILLISECONDS))
+          .isEqualTo(onGetSessionControllerInfo.get());
+    } finally {
+      controller.release();
+      MainLooperTestRule.runOnMainSync(
+          () -> {
+            if (session.get() != null) {
+              session.get().getPlayer().release();
+              session.get().release();
+            }
+          });
+    }
   }
 
   @Test

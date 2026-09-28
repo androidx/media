@@ -161,6 +161,9 @@
         `MediaMetadata.playlistId` from legacy metadata and descriptions.
     *   Fix `SecurityException` crash when creating or releasing a
         `MediaSession` on devices that enforce strict `PendingIntent` limits.
+    *   Fix issue where `MediaSession.getControllerForCurrentRequest()` returned
+        `null` during play requests on Android 12 (API 31 and 32) when
+        `MediaSessionService` was not yet in the foreground.
 *   UI:
     *   Add `TrackSelectionState` and `TrackSelectionParametersState` classes
         and their corresponding Composable state remember functions to the

@@ -1345,7 +1345,12 @@ import org.checkerframework.checker.initialization.qual.Initialized;
           @Override
           public void onSuccess(Boolean result) {
             if (result) {
-              handleMediaControllerPlayRequestInternal(controller, callOnPlayerInteractionFinished);
+              callWithControllerForCurrentRequestSet(
+                      controller,
+                      () ->
+                          handleMediaControllerPlayRequestInternal(
+                              controller, callOnPlayerInteractionFinished))
+                  .run();
             }
           }
 
@@ -1423,10 +1428,15 @@ import org.checkerframework.checker.initialization.qual.Initialized;
                     t);
               }
               // Play as requested even if playback resumption fails.
-              Util.handlePlayButtonAction(playerWrapper);
-              if (callOnPlayerInteractionFinished) {
-                onPlayerInteractionFinishedOnHandler(controllerForRequest, playCommand);
-              }
+              callWithControllerForCurrentRequestSet(
+                      controllerForRequest,
+                      () -> {
+                        Util.handlePlayButtonAction(playerWrapper);
+                        if (callOnPlayerInteractionFinished) {
+                          onPlayerInteractionFinishedOnHandler(controllerForRequest, playCommand);
+                        }
+                      })
+                  .run();
             }
           },
           this::postOrRunOnApplicationHandler);
