@@ -240,6 +240,8 @@ object Media3Modules {
       "test-exoplayer-playback" to
         Media3Module("libraries/test_exoplayer_playback", includeInCompositeBuild = false),
       "test-proguard" to Media3Module("libraries/test_proguard", includeInCompositeBuild = false),
+      "test-proguard-minimal" to
+        Media3Module("libraries/test_proguard_minimal", includeInCompositeBuild = false),
       "test-session-common" to
         Media3Module("libraries/test_session_common", includeInCompositeBuild = false),
       "test-session-current" to
