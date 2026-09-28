@@ -23,6 +23,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaLibraryInfo;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.SimpleDecoder;
@@ -37,7 +38,8 @@ import org.checkerframework.checker.initialization.qual.UnknownInitialization;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 
 /** Decodes MIDI commands into PCM. */
-/* package */ final class MidiDecoder
+@UnstableApi
+public final class MidiDecoder
     extends SimpleDecoder<DecoderInputBuffer, SimpleDecoderOutputBuffer, MidiDecoderException> {
 
   static {
