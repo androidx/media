@@ -244,8 +244,8 @@ public final class SurfaceHolderFrameWriterTest {
   }
 
   @Test
-  @Config(sdk = 33)
-  public void configure_propagatesPixelFormat() {
+  @Config(minSdk = 28, maxSdk = 32)
+  public void configure_belowApi33_propagatesSizeAndPixelFormatToSurfaceHolder() {
     Format format =
         new Format.Builder()
             .setWidth(WIDTH)
@@ -253,12 +253,47 @@ public final class SurfaceHolderFrameWriterTest {
             .setPixelFormat(HardwareBuffer.RGB_565)
             .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
             .build();
+    shadowOf(callbackThread.getLooper()).pause();
 
     frameWriter.configure(format, /* usage= */ 0);
-    shadowOf(callbackThread.getLooper()).idle();
+    assertThat(surfaceHolder.getSurfaceFrame().width()).isEqualTo(1);
+    assertThat(surfaceHolder.getSurfaceFrame().height()).isEqualTo(1);
 
+    shadowOf(callbackThread.getLooper()).runOneTask();
+
+    assertThat(surfaceHolder.getSurface()).isNotNull();
+    assertThat(surfaceHolder.getSurfaceFrame().width()).isEqualTo(WIDTH);
+    assertThat(surfaceHolder.getSurfaceFrame().height()).isEqualTo(HEIGHT);
     assertThat(surfaceHolder.imageReader).isNotNull();
     assertThat(surfaceHolder.imageReader.getImageFormat()).isEqualTo(HardwareBuffer.RGB_565);
+  }
+
+  @Test
+  @Config(minSdk = 33)
+  public void configure_withMatchingSizeOnApi33_doesNotResizeToOneByOne() {
+    surfaceHolder.setFixedSize(WIDTH, HEIGHT);
+    shadowOf(callbackThread.getLooper()).idle();
+
+    frameWriter.configure(DEFAULT_FORMAT, /* usage= */ 0);
+
+    assertThat(surfaceHolder.getSurfaceFrame().width()).isEqualTo(WIDTH);
+    assertThat(surfaceHolder.getSurfaceFrame().height()).isEqualTo(HEIGHT);
+    assertThat(surfaceHolder.imageReader).isNotNull();
+  }
+
+  @Test
+  @Config(minSdk = 33)
+  public void configure_onApi33_doesNotCallSurfaceHolderSetFixedSizeOrSetFormat() {
+    Format rgb565Format = DEFAULT_FORMAT.buildUpon().setPixelFormat(HardwareBuffer.RGB_565).build();
+
+    frameWriter.configure(rgb565Format, /* usage= */ 0);
+    shadowOf(callbackThread.getLooper()).idle();
+
+    assertThat(surfaceHolder.getSurfaceFrame().width()).isEqualTo(1);
+    assertThat(surfaceHolder.getSurfaceFrame().height()).isEqualTo(1);
+    assertThat(surfaceHolder.imageReader).isNotNull();
+    assertThat(surfaceHolder.imageReader.getHardwareBufferFormat())
+        .isEqualTo(HardwareBuffer.RGBA_8888);
   }
 
   @Test

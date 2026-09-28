@@ -234,8 +234,7 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
         Format currentFormat = this.currentFormat;
         if (currentFormat != null) {
           isSurfaceChangeRequested = true;
-          surfaceHolderExecutor.execute(
-              () -> surfaceHolder.setFixedSize(/* width= */ 1, /* height= */ 1));
+          requestSurfaceHolderChange(surfaceHolder);
         }
       }
     }
@@ -291,13 +290,40 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
         return;
       }
       isSurfaceChangeRequested = true;
-      // Set the size to an arbitrary value in order to trigger a surfaceChanged() callback,
-      // in case the previously set SurfaceHolder size matches the requested format.
-      // There is no getter for size or format.
-      SurfaceHolder surfaceHolder = checkNotNull(this.surfaceHolder);
+      requestSurfaceHolderChange(checkNotNull(this.surfaceHolder));
+    }
+  }
+
+  private void requestSurfaceHolderChange(SurfaceHolder surfaceHolder) {
+    if (SDK_INT < 33) {
+      // Below API 33, ImageWriter cannot configure the Surface's buffer dimensions directly, and
+      // SurfaceHolder.setFixedSize() is a no-op if the requested size already matches the current
+      // size. Set the size to 1x1 to force a surfaceChanged() callback where the size and pixel
+      // format can be configured.
       surfaceHolderExecutor.execute(
           () -> surfaceHolder.setFixedSize(/* width= */ 1, /* height= */ 1));
+      return;
     }
+    surfaceHolderExecutor.execute(
+        () -> {
+          Surface currentSurface = surfaceHolder.getSurface();
+          if (currentSurface != null && currentSurface.isValid()) {
+            maybeConfigureImageWriter(surfaceHolder);
+          }
+        });
+  }
+
+  private static int getExpectedPixelFormat(Format format) {
+    if (format.pixelFormat != Format.NO_VALUE) {
+      return format.pixelFormat;
+    }
+    if (SDK_INT < 28) {
+      return ImageFormat.YV12;
+    }
+    if (ColorInfo.isTransferHdr(format.colorInfo)) {
+      return HardwareBuffer.RGBA_1010102;
+    }
+    return HardwareBuffer.RGBA_8888;
   }
 
   @Override
@@ -569,31 +595,38 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
   @Override
   public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
     synchronized (lock) {
-      if (holder != surfaceHolder) {
+      if (!holder.equals(surfaceHolder)) {
         return;
       }
       Format currentFormat = this.currentFormat;
       if (currentFormat == null) {
         return;
       }
-      int expectedPixelFormat = currentFormat.pixelFormat;
-      if (expectedPixelFormat == Format.NO_VALUE) {
-        if (SDK_INT < 28) {
-          expectedPixelFormat = ImageFormat.YV12;
-        } else if (ColorInfo.isTransferHdr(currentFormat.colorInfo)) {
-          expectedPixelFormat = HardwareBuffer.RGBA_1010102;
-        } else {
-          expectedPixelFormat = HardwareBuffer.RGBA_8888;
+      if (SDK_INT < 33) {
+        int expectedPixelFormat = getExpectedPixelFormat(currentFormat);
+        if (width != currentFormat.width
+            || height != currentFormat.height
+            || format != expectedPixelFormat) {
+          this.surface = null;
+          holder.setFixedSize(currentFormat.width, currentFormat.height);
+          holder.setFormat(expectedPixelFormat);
+          return;
         }
       }
-      if (width != currentFormat.width
-          || height != currentFormat.height
-          || format != expectedPixelFormat) {
-        this.surface = null;
-        holder.setFixedSize(currentFormat.width, currentFormat.height);
-        holder.setFormat(expectedPixelFormat);
+      maybeConfigureImageWriter(holder);
+    }
+  }
+
+  private void maybeConfigureImageWriter(SurfaceHolder holder) {
+    synchronized (lock) {
+      if (!holder.equals(surfaceHolder)) {
         return;
       }
+      Format currentFormat = this.currentFormat;
+      if (currentFormat == null) {
+        return;
+      }
+      int expectedPixelFormat = getExpectedPixelFormat(currentFormat);
       ImageWriter currentImageWriter = imageWriter;
       if (currentImageWriter != null) {
         if (holder.getSurface().equals(this.surface)) {
@@ -611,6 +644,7 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
         imageWriter =
             new ImageWriter.Builder(holder.getSurface())
                 .setMaxImages(CAPACITY)
+                .setWidthAndHeight(currentFormat.width, currentFormat.height)
                 .setUsage(usage)
                 .setHardwareBufferFormat(expectedPixelFormat)
                 .setDataSpace(

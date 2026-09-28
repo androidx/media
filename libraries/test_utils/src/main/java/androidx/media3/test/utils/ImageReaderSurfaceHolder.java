@@ -18,10 +18,10 @@ package androidx.media3.test.utils;
 import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.truth.Truth.assertThat;
 
+import android.annotation.SuppressLint;
 import android.graphics.Canvas;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
-import android.hardware.HardwareBuffer;
 import android.media.Image;
 import android.media.ImageReader;
 import android.os.Handler;
@@ -104,19 +104,21 @@ public final class ImageReaderSurfaceHolder implements SurfaceHolder, AutoClosea
     return new Rect(0, 0, width, height);
   }
 
+  @SuppressLint("WrongConstant") // format may be a PixelFormat or HardwareBuffer constant.
   @Override
   public Surface getSurface() {
     if (imageReader == null) {
-      if (SDK_INT >= 33 && format == HardwareBuffer.RGBA_1010102) {
+      int initialWidth = width == 0 ? 1 : width;
+      int initialHeight = height == 0 ? 1 : height;
+      if (SDK_INT >= 33) {
         imageReader =
-            new ImageReader.Builder(width, height)
+            new ImageReader.Builder(initialWidth, initialHeight)
                 .setMaxImages(2)
-                .setDefaultHardwareBufferFormat(HardwareBuffer.RGBA_1010102)
+                .setDefaultHardwareBufferFormat(format)
                 .build();
       } else {
         imageReader =
-            ImageReader.newInstance(
-                width == 0 ? 1 : width, height == 0 ? 1 : height, format, /* maxImages= */ 2);
+            ImageReader.newInstance(initialWidth, initialHeight, format, /* maxImages= */ 2);
       }
     }
     return imageReader.getSurface();

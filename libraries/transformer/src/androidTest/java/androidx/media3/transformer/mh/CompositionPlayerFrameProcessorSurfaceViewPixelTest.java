@@ -15,7 +15,6 @@
  */
 package androidx.media3.transformer.mh;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static androidx.lifecycle.Lifecycle.State.CREATED;
 import static androidx.lifecycle.Lifecycle.State.RESUMED;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
@@ -26,6 +25,7 @@ import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static androidx.media3.test.utils.PlayerFence.futureWhen;
 import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeTrue;
 
@@ -33,20 +33,14 @@ import android.app.Instrumentation;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
-import android.graphics.Canvas;
-import android.graphics.PixelFormat;
-import android.graphics.Rect;
 import android.hardware.DataSpace;
 import android.media.Image;
-import android.media.ImageReader;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
 import android.view.PixelCopy;
-import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -56,6 +50,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.effect.ndk.HardwareBufferJni;
+import androidx.media3.test.utils.ImageReaderSurfaceHolder;
 import androidx.media3.transformer.AndroidTestUtil;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.CompositionPlayer;
@@ -70,10 +65,8 @@ import androidx.test.filters.SdkSuppress;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.SettableFuture;
-import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
@@ -131,7 +124,7 @@ public class CompositionPlayerFrameProcessorSurfaceViewPixelTest {
         });
     rule.getScenario().close();
     if (surfaceHolder != null) {
-      surfaceHolder.release();
+      surfaceHolder.close();
     }
   }
 
@@ -468,7 +461,7 @@ public class CompositionPlayerFrameProcessorSurfaceViewPixelTest {
   public void compositionPlayer_withFrameProcessor_andSdrVideo_outputsCorrectDataSpace()
       throws Exception {
     SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
-    surfaceHolder = new ImageReaderSurfaceHolder();
+    surfaceHolder = new ImageReaderSurfaceHolder(new Handler(Looper.getMainLooper()));
 
     instrumentation.runOnMainSync(
         () -> {
@@ -492,7 +485,7 @@ public class CompositionPlayerFrameProcessorSurfaceViewPixelTest {
         });
     firstFrameRenderedFuture.get();
 
-    int actualDataSpace = surfaceHolder.getLatestDataSpace();
+    int actualDataSpace = getLatestDataSpace(surfaceHolder);
     assertThat(DataSpace.getStandard(actualDataSpace)).isEqualTo(DataSpace.STANDARD_BT709);
     assertThat(DataSpace.getTransfer(actualDataSpace)).isEqualTo(DataSpace.TRANSFER_SMPTE_170M);
     assertThat(DataSpace.getRange(actualDataSpace)).isEqualTo(DataSpace.RANGE_LIMITED);
@@ -508,7 +501,7 @@ public class CompositionPlayerFrameProcessorSurfaceViewPixelTest {
         /* inputFormat= */ MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat,
         /* outputFormat= */ null);
     SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
-    surfaceHolder = new ImageReaderSurfaceHolder();
+    surfaceHolder = new ImageReaderSurfaceHolder(new Handler(Looper.getMainLooper()));
 
     instrumentation.runOnMainSync(
         () -> {
@@ -529,7 +522,7 @@ public class CompositionPlayerFrameProcessorSurfaceViewPixelTest {
         });
     firstFrameRenderedFuture.get();
 
-    int actualDataSpace = surfaceHolder.getLatestDataSpace();
+    int actualDataSpace = getLatestDataSpace(surfaceHolder);
     assertThat(DataSpace.getStandard(actualDataSpace)).isEqualTo(DataSpace.STANDARD_BT2020);
     assertThat(DataSpace.getTransfer(actualDataSpace)).isEqualTo(DataSpace.TRANSFER_HLG);
     assertThat(DataSpace.getRange(actualDataSpace)).isEqualTo(DataSpace.RANGE_LIMITED);
@@ -565,128 +558,10 @@ public class CompositionPlayerFrameProcessorSurfaceViewPixelTest {
     return true;
   }
 
-  /** An implementation of {@link SurfaceHolder} which is backed by an {@link ImageReader}. */
-  private static final class ImageReaderSurfaceHolder implements SurfaceHolder {
-    private final List<Callback> callbacks = new CopyOnWriteArrayList<>();
-    private final Handler handler = new Handler(Looper.getMainLooper());
-    private int width;
-    private int height;
-    private int format;
-    private @MonotonicNonNull ImageReader imageReader;
-
-    @Override
-    public void addCallback(Callback callback) {
-      callbacks.add(callback);
-    }
-
-    @Override
-    public void removeCallback(Callback callback) {
-      callbacks.remove(callback);
-    }
-
-    @Override
-    public boolean isCreating() {
-      return false;
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * @deprecated implements a {@link SurfaceHolder} method in a test.
-     */
-    @Override
-    @Deprecated
-    public void setType(int type) {}
-
-    @Override
-    public void setFixedSize(int width, int height) {
-      this.width = width;
-      this.height = height;
-      handler.post(this::triggerCallbacks);
-    }
-
-    @Override
-    public void setSizeFromLayout() {}
-
-    @Override
-    public void setFormat(int format) {
-      this.format = format;
-      handler.post(this::triggerCallbacks);
-    }
-
-    @Override
-    public void setKeepScreenOn(boolean screenOn) {}
-
-    @Override
-    @Nullable
-    public Canvas lockCanvas() {
-      return null;
-    }
-
-    @Override
-    @Nullable
-    public Canvas lockCanvas(Rect dirty) {
-      return null;
-    }
-
-    @Override
-    public void unlockCanvasAndPost(Canvas canvas) {}
-
-    @Override
-    public Rect getSurfaceFrame() {
-      return new Rect(0, 0, width, height);
-    }
-
-    @Override
-    public Surface getSurface() {
-      if (imageReader == null) {
-        if (format == PixelFormat.RGBA_8888) {
-          // Old API versions, use an ImageReader constructor which supports fewer pixel formats.
-          imageReader =
-              ImageReader.newInstance(
-                  width == 0 ? 1 : width,
-                  height == 0 ? 1 : height,
-                  PixelFormat.RGBA_8888,
-                  /* maxImages= */ 2);
-        } else {
-          if (SDK_INT < 33) {
-            throw new IllegalStateException("HDR is only supported on API 33+");
-          }
-          // HDR is only supported on newer API versions, where a different constructor, with wider
-          // range of supported pixel formats exists.
-          imageReader =
-              new ImageReader.Builder(width, height)
-                  .setDefaultHardwareBufferFormat(format)
-                  .setMaxImages(2)
-                  .build();
-        }
-      }
-      return imageReader.getSurface();
-    }
-
-    @RequiresApi(33)
-    int getLatestDataSpace() {
-      Image image = imageReader.acquireLatestImage();
-      int dataSpace = image.getDataSpace();
-      image.close();
-      return dataSpace;
-    }
-
-    void release() {
-      if (imageReader != null) {
-        imageReader.close();
-      }
-    }
-
-    private void triggerCallbacks() {
-      if (imageReader != null
-          && (imageReader.getWidth() != width || imageReader.getHeight() != height)) {
-        imageReader.close();
-        imageReader = null;
-      }
-      for (Callback callback : callbacks) {
-        callback.surfaceChanged(/* holder= */ this, format, width, height);
-      }
+  @RequiresApi(33)
+  private static int getLatestDataSpace(ImageReaderSurfaceHolder surfaceHolder) {
+    try (Image image = checkNotNull(surfaceHolder.imageReader).acquireLatestImage()) {
+      return checkNotNull(image).getDataSpace();
     }
   }
 }
