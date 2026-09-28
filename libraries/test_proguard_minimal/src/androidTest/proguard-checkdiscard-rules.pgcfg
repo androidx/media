@@ -1,0 +1,5 @@
+# ProGuard / R8 rules asserting that optional classes are stripped when unused.
+
+# Assert that effect module classes are discarded when setVideoEffects is not called.
+-checkdiscard class androidx.media3.effect.SingleInputVideoGraph$Factory
+-checkdiscard class androidx.media3.effect.DefaultVideoFrameProcessor$Factory$Builder

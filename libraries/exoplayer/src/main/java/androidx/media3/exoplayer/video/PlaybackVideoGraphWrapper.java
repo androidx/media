@@ -1289,7 +1289,11 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
                     .newInstance(videoFrameProcessorFactory);
         // LINT.ThenChange(
         //     ../../../../../../../proguard-rules.txt,
-        //     ../ExoPlayerImpl.java:set_video_effects)
+        //     ../ExoPlayerImpl.java:set_video_effects,
+        //
+        // ../../../../../../../../test_proguard_minimal/src/androidTest/proguard-checkdiscard-rules.pgcfg,
+        //
+        // ../../../../../../../../test_proguard_minimal/src/androidTest/java/androidx/media3/test/proguard/minimal/ExoPlayerMinimalModuleProguardTest.java)
       } catch (Exception e) {
         throw new IllegalStateException(e);
       }
@@ -1330,7 +1334,12 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
                         .append("$Factory$Builder")
                         .toString();
                 return Class.forName(className);
-                // LINT.ThenChange(../../../../../../../proguard-rules.txt)
+                // LINT.ThenChange(
+                //     ../../../../../../../proguard-rules.txt,
+                //
+                // ../../../../../../../../test_proguard_minimal/src/androidTest/proguard-checkdiscard-rules.pgcfg,
+                //
+                // ../../../../../../../../test_proguard_minimal/src/androidTest/java/androidx/media3/test/proguard/minimal/ExoPlayerMinimalModuleProguardTest.java)
               } catch (Exception e) {
                 throw new IllegalStateException(e);
               }

@@ -1,0 +1,20 @@
+# Proguard rules for the androidTest target to ensure the test runners are kept.
+-keep class androidx.test.** {*;}
+-keep class com.vladium.** {*;}
+-keep class org.jacoco.** {*;}
+-keep class org.junit.** {*;}
+-keepattributes *Annotation*
+-dontwarn android.test.**
+-dontwarn androidx.test.**
+-dontwarn com.sun.jna.**
+-dontwarn edu.umd.cs.findbugs.**
+-dontwarn java.lang.instrument.**
+-dontwarn java.lang.management.**
+-dontwarn junit.framework.**
+-dontwarn junit.runner.**
+-dontwarn org.hamcrest.**
+-dontwarn org.jacoco.**
+-dontwarn org.junit.**
+-dontwarn org.mockito.**
+-dontwarn org.objectweb.asm.**
+-dontwarn sun.misc.SignalHandler,sun.misc.Signal

@@ -1,0 +1,3 @@
+# Keep all classes of the minimal proguard test APK except R classes so resource shrinking works.
+-keep class !androidx.media3.test.proguard.minimal.R, !androidx.media3.test.proguard.minimal.R$*, androidx.media3.test.proguard.minimal.** {*;}
+-keep class kotlin.** {*;}
