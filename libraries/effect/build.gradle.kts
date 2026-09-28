@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import androidx.media3.buildlogic.StripGlslCommentsTask
+
 plugins {
   id("media3.android-library")
   id("media3.publish")
@@ -23,6 +25,23 @@ android {
   sourceSets {
     getByName("androidTest").assets.directories.add("../test_data/src/test/assets/")
     getByName("test").assets.directories.add("../test_data/src/test/assets/")
+  }
+}
+
+// Packages the GLSL shaders in src/main/res/raw without comments, to reduce APK size.
+androidComponents {
+  onVariants { variant ->
+    val stripGlslComments =
+      tasks.register<StripGlslCommentsTask>(
+        "strip${variant.name.replaceFirstChar { it.uppercase() }}GlslComments"
+      ) {
+        shaders.from(fileTree("src/main/res/raw") { include("*.glsl") })
+      }
+    // Generated resources override the resources with the same name in src/main/res.
+    variant.sources.res?.addGeneratedSourceDirectory(
+      stripGlslComments,
+      StripGlslCommentsTask::outputDirectory,
+    )
   }
 }
 
