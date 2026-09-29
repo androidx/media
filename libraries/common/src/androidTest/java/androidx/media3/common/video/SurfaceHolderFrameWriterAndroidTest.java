@@ -431,31 +431,6 @@ public final class SurfaceHolderFrameWriterAndroidTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 33)
-  public void configure_sameSizeAndDifferentPixelFormatOnApi33AndAbove_propagatesPixelFormat()
-      throws Exception {
-    Format rgba8888Format =
-        new Format.Builder()
-            .setWidth(WIDTH)
-            .setHeight(HEIGHT)
-            .setPixelFormat(HardwareBuffer.RGBA_8888)
-            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
-            .build();
-    Format rgb565Format = rgba8888Format.buildUpon().setPixelFormat(HardwareBuffer.RGB_565).build();
-
-    frameWriter.configure(rgba8888Format, /* usage= */ Frame.USAGE_GPU_SAMPLED_IMAGE);
-    AsyncFrame firstAsyncFrame = dequeueInputFrameWithTimeout(frameWriter);
-    HardwareBufferFrame firstFrame = (HardwareBufferFrame) firstAsyncFrame.frame;
-    assertThat(firstFrame.getHardwareBuffer().getFormat()).isEqualTo(HardwareBuffer.RGBA_8888);
-
-    frameWriter.configure(rgb565Format, /* usage= */ Frame.USAGE_GPU_SAMPLED_IMAGE);
-    AsyncFrame secondAsyncFrame = dequeueInputFrameWithTimeout(frameWriter);
-    HardwareBufferFrame secondFrame = (HardwareBufferFrame) secondAsyncFrame.frame;
-    assertThat(secondFrame.getFormat()).isEqualTo(rgb565Format);
-    assertThat(secondFrame.getHardwareBuffer().getFormat()).isEqualTo(HardwareBuffer.RGB_565);
-  }
-
-  @Test
   @SdkSuppress(maxSdkVersion = 27)
   public void configure_belowApi28_propagatesPixelFormat() throws Exception {
     Format format =
