@@ -608,7 +608,9 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     } else if (requestedFormat.averageBitrate != Format.NO_VALUE) {
       Log.d(TAG, "Using bitrate from requested Format");
       requestedBitrate = requestedFormat.averageBitrate;
-    } else if (enableCodecDbLiteBitrate && recommendedVideoEncoderSettings != null) {
+    } else if (enableCodecDbLiteBitrate
+        && recommendedVideoEncoderSettings != null
+        && recommendedVideoEncoderSettings.bitrate != VideoEncoderSettings.NO_VALUE) {
       Log.d(TAG, "Using bitrate from CodecDB Lite");
       requestedBitrate = recommendedVideoEncoderSettings.bitrate;
     } else {

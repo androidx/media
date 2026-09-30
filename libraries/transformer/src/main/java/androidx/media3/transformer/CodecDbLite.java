@@ -17,6 +17,8 @@ package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.lang.Math.round;
 
 import android.os.Build;
@@ -59,49 +61,78 @@ public final class CodecDbLite {
                   MimeTypes.VIDEO_H265,
                   /* maxBFrames= */ 1,
                   /* bFrameResolutionCutoff= */ 37538929,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+                  VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_1080P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("Google", "Tensor G2"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H264,
                   /* maxBFrames= */ 1,
                   /* bFrameResolutionCutoff= */ 32739600,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+                  VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_1080P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("Google", "Tensor G3"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H265,
                   /* maxBFrames= */ 1,
                   /* bFrameResolutionCutoff= */ 37538350,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+                  VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_1080P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("Google", "Tensor G3"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H264,
                   /* maxBFrames= */ 1,
                   /* bFrameResolutionCutoff= */ 32750593,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+                  VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_1080P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("Google", "Tensor G4"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_AV1,
                   /* maxBFrames= */ 1,
                   /* bFrameResolutionCutoff= */ 32844500,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+                  VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_1080P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("Google", "Tensor G4"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H265,
                   /* maxBFrames= */ 1,
                   /* bFrameResolutionCutoff= */ 51851802,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+                  VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_1080P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("Google", "Tensor G4"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H264,
                   /* maxBFrames= */ 1,
                   /* bFrameResolutionCutoff= */ 44206216,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+                  VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_1080P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("Mediatek", "MT6761"),
               new VideoEncoderEntry(
@@ -157,14 +188,16 @@ public final class CodecDbLite {
                   MimeTypes.VIDEO_H265,
                   /* maxBFrames= */ 0,
                   /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+                  VideoEncoderEntry.FormatOptimization
+                      .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("Mediatek", "MT6785"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H264,
                   /* maxBFrames= */ 0,
                   /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+                  VideoEncoderEntry.FormatOptimization
+                      .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("Mediatek", "MT6789V/CD"),
               new VideoEncoderEntry(
@@ -199,28 +232,36 @@ public final class CodecDbLite {
                   MimeTypes.VIDEO_H265,
                   /* maxBFrames= */ 1,
                   /* bFrameResolutionCutoff= */ 34028841,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+                  VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_1080P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("Mediatek", "MT6893"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H264,
                   /* maxBFrames= */ 1,
                   /* bFrameResolutionCutoff= */ 457499715,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("Mediatek", "MT6983"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 1,
-                  /* bFrameResolutionCutoff= */ 36134374,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+                  VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_1080P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("Mediatek", "MT6983"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H264,
                   /* maxBFrames= */ 1,
                   /* bFrameResolutionCutoff= */ 189533581,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+                  VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_1080P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("QTI", "SDM450"),
               new VideoEncoderEntry(
@@ -231,21 +272,7 @@ public final class CodecDbLite {
           .put(
               new Chipset("QTI", "SM4350"),
               new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 0,
-                  /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("QTI", "SM4350"),
-              new VideoEncoderEntry(
                   MimeTypes.VIDEO_H264,
-                  /* maxBFrames= */ 0,
-                  /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("QTI", "SM6125"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
                   /* maxBFrames= */ 0,
                   /* bFrameResolutionCutoff= */ 0,
                   VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
@@ -259,21 +286,7 @@ public final class CodecDbLite {
           .put(
               new Chipset("QTI", "SM6225"),
               new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 0,
-                  /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("QTI", "SM6225"),
-              new VideoEncoderEntry(
                   MimeTypes.VIDEO_H264,
-                  /* maxBFrames= */ 0,
-                  /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("QTI", "SM6375"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
                   /* maxBFrames= */ 0,
                   /* bFrameResolutionCutoff= */ 0,
                   VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
@@ -290,28 +303,44 @@ public final class CodecDbLite {
                   MimeTypes.VIDEO_H265,
                   /* maxBFrames= */ 0,
                   /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+                  VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_1080P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("QTI", "SM8250"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H264,
                   /* maxBFrames= */ 0,
                   /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+                  VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_1080P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("QTI", "SM8350"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H265,
                   /* maxBFrames= */ 0,
                   /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+                  VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("QTI", "SM8350"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H264,
                   /* maxBFrames= */ 0,
                   /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+                  VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("QTI", "SM8450"),
               new VideoEncoderEntry(
@@ -319,7 +348,11 @@ public final class CodecDbLite {
                   /* maxBFrames= */ 1,
                   /* bFrameResolutionCutoff= */ 497664000,
                   VideoEncoderEntry.FormatOptimization
-                      .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES))
+                          .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("QTI", "SM8450"),
               new VideoEncoderEntry(
@@ -327,7 +360,11 @@ public final class CodecDbLite {
                   /* maxBFrames= */ 1,
                   /* bFrameResolutionCutoff= */ 497664000,
                   VideoEncoderEntry.FormatOptimization
-                      .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES))
+                          .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("QTI", "SM8475"),
               new VideoEncoderEntry(
@@ -335,7 +372,9 @@ public final class CodecDbLite {
                   /* maxBFrames= */ 1,
                   /* bFrameResolutionCutoff= */ 497664000,
                   VideoEncoderEntry.FormatOptimization
-                      .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES))
+                          .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("QTI", "SM8475"),
               new VideoEncoderEntry(
@@ -343,7 +382,9 @@ public final class CodecDbLite {
                   /* maxBFrames= */ 1,
                   /* bFrameResolutionCutoff= */ 497664000,
                   VideoEncoderEntry.FormatOptimization
-                      .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES))
+                          .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("QTI", "SM8550"),
               new VideoEncoderEntry(
@@ -351,7 +392,13 @@ public final class CodecDbLite {
                   /* maxBFrames= */ 1,
                   /* bFrameResolutionCutoff= */ 497664000,
                   VideoEncoderEntry.FormatOptimization
-                      .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES))
+                          .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_1080P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("QTI", "SM8550"),
               new VideoEncoderEntry(
@@ -359,7 +406,13 @@ public final class CodecDbLite {
                   /* maxBFrames= */ 1,
                   /* bFrameResolutionCutoff= */ 110196681,
                   VideoEncoderEntry.FormatOptimization
-                      .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES))
+                          .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_1080P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("QTI", "SM8650"),
               new VideoEncoderEntry(
@@ -367,7 +420,13 @@ public final class CodecDbLite {
                   /* maxBFrames= */ 1,
                   /* bFrameResolutionCutoff= */ 34344411,
                   VideoEncoderEntry.FormatOptimization
-                      .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES))
+                          .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_1080P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("QTI", "SM8650"),
               new VideoEncoderEntry(
@@ -375,7 +434,13 @@ public final class CodecDbLite {
                   /* maxBFrames= */ 1,
                   /* bFrameResolutionCutoff= */ 132451733,
                   VideoEncoderEntry.FormatOptimization
-                      .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES))
+                          .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_1080P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("QTI", "SM8750"),
               new VideoEncoderEntry(
@@ -383,7 +448,13 @@ public final class CodecDbLite {
                   /* maxBFrames= */ 1,
                   /* bFrameResolutionCutoff= */ 52435727,
                   VideoEncoderEntry.FormatOptimization
-                      .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES))
+                          .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_1080P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("QTI", "SM8750"),
               new VideoEncoderEntry(
@@ -391,49 +462,69 @@ public final class CodecDbLite {
                   /* maxBFrames= */ 1,
                   /* bFrameResolutionCutoff= */ 159007069,
                   VideoEncoderEntry.FormatOptimization
-                      .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES))
-          .put(
-              new Chipset("Samsung", "Exynos 850"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 0,
-                  /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+                          .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_1080P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("Samsung", "Exynos 850"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H264,
                   /* maxBFrames= */ 0,
                   /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+                  VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_1080P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("Samsung", "s5e8825"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H265,
                   /* maxBFrames= */ 0,
                   /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+                  VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_1080P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("Samsung", "s5e8825"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H264,
                   /* maxBFrames= */ 0,
                   /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+                  VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_1080P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("Samsung", "s5e9925"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H265,
                   /* maxBFrames= */ 1,
                   /* bFrameResolutionCutoff= */ 51506898,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+                  VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("Samsung", "s5e9925"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H264,
                   /* maxBFrames= */ 2,
                   /* bFrameResolutionCutoff= */ 40856748,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+                  VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P
+                      | VideoEncoderEntry.FormatOptimization
+                          .FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K))
           .put(
               new Chipset("Spreadtrum", "SC9863A"),
               new VideoEncoderEntry(
@@ -442,23 +533,9 @@ public final class CodecDbLite {
                   /* bFrameResolutionCutoff= */ 0,
                   VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
           .put(
-              new Chipset("Spreadtrum", "SC9863A"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 0,
-                  /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
               new Chipset("Spreadtrum", "T606"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H264,
-                  /* maxBFrames= */ 0,
-                  /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("Spreadtrum", "T606"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
                   /* maxBFrames= */ 0,
                   /* bFrameResolutionCutoff= */ 0,
                   VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
@@ -489,6 +566,25 @@ public final class CodecDbLite {
           /* x0Sigmoid= */ 1.956e+07,
           /* offsetSigmoid= */ 8760);
 
+  /**
+   * Frame dimension thresholds delimiting the resolution scopes used by the {@linkplain
+   * VideoEncoderEntry.FormatOptimization non-linear rate model flags}.
+   *
+   * <p>A format belongs to a scope if <em>either</em> its long edge reaches the scope's long-edge
+   * threshold <em>or</em> its short edge reaches the scope's short-edge threshold.
+   */
+  private static final int SCOPE_4K_LONG_EDGE = 3840;
+
+  private static final int SCOPE_4K_SHORT_EDGE = 2160;
+
+  private static final int SCOPE_1080P_LONG_EDGE = 1920;
+
+  private static final int SCOPE_1080P_SHORT_EDGE = 1080;
+
+  private static final int SCOPE_720P_LONG_EDGE = 1280;
+
+  private static final int SCOPE_720P_SHORT_EDGE = 720;
+
   private CodecDbLite() {}
 
   /** Returns the MIME type recommended for video encoding on the runtime device. */
@@ -507,6 +603,10 @@ public final class CodecDbLite {
 
   /**
    * Returns the recommended {@link VideoEncoderSettings} for the provided format.
+   *
+   * <p>The returned {@linkplain VideoEncoderSettings#bitrate bitrate} is {@link
+   * VideoEncoderSettings#NO_VALUE} if no recommendation is available for the current device and the
+   * provided format.
    *
    * @param format the video format to recommend settings for which must include {@link
    *     Format#sampleMimeType} to identify the codec. For best results, {@link Format#width},
@@ -550,16 +650,17 @@ public final class CodecDbLite {
       }
     }
 
-    if (format.width != Format.NO_VALUE
+    if (entryForCodec != null
+        && format.width != Format.NO_VALUE
         && format.height != Format.NO_VALUE
         && format.frameRate != Format.NO_VALUE) {
-
-      // Use H.264 MIME type if not provided, so that we always recommend a valid video bitrate.
-      String mimeForBitrate =
-          format.sampleMimeType == null ? MimeTypes.VIDEO_H264 : format.sampleMimeType;
-
       settingsBuilder.setBitrate(
-          getRecommendedBitrate(mimeForBitrate, format.width, format.height, format.frameRate));
+          getRecommendedBitrate(
+              entryForCodec.mimeType,
+              format.width,
+              format.height,
+              format.frameRate,
+              entryForCodec.formatOptimizations));
     }
 
     return settingsBuilder.build();
@@ -575,11 +676,21 @@ public final class CodecDbLite {
    * @param width The video width.
    * @param height The video height.
    * @param frameRate The video frame rate.
+   * @param formatOptimizations The {@linkplain VideoEncoderEntry.FormatOptimization format
+   *     optimizations} recommended for the encoder, which determine the resolution scopes the
+   *     non-linear rate model has been validated for.
    * @return The recommended bitrate in bits per second, or {@link VideoEncoderSettings#NO_VALUE} if
-   *     no recommendation is available for the given MIME type.
+   *     no recommendation is available for the given MIME type, or if {@code formatOptimizations}
+   *     does not opt in to the non-linear rate model for the resolution scope that the frame
+   *     dimensions fall into. Callers are expected to fall back to their default bitrate
+   *     calculation when {@link VideoEncoderSettings#NO_VALUE} is returned.
    */
   private static int getRecommendedBitrate(
-      String mimeType, int width, int height, float frameRate) {
+      String mimeType,
+      int width,
+      int height,
+      float frameRate,
+      @VideoEncoderEntry.FormatOptimization int formatOptimizations) {
 
     BitrateParameters params;
     if (mimeType.equals(MimeTypes.VIDEO_H264)) {
@@ -587,6 +698,30 @@ public final class CodecDbLite {
     } else if (mimeType.equals(MimeTypes.VIDEO_H265) || mimeType.equals(MimeTypes.VIDEO_AV1)) {
       params = BITRATE_PARAMETERS_HEVC;
     } else {
+      return VideoEncoderSettings.NO_VALUE;
+    }
+
+    // The rate model is a positive opt-in per resolution scope, so resolve the scope a format
+    // falls into and require the matching flag. 1440p (2560x1440) resolves to the 1080p scope
+    // because its long edge reaches 1920 but not 3840.
+    int longEdge = max(width, height);
+    int shortEdge = min(width, height);
+    @VideoEncoderEntry.FormatOptimization int requiredRateModelFlag;
+    if (longEdge >= SCOPE_4K_LONG_EDGE || shortEdge >= SCOPE_4K_SHORT_EDGE) {
+      requiredRateModelFlag =
+          VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K;
+    } else if (longEdge >= SCOPE_1080P_LONG_EDGE || shortEdge >= SCOPE_1080P_SHORT_EDGE) {
+      requiredRateModelFlag =
+          VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_1080P;
+    } else if (longEdge >= SCOPE_720P_LONG_EDGE || shortEdge >= SCOPE_720P_SHORT_EDGE) {
+      requiredRateModelFlag =
+          VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P;
+    } else {
+      // The rate model is not validated below the 720p scope.
+      return VideoEncoderSettings.NO_VALUE;
+    }
+
+    if ((formatOptimizations & requiredRateModelFlag) == 0) {
       return VideoEncoderSettings.NO_VALUE;
     }
 
@@ -747,7 +882,10 @@ public final class CodecDbLite {
         value = {
           VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE,
           VideoEncoderEntry.FormatOptimization
-              .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES
+              .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES,
+          VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P,
+          VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_1080P,
+          VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K
         })
     private @interface FormatOptimization {
       /** Flag indicating that no additional optimizations need to be made to the encoder. */
@@ -758,6 +896,24 @@ public final class CodecDbLite {
        * android.media.MediaFormat#KEY_TEMPORAL_LAYERING} must also be set.
        */
       int FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES = 1;
+
+      /**
+       * Flag indicating that the non-linear rate model has been validated for this encoder in the
+       * '720p' resolution scope.
+       */
+      int FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_720P = 1 << 1;
+
+      /**
+       * Flag indicating that the non-linear rate model has been validated for this encoder in the
+       * '1080p' resolution scope.
+       */
+      int FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_1080P = 1 << 2;
+
+      /**
+       * Flag indicating that the non-linear rate model has been validated for this encoder in the
+       * '4k' resolution scope.
+       */
+      int FORMAT_OPTIMIZATION_NON_LINEAR_RATE_MODEL_4K = 1 << 3;
     }
   }
 }

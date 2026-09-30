@@ -506,8 +506,10 @@ public class DefaultEncoderFactoryTest {
   public void
       createForVideoEncoding_withCodecDbLiteBitrateEnabled_configuresEncoderWithRecommendedBitrate()
           throws Exception {
-    ShadowBuild.setSystemOnChipManufacturer("QTI");
-    ShadowBuild.setSystemOnChipModel("SM8550");
+    // Samsung Exynos 850 opts in to the non-linear rate model at 1080p, so CodecDB Lite returns a
+    // recommendation rather than deferring to Kush Gauge.
+    ShadowBuild.setSystemOnChipManufacturer("Samsung");
+    ShadowBuild.setSystemOnChipModel("Exynos 850");
 
     Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
 
@@ -518,6 +520,28 @@ public class DefaultEncoderFactoryTest {
             .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
 
     assertThat(videoEncoder.getConfigurationFormat().averageBitrate).isEqualTo(15_502_805);
+  }
+
+  @Test
+  @Config(sdk = 31)
+  public void
+      createForVideoEncoding_withCodecDbLiteBitrateEnabledAndCodecDbReturnsNoValue_fallsBackToKushGauge()
+          throws Exception {
+    // MediaTek MT6761 is in the dataset but does not opt in to the non-linear rate model, so
+    // CodecDB Lite returns no bitrate recommendation.
+    ShadowBuild.setSystemOnChipManufacturer("Mediatek");
+    ShadowBuild.setSystemOnChipModel("MT6761");
+
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
+
+    DefaultCodec videoEncoder =
+        new DefaultEncoderFactory.Builder(context)
+            .setEnableCodecDbLiteBitrate(true)
+            .build()
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
+
+    // Kush Gauge suggested bitrate is 8_709_120.
+    assertThat(videoEncoder.getConfigurationFormat().averageBitrate).isEqualTo(8_709_120);
   }
 
   @Test
@@ -583,6 +607,11 @@ public class DefaultEncoderFactoryTest {
   public void
       createForVideoEncoding_withCodecDbLiteBitrateEnabledAndNoFallback_configuresEncoderWithRecommendedBitrate()
           throws Exception {
+    // Samsung Exynos 850 opts in to the non-linear rate model at 1080p, so CodecDB Lite returns a
+    // recommendation rather than deferring to Kush Gauge.
+    ShadowBuild.setSystemOnChipManufacturer("Samsung");
+    ShadowBuild.setSystemOnChipModel("Exynos 850");
+
     Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
 
     DefaultCodec videoEncoder =
