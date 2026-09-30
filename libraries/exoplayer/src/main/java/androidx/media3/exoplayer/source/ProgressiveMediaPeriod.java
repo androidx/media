@@ -171,6 +171,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private long endPositionUs;
   private int enabledTrackCount;
   private boolean isLengthKnown;
+  private boolean isWaitingForContinueLoading;
   private boolean released;
 
   /**
@@ -242,7 +243,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     maybeFinishPrepareRunnable = this::maybeFinishPrepare;
     onContinueLoadingRequestedRunnable =
         () -> {
-          if (!released) {
+          if (!released && !loadCondition.isOpen()) {
+            isWaitingForContinueLoading = true;
             checkNotNull(callback).onContinueLoadingRequested(ProgressiveMediaPeriod.this);
           }
         };
@@ -294,7 +296,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               /* durationUs= */ C.TIME_UNSET));
       endTracks();
     } else {
-      loadCondition.open();
       startLoading();
     }
   }
@@ -513,12 +514,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         /* isPreparedOrSingleTrack= */ prepared || singleTrackFormat != null, enabledTrackCount)) {
       return false;
     }
-    boolean continuedLoading = loadCondition.open();
     if (!loader.isLoading()) {
       startLoading();
-      continuedLoading = true;
+      return true;
     }
-    return continuedLoading;
+    if (isWaitingForContinueLoading) {
+      isWaitingForContinueLoading = false;
+      return loadCondition.open();
+    }
+    return false;
   }
 
   @Override
@@ -1016,6 +1020,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
     }
     loadCondition.close();
+    isWaitingForContinueLoading = true;
     int trackCount = sampleQueues.length;
     int primaryTrackIndex = 0;
     @C.TrackType int primaryTrackIndexType = C.TRACK_TYPE_UNKNOWN;
@@ -1097,6 +1102,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return;
     }
 
+    isWaitingForContinueLoading = false;
+    loadCondition.open();
     ExtractingLoadable loadable =
         new ExtractingLoadable(
             uri, dataSource, progressiveMediaExtractor, /* extractorOutput= */ this, loadCondition);
@@ -1413,8 +1420,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             long currentInputPosition = progressiveMediaExtractor.getCurrentInputPosition();
             if (currentInputPosition > position + continueLoadingCheckIntervalBytes) {
               position = currentInputPosition;
-              loadCondition.close();
-              handler.post(onContinueLoadingRequestedRunnable);
+              if (loadCondition.close()) {
+                handler.post(onContinueLoadingRequestedRunnable);
+              }
             }
           }
         } finally {

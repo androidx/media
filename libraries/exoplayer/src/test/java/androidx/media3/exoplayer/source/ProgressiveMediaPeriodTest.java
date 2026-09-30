@@ -2655,6 +2655,98 @@ public final class ProgressiveMediaPeriodTest {
     assertThat(wasCanceledEvents).containsExactly(false);
   }
 
+  @Test
+  public void
+      continueLoading_beforeContinueLoadingRequestedRunnableRuns_returnsFalseAndDoesNotUnblockLoader()
+          throws Exception {
+    ConditionVariable allowFirstReadCondition = new ConditionVariable();
+    ConditionVariable chunkPausedCondition = new ConditionVariable();
+    AtomicInteger initCount = new AtomicInteger();
+    AtomicInteger readCount = new AtomicInteger();
+    ProgressiveMediaExtractor extractor =
+        new ProgressiveMediaExtractor() {
+          private long currentInputPosition;
+
+          @Override
+          public void init(
+              DataReader dataReader,
+              Uri uri,
+              Map<String, List<String>> responseHeaders,
+              long position,
+              long length,
+              ExtractorOutput output) {
+            if (initCount.incrementAndGet() == 1) {
+              output
+                  .track(0, C.TRACK_TYPE_VIDEO)
+                  .format(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build());
+              output.endTracks();
+              output.seekMap(new SeekMap.Unseekable(/* durationUs= */ 2_000_000));
+            } else {
+              chunkPausedCondition.open();
+            }
+          }
+
+          @Override
+          public void release() {}
+
+          @Override
+          public void disableSeekingOnMp3Streams() {}
+
+          @Override
+          public long getCurrentInputPosition() {
+            return currentInputPosition;
+          }
+
+          @Override
+          public void seek(long position, long timeUs) {}
+
+          @Override
+          public int read(PositionHolder positionHolder) {
+            if (readCount.incrementAndGet() == 1) {
+              allowFirstReadCondition.blockUninterruptible();
+              currentInputPosition =
+                  ProgressiveMediaSource.DEFAULT_LOADING_CHECK_INTERVAL_BYTES + 1;
+              positionHolder.position = 0;
+              return Extractor.RESULT_SEEK;
+            }
+            return Extractor.RESULT_END_OF_INPUT;
+          }
+        };
+    ProgressiveMediaPeriod mediaPeriod =
+        createMediaPeriod(
+            Uri.parse("asset://android_asset/media/mp4/sample.mp4"),
+            extractor,
+            /* imageDurationUs= */ C.TIME_UNSET,
+            /* executor= */ null,
+            /* executorReleased= */ null);
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    selections[0] = new FakeTrackSelection(trackGroups.get(0), 0);
+    long _ =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            new boolean[trackGroups.length],
+            /* positionUs= */ 0);
+    boolean initialContinueLoading =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    allowFirstReadCondition.open();
+    chunkPausedCondition.block();
+
+    boolean continuedBeforeRunnable =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    boolean isLoadingBeforeRunnable = mediaPeriod.isLoading();
+    runMainLooperUntil(() -> readCount.get() == 2 && !mediaPeriod.isLoading());
+    mediaPeriod.release();
+
+    assertThat(initialContinueLoading).isTrue();
+    assertThat(continuedBeforeRunnable).isFalse();
+    assertThat(isLoadingBeforeRunnable).isFalse();
+    assertThat(readCount.get()).isEqualTo(2);
+  }
+
   private static final class ExecutionTrackingThread extends Thread {
     private final AtomicBoolean hasRun;
 
