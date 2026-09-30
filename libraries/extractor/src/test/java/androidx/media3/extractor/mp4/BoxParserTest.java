@@ -19,14 +19,17 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.Mp4Box;
 import androidx.media3.container.Mp4LocationData;
+import androidx.media3.extractor.GaplessInfoHolder;
 import androidx.media3.extractor.metadata.Chapter;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.primitives.ImmutableLongArray;
 import java.nio.ByteBuffer;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -452,6 +455,40 @@ public final class BoxParserTest {
     Metadata metadata = BoxParser.parseXyz(xyzBox);
 
     assertThat(metadata).isNull();
+  }
+
+  @Test
+  public void parseStbl_withEmptyEditAndOmitTrackSampleTable_includesEmptyEditInDuration()
+      throws Exception {
+    Track track =
+        new Track.Builder()
+            .setTimescale(1_000)
+            .setMovieTimescale(1_000)
+            .setFormat(new Format.Builder().build())
+            .setEditListDurations(ImmutableLongArray.of(200, 800))
+            .setEditListMediaTimes(ImmutableLongArray.of(-1, 0))
+            .build();
+    Mp4Box.ContainerBox stblBox = new Mp4Box.ContainerBox(Mp4Box.TYPE_stbl, /* endPosition= */ 0);
+    stblBox.add(createFullBox(Mp4Box.TYPE_stsz, 100, 1)); // sample_size, sample_count
+    stblBox.add(createFullBox(Mp4Box.TYPE_stco, 1, 0)); // entry_count, chunk_offset
+    stblBox.add(createFullBox(Mp4Box.TYPE_stsc, 1, 1, 1, 1)); // count, chunk, samples, desc_index
+    stblBox.add(createFullBox(Mp4Box.TYPE_stts, 1, 1, 800)); // entry_count, sample_count, delta
+
+    TrackSampleTable sampleTable =
+        BoxParser.parseStbl(
+            track, stblBox, new GaplessInfoHolder(), /* omitTrackSampleTable= */ true);
+
+    assertThat(sampleTable.durationUs).isEqualTo(1_000_000);
+  }
+
+  private static Mp4Box.LeafBox createFullBox(int type, int... fields) {
+    ByteBuffer buffer =
+        ByteBuffer.allocate(Mp4Box.FULL_HEADER_SIZE + fields.length * Integer.BYTES)
+            .put(new byte[Mp4Box.FULL_HEADER_SIZE]);
+    for (int field : fields) {
+      buffer.putInt(field);
+    }
+    return new Mp4Box.LeafBox(type, new ParsableByteArray(buffer.array()));
   }
 
   private static ParsableByteArray createXyzBox(String locationString) {

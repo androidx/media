@@ -761,18 +761,15 @@ public final class BoxParser {
 
     if (omitTrackSampleTable) {
       long editedDurationUs;
-      ImmutableLongArray editListMediaTimes = checkNotNull(track.editListMediaTimes);
       if (track.editListDurations.length() == 1 && track.editListDurations.get(0) == 0) {
-        long editStartTime = editListMediaTimes.get(0);
+        long editStartTime = checkNotNull(track.editListMediaTimes).get(0);
         editedDurationUs =
             Util.scaleLargeTimestamp(
                 duration - editStartTime, C.MICROS_PER_SECOND, track.timescale);
       } else {
         long pts = 0;
         for (int i = 0; i < track.editListDurations.length(); i++) {
-          if (editListMediaTimes.get(i) != -1) {
-            pts += track.editListDurations.get(i);
-          }
+          pts += track.editListDurations.get(i);
         }
         editedDurationUs = Util.scaleLargeTimestamp(pts, C.MICROS_PER_SECOND, track.movieTimescale);
       }
