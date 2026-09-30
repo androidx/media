@@ -98,4 +98,9 @@
   <string name="error_invalid_frame_aggregation_fps_value" translatable="false">Frame aggregation FPS must be positive</string>
   <string name="error_invalid_frame_aggregation_fps_format" translatable="false">Invalid frame aggregation FPS format</string>
   <string name="frame_aggregation_fps_hint" translatable="false">e.g. 23.976</string>
+  <string name="enable_gms_video_enhancement" translatable="false">GMS Video Enhancement</string>
+  <string name="api_33_required_gms_video_enhancement" translatable="false">API 33+ required for using GMS Video Enhancement</string>
+  <string name="enable_gms_tonemapping" translatable="false">Tone Mapping</string>
+  <string name="enable_gms_deblur_denoise" translatable="false">Deblur and Denoise</string>
+  <string name="enable_gms_upscale" translatable="false">Upscale</string>
 </resources>

@@ -79,6 +79,7 @@ import androidx.media3.common.util.ElapsedRealtimeTicker;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
+import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.effect.BitmapOverlay;
 import androidx.media3.effect.Contrast;
@@ -101,6 +102,7 @@ import androidx.media3.effect.StaticOverlaySettings;
 import androidx.media3.effect.TextOverlay;
 import androidx.media3.effect.TextureOverlay;
 import androidx.media3.effect.ndk.HardwareBufferJni;
+import androidx.media3.effect.playservices.EnhancementSessionDecorator;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor;
 import androidx.media3.exoplayer.util.DebugTextViewHelper;
@@ -376,15 +378,39 @@ public final class TransformerActivity extends AppCompatActivity {
       glExecutorService = listeningDecorator(newSingleThreadExecutor("Transformer:Effect"));
       glObjectsProvider = new DefaultGlObjectsProvider();
 
+      FrameProcessor.Factory baseGlFactory =
+          new DefaultGlFrameProcessor.Factory(
+              /* context= */ this,
+              glObjectsProvider,
+              HardwareBufferJni.INSTANCE,
+              glExecutorService);
+      FrameProcessor.Factory frameProcessorFactory;
+      if (bundle.getBoolean(ConfigurationActivity.ENABLE_GMS_VIDEO_ENHANCEMENT)) {
+        if (SDK_INT < 33) {
+          throw new UnsupportedOperationException(
+              getString(R.string.api_33_required_gms_video_enhancement));
+        }
+        boolean isTonemappingEnabled =
+            bundle.getBoolean(ConfigurationActivity.ENABLE_GMS_TONEMAPPING, true);
+        boolean isDeblurAndDenoiseVideoEnabled =
+            bundle.getBoolean(ConfigurationActivity.ENABLE_GMS_DEBLUR_DENOISE, false);
+        boolean isUpscaleVideoEnabled =
+            bundle.getBoolean(ConfigurationActivity.ENABLE_GMS_UPSCALE, false);
+
+        frameProcessorFactory =
+            new EnhancementSessionDecorator.Builder(/* context= */ this, baseGlFactory)
+                .setTonemappingEnabled(isTonemappingEnabled)
+                .setDeblurAndDenoiseVideoEnabled(isDeblurAndDenoiseVideoEnabled)
+                .setUpscaleVideoEnabled(isUpscaleVideoEnabled)
+                .build();
+      } else {
+        frameProcessorFactory = baseGlFactory;
+      }
+
       transformerBuilder =
           new Transformer.Builder(/* context= */ this)
               .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
-              .setFrameProcessorFactory(
-                  new DefaultGlFrameProcessor.Factory(
-                      /* context= */ this,
-                      glObjectsProvider,
-                      HardwareBufferJni.INSTANCE,
-                      glExecutorService));
+              .setFrameProcessorFactory(frameProcessorFactory);
     } else {
       transformerBuilder = new Transformer.Builder(/* context= */ this);
     }

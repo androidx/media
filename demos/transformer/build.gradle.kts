@@ -41,6 +41,7 @@ dependencies {
   implementation(libs.material)
   implementation(project(":lib-effect"))
   implementation(project(":lib-effect-ndk"))
+  implementation(project(":lib-effect-play-services"))
   implementation(project(":lib-exoplayer"))
   implementation(project(":lib-exoplayer-dash"))
   implementation(project(":lib-transformer"))

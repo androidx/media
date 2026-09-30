@@ -105,6 +105,10 @@ public final class ConfigurationActivity extends AppCompatActivity {
   public static final String TEXT_OVERLAY_TEXT_COLOR = "text_overlay_text_color";
   public static final String TEXT_OVERLAY_ALPHA = "text_overlay_alpha";
   public static final String ENABLE_FRAME_PROCESSOR = "enable_frame_processor";
+  public static final String ENABLE_GMS_VIDEO_ENHANCEMENT = "enable_gms_video_enhancement";
+  public static final String ENABLE_GMS_TONEMAPPING = "enable_gms_tonemapping";
+  public static final String ENABLE_GMS_DEBLUR_DENOISE = "enable_gms_deblur_denoise";
+  public static final String ENABLE_GMS_UPSCALE = "enable_gms_upscale";
   public static final String FRAME_AGGREGATION_FPS = "frame_aggregation_fps";
 
   // Video effect selections.
@@ -190,6 +194,10 @@ public final class ConfigurationActivity extends AppCompatActivity {
   private Spinner hdrModeSpinner;
   private CheckBox enableTrimOptimization;
   private CheckBox enableFrameProcessorCheckBox;
+  private CheckBox enableGmsVideoEnhancementCheckBox;
+  private CheckBox enableGmsTonemappingCheckBox;
+  private CheckBox enableGmsDeblurDenoiseCheckBox;
+  private CheckBox enableGmsUpscaleCheckBox;
   private CheckBox enableMp4EditListTrimming;
   private CheckBox enableCodecDbLite;
   private Button selectAudioEffectsButton;
@@ -331,13 +339,44 @@ public final class ConfigurationActivity extends AppCompatActivity {
           }
         });
     enableFrameProcessorCheckBox = findViewById(R.id.enable_frame_processor);
+    enableGmsVideoEnhancementCheckBox = findViewById(R.id.enable_gms_video_enhancement);
+    enableGmsTonemappingCheckBox = findViewById(R.id.enable_gms_tonemapping);
+    enableGmsDeblurDenoiseCheckBox = findViewById(R.id.enable_gms_deblur_denoise);
+    enableGmsUpscaleCheckBox = findViewById(R.id.enable_gms_upscale);
     View frameAggregationFpsRow = findViewById(R.id.frame_aggregation_fps_row);
+    View gmsVideoEnhancementRow = findViewById(R.id.gms_video_enhancement_row);
+    View gmsTonemappingRow = findViewById(R.id.gms_tonemapping_row);
+    View gmsDeblurDenoiseRow = findViewById(R.id.gms_deblur_denoise_row);
+    View gmsUpscaleRow = findViewById(R.id.gms_upscale_row);
+    Runnable updateGmsSubRowsVisibility =
+        () -> {
+          int visibility =
+              enableFrameProcessorCheckBox.isChecked()
+                      && enableGmsVideoEnhancementCheckBox.isChecked()
+                  ? View.VISIBLE
+                  : View.GONE;
+          gmsTonemappingRow.setVisibility(visibility);
+          gmsDeblurDenoiseRow.setVisibility(visibility);
+          gmsUpscaleRow.setVisibility(visibility);
+        };
     enableFrameProcessorCheckBox.setOnCheckedChangeListener(
-        (buttonView, isChecked) ->
-            frameAggregationFpsRow.setVisibility(isChecked ? View.VISIBLE : View.GONE));
+        (buttonView, isChecked) -> {
+          frameAggregationFpsRow.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+          gmsVideoEnhancementRow.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+          updateGmsSubRowsVisibility.run();
+        });
     if (SDK_INT < 28) {
       enableFrameProcessorCheckBox.setEnabled(false);
       findViewById(R.id.enable_frame_processor_hint).setVisibility(View.VISIBLE);
+    }
+    enableGmsVideoEnhancementCheckBox.setOnCheckedChangeListener(
+        (buttonView, isChecked) -> updateGmsSubRowsVisibility.run());
+    if (SDK_INT < 33) {
+      enableGmsVideoEnhancementCheckBox.setEnabled(false);
+      enableGmsTonemappingCheckBox.setEnabled(false);
+      enableGmsDeblurDenoiseCheckBox.setEnabled(false);
+      enableGmsUpscaleCheckBox.setEnabled(false);
+      findViewById(R.id.enable_gms_video_enhancement_hint).setVisibility(View.VISIBLE);
     }
     enableMp4EditListTrimming.setOnCheckedChangeListener(
         (buttonView, isChecked) -> {
@@ -445,6 +484,10 @@ public final class ConfigurationActivity extends AppCompatActivity {
     bundle.putBoolean(PRODUCE_FRAGMENTED_MP4, produceFragmentedMp4.isChecked());
     bundle.putBoolean(ENABLE_TRIM_OPTIMIZATION, enableTrimOptimization.isChecked());
     bundle.putBoolean(ENABLE_FRAME_PROCESSOR, enableFrameProcessorCheckBox.isChecked());
+    bundle.putBoolean(ENABLE_GMS_VIDEO_ENHANCEMENT, enableGmsVideoEnhancementCheckBox.isChecked());
+    bundle.putBoolean(ENABLE_GMS_TONEMAPPING, enableGmsTonemappingCheckBox.isChecked());
+    bundle.putBoolean(ENABLE_GMS_DEBLUR_DENOISE, enableGmsDeblurDenoiseCheckBox.isChecked());
+    bundle.putBoolean(ENABLE_GMS_UPSCALE, enableGmsUpscaleCheckBox.isChecked());
     bundle.putBoolean(ENABLE_MP4_EDIT_LIST_TRIMMING, enableMp4EditListTrimming.isChecked());
     bundle.putBoolean(ENABLE_CODECDB_LITE, enableCodecDbLite.isChecked());
     String selectedHdrMode = String.valueOf(hdrModeSpinner.getSelectedItem());
