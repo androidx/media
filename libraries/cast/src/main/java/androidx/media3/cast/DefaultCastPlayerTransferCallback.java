@@ -17,6 +17,7 @@ package androidx.media3.cast;
 
 import android.net.Uri;
 import androidx.media3.common.C;
+import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.PlayerTransferState;
@@ -35,6 +36,13 @@ public final class DefaultCastPlayerTransferCallback implements CastPlayer.Trans
 
   @Override
   public void transferState(Player sourcePlayer, Player targetPlayer) {
+    if (targetPlayer.getDeviceInfo().playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE
+        && sourcePlayer.getCurrentTimeline().isEmpty()) {
+      // If the source player is empty, we don't transfer the state to the remote player. This
+      // prevents the local state from overwriting the remote player state when joining an existing
+      // session.
+      return;
+    }
     PlayerTransferState transferState = PlayerTransferState.fromPlayer(sourcePlayer);
     List<MediaItem> mediaItems = transferState.getMediaItems();
     ImmutableList.Builder<MediaItem> playableMediaItemsBuilder = ImmutableList.builder();

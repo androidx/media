@@ -21,10 +21,13 @@ import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.MockitoAnnotations.openMocks;
+import static org.robolectric.Shadows.shadowOf;
 
+import android.os.Looper;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
@@ -330,6 +333,7 @@ public final class CastPlayerTest {
   @Test
   public void playerTransfer_whenSessionStarted_doesNotPauseRemotePlayer() {
     castPlayer = castPlayerBuilder.build();
+    castPlayer.setMediaItem(MediaItem.fromUri("http://uri"));
     castPlayer.setPlayWhenReady(true);
 
     castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "");
@@ -338,5 +342,37 @@ public final class CastPlayerTest {
     assertThat(castPlayer.getPlayWhenReady()).isTrue();
     // Verify that the command was actually forwarded to the Cast SDK
     verify(mockRemoteMediaClient).play();
+  }
+
+  @Test
+  public void
+      playerTransfer_whenSessionStartedWithEmptyLocalPlayer_doesNotPausePlayingRemotePlayer() {
+    when(mockRemoteMediaClient.isPaused()).thenReturn(false);
+    when(mockRemoteMediaClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PLAYING);
+    castPlayer = castPlayerBuilder.build();
+    castPlayer.clearMediaItems();
+    castPlayer.setPlayWhenReady(false);
+
+    castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "");
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertThat(castPlayer.getPlayWhenReady()).isTrue();
+    verify(mockRemoteMediaClient, never()).pause();
+  }
+
+  @Test
+  public void
+      playerTransfer_whenSessionStartedWithEmptyLocalPlayer_doesNotPlayPausedRemotePlayer() {
+    when(mockRemoteMediaClient.isPaused()).thenReturn(true);
+    when(mockRemoteMediaClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PAUSED);
+    castPlayer = castPlayerBuilder.build();
+    castPlayer.clearMediaItems();
+    castPlayer.setPlayWhenReady(true);
+
+    castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "");
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertThat(castPlayer.getPlayWhenReady()).isFalse();
+    verify(mockRemoteMediaClient, never()).play();
   }
 }

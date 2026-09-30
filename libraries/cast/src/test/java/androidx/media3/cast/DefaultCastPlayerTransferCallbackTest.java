@@ -17,7 +17,9 @@ package androidx.media3.cast;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.Player;
 import androidx.media3.test.utils.FakePlayer;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -28,6 +30,9 @@ import org.junit.runner.RunWith;
 /** Unit tests for {@link DefaultCastPlayerTransferCallback}. */
 @RunWith(AndroidJUnit4.class)
 public final class DefaultCastPlayerTransferCallbackTest {
+
+  private static final DeviceInfo DEVICE_INFO_REMOTE =
+      new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).build();
 
   private FakePlayer sourcePlayer;
   private FakePlayer targetPlayer;
@@ -95,5 +100,33 @@ public final class DefaultCastPlayerTransferCallbackTest {
 
     assertThat(targetPlayer.getMediaItemCount()).isEqualTo(0);
     assertThat(targetPlayer.getCurrentMediaItemIndex()).isEqualTo(0);
+  }
+
+  @Test
+  public void transferState_whenSourceTimelineIsEmptyAndTargetIsRemote_doesNotTransferState() {
+    targetPlayer.setDeviceInfo(DEVICE_INFO_REMOTE);
+    targetPlayer.setPlayWhenReady(true);
+    targetPlayer.setRepeatMode(Player.REPEAT_MODE_ONE);
+
+    transferCallback.transferState(sourcePlayer, targetPlayer);
+
+    assertThat(targetPlayer.getPlayWhenReady()).isTrue();
+    assertThat(targetPlayer.getRepeatMode()).isEqualTo(Player.REPEAT_MODE_ONE);
+  }
+
+  @Test
+  public void transferState_whenSourceTimelineIsEmptyAndTargetIsLocal_transfersState() {
+    sourcePlayer.setDeviceInfo(DEVICE_INFO_REMOTE);
+    sourcePlayer.setPlayWhenReady(true);
+    sourcePlayer.setRepeatMode(Player.REPEAT_MODE_ALL);
+    MediaItem uriItem = new MediaItem.Builder().setUri("http://uri").build();
+    targetPlayer.setMediaItems(
+        ImmutableList.of(uriItem), /* startIndex= */ 0, /* startPositionMs= */ 0);
+
+    transferCallback.transferState(sourcePlayer, targetPlayer);
+
+    assertThat(targetPlayer.getMediaItemCount()).isEqualTo(0);
+    assertThat(targetPlayer.getPlayWhenReady()).isTrue();
+    assertThat(targetPlayer.getRepeatMode()).isEqualTo(Player.REPEAT_MODE_ALL);
   }
 }

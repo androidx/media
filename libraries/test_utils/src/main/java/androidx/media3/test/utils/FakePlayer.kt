@@ -389,6 +389,12 @@ class FakePlayer(
     invalidateState()
   }
 
+  /** Sets the [DeviceInfo] of the player. */
+  fun setDeviceInfo(deviceInfo: DeviceInfo) {
+    state = state.buildUpon().setDeviceInfo(deviceInfo).build()
+    invalidateState()
+  }
+
   private fun handleStateUpdate(stateUpdate: State.Builder.() -> Unit): ListenableFuture<*> {
     updateState(stateUpdate)
     return Futures.immediateVoidFuture()
