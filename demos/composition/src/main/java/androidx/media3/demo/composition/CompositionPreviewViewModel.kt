@@ -48,6 +48,7 @@ import androidx.media3.common.util.Size
 import androidx.media3.common.util.Util
 import androidx.media3.common.util.Util.newSingleThreadExecutor
 import androidx.media3.common.util.Util.usToMs
+import androidx.media3.common.video.FrameProcessor
 import androidx.media3.demo.composition.MatrixTransformationFactory.createDizzyCropEffect
 import androidx.media3.demo.composition.data.CompositionPreviewState
 import androidx.media3.demo.composition.data.ExportState
@@ -67,6 +68,7 @@ import androidx.media3.effect.Presentation
 import androidx.media3.effect.RgbFilter
 import androidx.media3.effect.StaticOverlaySettings
 import androidx.media3.effect.ndk.HardwareBufferJni
+import androidx.media3.effect.playservices.EnhancementSessionDecorator
 import androidx.media3.inspector.MetadataRetriever
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.CompositionPlayer
@@ -117,6 +119,8 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   val FAILED_GET_DURATION_MESSAGE = application.resources.getString(R.string.failed_get_duration)
   val API_28_REQUIRED_MESSAGE =
     application.resources.getString(R.string.api_28_required_frame_processor)
+  private val API_33_REQUIRED_GMS_VIDEO_ENHANCEMENT_MESSAGE =
+    application.resources.getString(R.string.api_33_required_gms_video_enhancement)
   internal var frameProcessorEnabled: Boolean = false
   private var transformer: Transformer? = null
   private var playbackGlExecutorService: ListeningExecutorService? = null
@@ -338,6 +342,47 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
         isCompositionSet = false,
       )
     }
+    playerPrepared = false
+  }
+
+  fun onGmsVideoEnhancementEnabledChanged(isEnabled: Boolean) {
+    _uiState.update {
+      it.copy(
+        outputSettingsState = it.outputSettingsState.copy(gmsVideoEnhancementEnabled = isEnabled),
+        isCompositionSet = false,
+      )
+    }
+    playerPrepared = false
+  }
+
+  fun onGmsTonemappingEnabledChanged(isEnabled: Boolean) {
+    _uiState.update {
+      it.copy(
+        outputSettingsState = it.outputSettingsState.copy(gmsTonemappingEnabled = isEnabled),
+        isCompositionSet = false,
+      )
+    }
+    playerPrepared = false
+  }
+
+  fun onGmsDeblurAndDenoiseEnabledChanged(isEnabled: Boolean) {
+    _uiState.update {
+      it.copy(
+        outputSettingsState = it.outputSettingsState.copy(gmsDeblurAndDenoiseEnabled = isEnabled),
+        isCompositionSet = false,
+      )
+    }
+    playerPrepared = false
+  }
+
+  fun onGmsUpscaleVideoEnabledChanged(isEnabled: Boolean) {
+    _uiState.update {
+      it.copy(
+        outputSettingsState = it.outputSettingsState.copy(gmsUpscaleVideoEnabled = isEnabled),
+        isCompositionSet = false,
+      )
+    }
+    playerPrepared = false
   }
 
   fun onIncludeBackgroundAudioChanged(isEnabled: Boolean) {
@@ -583,10 +628,16 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
 
   fun setComposition() {
     val composition = prepareComposition() ?: return
-    val isFrameProcessorEnabled =
-      frameProcessorEnabled && uiState.value.outputSettingsState.frameProcessorEnabled
-    // Recreate the player if it isn't prepared or if the FrameProcessor is disabled.
-    if (!playerPrepared || !isFrameProcessorEnabled) {
+    val settings = uiState.value.outputSettingsState
+    // CompositionPlayer only supports updating the Composition on a prepared player when
+    // FrameProcessor is enabled. Also recreate the player when GMS Video Enhancement is enabled
+    // because EnhancementSessionDecorator locks in the input frame format on the first frame.
+    val canReusePlayer =
+      playerPrepared &&
+        frameProcessorEnabled &&
+        settings.frameProcessorEnabled &&
+        !settings.gmsVideoEnhancementEnabled
+    if (!canReusePlayer) {
       releaseAndRecreatePlayer()
     }
     preparedComposition = composition
@@ -634,9 +685,15 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     val filePath = outputFile!!.absolutePath
 
     val transformerBuilder =
-      if (uiState.value.outputSettingsState.frameProcessorEnabled) {
+      if (settings.frameProcessorEnabled) {
         if (SDK_INT < 28) {
           throw UnsupportedOperationException(API_28_REQUIRED_MESSAGE)
+        }
+        if (settings.gmsVideoEnhancementEnabled) {
+          // Google Play services only allows one active EnhancementSession at a time
+          // (MAX_SESSIONS_REACHED). Release any prepared preview player before starting export.
+          releaseAndRecreatePlayer()
+          _uiState.update { it.copy(isCompositionSet = false) }
         }
         if (exportGlExecutorService == null) {
           val glResources = setupGlResources("Export:Effect")
@@ -646,10 +703,8 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
         Transformer.Builder(getApplication())
           .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
           .setFrameProcessorFactory(
-            DefaultGlFrameProcessor.Factory(
-              getApplication(),
+            createFrameProcessorFactory(
               checkNotNull(exportGlObjectsProvider),
-              HardwareBufferJni.INSTANCE,
               checkNotNull(exportGlExecutorService),
             )
           )
@@ -993,10 +1048,8 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
         CompositionPlayer.Builder(getApplication())
           .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
           .setFrameProcessorFactory(
-            DefaultGlFrameProcessor.Factory(
-              getApplication(),
+            createFrameProcessorFactory(
               checkNotNull(playbackGlObjectsProvider),
-              HardwareBufferJni.INSTANCE,
               checkNotNull(playbackGlExecutorService),
             )
           )
@@ -1048,6 +1101,32 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
       }
     }
     return player
+  }
+
+  @RequiresApi(28)
+  private fun createFrameProcessorFactory(
+    glObjectsProvider: GlObjectsProvider,
+    glExecutorService: ListeningExecutorService,
+  ): FrameProcessor.Factory {
+    val baseGlFactory =
+      DefaultGlFrameProcessor.Factory(
+        getApplication(),
+        glObjectsProvider,
+        HardwareBufferJni.INSTANCE,
+        glExecutorService,
+      )
+    val settings = uiState.value.outputSettingsState
+    if (!settings.gmsVideoEnhancementEnabled) {
+      return baseGlFactory
+    }
+    if (SDK_INT < 33) {
+      throw UnsupportedOperationException(API_33_REQUIRED_GMS_VIDEO_ENHANCEMENT_MESSAGE)
+    }
+    return EnhancementSessionDecorator.Builder(getApplication(), baseGlFactory)
+      .setTonemappingEnabled(settings.gmsTonemappingEnabled)
+      .setDeblurAndDenoiseVideoEnabled(settings.gmsDeblurAndDenoiseEnabled)
+      .setUpscaleVideoEnabled(settings.gmsUpscaleVideoEnabled)
+      .build()
   }
 
   private fun releasePlayer() {

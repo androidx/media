@@ -249,6 +249,54 @@ internal fun CompositionPreviewPane(
         )
       }
 
+      if (uiState.outputSettingsState.frameProcessorEnabled) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.SpaceBetween,
+          modifier = Modifier.fillMaxWidth(),
+        ) {
+          Column {
+            Text(
+              text = stringResource(R.string.enable_gms_video_enhancement),
+              modifier = Modifier.textPadding(),
+            )
+            if (SDK_INT < 33) {
+              Text(
+                text = stringResource(R.string.api_33_required_gms_video_enhancement),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.textPadding(),
+              )
+            }
+          }
+          Switch(
+            checked = uiState.outputSettingsState.gmsVideoEnhancementEnabled,
+            onCheckedChange = { isEnabled ->
+              viewModel.onGmsVideoEnhancementEnabledChanged(isEnabled)
+            },
+            enabled = SDK_INT >= 33,
+          )
+        }
+
+        if (uiState.outputSettingsState.gmsVideoEnhancementEnabled && SDK_INT >= 33) {
+          IndentedSwitchRow(
+            text = stringResource(R.string.enable_tonemapping),
+            checked = uiState.outputSettingsState.gmsTonemappingEnabled,
+            onCheckedChange = viewModel::onGmsTonemappingEnabledChanged,
+          )
+          IndentedSwitchRow(
+            text = stringResource(R.string.enable_deblur_and_denoise),
+            checked = uiState.outputSettingsState.gmsDeblurAndDenoiseEnabled,
+            onCheckedChange = viewModel::onGmsDeblurAndDenoiseEnabledChanged,
+          )
+          IndentedSwitchRow(
+            text = stringResource(R.string.enable_upscale),
+            checked = uiState.outputSettingsState.gmsUpscaleVideoEnabled,
+            onCheckedChange = viewModel::onGmsUpscaleVideoEnabledChanged,
+          )
+        }
+      }
+
       Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -291,6 +339,18 @@ internal fun CompositionPreviewPane(
         Text(text = stringResource(R.string.export_settings))
       }
     }
+  }
+}
+
+@Composable
+private fun IndentedSwitchRow(text: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+  Row(
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.SpaceBetween,
+    modifier = Modifier.fillMaxWidth().padding(start = MaterialTheme.spacing.standard),
+  ) {
+    Text(text = text, modifier = Modifier.textPadding())
+    Switch(checked = checked, onCheckedChange = onCheckedChange)
   }
 }
 
