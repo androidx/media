@@ -13,46 +13,49 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.effect.ndk;
+package androidx.media3.effect;
+
+import static com.google.common.base.Preconditions.checkState;
 
 import android.graphics.Bitmap;
 import android.hardware.HardwareBuffer;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.ExperimentalApi;
-import androidx.media3.effect.HardwareBufferJniWrapper;
+import androidx.media3.common.util.LibraryLoader;
 
 /** JNI methods for HardwareBuffer interaction. */
 @RequiresApi(26)
 @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
 public final class HardwareBufferJni implements HardwareBufferJniWrapper {
 
+  private static final LibraryLoader LOADER =
+      new LibraryLoader("media3EffectJNI") {
+        @Override
+        protected void loadLibrary(String name) {
+          System.loadLibrary(name);
+        }
+      };
+
   public static final HardwareBufferJni INSTANCE = new HardwareBufferJni();
 
-  private HardwareBufferJni() {}
+  private HardwareBufferJni() {
+    checkState(LOADER.isAvailable());
+  }
 
   /** Creates an EGLImage from a {@link HardwareBuffer}. */
   @Override
-  public long nativeCreateEglImageFromHardwareBuffer(
-      long displayHandle, HardwareBuffer hardwareBuffer) {
-    return androidx.media3.effect.HardwareBufferJni.INSTANCE.nativeCreateEglImageFromHardwareBuffer(
-        displayHandle, hardwareBuffer);
-  }
+  public native long nativeCreateEglImageFromHardwareBuffer(
+      long displayHandle, HardwareBuffer hardwareBuffer);
 
   /**
    * Binds an EGLImage to the specified texture target. Returns whether the binding is successful.
    */
   @Override
-  public boolean nativeBindEGLImage(int target, long eglImageHandle) {
-    return androidx.media3.effect.HardwareBufferJni.INSTANCE.nativeBindEGLImage(
-        target, eglImageHandle);
-  }
+  public native boolean nativeBindEGLImage(int target, long eglImageHandle);
 
   /** Destroys an EGLImage. Returns whether the deletion is successful. */
   @Override
-  public boolean nativeDestroyEGLImage(long displayHandle, long imageHandle) {
-    return androidx.media3.effect.HardwareBufferJni.INSTANCE.nativeDestroyEGLImage(
-        displayHandle, imageHandle);
-  }
+  public native boolean nativeDestroyEGLImage(long displayHandle, long imageHandle);
 
   /**
    * Copies a {@link Bitmap} to a {@link HardwareBuffer}. Returns whether the copy is successful.
@@ -66,10 +69,7 @@ public final class HardwareBufferJni implements HardwareBufferJniWrapper {
    * HardwareBuffer#RGBA_1010102}.
    */
   @Override
-  public boolean nativeCopyBitmapToHardwareBuffer(Bitmap bitmap, HardwareBuffer hb) {
-    return androidx.media3.effect.HardwareBufferJni.INSTANCE.nativeCopyBitmapToHardwareBuffer(
-        bitmap, hb);
-  }
+  public native boolean nativeCopyBitmapToHardwareBuffer(Bitmap bitmap, HardwareBuffer hb);
 
   /**
    * Copies the contents of a source {@link HardwareBuffer} to a destination {@link HardwareBuffer}.
@@ -83,9 +83,6 @@ public final class HardwareBufferJni implements HardwareBufferJniWrapper {
    * HardwareBuffer#RGBA_8888} or {@link HardwareBuffer#RGBA_1010102}.
    */
   @Override
-  public boolean nativeCopyHardwareBufferToHardwareBuffer(
-      HardwareBuffer srcHb, HardwareBuffer dstHb) {
-    return androidx.media3.effect.HardwareBufferJni.INSTANCE
-        .nativeCopyHardwareBufferToHardwareBuffer(srcHb, dstHb);
-  }
+  public native boolean nativeCopyHardwareBufferToHardwareBuffer(
+      HardwareBuffer srcHb, HardwareBuffer dstHb);
 }

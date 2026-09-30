@@ -22,6 +22,17 @@ plugins {
 android {
   namespace = "androidx.media3.effect"
 
+  defaultConfig {
+    externalNativeBuild {
+      cmake {
+        arguments.add("-DANDROID_WEAK_API_DEFS=ON")
+        arguments.add("-Werror=unguarded-availability")
+        targets.add("media3EffectJNI")
+      }
+    }
+  }
+  externalNativeBuild { cmake { path = file("src/main/jni/CMakeLists.txt") } }
+
   sourceSets {
     getByName("androidTest").assets.directories.add("../test_data/src/test/assets/")
     getByName("test").assets.directories.add("../test_data/src/test/assets/")

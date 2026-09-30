@@ -1,0 +1,9 @@
+# Proguard rules specific to the effect module.
+
+# This prevents the class name and native methods registered in JNI_OnLoad from
+# being shrunk or obfuscated when HardwareBufferJni is used, while allowing
+# HardwareBufferJni to be shrunk when unused.
+-keepnames class androidx.media3.effect.HardwareBufferJni
+-keepclassmembers,includedescriptorclasses class androidx.media3.effect.HardwareBufferJni {
+    native <methods>;
+}

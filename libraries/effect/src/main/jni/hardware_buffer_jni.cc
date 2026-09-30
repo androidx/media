@@ -344,7 +344,7 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
     return -1;
   }
 
-  jclass clazz = env->FindClass("androidx/media3/effect/ndk/HardwareBufferJni");
+  jclass clazz = env->FindClass("androidx/media3/effect/HardwareBufferJni");
   if (!clazz) {
     LOGE("JNI_OnLoad: FindClass failed for HardwareBufferJni");
     return -1;

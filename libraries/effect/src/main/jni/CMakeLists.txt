@@ -19,7 +19,7 @@ cmake_minimum_required(VERSION 3.21.0 FATAL_ERROR)
 # Enable C++11 features.
 set(CMAKE_CXX_STANDARD 11)
 
-project(hardwareBufferJNI C CXX)
+project(media3EffectJNI C CXX)
 
 # Add the NDK libraries
 find_library(log-lib log)

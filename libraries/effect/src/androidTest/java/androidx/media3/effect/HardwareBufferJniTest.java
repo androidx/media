@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.effect.ndk;
+package androidx.media3.effect;
 
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
 import static com.google.common.truth.Truth.assertThat;
@@ -217,7 +217,7 @@ public final class HardwareBufferJniTest {
   }
 
   @Test
-  @SdkSuppress(maxSdkVersion = 32)
+  @SdkSuppress(minSdkVersion = 28, maxSdkVersion = 32)
   public void nativeCopyHardwareBufferToHardwareBuffer_rgba1010102BelowApi33_returnsTrue()
       throws Exception {
     // The methods to access the HDR bitmap do not exist below API 33, so just assert copying the

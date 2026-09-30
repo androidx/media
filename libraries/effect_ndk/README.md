@@ -1,7 +1,9 @@
-# Effect NDK module
+# Effect NDK module (deprecated)
 
 Provides functionality for `lib-effect`, that depends on native code.
-Application code will not normally need to depend on this module directly.
+
+Deprecated: This module is deprecated. All functionality has been moved to
+`lib-effect`. Application code should depend on `lib-effect` directly.
 
 ## Links
 

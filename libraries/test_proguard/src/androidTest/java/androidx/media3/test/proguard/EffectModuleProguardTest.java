@@ -20,13 +20,13 @@ import androidx.test.filters.SdkSuppress;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Unit test executing methods in {@link EffectNdkModuleProguard}. */
+/** Unit test executing methods in {@link EffectModuleProguard}. */
 @SdkSuppress(minSdkVersion = 26)
 @RunWith(AndroidJUnit4.class)
-public final class EffectNdkModuleProguardTest {
+public final class EffectModuleProguardTest {
 
   @Test
   public void bindEglImage_succeeds() {
-    EffectNdkModuleProguard.bindEglImage();
+    EffectModuleProguard.bindEglImage();
   }
 }

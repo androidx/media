@@ -19,16 +19,14 @@ import static androidx.annotation.VisibleForTesting.NONE;
 
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
-import androidx.media3.effect.ndk.HardwareBufferJni;
+import androidx.media3.effect.HardwareBufferJni;
 
-/**
- * Class exercising native code in the Effect NDK module that relies on a correct proguard config.
- */
+/** Class exercising native code in the Effect module that relies on a correct proguard config. */
 @RequiresApi(26)
 @VisibleForTesting(otherwise = NONE)
-public final class EffectNdkModuleProguard {
+public final class EffectModuleProguard {
 
-  private EffectNdkModuleProguard() {}
+  private EffectModuleProguard() {}
 
   /** Exercises {@link HardwareBufferJni} that relies on unobfuscated native method names. */
   public static void bindEglImage() {
