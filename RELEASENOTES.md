@@ -217,6 +217,10 @@
         `IllegalStateException` crash.
     *   Fix issue where seeking backward while a seek is already pending could
         cause audio dropout and video playback freeze.
+    *   Fix an issue where H.264 and H.265 keyframe access units ending with an
+        aggregation or non-IDR packet were not flagged as keyframes, causing
+        playback to remain stuck in buffering
+        ([#3434](https://github.com/androidx/media/issues/3434)).
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
 *   MIDI extension:
 *   Leanback extension:

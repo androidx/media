@@ -199,7 +199,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     fragmentedSampleSizeBytes += numBytesInData;
 
     int nalHeaderType = (data.getData()[0] >> 1) & 0x3F;
-    bufferFlags = getBufferFlagsFromNalType(nalHeaderType);
+    bufferFlags |= getBufferFlagsFromNalType(nalHeaderType);
   }
 
   /**
@@ -317,6 +317,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         // Interruption: A new FU started before the previous one finished.
         isCurrentAccessUnitCorrupted = true;
         fragmentedSampleSizeBytes = 0;
+        return;
       }
       isProcessingFragmentationUnit = true;
       // Prepends starter code.
@@ -332,7 +333,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       fuScratchBuffer.getData()[2] = (byte) tid;
       fuScratchBuffer.setPosition(1);
     } else {
-      if (isCurrentAccessUnitCorrupted) {
+      if (isCurrentAccessUnitCorrupted || !isProcessingFragmentationUnit) {
+        isCurrentAccessUnitCorrupted = true;
         return;
       }
       // Check that this packet is in the sequence of the previous packet.
@@ -359,7 +361,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
     if (isLastFuPacket) {
       isProcessingFragmentationUnit = false;
-      bufferFlags = getBufferFlagsFromNalType(nalUnitType);
+      bufferFlags |= getBufferFlagsFromNalType(nalUnitType);
     }
   }
 

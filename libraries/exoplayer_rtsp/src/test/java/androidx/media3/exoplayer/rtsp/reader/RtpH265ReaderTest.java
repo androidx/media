@@ -518,6 +518,60 @@ public class RtpH265ReaderTest {
   }
 
   @Test
+  public void consume_corruptedIdrAccessUnitWithMarker_resetsKeyFrameFlagForNextAccessUnit()
+      throws ParserException {
+    long corruptedAuTimestamp = 9_000_000;
+    long nextAuTimestamp = 9_003_000;
+    // Packet 1: Valid IDR Single NALU (type 20, NAL_IDR_N_LP -> 0x2801) before the corrupted FU.
+    RtpPacket idrSingleNalu =
+        new RtpPacket.Builder()
+            .setTimestamp(corruptedAuTimestamp)
+            .setSequenceNumber(PACKET_SEQUENCE_NUMBER - 1)
+            .setMarker(false)
+            .setPayloadData(
+                ImmutableByteArray.concatToArray(
+                    ImmutableByteArray.ofHexString("2801"), NALU_1_PAYLOAD))
+            .build();
+    // Packet 2: FU Start.
+    RtpPacket fuStart =
+        createFragmentedPacket(
+            PACKET_SEQUENCE_NUMBER,
+            corruptedAuTimestamp,
+            /* marker= */ false,
+            FU_1_PACKET_1_FU_HEADER,
+            FU_1_PACKET_1_NALU_PAYLOAD);
+    // Packet 3: MISSING (Simulated loss)
+    // Packet 4: Valid Single NALU in same AU (Marker True).
+    RtpPacket singleNalu =
+        new RtpPacket.Builder()
+            .setTimestamp(corruptedAuTimestamp)
+            .setSequenceNumber(PACKET_SEQUENCE_NUMBER + 2) // Gap of 1
+            .setMarker(true)
+            .setPayloadData(ImmutableByteArray.concatToArray(NALU_1_HEADER, NALU_1_PAYLOAD))
+            .build();
+    // Next Access Unit: Valid non-IDR Single NALU.
+    RtpPacket nextAuNonIdr =
+        new RtpPacket.Builder()
+            .setTimestamp(nextAuTimestamp)
+            .setSequenceNumber(PACKET_SEQUENCE_NUMBER + 3)
+            .setMarker(true)
+            .setPayloadData(ImmutableByteArray.concatToArray(NALU_1_HEADER, NALU_1_PAYLOAD))
+            .build();
+    rtpH265Reader.createTracks(extractorOutput, /* trackId= */ 0);
+    rtpH265Reader.onReceivingFirstPacket(idrSingleNalu.timestamp, idrSingleNalu.sequenceNumber);
+
+    consume(rtpH265Reader, idrSingleNalu);
+    consume(rtpH265Reader, fuStart);
+    consume(rtpH265Reader, singleNalu);
+    consume(rtpH265Reader, nextAuNonIdr);
+
+    FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);
+    assertThat(trackOutput.getSampleCount()).isEqualTo(1);
+    assertThat(trackOutput.getSampleData(0)).isEqualTo(NALU_1_START_DELIMITED.toArray());
+    assertThat(trackOutput.getSampleFlags(0)).isEqualTo(0);
+  }
+
+  @Test
   public void consume_fragmentationUnitContinuationAtAccessUnitStart_discardsWholeSample()
       throws ParserException {
     long auTimestamp = 9_000_000;
@@ -577,11 +631,80 @@ public class RtpH265ReaderTest {
   }
 
   @Test
-  public void seek_resetsStateCorrectly() throws ParserException {
-    long seekTimeUs = 1_000_000;
+  public void consume_newAccessUnit_resetsStateCorrectly() throws ParserException {
+    // IDR NALU header: type 20 (NAL_IDR_N_LP) -> (20 << 1) = 0x28, TID = 1 -> 0x2801.
+    ImmutableByteArray idrNLpHeader = ImmutableByteArray.ofHexString("2801");
+    RtpPacket packet1 =
+        new RtpPacket.Builder()
+            .setTimestamp(9000)
+            .setSequenceNumber(PACKET_SEQUENCE_NUMBER)
+            .setMarker(false)
+            .setPayloadData(ImmutableByteArray.concatToArray(NALU_1_HEADER, NALU_1_PAYLOAD))
+            .build();
+    RtpPacket packet2 =
+        new RtpPacket.Builder()
+            .setTimestamp(9000)
+            .setSequenceNumber(PACKET_SEQUENCE_NUMBER + 1)
+            .setMarker(true)
+            .setPayloadData(ImmutableByteArray.concatToArray(idrNLpHeader, NALU_1_PAYLOAD))
+            .build();
+    RtpPacket incompleteIdrNalu =
+        new RtpPacket.Builder()
+            .setTimestamp(18000)
+            .setSequenceNumber(PACKET_SEQUENCE_NUMBER + 2)
+            .setMarker(false)
+            .setPayloadData(ImmutableByteArray.concatToArray(idrNLpHeader, NALU_1_PAYLOAD))
+            .build();
     RtpPacket fuContinuation =
         createFragmentedPacket(
-            PACKET_SEQUENCE_NUMBER,
+            PACKET_SEQUENCE_NUMBER + 3,
+            18000,
+            /* marker= */ false,
+            FU_1_PACKET_2_FU_HEADER, // S=0, E=0
+            FU_1_PACKET_2_NALU_PAYLOAD);
+    RtpPacket packet3 =
+        new RtpPacket.Builder()
+            .setTimestamp(27000)
+            .setSequenceNumber(PACKET_SEQUENCE_NUMBER + 4)
+            .setMarker(true)
+            .setPayloadData(ImmutableByteArray.concatToArray(NALU_1_HEADER, NALU_1_PAYLOAD))
+            .build();
+    rtpH265Reader.createTracks(extractorOutput, /* trackId= */ 0);
+
+    // Access Unit 1: Two packets (second is IDR).
+    consume(rtpH265Reader, packet1);
+    consume(rtpH265Reader, packet2);
+    // Access Unit 2: IDR packet followed by FU continuation without FU start (corrupted, no
+    // marker).
+    consume(rtpH265Reader, incompleteIdrNalu);
+    consume(rtpH265Reader, fuContinuation);
+    // Access Unit 3: One non-IDR packet with different timestamp.
+    consume(rtpH265Reader, packet3);
+
+    FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);
+    assertThat(trackOutput.getSampleCount()).isEqualTo(2);
+    assertThat(trackOutput.getSampleFlags(0)).isEqualTo(C.BUFFER_FLAG_KEY_FRAME);
+    // Verify sizes and flags are independent (not accumulated across access units).
+    assertThat(trackOutput.getSampleData(1).length).isEqualTo(NALU_1_START_DELIMITED.length());
+    assertThat(trackOutput.getSampleFlags(1)).isEqualTo(0);
+  }
+
+  @Test
+  public void seek_resetsStateCorrectly() throws ParserException {
+    long seekTimeUs = 1_000_000;
+    // IDR NALU header: type 20 (NAL_IDR_N_LP) -> (20 << 1) = 0x28, TID = 1 -> 0x2801.
+    RtpPacket incompleteIdrNalu =
+        new RtpPacket.Builder()
+            .setTimestamp(9000)
+            .setSequenceNumber(PACKET_SEQUENCE_NUMBER)
+            .setMarker(false)
+            .setPayloadData(
+                ImmutableByteArray.concatToArray(
+                    ImmutableByteArray.ofHexString("2801"), NALU_1_PAYLOAD))
+            .build();
+    RtpPacket fuContinuation =
+        createFragmentedPacket(
+            PACKET_SEQUENCE_NUMBER + 1,
             9000,
             /* marker= */ false,
             FU_1_PACKET_2_FU_HEADER, // S=0, E=0
@@ -589,11 +712,12 @@ public class RtpH265ReaderTest {
     RtpPacket singleNalu =
         new RtpPacket.Builder()
             .setTimestamp(18000)
-            .setSequenceNumber(PACKET_SEQUENCE_NUMBER + 1)
+            .setSequenceNumber(PACKET_SEQUENCE_NUMBER + 2)
             .setMarker(true)
             .setPayloadData(ImmutableByteArray.concatToArray(NALU_1_HEADER, NALU_1_PAYLOAD))
             .build();
     rtpH265Reader.createTracks(extractorOutput, /* trackId= */ 0);
+    consume(rtpH265Reader, incompleteIdrNalu);
     consume(rtpH265Reader, fuContinuation);
 
     rtpH265Reader.seek(/* nextRtpTimestamp= */ 18000, /* timeUs= */ seekTimeUs);
@@ -603,10 +727,247 @@ public class RtpH265ReaderTest {
     assertThat(trackOutput.getSampleCount()).isEqualTo(1);
     assertThat(trackOutput.getSampleData(0).length).isEqualTo(NALU_1_START_DELIMITED.length());
     assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(seekTimeUs);
+    assertThat(trackOutput.getSampleFlags(0)).isEqualTo(0);
+  }
+
+  @Test
+  public void consume_idrFragmentationUnitFollowedByNonIdrAggregationPacket_setsKeyFrameFlag()
+      throws ParserException {
+    long idrAuTimestamp = 9_000_000;
+    long nonIdrAuTimestamp = 9_003_000;
+    // Type 20 (NAL_IDR_N_LP) -> (20 << 1) = 0x28, TID = 1 -> 0x2801.
+    ImmutableByteArray idrNLpHeader = ImmutableByteArray.ofHexString("2801");
+    ImmutableByteArray reconstructedFuIdrNalu =
+        ImmutableByteArray.concat(
+            NALU_START_CODE, idrNLpHeader, FU_1_PACKET_1_NALU_PAYLOAD, FU_1_PACKET_3_NALU_PAYLOAD);
+    // Access Unit 1: Leading non-IDR AP -> IDR in FU (type 20, NAL_IDR_N_LP) -> trailing non-IDR
+    // AP (marker = true).
+    RtpPacket apNonIdrStart =
+        createAggregationPacket(
+            /* sequenceNumber= */ 100,
+            idrAuTimestamp,
+            /* marker= */ false,
+            NALU_1_LENGTH,
+            NALU_1_HEADER,
+            NALU_1_PAYLOAD,
+            NALU_2_LENGTH,
+            NALU_2_HEADER,
+            NALU_2_PAYLOAD);
+    RtpPacket fuIdrStart =
+        createFragmentedPacket(
+            /* sequenceNumber= */ 101,
+            idrAuTimestamp,
+            /* marker= */ false,
+            ImmutableByteArray.ofHexString("94"), // S=1, E=0, NALU type 20 (NAL_IDR_N_LP)
+            FU_1_PACKET_1_NALU_PAYLOAD);
+    RtpPacket fuIdrEnd =
+        createFragmentedPacket(
+            /* sequenceNumber= */ 102,
+            idrAuTimestamp,
+            /* marker= */ false,
+            ImmutableByteArray.ofHexString("54"), // S=0, E=1, NALU type 20 (NAL_IDR_N_LP)
+            FU_1_PACKET_3_NALU_PAYLOAD);
+    RtpPacket apNonIdrEnd =
+        createAggregationPacket(
+            /* sequenceNumber= */ 103,
+            idrAuTimestamp,
+            /* marker= */ true,
+            NALU_1_LENGTH,
+            NALU_1_HEADER,
+            NALU_1_PAYLOAD,
+            NALU_2_LENGTH,
+            NALU_2_HEADER,
+            NALU_2_PAYLOAD);
+    // Access Unit 2: Multi-packet non-IDR Access Unit combining AP, FU, and Single NALU to verify
+    // bufferFlags resets after marker and stays 0 across all non-IDR packetization modes.
+    RtpPacket nextAuApNonIdr =
+        createAggregationPacket(
+            /* sequenceNumber= */ 104,
+            nonIdrAuTimestamp,
+            /* marker= */ false,
+            NALU_1_LENGTH,
+            NALU_1_HEADER,
+            NALU_1_PAYLOAD,
+            NALU_2_LENGTH,
+            NALU_2_HEADER,
+            NALU_2_PAYLOAD);
+    RtpPacket nextAuFuNonIdrStart =
+        createFragmentedPacket(
+            /* sequenceNumber= */ 105,
+            nonIdrAuTimestamp,
+            /* marker= */ false,
+            FU_1_PACKET_1_FU_HEADER,
+            FU_1_PACKET_1_NALU_PAYLOAD);
+    RtpPacket nextAuFuNonIdrMiddle =
+        createFragmentedPacket(
+            /* sequenceNumber= */ 106,
+            nonIdrAuTimestamp,
+            /* marker= */ false,
+            FU_1_PACKET_2_FU_HEADER,
+            FU_1_PACKET_2_NALU_PAYLOAD);
+    RtpPacket nextAuFuNonIdrEnd =
+        createFragmentedPacket(
+            /* sequenceNumber= */ 107,
+            nonIdrAuTimestamp,
+            /* marker= */ false,
+            FU_1_PACKET_3_FU_HEADER,
+            FU_1_PACKET_3_NALU_PAYLOAD);
+    RtpPacket nextAuNonIdrSingleNalu =
+        new RtpPacket.Builder()
+            .setTimestamp(nonIdrAuTimestamp)
+            .setSequenceNumber(108)
+            .setMarker(true)
+            .setPayloadData(ImmutableByteArray.concatToArray(NALU_1_HEADER, NALU_1_PAYLOAD))
+            .build();
+    rtpH265Reader.createTracks(extractorOutput, /* trackId= */ 0);
+
+    consume(rtpH265Reader, apNonIdrStart);
+    consume(rtpH265Reader, fuIdrStart);
+    consume(rtpH265Reader, fuIdrEnd);
+    consume(rtpH265Reader, apNonIdrEnd);
+    consume(rtpH265Reader, nextAuApNonIdr);
+    consume(rtpH265Reader, nextAuFuNonIdrStart);
+    consume(rtpH265Reader, nextAuFuNonIdrMiddle);
+    consume(rtpH265Reader, nextAuFuNonIdrEnd);
+    consume(rtpH265Reader, nextAuNonIdrSingleNalu);
+
+    FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);
+    assertThat(trackOutput.getSampleCount()).isEqualTo(2);
+    assertThat(trackOutput.getSampleFlags(0)).isEqualTo(C.BUFFER_FLAG_KEY_FRAME);
+    assertThat(trackOutput.getSampleData(0))
+        .isEqualTo(
+            ImmutableByteArray.concat(
+                    NALU_1_AND_2_START_DELIMITED,
+                    reconstructedFuIdrNalu,
+                    NALU_1_AND_2_START_DELIMITED)
+                .toArray());
+    assertThat(trackOutput.getSampleFlags(1)).isEqualTo(0);
+    assertThat(trackOutput.getSampleData(1))
+        .isEqualTo(
+            ImmutableByteArray.concat(
+                    NALU_1_AND_2_START_DELIMITED, NALU_1_START_DELIMITED, NALU_1_START_DELIMITED)
+                .toArray());
+  }
+
+  @Test
+  public void consume_aggregationPacketWithIdrAndTrailingNonIdrNalus_setsKeyFrameFlag()
+      throws ParserException {
+    long auTimestamp = 9_000_000;
+    // Type 19 (NAL_IDR_W_RADL) -> (19 << 1) = 0x26, TID = 1 -> 0x2601.
+    ImmutableByteArray idrWRadlHeader = ImmutableByteArray.ofHexString("2601");
+    ImmutableByteArray idrWRadlStartDelimited =
+        ImmutableByteArray.concat(NALU_START_CODE, idrWRadlHeader, NALU_1_PAYLOAD);
+    // IDR in middle of 3-NALU AP (non-IDR NALU_1 -> type 19 NAL_IDR_W_RADL -> non-IDR NALU_1),
+    // followed by a trailing non-IDR Single NALU (marker = true).
+    RtpPacket apNonIdrThenIdrThenNonIdr =
+        createAggregationPacket(
+            /* sequenceNumber= */ 100,
+            auTimestamp,
+            /* marker= */ false,
+            NALU_1_LENGTH,
+            NALU_1_HEADER,
+            NALU_1_PAYLOAD,
+            NALU_1_LENGTH,
+            idrWRadlHeader,
+            NALU_1_PAYLOAD,
+            NALU_1_LENGTH,
+            NALU_1_HEADER,
+            NALU_1_PAYLOAD);
+    RtpPacket nonIdrSingleNaluEnd =
+        new RtpPacket.Builder()
+            .setTimestamp(auTimestamp)
+            .setSequenceNumber(101)
+            .setMarker(true)
+            .setPayloadData(ImmutableByteArray.concatToArray(NALU_1_HEADER, NALU_1_PAYLOAD))
+            .build();
+    rtpH265Reader.createTracks(extractorOutput, /* trackId= */ 0);
+
+    consume(rtpH265Reader, apNonIdrThenIdrThenNonIdr);
+    consume(rtpH265Reader, nonIdrSingleNaluEnd);
+
+    FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);
+    assertThat(trackOutput.getSampleCount()).isEqualTo(1);
+    assertThat(trackOutput.getSampleFlags(0)).isEqualTo(C.BUFFER_FLAG_KEY_FRAME);
+    assertThat(trackOutput.getSampleData(0))
+        .isEqualTo(
+            ImmutableByteArray.concat(
+                    NALU_1_START_DELIMITED,
+                    idrWRadlStartDelimited,
+                    NALU_1_START_DELIMITED,
+                    NALU_1_START_DELIMITED)
+                .toArray());
+  }
+
+  @Test
+  public void consume_idrSingleNaluFollowedByNonIdrFragmentationUnit_setsKeyFrameFlag()
+      throws ParserException {
+    long auTimestamp = 9_000_000;
+    // Type 20 (NAL_IDR_N_LP) -> (20 << 1) = 0x28, TID = 1 -> 0x2801.
+    ImmutableByteArray idrNLpHeader = ImmutableByteArray.ofHexString("2801");
+    ImmutableByteArray idrNLpStartDelimited =
+        ImmutableByteArray.concat(NALU_START_CODE, idrNLpHeader, NALU_1_PAYLOAD);
+    // Leading non-IDR Single NALU -> IDR in Single NALU (type 20, NAL_IDR_N_LP) -> trailing non-IDR
+    // FU (marker = true).
+    RtpPacket nonIdrSingleNaluStart =
+        new RtpPacket.Builder()
+            .setTimestamp(auTimestamp)
+            .setSequenceNumber(100)
+            .setMarker(false)
+            .setPayloadData(ImmutableByteArray.concatToArray(NALU_1_HEADER, NALU_1_PAYLOAD))
+            .build();
+    RtpPacket idrSingleNalu =
+        new RtpPacket.Builder()
+            .setTimestamp(auTimestamp)
+            .setSequenceNumber(101)
+            .setMarker(false)
+            .setPayloadData(ImmutableByteArray.concatToArray(idrNLpHeader, NALU_1_PAYLOAD))
+            .build();
+    RtpPacket fuNonIdrStart =
+        createFragmentedPacket(
+            /* sequenceNumber= */ 102,
+            auTimestamp,
+            /* marker= */ false,
+            FU_1_PACKET_1_FU_HEADER,
+            FU_1_PACKET_1_NALU_PAYLOAD);
+    RtpPacket fuNonIdrMiddle =
+        createFragmentedPacket(
+            /* sequenceNumber= */ 103,
+            auTimestamp,
+            /* marker= */ false,
+            FU_1_PACKET_2_FU_HEADER,
+            FU_1_PACKET_2_NALU_PAYLOAD);
+    RtpPacket fuNonIdrEnd =
+        createFragmentedPacket(
+            /* sequenceNumber= */ 104,
+            auTimestamp,
+            /* marker= */ true,
+            FU_1_PACKET_3_FU_HEADER,
+            FU_1_PACKET_3_NALU_PAYLOAD);
+    rtpH265Reader.createTracks(extractorOutput, /* trackId= */ 0);
+
+    consume(rtpH265Reader, nonIdrSingleNaluStart);
+    consume(rtpH265Reader, idrSingleNalu);
+    consume(rtpH265Reader, fuNonIdrStart);
+    consume(rtpH265Reader, fuNonIdrMiddle);
+    consume(rtpH265Reader, fuNonIdrEnd);
+
+    FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);
+    assertThat(trackOutput.getSampleCount()).isEqualTo(1);
+    assertThat(trackOutput.getSampleFlags(0)).isEqualTo(C.BUFFER_FLAG_KEY_FRAME);
+    assertThat(trackOutput.getSampleData(0))
+        .isEqualTo(
+            ImmutableByteArray.concat(
+                    NALU_1_START_DELIMITED, idrNLpStartDelimited, NALU_1_START_DELIMITED)
+                .toArray());
   }
 
   private static RtpPacket createAggregationPacket(
       int sequenceNumber, long timeStamp, ImmutableByteArray... nalUnits) {
+    return createAggregationPacket(sequenceNumber, timeStamp, /* marker= */ true, nalUnits);
+  }
+
+  private static RtpPacket createAggregationPacket(
+      int sequenceNumber, long timeStamp, boolean marker, ImmutableByteArray... nalUnits) {
     ImmutableByteArray.Builder payloadData =
         new ImmutableByteArray.Builder().addAll(AP_NALU_HEADER);
     for (ImmutableByteArray nalUnit : nalUnits) {
@@ -615,7 +976,7 @@ public class RtpH265ReaderTest {
     return new RtpPacket.Builder()
         .setTimestamp(timeStamp)
         .setSequenceNumber(sequenceNumber)
-        .setMarker(true)
+        .setMarker(marker)
         .setPayloadData(payloadData.build().toArray())
         .build();
   }
