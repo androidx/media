@@ -15,6 +15,7 @@
  */
 package androidx.media3.common.video;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -22,9 +23,9 @@ import android.hardware.HardwareBuffer;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.RestrictTo;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
-import androidx.media3.common.util.ExperimentalApi;
 import java.util.ArrayDeque;
 import java.util.Queue;
 
@@ -37,7 +38,7 @@ import java.util.Queue;
  *
  * <p>Methods can be called from any thread.
  */
-@ExperimentalApi // TODO: b/498176910 - Remove once Frame is production ready.
+@RestrictTo(LIBRARY_GROUP)
 @RequiresApi(26)
 public final class HardwareBufferPool {
 
