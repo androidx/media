@@ -88,7 +88,6 @@ import androidx.media3.common.Player.RepeatMode;
 import androidx.media3.common.Rating;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaSession.ControllerCb;
 import androidx.media3.session.MediaSession.ControllerInfo;
@@ -109,6 +108,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
@@ -1404,11 +1404,13 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     private String lastMediaId;
     @Nullable private Uri lastMediaUri;
     private long lastDurationMs;
+    private ArrayMap<ByteArrayKey, ListenableFuture<Bitmap>> queueBitmapFutures;
 
     public ControllerLegacyCbForBroadcast() {
       lastMediaMetadata = MediaMetadata.EMPTY;
       lastMediaId = MediaItem.DEFAULT_MEDIA_ID;
       lastDurationMs = C.TIME_UNSET;
+      queueBitmapFutures = new ArrayMap<>();
     }
 
     /**
@@ -1649,52 +1651,67 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       updateMetadataIfChanged();
     }
 
+    @SuppressWarnings("FutureReturnValueIgnored")
     private void updateQueue(Timeline timeline) {
       if (!isQueueEnabled() || timeline.isEmpty()) {
+        queueBitmapFutures = new ArrayMap<>();
         setQueue(sessionCompat, /* queue= */ null);
         return;
       }
       List<MediaItem> mediaItemList = LegacyConversions.convertToMediaItemList(timeline);
-      List<@NullableType ListenableFuture<Bitmap>> bitmapFutures = new ArrayList<>();
-      final AtomicInteger resultCount = new AtomicInteger(0);
+      // Reuse bitmap futures for identical artwork within this update and from the previous one.
+      ArrayMap<ByteArrayKey, ListenableFuture<Bitmap>> newQueueBitmapFutures = new ArrayMap<>();
+      for (int i = 0; i < mediaItemList.size(); i++) {
+        @Nullable byte[] artworkData = mediaItemList.get(i).mediaMetadata.artworkData;
+        if (artworkData == null) {
+          continue;
+        }
+        ByteArrayKey key = new ByteArrayKey(artworkData);
+        if (!newQueueBitmapFutures.containsKey(key)) {
+          @Nullable ListenableFuture<Bitmap> bitmapFuture = queueBitmapFutures.get(key);
+          if (bitmapFuture == null || bitmapFuture.isCancelled()) {
+            bitmapFuture = sessionImpl.getBitmapLoader().decodeBitmap(artworkData);
+          }
+          newQueueBitmapFutures.put(key, bitmapFuture);
+        }
+      }
+      queueBitmapFutures = newQueueBitmapFutures;
+      if (newQueueBitmapFutures.isEmpty()) {
+        handleBitmapFuturesAllCompletedAndSetQueue(newQueueBitmapFutures, mediaItemList);
+        return;
+      }
+      AtomicInteger resultCount = new AtomicInteger(0);
       Runnable handleBitmapFuturesTask =
           () -> {
             int completedBitmapFutureCount = resultCount.incrementAndGet();
-            if (completedBitmapFutureCount == mediaItemList.size()) {
-              handleBitmapFuturesAllCompletedAndSetQueue(bitmapFutures, mediaItemList);
+            if (completedBitmapFutureCount == newQueueBitmapFutures.size()) {
+              handleBitmapFuturesAllCompletedAndSetQueue(newQueueBitmapFutures, mediaItemList);
             }
           };
-
-      for (int i = 0; i < mediaItemList.size(); i++) {
-        MediaItem mediaItem = mediaItemList.get(i);
-        MediaMetadata metadata = mediaItem.mediaMetadata;
-        if (metadata.artworkData == null) {
-          bitmapFutures.add(null);
-          handleBitmapFuturesTask.run();
-        } else {
-          ListenableFuture<Bitmap> bitmapFuture =
-              sessionImpl.getBitmapLoader().decodeBitmap(metadata.artworkData);
-          bitmapFutures.add(bitmapFuture);
-          bitmapFuture.addListener(
-              handleBitmapFuturesTask, sessionImpl.getApplicationHandler()::post);
-        }
+      for (int i = 0; i < newQueueBitmapFutures.size(); i++) {
+        newQueueBitmapFutures
+            .valueAt(i)
+            .addListener(handleBitmapFuturesTask, sessionImpl.getApplicationHandler()::post);
       }
     }
 
     private void handleBitmapFuturesAllCompletedAndSetQueue(
-        List<@NullableType ListenableFuture<Bitmap>> bitmapFutures, List<MediaItem> mediaItems) {
+        ArrayMap<ByteArrayKey, ListenableFuture<Bitmap>> bitmapFutures,
+        List<MediaItem> mediaItems) {
       List<QueueItem> queueItemList = new ArrayList<>();
-      for (int i = 0; i < bitmapFutures.size(); i++) {
-        @Nullable ListenableFuture<Bitmap> future = bitmapFutures.get(i);
+      for (int i = 0; i < mediaItems.size(); i++) {
+        MediaItem mediaItem = mediaItems.get(i);
+        @Nullable byte[] artworkData = mediaItem.mediaMetadata.artworkData;
         @Nullable Bitmap bitmap = null;
-        if (future != null) {
+        if (artworkData != null) {
           try {
-            bitmap = Futures.getDone(future);
+            bitmap =
+                Futures.getDone(checkNotNull(bitmapFutures.get(new ByteArrayKey(artworkData))));
           } catch (CancellationException | ExecutionException e) {
             Log.d(TAG, "Failed to get bitmap", e);
           }
         }
-        queueItemList.add(LegacyConversions.convertToQueueItem(mediaItems.get(i), i, bitmap));
+        queueItemList.add(LegacyConversions.convertToQueueItem(mediaItem, i, bitmap));
       }
 
       // Framework MediaSession#setQueue() uses ParceledListSlice,
@@ -1843,6 +1860,33 @@ import org.checkerframework.checker.initialization.qual.Initialized;
           sessionCompat,
           LegacyConversions.convertToMediaMetadataCompat(
               newMediaMetadata, newMediaId, newMediaUri, newDurationMs, artworkBitmap));
+    }
+  }
+
+  /** Map key wrapping a byte array, using content-based equality. */
+  private static final class ByteArrayKey {
+    private final byte[] data;
+    private final int hashCode;
+
+    private ByteArrayKey(byte[] data) {
+      this.data = data;
+      this.hashCode = Arrays.hashCode(data);
+    }
+
+    @Override
+    public boolean equals(@Nullable Object other) {
+      if (this == other) {
+        return true;
+      }
+      if (!(other instanceof ByteArrayKey)) {
+        return false;
+      }
+      return Arrays.equals(data, ((ByteArrayKey) other).data);
+    }
+
+    @Override
+    public int hashCode() {
+      return hashCode;
     }
   }
 

@@ -17,6 +17,8 @@ package androidx.media3.session;
 
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.app.PendingIntent;
@@ -26,17 +28,23 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Bundle;
 import android.support.v4.media.session.PlaybackStateCompat;
+import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
+import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.session.legacy.MediaSessionManager;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import java.io.ByteArrayOutputStream;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
@@ -406,6 +414,127 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
 
     assertThat(testSession.getImpl().isReleased()).isTrue();
     player.release();
+  }
+
+  @Test
+  public void setMediaItems_withDuplicateArtwork_decodesEachUniqueArtworkOnce() {
+    Context context = getApplicationContext();
+    Player player = new TestExoPlayerBuilder(context).build();
+    AtomicInteger decodeCount = new AtomicInteger();
+    MediaSession testSession =
+        new MediaSession.Builder(context, player)
+            .setId("session_duplicate_artwork")
+            .setBitmapLoader(createCountingBitmapLoader(decodeCount))
+            .build();
+    // The current item has no artwork, so only queue artwork is decoded.
+    ImmutableList<MediaItem> mediaItems =
+        ImmutableList.of(
+            createMediaItemWithoutArtwork("item_0"),
+            createMediaItemWithArtwork("item_1", new byte[] {1}),
+            createMediaItemWithArtwork("item_2", new byte[] {2}),
+            createMediaItemWithArtwork("item_3", new byte[] {1}));
+
+    player.setMediaItems(mediaItems);
+    ShadowLooper.idleMainLooper();
+
+    assertThat(decodeCount.get()).isEqualTo(2);
+    testSession.release();
+    player.release();
+  }
+
+  @Test
+  public void addMediaItem_withExistingQueueArtwork_onlyDecodesNewArtwork() {
+    Context context = getApplicationContext();
+    Player player = new TestExoPlayerBuilder(context).build();
+    AtomicInteger decodeCount = new AtomicInteger();
+    MediaSession testSession =
+        new MediaSession.Builder(context, player)
+            .setId("session_add_media_item")
+            .setBitmapLoader(createCountingBitmapLoader(decodeCount))
+            .build();
+    player.setMediaItems(
+        ImmutableList.of(
+            createMediaItemWithoutArtwork("item_0"),
+            createMediaItemWithArtwork("item_1", new byte[] {1}),
+            createMediaItemWithArtwork("item_2", new byte[] {2})));
+    ShadowLooper.idleMainLooper();
+    int decodeCountBeforeAdd = decodeCount.get();
+
+    player.addMediaItem(createMediaItemWithArtwork("item_3", new byte[] {3}));
+    ShadowLooper.idleMainLooper();
+
+    assertThat(decodeCount.get() - decodeCountBeforeAdd).isEqualTo(1);
+    testSession.release();
+    player.release();
+  }
+
+  @Test
+  public void addMediaItem_withArtworkPreviouslyRemovedFromQueue_decodesArtworkAgain() {
+    Context context = getApplicationContext();
+    Player player = new TestExoPlayerBuilder(context).build();
+    AtomicInteger decodeCount = new AtomicInteger();
+    MediaSession testSession =
+        new MediaSession.Builder(context, player)
+            .setId("session_re_add_removed_artwork")
+            .setBitmapLoader(createCountingBitmapLoader(decodeCount))
+            .build();
+    MediaItem mediaItemToReAdd = createMediaItemWithArtwork("item_1", new byte[] {1});
+    player.setMediaItems(
+        ImmutableList.of(
+            createMediaItemWithoutArtwork("item_0"),
+            mediaItemToReAdd,
+            createMediaItemWithArtwork("item_2", new byte[] {2}),
+            createMediaItemWithArtwork("item_3", new byte[] {3})));
+    ShadowLooper.idleMainLooper();
+    player.removeMediaItem(/* index= */ 1);
+    ShadowLooper.idleMainLooper();
+    int decodeCountBeforeAdd = decodeCount.get();
+
+    player.addMediaItem(mediaItemToReAdd);
+    ShadowLooper.idleMainLooper();
+
+    assertThat(decodeCount.get() - decodeCountBeforeAdd).isEqualTo(1);
+    testSession.release();
+    player.release();
+  }
+
+  private static BitmapLoader createCountingBitmapLoader(AtomicInteger decodeCount) {
+    return new BitmapLoader() {
+      @Override
+      public boolean supportsMimeType(String mimeType) {
+        return true;
+      }
+
+      @Override
+      public ListenableFuture<Bitmap> decodeBitmap(byte[] data) {
+        decodeCount.incrementAndGet();
+        return immediateFuture(
+            Bitmap.createBitmap(/* width= */ 10, /* height= */ 10, Bitmap.Config.ARGB_8888));
+      }
+
+      @Override
+      public ListenableFuture<Bitmap> loadBitmap(Uri uri) {
+        return immediateFailedFuture(new UnsupportedOperationException());
+      }
+    };
+  }
+
+  private static MediaItem createMediaItemWithoutArtwork(String mediaId) {
+    return new MediaItem.Builder()
+        .setMediaId(mediaId)
+        .setUri("http://example.com/" + mediaId)
+        .build();
+  }
+
+  private static MediaItem createMediaItemWithArtwork(String mediaId, byte[] artworkData) {
+    return new MediaItem.Builder()
+        .setMediaId(mediaId)
+        .setUri("http://example.com/" + mediaId)
+        .setMediaMetadata(
+            new MediaMetadata.Builder()
+                .setArtworkData(artworkData, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+                .build())
+        .build();
   }
 
   private static MediaSession.ControllerInfo createMinimalLegacyControllerInfo(
