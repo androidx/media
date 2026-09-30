@@ -68,7 +68,6 @@ import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.common.video.SyncFenceWrapper;
-import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.media3.test.utils.AssetInfo;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.media3.test.utils.DecodeOneFrameUtil;

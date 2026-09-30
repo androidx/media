@@ -29,7 +29,7 @@ import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.effect.DefaultGlObjectsProvider;
-import androidx.media3.effect.ndk.HardwareBufferJni;
+import androidx.media3.effect.HardwareBufferJni;
 import androidx.media3.transformer.AndroidTestUtil.ForceEncodeEncoderFactory;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;

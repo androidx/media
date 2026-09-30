@@ -24,7 +24,7 @@ dependencies {
   implementation(libs.androidx.annotation)
   implementation(libs.guava)
   api(project(":lib-common"))
-  implementation(project(":lib-effect-ndk"))
+  implementation(project(":lib-effect"))
   implementation(libs.play.services.media.effect.enhancement)
 
   testImplementation(project(":test-utils"))

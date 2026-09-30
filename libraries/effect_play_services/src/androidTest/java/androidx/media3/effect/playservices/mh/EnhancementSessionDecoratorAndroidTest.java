@@ -43,7 +43,7 @@ import androidx.media3.common.video.DefaultHardwareBufferFrame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.effect.DefaultGlFrameProcessor;
 import androidx.media3.effect.DefaultGlObjectsProvider;
-import androidx.media3.effect.ndk.HardwareBufferJni;
+import androidx.media3.effect.HardwareBufferJni;
 import androidx.media3.effect.playservices.EnhancementSessionDecorator;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;

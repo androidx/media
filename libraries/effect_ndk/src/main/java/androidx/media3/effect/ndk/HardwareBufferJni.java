@@ -20,17 +20,37 @@ import android.hardware.HardwareBuffer;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.effect.HardwareBufferJniWrapper;
+import com.google.errorprone.annotations.InlineMe;
 
-/** JNI methods for HardwareBuffer interaction. */
+/**
+ * JNI methods for HardwareBuffer interaction.
+ *
+ * @deprecated Use {@link androidx.media3.effect.HardwareBufferJni} instead.
+ */
 @RequiresApi(26)
+@Deprecated
 @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
 public final class HardwareBufferJni implements HardwareBufferJniWrapper {
 
-  public static final HardwareBufferJni INSTANCE = new HardwareBufferJni();
+  /**
+   * @deprecated Use {@link androidx.media3.effect.HardwareBufferJni#INSTANCE} instead.
+   */
+  @Deprecated public static final HardwareBufferJni INSTANCE = new HardwareBufferJni();
 
   private HardwareBufferJni() {}
 
-  /** Creates an EGLImage from a {@link HardwareBuffer}. */
+  /**
+   * Creates an EGLImage from a {@link HardwareBuffer}.
+   *
+   * @deprecated Use {@link
+   *     androidx.media3.effect.HardwareBufferJni#nativeCreateEglImageFromHardwareBuffer(long,
+   *     HardwareBuffer)} instead.
+   */
+  @InlineMe(
+      replacement =
+          "androidx.media3.effect.HardwareBufferJni.INSTANCE.nativeCreateEglImageFromHardwareBuffer(displayHandle,"
+              + " hardwareBuffer)")
+  @Deprecated
   @Override
   public long nativeCreateEglImageFromHardwareBuffer(
       long displayHandle, HardwareBuffer hardwareBuffer) {
@@ -40,14 +60,32 @@ public final class HardwareBufferJni implements HardwareBufferJniWrapper {
 
   /**
    * Binds an EGLImage to the specified texture target. Returns whether the binding is successful.
+   *
+   * @deprecated Use {@link androidx.media3.effect.HardwareBufferJni#nativeBindEGLImage(int, long)}
+   *     instead.
    */
+  @InlineMe(
+      replacement =
+          "androidx.media3.effect.HardwareBufferJni.INSTANCE.nativeBindEGLImage(target,"
+              + " eglImageHandle)")
+  @Deprecated
   @Override
   public boolean nativeBindEGLImage(int target, long eglImageHandle) {
     return androidx.media3.effect.HardwareBufferJni.INSTANCE.nativeBindEGLImage(
         target, eglImageHandle);
   }
 
-  /** Destroys an EGLImage. Returns whether the deletion is successful. */
+  /**
+   * Destroys an EGLImage. Returns whether the deletion is successful.
+   *
+   * @deprecated Use {@link androidx.media3.effect.HardwareBufferJni#nativeDestroyEGLImage(long,
+   *     long)} instead.
+   */
+  @InlineMe(
+      replacement =
+          "androidx.media3.effect.HardwareBufferJni.INSTANCE.nativeDestroyEGLImage(displayHandle,"
+              + " imageHandle)")
+  @Deprecated
   @Override
   public boolean nativeDestroyEGLImage(long displayHandle, long imageHandle) {
     return androidx.media3.effect.HardwareBufferJni.INSTANCE.nativeDestroyEGLImage(
@@ -64,7 +102,16 @@ public final class HardwareBufferJni implements HardwareBufferJniWrapper {
    * HardwareBuffer#getFormat}, and be either {@link Bitmap.Config#ARGB_8888} and {@link
    * HardwareBuffer#RGBA_8888} or {@link Bitmap.Config#RGBA_1010102} and {@link
    * HardwareBuffer#RGBA_1010102}.
+   *
+   * @deprecated Use {@link
+   *     androidx.media3.effect.HardwareBufferJni#nativeCopyBitmapToHardwareBuffer(Bitmap,
+   *     HardwareBuffer)} instead.
    */
+  @InlineMe(
+      replacement =
+          "androidx.media3.effect.HardwareBufferJni.INSTANCE.nativeCopyBitmapToHardwareBuffer(bitmap,"
+              + " hb)")
+  @Deprecated
   @Override
   public boolean nativeCopyBitmapToHardwareBuffer(Bitmap bitmap, HardwareBuffer hb) {
     return androidx.media3.effect.HardwareBufferJni.INSTANCE.nativeCopyBitmapToHardwareBuffer(
@@ -81,7 +128,16 @@ public final class HardwareBufferJni implements HardwareBufferJniWrapper {
    *
    * <p>The formats of the source and destination buffers must match, and be either {@link
    * HardwareBuffer#RGBA_8888} or {@link HardwareBuffer#RGBA_1010102}.
+   *
+   * @deprecated Use {@link
+   *     androidx.media3.effect.HardwareBufferJni#nativeCopyHardwareBufferToHardwareBuffer(HardwareBuffer,
+   *     HardwareBuffer)} instead.
    */
+  @InlineMe(
+      replacement =
+          "androidx.media3.effect.HardwareBufferJni.INSTANCE.nativeCopyHardwareBufferToHardwareBuffer(srcHb,"
+              + " dstHb)")
+  @Deprecated
   @Override
   public boolean nativeCopyHardwareBufferToHardwareBuffer(
       HardwareBuffer srcHb, HardwareBuffer dstHb) {

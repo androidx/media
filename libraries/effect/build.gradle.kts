@@ -70,7 +70,6 @@ dependencies {
   testImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.androidx.runner)
   androidTestImplementation(project(":lib-exoplayer"))
-  androidTestImplementation(project(":lib-effect-ndk"))
   androidTestImplementation(libs.kotlinx.coroutines.android)
   androidTestImplementation(libs.test.parameter.injector)
   androidTestImplementation(libs.junit)

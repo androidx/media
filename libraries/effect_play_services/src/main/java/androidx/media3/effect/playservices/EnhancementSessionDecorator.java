@@ -41,7 +41,7 @@ import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.HardwareBufferNativeHelpers;
 import androidx.media3.common.video.SyncFenceWrapper;
-import androidx.media3.effect.ndk.HardwareBufferJni;
+import androidx.media3.effect.HardwareBufferJni;
 import com.google.android.gms.media.effect.enhancement.EnhancementCallback;
 import com.google.android.gms.media.effect.enhancement.EnhancementOptions;
 import com.google.android.gms.media.effect.enhancement.EnhancementSession;

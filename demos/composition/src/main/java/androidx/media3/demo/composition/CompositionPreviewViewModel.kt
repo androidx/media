@@ -62,12 +62,12 @@ import androidx.media3.effect.DebugTraceUtil
 import androidx.media3.effect.DefaultGlFrameProcessor
 import androidx.media3.effect.DefaultGlObjectsProvider
 import androidx.media3.effect.FrameProcessorUtils
+import androidx.media3.effect.HardwareBufferJni
 import androidx.media3.effect.LanczosResample
 import androidx.media3.effect.MultipleInputVideoGraph
 import androidx.media3.effect.Presentation
 import androidx.media3.effect.RgbFilter
 import androidx.media3.effect.StaticOverlaySettings
-import androidx.media3.effect.ndk.HardwareBufferJni
 import androidx.media3.effect.playservices.EnhancementSessionDecorator
 import androidx.media3.inspector.MetadataRetriever
 import androidx.media3.transformer.Composition

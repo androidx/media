@@ -34,7 +34,7 @@ import android.opengl.GLES20;
 import android.os.Build;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.video.HardwareBufferFrame;
-import androidx.media3.effect.ndk.HardwareBufferJni;
+import androidx.media3.effect.HardwareBufferJni;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.test.filters.SdkSuppress;
 import com.google.testing.junit.testparameterinjector.TestParameter;

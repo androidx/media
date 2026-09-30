@@ -52,6 +52,5 @@ dependencies {
   androidTestImplementation(libs.test.parameter.injector)
   androidTestImplementation(project(":lib-inspector"))
   androidTestImplementation(project(":lib-inspector-frame"))
-  androidTestImplementation(project(":lib-effect-ndk"))
   androidTestImplementation(project(":test-utils"))
 }
