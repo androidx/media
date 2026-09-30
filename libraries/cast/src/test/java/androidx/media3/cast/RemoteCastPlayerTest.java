@@ -93,6 +93,7 @@ import androidx.media3.common.TrackGroup;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.android.gms.cast.CastStatusCodes;
 import com.google.android.gms.cast.MediaInfo;
 import com.google.android.gms.cast.MediaLoadRequestData;
 import com.google.android.gms.cast.MediaQueueData;
@@ -105,8 +106,10 @@ import com.google.android.gms.cast.framework.SessionManager;
 import com.google.android.gms.cast.framework.SessionManagerListener;
 import com.google.android.gms.cast.framework.media.MediaQueue;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient;
+import com.google.android.gms.cast.framework.media.RemoteMediaClient.MediaChannelResult;
 import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.common.api.Status;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Longs;
@@ -114,7 +117,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.junit.After;
 import org.junit.Before;
@@ -156,6 +161,7 @@ public class RemoteCastPlayerTest {
   @Mock private CastSession mockCastSession;
   @Mock private Listener mockListener;
   @Mock private PendingResult<RemoteMediaClient.MediaChannelResult> mockPendingResult;
+  @Mock private PendingResult<MediaChannelResult> defaultPendingResult;
   @Mock private SessionAvailabilityListener mockSessionAvailabilityListener;
 
   @Captor private ArgumentCaptor<CastTrackSelectorRequest> trackSelectionArgumentCaptor;
@@ -181,7 +187,12 @@ public class RemoteCastPlayerTest {
   @Captor private ArgumentCaptor<MediaItem> mediaItemCaptor;
   @Captor private ArgumentCaptor<RemoteMediaClient.ProgressListener> progressListenerArgumentCaptor;
 
+  private final List<ResultCallback<MediaChannelResult>> pendingResultCallbacks = new ArrayList<>();
+  private final List<MediaQueueItem> sentQueueItems = new ArrayList<>();
+  private MediaChannelResult defaultSuccessResult;
+
   @Before
+  @SuppressWarnings("deprecation") // Stubs deprecated RemoteMediaClient.seek(long).
   public void setUp() {
     when(mockCastContext.getSessionManager()).thenReturn(mockSessionManager);
     when(mockSessionManager.getCurrentCastSession()).thenReturn(mockCastSession);
@@ -194,6 +205,40 @@ public class RemoteCastPlayerTest {
     when(mockRemoteMediaClient.isPaused()).thenReturn(true);
     when(mockRemoteMediaClient.play()).thenReturn(mockPendingResult);
     when(mockRemoteMediaClient.pause()).thenReturn(mockPendingResult);
+    defaultSuccessResult = mock(MediaChannelResult.class);
+    when(defaultSuccessResult.getStatus()).thenReturn(new Status(CastStatusCodes.SUCCESS));
+    doAnswer(
+            invocation -> {
+              ResultCallback<MediaChannelResult> callback = invocation.getArgument(0);
+              pendingResultCallbacks.add(callback);
+              return null;
+            })
+        .when(defaultPendingResult)
+        .setResultCallback(any());
+    when(mockRemoteMediaClient.load(any(MediaLoadRequestData.class)))
+        .thenAnswer(
+            invocation -> {
+              MediaLoadRequestData requestData = invocation.getArgument(0);
+              MediaQueueData queueData = requestData.getQueueData();
+              if (queueData != null && queueData.getItems() != null) {
+                sentQueueItems.addAll(queueData.getItems());
+              }
+              return defaultPendingResult;
+            });
+    when(mockRemoteMediaClient.queueInsertItems(any(MediaQueueItem[].class), anyInt(), any()))
+        .thenAnswer(
+            invocation -> {
+              MediaQueueItem[] items = invocation.getArgument(0);
+              sentQueueItems.addAll(Arrays.asList(items));
+              return defaultPendingResult;
+            });
+    when(mockRemoteMediaClient.queueReorderItems(any(int[].class), anyInt(), any()))
+        .thenReturn(defaultPendingResult);
+    when(mockRemoteMediaClient.queueRemoveItems(any(int[].class), any()))
+        .thenReturn(defaultPendingResult);
+    when(mockRemoteMediaClient.queueJumpToItem(anyInt(), anyLong(), any()))
+        .thenReturn(defaultPendingResult);
+    when(mockRemoteMediaClient.seek(anyLong())).thenReturn(defaultPendingResult);
     when(mockMediaStatus.getQueueRepeatMode()).thenReturn(MediaStatus.REPEAT_MODE_REPEAT_OFF);
     when(mockMediaStatus.getStreamVolume()).thenReturn(1.0);
     when(mockMediaStatus.getPlaybackRate()).thenReturn(1.0d);
@@ -1158,6 +1203,10 @@ public class RemoteCastPlayerTest {
     // Replace item at position 1.
     remoteCastPlayer.replaceMediaItems(
         /* fromIndex= */ 1, /* toIndex= */ 2, ImmutableList.of(anotherMediaItem));
+    updateTimeLine(
+        ImmutableList.of(mediaItems.get(0), mediaItems.get(1), anotherMediaItem),
+        /* mediaQueueItemIds= */ new int[] {mediaQueueItemIds[0], mediaQueueItemIds[1], 123},
+        /* currentItemId= */ 123);
     updateTimeLine(
         newPlaylist,
         /* mediaQueueItemIds= */ new int[] {mediaQueueItemIds[0], 123},
@@ -3102,6 +3151,811 @@ public class RemoteCastPlayerTest {
     assertThat(remoteCastPlayer.getRepeatMode()).isEqualTo(Player.REPEAT_MODE_OFF);
   }
 
+  @Test
+  public void setMediaItems_synchronouslyMasksTimelineBeforeReceiverConfirmation() {
+    MediaItem item1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem item2 = createMediaItem(/* mediaQueueItemId= */ 2);
+
+    remoteCastPlayer.setMediaItems(
+        ImmutableList.of(item1, item2), /* startIndex= */ 1, /* startPositionMs= */ 5000L);
+    // Simulate an intermediate status update while load is still in-flight; masked timeline must
+    // be preserved.
+    remoteMediaClientCallback.onStatusUpdated();
+
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindowCount()).isEqualTo(2);
+    assertThat(remoteCastPlayer.getCurrentMediaItem()).isEqualTo(item2);
+    assertThat(remoteCastPlayer.getCurrentMediaItemIndex()).isEqualTo(1);
+    assertThat(remoteCastPlayer.getCurrentPosition()).isEqualTo(5000L);
+    verify(mockListener)
+        .onTimelineChanged(
+            eq(remoteCastPlayer.getCurrentTimeline()),
+            eq(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED));
+  }
+
+  @Test
+  public void addMediaItems_synchronouslyMasksTimelineAndDefersWhileLoadPending() {
+    MediaItem item1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem item2 = createMediaItem(/* mediaQueueItemId= */ 2);
+    MediaItem item3 = createMediaItem(/* mediaQueueItemId= */ 3);
+    remoteCastPlayer.setMediaItems(ImmutableList.of(item1, item2));
+
+    // Chain addMediaItems before load completes
+    remoteCastPlayer.addMediaItems(/* index= */ 1, ImmutableList.of(item3));
+
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindowCount()).isEqualTo(3);
+    Timeline.Window window = new Timeline.Window();
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindow(0, window).mediaItem)
+        .isEqualTo(item1);
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindow(1, window).mediaItem)
+        .isEqualTo(item3);
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindow(2, window).mediaItem)
+        .isEqualTo(item2);
+    verify(mockRemoteMediaClient, never())
+        .queueInsertItems(any(MediaQueueItem[].class), anyInt(), any());
+
+    // Confirm receiver IDs for initial load and trigger load completion callback
+    updateTimeLine(
+        ImmutableList.of(item1, item2),
+        /* mediaQueueItemIds= */ new int[] {10, 20},
+        /* currentItemId= */ 10);
+
+    verify(mockRemoteMediaClient).queueInsertItems(any(MediaQueueItem[].class), eq(20), eq(null));
+  }
+
+  @Test
+  public void moveMediaItems_synchronouslyMasksTimelineAndDefersWhileQueueOperationPending() {
+    MediaItem item1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem item2 = createMediaItem(/* mediaQueueItemId= */ 2);
+    MediaItem item3 = createMediaItem(/* mediaQueueItemId= */ 3);
+    remoteCastPlayer.setMediaItems(ImmutableList.of(item1, item2, item3));
+
+    // Move item 0 to index 2 while load is pending
+    remoteCastPlayer.moveMediaItems(/* fromIndex= */ 0, /* toIndex= */ 1, /* newIndex= */ 2);
+
+    Timeline.Window window = new Timeline.Window();
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindow(0, window).mediaItem)
+        .isEqualTo(item2);
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindow(1, window).mediaItem)
+        .isEqualTo(item3);
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindow(2, window).mediaItem)
+        .isEqualTo(item1);
+    verify(mockRemoteMediaClient, never()).queueReorderItems(any(int[].class), anyInt(), any());
+
+    // Confirm receiver IDs and complete load
+    updateTimeLine(
+        ImmutableList.of(item1, item2, item3),
+        /* mediaQueueItemIds= */ new int[] {10, 20, 30},
+        /* currentItemId= */ 10);
+
+    verify(mockRemoteMediaClient)
+        .queueReorderItems(eq(new int[] {10}), eq(MediaQueueItem.INVALID_ITEM_ID), eq(null));
+  }
+
+  @Test
+  public void removeMediaItems_synchronouslyMasksTimelineAndDefersWhileQueueOperationPending() {
+    MediaItem item1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem item2 = createMediaItem(/* mediaQueueItemId= */ 2);
+    MediaItem item3 = createMediaItem(/* mediaQueueItemId= */ 3);
+    remoteCastPlayer.setMediaItems(ImmutableList.of(item1, item2, item3));
+
+    // Remove item 1 while load is pending
+    remoteCastPlayer.removeMediaItems(/* fromIndex= */ 1, /* toIndex= */ 2);
+
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindowCount()).isEqualTo(2);
+    Timeline.Window window = new Timeline.Window();
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindow(0, window).mediaItem)
+        .isEqualTo(item1);
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindow(1, window).mediaItem)
+        .isEqualTo(item3);
+    verify(mockRemoteMediaClient, never()).queueRemoveItems(any(int[].class), any());
+
+    // Confirm receiver IDs and complete load
+    updateTimeLine(
+        ImmutableList.of(item1, item2, item3),
+        /* mediaQueueItemIds= */ new int[] {10, 20, 30},
+        /* currentItemId= */ 10);
+
+    verify(mockRemoteMediaClient).queueRemoveItems(eq(new int[] {20}), eq(null));
+  }
+
+  @Test
+  public void seekTo_whileLoadPending_synchronouslyMasksAndDefersQueueJumpToItem() {
+    MediaItem item1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem item2 = createMediaItem(/* mediaQueueItemId= */ 2);
+    remoteCastPlayer.setMediaItems(ImmutableList.of(item1, item2));
+
+    // Seek to item 1 while load is pending
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 3000L);
+
+    assertThat(remoteCastPlayer.getCurrentMediaItemIndex()).isEqualTo(1);
+    assertThat(remoteCastPlayer.getCurrentPosition()).isEqualTo(3000L);
+    verify(mockRemoteMediaClient, never()).queueJumpToItem(anyInt(), anyLong(), any());
+
+    // Confirm receiver IDs and complete load
+    updateTimeLine(
+        ImmutableList.of(item1, item2),
+        /* mediaQueueItemIds= */ new int[] {10, 20},
+        /* currentItemId= */ 10);
+
+    verify(mockRemoteMediaClient).queueJumpToItem(eq(20), eq(3000L), eq(null));
+  }
+
+  @Test
+  public void
+      addMediaItems_withConcurrentRemoteSenderInsertion_preservesMaskedStateAndResolvesShiftedPosition() {
+    MediaItem item1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    updateTimeLine(
+        ImmutableList.of(item1), /* mediaQueueItemIds= */ new int[] {10}, /* currentItemId= */ 10);
+
+    ArgumentCaptor<MediaQueueItem[]> insertedItemsCaptor =
+        ArgumentCaptor.forClass(MediaQueueItem[].class);
+    when(mockRemoteMediaClient.queueInsertItems(any(MediaQueueItem[].class), anyInt(), any()))
+        .thenReturn(mockPendingResult);
+
+    MediaItem localItemA =
+        new MediaItem.Builder()
+            .setUri("http://www.google.com/localA")
+            .setTag("local_tag_A")
+            .setMimeType(MimeTypes.APPLICATION_MPD)
+            .build();
+
+    // Local sender adds localItemA at index 1 and immediately seeks to it
+    remoteCastPlayer.addMediaItems(/* index= */ 1, ImmutableList.of(localItemA));
+    verify(mockRemoteMediaClient)
+        .queueInsertItems(insertedItemsCaptor.capture(), eq(MediaQueueItem.INVALID_ITEM_ID), any());
+    verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
+
+    Object optimisticUidA =
+        remoteCastPlayer
+            .getCurrentTimeline()
+            .getWindow(/* windowIndex= */ 1, new Timeline.Window())
+            .uid;
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 4000L);
+
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindowCount()).isEqualTo(2);
+    assertThat(remoteCastPlayer.getCurrentMediaItemIndex()).isEqualTo(1);
+    verify(mockRemoteMediaClient, never()).queueJumpToItem(anyInt(), anyLong(), any());
+
+    // Another sender (Sender B) concurrently inserts remoteItemB at index 0 before localItemA is
+    // confirmed by the receiver.
+    MediaItem remoteItemB = createMediaItem(/* mediaQueueItemId= */ 99);
+    updateTimeLine(
+        ImmutableList.of(remoteItemB, item1),
+        /* mediaQueueItemIds= */ new int[] {99, 10},
+        /* currentItemId= */ 10);
+
+    // While local operation is in flight, masked timeline replays onto the updated base snapshot
+    // so both remoteItemB (index 0) and localItemA (index 2) are present.
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindowCount()).isEqualTo(3);
+    assertThat(
+            remoteCastPlayer
+                .getCurrentTimeline()
+                .getWindow(/* windowIndex= */ 2, new Timeline.Window())
+                .mediaItem)
+        .isEqualTo(localItemA);
+
+    // Receiver now confirms localItemA at index 2 (shifted by remoteItemB at index 0)
+    MediaQueueItem confirmedItemA =
+        new MediaQueueItem.Builder(insertedItemsCaptor.getValue()[0].getMedia())
+            .setItemId(20)
+            .build();
+    MediaQueueItem queueItemB = mock(MediaQueueItem.class);
+    when(queueItemB.getItemId()).thenReturn(99);
+    when(queueItemB.getMedia())
+        .thenReturn(
+            new MediaInfo.Builder("http://www.google.com/video99")
+                .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+                .setContentType(MimeTypes.APPLICATION_MPD)
+                .build());
+    MediaQueueItem queueItem1 = mock(MediaQueueItem.class);
+    when(queueItem1.getItemId()).thenReturn(10);
+    when(queueItem1.getMedia())
+        .thenReturn(
+            new MediaInfo.Builder("http://www.google.com/video1")
+                .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+                .setContentType(MimeTypes.APPLICATION_MPD)
+                .build());
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[] {99, 10, 20});
+    when(mockMediaStatus.getQueueItems())
+        .thenReturn(ImmutableList.of(queueItemB, queueItem1, confirmedItemA));
+    when(mockMediaStatus.getItemById(99)).thenReturn(queueItemB);
+    when(mockMediaStatus.getItemById(10)).thenReturn(queueItem1);
+    when(mockMediaStatus.getItemById(20)).thenReturn(confirmedItemA);
+    when(mockMediaStatus.getCurrentItemId()).thenReturn(10);
+
+    MediaChannelResult successResult = mock(MediaChannelResult.class);
+    when(successResult.getStatus()).thenReturn(new Status(CastStatusCodes.SUCCESS));
+    setResultCallbackArgumentCaptor.getValue().onResult(successResult);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    // Timeline unmasks to [remoteItemB, item1, localItemA]
+    Timeline resolvedTimeline = remoteCastPlayer.getCurrentTimeline();
+    assertThat(resolvedTimeline.getWindowCount()).isEqualTo(3);
+    Timeline.Window resolvedWindowA =
+        resolvedTimeline.getWindow(/* windowIndex= */ 2, new Timeline.Window());
+    // Despite shifting from index 1 to index 2, localItemA preserves its optimistic UID and tag
+    assertThat(resolvedWindowA.uid).isEqualTo(optimisticUidA);
+    assertThat(resolvedWindowA.mediaItem).isEqualTo(localItemA);
+    assertThat(resolvedWindowA.mediaItem.localConfiguration.tag).isEqualTo("local_tag_A");
+    // Deferred seek targets receiver item ID 20 (index 2), not index 1
+    verify(mockRemoteMediaClient).queueJumpToItem(eq(20), eq(4000L), eq(null));
+    assertThat(remoteCastPlayer.getCurrentMediaItemIndex()).isEqualTo(2);
+  }
+
+  @Test
+  public void
+      setMediaItems_withDeferredMediaQueueFetches_holdsMaskingAndDrainsPendingSeekWhenQueueFetched() {
+    MediaItem item0 =
+        new MediaItem.Builder().setUri("http://www.google.com/video0").setTag("tag0").build();
+    MediaItem item1 =
+        new MediaItem.Builder().setUri("http://www.google.com/video1").setTag("tag1").build();
+    when(mockRemoteMediaClient.load(any(MediaLoadRequestData.class))).thenReturn(mockPendingResult);
+    when(mockRemoteMediaClient.queueJumpToItem(anyInt(), anyLong(), any()))
+        .thenReturn(mockPendingResult);
+
+    remoteCastPlayer.setMediaItems(
+        ImmutableList.of(item0, item1), /* startIndex= */ 0, /* startPositionMs= */ 5000L);
+    Object optimisticUid1 =
+        remoteCastPlayer
+            .getCurrentTimeline()
+            .getWindow(/* windowIndex= */ 1, new Timeline.Window())
+            .uid;
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 12000L);
+
+    verify(mockRemoteMediaClient).load(loadArgumentCaptor.capture());
+    verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
+    ResultCallback<MediaChannelResult> loadCallback = setResultCallbackArgumentCaptor.getValue();
+
+    MediaQueueData queueData = loadArgumentCaptor.getValue().getQueueData();
+    MediaQueueItem sentItem0 = queueData.getItems().get(0);
+    MediaQueueItem sentItem1 = queueData.getItems().get(1);
+    MediaQueueItem confirmedItem0 =
+        new MediaQueueItem.Builder(sentItem0.getMedia()).setItemId(100).build();
+    MediaQueueItem confirmedItem1 =
+        new MediaQueueItem.Builder(sentItem1.getMedia()).setItemId(101).build();
+
+    // Receiver responds to load with itemIds [100, 101], but only item 100 is in MediaStatus
+    // initially; item 101 requires an async MediaQueue fetch (getItemAtIndex returns null).
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[] {100, 101});
+    when(mockMediaStatus.getCurrentItemId()).thenReturn(100);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(confirmedItem0.getMedia());
+    when(mockMediaStatus.getQueueItems()).thenReturn(ImmutableList.of(confirmedItem0));
+    when(mockMediaQueue.getItemAtIndex(eq(1), anyBoolean())).thenReturn(null);
+
+    MediaChannelResult successResult = mock(MediaChannelResult.class);
+    when(successResult.getStatus()).thenReturn(new Status(CastStatusCodes.SUCCESS));
+    loadCallback.onResult(successResult);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    // While item 101 fetch is pending in MediaQueue, timeline masking and pending seek are
+    // preserved and queueJumpToItem is not yet dispatched.
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindowCount()).isEqualTo(2);
+    assertThat(
+            remoteCastPlayer
+                .getCurrentTimeline()
+                .getWindow(/* windowIndex= */ 1, new Timeline.Window())
+                .uid)
+        .isEqualTo(optimisticUid1);
+    assertThat(remoteCastPlayer.getCurrentMediaItemIndex()).isEqualTo(1);
+    assertThat(remoteCastPlayer.getCurrentPosition()).isEqualTo(12000L);
+    verify(mockRemoteMediaClient, never()).queueJumpToItem(anyInt(), anyLong(), any());
+
+    // Simulate MediaQueue completing the background fetch for item 101 and firing
+    // mediaQueueChanged().
+    when(mockMediaQueue.getItemAtIndex(eq(1), anyBoolean())).thenReturn(confirmedItem1);
+    mediaQueueCallback.mediaQueueChanged();
+    shadowOf(Looper.getMainLooper()).idle();
+
+    // Pending seek is drained and dispatched to receiver item ID 101, and timeline unmasks
+    // preserving item 1's UID and metadata.
+    verify(mockRemoteMediaClient).queueJumpToItem(eq(101), eq(12000L), eq(null));
+    Timeline finalTimeline = remoteCastPlayer.getCurrentTimeline();
+    assertThat(finalTimeline.getWindowCount()).isEqualTo(2);
+    assertThat(finalTimeline.getWindow(/* windowIndex= */ 1, new Timeline.Window()).uid)
+        .isEqualTo(optimisticUid1);
+    assertThat(finalTimeline.getWindow(/* windowIndex= */ 1, new Timeline.Window()).mediaItem)
+        .isEqualTo(item1);
+  }
+
+  @Test
+  public void addMediaItems_masksTimelineImmediately() {
+    MediaItem mediaItem1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem mediaItem2 = createMediaItem(/* mediaQueueItemId= */ 2);
+    ImmutableList<MediaItem> mediaItems = ImmutableList.of(mediaItem1, mediaItem2);
+
+    remoteCastPlayer.addMediaItems(mediaItems);
+
+    assertThat(remoteCastPlayer.getMediaItemCount()).isEqualTo(2);
+    Timeline timeline = remoteCastPlayer.getCurrentTimeline();
+    Timeline.Window window = new Timeline.Window();
+    assertThat(timeline.getWindow(/* windowIndex= */ 0, window).mediaItem).isEqualTo(mediaItem1);
+    assertThat(timeline.getWindow(/* windowIndex= */ 1, window).mediaItem).isEqualTo(mediaItem2);
+  }
+
+  @Test
+  public void removeMediaItems_masksTimelineImmediately() {
+    int[] mediaQueueItemIds = new int[] {1, 2, 3};
+    List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
+    addMediaItemsAndUpdateTimeline(mediaItems, mediaQueueItemIds);
+
+    remoteCastPlayer.removeMediaItem(/* index= */ 1);
+
+    assertThat(remoteCastPlayer.getMediaItemCount()).isEqualTo(2);
+    Timeline timeline = remoteCastPlayer.getCurrentTimeline();
+    Timeline.Window window = new Timeline.Window();
+    assertThat(timeline.getWindow(/* windowIndex= */ 0, window).mediaItem)
+        .isEqualTo(mediaItems.get(0));
+    assertThat(timeline.getWindow(/* windowIndex= */ 1, window).mediaItem)
+        .isEqualTo(mediaItems.get(2));
+  }
+
+  @Test
+  public void moveMediaItem_masksTimelineImmediately() {
+    int[] mediaQueueItemIds = new int[] {1, 2, 3};
+    List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
+    addMediaItemsAndUpdateTimeline(mediaItems, mediaQueueItemIds);
+
+    remoteCastPlayer.moveMediaItem(/* currentIndex= */ 0, /* newIndex= */ 2);
+
+    assertThat(remoteCastPlayer.getMediaItemCount()).isEqualTo(3);
+    Timeline timeline = remoteCastPlayer.getCurrentTimeline();
+    Timeline.Window window = new Timeline.Window();
+    assertThat(timeline.getWindow(/* windowIndex= */ 0, window).mediaItem)
+        .isEqualTo(mediaItems.get(1));
+    assertThat(timeline.getWindow(/* windowIndex= */ 1, window).mediaItem)
+        .isEqualTo(mediaItems.get(2));
+    assertThat(timeline.getWindow(/* windowIndex= */ 2, window).mediaItem)
+        .isEqualTo(mediaItems.get(0));
+  }
+
+  @Test
+  public void replaceMediaItems_masksTimelineImmediately() {
+    int[] mediaQueueItemIds = new int[] {1, 2, 3};
+    List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
+    addMediaItemsAndUpdateTimeline(mediaItems, mediaQueueItemIds);
+    ImmutableList<MediaItem> replacementItems =
+        ImmutableList.of(
+            createMediaItem(/* mediaQueueItemId= */ 4), createMediaItem(/* mediaQueueItemId= */ 5));
+
+    remoteCastPlayer.replaceMediaItems(/* fromIndex= */ 1, /* toIndex= */ 3, replacementItems);
+
+    assertThat(remoteCastPlayer.getMediaItemCount()).isEqualTo(3);
+    Timeline timeline = remoteCastPlayer.getCurrentTimeline();
+    Timeline.Window window = new Timeline.Window();
+    assertThat(timeline.getWindow(/* windowIndex= */ 0, window).mediaItem)
+        .isEqualTo(mediaItems.get(0));
+    assertThat(timeline.getWindow(/* windowIndex= */ 1, window).mediaItem)
+        .isEqualTo(replacementItems.get(0));
+    assertThat(timeline.getWindow(/* windowIndex= */ 2, window).mediaItem)
+        .isEqualTo(replacementItems.get(1));
+  }
+
+  @Test
+  public void addAndRemoveMediaItems_masksTimelineCorrectly() {
+    MediaItem mediaItem1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem mediaItem2 = createMediaItem(/* mediaQueueItemId= */ 2);
+    ImmutableList<MediaItem> mediaItems = ImmutableList.of(mediaItem1, mediaItem2);
+
+    remoteCastPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.removeMediaItem(/* index= */ 0);
+
+    assertThat(remoteCastPlayer.getMediaItemCount()).isEqualTo(1);
+    Timeline timeline = remoteCastPlayer.getCurrentTimeline();
+    Timeline.Window window = new Timeline.Window();
+    assertThat(timeline.getWindow(/* windowIndex= */ 0, window).mediaItem).isEqualTo(mediaItem2);
+  }
+
+  @Test
+  public void addAndMoveMediaItems_masksTimelineCorrectly() {
+    MediaItem mediaItem1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem mediaItem2 = createMediaItem(/* mediaQueueItemId= */ 2);
+    ImmutableList<MediaItem> mediaItems = ImmutableList.of(mediaItem1, mediaItem2);
+
+    remoteCastPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.moveMediaItem(/* currentIndex= */ 0, /* newIndex= */ 1);
+
+    assertThat(remoteCastPlayer.getMediaItemCount()).isEqualTo(2);
+    Timeline timeline = remoteCastPlayer.getCurrentTimeline();
+    Timeline.Window window = new Timeline.Window();
+    assertThat(timeline.getWindow(/* windowIndex= */ 0, window).mediaItem).isEqualTo(mediaItem2);
+    assertThat(timeline.getWindow(/* windowIndex= */ 1, window).mediaItem).isEqualTo(mediaItem1);
+  }
+
+  @Test
+  public void addMediaItems_remoteUpdateConfirms_addMoreMediaItems() {
+    MediaItem mediaItem1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem mediaItem2 = createMediaItem(/* mediaQueueItemId= */ 2);
+
+    remoteCastPlayer.addMediaItem(mediaItem1);
+    updateTimeLine(ImmutableList.of(mediaItem1), new int[] {1}, /* currentItemId= */ 1);
+    remoteCastPlayer.addMediaItem(mediaItem2);
+
+    assertThat(remoteCastPlayer.getMediaItemCount()).isEqualTo(2);
+    Timeline timeline = remoteCastPlayer.getCurrentTimeline();
+    Timeline.Window window = new Timeline.Window();
+    assertThat(timeline.getWindow(/* windowIndex= */ 0, window).mediaItem).isEqualTo(mediaItem1);
+    assertThat(timeline.getWindow(/* windowIndex= */ 1, window).mediaItem).isEqualTo(mediaItem2);
+  }
+
+  @Test
+  public void remoteUpdateWithUnexpectedItems_overridesMaskedTimeline() {
+    MediaItem mediaItem1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem mediaItem2 = createMediaItem(/* mediaQueueItemId= */ 2);
+    addMediaItemsAndUpdateTimeline(ImmutableList.of(mediaItem1, mediaItem2), new int[] {1, 2});
+    MediaItem unexpectedMediaItem =
+        new MediaItem.Builder()
+            .setMediaId("http://www.google.com/video3")
+            .setUri("http://www.google.com/video3")
+            .setMimeType(MimeTypes.APPLICATION_MPD)
+            .build();
+
+    remoteCastPlayer.removeMediaItem(/* index= */ 0);
+    updateTimeLine(
+        ImmutableList.of(mediaItem2, unexpectedMediaItem),
+        new int[] {2, 3},
+        /* currentItemId= */ 2);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertThat(remoteCastPlayer.getMediaItemCount()).isEqualTo(2);
+    Timeline timeline = remoteCastPlayer.getCurrentTimeline();
+    Timeline.Window window = new Timeline.Window();
+    assertThat(timeline.getWindow(/* windowIndex= */ 0, window).mediaItem).isEqualTo(mediaItem2);
+    assertThat(timeline.getWindow(/* windowIndex= */ 1, window).mediaItem)
+        .isEqualTo(unexpectedMediaItem);
+  }
+
+  @Test
+  public void multipleQueueOperations_areSerializedUntilEachResultCallbackCompletes() {
+    MediaItem item1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem item2 = createMediaItem(/* mediaQueueItemId= */ 2);
+    MediaItem item3 = createMediaItem(/* mediaQueueItemId= */ 3);
+    updateTimeLine(
+        ImmutableList.of(item1, item2, item3),
+        /* mediaQueueItemIds= */ new int[] {10, 20, 30},
+        /* currentItemId= */ 10);
+
+    when(mockRemoteMediaClient.queueRemoveItems(any(int[].class), any()))
+        .thenReturn(mockPendingResult);
+    when(mockRemoteMediaClient.queueReorderItems(any(int[].class), anyInt(), any()))
+        .thenReturn(mockPendingResult);
+    when(mockRemoteMediaClient.queueJumpToItem(anyInt(), anyLong(), any()))
+        .thenReturn(mockPendingResult);
+
+    // Issue 3 queue operations in a single synchronous turn:
+    // 1. Remove item3 (index 2 -> receiver ID 30)
+    // 2. Move item2 from index 1 to index 0 (before item1 -> receiver ID 10)
+    // 3. Seek to item2 at index 0 (receiver ID 20) at position 5000ms
+    remoteCastPlayer.removeMediaItem(/* index= */ 2);
+    remoteCastPlayer.moveMediaItem(/* currentIndex= */ 1, /* newIndex= */ 0);
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 5000L);
+
+    // Optimistic masked state immediately reflects all 3 operations: [item2, item1], index 0,
+    // 5000ms
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindowCount()).isEqualTo(2);
+    assertThat(remoteCastPlayer.getCurrentMediaItemIndex()).isEqualTo(0);
+    assertThat(remoteCastPlayer.getCurrentPosition()).isEqualTo(5000L);
+
+    // Only the first queue RPC (queueRemoveItems) is sent immediately; reorder and jump wait
+    verify(mockRemoteMediaClient).queueRemoveItems(eq(new int[] {30}), eq(null));
+    verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
+    verify(mockRemoteMediaClient, never()).queueReorderItems(any(int[].class), anyInt(), any());
+    verify(mockRemoteMediaClient, never()).queueJumpToItem(anyInt(), anyLong(), any());
+
+    // Complete remove operation -> dispatches move operation (queueReorderItems), jump still waits
+    clearInvocations(mockPendingResult);
+    MediaChannelResult successResult = mock(MediaChannelResult.class);
+    when(successResult.getStatus()).thenReturn(new Status(CastStatusCodes.SUCCESS));
+    setResultCallbackArgumentCaptor.getValue().onResult(successResult);
+
+    verify(mockRemoteMediaClient).queueReorderItems(eq(new int[] {20}), eq(10), eq(null));
+    verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
+    verify(mockRemoteMediaClient, never()).queueJumpToItem(anyInt(), anyLong(), any());
+
+    // Complete move operation -> dispatches seek operation (queueJumpToItem)
+    clearInvocations(mockPendingResult);
+    setResultCallbackArgumentCaptor.getValue().onResult(successResult);
+
+    verify(mockRemoteMediaClient).queueJumpToItem(eq(20), eq(5000L), eq(null));
+    verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
+
+    // Complete seek operation with receiver status updated to [item2, item1] playing item 20
+    updateTimeLine(
+        ImmutableList.of(item2, item1),
+        /* mediaQueueItemIds= */ new int[] {20, 10},
+        /* currentItemId= */ 20);
+    setResultCallbackArgumentCaptor.getValue().onResult(successResult);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindowCount()).isEqualTo(2);
+    assertThat(remoteCastPlayer.getCurrentMediaItemIndex()).isEqualTo(0);
+  }
+
+  @Test
+  public void
+      seekToWindow_whenReceiverReturnsError_revertsCurrentWindowIndexAndNotifiesListeners() {
+    MediaItem item1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem item2 = createMediaItem(/* mediaQueueItemId= */ 2);
+    updateTimeLine(
+        ImmutableList.of(item1, item2),
+        /* mediaQueueItemIds= */ new int[] {10, 20},
+        /* currentItemId= */ 10);
+    MediaItem timelineItem1 =
+        remoteCastPlayer
+            .getCurrentTimeline()
+            .getWindow(/* windowIndex= */ 0, new Timeline.Window())
+            .mediaItem;
+    MediaItem timelineItem2 =
+        remoteCastPlayer
+            .getCurrentTimeline()
+            .getWindow(/* windowIndex= */ 1, new Timeline.Window())
+            .mediaItem;
+
+    when(mockRemoteMediaClient.queueJumpToItem(anyInt(), anyLong(), any()))
+        .thenReturn(mockPendingResult);
+
+    clearInvocations(mockListener);
+
+    // Seek from item1 (index 0) to item2 (index 1)
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 3000L);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    // Optimistically reports index 1
+    assertThat(remoteCastPlayer.getCurrentMediaItemIndex()).isEqualTo(1);
+    verify(mockRemoteMediaClient).queueJumpToItem(eq(20), eq(3000L), eq(null));
+    verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
+    verify(mockListener)
+        .onMediaItemTransition(eq(timelineItem2), eq(Player.MEDIA_ITEM_TRANSITION_REASON_SEEK));
+
+    clearInvocations(mockListener);
+
+    // Receiver rejects queueJumpToItem with INVALID_REQUEST (2001) and remains on item 10 (index 0)
+    MediaChannelResult errorResult = mock(MediaChannelResult.class);
+    when(errorResult.getStatus()).thenReturn(new Status(CastStatusCodes.INVALID_REQUEST));
+    setResultCallbackArgumentCaptor.getValue().onResult(errorResult);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    // Player reverts currentMediaItemIndex back to 0 and notifies listeners of the adjustment
+    assertThat(remoteCastPlayer.getCurrentMediaItemIndex()).isEqualTo(0);
+    verify(mockListener)
+        .onPositionDiscontinuity(
+            any(Player.PositionInfo.class),
+            any(Player.PositionInfo.class),
+            eq(Player.DISCONTINUITY_REASON_AUTO_TRANSITION));
+    verify(mockListener)
+        .onMediaItemTransition(eq(timelineItem1), eq(Player.MEDIA_ITEM_TRANSITION_REASON_AUTO));
+  }
+
+  @Test
+  public void removeMediaItem_currentlyPlayingMediaItem_transitionsToNextItem() {
+    MediaItem item1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem item2 = createMediaItem(/* mediaQueueItemId= */ 2);
+    MediaItem item3 = createMediaItem(/* mediaQueueItemId= */ 3);
+    remoteCastPlayer.addMediaItems(ImmutableList.of(item1, item2, item3));
+    updateTimeLine(
+        ImmutableList.of(item1, item2, item3),
+        /* mediaQueueItemIds= */ new int[] {10, 20, 30},
+        /* currentItemId= */ 20);
+
+    assertThat(remoteCastPlayer.getCurrentMediaItemIndex()).isEqualTo(1);
+    assertThat(remoteCastPlayer.getCurrentMediaItem()).isEqualTo(item2);
+    clearInvocations(mockListener);
+
+    // Remove the currently playing middle item (item2 at index 1)
+    remoteCastPlayer.removeMediaItem(/* index= */ 1);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    // Optimistic masked state should transition to the NEXT item (item3, now at index 1),
+    // not the previous item (item1 at index 0)
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindowCount()).isEqualTo(2);
+    assertThat(remoteCastPlayer.getCurrentMediaItemIndex()).isEqualTo(1);
+    assertThat(remoteCastPlayer.getCurrentMediaItem()).isEqualTo(item3);
+    verify(mockListener)
+        .onMediaItemTransition(eq(item3), eq(Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED));
+  }
+
+  @Test
+  public void
+      seekTo_whenReceiverTransitionsThroughLoadingAndUncachedCurrentItem_doesNotBounceWindowIndexToZero() {
+    MediaItem item1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem item2 = createMediaItem(/* mediaQueueItemId= */ 2);
+    MediaItem item3 = createMediaItem(/* mediaQueueItemId= */ 3);
+    remoteCastPlayer.addMediaItems(ImmutableList.of(item1, item2, item3));
+    updateTimeLine(
+        ImmutableList.of(item1, item2, item3),
+        /* mediaQueueItemIds= */ new int[] {10, 20, 30},
+        /* currentItemId= */ 10);
+
+    when(mockRemoteMediaClient.queueJumpToItem(anyInt(), anyLong(), any()))
+        .thenReturn(mockPendingResult);
+
+    verify(mockRemoteMediaClient)
+        .queueInsertItems(queueItemsArgumentCaptor.capture(), anyInt(), any());
+    MediaQueueItem queueItem10 =
+        new MediaQueueItem.Builder(queueItemsArgumentCaptor.getValue()[0].getMedia())
+            .setItemId(10)
+            .build();
+    MediaQueueItem queueItem30 =
+        new MediaQueueItem.Builder(queueItemsArgumentCaptor.getValue()[2].getMedia())
+            .setItemId(30)
+            .build();
+    when(mockMediaStatus.getItemById(10)).thenReturn(queueItem10);
+    when(mockMediaStatus.getItemById(30)).thenReturn(queueItem30);
+    when(mockMediaQueue.getItemAtIndex(eq(0), anyBoolean())).thenReturn(queueItem10);
+    when(mockMediaQueue.getItemAtIndex(eq(2), anyBoolean())).thenReturn(queueItem30);
+
+    // Seek from index 0 (item 10) to index 2 (item 30).
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 2, /* positionMs= */ 0L);
+    shadowOf(Looper.getMainLooper()).idle();
+    verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
+    assertThat(remoteCastPlayer.getCurrentMediaItemIndex()).isEqualTo(2);
+    clearInvocations(mockListener);
+
+    // Phase 1: Seek RPC completes while receiver is in LOADING state for item 30 (loadingItemId=30,
+    // currentItemId still 10, getCurrentItem() still returns queueItem10, mediaInfo is item 30).
+    MediaInfo mediaInfo30 = queueItem30.getMedia();
+    when(mockMediaStatus.getLoadingItemId()).thenReturn(30);
+    when(mockMediaStatus.getCurrentItemId()).thenReturn(10);
+    when(mockRemoteMediaClient.getCurrentItem()).thenReturn(queueItem10);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo30);
+    when(mockMediaStatus.getQueueItems()).thenReturn(ImmutableList.of(queueItem10));
+
+    MediaChannelResult successResult = mock(MediaChannelResult.class);
+    when(successResult.getStatus()).thenReturn(new Status(CastStatusCodes.SUCCESS));
+    setResultCallbackArgumentCaptor.getValue().onResult(successResult);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertThat(remoteCastPlayer.getCurrentMediaItemIndex()).isEqualTo(2);
+    verify(mockListener, never()).onPositionDiscontinuity(any(), any(), anyInt());
+    verify(mockListener, never()).onMediaItemTransition(any(), anyInt());
+
+    // Phase 2: Receiver finishes loading item 30 (loadingItemId=0, currentItemId=30), but
+    // getCurrentItem() returns null because MediaStatus's sparse queueItems window still only
+    // contains queueItem10.
+    when(mockMediaStatus.getLoadingItemId()).thenReturn(MediaQueueItem.INVALID_ITEM_ID);
+    when(mockMediaStatus.getCurrentItemId()).thenReturn(30);
+    when(mockRemoteMediaClient.getCurrentItem()).thenReturn(null);
+    remoteMediaClientCallback.onStatusUpdated();
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertThat(remoteCastPlayer.getCurrentMediaItemIndex()).isEqualTo(2);
+    verify(mockListener, never()).onPositionDiscontinuity(any(), any(), anyInt());
+    verify(mockListener, never()).onMediaItemTransition(any(), anyInt());
+  }
+
+  @Test
+  public void
+      setMediaItems_whenLoadResultArrivesBeforeMediaQueueFetchesItemIds_preservesMaskedTimeline() {
+    MediaItem item1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem item2 = createMediaItem(/* mediaQueueItemId= */ 2);
+    MediaItem item3 = createMediaItem(/* mediaQueueItemId= */ 3);
+    when(mockRemoteMediaClient.load(any(MediaLoadRequestData.class))).thenReturn(mockPendingResult);
+
+    remoteCastPlayer.setMediaItems(ImmutableList.of(item1, item2, item3));
+    shadowOf(Looper.getMainLooper()).idle();
+    verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindowCount()).isEqualTo(3);
+    clearInvocations(mockListener);
+
+    // Load RPC completes and MediaStatus reports active item 1, but MediaQueue has not yet
+    // fetched itemIds (itemIds.length == 0 -> hasPendingQueueFetches == true).
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[0]);
+    when(mockMediaStatus.getCurrentItemId()).thenReturn(1);
+    when(mockMediaStatus.getQueueItems()).thenReturn(ImmutableList.of());
+    MediaChannelResult successResult = mock(MediaChannelResult.class);
+    when(successResult.getStatus()).thenReturn(new Status(CastStatusCodes.SUCCESS));
+    setResultCallbackArgumentCaptor.getValue().onResult(successResult);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    // Masked 3-item timeline must be preserved rather than dropping to 0 items.
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindowCount()).isEqualTo(3);
+    verify(mockListener, never()).onTimelineChanged(any(), anyInt());
+  }
+
+  @Test
+  public void onSessionEnded_withUnconfirmedMaskedOperations_preservesMaskedTimeline() {
+    MediaItem item1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem item2 = createMediaItem(/* mediaQueueItemId= */ 2);
+    remoteCastPlayer.addMediaItems(ImmutableList.of(item1));
+    updateTimeLine(
+        ImmutableList.of(item1), /* mediaQueueItemIds= */ new int[] {1}, /* currentItemId= */ 1);
+
+    // Enqueue an optimistic addition without confirming it on the receiver before session ends.
+    remoteCastPlayer.addMediaItems(ImmutableList.of(item2));
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindowCount()).isEqualTo(2);
+
+    sessionManagerListener.onSessionEnding(mockCastSession);
+    sessionManagerListener.onSessionEnded(
+        mockCastSession, RemoteCastPlayer.SESSION_END_REASON_STOPPED);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindowCount()).isEqualTo(2);
+    Timeline.Window window = new Timeline.Window();
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindow(0, window).mediaItem)
+        .isEqualTo(item1);
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindow(1, window).mediaItem)
+        .isEqualTo(item2);
+  }
+
+  @Test
+  public void onSessionStarted_afterPreviousSessionEnded_clearsSnapshots() {
+    MediaItem item1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    remoteCastPlayer.addMediaItems(ImmutableList.of(item1));
+    updateTimeLine(
+        ImmutableList.of(item1), /* mediaQueueItemIds= */ new int[] {1}, /* currentItemId= */ 1);
+    sessionManagerListener.onSessionEnding(mockCastSession);
+    sessionManagerListener.onSessionEnded(
+        mockCastSession, RemoteCastPlayer.SESSION_END_REASON_STOPPED);
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindowCount()).isEqualTo(1);
+
+    // Join a new Cast session that has no active media status yet.
+    CastSession newCastSession = mock(CastSession.class);
+    RemoteMediaClient newRemoteMediaClient = mock(RemoteMediaClient.class);
+    MediaQueue newMediaQueue = mock(MediaQueue.class);
+    when(newCastSession.getRemoteMediaClient()).thenReturn(newRemoteMediaClient);
+    when(newRemoteMediaClient.getMediaQueue()).thenReturn(newMediaQueue);
+    when(newRemoteMediaClient.getMediaStatus()).thenReturn(null);
+
+    sessionManagerListener.onSessionStarted(newCastSession, /* sessionId= */ "new_session");
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertThat(remoteCastPlayer.getCurrentTimeline().isEmpty()).isTrue();
+  }
+
+  @Test
+  public void
+      queuedOperation_whenTargetItemRemovedOnReceiver_prunesOperationAndDispatchesNextOperation() {
+    MediaItem item1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem item2 = createMediaItem(/* mediaQueueItemId= */ 2);
+    MediaItem item3 = createMediaItem(/* mediaQueueItemId= */ 3);
+    MediaItem item4 = createMediaItem(/* mediaQueueItemId= */ 4);
+    updateTimeLine(
+        ImmutableList.of(item1, item2, item3, item4),
+        /* mediaQueueItemIds= */ new int[] {10, 20, 30, 40},
+        /* currentItemId= */ 10);
+    when(mockRemoteMediaClient.queueRemoveItems(any(int[].class), any()))
+        .thenReturn(mockPendingResult);
+    when(mockRemoteMediaClient.queueReorderItems(any(int[].class), anyInt(), any()))
+        .thenReturn(mockPendingResult);
+    when(mockRemoteMediaClient.queueJumpToItem(anyInt(), anyLong(), any()))
+        .thenReturn(mockPendingResult);
+    // Enqueue 3 operations:
+    // 1. Remove item1 at index 0 (dispatched immediately). Masked timeline becomes [item2, item3,
+    //    item4] playing index 0 (item2).
+    // 2. Move item2 from index 0 to index 2 (queued). Masked timeline becomes [item3, item4,
+    //    item2] playing index 2 (item2).
+    // 3. Seek to item4 at index 1 at position 5000ms (queued).
+    remoteCastPlayer.removeMediaItem(/* index= */ 0);
+    remoteCastPlayer.moveMediaItem(/* currentIndex= */ 0, /* newIndex= */ 2);
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 5000L);
+    verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
+
+    // Simulate another sender concurrently removing item2 (receiver ID 20) on the receiver, so
+    // when the remove operation completes, the receiver timeline only contains [item3, item4].
+    clearInvocations(mockPendingResult);
+    updateTimeLine(
+        ImmutableList.of(item3, item4),
+        /* mediaQueueItemIds= */ new int[] {30, 40},
+        /* currentItemId= */ 30,
+        /* streamTypes= */ new int[] {
+          MediaInfo.STREAM_TYPE_BUFFERED, MediaInfo.STREAM_TYPE_BUFFERED
+        },
+        /* durationsMs= */ new long[] {20_000, 20_000},
+        /* positionMs= */ 0L,
+        /* notifyStatusUpdate= */ false);
+    MediaChannelResult successResult = mock(MediaChannelResult.class);
+    when(successResult.getStatus()).thenReturn(new Status(CastStatusCodes.SUCCESS));
+    setResultCallbackArgumentCaptor.getValue().onResult(successResult);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    // The move operation targeting missing item2 (ID 20) is pruned without calling
+    // queueReorderItems, and the subsequent seek operation targeting item4 (ID 40) is dispatched.
+    verify(mockRemoteMediaClient, never()).queueReorderItems(any(int[].class), anyInt(), any());
+    verify(mockRemoteMediaClient).queueJumpToItem(eq(40), eq(5000L), eq(null));
+    assertThat(remoteCastPlayer.getCurrentTimeline().getWindowCount()).isEqualTo(2);
+    assertThat(remoteCastPlayer.getCurrentMediaItemIndex()).isEqualTo(1);
+    assertThat(remoteCastPlayer.getCurrentPosition()).isEqualTo(5000L);
+  }
+
   private int[] createMediaQueueItemIds(int numberOfIds) {
     int[] mediaQueueItemIds = new int[numberOfIds];
     for (int i = 0; i < numberOfIds; i++) {
@@ -3157,6 +4011,9 @@ public class RemoteCastPlayerTest {
       long positionMs,
       boolean notifyStatusUpdate) {
     // Set up mocks to allow the player to update the timeline.
+    Timeline existingTimeline = remoteCastPlayer.getCurrentTimeline();
+    Timeline.Window existingWindow = new Timeline.Window();
+    HashSet<Object> matchedUids = new HashSet<>();
     List<MediaQueueItem> queueItems = new ArrayList<>();
     for (int i = 0; i < mediaQueueItemIds.length; i++) {
       MediaItem mediaItem = mediaItems.get(i);
@@ -3173,6 +4030,35 @@ public class RemoteCastPlayerTest {
               .setContentType(mediaItem.localConfiguration.mimeType);
       if (durationMs != C.TIME_UNSET) {
         mediaInfoBuilder.setStreamDuration(durationMs);
+      }
+      boolean attachedCustomData = false;
+      for (int s = sentQueueItems.size() - 1; s >= 0; s--) {
+        MediaInfo sentMedia = sentQueueItems.get(s).getMedia();
+        if (sentMedia != null
+            && contentId.equals(sentMedia.getContentId())
+            && sentMedia.getCustomData() != null
+            && matchedUids.add(
+                sentMedia.getCustomData().optString(CastTimelineTracker.KEY_SYNTHETIC_ID))) {
+          mediaInfoBuilder.setCustomData(sentMedia.getCustomData());
+          attachedCustomData = true;
+          break;
+        }
+      }
+      if (!attachedCustomData) {
+        for (int w = 0; w < existingTimeline.getWindowCount(); w++) {
+          existingTimeline.getWindow(w, existingWindow);
+          if (existingWindow.mediaItem.equals(mediaItem)
+              && matchedUids.add(existingWindow.uid.toString())) {
+            try {
+              mediaInfoBuilder.setCustomData(
+                  new JSONObject()
+                      .put(CastTimelineTracker.KEY_SYNTHETIC_ID, existingWindow.uid.toString()));
+            } catch (JSONException e) {
+              throw new IllegalStateException(e);
+            }
+            break;
+          }
+        }
       }
       MediaInfo mediaInfo = mediaInfoBuilder.build();
       MediaQueueItem mediaQueueItem = mock(MediaQueueItem.class);
@@ -3194,6 +4080,10 @@ public class RemoteCastPlayerTest {
         .thenReturn(currentItemId == C.INDEX_UNSET ? 0 : currentItemId);
 
     if (notifyStatusUpdate) {
+      while (!pendingResultCallbacks.isEmpty()) {
+        ResultCallback<MediaChannelResult> callback = pendingResultCallbacks.remove(0);
+        callback.onResult(defaultSuccessResult);
+      }
       // Call listener to update the timeline of the player.
       remoteMediaClientCallback.onStatusUpdated();
     }

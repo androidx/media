@@ -238,6 +238,12 @@
         populated media items immediately surrounding the active item rather
         than the entire playlist.
         ([#3129](https://github.com/androidx/media/issues/3129)).
+    *   Update the timeline and playback position immediately when modifying the
+        playlist (`setMediaItems`, `addMediaItems`, `moveMediaItems`,
+        `removeMediaItems`) or seeking in `RemoteCastPlayer`, and queue
+        successive playlist operations so they execute reliably in order
+        ([#2639](https://github.com/androidx/media/issues/2639),
+        [#3272](https://github.com/androidx/media/issues/3272)).
 *   Test Utilities:
 *   Remove deprecated symbols:
     *   Remove `DashUtil.buildDataSpec(Representation, RangedUri, int)` and

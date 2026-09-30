@@ -375,4 +375,62 @@ public final class CastPlayerTest {
     assertThat(castPlayer.getPlayWhenReady()).isFalse();
     verify(mockRemoteMediaClient, never()).play();
   }
+
+  @Test
+  public void
+      playerTransfer_whenSessionEndsWithUnconfirmedAddedItems_transfersAddedItemsToLocalPlayer() {
+    when(mockRemoteMediaClient.queueInsertItems(any(), anyInt(), any()))
+        .thenReturn(mockPendingResult);
+    castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "session_1");
+    castPlayer = castPlayerBuilder.build();
+    MediaItem item1 =
+        new MediaItem.Builder()
+            .setMediaId("item_1")
+            .setUri("https://example.com/media1.mp4")
+            .setMimeType(MimeTypes.VIDEO_MP4)
+            .build();
+    MediaItem item2 =
+        new MediaItem.Builder()
+            .setMediaId("item_2")
+            .setUri("https://example.com/media2.mp4")
+            .setMimeType(MimeTypes.VIDEO_MP4)
+            .build();
+    castPlayer.setMediaItems(ImmutableList.of(item1));
+    castPlayer.addMediaItems(ImmutableList.of(item2));
+
+    castSessionListener.onSessionEnded(
+        mockCastSession, RemoteCastPlayer.SESSION_END_REASON_STOPPED);
+
+    assertThat(localPlayer.getCurrentTimeline().getWindowCount()).isEqualTo(2);
+    assertThat(castPlayer.getCurrentTimeline().getWindowCount()).isEqualTo(2);
+  }
+
+  @Test
+  public void playerTransfer_castToLocalClearPlaylistAndBackToCast_clearsRemotePlayerSnapshots() {
+    castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "session_1");
+    castPlayer = castPlayerBuilder.build();
+    MediaItem item1 =
+        new MediaItem.Builder()
+            .setMediaId("item_1")
+            .setUri("https://example.com/media1.mp4")
+            .setMimeType(MimeTypes.VIDEO_MP4)
+            .build();
+    castPlayer.setMediaItems(ImmutableList.of(item1));
+
+    // Cast -> Local
+    castSessionListener.onSessionEnded(
+        mockCastSession, RemoteCastPlayer.SESSION_END_REASON_STOPPED);
+    assertThat(castPlayer.getCurrentTimeline().getWindowCount()).isEqualTo(1);
+
+    // Clear items while on Local
+    castPlayer.setMediaItems(ImmutableList.of());
+    assertThat(castPlayer.getCurrentTimeline().isEmpty()).isTrue();
+
+    // Local -> Cast (new session with no media loaded on receiver)
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(null);
+    castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "session_2");
+
+    assertThat(castPlayer.getCurrentTimeline().isEmpty()).isTrue();
+    assertThat(remoteCastPlayer.getCurrentTimeline().isEmpty()).isTrue();
+  }
 }

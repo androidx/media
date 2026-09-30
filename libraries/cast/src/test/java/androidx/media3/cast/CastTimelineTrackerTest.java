@@ -136,7 +136,7 @@ public class CastTimelineTrackerTest {
     ImmutableList<MediaItem> playlistMediaItems =
         ImmutableList.of(createMediaItem(0), createMediaItem(1));
     MediaQueueItem[] registeredQueueItems =
-        castTimelineTracker.registerMediaItems(playlistMediaItems);
+        castTimelineTracker.registerMediaItems(playlistMediaItems).queueItems;
     MediaQueueItem queueItem0 =
         new MediaQueueItem.Builder(registeredQueueItems[0].getMedia()).setItemId(0).build();
     MediaQueueItem queueItem1 =
@@ -159,9 +159,8 @@ public class CastTimelineTrackerTest {
         .isEqualTo(playlistMediaItems.get(1));
 
     MediaItem thirdMediaItem = createMediaItem(2);
-    castTimelineTracker.reset();
     MediaQueueItem[] newQueueItems =
-        castTimelineTracker.registerMediaItems(ImmutableList.of(thirdMediaItem));
+        castTimelineTracker.registerMediaItems(ImmutableList.of(thirdMediaItem)).queueItems;
     MediaQueueItem thirdMediaQueueItem =
         new MediaQueueItem.Builder(newQueueItems[0].getMedia()).setItemId(2).build();
     // Mock remote media client state after a single item overrides the previous playlist.
@@ -184,7 +183,8 @@ public class CastTimelineTrackerTest {
     MediaStatus mockMediaStatus = mock(MediaStatus.class);
     ImmutableList<MediaItem> playlistMediaItems =
         ImmutableList.of(createMediaItem(0), createMediaItem(1));
-    MediaQueueItem[] initialItems = castTimelineTracker.registerMediaItems(playlistMediaItems);
+    MediaQueueItem[] initialItems =
+        castTimelineTracker.registerMediaItems(playlistMediaItems).queueItems;
     MediaQueueItem queueItem0 =
         new MediaQueueItem.Builder(initialItems[0].getMedia()).setItemId(0).build();
     MediaQueueItem queueItem1 =
@@ -213,7 +213,8 @@ public class CastTimelineTrackerTest {
 
     // Mock remote media client state after adding a third item.
     MediaQueueItem[] additionItems =
-        castTimelineTracker.registerMediaItems(ImmutableList.of(secondPlaylistMediaItems.get(2)));
+        castTimelineTracker.registerMediaItems(ImmutableList.of(secondPlaylistMediaItems.get(2)))
+            .queueItems;
     MediaQueueItem thirdQueueItem =
         new MediaQueueItem.Builder(additionItems[0].getMedia()).setItemId(2).build();
     List<MediaQueueItem> playlistThreeQueueItems =
@@ -240,7 +241,8 @@ public class CastTimelineTrackerTest {
     MediaStatus mockMediaStatus = mock(MediaStatus.class);
     ImmutableList<MediaItem> playlistMediaItems =
         ImmutableList.of(createMediaItem(0), createMediaItem(1));
-    MediaQueueItem[] registeredItems = castTimelineTracker.registerMediaItems(playlistMediaItems);
+    MediaQueueItem[] registeredItems =
+        castTimelineTracker.registerMediaItems(playlistMediaItems).queueItems;
     MediaQueueItem queueItem0 =
         new MediaQueueItem.Builder(registeredItems[0].getMedia()).setItemId(0).build();
     MediaQueueItem queueItem1 =
@@ -413,7 +415,7 @@ public class CastTimelineTrackerTest {
             .setMimeType(MimeTypes.APPLICATION_M3U8)
             .build();
     MediaQueueItem[] registeredItems =
-        castTimelineTracker.registerMediaItems(ImmutableList.of(unconfiguredItem));
+        castTimelineTracker.registerMediaItems(ImmutableList.of(unconfiguredItem)).queueItems;
     MediaInfo resolvedMediaInfo =
         new MediaInfo.Builder(registeredItems[0].getMedia().getContentId())
             .setContentType(registeredItems[0].getMedia().getContentType())
@@ -446,7 +448,8 @@ public class CastTimelineTrackerTest {
     MediaStatus mockMediaStatus = mock(MediaStatus.class);
     ImmutableList<MediaItem> playlistMediaItems =
         ImmutableList.of(createMediaItem(0), createMediaItem(1), createMediaItem(2));
-    MediaQueueItem[] registeredItems = castTimelineTracker.registerMediaItems(playlistMediaItems);
+    MediaQueueItem[] registeredItems =
+        castTimelineTracker.registerMediaItems(playlistMediaItems).queueItems;
     MediaQueueItem queueItem0 =
         new MediaQueueItem.Builder(registeredItems[0].getMedia()).setItemId(0).build();
     MediaQueueItem queueItem1 =
@@ -482,7 +485,8 @@ public class CastTimelineTrackerTest {
     // Setup tracker 1: Item at index 1 is MediaItem.EMPTY (not registered in placeholderTracker)
     CastTimelineTracker placeholderTracker = new CastTimelineTracker(mediaItemConverter);
     MediaQueueItem[] placeholderItems =
-        placeholderTracker.registerMediaItems(ImmutableList.of(playlistMediaItems.get(0)));
+        placeholderTracker.registerMediaItems(ImmutableList.of(playlistMediaItems.get(0)))
+            .queueItems;
     MediaQueueItem queueItem0 =
         new MediaQueueItem.Builder(placeholderItems[0].getMedia()).setItemId(0).build();
     MediaQueueItem queueItem1 =
@@ -503,7 +507,8 @@ public class CastTimelineTrackerTest {
 
     // Setup tracker 2: Item at index 1 is resolved to the real local MediaItem
     CastTimelineTracker resolvedTracker = new CastTimelineTracker(mediaItemConverter);
-    MediaQueueItem[] resolvedItems = resolvedTracker.registerMediaItems(playlistMediaItems);
+    MediaQueueItem[] resolvedItems =
+        resolvedTracker.registerMediaItems(playlistMediaItems).queueItems;
     MediaQueueItem resolvedItem0 =
         new MediaQueueItem.Builder(resolvedItems[0].getMedia()).setItemId(0).build();
     MediaQueueItem resolvedItem1 =
@@ -536,7 +541,8 @@ public class CastTimelineTrackerTest {
     MediaStatus mockMediaStatus = mock(MediaStatus.class);
     ImmutableList<MediaItem> playlistMediaItems =
         ImmutableList.of(createMediaItem(0), createMediaItem(1), createMediaItem(2));
-    MediaQueueItem[] registeredItems = castTimelineTracker.registerMediaItems(playlistMediaItems);
+    MediaQueueItem[] registeredItems =
+        castTimelineTracker.registerMediaItems(playlistMediaItems).queueItems;
     MediaQueueItem queueItem0 =
         new MediaQueueItem.Builder(registeredItems[0].getMedia()).setItemId(0).build();
     MediaQueueItem queueItem1 =
@@ -554,6 +560,7 @@ public class CastTimelineTrackerTest {
 
     CastTimeline timeline = castTimelineTracker.getCastTimeline(mockRemoteMediaClient);
 
+    assertThat(castTimelineTracker.hasPendingQueueFetches()).isTrue();
     assertThat(timeline.getWindowCount()).isEqualTo(3);
     assertThat(timeline.getWindow(/* windowIndex= */ 2, new Window()).mediaItem)
         .isEqualTo(MediaItem.EMPTY);
@@ -566,7 +573,8 @@ public class CastTimelineTrackerTest {
 
     // Setup in-flight state (index 2 is MediaItem.EMPTY)
     CastTimelineTracker inFlightTracker = new CastTimelineTracker(mediaItemConverter);
-    MediaQueueItem[] inFlightRegistered = inFlightTracker.registerMediaItems(playlistMediaItems);
+    MediaQueueItem[] inFlightRegistered =
+        inFlightTracker.registerMediaItems(playlistMediaItems).queueItems;
     MediaQueueItem queueItem0 =
         new MediaQueueItem.Builder(inFlightRegistered[0].getMedia()).setItemId(0).build();
     MediaQueueItem queueItem1 =
@@ -588,7 +596,8 @@ public class CastTimelineTrackerTest {
 
     // Setup completed state (index 2 resolved from MediaQueue cache)
     CastTimelineTracker completedTracker = new CastTimelineTracker(mediaItemConverter);
-    MediaQueueItem[] completedRegistered = completedTracker.registerMediaItems(playlistMediaItems);
+    MediaQueueItem[] completedRegistered =
+        completedTracker.registerMediaItems(playlistMediaItems).queueItems;
     MediaQueueItem completed0 =
         new MediaQueueItem.Builder(completedRegistered[0].getMedia()).setItemId(0).build();
     MediaQueueItem completed1 =
@@ -672,7 +681,8 @@ public class CastTimelineTrackerTest {
             .setTag("second_instance")
             .build();
     MediaQueueItem[] registeredItems =
-        castTimelineTracker.registerMediaItems(ImmutableList.of(duplicateItem1, duplicateItem2));
+        castTimelineTracker.registerMediaItems(ImmutableList.of(duplicateItem1, duplicateItem2))
+            .queueItems;
     MediaQueueItem queueItem1 =
         new MediaQueueItem.Builder(registeredItems[0].getMedia()).setItemId(101).build();
     MediaQueueItem queueItem2 =
@@ -759,7 +769,7 @@ public class CastTimelineTrackerTest {
     MediaItem mediaItem2 = new MediaItem.Builder().setUri("http://example.com/2").build();
 
     MediaQueueItem[] queueItems =
-        castTimelineTracker.registerMediaItems(ImmutableList.of(mediaItem1, mediaItem2));
+        castTimelineTracker.registerMediaItems(ImmutableList.of(mediaItem1, mediaItem2)).queueItems;
 
     assertThat(queueItems).hasLength(2);
     JSONObject customData1 = queueItems[0].getMedia().getCustomData();
@@ -781,7 +791,7 @@ public class CastTimelineTrackerTest {
     MediaItem mediaItem2 =
         new MediaItem.Builder().setUri("http://example.com/2").setTag("tag2").build();
     MediaQueueItem[] queueItems =
-        castTimelineTracker.registerMediaItems(ImmutableList.of(mediaItem1, mediaItem2));
+        castTimelineTracker.registerMediaItems(ImmutableList.of(mediaItem1, mediaItem2)).queueItems;
     String syntheticId1 = queueItems[0].getMedia().getCustomData().getString("m3-syntheticId");
     String syntheticId2 = queueItems[1].getMedia().getCustomData().getString("m3-syntheticId");
     MediaQueueItem queueItem1 =
@@ -810,15 +820,18 @@ public class CastTimelineTrackerTest {
   }
 
   @Test
-  public void registerMediaItems_additionalItems_resolvesAllItemsInTimeline() throws Exception {
+  public void registerMediaItems_multipleRegistrations_resolvesAllItemsInTimeline()
+      throws Exception {
     MediaItem mediaItem1 =
         new MediaItem.Builder().setUri("http://example.com/1").setTag("tag1").build();
-    MediaQueueItem[] initialQueueItems =
+    CastTimelineTracker.RegisteredMediaItems initialResult =
         castTimelineTracker.registerMediaItems(ImmutableList.of(mediaItem1));
+    MediaQueueItem[] initialQueueItems = initialResult.queueItems;
     MediaItem mediaItem2 =
         new MediaItem.Builder().setUri("http://example.com/2").setTag("tag2").build();
-    MediaQueueItem[] additionalQueueItems =
+    CastTimelineTracker.RegisteredMediaItems additionalResult =
         castTimelineTracker.registerMediaItems(ImmutableList.of(mediaItem2));
+    MediaQueueItem[] additionalQueueItems = additionalResult.queueItems;
     MediaQueueItem queueItem1 =
         new MediaQueueItem.Builder(initialQueueItems[0].getMedia()).setItemId(101).build();
     MediaQueueItem queueItem2 =
@@ -843,19 +856,17 @@ public class CastTimelineTrackerTest {
   }
 
   @Test
-  public void registerMediaItems_afterReset_clearsPreviousRegistrationsInTracker()
-      throws Exception {
+  public void reset_clearsPreviousRegistrationsInTracker() throws Exception {
     MediaItem mediaItem1 =
         new MediaItem.Builder().setUri("http://example.com/1").setTag("tag1").build();
     MediaQueueItem[] initialQueueItems =
-        castTimelineTracker.registerMediaItems(ImmutableList.of(mediaItem1));
+        castTimelineTracker.registerMediaItems(ImmutableList.of(mediaItem1)).queueItems;
 
     castTimelineTracker.reset();
-
     MediaItem mediaItem2 =
         new MediaItem.Builder().setUri("http://example.com/2").setTag("tag2").build();
     MediaQueueItem[] newQueueItems =
-        castTimelineTracker.registerMediaItems(ImmutableList.of(mediaItem2));
+        castTimelineTracker.registerMediaItems(ImmutableList.of(mediaItem2)).queueItems;
     MediaQueueItem oldQueueItem =
         new MediaQueueItem.Builder(initialQueueItems[0].getMedia()).setItemId(101).build();
     MediaQueueItem newQueueItem =
@@ -873,7 +884,8 @@ public class CastTimelineTrackerTest {
     CastTimeline timeline = castTimelineTracker.getCastTimeline(mockRemoteMediaClient);
 
     assertThat(timeline.getWindowCount()).isEqualTo(2);
-    // Old item was reset: sender-only custom tag is lost, fallback resolved from converter
+    // Old item was cleared by reset(): sender-only custom tag is
+    // lost, fallback resolved from converter
     assertThat(
             timeline.getWindow(/* windowIndex= */ 0, new Window()).mediaItem.localConfiguration.tag)
         .isNull();
@@ -903,7 +915,8 @@ public class CastTimelineTrackerTest {
     CastTimelineTracker customTracker = new CastTimelineTracker(customConverter);
 
     MediaItem mediaItem = new MediaItem.Builder().setMediaId("custom_media_id").build();
-    MediaQueueItem[] queueItems = customTracker.registerMediaItems(ImmutableList.of(mediaItem));
+    MediaQueueItem[] queueItems =
+        customTracker.registerMediaItems(ImmutableList.of(mediaItem)).queueItems;
 
     assertThat(queueItems).hasLength(1);
     assertThat(queueItems[0].getMedia().getCustomData()).isNull();
@@ -918,8 +931,9 @@ public class CastTimelineTrackerTest {
             .setMediaId("item_0")
             .setTag("custom_tag_0")
             .build();
-    MediaQueueItem[] initialQueueItems =
+    CastTimelineTracker.RegisteredMediaItems initialResult =
         castTimelineTracker.registerMediaItems(ImmutableList.of(item0));
+    MediaQueueItem[] initialQueueItems = initialResult.queueItems;
     MediaQueueItem queueItem0 =
         new MediaQueueItem.Builder(initialQueueItems[0].getMedia()).setItemId(100).build();
     RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
@@ -939,7 +953,7 @@ public class CastTimelineTrackerTest {
             .setTag("custom_tag_1")
             .build();
     MediaQueueItem[] inFlightQueueItems =
-        castTimelineTracker.registerMediaItems(ImmutableList.of(item1));
+        castTimelineTracker.registerMediaItems(ImmutableList.of(item1)).queueItems;
     // Intermediate getCastTimeline call while queue addition is still in-flight would trigger
     // clean-up of unused items in the tracker. The in-flight item should be preserved.
     CastTimeline unused = castTimelineTracker.getCastTimeline(mockClient);
@@ -954,6 +968,172 @@ public class CastTimelineTrackerTest {
     Window window1 = confirmedTimeline.getWindow(/* windowIndex= */ 1, new Window());
     assertThat(window1.mediaItem).isEqualTo(item1);
     assertThat(window1.mediaItem.localConfiguration.tag).isEqualTo("custom_tag_1");
+  }
+
+  @Test
+  public void registerMediaItems_registersPendingItemsAndBindsUidOnConfirmation() {
+    MediaItem item =
+        new MediaItem.Builder()
+            .setUri("http://example.com/item")
+            .setMediaId("item_0")
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setStartPositionMs(5000).build())
+            .build();
+
+    CastTimelineTracker.RegisteredMediaItems result =
+        castTimelineTracker.registerMediaItems(ImmutableList.of(item));
+
+    assertThat(result.itemUids).hasSize(1);
+    ItemUid registeredUid = result.itemUids.get(0);
+    assertThat(castTimelineTracker.getReceiverItemId(registeredUid))
+        .isEqualTo(MediaQueueItem.INVALID_ITEM_ID);
+
+    MediaQueueItem receiverQueueItem =
+        new MediaQueueItem.Builder(result.queueItems[0].getMedia()).setItemId(100).build();
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaQueue mockQueue = mock(MediaQueue.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    when(mockClient.getMediaQueue()).thenReturn(mockQueue);
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    when(mockQueue.getItemIds()).thenReturn(new int[] {100});
+    when(mockStatus.getCurrentItemId()).thenReturn(100);
+    when(mockStatus.getMediaInfo()).thenReturn(receiverQueueItem.getMedia());
+    when(mockStatus.getQueueItems()).thenReturn(ImmutableList.of(receiverQueueItem));
+
+    CastTimeline timeline = castTimelineTracker.getCastTimeline(mockClient);
+
+    assertThat(timeline.getWindowCount()).isEqualTo(1);
+    Window window = timeline.getWindow(/* windowIndex= */ 0, new Window());
+    assertThat(window.uid).isEqualTo(registeredUid);
+    assertThat(window.mediaItem).isEqualTo(item);
+    assertThat(castTimelineTracker.getReceiverItemId(registeredUid)).isEqualTo(100);
+  }
+
+  @Test
+  public void
+      registerMediaItems_multipleRegistrations_registersPendingItemsAndBindsUidOnConfirmation() {
+    MediaItem item0 =
+        new MediaItem.Builder().setUri("http://example.com/0").setMediaId("item_0").build();
+    CastTimelineTracker.RegisteredMediaItems setResult =
+        castTimelineTracker.registerMediaItems(ImmutableList.of(item0));
+
+    MediaItem item1 =
+        new MediaItem.Builder()
+            .setUri("http://example.com/1")
+            .setMediaId("item_1")
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setStartPositionMs(3000).build())
+            .build();
+    CastTimelineTracker.RegisteredMediaItems addResult =
+        castTimelineTracker.registerMediaItems(ImmutableList.of(item1));
+
+    assertThat(addResult.itemUids).hasSize(1);
+    ItemUid addedUid = addResult.itemUids.get(0);
+    assertThat(castTimelineTracker.getReceiverItemId(addedUid))
+        .isEqualTo(MediaQueueItem.INVALID_ITEM_ID);
+
+    MediaQueueItem receiverQueueItem1 =
+        new MediaQueueItem.Builder(addResult.queueItems[0].getMedia()).setItemId(101).build();
+    MediaQueueItem receiverQueueItem0 =
+        new MediaQueueItem.Builder(setResult.queueItems[0].getMedia()).setItemId(100).build();
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaQueue mockQueue = mock(MediaQueue.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    when(mockClient.getMediaQueue()).thenReturn(mockQueue);
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    when(mockQueue.getItemIds()).thenReturn(new int[] {101, 100});
+    when(mockStatus.getCurrentItemId()).thenReturn(101);
+    when(mockStatus.getMediaInfo()).thenReturn(receiverQueueItem1.getMedia());
+    when(mockStatus.getQueueItems())
+        .thenReturn(ImmutableList.of(receiverQueueItem1, receiverQueueItem0));
+
+    CastTimeline timeline = castTimelineTracker.getCastTimeline(mockClient);
+
+    assertThat(timeline.getWindowCount()).isEqualTo(2);
+    Window confirmedWindow0 = timeline.getWindow(/* windowIndex= */ 0, new Window());
+    assertThat(confirmedWindow0.uid).isEqualTo(addedUid);
+    assertThat(confirmedWindow0.mediaItem).isEqualTo(item1);
+    assertThat(castTimelineTracker.getReceiverItemId(addedUid)).isEqualTo(101);
+  }
+
+  @Test
+  public void
+      getCastTimeline_lateJoiningSender_doesNotReplacePlaceholderUidWithForeignSyntheticId() {
+    MediaItem item0 = createMediaItem(0);
+    MediaItem item1 = createMediaItem(1);
+    MediaQueueItem queueItem0 = createMediaQueueItem(item0, ItemUid.of("foreign-uid-0"), 100);
+    MediaQueueItem queueItem1 = createMediaQueueItem(item1, ItemUid.of("foreign-uid-1"), 101);
+
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaQueue mockQueue = mock(MediaQueue.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    when(mockClient.getMediaQueue()).thenReturn(mockQueue);
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    when(mockQueue.getItemIds()).thenReturn(new int[] {100, 101});
+    when(mockStatus.getCurrentItemId()).thenReturn(100);
+    when(mockStatus.getMediaInfo()).thenReturn(queueItem0.getMedia());
+    // Pass 1: item 100 is in MediaStatus, item 101 is outside the initial window (uncached).
+    when(mockStatus.getQueueItems()).thenReturn(ImmutableList.of(queueItem0));
+    when(mockQueue.getItemAtIndex(1, /* fetchIfNeeded= */ true)).thenReturn(null);
+
+    CastTimeline incompleteTimeline = castTimelineTracker.getCastTimeline(mockClient);
+
+    assertThat(castTimelineTracker.hasPendingQueueFetches()).isTrue();
+    assertThat(incompleteTimeline.getWindowCount()).isEqualTo(2);
+    // Item 100 was immediately present in MediaStatus, so it gets the foreign synthetic UID.
+    assertThat(incompleteTimeline.getWindow(0, new Window()).uid)
+        .isEqualTo(ItemUid.of("foreign-uid-0"));
+    // Item 101 was uncached on Pass 1, so it gets a generated placeholder UID.
+    Object placeholderUid1 = incompleteTimeline.getWindow(1, new Window()).uid;
+    assertThat(placeholderUid1).isNotEqualTo(ItemUid.of("foreign-uid-1"));
+    assertThat(incompleteTimeline.getWindow(1, new Window()).mediaItem).isEqualTo(MediaItem.EMPTY);
+
+    // Pass 2: MediaQueue finishes fetching item 101 (which carries "foreign-uid-1" from another
+    // sender). Since "foreign-uid-1" was not registered in this sender's mediaItemsBySyntheticId,
+    // the tracker must preserve placeholderUid1 to avoid UID churn while populating its MediaItem.
+    when(mockQueue.getItemAtIndex(1, /* fetchIfNeeded= */ true)).thenReturn(queueItem1);
+
+    CastTimeline completeTimeline = castTimelineTracker.getCastTimeline(mockClient);
+
+    assertThat(castTimelineTracker.hasPendingQueueFetches()).isFalse();
+    assertThat(completeTimeline.getWindow(1, new Window()).uid).isEqualTo(placeholderUid1);
+    assertThat(completeTimeline.getWindow(1, new Window()).mediaItem)
+        .isEqualTo(mediaItemConverter.toMediaItem(queueItem1));
+  }
+
+  @Test
+  public void
+      getCastTimeline_whenLoadingNewItemWhileCurrentItemIdIsStale_preservesDistinctItemUids() {
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaQueue mockQueue = mock(MediaQueue.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    when(mockClient.getMediaQueue()).thenReturn(mockQueue);
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+
+    ImmutableList<MediaItem> playlist = ImmutableList.of(createMediaItem(0), createMediaItem(1));
+    CastTimelineTracker.RegisteredMediaItems registered =
+        castTimelineTracker.registerMediaItems(playlist);
+    MediaQueueItem queueItem0 =
+        new MediaQueueItem.Builder(registered.queueItems[0].getMedia()).setItemId(10).build();
+    MediaQueueItem queueItem1 =
+        new MediaQueueItem.Builder(registered.queueItems[1].getMedia()).setItemId(20).build();
+
+    // Receiver is loading item 20 after a seek, while currentItemId still reports item 10 and
+    // mediaStatus.getMediaInfo() already describes item 20.
+    when(mockQueue.getItemIds()).thenReturn(new int[] {10, 20});
+    when(mockStatus.getCurrentItemId()).thenReturn(10);
+    when(mockStatus.getLoadingItemId()).thenReturn(20);
+    when(mockStatus.getMediaInfo()).thenReturn(queueItem1.getMedia());
+    when(mockStatus.getQueueItems()).thenReturn(ImmutableList.of(queueItem0));
+    when(mockQueue.getItemAtIndex(1, /* fetchIfNeeded= */ true)).thenReturn(queueItem1);
+
+    CastTimeline timeline = castTimelineTracker.getCastTimeline(mockClient);
+
+    assertThat(timeline.getWindowCount()).isEqualTo(2);
+    assertThat(timeline.getWindow(0, new Window()).uid).isEqualTo(registered.itemUids.get(0));
+    assertThat(timeline.getWindow(1, new Window()).uid).isEqualTo(registered.itemUids.get(1));
+    assertThat(castTimelineTracker.getItemUid(10)).isEqualTo(registered.itemUids.get(0));
+    assertThat(castTimelineTracker.getItemUid(20)).isEqualTo(registered.itemUids.get(1));
   }
 
   private MediaItem createMediaItem(int uid) {

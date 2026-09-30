@@ -22,10 +22,16 @@ import androidx.media3.common.C.TrackType;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import com.google.android.gms.cast.CastStatusCodes;
 import com.google.android.gms.cast.MediaInfo;
+import com.google.android.gms.cast.MediaQueueItem;
+import com.google.android.gms.cast.MediaStatus;
 import com.google.android.gms.cast.MediaTrack;
+import com.google.android.gms.cast.framework.media.RemoteMediaClient;
+import com.google.android.gms.cast.framework.media.RemoteMediaClient.MediaChannelResult;
+import com.google.android.gms.common.api.Status;
 import com.google.common.base.Preconditions;
 
 /** Utility methods for Cast integration. */
@@ -53,6 +59,49 @@ import com.google.common.base.Preconditions;
     }
     long durationMs = mediaInfo.getStreamDuration();
     return durationMs != MediaInfo.UNKNOWN_DURATION ? Util.msToUs(durationMs) : C.TIME_UNSET;
+  }
+
+  /**
+   * Returns the receiver queue item ID of the item currently loading or playing in {@code
+   * remoteMediaClient}, or {@link MediaQueueItem#INVALID_ITEM_ID} if none is active.
+   *
+   * <p>Prefers {@link MediaStatus#getLoadingItemId()} over {@link MediaStatus#getCurrentItemId()}
+   * because during an initial load or item transition on the receiver, {@code loadingItemId}
+   * identifies the target item being prepared while {@code currentItemId} may still reference the
+   * previous item or be {@link MediaQueueItem#INVALID_ITEM_ID}.
+   */
+  public static int getCurrentOrLoadingItemId(RemoteMediaClient remoteMediaClient) {
+    int itemId = MediaQueueItem.INVALID_ITEM_ID;
+    @Nullable MediaStatus mediaStatus = remoteMediaClient.getMediaStatus();
+    if (mediaStatus != null) {
+      itemId = mediaStatus.getLoadingItemId();
+      if (itemId == MediaQueueItem.INVALID_ITEM_ID) {
+        itemId = mediaStatus.getCurrentItemId();
+      }
+    }
+    if (itemId == MediaQueueItem.INVALID_ITEM_ID) {
+      @Nullable MediaQueueItem currentItem = remoteMediaClient.getCurrentItem();
+      if (currentItem != null) {
+        itemId = currentItem.getItemId();
+      }
+    }
+    return itemId;
+  }
+
+  /**
+   * Logs an error if {@code result} has a non-null status that is neither {@link
+   * CastStatusCodes#SUCCESS} nor {@link CastStatusCodes#REPLACED}.
+   */
+  public static void logOperationFailedIfStatusError(
+      String tag, String operation, @Nullable MediaChannelResult result) {
+    @Nullable Status status = result != null ? result.getStatus() : null;
+    if (status != null) {
+      int statusCode = status.getStatusCode();
+      if (statusCode != CastStatusCodes.SUCCESS && statusCode != CastStatusCodes.REPLACED) {
+        Log.e(
+            tag, operation + " failed. Error code " + statusCode + ": " + getLogString(statusCode));
+      }
+    }
   }
 
   /**

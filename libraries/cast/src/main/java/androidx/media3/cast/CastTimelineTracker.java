@@ -55,6 +55,8 @@ import org.json.JSONObject;
   @VisibleForTesting /* package */ static final int MAX_FETCH_COUNT = 20;
 
   private final Map<ItemUid, ItemData> itemIdToData;
+  // TODO: b/553993066 - Evict entries when items are removed from the timeline to avoid unbounded
+  // growth during long-running sessions.
   private final Map<ItemUid, MediaItem> mediaItemsBySyntheticId;
   // Maps the receiver assigned id to the synthetic id for media items. The synthetic id is used as
   // the stable uid of the media item in CastTimeline and abstracts away the receiver assigned id
@@ -62,6 +64,7 @@ import org.json.JSONObject;
   private final SparseArray<ItemUid> receiverItemIdToUid;
   private final Map<ItemUid, Integer> uidToReceiverItemId;
   private final MediaItemConverter mediaItemConverter;
+  private boolean hasPendingQueueFetches;
   @VisibleForTesting /* package */ final HashMap<String, MediaItem> mediaItemsByContentId;
 
   /**
@@ -107,26 +110,46 @@ import org.json.JSONObject;
     receiverItemIdToUid.clear();
     uidToReceiverItemId.clear();
     mediaItemsByContentId.clear();
+    hasPendingQueueFetches = false;
+  }
+
+  /** Returns whether any items in the receiver's {@link MediaQueue} are still being fetched. */
+  public boolean hasPendingQueueFetches() {
+    return hasPendingQueueFetches;
   }
 
   /**
-   * Prepares {@link MediaQueueItem}s for the given {@link MediaItem}s and registers them with
-   * unique synthetic IDs in the tracker.
-   *
-   * @param mediaItems The media items to convert and register.
-   * @return The array of enriched {@link MediaQueueItem}s to send to the Cast receiver.
+   * Holds the registered {@link MediaQueueItem MediaQueueItems} and their corresponding synthetic
+   * {@link ItemUid ItemUids}.
    */
-  public MediaQueueItem[] registerMediaItems(List<MediaItem> mediaItems) {
+  public static final class RegisteredMediaItems {
+    public final MediaQueueItem[] queueItems;
+    public final ImmutableList<ItemUid> itemUids;
+
+    public RegisteredMediaItems(MediaQueueItem[] queueItems, ImmutableList<ItemUid> itemUids) {
+      this.queueItems = queueItems;
+      this.itemUids = itemUids;
+    }
+  }
+
+  /**
+   * Registers the given {@link MediaItem MediaItems} with synthetic {@link ItemUid ItemUids} and
+   * returns the registered {@link MediaQueueItem MediaQueueItems} and {@link ItemUid ItemUids}.
+   */
+  public RegisteredMediaItems registerMediaItems(List<MediaItem> mediaItems) {
+    ImmutableList.Builder<ItemUid> itemUids =
+        ImmutableList.builderWithExpectedSize(mediaItems.size());
     MediaQueueItem[] mediaQueueItems = new MediaQueueItem[mediaItems.size()];
     for (int i = 0; i < mediaItems.size(); i++) {
       MediaItem mediaItem = mediaItems.get(i);
       ItemUid itemUid = ItemUid.generateItemUid();
+      itemUids.add(itemUid);
       MediaQueueItem queueItem = mediaItemConverter.toMediaQueueItem(mediaItem);
       MediaQueueItem updatedMediaQueueItem = attachSyntheticId(queueItem, itemUid);
       mediaQueueItems[i] = updatedMediaQueueItem;
       registerMediaItem(itemUid, mediaItem, updatedMediaQueueItem);
     }
-    return mediaQueueItems;
+    return new RegisteredMediaItems(mediaQueueItems, itemUids.build());
   }
 
   /**
@@ -151,6 +174,7 @@ import org.json.JSONObject;
     // TODO: Reset state when the app instance changes [Internal ref: b/129672468].
     MediaStatus mediaStatus = remoteMediaClient.getMediaStatus();
     if (mediaStatus == null || mediaStatus.getMediaInfo() == null) {
+      hasPendingQueueFetches = false;
       return CastTimeline.EMPTY_CAST_TIMELINE;
     }
 
@@ -158,13 +182,21 @@ import org.json.JSONObject;
       updateItemDataFromQueueItem(queueItem);
     }
 
-    int currentItemId = mediaStatus.getCurrentItemId();
+    int currentItemId = CastUtils.getCurrentOrLoadingItemId(remoteMediaClient);
     int currentItemIndex = Util.linearSearch(itemIds, currentItemId);
     if (currentItemIndex == C.INDEX_UNSET) {
       // This is not expected to happen, but prevents us from running out of bounds in the following
       // loop.
       currentItemIndex = 0;
     }
+
+    // MediaStatus can report an active item or queue items before MediaQueue finishes fetching
+    // the full item ID list (itemIds.length == 0). Mark fetches as pending so callers do not
+    // treat the resulting empty timeline as a complete receiver state.
+    hasPendingQueueFetches =
+        itemIds.length == 0
+            && (currentItemId != MediaQueueItem.INVALID_ITEM_ID
+                || !mediaStatus.getQueueItems().isEmpty());
 
     // Fetch missing item metadata starting from the current playback index forward.
     // To prevent silent evictions in the MediaQueue fetch buffer (which is hard-capped at
@@ -175,15 +207,20 @@ import org.json.JSONObject;
     for (int step = 0; step < itemIds.length; step++) {
       int i = (currentItemIndex + step) % itemIds.length;
       int itemId = itemIds[i];
-      ItemUid uid = getOrCreateItemUid(itemId);
-      ItemData itemData = itemIdToData.get(uid);
+      ItemUid uid = receiverItemIdToUid.get(itemId);
+      ItemData itemData = uid != null ? itemIdToData.get(uid) : null;
       if (itemData == null || itemData.mediaItem == MediaItem.EMPTY) {
         boolean fetchIfNeeded = fetchCount < MAX_FETCH_COUNT;
         MediaQueueItem queueItem = mediaQueue.getItemAtIndex(i, fetchIfNeeded);
         if (queueItem != null) {
           updateItemDataFromQueueItem(queueItem);
-        } else if (fetchIfNeeded) {
-          fetchCount++;
+        } else {
+          if (itemId != currentItemId) {
+            hasPendingQueueFetches = true;
+          }
+          if (fetchIfNeeded) {
+            fetchCount++;
+          }
         }
       }
     }
@@ -341,15 +378,29 @@ import org.json.JSONObject;
    * present).
    */
   private ItemUid getOrCreateItemUid(int receiverItemId, @Nullable MediaInfo mediaInfo) {
-    ItemUid uid = receiverItemIdToUid.get(receiverItemId);
+    @Nullable ItemUid syntheticUid = getSyntheticItemUid(mediaInfo);
+    @Nullable ItemUid uid = receiverItemIdToUid.get(receiverItemId);
     if (uid == null) {
-      @Nullable ItemUid syntheticUid = getSyntheticItemUid(mediaInfo);
-      // The syntheticUid can be absent if the media item is from a sender that does not add
-      // synthetic IDs. In that case, we generate a random ID and associate the media item with it.
+      // First time seeing this receiverItemId: use syntheticUid from MediaInfo if available, or
+      // generate a random UID (either as a temporary placeholder while MediaInfo is still being
+      // fetched so CastTimeline can be populated with the full queue size and playing index, or
+      // for items from a sender that does not attach synthetic IDs).
       uid = syntheticUid != null ? syntheticUid : ItemUid.generateItemUid();
-      receiverItemIdToUid.put(receiverItemId, uid);
-      uidToReceiverItemId.put(uid, receiverItemId);
+    } else if (syntheticUid != null
+        && !syntheticUid.equals(uid)
+        && mediaItemsBySyntheticId.containsKey(syntheticUid)) {
+      // This receiverItemId was initially assigned a temporary placeholder UID on an earlier pass
+      // before MediaQueue finished fetching its MediaInfo. Because syntheticUid was registered by
+      // this sender, maskedSnapshot is already using syntheticUid; swap the temporary UID to
+      // match maskedSnapshot and prevent recomposition once fetches complete.
+      uidToReceiverItemId.remove(uid);
+      itemIdToData.remove(uid);
+      uid = syntheticUid;
+    } else {
+      return uid;
     }
+    receiverItemIdToUid.put(receiverItemId, uid);
+    uidToReceiverItemId.put(uid, receiverItemId);
     return uid;
   }
 
