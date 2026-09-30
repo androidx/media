@@ -23,6 +23,7 @@ import static androidx.media3.container.NalUnitUtil.numberOfBytesInNalUnitHeader
 import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static com.google.common.truth.Truth.assertThat;
 
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
@@ -572,6 +573,86 @@ public final class NalUnitUtilTest {
     byte[] suffixSei = new byte[] {0x00, (byte) 0xC0};
     // Only Prefix SEI supported
     assertThat(isNalUnitSei(vvcFormat, suffixSei, /* offset= */ 0)).isFalse();
+  }
+
+  @Test
+  public void parseSeiStereoMode_sideBySide_returnsStereoModeLeftRight() {
+    // payloadType = 45 (0x2D), payloadSize = 3 (0x03)
+    // payload: id=0 (1), cancel_flag=0 (0), type=3 (0000011) -> 10000011 10000000 00000000 (0x81,
+    // 0x80, 0x00)
+    // rbsp_trailing_bits = 0x80
+    byte[] seiData = createByteArray(0x2D, 0x03, 0x81, 0x80, 0x00, 0x80);
+
+    @C.StereoMode
+    int stereoMode = NalUnitUtil.parseSeiStereoMode(seiData, /* offset= */ 0, seiData.length);
+
+    assertThat(stereoMode).isEqualTo(C.STEREO_MODE_LEFT_RIGHT);
+  }
+
+  @Test
+  public void parseSeiStereoMode_topBottom_returnsStereoModeTopBottom() {
+    // payloadType = 45 (0x2D), payloadSize = 3 (0x03)
+    // payload: id=0 (1), cancel_flag=0 (0), type=4 (0000100) -> 10000100 00000000 00000000 (0x82,
+    // 0x00, 0x00)
+    // rbsp_trailing_bits = 0x80
+    byte[] seiData = createByteArray(0x2D, 0x03, 0x82, 0x00, 0x00, 0x80);
+
+    @C.StereoMode
+    int stereoMode = NalUnitUtil.parseSeiStereoMode(seiData, /* offset= */ 0, seiData.length);
+
+    assertThat(stereoMode).isEqualTo(C.STEREO_MODE_TOP_BOTTOM);
+  }
+
+  @Test
+  public void parseSeiStereoMode_cancelFlagTrue_returnsStereoModeMono() {
+    // payloadType = 45 (0x2D), payloadSize = 1 (0x01)
+    // payload: id=0 (1), cancel_flag=1 (1) -> 11000000 (0xC0)
+    // rbsp_trailing_bits = 0x80
+    byte[] seiData = createByteArray(0x2D, 0x01, 0xC0, 0x80);
+
+    @C.StereoMode
+    int stereoMode = NalUnitUtil.parseSeiStereoMode(seiData, /* offset= */ 0, seiData.length);
+
+    assertThat(stereoMode).isEqualTo(C.STEREO_MODE_MONO);
+  }
+
+  @Test
+  public void parseSeiStereoMode_type2d_returnsStereoModeMono() {
+    // payloadType = 45 (0x2D), payloadSize = 3 (0x03)
+    // payload: id=0 (1), cancel_flag=0 (0), type=6 (0000110) -> 10000011 00000000 00000000 (0x83,
+    // 0x00, 0x00)
+    // rbsp_trailing_bits = 0x80
+    byte[] seiData = createByteArray(0x2D, 0x03, 0x83, 0x00, 0x00, 0x80);
+
+    @C.StereoMode
+    int stereoMode = NalUnitUtil.parseSeiStereoMode(seiData, /* offset= */ 0, seiData.length);
+
+    assertThat(stereoMode).isEqualTo(C.STEREO_MODE_MONO);
+  }
+
+  @Test
+  public void parseSeiStereoMode_afterOtherSeiPayload_returnsStereoModeLeftRight() {
+    // Message 1: payloadType = 1 (pic_timing), payloadSize = 2, payload = {0xAA, 0xBB}
+    // Message 2: payloadType = 45 (FPA), payloadSize = 3, payload = {0x81, 0x80, 0x00} (type=3)
+    // rbsp_trailing_bits = 0x80
+    byte[] seiData = createByteArray(0x01, 0x02, 0xAA, 0xBB, 0x2D, 0x03, 0x81, 0x80, 0x00, 0x80);
+
+    @C.StereoMode
+    int stereoMode = NalUnitUtil.parseSeiStereoMode(seiData, /* offset= */ 0, seiData.length);
+
+    assertThat(stereoMode).isEqualTo(C.STEREO_MODE_LEFT_RIGHT);
+  }
+
+  @Test
+  public void parseSeiStereoMode_withUnescapedZeroZeroThreeBytes_doesNotDoubleUnescape() {
+    // payloadType = 45 (0x2D), payloadSize = 7 (0x07), payload starts with 0x00, 0x00, 0x03
+    // (id = 6291455), cancel_flag = 0, type = 3 (side-by-side).
+    byte[] seiData = createByteArray(0x2D, 0x07, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x18, 0x80);
+
+    @C.StereoMode
+    int stereoMode = NalUnitUtil.parseSeiStereoMode(seiData, /* offset= */ 0, seiData.length);
+
+    assertThat(stereoMode).isEqualTo(C.STEREO_MODE_LEFT_RIGHT);
   }
 
   private static byte[] buildTestData() {

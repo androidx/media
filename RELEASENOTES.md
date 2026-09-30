@@ -105,6 +105,9 @@
     *   Fix failure in `FragmentedMp4Extractor` when a version 1 `tfdt` box
         encodes a negative `baseMediaDecodeTime`
         ([#3412](https://github.com/androidx/media/issues/3412)).
+    *   MPEG-TS: Support parsing H.264 and H.265 frame packing arrangement SEI
+        messages to populate `Format.stereoMode`
+        ([#3419](https://github.com/androidx/media/issues/3419)).
 *   Inspector:
     *   Support retrieving XMP metadata from MP4 files using
         `MetadataRetriever`.

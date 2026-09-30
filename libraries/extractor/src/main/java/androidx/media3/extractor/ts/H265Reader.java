@@ -49,6 +49,9 @@ public final class H265Reader implements ElementaryStreamReader {
 
   // State that should not be reset on seek.
   private boolean hasOutputFormat;
+  private boolean hasPendingFormat;
+  private @MonotonicNonNull Format format;
+  private @C.StereoMode int stereoMode;
 
   // State that should be reset on seek.
   private final boolean[] prefixFlags;
@@ -79,6 +82,7 @@ public final class H265Reader implements ElementaryStreamReader {
     prefixSei = new NalUnitTargetBuffer(NalUnitUtil.H265_NAL_UNIT_TYPE_PREFIX_SEI, 128);
     suffixSei = new NalUnitTargetBuffer(NalUnitUtil.H265_NAL_UNIT_TYPE_SUFFIX_SEI, 128);
     pesTimeUs = C.TIME_UNSET;
+    stereoMode = Format.NO_VALUE;
     seiWrapper = new ParsableByteArray();
   }
 
@@ -179,13 +183,23 @@ public final class H265Reader implements ElementaryStreamReader {
     // Simulate end of current NAL unit and start an unspecified one to trigger output of current
     // sample
     endNalUnit(totalBytesWritten, 0, 0, pesTimeUs);
+    if (!hasOutputFormat && hasPendingFormat) {
+      output.format(checkNotNull(format));
+      hasOutputFormat = true;
+      hasPendingFormat = false;
+    }
     startNalUnit(totalBytesWritten, 0, NalUnitUtil.H265_NAL_UNIT_TYPE_UNSPECIFIED, pesTimeUs);
   }
 
-  @RequiresNonNull("sampleReader")
+  @RequiresNonNull({"output", "sampleReader"})
   private void startNalUnit(long position, int offset, int nalUnitType, long pesTimeUs) {
     sampleReader.startNalUnit(position, offset, nalUnitType, pesTimeUs, hasOutputFormat);
-    if (!hasOutputFormat) {
+    if (hasPendingFormat && nalUnitType < NalUnitUtil.H265_NAL_UNIT_TYPE_VPS) {
+      output.format(checkNotNull(format));
+      hasOutputFormat = true;
+      hasPendingFormat = false;
+    }
+    if (format == null) {
       vps.startNalUnit(nalUnitType);
       sps.startNalUnit(nalUnitType);
       pps.startNalUnit(nalUnitType);
@@ -197,7 +211,7 @@ public final class H265Reader implements ElementaryStreamReader {
   @RequiresNonNull("sampleReader")
   private void nalUnitData(byte[] dataArray, int offset, int limit) {
     sampleReader.readNalUnitData(dataArray, offset, limit);
-    if (!hasOutputFormat) {
+    if (format == null) {
       vps.appendToNalUnit(dataArray, offset, limit);
       sps.appendToNalUnit(dataArray, offset, limit);
       pps.appendToNalUnit(dataArray, offset, limit);
@@ -209,20 +223,31 @@ public final class H265Reader implements ElementaryStreamReader {
   @RequiresNonNull({"output", "sampleReader"})
   private void endNalUnit(long position, int offset, int discardPadding, long pesTimeUs) {
     sampleReader.endNalUnit(position, offset, hasOutputFormat);
-    if (!hasOutputFormat) {
+    if (format == null) {
       vps.endNalUnit(discardPadding);
       sps.endNalUnit(discardPadding);
       pps.endNalUnit(discardPadding);
       if (vps.isCompleted() && sps.isCompleted() && pps.isCompleted()) {
-        Format format = parseMediaFormat(formatId, vps, sps, pps, containerMimeType);
-        output.format(format);
+        format = parseMediaFormat(formatId, vps, sps, pps, containerMimeType, stereoMode);
+        hasPendingFormat = true;
         checkState(format.maxNumReorderSamples != Format.NO_VALUE);
         seiReader.setReorderingQueueSize(format.maxNumReorderSamples);
-        hasOutputFormat = true;
       }
     }
     if (prefixSei.endNalUnit(discardPadding)) {
       int unescapedLength = NalUnitUtil.unescapeStream(prefixSei.nalData, prefixSei.nalLength);
+      @C.StereoMode
+      int parsedStereoMode =
+          NalUnitUtil.parseSeiStereoMode(prefixSei.nalData, /* offset= */ 5, unescapedLength);
+      if (parsedStereoMode != Format.NO_VALUE
+          && parsedStereoMode != stereoMode
+          && (parsedStereoMode != C.STEREO_MODE_MONO || stereoMode != Format.NO_VALUE)) {
+        stereoMode = parsedStereoMode;
+        if (format != null) {
+          format = format.buildUpon().setStereoMode(stereoMode).build();
+          hasPendingFormat = true;
+        }
+      }
       seiWrapper.reset(prefixSei.nalData, unescapedLength);
 
       // Skip the NAL prefix and type.
@@ -244,7 +269,8 @@ public final class H265Reader implements ElementaryStreamReader {
       NalUnitTargetBuffer vps,
       NalUnitTargetBuffer sps,
       NalUnitTargetBuffer pps,
-      String containerMimeType) {
+      String containerMimeType,
+      @C.StereoMode int stereoMode) {
     // Build codec-specific data.
     byte[] csdData = new byte[vps.nalLength + sps.nalLength + pps.nalLength];
     System.arraycopy(vps.nalData, 0, csdData, 0, vps.nalLength);
@@ -288,6 +314,7 @@ public final class H265Reader implements ElementaryStreamReader {
         .setMaxNumReorderSamples(spsData.maxNumReorderPics)
         .setMaxSubLayers(spsData.maxSubLayersMinus1 + 1)
         .setInitializationData(Collections.singletonList(csdData))
+        .setStereoMode(stereoMode)
         .build();
   }
 
@@ -323,11 +350,11 @@ public final class H265Reader implements ElementaryStreamReader {
     private long sampleTimeUs;
     private boolean sampleIsKeyframe;
 
-    public SampleReader(TrackOutput output) {
+    private SampleReader(TrackOutput output) {
       this.output = output;
     }
 
-    public void reset() {
+    private void reset() {
       lookingForFirstSliceFlag = false;
       isFirstSlice = false;
       isFirstPrefixNalUnit = false;
@@ -335,7 +362,7 @@ public final class H265Reader implements ElementaryStreamReader {
       readingPrefix = false;
     }
 
-    public void startNalUnit(
+    private void startNalUnit(
         long position, int offset, int nalUnitType, long pesTimeUs, boolean hasOutputFormat) {
       isFirstSlice = false;
       isFirstPrefixNalUnit = false;
@@ -364,7 +391,7 @@ public final class H265Reader implements ElementaryStreamReader {
           nalUnitHasKeyframeData || nalUnitType <= NalUnitUtil.H265_NAL_UNIT_TYPE_RASL_R;
     }
 
-    public void readNalUnitData(byte[] data, int offset, int limit) {
+    private void readNalUnitData(byte[] data, int offset, int limit) {
       if (lookingForFirstSliceFlag) {
         int headerOffset = offset + FIRST_SLICE_FLAG_OFFSET - nalUnitBytesRead;
         if (headerOffset < limit) {
@@ -376,7 +403,7 @@ public final class H265Reader implements ElementaryStreamReader {
       }
     }
 
-    public void endNalUnit(long position, int offset, boolean hasOutputFormat) {
+    private void endNalUnit(long position, int offset, boolean hasOutputFormat) {
       if (readingPrefix && isFirstSlice) {
         // This sample has parameter sets. Reset the key-frame flag based on the first slice.
         sampleIsKeyframe = nalUnitHasKeyframeData;

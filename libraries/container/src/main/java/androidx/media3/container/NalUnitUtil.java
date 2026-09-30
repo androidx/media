@@ -27,6 +27,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import java.math.RoundingMode;
@@ -1905,6 +1906,74 @@ public final class NalUnitUtil {
       }
     }
     return null;
+  }
+
+  /**
+   * Parses the unescaped RBSP data of an H.264 or H.265 SEI NAL unit (excluding the NAL unit start
+   * code and NAL unit header) to extract the {@link C.StereoMode} from a {@code
+   * frame_packing_arrangement} SEI message (payload type 45), if present.
+   *
+   * @param seiData A buffer containing unescaped SEI RBSP data.
+   * @param offset The offset of the SEI RBSP payload (after the NAL unit header) in {@code
+   *     seiData}.
+   * @param limit The limit (exclusive) of the SEI RBSP payload in {@code seiData}.
+   * @return The parsed {@link C.StereoMode}, or {@link Format#NO_VALUE} if no supported {@code
+   *     frame_packing_arrangement} SEI message is present.
+   */
+  public static @C.StereoMode int parseSeiStereoMode(byte[] seiData, int offset, int limit) {
+    int position = offset;
+    // Leave at least 1 byte for rbsp_trailing_bits.
+    while (position < limit - 1) {
+      int payloadType = 0;
+      int nextByte;
+      do {
+        if (position >= limit) {
+          return Format.NO_VALUE;
+        }
+        nextByte = seiData[position++] & 0xFF;
+        payloadType += nextByte;
+      } while (nextByte == 0xFF);
+
+      int payloadSize = 0;
+      do {
+        if (position >= limit) {
+          return Format.NO_VALUE;
+        }
+        nextByte = seiData[position++] & 0xFF;
+        payloadSize += nextByte;
+      } while (nextByte == 0xFF);
+
+      if (payloadSize < 0 || payloadSize > limit - position) {
+        return Format.NO_VALUE;
+      }
+
+      if (payloadType == 45 && payloadSize > 0) { // frame_packing_arrangement
+        ParsableBitArray bitArray = new ParsableBitArray(seiData, position + payloadSize);
+        bitArray.setPosition(position * 8);
+        int leadingZeros = 0;
+        while (bitArray.bitsLeft() > 0 && !bitArray.readBit()) {
+          leadingZeros++;
+        }
+        if (leadingZeros <= 31 && bitArray.bitsLeft() >= leadingZeros + 1) {
+          bitArray.skipBits(leadingZeros); // Rest of frame_packing_arrangement_id
+          boolean framePackingArrangementCancelFlag = bitArray.readBit();
+          if (framePackingArrangementCancelFlag) {
+            return C.STEREO_MODE_MONO;
+          } else if (bitArray.bitsLeft() >= 7) {
+            int framePackingArrangementType = bitArray.readBits(7);
+            if (framePackingArrangementType == 3) {
+              return C.STEREO_MODE_LEFT_RIGHT;
+            } else if (framePackingArrangementType == 4) {
+              return C.STEREO_MODE_TOP_BOTTOM;
+            } else if (framePackingArrangementType == 6) {
+              return C.STEREO_MODE_MONO;
+            }
+          }
+        }
+      }
+      position += payloadSize;
+    }
+    return Format.NO_VALUE;
   }
 
   /**
