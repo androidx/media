@@ -1087,7 +1087,7 @@ public final class HardwareBufferToGlTextureConverterTest {
   @Test
   public void convert_withUltraHdr_releaseAfterReleasingGlResources_doesNotThrow()
       throws Exception {
-    Bitmap ultraHdrBitmap = BitmapPixelTestUtil.readBitmap("media/jpeg/ultraHDR.jpg");
+    Bitmap ultraHdrBitmap = BitmapPixelTestUtil.readBitmap("media/jpeg/ultraHdr_360x480.jpg");
     assertThat(ultraHdrBitmap.hasGainmap()).isTrue();
     Bitmap hardwareBitmap = ultraHdrBitmap.copy(Bitmap.Config.HARDWARE, /* isMutable= */ false);
     HardwareBuffer hardwareBuffer = hardwareBitmap.getHardwareBuffer();
@@ -1204,7 +1204,7 @@ public final class HardwareBufferToGlTextureConverterTest {
 
   @RequiresApi(34)
   private void assertUltraHdrConversion(ColorInfo outputColorInfo) throws Exception {
-    Bitmap ultraHdrBitmap = BitmapPixelTestUtil.readBitmap("media/jpeg/ultraHDR.jpg");
+    Bitmap ultraHdrBitmap = BitmapPixelTestUtil.readBitmap("media/jpeg/ultraHdr_360x480.jpg");
     assertThat(ultraHdrBitmap.hasGainmap()).isTrue();
     Bitmap hardwareBitmap = ultraHdrBitmap.copy(Bitmap.Config.HARDWARE, /* isMutable= */ false);
     HardwareBuffer hardwareBuffer = hardwareBitmap.getHardwareBuffer();
