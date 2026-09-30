@@ -190,6 +190,7 @@ public class AdTimelineTest {
     // Content duration should fall back to adPlaybackState.contentDurationUs (50s) because period
     // duration is unset.
     assertThat(period.durationUs).isEqualTo(50 * MICROS_PER_SECOND);
+    assertThat(period.originalDurationUs).isEqualTo(TIME_UNSET);
     assertThat(period.adPlaybackState.contentDurationUs).isEqualTo(50 * MICROS_PER_SECOND);
   }
 

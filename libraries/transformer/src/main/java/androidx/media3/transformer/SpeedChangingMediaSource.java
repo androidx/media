@@ -108,6 +108,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   getAdjustedPeriodTimeUs(
                       wrappedPeriod.durationUs, speedProviderMapper, clipStartUs);
             }
+            if (wrappedPeriod.originalDurationUs != C.TIME_UNSET) {
+              wrappedPeriod.originalDurationUs =
+                  getAdjustedPeriodTimeUs(
+                      wrappedPeriod.originalDurationUs, speedProviderMapper, clipStartUs);
+            }
             return wrappedPeriod;
           }
         };

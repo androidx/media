@@ -386,6 +386,9 @@ public final class MergingMediaSource extends CompositeMediaSource<Integer> {
     @Override
     public Period getPeriod(int periodIndex, Period period, boolean setIds) {
       super.getPeriod(periodIndex, period, setIds);
+      if (period.originalDurationUs == C.TIME_UNSET) {
+        period.originalDurationUs = period.durationUs;
+      }
       period.durationUs = periodDurationsUs[periodIndex];
       return period;
     }

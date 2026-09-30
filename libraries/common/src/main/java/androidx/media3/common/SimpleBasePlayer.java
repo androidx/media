@@ -1891,6 +1891,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
             new PeriodData.Builder(checkNotNull(period.uid))
                 .setAdPlaybackState(period.adPlaybackState)
                 .setDurationUs(period.durationUs)
+                .setOriginalDurationUs(period.originalDurationUs)
                 .setIsPlaceholder(period.isPlaceholder)
                 .build());
       }
@@ -1944,7 +1945,8 @@ public abstract class SimpleBasePlayer extends BasePlayer {
             /* durationUs= */ positionInFirstPeriodUs + durationUs,
             /* positionInWindowUs= */ -positionInFirstPeriodUs,
             AdPlaybackState.NONE,
-            isPlaceholder);
+            isPlaceholder,
+            /* originalDurationUs= */ C.TIME_UNSET);
       } else {
         PeriodData periodData = periods.get(periodIndexInMediaItem);
         Object periodId = periodData.uid;
@@ -1956,7 +1958,8 @@ public abstract class SimpleBasePlayer extends BasePlayer {
             periodData.durationUs,
             periodPositionInWindowUs[periodIndexInMediaItem],
             periodData.adPlaybackState,
-            periodData.isPlaceholder);
+            periodData.isPlaceholder,
+            periodData.originalDurationUs);
       }
       return period;
     }
@@ -1978,6 +1981,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
 
       private Object uid;
       private long durationUs;
+      private long originalDurationUs;
       private AdPlaybackState adPlaybackState;
       private boolean isPlaceholder;
 
@@ -1989,6 +1993,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       public Builder(Object uid) {
         this.uid = uid;
         this.durationUs = 0;
+        this.originalDurationUs = C.TIME_UNSET;
         this.adPlaybackState = AdPlaybackState.NONE;
         this.isPlaceholder = false;
       }
@@ -1996,6 +2001,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       private Builder(PeriodData periodData) {
         this.uid = periodData.uid;
         this.durationUs = periodData.durationUs;
+        this.originalDurationUs = periodData.originalDurationUs;
         this.adPlaybackState = periodData.adPlaybackState;
         this.isPlaceholder = periodData.isPlaceholder;
       }
@@ -2025,6 +2031,21 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       public Builder setDurationUs(long durationUs) {
         checkArgument(durationUs == C.TIME_UNSET || durationUs >= 0);
         this.durationUs = durationUs;
+        return this;
+      }
+
+      /**
+       * Sets the original duration of the period before any modification of its end, in
+       * microseconds, or {@link C#TIME_UNSET} if unknown.
+       *
+       * @param originalDurationUs The original duration of the period before any modification of
+       *     its end, in microseconds, or {@link C#TIME_UNSET} if unknown.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setOriginalDurationUs(long originalDurationUs) {
+        checkArgument(originalDurationUs == C.TIME_UNSET || originalDurationUs >= 0);
+        this.originalDurationUs = originalDurationUs;
         return this;
       }
 
@@ -2071,6 +2092,12 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     public final long durationUs;
 
     /**
+     * The original duration of the period before any modification of its end, in microseconds, or
+     * {@link C#TIME_UNSET} if unknown.
+     */
+    public final long originalDurationUs;
+
+    /**
      * The {@link AdPlaybackState} of the period, or {@link AdPlaybackState#NONE} if there are no
      * ads.
      */
@@ -2085,6 +2112,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     private PeriodData(Builder builder) {
       this.uid = builder.uid;
       this.durationUs = builder.durationUs;
+      this.originalDurationUs = builder.originalDurationUs;
       this.adPlaybackState = builder.adPlaybackState;
       this.isPlaceholder = builder.isPlaceholder;
     }
@@ -2105,6 +2133,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       PeriodData periodData = (PeriodData) o;
       return this.uid.equals(periodData.uid)
           && this.durationUs == periodData.durationUs
+          && this.originalDurationUs == periodData.originalDurationUs
           && this.adPlaybackState.equals(periodData.adPlaybackState)
           && this.isPlaceholder == periodData.isPlaceholder;
     }
@@ -2114,6 +2143,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       int result = 7;
       result = 31 * result + uid.hashCode();
       result = 31 * result + (int) (durationUs ^ (durationUs >>> 32));
+      result = 31 * result + (int) (originalDurationUs ^ (originalDurationUs >>> 32));
       result = 31 * result + adPlaybackState.hashCode();
       result = 31 * result + (isPlaceholder ? 1 : 0);
       return result;

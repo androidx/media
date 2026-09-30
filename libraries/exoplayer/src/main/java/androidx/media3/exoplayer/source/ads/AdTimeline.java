@@ -86,7 +86,8 @@ public final class AdTimeline extends ForwardingTimeline {
         durationUs,
         period.getPositionInWindowUs(),
         adPlaybackStates[periodIndex],
-        period.isPlaceholder);
+        period.isPlaceholder,
+        period.originalDurationUs);
     return period;
   }
 

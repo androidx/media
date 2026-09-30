@@ -593,6 +593,9 @@ public final class ClippingMediaSource extends WrappingMediaSource {
     @Override
     public Period getPeriod(int periodIndex, Period period, boolean setIds) {
       timeline.getPeriod(/* periodIndex= */ 0, period, setIds);
+      if (period.originalDurationUs == C.TIME_UNSET) {
+        period.originalDurationUs = period.durationUs;
+      }
       long positionInClippedWindowUs = period.getPositionInWindowUs() - startUs;
       long periodDurationUs =
           durationUs == C.TIME_UNSET ? C.TIME_UNSET : durationUs - positionInClippedWindowUs;
@@ -603,7 +606,8 @@ public final class ClippingMediaSource extends WrappingMediaSource {
           periodDurationUs,
           positionInClippedWindowUs,
           AdPlaybackState.NONE,
-          period.isPlaceholder);
+          period.isPlaceholder,
+          period.originalDurationUs);
     }
   }
 }

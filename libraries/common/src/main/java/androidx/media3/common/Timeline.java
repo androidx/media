@@ -608,8 +608,19 @@ public abstract class Timeline {
     /** The index of the window to which this period belongs. */
     public int windowIndex;
 
-    /** The duration of this period in microseconds, or {@link C#TIME_UNSET} if unknown. */
+    /**
+     * The duration of this period in microseconds, or {@link C#TIME_UNSET} if unknown.
+     *
+     * <p>This is the playout duration of the period. It may be different from {@link
+     * #originalDurationUs} if the period end is modified.
+     */
     @UnstableApi public long durationUs;
+
+    /**
+     * The original duration of this period in microseconds before any modification of the period
+     * end (for example by clipping), or {@link C#TIME_UNSET} if unknown.
+     */
+    @UnstableApi public long originalDurationUs;
 
     /**
      * The position of the start of this period relative to the start of the window to which it
@@ -633,7 +644,7 @@ public abstract class Timeline {
     }
 
     /**
-     * @deprecated Use {@link #set(Object, Object, int, long, long, AdPlaybackState, boolean)}
+     * @deprecated Use {@link #set(Object, Object, int, long, long, AdPlaybackState, boolean, long)}
      *     instead.
      */
     @CanIgnoreReturnValue
@@ -652,7 +663,8 @@ public abstract class Timeline {
           durationUs,
           positionInWindowUs,
           AdPlaybackState.NONE,
-          /* isPlaceholder= */ false);
+          /* isPlaceholder= */ false,
+          /* originalDurationUs= */ C.TIME_UNSET);
     }
 
     /**
@@ -673,6 +685,52 @@ public abstract class Timeline {
      * @param isPlaceholder Whether this period contains placeholder information because the real
      *     information has yet to be loaded.
      * @return This period, for convenience.
+     * @deprecated Use {@link #set(Object, Object, int, long, long, AdPlaybackState, boolean, long)}
+     *     instead.
+     */
+    @CanIgnoreReturnValue
+    @Deprecated
+    @UnstableApi
+    public Period set(
+        @Nullable Object id,
+        @Nullable Object uid,
+        int windowIndex,
+        long durationUs,
+        long positionInWindowUs,
+        AdPlaybackState adPlaybackState,
+        boolean isPlaceholder) {
+      return set(
+          id,
+          uid,
+          windowIndex,
+          durationUs,
+          positionInWindowUs,
+          adPlaybackState,
+          isPlaceholder,
+          /* originalDurationUs= */ C.TIME_UNSET);
+    }
+
+    /**
+     * Sets the data held by this period.
+     *
+     * @param id An identifier for the period. Not necessarily unique. May be null if the ids of the
+     *     period are not required.
+     * @param uid A unique identifier for the period. May be null if the ids of the period are not
+     *     required.
+     * @param windowIndex The index of the window to which this period belongs.
+     * @param durationUs The duration of this period in microseconds, or {@link C#TIME_UNSET} if
+     *     unknown.
+     * @param positionInWindowUs The position of the start of this period relative to the start of
+     *     the window to which it belongs, in microseconds. May be negative if the start of the
+     *     period is not within the window.
+     * @param adPlaybackState The state of the period's ads, or {@link AdPlaybackState#NONE} if
+     *     there are no ads.
+     * @param isPlaceholder Whether this period contains placeholder information because the real
+     *     information has yet to be loaded.
+     * @param originalDurationUs The original duration of this period in microseconds before any
+     *     modification of the period end (for example by clipping), or {@link C#TIME_UNSET} if
+     *     unknown.
+     * @return This period, for convenience.
      */
     @CanIgnoreReturnValue
     @UnstableApi
@@ -683,7 +741,8 @@ public abstract class Timeline {
         long durationUs,
         long positionInWindowUs,
         AdPlaybackState adPlaybackState,
-        boolean isPlaceholder) {
+        boolean isPlaceholder,
+        long originalDurationUs) {
       this.id = id;
       this.uid = uid;
       this.windowIndex = windowIndex;
@@ -691,6 +750,7 @@ public abstract class Timeline {
       this.positionInWindowUs = positionInWindowUs;
       this.adPlaybackState = adPlaybackState;
       this.isPlaceholder = isPlaceholder;
+      this.originalDurationUs = originalDurationUs;
       return this;
     }
 
@@ -702,6 +762,24 @@ public abstract class Timeline {
     /** Returns the duration of this period in microseconds, or {@link C#TIME_UNSET} if unknown. */
     public long getDurationUs() {
       return durationUs;
+    }
+
+    /**
+     * Returns the original duration of the period in milliseconds before any modification of the
+     * period end, or {@link C#TIME_UNSET} if unknown.
+     */
+    @UnstableApi
+    public long getOriginalDurationMs() {
+      return Util.usToMs(originalDurationUs);
+    }
+
+    /**
+     * Returns the original duration of this period in microseconds before any modification of the
+     * period end, or {@link C#TIME_UNSET} if unknown.
+     */
+    @UnstableApi
+    public long getOriginalDurationUs() {
+      return originalDurationUs;
     }
 
     /**
@@ -916,7 +994,8 @@ public abstract class Timeline {
           && durationUs == that.durationUs
           && positionInWindowUs == that.positionInWindowUs
           && isPlaceholder == that.isPlaceholder
-          && Objects.equals(adPlaybackState, that.adPlaybackState);
+          && Objects.equals(adPlaybackState, that.adPlaybackState)
+          && originalDurationUs == that.originalDurationUs;
     }
 
     @Override
@@ -929,6 +1008,7 @@ public abstract class Timeline {
       result = 31 * result + (int) (positionInWindowUs ^ (positionInWindowUs >>> 32));
       result = 31 * result + (isPlaceholder ? 1 : 0);
       result = 31 * result + adPlaybackState.hashCode();
+      result = 31 * result + (int) (originalDurationUs ^ (originalDurationUs >>> 32));
       return result;
     }
 
@@ -939,6 +1019,7 @@ public abstract class Timeline {
     private static final String FIELD_AD_PLAYBACK_STATE = Util.intToStringMaxRadix(4);
     private static final String FIELD_ID = Util.intToStringMaxRadix(5);
     private static final String FIELD_UID = Util.intToStringMaxRadix(6);
+    private static final String FIELD_ORIGINAL_DURATION_US = Util.intToStringMaxRadix(7);
 
     /**
      * @deprecated Use {@link #toBundle(int)} instead.
@@ -982,6 +1063,9 @@ public abstract class Timeline {
       if (uid instanceof String) {
         bundle.putString(FIELD_UID, (String) uid);
       }
+      if (originalDurationUs != C.TIME_UNSET) {
+        bundle.putLong(FIELD_ORIGINAL_DURATION_US, originalDurationUs);
+      }
       return bundle;
     }
 
@@ -1006,6 +1090,8 @@ public abstract class Timeline {
       int windowIndex = bundle.getInt(FIELD_WINDOW_INDEX, /* defaultValue= */ 0);
       long durationUs = bundle.getLong(FIELD_DURATION_US, /* defaultValue= */ C.TIME_UNSET);
       long positionInWindowUs = bundle.getLong(FIELD_POSITION_IN_WINDOW_US, /* defaultValue= */ 0);
+      long originalDurationUs =
+          bundle.getLong(FIELD_ORIGINAL_DURATION_US, /* defaultValue= */ C.TIME_UNSET);
       boolean isPlaceholder = bundle.getBoolean(FIELD_PLACEHOLDER, /* defaultValue= */ false);
       @Nullable Bundle adPlaybackStateBundle = bundle.getBundle(FIELD_AD_PLAYBACK_STATE);
       AdPlaybackState adPlaybackState =
@@ -1018,7 +1104,14 @@ public abstract class Timeline {
 
       Period period = new Period();
       period.set(
-          id, uid, windowIndex, durationUs, positionInWindowUs, adPlaybackState, isPlaceholder);
+          id,
+          uid,
+          windowIndex,
+          durationUs,
+          positionInWindowUs,
+          adPlaybackState,
+          isPlaceholder,
+          originalDurationUs);
       return period;
     }
   }
@@ -1632,7 +1725,8 @@ public abstract class Timeline {
               p.durationUs,
               p.positionInWindowUs,
               p.adPlaybackState,
-              p.isPlaceholder);
+              p.isPlaceholder,
+              p.originalDurationUs);
           p = newPeriod;
         }
         sanitizedPeriods.add(p);
@@ -1737,7 +1831,8 @@ public abstract class Timeline {
           p.durationUs,
           p.positionInWindowUs,
           p.adPlaybackState,
-          p.isPlaceholder);
+          p.isPlaceholder,
+          p.originalDurationUs);
       return period;
     }
 

@@ -619,6 +619,9 @@ public final class ConcatenatingMediaSource2 extends CompositeMediaSource<Intege
       timeline.getPeriodByUid(childPeriodUid, period);
       period.windowIndex = 0;
       period.positionInWindowUs = periodOffsetsInWindowUs.get(periodIndex);
+      if (period.originalDurationUs == C.TIME_UNSET) {
+        period.originalDurationUs = period.durationUs;
+      }
       period.durationUs = getPeriodDurationUs(period, periodIndex);
       period.uid = periodUid;
       return period;
@@ -631,6 +634,9 @@ public final class ConcatenatingMediaSource2 extends CompositeMediaSource<Intege
       timelines.get(childIndex).getPeriod(periodIndex - firstPeriodIndexInChild, period, setIds);
       period.windowIndex = 0;
       period.positionInWindowUs = periodOffsetsInWindowUs.get(periodIndex);
+      if (period.originalDurationUs == C.TIME_UNSET) {
+        period.originalDurationUs = period.durationUs;
+      }
       period.durationUs = getPeriodDurationUs(period, periodIndex);
       if (setIds) {
         period.uid = getPeriodUid(childIndex, checkNotNull(period.uid));

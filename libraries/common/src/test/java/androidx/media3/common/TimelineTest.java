@@ -225,6 +225,10 @@ public class TimelineTest {
     assertThat(period).isNotEqualTo(otherPeriod);
 
     otherPeriod = new Timeline.Period();
+    otherPeriod.originalDurationUs = 12L;
+    assertThat(period).isNotEqualTo(otherPeriod);
+
+    otherPeriod = new Timeline.Period();
     AdPlaybackState adPlaybackState =
         new AdPlaybackState(
             /* adsId= */ new Object(), /* adGroupTimesUs...= */ C.TIME_END_OF_SOURCE);
@@ -240,6 +244,7 @@ public class TimelineTest {
     period.uid = new Object();
     period.windowIndex = 1;
     period.durationUs = 123L;
+    period.originalDurationUs = 456L;
     period.adPlaybackState = adPlaybackState;
     period.isPlaceholder = true;
 
@@ -251,7 +256,8 @@ public class TimelineTest {
             period.durationUs,
             /* positionInWindowUs= */ 0,
             period.adPlaybackState,
-            period.isPlaceholder);
+            period.isPlaceholder,
+            period.originalDurationUs);
     assertThat(period).isEqualTo(otherPeriod);
   }
 
@@ -425,6 +431,7 @@ public class TimelineTest {
     // Please refrain from altering these default values since doing so would cause issues with
     // backwards compatibility.
     period.durationUs = C.TIME_UNSET;
+    period.originalDurationUs = C.TIME_UNSET;
 
     Bundle periodBundle = period.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
 
@@ -447,6 +454,7 @@ public class TimelineTest {
     period.uid = new Object();
     period.windowIndex = 1;
     period.durationUs = 123_000;
+    period.originalDurationUs = 456_000;
     period.positionInWindowUs = 4_000;
     period.isPlaceholder = true;
 

@@ -91,7 +91,13 @@ public class MergingMediaSourceTest {
     Timeline mergedTimeline =
         prepareMergingMediaSource(/* clipDurations= */ true, timeline1, timeline2, timeline3);
 
-    assertThat(mergedTimeline).isEqualTo(timeline3);
+    Timeline.Window window = mergedTimeline.getWindow(/* windowIndex= */ 0, new Timeline.Window());
+    Timeline.Period period = mergedTimeline.getPeriod(/* periodIndex= */ 0, new Timeline.Period());
+    assertThat(window.durationUs).isEqualTo(10);
+    assertThat(period.durationUs)
+        .isEqualTo(timeline3.getPeriod(/* periodIndex= */ 0, new Timeline.Period()).durationUs);
+    assertThat(period.originalDurationUs)
+        .isEqualTo(timeline1.getPeriod(/* periodIndex= */ 0, new Timeline.Period()).durationUs);
   }
 
   @Test

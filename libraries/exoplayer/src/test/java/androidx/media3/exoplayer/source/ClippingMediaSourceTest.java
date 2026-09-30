@@ -84,6 +84,8 @@ public final class ClippingMediaSourceTest {
         .isEqualTo(TEST_PERIOD_DURATION_US);
     assertThat(clippedTimeline.getPeriod(0, period).getDurationUs())
         .isEqualTo(TEST_PERIOD_DURATION_US);
+    assertThat(clippedTimeline.getPeriod(0, period).getOriginalDurationUs())
+        .isEqualTo(TEST_PERIOD_DURATION_US);
   }
 
   @Test
@@ -196,6 +198,8 @@ public final class ClippingMediaSourceTest {
         .isEqualTo(TEST_PERIOD_DURATION_US - TEST_CLIP_AMOUNT_US);
     assertThat(clippedTimeline.getPeriod(0, period).getDurationUs())
         .isEqualTo(TEST_PERIOD_DURATION_US);
+    assertThat(clippedTimeline.getPeriod(0, period).getOriginalDurationUs())
+        .isEqualTo(TEST_PERIOD_DURATION_US);
   }
 
   @Test
@@ -215,6 +219,15 @@ public final class ClippingMediaSourceTest {
         .isEqualTo(TEST_PERIOD_DURATION_US - TEST_CLIP_AMOUNT_US);
     assertThat(clippedTimeline.getPeriod(0, period).getDurationUs())
         .isEqualTo(TEST_PERIOD_DURATION_US - TEST_CLIP_AMOUNT_US);
+    assertThat(clippedTimeline.getPeriod(0, period).getOriginalDurationUs())
+        .isEqualTo(TEST_PERIOD_DURATION_US);
+
+    Timeline nestedClippedTimeline =
+        getClippedTimeline(clippedTimeline, 0, TEST_PERIOD_DURATION_US - TEST_CLIP_AMOUNT_US * 2);
+    assertThat(nestedClippedTimeline.getPeriod(0, period).getDurationUs())
+        .isEqualTo(TEST_PERIOD_DURATION_US - TEST_CLIP_AMOUNT_US * 2);
+    assertThat(nestedClippedTimeline.getPeriod(0, period).getOriginalDurationUs())
+        .isEqualTo(TEST_PERIOD_DURATION_US);
   }
 
   @Test
@@ -232,6 +245,8 @@ public final class ClippingMediaSourceTest {
         .isEqualTo(TEST_PERIOD_DURATION_US - TEST_CLIP_AMOUNT_US * 3);
     assertThat(clippedTimeline.getPeriod(0, period).getDurationUs())
         .isEqualTo(TEST_PERIOD_DURATION_US - TEST_CLIP_AMOUNT_US * 2);
+    assertThat(clippedTimeline.getPeriod(0, period).getOriginalDurationUs())
+        .isEqualTo(C.TIME_UNSET);
   }
 
   @Test
@@ -316,6 +331,8 @@ public final class ClippingMediaSourceTest {
         .isEqualTo(TEST_PERIOD_DURATION_US - TEST_CLIP_AMOUNT_US * 3);
     assertThat(clippedTimeline.getPeriod(0, period).getDurationUs())
         .isEqualTo(TEST_PERIOD_DURATION_US - TEST_CLIP_AMOUNT_US * 2);
+    assertThat(clippedTimeline.getPeriod(0, period).getOriginalDurationUs())
+        .isEqualTo(TEST_PERIOD_DURATION_US);
   }
 
   @Test

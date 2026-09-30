@@ -1127,6 +1127,12 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
             getMediaPeriodPositionUsForContent(
                 durationUs, /* nextAdGroupIndex= */ C.INDEX_UNSET, adPlaybackState);
       }
+      long originalDurationUs = period.originalDurationUs;
+      if (originalDurationUs != C.TIME_UNSET) {
+        originalDurationUs =
+            getMediaPeriodPositionUsForContent(
+                originalDurationUs, /* nextAdGroupIndex= */ C.INDEX_UNSET, adPlaybackState);
+      }
       long positionInWindowUs = 0;
       Period innerPeriod = new Period();
       for (int i = 0; i < periodIndex + 1; i++) {
@@ -1154,7 +1160,8 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
           durationUs,
           positionInWindowUs,
           adPlaybackState,
-          period.isPlaceholder);
+          period.isPlaceholder,
+          originalDurationUs);
       return period;
     }
   }

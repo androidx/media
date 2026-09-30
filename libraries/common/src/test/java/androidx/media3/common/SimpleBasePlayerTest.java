@@ -122,6 +122,8 @@ public class SimpleBasePlayerTest {
                         .setPeriods(
                             ImmutableList.of(
                                 new SimpleBasePlayer.PeriodData.Builder(/* uid= */ new Object())
+                                    .setDurationUs(100_000)
+                                    .setOriginalDurationUs(200_000)
                                     .setAdPlaybackState(
                                         new AdPlaybackState(
                                             /* adsId= */ new Object(),
@@ -249,6 +251,7 @@ public class SimpleBasePlayerTest {
         new SimpleBasePlayer.PeriodData.Builder(/* uid= */ new Object())
             .setIsPlaceholder(true)
             .setDurationUs(600_000)
+            .setOriginalDurationUs(700_000)
             .setAdPlaybackState(
                 new AdPlaybackState(/* adsId= */ new Object(), /* adGroupTimesUs...= */ 555, 666))
             .build();
@@ -907,12 +910,14 @@ public class SimpleBasePlayerTest {
         new SimpleBasePlayer.PeriodData.Builder(uid)
             .setIsPlaceholder(true)
             .setDurationUs(600_000)
+            .setOriginalDurationUs(700_000)
             .setAdPlaybackState(adPlaybackState)
             .build();
 
     assertThat(periodData.uid).isEqualTo(uid);
     assertThat(periodData.isPlaceholder).isTrue();
     assertThat(periodData.durationUs).isEqualTo(600_000);
+    assertThat(periodData.originalDurationUs).isEqualTo(700_000);
     assertThat(periodData.adPlaybackState).isEqualTo(adPlaybackState);
   }
 
@@ -981,6 +986,7 @@ public class SimpleBasePlayerTest {
                         new SimpleBasePlayer.PeriodData.Builder(periodUid)
                             .setIsPlaceholder(true)
                             .setDurationUs(600_000)
+                            .setOriginalDurationUs(700_000)
                             .setAdPlaybackState(
                                 new AdPlaybackState(
                                     /* adsId= */ new Object(), /* adGroupTimesUs...= */ 555, 666))
@@ -1105,12 +1111,14 @@ public class SimpleBasePlayerTest {
     Timeline.Period period =
         timeline.getPeriod(/* periodIndex= */ 0, new Timeline.Period(), /* setIds= */ true);
     assertThat(period.durationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(period.originalDurationUs).isEqualTo(C.TIME_UNSET);
     assertThat(period.isPlaceholder).isFalse();
     assertThat(period.positionInWindowUs).isEqualTo(0);
     assertThat(period.windowIndex).isEqualTo(0);
     assertThat(period.getAdGroupCount()).isEqualTo(0);
     period = timeline.getPeriod(/* periodIndex= */ 1, new Timeline.Period(), /* setIds= */ true);
     assertThat(period.durationUs).isEqualTo(600_000);
+    assertThat(period.originalDurationUs).isEqualTo(700_000);
     assertThat(period.isPlaceholder).isTrue();
     assertThat(period.positionInWindowUs).isEqualTo(-100_000);
     assertThat(period.windowIndex).isEqualTo(1);
@@ -1275,12 +1283,14 @@ public class SimpleBasePlayerTest {
     Timeline.Period period =
         timeline.getPeriod(/* periodIndex= */ 0, new Timeline.Period(), /* setIds= */ true);
     assertThat(period.durationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(period.originalDurationUs).isEqualTo(C.TIME_UNSET);
     assertThat(period.isPlaceholder).isFalse();
     assertThat(period.positionInWindowUs).isEqualTo(0);
     assertThat(period.windowIndex).isEqualTo(0);
     assertThat(period.getAdGroupCount()).isEqualTo(0);
     period = timeline.getPeriod(/* periodIndex= */ 1, new Timeline.Period(), /* setIds= */ true);
     assertThat(period.durationUs).isEqualTo(600_000);
+    assertThat(period.originalDurationUs).isEqualTo(C.TIME_UNSET);
     assertThat(period.isPlaceholder).isTrue();
     assertThat(period.positionInWindowUs).isEqualTo(-100_000);
     assertThat(period.windowIndex).isEqualTo(1);
