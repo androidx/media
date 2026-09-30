@@ -16,9 +16,12 @@
 package androidx.media3.muxer;
 
 import static androidx.media3.muxer.Boxes.getDolbyVisionProfileAndLevel;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import android.util.Pair;
+import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import com.google.common.collect.ImmutableList;
@@ -110,7 +113,9 @@ import java.nio.ByteBuffer;
     checkNotNull(sampleMimeType);
     if (sampleMimeType.equals(MimeTypes.VIDEO_DOLBY_VISION)) {
       // Dolby vision with AV1 profile does not contain Nal units.
-      int profile = checkNotNull(getDolbyVisionProfileAndLevel(format)).first;
+      @Nullable Pair<Integer, Integer> profileAndLevel = getDolbyVisionProfileAndLevel(format);
+      checkArgument(profileAndLevel != null, "Invalid Dolby Vision format: %s", format.codecs);
+      int profile = profileAndLevel.first;
       // Dolby vision with Profile 10 is equivalent to DolbyVisionProfileDvav110 of framework
       // media codec constants.
       return profile != 10;

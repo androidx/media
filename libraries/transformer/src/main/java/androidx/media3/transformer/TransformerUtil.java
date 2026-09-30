@@ -45,6 +45,7 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
+import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
@@ -196,6 +197,10 @@ public final class TransformerUtil {
       if (!requestedMimeTypeEqualsPrimaryOrAlternativeMimeType) {
         return true;
       }
+    }
+    if (Objects.equals(inputFormat.sampleMimeType, MimeTypes.VIDEO_DOLBY_VISION)
+        && CodecSpecificDataUtil.getCodecProfileAndLevel(inputFormat) == null) {
+      return true;
     }
     if (requestedMimeType == null
         && !muxerWrapper.supportsSampleMimeType(inputFormat.sampleMimeType)

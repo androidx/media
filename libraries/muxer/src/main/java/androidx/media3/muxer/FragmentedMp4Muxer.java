@@ -36,6 +36,7 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
+import java.util.Objects;
 
 /**
  * A muxer for creating a fragmented MP4 file.
@@ -52,7 +53,7 @@ import java.nio.channels.WritableByteChannel;
  *         <li>H.265 (HEVC)
  *         <li>VP9
  *         <li>APV
- *         <li>Dolby Vision
+ *         <li>Dolby Vision (profiles 5, 8 and 9)
  *       </ul>
  *   <li>Audio Codecs:
  *       <ul>
@@ -213,9 +214,16 @@ public final class FragmentedMp4Muxer implements Muxer {
    * @param format The {@link Format} for the track.
    * @return A unique track id. The track id is non-negative. It should be used in {@link
    *     #writeSampleData}.
+   * @throws MuxerException If an error occurs while adding track.
    */
   @Override
-  public int addTrack(Format format) {
+  public int addTrack(Format format) throws MuxerException {
+    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_DOLBY_VISION)
+        && !Boxes.isDolbyVisionProfileSupported(format)) {
+      throw new MuxerException(
+          "Unsupported Dolby Vision profile for format: " + format,
+          new IllegalArgumentException("Unsupported Dolby Vision codecs: " + format.codecs));
+    }
     Track track = fragmentedMp4Writer.addTrack(/* sortKey= */ 1, format);
     trackIdToTrack.append(track.id, track);
     return track.id;

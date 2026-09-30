@@ -142,6 +142,51 @@ public class Mp4MuxerEndToEndTest {
   }
 
   @Test
+  public void addTrack_withDolbyVisionProfile20_throws() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Format dolbyVisionProfile20Format =
+        FAKE_VIDEO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dvh1.20.01")
+            .build();
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      assertThrows(MuxerException.class, () -> muxer.addTrack(dolbyVisionProfile20Format));
+    }
+  }
+
+  @Test
+  public void addTrack_withDolbyVisionNullCodecs_throws() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Format dolbyVisionNullCodecsFormat =
+        FAKE_VIDEO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs(null)
+            .build();
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      assertThrows(MuxerException.class, () -> muxer.addTrack(dolbyVisionNullCodecsFormat));
+    }
+  }
+
+  @Test
+  public void addTrack_withDolbyVisionMalformedCodecs_throws() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Format dolbyVisionMalformedCodecsFormat =
+        FAKE_VIDEO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dvhe.xx.01")
+            .build();
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      assertThrows(MuxerException.class, () -> muxer.addTrack(dolbyVisionMalformedCodecsFormat));
+    }
+  }
+
+  @Test
   public void createMp4File_addTrackAndMetadataButNoSamples_createsEmptyFile() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
 

@@ -108,6 +108,9 @@
     *   MPEG-TS: Support parsing H.264 and H.265 frame packing arrangement SEI
         messages to populate `Format.stereoMode`
         ([#3419](https://github.com/androidx/media/issues/3419)).
+    *   Parse Dolby Vision Profile 20 configuration data and reject unsupported
+        Dolby Vision profiles instead of playing back as standard HEVC with
+        incorrect colors ([#3427](https://github.com/androidx/media/pull/3427)).
 *   Inspector:
     *   Support retrieving XMP metadata from MP4 files using
         `MetadataRetriever`.
@@ -154,6 +157,8 @@
     *   Support 32-bit float PCM audio tracks in `Mp4Muxer` and
         `FragmentedMp4Muxer`
         ([#3389](https://github.com/androidx/media/issues/3389)).
+    *   Reject unsupported Dolby Vision profiles in `Mp4Muxer` and
+        `FragmentedMp4Muxer` when adding tracks.
 *   IMA extension:
 *   Session:
     *   Add `MediaConstants.EXTRAS_KEY_PLAYLIST_ID` to populate

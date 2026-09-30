@@ -57,6 +57,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 
 /**
@@ -74,7 +75,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
  *         <li>H.265 (HEVC)
  *         <li>VP9
  *         <li>APV
- *         <li>Dolby Vision
+ *         <li>Dolby Vision (profiles 5, 8 and 9)
  *       </ul>
  *   <li>Audio Codecs:
  *       <ul>
@@ -528,6 +529,12 @@ public final class Mp4Muxer implements Muxer {
    * @throws MuxerException If an error occurs while adding track.
    */
   public int addTrack(int sortKey, Format format) throws MuxerException {
+    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_DOLBY_VISION)
+        && !Boxes.isDolbyVisionProfileSupported(format)) {
+      throw new MuxerException(
+          "Unsupported Dolby Vision profile for format: " + format,
+          new IllegalArgumentException("Unsupported Dolby Vision codecs: " + format.codecs));
+    }
     Track track;
     if (outputFileFormat == FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION
         && isAuxiliaryTrack(format)) {

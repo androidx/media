@@ -1707,7 +1707,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   /** Returns a dolby vision box as per Dolby Vision ISO media format. */
   private static ByteBuffer doviSpecificBox(Format format) {
     @Nullable Pair<Integer, Integer> profileAndLevel = getDolbyVisionProfileAndLevel(format);
-    checkNotNull(profileAndLevel, "Can't identify Dolby vision profile");
+    checkArgument(profileAndLevel != null, "Can't identify Dolby vision profile");
     ByteBuffer avcHevcBox = profileAndLevel.first <= 8 ? hvcCBox(format) : avcCBox(format);
     byte[] dolbyVisionCsd =
         CodecSpecificDataUtil.buildDolbyVisionInitializationData(
@@ -1861,8 +1861,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
   /** Returns codec specific fourcc for Dolby vision. */
   private static String getDoviFourcc(Format format) {
-    Pair<Integer, Integer> profileAndLevel = getDolbyVisionProfileAndLevel(format);
-    checkNotNull(profileAndLevel, "Dolby Vision profile and level is not found.");
+    @Nullable Pair<Integer, Integer> profileAndLevel = getDolbyVisionProfileAndLevel(format);
+    checkArgument(profileAndLevel != null, "Dolby Vision profile and level is not found.");
     switch (profileAndLevel.first) {
       case 5:
         return "dvh1";
@@ -2168,19 +2168,33 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return minInputPtsUs != Long.MAX_VALUE ? minInputPtsUs : C.TIME_UNSET;
   }
 
+  /** Returns whether the Dolby Vision profile of the given {@link Format} is supported. */
+  /* package */ static boolean isDolbyVisionProfileSupported(Format format) {
+    @Nullable Pair<Integer, Integer> profileAndLevel = getDolbyVisionProfileAndLevel(format);
+    return profileAndLevel != null
+        && (profileAndLevel.first == 5 || profileAndLevel.first == 8 || profileAndLevel.first == 9);
+  }
+
   /** Returns profile and level of dolby vision */
   @Nullable
   /* package */ static Pair<Integer, Integer> getDolbyVisionProfileAndLevel(Format format) {
-    checkNotNull(format.codecs, "Codec string is null for Dolby Vision format.");
+    if (format.codecs == null) {
+      return null;
+    }
     List<String> parts = Splitter.on('.').splitToList(format.codecs);
     if (parts.size() < 3) {
       // The codec has fewer parts than required by the Dolby Vision codec string format.
       Log.w(TAG, "Invalid Dolby Vision codec string: " + format.codecs);
       return null;
     }
-    int profile = Integer.parseInt(parts.get(1));
-    int level = Integer.parseInt(parts.get(2));
-    return Pair.create(profile, level);
+    try {
+      int profile = Integer.parseInt(parts.get(1));
+      int level = Integer.parseInt(parts.get(2));
+      return Pair.create(profile, level);
+    } catch (NumberFormatException e) {
+      Log.w(TAG, "Invalid Dolby Vision codec string: " + format.codecs, e);
+      return null;
+    }
   }
 
   /** Returns H263 profile and level from codec string. */

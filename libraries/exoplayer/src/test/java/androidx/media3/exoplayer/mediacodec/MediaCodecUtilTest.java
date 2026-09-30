@@ -270,6 +270,24 @@ public final class MediaCodecUtilTest {
   }
 
   @Test
+  public void getAlternativeCodecMimeType_dolbyVisionProfile20_returnsNull() {
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dvh1.20.01")
+            .build();
+
+    assertThat(MediaCodecUtil.getAlternativeCodecMimeType(format)).isNull();
+  }
+
+  @Test
+  public void getAlternativeCodecMimeType_dolbyVisionWithNullCodecs_returnsNull() {
+    Format format = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION).build();
+
+    assertThat(MediaCodecUtil.getAlternativeCodecMimeType(format)).isNull();
+  }
+
+  @Test
   public void getAlternativeCodecMimeType_withEac3JocFormatOnNonGoogleDevice_returnsEac3() {
     ShadowBuild.setManufacturer("Samsung");
     Format format = new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_E_AC3_JOC).build();

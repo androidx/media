@@ -30,6 +30,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.audio.ToInt16PcmAudioProcessor;
@@ -100,6 +101,68 @@ public final class TransformerUtilTest {
     assertThat(
             shouldTranscodeVideo(
                 FORMAT,
+                composition,
+                /* sequenceIndex= */ 0,
+                new TransformationRequest.Builder().build(),
+                new DefaultEncoderFactory.Builder(getApplicationContext()).build(),
+                muxerWrapper,
+                /* hasFrameProcessorFactory= */ false))
+        .isTrue();
+  }
+
+  @Test
+  public void shouldTranscodeVideo_dolbyVisionProfile20_returnsTrue() throws Exception {
+    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO);
+    EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
+    Composition composition =
+        new Composition.Builder(withAudioAndVideoFrom(ImmutableList.of(editedMediaItem))).build();
+    MuxerWrapper muxerWrapper =
+        new MuxerWrapper(
+            temporaryFolder.newFile().getPath(),
+            new InAppMp4Muxer.Factory(),
+            new NoOpMuxerListenerImpl(),
+            MUXER_MODE_DEFAULT,
+            /* dropSamplesBeforeFirstVideoSample= */ false,
+            /* appendVideoFormat= */ null);
+    Format dolbyVisionProfile20Format =
+        FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dvh1.20.01")
+            .build();
+
+    assertThat(
+            shouldTranscodeVideo(
+                dolbyVisionProfile20Format,
+                composition,
+                /* sequenceIndex= */ 0,
+                new TransformationRequest.Builder().build(),
+                new DefaultEncoderFactory.Builder(getApplicationContext()).build(),
+                muxerWrapper,
+                /* hasFrameProcessorFactory= */ false))
+        .isTrue();
+  }
+
+  @Test
+  public void shouldTranscodeVideo_dolbyVisionWithNullCodecs_returnsTrue() throws Exception {
+    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO);
+    EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
+    Composition composition =
+        new Composition.Builder(withAudioAndVideoFrom(ImmutableList.of(editedMediaItem))).build();
+    MuxerWrapper muxerWrapper =
+        new MuxerWrapper(
+            temporaryFolder.newFile().getPath(),
+            new InAppMp4Muxer.Factory(),
+            new NoOpMuxerListenerImpl(),
+            MUXER_MODE_DEFAULT,
+            /* dropSamplesBeforeFirstVideoSample= */ false,
+            /* appendVideoFormat= */ null);
+    Format dolbyVisionNullCodecsFormat =
+        FORMAT.buildUpon().setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION).setCodecs(null).build();
+
+    assertThat(
+            shouldTranscodeVideo(
+                dolbyVisionNullCodecsFormat,
                 composition,
                 /* sequenceIndex= */ 0,
                 new TransformationRequest.Builder().build(),

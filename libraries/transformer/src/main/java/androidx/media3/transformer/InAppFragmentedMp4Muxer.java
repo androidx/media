@@ -128,7 +128,7 @@ public final class InAppFragmentedMp4Muxer implements Muxer {
   }
 
   @Override
-  public int addTrack(Format format) {
+  public int addTrack(Format format) throws MuxerException {
     int trackId = muxer.addTrack(format);
     if (MimeTypes.isVideo(format.sampleMimeType)) {
       muxer.addMetadataEntry(new Mp4OrientationData(format.rotationDegrees));

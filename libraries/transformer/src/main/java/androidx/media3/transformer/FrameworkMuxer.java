@@ -30,6 +30,7 @@ import android.media.MediaFormat;
 import android.media.MediaMuxer;
 import android.util.Pair;
 import android.util.SparseArray;
+import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -368,10 +369,15 @@ public final class FrameworkMuxer implements Muxer {
 
   /** Get Dolby Vision level. */
   @RequiresApi(33)
-  private static int getDvLevel(Format format) {
+  private static int getDvLevel(Format format) throws MuxerException {
     if (format.codecs != null) {
-      Pair<Integer, Integer> profileAndLevel = getCodecProfileAndLevel(format);
-      return checkNotNull(profileAndLevel).second;
+      @Nullable Pair<Integer, Integer> profileAndLevel = getCodecProfileAndLevel(format);
+      if (profileAndLevel == null) {
+        throw new MuxerException(
+            "Unsupported Dolby Vision profile and level for format=" + format,
+            new IllegalArgumentException("Unsupported Dolby Vision codecs: " + format.codecs));
+      }
+      return profileAndLevel.second;
     }
     return calculateMediaCodecDolbyVisionLevel(format.width, format.height, format.frameRate);
   }

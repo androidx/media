@@ -343,6 +343,11 @@ public final class MediaCodecInfo {
     }
 
     if (codecProfileAndLevel == null) {
+      if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_DOLBY_VISION)) {
+        // Do not assume unknown Dolby Vision profiles are supported, as decoders only support
+        // specific profiles.
+        return false;
+      }
       // If we don't know any better, we assume that the profile and level are supported.
       return true;
     }

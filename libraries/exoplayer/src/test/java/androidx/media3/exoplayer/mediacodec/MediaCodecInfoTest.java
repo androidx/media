@@ -389,6 +389,35 @@ public final class MediaCodecInfoTest {
   }
 
   @Test
+  public void isFormatSupported_dolbyVisionWithNoCodecsString_returnsFalse() {
+    Format formatDolbyVisionUnknownProfile =
+        new Format.Builder()
+            .setSampleMimeType(VIDEO_DOLBY_VISION)
+            .setWidth(1920)
+            .setHeight(1080)
+            .build();
+    MediaCodecInfo codecInfo = buildDolbyVisionCodecInfo();
+    Context context = ApplicationProvider.getApplicationContext();
+
+    assertThat(codecInfo.isFormatSupported(context, formatDolbyVisionUnknownProfile)).isFalse();
+  }
+
+  @Test
+  public void isFormatSupported_dolbyVisionProfile20_returnsFalse() {
+    Format formatDolbyVisionProfile20 =
+        new Format.Builder()
+            .setSampleMimeType(VIDEO_DOLBY_VISION)
+            .setCodecs("dvh1.20.01")
+            .setWidth(1920)
+            .setHeight(1080)
+            .build();
+    MediaCodecInfo codecInfo = buildDolbyVisionCodecInfo();
+    Context context = ApplicationProvider.getApplicationContext();
+
+    assertThat(codecInfo.isFormatSupported(context, formatDolbyVisionProfile20)).isFalse();
+  }
+
+  @Test
   public void canReuseCodec_eac3_returnsYesWithoutReconfiguration() {
     MediaCodecInfo codecInfo =
         new MediaCodecInfo(

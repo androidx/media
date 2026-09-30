@@ -47,6 +47,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Default implementation of {@link Codec.DecoderFactory} that uses {@link MediaCodec} for decoding.
@@ -251,6 +252,14 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
       throw createExportException(
           format, /* reason= */ "Decoding 8k is not supported on this device.");
     }
+    @Nullable
+    Pair<Integer, Integer> codecProfileAndLevel =
+        CodecSpecificDataUtil.getCodecProfileAndLevel(format);
+    if (codecProfileAndLevel == null
+        && Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_DOLBY_VISION)) {
+      throw createExportException(
+          format, /* reason= */ "Unsupported Dolby Vision profile or level");
+    }
     if (deviceNeedsNoFrameRateWorkaround()) {
       format = format.buildUpon().setFrameRate(Format.NO_VALUE).build();
     }
@@ -266,9 +275,6 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
           MediaFormat.KEY_COLOR_TRANSFER_REQUEST, MediaFormat.COLOR_TRANSFER_SDR_VIDEO);
     }
 
-    @Nullable
-    Pair<Integer, Integer> codecProfileAndLevel =
-        CodecSpecificDataUtil.getCodecProfileAndLevel(format);
     if (codecProfileAndLevel != null) {
       MediaFormatUtil.maybeSetInteger(
           mediaFormat, MediaFormat.KEY_PROFILE, codecProfileAndLevel.first);
