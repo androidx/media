@@ -60,35 +60,6 @@ public class AdaptationSet {
    * @param accessibilityDescriptors Accessibility descriptors in the adaptation set.
    * @param essentialProperties Essential properties in the adaptation set.
    * @param supplementalProperties Supplemental properties in the adaptation set.
-   * @deprecated Use {@link #AdaptationSet(long, int, List, List, List, List, ImmutableList)}
-   *     instead.
-   */
-  @Deprecated
-  public AdaptationSet(
-      long id,
-      @C.TrackType int type,
-      List<Representation> representations,
-      List<Descriptor> accessibilityDescriptors,
-      List<Descriptor> essentialProperties,
-      List<Descriptor> supplementalProperties) {
-    this(
-        id,
-        type,
-        representations,
-        accessibilityDescriptors,
-        essentialProperties,
-        supplementalProperties,
-        /* producerReferenceTimes= */ ImmutableList.of());
-  }
-
-  /**
-   * @param id A non-negative identifier for the adaptation set that's unique in the scope of its
-   *     containing period, or {@link #ID_UNSET} if not specified.
-   * @param type The {@link C.TrackType track type} of the adaptation set.
-   * @param representations {@link Representation}s in the adaptation set.
-   * @param accessibilityDescriptors Accessibility descriptors in the adaptation set.
-   * @param essentialProperties Essential properties in the adaptation set.
-   * @param supplementalProperties Supplemental properties in the adaptation set.
    * @param producerReferenceTimes {@link ProducerReferenceTime} instances in the adaptation set.
    */
   public AdaptationSet(
