@@ -338,6 +338,36 @@ public final class Mp4ExtractorNonParameterizedTest {
     DumpFileAsserts.assertOutput(context, output, dumpFilePath);
   }
 
+  @Test
+  public void extract_trackDuration_prefersMdhdOnlyWhenNoEditListIsApplied() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    Mp4Extractor mp4Extractor = new Mp4Extractor(SubtitleParser.Factory.UNSUPPORTED);
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(
+            mp4Extractor, context, "media/mp4/h265_4k_bframes_emulation_prevention.mp4");
+
+    // Video track has an edit list: tkhd = 3_738_600 us, mdhd = 3_738_577 us.
+    assertThat(output.trackOutputs.get(0).getDurationUs()).isEqualTo(3_738_600L);
+    // Audio track has no edit list: tkhd = 3_711_900 us, mdhd = 3_711_937 us.
+    assertThat(output.trackOutputs.get(1).getDurationUs()).isEqualTo(3_711_937L);
+  }
+
+  @Test
+  public void extract_withIgnoreEditLists_prefersMdhdTrackDuration() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    Mp4Extractor mp4Extractor =
+        new Mp4Extractor(
+            SubtitleParser.Factory.UNSUPPORTED, Mp4Extractor.FLAG_WORKAROUND_IGNORE_EDIT_LISTS);
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(
+            mp4Extractor, context, "media/mp4/h265_4k_bframes_emulation_prevention.mp4");
+
+    // Video track's edit list is ignored: tkhd = 3_738_600 us, mdhd = 3_738_577 us.
+    assertThat(output.trackOutputs.get(0).getDurationUs()).isEqualTo(3_738_577L);
+  }
+
   private static String getDumpFilePath(String inputFilePath, String suffix) {
     return inputFilePath.replaceFirst("media", "extractordumps") + suffix;
   }

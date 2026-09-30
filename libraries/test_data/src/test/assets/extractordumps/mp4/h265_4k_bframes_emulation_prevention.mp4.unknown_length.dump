@@ -485,7 +485,7 @@ track 0:
 track 1:
   total output bytes = 118975
   sample count = 174
-  track duration = 3711900
+  track duration = 3711937
   format 0:
     averageBitrate = 256416
     peakBitrate = 256000

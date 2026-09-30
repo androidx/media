@@ -154,7 +154,7 @@ track 0:
 track 1:
   total output bytes = 2450
   sample count = 10
-  track duration = 1003000
+  track duration = 1002785
   format 0:
     averageBitrate = 58637
     id = 2

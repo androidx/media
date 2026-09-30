@@ -105,6 +105,23 @@ public final class FragmentedMp4ExtractorNonParameterizedTest {
     assertThat(trackOutput.getSampleTimeUs(1)).isEqualTo(25_000L);
   }
 
+  @Test
+  public void extract_withoutMehdOrEditList_prefersMdhdTrackDuration() throws Exception {
+    FragmentedMp4Extractor extractor =
+        new FragmentedMp4Extractor(SubtitleParser.Factory.UNSUPPORTED);
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(
+            extractor,
+            ApplicationProvider.getApplicationContext(),
+            "media/mp4/sample_partially_fragmented.mp4");
+
+    // Both tracks have tkhd = 134_000 us and no mehd or edit list.
+    // Video track mdhd = 133_466 us (4004 / 30_000); audio track mdhd = 133_945 us (5907 / 44_100).
+    assertThat(output.trackOutputs.get(0).getDurationUs()).isEqualTo(133_466L);
+    assertThat(output.trackOutputs.get(1).getDurationUs()).isEqualTo(133_945L);
+  }
+
   private static FakeExtractorInput createInputForSample(String sample) throws IOException {
     return new FakeExtractorInput.Builder()
         .setData(

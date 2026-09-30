@@ -1,15 +1,15 @@
 seekMap:
   isSeekable = true
-  duration = 1065600
+  duration = 1065666
   getPosition(0) = [[timeUs=0, position=44]]
   getPosition(1) = [[timeUs=0, position=44]]
-  getPosition(532800) = [[timeUs=0, position=44]]
-  getPosition(1065600) = [[timeUs=0, position=44]]
+  getPosition(532833) = [[timeUs=0, position=44]]
+  getPosition(1065666) = [[timeUs=0, position=44]]
 numberOfTracks = 2
 track 0:
   total output bytes = 301392
   sample count = 30
-  track duration = 967600
+  track duration = 967622
   format 0:
     averageBitrate = 2491816
     id = 1
@@ -154,7 +154,7 @@ track 0:
 track 1:
   total output bytes = 9529
   sample count = 45
-  track duration = 1065600
+  track duration = 1065666
   format 0:
     averageBitrate = 71535
     id = 3

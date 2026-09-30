@@ -724,8 +724,7 @@ public final class Mp4Extractor implements Extractor {
       }
       Mp4Track mp4Track =
           new Mp4Track(track, trackSampleTable, extractorOutput.track(trackIndex++, track.type));
-      long trackDurationUs =
-          track.durationUs != C.TIME_UNSET ? track.durationUs : trackSampleTable.durationUs;
+      long trackDurationUs = getTrackDurationUs(track, trackSampleTable);
       mp4Track.trackOutput.durationUs(trackDurationUs);
       durationUs = max(durationUs, trackDurationUs);
 
@@ -810,6 +809,21 @@ public final class Mp4Extractor implements Extractor {
 
     extractorOutput.endTracks();
     extractorOutput.seekMap(new Mp4SeekMap(durationUs, this.tracks, firstVideoTrackIndex));
+  }
+
+  /**
+   * Returns the duration of the track in microseconds.
+   *
+   * <p>If no edit list is applied to the samples, the {@code mdhd} duration is preferred because it
+   * is expressed in the track's own timescale, which is typically finer than the movie timescale
+   * used for the {@code tkhd} duration. If an edit list is applied, the {@code tkhd} duration
+   * reflects the edited presentation duration and is used instead.
+   */
+  private static long getTrackDurationUs(Track track, TrackSampleTable trackSampleTable) {
+    if (track.editListDurations == null && track.mediaDurationUs != C.TIME_UNSET) {
+      return track.mediaDurationUs;
+    }
+    return track.durationUs != C.TIME_UNSET ? track.durationUs : trackSampleTable.durationUs;
   }
 
   private static long findBestThumbnailPresentationTimeUs(

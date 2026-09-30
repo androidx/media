@@ -816,7 +816,8 @@ public class FragmentedMp4Extractor implements Extractor {
           continue;
         }
         TrackOutput output = extractorOutput.track(i, track.type);
-        output.durationUs(track.durationUs);
+        long trackDurationUs = getTrackDurationUs(track, /* mehdDuration= */ duration);
+        output.durationUs(trackDurationUs);
         Format.Builder formatBuilder = track.format.buildUpon();
         formatBuilder.setContainerMimeType(containerMimeType);
         MetadataUtil.setFormatGaplessInfo(track.type, gaplessInfoHolder, formatBuilder);
@@ -834,7 +835,7 @@ public class FragmentedMp4Extractor implements Extractor {
                 getDefaultSampleValues(defaultSampleValuesArray, track.id),
                 formatBuilder.build());
         trackBundles.put(track.id, trackBundle);
-        durationUs = max(durationUs, track.durationUs);
+        durationUs = max(durationUs, trackDurationUs);
       }
       extractorOutput.endTracks();
     } else {
@@ -856,6 +857,23 @@ public class FragmentedMp4Extractor implements Extractor {
             .reset(sampleTable, getDefaultSampleValues(defaultSampleValuesArray, track.id));
       }
     }
+  }
+
+  /**
+   * Returns the duration of the track in microseconds.
+   *
+   * <p>If {@code mehd} duration is unset and no edit list is applied to the samples, the {@code
+   * mdhd} duration is preferred because it is expressed in the track's own timescale, which is
+   * typically finer than the movie timescale used for the {@code tkhd} duration. Otherwise, {@link
+   * Track#durationUs} (from {@code mehd} or {@code tkhd}) is used.
+   */
+  private static long getTrackDurationUs(Track track, long mehdDuration) {
+    if (mehdDuration == C.TIME_UNSET
+        && track.editListDurations == null
+        && track.mediaDurationUs != C.TIME_UNSET) {
+      return track.mediaDurationUs;
+    }
+    return track.durationUs;
   }
 
   @Nullable

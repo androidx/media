@@ -296,7 +296,7 @@ public class MetadataRetrieverTest {
       assertThat(timeline.getWindowCount()).isEqualTo(1);
 
       // Duration
-      assertThat(durationUs).isEqualTo(2_152_000);
+      assertThat(durationUs).isEqualTo(2_151_750);
     }
   }
 
@@ -352,7 +352,7 @@ public class MetadataRetrieverTest {
       assertThat(timeline.getWindowCount()).isEqualTo(1);
 
       // Duration
-      assertThat(durationUs).isEqualTo(11_793_400);
+      assertThat(durationUs).isEqualTo(11_793_411);
     }
   }
 

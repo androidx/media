@@ -83,7 +83,7 @@ public class Mp4InfoTest {
     String mp4FilePath = "asset:///media/mp4/hdr10-720p.mp4";
     Mp4Info mp4Info = Mp4Info.create(context, mp4FilePath);
 
-    assertThat(mp4Info.durationUs).isEqualTo(4_236_600L); // The duration of hdr10-720p.mp4.
+    assertThat(mp4Info.durationUs).isEqualTo(4_236_588L); // The duration of hdr10-720p.mp4.
   }
 
   @Test
@@ -109,7 +109,7 @@ public class Mp4InfoTest {
   public void firstSyncSampleTimestampUsAfterTimeUs_timeUsSetToDuration_returnsTimeEndOfSource()
       throws IOException {
     String mp4FilePath = "asset:///media/mp4/hdr10-720p.mp4";
-    Mp4Info mp4Info = Mp4Info.create(context, mp4FilePath, /* timeUs= */ 4_236_600L);
+    Mp4Info mp4Info = Mp4Info.create(context, mp4FilePath, /* timeUs= */ 4_236_588L);
 
     assertThat(mp4Info.firstSyncSampleTimestampUsAfterTimeUs).isEqualTo(C.TIME_END_OF_SOURCE);
   }
