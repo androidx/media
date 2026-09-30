@@ -24,12 +24,12 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 /** A test only class for holding the details of a test export. */
-public class ExportTestResult {
+public final class ExportTestResult {
   /** Represents an unset or unknown SSIM score. */
   public static final double SSIM_UNSET = -1.0d;
 
   /** A builder for {@link ExportTestResult}. */
-  public static class Builder {
+  public static final class Builder {
     private final ExportResult exportResult;
 
     @Nullable private String filePath;

@@ -55,19 +55,18 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.json.JSONObject;
 
 /** An android instrumentation test runner for {@link Transformer}. */
-public class TransformerAndroidTestRunner {
+public final class TransformerAndroidTestRunner {
   private static final String TAG = "TransformerAndroidTest";
 
   /** The default export timeout value. */
   public static final int DEFAULT_TIMEOUT_SECONDS = 120;
 
   /** A {@link Builder} for {@link TransformerAndroidTestRunner} instances. */
-  public static class Builder {
+  public static final class Builder {
     private final Context context;
     private final Transformer transformer;
     private boolean requestCalculateSsim;
     private int timeoutSeconds;
-    private boolean suppressAnalysisExceptions;
     @Nullable private Map<String, Object> inputValues;
 
     /**
@@ -117,26 +116,6 @@ public class TransformerAndroidTestRunner {
     }
 
     /**
-     * Sets whether to suppress failures that occurs as a result of post-export analysis, such as
-     * SSIM calculation.
-     *
-     * <p>Regardless of this value, analysis exceptions are attached to the analysis file.
-     *
-     * <p>It's recommended to add a comment explaining why this suppression is needed, ideally with
-     * a bug number.
-     *
-     * <p>The default value is {@code false}.
-     *
-     * @param suppressAnalysisExceptions Whether to suppress analysis exceptions.
-     * @return This {@link Builder}.
-     */
-    @CanIgnoreReturnValue
-    public Builder setSuppressAnalysisExceptions(boolean suppressAnalysisExceptions) {
-      this.suppressAnalysisExceptions = suppressAnalysisExceptions;
-      return this;
-    }
-
-    /**
      * Sets a {@link Map} of transformer input values, which are propagated to the export summary
      * JSON file.
      *
@@ -155,12 +134,7 @@ public class TransformerAndroidTestRunner {
     /** Builds the {@link TransformerAndroidTestRunner}. */
     public TransformerAndroidTestRunner build() {
       return new TransformerAndroidTestRunner(
-          context,
-          transformer,
-          timeoutSeconds,
-          requestCalculateSsim,
-          suppressAnalysisExceptions,
-          inputValues);
+          context, transformer, timeoutSeconds, requestCalculateSsim, inputValues);
     }
   }
 
@@ -168,7 +142,6 @@ public class TransformerAndroidTestRunner {
   private final Transformer transformer;
   private final int timeoutSeconds;
   private final boolean requestCalculateSsim;
-  private final boolean suppressAnalysisExceptions;
   @Nullable private final Map<String, Object> inputValues;
 
   private TransformerAndroidTestRunner(
@@ -176,13 +149,11 @@ public class TransformerAndroidTestRunner {
       Transformer transformer,
       int timeoutSeconds,
       boolean requestCalculateSsim,
-      boolean suppressAnalysisExceptions,
       @Nullable Map<String, Object> inputValues) {
     this.context = context;
     this.transformer = transformer;
     this.timeoutSeconds = timeoutSeconds;
     this.requestCalculateSsim = requestCalculateSsim;
-    this.suppressAnalysisExceptions = suppressAnalysisExceptions;
     this.inputValues = inputValues;
   }
 
@@ -279,8 +250,7 @@ public class TransformerAndroidTestRunner {
    * @param oldFilePath The old output file path to resume the export from. Passing {@code null}
    *     will restart the export from the beginning.
    * @return The {@link ExportTestResult}.
-   * @throws Exception The cause of the export not completing, or an analysis exception if {@code
-   *     suppressAnalysisExceptions} is {@code false}.
+   * @throws Exception The cause of the export not completing.
    */
   private ExportTestResult runAndLog(String testId, Object mediaInput, @Nullable String oldFilePath)
       throws Exception {
@@ -297,7 +267,7 @@ public class TransformerAndroidTestRunner {
       if (exportTestResult.exportResult.exportException != null) {
         throw exportTestResult.exportResult.exportException;
       }
-      if (!suppressAnalysisExceptions && exportTestResult.analysisException != null) {
+      if (exportTestResult.analysisException != null) {
         throw exportTestResult.analysisException;
       }
       return exportTestResult;
