@@ -69,10 +69,6 @@
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
     *   Opus extension: Fix native crash when decoding invalid Opus data.
 *   Transformer:
-    *   Fix a segmentation fault during release by introducing
-        `AssetLoader.stop()` and `AssetLoader.isStopped()` methods to verify
-        that data production has halted before releasing the output surface.
-        Custom `AssetLoader` implementations must implement these new methods.
     *   Support configuring the frame rate of video frame aggregation via
         `Composition.Builder.setVideoFrameAggregationParameters` for export
         workflows.

@@ -104,7 +104,6 @@ public final class ImageAssetLoader implements AssetLoader {
   private @Transformer.ProgressState int progressState;
 
   private volatile int progress;
-  private volatile boolean isStopped;
 
   private ImageAssetLoader(
       Context context,
@@ -192,29 +191,15 @@ public final class ImageAssetLoader implements AssetLoader {
   }
 
   @Override
-  public void stop() {
-    isStopped = true;
-  }
-
-  @Override
-  public boolean isStopped() {
-    return isStopped;
-  }
-
-  @Override
   public void release() {
     progressState = PROGRESS_STATE_NOT_STARTED;
     scheduledExecutorService.shutdownNow();
-    isStopped = true;
   }
 
   // Ignore Future returned by scheduledExecutorService because failures are already handled in the
   // runnable.
   @SuppressWarnings("FutureReturnValueIgnored")
   private void queueBitmapInternal(Bitmap bitmap, Format format) {
-    if (isStopped) {
-      return;
-    }
     try {
       if (sampleConsumer == null) {
         sampleConsumer = listener.onOutputFormat(format);

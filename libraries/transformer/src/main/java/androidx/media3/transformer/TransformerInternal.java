@@ -126,7 +126,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private static final String TAG = "TransformerInternal";
   private static final int DRAIN_EXPORTERS_DELAY_MS = 10;
-  private static final long STOP_TIMEOUT_MS = 2_000;
 
   private final Context context;
   private final Composition composition;
@@ -456,24 +455,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               + "] ["
               + MediaLibraryInfo.registeredModules()
               + "]");
-      // VideoSampleExporter can hold buffers from the asset loader's decoder in a surface texture,
-      // so we release the VideoSampleExporter first to avoid releasing the codec while its buffers
-      // are pending processing. We stop the AssetLoaders first to avoid them writing to an
-      // abandoned Surface/BufferQueue on a separate thread.
-      try {
-        stopAssetLoadersInternal();
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        if (releaseExportException == null) {
-          releaseExportException = ExportException.createForUnexpected(e);
-          // cancelException is not reported through a listener. It is thrown in cancel(), as this
-          // method is blocking.
-          cancelException = new IllegalStateException(e);
-        }
-      } catch (RuntimeException e) {
-        if (releaseExportException == null) {
-          releaseExportException = ExportException.createForUnexpected(e);
-          cancelException = e;
+      for (int i = 0; i < sequenceAssetLoaders.size(); i++) {
+        try {
+          sequenceAssetLoaders.get(i).release();
+        } catch (RuntimeException e) {
+          if (releaseExportException == null) {
+            releaseExportException = ExportException.createForUnexpected(e);
+            cancelException = e;
+          }
         }
       }
       for (int i = 0; i < sampleExporters.size(); i++) {
@@ -482,16 +471,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         } catch (RuntimeException e) {
           if (releaseExportException == null) {
             releaseExportException = ExportException.createForUnexpected(e);
-            cancelException = e;
-          }
-        }
-      }
-      for (int i = 0; i < sequenceAssetLoaders.size(); i++) {
-        try {
-          sequenceAssetLoaders.get(i).release();
-        } catch (RuntimeException e) {
-          if (releaseExportException == null) {
-            releaseExportException = ExportException.createForUnexpected(e);
+            // cancelException is not reported through a listener. It is thrown in cancel(), as this
+            // method is blocking.
             cancelException = e;
           }
         }
@@ -553,51 +534,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                       processedInputsBuilder.build(),
                       encoderFactory.getAudioEncoderName(),
                       encoderFactory.getVideoEncoderName())));
-    }
-  }
-
-  private void stopAssetLoadersInternal() throws InterruptedException {
-    @Nullable RuntimeException firstRuntimeException = null;
-    for (int i = 0; i < sequenceAssetLoaders.size(); i++) {
-      try {
-        sequenceAssetLoaders.get(i).stop();
-      } catch (RuntimeException e) {
-        if (firstRuntimeException == null) {
-          firstRuntimeException = e;
-        }
-      }
-    }
-    clock.onThreadBlocked();
-    long stopDeadlineMs = clock.elapsedRealtime() + STOP_TIMEOUT_MS;
-    boolean allAssetLoadersStopped = false;
-    while (!allAssetLoadersStopped && clock.elapsedRealtime() < stopDeadlineMs) {
-      allAssetLoadersStopped = true;
-      for (int i = 0; i < sequenceAssetLoaders.size(); i++) {
-        if (!sequenceAssetLoaders.get(i).isStopped()) {
-          allAssetLoadersStopped = false;
-        }
-      }
-      if (!allAssetLoadersStopped) {
-        // Drain the pipeline while waiting for loaders to stop. This avoids a deadlock where the
-        // playback thread is blocked in MediaCodec.releaseOutputBuffer because the decoder output
-        // surface is full.
-        for (int i = 0; i < sampleExporters.size(); i++) {
-          try {
-            @SuppressWarnings("unused")
-            boolean unused = sampleExporters.get(i).processData();
-          } catch (ExportException | RuntimeException e) {
-            // Ignore errors when draining for release.
-          }
-        }
-        //noinspection BusyWait
-        Thread.sleep(10);
-      }
-    }
-    if (!allAssetLoadersStopped) {
-      Log.w(TAG, "Timeout waiting for asset loaders to stop.");
-    }
-    if (firstRuntimeException != null) {
-      throw firstRuntimeException;
     }
   }
 

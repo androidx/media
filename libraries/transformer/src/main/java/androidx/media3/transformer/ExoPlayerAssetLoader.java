@@ -265,7 +265,6 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
 
   private @Transformer.ProgressState int progressState;
   private long durationUs;
-  private volatile boolean isStopped;
 
   private ExoPlayerAssetLoader(
       Context context,
@@ -345,23 +344,8 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
   }
 
   @Override
-  public void stop() {
-    // We call player.pause() instead of player.stop() because player.stop() would release the
-    // codecs, which violates the AssetLoader.stop() contract.
-    player.pause();
-    isStopped = false;
-    player.createMessage((messageType, payload) -> isStopped = true).send();
-  }
-
-  @Override
-  public boolean isStopped() {
-    return isStopped || player.getPlaybackState() == Player.STATE_IDLE;
-  }
-
-  @Override
   public void release() {
     player.release();
-    isStopped = true;
     progressState = PROGRESS_STATE_NOT_STARTED;
   }
 

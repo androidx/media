@@ -169,19 +169,6 @@ public final class MediaProjectionAssetLoader implements AssetLoader {
   }
 
   @Override
-  public void stop() {
-    surfaceAssetLoader.stop();
-    if (virtualDisplay != null) {
-      virtualDisplay.setSurface(null);
-    }
-  }
-
-  @Override
-  public boolean isStopped() {
-    return surfaceAssetLoader.isStopped();
-  }
-
-  @Override
   public void release() {
     surfaceAssetLoader.release();
     if (virtualDisplay != null) {
