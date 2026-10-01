@@ -40,6 +40,7 @@ import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.util.ArrayList;
 import java.util.List;
@@ -940,6 +941,58 @@ public class MediaSessionServiceTest {
     assertThat(tickerAfterTriggerNotificationUpdate)
         .isNotEqualTo(tickerBeforeTriggerNotificationUpdate);
 
+    session.release();
+    player.release();
+    serviceController.destroy();
+  }
+
+  @Test
+  public void
+      triggerNotificationUpdate_beforeMediaNotificationControllerConnected_updatesNotificationOnceConnected() {
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    SettableFuture<MediaSession.ConnectionResult> connectionResultFuture = SettableFuture.create();
+    MediaSession session =
+        new MediaSession.Builder(context, player)
+            .setCallback(
+                new MediaSession.Callback() {
+                  @Override
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
+                      MediaSession session, MediaSession.ControllerInfo controller) {
+                    if (session.isMediaNotificationController(controller)) {
+                      return connectionResultFuture;
+                    }
+                    return immediateFuture(
+                        new MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller)
+                            .build());
+                  }
+                })
+            .build();
+    ServiceController<TestService> serviceController = Robolectric.buildService(TestService.class);
+    TestService service = serviceController.create().get();
+    service.setMediaNotificationProvider(
+        new DefaultMediaNotificationProvider(
+            service,
+            /* notificationIdProvider= */ unused -> 2000,
+            DefaultMediaNotificationProvider.DEFAULT_CHANNEL_ID,
+            DefaultMediaNotificationProvider.DEFAULT_CHANNEL_NAME_RESOURCE_ID));
+    service.addSession(session);
+    player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+    player.prepare();
+    ShadowLooper.idleMainLooper();
+
+    service.triggerNotificationUpdate();
+    ShadowLooper.idleMainLooper();
+    StatusBarNotification notificationBeforeConnected = getStatusBarNotification(2000);
+
+    connectionResultFuture.set(
+        MediaSession.ConnectionResult.accept(
+            MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS,
+            MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS));
+    ShadowLooper.idleMainLooper();
+
+    StatusBarNotification notificationAfterConnected = getStatusBarNotification(2000);
+    assertThat(notificationBeforeConnected).isNull();
+    assertThat(notificationAfterConnected).isNotNull();
     session.release();
     player.release();
     serviceController.destroy();
