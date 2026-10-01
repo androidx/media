@@ -141,16 +141,19 @@ class FakePlayer(
 
   override fun handleSeek(mediaItemIndex: Int, positionMs: Long, seekCommand: @Player.Command Int) =
     handleStateUpdate {
-      val resultingState: @Player.State Int
-      if (bufferingDelayMs > 0) {
-        resultingState = STATE_BUFFERING
-        handler.postDelayed({ updateState { setPlaybackState(STATE_READY) } }, bufferingDelayMs)
-      } else {
-        resultingState = STATE_READY
+      if (playbackState != STATE_IDLE) {
+        val resultingState: @Player.State Int
+        if (state.timeline.isEmpty) {
+          resultingState = STATE_ENDED
+        } else if (bufferingDelayMs > 0) {
+          resultingState = STATE_BUFFERING
+          handler.postDelayed({ updateState { setPlaybackState(STATE_READY) } }, bufferingDelayMs)
+        } else {
+          resultingState = STATE_READY
+        }
+        setPlaybackState(resultingState)
       }
-      setPlaybackState(resultingState)
-        .setCurrentMediaItemIndex(mediaItemIndex)
-        .setContentPositionMs(positionMs)
+      setCurrentMediaItemIndex(mediaItemIndex).setContentPositionMs(positionMs)
     }
 
   override fun handleSetShuffleModeEnabled(shuffleModeEnabled: Boolean) = handleStateUpdate {
