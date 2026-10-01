@@ -1591,7 +1591,7 @@ public final class DefaultAudioSinkTest {
 
   @Config(minSdk = 30)
   @Test
-  public void hasPendingData_withZeroBytesOffloadEncodedFrameWritten_returnsTrue()
+  public void hasPendingData_withZeroBytesOffloadEncodedFrameWritten_returnsFalse()
       throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     // Create a custom AudioOutputProvider that blocks all writes.
@@ -1636,22 +1636,17 @@ public final class DefaultAudioSinkTest {
         AudioManager.DIRECT_PLAYBACK_OFFLOAD_SUPPORTED);
     configureDefaultAudioSinkWithOffload();
 
-    assertThat(defaultAudioSink.hasPendingData()).isFalse();
-
     ByteBuffer largeBuffer = ByteBuffer.allocateDirect(11 * 1024).order(ByteOrder.nativeOrder());
     boolean handled =
         defaultAudioSink.handleBuffer(
             largeBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 32);
     assertThat(handled).isFalse();
 
-    assertThat(defaultAudioSink.hasPendingData()).isTrue();
-
-    defaultAudioSink.flush();
     assertThat(defaultAudioSink.hasPendingData()).isFalse();
   }
 
   @Test
-  public void hasPendingData_withUnwrittenPendingOutputBuffer_returnsTrue() throws Exception {
+  public void hasPendingData_withUnwrittenPendingOutputBuffer_returnsFalse() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     AudioOutputProvider audioOutputProvider =
         new ForwardingAudioOutputProvider(
@@ -1672,23 +1667,75 @@ public final class DefaultAudioSinkTest {
         new DefaultAudioSink.Builder(context).setAudioOutputProvider(audioOutputProvider).build();
     configureDefaultAudioSink(CHANNEL_COUNT_STEREO);
 
-    assertThat(defaultAudioSink.hasPendingData()).isFalse();
+    boolean handledFirstBuffer =
+        defaultAudioSink.handleBuffer(
+            create1Sec44100HzSilenceBuffer(),
+            /* presentationTimeUs= */ 0,
+            /* encodedAccessUnitCount= */ 1);
+    boolean handledSecondBuffer =
+        defaultAudioSink.handleBuffer(
+            create1Sec44100HzSilenceBuffer(),
+            /* presentationTimeUs= */ 1_000_000,
+            /* encodedAccessUnitCount= */ 1);
 
-    defaultAudioSink.handleBuffer(
-        create1Sec44100HzSilenceBuffer(),
-        /* presentationTimeUs= */ 0,
-        /* encodedAccessUnitCount= */ 1);
+    assertThat(handledFirstBuffer).isTrue();
+    assertThat(handledSecondBuffer).isFalse();
+    assertThat(defaultAudioSink.hasPendingData()).isFalse();
+  }
+
+  @Test
+  public void hasPendingData_afterWrittenFramesPlayedWithUnwrittenPendingOutputBuffer_returnsFalse()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    AtomicBoolean blockWrites = new AtomicBoolean(false);
+    AtomicLong positionUs = new AtomicLong(0);
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(context).build()) {
+          @Override
+          public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+            return new ForwardingAudioOutput(super.getAudioOutput(config)) {
+              @Override
+              public boolean write(
+                  ByteBuffer buffer, int encodedAccessUnitCount, long presentationTimeUs)
+                  throws WriteException {
+                if (blockWrites.get()) {
+                  return false;
+                }
+                buffer.position(buffer.limit());
+                return true;
+              }
+
+              @Override
+              public long getPositionUs() {
+                return positionUs.get();
+              }
+            };
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context)
+            .setAudioOutputProvider(audioOutputProvider)
+            .setAudioProcessors(new AudioProcessor[] {new TeeAudioProcessor(arrayAudioBufferSink)})
+            .build();
+    configureDefaultAudioSink(CHANNEL_COUNT_STEREO);
+    boolean handledFirstBuffer =
+        defaultAudioSink.handleBuffer(
+            create1Sec44100HzSilenceBuffer(),
+            /* presentationTimeUs= */ 0,
+            /* encodedAccessUnitCount= */ 1);
+    assertThat(handledFirstBuffer).isTrue();
     assertThat(defaultAudioSink.hasPendingData()).isTrue();
+    blockWrites.set(true);
 
     boolean handledSecondBuffer =
         defaultAudioSink.handleBuffer(
             create1Sec44100HzSilenceBuffer(),
             /* presentationTimeUs= */ 1_000_000,
             /* encodedAccessUnitCount= */ 1);
-    assertThat(handledSecondBuffer).isFalse();
-    assertThat(defaultAudioSink.hasPendingData()).isTrue();
+    positionUs.set(1_000_000);
 
-    defaultAudioSink.flush();
+    assertThat(handledSecondBuffer).isTrue();
     assertThat(defaultAudioSink.hasPendingData()).isFalse();
   }
 
