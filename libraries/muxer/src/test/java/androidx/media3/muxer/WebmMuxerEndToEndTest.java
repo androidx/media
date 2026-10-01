@@ -100,6 +100,16 @@ public class WebmMuxerEndToEndTest {
   }
 
   @Test
+  public void addTrack_withRightLeftStereoMode_writesStereoMode() throws Exception {
+    assertStereoModeIsReadBack(C.STEREO_MODE_RIGHT_LEFT);
+  }
+
+  @Test
+  public void addTrack_withBottomTopStereoMode_writesStereoMode() throws Exception {
+    assertStereoModeIsReadBack(C.STEREO_MODE_BOTTOM_TOP);
+  }
+
+  @Test
   public void close_noSamplesWritten_createsEmptyFile() throws Exception {
     String outputFilePath = temporaryFolder.newFile("empty.webm").getPath();
     Format format = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_VP9).build();

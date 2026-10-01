@@ -3,6 +3,10 @@
 ### Unreleased changes
 
 *   Common Library:
+    *   Add `C.STEREO_MODE_RIGHT_LEFT` and `C.STEREO_MODE_BOTTOM_TOP` for
+        side-by-side and top-bottom video with the right eye first, rendered
+        with the eyes swapped by the spherical video renderer
+        ([#3419](https://github.com/androidx/media/issues/3419)).
     *   Add a central `Flags` registry to manage experimental feature flags and
         canary mode rollout. Migrated many existing `@ExperimentalApi` methods
         to use the new flags API.
@@ -124,6 +128,10 @@
         `FragmentedMp4Extractor`, where common encoders write the stereo layout
         of frame-packed video only in the SEI
         ([#3419](https://github.com/androidx/media/issues/3419)).
+    *   Map a frame packing arrangement SEI's `content_interpretation_type` 2
+        (right view first) and Matroska `StereoMode` 11 and 2 (right eye
+        first) to `C.STEREO_MODE_RIGHT_LEFT` and `C.STEREO_MODE_BOTTOM_TOP`
+        ([#3419](https://github.com/androidx/media/issues/3419)).
     *   Parse Dolby Vision Profile 20 configuration data and reject unsupported
         Dolby Vision profiles instead of playing back as standard HEVC with
         incorrect colors ([#3427](https://github.com/androidx/media/pull/3427)).
@@ -182,7 +190,7 @@
     *   Reject unsupported Dolby Vision profiles in `Mp4Muxer` and
         `FragmentedMp4Muxer` when adding tracks.
     *   Write the Matroska `StereoMode` element in `WebmMuxer` for
-        side-by-side and top-bottom video
+        side-by-side and top-bottom video, with either eye first
         ([#3419](https://github.com/androidx/media/issues/3419)).
 *   IMA extension:
 *   Session:

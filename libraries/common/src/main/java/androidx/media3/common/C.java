@@ -1214,7 +1214,8 @@ public final class C {
    * The stereo mode for 360/3D/VR videos. One of {@link Format#NO_VALUE}, {@link
    * #STEREO_MODE_MONO}, {@link #STEREO_MODE_TOP_BOTTOM}, {@link #STEREO_MODE_LEFT_RIGHT} or {@link
    * #STEREO_MODE_STEREO_MESH}, {@link #STEREO_MODE_INTERLEAVED_LEFT_PRIMARY}, {@link
-   * #STEREO_MODE_INTERLEAVED_RIGHT_PRIMARY}.
+   * #STEREO_MODE_INTERLEAVED_RIGHT_PRIMARY}, {@link #STEREO_MODE_RIGHT_LEFT} or {@link
+   * #STEREO_MODE_BOTTOM_TOP}.
    */
   @UnstableApi
   @Documented
@@ -1227,7 +1228,9 @@ public final class C {
     STEREO_MODE_LEFT_RIGHT,
     STEREO_MODE_STEREO_MESH,
     STEREO_MODE_INTERLEAVED_LEFT_PRIMARY,
-    STEREO_MODE_INTERLEAVED_RIGHT_PRIMARY
+    STEREO_MODE_INTERLEAVED_RIGHT_PRIMARY,
+    STEREO_MODE_RIGHT_LEFT,
+    STEREO_MODE_BOTTOM_TOP
   })
   public @interface StereoMode {}
 
@@ -1257,6 +1260,14 @@ public final class C {
    * 360/3D/VR videos.
    */
   @UnstableApi public static final int STEREO_MODE_INTERLEAVED_RIGHT_PRIMARY = 5;
+
+  /**
+   * Indicates Left-Right stereo layout with the right eye on the left, used with 360/3D/VR videos.
+   */
+  @UnstableApi public static final int STEREO_MODE_RIGHT_LEFT = 6;
+
+  /** Indicates Top-Bottom stereo layout with the right eye on top, used with 360/3D/VR videos. */
+  @UnstableApi public static final int STEREO_MODE_BOTTOM_TOP = 7;
 
   // LINT.IfChange(color_space)
   /**
