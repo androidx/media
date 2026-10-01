@@ -15,7 +15,6 @@
     limitations under the License.
   -->
 <resources>
-    <color name="media_route_button_background">#000000</color>
     <color name="dialog_color_primary">#636363</color>
     <color name="dialog_color_primary_dark">#d3d3d3</color>
 </resources>
