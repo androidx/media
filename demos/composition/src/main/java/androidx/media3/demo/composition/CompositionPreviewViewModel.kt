@@ -701,7 +701,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
           exportGlObjectsProvider = glResources.second
         }
         Transformer.Builder(getApplication())
-          .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
           .setFrameProcessorFactory(
             createFrameProcessorFactory(
               checkNotNull(exportGlObjectsProvider),
@@ -1046,7 +1045,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
       }
       playerBuilder =
         CompositionPlayer.Builder(getApplication())
-          .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
           .setFrameProcessorFactory(
             createFrameProcessorFactory(
               checkNotNull(playbackGlObjectsProvider),

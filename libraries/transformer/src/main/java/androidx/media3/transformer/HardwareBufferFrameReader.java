@@ -119,7 +119,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Nullable private Format lastFormat;
   private @MonotonicNonNull Format lastAdjustedFormat;
 
-  @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
+  private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
   @Nullable private BitmapToHardwareBufferConverter bitmapToHardwareBufferConverter;
 
   // TODO: b/478781219 - Ensure this class is only accessed from a single thread.
@@ -140,8 +140,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *     internal {@link ImageReaderAdapter}.
    * @param listener The listener.
    * @param listenerHandler A {@link HandlerWrapper} to dispatch {@link Listener} callbacks.
-   * @param hardwareBufferJniWrapper An optional {@link HardwareBufferJniWrapper} used to convert
-   *     software bitmaps to hardware buffers.
+   * @param hardwareBufferJniWrapper A {@link HardwareBufferJniWrapper} used to convert software
+   *     bitmaps to hardware buffers.
    */
   /* package */ HardwareBufferFrameReader(
       Composition composition,
@@ -152,7 +152,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       ImageReaderAdapter.Factory imageReaderAdapterFactory,
       Listener listener,
       HandlerWrapper listenerHandler,
-      @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper) {
+      HardwareBufferJniWrapper hardwareBufferJniWrapper) {
     this.composition = composition;
     this.sequenceIndex = sequenceIndex;
     this.frameConsumer = frameConsumer;
@@ -448,9 +448,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Nullable
   private BitmapToHardwareBufferConverter getOrCreateBitmapToHardwareBufferConverter() {
-    if (SDK_INT >= 26
-        && hardwareBufferJniWrapper != null
-        && bitmapToHardwareBufferConverter == null) {
+    if (SDK_INT >= 26 && bitmapToHardwareBufferConverter == null) {
       bitmapToHardwareBufferConverter =
           new BitmapToHardwareBufferConverter(
               hardwareBufferJniWrapper,

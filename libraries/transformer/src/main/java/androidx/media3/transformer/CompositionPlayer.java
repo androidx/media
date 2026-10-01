@@ -90,6 +90,7 @@ import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
+import androidx.media3.effect.HardwareBufferJni;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.TimestampAdjustment;
@@ -474,9 +475,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
      * used and {@link CompositionPlayer} will not process {@link
      * androidx.media3.common.video.HardwareBufferFrame}s.
      *
-     * <p>{@linkplain #setNativeHardwareBufferHelpers Native helpers} must be set when using this
-     * method.
-     *
      * @param frameProcessorFactory The {@link FrameProcessor.Factory}.
      * @return This builder.
      * @throws IllegalStateException if a {@linkplain #setVideoGraphFactory videoGraphFactory} is
@@ -494,6 +492,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
     /**
      * Sets the {@link HardwareBufferJniWrapper} used to provide native helpers.
+     *
+     * <p>The default value is {@link HardwareBufferJni#INSTANCE}.
      *
      * <p>This method is experimental and will be renamed or removed in a future release.
      *
@@ -573,6 +573,9 @@ public final class CompositionPlayer extends SimpleBasePlayer {
                 .setExecutorService(glExecutorService)
                 .build();
         videoGraphFactory = new SingleInputVideoGraph.Factory(videoFrameProcessorFactory);
+      }
+      if (SDK_INT >= 28 && frameProcessorFactory != null && hardwareBufferJniWrapper == null) {
+        hardwareBufferJniWrapper = HardwareBufferJni.INSTANCE;
       }
       CompositionPlayer compositionPlayer = new CompositionPlayer(this);
       built = true;
@@ -742,18 +745,12 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         Executor applicationThreadExecutor =
             new HandlerExecutor(applicationHandler, internalListener);
         surfaceHolderFrameWriter =
-            hardwareBufferJniWrapper != null || SDK_INT < 33
-                ? SurfaceHolderFrameWriter.create(
-                    /* surfaceHolder= */ null,
-                    /* surfaceHolderExecutor= */ applicationThreadExecutor,
-                    internalListener,
-                    applicationThreadExecutor,
-                    checkNotNull(hardwareBufferJniWrapper))
-                : SurfaceHolderFrameWriter.create(
-                    /* surfaceHolder= */ null,
-                    /* surfaceHolderExecutor= */ applicationThreadExecutor,
-                    internalListener,
-                    applicationThreadExecutor);
+            SurfaceHolderFrameWriter.create(
+                /* surfaceHolder= */ null,
+                /* surfaceHolderExecutor= */ applicationThreadExecutor,
+                internalListener,
+                applicationThreadExecutor,
+                checkNotNull(hardwareBufferJniWrapper));
         frameProcessor =
             frameProcessorFactory.create(
                 surfaceHolderFrameWriter,
@@ -1662,7 +1659,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
                               e,
                               PlaybackException.ERROR_CODE_UNSPECIFIED),
                       compositionInternalListenerHandler,
-                      hardwareBufferJniWrapper));
+                      checkNotNull(hardwareBufferJniWrapper)));
       renderersFactory =
           SequenceRenderersFactory.createForHardwareBuffer(
               context,

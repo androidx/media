@@ -22,7 +22,6 @@ import static androidx.media3.transformer.TransformerUtil.END_OF_STREAM_ASYNC_FR
 import static androidx.media3.transformer.TransformerUtil.releaseIfNeeded;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.round;
-import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -531,37 +530,6 @@ public class HardwareBufferFrameReaderTest {
         .isNotSameInstanceAs(getHardwareBuffer(frames.get(1)));
 
     frameReader.release();
-  }
-
-  @Test
-  public void outputBitmap_withoutHardwareBuffer_throwsNullPointerException() {
-    EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)).build();
-    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem));
-    Composition composition = new Composition.Builder(sequence).build();
-    HardwareBufferFrameReader frameReader =
-        new HardwareBufferFrameReader(
-            composition,
-            /* sequenceIndex= */ 0,
-            /* frameConsumer= */ receivedFrames::add,
-            handlerThread.getLooper(),
-            /* defaultSurfacePixelFormat= */ ImageFormat.YUV_420_888,
-            new DefaultImageReaderAdapter.Factory(),
-            /* listener= */ e -> hardwareBufferFrameReaderException.set(e),
-            SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null),
-            /* hardwareBufferJniWrapper= */ null);
-    Bitmap bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
-    ConstantRateTimestampIterator timestampIterator =
-        new ConstantRateTimestampIterator(/* durationUs= */ 1_000_000, /* frameRate= */ 30f);
-    try {
-      assertThrows(
-          NullPointerException.class,
-          () ->
-              frameReader.outputBitmap(
-                  bitmap, timestampIterator, /* sequenceOffsetUs= */ 0, /* indexOfItem= */ 0));
-    } finally {
-      frameReader.release();
-    }
   }
 
   private static long getPresentationTimeUs(AsyncFrame asyncFrame) {
