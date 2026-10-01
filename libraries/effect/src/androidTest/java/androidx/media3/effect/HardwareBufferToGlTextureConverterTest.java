@@ -190,19 +190,55 @@ public final class HardwareBufferToGlTextureConverterTest {
               /* inputPqColor= */ Color.valueOf(1.0f, 0.0f, 0.0f),
               /* expectedHlgRgb= */ Color.valueOf(1.0f, 0.0f, 0.0f),
               /* expectedBt2020LinearRgb= */ Color.valueOf(49.2242f, 0.0f, 0.0f),
-              /* expectedSdrLinearRgb= */ Color.valueOf(1.6605f, -0.1246f, -0.0182f)),
+              /* expectedSdrLinearRgb= */ Color.valueOf(1.0000f, 0.0644f, 0.0821f)),
           new SolidColorTestCase(
               /* name= */ "PQ_PRIMARY_GREEN",
               /* inputPqColor= */ Color.valueOf(0.0f, 1.0f, 0.0f),
               /* expectedHlgRgb= */ Color.valueOf(0.0f, 1.0f, 0.0f),
               /* expectedBt2020LinearRgb= */ Color.valueOf(0.0f, 49.2242f, 0.0f),
-              /* expectedSdrLinearRgb= */ Color.valueOf(-0.5876f, 1.1329f, -0.1006f)),
+              /* expectedSdrLinearRgb= */ Color.valueOf(0.0051f, 1.0000f, 0.0612f)),
           new SolidColorTestCase(
               /* name= */ "PQ_PRIMARY_BLUE",
               /* inputPqColor= */ Color.valueOf(0.0f, 0.0f, 1.0f),
               /* expectedHlgRgb= */ Color.valueOf(0.0f, 0.0f, 1.0f),
               /* expectedBt2020LinearRgb= */ Color.valueOf(0.0f, 0.0f, 49.2242f),
-              /* expectedSdrLinearRgb= */ Color.valueOf(-0.0728f, -0.0083f, 1.1187f)));
+              /* expectedSdrLinearRgb= */ Color.valueOf(0.0669f, 0.0832f, 1.0000f)),
+          // Tests gamut compression prior to tone mapping avoids clipping at 1.0
+          // by allowing the tone curve to smoothly roll off post-matrix overshoot (400 -> 664
+          // nits).
+          new SolidColorTestCase(
+              /* name= */ "PQ_PRIMARY_RED_400_NITS",
+              /* inputPqColor= */ Color.valueOf(0.6526f, 0.0f, 0.0f),
+              /* expectedHlgRgb= */ Color.valueOf(0.9002f, 0.0f, 0.0f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(1.9694f, 0.0f, 0.0f),
+              /* expectedSdrLinearRgb= */ Color.valueOf(0.8936f, 0.0576f, 0.0734f)),
+          // Tests 100% saturated BT.709 primary red inside a PQ container (203-nit diffuse white
+          // red)
+          // is softly compressed above the 80% boundary knee (d = 1.0 > 0.80).
+          new SolidColorTestCase(
+              /* name= */ "PQ_BT709_RED_PRIMARY_COMPRESSED",
+              /* inputPqColor= */ Color.valueOf(0.5325f, 0.3270f, 0.2201f),
+              /* expectedHlgRgb= */ Color.valueOf(0.7085f, 0.2665f, 0.1299f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(0.6267f, 0.0690f, 0.0164f),
+              /* expectedSdrLinearRgb= */ Color.valueOf(0.4058f, 0.0347f, 0.0347f)),
+          // Tests in-gamut BT.709 color within 80% saturation (BT.709 linear (1, 0.25, 0.25) at 203
+          // nits,
+          // d = 0.75 <= 0.80) passes through tone mapping and gamut compression with zero
+          // distortion.
+          new SolidColorTestCase(
+              /* name= */ "PQ_BT709_IN_GAMUT_DESATURATED_RED",
+              /* inputPqColor= */ Color.valueOf(0.5467f, 0.4598f, 0.4463f),
+              /* expectedHlgRgb= */ Color.valueOf(0.7144f, 0.5263f, 0.4918f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(0.7199f, 0.3017f, 0.2622f),
+              /* expectedSdrLinearRgb= */ Color.valueOf(0.4059f, 0.1015f, 0.1015f)),
+          // Fixed point (~316.2 nits) where input PQ electrical matches output SDR linear
+          // (E_PQ == Y_SDR), verifying gray-scale tracking where transfer functions intersect.
+          new SolidColorTestCase(
+              /* name= */ "PQ_MID_GRAY_316_NITS",
+              /* inputPqColor= */ Color.valueOf(0.6274f, 0.6274f, 0.6274f),
+              /* expectedHlgRgb= */ Color.valueOf(0.8212f, 0.8212f, 0.8212f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(1.5557f, 1.5557f, 1.5557f),
+              /* expectedSdrLinearRgb= */ Color.valueOf(0.6272f, 0.6272f, 0.6272f)));
 
   private static final ImmutableList<SolidColorTestCase> HLG_SOLID_COLOR_TEST_CASES =
       ImmutableList.of(

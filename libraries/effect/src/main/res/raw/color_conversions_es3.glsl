@@ -258,6 +258,7 @@ highp vec3 linearBt2020SceneToLinearBt709Display(highp vec3 linearRgbBt2020) {
   // zero or negative luminance to prevent NaN output on mobile GPUs.
   highp float luminanceY = max(linearXyz[1], 1e-6);
   linearXyz *= pow(luminanceY, hlgGamma - 1.0);
+  // TODO(b/545591397): Apply soft gamut compression to HLG.
   return clamp((XYZ_TO_BT709 * linearXyz), 0.0, 1.0);
 }
 
@@ -344,12 +345,51 @@ highp vec3 hdrDisplayLinearToHlgElectrical(highp vec3 hdrDisplayLinear) {
   return hlgOetf(hlgInverseOotf(displayLinear));
 }
 
+// Compresses each channel's distance from the achromatic axis max(R, G, B) into the BT.709
+// gamut along lines of constant hue (ACES 1.3 Reference Gamut Compression architecture, Academy
+// TB-2021-001).
+//
+// Scale-invariant (f(k * rgb) == k * f(rgb)) and leaves max(R, G, B) unchanged. Operates directly
+// on absolute nits before tone mapping.
+highp vec3 softCompressGamutBt2020ToBt709(highp vec3 rgbBt709) {
+  // Knee threshold, colors within 80% of the BT.709 boundary pass through untouched.
+  const highp float t0 = 0.80;
+  // Headroom between the knee and the BT.709 boundary (1.0 - t0).
+  const highp float h = 0.20;
+  // Maximum excess distance (d_max - t0) across all BT.2020 colors, where d_max occurs on the
+  //   BT.2020 cyan edge (G = B in BT.709).
+  const highp float eMax = 0.7938584;
+  // Curvature parameter (1.0 - h / eMax) ensuring unit slope at the knee (smooth transition with no
+  //   kink) and mapping eMax exactly to headroom h.
+  const highp float a = 0.7480659;
+
+  // Max achromatic light
+  highp float ach = max(rgbBt709.r, max(rgbBt709.g, rgbBt709.b));
+  if (ach <= 0.0) {
+    return vec3(0.0);
+  }
+
+  // Use a C1 smooth, simple tone curve to avoid executing the heavy ACES / BT.2407 math.
+  highp vec3 d = (vec3(ach) - rgbBt709) / ach;
+  highp vec3 e = clamp(d - vec3(t0), vec3(0.0), vec3(eMax));
+  highp vec3 dCompressed = vec3(t0) + (h * e) / (a * e + vec3(h));
+  highp vec3 dOut = mix(d, dCompressed, step(vec3(t0), d));
+  highp vec3 compressed = vec3(ach) - dOut * ach;
+  return max(compressed, vec3(0.0));
+}
+
 // Converts PQ electrical BT.2020 to linear BT.709 display light.
-// Compresses PQ display light (assumed to peak at 1,000 nits) down to 0-500 nits of SDR display
-// light using the parametric tone-mapping curve from Report ITU-R BT.2446-1 (Section 6.1.4,
-// Method C), then converts the color gamut to BT.709. The tone curve is driven by max(R, G, B),
-// and all three channels are scaled by the same ratio so that chromaticity is preserved in linear
-// space.
+//
+// Compresses PQ display light down to 0-500 nits of SDR display light. PQ BT.2020 display light is
+// first converted to BT.709 with soft out-of-gamut color compression, and then tone mapped using
+// the parametric curve from Report ITU-R BT.2446-1 (Section 6.1.4, Method C).
+//
+// Gamut compression runs first on absolute nits so the tone curve sees the peak channel of the
+// target BT.709 gamut, preventing BT.2020 -> BT.709 inflate max(R, G, B) by up to 1.66x for saturated
+// colors. Tone-mapping after gamut conversion rolls off the overshot color without clipping.
+//
+// The tone curve is driven by max(R, G, B), and all three channels are scaled by the same ratio so
+// that chromaticity is preserved in linear space.
 //
 // Report ITU-R BT.2446-1, Method C defines a two-segment piecewise curve:
 //   Y_SDR = k1 * Y_HDR                                   for Y_HDR < Y_HDR_ip
@@ -365,7 +405,8 @@ highp vec3 hdrDisplayLinearToHlgElectrical(highp vec3 hdrDisplayLinear) {
 // 4. C0 value continuity at Y_HDR_ip: k4 = k1 * Y_HDR_ip - k2 * ln(1.0 - k3) = 399.7400703.
 // 5. Peak normalization Y_SDR(1000.0) = 500.0: Solves k3 = 0.6619888.
 highp vec3 pqElectricalToBt709DisplayLinear(highp vec3 pqElectricalColor) {
-  highp vec3 nitsIn = pqEotf(pqElectricalColor) * 10000.0;
+  highp vec3 nitsInBt2020 = pqEotf(pqElectricalColor) * 10000.0;
+  highp vec3 nitsIn = softCompressGamutBt2020ToBt709(BT2020_TO_BT709 * nitsInBt2020);
   highp float maxColorIn = max(nitsIn.r, max(nitsIn.g, nitsIn.b));
   if (maxColorIn <= 0.0) {
     return vec3(0.0);
@@ -388,15 +429,7 @@ highp vec3 pqElectricalToBt709DisplayLinear(highp vec3 pqElectricalColor) {
   // Chromaticity preservation:
   // Scaling linear RGB by the tone mapping ratio (maxColorOut / maxColorIn) preserves original
   // chromaticity in linear space, and dividing by maxOutputNits normalizes to [0.0, 1.0].
-  highp vec3 displayLinearBt2020 = nitsIn * (maxColorOut / (maxColorIn * maxOutputNits));
-
-  // Direct color gamut conversion from BT.2020 display light to BT.709 display light.
-  // Deliberately unclamped: BT.2020 colors outside the BT.709 gamut map to negative components,
-  // and clamping them per-channel shifts hue rather than reducing saturation. The 8-bit output
-  // path clamps in hardware and srgbOetf tolerates negatives, so out-of-gamut values only survive
-  // on the high-precision linear output path.
-  // TODO(b/545591397): Apply perceptual soft gamut compression instead.
-  return BT2020_TO_BT709 * displayLinearBt2020;
+  return nitsIn * (maxColorOut / (maxColorIn * maxOutputNits));
 }
 
 // Processes input electrical color (SDR BT.709 or HDR BT.2020), applying EOTF/OETF
