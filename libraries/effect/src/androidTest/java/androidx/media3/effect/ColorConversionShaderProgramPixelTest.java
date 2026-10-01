@@ -91,24 +91,25 @@ public final class ColorConversionShaderProgramPixelTest {
               /* inputColorInfo= */ BT709_SRGB,
               /* outputColorInfo= */ BT2020_HLG,
               /* expectedColor= */ Color.rgb(191, 191, 191)),
-          // Tone mapping maps the 1,000-nit HDR peak, rather than diffuse white, to SDR peak white.
-          // Diffuse white is hlgInverseOetf(0.75) of scene light, and
-          // srgbOetf(linearBt2020SceneToLinearBt709Display(hlgInverseOetf(0.75))) = 0.5274, and
-          // round(0.5274 * 255) = 134.
+          // Tone mapping maps the 1,000-nit HDR peak, rather than diffuse white, to the 500-nit
+          // SDR peak white. Diffuse white (203.1521 nits) is below the 292.5-nit BT.2446 Method C
+          // inflection point (k1 = 1.0) and passes through at 1:1 nits: 203.1521 / 500.0 = 0.4063
+          // of SDR display light, srgbOetf(0.4063042) = 0.6699, and round(0.6699 * 255) = 171.
           new ConversionTestCase(
               "hdrLinearInputAndSrgbOutput_toneMapsDiffuseWhite",
               /* inputColor= */ Color.WHITE,
               /* inputColorInfo= */ BT2020_LINEAR,
               /* outputColorInfo= */ BT709_SRGB,
-              /* expectedColor= */ Color.rgb(134, 134, 134)),
-          // HLG 0.75 decodes to 1.0 in the linear HDR working space, so this matches
-          // hdrLinearInputAndSrgbOutput_toneMapsDiffuseWhite.
+              /* expectedColor= */ Color.rgb(171, 171, 171)),
+          // 8-bit HLG 191 / 255 = 0.7490 decodes to 201.9393 nits (~1.0 in the linear HDR working
+          // space): 201.9393 / 500.0 = 0.4039, srgbOetf(0.403879) = 0.6681, and
+          // round(0.6681 * 255) = 170.
           new ConversionTestCase(
               "hlgInputAndSrgbOutput_toneMapsDiffuseWhite",
               /* inputColor= */ Color.rgb(191, 191, 191),
               /* inputColorInfo= */ BT2020_HLG,
               /* outputColorInfo= */ BT709_SRGB,
-              /* expectedColor= */ Color.rgb(134, 134, 134)),
+              /* expectedColor= */ Color.rgb(170, 170, 170)),
           // 128 / 255 = 0.502 of linear light. srgbOetf(0.502) = 0.7366, and
           // round(0.7366 * 255) = 188. An unconverted output would be 128.
           new ConversionTestCase(

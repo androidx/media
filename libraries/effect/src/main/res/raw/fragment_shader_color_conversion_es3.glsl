@@ -16,8 +16,8 @@
 // optical or electrical, to an electrical output color space.
 //
 // The output gamut is implied by the output transfer: BT.2020 for HLG, BT.709 for sRGB. Converting
-// between SDR and HDR therefore also converts the gamut, and tone maps HDR to SDR with the HLG
-// OOTF, or inverse tone maps SDR to HDR with the inverse HLG OOTF.
+// between SDR and HDR therefore also converts the gamut, and tone maps HDR to SDR with soft gamut
+// compression and ITU-R BT.2446 Method C, or maps SDR to HDR via the BT.2408 diffuse white anchor.
 //
 // This is not a well-formed GLSL shader on its own and must be compiled together with
 // color_conversions_es3.glsl (which provides #version, precision, and color conversion functions).
@@ -59,11 +59,11 @@ void main() {
         : clamp(BT709_TO_BT2020 * opticalColor, 0.0, 1.0);
     electricalColor = hdrDisplayLinearToHlgElectrical(hdrDisplayLinear);
   } else if (uOutputColorTransfer == COLOR_TRANSFER_SRGB) {
-    // BT.709 sRGB output. HDR display light is scaled down from its BT.2408 diffuse white anchor
-    // and converted to scene light, which linearBt2020SceneToLinearBt709Display expects.
+    // BT.709 sRGB output. HDR display light is scaled from its BT.2408 diffuse white anchor
+    // (1.0 = 203.1521 nits) to nits, which bt2020DisplayLinearNitsToBt709DisplayLinear expects.
     highp vec3 sdrDisplayLinear = isGamutHdr(uInputColorGamut)
-        ? linearBt2020SceneToLinearBt709Display(
-            hlgInverseOotf(opticalColor * HDR_DIFFUSE_WHITE_SCALE_DOWN))
+        ? bt2020DisplayLinearNitsToBt709DisplayLinear(
+            opticalColor * HDR_DIFFUSE_WHITE_SCALE_DOWN * 1000.0)
         : opticalColor;
     electricalColor = srgbOetf(sdrDisplayLinear);
   } else {

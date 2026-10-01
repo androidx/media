@@ -224,44 +224,6 @@ highp vec3 pqEotf(highp vec3 pqElectricalColor) {
   return pow(temp, vec3(invM1));
 }
 
-// Transforms linear optical BT.2020 scene light to linear optical BT.709 display light
-// applying the HLG OOTF with luminance scaling (ITU-R BT.2100 Table 5).
-//
-// Background:
-// HLG is scene-referred, while the SDR video ecosystem (sRGB/BT.709) is
-// display-referred (expecting display-adapted electrical values for a standard monitor). This
-// method applies HLG scene-light to display-light OOTF before converting color gamut.
-//
-// Expects optical scene light normalized to [0.0, 1.0].
-//
-// System Gamma Formula (ITU-R BT.2100-2 Table 5, Note 5b):
-//   gamma = 1.2 + 0.42 * log10(L_W / 1000.0)
-// where L_W is the nominal peak display luminance in nits (cd/m^2).
-// For standard SDR display rendering, L_W is selected as 500 nits (typical mobile/desktop display):
-//   gamma = 1.2 + 0.42 * log10(500 / 1000) = 1.2 + 0.42 * log10(0.5) = 1.0735674018211279
-//
-// Chromaticity Preservation:
-// In CIE XYZ space, Y (linearXyz[1]) is perceptual luminance, while X and Z carry color ratios.
-// Multiplying the entire XYZ vector by (Y)^(gamma - 1.0) scales the luminance to
-// Y * Y^(gamma-1) = Y^gamma while perfectly preserving the X/Y and Z/Y ratios, resulting in zero
-// hue shift or color distortion.
-//
-// References:
-// - ITU-R BT.2100-2 ("HLG Reference OOTF"):
-//   https://www.itu.int/dms_pubrec/itu-r/rec/bt/R-REC-BT.2100-3-202502-I!!PDF-E.pdf
-// - Android native tone mapping (libtonemap):
-//   https://cs.android.com/android/platform/superproject/+/master:frameworks/native/libs/tonemap/tonemap.cpp;drc=7a577450e536aa1e99f229a0cb3d3531c82e8a8d;l=62
-highp vec3 linearBt2020SceneToLinearBt709Display(highp vec3 linearRgbBt2020) {
-  const highp float hlgGamma = 1.0735674018211279;
-  highp vec3 linearXyz = BT2020_TO_XYZ * linearRgbBt2020;
-  // In GLSL, pow(x, y) is undefined for x <= 0.0 with fractional exponents. Guard against
-  // zero or negative luminance to prevent NaN output on mobile GPUs.
-  highp float luminanceY = max(linearXyz[1], 1e-6);
-  linearXyz *= pow(luminanceY, hlgGamma - 1.0);
-  // TODO(b/545591397): Apply soft gamut compression to HLG.
-  return clamp((XYZ_TO_BT709 * linearXyz), 0.0, 1.0);
-}
-
 // Transforms electrical SDR to linear optical SDR using the sRGB EOTF.
 // References:
 // - IEC 61966-2-1: Multimedia systems and equipment - Colour measurement and management -
@@ -315,10 +277,6 @@ highp vec3 sdrElectricalToHdrDisplayLinear(highp vec3 sdrElectricalColor) {
   return clamp(BT709_TO_BT2020 * srgbEotf(sdrElectricalColor), 0.0, 1.0);
 }
 
-// Converts HDR HLG electrical BT.2020 to linear optical BT.709 display light.
-highp vec3 hlgElectricalToSdrDisplayLinear(highp vec3 hlgElectricalColor) {
-  return linearBt2020SceneToLinearBt709Display(hlgInverseOetf(hlgElectricalColor));
-}
 
 // Converts HDR HLG electrical BT.2020 to linear optical BT.2020 display light, in the linear HDR
 // optical working space where 1.0 represents the BT.2408 203-nit diffuse white reference.
@@ -378,15 +336,19 @@ highp vec3 softCompressGamutBt2020ToBt709(highp vec3 rgbBt709) {
   return max(compressed, vec3(0.0));
 }
 
-// Converts PQ electrical BT.2020 to linear BT.709 display light.
+// Converts BT.2020 linear display light (in nits) to linear optical BT.709 display light.
 //
-// Compresses PQ display light down to 0-500 nits of SDR display light. PQ BT.2020 display light is
-// first converted to BT.709 with soft out-of-gamut color compression, and then tone mapped using
-// the parametric curve from Report ITU-R BT.2446-1 (Section 6.1.4, Method C).
+// Compresses BT.2020 display light down to 0-500 nits of SDR display light. BT.2020 display light is
+// first converted to BT.709 with soft out-of-gamut color compression (ACES 1.3 Reference Gamut
+// Compression architecture), and then tone mapped using the parametric curve from Report ITU-R
+// BT.2446-1 (Section 6.1.4, Method C).
+//
+// Input display light is expected up to 1,000 nits. Highlights exceeding 1,000 nits must be
+// tone-mapped upstream (e.g. via BT.2408 Annex 5 EETF).
 //
 // Gamut compression runs first on absolute nits so the tone curve sees the peak channel of the
-// target BT.709 gamut, preventing BT.2020 -> BT.709 inflate max(R, G, B) by up to 1.66x for saturated
-// colors. Tone-mapping after gamut conversion rolls off the overshot color without clipping.
+// target BT.709 gamut, preventing BT.2020 -> BT.709 from inflating max(R, G, B) by up to 1.66x for
+// saturated colors. Tone-mapping after gamut conversion rolls off the overshot color without clipping.
 //
 // The tone curve is driven by max(R, G, B), and all three channels are scaled by the same ratio so
 // that chromaticity is preserved in linear space.
@@ -404,14 +366,12 @@ highp vec3 softCompressGamutBt2020ToBt709(highp vec3 rgbBt709) {
 // 3. C1 derivative smoothness at Y_HDR_ip: k2 = k1 * (1.0 - k3) * Y_HDR_ip = 98.8682714.
 // 4. C0 value continuity at Y_HDR_ip: k4 = k1 * Y_HDR_ip - k2 * ln(1.0 - k3) = 399.7400703.
 // 5. Peak normalization Y_SDR(1000.0) = 500.0: Solves k3 = 0.6619888.
-highp vec3 pqElectricalToBt709DisplayLinear(highp vec3 pqElectricalColor) {
-  highp vec3 nitsInBt2020 = pqEotf(pqElectricalColor) * 10000.0;
+highp vec3 bt2020DisplayLinearNitsToBt709DisplayLinear(highp vec3 nitsInBt2020) {
   highp vec3 nitsIn = softCompressGamutBt2020ToBt709(BT2020_TO_BT709 * nitsInBt2020);
   highp float maxColorIn = max(nitsIn.r, max(nitsIn.g, nitsIn.b));
   if (maxColorIn <= 0.0) {
     return vec3(0.0);
   }
-  // TODO(b/314971953): Use max_display_mastering_luminance from ColorInfo.hdrStaticInfo in the bitstream instead.
   const highp float maxInputNits = 1000.0;
   const highp float maxOutputNits = 500.0;
   highp float nits = min(maxColorIn, maxInputNits);
@@ -429,7 +389,21 @@ highp vec3 pqElectricalToBt709DisplayLinear(highp vec3 pqElectricalColor) {
   // Chromaticity preservation:
   // Scaling linear RGB by the tone mapping ratio (maxColorOut / maxColorIn) preserves original
   // chromaticity in linear space, and dividing by maxOutputNits normalizes to [0.0, 1.0].
-  return nitsIn * (maxColorOut / (maxColorIn * maxOutputNits));
+  // Clamping to [0.0, 1.0] guards against floating-point rounding errors on unclipped targets (e.g. FP16).
+  return clamp(nitsIn * (maxColorOut / (maxColorIn * maxOutputNits)), 0.0, 1.0);
+}
+
+// Converts PQ electrical BT.2020 to linear optical BT.709 display light.
+highp vec3 pqElectricalToBt709DisplayLinear(highp vec3 pqElectricalColor) {
+  highp vec3 nitsInBt2020 = pqEotf(pqElectricalColor) * 10000.0;
+  // TODO(b/314971953): Tone-map highlights above 1,000 nits using the BT.2408 Annex 5 EETF.
+  return bt2020DisplayLinearNitsToBt709DisplayLinear(nitsInBt2020);
+}
+
+// Converts HDR HLG electrical BT.2020 to linear optical BT.709 display light.
+highp vec3 hlgElectricalToBt709DisplayLinear(highp vec3 hlgElectricalColor) {
+  highp vec3 nitsInBt2020 = hlgEotf(hlgElectricalColor) * 1000.0;
+  return bt2020DisplayLinearNitsToBt709DisplayLinear(nitsInBt2020);
 }
 
 // Processes input electrical color (SDR BT.709 or HDR BT.2020), applying EOTF/OETF
@@ -487,7 +461,7 @@ highp vec3 processColor(
   // scale-down cancel out and no scaling is applied.
   highp vec3 sdrDisplayLinear = (inputColorTransfer == COLOR_TRANSFER_ST2084)
       ? pqElectricalToBt709DisplayLinear(inputRgbElectricalColor)
-      : hlgElectricalToSdrDisplayLinear(inputRgbElectricalColor);
+      : hlgElectricalToBt709DisplayLinear(inputRgbElectricalColor);
   return (outputColorTransfer == COLOR_TRANSFER_LINEAR)
       ? sdrDisplayLinear
       : srgbOetf(sdrDisplayLinear);

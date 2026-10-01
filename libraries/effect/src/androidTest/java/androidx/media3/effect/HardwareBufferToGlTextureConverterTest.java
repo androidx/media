@@ -203,9 +203,13 @@ public final class HardwareBufferToGlTextureConverterTest {
               /* expectedHlgRgb= */ Color.valueOf(0.0f, 0.0f, 1.0f),
               /* expectedBt2020LinearRgb= */ Color.valueOf(0.0f, 0.0f, 49.2242f),
               /* expectedSdrLinearRgb= */ Color.valueOf(0.0669f, 0.0832f, 1.0000f)),
-          // Tests gamut compression prior to tone mapping avoids clipping at 1.0
-          // by allowing the tone curve to smoothly roll off post-matrix overshoot (400 -> 664
-          // nits).
+          // Tests gamut compression prior to tone mapping avoids clipping at 1.0:
+          // Converting 400-nit BT.2020 primary red to BT.709 coordinates multiplies the red channel
+          // by the matrix coefficient 1.6605 (400 * 1.6605 = 664.2 nits). Running ACES 1.3 soft
+          // gamut compression prior to tone mapping allows the tone curve to see this 664.2-nit
+          // peak channel and smoothly roll it off to 446.8 nits (0.8936) below the 500-nit ceiling,
+          // whereas tone mapping before gamut conversion would hard-clip at 1.0 (362.4 * 1.6605 =
+          // 601.8 nits > 500).
           new SolidColorTestCase(
               /* name= */ "PQ_PRIMARY_RED_400_NITS",
               /* inputPqColor= */ Color.valueOf(0.6526f, 0.0f, 0.0f),
@@ -245,27 +249,74 @@ public final class HardwareBufferToGlTextureConverterTest {
           new SolidColorTestCase(
               /* name= */ "HLG_BLACK",
               /* inputHlgColor= */ Color.valueOf(0.0f, 0.0f, 0.0f),
-              /* expectedBt2020LinearRgb= */ Color.valueOf(0.0f, 0.0f, 0.0f)),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(0.0f, 0.0f, 0.0f),
+              /* expectedSdrLinearRgb= */ Color.valueOf(0.0f, 0.0f, 0.0f)),
+          // Diffuse White (203 nits): 75% HLG signal represents 18% scene reflectance, mapping to
+          // 203.15 nits on a 1,000-nit reference display and 1.0 in diffuse-white linear working
+          // space. For SDR Linear, 203.15 nits is below the 292.5-nit inflection point (k1 = 1.0)
+          // and passes through at 1:1; dividing by the 500-nit SDR peak yields 203.1521 / 500.0 =
+          // 0.4063.
           new SolidColorTestCase(
               /* name= */ "HLG_DIFFUSE_WHITE",
               /* inputHlgColor= */ Color.valueOf(0.75f, 0.75f, 0.75f),
-              /* expectedBt2020LinearRgb= */ Color.valueOf(1.0f, 1.0f, 1.0f)),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(1.0f, 1.0f, 1.0f),
+              /* expectedSdrLinearRgb= */ Color.valueOf(0.4063f, 0.4063f, 0.4063f)),
+          // Peak White (1000 nits): 100% HLG signal maps to 1000 nits (4.9224 in diffuse-white
+          // working space), which BT.2446 Method C tone maps to 500 nits peak SDR = 1.0.
           new SolidColorTestCase(
               /* name= */ "HLG_PEAK_WHITE",
               /* inputHlgColor= */ Color.valueOf(1.0f, 1.0f, 1.0f),
-              /* expectedBt2020LinearRgb= */ Color.valueOf(4.9224f, 4.9224f, 4.9224f)),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(4.9224f, 4.9224f, 4.9224f),
+              /* expectedSdrLinearRgb= */ Color.valueOf(1.0f, 1.0f, 1.0f)),
           new SolidColorTestCase(
               /* name= */ "HLG_PRIMARY_RED",
               /* inputHlgColor= */ Color.valueOf(1.0f, 0.0f, 0.0f),
-              /* expectedBt2020LinearRgb= */ Color.valueOf(3.7677f, 0.0f, 0.0f)),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(3.7677f, 0.0f, 0.0f),
+              /* expectedSdrLinearRgb= */ Color.valueOf(1.0000f, 0.0644f, 0.0821f)),
           new SolidColorTestCase(
               /* name= */ "HLG_PRIMARY_GREEN",
               /* inputHlgColor= */ Color.valueOf(0.0f, 1.0f, 0.0f),
-              /* expectedBt2020LinearRgb= */ Color.valueOf(0.0f, 4.5543f, 0.0f)),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(0.0f, 4.5543f, 0.0f),
+              /* expectedSdrLinearRgb= */ Color.valueOf(0.0051f, 1.0000f, 0.0612f)),
           new SolidColorTestCase(
               /* name= */ "HLG_PRIMARY_BLUE",
               /* inputHlgColor= */ Color.valueOf(0.0f, 0.0f, 1.0f),
-              /* expectedBt2020LinearRgb= */ Color.valueOf(0.0f, 0.0f, 2.7976f)));
+              /* expectedBt2020LinearRgb= */ Color.valueOf(0.0f, 0.0f, 2.7976f),
+              /* expectedSdrLinearRgb= */ Color.valueOf(0.0589f, 0.0733f, 0.8812f)),
+          // Tests gamut compression prior to tone mapping avoids clipping at 1.0:
+          // Converting 400-nit BT.2020 primary red to BT.709 coordinates multiplies the red channel
+          // by the matrix coefficient 1.6605 (400 * 1.6605 = 664.2 nits). Running ACES 1.3 soft
+          // gamut compression prior to tone mapping allows the tone curve to see this 664.2-nit
+          // peak channel and smoothly roll it off to 446.8 nits (0.8936) below the 500-nit ceiling,
+          // whereas tone mapping before gamut conversion would hard-clip at 1.0 (362.4 * 1.6605 =
+          // 601.8 nits > 500).
+          new SolidColorTestCase(
+              /* name= */ "HLG_PRIMARY_RED_400_NITS",
+              /* inputHlgColor= */ Color.valueOf(0.9002f, 0.0f, 0.0f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(1.9697f, 0.0f, 0.0f),
+              /* expectedSdrLinearRgb= */ Color.valueOf(0.8936f, 0.0576f, 0.0734f)),
+          // Tests 100% saturated BT.709 primary red inside an HLG container (203-nit diffuse white
+          // red) is softly compressed above the 80% boundary knee (d = 1.0 > 0.80).
+          new SolidColorTestCase(
+              /* name= */ "HLG_BT709_RED_PRIMARY_COMPRESSED",
+              /* inputHlgColor= */ Color.valueOf(0.7085f, 0.2665f, 0.1299f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(0.6268f, 0.0690f, 0.0164f),
+              /* expectedSdrLinearRgb= */ Color.valueOf(0.4059f, 0.0347f, 0.0347f)),
+          // Tests in-gamut BT.709 color within 80% saturation (BT.709 linear (1, 0.25, 0.25) at 203
+          // nits, d = 0.75 <= 0.80) passes through tone mapping and gamut compression with zero
+          // distortion.
+          new SolidColorTestCase(
+              /* name= */ "HLG_BT709_IN_GAMUT_DESATURATED_RED",
+              /* inputHlgColor= */ Color.valueOf(0.7144f, 0.5263f, 0.4918f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(0.7200f, 0.3017f, 0.2622f),
+              /* expectedSdrLinearRgb= */ Color.valueOf(0.4060f, 0.1016f, 0.1015f)),
+          // Fixed point (~316.2 nits) above the 292.5 nit inflection point; matches
+          // PQ_MID_GRAY_316_NITS outputs.
+          new SolidColorTestCase(
+              /* name= */ "HLG_MID_GRAY_316_NITS",
+              /* inputHlgColor= */ Color.valueOf(0.8212f, 0.8212f, 0.8212f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(1.5557f, 1.5557f, 1.5557f),
+              /* expectedSdrLinearRgb= */ Color.valueOf(0.6272f, 0.6272f, 0.6272f)));
 
   private final Context context = getApplicationContext();
 
@@ -517,7 +568,7 @@ public final class HardwareBufferToGlTextureConverterTest {
         new DefaultHardwareBufferFrame.Builder(inputHardwareBuffer).setFormat(inputFormat).build();
     Bitmap expectedBitmap =
         BitmapPixelTestUtil.readBitmap(
-            "test-generated-goldens/sample_mp4_first_frame/electrical_colors/tone_map_hlg_to_sdr.png");
+            "test-generated-goldens/sample_mp4_first_frame/electrical_colors/tone_map_hlg_to_sdr_soft_gamut_compressed.png");
 
     Bitmap actualBitmap = convertAndCaptureBitmap(inputHardwareBufferFrame, listener);
 
@@ -831,6 +882,18 @@ public final class HardwareBufferToGlTextureConverterTest {
         /* outputColorInfo= */ BT2020_LINEAR,
         /* inputHlgColor= */ checkNotNull(testCase.inputHlgColor),
         testCase.expectedBt2020LinearRgb);
+  }
+
+  @SdkSuppress(minSdkVersion = 31)
+  @Test
+  public void convert_withSolidColorHlgBuffersAndSdrLinearOutput_outputsCorrectValues(
+      @TestParameter(valuesProvider = HlgSolidColorTestCasesProvider.class)
+          SolidColorTestCase testCase)
+      throws Exception {
+    assertSolidColorHlgConversion(
+        /* outputColorInfo= */ BT709_LINEAR,
+        /* inputHlgColor= */ checkNotNull(testCase.inputHlgColor),
+        checkNotNull(testCase.expectedSdrLinearRgb));
   }
 
   @RequiresApi(31)
@@ -1349,14 +1412,18 @@ public final class HardwareBufferToGlTextureConverterTest {
       this.expectedSdrLinearRgb = null;
     }
 
-    SolidColorTestCase(String name, Color inputHlgColor, Color expectedBt2020LinearRgb) {
+    SolidColorTestCase(
+        String name,
+        Color inputHlgColor,
+        Color expectedBt2020LinearRgb,
+        Color expectedSdrLinearRgb) {
       this.name = name;
       this.inputSrgbColor = Color.BLACK;
       this.inputPqColor = null;
       this.inputHlgColor = inputHlgColor;
       this.expectedHlgRgb = null;
       this.expectedBt2020LinearRgb = expectedBt2020LinearRgb;
-      this.expectedSdrLinearRgb = null;
+      this.expectedSdrLinearRgb = expectedSdrLinearRgb;
     }
 
     SolidColorTestCase(
