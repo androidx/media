@@ -15,6 +15,9 @@
  */
 package androidx.media3.transformer;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
+import android.os.ParcelFileDescriptor;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -34,6 +37,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.LinkedHashSet;
 import java.util.Locale;
@@ -154,6 +158,62 @@ public final class InAppMp4Muxer implements Muxer {
       Mp4Muxer muxer = builder.build();
 
       return new InAppMp4Muxer(muxer, metadataProvider, videoDurationUs);
+    }
+
+    @Override
+    public InAppMp4Muxer create(ParcelFileDescriptor pfd) throws MuxerException {
+      @Nullable Mp4Muxer muxer = null;
+      try {
+        checkArgument(pfd.getFileDescriptor().valid(), "ParcelFileDescriptor is closed or invalid");
+        SeekableMuxerOutput seekableMuxerOutput = SeekableMuxerOutput.of(pfd);
+        validateSeekable(seekableMuxerOutput);
+        Mp4Muxer.Builder builder =
+            new Mp4Muxer.Builder(seekableMuxerOutput)
+                .setAttemptStreamableOutputEnabled(attemptStreamableOutputEnabled);
+        if (freeSpaceAfterFileTypeBoxBytes > 0) {
+          builder.experimentalSetFreeSpaceAfterFileTypeBox(freeSpaceAfterFileTypeBoxBytes);
+        }
+        muxer = builder.build();
+
+        return new InAppMp4Muxer(muxer, metadataProvider, videoDurationUs);
+      } catch (MuxerException e) {
+        closeResourceAndSuppressException(e, muxer, pfd);
+        throw e;
+      } catch (RuntimeException e) {
+        MuxerException muxerException =
+            new MuxerException("Error creating InAppMp4Muxer from ParcelFileDescriptor", e);
+        closeResourceAndSuppressException(muxerException, muxer, pfd);
+        throw muxerException;
+      }
+    }
+
+    private static void validateSeekable(SeekableMuxerOutput seekableMuxerOutput)
+        throws MuxerException {
+      try {
+        long unused = seekableMuxerOutput.getPosition();
+      } catch (IOException e) {
+        throw new MuxerException(
+            "The provided ParcelFileDescriptor is not seekable. FragmentedMp4Muxer is required"
+                + " for non-seekable output.",
+            e);
+      }
+    }
+
+    private static void closeResourceAndSuppressException(
+        MuxerException muxerException, @Nullable Mp4Muxer muxer, ParcelFileDescriptor pfd) {
+      if (muxer != null) {
+        try {
+          muxer.close();
+        } catch (MuxerException e) {
+          muxerException.addSuppressed(e);
+        }
+      } else {
+        try {
+          pfd.close();
+        } catch (IOException e) {
+          muxerException.addSuppressed(e);
+        }
+      }
     }
 
     @Override

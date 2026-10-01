@@ -15,12 +15,14 @@
  */
 package androidx.media3.muxer;
 
+import android.os.ParcelFileDescriptor;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 
 /** A muxer for producing media container files. */
@@ -35,6 +37,37 @@ public interface Muxer extends AutoCloseable {
      * @throws MuxerException If an error occurs opening the output file for writing.
      */
     Muxer create(String path) throws MuxerException;
+
+    /**
+     * Returns a new {@link Muxer}.
+     *
+     * <p>The caller transfers ownership of the {@link ParcelFileDescriptor} to the {@link Factory}.
+     * If this method returns successfully, the created {@link Muxer} is responsible for closing the
+     * descriptor when {@link Muxer#close()} is called. If an error occurs and a {@link
+     * MuxerException} is thrown, the descriptor is closed before the exception is thrown.
+     *
+     * <p>Whether the provided {@link ParcelFileDescriptor} must be seekable depends on the
+     * container format and {@link Muxer} implementation. For example, standard MP4 muxers require
+     * seekable descriptors (such as those opened with {@code "rwt"} or {@code "rw"}), whereas
+     * streaming muxers (such as fragmented MP4 muxers) also accept non-seekable streams like pipes.
+     *
+     * @param pfd the {@link ParcelFileDescriptor} to write output to
+     * @throws MuxerException if an error occurs opening the output for writing or if the descriptor
+     *     does not satisfy the seekability requirements of the muxer
+     */
+    default Muxer create(ParcelFileDescriptor pfd) throws MuxerException {
+      MuxerException exception =
+          new MuxerException(
+              "ParcelFileDescriptor output is not supported", new UnsupportedOperationException());
+      if (pfd != null) {
+        try {
+          pfd.close();
+        } catch (IOException e) {
+          exception.addSuppressed(e);
+        }
+      }
+      throw exception;
+    }
 
     /**
      * Returns the supported sample {@linkplain MimeTypes MIME types} for the given {@link

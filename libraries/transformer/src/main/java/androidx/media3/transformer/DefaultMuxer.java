@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import android.os.ParcelFileDescriptor;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -69,6 +70,11 @@ public final class DefaultMuxer implements Muxer {
     @Override
     public Muxer create(String path) throws MuxerException {
       return new DefaultMuxer(muxerFactory.create(path));
+    }
+
+    @Override
+    public Muxer create(ParcelFileDescriptor pfd) throws MuxerException {
+      return new DefaultMuxer(muxerFactory.create(pfd));
     }
 
     @Override

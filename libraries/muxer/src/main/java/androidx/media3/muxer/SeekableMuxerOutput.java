@@ -15,6 +15,7 @@
  */
 package androidx.media3.muxer;
 
+import android.os.ParcelFileDescriptor;
 import androidx.media3.common.util.UnstableApi;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -28,6 +29,20 @@ public interface SeekableMuxerOutput extends WritableByteChannel {
   /** Creates a {@link SeekableMuxerOutput} from the given {@link FileOutputStream}. */
   static SeekableMuxerOutput of(FileOutputStream fileOutputStream) {
     return new FileOutputStreamSeekableMuxerOutput(fileOutputStream);
+  }
+
+  /**
+   * Creates a {@link SeekableMuxerOutput} from the given {@link ParcelFileDescriptor}.
+   *
+   * <p>The caller transfers ownership of the {@link ParcelFileDescriptor} to the returned {@link
+   * SeekableMuxerOutput}. The descriptor is automatically closed when {@link
+   * SeekableMuxerOutput#close()} is called.
+   *
+   * @param pfd the {@link ParcelFileDescriptor} to write output to
+   */
+  static SeekableMuxerOutput of(ParcelFileDescriptor pfd) {
+    return new FileOutputStreamSeekableMuxerOutput(
+        new ParcelFileDescriptor.AutoCloseOutputStream(pfd));
   }
 
   /** Creates a {@link SeekableMuxerOutput} from the given file path. */

@@ -15,6 +15,10 @@
  */
 package androidx.media3.transformer;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
+import android.os.ParcelFileDescriptor;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaLibraryInfo;
@@ -32,6 +36,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Locale;
 
@@ -97,6 +102,48 @@ public final class InAppFragmentedMp4Muxer implements Muxer {
       FragmentedMp4Muxer muxer = builder.build();
 
       return new InAppFragmentedMp4Muxer(muxer, videoDurationUs);
+    }
+
+    @Override
+    public InAppFragmentedMp4Muxer create(ParcelFileDescriptor pfd) throws MuxerException {
+      @Nullable FragmentedMp4Muxer muxer = null;
+      try {
+        checkArgument(pfd.getFileDescriptor().valid(), "ParcelFileDescriptor is closed or invalid");
+        FragmentedMp4Muxer.Builder builder =
+            new FragmentedMp4Muxer.Builder(
+                new ParcelFileDescriptor.AutoCloseOutputStream(pfd).getChannel());
+        if (fragmentDurationMs != C.TIME_UNSET) {
+          builder.setFragmentDurationMs(fragmentDurationMs);
+        }
+        muxer = builder.build();
+
+        return new InAppFragmentedMp4Muxer(muxer, videoDurationUs);
+      } catch (RuntimeException e) {
+        MuxerException muxerException =
+            new MuxerException(
+                "Error creating InAppFragmentedMp4Muxer from ParcelFileDescriptor", e);
+        closeResourceAndSuppressException(muxerException, muxer, pfd);
+        throw muxerException;
+      }
+    }
+
+    private static void closeResourceAndSuppressException(
+        MuxerException muxerException,
+        @Nullable FragmentedMp4Muxer muxer,
+        ParcelFileDescriptor pfd) {
+      if (muxer != null) {
+        try {
+          muxer.close();
+        } catch (MuxerException e) {
+          muxerException.addSuppressed(e);
+        }
+      } else {
+        try {
+          pfd.close();
+        } catch (IOException e) {
+          muxerException.addSuppressed(e);
+        }
+      }
     }
 
     @Override
