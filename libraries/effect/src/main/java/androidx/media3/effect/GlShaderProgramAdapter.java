@@ -23,6 +23,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
@@ -60,6 +61,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Queue<GlTextureFrame> pendingOutputFrames;
   private final Executor glExecutor;
   private final Consumer<VideoFrameProcessingException> errorConsumer;
+  private final ColorInfo outputColorInfo;
 
   private @MonotonicNonNull GlTextureFrameConsumer downstreamConsumer;
   @Nullable private ImmutableMap<String, Object> lastQueuedMetadata;
@@ -72,14 +74,25 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private boolean hasSignaledEosToWrappedShader;
   private boolean receivedEosSignalFromWrappedShader;
 
+  /**
+   * Creates an instance.
+   *
+   * @param glShaderProgram The {@link GlShaderProgram} to wrap.
+   * @param glObjectsProvider The {@link GlObjectsProvider}.
+   * @param glExecutor The {@link Executor} to run GL operations on.
+   * @param outputColorInfo The {@link ColorInfo} to propagate to output frames.
+   * @param errorConsumer The {@link Consumer} to report errors to.
+   */
   public GlShaderProgramAdapter(
       GlShaderProgram glShaderProgram,
       GlObjectsProvider glObjectsProvider,
       Executor glExecutor,
+      ColorInfo outputColorInfo,
       Consumer<VideoFrameProcessingException> errorConsumer) {
     this.glShaderProgram = glShaderProgram;
     this.glObjectsProvider = glObjectsProvider;
     this.glExecutor = glExecutor;
+    this.outputColorInfo = outputColorInfo;
     this.errorConsumer = errorConsumer;
     @SuppressWarnings("nullness:assignment")
     @Initialized
@@ -185,7 +198,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             .setFormat(
                 inputFormat
                     .buildUpon()
-                    // TODO: b/505721737 - set color info for tone mapping.
+                    .setColorInfo(outputColorInfo)
                     .setWidth(outputTexture.width)
                     .setHeight(outputTexture.height)
                     .build())

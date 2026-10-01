@@ -15,6 +15,7 @@
  */
 package androidx.media3.effect;
 
+import static androidx.media3.common.C.INDEX_UNSET;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_FRAME_DISCONTINUITY_NUMBER;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -66,7 +67,11 @@ public class GlShaderProgramAdapterTest {
 
     glShaderProgramAdapter =
         new GlShaderProgramAdapter(
-            fakeGlShaderProgram, FAKE_GL_OBJECTS_PROVIDER, directExecutor(), errorReference::set);
+            fakeGlShaderProgram,
+            FAKE_GL_OBJECTS_PROVIDER,
+            directExecutor(),
+            /* outputColorInfo= */ ColorInfo.SDR_BT709_LIMITED,
+            errorReference::set);
     glShaderProgramAdapter.setOutput(downstreamConsumer);
   }
 
@@ -151,6 +156,48 @@ public class GlShaderProgramAdapterTest {
 
     assertThat(forwardedFrame.format.width).isEqualTo(outputSize);
     assertThat(forwardedFrame.format.height).isEqualTo(outputSize);
+    assertThat(errorReference.get()).isNull();
+  }
+
+  @Test
+  public void onOutputFrameAvailable_withConfiguredOutputColorInfo_updatesFormatColorInfo() {
+    GlShaderProgramAdapter adapter =
+        new GlShaderProgramAdapter(
+            fakeGlShaderProgram,
+            FAKE_GL_OBJECTS_PROVIDER,
+            directExecutor(),
+            /* outputColorInfo= */ DefaultGlFrameProcessor.BT2020_HLG,
+            errorReference::set);
+    adapter.setOutput(downstreamConsumer);
+    Format inputFormat =
+        new Format.Builder()
+            .setWidth(TEXTURE_SIZE)
+            .setHeight(TEXTURE_SIZE)
+            .setColorInfo(DefaultGlFrameProcessor.BT709_SRGB)
+            .build();
+    GlTextureFrame inputFrame =
+        createTestFrameWithFormat(
+            /* texId= */ 1,
+            /* timestampUs= */ 1000L,
+            /* format= */ inputFormat,
+            /* released= */ new AtomicBoolean());
+
+    assertThat(
+            adapter.queue(
+                inputFrame, /* listenerExecutor= */ task -> {}, /* wakeupListener= */ () -> {}))
+        .isTrue();
+    adapter.onOutputFrameAvailable(
+        new GlTextureInfo(
+            /* texId= */ 101,
+            /* fboId= */ INDEX_UNSET,
+            /* rboId= */ INDEX_UNSET,
+            /* width= */ TEXTURE_SIZE,
+            /* height= */ TEXTURE_SIZE),
+        /* presentationTimeUs= */ 1000L);
+
+    assertThat(downstreamConsumer.queuedFrames).hasSize(1);
+    assertThat(downstreamConsumer.queuedFrames.get(0).format.colorInfo)
+        .isEqualTo(DefaultGlFrameProcessor.BT2020_HLG);
     assertThat(errorReference.get()).isNull();
   }
 

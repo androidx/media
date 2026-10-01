@@ -143,6 +143,11 @@ public final class GlslShaderCompilationTest {
         R.raw.vertex_shader_transformation_es3,
         R.raw.color_conversions_es3,
         R.raw.fragment_shader_transformation_hdr_internal_color_conversion_es3);
+    compileGlProgram(
+        compiledResIds,
+        R.raw.vertex_shader_transformation_es3,
+        R.raw.color_conversions_es3,
+        R.raw.fragment_shader_color_conversion_es3);
 
     // ES3 external YUV shaders (require GL_EXT_YUV_target).
     compileExternalYuvGlProgram(

@@ -126,14 +126,12 @@ import java.util.concurrent.Executor;
     ImmutableList.Builder<GlMatrixTransformation> matrixTransformationBuilder =
         new ImmutableList.Builder<>();
     ImmutableList.Builder<RgbMatrix> colorTransformationBuilder = new ImmutableList.Builder<>();
-    // TODO: b/562926844 - Derive useHdr per effect from the preceding effect's output color space,
-    //   once effects can change the color space.
     // TODO: b/545584738 - GlEffect currently overloads useHdr to mean both color gamut (BT.2020 vs
     //   BT.709) and texture precision (GL_RGBA16F vs GL_RGBA8). For BT709_LINEAR, the
     //   gamut is BT.709 (useHdr = false), causing BaseGlShaderProgram to allocate 8-bit textures
     //   (GL_RGBA8) and band in linear light. Pass ColorInfo to effects instead of a boolean, or
     //   decouple gamut from texture precision.
-    boolean useHdr = isWideColorGamut(workingColorSpace);
+    ColorInfo currentColorSpace = workingColorSpace;
     try {
       for (int i = 0; i < effects.size(); i++) {
         Effect effect = effects.get(i);
@@ -157,17 +155,32 @@ import java.util.concurrent.Executor;
 
         if (!matrixTransformations.isEmpty() || !colorTransformations.isEmpty()) {
           newProcessorChain.add(
-              createMergedProcessor(matrixTransformations, colorTransformations, useHdr));
+              createMergedProcessor(
+                  matrixTransformations, colorTransformations, currentColorSpace));
           matrixTransformationBuilder = new ImmutableList.Builder<>();
           colorTransformationBuilder = new ImmutableList.Builder<>();
         }
 
+        // ColorConversion converts between color spaces, so it needs the full input color space
+        // rather than useHdr, which cannot express an electrical transfer.
+        GlShaderProgram shaderProgram;
+        ColorInfo outputColorSpace;
+        if (glEffect instanceof ColorConversion) {
+          ColorConversion colorConversion = (ColorConversion) glEffect;
+          shaderProgram = colorConversion.toGlShaderProgram(context, currentColorSpace);
+          outputColorSpace = colorConversion.getOutputColorInfo();
+        } else {
+          shaderProgram = glEffect.toGlShaderProgram(context, isWideColorGamut(currentColorSpace));
+          outputColorSpace = currentColorSpace;
+        }
         newProcessorChain.add(
             new GlShaderProgramAdapter(
-                glEffect.toGlShaderProgram(context, useHdr),
+                shaderProgram,
                 glObjectsProvider,
                 glExecutorService,
+                outputColorSpace,
                 errorConsumer));
+        currentColorSpace = outputColorSpace;
       }
 
       ImmutableList<GlMatrixTransformation> remainingMatrixTransformations =
@@ -177,7 +190,7 @@ import java.util.concurrent.Executor;
       if (!remainingMatrixTransformations.isEmpty() || !remainingColorTransformations.isEmpty()) {
         newProcessorChain.add(
             createMergedProcessor(
-                remainingMatrixTransformations, remainingColorTransformations, useHdr));
+                remainingMatrixTransformations, remainingColorTransformations, currentColorSpace));
       }
     } catch (VideoFrameProcessingException | RuntimeException e) {
       for (int j = 0; j < newProcessorChain.size(); j++) {
@@ -215,12 +228,14 @@ import java.util.concurrent.Executor;
   private GlTextureFrameProcessor createMergedProcessor(
       List<GlMatrixTransformation> matrixTransformations,
       List<RgbMatrix> colorTransformations,
-      boolean useHdr)
+      ColorInfo colorInfo)
       throws VideoFrameProcessingException {
     return new GlShaderProgramAdapter(
-        DefaultShaderProgram.create(context, matrixTransformations, colorTransformations, useHdr),
+        DefaultShaderProgram.create(
+            context, matrixTransformations, colorTransformations, isWideColorGamut(colorInfo)),
         glObjectsProvider,
         glExecutorService,
+        colorInfo,
         errorConsumer);
   }
 
