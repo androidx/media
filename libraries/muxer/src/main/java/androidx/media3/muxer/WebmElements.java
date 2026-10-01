@@ -352,6 +352,13 @@ import java.util.List;
     List<ByteBuffer> videoInfoBuffer = new ArrayList<>();
     videoInfoBuffer.add(createUnsignedIntElement(MkvEbmlElement.PIXEL_WIDTH, format.width));
     videoInfoBuffer.add(createUnsignedIntElement(MkvEbmlElement.PIXEL_HEIGHT, format.height));
+    // StereoMode (RFC 9559, section 5.1.4.1.28.3), as MatroskaExtractor reads it: 1 is side by side
+    // and 3 top-bottom, left eye first. Mono is the element's default and isn't written.
+    if (format.stereoMode == C.STEREO_MODE_LEFT_RIGHT) {
+      videoInfoBuffer.add(createUnsignedIntElement(MkvEbmlElement.STEREO_MODE, 1));
+    } else if (format.stereoMode == C.STEREO_MODE_TOP_BOTTOM) {
+      videoInfoBuffer.add(createUnsignedIntElement(MkvEbmlElement.STEREO_MODE, 3));
+    }
     if (format.colorInfo != null) {
       videoInfoBuffer.add(createColorElement(format.colorInfo));
     }

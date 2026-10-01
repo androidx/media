@@ -181,6 +181,9 @@
         ([#3389](https://github.com/androidx/media/issues/3389)).
     *   Reject unsupported Dolby Vision profiles in `Mp4Muxer` and
         `FragmentedMp4Muxer` when adding tracks.
+    *   Write the Matroska `StereoMode` element in `WebmMuxer` for
+        side-by-side and top-bottom video
+        ([#3419](https://github.com/androidx/media/issues/3419)).
 *   IMA extension:
 *   Session:
     *   Add `MediaConstants.EXTRAS_KEY_PLAYLIST_ID` to populate
