@@ -58,7 +58,7 @@ import com.google.common.collect.ImmutableList;
   @Nullable private final LogSessionId logSessionId;
   private final boolean applyMp4EditListTrim;
   private final Muxer.Factory muxerFactory;
-  private final String outputFilePath;
+  private final TransformerOutput transformerOutput;
   private final boolean fileStartsOnVideoFrameEnabled;
   private final ExportResult.Builder exportResultBuilder;
   private final ComponentListener componentListener;
@@ -85,7 +85,7 @@ import com.google.common.collect.ImmutableList;
       @Nullable LogSessionId logSessionId,
       boolean applyMp4EditListTrim,
       Muxer.Factory muxerFactory,
-      String outputFilePath,
+      TransformerOutput transformerOutput,
       boolean fileStartsOnVideoFrameEnabled) {
     this.context = context;
     this.composition = composition;
@@ -105,7 +105,7 @@ import com.google.common.collect.ImmutableList;
     this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
     this.logSessionId = logSessionId;
     this.muxerFactory = muxerFactory;
-    this.outputFilePath = outputFilePath;
+    this.transformerOutput = transformerOutput;
     this.fileStartsOnVideoFrameEnabled = fileStartsOnVideoFrameEnabled;
     this.applyMp4EditListTrim = applyMp4EditListTrim;
     exportResultBuilder = new ExportResult.Builder();
@@ -116,7 +116,7 @@ import com.google.common.collect.ImmutableList;
   public void start() {
     MuxerWrapper muxerWrapper =
         new MuxerWrapper(
-            outputFilePath,
+            checkNotNull(transformerOutput.path),
             muxerFactory,
             componentListener,
             MuxerWrapper.MUXER_MODE_DEFAULT,

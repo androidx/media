@@ -841,7 +841,7 @@ public final class Transformer {
   private boolean exportResumed;
   private @MonotonicNonNull Composition composition;
   private @MonotonicNonNull Composition originalComposition;
-  private @MonotonicNonNull String outputFilePath;
+  private @MonotonicNonNull TransformerOutput transformerOutput;
   private @MonotonicNonNull String oldFilePath;
   private @MonotonicNonNull EditingMetricsCollector editingMetricsCollector;
   @Nullable private WatchdogTimer exportWatchdogTimer;
@@ -1002,9 +1002,39 @@ public final class Transformer {
    * @throws IllegalStateException If an export is already in progress.
    */
   public void start(Composition composition, String path) {
+    start(composition, TransformerOutput.create(path));
+  }
+
+  /**
+   * Starts an asynchronous operation to export the given {@link Composition} to a {@link
+   * TransformerOutput}.
+   *
+   * <p>The export state is notified through the {@linkplain Builder#addListener(Listener)
+   * listener}.
+   *
+   * <p>Concurrent exports on the same Transformer object are not allowed.
+   *
+   * <p>If no custom {@link Transformer.Builder#setMuxerFactory(Muxer.Factory) Muxer.Factory} is
+   * specified, the output is an MP4 file.
+   *
+   * <p>The output can contain at most one video track and one audio track. Other track types are
+   * ignored. For adaptive bitrate inputs, if no custom {@link
+   * Transformer.Builder#setAssetLoaderFactory(AssetLoader.Factory) AssetLoader.Factory} is
+   * specified, the highest bitrate video and audio streams are selected.
+   *
+   * <p>If exporting the video track entails transcoding, the output frames' dimensions will be
+   * swapped if the output video's height is larger than the width. This is to improve compatibility
+   * among different device encoders.
+   *
+   * @param composition The {@link Composition} to export.
+   * @param output The {@link TransformerOutput} destination.
+   * @throws IllegalStateException If this method is called from the wrong thread.
+   * @throws IllegalStateException If an export is already in progress.
+   */
+  public void start(Composition composition, TransformerOutput output) {
     verifyApplicationThread();
     checkState(currentExportOperation == null, "There is already an export in progress.");
-    initialize(composition, path);
+    initialize(composition, output);
     startExportOperation();
   }
 
@@ -1171,7 +1201,7 @@ public final class Transformer {
     verifyApplicationThread();
     checkState(currentExportOperation == null, "There is already an export in progress.");
     checkArgument(!compositionContainsSpeedChangingEffects(composition));
-    initialize(composition, outputFilePath);
+    initialize(composition, TransformerOutput.create(outputFilePath));
     this.oldFilePath = oldFilePath;
     exportResumed = true;
     startExportOperation();
@@ -1287,12 +1317,12 @@ public final class Transformer {
     }
   }
 
-  @EnsuresNonNull({"this.composition", "this.outputFilePath", "this.originalComposition"})
-  private void initialize(Composition composition, String outputFilePath) {
+  @EnsuresNonNull({"this.composition", "this.originalComposition", "this.transformerOutput"})
+  private void initialize(Composition composition, TransformerOutput transformerOutput) {
     maybeInitializeExportWatchdogTimer();
     this.originalComposition = composition;
     this.composition = applyPreProcessingEffects(composition);
-    this.outputFilePath = outputFilePath;
+    this.transformerOutput = transformerOutput;
   }
 
   private boolean isMultiAsset() {
@@ -1325,6 +1355,7 @@ public final class Transformer {
             transformationRequest);
     AssetLoader.Factory assetLoaderFactory = this.assetLoaderFactory;
     DebugTraceUtil.reset();
+    TransformerOutput transformerOutput = checkNotNull(this.transformerOutput);
     if (exportResumed) {
       currentExportOperation =
           new ResumedExportOperation(
@@ -1347,7 +1378,7 @@ public final class Transformer {
               logSessionId,
               shouldApplyMp4EditListTrim(),
               muxerFactory,
-              checkNotNull(outputFilePath),
+              transformerOutput.path,
               checkNotNull(oldFilePath));
     } else if (trimOptimizationEnabled && isSingleAssetTrimming()) {
       currentExportOperation =
@@ -1371,7 +1402,7 @@ public final class Transformer {
               logSessionId,
               shouldApplyMp4EditListTrim(),
               muxerFactory,
-              checkNotNull(outputFilePath));
+              transformerOutput.path);
     } else {
       currentExportOperation =
           new DefaultExportOperation(
@@ -1394,7 +1425,7 @@ public final class Transformer {
               logSessionId,
               shouldApplyMp4EditListTrim(),
               muxerFactory,
-              checkNotNull(outputFilePath),
+              transformerOutput,
               fileStartsOnVideoFrameEnabled);
     }
     currentExportOperation.start();
