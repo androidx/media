@@ -111,6 +111,19 @@ public final class FragmentedMp4ExtractorParameterizedTest {
   }
 
   @Test
+  public void sampleWithH264FramePackingSideBySideSei() throws Exception {
+    assertExtractorBehavior(
+        /* closedCaptionFormats= */ ImmutableList.of(),
+        "media/mp4/sample_fragmented_h264_frame_packing_side_by_side.mp4",
+        /* peekLimit= */ 700,
+        new ExtractorAsserts.AssertionConfig.Builder()
+            // The stereo mode is read from a frame_packing_arrangement SEI message in the first
+            // sample, which means a second Format gets emitted ahead of that sample.
+            .setDeduplicateConsecutiveFormats(true)
+            .build());
+  }
+
+  @Test
   public void sampleWithSeiPayloadInputHasNoCaptions() throws Exception {
     // Enabling the CEA-608 track enables SEI payload parsing.
     List<Format> closedCaptions =

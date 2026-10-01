@@ -229,6 +229,7 @@ public final class Mp4Extractor implements Extractor {
   // Temporary arrays.
   private final ParsableByteArray nalStartCode;
   private final ParsableByteArray nalPrefix;
+  private final ParsableByteArray seiNalUnitWithoutHeader;
   private final ParsableByteArray scratch;
 
   private final ParsableByteArray atomHeader;
@@ -251,6 +252,7 @@ public final class Mp4Extractor implements Extractor {
   private int sampleBytesWritten;
   private int sampleCurrentNalBytesRemaining;
   private boolean isSampleDependedOn;
+  private boolean isCurrentNalUnitSei;
   private boolean seenFtypAtom;
   private boolean seekToAxteAtom;
   private long axteAtomOffset;
@@ -316,6 +318,7 @@ public final class Mp4Extractor implements Extractor {
     containerAtoms = new ArrayDeque<>();
     nalStartCode = new ParsableByteArray(NalUnitUtil.NAL_START_CODE);
     nalPrefix = new ParsableByteArray(6);
+    seiNalUnitWithoutHeader = new ParsableByteArray();
     scratch = new ParsableByteArray();
     sampleTrackIndex = C.INDEX_UNSET;
     extractorOutput = ExtractorOutput.PLACEHOLDER;
@@ -353,6 +356,7 @@ public final class Mp4Extractor implements Extractor {
     sampleBytesWritten = 0;
     sampleCurrentNalBytesRemaining = 0;
     isSampleDependedOn = false;
+    isCurrentNalUnitSei = false;
     moovAtomProcessed = false;
     xmpData = null;
     chapterTrackIndex = 0;
@@ -796,6 +800,7 @@ public final class Mp4Extractor implements Extractor {
         mp4Track.pendingFormat = format;
       } else {
         mp4Track.trackOutput.format(format);
+        mp4Track.onFormatOutput(format);
       }
 
       if (track.type == C.TRACK_TYPE_VIDEO && firstVideoTrackIndex == C.INDEX_UNSET) {
@@ -988,15 +993,16 @@ public final class Mp4Extractor implements Extractor {
       // start codes as we encounter them.
       while (sampleBytesWritten < sampleSize) {
         if (sampleCurrentNalBytesRemaining == 0) {
+          isCurrentNalUnitSei = false;
           int nalUnitPrefixLength = track.track.nalUnitLengthFieldLength;
           int numberOfBytesToDetermineSampleDependencies = 0;
-          if (!isSampleDependedOn
+          if ((!isSampleDependedOn || track.parseStereoModeSei)
               && nalUnitPrefixLength + NalUnitUtil.numberOfBytesInNalUnitHeader(track.track.format)
                   <= track.sampleTable.sizes[sampleIndex] - sampleBytesRead) {
             // Parsing sample dependencies needs the first few NAL unit bytes. Read them in the same
             // readFully call that reads the NAL length. This ensures sampleBytesRead,
             // sampleBytesWritten and isSampleDependedOn remain in a consistent state if we have
-            // read failures.
+            // read failures. Finding SEI NAL units for the stereo mode needs them too.
             numberOfBytesToDetermineSampleDependencies =
                 NalUnitUtil.numberOfBytesInNalUnitHeader(track.track.format);
             nalUnitPrefixLength =
@@ -1030,7 +1036,25 @@ public final class Mp4Extractor implements Extractor {
                 track.track.format)) {
               isSampleDependedOn = true;
             }
+            isCurrentNalUnitSei =
+                track.parseStereoModeSei
+                    && NalUnitUtil.isNalUnitSei(track.track.format, nalPrefixData, /* offset= */ 4);
           }
+        } else if (isCurrentNalUnitSei) {
+          // Read and write the SEI NAL unit's payload, then look for a frame packing arrangement.
+          int seiPayloadLength = sampleCurrentNalBytesRemaining;
+          seiNalUnitWithoutHeader.reset(seiPayloadLength);
+          input.readFully(seiNalUnitWithoutHeader.getData(), 0, seiPayloadLength);
+          trackOutput.sampleData(seiNalUnitWithoutHeader, seiPayloadLength);
+          sampleBytesRead += seiPayloadLength;
+          sampleBytesWritten += seiPayloadLength;
+          sampleCurrentNalBytesRemaining = 0;
+          isCurrentNalUnitSei = false;
+          int unescapedLength =
+              NalUnitUtil.unescapeStream(seiNalUnitWithoutHeader.getData(), seiPayloadLength);
+          track.updateStereoModeFromSei(
+              NalUnitUtil.parseSeiStereoMode(
+                  seiNalUnitWithoutHeader.getData(), /* offset= */ 0, unescapedLength));
         } else {
           // Write the payload of the NAL unit.
           int writtenBytes = trackOutput.sampleData(input, sampleCurrentNalBytesRemaining, false);
@@ -1102,6 +1126,7 @@ public final class Mp4Extractor implements Extractor {
     sampleBytesWritten = 0;
     sampleCurrentNalBytesRemaining = 0;
     isSampleDependedOn = false;
+    isCurrentNalUnitSei = false;
     return RESULT_CONTINUE;
   }
 
@@ -1166,6 +1191,7 @@ public final class Mp4Extractor implements Extractor {
           track.pendingFormat = updatedFormat;
         } else {
           track.trackOutput.format(updatedFormat);
+          track.onFormatOutput(updatedFormat);
           track.pendingFormat = null;
         }
       }
@@ -1449,16 +1475,59 @@ public final class Mp4Extractor implements Extractor {
      */
     @Nullable private Format pendingFormat;
 
+    /**
+     * Whether to read the stereo mode from H.264 and H.265 {@code frame_packing_arrangement} SEI
+     * messages: MP4 files from common encoders carry the layout of frame-packed video only there.
+     * Only when the container declares no stereo mode itself.
+     */
+    private final boolean parseStereoModeSei;
+
+    /** The stereo mode last read from a {@code frame_packing_arrangement} SEI message. */
+    private @C.StereoMode int seiStereoMode;
+
+    /** The {@link Format} last passed to {@link #trackOutput}, if any. */
+    @Nullable private Format outputFormat;
+
     public Mp4Track(Track track, TrackSampleTable sampleTable, TrackOutput trackOutput) {
       this.track = track;
       this.sampleTable = sampleTable;
       this.trackOutput = trackOutput;
       this.isVideo = track.type == C.TRACK_TYPE_VIDEO;
+      this.parseStereoModeSei =
+          (Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_H264)
+                  || Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_H265))
+              && track.format.stereoMode == Format.NO_VALUE;
+      this.seiStereoMode = Format.NO_VALUE;
       this.isItutT35 = Objects.equals(track.format.sampleMimeType, MimeTypes.APPLICATION_ITUT_T35);
       trueHdSampleRechunker =
           MimeTypes.AUDIO_TRUEHD.equals(track.format.sampleMimeType)
               ? new TrueHdSampleRechunker()
               : null;
+    }
+
+    /**
+     * Updates the stereo mode with one read from a {@code frame_packing_arrangement} SEI message,
+     * or {@link Format#NO_VALUE} if the SEI had none. A cancellation or 2D arrangement ({@link
+     * C#STEREO_MODE_MONO}) only takes effect after a stereo mode was read.
+     */
+    private void updateStereoModeFromSei(@C.StereoMode int stereoMode) {
+      if (stereoMode == Format.NO_VALUE
+          || stereoMode == seiStereoMode
+          || (stereoMode == C.STEREO_MODE_MONO && seiStereoMode == Format.NO_VALUE)) {
+        return;
+      }
+      seiStereoMode = stereoMode;
+      if (pendingFormat != null) {
+        pendingFormat = pendingFormat.buildUpon().setStereoMode(stereoMode).build();
+      } else if (outputFormat != null) {
+        // A refined format ahead of the sample whose SEI carried it.
+        outputFormat = outputFormat.buildUpon().setStereoMode(stereoMode).build();
+        trackOutput.format(outputFormat);
+      }
+    }
+
+    private void onFormatOutput(Format format) {
+      outputFormat = format;
     }
   }
 

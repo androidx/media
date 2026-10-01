@@ -119,6 +119,11 @@
     *   MPEG-TS: Support parsing H.264 and H.265 frame packing arrangement SEI
         messages to populate `Format.stereoMode`
         ([#3419](https://github.com/androidx/media/issues/3419)).
+    *   MP4: Support parsing H.264 and H.265 frame packing arrangement SEI
+        messages to populate `Format.stereoMode` in `Mp4Extractor` and
+        `FragmentedMp4Extractor`, where common encoders write the stereo layout
+        of frame-packed video only in the SEI
+        ([#3419](https://github.com/androidx/media/issues/3419)).
     *   Parse Dolby Vision Profile 20 configuration data and reject unsupported
         Dolby Vision profiles instead of playing back as standard HEVC with
         incorrect colors ([#3427](https://github.com/androidx/media/pull/3427)).
