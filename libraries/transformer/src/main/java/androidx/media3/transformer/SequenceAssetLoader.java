@@ -517,8 +517,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private final @C.TrackType int trackType;
 
     private long totalDurationUs;
-    private boolean audioLoopingEnded;
-    private boolean videoLoopingEnded;
+    private boolean isLoopingEnded;
 
     public SampleConsumerWrapper(SampleConsumer sampleConsumer, @C.TrackType int trackType) {
       this.sampleConsumer = sampleConsumer;
@@ -528,21 +527,23 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Nullable
     @Override
     public DecoderInputBuffer getInputBuffer() {
+      checkState(trackType == C.TRACK_TYPE_AUDIO || !decodeVideo);
       return sampleConsumer.getInputBuffer();
     }
 
     @Override
     public boolean queueInputBuffer() {
+      checkState(trackType == C.TRACK_TYPE_AUDIO || !decodeVideo);
       DecoderInputBuffer inputBuffer = checkNotNull(sampleConsumer.getInputBuffer());
       long globalTimestampUs = totalDurationUs + inputBuffer.timeUs;
-      if (isLooping && (globalTimestampUs >= maxSequenceDurationUs || audioLoopingEnded)) {
-        if (isMaxSequenceDurationUsFinal && !audioLoopingEnded) {
+      if (isLooping && (globalTimestampUs >= maxSequenceDurationUs || isLoopingEnded)) {
+        if (isMaxSequenceDurationUsFinal && !isLoopingEnded) {
           checkNotNull(inputBuffer.data).limit(0);
           inputBuffer.setFlags(C.BUFFER_FLAG_END_OF_STREAM);
           // We know that queueInputBuffer() will always return true for the underlying
           // SampleConsumer so there is no need to handle the case where the sample wasn't queued.
           checkState(sampleConsumer.queueInputBuffer());
-          audioLoopingEnded = true;
+          isLoopingEnded = true;
           nonEndedTrackCount.decrementAndGet();
         }
         return false;
@@ -574,6 +575,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     public @InputResult int queueInputBitmap(
         Bitmap inputBitmap, TimestampIterator timestampIterator) {
+      checkState(trackType == C.TRACK_TYPE_VIDEO && decodeVideo);
       if (isLooping) {
         long lastOffsetUs = C.TIME_UNSET;
         while (timestampIterator.hasNext()) {
@@ -583,15 +585,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               return INPUT_RESULT_TRY_AGAIN_LATER;
             }
             if (lastOffsetUs == C.TIME_UNSET) {
-              if (!videoLoopingEnded) {
-                videoLoopingEnded = true;
+              if (!isLoopingEnded) {
+                isLoopingEnded = true;
                 signalEndOfVideoInput();
                 return INPUT_RESULT_END_OF_STREAM;
               }
               return INPUT_RESULT_TRY_AGAIN_LATER;
             }
             timestampIterator = new ClippingIterator(timestampIterator.copyOf(), lastOffsetUs);
-            videoLoopingEnded = true;
+            isLoopingEnded = true;
             break;
           }
           lastOffsetUs = offsetUs;
@@ -602,20 +604,23 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Override
     public void setOnInputFrameProcessedListener(OnInputFrameProcessedListener listener) {
+      checkState(trackType == C.TRACK_TYPE_VIDEO && decodeVideo);
       sampleConsumer.setOnInputFrameProcessedListener(listener);
     }
 
     @Override
     public void setOnInputSurfaceReadyListener(Runnable runnable) {
+      checkState(trackType == C.TRACK_TYPE_VIDEO && decodeVideo);
       sampleConsumer.setOnInputSurfaceReadyListener(runnable);
     }
 
     @Override
     public @InputResult int queueInputTexture(int texId, long presentationTimeUs) {
+      checkState(trackType == C.TRACK_TYPE_VIDEO && decodeVideo);
       long globalTimestampUs = totalDurationUs + presentationTimeUs;
       if (isLooping && globalTimestampUs >= maxSequenceDurationUs) {
-        if (isMaxSequenceDurationUsFinal && !videoLoopingEnded) {
-          videoLoopingEnded = true;
+        if (isMaxSequenceDurationUsFinal && !isLoopingEnded) {
+          isLoopingEnded = true;
           signalEndOfVideoInput();
           return INPUT_RESULT_END_OF_STREAM;
         }
@@ -626,20 +631,23 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Override
     public Surface getInputSurface() {
+      checkState(trackType == C.TRACK_TYPE_VIDEO && decodeVideo);
       return sampleConsumer.getInputSurface();
     }
 
     @Override
     public int getPendingVideoFrameCount() {
+      checkState(trackType == C.TRACK_TYPE_VIDEO && decodeVideo);
       return sampleConsumer.getPendingVideoFrameCount();
     }
 
     @Override
     public boolean registerVideoFrame(long presentationTimeUs) {
+      checkState(trackType == C.TRACK_TYPE_VIDEO && decodeVideo);
       long globalTimestampUs = totalDurationUs + presentationTimeUs;
       if (isLooping && globalTimestampUs >= maxSequenceDurationUs) {
-        if (isMaxSequenceDurationUsFinal && !videoLoopingEnded) {
-          videoLoopingEnded = true;
+        if (isMaxSequenceDurationUsFinal && !isLoopingEnded) {
+          isLoopingEnded = true;
           signalEndOfVideoInput();
         }
         return false;
@@ -650,8 +658,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Override
     public void signalEndOfVideoInput() {
+      checkState(trackType == C.TRACK_TYPE_VIDEO && decodeVideo);
       nonEndedTrackCount.decrementAndGet();
-      boolean videoEnded = isLooping ? videoLoopingEnded : isLastMediaItemInSequence();
+      boolean videoEnded = isLooping ? isLoopingEnded : isLastMediaItemInSequence();
       if (videoEnded) {
         sampleConsumer.signalEndOfVideoInput();
       } else if (nonEndedTrackCount.get() == 0) {
@@ -660,6 +669,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     private void onAudioGapSignalled() {
+      checkState(trackType == C.TRACK_TYPE_AUDIO);
       int nonEndedTracks = nonEndedTrackCount.decrementAndGet();
       if (nonEndedTracks == 0 && !isLastMediaItemInSequence()) {
         switchAssetLoader();
