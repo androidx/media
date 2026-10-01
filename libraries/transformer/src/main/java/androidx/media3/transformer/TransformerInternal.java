@@ -796,7 +796,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   firstFormat,
                   transformationRequest,
                   checkNotNull(frameProcessorFactory),
-                  hardwareBufferJniWrapper,
+                  checkNotNull(hardwareBufferJniWrapper),
                   encoderFactory,
                   muxerWrapper,
                   /* errorConsumer= */ this::onError,

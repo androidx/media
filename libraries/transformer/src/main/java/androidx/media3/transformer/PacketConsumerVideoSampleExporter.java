@@ -100,7 +100,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Format firstInputFormat,
       TransformationRequest transformationRequest,
       FrameProcessor.Factory frameProcessorFactory,
-      @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper,
+      HardwareBufferJniWrapper hardwareBufferJniWrapper,
       EncoderFactory encoderFactory,
       MuxerWrapper muxerWrapper,
       Consumer<ExportException> errorConsumer,
@@ -151,7 +151,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               playbackHandler,
               logSessionId);
     } else {
-      checkState(hardwareBufferJniWrapper != null);
       frameWriter =
           new GlEncoderFrameWriter(
               context,

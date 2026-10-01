@@ -53,6 +53,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
+import androidx.media3.effect.HardwareBufferJni;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.muxer.Muxer;
@@ -339,6 +340,8 @@ public final class Transformer {
 
     /**
      * Sets the {@link HardwareBufferJniWrapper} used to provide native helpers.
+     *
+     * <p>The default value is {@link HardwareBufferJni#INSTANCE}.
      *
      * <p>This method is experimental and will be renamed or removed in a future release.
      *
@@ -677,6 +680,11 @@ public final class Transformer {
           !mp4EditListTrimEnabled || muxerFactory.supportsWritingNegativeTimestampsInEditList(),
           "Muxer.Factory %s does not support writing negative timestamps to an edit list.",
           muxerFactory);
+      @Nullable
+      HardwareBufferJniWrapper hardwareBufferJniWrapper =
+          SDK_INT >= 26 && frameProcessorFactory != null && this.hardwareBufferJniWrapper == null
+              ? HardwareBufferJni.INSTANCE
+              : this.hardwareBufferJniWrapper;
       return new Transformer(
           context,
           transformationRequest,

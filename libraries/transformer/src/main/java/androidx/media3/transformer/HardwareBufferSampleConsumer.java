@@ -65,8 +65,8 @@ import java.util.Map;
    *     callbacks.
    * @param frameConsumer The {@link Consumer<AsyncFrame>} to which processed frames are output.
    * @param errorConsumer A consumer to accept {@link ExportException}s if errors occur.
-   * @param hardwareBufferJniWrapper An optional {@link HardwareBufferJniWrapper} used to convert
-   *     software bitmaps to hardware buffers.
+   * @param hardwareBufferJniWrapper The {@link HardwareBufferJniWrapper} used to convert software
+   *     bitmaps to hardware buffers.
    */
   public HardwareBufferSampleConsumer(
       Composition composition,
@@ -75,7 +75,7 @@ import java.util.Map;
       HandlerWrapper listenerHandler,
       Consumer<AsyncFrame> frameConsumer,
       Consumer<ExportException> errorConsumer,
-      @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper) {
+      HardwareBufferJniWrapper hardwareBufferJniWrapper) {
     this.composition = composition;
     this.sequenceIndex = sequenceIndex;
     // Modify the release times of frames exiting the hardwareBufferFrameReader to account for

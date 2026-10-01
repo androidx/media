@@ -144,7 +144,6 @@ public final class TransformerSequenceEffectTest {
   private Transformer.Builder createTransformerBuilder() {
     Transformer.Builder builder = new Transformer.Builder(context);
     if (shouldUseDefaultGlFrameProcessor()) {
-      builder.setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE);
       builder.setFrameProcessorFactory(
           new DefaultGlFrameProcessor.Factory(
               context, glObjectsProvider, HardwareBufferJni.INSTANCE, glExecutorService));

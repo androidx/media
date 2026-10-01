@@ -409,7 +409,6 @@ public final class TransformerActivity extends AppCompatActivity {
 
       transformerBuilder =
           new Transformer.Builder(/* context= */ this)
-              .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
               .setFrameProcessorFactory(frameProcessorFactory);
     } else {
       transformerBuilder = new Transformer.Builder(/* context= */ this);

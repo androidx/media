@@ -92,7 +92,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Nullable private final FrameProcessor.Factory frameProcessorFactory;
 
-  @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper;
+  @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
   @Nullable private final LogSessionId logSessionId;
   private final Muxer.Factory muxerFactory;
