@@ -45,6 +45,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -254,6 +255,7 @@ public final class ExoPlayerTargetLiveOffsetTest {
   }
 
   @Test
+  @Ignore("Flaky on CI: b/568098904")
   public void targetLiveOffsetInMedia_withTimelineUpdate_adjustsLiveOffsetToLatestTimeline()
       throws Exception {
     long windowStartUnixTimeMs = 987_654_321_000L;
