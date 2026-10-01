@@ -205,7 +205,7 @@ public final class DefaultGlFrameProcessorTest {
   }
 
   @Test
-  public void queue_withHdrHlgFrameWorkingColorspaceUnset_resolvesWorkingColorspaceToSdrSrgb()
+  public void queue_withHdrHlgFrameWorkingColorspaceUnset_resolvesWorkingColorspaceToHdrLinear()
       throws Exception {
     ColorInfo hdrColorInfo =
         new ColorInfo.Builder()
@@ -221,16 +221,11 @@ public final class DefaultGlFrameProcessorTest {
     ColorInfo actualColorInfo =
         queueFrameAndGetColorInfo(format, /* forceUnsupportedFormat= */ false);
 
-    assertThat(actualColorInfo)
-        .isEqualTo(
-            new ColorInfo.Builder()
-                .setColorSpace(C.COLOR_SPACE_BT709)
-                .setColorTransfer(C.COLOR_TRANSFER_SRGB)
-                .build());
+    assertThat(actualColorInfo).isEqualTo(DefaultGlFrameProcessor.BT2020_LINEAR);
   }
 
   @Test
-  public void queue_withHdrPqFrameWorkingColorspaceUnset_resolvesWorkingColorspaceToSdrSrgb()
+  public void queue_withHdrPqFrameWorkingColorspaceUnset_resolvesWorkingColorspaceToHdrLinear()
       throws Exception {
     ColorInfo hdrColorInfo =
         new ColorInfo.Builder()
@@ -246,12 +241,7 @@ public final class DefaultGlFrameProcessorTest {
     ColorInfo actualColorInfo =
         queueFrameAndGetColorInfo(format, /* forceUnsupportedFormat= */ false);
 
-    assertThat(actualColorInfo)
-        .isEqualTo(
-            new ColorInfo.Builder()
-                .setColorSpace(C.COLOR_SPACE_BT709)
-                .setColorTransfer(C.COLOR_TRANSFER_SRGB)
-                .build());
+    assertThat(actualColorInfo).isEqualTo(DefaultGlFrameProcessor.BT2020_LINEAR);
   }
 
   @Test

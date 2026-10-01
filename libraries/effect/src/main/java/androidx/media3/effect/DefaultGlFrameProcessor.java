@@ -665,10 +665,9 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       return BT2020_HLG;
     }
     if (isWideColorGamut(inputColorInfo)) {
-      // TODO(b/545552444) Support HDR in the pipeline. If colorspace is not set, the pipeline
-      //  should preserve HDR if possible.
-      // Force tone map to SDR.
-      return BT709_SRGB;
+      // Process HDR in linear light. FrameWriterGlTextureFrameConsumer converts frames to an
+      // electrical color space before writing them, unless an effect already did.
+      return BT2020_LINEAR;
     } else {
       // All SDR input are treated as sRGB.
       // TODO(b/545591224): Allow converting outputting to other gamut, for example BT.601.

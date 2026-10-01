@@ -18,6 +18,7 @@ package androidx.media3.effect;
 import static androidx.media3.effect.FrameProcessorUtils.releaseOpenGl;
 import static androidx.media3.effect.FrameProcessorUtils.setupOpenGl;
 import static androidx.media3.effect.FrameProcessorUtils.shutdownGlExecutorService;
+import static androidx.media3.effect.FrameProcessorUtils.useHighPrecisionColorComponents;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -36,6 +37,7 @@ import android.graphics.Color;
 import android.graphics.ColorSpace;
 import android.graphics.Matrix;
 import android.hardware.HardwareBuffer;
+import android.opengl.GLES20;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -77,6 +79,19 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   private static final long TIMEOUT_MS = 5_000;
   private static final int BITMAP_WIDTH = 1920;
   private static final int BITMAP_HEIGHT = 1080;
+  private static final int SOLID_FRAME_WIDTH = 16;
+  private static final int SOLID_FRAME_HEIGHT = 16;
+  // Diffuse white in the linear BT.2020 working space, which is anchored on BT.2408 diffuse white.
+  private static final float DIFFUSE_WHITE_BT2020_LINEAR = 1f;
+  // BT.2408 diffuse white HLG signal level.
+  private static final float DIFFUSE_WHITE_HLG = 0.75f;
+  // sRGB OETF applied to 0.5: 1.055 * 0.5^(1 / 2.4) - 0.055.
+  private static final float HALF_LINEAR_SRGB = 0.7354f;
+  private static final float PIXEL_TOLERANCE = 2f;
+  // FrameWriterGlTextureFrameConsumer configures the FrameWriter with limited range because
+  // encoders output limited range. Only the metadata changes, the written pixels are full range.
+  private static final ColorInfo ENCODER_OUTPUT_LIMITED_RANGE_HLG =
+      DefaultGlFrameProcessor.BT2020_HLG.buildUpon().setColorRange(C.COLOR_RANGE_LIMITED).build();
 
   @Rule public final TestName testName;
   private final Context context;
@@ -479,6 +494,154 @@ public final class FrameWriterGlTextureFrameConsumerTest {
             BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
                 expectedBitmap2, outputBitmap2, testName.getMethodName() + "_frame2"))
         .isLessThan(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
+  }
+
+  @Test
+  public void queue_hdrLinearInputAndUnsetOutput_convertsToHlg() throws Exception {
+    queueOnGlThread(
+        () ->
+            createSolidGrayGlTextureFrame(
+                /* value= */ DIFFUSE_WHITE_BT2020_LINEAR, DefaultGlFrameProcessor.BT2020_LINEAR));
+
+    assertThat(checkNotNull(frameWriter.configuredFormat).colorInfo)
+        .isEqualTo(ENCODER_OUTPUT_LIMITED_RANGE_HLG);
+    assertThat(actualBitmaps).hasSize(1);
+    assertBitmapIsSolidGray(
+        actualBitmaps.get(0),
+        /* expectedComponent= */ DIFFUSE_WHITE_HLG * 255,
+        testName.getMethodName());
+  }
+
+  @Test
+  public void queue_sdrLinearInputAndUnsetOutput_convertsToSrgb() throws Exception {
+    queueOnGlThread(
+        () ->
+            createSolidGrayGlTextureFrame(/* value= */ 0.5f, DefaultGlFrameProcessor.BT709_LINEAR));
+
+    assertThat(checkNotNull(frameWriter.configuredFormat).colorInfo)
+        .isEqualTo(ColorInfo.SDR_BT709_LIMITED);
+    assertThat(actualBitmaps).hasSize(1);
+    assertBitmapIsSolidGray(
+        actualBitmaps.get(0),
+        /* expectedComponent= */ HALF_LINEAR_SRGB * 255,
+        testName.getMethodName());
+  }
+
+  @Test
+  public void queue_srgbInputAndUnsetOutput_writesPixelsUnchanged() throws Exception {
+    queueOnGlThread(
+        () -> createSolidGrayGlTextureFrame(/* value= */ 0.5f, DefaultGlFrameProcessor.BT709_SRGB));
+
+    assertThat(checkNotNull(frameWriter.configuredFormat).colorInfo)
+        .isEqualTo(ColorInfo.SDR_BT709_LIMITED);
+    assertThat(actualBitmaps).hasSize(1);
+    assertBitmapIsSolidGray(
+        actualBitmaps.get(0), /* expectedComponent= */ 0.5f * 255, testName.getMethodName());
+  }
+
+  @Test
+  public void queue_hlgInputAndUnsetOutput_writesPixelsUnchanged() throws Exception {
+    queueOnGlThread(
+        () -> createSolidGrayGlTextureFrame(/* value= */ 0.5f, DefaultGlFrameProcessor.BT2020_HLG));
+
+    assertThat(checkNotNull(frameWriter.configuredFormat).colorInfo)
+        .isEqualTo(ENCODER_OUTPUT_LIMITED_RANGE_HLG);
+    assertThat(actualBitmaps).hasSize(1);
+    assertBitmapIsSolidGray(
+        actualBitmaps.get(0), /* expectedComponent= */ 0.5f * 255, testName.getMethodName());
+  }
+
+  @Test
+  public void queue_hdrLinearThenHlgInputAndUnsetOutput_convertsOnlyLinearFrame() throws Exception {
+    queueOnGlThread(
+        () ->
+            createSolidGrayGlTextureFrame(
+                /* value= */ DIFFUSE_WHITE_BT2020_LINEAR, DefaultGlFrameProcessor.BT2020_LINEAR));
+    queueOnGlThread(
+        () -> createSolidGrayGlTextureFrame(/* value= */ 0.5f, DefaultGlFrameProcessor.BT2020_HLG));
+
+    assertThat(actualBitmaps).hasSize(2);
+    assertBitmapIsSolidGray(
+        actualBitmaps.get(0),
+        /* expectedComponent= */ DIFFUSE_WHITE_HLG * 255,
+        testName.getMethodName() + "_frame1");
+    assertBitmapIsSolidGray(
+        actualBitmaps.get(1),
+        /* expectedComponent= */ 0.5f * 255,
+        testName.getMethodName() + "_frame2");
+  }
+
+  /** Creates a {@link GlTextureFrame} on the GL thread and queues it to the consumer under test. */
+  private void queueOnGlThread(GlTextureFrameSupplier frameSupplier) throws Exception {
+    glExecutorService
+        .submit(
+            () -> {
+              try {
+                assertThat(
+                        frameWriterGlTextureFrameConsumer.queue(
+                            frameSupplier.get(), directExecutor(), /* wakeupListener= */ () -> {}))
+                    .isTrue();
+              } catch (Exception e) {
+                throw new AssertionError(e);
+              }
+            })
+        .get(TIMEOUT_MS, MILLISECONDS);
+  }
+
+  /**
+   * Asserts that every pixel of {@code bitmap} is the gray {@code expectedComponent}, within {@link
+   * #PIXEL_TOLERANCE} on average.
+   */
+  private static void assertBitmapIsSolidGray(
+      Bitmap bitmap, float expectedComponent, String testId) {
+    int expectedValue = Math.round(expectedComponent);
+    Bitmap expectedBitmap =
+        BitmapPixelTestUtil.createArgb8888BitmapWithSolidColor(
+            bitmap.getWidth(),
+            bitmap.getHeight(),
+            Color.rgb(expectedValue, expectedValue, expectedValue));
+    assertThat(
+            BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+                expectedBitmap, bitmap, testId))
+        .isAtMost(PIXEL_TOLERANCE);
+  }
+
+  /**
+   * Creates a {@link GlTextureFrame} filled with the gray {@code value}, whose format has the given
+   * {@link ColorInfo}.
+   */
+  private static GlTextureFrame createSolidGrayGlTextureFrame(float value, ColorInfo colorInfo)
+      throws GlException {
+    int texId =
+        GlUtil.createTexture(
+            SOLID_FRAME_WIDTH, SOLID_FRAME_HEIGHT, useHighPrecisionColorComponents(colorInfo));
+    int fboId = GlUtil.createFboForTexture(texId);
+    GlUtil.focusFramebufferUsingCurrentContext(fboId, SOLID_FRAME_WIDTH, SOLID_FRAME_HEIGHT);
+    GLES20.glClearColor(value, value, value, /* alpha= */ 1f);
+    GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+    GlUtil.checkGlError();
+    return new GlTextureFrame.Builder(
+            new GlTextureInfo(
+                texId, fboId, /* rboId= */ C.INDEX_UNSET, SOLID_FRAME_WIDTH, SOLID_FRAME_HEIGHT),
+            directExecutor(),
+            /* releaseTextureCallback= */ textureInfo -> {
+              try {
+                textureInfo.release();
+              } catch (GlException e) {
+                // Ignore.
+              }
+            })
+        .setFormat(
+            new Format.Builder()
+                .setWidth(SOLID_FRAME_WIDTH)
+                .setHeight(SOLID_FRAME_HEIGHT)
+                .setColorInfo(colorInfo)
+                .build())
+        .build();
+  }
+
+  private interface GlTextureFrameSupplier {
+    GlTextureFrame get() throws GlException;
   }
 
   /**
