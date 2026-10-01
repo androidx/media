@@ -86,10 +86,10 @@ AudioSink:
 MetadataOutput:
   Metadata[0]:
     presentationTimeUs = 33366
-    entry[0] = SCTE-35 SpliceInsertCommand { programSplicePts=200000, programSplicePlaybackPositionUs= 954439399111 }
+    entry[0] = SCTE-35 SpliceInsertCommand { programSplicePts=200000, programSplicePlaybackPositionUs= 1000000822222 }
   Metadata[1]:
     presentationTimeUs = 33366
-    entry[0] = SCTE-35 SpliceInsertCommand { programSplicePts=200000, programSplicePlaybackPositionUs= 954439399111 }
+    entry[0] = SCTE-35 SpliceInsertCommand { programSplicePts=200000, programSplicePlaybackPositionUs= 1000000822222 }
   Metadata[2]:
     presentationTimeUs = 33366
-    entry[0] = SCTE-35 SpliceInsertCommand { programSplicePts=300000, programSplicePlaybackPositionUs= 954440510222 }
+    entry[0] = SCTE-35 SpliceInsertCommand { programSplicePts=300000, programSplicePlaybackPositionUs= 1000001933333 }

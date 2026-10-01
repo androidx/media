@@ -60,6 +60,9 @@
     *   Fix an issue where `PreloadMediaSource` could unexpectedly post preload
         event when `preload()` is never called
         ([#3408](https://github.com/androidx/media/issues/3408)).
+    *   Fix an issue where `Format.subsampleOffsetUs` was ignored for metadata
+        tracks, causing incorrect playback timestamps in decoded SCTE-35 splice
+        commands ([#3413](https://github.com/androidx/media/issues/3413)).
 *   CompositionPlayer:
     *   Support configuring the frame rate of video frame aggregation via
         `Composition.Builder.setVideoFrameAggregationParameters` for playback

@@ -246,6 +246,13 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
       int result =
           readSource(
               formatHolder, buffer, SampleStream.FLAG_PEEK | SampleStream.FLAG_OMIT_SAMPLE_DATA);
+      while (result == C.RESULT_FORMAT_READ) {
+        // Format reads are not repeated by a subsequent non-peek read, so handle it here.
+        subsampleOffsetUs = checkNotNull(formatHolder.format).subsampleOffsetUs;
+        result =
+            readSource(
+                formatHolder, buffer, SampleStream.FLAG_PEEK | SampleStream.FLAG_OMIT_SAMPLE_DATA);
+      }
       if (result == C.RESULT_NOTHING_READ && !buffer.isEndOfStream()) {
         // Nothing to consume yet.
         return;

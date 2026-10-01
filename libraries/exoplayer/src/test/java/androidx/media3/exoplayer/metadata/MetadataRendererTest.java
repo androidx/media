@@ -368,6 +368,8 @@ public class MetadataRendererTest {
             ImmutableList.of(
                 sample(/* timeUs= */ 100_000, C.BUFFER_FLAG_KEY_FRAME, encodedEmsg),
                 sample(/* timeUs= */ 450_000, C.BUFFER_FLAG_KEY_FRAME, encodedEmsg),
+                FakeSampleStream.FakeSampleStreamItem.format(
+                    EMSG_FORMAT.buildUpon().setId("2").build()),
                 sample(/* timeUs= */ 2_000_000, C.BUFFER_FLAG_KEY_FRAME, encodedEmsg),
                 END_OF_STREAM_ITEM));
     fakeSampleStream.writeData(/* startPositionUs= */ 0);
@@ -470,12 +472,17 @@ public class MetadataRendererTest {
 
   private static FakeSampleStream createFakeSampleStream(
       ImmutableList<FakeSampleStream.FakeSampleStreamItem> samples) {
+    return createFakeSampleStream(EMSG_FORMAT, samples);
+  }
+
+  private static FakeSampleStream createFakeSampleStream(
+      Format format, ImmutableList<FakeSampleStream.FakeSampleStreamItem> samples) {
     return new FakeSampleStream(
         new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
         /* mediaSourceEventDispatcher= */ null,
         DrmSessionManager.DRM_UNSUPPORTED,
         new DrmSessionEventListener.EventDispatcher(),
-        EMSG_FORMAT,
+        format,
         samples);
   }
 
@@ -575,5 +582,60 @@ public class MetadataRendererTest {
 
     assertThat(renderer.getReadingPositionUs()).isEqualTo(C.TIME_END_OF_SOURCE);
     assertThat(renderer.isEnded()).isTrue();
+  }
+
+  @Test
+  public void renderMetadata_withSubsampleOffsetUs_propagatesOffsetToDecoder() throws Exception {
+    Format scte35Format1 =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.APPLICATION_SCTE35)
+            .setSubsampleOffsetUs(500_000)
+            .build();
+    Format scte35Format2 =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.APPLICATION_SCTE35)
+            .setSubsampleOffsetUs(800_000)
+            .build();
+    List<Metadata> metadata = new ArrayList<>();
+    MetadataRenderer renderer = new MetadataRenderer(metadata::add, /* outputLooper= */ null);
+    FakeSampleStream fakeSampleStream =
+        createFakeSampleStream(
+            scte35Format1,
+            ImmutableList.of(
+                sample(/* timeUs= */ 2_000_000, C.BUFFER_FLAG_KEY_FRAME, SCTE35_TIME_SIGNAL_BYTES),
+                FakeSampleStream.FakeSampleStreamItem.format(scte35Format2),
+                sample(/* timeUs= */ 4_000_000, C.BUFFER_FLAG_KEY_FRAME, SCTE35_TIME_SIGNAL_BYTES),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {scte35Format1},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 1_000_000,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.start();
+
+    // First render peeks scte35Format1 and defers reading the sample at 3_000_000.
+    renderer.render(/* positionUs= */ 1_000_000, /* elapsedRealtimeUs= */ 0);
+    // Second render consumes the first sample, peeks scte35Format2, and defers the second sample.
+    renderer.render(/* positionUs= */ 3_000_000, /* elapsedRealtimeUs= */ 0);
+    // Third render consumes the second sample.
+    renderer.render(/* positionUs= */ 5_000_000, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(metadata).hasSize(2);
+    TimeSignalCommand timeSignalCommand1 = (TimeSignalCommand) metadata.get(0).get(0);
+    assertThat(timeSignalCommand1.ptsTime).isEqualTo(0x5203028fL);
+    // Expected playbackPositionUs is ptsToUs(0x5203028f) + subsampleOffsetUs (500_000) + offsetUs
+    // (1_000_000) = 15_288_099_722 + 1_500_000 = 15_289_599_722.
+    assertThat(timeSignalCommand1.playbackPositionUs).isEqualTo(15_289_599_722L);
+    TimeSignalCommand timeSignalCommand2 = (TimeSignalCommand) metadata.get(1).get(0);
+    assertThat(timeSignalCommand2.ptsTime).isEqualTo(0x5203028fL);
+    // Expected playbackPositionUs is ptsToUs(0x5203028f) + subsampleOffsetUs (800_000) + offsetUs
+    // (1_000_000) = 15_288_099_722 + 1_800_000 = 15_289_899_722.
+    assertThat(timeSignalCommand2.playbackPositionUs).isEqualTo(15_289_899_722L);
   }
 }

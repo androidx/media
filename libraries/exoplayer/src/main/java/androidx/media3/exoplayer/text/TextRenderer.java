@@ -338,6 +338,13 @@ public final class TextRenderer extends BaseRenderer implements Callback {
             formatHolder,
             cueDecoderInputBuffer,
             SampleStream.FLAG_PEEK | SampleStream.FLAG_OMIT_SAMPLE_DATA);
+    while (readResult == C.RESULT_FORMAT_READ) {
+      readResult =
+          readSource(
+              formatHolder,
+              cueDecoderInputBuffer,
+              SampleStream.FLAG_PEEK | SampleStream.FLAG_OMIT_SAMPLE_DATA);
+    }
     if (readResult == C.RESULT_NOTHING_READ && !cueDecoderInputBuffer.isEndOfStream()) {
       // Nothing to consume yet.
       return false;
@@ -467,6 +474,13 @@ public final class TextRenderer extends BaseRenderer implements Callback {
                 formatHolder,
                 nextInputBuffer,
                 SampleStream.FLAG_PEEK | SampleStream.FLAG_OMIT_SAMPLE_DATA);
+        while (result == C.RESULT_FORMAT_READ) {
+          result =
+              readSource(
+                  formatHolder,
+                  nextInputBuffer,
+                  SampleStream.FLAG_PEEK | SampleStream.FLAG_OMIT_SAMPLE_DATA);
+        }
         if (result == C.RESULT_NOTHING_READ && !nextInputBuffer.isEndOfStream()) {
           // Nothing to consume yet.
           return;

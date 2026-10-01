@@ -17,13 +17,16 @@ package androidx.media3.exoplayer.text;
 
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.sample;
+import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.text.Cue;
+import androidx.media3.common.text.CueGroup;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.RendererConfiguration;
@@ -36,6 +39,8 @@ import androidx.media3.test.utils.FakeSampleStream;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -62,6 +67,8 @@ public class TextRendererTest {
             ImmutableList.of(
                 sample(/* timeUs= */ 100_000, C.BUFFER_FLAG_KEY_FRAME, encodedCues),
                 sample(/* timeUs= */ 450_000, C.BUFFER_FLAG_KEY_FRAME, encodedCues),
+                FakeSampleStream.FakeSampleStreamItem.format(
+                    TEXT_FORMAT.buildUpon().setId("2").build()),
                 sample(/* timeUs= */ 2_000_000, C.BUFFER_FLAG_KEY_FRAME, encodedCues),
                 END_OF_STREAM_ITEM));
     fakeSampleStream.writeData(/* startPositionUs= */ 0);
@@ -93,17 +100,19 @@ public class TextRendererTest {
 
   @Test
   public void renderLegacyText_doesNotReadAheadTooFar() throws Exception {
-    ImmutableList<Cue> cues = ImmutableList.of(new Cue.Builder().setText("test").build());
-    byte[] encodedCues = cueEncoder.encode(cues, /* durationUs= */ 1_000_000);
-    TextRenderer renderer = new TextRenderer(cueList -> {}, /* outputLooper= */ null);
+    byte[] webvttBytes = "WEBVTT\n\n00:00.000 --> 00:01.000\ntest\n".getBytes(UTF_8);
+    List<CueGroup> outputCueGroups = new ArrayList<>();
+    TextRenderer renderer = new TextRenderer(outputCueGroups::add, /* outputLooper= */ null);
     renderer.experimentalSetLegacyDecodingEnabled(true);
     FakeSampleStream fakeSampleStream =
         createFakeSampleStream(
             LEGACY_TEXT_FORMAT,
             ImmutableList.of(
-                sample(/* timeUs= */ 100_000, C.BUFFER_FLAG_KEY_FRAME, encodedCues),
-                sample(/* timeUs= */ 450_000, C.BUFFER_FLAG_KEY_FRAME, encodedCues),
-                sample(/* timeUs= */ 2_000_000, C.BUFFER_FLAG_KEY_FRAME, encodedCues),
+                sample(/* timeUs= */ 100_000, C.BUFFER_FLAG_KEY_FRAME, webvttBytes),
+                sample(/* timeUs= */ 450_000, C.BUFFER_FLAG_KEY_FRAME, webvttBytes),
+                FakeSampleStream.FakeSampleStreamItem.format(
+                    LEGACY_TEXT_FORMAT.buildUpon().setId("2").build()),
+                sample(/* timeUs= */ 2_000_000, C.BUFFER_FLAG_KEY_FRAME, webvttBytes),
                 END_OF_STREAM_ITEM));
     fakeSampleStream.writeData(/* startPositionUs= */ 0);
     renderer.enable(
@@ -118,10 +127,13 @@ public class TextRendererTest {
         new MediaSource.MediaPeriodId(new Object()));
     renderer.start();
 
-    // Render a few times to render as many samples as possible.
-    for (int i = 0; i < 5; i++) {
-      renderer.render(/* positionUs= */ 123_500_000, /* elapsedRealtimeUs= */ 0);
-    }
+    // Render until the first two samples are decoded on the background thread, freeing the
+    // decoder's input buffers so the renderer can peek the following format and sample.
+    runMainLooperUntil(
+        () -> {
+          renderer.render(/* positionUs= */ 123_500_000, /* elapsedRealtimeUs= */ 0);
+          return outputCueGroups.size() == 3;
+        });
 
     // Verify that the last sample (at 2_000_000) is NOT yet read.
     assertThat(renderer.getReadingPositionUs()).isEqualTo(123_450_000);
