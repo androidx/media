@@ -116,6 +116,34 @@ public final class ParsableByteArrayTest {
   }
 
   @Test
+  public void readByte() {
+    testReadByte((byte) -1);
+    testReadByte((byte) 0);
+    testReadByte((byte) 1);
+    testReadByte(Byte.MIN_VALUE);
+    testReadByte(Byte.MAX_VALUE);
+  }
+
+  @Test
+  public void readByte_exceedsLimit_throwsException() {
+    ParsableByteArray testArray = new ParsableByteArray(0);
+    assertThrows(IndexOutOfBoundsException.class, testArray::readByte);
+  }
+
+  private static void testReadByte(byte testValue) {
+    ParsableByteArray testArray = new ParsableByteArray(new byte[] {testValue});
+    byte readValue = testArray.readByte();
+
+    assertThat(readValue).isEqualTo(testValue);
+    assertThat(testArray.getPosition()).isEqualTo(1);
+
+    testArray.skipBytes(-1);
+    readValue = testArray.readByte();
+    assertThat(readValue).isEqualTo(testValue);
+    assertThat(testArray.getPosition()).isEqualTo(1);
+  }
+
+  @Test
   public void readShort() {
     testReadShort((short) -1);
     testReadShort((short) 0);

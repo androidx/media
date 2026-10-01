@@ -17,20 +17,24 @@ package androidx.media3.extractor.mp4;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.Mp4Box;
 import androidx.media3.container.Mp4LocationData;
+import androidx.media3.container.OpusUtil;
 import androidx.media3.extractor.GaplessInfoHolder;
 import androidx.media3.extractor.metadata.Chapter;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.primitives.ImmutableLongArray;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -489,6 +493,128 @@ public final class BoxParserTest {
       buffer.putInt(field);
     }
     return new Mp4Box.LeafBox(type, new ParsableByteArray(buffer.array()));
+  }
+
+  @Test
+  public void parseTrak_withOpusDopsBox_convertsDopsToLittleEndianOpusHead()
+      throws ParserException {
+    byte[] dOpsBody =
+        ByteBuffer.allocate(11)
+            .order(ByteOrder.BIG_ENDIAN)
+            .put((byte) 0) // Version
+            .put((byte) 2) // OutputChannelCount
+            .putShort((short) 312) // PreSkip
+            .putInt(48_000) // InputSampleRate
+            .putShort((short) 258) // OutputGain
+            .put((byte) 0) // ChannelMappingFamily
+            .array();
+    byte[] expectedOpusHead =
+        ByteBuffer.allocate(19)
+            .order(ByteOrder.LITTLE_ENDIAN)
+            .put("OpusHead".getBytes(UTF_8))
+            .put((byte) 1) // Version
+            .put((byte) 2) // OutputChannelCount
+            .putShort((short) 312) // PreSkip
+            .putInt(48_000) // InputSampleRate
+            .putShort((short) 258) // OutputGain
+            .put((byte) 0) // ChannelMappingFamily
+            .array();
+    Mp4Box.ContainerBox trak = createOpusTrakWithDopsBox(dOpsBody);
+    Mp4Box.LeafBox mvhd =
+        new Mp4Box.LeafBox(
+            Mp4Box.TYPE_mvhd,
+            new ParsableByteArray(ByteBuffer.allocate(24).putInt(/* index= */ 20, 1000).array()));
+
+    Track track =
+        BoxParser.parseTrak(
+            trak,
+            mvhd,
+            /* duration= */ C.TIME_UNSET,
+            /* drmInitData= */ null,
+            /* ignoreEditLists= */ false,
+            /* isQuickTime= */ false);
+
+    assertThat(track).isNotNull();
+    assertThat(track.format.sampleMimeType).isEqualTo(MimeTypes.AUDIO_OPUS);
+    assertThat(track.format.initializationData).hasSize(3);
+    byte[] opusHead = track.format.initializationData.get(0);
+    assertThat(opusHead).isEqualTo(expectedOpusHead);
+    assertThat(OpusUtil.getPreSkipSamples(opusHead)).isEqualTo(312);
+    long preSkipNanos =
+        ByteBuffer.wrap(track.format.initializationData.get(1))
+            .order(ByteOrder.nativeOrder())
+            .getLong();
+    assertThat(preSkipNanos).isEqualTo(6_500_000L);
+  }
+
+  @Test
+  public void parseTrak_withTruncatedOpusDopsBox_throwsParserException() {
+    byte[] truncatedDopsBody = new byte[10]; // Minimum valid dOps payload size is 11 bytes.
+    Mp4Box.ContainerBox trak = createOpusTrakWithDopsBox(truncatedDopsBody);
+    Mp4Box.LeafBox mvhd =
+        new Mp4Box.LeafBox(
+            Mp4Box.TYPE_mvhd,
+            new ParsableByteArray(ByteBuffer.allocate(24).putInt(/* index= */ 20, 1000).array()));
+
+    assertThrows(
+        ParserException.class,
+        () ->
+            BoxParser.parseTrak(
+                trak,
+                mvhd,
+                /* duration= */ C.TIME_UNSET,
+                /* drmInitData= */ null,
+                /* ignoreEditLists= */ false,
+                /* isQuickTime= */ false));
+  }
+
+  private static Mp4Box.ContainerBox createOpusTrakWithDopsBox(byte[] dOpsBody) {
+    int dOpsBoxSize = Mp4Box.HEADER_SIZE + dOpsBody.length;
+    int opusEntrySize = Mp4Box.HEADER_SIZE + 8 + 20 + dOpsBoxSize;
+    int stsdBoxSize = Mp4Box.FULL_HEADER_SIZE + 4 + opusEntrySize;
+    byte[] stsdBytes =
+        ByteBuffer.allocate(stsdBoxSize)
+            .putInt(stsdBoxSize)
+            .putInt(Mp4Box.TYPE_stsd)
+            .putInt(0) // version and flags
+            .putInt(1) // numberOfEntries
+            .putInt(opusEntrySize)
+            .putInt(Mp4Box.TYPE_Opus)
+            .put(new byte[6]) // reserved
+            .putShort((short) 1) // data_reference_index
+            .put(new byte[8]) // reserved
+            .putShort((short) 2) // channelCount
+            .putShort((short) 16) // sampleSize
+            .putShort((short) 0) // compressionId
+            .putShort((short) 0) // packetSize
+            .putInt(48_000 << 16) // sampleRate (16.16 fixed-point)
+            .putInt(dOpsBoxSize)
+            .putInt(Mp4Box.TYPE_dOps)
+            .put(dOpsBody)
+            .array();
+    Mp4Box.ContainerBox stbl = new Mp4Box.ContainerBox(Mp4Box.TYPE_stbl, /* endPosition= */ 0);
+    stbl.add(new Mp4Box.LeafBox(Mp4Box.TYPE_stsd, new ParsableByteArray(stsdBytes)));
+    Mp4Box.ContainerBox minf = new Mp4Box.ContainerBox(Mp4Box.TYPE_minf, /* endPosition= */ 0);
+    minf.add(stbl);
+    Mp4Box.ContainerBox mdia = new Mp4Box.ContainerBox(Mp4Box.TYPE_mdia, /* endPosition= */ 0);
+    mdia.add(
+        new Mp4Box.LeafBox(
+            Mp4Box.TYPE_hdlr,
+            new ParsableByteArray(
+                ByteBuffer.allocate(20).putInt(/* index= */ 16, 0x736f756e).array())));
+    mdia.add(
+        new Mp4Box.LeafBox(
+            Mp4Box.TYPE_mdhd,
+            new ParsableByteArray(
+                ByteBuffer.allocate(32).putInt(/* index= */ 20, 48_000).array())));
+    mdia.add(minf);
+    Mp4Box.ContainerBox trak = new Mp4Box.ContainerBox(Mp4Box.TYPE_trak, /* endPosition= */ 0);
+    trak.add(
+        new Mp4Box.LeafBox(
+            Mp4Box.TYPE_tkhd,
+            new ParsableByteArray(ByteBuffer.allocate(92).putInt(/* index= */ 20, 1).array())));
+    trak.add(mdia);
+    return trak;
   }
 
   private static ParsableByteArray createXyzBox(String locationString) {

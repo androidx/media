@@ -52,6 +52,7 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -398,6 +399,39 @@ public class BoxesTest {
         context,
         dumpableBox,
         MuxerTestUtil.getExpectedMp4DumpFilePath("audio_sample_entry_box_opus"));
+  }
+
+  @Test
+  public void createAudioSampleEntryBox_forOpus_convertsOpusHeadToBigEndianDops() {
+    byte[] opusHead =
+        ByteBuffer.allocate(19)
+            .order(ByteOrder.LITTLE_ENDIAN)
+            .put("OpusHead".getBytes(UTF_8))
+            .put((byte) 1) // Version
+            .put((byte) 2) // OutputChannelCount
+            .putShort((short) 312) // PreSkip
+            .putInt(48_000) // InputSampleRate
+            .putShort((short) 258) // OutputGain (non-palindromic 0x0102)
+            .put((byte) 0) // ChannelMappingFamily
+            .array();
+    Format format =
+        FAKE_AUDIO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_OPUS)
+            .setInitializationData(ImmutableList.of(opusHead))
+            .build();
+
+    ByteBuffer audioSampleEntryBox = Boxes.audioSampleEntry(format);
+
+    // dOps box payload starts at offset 44 (8 Opus box header + 28 AudioSampleEntry + 8 dOps box
+    // header). Verify multi-byte fields are big-endian per Opus-in-ISOBMFF Section 4.3.2.
+    assertThat(audioSampleEntryBox.get(/* index= */ 44)).isEqualTo((byte) 0); // Version
+    assertThat(audioSampleEntryBox.get(/* index= */ 45)).isEqualTo((byte) 2); // OutputChannelCount
+    assertThat(audioSampleEntryBox.getShort(/* index= */ 46)).isEqualTo((short) 312); // PreSkip
+    assertThat(audioSampleEntryBox.getInt(/* index= */ 48)).isEqualTo(48_000); // InputSampleRate
+    assertThat(audioSampleEntryBox.getShort(/* index= */ 52)).isEqualTo((short) 258); // OutputGain
+    assertThat(audioSampleEntryBox.get(/* index= */ 54))
+        .isEqualTo((byte) 0); // ChannelMappingFamily
   }
 
   @Test

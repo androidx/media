@@ -2289,13 +2289,27 @@ public final class BoxParser {
                 .setLanguage(language)
                 .build();
       } else if (childAtomType == Mp4Box.TYPE_dOps) {
-        // Build an Opus Identification Header (defined in RFC-7845) by concatenating the Opus Magic
-        // Signature and the body of the dOps atom.
+        // Build an Opus Identification Header (defined in RFC-7845 Section 5.1) from the dOps atom
+        // (defined in https://opus-codec.org/docs/opus_in_isobmff.html Section 4.3.2).
         int childAtomBodySize = childAtomSize - Mp4Box.HEADER_SIZE;
-        byte[] headerBytes = Arrays.copyOf(opusMagic, opusMagic.length + childAtomBodySize);
-        parent.setPosition(childPosition + Mp4Box.HEADER_SIZE);
-        parent.readBytes(headerBytes, opusMagic.length, childAtomBodySize);
-        initializationData = OpusUtil.buildInitializationData(headerBytes);
+        ExtractorUtil.checkContainerInput(
+            childAtomBodySize >= 11, "dOps box body is too short: " + childAtomBodySize);
+        // RFC-7845 OpusHead uses little-endian byte order, whereas the MP4 dOps atom uses
+        // big-endian.
+        ByteBuffer headerBytes =
+            ByteBuffer.allocate(opusMagic.length + childAtomBodySize).order(LITTLE_ENDIAN);
+        headerBytes.put(opusMagic);
+        headerBytes.put((byte) 1); // RFC-7845 OpusHead Version is 1.
+        // Skip dOps Version (1 byte) to read OutputChannelCount, PreSkip, InputSampleRate, and
+        // OutputGain.
+        parent.setPosition(childPosition + Mp4Box.HEADER_SIZE + 1);
+        headerBytes.put(parent.readByte()); // OutputChannelCount
+        headerBytes.putShort(parent.readShort()); // PreSkip
+        headerBytes.putInt(parent.readInt()); // InputSampleRate
+        headerBytes.putShort(parent.readShort()); // OutputGain
+        // Copy remaining bytes (ChannelMappingFamily and optional ChannelMappingTable).
+        parent.readBytes(headerBytes, childPosition + childAtomSize - parent.getPosition());
+        initializationData = OpusUtil.buildInitializationData(headerBytes.array());
       } else if (childAtomType == Mp4Box.TYPE_dfLa) {
         int childAtomBodySize = childAtomSize - Mp4Box.FULL_HEADER_SIZE;
         byte[] initializationDataBytes = new byte[4 + childAtomBodySize];

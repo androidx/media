@@ -49,6 +49,7 @@ import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -2068,29 +2069,39 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return BoxUtils.wrapIntoBox("iacb", contents);
   }
 
-  /** Returns the audio dOps box for Opus codec as per RFC-7845: 5.1. */
+  /**
+   * Returns the audio {@code dOps} box for Opus codec as per Opus-in-ISOBMFF Section 4.3.2,
+   * converted from {@code csd-0} ({@code OpusHead} per RFC 7845 Section 5.1).
+   */
   private static ByteBuffer dOpsBox(Format format) {
     checkArgument(
         !format.initializationData.isEmpty(), "csd-0 not found in the format for dOps box.");
 
     int opusHeadSignatureLength = 8;
+    int minimumDopsPayloadSize = 11;
     byte[] csd0 = CodecSpecificDataUtil.getOpusInitializationData(format);
-    // As csd0 contains 'OpusHead' in first 8 bytes, csd0 length should be greater than 8.
-    checkArgument(csd0.length >= opusHeadSignatureLength);
-    ByteBuffer contents = ByteBuffer.allocate(csd0.length);
-    // Skip 8 bytes containing "OpusHead".
-    contents.put(
-        /* src */ csd0,
-        /* offset */ opusHeadSignatureLength,
-        /* length */ csd0.length - opusHeadSignatureLength);
+    // As csd0 contains 'OpusHead' in first 8 bytes followed by at least 11 bytes of header payload,
+    // csd0 length must be at least 19.
+    checkArgument(csd0.length >= opusHeadSignatureLength + minimumDopsPayloadSize);
+    int dOpsPayloadSize = csd0.length - opusHeadSignatureLength;
+    ByteBuffer csd0Buffer =
+        ByteBuffer.wrap(csd0, opusHeadSignatureLength, dOpsPayloadSize)
+            .order(ByteOrder.LITTLE_ENDIAN);
 
-    // For encapsulation of OPUS in MP4, the version byte (byte 0) in dOps box should be 0.
-    // (See https://opus-codec.org/docs/opus_in_isobmff.html, Section 4.3.2 Opus Specific Box).
-    // And for Ogg containers, the version byte is
-    // expected to be 1 (See https://www.rfc-editor.org/rfc/rfc7845#section-5.1, Section 5.1.2).
-    // The contents are otherwise identical.
-    checkState(contents.get(0) == 0 || contents.get(0) == 1);
-    contents.put(0, (byte) 0);
+    // For encapsulation of OPUS in MP4, the version byte in dOps box should be 0 and multi-byte
+    // fields (PreSkip, InputSampleRate, OutputGain) are big-endian
+    // (See https://opus-codec.org/docs/opus_in_isobmff.html, Section 4.3.2 Opus Specific Box),
+    // whereas RFC 7845 OpusHead uses version 1 and little-endian byte order
+    // (See https://www.rfc-editor.org/rfc/rfc7845#section-5.1).
+    byte version = csd0Buffer.get();
+    checkState(version == 0 || version == 1);
+    ByteBuffer contents = ByteBuffer.allocate(dOpsPayloadSize);
+    contents.put((byte) 0); // Version (0 in dOps)
+    contents.put(csd0Buffer.get()); // OutputChannelCount
+    contents.putShort(csd0Buffer.getShort()); // PreSkip
+    contents.putInt(csd0Buffer.getInt()); // InputSampleRate
+    contents.putShort(csd0Buffer.getShort()); // OutputGain
+    contents.put(csd0Buffer); // ChannelMappingFamily and optional ChannelMappingTable
 
     contents.flip();
 

@@ -358,6 +358,14 @@ public final class ParsableByteArray {
     return result;
   }
 
+  /** Reads the next byte as a signed value. */
+  public byte readByte() {
+    if (bytesLeft() < 1) {
+      throw new IndexOutOfBoundsException("position=" + position + ", limit=" + limit);
+    }
+    return data[position++];
+  }
+
   /** Reads the next byte as an unsigned value. */
   public int readUnsignedByte() {
     maybeAssertAtLeastBytesLeftForLegacyMethod(1);
