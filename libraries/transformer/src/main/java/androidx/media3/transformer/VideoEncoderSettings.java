@@ -236,15 +236,25 @@ public final class VideoEncoderSettings {
      * encoder.
      *
      * @param numNonBidirectionalLayers the number of predictive layers to have. This value must be
-     *     stricly positive. A value of '0' explicitly requests no temporal layers from the encoder,
-     *     regardless of the requested 'numBidirectionalLayers'.
+     *     greater than or equal to zero, or {@link #NO_VALUE} if {@code numBidirectionalLayers} is
+     *     also {@link #NO_VALUE}. A value of '0' explicitly requests no temporal layers from the
+     *     encoder, in which case {@code numBidirectionalLayers} must be '0' or {@link #NO_VALUE}.
      * @param numBidirectionalLayers the number of bi-directional layers to have. This value must be
-     *     greater than or equal to zero. A value greater than 1 constructs a hierarchical-B coding
+     *     greater than or equal to zero, or {@link #NO_VALUE} if {@code numNonBidirectionalLayers}
+     *     is '0' or {@link #NO_VALUE}. A value greater than 1 constructs a hierarchical-B coding
      *     structure.
      * @return This builder.
      */
     @CanIgnoreReturnValue
     public Builder setTemporalLayers(int numNonBidirectionalLayers, int numBidirectionalLayers) {
+      checkArgument(
+          (numNonBidirectionalLayers == NO_VALUE && numBidirectionalLayers == NO_VALUE)
+              || (numNonBidirectionalLayers == 0
+                  && (numBidirectionalLayers == 0 || numBidirectionalLayers == NO_VALUE))
+              || (numNonBidirectionalLayers > 0 && numBidirectionalLayers >= 0),
+          "Invalid temporal layers: numNonBidirectionalLayers=%s, numBidirectionalLayers=%s",
+          numNonBidirectionalLayers,
+          numBidirectionalLayers);
       this.numNonBidirectionalTemporalLayers = numNonBidirectionalLayers;
       this.numBidirectionalTemporalLayers = numBidirectionalLayers;
       return this;

@@ -20,6 +20,7 @@ import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.ColorInfo.isTransferHdr;
 import static androidx.media3.common.util.MediaFormatUtil.createMediaFormatFromFormat;
 import static androidx.media3.transformer.EncoderUtil.getCodecProfilesForHdrFormat;
+import static androidx.media3.transformer.EncoderUtil.toTemporalLayeringSchema;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -47,7 +48,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /** A default implementation of {@link Codec.EncoderFactory}. */
@@ -450,21 +450,10 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     int numBidirectionalTemporalLayers =
         supportedVideoEncoderSettings.numBidirectionalTemporalLayers;
     if (SDK_INT >= 29 && numNonBidirectionalTemporalLayers >= 0) {
-      String temporalSchema;
-      if (numNonBidirectionalTemporalLayers == 0) {
-        temporalSchema = "none";
-      } else if (numBidirectionalTemporalLayers > 0) {
-        temporalSchema =
-            String.format(
-                Locale.ROOT,
-                "android.generic.%d+%d",
-                numNonBidirectionalTemporalLayers,
-                numBidirectionalTemporalLayers);
-      } else {
-        temporalSchema =
-            String.format(Locale.ROOT, "android.generic.%d", numNonBidirectionalTemporalLayers);
-      }
-      mediaFormat.setString(MediaFormat.KEY_TEMPORAL_LAYERING, temporalSchema);
+      mediaFormat.setString(
+          MediaFormat.KEY_TEMPORAL_LAYERING,
+          toTemporalLayeringSchema(
+              numNonBidirectionalTemporalLayers, numBidirectionalTemporalLayers));
     }
 
     if (supportedVideoEncoderSettings.complexity != VideoEncoderSettings.NO_VALUE) {

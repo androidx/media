@@ -21,14 +21,17 @@ import static android.media.MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
 import static androidx.media3.common.MimeTypes.VIDEO_H264;
 import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.createCodecProfileLevel;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaFormat;
+import android.util.Pair;
 import android.util.Size;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
+import androidx.media3.common.Format;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import org.junit.After;
@@ -204,5 +207,128 @@ public class EncoderUtilTest {
                     .setColorTransfer(C.COLOR_TRANSFER_HLG)
                     .build()))
         .isEmpty();
+  }
+
+  @Test
+  public void toTemporalLayeringSchema_withZeroNonBidirectionalLayers_returnsNone() {
+    assertThat(
+            EncoderUtil.toTemporalLayeringSchema(
+                /* numNonBidirectionalLayers= */ 0, /* numBidirectionalLayers= */ 0))
+        .isEqualTo("none");
+  }
+
+  @Test
+  public void
+      toTemporalLayeringSchema_withZeroNonBidirectionalAndUnsetBidirectionalLayers_returnsNone() {
+    assertThat(
+            EncoderUtil.toTemporalLayeringSchema(
+                /* numNonBidirectionalLayers= */ 0, /* numBidirectionalLayers= */ Format.NO_VALUE))
+        .isEqualTo("none");
+  }
+
+  @Test
+  public void
+      toTemporalLayeringSchema_withZeroNonBidirectionalAndPositiveBidirectionalLayers_throws() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            EncoderUtil.toTemporalLayeringSchema(
+                /* numNonBidirectionalLayers= */ 0, /* numBidirectionalLayers= */ 2));
+  }
+
+  @Test
+  public void toTemporalLayeringSchema_withoutBidirectionalLayers_returnsGenericSchema() {
+    assertThat(
+            EncoderUtil.toTemporalLayeringSchema(
+                /* numNonBidirectionalLayers= */ 3, /* numBidirectionalLayers= */ 0))
+        .isEqualTo("android.generic.3");
+  }
+
+  @Test
+  public void toTemporalLayeringSchema_withBidirectionalLayers_returnsGenericSchemaWithPlus() {
+    assertThat(
+            EncoderUtil.toTemporalLayeringSchema(
+                /* numNonBidirectionalLayers= */ 1, /* numBidirectionalLayers= */ 2))
+        .isEqualTo("android.generic.1+2");
+  }
+
+  @Test
+  public void toTemporalLayeringSchema_withNegativeNonBidirectionalLayers_throws() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            EncoderUtil.toTemporalLayeringSchema(
+                /* numNonBidirectionalLayers= */ -1, /* numBidirectionalLayers= */ 0));
+  }
+
+  @Test
+  public void toTemporalLayeringSchema_withNegativeBidirectionalLayers_throws() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            EncoderUtil.toTemporalLayeringSchema(
+                /* numNonBidirectionalLayers= */ 2, /* numBidirectionalLayers= */ -1));
+  }
+
+  @Test
+  public void parseTemporalLayeringSchema_withNone_returnsZeroLayers() {
+    assertThat(EncoderUtil.parseTemporalLayeringSchema("none")).isEqualTo(Pair.create(0, 0));
+  }
+
+  @Test
+  public void parseTemporalLayeringSchema_withGenericSchema_returnsLayers() {
+    assertThat(EncoderUtil.parseTemporalLayeringSchema("android.generic.3"))
+        .isEqualTo(Pair.create(3, 0));
+  }
+
+  @Test
+  public void parseTemporalLayeringSchema_withGenericSchemaWithPlus_returnsLayers() {
+    assertThat(EncoderUtil.parseTemporalLayeringSchema("android.generic.1+2"))
+        .isEqualTo(Pair.create(1, 2));
+  }
+
+  @Test
+  public void parseTemporalLayeringSchema_withGenericSchemaWithPlusZero_returnsLayers() {
+    assertThat(EncoderUtil.parseTemporalLayeringSchema("android.generic.2+0"))
+        .isEqualTo(Pair.create(2, 0));
+  }
+
+  @Test
+  public void parseTemporalLayeringSchema_withWebRtcSchema_throws() {
+    assertThrows(
+        UnsupportedOperationException.class,
+        () -> EncoderUtil.parseTemporalLayeringSchema("webrtc.vp8.2-layer"));
+    assertThrows(
+        UnsupportedOperationException.class,
+        () -> EncoderUtil.parseTemporalLayeringSchema("webrtc.svc.l1t3"));
+  }
+
+  @Test
+  public void parseTemporalLayeringSchema_withMalformedSchema_throws() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> EncoderUtil.parseTemporalLayeringSchema("android.generic.0"));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> EncoderUtil.parseTemporalLayeringSchema("vendor.specific.schema"));
+  }
+
+  @Test
+  public void parseTemporalLayeringSchema_withLayerCountOverflow_throws() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> EncoderUtil.parseTemporalLayeringSchema("android.generic.99999999999"));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> EncoderUtil.parseTemporalLayeringSchema("android.generic.1+99999999999"));
+  }
+
+  @Test
+  public void parseTemporalLayeringSchema_withToTemporalLayeringSchemaOutput_roundTrips() {
+    String schema =
+        EncoderUtil.toTemporalLayeringSchema(
+            /* numNonBidirectionalLayers= */ 2, /* numBidirectionalLayers= */ 1);
+
+    assertThat(EncoderUtil.parseTemporalLayeringSchema(schema)).isEqualTo(Pair.create(2, 1));
   }
 }

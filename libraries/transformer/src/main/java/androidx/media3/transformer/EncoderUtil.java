@@ -17,6 +17,7 @@
 package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.floor;
 import static java.lang.Math.max;
@@ -44,6 +45,9 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
+import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Utility methods for {@link MediaCodec} encoders. */
 @UnstableApi
@@ -51,6 +55,11 @@ public final class EncoderUtil {
 
   /** A value to indicate the encoding level is not set. */
   public static final int LEVEL_UNSET = Format.NO_VALUE;
+
+  private static final String TEMPORAL_LAYERING_SCHEMA_NONE = "none";
+  private static final String TEMPORAL_LAYERING_SCHEMA_WEBRTC_PREFIX = "webrtc.";
+  private static final Pattern TEMPORAL_LAYERING_SCHEMA_PATTERN =
+      Pattern.compile("^android\\.generic\\.([1-9]\\d*)(?:\\+(\\d+))?$");
 
   @GuardedBy("EncoderUtil.class")
   private static final ArrayListMultimap<String, MediaCodecInfo> mimeTypeToEncoders =
@@ -360,6 +369,74 @@ public final class EncoderUtil {
     MediaCodecInfo.EncoderCapabilities encoderCapabilities =
         checkNotNull(encoderInfo.getCapabilitiesForType(mimeType).getEncoderCapabilities());
     return encoderCapabilities.isBitrateModeSupported(bitrateMode);
+  }
+
+  /**
+   * Returns the {@link android.media.MediaFormat#KEY_TEMPORAL_LAYERING} schema string for the given
+   * temporal layer counts.
+   *
+   * <p>Returns {@code "none"} if {@code numNonBidirectionalLayers} is zero, {@code
+   * "android.generic.N"} if {@code numBidirectionalLayers} is zero, and {@code
+   * "android.generic.N+M"} otherwise.
+   *
+   * @param numNonBidirectionalLayers The number of non-bidirectional temporal layers. Must be
+   *     non-negative.
+   * @param numBidirectionalLayers The number of bidirectional temporal layers. Must be non-negative
+   *     if {@code numNonBidirectionalLayers} is positive, and zero or {@link Format#NO_VALUE} if it
+   *     is zero.
+   * @throws IllegalArgumentException If {@code numNonBidirectionalLayers} is negative, if it is
+   *     positive and {@code numBidirectionalLayers} is negative, or if it is zero and {@code
+   *     numBidirectionalLayers} is neither zero nor {@link Format#NO_VALUE}.
+   */
+  public static String toTemporalLayeringSchema(
+      int numNonBidirectionalLayers, int numBidirectionalLayers) {
+    checkArgument(numNonBidirectionalLayers >= 0);
+    if (numNonBidirectionalLayers == 0) {
+      checkArgument(numBidirectionalLayers == 0 || numBidirectionalLayers == Format.NO_VALUE);
+      return TEMPORAL_LAYERING_SCHEMA_NONE;
+    }
+    checkArgument(numBidirectionalLayers >= 0);
+    if (numBidirectionalLayers > 0) {
+      return String.format(
+          Locale.ROOT, "android.generic.%d+%d", numNonBidirectionalLayers, numBidirectionalLayers);
+    }
+    return String.format(Locale.ROOT, "android.generic.%d", numNonBidirectionalLayers);
+  }
+
+  /**
+   * Parses a {@link android.media.MediaFormat#KEY_TEMPORAL_LAYERING} schema string into a {@link
+   * Pair} of the {@linkplain VideoEncoderSettings#numNonBidirectionalTemporalLayers number of
+   * non-bidirectional temporal layers} and the {@linkplain
+   * VideoEncoderSettings#numBidirectionalTemporalLayers number of bidirectional temporal layers}.
+   *
+   * <p>This method only supports {@code "none"}, which is parsed as zero layers, and the {@code
+   * "android.generic.N[+M]"} schemas defined by {@link
+   * android.media.MediaFormat#KEY_TEMPORAL_LAYERING}.
+   *
+   * @param schema The temporal layering schema string.
+   * @throws UnsupportedOperationException If the schema is a {@code "webrtc.*"} schema.
+   * @throws IllegalArgumentException If the schema is malformed or a layer count does not fit in an
+   *     int.
+   */
+  public static Pair<Integer, Integer> parseTemporalLayeringSchema(String schema) {
+    if (schema.equals(TEMPORAL_LAYERING_SCHEMA_NONE)) {
+      return Pair.create(0, 0);
+    }
+    if (schema.startsWith(TEMPORAL_LAYERING_SCHEMA_WEBRTC_PREFIX)) {
+      throw new UnsupportedOperationException("Unsupported temporal layering schema: " + schema);
+    }
+    Matcher matcher = TEMPORAL_LAYERING_SCHEMA_PATTERN.matcher(schema);
+    checkArgument(matcher.matches(), "Malformed temporal layering schema: %s", schema);
+    try {
+      int numNonBidirectionalLayers = Integer.parseInt(checkNotNull(matcher.group(1)));
+      @Nullable String bidirectionalLayers = matcher.group(2);
+      int numBidirectionalLayers =
+          bidirectionalLayers == null ? 0 : Integer.parseInt(bidirectionalLayers);
+      return Pair.create(numNonBidirectionalLayers, numBidirectionalLayers);
+    } catch (NumberFormatException e) {
+      throw new IllegalArgumentException(
+          "Temporal layer count does not fit in an int: " + schema, e);
+    }
   }
 
   /**
