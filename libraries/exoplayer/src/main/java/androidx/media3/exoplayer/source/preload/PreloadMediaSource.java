@@ -357,6 +357,9 @@ public final class PreloadMediaSource extends WrappingMediaSource {
   protected void onChildSourceInfoRefreshed(Timeline newTimeline) {
     this.timeline = newTimeline;
     refreshSourceInfo(newTimeline);
+    if (!preloadCalled) {
+      return;
+    }
     preloadHandler.post(
         () -> {
           if (isUsedByPlayer() || onSourcePreparedNotified) {

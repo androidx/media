@@ -57,6 +57,9 @@
     *   Fix an `ArrayIndexOutOfBoundsException` in analytics listeners when
         stopping playback during an ad on a live stream
         ([#3423](https://github.com/androidx/media/issues/3423)).
+    *   Fix an issue where `PreloadMediaSource` could unexpectedly post preload
+        event when `preload()` is never called
+        ([#3408](https://github.com/androidx/media/issues/3408)).
 *   CompositionPlayer:
     *   Support configuring the frame rate of video frame aggregation via
         `Composition.Builder.setVideoFrameAggregationParameters` for playback

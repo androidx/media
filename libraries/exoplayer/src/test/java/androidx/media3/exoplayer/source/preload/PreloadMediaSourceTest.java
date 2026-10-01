@@ -1137,11 +1137,12 @@ public final class PreloadMediaSourceTest {
     MediaSource.MediaSourceCaller externalCaller =
         (source, timeline) -> externalCallerSourceInfoRefreshedCalled.set(true);
     preloadMediaSource.prepareSource(externalCaller, PlayerId.UNSET, bandwidthMeter);
-    shadowOf(Looper.getMainLooper()).idle();
     preloadMediaSource.releaseSource(externalCaller);
+    shadowOf(Looper.getMainLooper()).idle();
 
     verify(loadControl, never()).onPrepared(PlayerId.PRELOAD);
     verify(loadControl, never()).onReleased(PlayerId.PRELOAD);
+    verify(mockPreloadControl, never()).onSourcePrepared(any());
     assertThat(externalCallerSourceInfoRefreshedCalled.get()).isTrue();
     MediaSource internalSource = internalSourceReference.get();
     assertThat(internalSource).isNotNull();
