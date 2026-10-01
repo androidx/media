@@ -539,6 +539,33 @@ class ProgressSliderTest {
     }
 
   @Test
+  fun slider_scrubbingEnabledByDefault_transitionsScrubbingMode() =
+    runTest(testDispatcher) {
+      val fakePlayer =
+        FakePlayer(
+          playlist =
+            listOf(
+              SimpleBasePlayer.MediaItemData.Builder("Item")
+                .setDurationUs(10_000_000)
+                .setIsSeekable(true)
+                .build()
+            )
+        )
+      val player = mock(ExoPlayer::class.java, delegatesTo<Any>(fakePlayer))
+      composeTestRule.setContent {
+        ProgressSlider(player, Modifier.testTag(SLIDER_TAG), scope = backgroundScope)
+      }
+
+      composeTestRule.onNodeWithTag(SLIDER_TAG).performTouchInput {
+        down(center)
+        moveTo(centerRight)
+      }
+      testScheduler.runCurrent()
+
+      verify(player).isScrubbingModeEnabled = true
+    }
+
+  @Test
   fun slider_nonExoPlayer_scrubbingEnabled_doesNotScrubImmediately() =
     runTest(testDispatcher) {
       val player =

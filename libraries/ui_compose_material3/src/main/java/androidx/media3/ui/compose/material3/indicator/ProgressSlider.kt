@@ -89,7 +89,7 @@ fun ProgressSlider(
   onValueChangeFinished: (() -> Unit)? = null,
   scope: CoroutineScope = rememberCoroutineScope(),
   colors: SliderColors = SliderDefaults.colors(),
-  scrubbingEnabled: Boolean = false,
+  scrubbingEnabled: Boolean = true,
   interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
 ) {
   var sliderWidthPx by remember { mutableIntStateOf(0) }
