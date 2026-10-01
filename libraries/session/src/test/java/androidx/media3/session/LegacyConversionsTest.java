@@ -30,17 +30,22 @@ import static androidx.media3.test.utils.TestUtil.getCommandsAsList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.fail;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.media.AudioAttributes;
+import android.media.session.MediaController;
 import android.net.Uri;
 import android.os.Bundle;
 import android.service.media.MediaBrowserService;
 import android.text.SpannableString;
 import android.text.SpannedString;
+import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.HeartRating;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
@@ -52,6 +57,7 @@ import androidx.media3.common.ThumbRating;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.session.legacy.MediaBrowserCompat;
+import androidx.media3.session.legacy.MediaControllerCompat;
 import androidx.media3.session.legacy.MediaDescriptionCompat;
 import androidx.media3.session.legacy.MediaMetadataCompat;
 import androidx.media3.session.legacy.MediaSessionCompat;
@@ -69,6 +75,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadows.PlaybackInfoBuilder;
 
 /** Tests for {@link LegacyConversions}. */
 @RunWith(AndroidJUnit4.class)
@@ -473,7 +480,7 @@ public final class LegacyConversionsTest {
     assertThat(mediaMetadata.title.toString()).isEqualTo("displayTitle");
     assertThat(mediaMetadata.description.toString()).isEqualTo("displayDescription");
     assertThat(mediaMetadata.subtitle.toString()).isEqualTo("displaySubtitle");
-    assertThat(mediaMetadata.displayTitle).isEqualTo("displayTitle");
+    assertThat(TextUtils.equals(mediaMetadata.displayTitle, "displayTitle")).isTrue();
   }
 
   @Test
@@ -493,7 +500,7 @@ public final class LegacyConversionsTest {
     assertThat(mediaMetadata.title.toString()).isEqualTo("title");
     assertThat(mediaMetadata.subtitle.toString()).isEqualTo("artist");
     assertThat(mediaMetadata.description.toString()).isEqualTo("album");
-    assertThat(mediaMetadata.displayTitle).isEqualTo("title");
+    assertThat(TextUtils.equals(mediaMetadata.displayTitle, "title")).isTrue();
   }
 
   @Test
@@ -1634,6 +1641,28 @@ public final class LegacyConversionsTest {
                 ApplicationProvider.getApplicationContext()))
         .hasMessageThat()
         .isNotEmpty();
+  }
+
+  @Test
+  public void convertToDeviceInfo_withNegativeMaxVolume_returnsUnspecifiedMaxVolume() {
+    MediaSessionCompat sessionCompat =
+        new MediaSessionCompat(
+            context, "tag", /* sessionInfo= */ null, /* packageNameOverride= */ null);
+    MediaControllerCompat controllerCompat = new MediaControllerCompat(context, sessionCompat);
+    shadowOf((MediaController) controllerCompat.getMediaController())
+        .setPlaybackInfo(
+            PlaybackInfoBuilder.newBuilder()
+                .setVolumeType(MediaController.PlaybackInfo.PLAYBACK_TYPE_REMOTE)
+                .setMaxVolume(-1)
+                .setAudioAttributes(new AudioAttributes.Builder().build())
+                .build());
+
+    DeviceInfo deviceInfo =
+        LegacyConversions.convertToDeviceInfo(controllerCompat.getPlaybackInfo());
+    sessionCompat.release();
+
+    assertThat(deviceInfo.playbackType).isEqualTo(DeviceInfo.PLAYBACK_TYPE_REMOTE);
+    assertThat(deviceInfo.maxVolume).isEqualTo(0);
   }
 
   private static PlaybackStateCompat createErrorPlaybackStateCompatWithoutMessage(

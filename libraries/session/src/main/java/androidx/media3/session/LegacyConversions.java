@@ -1598,7 +1598,8 @@ import java.util.concurrent.TimeoutException;
                     == MediaControllerCompat.PlaybackInfo.PLAYBACK_TYPE_REMOTE
                 ? DeviceInfo.PLAYBACK_TYPE_REMOTE
                 : DeviceInfo.PLAYBACK_TYPE_LOCAL)
-        .setMaxVolume(playbackInfoCompat.getMaxVolume())
+        // Legacy sessions may report an invalid negative maximum volume. Treat it as unspecified.
+        .setMaxVolume(max(0, playbackInfoCompat.getMaxVolume()))
         .setRoutingControllerId(playbackInfoCompat.getVolumeControlId())
         .build();
   }

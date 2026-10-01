@@ -185,6 +185,8 @@
     *   Fix issue where `MediaSession.getControllerForCurrentRequest()` returned
         `null` during play requests on Android 12 (API 31 and 32) when
         `MediaSessionService` was not yet in the foreground.
+    *   Fix `IllegalArgumentException` crash when a `MediaController` connects
+        to a legacy session that reports a negative maximum volume.
 *   UI:
     *   Add `TrackSelectionState` and `TrackSelectionParametersState` classes
         and their corresponding Composable state remember functions to the
