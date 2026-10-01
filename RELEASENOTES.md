@@ -197,6 +197,9 @@
         a buffering indicator.
     *   Add `PlaybackState` class to allow custom playback state observation,
         and introduce `BufferingIndicator` as a button-independent component.
+    *   Fix an issue where `PlayerView` and `PlayerControlView` showed ad
+        markers at period boundaries for live postroll placeholders in
+        multi-period live streams.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:

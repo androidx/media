@@ -993,6 +993,10 @@ public class LegacyPlayerControlView extends FrameLayout {
           int removedGroups = period.getRemovedAdGroupCount();
           int totalGroups = period.getAdGroupCount();
           for (int adGroupIndex = removedGroups; adGroupIndex < totalGroups; adGroupIndex++) {
+            if (period.isLivePostrollPlaceholder(adGroupIndex)) {
+              // Don't show ad markers for live stream placeholders.
+              continue;
+            }
             long adGroupTimeInPeriodUs = period.getAdGroupTimeUs(adGroupIndex);
             if (adGroupTimeInPeriodUs == C.TIME_END_OF_SOURCE) {
               if (period.durationUs == C.TIME_UNSET) {

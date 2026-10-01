@@ -41,9 +41,11 @@ import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction;
 import androidx.annotation.ColorInt;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Formatter;
 import java.util.Locale;
@@ -579,6 +581,16 @@ public class DefaultTimeBar extends View implements TimeBar {
     this.adGroupTimesMs = adGroupTimesMs;
     this.playedAdGroups = playedAdGroups;
     update();
+  }
+
+  @VisibleForTesting
+  /* package */ long[] getAdGroupTimesMs() {
+    return adGroupTimesMs == null ? new long[0] : Arrays.copyOf(adGroupTimesMs, adGroupCount);
+  }
+
+  @VisibleForTesting
+  /* package */ boolean[] getPlayedAdGroups() {
+    return playedAdGroups == null ? new boolean[0] : Arrays.copyOf(playedAdGroups, adGroupCount);
   }
 
   // View methods.
