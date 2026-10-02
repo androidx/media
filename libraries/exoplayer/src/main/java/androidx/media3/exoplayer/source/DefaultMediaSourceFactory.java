@@ -28,6 +28,7 @@ import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.Player;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -129,6 +130,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
   private boolean parseSubtitlesDuringExtraction;
   private boolean loadOnlySelectedTracks;
   private boolean enableClippingInMediaPeriod;
+  private boolean alwaysWrapInClippingMediaSource;
 
   /**
    * Creates a new instance.
@@ -517,6 +519,38 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     return this;
   }
 
+  /**
+   * Sets whether to always wrap created media sources in a {@link ClippingMediaSource}, even when
+   * the {@link MediaItem} has no clipping configuration.
+   *
+   * <p>By default a {@link ClippingMediaSource} is only added when {@link
+   * MediaItem#clippingConfiguration} is non-trivial. This means an item that starts unclipped has
+   * no {@link ClippingMediaSource} in its source structure, and a later {@link
+   * Player#replaceMediaItem} that adds a clipping configuration is silently ignored, because the
+   * existing media source reports that it can be updated in place. Enabling this ensures the
+   * wrapper is always present, so clipping configuration changes take effect. To apply them without
+   * re-preparing the media source, also enable {@link #setEnableClippingInMediaPeriod(boolean)}.
+   *
+   * <p>This applies to all media sources created by this factory, except for items with {@link
+   * C#SSAI_SCHEME} URIs, which are never clipped.
+   *
+   * <p><b>Note:</b> {@link ClippingMediaSource} only supports single-period content, so enabling
+   * this makes playback of multi-period content fail, even if it isn't clipped.
+   *
+   * <p>The default value is {@code false}.
+   *
+   * @param alwaysWrapInClippingMediaSource Whether to always wrap created media sources in a {@link
+   *     ClippingMediaSource}.
+   * @return This factory, for convenience.
+   */
+  @CanIgnoreReturnValue
+  @UnstableApi
+  public DefaultMediaSourceFactory setAlwaysWrapInClippingMediaSource(
+      boolean alwaysWrapInClippingMediaSource) {
+    this.alwaysWrapInClippingMediaSource = alwaysWrapInClippingMediaSource;
+    return this;
+  }
+
   @UnstableApi
   @CanIgnoreReturnValue
   @Override
@@ -650,14 +684,20 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
       }
     }
     return maybeWrapWithAdsMediaSource(
-        mediaItem, maybeClipMediaSource(mediaItem, mediaSource, enableClippingInMediaPeriod));
+        mediaItem,
+        maybeClipMediaSource(
+            mediaItem, mediaSource, enableClippingInMediaPeriod, alwaysWrapInClippingMediaSource));
   }
 
   // internal methods
 
   private static MediaSource maybeClipMediaSource(
-      MediaItem mediaItem, MediaSource mediaSource, boolean enableClippingInMediaPeriod) {
-    if (mediaItem.clippingConfiguration.startPositionUs == 0
+      MediaItem mediaItem,
+      MediaSource mediaSource,
+      boolean enableClippingInMediaPeriod,
+      boolean alwaysWrapInClippingMediaSource) {
+    if (!alwaysWrapInClippingMediaSource
+        && mediaItem.clippingConfiguration.startPositionUs == 0
         && mediaItem.clippingConfiguration.endPositionUs == C.TIME_END_OF_SOURCE
         && !mediaItem.clippingConfiguration.relativeToDefaultPosition) {
       return mediaSource;

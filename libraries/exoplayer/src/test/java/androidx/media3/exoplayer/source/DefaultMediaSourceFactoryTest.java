@@ -169,6 +169,18 @@ public final class DefaultMediaSourceFactoryTest {
   }
 
   @Test
+  public void createMediaSource_alwaysWrapWithoutClipping_isClippingMediaSource() {
+    DefaultMediaSourceFactory defaultMediaSourceFactory =
+        new DefaultMediaSourceFactory((Context) ApplicationProvider.getApplicationContext())
+            .setAlwaysWrapInClippingMediaSource(true);
+    MediaItem mediaItem = new MediaItem.Builder().setUri(URI_MEDIA).build();
+
+    MediaSource mediaSource = defaultMediaSourceFactory.createMediaSource(mediaItem);
+
+    assertThat(mediaSource).isInstanceOf(ClippingMediaSource.class);
+  }
+
+  @Test
   public void getSupportedTypes_coreModule_onlyOther() {
     int[] supportedTypes =
         new DefaultMediaSourceFactory((Context) ApplicationProvider.getApplicationContext())
