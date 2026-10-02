@@ -1336,6 +1336,12 @@ public class MatroskaExtractor implements Extractor {
           case 3:
             currentTrack.stereoMode = C.STEREO_MODE_TOP_BOTTOM;
             break;
+          case 2: // Top-bottom, right eye first.
+            currentTrack.stereoMode = C.STEREO_MODE_BOTTOM_TOP;
+            break;
+          case 11: // Side by side, right eye first.
+            currentTrack.stereoMode = C.STEREO_MODE_RIGHT_LEFT;
+            break;
           case 15:
             currentTrack.stereoMode = C.STEREO_MODE_STEREO_MESH;
             break;

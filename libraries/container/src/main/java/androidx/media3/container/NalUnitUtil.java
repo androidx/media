@@ -1961,10 +1961,17 @@ public final class NalUnitUtil {
             return C.STEREO_MODE_MONO;
           } else if (bitArray.bitsLeft() >= 7) {
             int framePackingArrangementType = bitArray.readBits(7);
+            // content_interpretation_type 2: constituent frame 0 (the left or top half) is the
+            // right view.
+            boolean rightViewFirst = false;
+            if (bitArray.bitsLeft() >= 7) {
+              bitArray.skipBits(1); // quincunx_sampling_flag
+              rightViewFirst = bitArray.readBits(6) == 2;
+            }
             if (framePackingArrangementType == 3) {
-              return C.STEREO_MODE_LEFT_RIGHT;
+              return rightViewFirst ? C.STEREO_MODE_RIGHT_LEFT : C.STEREO_MODE_LEFT_RIGHT;
             } else if (framePackingArrangementType == 4) {
-              return C.STEREO_MODE_TOP_BOTTOM;
+              return rightViewFirst ? C.STEREO_MODE_BOTTOM_TOP : C.STEREO_MODE_TOP_BOTTOM;
             } else if (framePackingArrangementType == 6) {
               return C.STEREO_MODE_MONO;
             }

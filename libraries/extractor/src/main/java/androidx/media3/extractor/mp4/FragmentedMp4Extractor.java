@@ -1767,7 +1767,7 @@ public class FragmentedMp4Extractor implements Extractor {
       while (sampleBytesWritten < sampleSize) {
         if (sampleCurrentNalBytesRemaining == 0) {
           int numberOfNalUnitHeaderBytesToRead = 0;
-          if (ceaTrackOutputs.length > 0 || !isSampleDependedOn) {
+          if (ceaTrackOutputs.length > 0 || trackBundle.parseStereoModeSei || !isSampleDependedOn) {
             // Try to read the NAL unit header if we're parsing captions or sample dependencies.
             int nalUnitHeaderSize = NalUnitUtil.numberOfBytesInNalUnitHeader(track.format);
             if (track.nalUnitLengthFieldLength + nalUnitHeaderSize
@@ -1798,7 +1798,7 @@ public class FragmentedMp4Extractor implements Extractor {
           sampleBytesWritten += 4;
           sampleSize += nalUnitLengthFieldLengthDiff;
           processSeiNalUnitPayload =
-              ceaTrackOutputs.length > 0
+              (ceaTrackOutputs.length > 0 || trackBundle.parseStereoModeSei)
                   && numberOfNalUnitHeaderBytesToRead > 0
                   && NalUnitUtil.isNalUnitSei(track.format, nalPrefixData, /* offset= */ 4);
           // Write the extra NAL unit bytes to the output.
@@ -1828,18 +1828,24 @@ public class FragmentedMp4Extractor implements Extractor {
                     nalUnitWithoutHeaderBuffer.getData(), nalUnitWithoutHeaderBuffer.limit());
             nalUnitWithoutHeaderBuffer.setPosition(0);
             nalUnitWithoutHeaderBuffer.setLimit(unescapedLength);
-
-            if (track.format.maxNumReorderSamples == Format.NO_VALUE) {
-              if (reorderingBufferQueue.getMaxSize() != 0) {
-                reorderingBufferQueue.setMaxSize(0);
-              }
-            } else if (reorderingBufferQueue.getMaxSize() != track.format.maxNumReorderSamples) {
-              reorderingBufferQueue.setMaxSize(track.format.maxNumReorderSamples);
+            if (trackBundle.parseStereoModeSei) {
+              trackBundle.updateStereoModeFromSei(
+                  NalUnitUtil.parseSeiStereoMode(
+                      nalUnitWithoutHeaderBuffer.getData(), /* offset= */ 0, unescapedLength));
             }
-            reorderingBufferQueue.add(sampleTimeUs, nalUnitWithoutHeaderBuffer);
+            if (ceaTrackOutputs.length > 0) {
+              if (track.format.maxNumReorderSamples == Format.NO_VALUE) {
+                if (reorderingBufferQueue.getMaxSize() != 0) {
+                  reorderingBufferQueue.setMaxSize(0);
+                }
+              } else if (reorderingBufferQueue.getMaxSize() != track.format.maxNumReorderSamples) {
+                reorderingBufferQueue.setMaxSize(track.format.maxNumReorderSamples);
+              }
+              reorderingBufferQueue.add(sampleTimeUs, nalUnitWithoutHeaderBuffer);
 
-            if ((trackBundle.getCurrentSampleFlags() & C.BUFFER_FLAG_END_OF_STREAM) != 0) {
-              reorderingBufferQueue.flush();
+              if ((trackBundle.getCurrentSampleFlags() & C.BUFFER_FLAG_END_OF_STREAM) != 0) {
+                reorderingBufferQueue.flush();
+              }
             }
           } else {
             // Write the payload of the NAL unit.
@@ -2316,6 +2322,16 @@ public class FragmentedMp4Extractor implements Extractor {
 
     private Format baseFormat;
 
+    /**
+     * Whether to read the stereo mode from H.264 and H.265 {@code frame_packing_arrangement} SEI
+     * messages: MP4 files from common encoders carry the layout of frame-packed video only there.
+     * Only when the container declares no stereo mode itself.
+     */
+    private final boolean parseStereoModeSei;
+
+    private @C.StereoMode int seiStereoMode;
+    @Nullable private Format outputFormat;
+
     private boolean currentlyInFragment;
 
     public TrackBundle(
@@ -2327,6 +2343,11 @@ public class FragmentedMp4Extractor implements Extractor {
       this.moovSampleTable = moovSampleTable;
       this.defaultSampleValues = defaultSampleValues;
       this.baseFormat = baseFormat;
+      parseStereoModeSei =
+          (Objects.equals(baseFormat.sampleMimeType, MimeTypes.VIDEO_H264)
+                  || Objects.equals(baseFormat.sampleMimeType, MimeTypes.VIDEO_H265))
+              && baseFormat.stereoMode == Format.NO_VALUE;
+      seiStereoMode = Format.NO_VALUE;
       fragment = new TrackFragment();
       scratch = new ParsableByteArray();
       encryptionSignalByte = new ParsableByteArray(1);
@@ -2342,8 +2363,40 @@ public class FragmentedMp4Extractor implements Extractor {
       this.defaultSampleValues = defaultSampleValues;
       if (pendingFormat == null) {
         output.format(baseFormat);
+        onFormatOutput(baseFormat);
       }
       resetFragmentInfo();
+    }
+
+    /**
+     * Updates the stereo mode with one read from a {@code frame_packing_arrangement} SEI message,
+     * or {@link Format#NO_VALUE} if the SEI had none. As in the MPEG-TS readers, a cancellation or
+     * 2D arrangement ({@link C#STEREO_MODE_MONO}) only ends a stereo layout read earlier.
+     */
+    public void updateStereoModeFromSei(@C.StereoMode int stereoMode) {
+      if (stereoMode == Format.NO_VALUE
+          || stereoMode == seiStereoMode
+          || (stereoMode == C.STEREO_MODE_MONO && seiStereoMode == Format.NO_VALUE)) {
+        return;
+      }
+      seiStereoMode = stereoMode;
+      baseFormat = baseFormat.buildUpon().setStereoMode(stereoMode).build();
+      if (pendingFormat != null) {
+        pendingFormat = pendingFormat.buildUpon().setStereoMode(stereoMode).build();
+      } else {
+        // A refined format ahead of the sample whose SEI carried it.
+        Format format =
+            (outputFormat != null ? outputFormat : baseFormat)
+                .buildUpon()
+                .setStereoMode(stereoMode)
+                .build();
+        output.format(format);
+        onFormatOutput(format);
+      }
+    }
+
+    private void onFormatOutput(Format format) {
+      outputFormat = format;
     }
 
     public void updateDrmInitData(DrmInitData drmInitData) {
@@ -2358,6 +2411,7 @@ public class FragmentedMp4Extractor implements Extractor {
         pendingFormat = format;
       } else {
         output.format(format);
+        onFormatOutput(format);
       }
     }
 

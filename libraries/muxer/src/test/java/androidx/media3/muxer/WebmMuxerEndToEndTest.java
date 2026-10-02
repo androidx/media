@@ -16,11 +16,14 @@
 package androidx.media3.muxer;
 
 import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
+import static androidx.media3.muxer.MuxerTestUtil.getFakeSampleAndSampleInfo;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
+import android.util.Pair;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.extractor.mkv.MatroskaExtractor;
@@ -87,6 +90,26 @@ public class WebmMuxerEndToEndTest {
   }
 
   @Test
+  public void addTrack_withSideBySideStereoMode_writesStereoMode() throws Exception {
+    assertStereoModeIsReadBack(C.STEREO_MODE_LEFT_RIGHT);
+  }
+
+  @Test
+  public void addTrack_withTopBottomStereoMode_writesStereoMode() throws Exception {
+    assertStereoModeIsReadBack(C.STEREO_MODE_TOP_BOTTOM);
+  }
+
+  @Test
+  public void addTrack_withRightLeftStereoMode_writesStereoMode() throws Exception {
+    assertStereoModeIsReadBack(C.STEREO_MODE_RIGHT_LEFT);
+  }
+
+  @Test
+  public void addTrack_withBottomTopStereoMode_writesStereoMode() throws Exception {
+    assertStereoModeIsReadBack(C.STEREO_MODE_BOTTOM_TOP);
+  }
+
+  @Test
   public void close_noSamplesWritten_createsEmptyFile() throws Exception {
     String outputFilePath = temporaryFolder.newFile("empty.webm").getPath();
     Format format = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_VP9).build();
@@ -139,5 +162,30 @@ public class WebmMuxerEndToEndTest {
     muxer.close();
 
     assertThrows(IllegalStateException.class, muxer::close);
+  }
+
+  private void assertStereoModeIsReadBack(@C.StereoMode int stereoMode) throws Exception {
+    String outputPath = temporaryFolder.newFile().getPath();
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_VP9)
+            .setWidth(12)
+            .setHeight(10)
+            .setStereoMode(stereoMode)
+            .build();
+
+    try (WebmMuxer muxer =
+        new WebmMuxer.Builder(SeekableMuxerOutput.of(new FileOutputStream(outputPath))).build()) {
+      int trackId = muxer.addTrack(format);
+      Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
+          getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0, /* isVideo= */ true);
+      muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new MatroskaExtractor(new DefaultSubtitleParserFactory()), outputPath);
+    assertThat(checkNotNull(fakeExtractorOutput.trackOutputs.valueAt(0).lastFormat).stereoMode)
+        .isEqualTo(stereoMode);
   }
 }

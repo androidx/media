@@ -108,6 +108,51 @@ public final class Mp4ExtractorNonParameterizedTest {
   }
 
   @Test
+  public void extract_h264FramePackingSideBySideSei_setsStereoMode() throws Exception {
+    assertThat(
+            extractStereoModeOfFirstTrack("media/mp4/sample_h264_frame_packing_side_by_side.mp4"))
+        .isEqualTo(C.STEREO_MODE_LEFT_RIGHT);
+  }
+
+  @Test
+  public void extract_h264FramePackingTopBottomSei_setsStereoMode() throws Exception {
+    assertThat(extractStereoModeOfFirstTrack("media/mp4/sample_h264_frame_packing_top_bottom.mp4"))
+        .isEqualTo(C.STEREO_MODE_TOP_BOTTOM);
+  }
+
+  @Test
+  public void extract_h264WithoutFramePackingSei_leavesStereoModeUnset() throws Exception {
+    // Track 0 of sample.mp4 is H.264 video with no frame_packing_arrangement SEI.
+    assertThat(extractStereoModeOfFirstTrack("media/mp4/sample.mp4")).isEqualTo(Format.NO_VALUE);
+  }
+
+  private static @C.StereoMode int extractStereoModeOfFirstTrack(String inputFilePath)
+      throws IOException {
+    Mp4Extractor extractor = new Mp4Extractor(SubtitleParser.Factory.UNSUPPORTED);
+    FakeExtractorInput input =
+        new FakeExtractorInput.Builder()
+            .setData(
+                TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), inputFilePath))
+            .build();
+    // The stereo mode refines the format ahead of the first sample.
+    FakeExtractorOutput output =
+        new FakeExtractorOutput(
+            (id, type) -> new FakeTrackOutput(type, /* deduplicateConsecutiveFormats= */ true));
+    PositionHolder positionHolder = new PositionHolder();
+    extractor.init(output);
+    int readResult = Extractor.RESULT_CONTINUE;
+    while (readResult != Extractor.RESULT_END_OF_INPUT) {
+      readResult = extractor.read(input, positionHolder);
+      if (readResult == Extractor.RESULT_SEEK) {
+        input.setPosition((int) positionHolder.position);
+      }
+    }
+    Format format = output.trackOutputs.valueAt(0).lastFormat;
+    assertThat(format).isNotNull();
+    return format.stereoMode;
+  }
+
+  @Test
   public void getSeekPoints_withEmptyTracks_returnsValidInformation() throws Exception {
     Mp4Extractor extractor = new Mp4Extractor(SubtitleParser.Factory.UNSUPPORTED);
     FakeExtractorInput input = createInputForSample("sample_empty_track.mp4");

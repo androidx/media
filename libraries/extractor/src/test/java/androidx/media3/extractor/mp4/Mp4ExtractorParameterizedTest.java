@@ -234,6 +234,30 @@ public final class Mp4ExtractorParameterizedTest {
   }
 
   @Test
+  public void mp4SampleWithH264FramePackingSideBySideSei() throws Exception {
+    assertExtractorBehavior(
+        "media/mp4/sample_h264_frame_packing_side_by_side.mp4",
+        /* peekLimit= */ 2000,
+        new ExtractorAsserts.AssertionConfig.Builder()
+            // The stereo mode is read from a frame_packing_arrangement SEI message in the first
+            // sample, which means a second Format gets emitted ahead of that sample.
+            .setDeduplicateConsecutiveFormats(true)
+            .build());
+  }
+
+  @Test
+  public void mp4SampleWithH264FramePackingTopBottomSei() throws Exception {
+    assertExtractorBehavior(
+        "media/mp4/sample_h264_frame_packing_top_bottom.mp4",
+        /* peekLimit= */ 2000,
+        new ExtractorAsserts.AssertionConfig.Builder()
+            // The stereo mode is read from a frame_packing_arrangement SEI message in the first
+            // sample, which means a second Format gets emitted ahead of that sample.
+            .setDeduplicateConsecutiveFormats(true)
+            .build());
+  }
+
+  @Test
   public void mp4SampleWithMvHevc8bit() throws Exception {
     assertExtractorBehavior("media/mp4/water_180_mvhevc_5frames.mov", /* peekLimit= */ 40);
   }
@@ -361,6 +385,17 @@ public final class Mp4ExtractorParameterizedTest {
   @Test
   public void mp4SampleWithIt35Track() throws Exception {
     assertExtractorBehavior("media/mp4/sample_with_it35_track.mp4", /* peekLimit= */ 1386);
+  }
+
+  private void assertExtractorBehavior(
+      String file, int peekLimit, ExtractorAsserts.AssertionConfig assertionConfig)
+      throws IOException {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        file,
+        peekLimit,
+        assertionConfig,
+        simulationConfig);
   }
 
   private void assertExtractorBehavior(String file, int peekLimit) throws IOException {
