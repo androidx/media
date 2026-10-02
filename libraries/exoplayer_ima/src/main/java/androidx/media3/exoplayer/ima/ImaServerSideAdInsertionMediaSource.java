@@ -1092,6 +1092,18 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
     }
 
     @Override
+    public void onIsPlayingChanged(boolean isPlaying) {
+      if (!isCurrentlyPlayingMediaPeriodFromThisSource(player, getMediaItem(), adsId)) {
+        return;
+      }
+      if (isPlaying) {
+        streamPlayer.onContentResumed();
+      } else {
+        streamPlayer.onContentPaused();
+      }
+    }
+
+    @Override
     public void onVolumeChanged(float volume) {
       if (!isCurrentlyPlayingMediaPeriodFromThisSource(player, getMediaItem(), adsId)) {
         return;
@@ -1327,6 +1339,20 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
     public void onContentCompleted() {
       for (VideoStreamPlayer.VideoStreamPlayerCallback callback : callbacks) {
         callback.onContentComplete();
+      }
+    }
+
+    /** Called when the content has paused playback. */
+    void onContentPaused() {
+      for (VideoStreamPlayer.VideoStreamPlayerCallback callback : callbacks) {
+        callback.onPause();
+      }
+    }
+
+    /** Called when the content has resumed playback. */
+    void onContentResumed() {
+      for (VideoStreamPlayer.VideoStreamPlayerCallback callback : callbacks) {
+        callback.onResume();
       }
     }
 

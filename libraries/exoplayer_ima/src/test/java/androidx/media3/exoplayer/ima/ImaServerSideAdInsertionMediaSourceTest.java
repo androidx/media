@@ -33,12 +33,12 @@ import androidx.media3.common.Timeline;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.drm.DrmSessionManagerProvider;
 import androidx.media3.exoplayer.ima.ImaServerSideAdInsertionMediaSource.AdsLoader.State;
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.ForwardingTimeline;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.ads.ServerSideAdInsertionUtil;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.test.utils.FakeMediaSource;
+import androidx.media3.test.utils.FakeMediaSourceFactory;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
@@ -53,6 +53,7 @@ import com.google.ads.interactivemedia.v3.api.StreamDisplayContainer;
 import com.google.ads.interactivemedia.v3.api.StreamManager;
 import com.google.ads.interactivemedia.v3.api.player.VideoProgressUpdate;
 import com.google.ads.interactivemedia.v3.api.player.VideoStreamPlayer;
+import com.google.ads.interactivemedia.v3.api.player.VideoStreamPlayer.VideoStreamPlayerCallback;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
@@ -80,6 +81,7 @@ public class ImaServerSideAdInsertionMediaSourceTest {
   @Mock private AdsRenderingSettings mockAdsRenderingSettings;
   @Mock private AdsManagerLoadedEvent mockAdsManagerLoadedEvent;
   @Mock private StreamManager mockStreamManager;
+  @Mock private VideoStreamPlayerCallback mockStreamPlayerCallback;
 
   private ExoPlayer player;
   private ImaServerSideAdInsertionMediaSource.AdsLoader adsLoader;
@@ -96,8 +98,7 @@ public class ImaServerSideAdInsertionMediaSourceTest {
             .build();
     adsLoader.setPlayer(player);
     factory =
-        new ImaServerSideAdInsertionMediaSource.Factory(
-            adsLoader, new DefaultMediaSourceFactory(context));
+        new ImaServerSideAdInsertionMediaSource.Factory(adsLoader, new FakeMediaSourceFactory());
     factory.setImaSdkFactory(mockImaFactory);
     mediaSource =
         factory.createMediaSource(
@@ -188,8 +189,7 @@ public class ImaServerSideAdInsertionMediaSourceTest {
             .build();
     adsLoader.setPlayer(player);
     ImaServerSideAdInsertionMediaSource.Factory factory =
-        new ImaServerSideAdInsertionMediaSource.Factory(
-            adsLoader, new DefaultMediaSourceFactory(context));
+        new ImaServerSideAdInsertionMediaSource.Factory(adsLoader, new FakeMediaSourceFactory());
     factory.setImaSdkFactory(mockImaFactory);
     MediaSource mediaSource =
         factory.createMediaSource(
@@ -300,9 +300,44 @@ public class ImaServerSideAdInsertionMediaSourceTest {
     assertThat(contentProgress).isEqualTo(new VideoProgressUpdate(12_000, 20_000));
   }
 
+  @Test
+  public void play_withMediaSource_notifiesStreamPlayerCallbackOnResume() throws Exception {
+    player.setMediaSource(mediaSource);
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+
+    player.play();
+    advance(player).untilPendingCommandsAreFullyHandled();
+
+    verify(mockStreamPlayerCallback).onResume();
+  }
+
+  @Test
+  public void pause_whilePlaying_notifiesStreamPlayerCallbackOnPause() throws Exception {
+    player.setMediaSource(mediaSource);
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+    player.play();
+    advance(player).untilPendingCommandsAreFullyHandled();
+
+    player.pause();
+    advance(player).untilPendingCommandsAreFullyHandled();
+
+    verify(mockStreamPlayerCallback).onPause();
+  }
+
+  private static final String SAMPLE_URI = "http://google.com/video.mpd";
+
   private void setupMocks() {
+    AtomicReference<StreamDisplayContainer> displayContainer = new AtomicReference<>();
     when(mockImaFactory.createAdsLoader(any(), any(), any(StreamDisplayContainer.class)))
-        .thenReturn(mockAdsLoader);
+        .thenAnswer(
+            invocation -> {
+              StreamDisplayContainer container = invocation.getArgument(2);
+              displayContainer.set(container);
+              container.getVideoStreamPlayer().addCallback(mockStreamPlayerCallback);
+              return mockAdsLoader;
+            });
     List<AdsLoadedListener> adsLoadedListeners = new ArrayList<>();
     doAnswer(
             invocation -> {
@@ -317,6 +352,12 @@ public class ImaServerSideAdInsertionMediaSourceTest {
                 unused -> {
                   for (AdsLoadedListener listener : adsLoadedListeners) {
                     listener.onAdsManagerLoaded(mockAdsManagerLoadedEvent);
+                  }
+                  if (displayContainer.get() != null) {
+                    displayContainer
+                        .get()
+                        .getVideoStreamPlayer()
+                        .loadUrl(SAMPLE_URI, new ArrayList<>());
                   }
                   return null;
                 });
