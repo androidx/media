@@ -198,11 +198,13 @@ public class DefaultRenderersFactory implements RenderersFactory {
   }
 
   /**
-   * Sets whether to enable fallback to lower-priority decoders if decoder initialization fails.
-   * This may result in using a decoder that is less efficient or slower than the primary decoder.
+   * Sets whether to enable fallback to lower-priority decoders if decoder initialization fails,
+   * or if a decoder that already initialized successfully fails while decoding and another
+   * decoder is available for the format. This may result in using a decoder that is less
+   * efficient or slower than the primary decoder.
    *
    * @param enableDecoderFallback Whether to enable fallback to lower-priority decoders if decoder
-   *     initialization fails.
+   *     initialization fails, or if a decoder fails while decoding and another is available.
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
