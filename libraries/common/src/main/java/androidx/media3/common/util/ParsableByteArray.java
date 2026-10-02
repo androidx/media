@@ -20,11 +20,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 
-import android.app.ActivityManager;
-import android.os.Build;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
-import com.google.common.base.Ascii;
+import androidx.media3.common.Flags;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Chars;
@@ -60,13 +58,9 @@ public final class ParsableByteArray {
           StandardCharsets.UTF_16BE,
           StandardCharsets.UTF_16LE);
 
-  // TODO: b/147657250 - Flip this to true
+  // TODO: b/147657250 - Remove once setShouldEnforceLimitOnLegacyMethods is removed.
   private static final AtomicReference<@NullableType Boolean> shouldEnforceLimitOnLegacyMethods =
       new AtomicReference<>();
-
-  private static class IsRunningInTestHolder {
-    static final boolean IS_RUNNING_IN_TEST = isRunningInTest();
-  }
 
   private byte[] data;
   private int position;
@@ -812,7 +806,11 @@ public final class ParsableByteArray {
    *
    * <p>Defaults to {@code null}, which means a default value is used (which may change in a later
    * release).
+   *
+   * @deprecated Use {@link Flags#enableFlag(int)} or {@link Flags#disableFlag(int)} with {@link
+   *     Flags#FLAG_ENFORCE_PARSABLE_BYTE_ARRAY_LIMIT} instead.
    */
+  @Deprecated
   @VisibleForTesting
   public static void setShouldEnforceLimitOnLegacyMethods(@Nullable Boolean enforceLimit) {
     ParsableByteArray.shouldEnforceLimitOnLegacyMethods.set(enforceLimit);
@@ -994,7 +992,7 @@ public final class ParsableByteArray {
 
   /**
    * Enforces that {@link #bytesLeft()} is at least {@code bytesNeeded} if {@link
-   * #shouldEnforceLimitOnLegacyMethods} is set to {@code true}.
+   * Flags#FLAG_ENFORCE_PARSABLE_BYTE_ARRAY_LIMIT} is enabled.
    *
    * <p>This should only be called from methods that previously didn't enforce the limit. All new
    * methods added to this class should unconditionally enforce the limit.
@@ -1006,7 +1004,8 @@ public final class ParsableByteArray {
   private void maybeAssertAtLeastBytesLeftForLegacyMethod(
       int bytesNeeded, Function<String, ? extends RuntimeException> exceptionFactory) {
     Boolean override = shouldEnforceLimitOnLegacyMethods.get();
-    boolean enforceLimit = override != null ? override : IsRunningInTestHolder.IS_RUNNING_IN_TEST;
+    boolean enforceLimit =
+        override != null ? override : Flags.isEnabled(Flags.FLAG_ENFORCE_PARSABLE_BYTE_ARRAY_LIMIT);
     if (enforceLimit) {
       if (bytesLeft() < bytesNeeded) {
         throw exceptionFactory.apply("bytesNeeded= " + bytesNeeded + ", bytesLeft=" + bytesLeft());
@@ -1024,18 +1023,5 @@ public final class ParsableByteArray {
         UnsignedBytes.checkedCast(((b1 & 0x7) << 2) | (b2 & 0b0011_0000) >> 4),
         UnsignedBytes.checkedCast(((byte) b2 & 0xF) << 4 | ((byte) b3 & 0b0011_1100) >> 2),
         UnsignedBytes.checkedCast(((byte) b3 & 0x3) << 6 | ((byte) b4 & 0x3F)));
-  }
-
-  private static boolean isRunningInTest() {
-    if (Ascii.equalsIgnoreCase("robolectric", Build.FINGERPRINT)) {
-      return true;
-    }
-    @Nullable ClassLoader loader = ParsableByteArray.class.getClassLoader();
-    return (loader != null
-            && (loader.getResource("androidx/test/espresso/Espresso.class") != null
-                || loader.getResource("org/junit/runner/Runner.class") != null
-                || loader.getResource("androidx/test/platform/app/InstrumentationRegistry.class")
-                    != null))
-        || ActivityManager.isRunningInTestHarness();
   }
 }

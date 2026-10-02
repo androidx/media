@@ -22,6 +22,7 @@ import android.util.SparseBooleanArray;
 import androidx.annotation.IntDef;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.ExperimentalApi;
+import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.lang.annotation.Documented;
@@ -117,6 +118,7 @@ public final class Flags {
    *   <li>{@link #FLAG_ENABLE_CLIPPING_IN_MEDIA_PERIOD}
    *   <li>{@link #FLAG_ENABLE_MEDIACODEC_BUFFER_DECODE_ONLY}
    *   <li>{@link #FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS}
+   *   <li>{@link #FLAG_ENFORCE_PARSABLE_BYTE_ARRAY_LIMIT}
    * </ul>
    */
   @Documented
@@ -132,6 +134,7 @@ public final class Flags {
         FLAG_ENABLE_CLIPPING_IN_MEDIA_PERIOD,
         FLAG_ENABLE_MEDIACODEC_BUFFER_DECODE_ONLY,
         FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS,
+        FLAG_ENFORCE_PARSABLE_BYTE_ARRAY_LIMIT,
       })
   public @interface Flag {}
 
@@ -214,7 +217,18 @@ public final class Flags {
   @ExperimentalApi // TODO: b/369523131 - Remove this flag.
   public static final int FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS = 7;
 
-  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 8;
+  /**
+   * Flag to enable enforcing that read and peek methods in {@link ParsableByteArray} do not read
+   * beyond {@link ParsableByteArray#limit()}.
+   *
+   * <p>When enabled, reading or peeking beyond the limit throws an {@link
+   * IndexOutOfBoundsException} (or {@link java.nio.BufferOverflowException}) even if the read is
+   * within the bounds of the underlying byte array.
+   */
+  @ExperimentalApi // TODO: b/147657250 - Remove this flag (earliest cleanup: 2026-12-01).
+  public static final int FLAG_ENFORCE_PARSABLE_BYTE_ARRAY_LIMIT = 8;
+
+  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 9;
 
   private static final SparseBooleanArray STATIC_FLAG_STATES = new SparseBooleanArray();
 

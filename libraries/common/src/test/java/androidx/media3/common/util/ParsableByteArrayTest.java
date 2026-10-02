@@ -27,33 +27,29 @@ import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
+import androidx.media3.common.Flags;
+import androidx.media3.test.utils.BindFlag;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.TestUtil;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Ints;
 import com.google.testing.junit.testparameterinjector.TestParameter;
-import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import org.junit.After;
-import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestParameterInjector;
 
 /** Tests for {@link ParsableByteArray}. */
-@RunWith(TestParameterInjector.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public final class ParsableByteArrayTest {
 
-  @TestParameter private boolean enforceLimit;
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
 
-  @Before
-  public void overrideLimitEnforcement() {
-    ParsableByteArray.setShouldEnforceLimitOnLegacyMethods(enforceLimit);
-  }
-
-  @After
-  public void resetLimitEnforcement() {
-    ParsableByteArray.setShouldEnforceLimitOnLegacyMethods(null);
-  }
+  @TestParameter
+  @BindFlag(Flags.FLAG_ENFORCE_PARSABLE_BYTE_ARRAY_LIMIT)
+  private boolean enforceLimit;
 
   private static final byte[] TEST_DATA =
       new byte[] {0x0F, (byte) 0xFF, (byte) 0x42, (byte) 0x0F, 0x00, 0x00, 0x00, 0x00};
