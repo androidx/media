@@ -38,7 +38,12 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Unit tests for {@link ImagePlanesToGlTextureConverter}. */
+/**
+ * Unit tests for {@link ImagePlanesToGlTextureConverter}.
+ *
+ * <p>Converting valid frames requires an OpenGL ES context, so happy paths are tested in the {@code
+ * androidTest} instrumentation tests.
+ */
 @RunWith(AndroidJUnit4.class)
 public final class ImagePlanesToGlTextureConverterTest {
 
@@ -82,7 +87,42 @@ public final class ImagePlanesToGlTextureConverterTest {
   }
 
   @Test
-  public void convert_unsupportedPixelFormat_throwsIllegalArgumentException() {
+  public void convert_unsetFrameDimensions_throwsIllegalArgumentException() {
+    ImagePlanesFrame frame =
+        new DefaultImagePlanesFrame.Builder(ImmutableList.of(DEFAULT_RGBA_PLANE))
+            .setFormat(new Format.Builder().setPixelFormat(PixelFormat.RGBA_8888).build())
+            .build();
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            converter.convert(
+                frame,
+                /* glExecutor= */ DIRECT_EXECUTOR,
+                /* listenerExecutor= */ DIRECT_EXECUTOR,
+                LISTENER));
+  }
+
+  @Test
+  public void convert_unsetPixelFormat_throwsUnsupportedOperationException() {
+    Format format = new Format.Builder().setWidth(DEFAULT_WIDTH).setHeight(DEFAULT_HEIGHT).build();
+    ImagePlanesFrame frame =
+        new DefaultImagePlanesFrame.Builder(ImmutableList.of(DEFAULT_RGBA_PLANE))
+            .setFormat(format)
+            .build();
+
+    assertThrows(
+        UnsupportedOperationException.class,
+        () ->
+            converter.convert(
+                frame,
+                /* glExecutor= */ DIRECT_EXECUTOR,
+                /* listenerExecutor= */ DIRECT_EXECUTOR,
+                LISTENER));
+  }
+
+  @Test
+  public void convert_unsupportedPixelFormat_throwsUnsupportedOperationException() {
     Format format =
         new Format.Builder()
             .setWidth(DEFAULT_WIDTH)
@@ -95,7 +135,7 @@ public final class ImagePlanesToGlTextureConverterTest {
             .build();
 
     assertThrows(
-        IllegalArgumentException.class,
+        UnsupportedOperationException.class,
         () ->
             converter.convert(
                 frame,
@@ -245,6 +285,35 @@ public final class ImagePlanesToGlTextureConverterTest {
         new DefaultPlane(
             ByteBuffer.allocateDirect(DEFAULT_RGBA_ROW_STRIDE * DEFAULT_HEIGHT - 1),
             DEFAULT_RGBA_ROW_STRIDE,
+            /* pixelStride= */ RGBA_BYTES_PER_PIXEL);
+    ImagePlanesFrame frame =
+        new DefaultImagePlanesFrame.Builder(ImmutableList.of(plane)).setFormat(format).build();
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            converter.convert(
+                frame,
+                /* glExecutor= */ DIRECT_EXECUTOR,
+                /* listenerExecutor= */ DIRECT_EXECUTOR,
+                LISTENER));
+  }
+
+  @Test
+  public void convert_planeBufferEndingBeforeLastVisiblePixel_throwsIllegalArgumentException() {
+    Format format =
+        new Format.Builder()
+            .setWidth(DEFAULT_WIDTH)
+            .setHeight(DEFAULT_HEIGHT)
+            .setPixelFormat(PixelFormat.RGBA_8888)
+            .build();
+    int rowBytes = DEFAULT_WIDTH * RGBA_BYTES_PER_PIXEL;
+    int paddedRowStride = rowBytes + RGBA_BYTES_PER_PIXEL;
+    // The final row only needs to extend to the last visible pixel, so this is one byte short.
+    Plane plane =
+        new DefaultPlane(
+            ByteBuffer.allocateDirect(paddedRowStride * (DEFAULT_HEIGHT - 1) + rowBytes - 1),
+            paddedRowStride,
             /* pixelStride= */ RGBA_BYTES_PER_PIXEL);
     ImagePlanesFrame frame =
         new DefaultImagePlanesFrame.Builder(ImmutableList.of(plane)).setFormat(format).build();

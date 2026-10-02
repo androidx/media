@@ -94,6 +94,8 @@ public final class ImagePlanesToGlTextureConverterTest {
   /** Padding fill color, chosen to contrast strongly with {@link #DEFAULT_COLOR}. */
   private static final int RGBA_PADDING_COLOR = Color.RED;
 
+  private static final int RGBA_BYTES_PER_PIXEL = 4;
+
   @Rule public final TestName testName = new TestName();
 
   private final Context context = getApplicationContext();
@@ -156,7 +158,10 @@ public final class ImagePlanesToGlTextureConverterTest {
     inputBitmap.copyPixelsToBuffer(buffer);
     buffer.rewind();
     Plane plane =
-        new DefaultPlane(buffer, /* rowStride= */ inputBitmap.getRowBytes(), /* pixelStride= */ 4);
+        new DefaultPlane(
+            buffer,
+            /* rowStride= */ inputBitmap.getRowBytes(),
+            /* pixelStride= */ RGBA_BYTES_PER_PIXEL);
     Format inputFormat =
         new Format.Builder()
             .setWidth(inputBitmap.getWidth())
@@ -198,6 +203,26 @@ public final class ImagePlanesToGlTextureConverterTest {
       @TestParameter boolean usePaddedRowStride) throws Exception {
     ImagePlanesFrame rgbaFrame =
         createRgbaFrame(DEFAULT_COLOR, usePaddedRowStride ? RGBA_ROW_PADDING_PIXELS : 0);
+
+    GlTextureFrame glTextureFrame = convert(rgbaFrame);
+
+    Bitmap actualBitmap = createArgb8888BitmapFromGlTextureFrame(glTextureFrame);
+    assertThat(
+            getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+                EXPECTED_DEFAULT_COLOR_BITMAP, actualBitmap, testName.getMethodName()))
+        .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
+  }
+
+  @Test
+  public void convert_rgbaPlanesFrameWithTruncatedFinalRow_outputsCorrectGlTexture()
+      throws Exception {
+    ImagePlanesFrame rgbaFrame =
+        createRgbaFrame(
+            DEFAULT_COLOR,
+            RGBA_ROW_PADDING_PIXELS,
+            DEFAULT_FRAME_WIDTH,
+            DEFAULT_FRAME_HEIGHT,
+            /* padFinalRow= */ false);
 
     GlTextureFrame glTextureFrame = convert(rgbaFrame);
 
@@ -372,19 +397,41 @@ public final class ImagePlanesToGlTextureConverterTest {
 
   private static DefaultImagePlanesFrame createRgbaFrame(
       int color, int rowPaddingPixels, int width, int height) {
-    int rowStride = (width + rowPaddingPixels) * 4;
-    ByteBuffer buffer = ByteBuffer.allocateDirect(rowStride * height);
-    for (int y = 0; y < height; y++) {
-      for (int x = 0; x < width + rowPaddingPixels; x++) {
-        int pixelColor = x < width ? color : RGBA_PADDING_COLOR;
-        buffer.put((byte) Color.red(pixelColor));
-        buffer.put((byte) Color.green(pixelColor));
-        buffer.put((byte) Color.blue(pixelColor));
-        buffer.put((byte) Color.alpha(pixelColor));
+    return createRgbaFrame(color, rowPaddingPixels, width, height, /* padFinalRow= */ true);
+  }
+
+  /**
+   * Returns a solid color RGBA_8888 frame, with each row padded by {@code rowPaddingPixels} pixels
+   * of {@link #RGBA_PADDING_COLOR}, or with the final row ending at the last visible pixel when
+   * {@code padFinalRow} is {@code false} (matching {@code ImageReader} plane buffers).
+   */
+  private static DefaultImagePlanesFrame createRgbaFrame(
+      int color, int rowPaddingPixels, int width, int height, boolean padFinalRow) {
+    int paddedWidth = width + rowPaddingPixels;
+    int rowStride = paddedWidth * RGBA_BYTES_PER_PIXEL;
+    int bufferPixels = paddedWidth * (height - 1) + (padFinalRow ? paddedWidth : width);
+    int bufferSize = bufferPixels * RGBA_BYTES_PER_PIXEL;
+    ByteBuffer buffer = ByteBuffer.allocateDirect(bufferSize);
+    // The first `height - 1` rows are always padded.
+    for (int y = 0; y < height - 1; y++) {
+      for (int x = 0; x < width; x++) {
+        addRgbaToBuffer(color, buffer);
+      }
+      for (int x = width; x < paddedWidth; x++) {
+        addRgbaToBuffer(RGBA_PADDING_COLOR, buffer);
+      }
+    }
+    // The final row only includes padding when `padFinalRow` is true.
+    for (int x = 0; x < width; x++) {
+      addRgbaToBuffer(color, buffer);
+    }
+    if (padFinalRow) {
+      for (int x = width; x < paddedWidth; x++) {
+        addRgbaToBuffer(RGBA_PADDING_COLOR, buffer);
       }
     }
     buffer.flip();
-    Plane plane = new DefaultPlane(buffer, rowStride, /* pixelStride= */ 4);
+    Plane plane = new DefaultPlane(buffer, rowStride, /* pixelStride= */ RGBA_BYTES_PER_PIXEL);
     Format format =
         new Format.Builder()
             .setWidth(width)
@@ -393,6 +440,13 @@ public final class ImagePlanesToGlTextureConverterTest {
             .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
             .build();
     return new DefaultImagePlanesFrame.Builder(ImmutableList.of(plane)).setFormat(format).build();
+  }
+
+  private static void addRgbaToBuffer(int pixelColor, ByteBuffer buffer) {
+    buffer.put((byte) Color.red(pixelColor));
+    buffer.put((byte) Color.green(pixelColor));
+    buffer.put((byte) Color.blue(pixelColor));
+    buffer.put((byte) Color.alpha(pixelColor));
   }
 
   private static final class CapturingFrameProcessorListener implements FrameProcessor.Listener {

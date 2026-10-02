@@ -20,6 +20,7 @@ import static androidx.media3.common.util.GlUtil.checkGlError;
 import static androidx.media3.effect.FrameProcessorUtils.runAllAndAccumulateExceptions;
 import static androidx.media3.effect.FrameProcessorUtils.useHighPrecisionColorComponents;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.graphics.PixelFormat;
@@ -65,9 +66,7 @@ import java.util.concurrent.Executor;
   private final float[] textureTransformMatrix;
 
   @Nullable private GlProgram glProgram;
-  private int planeTexId;
-  private int planeTextureWidth;
-  private int planeTextureHeight;
+  @Nullable private PlaneTexture planeTexture;
   private int fboId;
   private boolean isClosed;
 
@@ -81,9 +80,6 @@ import java.util.concurrent.Executor;
     this.activeOutputTextures = new HashMap<>();
     this.availableOutputTextures = new ArrayDeque<>();
     this.textureTransformMatrix = new float[16];
-    this.planeTexId = C.INDEX_UNSET;
-    this.planeTextureWidth = C.LENGTH_UNSET;
-    this.planeTextureHeight = C.LENGTH_UNSET;
     this.fboId = C.INDEX_UNSET;
   }
 
@@ -108,7 +104,12 @@ import java.util.concurrent.Executor;
     @Nullable GlTextureInfo outputTexture = null;
     try {
       GlProgram program = getOrCreateGlProgram();
-      uploadPlaneTexture(imagePlanesFrame.getPlanes().get(0), inputFormat.height);
+      uploadTexture(
+          imagePlanesFrame.getPlanes().get(0),
+          inputFormat.width,
+          inputFormat.height,
+          GLES20.GL_RGBA,
+          RGBA_BYTES_PER_PIXEL);
       outputTexture = setupOutputTextureAndFbo(outputWidth, outputHeight);
       activeOutputTextures.put(imagePlanesFrame, outputTexture);
       bindProgramAndUniforms(program, inputFormat, outputWidth, outputHeight);
@@ -159,12 +160,10 @@ import java.util.concurrent.Executor;
       glProgram = null;
       cleanupActions.add(programToDelete::delete);
     }
-    if (planeTexId != C.INDEX_UNSET) {
-      int texIdToDelete = planeTexId;
-      planeTexId = C.INDEX_UNSET;
-      planeTextureWidth = C.LENGTH_UNSET;
-      planeTextureHeight = C.LENGTH_UNSET;
-      cleanupActions.add(() -> GlUtil.deleteTexture(texIdToDelete));
+    if (planeTexture != null) {
+      int texId = planeTexture.texId;
+      planeTexture = null;
+      cleanupActions.add(() -> GlUtil.deleteTexture(texId));
     }
     for (GlTextureInfo outputTexture : activeOutputTextures.values()) {
       cleanupActions.add(outputTexture::release);
@@ -190,6 +189,11 @@ import java.util.concurrent.Executor;
   private static void validatePlanes(ImagePlanesFrame frame) {
     Format inputFormat = frame.getFormat();
     ImmutableList<Plane> planes = frame.getPlanes();
+    checkArgument(
+        inputFormat.width > 0 && inputFormat.height > 0,
+        "Unsupported frame dimensions: %sx%s",
+        inputFormat.width,
+        inputFormat.height);
     if (inputFormat.colorInfo != null) {
       int colorSpace = inputFormat.colorInfo.colorSpace;
       checkArgument(
@@ -199,39 +203,46 @@ import java.util.concurrent.Executor;
           "Unsupported color space: %s",
           colorSpace);
     }
-    checkArgument(
-        inputFormat.pixelFormat == PixelFormat.RGBA_8888
-            || inputFormat.pixelFormat == Format.NO_VALUE,
-        "Unsupported pixel format: %s",
-        inputFormat.pixelFormat);
-    checkArgument(
-        planes.size() == 1, "Expected 1 plane for RGBA pixel format, got: %s", planes.size());
-    Plane plane = planes.get(0);
-    checkArgument(
-        plane.getPixelStride() == RGBA_BYTES_PER_PIXEL,
-        "Expected pixelStride of %s for RGBA pixel format, got: %s",
-        RGBA_BYTES_PER_PIXEL,
-        plane.getPixelStride());
+    switch (inputFormat.pixelFormat) {
+      case PixelFormat.RGBA_8888:
+        checkArgument(
+            planes.size() == 1 && planes.get(0).getPixelStride() == RGBA_BYTES_PER_PIXEL,
+            "Expected 1 plane with pixelStride of %s for RGBA_8888",
+            RGBA_BYTES_PER_PIXEL);
+        break;
+      default:
+        throw new UnsupportedOperationException(
+            "Unsupported pixel format: " + inputFormat.pixelFormat);
+    }
+    validatePlaneDimensions(
+        planes.get(0), inputFormat.width, inputFormat.height, RGBA_BYTES_PER_PIXEL);
+  }
+
+  private static void validatePlaneDimensions(
+      Plane plane, int width, int height, int bytesPerPixel) {
     ByteBuffer buffer = plane.getBuffer();
     int rowStride = plane.getRowStride();
-    int rowBytes = inputFormat.width * RGBA_BYTES_PER_PIXEL;
+    int rowBytes = width * bytesPerPixel;
     checkArgument(
         rowStride >= rowBytes,
         "rowStride (%s) must be at least rowBytes (%s)",
         rowStride,
         rowBytes);
     checkArgument(
-        rowStride % RGBA_BYTES_PER_PIXEL == 0,
+        rowStride % bytesPerPixel == 0,
         "rowStride (%s) must be a multiple of bytesPerPixel (%s)",
         rowStride,
-        RGBA_BYTES_PER_PIXEL);
+        bytesPerPixel);
+    // Producers such as ImageReader end a plane's buffer at its last visible pixel, so the final
+    // row does not need to be padded to a full rowStride.
+    int minimumBufferSize = rowStride * (height - 1) + rowBytes;
     checkArgument(
-        buffer.remaining() >= rowStride * inputFormat.height,
-        "Plane buffer holds %s bytes, but rowStride (%s) * height (%s) requires %s",
+        buffer.remaining() >= minimumBufferSize,
+        "Plane buffer holds %s bytes, but rowStride (%s) and height (%s) require at least %s",
         buffer.remaining(),
         rowStride,
-        inputFormat.height,
-        rowStride * inputFormat.height);
+        height,
+        minimumBufferSize);
   }
 
   private GlProgram getOrCreateGlProgram() throws GlException, IOException {
@@ -258,47 +269,77 @@ import java.util.concurrent.Executor;
     return glProgram;
   }
 
-  private void uploadPlaneTexture(Plane plane, int inputHeight) throws GlException {
-    if (planeTexId == C.INDEX_UNSET) {
-      planeTexId = GlUtil.generateTexture();
-    }
-    GlUtil.bindTexture(GLES20.GL_TEXTURE_2D, planeTexId, GLES20.GL_LINEAR);
-
+  private void uploadTexture(Plane plane, int width, int height, int glFormat, int bytesPerPixel)
+      throws GlException {
     // OpenGL ES 2.0 lacks GL_UNPACK_ROW_LENGTH, so upload the full rowStride width and crop the
     // row padding via uTexTransformationMatrix.
-    int textureWidth = plane.getRowStride() / RGBA_BYTES_PER_PIXEL;
-    ByteBuffer buffer = plane.getBuffer();
+    int rowStride = plane.getRowStride();
+    int textureWidth = rowStride / bytesPerPixel;
+    // Bind before both glTexImage2D and glTexSubImage2D, which operate on the currently bound
+    // GL_TEXTURE_2D texture (GlUtil.generateTexture() returns an unbound texture ID).
+    int texId = planeTexture != null ? planeTexture.texId : GlUtil.generateTexture();
+    GlUtil.bindTexture(GLES20.GL_TEXTURE_2D, texId, GLES20.GL_LINEAR);
+
     boolean needsTextureAllocation =
-        planeTextureWidth != textureWidth || planeTextureHeight != inputHeight;
+        planeTexture == null
+            || planeTexture.width != textureWidth
+            || planeTexture.height != height
+            || planeTexture.glFormat != glFormat;
     if (needsTextureAllocation) {
-      // Allocate GPU texture storage on the first frame (or reallocate if plane dimensions change).
+      // Allocate GPU texture storage on the first frame, or reallocate if plane dimensions or
+      // format change (glTexImage2D automatically releases and replaces any previous texture
+      // memory for texId). The pixel contents are always updated in-place below, to avoid
+      // per-frame texture memory reallocation overhead.
       GLES20.glTexImage2D(
           GLES20.GL_TEXTURE_2D,
           /* level= */ 0,
-          GLES20.GL_RGBA,
+          glFormat,
           textureWidth,
-          inputHeight,
+          height,
           /* border= */ 0,
-          GLES20.GL_RGBA,
+          glFormat,
           GLES20.GL_UNSIGNED_BYTE,
-          buffer);
+          /* pixels= */ null);
       checkGlError();
-      planeTextureWidth = textureWidth;
-      planeTextureHeight = inputHeight;
-    } else {
-      // Reuse the existing GPU texture allocation and update pixel contents in-place to avoid
-      // per-frame texture memory reallocation overhead.
+      planeTexture = new PlaneTexture(texId, textureWidth, height, glFormat);
+    }
+
+    // The final row can be shorter than rowStride (see validatePlaneDimensions), so upload all
+    // other rows at their full stride, and then only the visible part of the final row.
+    ByteBuffer buffer = plane.getBuffer();
+    int finalRowIndex = height - 1;
+    if (finalRowIndex > 0) {
       GLES20.glTexSubImage2D(
           GLES20.GL_TEXTURE_2D,
           /* level= */ 0,
           /* xoffset= */ 0,
           /* yoffset= */ 0,
           textureWidth,
-          inputHeight,
-          GLES20.GL_RGBA,
+          /* height= */ finalRowIndex,
+          glFormat,
           GLES20.GL_UNSIGNED_BYTE,
           buffer);
       checkGlError();
+    }
+
+    // glTexSubImage2D reads starting from buffer.position() without advancing it, so advance the
+    // position to the start of the final row and restore it afterwards.
+    int initialPosition = buffer.position();
+    try {
+      buffer.position(initialPosition + rowStride * finalRowIndex);
+      GLES20.glTexSubImage2D(
+          GLES20.GL_TEXTURE_2D,
+          /* level= */ 0,
+          /* xoffset= */ 0,
+          /* yoffset= */ finalRowIndex,
+          width,
+          /* height= */ 1,
+          glFormat,
+          GLES20.GL_UNSIGNED_BYTE,
+          buffer);
+      checkGlError();
+    } finally {
+      buffer.position(initialPosition);
     }
   }
 
@@ -360,11 +401,12 @@ import java.util.concurrent.Executor;
 
   private void bindProgramAndUniforms(
       GlProgram program, Format inputFormat, int outputWidth, int outputHeight) throws GlException {
+    PlaneTexture planeTexture = checkNotNull(this.planeTexture);
     program.use();
 
     MatrixUtils.populateTransformationMatrix(
         textureTransformMatrix,
-        /* bufferWidth= */ planeTextureWidth,
+        /* bufferWidth= */ planeTexture.width,
         /* bufferHeight= */ inputFormat.height,
         /* formatWidth= */ outputWidth,
         /* formatHeight= */ outputHeight,
@@ -376,9 +418,7 @@ import java.util.concurrent.Executor;
             ? inputFormat.colorInfo.colorSpace
             : C.COLOR_SPACE_BT709;
     program.setIntUniform("uInputColorGamut", inputColorSpace);
-
-    program.setSamplerTexIdUniform("uTexSampler", planeTexId, /* texUnitIndex= */ 0);
-
+    program.setSamplerTexIdUniform("uTexSampler", planeTexture.texId, /* texUnitIndex= */ 0);
     program.bindAttributesAndUniforms();
   }
 
@@ -425,5 +465,30 @@ import java.util.concurrent.Executor;
                 .build())
         .setMetadata(inputFrame.getMetadata())
         .build();
+  }
+
+  /**
+   * The GL texture holding one uploaded image plane, and the storage currently allocated for it.
+   */
+  private static final class PlaneTexture {
+
+    /** The texture ID. */
+    private final int texId;
+
+    /** The allocated width in pixels. */
+    private final int width;
+
+    /** The allocated height in pixels. */
+    private final int height;
+
+    /** The allocated GL format. */
+    private final int glFormat;
+
+    private PlaneTexture(int texId, int width, int height, int glFormat) {
+      this.texId = texId;
+      this.width = width;
+      this.height = height;
+      this.glFormat = glFormat;
+    }
   }
 }
