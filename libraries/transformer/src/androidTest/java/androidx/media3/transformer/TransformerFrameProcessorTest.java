@@ -29,7 +29,6 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.hardware.HardwareBuffer;
 import android.net.Uri;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.util.BitmapLoader;
@@ -39,9 +38,9 @@ import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.effect.AlphaScale;
 import androidx.media3.effect.DefaultGlFrameProcessor;
-import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.test.utils.CapturingFrameProcessor;
 import androidx.media3.test.utils.FakeFrameProcessor;
+import androidx.media3.test.utils.FakeHardwareBufferJniWrapper;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
@@ -201,36 +200,5 @@ public class TransformerFrameProcessorTest {
         .run(testId, editedMediaItem);
 
     assertThat(receivedFormat.get()).isEqualTo(HardwareBuffer.RGBA_1010102);
-  }
-
-  /** A no-op {@link HardwareBufferJniWrapper} that always succeeds. */
-  @RequiresApi(26)
-  private static final class FakeHardwareBufferJniWrapper implements HardwareBufferJniWrapper {
-    @Override
-    public long nativeCreateEglImageFromHardwareBuffer(
-        long displayHandle, HardwareBuffer hardwareBuffer) {
-      return 1L;
-    }
-
-    @Override
-    public boolean nativeBindEGLImage(int target, long eglImageHandle) {
-      return true;
-    }
-
-    @Override
-    public boolean nativeDestroyEGLImage(long displayHandle, long imageHandle) {
-      return true;
-    }
-
-    @Override
-    public boolean nativeCopyBitmapToHardwareBuffer(Bitmap bitmap, HardwareBuffer hb) {
-      return true;
-    }
-
-    @Override
-    public boolean nativeCopyHardwareBufferToHardwareBuffer(
-        HardwareBuffer srcHb, HardwareBuffer dstHb) {
-      return true;
-    }
   }
 }

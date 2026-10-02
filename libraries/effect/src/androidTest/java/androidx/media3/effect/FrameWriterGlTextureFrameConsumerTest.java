@@ -99,7 +99,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   private @MonotonicNonNull ListeningExecutorService glExecutorService;
   private @MonotonicNonNull GlObjectsProvider glObjectsProvider;
   private @MonotonicNonNull BitmapSavingFrameWriter frameWriter;
-  private @MonotonicNonNull FakeHardwareBufferJniWrapper fakeJniWrapper;
+  private @MonotonicNonNull ForwardingHardwareBufferJniWrapper fakeJniWrapper;
   private @MonotonicNonNull FrameWriterGlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
   private final List<Bitmap> actualBitmaps;
 
@@ -121,7 +121,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
             })
         .get();
 
-    fakeJniWrapper = new FakeHardwareBufferJniWrapper();
+    fakeJniWrapper = new ForwardingHardwareBufferJniWrapper();
     frameWriter = new BitmapSavingFrameWriter(actualBitmaps);
     frameWriterGlTextureFrameConsumer =
         new FrameWriterGlTextureFrameConsumer(context, frameWriter, fakeJniWrapper);
@@ -687,7 +687,8 @@ public final class FrameWriterGlTextureFrameConsumerTest {
         .build();
   }
 
-  private static final class FakeHardwareBufferJniWrapper implements HardwareBufferJniWrapper {
+  private static final class ForwardingHardwareBufferJniWrapper
+      implements HardwareBufferJniWrapper {
     private final HardwareBufferJniWrapper delegate = HardwareBufferJni.INSTANCE;
     int destroyEglImageCount;
 

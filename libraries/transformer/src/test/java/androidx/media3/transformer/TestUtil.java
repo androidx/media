@@ -23,7 +23,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import android.graphics.Bitmap;
 import android.graphics.SurfaceTexture;
 import android.hardware.HardwareBuffer;
 import android.media.Image;
@@ -50,6 +49,7 @@ import androidx.media3.test.utils.AssetInfo;
 import androidx.media3.test.utils.CapturingFrameProcessor;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeExtractorOutput;
+import androidx.media3.test.utils.FakeHardwareBufferJniWrapper;
 import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.PassthroughAudioProcessor;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
@@ -493,36 +493,6 @@ public final class TestUtil {
     @Override
     public ImageReaderAdapter create(int width, int height, int format, int maxImages, long usage) {
       return new FakeImageReaderAdapter();
-    }
-  }
-
-  /** A no-op {@link HardwareBufferJniWrapper} that always succeeds. */
-  private static final class FakeHardwareBufferJniWrapper implements HardwareBufferJniWrapper {
-    @Override
-    public long nativeCreateEglImageFromHardwareBuffer(
-        long displayHandle, HardwareBuffer hardwareBuffer) {
-      return 1L;
-    }
-
-    @Override
-    public boolean nativeBindEGLImage(int target, long eglImageHandle) {
-      return true;
-    }
-
-    @Override
-    public boolean nativeDestroyEGLImage(long displayHandle, long imageHandle) {
-      return true;
-    }
-
-    @Override
-    public boolean nativeCopyBitmapToHardwareBuffer(Bitmap bitmap, HardwareBuffer hb) {
-      return true;
-    }
-
-    @Override
-    public boolean nativeCopyHardwareBufferToHardwareBuffer(
-        HardwareBuffer srcHb, HardwareBuffer dstHb) {
-      return true;
     }
   }
 }
