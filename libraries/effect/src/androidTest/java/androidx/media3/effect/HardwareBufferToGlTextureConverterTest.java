@@ -23,7 +23,7 @@ import static androidx.media3.effect.DefaultGlFrameProcessor.BT709_SRGB;
 import static androidx.media3.effect.FrameProcessorUtils.releaseOpenGl;
 import static androidx.media3.effect.FrameProcessorUtils.setupOpenGl;
 import static androidx.media3.effect.FrameProcessorUtils.shutdownGlExecutorService;
-import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_COLOR_TEST_1080P_HLG10;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_COLOR_TEST_720P_STRIP_HLG;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromFocusedGlFramebuffer;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapWithSolidColor;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createFp16BitmapFromFocusedGlFramebuffer;
@@ -492,10 +492,10 @@ public final class HardwareBufferToGlTextureConverterTest {
   public void convert_withHlgHardwareBufferAndToneMapping_outputsCorrectGlTexture()
       throws Exception {
     assumeDeviceSupportsOpenGlToneMapping(
-        testName.getMethodName(), MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
+        testName.getMethodName(), MP4_ASSET_COLOR_TEST_720P_STRIP_HLG.videoFormat);
 
-    int width = 1920;
-    int height = 1080;
+    int width = MP4_ASSET_COLOR_TEST_720P_STRIP_HLG.videoFormat.width;
+    int height = MP4_ASSET_COLOR_TEST_720P_STRIP_HLG.videoFormat.height;
 
     ImageReader inputImageReader =
         ImageReader.newInstance(
@@ -508,7 +508,7 @@ public final class HardwareBufferToGlTextureConverterTest {
 
     AtomicReference<MediaFormat> inputMediaFormat = new AtomicReference<>();
     DecodeOneFrameUtil.decodeOneMediaItemFrame(
-        MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri),
+        MediaItem.fromUri(MP4_ASSET_COLOR_TEST_720P_STRIP_HLG.uri),
         new DecodeOneFrameUtil.Listener() {
           @Override
           public void onContainerExtracted(MediaFormat mediaFormat) {}
@@ -568,7 +568,7 @@ public final class HardwareBufferToGlTextureConverterTest {
         new DefaultHardwareBufferFrame.Builder(inputHardwareBuffer).setFormat(inputFormat).build();
     Bitmap expectedBitmap =
         BitmapPixelTestUtil.readBitmap(
-            "test-generated-goldens/sample_mp4_first_frame/electrical_colors/tone_map_hlg_to_sdr_soft_gamut_compressed.png");
+            "test-generated-goldens/sample_mp4_first_frame/electrical_colors/hlg_1000nit_strip_tonemap_with_gamut_compression.png");
 
     Bitmap actualBitmap = convertAndCaptureBitmap(inputHardwareBufferFrame, listener);
 
