@@ -26,7 +26,6 @@ import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assume.assumeTrue;
 
@@ -42,7 +41,6 @@ import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.effect.DefaultGlFrameProcessor;
-import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.HardwareBufferJni;
 import androidx.media3.effect.playservices.EnhancementSessionDecorator;
 import androidx.media3.extractor.mp4.Mp4Extractor;
@@ -67,12 +65,10 @@ import com.google.android.gms.tasks.Tasks;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.SettableFuture;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executors;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -99,7 +95,6 @@ public final class EnhancementSessionDecoratorAndroidTest {
   private List<HardwareBuffer> buffersToClose;
   private Context context;
   private File outputVideoFile;
-  private ListeningExecutorService glExecutorService;
   private FrameProcessor.Factory baseGlFactory;
   private FakeFrameWriter fakeDownstreamOutput;
   private FakeFrameProcessor.Listener testListener;
@@ -111,10 +106,8 @@ public final class EnhancementSessionDecoratorAndroidTest {
     buffersToClose = new ArrayList<>();
     context = getApplicationContext();
     outputVideoFile = temporaryFolder.newFile();
-    glExecutorService = listeningDecorator(Executors.newSingleThreadExecutor());
     baseGlFactory =
-        new DefaultGlFrameProcessor.Factory(
-            context, new DefaultGlObjectsProvider(), HardwareBufferJni.INSTANCE, glExecutorService);
+        new DefaultGlFrameProcessor.Factory.Builder(context, HardwareBufferJni.INSTANCE).build();
     fakeDownstreamOutput = new FakeFrameWriter();
     testListener = new FakeFrameProcessor.Listener();
   }
@@ -126,10 +119,6 @@ public final class EnhancementSessionDecoratorAndroidTest {
     }
     if (decorator != null) {
       decorator.close();
-    }
-    if (glExecutorService != null) {
-      glExecutorService.shutdown();
-      glExecutorService.awaitTermination(1, SECONDS);
     }
     for (HardwareBuffer buffer : buffersToClose) {
       buffer.close();

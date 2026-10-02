@@ -17,11 +17,9 @@ package androidx.media3.demo.transformer;
 
 import static android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION;
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Util.newSingleThreadExecutor;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 
 import android.app.Activity;
 import android.app.Notification;
@@ -58,7 +56,6 @@ import android.widget.Toast;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
-import androidx.annotation.RequiresApi;
 import androidx.annotation.StringRes;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.NotificationCompat;
@@ -67,7 +64,6 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.media3.common.C;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
-import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
@@ -85,9 +81,7 @@ import androidx.media3.effect.BitmapOverlay;
 import androidx.media3.effect.Contrast;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultGlFrameProcessor;
-import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DrawableOverlay;
-import androidx.media3.effect.FrameProcessorUtils;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.HardwareBufferJni;
 import androidx.media3.effect.HslAdjustment;
@@ -130,7 +124,6 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningExecutorService;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -173,8 +166,6 @@ public final class TransformerActivity extends AppCompatActivity {
   @Nullable private ExoPlayer inputPlayer;
   @Nullable private ExoPlayer outputPlayer;
   @Nullable private Transformer transformer;
-  @Nullable private ListeningExecutorService glExecutorService;
-  @Nullable private GlObjectsProvider glObjectsProvider;
   @Nullable private File outputFile;
   @Nullable private File oldOutputFile;
 
@@ -375,15 +366,10 @@ public final class TransformerActivity extends AppCompatActivity {
         throw new UnsupportedOperationException(
             getString(R.string.api_28_required_frame_processor));
       }
-      glExecutorService = listeningDecorator(newSingleThreadExecutor("Transformer:Effect"));
-      glObjectsProvider = new DefaultGlObjectsProvider();
-
       FrameProcessor.Factory baseGlFactory =
-          new DefaultGlFrameProcessor.Factory(
-              /* context= */ this,
-              glObjectsProvider,
-              HardwareBufferJni.INSTANCE,
-              glExecutorService);
+          new DefaultGlFrameProcessor.Factory.Builder(
+                  /* context= */ this, HardwareBufferJni.INSTANCE)
+              .build();
       FrameProcessor.Factory frameProcessorFactory;
       if (bundle.getBoolean(ConfigurationActivity.ENABLE_GMS_VIDEO_ENHANCEMENT)) {
         if (SDK_INT < 33) {
@@ -931,26 +917,12 @@ public final class TransformerActivity extends AppCompatActivity {
     }
   }
 
-  @RequiresApi(26)
-  @OptIn(markerClass = ExperimentalApi.class)
-  private void cleanUpGlResources() {
-    if (glExecutorService == null) {
-      return;
-    }
-    FrameProcessorUtils.shutdownGlExecutorService(glExecutorService);
-    glExecutorService = null;
-    glObjectsProvider = null;
-  }
-
   private void cleanUpExport() {
     if (transformer != null) {
       transformer.cancel();
       transformer = null;
     }
 
-    if (glExecutorService != null && SDK_INT >= 26) {
-      cleanUpGlResources();
-    }
     if (outputFile != null) {
       outputFile.delete();
       outputFile = null;

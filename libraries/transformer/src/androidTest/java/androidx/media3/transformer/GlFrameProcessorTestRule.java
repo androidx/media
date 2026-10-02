@@ -15,84 +15,28 @@
  */
 package androidx.media3.transformer;
 
-import static android.os.Build.VERSION.SDK_INT;
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import android.content.Context;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
-import androidx.media3.common.GlObjectsProvider;
-import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultGlFrameProcessor;
-import androidx.media3.effect.DefaultGlObjectsProvider;
-import androidx.media3.effect.FrameProcessorUtils;
 import androidx.media3.effect.HardwareBufferJni;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 import org.junit.rules.ExternalResource;
 
 /**
- * A JUnit rule that manages frame processor GL resources for testing.
+ * A JUnit rule that creates components configured with {@link DefaultGlFrameProcessor.Factory} for
+ * testing.
  *
- * <p>GL resources (executor service and objects provider) are initialized lazily on the first
- * request and automatically released after each test.
+ * <p>Each created {@link DefaultGlFrameProcessor} creates and releases its own GL resources.
  */
 public final class GlFrameProcessorTestRule extends ExternalResource {
-  // Guards lazy setup of GL resources against concurrent initialization across threads.
-  private final Object setupLock = new Object();
-  @Nullable private volatile ListeningExecutorService glExecutorService;
-  @Nullable private volatile GlObjectsProvider glObjectsProvider;
 
-  @Override
-  protected void after() {
-    if (SDK_INT >= 26 && glExecutorService != null) {
-      FrameProcessorUtils.shutdownGlExecutorService(glExecutorService);
-      glExecutorService = null;
-      glObjectsProvider = null;
-    }
-  }
-
-  private void setUp() {
-    if (SDK_INT < 26) {
-      return;
-    }
-    synchronized (setupLock) {
-      if (glExecutorService == null) {
-        glObjectsProvider = new DefaultGlObjectsProvider();
-        glExecutorService =
-            MoreExecutors.listeningDecorator(
-                Util.newSingleThreadExecutor("GlFrameProcessorTestRule:GL"));
-      }
-    }
-  }
-
-  /** Returns the initialized {@link ListeningExecutorService} for GL operations. */
-  @RequiresApi(26)
-  public ListeningExecutorService getExecutorService() {
-    setUp();
-    return checkNotNull(glExecutorService);
-  }
-
-  /** Returns the initialized {@link GlObjectsProvider}. */
-  @RequiresApi(26)
-  public GlObjectsProvider getGlObjectsProvider() {
-    setUp();
-    return checkNotNull(glObjectsProvider);
-  }
-
-  /**
-   * Returns a {@link DefaultGlFrameProcessor.Factory} configured with EGL context managed by this
-   * rule.
-   */
+  /** Returns a {@link DefaultGlFrameProcessor.Factory}. */
   @RequiresApi(26)
   public DefaultGlFrameProcessor.Factory createDefaultGlFrameProcessorFactory(Context context) {
-    return new DefaultGlFrameProcessor.Factory(
-        context, getGlObjectsProvider(), HardwareBufferJni.INSTANCE, getExecutorService());
+    return new DefaultGlFrameProcessor.Factory.Builder(context, HardwareBufferJni.INSTANCE).build();
   }
 
   /**
-   * Returns a {@link Transformer.Builder} configured with {@link DefaultGlFrameProcessor.Factory}
-   * and EGL context managed by this rule.
+   * Returns a {@link Transformer.Builder} configured with {@link DefaultGlFrameProcessor.Factory}.
    */
   @RequiresApi(AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public Transformer.Builder createTransformerBuilder(Context context) {
@@ -103,7 +47,7 @@ public final class GlFrameProcessorTestRule extends ExternalResource {
 
   /**
    * Returns a {@link CompositionPlayer.Builder} configured with {@link
-   * DefaultGlFrameProcessor.Factory} and EGL context managed by this rule.
+   * DefaultGlFrameProcessor.Factory}.
    */
   @RequiresApi(AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public CompositionPlayer.Builder createCompositionPlayerBuilder(Context context) {

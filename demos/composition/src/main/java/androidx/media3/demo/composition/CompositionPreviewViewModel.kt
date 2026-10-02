@@ -33,7 +33,6 @@ import androidx.lifecycle.viewModelScope
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Effect
-import androidx.media3.common.GlObjectsProvider
 import androidx.media3.common.MediaItem
 import androidx.media3.common.OverlaySettings
 import androidx.media3.common.PlaybackException
@@ -46,7 +45,6 @@ import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.Log
 import androidx.media3.common.util.Size
 import androidx.media3.common.util.Util
-import androidx.media3.common.util.Util.newSingleThreadExecutor
 import androidx.media3.common.util.Util.usToMs
 import androidx.media3.common.video.FrameProcessor
 import androidx.media3.demo.composition.MatrixTransformationFactory.createDizzyCropEffect
@@ -60,8 +58,6 @@ import androidx.media3.demo.composition.data.OutputSettingsState
 import androidx.media3.demo.composition.data.Preset
 import androidx.media3.effect.DebugTraceUtil
 import androidx.media3.effect.DefaultGlFrameProcessor
-import androidx.media3.effect.DefaultGlObjectsProvider
-import androidx.media3.effect.FrameProcessorUtils
 import androidx.media3.effect.HardwareBufferJni
 import androidx.media3.effect.LanczosResample
 import androidx.media3.effect.MultipleInputVideoGraph
@@ -84,8 +80,6 @@ import androidx.media3.transformer.Transformer
 import androidx.media3.transformer.VideoFrameAggregationParameters
 import com.google.common.base.Stopwatch
 import com.google.common.base.Ticker
-import com.google.common.util.concurrent.ListeningExecutorService
-import com.google.common.util.concurrent.MoreExecutors.listeningDecorator
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -123,10 +117,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     application.resources.getString(R.string.api_33_required_gms_video_enhancement)
   internal var frameProcessorEnabled: Boolean = false
   private var transformer: Transformer? = null
-  private var playbackGlExecutorService: ListeningExecutorService? = null
-  private var playbackGlObjectsProvider: GlObjectsProvider? = null
-  private var exportGlExecutorService: ListeningExecutorService? = null
-  private var exportGlObjectsProvider: GlObjectsProvider? = null
   private var outputFile: File? = null
   private var preparedComposition: Composition? = null
   private var playerPrepared: Boolean = false
@@ -695,18 +685,8 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
           releaseAndRecreatePlayer()
           _uiState.update { it.copy(isCompositionSet = false) }
         }
-        if (exportGlExecutorService == null) {
-          val glResources = setupGlResources("Export:Effect")
-          exportGlExecutorService = glResources.first
-          exportGlObjectsProvider = glResources.second
-        }
         Transformer.Builder(getApplication())
-          .setFrameProcessorFactory(
-            createFrameProcessorFactory(
-              checkNotNull(exportGlObjectsProvider),
-              checkNotNull(exportGlExecutorService),
-            )
-          )
+          .setFrameProcessorFactory(createFrameProcessorFactory())
       } else {
         Transformer.Builder(/* context= */ getApplication())
       }
@@ -766,7 +746,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
               } catch (e: JSONException) {
                 Log.w(TAG, "Unable to convert exportResult to JSON", e)
               }
-              cleanUpExportGlResources()
             }
 
             override fun onError(
@@ -791,7 +770,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
               }
               Log.e(TAG, "Export error", exportException)
               Log.d(TAG, DebugTraceUtil.generateTraceSummary())
-              cleanUpExportGlResources()
             }
           }
         )
@@ -817,7 +795,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   fun cancelExport() {
     transformer?.cancel()
     transformer = null
-    cleanUpExportGlResources()
     outputFile?.delete()
     outputFile = null
     _uiState.update { it.copy(exportState = ExportState()) }
@@ -1038,19 +1015,9 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
       if (SDK_INT < 28) {
         throw UnsupportedOperationException(API_28_REQUIRED_MESSAGE)
       }
-      if (playbackGlExecutorService == null) {
-        val glResources = setupGlResources("Preview:Effect")
-        playbackGlExecutorService = glResources.first
-        playbackGlObjectsProvider = glResources.second
-      }
       playerBuilder =
         CompositionPlayer.Builder(getApplication())
-          .setFrameProcessorFactory(
-            createFrameProcessorFactory(
-              checkNotNull(playbackGlObjectsProvider),
-              checkNotNull(playbackGlExecutorService),
-            )
-          )
+          .setFrameProcessorFactory(createFrameProcessorFactory())
     } else {
       playerBuilder = CompositionPlayer.Builder(getApplication())
       if (uiState.value.sequenceTrackTypes.size > 1) {
@@ -1102,17 +1069,13 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   }
 
   @RequiresApi(28)
-  private fun createFrameProcessorFactory(
-    glObjectsProvider: GlObjectsProvider,
-    glExecutorService: ListeningExecutorService,
-  ): FrameProcessor.Factory {
+  private fun createFrameProcessorFactory(): FrameProcessor.Factory {
     val baseGlFactory =
-      DefaultGlFrameProcessor.Factory(
-        getApplication(),
-        glObjectsProvider,
-        HardwareBufferJni.INSTANCE,
-        glExecutorService,
-      )
+      DefaultGlFrameProcessor.Factory.Builder(
+          /* context= */ getApplication(),
+          /* hardwareBufferJniWrapper= */ HardwareBufferJni.INSTANCE,
+        )
+        .build()
     val settings = uiState.value.outputSettingsState
     if (!settings.gmsVideoEnhancementEnabled) {
       return baseGlFactory
@@ -1130,38 +1093,12 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   private fun releasePlayer() {
     compositionPlayer.stop()
     compositionPlayer.release()
-    cleanUpPlaybackGlResources()
   }
 
   private fun releaseAndRecreatePlayer() {
     releasePlayer()
     compositionPlayer = createCompositionPlayer()
     playerPrepared = false
-  }
-
-  @RequiresApi(26)
-  private fun setupGlResources(
-    threadName: String
-  ): Pair<ListeningExecutorService, GlObjectsProvider> {
-    val glObjectsProvider = DefaultGlObjectsProvider()
-    val executorService = listeningDecorator(newSingleThreadExecutor(threadName))
-    return executorService to glObjectsProvider
-  }
-
-  private fun cleanUpPlaybackGlResources() {
-    if (SDK_INT >= 26) {
-      playbackGlExecutorService?.let { FrameProcessorUtils.shutdownGlExecutorService(it) }
-    }
-    playbackGlExecutorService = null
-    playbackGlObjectsProvider = null
-  }
-
-  private fun cleanUpExportGlResources() {
-    if (SDK_INT >= 26) {
-      exportGlExecutorService?.let { FrameProcessorUtils.shutdownGlExecutorService(it) }
-    }
-    exportGlExecutorService = null
-    exportGlObjectsProvider = null
   }
 
   /**

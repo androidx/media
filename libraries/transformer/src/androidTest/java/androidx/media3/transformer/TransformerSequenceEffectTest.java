@@ -46,7 +46,6 @@ import static androidx.media3.transformer.SequenceEffectTestUtil.oneFrameFromIma
 import static androidx.media3.transformer.SequenceEffectTestUtil.tryToExportCompositionWithDecoder;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
@@ -57,12 +56,10 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
-import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.effect.BitmapOverlay;
 import androidx.media3.effect.DefaultGlFrameProcessor;
-import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.HardwareBufferJni;
 import androidx.media3.effect.LanczosResample;
@@ -74,13 +71,9 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListeningExecutorService;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import java.util.concurrent.Executors;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -113,9 +106,6 @@ public final class TransformerSequenceEffectTest {
 
   @Parameter public boolean useDefaultGlFrameProcessor;
 
-  private @MonotonicNonNull ListeningExecutorService glExecutorService;
-  private @MonotonicNonNull GlObjectsProvider glObjectsProvider;
-
   private String testId;
 
   @Before
@@ -129,15 +119,6 @@ public final class TransformerSequenceEffectTest {
 
     if (useDefaultGlFrameProcessor) {
       assumeTrue(SDK_INT >= 28);
-      glObjectsProvider = new DefaultGlObjectsProvider();
-      glExecutorService = listeningDecorator(Executors.newSingleThreadExecutor());
-    }
-  }
-
-  @After
-  public void tearDown() {
-    if (glExecutorService != null) {
-      glExecutorService.shutdown();
     }
   }
 
@@ -145,8 +126,7 @@ public final class TransformerSequenceEffectTest {
     Transformer.Builder builder = new Transformer.Builder(context);
     if (shouldUseDefaultGlFrameProcessor()) {
       builder.setFrameProcessorFactory(
-          new DefaultGlFrameProcessor.Factory(
-              context, glObjectsProvider, HardwareBufferJni.INSTANCE, glExecutorService));
+          new DefaultGlFrameProcessor.Factory.Builder(context, HardwareBufferJni.INSTANCE).build());
     }
     return builder;
   }

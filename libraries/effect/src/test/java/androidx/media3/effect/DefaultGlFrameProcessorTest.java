@@ -21,11 +21,13 @@ import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITOR_SETT
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_ITEM_EFFECTS;
 import static androidx.media3.effect.FrameProcessorUtils.shutdownGlExecutorService;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.Mockito.mock;
 
 import android.content.Context;
 import android.opengl.EGL14;
@@ -53,6 +55,7 @@ import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.GlFrameProcessorTestUtil.FakeCompositorGlProgram;
 import androidx.media3.effect.GlFrameProcessorTestUtil.FakeFrameToGlTextureConverter;
+import androidx.media3.effect.GlFrameProcessorTestUtil.FakeGlObjectsProvider;
 import androidx.media3.effect.GlFrameProcessorTestUtil.FakeGlShaderProgram;
 import androidx.media3.effect.GlFrameProcessorTestUtil.FakeGlTextureFrameConsumer;
 import androidx.media3.effect.GlFrameProcessorTestUtil.FakeHardwareBufferFrame;
@@ -269,30 +272,7 @@ public final class DefaultGlFrameProcessorTest {
   }
 
   @Test
-  public void close_releasesGlContext() throws Exception {
-    ColorInfo hdrColorInfo =
-        new ColorInfo.Builder()
-            .setColorSpace(C.COLOR_SPACE_BT2020)
-            .setColorTransfer(C.COLOR_TRANSFER_HLG)
-            .setColorRange(C.COLOR_RANGE_LIMITED)
-            .build();
-    Format format =
-        new Format.Builder()
-            .setSampleMimeType(MimeTypes.VIDEO_H265)
-            .setColorInfo(hdrColorInfo)
-            .build();
-    TestGlObjectsProvider glObjectsProvider = new TestGlObjectsProvider(/* failVersion3= */ false);
-
-    ColorInfo unused =
-        queueFrameAndGetColorInfo(format, /* forceUnsupportedFormat= */ false, glObjectsProvider);
-    waitUntilGlThreadFinishes();
-
-    // DefaultGlFrameProcessor.close() is called inside queueFrameAndGetColorInfo.
-    assertThat(glObjectsProvider.releaseCalled.get()).isTrue();
-  }
-
-  @Test
-  public void queue_whenSetupOpenGlFails_releasesPartiallyCreatedContexts() throws Exception {
+  public void queue_whenSetupOpenGlFails_notifiesError() throws Exception {
     ColorInfo hdrColorInfo =
         new ColorInfo.Builder()
             .setColorSpace(C.COLOR_SPACE_BT2020)
@@ -319,23 +299,8 @@ public final class DefaultGlFrameProcessorTest {
 
     AtomicReference<Exception> thrownException = new AtomicReference<>();
     DefaultGlFrameProcessor processor =
-        new DefaultGlFrameProcessor.Factory(
-                context,
-                glObjectsProvider,
-                glExecutorService,
-                /* frameToGlTextureConverterFactory= */ (outputColorInfo, errorConsumer) ->
-                    fakeFrameToGlTextureConverter,
-                fakeFrameWriterGlTextureFrameConsumer,
-                new DefaultGlTextureFrameCompositor.Factory(
-                    /* compositorGlProgramFactory= */ FakeCompositorGlProgram::new,
-                    /* texturePoolFactory= */ workingColorSpace ->
-                        new TexturePool(
-                            /* textureAllocator= */ (width,
-                                height,
-                                useHighPrecisionColorComponents) -> 100,
-                            /* useHighPrecisionColorComponents= */ false,
-                            /* capacity= */ COMPOSITOR_CAPACITY)),
-                /* isSurfacelessContextExtensionSupported= */ true)
+        createDefaultGlFrameProcessorFactoryBuilderWithTestGlResources(glObjectsProvider)
+            .build()
             .create(
                 frameWriter,
                 glExecutorService,
@@ -366,7 +331,6 @@ public final class DefaultGlFrameProcessorTest {
         .hasCauseThat()
         .hasMessageThat()
         .contains("Test Surface Creation failed");
-    assertThat(glObjectsProvider.releaseCalled.get()).isTrue();
   }
 
   @Test
@@ -1431,91 +1395,174 @@ public final class DefaultGlFrameProcessorTest {
   }
 
   @Test
-  public void close_calledTwice_releasesResourcesOnce() throws Exception {
-    TestGlObjectsProvider glObjectsProvider = new TestGlObjectsProvider(/* failVersion3= */ false);
+  public void close_calledTwice_doesNotThrow() throws Exception {
     DefaultGlFrameProcessor customProcessor =
-        new DefaultGlFrameProcessor.Factory(
-                context,
-                glObjectsProvider,
-                glExecutorService,
-                /* frameToGlTextureConverterFactory= */ (outputColorInfo, errorConsumer) ->
-                    fakeFrameToGlTextureConverter,
-                fakeFrameWriterGlTextureFrameConsumer,
-                new DefaultGlTextureFrameCompositor.Factory(
-                    /* compositorGlProgramFactory= */ FakeCompositorGlProgram::new,
-                    /* texturePoolFactory= */ workingColorSpace ->
-                        new TexturePool(
-                            /* textureAllocator= */ (width,
-                                height,
-                                useHighPrecisionColorComponents) -> 100,
-                            /* useHighPrecisionColorComponents= */ false,
-                            /* capacity= */ COMPOSITOR_CAPACITY)),
-                /* isSurfacelessContextExtensionSupported= */ true)
-            .create(
-                frameWriter,
-                glExecutorService,
-                new FrameProcessor.Listener() {
-                  @Override
-                  public void onWakeup() {}
-
-                  @Override
-                  public void onError(VideoFrameProcessingException exception) {
-                    throw new AssertionError(exception);
-                  }
-
-                  @Override
-                  public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper fence) {}
-                });
+        createDefaultGlFrameProcessorFactoryBuilderWithDefaultGlResources()
+            .build()
+            .create(frameWriter, directExecutor(), createFailOnErrorListener());
     Frame frame = createFakeHardwareBufferFrame(/* sequenceIndex= */ 0, fakeEffect);
+    fakeFrameWriterGlTextureFrameConsumer.setExpectedFrameCount(1);
+
     assertThat(
             customProcessor.queue(
                 ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null))))
         .isTrue();
-    waitUntilGlThreadFinishes();
+    assertThat(fakeFrameWriterGlTextureFrameConsumer.awaitFramesReceived(SYNC_TIMEOUT_MS)).isTrue();
 
     customProcessor.close();
+    // Call close() again on purpose, to check it's a no-op after the GL executor is shut down.
+    customProcessor.close();
+  }
+
+  @Test
+  public void close_withGlObjectsProviderAndExecutorServiceSet_doesNotReleaseThem()
+      throws Exception {
+    TestGlObjectsProvider glObjectsProvider = new TestGlObjectsProvider(/* failVersion3= */ false);
+    DefaultGlFrameProcessor customProcessor =
+        createDefaultGlFrameProcessorFactoryBuilderWithTestGlResources(glObjectsProvider)
+            .build()
+            .create(frameWriter, directExecutor(), createFailOnErrorListener());
+    Frame frame = createFakeHardwareBufferFrame(/* sequenceIndex= */ 0, fakeEffect);
+    fakeFrameWriterGlTextureFrameConsumer.setExpectedFrameCount(1);
+
+    assertThat(
+            customProcessor.queue(
+                ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null))))
+        .isTrue();
+
+    assertThat(fakeFrameWriterGlTextureFrameConsumer.awaitFramesReceived(SYNC_TIMEOUT_MS)).isTrue();
+
     customProcessor.close();
 
-    assertThat(glObjectsProvider.releaseCount.get()).isEqualTo(1);
+    assertThat(glObjectsProvider.releaseCalled.get()).isFalse();
+    assertThat(glExecutorService.isShutdown()).isFalse();
+  }
+
+  @Test
+  public void close_withDefaultGlResources_terminatesGlThread() throws Exception {
+    DefaultGlFrameProcessor customProcessor =
+        createDefaultGlFrameProcessorFactoryBuilderWithDefaultGlResources()
+            .build()
+            .create(frameWriter, directExecutor(), createFailOnErrorListener());
+
+    customProcessor.close();
+    Thread glThread = checkNotNull(fakeFrameWriterGlTextureFrameConsumer.closeThread);
+    glThread.join(SYNC_TIMEOUT_MS);
+
+    assertThat(glThread.isAlive()).isFalse();
+  }
+
+  @Test
+  public void close_withDefaultGlResources_wakeupFromDownstreamAfterCloseDoesNotThrow()
+      throws Exception {
+    fakeFrameWriterGlTextureFrameConsumer.shouldAcceptIncomingFrames = false;
+    DefaultGlFrameProcessor customProcessor =
+        createDefaultGlFrameProcessorFactoryBuilderWithDefaultGlResources()
+            .build()
+            .create(frameWriter, directExecutor(), createFailOnErrorListener());
+    Frame frame = createFakeHardwareBufferFrame(/* sequenceIndex= */ 0, fakeEffect);
+
+    assertThat(
+            customProcessor.queue(
+                ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null))))
+        .isTrue();
+
+    assertThat(
+            fakeFrameWriterGlTextureFrameConsumer.wakeupListenerRegistered.block(SYNC_TIMEOUT_MS))
+        .isTrue();
+    customProcessor.close();
+
+    // Simulates the downstream consumer posting a wakeup to the GL executor, which is shut down.
+    fakeFrameWriterGlTextureFrameConsumer.triggerWakeup();
+  }
+
+  @Test
+  public void create_multipleProcessorsSequentiallyWithDefaultGlResources_eachProcessesFrame()
+      throws Exception {
+    DefaultGlFrameProcessor.Factory factory =
+        createDefaultGlFrameProcessorFactoryBuilderWithDefaultGlResources().build();
+    fakeFrameWriterGlTextureFrameConsumer.setExpectedFrameCount(1);
+    DefaultGlFrameProcessor processor1 =
+        factory.create(frameWriter, directExecutor(), createFailOnErrorListener());
+    Frame frame1 = createFakeHardwareBufferFrame(/* sequenceIndex= */ 0, fakeEffect);
+
+    assertThat(processor1.queue(ImmutableList.of(new AsyncFrame(frame1, /* acquireFence= */ null))))
+        .isTrue();
+    assertThat(fakeFrameWriterGlTextureFrameConsumer.awaitFramesReceived(SYNC_TIMEOUT_MS)).isTrue();
+
+    processor1.close();
+
+    fakeFrameWriterGlTextureFrameConsumer.setExpectedFrameCount(1);
+    DefaultGlFrameProcessor processor2 =
+        factory.create(frameWriter, directExecutor(), createFailOnErrorListener());
+    Frame frame2 = createFakeHardwareBufferFrame(/* sequenceIndex= */ 0, fakeEffect);
+
+    assertThat(processor2.queue(ImmutableList.of(new AsyncFrame(frame2, /* acquireFence= */ null))))
+        .isTrue();
+    assertThat(fakeFrameWriterGlTextureFrameConsumer.awaitFramesReceived(SYNC_TIMEOUT_MS)).isTrue();
+
+    processor2.close();
+
+    assertThat(frameWriter.queuedFrames).isEqualTo(2);
+  }
+
+  private DefaultGlFrameProcessor.Factory.Builder
+      createDefaultGlFrameProcessorFactoryBuilderWithTestGlResources(
+          GlObjectsProvider glObjectsProvider) {
+    return createDefaultGlFrameProcessorFactoryBuilderWithDefaultGlResources()
+        .setGlObjectsProviderAndExecutorService(glObjectsProvider, glExecutorService);
+  }
+
+  private DefaultGlFrameProcessor.Factory.Builder
+      createDefaultGlFrameProcessorFactoryBuilderWithDefaultGlResources() {
+    return new DefaultGlFrameProcessor.Factory.Builder(
+            context, /* hardwareBufferJniWrapper= */ mock(HardwareBufferJniWrapper.class))
+        .setFrameToGlTextureConverterFactory(
+            (outputColorInfo, errorConsumer) -> fakeFrameToGlTextureConverter)
+        .setFrameWriterGlTextureFrameConsumer(fakeFrameWriterGlTextureFrameConsumer)
+        .setGlTextureFrameCompositorFactory(
+            new DefaultGlTextureFrameCompositor.Factory(
+                /* compositorGlProgramFactory= */ FakeCompositorGlProgram::new,
+                /* texturePoolFactory= */ workingColorSpace ->
+                    new TexturePool(
+                        /* textureAllocator= */ (width, height, useHighPrecisionColorComponents) ->
+                            100,
+                        /* useHighPrecisionColorComponents= */ false,
+                        /* capacity= */ COMPOSITOR_CAPACITY)))
+        .setAssumeSurfacelessContextExtensionSupported(true);
+  }
+
+  private static FrameProcessor.Listener createFailOnErrorListener() {
+    return new FrameProcessor.Listener() {
+      @Override
+      public void onWakeup() {}
+
+      @Override
+      public void onError(VideoFrameProcessingException exception) {
+        throw new AssertionError(exception);
+      }
+
+      @Override
+      public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper fence) {}
+    };
   }
 
   private DefaultGlFrameProcessor.Factory createDefaultGlFrameProcessorFactory() {
-    return new DefaultGlFrameProcessor.Factory(
-        context,
-        new GlFrameProcessorTestUtil.FakeGlObjectsProvider(),
-        glExecutorService,
-        /* frameToGlTextureConverterFactory= */ (outputColorInfo, errorConsumer) ->
-            fakeFrameToGlTextureConverter,
-        fakeFrameWriterGlTextureFrameConsumer,
-        new DefaultGlTextureFrameCompositor.Factory(
-            /* compositorGlProgramFactory= */ FakeCompositorGlProgram::new,
-            /* texturePoolFactory= */ workingColorSpace ->
-                new TexturePool(
-                    /* textureAllocator= */ (width, height, useHighPrecisionColorComponents) -> 100,
-                    /* useHighPrecisionColorComponents= */ false,
-                    /* capacity= */ COMPOSITOR_CAPACITY)),
-        /* isSurfacelessContextExtensionSupported= */ true);
+    return createDefaultGlFrameProcessorFactoryBuilderWithTestGlResources(
+            new FakeGlObjectsProvider())
+        .build();
   }
 
   private DefaultGlFrameProcessor.Factory createCustomFactory(
       Consumer<ColorInfo> colorInfoConsumer) {
-    return new DefaultGlFrameProcessor.Factory(
-        context,
-        new GlFrameProcessorTestUtil.FakeGlObjectsProvider(),
-        glExecutorService,
-        /* frameToGlTextureConverterFactory= */ (outputColorInfo, errorConsumer) -> {
-          colorInfoConsumer.accept(outputColorInfo);
-          return fakeFrameToGlTextureConverter;
-        },
-        fakeFrameWriterGlTextureFrameConsumer,
-        new DefaultGlTextureFrameCompositor.Factory(
-            /* compositorGlProgramFactory= */ FakeCompositorGlProgram::new,
-            /* texturePoolFactory= */ workingColorSpace ->
-                new TexturePool(
-                    /* textureAllocator= */ (width, height, useHighPrecisionColorComponents) -> 100,
-                    /* useHighPrecisionColorComponents= */ false,
-                    /* capacity= */ COMPOSITOR_CAPACITY)),
-        /* isSurfacelessContextExtensionSupported= */ true);
+    return createDefaultGlFrameProcessorFactoryBuilderWithTestGlResources(
+            new FakeGlObjectsProvider())
+        .setFrameToGlTextureConverterFactory(
+            (outputColorInfo, errorConsumer) -> {
+              colorInfoConsumer.accept(outputColorInfo);
+              return fakeFrameToGlTextureConverter;
+            })
+        .build();
   }
 
   private static ImmutableMap<String, Object> createFrameMetadata(
@@ -1580,24 +1627,13 @@ public final class DefaultGlFrameProcessorTest {
 
     AtomicReference<ColorInfo> actualColorInfo = new AtomicReference<>();
     DefaultGlFrameProcessor.Factory customFactory =
-        new DefaultGlFrameProcessor.Factory(
-            context,
-            glObjectsProvider,
-            glExecutorService,
-            /* frameToGlTextureConverterFactory= */ (outputColorInfo, errorConsumer) -> {
-              actualColorInfo.set(outputColorInfo);
-              return fakeFrameToGlTextureConverter;
-            },
-            fakeFrameWriterGlTextureFrameConsumer,
-            new DefaultGlTextureFrameCompositor.Factory(
-                /* compositorGlProgramFactory= */ FakeCompositorGlProgram::new,
-                /* texturePoolFactory= */ outputColorInfo ->
-                    new TexturePool(
-                        /* textureAllocator= */ (width, height, useHighPrecisionColorComponents) ->
-                            100,
-                        /* useHighPrecisionColorComponents= */ false,
-                        /* capacity= */ COMPOSITOR_CAPACITY)),
-            /* isSurfacelessContextExtensionSupported= */ true);
+        createDefaultGlFrameProcessorFactoryBuilderWithTestGlResources(glObjectsProvider)
+            .setFrameToGlTextureConverterFactory(
+                (outputColorInfo, errorConsumer) -> {
+                  actualColorInfo.set(outputColorInfo);
+                  return fakeFrameToGlTextureConverter;
+                })
+            .build();
 
     try (DefaultGlFrameProcessor customProcessor =
         customFactory.create(
@@ -1628,7 +1664,6 @@ public final class DefaultGlFrameProcessorTest {
     private final boolean failVersion3;
     private final boolean failSurfaceCreation;
     final AtomicBoolean releaseCalled = new AtomicBoolean();
-    final AtomicInteger releaseCount = new AtomicInteger();
 
     TestGlObjectsProvider(boolean failVersion3) {
       this(failVersion3, /* failSurfaceCreation= */ false);
@@ -1671,7 +1706,6 @@ public final class DefaultGlFrameProcessorTest {
     @Override
     public void release(EGLDisplay eglDisplay) {
       releaseCalled.set(true);
-      releaseCount.incrementAndGet();
     }
   }
 }

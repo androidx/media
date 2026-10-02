@@ -31,6 +31,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
+import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
@@ -97,11 +98,19 @@ public final class GlFrameProcessorTestUtil {
     @Nullable public FrameWriter frameWriter;
     @Nullable public VideoFrameProcessingException exceptionToThrowOnQueueing;
     @Nullable public RuntimeException runtimeExceptionToThrowOnQueueing;
+
+    /** Opened when a frame is rejected and a wakeup listener is registered. */
+    public final ConditionVariable wakeupListenerRegistered;
+
+    /** The thread that called {@link #close()}, or {@code null} if not closed. */
+    @Nullable public volatile Thread closeThread;
+
     @Nullable private volatile CountDownLatch framesReceivedLatch;
 
     public FakeGlTextureFrameConsumer(@Nullable FrameWriter frameWriter) {
       this.frameWriter = frameWriter;
       shouldAcceptIncomingFrames = true;
+      wakeupListenerRegistered = new ConditionVariable();
     }
 
     @Override
@@ -143,6 +152,7 @@ public final class GlFrameProcessorTestUtil {
       if (!shouldAcceptIncomingFrames) {
         this.listenerExecutor = listenerExecutor;
         this.wakeupListener = wakeupListener;
+        wakeupListenerRegistered.open();
         return false;
       }
       lastReceivedFrame = frame;
@@ -173,7 +183,9 @@ public final class GlFrameProcessorTestUtil {
     }
 
     @Override
-    public void close() {}
+    public void close() {
+      closeThread = Thread.currentThread();
+    }
   }
 
   /** Fake {@link GlShaderProgram} for testing. */

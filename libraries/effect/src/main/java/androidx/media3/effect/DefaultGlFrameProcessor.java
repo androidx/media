@@ -21,6 +21,7 @@ import static androidx.media3.effect.FrameProcessorUtils.OPEN_GL_VERSION_3;
 import static androidx.media3.effect.FrameProcessorUtils.releaseOpenGl;
 import static androidx.media3.effect.FrameProcessorUtils.runAllAndAccumulateExceptions;
 import static androidx.media3.effect.FrameProcessorUtils.setupOpenGl;
+import static androidx.media3.effect.FrameProcessorUtils.shutdownGlExecutorService;
 import static androidx.media3.effect.FrameProcessorUtils.waitAndCloseFence;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -54,6 +55,7 @@ import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.FrameWriter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
@@ -64,6 +66,8 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeoutException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -77,74 +81,156 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   // TODO: b/531653682 - Remove @RequiresApi(26) once the pipeline supports API 24+ end to end.
   @RequiresApi(26)
   public static final class Factory implements FrameProcessor.Factory {
+
+    /** A builder for {@link Factory} instances. */
+    public static final class Builder {
+      private final Context context;
+      private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
+      @Nullable private GlObjectsProvider glObjectsProvider;
+      @Nullable private ExecutorService executorService;
+      @Nullable private FrameToGlTextureConverter.Factory frameToGlTextureConverterFactory;
+      @Nullable private GlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
+      private GlTextureFrameCompositor.Factory glTextureFrameCompositorFactory;
+      private boolean assumeSurfacelessContextExtensionSupported;
+
+      /**
+       * Creates an instance.
+       *
+       * @param context The {@link Context}.
+       * @param hardwareBufferJniWrapper The {@link HardwareBufferJniWrapper}, for example {@code
+       *     HardwareBufferJni.INSTANCE}.
+       */
+      public Builder(Context context, HardwareBufferJniWrapper hardwareBufferJniWrapper) {
+        this.context = context.getApplicationContext();
+        this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
+        glTextureFrameCompositorFactory =
+            new DefaultGlTextureFrameCompositor.Factory(
+                new DefaultCompositorGlProgram.Factory(this.context));
+      }
+
+      /**
+       * Sets the {@link GlObjectsProvider} and the {@link ExecutorService} to execute OpenGL
+       * commands on.
+       *
+       * <p>If not set, each created {@link DefaultGlFrameProcessor} uses a new {@link
+       * DefaultGlObjectsProvider} and a new single-thread executor, and releases both when it's
+       * {@linkplain FrameProcessor#close closed}.
+       *
+       * <p>If set, the caller owns both. After all the {@link DefaultGlFrameProcessor} instances
+       * created by the built {@link Factory} have been closed, the caller must release the {@link
+       * GlObjectsProvider} on the {@link ExecutorService}'s thread, and then {@linkplain
+       * ExecutorService#shutdown shut down} the {@link ExecutorService}.
+       *
+       * @param glObjectsProvider The {@link GlObjectsProvider}.
+       * @param executorService The {@link ExecutorService}.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setGlObjectsProviderAndExecutorService(
+          GlObjectsProvider glObjectsProvider, ExecutorService executorService) {
+        this.glObjectsProvider = glObjectsProvider;
+        this.executorService = executorService;
+        return this;
+      }
+
+      /**
+       * Sets the {@link FrameToGlTextureConverter.Factory}.
+       *
+       * @param frameToGlTextureConverterFactory The {@link FrameToGlTextureConverter.Factory}.
+       * @return This builder.
+       */
+      @VisibleForTesting
+      @CanIgnoreReturnValue
+      /* package */ Builder setFrameToGlTextureConverterFactory(
+          FrameToGlTextureConverter.Factory frameToGlTextureConverterFactory) {
+        this.frameToGlTextureConverterFactory = frameToGlTextureConverterFactory;
+        return this;
+      }
+
+      /**
+       * Sets the {@link GlTextureFrameConsumer} for writing frames.
+       *
+       * @param frameWriterGlTextureFrameConsumer The {@link GlTextureFrameConsumer}.
+       * @return This builder.
+       */
+      @VisibleForTesting
+      @CanIgnoreReturnValue
+      /* package */ Builder setFrameWriterGlTextureFrameConsumer(
+          GlTextureFrameConsumer frameWriterGlTextureFrameConsumer) {
+        this.frameWriterGlTextureFrameConsumer = frameWriterGlTextureFrameConsumer;
+        return this;
+      }
+
+      /**
+       * Sets the {@link GlTextureFrameCompositor.Factory}.
+       *
+       * @param glTextureFrameCompositorFactory The {@link GlTextureFrameCompositor.Factory}.
+       * @return This builder.
+       */
+      @VisibleForTesting
+      @CanIgnoreReturnValue
+      /* package */ Builder setGlTextureFrameCompositorFactory(
+          GlTextureFrameCompositor.Factory glTextureFrameCompositorFactory) {
+        this.glTextureFrameCompositorFactory = glTextureFrameCompositorFactory;
+        return this;
+      }
+
+      /**
+       * Sets whether to assume the surfaceless context extension is supported, instead of detecting
+       * support at runtime.
+       *
+       * <p>The default value is {@code false}, meaning support is detected at runtime.
+       *
+       * @param assumeSurfacelessContextExtensionSupported Whether to assume the extension is
+       *     supported.
+       * @return This builder.
+       */
+      @VisibleForTesting
+      @CanIgnoreReturnValue
+      /* package */ Builder setAssumeSurfacelessContextExtensionSupported(
+          boolean assumeSurfacelessContextExtensionSupported) {
+        this.assumeSurfacelessContextExtensionSupported =
+            assumeSurfacelessContextExtensionSupported;
+        return this;
+      }
+
+      /** Builds a {@link Factory} instance. */
+      public Factory build() {
+        if (frameToGlTextureConverterFactory == null) {
+          frameToGlTextureConverterFactory =
+              (outputColorInfo, errorConsumer) ->
+                  new HardwareBufferToGlTextureConverter(
+                      context, hardwareBufferJniWrapper, outputColorInfo, errorConsumer);
+        }
+        return new Factory(this);
+      }
+    }
+
+    private static final String THREAD_NAME = "Effect:DefaultGlFrameProcessor:GlThread";
+
     private final Context context;
-    private final GlObjectsProvider glObjectsProvider;
-    private final ExecutorService glExecutorService;
+    @Nullable private final GlObjectsProvider glObjectsProvider;
+    @Nullable private final ExecutorService glExecutorService;
     private final FrameToGlTextureConverter.Factory frameToGlTextureConverterFactory;
-    @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
+    private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
     @Nullable private final GlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
     private final GlTextureFrameCompositor.Factory glTextureFrameCompositorFactory;
-
-    // Override for whether surfaceless contexts are supported, used for testing. If null,
-    // surfaceless context extension support is queried in production.
-    @Nullable private final Boolean isSurfacelessContextExtensionSupported;
+    // Whether to assume the surfaceless context extension is supported instead of detecting support
+    // at runtime. Only set to true in tests.
+    private final boolean assumeSurfacelessContextExtensionSupported;
     // TODO(b/545584738): Allow setting a working color space.
     @Nullable private ColorInfo workingColorSpace;
 
-    // TODO: b/536810100 - Remove this constructor and make the testing constructor public so
-    // callers can pass factories.
-    /**
-     * Creates an instance.
-     *
-     * <p>The processor internally manages the setup and release of OpenGL resources. The caller is
-     * responsible for shutting down the {@link ExecutorService glExecutorService} after {@linkplain
-     * FrameProcessor#close closing} the built {@link DefaultGlFrameProcessor}.
-     */
-    public Factory(
-        Context context,
-        GlObjectsProvider glObjectsProvider,
-        HardwareBufferJniWrapper hardwareBufferJniWrapper,
-        ListeningExecutorService glExecutorService) {
-      this.context = context.getApplicationContext();
-      this.glObjectsProvider = glObjectsProvider;
-      this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
-      this.glExecutorService = glExecutorService;
-      this.frameToGlTextureConverterFactory =
-          (outputColorInfo, errorConsumer) ->
-              new HardwareBufferToGlTextureConverter(
-                  this.context, hardwareBufferJniWrapper, outputColorInfo, errorConsumer);
-      frameWriterGlTextureFrameConsumer = null;
-      glTextureFrameCompositorFactory =
-          new DefaultGlTextureFrameCompositor.Factory(
-              new DefaultCompositorGlProgram.Factory(context));
-      isSurfacelessContextExtensionSupported = null;
-      workingColorSpace = null;
-    }
-
-    /**
-     * Creates an instance for testing only.
-     *
-     * <p>The caller is responsible for shutting down the {@link ListeningExecutorService
-     * glExecutorService} after {@linkplain FrameProcessor#close closing} the built {@link
-     * DefaultGlFrameProcessor}.
-     */
-    @VisibleForTesting
-    /* package */ Factory(
-        Context context,
-        GlObjectsProvider glObjectsProvider,
-        ListeningExecutorService glExecutorService,
-        FrameToGlTextureConverter.Factory frameToGlTextureConverterFactory,
-        GlTextureFrameConsumer frameWriterGlTextureFrameConsumer,
-        GlTextureFrameCompositor.Factory glTextureFrameCompositorFactory,
-        @Nullable Boolean isSurfacelessContextExtensionSupported) {
-      this.context = context;
-      this.glObjectsProvider = glObjectsProvider;
-      this.glExecutorService = glExecutorService;
-      this.frameToGlTextureConverterFactory = frameToGlTextureConverterFactory;
-      this.frameWriterGlTextureFrameConsumer = frameWriterGlTextureFrameConsumer;
-      this.glTextureFrameCompositorFactory = glTextureFrameCompositorFactory;
-      this.isSurfacelessContextExtensionSupported = isSurfacelessContextExtensionSupported;
-      hardwareBufferJniWrapper = null;
+    private Factory(Builder builder) {
+      context = builder.context;
+      glObjectsProvider = builder.glObjectsProvider;
+      glExecutorService = builder.executorService;
+      hardwareBufferJniWrapper = builder.hardwareBufferJniWrapper;
+      frameToGlTextureConverterFactory = checkNotNull(builder.frameToGlTextureConverterFactory);
+      frameWriterGlTextureFrameConsumer = builder.frameWriterGlTextureFrameConsumer;
+      glTextureFrameCompositorFactory = builder.glTextureFrameCompositorFactory;
+      assumeSurfacelessContextExtensionSupported =
+          builder.assumeSurfacelessContextExtensionSupported;
       workingColorSpace = null;
     }
 
@@ -152,22 +238,47 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     public DefaultGlFrameProcessor create(
         FrameWriter output, Executor listenerExecutor, Listener listener) {
       GlTextureFrameConsumer frameWriterGlTextureFrameConsumer =
-          this.frameWriterGlTextureFrameConsumer;
-      if (frameWriterGlTextureFrameConsumer == null && hardwareBufferJniWrapper != null) {
-        frameWriterGlTextureFrameConsumer =
-            new FrameWriterGlTextureFrameConsumer(context, output, hardwareBufferJniWrapper);
-      }
+          this.frameWriterGlTextureFrameConsumer != null
+              ? this.frameWriterGlTextureFrameConsumer
+              : new FrameWriterGlTextureFrameConsumer(context, output, hardwareBufferJniWrapper);
+      boolean shouldReleaseGlResources = this.glExecutorService == null;
+      GlObjectsProvider glObjectsProvider =
+          this.glObjectsProvider != null ? this.glObjectsProvider : new DefaultGlObjectsProvider();
+      ExecutorService glExecutorService =
+          this.glExecutorService != null
+              ? this.glExecutorService
+              : createDefaultGlExecutorService();
       return new DefaultGlFrameProcessor(
           context,
           listeningDecorator(glExecutorService),
           glObjectsProvider,
           frameToGlTextureConverterFactory,
-          checkNotNull(frameWriterGlTextureFrameConsumer),
+          frameWriterGlTextureFrameConsumer,
           glTextureFrameCompositorFactory,
-          isSurfacelessContextExtensionSupported,
           listenerExecutor,
           listener,
-          workingColorSpace);
+          workingColorSpace,
+          shouldReleaseGlResources,
+          assumeSurfacelessContextExtensionSupported);
+    }
+
+    /**
+     * Returns a single-thread {@link ExecutorService} that drops, rather than rejects, tasks
+     * submitted after it's shut down.
+     *
+     * <p>Components such as the {@link FrameWriter} can post tasks, for example wakeups, to the GL
+     * executor after the processor that owns it has been {@linkplain FrameProcessor#close closed}.
+     */
+    private static ExecutorService createDefaultGlExecutorService() {
+      return new ThreadPoolExecutor(
+          /* corePoolSize= */ 1,
+          /* maximumPoolSize= */ 1,
+          /* keepAliveTime= */ 0,
+          /* unit= */ MILLISECONDS,
+          /* workQueue= */ new LinkedBlockingQueue<>(),
+          /* threadFactory= */ runnable -> new Thread(runnable, THREAD_NAME),
+          /* handler= */ (runnable, executor) ->
+              Log.w(TAG, "Dropping GL task submitted after close"));
     }
   }
 
@@ -292,6 +403,8 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   private final Object lock;
   // Accessed only on GL thread. This field is to avoid creating a new set on queueing every time.
   private final Set<Integer> activeSequenceIndices;
+  private final boolean shouldReleaseGlResources;
+  private final boolean assumeSurfacelessContextExtensionSupported;
 
   private @MonotonicNonNull GlTextureFrameAggregator frameAggregator;
   private @MonotonicNonNull GlTextureFrameCompositor compositingProcessor;
@@ -318,10 +431,6 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   private boolean isGlSetup;
   private boolean isHdrSupported;
 
-  // Override for whether surfaceless contexts are supported, used for testing. If null,
-  // surfaceless context extension support is queried in production.
-  @Nullable private final Boolean isSurfacelessContextExtensionSupported;
-
   private DefaultGlFrameProcessor(
       Context context,
       ListeningExecutorService glExecutorService,
@@ -329,20 +438,22 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       FrameToGlTextureConverter.Factory frameToGlTextureConverterFactory,
       GlTextureFrameConsumer frameWriterGlTextureFrameConsumer,
       GlTextureFrameCompositor.Factory glTextureFrameCompositorFactory,
-      @Nullable Boolean isSurfacelessContextExtensionSupported,
       Executor listenerExecutor,
       Listener listener,
-      @Nullable ColorInfo workingColorSpace) {
+      @Nullable ColorInfo workingColorSpace,
+      boolean shouldReleaseGlResources,
+      boolean assumeSurfacelessContextExtensionSupported) {
     this.context = context;
     this.glObjectsProvider = glObjectsProvider;
     this.glExecutorService = glExecutorService;
     this.frameToGlTextureConverterFactory = frameToGlTextureConverterFactory;
     this.frameWriterGlTextureFrameConsumer = frameWriterGlTextureFrameConsumer;
     this.glTextureFrameCompositorFactory = glTextureFrameCompositorFactory;
-    this.isSurfacelessContextExtensionSupported = isSurfacelessContextExtensionSupported;
     this.listenerExecutor = listenerExecutor;
     this.listener = listener;
     this.workingColorSpace = workingColorSpace;
+    this.shouldReleaseGlResources = shouldReleaseGlResources;
+    this.assumeSurfacelessContextExtensionSupported = assumeSurfacelessContextExtensionSupported;
     this.errorConsumer = e -> listenerExecutor.execute(() -> listener.onError(e));
     this.glTextureFramesQueuedDownstream = Collections.newSetFromMap(new IdentityHashMap<>());
     this.convertedGlTextureFrames = new SparseArray<>();
@@ -379,8 +490,9 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
               int openGlVersion;
               try {
                 openGlVersion =
-                    isSurfacelessContextExtensionSupported != null
-                        ? setupOpenGl(glObjectsProvider, isSurfacelessContextExtensionSupported)
+                    assumeSurfacelessContextExtensionSupported
+                        ? setupOpenGl(
+                            glObjectsProvider, /* isSurfacelessContextExtensionSupported= */ true)
                         : setupOpenGl(glObjectsProvider);
               } catch (GlException e) {
                 isGlSetup = true;
@@ -473,7 +585,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
             closeActions.add(postProcessingChain::close);
           }
           closeActions.add(frameWriterGlTextureFrameConsumer::close);
-          if (isGlSetup) {
+          if (isGlSetup && shouldReleaseGlResources) {
             closeActions.add(() -> releaseOpenGl(glObjectsProvider));
           }
           runAllAndAccumulateExceptions(closeActions.build().toArray(new ThrowingRunnable<?>[0]));
@@ -486,6 +598,10 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       errorConsumer.accept(VideoFrameProcessingException.from(e));
     } catch (ExecutionException | TimeoutException e) {
       errorConsumer.accept(VideoFrameProcessingException.from(e));
+    } finally {
+      if (shouldReleaseGlResources) {
+        shutdownGlExecutorService(glExecutorService);
+      }
     }
   }
 

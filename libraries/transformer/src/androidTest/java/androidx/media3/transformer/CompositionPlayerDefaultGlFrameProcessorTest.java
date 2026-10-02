@@ -28,9 +28,12 @@ import android.app.Instrumentation;
 import android.content.Context;
 import android.view.SurfaceView;
 import androidx.media3.common.C;
+import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultGlFrameProcessor;
+import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.FrameProcessorUtils;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
@@ -41,6 +44,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.SettableFuture;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
@@ -175,14 +179,7 @@ public final class CompositionPlayerDefaultGlFrameProcessorTest {
   public void
       compositionPlayer_withUltraHdrImageAndDefaultGlFrameProcessor_outputsFrameBeforeEnding()
           throws Exception {
-    assumeTrue(
-        glFrameProcessorTestRule
-            .getExecutorService()
-            .submit(
-                () ->
-                    FrameProcessorUtils.setupOpenGl(glFrameProcessorTestRule.getGlObjectsProvider())
-                        == FrameProcessorUtils.OPEN_GL_VERSION_3)
-            .get());
+    assumeTrue(isOpenGlVersion3Supported());
 
     SettableFuture<Void> endedFuture = SettableFuture.create();
     Queue<Long> videoTimestamps = new ConcurrentLinkedQueue<>();
@@ -232,5 +229,25 @@ public final class CompositionPlayerDefaultGlFrameProcessorTest {
         // Disable frame dropping.
         .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
         .build();
+  }
+
+  private static boolean isOpenGlVersion3Supported() throws Exception {
+    ExecutorService glExecutorService = Util.newSingleThreadExecutor("Test:GlThread");
+    GlObjectsProvider glObjectsProvider = new DefaultGlObjectsProvider();
+    try {
+      return glExecutorService
+          .submit(
+              () -> {
+                try {
+                  return FrameProcessorUtils.setupOpenGl(glObjectsProvider)
+                      == FrameProcessorUtils.OPEN_GL_VERSION_3;
+                } finally {
+                  FrameProcessorUtils.releaseOpenGl(glObjectsProvider);
+                }
+              })
+          .get();
+    } finally {
+      FrameProcessorUtils.shutdownGlExecutorService(glExecutorService);
+    }
   }
 }
