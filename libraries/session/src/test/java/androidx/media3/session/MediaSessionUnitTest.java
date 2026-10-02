@@ -42,8 +42,10 @@ import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import java.io.ByteArrayOutputStream;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
@@ -498,6 +500,295 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
     player.release();
   }
 
+  @Test
+  public void setMediaItems_whenPreviousQueueArtworkFinishesLate_doesNotOverwriteNewerQueue() {
+    Context context = getApplicationContext();
+    Player player = new TestExoPlayerBuilder(context).build();
+    SettableFuture<Bitmap> slowArtworkFuture = SettableFuture.create();
+    Bitmap bitmap = Bitmap.createBitmap(/* width= */ 10, /* height= */ 10, Bitmap.Config.ARGB_8888);
+    BitmapLoader bitmapLoader =
+        new BitmapLoader() {
+          @Override
+          public boolean supportsMimeType(String mimeType) {
+            return true;
+          }
+
+          @Override
+          public ListenableFuture<Bitmap> decodeBitmap(byte[] data) {
+            return data[0] == 1 ? slowArtworkFuture : immediateFuture(bitmap);
+          }
+
+          @Override
+          public ListenableFuture<Bitmap> loadBitmap(Uri uri) {
+            return immediateFailedFuture(new UnsupportedOperationException());
+          }
+        };
+    MediaSession testSession =
+        new MediaSession.Builder(context, player)
+            .setId("session_late_queue_artwork")
+            .setBitmapLoader(bitmapLoader)
+            .build();
+    AtomicBoolean staleQueueConverted = new AtomicBoolean();
+    MediaItem staleQueueItem =
+        new MediaItem.Builder()
+            .setMediaId("item_1")
+            .setUri("http://example.com/item_1")
+            .setMediaMetadata(
+                new MediaMetadata.Builder()
+                    .setTitle(createAccessTrackingCharSequence("item_1", staleQueueConverted))
+                    .setArtworkData(new byte[] {1}, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+                    .build())
+            .build();
+    AtomicBoolean newerQueueConverted = new AtomicBoolean();
+    MediaItem newerQueueItem =
+        new MediaItem.Builder()
+            .setMediaId("item_2")
+            .setUri("http://example.com/item_2")
+            .setMediaMetadata(
+                new MediaMetadata.Builder()
+                    .setTitle(createAccessTrackingCharSequence("item_2", newerQueueConverted))
+                    .setArtworkData(new byte[] {2}, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+                    .build())
+            .build();
+    player.setMediaItems(ImmutableList.of(createMediaItemWithoutArtwork("item_0"), staleQueueItem));
+    ShadowLooper.idleMainLooper();
+
+    player.setMediaItems(ImmutableList.of(createMediaItemWithoutArtwork("item_0"), newerQueueItem));
+    ShadowLooper.idleMainLooper();
+    slowArtworkFuture.set(bitmap);
+    ShadowLooper.idleMainLooper();
+
+    assertThat(newerQueueConverted.get()).isTrue();
+    assertThat(staleQueueConverted.get()).isFalse();
+    testSession.release();
+    player.release();
+  }
+
+  @Test
+  public void
+      setMediaItems_toItemsWithoutArtworkWhenPreviousQueueArtworkFinishesLate_doesNotOverwriteNewerQueue() {
+    Context context = getApplicationContext();
+    Player player = new TestExoPlayerBuilder(context).build();
+    SettableFuture<Bitmap> slowArtworkFuture = SettableFuture.create();
+    BitmapLoader bitmapLoader =
+        new BitmapLoader() {
+          @Override
+          public boolean supportsMimeType(String mimeType) {
+            return true;
+          }
+
+          @Override
+          public ListenableFuture<Bitmap> decodeBitmap(byte[] data) {
+            return slowArtworkFuture;
+          }
+
+          @Override
+          public ListenableFuture<Bitmap> loadBitmap(Uri uri) {
+            return immediateFailedFuture(new UnsupportedOperationException());
+          }
+        };
+    MediaSession testSession =
+        new MediaSession.Builder(context, player)
+            .setId("session_late_queue_artwork_to_no_artwork")
+            .setBitmapLoader(bitmapLoader)
+            .build();
+    AtomicBoolean staleQueueConverted = new AtomicBoolean();
+    MediaItem staleQueueItem =
+        new MediaItem.Builder()
+            .setMediaId("item_1")
+            .setUri("http://example.com/item_1")
+            .setMediaMetadata(
+                new MediaMetadata.Builder()
+                    .setTitle(createAccessTrackingCharSequence("item_1", staleQueueConverted))
+                    .setArtworkData(new byte[] {1}, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+                    .build())
+            .build();
+    AtomicBoolean newerQueueConverted = new AtomicBoolean();
+    MediaItem newerQueueItem =
+        new MediaItem.Builder()
+            .setMediaId("item_2")
+            .setUri("http://example.com/item_2")
+            .setMediaMetadata(
+                new MediaMetadata.Builder()
+                    .setTitle(createAccessTrackingCharSequence("item_2", newerQueueConverted))
+                    .build())
+            .build();
+    player.setMediaItems(ImmutableList.of(createMediaItemWithoutArtwork("item_0"), staleQueueItem));
+    ShadowLooper.idleMainLooper();
+
+    player.setMediaItems(ImmutableList.of(createMediaItemWithoutArtwork("item_0"), newerQueueItem));
+    ShadowLooper.idleMainLooper();
+    slowArtworkFuture.set(
+        Bitmap.createBitmap(/* width= */ 10, /* height= */ 10, Bitmap.Config.ARGB_8888));
+    ShadowLooper.idleMainLooper();
+
+    assertThat(newerQueueConverted.get()).isTrue();
+    assertThat(staleQueueConverted.get()).isFalse();
+    testSession.release();
+    player.release();
+  }
+
+  @Test
+  public void
+      seekToNextMediaItem_toItemWithoutArtworkBeforePreviousArtworkLoads_doesNotSetPreviousArtwork() {
+    Context context = getApplicationContext();
+    Player player = new TestExoPlayerBuilder(context).build();
+    SettableFuture<Bitmap> artworkFuture = SettableFuture.create();
+    BitmapLoader bitmapLoader =
+        new BitmapLoader() {
+          @Override
+          public boolean supportsMimeType(String mimeType) {
+            return true;
+          }
+
+          @Override
+          public ListenableFuture<Bitmap> decodeBitmap(byte[] data) {
+            return artworkFuture;
+          }
+
+          @Override
+          public ListenableFuture<Bitmap> loadBitmap(Uri uri) {
+            return immediateFailedFuture(new UnsupportedOperationException());
+          }
+        };
+    MediaSession testSession =
+        new MediaSession.Builder(context, player)
+            .setId("session_stale_metadata_artwork")
+            .setBitmapLoader(bitmapLoader)
+            .build();
+    AtomicBoolean notificationRefreshRequired = new AtomicBoolean();
+    testSession
+        .getImpl()
+        .setMediaSessionListener(
+            new MediaSession.Listener() {
+              @Override
+              public void onNotificationRefreshRequired(MediaSession session) {
+                notificationRefreshRequired.set(true);
+              }
+
+              @Override
+              public ListenableFuture<Boolean> onPlayRequested(MediaSession session) {
+                return immediateFuture(true);
+              }
+            });
+    player.setMediaItems(
+        ImmutableList.of(
+            createMediaItemWithArtwork("item_0", new byte[] {1}),
+            createMediaItemWithoutArtwork("item_1")));
+    ShadowLooper.idleMainLooper();
+
+    player.seekToNextMediaItem();
+    ShadowLooper.idleMainLooper();
+    artworkFuture.set(
+        Bitmap.createBitmap(/* width= */ 10, /* height= */ 10, Bitmap.Config.ARGB_8888));
+    ShadowLooper.idleMainLooper();
+
+    assertThat(notificationRefreshRequired.get()).isFalse();
+    testSession.release();
+    player.release();
+  }
+
+  @Test
+  public void release_withPendingArtworkLoads_ignoresLateCompletions() {
+    Context context = getApplicationContext();
+    Player player = new TestExoPlayerBuilder(context).build();
+    SettableFuture<Bitmap> metadataArtworkFuture = SettableFuture.create();
+    SettableFuture<Bitmap> queueArtworkFuture = SettableFuture.create();
+    BitmapLoader bitmapLoader =
+        new BitmapLoader() {
+          @Override
+          public boolean supportsMimeType(String mimeType) {
+            return true;
+          }
+
+          @Override
+          public ListenableFuture<Bitmap> decodeBitmap(byte[] data) {
+            return data[0] == 1 ? metadataArtworkFuture : queueArtworkFuture;
+          }
+
+          @Override
+          public ListenableFuture<Bitmap> loadBitmap(Uri uri) {
+            return immediateFailedFuture(new UnsupportedOperationException());
+          }
+        };
+    MediaSession testSession =
+        new MediaSession.Builder(context, player)
+            .setId("session_release_pending_artwork")
+            .setBitmapLoader(bitmapLoader)
+            .build();
+    AtomicBoolean notificationRefreshRequired = new AtomicBoolean();
+    testSession
+        .getImpl()
+        .setMediaSessionListener(
+            new MediaSession.Listener() {
+              @Override
+              public void onNotificationRefreshRequired(MediaSession session) {
+                notificationRefreshRequired.set(true);
+              }
+
+              @Override
+              public ListenableFuture<Boolean> onPlayRequested(MediaSession session) {
+                return immediateFuture(true);
+              }
+            });
+    AtomicBoolean queueConverted = new AtomicBoolean();
+    MediaItem queueItem =
+        new MediaItem.Builder()
+            .setMediaId("item_1")
+            .setUri("http://example.com/item_1")
+            .setMediaMetadata(
+                new MediaMetadata.Builder()
+                    .setTitle(createAccessTrackingCharSequence("item_1", queueConverted))
+                    .setArtworkData(new byte[] {2}, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+                    .build())
+            .build();
+    player.setMediaItems(
+        ImmutableList.of(createMediaItemWithArtwork("item_0", new byte[] {1}), queueItem));
+    ShadowLooper.idleMainLooper();
+
+    testSession.release();
+    metadataArtworkFuture.set(
+        Bitmap.createBitmap(/* width= */ 10, /* height= */ 10, Bitmap.Config.ARGB_8888));
+    queueArtworkFuture.set(
+        Bitmap.createBitmap(/* width= */ 10, /* height= */ 10, Bitmap.Config.ARGB_8888));
+    ShadowLooper.idleMainLooper();
+
+    assertThat(notificationRefreshRequired.get()).isFalse();
+    assertThat(queueConverted.get()).isFalse();
+    player.release();
+  }
+
+  @Test
+  public void onDisconnected_withCachedQueueArtwork_clearsCachedBitmaps() {
+    Context context = getApplicationContext();
+    Player player = new TestExoPlayerBuilder(context).build();
+    AtomicInteger decodeCount = new AtomicInteger();
+    MediaSession testSession =
+        new MediaSession.Builder(context, player)
+            .setId("session_disconnected_clears_cache")
+            .setBitmapLoader(createCountingBitmapLoader(decodeCount))
+            .build();
+    player.setMediaItems(
+        ImmutableList.of(
+            createMediaItemWithoutArtwork("item_0"),
+            createMediaItemWithArtwork("item_1", new byte[] {1}),
+            createMediaItemWithArtwork("item_2", new byte[] {2})));
+    ShadowLooper.idleMainLooper();
+    int decodeCountBeforeDisconnect = decodeCount.get();
+
+    testSession
+        .getImpl()
+        .getMediaSessionLegacyStub()
+        .getControllerLegacyCbForBroadcast()
+        .onDisconnected(/* seq= */ 0);
+    player.addMediaItem(createMediaItemWithArtwork("item_3", new byte[] {3}));
+    ShadowLooper.idleMainLooper();
+
+    assertThat(decodeCount.get() - decodeCountBeforeDisconnect).isEqualTo(3);
+    testSession.release();
+    player.release();
+  }
+
   private static BitmapLoader createCountingBitmapLoader(AtomicInteger decodeCount) {
     return new BitmapLoader() {
       @Override
@@ -535,6 +826,34 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
                 .setArtworkData(artworkData, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
                 .build())
         .build();
+  }
+
+  private static CharSequence createAccessTrackingCharSequence(
+      String value, AtomicBoolean accessed) {
+    return new CharSequence() {
+      @Override
+      public int length() {
+        accessed.set(true);
+        return value.length();
+      }
+
+      @Override
+      public char charAt(int index) {
+        accessed.set(true);
+        return value.charAt(index);
+      }
+
+      @Override
+      public CharSequence subSequence(int start, int end) {
+        accessed.set(true);
+        return value.subSequence(start, end);
+      }
+
+      @Override
+      public String toString() {
+        return value;
+      }
+    };
   }
 
   private static MediaSession.ControllerInfo createMinimalLegacyControllerInfo(

@@ -148,7 +148,6 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private final boolean playIfSuppressed;
 
   private volatile long connectionTimeoutMs;
-  @Nullable private FutureCallback<Bitmap> pendingBitmapLoadCallback;
   private int sessionFlags;
   @Nullable private LegacyError legacyError;
   private Bundle legacyExtras;
@@ -495,6 +494,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       androidAutoObserver.release();
     }
     // No check for COMMAND_RELEASE needed as MediaControllers can always be released.
+    controllerLegacyCbForBroadcast.onDisconnected(/* seq= */ 0);
     sessionCompat.release();
     connectedControllersManager.release();
   }
@@ -1404,6 +1404,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     private String lastMediaId;
     @Nullable private Uri lastMediaUri;
     private long lastDurationMs;
+    @Nullable private FutureCallback<Bitmap> pendingBitmapLoadCallback;
+    @Nullable private Runnable pendingBitmapFuturesTask;
     private ArrayMap<ByteArrayKey, ListenableFuture<Bitmap>> queueBitmapFutures;
 
     public ControllerLegacyCbForBroadcast() {
@@ -1436,6 +1438,9 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     @Override
     public void onDisconnected(int seq) {
       // Calling MediaSessionCompat#release() is already done in release().
+      pendingBitmapLoadCallback = null;
+      pendingBitmapFuturesTask = null;
+      queueBitmapFutures.clear();
     }
 
     @Override
@@ -1653,6 +1658,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
     @SuppressWarnings("FutureReturnValueIgnored")
     private void updateQueue(Timeline timeline) {
+      pendingBitmapFuturesTask = null;
       if (!isQueueEnabled() || timeline.isEmpty()) {
         queueBitmapFutures = new ArrayMap<>();
         setQueue(sessionCompat, /* queue= */ null);
@@ -1682,12 +1688,20 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       }
       AtomicInteger resultCount = new AtomicInteger(0);
       Runnable handleBitmapFuturesTask =
-          () -> {
-            int completedBitmapFutureCount = resultCount.incrementAndGet();
-            if (completedBitmapFutureCount == newQueueBitmapFutures.size()) {
-              handleBitmapFuturesAllCompletedAndSetQueue(newQueueBitmapFutures, mediaItemList);
+          new Runnable() {
+            @Override
+            public void run() {
+              if (this != pendingBitmapFuturesTask) {
+                return;
+              }
+              int completedBitmapFutureCount = resultCount.incrementAndGet();
+              if (completedBitmapFutureCount == newQueueBitmapFutures.size()) {
+                pendingBitmapFuturesTask = null;
+                handleBitmapFuturesAllCompletedAndSetQueue(newQueueBitmapFutures, mediaItemList);
+              }
             }
           };
+      pendingBitmapFuturesTask = handleBitmapFuturesTask;
       for (int i = 0; i < newQueueBitmapFutures.size(); i++) {
         newQueueBitmapFutures
             .valueAt(i)
@@ -1813,10 +1827,10 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       lastDurationMs = newDurationMs;
 
       @Nullable Bitmap artworkBitmap = null;
+      pendingBitmapLoadCallback = null;
       ListenableFuture<Bitmap> bitmapFuture =
           sessionImpl.getBitmapLoader().loadBitmapFromMetadata(newMediaMetadata);
       if (bitmapFuture != null) {
-        pendingBitmapLoadCallback = null;
         if (bitmapFuture.isDone()) {
           try {
             artworkBitmap = Futures.getDone(bitmapFuture);
@@ -1831,6 +1845,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
                   if (this != pendingBitmapLoadCallback) {
                     return;
                   }
+                  pendingBitmapLoadCallback = null;
                   setMetadata(
                       sessionCompat,
                       LegacyConversions.convertToMediaMetadataCompat(
@@ -1847,6 +1862,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
                   if (this != pendingBitmapLoadCallback) {
                     return;
                   }
+                  pendingBitmapLoadCallback = null;
                   Log.w(TAG, getBitmapLoadErrorMessage(t));
                 }
               };
