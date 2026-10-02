@@ -22,6 +22,8 @@
       android:name="androidx.test.runner.AndroidJUnitRunner"/>
 
   <application android:allowBackup="false">
+    <activity android:name="android.app.Activity"
+      android:exported="false"/>
     <service android:name="androidx.media3.common.BundleableByteArrayTest$ByteArrayTransferTestService"
       android:process=":remote"/>
   </application>

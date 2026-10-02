@@ -22,6 +22,7 @@ import android.app.KeyguardManager;
 import android.os.Bundle;
 import android.view.SurfaceView;
 import android.view.TextureView;
+import android.view.Window;
 import android.view.WindowManager;
 import androidx.media3.transformer.test.R;
 
@@ -34,6 +35,7 @@ public final class SurfaceTestActivity extends Activity {
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
+    requestWindowFeature(Window.FEATURE_NO_TITLE);
     setKeepScreenOn(this);
     setContentView(R.layout.surface_test_activity);
     surfaceView = findViewById(R.id.surface_view);
