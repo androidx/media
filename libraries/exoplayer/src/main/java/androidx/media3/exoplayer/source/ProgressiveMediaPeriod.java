@@ -240,15 +240,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.progressiveMediaExtractor = progressiveMediaExtractor;
     this.singleSampleDurationUs = singleSampleDurationUs;
     loadCondition = new ConditionVariable();
+    handler = Util.createHandlerForCurrentLooper();
     maybeFinishPrepareRunnable = this::maybeFinishPrepare;
     onContinueLoadingRequestedRunnable =
         () -> {
           if (!released && !loadCondition.isOpen()) {
             isWaitingForContinueLoading = true;
+            handler.post(maybeFinishPrepareRunnable);
             checkNotNull(callback).onContinueLoadingRequested(ProgressiveMediaPeriod.this);
           }
         };
-    handler = Util.createHandlerForCurrentLooper();
     sampleQueueTrackIds = new TrackId[0];
     sampleQueues = new SampleQueue[0];
     controlledTrackOutputs = new ControlledTrackOutput[0];
@@ -828,6 +829,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       loadingStateMachine.onEndPositionReached();
       maybeCancelOrDiscardUpstreamBuffers();
     }
+    handler.post(maybeFinishPrepareRunnable);
     checkNotNull(callback).onContinueLoadingRequested(this);
   }
 
@@ -1016,7 +1018,34 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     for (SampleQueue sampleQueue : sampleQueues) {
       if (sampleQueue.getUpstreamFormat() == null) {
-        return;
+        if (loadingStateMachine.isFinished()) {
+          // File fully exhausted; this track never produced any data.
+        } else if (!loadCondition.isOpen()) {
+          // Loading is paused (e.g. DefaultLoadControl byte budget full). Only assign a
+          // placeholder if at least one real video and one real audio track have already
+          // been seen, confirming this is an extra PMT-declared stream that carries no data
+          // rather than a legitimate track whose format packet hasn't arrived yet.
+          boolean haveVideo = false;
+          boolean haveAudio = false;
+          for (SampleQueue q : sampleQueues) {
+            Format f = q.getUpstreamFormat();
+            if (f == null) {
+              continue;
+            }
+            if (MimeTypes.isVideo(f.sampleMimeType)) {
+              haveVideo = true;
+            } else if (MimeTypes.isAudio(f.sampleMimeType)) {
+              haveAudio = true;
+            }
+          }
+          if (!haveVideo || !haveAudio) {
+            return;
+          }
+        } else {
+          // Actively loading; a format may still arrive from the loading thread.
+          return;
+        }
+        sampleQueue.format(new Format.Builder().build());
       }
     }
     loadCondition.close();
