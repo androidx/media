@@ -29,7 +29,11 @@ import androidx.media3.common.Player.COMMAND_GET_CURRENT_MEDIA_ITEM
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
 import androidx.media3.test.utils.FakePlayer
 import androidx.media3.ui.compose.testutils.advancePrecisely
+import androidx.media3.ui.compose.testutils.createReadyPlayerPlayingAd
+import androidx.media3.ui.compose.testutils.createReadyPlayerWithClippedItem
+import androidx.media3.ui.compose.testutils.createReadyPlayerWithMultiPeriodItem
 import androidx.media3.ui.compose.testutils.createReadyPlayerWithSingleItem
+import androidx.media3.ui.compose.testutils.createReadyPlayerWithUnknownPeriodDuration
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
@@ -51,7 +55,76 @@ class ProgressStateWithTickIntervalTest {
       assertThat(state.currentPositionMs).isEqualTo(0L)
       assertThat(state.bufferedPositionMs).isEqualTo(0L)
       assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
+      assertThat(state.originalDurationMs).isEqualTo(C.TIME_UNSET)
     }
+
+  @Test
+  fun originalDurationMs_clippedItem_returnsOriginalDuration() = runComposeUiTest {
+    val player = createReadyPlayerWithClippedItem()
+    lateinit var state: ProgressStateWithTickInterval
+
+    setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
+
+    assertThat(state.durationMs).isEqualTo(5_000L)
+    assertThat(state.originalDurationMs).isEqualTo(10_000L)
+  }
+
+  @Test
+  fun originalDurationMs_multiPeriodItem_returnsDuration() = runComposeUiTest {
+    val player = createReadyPlayerWithMultiPeriodItem()
+    lateinit var state: ProgressStateWithTickInterval
+
+    setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
+
+    assertThat(state.durationMs).isEqualTo(90_000L)
+    assertThat(state.originalDurationMs).isEqualTo(90_000L)
+  }
+
+  @Test
+  fun originalDurationMs_timelineCommandUnavailable_returnsDuration() = runComposeUiTest {
+    val player = createReadyPlayerWithClippedItem()
+    player.removeCommands(Player.COMMAND_GET_TIMELINE)
+    lateinit var state: ProgressStateWithTickInterval
+
+    setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
+
+    assertThat(state.durationMs).isEqualTo(5_000L)
+    assertThat(state.originalDurationMs).isEqualTo(5_000L)
+  }
+
+  @Test
+  fun originalDurationMs_currentMediaItemCommandUnavailable_returnsTimeUnset() = runComposeUiTest {
+    val player = createReadyPlayerWithClippedItem()
+    player.removeCommands(COMMAND_GET_CURRENT_MEDIA_ITEM)
+    lateinit var state: ProgressStateWithTickInterval
+
+    setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
+
+    assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
+    assertThat(state.originalDurationMs).isEqualTo(C.TIME_UNSET)
+  }
+
+  @Test
+  fun originalDurationMs_unknownPeriodDuration_returnsDuration() = runComposeUiTest {
+    val player = createReadyPlayerWithUnknownPeriodDuration()
+    lateinit var state: ProgressStateWithTickInterval
+
+    setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
+
+    assertThat(state.durationMs).isEqualTo(10_000L)
+    assertThat(state.originalDurationMs).isEqualTo(10_000L)
+  }
+
+  @Test
+  fun originalDurationMs_playingAd_returnsAdDuration() = runComposeUiTest {
+    val player = createReadyPlayerPlayingAd()
+    lateinit var state: ProgressStateWithTickInterval
+
+    setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
+
+    assertThat(state.durationMs).isEqualTo(1_000L)
+    assertThat(state.originalDurationMs).isEqualTo(1_000L)
+  }
 
   @Test
   fun progressUpdatingOnTheSecondMark_positionChangesByOneSecond() = runComposeUiTest {
@@ -221,6 +294,7 @@ class ProgressStateWithTickIntervalTest {
     assertThat(state.currentPositionMs).isEqualTo(0)
     assertThat(state.bufferedPositionMs).isEqualTo(0)
     assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
+    assertThat(state.originalDurationMs).isEqualTo(C.TIME_UNSET)
 
     player.addCommands(COMMAND_GET_CURRENT_MEDIA_ITEM)
     waitForIdle()
@@ -229,6 +303,7 @@ class ProgressStateWithTickIntervalTest {
     assertThat(state.currentPositionMs).isEqualTo(4000)
     assertThat(state.bufferedPositionMs).isEqualTo(4000)
     assertThat(state.durationMs).isEqualTo(10_000)
+    assertThat(state.originalDurationMs).isEqualTo(10_000)
 
     player.removeCommands(COMMAND_GET_CURRENT_MEDIA_ITEM)
     waitForIdle()
@@ -237,6 +312,7 @@ class ProgressStateWithTickIntervalTest {
     assertThat(state.currentPositionMs).isEqualTo(0)
     assertThat(state.bufferedPositionMs).isEqualTo(0)
     assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
+    assertThat(state.originalDurationMs).isEqualTo(C.TIME_UNSET)
   }
 
   @Test
@@ -246,6 +322,7 @@ class ProgressStateWithTickIntervalTest {
     setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
 
     assertThat(state.durationMs).isEqualTo(10_000)
+    assertThat(state.originalDurationMs).isEqualTo(10_000)
     assertThat(player.duration).isEqualTo(10_000)
   }
 
@@ -262,12 +339,14 @@ class ProgressStateWithTickIntervalTest {
       lateinit var state: ProgressStateWithTickInterval
       setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
       assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
+      assertThat(state.originalDurationMs).isEqualTo(C.TIME_UNSET)
 
       mainClock.advancePrecisely(2345)
       player.setDuration("SingleItem", 10_000)
       waitForIdle()
 
       assertThat(state.durationMs).isEqualTo(10_000)
+      assertThat(state.originalDurationMs).isEqualTo(10_000)
       assertThat(player.duration).isEqualTo(10_000)
       assertThat(player.currentPosition).isEqualTo(2345)
     }
@@ -284,6 +363,7 @@ class ProgressStateWithTickIntervalTest {
       lateinit var state: ProgressStateWithTickInterval
       setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 100) }
       assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
+      assertThat(state.originalDurationMs).isEqualTo(C.TIME_UNSET)
       mainClock.advancePrecisely(200)
       player.setBufferedPositionMs(123)
 
@@ -304,6 +384,7 @@ class ProgressStateWithTickIntervalTest {
     lateinit var state: ProgressStateWithTickInterval
     setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 100) }
     assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
+    assertThat(state.originalDurationMs).isEqualTo(C.TIME_UNSET)
     assertThat(state.currentPositionMs).isEqualTo(0)
     assertThat(state.bufferedPositionMs).isEqualTo(0)
 
@@ -312,6 +393,7 @@ class ProgressStateWithTickIntervalTest {
     mainClock.advancePrecisely(200)
 
     assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
+    assertThat(state.originalDurationMs).isEqualTo(C.TIME_UNSET)
     assertThat(state.currentPositionMs).isEqualTo(0)
     assertThat(state.bufferedPositionMs).isEqualTo(0)
   }
@@ -327,6 +409,7 @@ class ProgressStateWithTickIntervalTest {
 
     // Check state before change to ENDED
     assertThat(state.durationMs).isEqualTo(10_000)
+    assertThat(state.originalDurationMs).isEqualTo(10_000)
     assertThat(state.currentPositionMs).isEqualTo(10_000)
     assertThat(state.bufferedPositionMs).isEqualTo(10_000)
 
@@ -334,6 +417,7 @@ class ProgressStateWithTickIntervalTest {
 
     // Immediately after the change before running the playback state update
     assertThat(state.durationMs).isEqualTo(10_000)
+    assertThat(state.originalDurationMs).isEqualTo(10_000)
     assertThat(state.currentPositionMs).isEqualTo(10_000)
     assertThat(state.bufferedPositionMs).isEqualTo(10_000)
 
@@ -341,6 +425,7 @@ class ProgressStateWithTickIntervalTest {
 
     // After completing any pending updates to ensure the main thread is not blocked.
     assertThat(state.durationMs).isEqualTo(10_000)
+    assertThat(state.originalDurationMs).isEqualTo(10_000)
     assertThat(state.currentPositionMs).isEqualTo(10_000)
     assertThat(state.bufferedPositionMs).isEqualTo(10_000)
   }

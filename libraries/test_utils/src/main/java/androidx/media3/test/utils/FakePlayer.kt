@@ -398,6 +398,17 @@ class FakePlayer(
     invalidateState()
   }
 
+  /**
+   * Sets the current ad being played.
+   *
+   * @param adGroupIndex The index of the ad group being played.
+   * @param adIndexInAdGroup The index of the ad within the ad group being played.
+   */
+  fun setCurrentAd(adGroupIndex: Int, adIndexInAdGroup: Int) {
+    state = state.buildUpon().setCurrentAd(adGroupIndex, adIndexInAdGroup).build()
+    invalidateState()
+  }
+
   private fun handleStateUpdate(stateUpdate: State.Builder.() -> Unit): ListenableFuture<*> {
     updateState(stateUpdate)
     return Futures.immediateVoidFuture()

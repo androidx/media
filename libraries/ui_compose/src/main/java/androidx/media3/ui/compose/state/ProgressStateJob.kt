@@ -20,6 +20,7 @@ import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.withFrameMillis
 import androidx.media3.common.C
 import androidx.media3.common.Player
+import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -131,6 +132,31 @@ internal fun getDurationMsOrDefault(player: Player): Long {
   } else {
     C.TIME_UNSET
   }
+}
+
+internal fun getOriginalDurationMsOrDefault(
+  player: Player,
+  window: Timeline.Window = Timeline.Window(),
+  period: Timeline.Period = Timeline.Period(),
+): Long {
+  if (!player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)) {
+    return C.TIME_UNSET
+  }
+  if (!player.isPlayingAd && player.isCommandAvailable(Player.COMMAND_GET_TIMELINE)) {
+    val timeline = player.currentTimeline
+    if (!timeline.isEmpty) {
+      timeline.getWindow(player.currentMediaItemIndex, window)
+      // Clipping is only supported for single-period media items.
+      if (window.firstPeriodIndex == window.lastPeriodIndex) {
+        val originalDurationMs =
+          timeline.getPeriod(window.firstPeriodIndex, period).originalDurationMs
+        if (originalDurationMs != C.TIME_UNSET) {
+          return originalDurationMs
+        }
+      }
+    }
+  }
+  return player.duration
 }
 
 internal fun isReadyOrBuffering(player: Player): Boolean =

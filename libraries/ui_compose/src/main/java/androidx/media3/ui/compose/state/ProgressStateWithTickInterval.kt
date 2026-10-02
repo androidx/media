@@ -26,6 +26,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.media3.common.C
 import androidx.media3.common.Player
+import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.CoroutineScope
 
@@ -94,6 +95,9 @@ fun rememberProgressStateWithTickInterval(
  *   which data is buffered, in milliseconds.
  * @property[durationMs] The duration of the current content or ad in milliseconds, matches
  *   [Player.getDuration].
+ * @property[originalDurationMs] The duration of the current media item in milliseconds before any
+ *   clipping of its start or end. Equal to [durationMs] if the media item isn't clipped, its
+ *   original duration isn't known, it has multiple periods, or an ad is playing.
  */
 @UnstableApi
 class ProgressStateWithTickInterval(
@@ -109,6 +113,12 @@ class ProgressStateWithTickInterval(
 
   var durationMs by mutableLongStateOf(C.TIME_UNSET)
     private set
+
+  var originalDurationMs by mutableLongStateOf(C.TIME_UNSET)
+    private set
+
+  private val window = Timeline.Window()
+  private val period = Timeline.Period()
 
   private val updateJob = player?.let {
     ProgressStateJob(
@@ -149,6 +159,7 @@ class ProgressStateWithTickInterval(
     currentPositionMs = snapPositionToNearestTick(player, ::getCurrentPositionMsOrDefault)
     bufferedPositionMs = snapPositionToNearestTick(player, ::getBufferedPositionMsOrDefault)
     durationMs = getDurationMsOrDefault(player)
+    originalDurationMs = getOriginalDurationMsOrDefault(player, window, period)
   }
 
   /**
