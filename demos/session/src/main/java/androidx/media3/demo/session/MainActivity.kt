@@ -21,6 +21,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuItem
@@ -33,7 +34,9 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.media3.cast.MediaRouteButtonFactory
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
@@ -41,12 +44,15 @@ import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaBrowser
 import androidx.media3.session.SessionToken
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-import com.google.common.util.concurrent.ListenableFuture
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.guava.await
+import kotlinx.coroutines.launch
+
+private const val TAG = "MainActivity"
 
 class MainActivity : AppCompatActivity() {
-  private lateinit var browserFuture: ListenableFuture<MediaBrowser>
-  private val browser: MediaBrowser?
-    get() = if (browserFuture.isDone && !browserFuture.isCancelled) browserFuture.get() else null
+  private var browser: MediaBrowser? = null
 
   private lateinit var mediaListAdapter: FolderMediaItemArrayAdapter
   private lateinit var mediaListView: ListView
@@ -55,6 +61,16 @@ class MainActivity : AppCompatActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    lifecycleScope.launch {
+      lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+        try {
+          initializeBrowser()
+          awaitCancellation()
+        } finally {
+          releaseBrowser()
+        }
+      }
+    }
     // setting up the layout
     setContentView(R.layout.activity_main)
     mediaListView = findViewById(R.id.media_list_view)
@@ -63,15 +79,13 @@ class MainActivity : AppCompatActivity() {
 
     // setting up on click. When user click on an item, try to display it
     mediaListView.setOnItemClickListener { _, _, position, _ ->
-      run {
-        val selectedMediaItem = mediaListAdapter.getItem(position)!!
-        // TODO(b/192235359): handle the case where the item is playable but it is not a folder
-        if (selectedMediaItem.mediaMetadata.isPlayable == true) {
-          val intent = PlayableFolderActivity.createIntent(this, selectedMediaItem.mediaId)
-          startActivity(intent)
-        } else {
-          pushPathStack(selectedMediaItem)
-        }
+      val selectedMediaItem = checkNotNull(mediaListAdapter.getItem(position))
+      // TODO(b/192235359): handle the case where the item is playable but it is not a folder
+      if (selectedMediaItem.mediaMetadata.isPlayable == true) {
+        val intent = PlayableFolderActivity.createIntent(this, selectedMediaItem.mediaId)
+        startActivity(intent)
+      } else {
+        lifecycleScope.launch { pushPathStack(selectedMediaItem) }
       }
     }
 
@@ -85,7 +99,7 @@ class MainActivity : AppCompatActivity() {
     onBackPressedDispatcher.addCallback(
       object : OnBackPressedCallback(true) {
         override fun handleOnBackPressed() {
-          popPathStack()
+          lifecycleScope.launch { popPathStack() }
         }
       }
     )
@@ -115,16 +129,6 @@ class MainActivity : AppCompatActivity() {
     return super.onOptionsItemSelected(item)
   }
 
-  override fun onStart() {
-    super.onStart()
-    initializeBrowser()
-  }
-
-  override fun onStop() {
-    releaseBrowser()
-    super.onStop()
-  }
-
   override fun onRequestPermissionsResult(
     requestCode: Int,
     permissions: Array<out String>,
@@ -142,50 +146,59 @@ class MainActivity : AppCompatActivity() {
     }
   }
 
-  private fun initializeBrowser() {
-    browserFuture =
-      MediaBrowser.Builder(
-          this,
-          SessionToken(this, ComponentName(this, PlaybackService::class.java)),
-        )
-        .buildAsync()
-    browserFuture.addListener({ pushRoot() }, ContextCompat.getMainExecutor(this))
+  private suspend fun initializeBrowser() {
+    val browser =
+      try {
+        MediaBrowser.Builder(
+            this,
+            SessionToken(this, ComponentName(this, PlaybackService::class.java)),
+          )
+          .buildAsync()
+          .await()
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        Log.w(TAG, "Failed to connect to MediaBrowser", e)
+        return
+      }
+    this.browser = browser
+    pushRoot(browser)
   }
 
   private fun releaseBrowser() {
-    MediaBrowser.releaseFuture(browserFuture)
+    browser?.release()
+    browser = null
   }
 
-  private fun displayChildrenList(mediaItem: MediaItem) {
+  private suspend fun displayChildrenList(mediaItem: MediaItem) {
     val browser = this.browser ?: return
 
     supportActionBar!!.setDisplayHomeAsUpEnabled(treePathStack.size != 1)
-    val childrenFuture =
-      browser.getChildren(
-        mediaItem.mediaId,
-        /* page= */ 0,
-        /* pageSize= */ Int.MAX_VALUE,
-        /* params= */ null,
-      )
 
+    val result =
+      browser
+        .getChildren(
+          mediaItem.mediaId,
+          /* page= */ 0,
+          /* pageSize= */ Int.MAX_VALUE,
+          /* params= */ null,
+        )
+        .await()
     subItemMediaList.clear()
-    childrenFuture.addListener(
-      {
-        val result = childrenFuture.get()!!
-        val children = result.value!!
-        subItemMediaList.addAll(children)
-        mediaListAdapter.notifyDataSetChanged()
-      },
-      ContextCompat.getMainExecutor(this),
-    )
+    if (result.resultCode == LibraryResult.RESULT_SUCCESS) {
+      subItemMediaList.addAll(checkNotNull(result.value))
+    } else {
+      Log.w(TAG, "Failed to get children for ${mediaItem.mediaId}: ${result.resultCode}")
+    }
+    mediaListAdapter.notifyDataSetChanged()
   }
 
-  private fun pushPathStack(mediaItem: MediaItem) {
+  private suspend fun pushPathStack(mediaItem: MediaItem) {
     treePathStack.addLast(mediaItem)
     displayChildrenList(treePathStack.last())
   }
 
-  private fun popPathStack() {
+  private suspend fun popPathStack() {
     treePathStack.removeLast()
     if (treePathStack.isEmpty()) {
       finish()
@@ -195,22 +208,19 @@ class MainActivity : AppCompatActivity() {
     displayChildrenList(treePathStack.last())
   }
 
-  private fun pushRoot() {
+  private suspend fun pushRoot(browser: MediaBrowser) {
     // browser can be initialized many times
     // only push root at the first initialization
     if (!treePathStack.isEmpty()) {
       return
     }
-    val browser = this.browser ?: return
-    val rootFuture = browser.getLibraryRoot(/* params= */ null)
-    rootFuture.addListener(
-      {
-        val result: LibraryResult<MediaItem> = rootFuture.get()!!
-        val root: MediaItem = result.value!!
-        pushPathStack(root)
-      },
-      ContextCompat.getMainExecutor(this),
-    )
+    val result = browser.getLibraryRoot(/* params= */ null).await()
+    if (result.resultCode == LibraryResult.RESULT_SUCCESS) {
+      val root = checkNotNull(result.value)
+      pushPathStack(root)
+    } else {
+      Log.w(TAG, "Failed to get library root: ${result.resultCode}")
+    }
   }
 
   private class FolderMediaItemArrayAdapter(
