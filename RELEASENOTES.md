@@ -122,6 +122,9 @@
     *   Parse Dolby Vision Profile 20 configuration data and reject unsupported
         Dolby Vision profiles instead of playing back as standard HEVC with
         incorrect colors ([#3427](https://github.com/androidx/media/pull/3427)).
+    *   MP3: Revert LAME/Xing encoder delay & padding metadata adjustment
+        because it's incompatible with many `MediaCodec` MP3 decoders
+        ([#3425](https://github.com/androidx/media/issues/3425)).
 *   Inspector:
     *   Support retrieving XMP metadata from MP4 files using
         `MetadataRetriever`.
