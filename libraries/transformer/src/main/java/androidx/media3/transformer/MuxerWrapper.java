@@ -31,6 +31,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.os.ParcelFileDescriptor;
 import android.util.SparseArray;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
@@ -146,7 +147,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   private static final long MAX_TRACK_WRITE_AHEAD_US = Util.msToUs(500);
 
-  private final String outputPath;
+  @Nullable private final String outputPath;
+  @Nullable private final ParcelFileDescriptor parcelFileDescriptor;
   private final Muxer.Factory muxerFactory;
   private final Listener listener;
   private final boolean dropSamplesBeforeFirstVideoSample;
@@ -192,7 +194,62 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       @MuxerMode int muxerMode,
       boolean dropSamplesBeforeFirstVideoSample,
       @Nullable Format appendVideoFormat) {
+    this(
+        outputPath,
+        /* parcelFileDescriptor= */ null,
+        muxerFactory,
+        listener,
+        muxerMode,
+        dropSamplesBeforeFirstVideoSample,
+        appendVideoFormat);
+  }
+
+  /**
+   * Creates an instance with a {@link ParcelFileDescriptor}.
+   *
+   * <p>{@code appendVideoFormat} must be non-{@code null} when using {@link
+   * #MUXER_MODE_MUX_PARTIAL}.
+   *
+   * @param parcelFileDescriptor The {@link ParcelFileDescriptor} to write output to.
+   * @param muxerFactory A {@link Muxer.Factory} to create a {@link Muxer}.
+   * @param listener A {@link MuxerWrapper.Listener}.
+   * @param muxerMode The {@link MuxerMode}. The initial mode must be {@link #MUXER_MODE_DEFAULT} or
+   *     {@link #MUXER_MODE_MUX_PARTIAL}.
+   * @param dropSamplesBeforeFirstVideoSample Whether to drop any non-video samples with
+   *     presentation timestamps before the first video sample.
+   * @param appendVideoFormat The format which will be used to write samples after transitioning
+   *     from {@link #MUXER_MODE_MUX_PARTIAL} to {@link #MUXER_MODE_APPEND}.
+   */
+  public MuxerWrapper(
+      ParcelFileDescriptor parcelFileDescriptor,
+      Muxer.Factory muxerFactory,
+      Listener listener,
+      @MuxerMode int muxerMode,
+      boolean dropSamplesBeforeFirstVideoSample,
+      @Nullable Format appendVideoFormat) {
+    this(
+        /* outputPath= */ null,
+        parcelFileDescriptor,
+        muxerFactory,
+        listener,
+        muxerMode,
+        dropSamplesBeforeFirstVideoSample,
+        appendVideoFormat);
+  }
+
+  private MuxerWrapper(
+      @Nullable String outputPath,
+      @Nullable ParcelFileDescriptor parcelFileDescriptor,
+      Muxer.Factory muxerFactory,
+      Listener listener,
+      @MuxerMode int muxerMode,
+      boolean dropSamplesBeforeFirstVideoSample,
+      @Nullable Format appendVideoFormat) {
+    checkArgument(
+        (outputPath == null) != (parcelFileDescriptor == null),
+        "Exactly one of outputPath or parcelFileDescriptor must be provided.");
     this.outputPath = outputPath;
+    this.parcelFileDescriptor = parcelFileDescriptor;
     this.muxerFactory = muxerFactory;
     this.listener = listener;
     checkArgument(muxerMode == MUXER_MODE_DEFAULT || muxerMode == MUXER_MODE_MUX_PARTIAL);
@@ -680,6 +737,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         ((FrameworkMuxer) muxer).setSuppressReleaseException();
       }
       muxer.close();
+    } else if (parcelFileDescriptor != null) {
+      Util.closeQuietly(parcelFileDescriptor);
     }
     if (releaseReason == MUXER_RELEASE_REASON_COMPLETED) {
       // Make sure to only read the output file size after the muxer and underlying file are closed.
@@ -729,14 +788,24 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @EnsuresNonNull("muxer")
   private void ensureMuxerInitialized() throws MuxerException {
     if (muxer == null) {
-      muxer = muxerFactory.create(outputPath);
+      if (parcelFileDescriptor != null) {
+        muxer = muxerFactory.create(parcelFileDescriptor);
+      } else if (outputPath != null) {
+        muxer = muxerFactory.create(outputPath);
+      } else {
+        throw new MuxerException(
+            "Unsupported output destination for initialization", new IllegalArgumentException());
+      }
     }
   }
 
   /** Returns the current size in bytes of the output, or {@link C#LENGTH_UNSET} if unavailable. */
   private long getCurrentOutputSizeBytes() {
-    long fileSize = new File(outputPath).length();
-    return fileSize > 0 ? fileSize : C.LENGTH_UNSET;
+    if (outputPath != null) {
+      long fileSize = new File(outputPath).length();
+      return fileSize > 0 ? fileSize : C.LENGTH_UNSET;
+    }
+    return C.LENGTH_UNSET;
   }
 
   @Nullable

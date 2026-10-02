@@ -1378,7 +1378,7 @@ public final class Transformer {
               logSessionId,
               shouldApplyMp4EditListTrim(),
               muxerFactory,
-              transformerOutput.path,
+              checkNotNull(transformerOutput.path),
               checkNotNull(oldFilePath));
     } else if (trimOptimizationEnabled && isSingleAssetTrimming()) {
       currentExportOperation =
@@ -1402,7 +1402,7 @@ public final class Transformer {
               logSessionId,
               shouldApplyMp4EditListTrim(),
               muxerFactory,
-              transformerOutput.path);
+              checkNotNull(transformerOutput.path));
     } else {
       currentExportOperation =
           new DefaultExportOperation(

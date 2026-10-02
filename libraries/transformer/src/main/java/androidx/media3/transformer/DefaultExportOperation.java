@@ -19,6 +19,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.media.metrics.LogSessionId;
+import android.net.Uri;
+import android.os.ParcelFileDescriptor;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C.TrackType;
 import androidx.media3.common.DebugViewProvider;
@@ -32,6 +34,7 @@ import androidx.media3.muxer.Muxer;
 import androidx.media3.transformer.ExportResult.ProcessedInput;
 import androidx.media3.transformer.Transformer.ProgressState;
 import com.google.common.collect.ImmutableList;
+import java.io.IOException;
 
 /** An {@link ExportOperation} implementation for single export operations. */
 /* package */ final class DefaultExportOperation implements ExportOperation {
@@ -62,6 +65,7 @@ import com.google.common.collect.ImmutableList;
   private final boolean fileStartsOnVideoFrameEnabled;
   private final ExportResult.Builder exportResultBuilder;
   private final ComponentListener componentListener;
+  @Nullable private Uri mediaStoreUri;
 
   @Nullable private TransformerInternal transformerInternal;
 
@@ -114,14 +118,28 @@ import com.google.common.collect.ImmutableList;
 
   @Override
   public void start() {
-    MuxerWrapper muxerWrapper =
-        new MuxerWrapper(
-            checkNotNull(transformerOutput.path),
-            muxerFactory,
-            componentListener,
-            MuxerWrapper.MUXER_MODE_DEFAULT,
-            /* dropSamplesBeforeFirstVideoSample= */ fileStartsOnVideoFrameEnabled,
-            /* appendVideoFormat= */ null);
+    MuxerWrapper muxerWrapper;
+    if (transformerOutput.outputType == TransformerOutput.TYPE_MEDIA_STORE) {
+      try {
+        muxerWrapper = createMuxerWrapperForMediaStore();
+      } catch (IOException | RuntimeException e) {
+        // The entry may have been inserted before opening its file descriptor failed.
+        deleteMediaStoreEntryIfPresent();
+        listener.onError(
+            exportResultBuilder.build(),
+            ExportException.createForMuxer(e, ExportException.ERROR_CODE_MUXING_FAILED));
+        return;
+      }
+    } else {
+      muxerWrapper =
+          new MuxerWrapper(
+              checkNotNull(transformerOutput.path),
+              muxerFactory,
+              componentListener,
+              MuxerWrapper.MUXER_MODE_DEFAULT,
+              /* dropSamplesBeforeFirstVideoSample= */ fileStartsOnVideoFrameEnabled,
+              /* appendVideoFormat= */ null);
+    }
     transformerInternal =
         new TransformerInternal(
             context,
@@ -158,13 +176,44 @@ import com.google.common.collect.ImmutableList;
   @Override
   public void cancel() {
     if (transformerInternal != null) {
+      // Blocks until the export pipeline has ended, releasing the muxer and closing the file
+      // descriptor, so that the MediaStore entry can be safely deleted below.
       transformerInternal.cancel();
     }
+    deleteMediaStoreEntryIfPresent();
   }
 
   @Override
   public void endWithException(ExportException exportException) {
     checkNotNull(transformerInternal).endWithException(exportException);
+  }
+
+  private MuxerWrapper createMuxerWrapperForMediaStore() throws IOException {
+    Uri itemUri =
+        TransformerOutputResolver.insertMediaStoreEntry(
+            context,
+            checkNotNull(transformerOutput.collectionUri),
+            checkNotNull(transformerOutput.contentValues));
+    this.mediaStoreUri = itemUri;
+    ParcelFileDescriptor pfd = TransformerOutputResolver.openFileDescriptor(context, itemUri);
+    return new MuxerWrapper(
+        pfd,
+        muxerFactory,
+        componentListener,
+        MuxerWrapper.MUXER_MODE_DEFAULT,
+        /* dropSamplesBeforeFirstVideoSample= */ fileStartsOnVideoFrameEnabled,
+        /* appendVideoFormat= */ null);
+  }
+
+  /**
+   * Deletes the MediaStore entry created for this export, if any, so that an export that did not
+   * complete successfully does not leave an orphaned entry behind.
+   */
+  private void deleteMediaStoreEntryIfPresent() {
+    if (mediaStoreUri != null) {
+      TransformerOutputResolver.deleteMediaStoreEntry(context, mediaStoreUri);
+      mediaStoreUri = null;
+    }
   }
 
   private final class ComponentListener
@@ -177,6 +226,11 @@ import com.google.common.collect.ImmutableList;
         ImmutableList<ProcessedInput> processedInputs,
         @Nullable String audioEncoderName,
         @Nullable String videoEncoderName) {
+      if (mediaStoreUri != null) {
+        TransformerOutputResolver.clearMediaStorePendingFlag(context, mediaStoreUri);
+        // The entry is published, so it must not be deleted by a subsequent cancel().
+        mediaStoreUri = null;
+      }
       ExportResultUtil.updateProcessingDetails(
           exportResultBuilder, processedInputs, audioEncoderName, videoEncoderName);
       listener.onCompleted(exportResultBuilder.build());
@@ -189,6 +243,7 @@ import com.google.common.collect.ImmutableList;
         @Nullable String audioEncoderName,
         @Nullable String videoEncoderName,
         ExportException exportException) {
+      deleteMediaStoreEntryIfPresent();
       ExportResultUtil.updateProcessingDetails(
           exportResultBuilder, processedInputs, audioEncoderName, videoEncoderName);
       listener.onError(

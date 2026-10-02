@@ -17,6 +17,8 @@ package androidx.media3.transformer;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import android.content.ContentValues;
+import android.net.Uri;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,5 +35,33 @@ public final class TransformerOutputTest {
 
     assertThat(output.outputType).isEqualTo(TransformerOutput.TYPE_FILE_PATH);
     assertThat(output.path).isEqualTo(path);
+    assertThat(output.collectionUri).isNull();
+    assertThat(output.contentValues).isNull();
+  }
+
+  @Test
+  public void create_withValidMediaStoreParameters_setsParametersCorrectly() {
+    Uri collectionUri = Uri.parse("content://media/external/video/media");
+    ContentValues values = new ContentValues();
+    values.put("title", "test_video");
+
+    TransformerOutput output = TransformerOutput.create(collectionUri, values);
+
+    assertThat(output.outputType).isEqualTo(TransformerOutput.TYPE_MEDIA_STORE);
+    assertThat(output.path).isNull();
+    assertThat(output.collectionUri).isEqualTo(collectionUri);
+    assertThat(output.contentValues).isEqualTo(values);
+  }
+
+  @Test
+  public void create_withMediaStoreParameters_defensivelyCopiesContentValues() {
+    Uri collectionUri = Uri.parse("content://media/external/video/media");
+    ContentValues values = new ContentValues();
+    values.put("title", "initial_title");
+
+    TransformerOutput output = TransformerOutput.create(collectionUri, values);
+    values.put("title", "mutated_title");
+
+    assertThat(output.contentValues.getAsString("title")).isEqualTo("initial_title");
   }
 }

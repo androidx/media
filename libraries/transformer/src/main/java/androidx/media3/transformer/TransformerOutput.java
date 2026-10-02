@@ -17,7 +17,10 @@ package androidx.media3.transformer;
 
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.content.ContentValues;
+import android.net.Uri;
 import androidx.annotation.IntDef;
+import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -32,13 +35,16 @@ public final class TransformerOutput {
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
-  @IntDef({TYPE_FILE_PATH})
+  @IntDef({TYPE_FILE_PATH, TYPE_MEDIA_STORE})
   /* package */ @interface OutputType {}
 
   /* package */ static final int TYPE_FILE_PATH = 1;
+  /* package */ static final int TYPE_MEDIA_STORE = 2;
 
   /* package */ final @OutputType int outputType;
-  /* package */ final String path;
+  @Nullable /* package */ final String path;
+  @Nullable /* package */ final Uri collectionUri;
+  @Nullable /* package */ final ContentValues contentValues;
 
   /**
    * Creates a {@link TransformerOutput} targeting a local file path.
@@ -47,11 +53,29 @@ public final class TransformerOutput {
    * @return A {@link TransformerOutput} instance.
    */
   public static TransformerOutput create(String path) {
-    return new TransformerOutput(TYPE_FILE_PATH, path);
+    return new TransformerOutput(
+        TYPE_FILE_PATH, path, /* collectionUri= */ null, /* contentValues= */ null);
   }
 
-  private TransformerOutput(@OutputType int outputType, String path) {
+  /**
+   * Creates a {@link TransformerOutput} targeting the Android MediaStore.
+   *
+   * @param collectionUri The collection {@link Uri} to insert the media into.
+   * @param contentValues The metadata values for the new MediaStore entry.
+   * @return A {@link TransformerOutput} instance.
+   */
+  public static TransformerOutput create(Uri collectionUri, ContentValues contentValues) {
+    return new TransformerOutput(TYPE_MEDIA_STORE, /* path= */ null, collectionUri, contentValues);
+  }
+
+  private TransformerOutput(
+      @OutputType int outputType,
+      @Nullable String path,
+      @Nullable Uri collectionUri,
+      @Nullable ContentValues contentValues) {
     this.outputType = outputType;
     this.path = path;
+    this.collectionUri = collectionUri;
+    this.contentValues = contentValues != null ? new ContentValues(contentValues) : null;
   }
 }
