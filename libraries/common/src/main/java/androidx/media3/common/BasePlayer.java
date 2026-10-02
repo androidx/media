@@ -366,9 +366,8 @@ public abstract class BasePlayer implements Player {
     if (timeline.isEmpty()) {
       return C.TIME_UNSET;
     }
-    long windowStartTimeMs =
-        timeline.getWindow(getCurrentMediaItemIndex(), window).windowStartTimeMs;
-    if (windowStartTimeMs == C.TIME_UNSET) {
+    timeline.getWindow(getCurrentMediaItemIndex(), window);
+    if (window.windowStartTimeMs == C.TIME_UNSET || !window.isLive()) {
       return C.TIME_UNSET;
     }
     return window.getCurrentUnixTimeMs() - window.windowStartTimeMs - getContentPosition();

@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.ima;
 
+import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,11 +28,19 @@ import android.widget.LinearLayout;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.Player;
+import androidx.media3.common.Timeline;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.drm.DrmSessionManagerProvider;
 import androidx.media3.exoplayer.ima.ImaServerSideAdInsertionMediaSource.AdsLoader.State;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.exoplayer.source.ForwardingTimeline;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.ads.ServerSideAdInsertionUtil;
+import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.test.utils.FakeMediaSource;
+import androidx.media3.test.utils.FakeTimeline;
+import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -42,9 +51,13 @@ import com.google.ads.interactivemedia.v3.api.AdsRenderingSettings;
 import com.google.ads.interactivemedia.v3.api.ImaSdkFactory;
 import com.google.ads.interactivemedia.v3.api.StreamDisplayContainer;
 import com.google.ads.interactivemedia.v3.api.StreamManager;
+import com.google.ads.interactivemedia.v3.api.player.VideoProgressUpdate;
+import com.google.ads.interactivemedia.v3.api.player.VideoStreamPlayer;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -188,6 +201,103 @@ public class ImaServerSideAdInsertionMediaSourceTest {
     Thread.sleep(100);
 
     verify(mockAdsRenderingSettings).setEnableCustomTabs(true);
+  }
+
+  @Test
+  public void
+      getContentProgress_multiPeriodVodWithWindowStartTime_returnsPositionWithoutWindowStartTime()
+          throws Exception {
+    AtomicReference<VideoStreamPlayer> videoStreamPlayerRef = new AtomicReference<>();
+    when(mockImaFactory.createAdsLoader(any(), any(), any(StreamDisplayContainer.class)))
+        .thenAnswer(
+            invocation -> {
+              StreamDisplayContainer container = invocation.getArgument(2);
+              videoStreamPlayerRef.set(container.getVideoStreamPlayer());
+              return mockAdsLoader;
+            });
+    when(mockAdsLoader.requestStream(any()))
+        .thenAnswer(
+            invocation -> {
+              videoStreamPlayerRef
+                  .get()
+                  .loadUrl("https://example.com/manifest.mpd", ImmutableList.of());
+              return null;
+            });
+    AdPlaybackState adPlaybackState =
+        ServerSideAdInsertionUtil.addAdGroupToAdPlaybackState(
+                new AdPlaybackState("2"),
+                /* fromPositionUs= */ 0,
+                /* contentResumeOffsetUs= */ 0,
+                /* adDurationsUs...= */ 10_000_000L)
+            .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);
+    ImaServerSideAdInsertionMediaSource.AdsLoader adsLoader =
+        new ImaServerSideAdInsertionMediaSource.AdsLoader.Builder(
+                context, /* adViewProvider= */ () -> new LinearLayout(context))
+            .setAdsLoaderState(new State(ImmutableMap.of("2", adPlaybackState)))
+            .build();
+    adsLoader.setPlayer(player);
+    Timeline contentTimeline =
+        new ForwardingTimeline(
+            new FakeTimeline(
+                new TimelineWindowDefinition.Builder()
+                    .setPeriodCount(2)
+                    .setDurationUs(20_000_000L)
+                    .setWindowPositionInFirstPeriodUs(0)
+                    .build())) {
+          @Override
+          public Window getWindow(
+              int windowIndex, Window window, long defaultPositionProjectionUs) {
+            super.getWindow(windowIndex, window, defaultPositionProjectionUs);
+            window.presentationStartTimeMs = 1_000_000L;
+            window.windowStartTimeMs = 1_000_000L;
+            return window;
+          }
+        };
+    MediaSource.Factory contentMediaSourceFactory =
+        new MediaSource.Factory() {
+          @Override
+          public MediaSource.Factory setDrmSessionManagerProvider(
+              DrmSessionManagerProvider drmSessionManagerProvider) {
+            return this;
+          }
+
+          @Override
+          public MediaSource.Factory setLoadErrorHandlingPolicy(
+              LoadErrorHandlingPolicy loadErrorHandlingPolicy) {
+            return this;
+          }
+
+          @Override
+          public @C.ContentType int[] getSupportedTypes() {
+            return new int[] {C.CONTENT_TYPE_DASH};
+          }
+
+          @Override
+          public MediaSource createMediaSource(MediaItem mediaItem) {
+            return new FakeMediaSource(contentTimeline);
+          }
+        };
+    ImaServerSideAdInsertionMediaSource.Factory factory =
+        new ImaServerSideAdInsertionMediaSource.Factory(adsLoader, contentMediaSourceFactory);
+    factory.setImaSdkFactory(mockImaFactory);
+    MediaSource mediaSource =
+        factory.createMediaSource(
+            MediaItem.fromUri(
+                new ImaServerSideAdInsertionUriBuilder()
+                    .setContentSourceId("123")
+                    .setVideoId("456")
+                    .setFormat(C.CONTENT_TYPE_DASH)
+                    .setAdsId("2")
+                    .build()));
+    player.setMediaSource(mediaSource);
+    player.seekTo(/* positionMs= */ 2_000);
+    player.prepare();
+    runMainLooperUntil(() -> !player.getCurrentTimeline().isEmpty());
+    advance(player).untilState(Player.STATE_READY);
+
+    VideoProgressUpdate contentProgress = videoStreamPlayerRef.get().getContentProgress();
+
+    assertThat(contentProgress).isEqualTo(new VideoProgressUpdate(12_000, 20_000));
   }
 
   private void setupMocks() {

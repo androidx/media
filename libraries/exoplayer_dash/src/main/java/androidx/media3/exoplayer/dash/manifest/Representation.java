@@ -51,6 +51,9 @@ public abstract class Representation {
   /** The base URLs of the representation. */
   public final ImmutableList<BaseUrl> baseUrls;
 
+  /** The timescale of the representation in units per second. */
+  public final long timescale;
+
   /** The offset of the presentation timestamps in the media stream relative to media time. */
   public final long presentationTimeOffsetUs;
 
@@ -155,6 +158,7 @@ public abstract class Representation {
     this.essentialProperties = essentialProperties;
     this.supplementalProperties = supplementalProperties;
     initializationUri = segmentBase.getInitialization(this);
+    timescale = segmentBase.timescale;
     presentationTimeOffsetUs = segmentBase.getPresentationTimeOffsetUs();
   }
 

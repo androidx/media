@@ -230,8 +230,10 @@
     *   Support whitespace-separated lists of `@id` values in trick mode
         (`http://dashif.org/guidelines/trickmode`) descriptor `@value`
         attributes ([#3315](https://github.com/androidx/media/issues/3315)).
-    *   Support parsing `<ProducerReferenceTime>` in `DashManifestParser` and
-        expose it in `AdaptationSet.producerReferenceTimes`.
+    *   Support parsing `<ProducerReferenceTime>` in `DashManifestParser`,
+        exposing it in `AdaptationSet.producerReferenceTimes`, and using it to
+        populate `Timeline.Window.presentationStartTimeMs` and
+        `Timeline.Window.windowStartTimeMs` for VOD streams.
     *   Add support for DASH Content Steering
         ([#1689](https://github.com/androidx/media/issues/1689)).
 *   Smooth Streaming extension:

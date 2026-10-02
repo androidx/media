@@ -832,23 +832,16 @@ public class SimpleBasePlayerTest {
   }
 
   @Test
-  public void mediaItemDataBuilderBuild_presentationStartTimeIfNotLive_throwsException() {
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            new SimpleBasePlayer.MediaItemData.Builder(/* uid= */ new Object())
-                .setPresentationStartTimeMs(12)
-                .build());
-  }
+  public void mediaItemDataBuilderBuild_startTimeIfNotLive_setsValues() {
+    SimpleBasePlayer.MediaItemData mediaItemData =
+        new SimpleBasePlayer.MediaItemData.Builder(/* uid= */ new Object())
+            .setPresentationStartTimeMs(12)
+            .setWindowStartTimeMs(23)
+            .build();
 
-  @Test
-  public void mediaItemDataBuilderBuild_windowStartTimeIfNotLive_throwsException() {
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            new SimpleBasePlayer.MediaItemData.Builder(/* uid= */ new Object())
-                .setWindowStartTimeMs(12)
-                .build());
+    assertThat(mediaItemData.liveConfiguration).isNull();
+    assertThat(mediaItemData.presentationStartTimeMs).isEqualTo(12);
+    assertThat(mediaItemData.windowStartTimeMs).isEqualTo(23);
   }
 
   @Test
@@ -869,6 +862,13 @@ public class SimpleBasePlayerTest {
         () ->
             new SimpleBasePlayer.MediaItemData.Builder(/* uid= */ new Object())
                 .setLiveConfiguration(MediaItem.LiveConfiguration.UNSET)
+                .setWindowStartTimeMs(12)
+                .setPresentationStartTimeMs(13)
+                .build());
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            new SimpleBasePlayer.MediaItemData.Builder(/* uid= */ new Object())
                 .setWindowStartTimeMs(12)
                 .setPresentationStartTimeMs(13)
                 .build());

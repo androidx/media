@@ -317,6 +317,87 @@ public class BasePlayerTest {
     assertThat(player.getBufferedPercentage()).isEqualTo(0);
   }
 
+  @Test
+  public void getCurrentLiveOffset_whenNotLiveWithWindowStartTime_returnsTimeUnset() {
+    Timeline timeline =
+        new Timeline() {
+          @Override
+          public int getWindowCount() {
+            return 1;
+          }
+
+          @Override
+          public Window getWindow(
+              int windowIndex, Window window, long defaultPositionProjectionUs) {
+            return window.set(
+                /* uid= */ 0,
+                MediaItem.EMPTY,
+                /* manifest= */ null,
+                /* presentationStartTimeMs= */ 1_000_000L,
+                /* windowStartTimeMs= */ 1_000_000L,
+                /* elapsedRealtimeEpochOffsetMs= */ C.TIME_UNSET,
+                /* isSeekable= */ true,
+                /* isDynamic= */ false,
+                /* liveConfiguration= */ null,
+                /* defaultPositionUs= */ 0,
+                /* durationUs= */ 10_000_000L,
+                /* firstPeriodIndex= */ 0,
+                /* lastPeriodIndex= */ 0,
+                /* positionInFirstPeriodUs= */ 0);
+          }
+
+          @Override
+          public int getPeriodCount() {
+            return 1;
+          }
+
+          @Override
+          public Period getPeriod(int periodIndex, Period period, boolean setIds) {
+            return period.set(
+                /* id= */ 0,
+                /* uid= */ 0,
+                /* windowIndex= */ 0,
+                /* durationUs= */ 10_000_000L,
+                /* positionInWindowUs= */ 0,
+                AdPlaybackState.NONE,
+                /* isPlaceholder= */ false);
+          }
+
+          @Override
+          public int getIndexOfPeriod(Object uid) {
+            return 0;
+          }
+
+          @Override
+          public Object getUidOfPeriod(int periodIndex) {
+            return 0;
+          }
+        };
+    TestBasePlayer player =
+        new TestBasePlayer() {
+          @Override
+          public Timeline getCurrentTimeline() {
+            return timeline;
+          }
+
+          @Override
+          public int getCurrentMediaItemIndex() {
+            return 0;
+          }
+
+          @Override
+          public long getContentPosition() {
+            return 2000;
+          }
+        };
+
+    boolean isLive = player.isCurrentMediaItemLive();
+    long liveOffsetMs = player.getCurrentLiveOffset();
+
+    assertThat(isLive).isFalse();
+    assertThat(liveOffsetMs).isEqualTo(C.TIME_UNSET);
+  }
+
   private static class TestBasePlayer extends StubPlayer {
 
     private int mediaItemIndex;

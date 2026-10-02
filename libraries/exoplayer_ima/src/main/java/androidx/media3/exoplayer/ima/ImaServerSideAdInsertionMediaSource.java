@@ -1393,7 +1393,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
             usToMs(
                 ServerSideAdInsertionUtil.getStreamPositionUs(
                     player, checkNotNull(adPlaybackState.adsId)));
-        if (window.windowStartTimeMs != C.TIME_UNSET) {
+        if (window.isLive() && window.windowStartTimeMs != C.TIME_UNSET) {
           // Add the time since epoch at start of the window for live streams.
           streamPositionMs += window.windowStartTimeMs + period.getPositionInWindowMs();
         } else if (currentPeriodIndex > window.firstPeriodIndex) {

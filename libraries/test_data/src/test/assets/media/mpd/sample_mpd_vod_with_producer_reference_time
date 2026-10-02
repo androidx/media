@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011"
+     type="static" mediaPresentationDuration="PT60S" minBufferTime="PT2S">
+  <Period id="p0" start="PT2S" duration="PT58S">
+    <AdaptationSet id="0" contentType="text" mimeType="text/vtt">
+      <ProducerReferenceTime id="0" type="captured"
+          wallClockTime="2026-03-17T05:00:00.000Z" presentationTime="0" />
+      <Representation id="t1" bandwidth="1000" />
+    </AdaptationSet>
+    <AdaptationSet id="1" contentType="video" mimeType="video/mp4" segmentAlignment="true">
+      <ProducerReferenceTime id="1" type="captured"
+          wallClockTime="2026-03-17T06:06:15.312Z" presentationTime="13000000" />
+      <Representation id="v1" bandwidth="2000000" width="1920" height="1080" codecs="avc1.4d401f">
+        <SegmentTemplate timescale="1000000" presentationTimeOffset="10000000"
+            initialization="v1-init.mp4" media="v1-$Time$.mp4">
+          <SegmentTimeline>
+            <S t="10500000" d="2000000" r="28" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>

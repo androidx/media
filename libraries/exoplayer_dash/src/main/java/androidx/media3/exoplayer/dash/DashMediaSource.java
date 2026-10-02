@@ -55,6 +55,7 @@ import androidx.media3.exoplayer.dash.manifest.DashManifest;
 import androidx.media3.exoplayer.dash.manifest.DashManifestParser;
 import androidx.media3.exoplayer.dash.manifest.Location;
 import androidx.media3.exoplayer.dash.manifest.Period;
+import androidx.media3.exoplayer.dash.manifest.ProducerReferenceTime;
 import androidx.media3.exoplayer.dash.manifest.Representation;
 import androidx.media3.exoplayer.dash.manifest.UtcTimingElement;
 import androidx.media3.exoplayer.drm.DefaultDrmSessionManagerProvider;
@@ -1096,7 +1097,14 @@ public final class DashMediaSource extends BaseMediaSource {
           max(windowStartTimeInManifestUs, timeShiftBufferStartTimeInManifestUs);
     }
     long windowDurationUs = windowEndTimeInManifestUs - windowStartTimeInManifestUs;
-    long windowStartUnixTimeMs = C.TIME_UNSET;
+    long presentationStartTimeMs = manifest.availabilityStartTimeMs;
+    if (!manifest.dynamic && presentationStartTimeMs == C.TIME_UNSET) {
+      presentationStartTimeMs = getPresentationStartTimeMsFromProducerReferenceTime(manifest);
+    }
+    long windowStartUnixTimeMs =
+        presentationStartTimeMs != C.TIME_UNSET
+            ? presentationStartTimeMs + Util.usToMs(windowStartTimeInManifestUs)
+            : C.TIME_UNSET;
     long windowDefaultPositionUs = 0;
     if (manifest.dynamic) {
       checkState(manifest.availabilityStartTimeMs != C.TIME_UNSET);
@@ -1105,8 +1113,6 @@ public final class DashMediaSource extends BaseMediaSource {
               - Util.msToUs(manifest.availabilityStartTimeMs)
               - windowStartTimeInManifestUs;
       updateLiveConfiguration(nowInWindowUs, windowDurationUs);
-      windowStartUnixTimeMs =
-          manifest.availabilityStartTimeMs + Util.usToMs(windowStartTimeInManifestUs);
       windowDefaultPositionUs = nowInWindowUs - Util.msToUs(getLiveConfiguration().targetOffsetMs);
       long minimumWindowDefaultPositionUs = min(minLiveStartPositionUs, windowDurationUs / 2);
       if (windowDefaultPositionUs < minimumWindowDefaultPositionUs) {
@@ -1119,7 +1125,7 @@ public final class DashMediaSource extends BaseMediaSource {
     long offsetInFirstPeriodUs = windowStartTimeInManifestUs - Util.msToUs(firstPeriod.startMs);
     DashTimeline timeline =
         new DashTimeline(
-            manifest.availabilityStartTimeMs,
+            presentationStartTimeMs,
             windowStartUnixTimeMs,
             elapsedRealtimeOffsetMs,
             firstPeriodId,
@@ -1612,6 +1618,44 @@ public final class DashMediaSource extends BaseMediaSource {
     return false;
   }
 
+  private static long getPresentationStartTimeMsFromProducerReferenceTime(DashManifest manifest) {
+    for (int periodIndex = 0; periodIndex < manifest.getPeriodCount(); periodIndex++) {
+      Period period = manifest.getPeriod(periodIndex);
+      if (period.startMs == C.TIME_UNSET) {
+        continue;
+      }
+      for (int i = 0; i < period.adaptationSets.size(); i++) {
+        AdaptationSet adaptationSet = period.adaptationSets.get(i);
+        if ((adaptationSet.type != C.TRACK_TYPE_AUDIO && adaptationSet.type != C.TRACK_TYPE_VIDEO)
+            || adaptationSet.representations.isEmpty()
+            || adaptationSet.producerReferenceTimes.isEmpty()) {
+          continue;
+        }
+        for (int j = 0; j < adaptationSet.producerReferenceTimes.size(); j++) {
+          ProducerReferenceTime producerReferenceTime = adaptationSet.producerReferenceTimes.get(j);
+          if (producerReferenceTime.wallClockTimeMs == C.TIME_UNSET) {
+            continue;
+          }
+          long presentationTimeInPeriodUs = 0;
+          if (producerReferenceTime.presentationTime != C.TIME_UNSET) {
+            Representation firstRepresentation = adaptationSet.representations.get(0);
+            long presentationTimeUs =
+                Util.scaleLargeTimestamp(
+                    producerReferenceTime.presentationTime,
+                    C.MICROS_PER_SECOND,
+                    firstRepresentation.timescale);
+            presentationTimeInPeriodUs =
+                presentationTimeUs - firstRepresentation.presentationTimeOffsetUs;
+          }
+          return producerReferenceTime.wallClockTimeMs
+              - Util.usToMs(presentationTimeInPeriodUs)
+              - period.startMs;
+        }
+      }
+    }
+    return C.TIME_UNSET;
+  }
+
   private static boolean hasVideoOrAudioAdaptationSets(Period period) {
     for (int i = 0; i < period.adaptationSets.size(); i++) {
       int type = period.adaptationSets.get(i).type;
@@ -1671,7 +1715,7 @@ public final class DashMediaSource extends BaseMediaSource {
     }
 
     @Override
-    public Period getPeriod(int periodIndex, Period period, boolean setIds) {
+    public Timeline.Period getPeriod(int periodIndex, Timeline.Period period, boolean setIds) {
       checkElementIndex(periodIndex, getPeriodCount());
       Object id = setIds ? manifest.getPeriod(periodIndex).id : null;
       Object uid = setIds ? (firstPeriodId + periodIndex) : null;

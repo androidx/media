@@ -123,6 +123,8 @@ public final class DashMediaSourceTest {
       "media/mpd/sample_mpd_content_steering_with_default_service_location";
   private static final String SAMPLE_MPD_CONTENT_STEERING_WITHOUT_DEFAULT_SERVICE_LOCATION =
       "media/mpd/sample_mpd_content_steering_without_default_service_location";
+  private static final String SAMPLE_MPD_VOD_WITH_PRODUCER_REFERENCE_TIME =
+      "media/mpd/sample_mpd_vod_with_producer_reference_time";
 
   @Test
   public void iso8601ParserParse() throws IOException {
@@ -1356,6 +1358,30 @@ public final class DashMediaSourceTest {
     // The window uses the narrowest overlapping range: [50ms, 59.98s], duration = 59.93s.
     assertThat(window.positionInFirstPeriodUs).isEqualTo(50_000L);
     assertThat(window.getDurationMs()).isEqualTo(59_930L);
+    assertThat(window.presentationStartTimeMs).isEqualTo(C.TIME_UNSET);
+    assertThat(window.windowStartTimeMs).isEqualTo(C.TIME_UNSET);
+  }
+
+  @Test
+  public void prepare_vodWithProducerReferenceTime_populatesWindowStartTimes() throws Exception {
+    DashMediaSource mediaSource =
+        new DashMediaSource.Factory(
+                () -> createSampleMpdDataSource(SAMPLE_MPD_VOD_WITH_PRODUCER_REFERENCE_TIME))
+            .createMediaSource(MediaItem.fromUri(Uri.EMPTY));
+
+    Window window = prepareAndWaitForTimelineRefresh(mediaSource);
+
+    // Period p0 starts at 2s. Text AdaptationSet is ignored.
+    // Video ProducerReferenceTime is at 13s (3s in period after 10s presentationTimeOffset) =
+    // 5s in MPD, so presentationStartTimeMs = 2026-03-17T06:06:15.312Z - 5s =
+    // 2026-03-17T06:06:10.312Z.
+    // First segment starts at 10.5s (0.5s in period) = 2.5s in MPD, so windowStartTimeMs =
+    // 2026-03-17T06:06:10.312Z + 2.5s = 2026-03-17T06:06:12.812Z.
+    assertThat(window.isLive()).isFalse();
+    assertThat(window.presentationStartTimeMs)
+        .isEqualTo(Util.parseXsDateTime("2026-03-17T06:06:10.312Z"));
+    assertThat(window.windowStartTimeMs)
+        .isEqualTo(Util.parseXsDateTime("2026-03-17T06:06:12.812Z"));
   }
 
   @Test

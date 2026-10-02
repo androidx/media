@@ -1525,13 +1525,10 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       }
 
       /**
-       * Sets the start time of the live presentation.
+       * Sets the start time of the presentation.
        *
-       * <p>This value can only be set to anything other than {@link C#TIME_UNSET} if the stream is
-       * {@linkplain #setLiveConfiguration live}.
-       *
-       * @param presentationStartTimeMs The start time of the live presentation, in milliseconds
-       *     since the Unix epoch, or {@link C#TIME_UNSET} if unknown or not applicable.
+       * @param presentationStartTimeMs The start time of the presentation, in milliseconds since
+       *     the Unix epoch, or {@link C#TIME_UNSET} if unknown or not applicable.
        * @return This builder.
        */
       @CanIgnoreReturnValue
@@ -1541,13 +1538,12 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       }
 
       /**
-       * Sets the start time of the live window.
+       * Sets the start time of the window.
        *
-       * <p>This value can only be set to anything other than {@link C#TIME_UNSET} if the stream is
-       * {@linkplain #setLiveConfiguration live}. The value should also be greater or equal than the
-       * {@linkplain #setPresentationStartTimeMs presentation start time}, if set.
+       * <p>This value should be greater than or equal to the {@linkplain
+       * #setPresentationStartTimeMs presentation start time}, if set.
        *
-       * @param windowStartTimeMs The start time of the live window, in milliseconds since the Unix
+       * @param windowStartTimeMs The start time of the window, in milliseconds since the Unix
        *     epoch, or {@link C#TIME_UNSET} if unknown or not applicable.
        * @return This builder.
        */
@@ -1723,14 +1719,14 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     @Nullable public final MediaItem.LiveConfiguration liveConfiguration;
 
     /**
-     * The start time of the live presentation, in milliseconds since the Unix epoch, or {@link
+     * The start time of the presentation, in milliseconds since the Unix epoch, or {@link
      * C#TIME_UNSET} if unknown or not applicable.
      */
     public final long presentationStartTimeMs;
 
     /**
-     * The start time of the live window, in milliseconds since the Unix epoch, or {@link
-     * C#TIME_UNSET} if unknown or not applicable.
+     * The start time of the window, in milliseconds since the Unix epoch, or {@link C#TIME_UNSET}
+     * if unknown or not applicable.
      */
     public final long windowStartTimeMs;
 
@@ -1779,15 +1775,10 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     private MediaItemData(Builder builder) {
       if (builder.liveConfiguration == null) {
         checkArgument(
-            builder.presentationStartTimeMs == C.TIME_UNSET,
-            "presentationStartTimeMs can only be set if liveConfiguration != null");
-        checkArgument(
-            builder.windowStartTimeMs == C.TIME_UNSET,
-            "windowStartTimeMs can only be set if liveConfiguration != null");
-        checkArgument(
             builder.elapsedRealtimeEpochOffsetMs == C.TIME_UNSET,
             "elapsedRealtimeEpochOffsetMs can only be set if liveConfiguration != null");
-      } else if (builder.presentationStartTimeMs != C.TIME_UNSET
+      }
+      if (builder.presentationStartTimeMs != C.TIME_UNSET
           && builder.windowStartTimeMs != C.TIME_UNSET) {
         checkArgument(
             builder.windowStartTimeMs >= builder.presentationStartTimeMs,
