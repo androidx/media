@@ -1238,6 +1238,47 @@ public class DashManifestParserTest {
   }
 
   @Test
+  public void parseUtcTiming_withSchemeAndValue_returnsUtcTimingElement() throws Exception {
+    DashManifestParser parser = new DashManifestParser();
+    XmlPullParser xpp = XmlPullParserFactory.newInstance().newPullParser();
+    xpp.setInput(
+        new StringReader(
+            "<UTCTiming schemeIdUri=\"urn:mpeg:dash:utc:direct:2014\""
+                + " value=\"2026-08-28T10:00:00.000Z\"/>"));
+    xpp.next();
+
+    @Nullable UtcTimingElement utcTiming = parser.parseUtcTiming(xpp);
+
+    assertThat(utcTiming)
+        .isEqualTo(
+            new UtcTimingElement("urn:mpeg:dash:utc:direct:2014", "2026-08-28T10:00:00.000Z"));
+  }
+
+  @Test
+  public void parseUtcTiming_missingValue_returnsNull() throws Exception {
+    DashManifestParser parser = new DashManifestParser();
+    XmlPullParser xpp = XmlPullParserFactory.newInstance().newPullParser();
+    xpp.setInput(new StringReader("<UTCTiming schemeIdUri=\"urn:mpeg:dash:utc:direct:2014\"/>"));
+    xpp.next();
+
+    @Nullable UtcTimingElement utcTiming = parser.parseUtcTiming(xpp);
+
+    assertThat(utcTiming).isNull();
+  }
+
+  @Test
+  public void parseUtcTiming_missingSchemeIdUri_returnsNull() throws Exception {
+    DashManifestParser parser = new DashManifestParser();
+    XmlPullParser xpp = XmlPullParserFactory.newInstance().newPullParser();
+    xpp.setInput(new StringReader("<UTCTiming value=\"2026-08-28T10:00:00.000Z\"/>"));
+    xpp.next();
+
+    @Nullable UtcTimingElement utcTiming = parser.parseUtcTiming(xpp);
+
+    assertThat(utcTiming).isNull();
+  }
+
+  @Test
   public void parseProducerReferenceTime_applicationType_parsedCorrectly() throws Exception {
     DashManifestParser parser = new DashManifestParser();
     XmlPullParser xpp = XmlPullParserFactory.newInstance().newPullParser();

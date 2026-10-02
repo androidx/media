@@ -338,7 +338,7 @@ public abstract class SegmentBase {
      *     epoch.
      */
     public SegmentList(
-        RangedUri initialization,
+        @Nullable RangedUri initialization,
         long timescale,
         long presentationTimeOffset,
         long startNumber,
@@ -427,7 +427,7 @@ public abstract class SegmentBase {
      *     epoch.
      */
     public SegmentTemplate(
-        RangedUri initialization,
+        @Nullable RangedUri initialization,
         long timescale,
         long presentationTimeOffset,
         long startNumber,

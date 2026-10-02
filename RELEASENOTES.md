@@ -236,6 +236,9 @@
         `Timeline.Window.windowStartTimeMs` for VOD streams.
     *   Add support for DASH Content Steering
         ([#1689](https://github.com/androidx/media/issues/1689)).
+    *   Fix a `NullPointerException` that could occur when parsing a DASH
+        manifest with a missing attribute in `<UTCTiming>` element
+        ([#3436](https://github.com/androidx/media/issues/3436)).
 *   Smooth Streaming extension:
 *   RTSP extension:
     *   Fix an `IllegalStateException` crash that occurred when processing
