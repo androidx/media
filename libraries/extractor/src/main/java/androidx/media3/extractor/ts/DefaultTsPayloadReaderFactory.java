@@ -294,7 +294,7 @@ public final class DefaultTsPayloadReaderFactory implements TsPayloadReader.Fact
           }
 
           // easy_reader(1), wide_aspect_ratio(1), reserved(6).
-          byte flags = (byte) scratchDescriptorData.readUnsignedByte();
+          byte flags = scratchDescriptorData.readByte();
           // Skip reserved (8).
           scratchDescriptorData.skipBytes(1);
 

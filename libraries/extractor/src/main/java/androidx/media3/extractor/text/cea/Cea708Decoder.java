@@ -229,8 +229,8 @@ public final class Cea708Decoder extends CeaDecoder {
 
       int ccType = ccTypeAndValid & (DTVCC_PACKET_DATA | DTVCC_PACKET_START);
       boolean ccValid = (ccTypeAndValid & CC_VALID_FLAG) == CC_VALID_FLAG;
-      byte ccData1 = (byte) ccData.readUnsignedByte();
-      byte ccData2 = (byte) ccData.readUnsignedByte();
+      byte ccData1 = ccData.readByte();
+      byte ccData2 = ccData.readByte();
 
       // Ignore any non-CEA-708 data
       if (ccType != DTVCC_PACKET_DATA && ccType != DTVCC_PACKET_START) {

@@ -1678,8 +1678,8 @@ public final class BoxParser {
         mimeType = (atomType == Mp4Box.TYPE_vp08) ? MimeTypes.VIDEO_VP8 : MimeTypes.VIDEO_VP9;
         parent.setPosition(childStartPosition + Mp4Box.FULL_HEADER_SIZE);
         // See vpcC atom syntax: https://www.webmproject.org/vp9/mp4/#syntax_1
-        byte profile = (byte) parent.readUnsignedByte();
-        byte level = (byte) parent.readUnsignedByte();
+        byte profile = parent.readByte();
+        byte level = parent.readByte();
         int byte3 = parent.readUnsignedByte();
         bitdepthLuma = byte3 >> 4;
         bitdepthChroma = bitdepthLuma;
