@@ -359,7 +359,7 @@ public final class DefaultGlFrameProcessorTest {
   }
 
   @Test
-  public void queue_withJpegRAndSrgbTransfer_infersHdrHlg() throws Exception {
+  public void queue_withJpegRAndSrgbTransfer_infersHdrLinear() throws Exception {
     Format format =
         new Format.Builder()
             .setSampleMimeType(MimeTypes.IMAGE_JPEG_R)
@@ -368,7 +368,7 @@ public final class DefaultGlFrameProcessorTest {
     ColorInfo actualColorInfo =
         queueFrameAndGetColorInfo(format, /* forceUnsupportedFormat= */ false);
 
-    assertThat(actualColorInfo).isEqualTo(DefaultGlFrameProcessor.BT2020_HLG);
+    assertThat(actualColorInfo).isEqualTo(DefaultGlFrameProcessor.BT2020_LINEAR);
   }
 
   @Test

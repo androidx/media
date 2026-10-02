@@ -149,12 +149,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           inputFormat.rotationDegrees);
 
       // On API 34+, if the input is an Ultra HDR image with a gainmap and the pipeline output is
-      // HDR, apply the gainmap to reconstruct the HDR image. On API <= 33 or when the pipeline
-      // output is SDR, falls back to copying the base SDR image without gainmap application.
+      // a wide color gamut, apply the gainmap to reconstruct the HDR image. On API <= 33 or when
+      // the pipeline output is SDR, falls back to copying the base SDR image without gainmap
+      // application.
       boolean isUltraHdr =
           SDK_INT >= 34
               && Objects.equals(inputFormat.sampleMimeType, MimeTypes.IMAGE_JPEG_R)
-              && ColorInfo.isTransferHdr(outputColorInfo);
+              && ColorInfo.isWideColorGamut(outputColorInfo);
 
       if (isUltraHdr) {
         Bitmap bitmap = (Bitmap) checkNotNull(getInternalFrame(hardwareBufferFrame));

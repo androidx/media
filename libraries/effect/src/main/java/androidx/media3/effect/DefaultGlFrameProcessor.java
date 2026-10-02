@@ -358,7 +358,9 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
    * <p>When input is HLG, HLG scene-referred electrical values are converted to display light using
    * the ITU-R BT.2100 HLG EOTF ({@code OOTF_1.2(OETF^-1(E))}) and scaled onto the diffuse white
    * anchor. When input is PQ, PQ electrical values are linearized using the SMPTE ST 2084 EOTF and
-   * scaled onto the diffuse white anchor.
+   * scaled onto the diffuse white anchor. When input is Ultra HDR (JPEG_R), the sRGB base image is
+   * linearized to optical BT.709 display light ({@code 1.0} = 203-nit diffuse white), boosted by
+   * the gainmap up to the 1,000-nit reference peak ({@code ~4.9224}), and converted to BT.2020.
    */
   /* package */ static final ColorInfo BT2020_LINEAR =
       new ColorInfo.Builder()
@@ -369,10 +371,10 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   /**
    * An HDR color space with BT.2020 color primaries, and HLG transfer function.
    *
-   * <p>When input is PQ, PQ electrical values are converted to optical linear light in nits and
-   * normalized against the 1,000-nit HLG reference display peak. The resulting display light is
-   * converted to scene light via inverse HLG OOTF (system gamma 1.2) and encoded into an HLG
-   * electrical signal using the BT.2100 HLG OETF.
+   * <p>When input is PQ or Ultra HDR (JPEG_R), values are first converted to optical linear BT.2020
+   * display light and normalized against the 1,000-nit HLG reference display peak. The resulting
+   * display light is converted to scene light via inverse HLG OOTF (system gamma 1.2) and encoded
+   * into an HLG electrical signal using the BT.2100 HLG OETF.
    *
    * <p>HLG signal cannot represent scene light above 1.0 (either from display light above the
    * 1,000-nit reference peak or saturated primaries where inverse OOTF boosts channel values above
@@ -778,7 +780,8 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     ColorInfo inputColorInfo = format.colorInfo == null ? SDR_BT709_LIMITED : format.colorInfo;
     if (Objects.equals(format.sampleMimeType, MimeTypes.IMAGE_JPEG_R)
         && inputColorInfo.colorTransfer == C.COLOR_TRANSFER_SRGB) {
-      return BT2020_HLG;
+      // UltraHDR image input.
+      return BT2020_LINEAR;
     }
     if (isWideColorGamut(inputColorInfo)) {
       // Process HDR in linear light. FrameWriterGlTextureFrameConsumer converts frames to an

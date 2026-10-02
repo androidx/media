@@ -131,6 +131,10 @@ import java.io.IOException;
    * Copies the content of an input base texture and an Ultra HDR gainmap texture to an output
    * texture, applying the gainmap and converting to the target color space.
    *
+   * <p>The {@code requestedOutputColorInfo.colorTransfer} is configured during shader
+   * initialization and must remain invariant across calls for this {@link GlTextureCopier}
+   * instance.
+   *
    * @param inputTexId The ID of the input base texture.
    * @param gainmapTexId The ID of the gainmap texture.
    * @param gainmap The {@link Gainmap} containing mathematical parameters.
@@ -159,7 +163,8 @@ import java.io.IOException;
             new GlProgram(
                 context,
                 R.raw.vertex_shader_transformation_es3,
-                R.raw.fragment_shader_transformation_ultra_hdr_es3);
+                R.raw.color_conversions_es3,
+                R.raw.fragment_shader_transformation_ultra_hdr_color_conversion_es3);
         setupCommonAttributesAndUniforms(ultraHdrCopyGlProgram);
         ultraHdrCopyGlProgram.setIntUniform(
             "uOutputColorTransfer", requestedOutputColorInfo.colorTransfer);

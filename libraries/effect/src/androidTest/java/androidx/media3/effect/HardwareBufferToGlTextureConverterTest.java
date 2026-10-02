@@ -42,6 +42,7 @@ import static org.junit.Assume.assumeTrue;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.Gainmap;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
 import android.hardware.HardwareBuffer;
@@ -81,7 +82,6 @@ import com.google.testing.junit.testparameterinjector.TestParameterValuesProvide
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -318,6 +318,57 @@ public final class HardwareBufferToGlTextureConverterTest {
               /* expectedBt2020LinearRgb= */ Color.valueOf(1.5557f, 1.5557f, 1.5557f),
               /* expectedSdrLinearRgb= */ Color.valueOf(0.6272f, 0.6272f, 0.6272f)));
 
+  private static final ImmutableList<SolidColorTestCase> ULTRA_HDR_SOLID_COLOR_TEST_CASES =
+      ImmutableList.of(
+          // Unboosted SDR diffuse white (gainmap alpha = 0 -> 1.0x gain = 203.15 nits):
+          // Maps to 1.0 in BT2020_LINEAR and 0.75 in BT2020_HLG.
+          new SolidColorTestCase(
+              /* name= */ "ULTRA_HDR_WHITE_UNBOOSTED",
+              /* inputSrgbColor= */ Color.WHITE,
+              /* gainmapAlpha= */ 0,
+              /* expectedHlgRgb= */ Color.valueOf(0.7500f, 0.7500f, 0.7500f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(1.0000f, 1.0000f, 1.0000f)),
+          // Mid-boosted SDR diffuse white (gainmap alpha = 128 -> g = 128/255 = 0.501961 -> 2.2256x
+          // gain):
+          new SolidColorTestCase(
+              /* name= */ "ULTRA_HDR_WHITE_MID_BOOST",
+              /* inputSrgbColor= */ Color.WHITE,
+              /* gainmapAlpha= */ 128,
+              /* expectedHlgRgb= */ Color.valueOf(0.8776f, 0.8776f, 0.8776f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(2.2256f, 2.2256f, 2.2256f)),
+          // Peak-boosted SDR diffuse white (gainmap alpha = 255 -> 4.9224x gain = 1,000 nits):
+          // Maps to 4.9224 in BT2020_LINEAR and 1.0 in BT2020_HLG.
+          new SolidColorTestCase(
+              /* name= */ "ULTRA_HDR_WHITE_PEAK_BOOST",
+              /* inputSrgbColor= */ Color.WHITE,
+              /* gainmapAlpha= */ 255,
+              /* expectedHlgRgb= */ Color.valueOf(1.0000f, 1.0000f, 1.0000f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(4.9224f, 4.9224f, 4.9224f)),
+          // Peak-boosted BT.709 primary red (gainmap alpha = 255 -> 4.9224x gain = 1,000-nit BT.709
+          // red):
+          new SolidColorTestCase(
+              /* name= */ "ULTRA_HDR_RED_PEAK_BOOST",
+              /* inputSrgbColor= */ Color.RED,
+              /* gainmapAlpha= */ 255,
+              /* expectedHlgRgb= */ Color.valueOf(0.9618f, 0.5174f, 0.2523f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(3.0883f, 0.3401f, 0.0807f)),
+          // Peak-boosted BT.709 primary green (gainmap alpha = 255 -> 4.9224x gain = 1,000-nit
+          // BT.709 green):
+          new SolidColorTestCase(
+              /* name= */ "ULTRA_HDR_GREEN_PEAK_BOOST",
+              /* inputSrgbColor= */ Color.GREEN,
+              /* gainmapAlpha= */ 255,
+              /* expectedHlgRgb= */ Color.valueOf(0.8030f, 0.9949f, 0.5271f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(1.6209f, 4.5264f, 0.4332f)),
+          // Peak-boosted BT.709 primary blue (gainmap alpha = 255 -> 4.9224x gain = 1,000-nit
+          // BT.709 blue):
+          new SolidColorTestCase(
+              /* name= */ "ULTRA_HDR_BLUE_PEAK_BOOST",
+              /* inputSrgbColor= */ Color.BLUE,
+              /* gainmapAlpha= */ 255,
+              /* expectedHlgRgb= */ Color.valueOf(0.3809f, 0.1951f, 1.0000f),
+              /* expectedBt2020LinearRgb= */ Color.valueOf(0.2132f, 0.0559f, 4.4085f)));
+
   private final Context context = getApplicationContext();
 
   private @MonotonicNonNull ListeningExecutorService glExecutorService;
@@ -365,25 +416,7 @@ public final class HardwareBufferToGlTextureConverterTest {
     Bitmap hardwareBitmap = expectedBitmap.copy(Bitmap.Config.HARDWARE, /* isMutable= */ false);
     HardwareBuffer hardwareBuffer = hardwareBitmap.getHardwareBuffer();
 
-    AtomicReference<Frame> completedFrame = new AtomicReference<>();
-    FrameProcessor.Listener listener =
-        new FrameProcessor.Listener() {
-          @Override
-          public void onWakeup() {}
-
-          @Override
-          public void onError(VideoFrameProcessingException exception) {}
-
-          @Override
-          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
-            if (releaseFence != null) {
-              assertThat(releaseFence.awaitMs(FENCE_TIMEOUT_MS)).isTrue();
-              releaseFence.close();
-            }
-            hardwareBuffer.close();
-            completedFrame.set(frame);
-          }
-        };
+    TestFrameProcessorListener listener = new TestFrameProcessorListener(hardwareBuffer);
 
     int width = expectedBitmap.getWidth();
     int height = expectedBitmap.getHeight();
@@ -403,7 +436,7 @@ public final class HardwareBufferToGlTextureConverterTest {
             getBitmapAveragePixelAbsoluteDifferenceArgb8888(
                 expectedBitmap, actualBitmap, testName.getMethodName()))
         .isLessThan(MAX_PIXEL_DIFFERENCE);
-    assertThat(completedFrame.get()).isSameInstanceAs(hardwareBufferFrame);
+    assertThat(listener.completedFrame.get()).isSameInstanceAs(hardwareBufferFrame);
   }
 
   @SdkSuppress(minSdkVersion = 29)
@@ -450,26 +483,8 @@ public final class HardwareBufferToGlTextureConverterTest {
           new HardwareBufferToGlTextureConverter(
               context, HardwareBufferJni.INSTANCE, outputColorInfo, e -> {});
 
-      AtomicReference<Frame> completedFrame = new AtomicReference<>();
-      FrameProcessor.Listener listener =
-          new FrameProcessor.Listener() {
-            @Override
-            public void onWakeup() {}
-
-            @Override
-            public void onError(VideoFrameProcessingException exception) {}
-
-            @Override
-            public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
-              if (releaseFence != null) {
-                assertThat(releaseFence.awaitMs(FENCE_TIMEOUT_MS)).isTrue();
-                releaseFence.close();
-              }
-              inputHardwareBuffer.close();
-              inputImage.close();
-              completedFrame.set(frame);
-            }
-          };
+      TestFrameProcessorListener listener =
+          new TestFrameProcessorListener(inputHardwareBuffer, inputImage);
 
       HardwareBufferFrame inputHardwareBufferFrame =
           new DefaultHardwareBufferFrame.Builder(inputHardwareBuffer)
@@ -483,7 +498,7 @@ public final class HardwareBufferToGlTextureConverterTest {
               getBitmapAveragePixelAbsoluteDifferenceArgb8888(
                   expectedBitmap, actualBitmap, testName.getMethodName()))
           .isLessThan(MAX_PIXEL_DIFFERENCE);
-      assertThat(completedFrame.get()).isSameInstanceAs(inputHardwareBufferFrame);
+      assertThat(listener.completedFrame.get()).isSameInstanceAs(inputHardwareBufferFrame);
     }
   }
 
@@ -541,28 +556,8 @@ public final class HardwareBufferToGlTextureConverterTest {
               throw new AssertionError(e);
             });
 
-    AtomicReference<Frame> completedFrame = new AtomicReference<>();
-    FrameProcessor.Listener listener =
-        new FrameProcessor.Listener() {
-          @Override
-          public void onWakeup() {}
-
-          @Override
-          public void onError(VideoFrameProcessingException exception) {
-            throw new AssertionError(exception);
-          }
-
-          @Override
-          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
-            if (releaseFence != null) {
-              assertThat(releaseFence.awaitMs(FENCE_TIMEOUT_MS)).isTrue();
-              releaseFence.close();
-            }
-            inputHardwareBuffer.close();
-            inputImage.close();
-            completedFrame.set(frame);
-          }
-        };
+    TestFrameProcessorListener listener =
+        new TestFrameProcessorListener(inputHardwareBuffer, inputImage);
 
     HardwareBufferFrame inputHardwareBufferFrame =
         new DefaultHardwareBufferFrame.Builder(inputHardwareBuffer).setFormat(inputFormat).build();
@@ -576,7 +571,7 @@ public final class HardwareBufferToGlTextureConverterTest {
             getBitmapAveragePixelAbsoluteDifferenceArgb8888(
                 expectedBitmap, actualBitmap, testName.getMethodName()))
         .isLessThan(MAX_PIXEL_DIFFERENCE);
-    assertThat(completedFrame.get()).isSameInstanceAs(inputHardwareBufferFrame);
+    assertThat(listener.completedFrame.get()).isSameInstanceAs(inputHardwareBufferFrame);
     inputImageReader.close();
   }
 
@@ -600,25 +595,7 @@ public final class HardwareBufferToGlTextureConverterTest {
         new HardwareBufferToGlTextureConverter(
             context, HardwareBufferJni.INSTANCE, differentSdrColorInfo, e -> {});
 
-    AtomicReference<Frame> completedFrame = new AtomicReference<>();
-    FrameProcessor.Listener listener =
-        new FrameProcessor.Listener() {
-          @Override
-          public void onWakeup() {}
-
-          @Override
-          public void onError(VideoFrameProcessingException exception) {}
-
-          @Override
-          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
-            if (releaseFence != null) {
-              assertThat(releaseFence.awaitMs(FENCE_TIMEOUT_MS)).isTrue();
-              releaseFence.close();
-            }
-            hardwareBuffer.close();
-            completedFrame.set(frame);
-          }
-        };
+    TestFrameProcessorListener listener = new TestFrameProcessorListener(hardwareBuffer);
 
     Format inputFormat =
         new Format.Builder()
@@ -636,7 +613,7 @@ public final class HardwareBufferToGlTextureConverterTest {
             getBitmapAveragePixelAbsoluteDifferenceArgb8888(
                 expectedBitmap, actualBitmap, testName.getMethodName()))
         .isLessThan(MAX_PIXEL_DIFFERENCE);
-    assertThat(completedFrame.get()).isSameInstanceAs(inputHardwareBufferFrame);
+    assertThat(listener.completedFrame.get()).isSameInstanceAs(inputHardwareBufferFrame);
   }
 
   @SdkSuppress(minSdkVersion = 29)
@@ -686,28 +663,8 @@ public final class HardwareBufferToGlTextureConverterTest {
               throw new AssertionError(e);
             });
 
-    AtomicReference<Frame> completedFrame = new AtomicReference<>();
-    FrameProcessor.Listener listener =
-        new FrameProcessor.Listener() {
-          @Override
-          public void onWakeup() {}
-
-          @Override
-          public void onError(VideoFrameProcessingException exception) {
-            throw new AssertionError(exception);
-          }
-
-          @Override
-          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
-            if (releaseFence != null) {
-              assertThat(releaseFence.awaitMs(FENCE_TIMEOUT_MS)).isTrue();
-              releaseFence.close();
-            }
-            inputHardwareBuffer.close();
-            inputImage.close();
-            completedFrame.set(frame);
-          }
-        };
+    TestFrameProcessorListener listener =
+        new TestFrameProcessorListener(inputHardwareBuffer, inputImage);
 
     HardwareBufferFrame inputHardwareBufferFrame =
         new DefaultHardwareBufferFrame.Builder(inputHardwareBuffer).setFormat(inputFormat).build();
@@ -724,7 +681,7 @@ public final class HardwareBufferToGlTextureConverterTest {
             getBitmapAveragePixelAbsoluteDifferenceArgb8888(
                 expectedBitmap, actualBitmap, testName.getMethodName()))
         .isLessThan(MAX_PIXEL_DIFFERENCE);
-    assertThat(completedFrame.get()).isSameInstanceAs(inputHardwareBufferFrame);
+    assertThat(listener.completedFrame.get()).isSameInstanceAs(inputHardwareBufferFrame);
   }
 
   @SdkSuppress(minSdkVersion = 31)
@@ -762,26 +719,7 @@ public final class HardwareBufferToGlTextureConverterTest {
                 throw new AssertionError(e);
               });
 
-      AtomicReference<Frame> completedFrame = new AtomicReference<>();
-      FrameProcessor.Listener listener =
-          new FrameProcessor.Listener() {
-            @Override
-            public void onWakeup() {}
-
-            @Override
-            public void onError(VideoFrameProcessingException exception) {
-              throw new AssertionError(exception);
-            }
-
-            @Override
-            public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
-              if (releaseFence != null) {
-                assertThat(releaseFence.awaitMs(FENCE_TIMEOUT_MS)).isTrue();
-                releaseFence.close();
-              }
-              completedFrame.set(frame);
-            }
-          };
+      TestFrameProcessorListener listener = new TestFrameProcessorListener();
 
       Bitmap expectedBitmap =
           BitmapPixelTestUtil.readBitmap(
@@ -792,7 +730,7 @@ public final class HardwareBufferToGlTextureConverterTest {
       Bitmap actualBitmap = convertAndCaptureBitmap(inputHardwareBufferFrame, listener);
 
       assertFp16BitmapsAreSimilar(expectedBitmap, actualBitmap, TestUtil.PSNR_THRESHOLD);
-      assertThat(completedFrame.get()).isSameInstanceAs(inputHardwareBufferFrame);
+      assertThat(listener.completedFrame.get()).isSameInstanceAs(inputHardwareBufferFrame);
     } finally {
       hardwareBuffer.close();
     }
@@ -896,9 +834,84 @@ public final class HardwareBufferToGlTextureConverterTest {
         checkNotNull(testCase.expectedSdrLinearRgb));
   }
 
+  /**
+   * Tests Ultra HDR (JPEG_R) to HDR (Linear) conversion.
+   *
+   * <p>Expected Value Calculation:
+   *
+   * <ul>
+   *   <li>Input SDR base electrical values in {@code [0.0, 1.0]} are linearized using the sRGB EOTF
+   *       to optical BT.709 display light ({@code 1.0} = 203-nit ITU-R BT.2408 diffuse white).
+   *   <li>The 8-bit {@code ALPHA_8} gainmap value {@code g = gainmapAlpha / 255.0} interpolates the
+   *       logarithmic boost between {@code ln(ratioMin)} and {@code ln(ratioMax)}, weighted by the
+   *       target HDR headroom ratio ({@code 1000.0 / 203.1521 = ~4.9224}), and scales the linear
+   *       BT.709 color.
+   *   <li>The boosted linear BT.709 display light is converted to BT.2020 display light using
+   *       {@code BT709_TO_BT2020} ({@code XYZ_TO_BT2020 * BT709_TO_XYZ}).
+   * </ul>
+   */
+  @SdkSuppress(minSdkVersion = 34)
+  @Test
+  public void convert_withSolidColorUltraHdrBuffersAndHdrLinearOutput_outputsCorrectValues(
+      @TestParameter(valuesProvider = UltraHdrSolidColorTestCasesProvider.class)
+          SolidColorTestCase testCase)
+      throws Exception {
+    assertSolidColorUltraHdrConversion(
+        /* outputColorInfo= */ BT2020_LINEAR,
+        testCase.inputSrgbColor,
+        testCase.gainmapAlpha,
+        testCase.expectedBt2020LinearRgb);
+  }
+
+  /**
+   * Tests Ultra HDR (JPEG_R) to HDR (HLG) conversion.
+   *
+   * <p>Expected Value Calculation:
+   *
+   * <ul>
+   *   <li>Input SDR base and gainmap are reconstructed to optical linear BT.2020 display light
+   *       anchored at {@code 1.0} = 203-nit diffuse white (up to {@code ~4.9224} = 1,000 nits).
+   *   <li>Display light is scaled down by {@code HDR_DIFFUSE_WHITE_SCALE_DOWN} ({@code 0.2031521})
+   *       to normalize 1,000 nits to {@code 1.0}.
+   *   <li>Normalized display light is converted to scene light via the inverse HLG OOTF (gamma
+   *       {@code 1.2}, chromaticity-preserving clamp to {@code [0.0, 1.0]}) and encoded with the
+   *       ITU-R BT.2100 HLG OETF.
+   * </ul>
+   */
+  @SdkSuppress(minSdkVersion = 34)
+  @Test
+  public void convert_withSolidColorUltraHdrBuffersAndHlgOutput_outputsCorrectValues(
+      @TestParameter(valuesProvider = UltraHdrSolidColorTestCasesProvider.class)
+          SolidColorTestCase testCase)
+      throws Exception {
+    assertSolidColorUltraHdrConversion(
+        /* outputColorInfo= */ BT2020_HLG,
+        testCase.inputSrgbColor,
+        testCase.gainmapAlpha,
+        checkNotNull(testCase.expectedHlgRgb));
+  }
+
   @RequiresApi(31)
   private void assertSolidColorConversion(
       Bitmap inputBitmap,
+      ColorInfo inputColorInfo,
+      ColorInfo outputColorInfo,
+      Color expectedOutputColorRgb)
+      throws Exception {
+    assertSolidColorConversion(
+        inputBitmap,
+        /* sampleMimeType= */ null,
+        /* internalImage= */ null,
+        inputColorInfo,
+        outputColorInfo,
+        expectedOutputColorRgb);
+  }
+
+  @RequiresApi(31)
+  private void assertSolidColorConversion(
+      Bitmap inputBitmap,
+      @Nullable String sampleMimeType,
+      @Nullable Object internalImage,
       ColorInfo inputColorInfo,
       ColorInfo outputColorInfo,
       Color expectedOutputColorRgb)
@@ -911,10 +924,12 @@ public final class HardwareBufferToGlTextureConverterTest {
         new DefaultHardwareBufferFrame.Builder(hardwareBuffer)
             .setFormat(
                 new Format.Builder()
+                    .setSampleMimeType(sampleMimeType)
                     .setWidth(width)
                     .setHeight(height)
                     .setColorInfo(inputColorInfo)
                     .build())
+            .setInternalImage(internalImage)
             .build();
 
     try {
@@ -927,26 +942,7 @@ public final class HardwareBufferToGlTextureConverterTest {
                 throw new AssertionError(e);
               });
 
-      AtomicReference<Frame> completedFrame = new AtomicReference<>();
-      FrameProcessor.Listener listener =
-          new FrameProcessor.Listener() {
-            @Override
-            public void onWakeup() {}
-
-            @Override
-            public void onError(VideoFrameProcessingException exception) {
-              throw new AssertionError(exception);
-            }
-
-            @Override
-            public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
-              if (releaseFence != null) {
-                assertThat(releaseFence.awaitMs(FENCE_TIMEOUT_MS)).isTrue();
-                releaseFence.close();
-              }
-              completedFrame.set(frame);
-            }
-          };
+      TestFrameProcessorListener listener = new TestFrameProcessorListener();
 
       Bitmap expectedBitmap =
           createFp16BitmapWithSolidColor(
@@ -959,7 +955,7 @@ public final class HardwareBufferToGlTextureConverterTest {
       Bitmap actualBitmap = convertAndCaptureBitmap(inputHardwareBufferFrame, listener);
 
       assertFp16BitmapsAreSimilar(expectedBitmap, actualBitmap, TestUtil.PSNR_THRESHOLD);
-      assertThat(completedFrame.get()).isSameInstanceAs(inputHardwareBufferFrame);
+      assertThat(listener.completedFrame.get()).isSameInstanceAs(inputHardwareBufferFrame);
     } finally {
       hardwareBuffer.close();
     }
@@ -1011,6 +1007,43 @@ public final class HardwareBufferToGlTextureConverterTest {
         expectedOutputColorRgb);
   }
 
+  @RequiresApi(34)
+  private void assertSolidColorUltraHdrConversion(
+      ColorInfo outputColorInfo, int baseSrgbColor, int gainmapAlpha, Color expectedOutputColorRgb)
+      throws Exception {
+    Bitmap baseBitmap =
+        createArgb8888BitmapWithSolidColor(
+            /* width= */ SOLID_COLOR_BITMAP_SIZE,
+            /* height= */ SOLID_COLOR_BITMAP_SIZE,
+            baseSrgbColor);
+    // Gainmap are sized 1/4 (width and height) of the original image.
+    Bitmap gainmapBitmap =
+        Bitmap.createBitmap(
+            SOLID_COLOR_BITMAP_SIZE / 4, SOLID_COLOR_BITMAP_SIZE / 4, Bitmap.Config.ALPHA_8);
+    gainmapBitmap.eraseColor(Color.argb(gainmapAlpha, /* red= */ 0, /* green= */ 0, /* blue= */ 0));
+
+    // The BT.2408 scale up (1000 / 203).
+    float hdrSdrDisplayRatio = 4.9224f;
+    Gainmap gainmap = new Gainmap(gainmapBitmap);
+    gainmap.setDisplayRatioForFullHdr(hdrSdrDisplayRatio);
+    gainmap.setMinDisplayRatioForHdrTransition(1.0f);
+    gainmap.setRatioMin(1.0f, 1.0f, 1.0f);
+    // The BT.2408 Scale up (1000 / 203)
+    gainmap.setRatioMax(hdrSdrDisplayRatio, hdrSdrDisplayRatio, hdrSdrDisplayRatio);
+    gainmap.setGamma(1.0f, 1.0f, 1.0f);
+    gainmap.setEpsilonSdr(0.0f, 0.0f, 0.0f);
+    gainmap.setEpsilonHdr(0.0f, 0.0f, 0.0f);
+    baseBitmap.setGainmap(gainmap);
+
+    assertSolidColorConversion(
+        baseBitmap,
+        /* sampleMimeType= */ MimeTypes.IMAGE_JPEG_R,
+        /* internalImage= */ baseBitmap,
+        /* inputColorInfo= */ ColorInfo.SRGB_BT709_FULL,
+        outputColorInfo,
+        expectedOutputColorRgb);
+  }
+
   @SdkSuppress(minSdkVersion = 31)
   @Test
   public void convert_withRgba8888HardwareBufferAndRotation_outputsCorrectGlTexture()
@@ -1041,25 +1074,7 @@ public final class HardwareBufferToGlTextureConverterTest {
             rotationMatrix,
             /* filter= */ true);
 
-    FrameProcessor.Listener listener =
-        new FrameProcessor.Listener() {
-          @Override
-          public void onWakeup() {}
-
-          @Override
-          public void onError(VideoFrameProcessingException exception) {
-            throw new AssertionError(exception);
-          }
-
-          @Override
-          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
-            if (releaseFence != null) {
-              assertThat(releaseFence.awaitMs(FENCE_TIMEOUT_MS)).isTrue();
-              releaseFence.close();
-            }
-            hardwareBuffer.close();
-          }
-        };
+    TestFrameProcessorListener listener = new TestFrameProcessorListener(hardwareBuffer);
 
     Bitmap actualBitmap = convertAndCaptureBitmap(inputHardwareBufferFrame, listener);
 
@@ -1080,25 +1095,7 @@ public final class HardwareBufferToGlTextureConverterTest {
     int formatWidth = inputBitmap.getWidth() / 2;
     int formatHeight = inputBitmap.getHeight() / 2;
 
-    AtomicReference<Frame> completedFrame = new AtomicReference<>();
-    FrameProcessor.Listener listener =
-        new FrameProcessor.Listener() {
-          @Override
-          public void onWakeup() {}
-
-          @Override
-          public void onError(VideoFrameProcessingException exception) {}
-
-          @Override
-          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
-            if (releaseFence != null) {
-              assertThat(releaseFence.awaitMs(FENCE_TIMEOUT_MS)).isTrue();
-              releaseFence.close();
-            }
-            hardwareBuffer.close();
-            completedFrame.set(frame);
-          }
-        };
+    TestFrameProcessorListener listener = new TestFrameProcessorListener(hardwareBuffer);
 
     Format inputFormat =
         new Format.Builder()
@@ -1119,7 +1116,7 @@ public final class HardwareBufferToGlTextureConverterTest {
             getBitmapAveragePixelAbsoluteDifferenceArgb8888(
                 expectedBitmap, actualBitmap, testName.getMethodName()))
         .isLessThan(MAX_PIXEL_DIFFERENCE);
-    assertThat(completedFrame.get()).isSameInstanceAs(inputHardwareBufferFrame);
+    assertThat(listener.completedFrame.get()).isSameInstanceAs(inputHardwareBufferFrame);
   }
 
   @SdkSuppress(minSdkVersion = 31)
@@ -1144,17 +1141,7 @@ public final class HardwareBufferToGlTextureConverterTest {
                         hardwareBufferFrame,
                         glExecutorService,
                         directExecutor(),
-                        new FrameProcessor.Listener() {
-                          @Override
-                          public void onWakeup() {}
-
-                          @Override
-                          public void onError(VideoFrameProcessingException exception) {}
-
-                          @Override
-                          public void onFrameProcessed(
-                              Frame frame, @Nullable SyncFenceWrapper releaseFence) {}
-                        });
+                        new TestFrameProcessorListener());
 
                 converter.releaseGlResources(hardwareBufferFrame);
                 // This should be no-op as GL resources is already released.
@@ -1225,19 +1212,7 @@ public final class HardwareBufferToGlTextureConverterTest {
                         hardwareBufferFrame,
                         glExecutorService,
                         directExecutor(),
-                        new FrameProcessor.Listener() {
-                          @Override
-                          public void onWakeup() {}
-
-                          @Override
-                          public void onError(VideoFrameProcessingException exception) {
-                            throw new IllegalStateException(exception);
-                          }
-
-                          @Override
-                          public void onFrameProcessed(
-                              Frame frame, @Nullable SyncFenceWrapper releaseFence) {}
-                        });
+                        new TestFrameProcessorListener());
 
                 converter.releaseGlResources(hardwareBufferFrame);
                 // This should be no-op as GL resources are already released.
@@ -1312,29 +1287,7 @@ public final class HardwareBufferToGlTextureConverterTest {
         new HardwareBufferToGlTextureConverter(
             context, HardwareBufferJni.INSTANCE, outputColorInfo, errorReference::set);
 
-    AtomicReference<Frame> completedFrame = new AtomicReference<>();
-    CountDownLatch frameProcessed = new CountDownLatch(1);
-    FrameProcessor.Listener listener =
-        new FrameProcessor.Listener() {
-          @Override
-          public void onWakeup() {}
-
-          @Override
-          public void onError(VideoFrameProcessingException exception) {
-            errorReference.set(exception);
-          }
-
-          @Override
-          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
-            if (releaseFence != null) {
-              assertThat(releaseFence.awaitMs(FENCE_TIMEOUT_MS)).isTrue();
-              releaseFence.close();
-            }
-            hardwareBuffer.close();
-            completedFrame.set(frame);
-            frameProcessed.countDown();
-          }
-        };
+    TestFrameProcessorListener listener = new TestFrameProcessorListener(hardwareBuffer);
 
     int width = ultraHdrBitmap.getWidth();
     int height = ultraHdrBitmap.getHeight();
@@ -1356,12 +1309,11 @@ public final class HardwareBufferToGlTextureConverterTest {
 
     assertThat(actualBitmap.getWidth()).isEqualTo(width);
     assertThat(actualBitmap.getHeight()).isEqualTo(height);
-    if (ColorInfo.isTransferHdr(outputColorInfo)) {
+    if (ColorInfo.isWideColorGamut(outputColorInfo)) {
       assertThat(actualBitmap.getConfig()).isEqualTo(Bitmap.Config.RGBA_F16);
     }
-    assertThat(frameProcessed.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(errorReference.get()).isNull();
-    assertThat(completedFrame.get()).isSameInstanceAs(hardwareBufferFrame);
+    assertThat(listener.completedFrame.get()).isSameInstanceAs(hardwareBufferFrame);
   }
 
   private static Bitmap createFp16BitmapWithSolidColor(
@@ -1395,6 +1347,7 @@ public final class HardwareBufferToGlTextureConverterTest {
   private static final class SolidColorTestCase {
     final String name;
     final int inputSrgbColor;
+    final int gainmapAlpha;
     @Nullable final Color inputPqColor;
     @Nullable final Color inputHlgColor;
     @Nullable final Color expectedHlgRgb;
@@ -1403,8 +1356,23 @@ public final class HardwareBufferToGlTextureConverterTest {
 
     SolidColorTestCase(
         String name, int inputSrgbColor, Color expectedHlgRgb, Color expectedBt2020LinearRgb) {
+      this(
+          name,
+          inputSrgbColor,
+          /* gainmapAlpha= */ C.INDEX_UNSET,
+          expectedHlgRgb,
+          expectedBt2020LinearRgb);
+    }
+
+    SolidColorTestCase(
+        String name,
+        int inputSrgbColor,
+        int gainmapAlpha,
+        Color expectedHlgRgb,
+        Color expectedBt2020LinearRgb) {
       this.name = name;
       this.inputSrgbColor = inputSrgbColor;
+      this.gainmapAlpha = gainmapAlpha;
       this.inputPqColor = null;
       this.inputHlgColor = null;
       this.expectedHlgRgb = expectedHlgRgb;
@@ -1419,6 +1387,7 @@ public final class HardwareBufferToGlTextureConverterTest {
         Color expectedSdrLinearRgb) {
       this.name = name;
       this.inputSrgbColor = Color.BLACK;
+      this.gainmapAlpha = C.INDEX_UNSET;
       this.inputPqColor = null;
       this.inputHlgColor = inputHlgColor;
       this.expectedHlgRgb = null;
@@ -1434,6 +1403,7 @@ public final class HardwareBufferToGlTextureConverterTest {
         Color expectedSdrLinearRgb) {
       this.name = name;
       this.inputSrgbColor = Color.BLACK;
+      this.gainmapAlpha = C.INDEX_UNSET;
       this.inputPqColor = inputPqColor;
       this.inputHlgColor = null;
       this.expectedHlgRgb = expectedHlgRgb;
@@ -1471,6 +1441,49 @@ public final class HardwareBufferToGlTextureConverterTest {
         com.google.testing.junit.testparameterinjector.TestParameterValuesProvider.Context
             context) {
       return HLG_SOLID_COLOR_TEST_CASES;
+    }
+  }
+
+  private static final class UltraHdrSolidColorTestCasesProvider
+      extends TestParameterValuesProvider {
+    @Override
+    protected ImmutableList<SolidColorTestCase> provideValues(
+        com.google.testing.junit.testparameterinjector.TestParameterValuesProvider.Context
+            context) {
+      return ULTRA_HDR_SOLID_COLOR_TEST_CASES;
+    }
+  }
+
+  private static final class TestFrameProcessorListener implements FrameProcessor.Listener {
+    final AtomicReference<Frame> completedFrame = new AtomicReference<>();
+    private final AutoCloseable[] closeables;
+
+    TestFrameProcessorListener(AutoCloseable... closeables) {
+      this.closeables = closeables;
+    }
+
+    @Override
+    public void onWakeup() {}
+
+    @Override
+    public void onError(VideoFrameProcessingException exception) {
+      throw new AssertionError(exception);
+    }
+
+    @Override
+    public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
+      if (releaseFence != null) {
+        assertThat(releaseFence.awaitMs(FENCE_TIMEOUT_MS)).isTrue();
+        releaseFence.close();
+      }
+      for (AutoCloseable closeable : closeables) {
+        try {
+          closeable.close();
+        } catch (Exception e) {
+          throw new AssertionError(e);
+        }
+      }
+      completedFrame.set(frame);
     }
   }
 }
