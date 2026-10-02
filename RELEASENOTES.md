@@ -181,8 +181,7 @@
         `FragmentedMp4Muxer` when adding tracks.
 *   IMA extension:
     *   Forward player pause and resume events to the IMA SDK in
-        `ImaServerSideAdInsertionMediaSource` so that DAI pause ads can be
-        triggered.
+        `ImaServerSideAdInsertionMediaSource`.
 *   Session:
     *   Add `MediaConstants.EXTRAS_KEY_PLAYLIST_ID` to populate
         `MediaMetadata.playlistId` from legacy metadata and descriptions.
