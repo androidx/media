@@ -21,11 +21,16 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.icu.util.ULocale;
+import android.media.AudioPresentation;
+import android.os.Build;
+import android.util.Log;
 import android.util.SparseArray;
 import android.util.SparseBooleanArray;
 import android.util.SparseIntArray;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
@@ -55,13 +60,17 @@ import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.ListIterator;
+import java.util.Locale;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Extracts data from the MPEG-2 TS container format. */
 @UnstableApi
 public final class TsExtractor implements Extractor {
 
+  private static final String TAG = "TsExtractor";
   /**
    * Creates a factory for {@link TsExtractor} instances with the provided {@link
    * SubtitleParser.Factory}.
@@ -150,6 +159,10 @@ public final class TsExtractor implements Extractor {
   public static final int TS_SYNC_BYTE = 0x47; // First byte of each TS packet.
 
   private static final int TS_PAT_PID = 0;
+  private static final int TS_TABLE_ID_SERVICE_DESCRIPTION_SECTION = 0x42;
+  private static final int TS_SERVICE_DESCRIPTOR_TAG = 0x48;
+  // Service Description Table, Stuffing Table and Bouquet Association Table all have the same PID.
+  private static final int TS_SDT_BAT_ST_PID = 0x11;
   private static final int MAX_PID_PLUS_ONE = 0x2000;
 
   private static final long AC3_FORMAT_IDENTIFIER = 0x41432d33;
@@ -171,10 +184,15 @@ public final class TsExtractor implements Extractor {
   private final SparseArray<TsPayloadReader> tsPayloadReaders; // Indexed by pid
   private final SparseBooleanArray trackIds;
   private final SparseBooleanArray trackPids;
+
+  private final SparseIntArray presentationMessageIds;
   private final TsDurationReader durationReader;
 
   // Accessed only by the loading thread.
   private @MonotonicNonNull TsBinarySearchSeeker tsBinarySearchSeeker;
+
+  List<AudioPresentation> audioPresentations;
+  boolean pendingAudioPresentationsLabels;
   private ExtractorOutput output;
   private int remainingPmts;
   private boolean tracksEnded;
@@ -341,6 +359,9 @@ public final class TsExtractor implements Extractor {
     tsPacketBuffer = new ParsableByteArray(new byte[BUFFER_SIZE], 0);
     trackIds = new SparseBooleanArray();
     trackPids = new SparseBooleanArray();
+    presentationMessageIds = new SparseIntArray();
+    audioPresentations = new ArrayList<>();
+    pendingAudioPresentationsLabels = false;
     tsPayloadReaders = new SparseArray<>();
     continuityCounters = new SparseIntArray();
     durationReader = new TsDurationReader(timestampSearchBytes);
@@ -521,6 +542,10 @@ public final class TsExtractor implements Extractor {
     boolean wereTracksEnded = tracksEnded;
     if (shouldConsumePacketPayload(pid)) {
       tsPacketBuffer.setLimit(endOfPacket);
+      if (payloadReader instanceof PesReader &&
+            (!pendingAudioPresentationsLabels)) {
+        ((PesReader) payloadReader).setAudioPresentations(audioPresentations);
+      }
       payloadReader.consume(tsPacketBuffer, packetHeaderFlags);
       tsPacketBuffer.setLimit(limit);
     }
@@ -621,7 +646,41 @@ public final class TsExtractor implements Extractor {
       tsPayloadReaders.put(initialPayloadReaders.keyAt(i), initialPayloadReaders.valueAt(i));
     }
     tsPayloadReaders.put(TS_PAT_PID, new SectionReader(new PatReader()));
+    tsPayloadReaders.put(TS_SDT_BAT_ST_PID, new SectionReader(new SdtSectionReader()));
     id3Reader = null;
+    audioPresentations.clear();
+    presentationMessageIds.clear();
+    pendingAudioPresentationsLabels = false;
+  }
+
+  @RequiresApi(api = Build.VERSION_CODES.R)
+  private void updatePresentationLabels(List<AudioPresentation> aps,
+        SparseArray<HashMap<ULocale, CharSequence>> presentationLabels) {
+    for (ListIterator<AudioPresentation> itr = aps.listIterator(); itr.hasNext(); ) {
+      AudioPresentation ap = itr.next();
+      final int valueIfKeyNotFound = -1;
+      final int messageId = presentationMessageIds.get(ap.getPresentationId(), valueIfKeyNotFound);
+      if (messageId == valueIfKeyNotFound) {
+        Log.e(TAG, "No message id detected");
+        return;
+      }
+      final HashMap<ULocale, CharSequence> labels = presentationLabels.get(messageId);
+      if (labels.isEmpty()) {
+        continue;
+      }
+      // Reconstruct the AudioPresentation object with valid labels in it.
+      AudioPresentation newAp = (new AudioPresentation.Builder(ap.getPresentationId())
+          .setProgramId(ap.getProgramId())
+          .setLocale(ULocale.forLocale(ap.getLocale()))
+          .setLabels(labels)
+          .setMasteringIndication(ap.getMasteringIndication())
+          .setHasAudioDescription(ap.hasAudioDescription())
+          .setHasSpokenSubtitles(ap.hasSpokenSubtitles())
+          .setHasDialogueEnhancement(ap.hasDialogueEnhancement())).build();
+      itr.set(newAp);
+      presentationMessageIds.delete(ap.getPresentationId());
+    }
+    pendingAudioPresentationsLabels = false;
   }
 
   /** Parses Program Association Table data. */
@@ -679,6 +738,103 @@ public final class TsExtractor implements Extractor {
     }
   }
 
+  /**
+   * Parses Service Description Table data.
+   */
+  private class SdtSectionReader implements SectionPayloadReader {
+    public SdtSectionReader() {
+    }
+    @Override
+    public void init(TimestampAdjuster timestampAdjuster, ExtractorOutput extractorOutput,
+                     TrackIdGenerator idGenerator) {
+      // Do nothing.
+    }
+    @RequiresApi(api = Build.VERSION_CODES.R)
+    @Override
+    public void consume(ParsableByteArray sectionData) {
+      if (sectionData.bytesLeft() < 1) {
+        return;
+      }
+      final int tableId = sectionData.readUnsignedByte();
+      if (tableId != TS_TABLE_ID_SERVICE_DESCRIPTION_SECTION) {
+        // See DVB BlueBook A038, section 5.1.3 for more information on table id assignment.
+        return;
+      }
+      if (sectionData.bytesLeft() < 15) {
+        return;
+      }
+      // section_syntax_indicator(1), reserved_future_use(1), reserved(2),
+      // section_length(12), transport_stream_id(16), reserved(2), version_number(5),
+      // current_next_indicator(1), section_number(8), last_section_number(8),
+      // original_network_id(16), reserved_future_use(8)
+      sectionData.skipBytes(10);
+      sectionData.skipBytes(2);  // serviceId
+      // reserved_future_use(6), EIT_schedule_flag(1), EIT_present_following_flag(1)
+      sectionData.skipBytes(1);
+      // Remove running_status(3), free_CA_mode(1) from the descriptors_loop_length with the mask.
+      final int descriptorsLoopLength = sectionData.readUnsignedShort() & 0xFFF;
+      if (descriptorsLoopLength != sectionData.bytesLeft()) {
+        Log.e(TAG, "Invalid section data length");
+        return;
+      }
+      // Indexed by message id and value contains labels in each language
+      SparseArray<HashMap<ULocale, CharSequence>> presentationLabels = new SparseArray<>();
+      while (sectionData.bytesLeft() > 0) {
+        final int descriptorTag = sectionData.readUnsignedByte();
+        if (sectionData.bytesLeft() < 1) {
+          break;
+        }
+        int descriptorLength = sectionData.readUnsignedByte();
+        if (sectionData.bytesLeft() < descriptorLength) {
+          break;
+        }
+        if (descriptorTag == PmtReader.TS_PMT_DESC_DVB_EXT) {
+          final int descriptorTagExt = sectionData.readUnsignedByte();
+          int descriptorExtLength = descriptorLength - 1;
+          // Message_descriptor in DVB A038
+          if (descriptorTagExt == PmtReader.TS_PMT_DESC_DVB_EXT_MESSAGE) {
+            int message_id = sectionData.readUnsignedByte();
+            descriptorExtLength--;
+            if (sectionData.bytesLeft() < 3) {
+              break;
+            }
+            String language = new String(sectionData.getData(),
+                    sectionData.getPosition(), 3).trim();
+            sectionData.setPosition(sectionData.getPosition() + 3);
+            descriptorExtLength -= 3;
+            if (descriptorExtLength < 1) {
+              break;
+            }
+            CharSequence label = new String(
+                sectionData.getData(), sectionData.getPosition(), descriptorExtLength).trim();
+            sectionData.setPosition(sectionData.getPosition() + descriptorExtLength);
+            HashMap<ULocale, CharSequence> labels = new HashMap<ULocale, CharSequence>()
+                {{ put(ULocale.forLocale(new Locale(language)), label); }};
+            presentationLabels.append(message_id, labels);
+          } else {
+            // Ignore other extended descriptors.
+            sectionData.skipBytes(descriptorExtLength - 1);
+          }
+        } else if (descriptorTag == TS_SERVICE_DESCRIPTOR_TAG) {
+          final int serviceType = sectionData.readUnsignedByte();
+          Log.d(TAG,"serviceType : " + serviceType);
+          final int serviceProviderNameLength = sectionData.readUnsignedByte();
+          String serviceProvider = sectionData.readString(serviceProviderNameLength);
+          Log.d(TAG,"serviceProvider : " + serviceProvider);
+          final int serviceNameLength = sectionData.readUnsignedByte();
+          String serviceName = sectionData.readString(serviceNameLength);
+          Log.d(TAG,"serviceName: " + serviceName);
+        } else {
+          sectionData.skipBytes(descriptorLength);
+        }
+     }
+     updatePresentationLabels(audioPresentations, presentationLabels);
+     if (mode != MODE_HLS) {
+       tsPayloadReaders.remove(TS_SDT_BAT_ST_PID);
+     }
+    }
+  }
+
   /** Parses Program Map Table. */
   private class PmtReader implements SectionPayloadReader {
 
@@ -689,10 +845,12 @@ public final class TsExtractor implements Extractor {
     private static final int TS_PMT_DESC_EAC3 = 0x7A;
     private static final int TS_PMT_DESC_DTS = 0x7B;
     private static final int TS_PMT_DESC_DVB_EXT = 0x7F;
+    private static final int TS_PMT_DESC_DVB_EXT_MESSAGE = 0x08;
     private static final int TS_PMT_DESC_DVBSUBS = 0x59;
 
     private static final int TS_PMT_DESC_DVB_EXT_AC4 = 0x15;
     private static final int TS_PMT_DESC_DVB_EXT_DTS_HD = 0x0E;
+    private static final int TS_PMT_DESC_DVB_EXT_AUDIO_PRESELECTION = 0x19;
     private static final int TS_PMT_DESC_DVB_EXT_DTS_UHD = 0x21;
 
     private final ParsableBitArray pmtScratch;
@@ -764,7 +922,8 @@ public final class TsExtractor implements Extractor {
         // Setup an ID3 track regardless of whether there's a corresponding entry, in case one
         // appears intermittently during playback. See [Internal: b/20261500].
         EsInfo id3EsInfo =
-            new EsInfo(TS_STREAM_TYPE_ID3, null, AUDIO_TYPE_UNDEFINED, null, Util.EMPTY_BYTE_ARRAY);
+            new EsInfo(TS_STREAM_TYPE_ID3, null, AUDIO_TYPE_UNDEFINED, null,
+            Util.EMPTY_BYTE_ARRAY);
         id3Reader = payloadReaderFactory.createPayloadReader(TS_STREAM_TYPE_ID3, id3EsInfo);
         if (id3Reader != null) {
           id3Reader.init(
@@ -882,9 +1041,94 @@ public final class TsExtractor implements Extractor {
         } else if (descriptorTag == TS_PMT_DESC_DVB_EXT) {
           // Extension descriptor in DVB (ETSI EN 300 468).
           int descriptorTagExt = data.readUnsignedByte();
+          final int descriptorExtLength = descriptorLength - 1;
           if (descriptorTagExt == TS_PMT_DESC_DVB_EXT_AC4) {
             // AC-4_descriptor in DVB (ETSI EN 300 468).
             streamType = TS_STREAM_TYPE_AC4;
+          } else if (descriptorTagExt == TS_PMT_DESC_DVB_EXT_AUDIO_PRESELECTION) {
+            // Audio_preselection_descriptor in DVB A038
+            ParsableBitArray extData = new ParsableBitArray(new byte[descriptorExtLength]);
+            data.readBytes(extData, descriptorExtLength);
+            if (extData.bitsLeft() < 8) {
+              break;
+            }
+            int numPreselections = extData.readBits(5);
+            extData.skipBits(3);  // reserved_zero_future_use
+            audioPresentations.clear();
+            pendingAudioPresentationsLabels = false;
+            for (int i = 0; i < numPreselections; i++) {
+              if (extData.bitsLeft() < ((numPreselections - i) * 16)) {
+                break;
+              }
+              int presentationId = extData.readBits(5);
+              int masteringIndication = extData.readBits(3); // audio_rendering_indication
+              boolean audioDescriptionAvailable = extData.readBit();
+              boolean spokenSubtitlesAvailable = extData.readBit();
+              boolean dialogueEnhancementAvailable = extData.readBit();
+              extData.skipBits(1);  // interactivityEnabled
+              boolean languageCodePresent = extData.readBit();
+              boolean textLabelPresent = extData.readBit();
+              boolean multiStreamInfoPresent = extData.readBit();
+              boolean futureExtension = extData.readBit();
+              String languageTag = null;
+              if (languageCodePresent) {
+                if (extData.bitsLeft() < 24) {
+                  break;
+                }
+                languageTag = new String(extData.data, extData.getPosition()/8, 3).trim();
+                extData.setPosition(extData.getPosition() + 24);
+              }
+              if (textLabelPresent) {
+                if (extData.bitsLeft() < 8) {
+                  break;
+                }
+                int messageId = extData.readBits(8);
+                presentationMessageIds.put(presentationId, messageId);
+                pendingAudioPresentationsLabels =  true;
+              }
+              if (multiStreamInfoPresent) {
+                if (extData.bitsLeft() < 8) {
+                  break;
+                }
+                int numAuxComponents = extData.readBits(3);
+                extData.skipBits(5);  // reserved_zero_future_use
+                if (extData.bitsLeft() < (numAuxComponents * 8)) {
+                  break;
+                }
+                extData.skipBits(numAuxComponents * 8);  // component_tag
+              }
+              if (futureExtension) {
+                if (extData.bitsLeft() < 8) {
+                  break;
+                }
+                extData.skipBits(3);  // reserved
+                int futureExtensionLength = extData.readBits(5);
+                if (extData.bitsLeft() < (futureExtensionLength * 8)) {
+                  break;
+                }
+                extData.skipBits(futureExtensionLength * 8);  // futureExtensionByte
+              }
+              if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                AudioPresentation.Builder presentation =
+                        (new AudioPresentation.Builder(presentationId)
+                    .setMasteringIndication(masteringIndication)
+                    .setHasAudioDescription(audioDescriptionAvailable)
+                    .setHasSpokenSubtitles(spokenSubtitlesAvailable)
+                    .setHasDialogueEnhancement(dialogueEnhancementAvailable));
+                if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                  presentation.setProgramId(AudioPresentation.PROGRAM_ID_UNKNOWN);
+                } else {
+                  presentation.setProgramId(-1);
+                }
+                if (languageTag != null) {
+                  presentation.setLocale(ULocale.forLocale(new Locale(languageTag)));
+                }
+                audioPresentations.add(presentation.build());
+              }
+            }
+            if (!pendingAudioPresentationsLabels) {
+              Log.d(TAG,"Audio presentations without labels: " + audioPresentations);
+            }
           } else if (descriptorTagExt == TS_PMT_DESC_DVB_EXT_DTS_HD) {
             // DTS-HD descriptor in DVB (ETSI EN 300 468).
             streamType = TS_STREAM_TYPE_DTS_HD;
