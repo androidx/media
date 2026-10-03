@@ -76,6 +76,7 @@ import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.InAppFragmentedMp4Muxer
 import androidx.media3.transformer.InAppMp4Muxer
 import androidx.media3.transformer.JsonUtil
+import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
 import androidx.media3.transformer.VideoFrameAggregationParameters
 import com.google.common.base.Stopwatch
@@ -88,6 +89,8 @@ import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -117,6 +120,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     application.resources.getString(R.string.api_33_required_gms_video_enhancement)
   internal var frameProcessorEnabled: Boolean = false
   private var transformer: Transformer? = null
+  private var progressPollingJob: Job? = null
   private var outputFile: File? = null
   private var preparedComposition: Composition? = null
   private var playerPrepared: Boolean = false
@@ -715,6 +719,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
         .addListener(
           object : Transformer.Listener {
             override fun onCompleted(composition: Composition, exportResult: ExportResult) {
+              progressPollingJob?.cancel()
               exportStopwatch.stop()
               val elapsedTimeMs = exportStopwatch.elapsed(TimeUnit.MILLISECONDS)
               val details =
@@ -753,6 +758,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
               exportResult: ExportResult,
               exportException: ExportException,
             ) {
+              progressPollingJob?.cancel()
               exportStopwatch.stop()
               _uiState.update {
                 it.copy(
@@ -789,10 +795,35 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     exportStopwatch.start()
     transformer!!.start(composition, filePath)
     Log.i(TAG, "Export started")
+    startProgressPolling()
+  }
+
+  private fun startProgressPolling() {
+    progressPollingJob?.cancel()
+    progressPollingJob =
+      viewModelScope.launch(Dispatchers.Main) {
+        val progressHolder = ProgressHolder()
+        while (true) {
+          val currentTransformer = transformer ?: break
+          val progressState = currentTransformer.getProgress(progressHolder)
+          when (progressState) {
+            Transformer.PROGRESS_STATE_AVAILABLE ->
+              Log.i(TAG, "Export progress: ${progressHolder.progress}%")
+            Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY ->
+              Log.d(TAG, "Export progress: waiting for availability")
+            Transformer.PROGRESS_STATE_UNAVAILABLE ->
+              Log.d(TAG, "Export progress: unavailable")
+            Transformer.PROGRESS_STATE_NOT_STARTED -> break
+          }
+          delay(PROGRESS_POLLING_INTERVAL_MS)
+        }
+      }
   }
 
   /** Cancels any ongoing export operation, and deletes output file contents. */
   fun cancelExport() {
+    progressPollingJob?.cancel()
+    progressPollingJob = null
     transformer?.cancel()
     transformer = null
     outputFile?.delete()
@@ -1128,7 +1159,8 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     // A 3-second moving average window (rather than 1s) is used to smooth out micro-stutters
     // and provide a stable, readable real-time playback FPS value in the UI.
     private const val FPS_TRACKING_DURATION_MS = 3000L
-    private const val DEFAULT_IMAGE_DURATION_US = 1_000_000L
+    private const val DEFAULT_IMAGE_DURATION_US = 4_000_000L
+    private const val PROGRESS_POLLING_INTERVAL_MS = 100L
     val MEDIA_TYPES = arrayOf("video/*", "image/*", "audio/*")
     val HDR_MODE_DESCRIPTIONS =
       mapOf(
