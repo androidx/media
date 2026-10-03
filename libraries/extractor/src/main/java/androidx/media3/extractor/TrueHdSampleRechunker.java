@@ -43,6 +43,10 @@ public final class TrueHdSampleRechunker {
 
   public void reset() {
     foundSyncframe = false;
+    resetSampleCount();
+  }
+
+  public void resetSampleCount() {
     chunkSampleCount = 0;
   }
 
