@@ -43,6 +43,21 @@ public final class WavUtil {
   /** Four character code for "ds64". */
   public static final int DS64_FOURCC = 0x64733634;
 
+  /** Four character code for "LIST". */
+  public static final int LIST_FOURCC = 0x4c495354;
+
+  /** Four character code for "INFO". */
+  public static final int INFO_FOURCC = 0x494e464f;
+
+  /** Four character code for "ID3 ". */
+  public static final int ID3_FOURCC = 0x49443320;
+
+  /** Four character code for "id3 ". */
+  public static final int ID3_LOWER_FOURCC = 0x69643320;
+
+  /** Four character code for "rgad". */
+  public static final int RGAD_FOURCC = 0x72676164;
+
   /** WAVE type value for integer PCM audio data. */
   public static final int TYPE_PCM = 0x0001;
 
