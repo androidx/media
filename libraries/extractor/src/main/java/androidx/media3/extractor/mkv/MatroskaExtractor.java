@@ -85,6 +85,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.zip.Inflater;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
@@ -469,6 +470,7 @@ public class MatroskaExtractor implements Extractor {
   private final ParsableByteArray seekEntryIdBytes;
   private final ParsableByteArray sampleStrippedBytes;
   private final ParsableByteArray subtitleSample;
+  private final ParsableByteArray inflatedSubtitleSample;
   private final ParsableByteArray encryptionInitializationVector;
   private final ParsableByteArray encryptionSubsampleData;
   private final ParsableByteArray supplementalData;
@@ -481,6 +483,9 @@ public class MatroskaExtractor implements Extractor {
   private long durationUs = C.TIME_UNSET;
   private boolean isWebm;
   private boolean pendingEndTracks;
+
+  // Inflater for zlib compressed tracks
+  @Nullable private Inflater inflater;
 
   // The chapter corresponding to the current EditionEntry element, or null.
   @Nullable private ChapterEntry currentChapter;
@@ -602,6 +607,7 @@ public class MatroskaExtractor implements Extractor {
     nalLength = new ParsableByteArray(4);
     sampleStrippedBytes = new ParsableByteArray();
     subtitleSample = new ParsableByteArray();
+    inflatedSubtitleSample = new ParsableByteArray();
     encryptionInitializationVector = new ParsableByteArray(ENCRYPTION_IV_SIZE);
     encryptionSubsampleData = new ParsableByteArray();
     supplementalData = new ParsableByteArray();
@@ -868,6 +874,9 @@ public class MatroskaExtractor implements Extractor {
         break;
       case ID_CONTENT_ENCODING:
         // TODO: check and fail if more than one content encoding is present.
+        break;
+      case ID_CONTENT_COMPRESSION:
+        getCurrentTrack(id).hasContentCompression = true;
         break;
       case ID_CONTENT_ENCRYPTION:
         getCurrentTrack(id).hasContentEncryption = true;
@@ -1269,8 +1278,8 @@ public class MatroskaExtractor implements Extractor {
         }
         break;
       case ID_CONTENT_COMPRESSION_ALGORITHM:
-        // This extractor only supports header stripping.
-        if (value != 3) {
+        // This extractor only supports header stripping and zlib compressed text tracks.
+        if (value != 3 && (value != 0 || getCurrentTrack(id).type != C.TRACK_TYPE_TEXT)) {
           throw ParserException.createForMalformedContainer(
               "ContentCompAlgo " + value + " not supported", /* cause= */ null);
         }
@@ -1853,13 +1862,13 @@ public class MatroskaExtractor implements Extractor {
   private int writeSampleData(ExtractorInput input, Track track, int size, boolean isBlockGroup)
       throws IOException {
     if (CODEC_ID_SUBRIP.equals(track.codecId)) {
-      writeSubtitleSampleData(input, SUBRIP_PREFIX, size);
+      writeSubtitleSampleData(input, SUBRIP_PREFIX, size, track.hasContentCompression);
       return finishWriteSampleData();
     } else if (CODEC_ID_ASS.equals(track.codecId) || CODEC_ID_SSA.equals(track.codecId)) {
-      writeSubtitleSampleData(input, SSA_PREFIX, size);
+      writeSubtitleSampleData(input, SSA_PREFIX, size, track.hasContentCompression);
       return finishWriteSampleData();
     } else if (CODEC_ID_VTT.equals(track.codecId)) {
-      writeSubtitleSampleData(input, VTT_PREFIX, size);
+      writeSubtitleSampleData(input, VTT_PREFIX, size, track.hasContentCompression);
       return finishWriteSampleData();
     }
 
@@ -2072,7 +2081,8 @@ public class MatroskaExtractor implements Extractor {
     sampleStrippedBytes.reset(/* limit= */ 0);
   }
 
-  private void writeSubtitleSampleData(ExtractorInput input, byte[] samplePrefix, int size)
+  private void writeSubtitleSampleData(
+      ExtractorInput input, byte[] samplePrefix, int size, boolean hasContentCompression)
       throws IOException {
     int sizeWithPrefix = samplePrefix.length + size;
     if (subtitleSample.capacity() < sizeWithPrefix) {
@@ -2083,6 +2093,25 @@ public class MatroskaExtractor implements Extractor {
       System.arraycopy(samplePrefix, 0, subtitleSample.getData(), 0, samplePrefix.length);
     }
     input.readFully(subtitleSample.getData(), samplePrefix.length, size);
+
+    if (hasContentCompression) {
+      if (inflater == null) {
+        inflater = new Inflater();
+      }
+      subtitleSample.setPosition(samplePrefix.length);
+      subtitleSample.setLimit(sizeWithPrefix);
+      if (Util.maybeInflate(subtitleSample, inflatedSubtitleSample, inflater)) {
+        sizeWithPrefix = samplePrefix.length + inflatedSubtitleSample.limit();
+        subtitleSample.ensureCapacity(sizeWithPrefix);
+        System.arraycopy(
+            inflatedSubtitleSample.getData(),
+            0,
+            subtitleSample.getData(),
+            samplePrefix.length,
+            inflatedSubtitleSample.limit());
+      }
+    }
+
     subtitleSample.setPosition(0);
     subtitleSample.setLimit(sizeWithPrefix);
     // Defer writing the data to the track output. We need to modify the sample data by setting
@@ -2417,6 +2446,7 @@ public class MatroskaExtractor implements Extractor {
     public int defaultSampleDurationNs;
     public int maxBlockAdditionId;
     private int blockAddIdType;
+    public boolean hasContentCompression;
     public boolean hasContentEncryption;
     public byte @MonotonicNonNull [] sampleStrippedBytes;
     public TrackOutput.@MonotonicNonNull CryptoData cryptoData;
