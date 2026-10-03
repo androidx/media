@@ -87,6 +87,8 @@ import androidx.media3.session.legacy.PlaybackStateCompat;
 import androidx.media3.session.legacy.PlaybackStateCompat.CustomAction;
 import androidx.media3.session.legacy.RatingCompat;
 import androidx.media3.session.legacy.VolumeProviderCompat;
+import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
@@ -135,7 +137,10 @@ import java.util.concurrent.TimeoutException;
           MediaMetadataCompat.METADATA_KEY_ADVERTISEMENT,
           MediaMetadataCompat.METADATA_KEY_DOWNLOAD_STATUS,
           MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT,
-          MediaConstants.EXTRAS_KEY_PLAYLIST_ID);
+          MediaConstants.EXTRAS_KEY_PLAYLIST_ID,
+          MediaConstants.EXTRAS_KEY_PLAYLIST_TITLE,
+          MediaConstants.EXTRAS_KEY_PLAYLIST_ARTWORK_URI,
+          MediaConstants.EXTRAS_KEY_CATEGORIES);
 
   /** Exception thrown when the conversion between legacy and Media3 states fails. */
   public static class ConversionException extends Exception {
@@ -478,10 +483,57 @@ import java.util.concurrent.TimeoutException;
 
   /** Creates {@link MediaMetadata} from the {@link CharSequence queue title}. */
   public static MediaMetadata convertToMediaMetadata(@Nullable CharSequence queueTitle) {
-    if (queueTitle == null) {
+    return convertToPlaylistMetadata(
+        queueTitle, /* metadataCompat= */ null, /* descriptionCompat= */ null);
+  }
+
+  /**
+   * Creates playlist {@link MediaMetadata} from the {@link CharSequence queue title} and fallback
+   * extras in {@link MediaMetadataCompat} or {@link MediaDescriptionCompat}.
+   *
+   * @param queueTitle The queue title of the platform session, or {@code null} if not set.
+   * @param metadataCompat The metadata of the current item being played from the platform session,
+   *     or {@code null} if not available.
+   * @param descriptionCompat The description of the current item from the queue of the platform
+   *     session, or {@code null} if not available.
+   * @return The converted playlist {@link MediaMetadata}, or {@link MediaMetadata#EMPTY} if neither
+   *     title nor artwork URI is available.
+   */
+  public static MediaMetadata convertToPlaylistMetadata(
+      @Nullable CharSequence queueTitle,
+      @Nullable MediaMetadataCompat metadataCompat,
+      @Nullable MediaDescriptionCompat descriptionCompat) {
+    @Nullable
+    Bundle descriptionExtras = descriptionCompat != null ? descriptionCompat.getExtras() : null;
+
+    @Nullable String artworkUriString = null;
+    if (metadataCompat != null) {
+      artworkUriString = metadataCompat.getString(MediaConstants.EXTRAS_KEY_PLAYLIST_ARTWORK_URI);
+    }
+    if (TextUtils.isEmpty(artworkUriString) && descriptionExtras != null) {
+      artworkUriString =
+          descriptionExtras.getString(MediaConstants.EXTRAS_KEY_PLAYLIST_ARTWORK_URI);
+    }
+
+    @Nullable CharSequence title = queueTitle;
+    if (TextUtils.isEmpty(title) && metadataCompat != null) {
+      title = metadataCompat.getText(MediaConstants.EXTRAS_KEY_PLAYLIST_TITLE);
+    }
+    if (TextUtils.isEmpty(title) && descriptionExtras != null) {
+      title = descriptionExtras.getCharSequence(MediaConstants.EXTRAS_KEY_PLAYLIST_TITLE);
+    }
+
+    if (TextUtils.isEmpty(title) && TextUtils.isEmpty(artworkUriString)) {
       return MediaMetadata.EMPTY;
     }
-    return new MediaMetadata.Builder().setTitle(queueTitle).build();
+    MediaMetadata.Builder builder = new MediaMetadata.Builder();
+    if (!TextUtils.isEmpty(title)) {
+      builder.setTitle(title);
+    }
+    if (!TextUtils.isEmpty(artworkUriString)) {
+      builder.setArtworkUri(Uri.parse(artworkUriString));
+    }
+    return builder.build();
   }
 
   public static MediaMetadata convertToMediaMetadata(
@@ -534,6 +586,20 @@ import java.util.concurrent.TimeoutException;
         builder.setPlaylistId(playlistId);
       }
       extras.remove(MediaConstants.EXTRAS_KEY_PLAYLIST_ID);
+    }
+
+    if (extras != null) {
+      extras.remove(MediaConstants.EXTRAS_KEY_PLAYLIST_TITLE);
+      extras.remove(MediaConstants.EXTRAS_KEY_PLAYLIST_ARTWORK_URI);
+    }
+
+    if (extras != null && extras.containsKey(MediaConstants.EXTRAS_KEY_CATEGORIES)) {
+      @Nullable String categories = extras.getString(MediaConstants.EXTRAS_KEY_CATEGORIES);
+      if (!TextUtils.isEmpty(categories)) {
+        builder.setCategories(
+            Splitter.on(',').omitEmptyStrings().trimResults().splitToList(categories));
+      }
+      extras.remove(MediaConstants.EXTRAS_KEY_CATEGORIES);
     }
 
     if (extras != null
@@ -665,6 +731,14 @@ import java.util.concurrent.TimeoutException;
       }
     }
 
+    if (metadataCompat.containsKey(MediaConstants.EXTRAS_KEY_CATEGORIES)) {
+      @Nullable String categories = metadataCompat.getString(MediaConstants.EXTRAS_KEY_CATEGORIES);
+      if (!TextUtils.isEmpty(categories)) {
+        builder.setCategories(
+            Splitter.on(',').omitEmptyStrings().trimResults().splitToList(categories));
+      }
+    }
+
     builder.setIsPlayable(true);
 
     Bundle extras = metadataCompat.getBundle();
@@ -772,6 +846,11 @@ import java.util.concurrent.TimeoutException;
       builder.putString(MediaConstants.EXTRAS_KEY_PLAYLIST_ID, metadata.playlistId);
     }
 
+    if (!metadata.categories.isEmpty()) {
+      builder.putString(
+          MediaConstants.EXTRAS_KEY_CATEGORIES, Joiner.on(',').join(metadata.categories));
+    }
+
     if (durationMs == C.TIME_UNSET && metadata.durationMs != null) {
       // If the actual media duration is unknown, use the manually declared value if available.
       durationMs = metadata.durationMs;
@@ -849,6 +928,14 @@ import java.util.concurrent.TimeoutException;
         extras = new Bundle();
       }
       extras.putString(MediaConstants.EXTRAS_KEY_PLAYLIST_ID, metadata.playlistId);
+    }
+
+    if (!metadata.categories.isEmpty()) {
+      if (extras == null) {
+        extras = new Bundle();
+      }
+      extras.putString(
+          MediaConstants.EXTRAS_KEY_CATEGORIES, Joiner.on(',').join(metadata.categories));
     }
 
     if (!metadata.supportedCommands.isEmpty()) {

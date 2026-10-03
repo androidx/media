@@ -72,6 +72,7 @@ public class MediaMetadataTest {
     assertThat(mediaMetadata.station).isNull();
     assertThat(mediaMetadata.mediaType).isNull();
     assertThat(mediaMetadata.playlistId).isNull();
+    assertThat(mediaMetadata.categories).isEmpty();
     assertThat(mediaMetadata.supportedCommands).isEmpty();
     assertThat(mediaMetadata.extras).isNull();
   }
@@ -116,6 +117,15 @@ public class MediaMetadataTest {
     MediaMetadata.Builder builder = new MediaMetadata.Builder();
 
     assertThrows(IllegalArgumentException.class, () -> builder.setPlaylistId(""));
+  }
+
+  @Test
+  public void builderSetCategories_setsCategories() {
+    ImmutableList<String> categories = ImmutableList.of("category1", "category2");
+
+    MediaMetadata mediaMetadata = new MediaMetadata.Builder().setCategories(categories).build();
+
+    assertThat(mediaMetadata.categories).isEqualTo(categories);
   }
 
   @Test
@@ -354,6 +364,7 @@ public class MediaMetadataTest {
         .setStation("radio station")
         .setMediaType(MediaMetadata.MEDIA_TYPE_MIXED)
         .setPlaylistId("playlist_id")
+        .setCategories(ImmutableList.of("category1", "category2"))
         .setSupportedCommands(ImmutableList.of("command1", "command2"))
         .setExtras(extras)
         .build();

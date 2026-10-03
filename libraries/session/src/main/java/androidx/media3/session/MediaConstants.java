@@ -21,6 +21,7 @@ import android.os.Bundle;
 import android.os.Parcelable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
+import androidx.media3.common.Player;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession;
@@ -481,6 +482,29 @@ public final class MediaConstants {
       "androidx.media3.session.EXTRAS_KEY_MEDIA_TYPE_COMPAT";
 
   /**
+   * {@link Bundle} key used to indicate the suggested content type in {@link LibraryParams#extras}
+   * of a {@link MediaLibrarySession.Callback#onGetChildren(MediaLibrarySession,
+   * MediaSession.ControllerInfo, String, int, int, LibraryParams)} request.
+   *
+   * <p>TYPE: String.
+   */
+  @UnstableApi
+  public static final String EXTRAS_KEY_SUGGESTED_TYPE =
+      "androidx.media3.session.EXTRAS_KEY_SUGGESTED_TYPE";
+
+  /**
+   * {@link Bundle} key used to indicate the cache time-to-live (TTL) in seconds for suggestions in
+   * {@link LibraryParams#extras} of a {@link LibraryResult} returned by {@link
+   * MediaLibrarySession.Callback#onGetChildren(MediaLibrarySession, MediaSession.ControllerInfo,
+   * String, int, int, LibraryParams)}.
+   *
+   * <p>TYPE: long.
+   */
+  @UnstableApi
+  public static final String EXTRAS_KEY_TTL_SECONDS =
+      "androidx.media3.session.EXTRAS_KEY_TTL_SECONDS";
+
+  /**
    * {@link Bundle} key used to indicate the {@link MediaMetadata#playlistId} in the legacy {@code
    * android.support.v4.media.MediaDescriptionCompat} as a String extra and as a String value in
    * {@code android.support.v4.media.MediaMetadataCompat}.
@@ -488,6 +512,35 @@ public final class MediaConstants {
   @UnstableApi
   public static final String EXTRAS_KEY_PLAYLIST_ID =
       "androidx.media3.session.EXTRAS_KEY_PLAYLIST_ID";
+
+  /**
+   * {@link Bundle} key used to indicate the playlist title (corresponding to {@link
+   * Player#getPlaylistMetadata()}{@code .title}) in the legacy {@code
+   * android.support.v4.media.MediaDescriptionCompat} as a String extra and as a String value in
+   * {@code android.support.v4.media.MediaMetadataCompat}.
+   */
+  @UnstableApi
+  public static final String EXTRAS_KEY_PLAYLIST_TITLE =
+      "androidx.media3.session.EXTRAS_KEY_PLAYLIST_TITLE";
+
+  /**
+   * {@link Bundle} key used to indicate the playlist artwork URI (corresponding to {@link
+   * Player#getPlaylistMetadata()}{@code .artworkUri}) in the legacy {@code
+   * android.support.v4.media.MediaDescriptionCompat} as a String extra and as a String value in
+   * {@code android.support.v4.media.MediaMetadataCompat}.
+   */
+  @UnstableApi
+  public static final String EXTRAS_KEY_PLAYLIST_ARTWORK_URI =
+      "androidx.media3.session.EXTRAS_KEY_PLAYLIST_ARTWORK_URI";
+
+  /**
+   * {@link Bundle} key used to indicate the {@link MediaMetadata#categories} in the legacy {@code
+   * android.support.v4.media.MediaDescriptionCompat} as a comma-separated String extra and as a
+   * comma-separated String value in {@code android.support.v4.media.MediaMetadataCompat}.
+   */
+  @UnstableApi
+  public static final String EXTRAS_KEY_CATEGORIES =
+      "androidx.media3.session.EXTRAS_KEY_CATEGORIES";
 
   /**
    * {@link Bundle} key used to indicate the {@link CommandButton.Icon} in the extras of the

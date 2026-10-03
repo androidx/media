@@ -92,10 +92,12 @@ public final class MediaMetadata {
     @Nullable private CharSequence station;
     @Nullable private @MediaType Integer mediaType;
     @Nullable private String playlistId;
+    private ImmutableList<String> categories;
     @Nullable private Bundle extras;
     private ImmutableList<String> supportedCommands;
 
     public Builder() {
+      categories = ImmutableList.of();
       supportedCommands = ImmutableList.of();
     }
 
@@ -138,6 +140,7 @@ public final class MediaMetadata {
       this.station = mediaMetadata.station;
       this.mediaType = mediaMetadata.mediaType;
       this.playlistId = mediaMetadata.playlistId;
+      this.categories = mediaMetadata.categories;
       this.supportedCommands = mediaMetadata.supportedCommands;
       this.extras = mediaMetadata.extras;
     }
@@ -479,6 +482,14 @@ public final class MediaMetadata {
       return this;
     }
 
+    /** Sets the list of categories or category tokens of the media. */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder setCategories(List<String> categories) {
+      this.categories = ImmutableList.copyOf(categories);
+      return this;
+    }
+
     /** Sets the extras {@link Bundle}. */
     @CanIgnoreReturnValue
     public Builder setExtras(@Nullable Bundle extras) {
@@ -655,6 +666,9 @@ public final class MediaMetadata {
       }
       if (mediaMetadata.playlistId != null) {
         setPlaylistId(mediaMetadata.playlistId);
+      }
+      if (!mediaMetadata.categories.isEmpty()) {
+        setCategories(mediaMetadata.categories);
       }
       if (mediaMetadata.extras != null) {
         setExtras(mediaMetadata.extras);
@@ -1194,6 +1208,9 @@ public final class MediaMetadata {
   /** Optional playlist ID. */
   @UnstableApi @Nullable public final String playlistId;
 
+  /** The list of categories or category tokens of the media. */
+  @UnstableApi public final ImmutableList<String> categories;
+
   /**
    * Optional extras {@link Bundle}.
    *
@@ -1265,6 +1282,7 @@ public final class MediaMetadata {
     this.station = builder.station;
     this.mediaType = mediaType;
     this.playlistId = builder.playlistId;
+    this.categories = builder.categories;
     this.supportedCommands = builder.supportedCommands;
     this.extras = builder.extras;
   }
@@ -1320,6 +1338,7 @@ public final class MediaMetadata {
         && TextUtils.equals(station, that.station)
         && Objects.equals(mediaType, that.mediaType)
         && Objects.equals(playlistId, that.playlistId)
+        && Objects.equals(categories, that.categories)
         && Objects.equals(supportedCommands, that.supportedCommands)
         && ((extras == null) == (that.extras == null));
   }
@@ -1364,7 +1383,8 @@ public final class MediaMetadata {
         mediaType,
         extras == null,
         supportedCommands,
-        playlistId);
+        playlistId,
+        categories);
   }
 
   private static final String FIELD_TITLE = Util.intToStringMaxRadix(0);
@@ -1404,6 +1424,7 @@ public final class MediaMetadata {
   private static final String FIELD_SUPPORTED_COMMANDS = Util.intToStringMaxRadix(34);
   private static final String FIELD_DISC_SUBTITLE = Util.intToStringMaxRadix(35);
   private static final String FIELD_PLAYLIST_ID = Util.intToStringMaxRadix(36);
+  private static final String FIELD_CATEGORIES = Util.intToStringMaxRadix(37);
   private static final String FIELD_EXTRAS = Util.intToStringMaxRadix(1000);
 
   // Use a fairly lenient threshold for sending byte array to legacy processes that don't support
@@ -1544,6 +1565,9 @@ public final class MediaMetadata {
     if (playlistId != null) {
       bundle.putString(FIELD_PLAYLIST_ID, playlistId);
     }
+    if (!categories.isEmpty()) {
+      bundle.putStringArrayList(FIELD_CATEGORIES, new ArrayList<>(categories));
+    }
     if (!supportedCommands.isEmpty()) {
       bundle.putStringArrayList(FIELD_SUPPORTED_COMMANDS, new ArrayList<>(supportedCommands));
     }
@@ -1665,6 +1689,10 @@ public final class MediaMetadata {
     }
     if (bundle.containsKey(FIELD_MEDIA_TYPE)) {
       builder.setMediaType(bundle.getInt(FIELD_MEDIA_TYPE));
+    }
+    @Nullable ArrayList<String> categories = bundle.getStringArrayList(FIELD_CATEGORIES);
+    if (categories != null) {
+      builder.setCategories(categories);
     }
     @Nullable
     ArrayList<String> supportedCommands = bundle.getStringArrayList(FIELD_SUPPORTED_COMMANDS);

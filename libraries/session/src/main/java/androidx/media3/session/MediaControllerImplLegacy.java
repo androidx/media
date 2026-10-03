@@ -68,6 +68,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.session.LegacyConversions.ConversionException;
 import androidx.media3.session.legacy.MediaBrowserCompat;
 import androidx.media3.session.legacy.MediaControllerCompat;
+import androidx.media3.session.legacy.MediaDescriptionCompat;
 import androidx.media3.session.legacy.MediaMetadataCompat;
 import androidx.media3.session.legacy.MediaSessionCompat;
 import androidx.media3.session.legacy.MediaSessionCompat.QueueItem;
@@ -1703,7 +1704,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
                   newControllerInfo.playerInfo.timelineChangeReason));
     }
 
-    if (!TextUtils.equals(oldLegacyPlayerInfo.queueTitle, newLegacyPlayerInfo.queueTitle)) {
+    if (!oldControllerInfo.playerInfo.playlistMetadata.equals(
+        newControllerInfo.playerInfo.playlistMetadata)) {
       listeners.queueEvent(
           Player.EVENT_PLAYLIST_METADATA_CHANGED,
           (listener) ->
@@ -2124,10 +2126,24 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             sessionFlags,
             isSessionReady);
 
-    playlistMetadata =
-        oldLegacyPlayerInfo.queueTitle == newLegacyPlayerInfo.queueTitle
-            ? oldControllerInfo.playerInfo.playlistMetadata
-            : LegacyConversions.convertToMediaMetadata(newLegacyPlayerInfo.queueTitle);
+    if (!TextUtils.equals(oldLegacyPlayerInfo.queueTitle, newLegacyPlayerInfo.queueTitle)
+        || isMetadataCompatChanged
+        || isCurrentActiveQueueIdChanged
+        || isQueueChanged) {
+      int activeQueueIndex = findQueueItemIndex(newLegacyPlayerInfo.queue, newActiveQueueId);
+      @Nullable
+      MediaDescriptionCompat currentDescriptionCompat =
+          activeQueueIndex != C.INDEX_UNSET
+              ? newLegacyPlayerInfo.queue.get(activeQueueIndex).getDescription()
+              : null;
+      playlistMetadata =
+          LegacyConversions.convertToPlaylistMetadata(
+              newLegacyPlayerInfo.queueTitle,
+              newLegacyPlayerInfo.mediaMetadataCompat,
+              currentDescriptionCompat);
+    } else {
+      playlistMetadata = oldControllerInfo.playerInfo.playlistMetadata;
+    }
     repeatMode = LegacyConversions.convertToRepeatMode(newLegacyPlayerInfo.repeatMode);
     shuffleModeEnabled =
         LegacyConversions.convertToShuffleModeEnabled(newLegacyPlayerInfo.shuffleMode);

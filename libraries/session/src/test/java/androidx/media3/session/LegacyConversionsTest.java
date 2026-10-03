@@ -15,11 +15,14 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.session.MediaConstants.EXTRAS_KEY_CATEGORIES;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_URI_COMPAT;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_COMPLETION_STATUS;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT;
+import static androidx.media3.session.MediaConstants.EXTRAS_KEY_PLAYLIST_ARTWORK_URI;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_PLAYLIST_ID;
+import static androidx.media3.session.MediaConstants.EXTRAS_KEY_PLAYLIST_TITLE;
 import static androidx.media3.session.MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED;
 import static androidx.media3.session.MediaConstants.EXTRA_KEY_ROOT_CHILDREN_BROWSABLE_ONLY;
 import static androidx.media3.session.legacy.MediaBrowserCompat.MediaItem.FLAG_BROWSABLE;
@@ -172,6 +175,7 @@ public final class LegacyConversionsTest {
             .setWriter("testWriter")
             .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
             .setPlaylistId("testPlaylistId")
+            .setCategories(ImmutableList.of("cat1", "cat2"))
             .setDurationMs(10_000L)
             .setExtras(extras)
             .build();
@@ -191,6 +195,8 @@ public final class LegacyConversionsTest {
         .isEqualTo(EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED);
     assertThat(descriptionCompat.getExtras().getString(EXTRAS_KEY_PLAYLIST_ID))
         .isEqualTo("testPlaylistId");
+    assertThat(descriptionCompat.getExtras().getString(EXTRAS_KEY_CATEGORIES))
+        .isEqualTo("cat1,cat2");
   }
 
   @Test
@@ -584,6 +590,107 @@ public final class LegacyConversionsTest {
   }
 
   @Test
+  public void convertToMediaMetadata_withCategoriesInMediaMetadataCompat_assignedToCategories() {
+    MediaMetadataCompat testMediaMetadataCompat =
+        new MediaMetadataCompat.Builder().putString(EXTRAS_KEY_CATEGORIES, "rock,indie").build();
+
+    MediaMetadata mediaMetadata =
+        LegacyConversions.convertToMediaMetadata(testMediaMetadataCompat, RatingCompat.RATING_NONE);
+
+    assertThat(mediaMetadata.categories).containsExactly("rock", "indie").inOrder();
+    assertThat(mediaMetadata.extras).isNull();
+  }
+
+  @Test
+  public void convertToMediaMetadata_withCategoriesInMediaDescriptionCompat_assignedToCategories() {
+    Bundle extras = new Bundle();
+    extras.putString(EXTRAS_KEY_CATEGORIES, "rock,indie");
+    MediaDescriptionCompat descriptionCompat =
+        new MediaDescriptionCompat.Builder().setExtras(extras).build();
+
+    MediaMetadata mediaMetadata =
+        LegacyConversions.convertToMediaMetadata(descriptionCompat, RatingCompat.RATING_NONE);
+
+    assertThat(mediaMetadata.categories).containsExactly("rock", "indie").inOrder();
+    assertThat(mediaMetadata.extras).isNull();
+  }
+
+  @Test
+  public void
+      convertToPlaylistMetadata_withPlaylistFallbacksInMediaMetadataCompat_setsTitleAndArtworkUri() {
+    MediaMetadataCompat metadataCompat =
+        new MediaMetadataCompat.Builder()
+            .putString(EXTRAS_KEY_PLAYLIST_TITLE, "Fallback Playlist Title")
+            .putString(EXTRAS_KEY_PLAYLIST_ARTWORK_URI, "https://example.com/playlist.jpg")
+            .build();
+
+    MediaMetadata playlistMetadata =
+        LegacyConversions.convertToPlaylistMetadata(
+            /* queueTitle= */ null, metadataCompat, /* descriptionCompat= */ null);
+
+    assertThat(playlistMetadata.title.toString()).isEqualTo("Fallback Playlist Title");
+    assertThat(playlistMetadata.artworkUri)
+        .isEqualTo(Uri.parse("https://example.com/playlist.jpg"));
+  }
+
+  @Test
+  public void
+      convertToPlaylistMetadata_withPlaylistFallbacksInMediaDescriptionCompat_setsTitleAndArtworkUri() {
+    Bundle extras = new Bundle();
+    extras.putString(EXTRAS_KEY_PLAYLIST_TITLE, "Description Playlist Title");
+    extras.putString(EXTRAS_KEY_PLAYLIST_ARTWORK_URI, "https://example.com/desc_playlist.jpg");
+    MediaDescriptionCompat descriptionCompat =
+        new MediaDescriptionCompat.Builder().setExtras(extras).build();
+
+    MediaMetadata playlistMetadata =
+        LegacyConversions.convertToPlaylistMetadata(
+            /* queueTitle= */ null, /* metadataCompat= */ null, descriptionCompat);
+
+    assertThat(playlistMetadata.title.toString()).isEqualTo("Description Playlist Title");
+    assertThat(playlistMetadata.artworkUri)
+        .isEqualTo(Uri.parse("https://example.com/desc_playlist.jpg"));
+  }
+
+  @Test
+  public void convertToPlaylistMetadata_withQueueTitleAndFallbackTitle_prefersQueueTitle() {
+    MediaMetadataCompat metadataCompat =
+        new MediaMetadataCompat.Builder()
+            .putString(EXTRAS_KEY_PLAYLIST_TITLE, "Fallback Playlist Title")
+            .putString(EXTRAS_KEY_PLAYLIST_ARTWORK_URI, "https://example.com/playlist.jpg")
+            .build();
+
+    MediaMetadata playlistMetadata =
+        LegacyConversions.convertToPlaylistMetadata(
+            "Session Queue Title", metadataCompat, /* descriptionCompat= */ null);
+
+    assertThat(playlistMetadata.title.toString()).isEqualTo("Session Queue Title");
+    assertThat(playlistMetadata.artworkUri)
+        .isEqualTo(Uri.parse("https://example.com/playlist.jpg"));
+  }
+
+  @Test
+  public void convertToMediaMetadata_withPlaylistFallbacksInItemMetadata_removesFromItemExtras() {
+    MediaMetadataCompat metadataCompat =
+        new MediaMetadataCompat.Builder()
+            .putString(EXTRAS_KEY_PLAYLIST_TITLE, "Fallback Playlist Title")
+            .putString(EXTRAS_KEY_PLAYLIST_ARTWORK_URI, "https://example.com/playlist.jpg")
+            .build();
+    Bundle extras = new Bundle();
+    extras.putString(EXTRAS_KEY_PLAYLIST_TITLE, "Description Playlist Title");
+    extras.putString(EXTRAS_KEY_PLAYLIST_ARTWORK_URI, "https://example.com/desc_playlist.jpg");
+    MediaDescriptionCompat descriptionCompat =
+        new MediaDescriptionCompat.Builder().setExtras(extras).build();
+
+    MediaMetadata fromMetadataCompat =
+        LegacyConversions.convertToMediaMetadata(metadataCompat, RatingCompat.RATING_NONE);
+    MediaMetadata fromDescriptionCompat =
+        LegacyConversions.convertToMediaMetadata(descriptionCompat, RatingCompat.RATING_NONE);
+
+    assertThat(fromMetadataCompat.extras).isNull();
+    assertThat(fromDescriptionCompat.extras).isNull();
+  }
+
+  @Test
   public void convertToMediaMetadataCompat_withMediaType_setsMediaType() {
     MediaItem mediaItem =
         new MediaItem.Builder()
@@ -620,6 +727,28 @@ public final class LegacyConversionsTest {
 
     assertThat(mediaMetadataCompat.getString(MediaConstants.EXTRAS_KEY_PLAYLIST_ID))
         .isEqualTo("playlistId-1");
+  }
+
+  @Test
+  public void convertToMediaMetadataCompat_withCategories_setsCategoriesExtra() {
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setMediaMetadata(
+                new MediaMetadata.Builder()
+                    .setCategories(ImmutableList.of("category1", "category2"))
+                    .build())
+            .build();
+
+    MediaMetadataCompat mediaMetadataCompat =
+        LegacyConversions.convertToMediaMetadataCompat(
+            mediaItem.mediaMetadata,
+            "mediaId",
+            Uri.parse("http://www.example.com"),
+            /* durationMs= */ C.TIME_UNSET,
+            /* artworkBitmap= */ null);
+
+    assertThat(mediaMetadataCompat.getString(EXTRAS_KEY_CATEGORIES))
+        .isEqualTo("category1,category2");
   }
 
   @Test

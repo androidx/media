@@ -6,8 +6,10 @@
     *   Add a central `Flags` registry to manage experimental feature flags and
         canary mode rollout. Migrated many existing `@ExperimentalApi` methods
         to use the new flags API.
-    *   Add `MediaMetadata.playlistId` and
-        `MediaMetadata.Builder.setPlaylistId(String)`.
+    *   Add `MediaMetadata.playlistId`,
+        `MediaMetadata.Builder.setPlaylistId(String)`,
+        `MediaMetadata.categories`, and
+        `MediaMetadata.Builder.setCategories(List<String>)`.
 *   ExoPlayer:
     *   Fix an issue where DASH multi-period playback gets stuck when the next
         period's first chunk fails to load
@@ -183,8 +185,14 @@
     *   Forward player pause and resume events to the IMA SDK in
         `ImaServerSideAdInsertionMediaSource`.
 *   Session:
-    *   Add `MediaConstants.EXTRAS_KEY_PLAYLIST_ID` to populate
-        `MediaMetadata.playlistId` from legacy metadata and descriptions.
+    *   Add `MediaConstants.EXTRAS_KEY_PLAYLIST_ID`,
+        `MediaConstants.EXTRAS_KEY_PLAYLIST_TITLE`,
+        `MediaConstants.EXTRAS_KEY_PLAYLIST_ARTWORK_URI`, and
+        `MediaConstants.EXTRAS_KEY_CATEGORIES` to populate playlist and item
+        metadata from legacy metadata and descriptions, and
+        `MediaConstants.EXTRAS_KEY_SUGGESTED_TYPE` and
+        `MediaConstants.EXTRAS_KEY_TTL_SECONDS` for suggestion
+        `LibraryParams.extras`.
     *   Fix `SecurityException` crash when creating or releasing a
         `MediaSession` on devices that enforce strict `PendingIntent` limits.
     *   Fix issue where `MediaSession.getControllerForCurrentRequest()` returned
