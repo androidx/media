@@ -135,6 +135,8 @@
     *   Add workaround for devices that invoke
         `android.media.AudioDeviceCallback` on the wrong thread
         ([#3386](https://github.com/androidx/media/issues/3386)).
+    *   Fix potential stuck playbacks after track transitions with compressed
+        offload.
 *   Video:
     *   Fix reporting of late video frames with identical release timestamps so
         that they are reported as dropped instead of skipped.

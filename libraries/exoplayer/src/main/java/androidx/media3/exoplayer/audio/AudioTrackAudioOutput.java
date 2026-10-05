@@ -493,9 +493,14 @@ public final class AudioTrackAudioOutput implements AudioOutput {
           releaseExecutor.schedule(
               () -> {
                 try {
-                  // We need to flush the audio track as some devices are known to keep state from
-                  // previous playbacks if the track is not flushed at all (see b/22967293).
-                  audioTrack.flush();
+                  boolean isOffload = SDK_INT >= 29 && audioTrack.isOffloadedPlayback();
+                  if (!isOffload) {
+                    // Flush the audio track to avoid keeping state from previous playbacks (see
+                    // b/22967293). Offload tracks do not need flush before release and flushing
+                    // them may clear buffers of a subsequent track sharing the direct HAL stream
+                    // (b/552739771).
+                    audioTrack.flush();
+                  }
                   audioTrack.release();
                 } finally {
                   if (audioTrackThreadHandler.getLooper().getThread().isAlive()) {
