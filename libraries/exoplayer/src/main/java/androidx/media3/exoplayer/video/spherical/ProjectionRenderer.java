@@ -151,6 +151,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       texMatrix = rightEye ? TEX_MATRIX_BOTTOM : TEX_MATRIX_TOP;
     } else if (stereoMode == C.STEREO_MODE_LEFT_RIGHT) {
       texMatrix = rightEye ? TEX_MATRIX_RIGHT : TEX_MATRIX_LEFT;
+    } else if (stereoMode == C.STEREO_MODE_BOTTOM_TOP) {
+      texMatrix = rightEye ? TEX_MATRIX_TOP : TEX_MATRIX_BOTTOM;
+    } else if (stereoMode == C.STEREO_MODE_RIGHT_LEFT) {
+      texMatrix = rightEye ? TEX_MATRIX_LEFT : TEX_MATRIX_RIGHT;
     } else {
       texMatrix = TEX_MATRIX_WHOLE;
     }

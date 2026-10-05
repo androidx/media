@@ -604,6 +604,48 @@ public final class NalUnitUtilTest {
   }
 
   @Test
+  public void parseSeiStereoMode_sideBySideRightViewFirst_returnsStereoModeRightLeft() {
+    // payloadType = 45 (0x2D), payloadSize = 3 (0x03)
+    // payload: id=0 (1), cancel_flag=0 (0), type=3 (0000011), quincunx_sampling_flag=0 (0),
+    // content_interpretation_type=2 (000010) -> 10000001 10000010 00000000 (0x81, 0x82, 0x00)
+    // rbsp_trailing_bits = 0x80
+    byte[] seiData = createByteArray(0x2D, 0x03, 0x81, 0x82, 0x00, 0x80);
+
+    @C.StereoMode
+    int stereoMode = NalUnitUtil.parseSeiStereoMode(seiData, /* offset= */ 0, seiData.length);
+
+    assertThat(stereoMode).isEqualTo(C.STEREO_MODE_RIGHT_LEFT);
+  }
+
+  @Test
+  public void parseSeiStereoMode_topBottomRightViewFirst_returnsStereoModeBottomTop() {
+    // payloadType = 45 (0x2D), payloadSize = 3 (0x03)
+    // payload: id=0 (1), cancel_flag=0 (0), type=4 (0000100), quincunx_sampling_flag=0 (0),
+    // content_interpretation_type=2 (000010) -> 10000010 00000010 00000000 (0x82, 0x02, 0x00)
+    // rbsp_trailing_bits = 0x80
+    byte[] seiData = createByteArray(0x2D, 0x03, 0x82, 0x02, 0x00, 0x80);
+
+    @C.StereoMode
+    int stereoMode = NalUnitUtil.parseSeiStereoMode(seiData, /* offset= */ 0, seiData.length);
+
+    assertThat(stereoMode).isEqualTo(C.STEREO_MODE_BOTTOM_TOP);
+  }
+
+  @Test
+  public void parseSeiStereoMode_sideBySideLeftViewFirst_returnsStereoModeLeftRight() {
+    // payloadType = 45 (0x2D), payloadSize = 3 (0x03)
+    // payload: id=0 (1), cancel_flag=0 (0), type=3 (0000011), quincunx_sampling_flag=0 (0),
+    // content_interpretation_type=1 (000001) -> 10000001 10000001 00000000 (0x81, 0x81, 0x00)
+    // rbsp_trailing_bits = 0x80
+    byte[] seiData = createByteArray(0x2D, 0x03, 0x81, 0x81, 0x00, 0x80);
+
+    @C.StereoMode
+    int stereoMode = NalUnitUtil.parseSeiStereoMode(seiData, /* offset= */ 0, seiData.length);
+
+    assertThat(stereoMode).isEqualTo(C.STEREO_MODE_LEFT_RIGHT);
+  }
+
+  @Test
   public void parseSeiStereoMode_cancelFlagTrue_returnsStereoModeMono() {
     // payloadType = 45 (0x2D), payloadSize = 1 (0x01)
     // payload: id=0 (1), cancel_flag=1 (1) -> 11000000 (0xC0)

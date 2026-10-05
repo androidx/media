@@ -18,6 +18,10 @@ package androidx.media3.extractor.mp4;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
+import androidx.media3.common.C;
+import androidx.media3.common.Format;
+import androidx.media3.extractor.Extractor;
+import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SniffFailure;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.test.utils.FakeExtractorInput;
@@ -128,5 +132,35 @@ public final class FragmentedMp4ExtractorNonParameterizedTest {
             TestUtil.getByteArray(
                 ApplicationProvider.getApplicationContext(), "media/mp4/" + sample))
         .build();
+  }
+
+  @Test
+  public void extract_h264FramePackingSideBySideSei_setsStereoMode() throws Exception {
+    FragmentedMp4Extractor extractor =
+        new FragmentedMp4Extractor(SubtitleParser.Factory.UNSUPPORTED);
+    FakeExtractorInput input =
+        new FakeExtractorInput.Builder()
+            .setData(
+                TestUtil.getByteArray(
+                    ApplicationProvider.getApplicationContext(),
+                    "media/mp4/sample_fragmented_h264_frame_packing_side_by_side.mp4"))
+            .build();
+    // The stereo mode refines the format ahead of the first sample.
+    FakeExtractorOutput output =
+        new FakeExtractorOutput(
+            (id, type) -> new FakeTrackOutput(type, /* deduplicateConsecutiveFormats= */ true));
+    PositionHolder positionHolder = new PositionHolder();
+    extractor.init(output);
+    int readResult = Extractor.RESULT_CONTINUE;
+    while (readResult != Extractor.RESULT_END_OF_INPUT) {
+      readResult = extractor.read(input, positionHolder);
+      if (readResult == Extractor.RESULT_SEEK) {
+        input.setPosition((int) positionHolder.position);
+      }
+    }
+
+    Format format = output.trackOutputs.valueAt(0).lastFormat;
+    assertThat(format).isNotNull();
+    assertThat(format.stereoMode).isEqualTo(C.STEREO_MODE_LEFT_RIGHT);
   }
 }
