@@ -70,7 +70,7 @@ public final class AudioCapabilitiesReceiverWrongThreadTest {
             listener,
             new AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
             /* routedDevice= */ null);
-    AudioCapabilities _ = audioCapabilitiesReceiver.register();
+    AudioCapabilities unused = audioCapabilitiesReceiver.register();
     audioCapabilitiesReceiver.overrideCapabilities(OVERRIDDEN_AUDIO_CAPABILITIES);
 
     wrongThreadExecutor
@@ -97,7 +97,7 @@ public final class AudioCapabilitiesReceiverWrongThreadTest {
             listener,
             new AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
             /* routedDevice= */ null);
-    AudioCapabilities _ = audioCapabilitiesReceiver.register();
+    AudioCapabilities unused = audioCapabilitiesReceiver.register();
     audioCapabilitiesReceiver.overrideCapabilities(OVERRIDDEN_AUDIO_CAPABILITIES);
 
     wrongThreadExecutor
@@ -121,7 +121,7 @@ public final class AudioCapabilitiesReceiverWrongThreadTest {
             listener,
             new AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
             /* routedDevice= */ null);
-    AudioCapabilities _ = audioCapabilitiesReceiver.register();
+    AudioCapabilities unused = audioCapabilitiesReceiver.register();
     audioCapabilitiesReceiver.overrideCapabilities(OVERRIDDEN_AUDIO_CAPABILITIES);
 
     audioCapabilitiesReceiver.audioDeviceCallback.onAudioDevicesAdded(new AudioDeviceInfo[0]);

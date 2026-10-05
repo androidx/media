@@ -2723,7 +2723,7 @@ public final class ProgressiveMediaPeriodTest {
     @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
     @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
     selections[0] = new FakeTrackSelection(trackGroups.get(0), 0);
-    long _ =
+    long unused =
         mediaPeriod.selectTracks(
             selections,
             new boolean[trackGroups.length],

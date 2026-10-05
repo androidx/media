@@ -302,7 +302,7 @@ public final class SubripParserTest {
     byte[] bytes =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL_UTF16LE);
 
-    ImmutableList<CuesWithTiming> _ = parseAllCues(parser, bytes);
+    ImmutableList<CuesWithTiming> unused = parseAllCues(parser, bytes);
 
     // Don't assert the specific output, since it's effectively undefined behaviour. This test
     // exists to assert we don't call CharsetDetector for every subtitle sample from a container
