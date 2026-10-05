@@ -15,7 +15,6 @@
  */
 package androidx.media3.transformer;
 
-import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.video.AsyncFrame;
@@ -39,11 +38,6 @@ import java.util.Set;
 
   private static final String TAG = "InFlightFrameManager";
 
-  private final Object lock = new Object();
-
-  // TODO(b/518679527): Verify that inFlightFrames is only accessed on the playback thread, and
-  //  remove this lock.
-  @GuardedBy("lock")
   private final Set<Frame> inFlightFrames = new HashSet<>();
 
   /**
@@ -56,10 +50,8 @@ import java.util.Set;
    */
   @CanIgnoreReturnValue
   <T extends List<AsyncFrame>> boolean trackIfSuccessful(Predicate<T> queueAction, T packet) {
-    synchronized (lock) {
-      for (int i = 0; i < packet.size(); i++) {
-        inFlightFrames.add(packet.get(i).frame);
-      }
+    for (int i = 0; i < packet.size(); i++) {
+      inFlightFrames.add(packet.get(i).frame);
     }
     boolean success = false;
     try {
@@ -67,10 +59,8 @@ import java.util.Set;
       return success;
     } finally {
       if (!success) {
-        synchronized (lock) {
-          for (int i = 0; i < packet.size(); i++) {
-            inFlightFrames.remove(packet.get(i).frame);
-          }
+        for (int i = 0; i < packet.size(); i++) {
+          inFlightFrames.remove(packet.get(i).frame);
         }
       }
     }
@@ -84,11 +74,7 @@ import java.util.Set;
     // If FrameProcessor passes decorated frame, fetching the frame will silently fail.
     // TODO(b/539914074): throw if frame is not found, and/or document expectations for decorated
     //  frames.
-    boolean wasTracked;
-    synchronized (lock) {
-      wasTracked = inFlightFrames.remove(frame);
-    }
-    if (wasTracked) {
+    if (inFlightFrames.remove(frame)) {
       TransformerUtil.releaseIfNeeded(frame, releaseFence);
     } else {
       if (releaseFence != null) {
@@ -100,11 +86,8 @@ import java.util.Set;
 
   /** Releases all currently in-flight frames. */
   void releaseAll() {
-    ImmutableList<Frame> framesToRelease;
-    synchronized (lock) {
-      framesToRelease = ImmutableList.copyOf(inFlightFrames);
-      inFlightFrames.clear();
-    }
+    ImmutableList<Frame> framesToRelease = ImmutableList.copyOf(inFlightFrames);
+    inFlightFrames.clear();
     TransformerUtil.releaseIfNeeded(framesToRelease);
   }
 }
