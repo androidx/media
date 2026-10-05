@@ -179,6 +179,34 @@ public class DashManifestTest {
     assertManifestEquals(expectedManifest, copyManifest);
   }
 
+  @Test
+  public void copy_preservesAssetIdentifier() {
+    Representation[][][] representations = newRepresentations(1, 1, 2);
+    Descriptor assetIdentifier = new Descriptor("urn:org:dashif:asset-id:2013", "asset-1", "id-1");
+    Period sourcePeriod =
+        new Period(
+            "1",
+            /* startMs= */ 1,
+            ImmutableList.of(newAdaptationSet(2, representations[0][0])),
+            /* eventStreams= */ ImmutableList.of(),
+            assetIdentifier);
+    DashManifest sourceManifest =
+        newDashManifest(/* duration= */ 10, /* serviceDescription= */ null, sourcePeriod);
+
+    DashManifest copyManifest = sourceManifest.copy(ImmutableList.of(new StreamKey(0, 0, 1)));
+
+    Period expectedPeriod =
+        new Period(
+            "1",
+            /* startMs= */ 1,
+            ImmutableList.of(newAdaptationSet(2, representations[0][0][1])),
+            /* eventStreams= */ ImmutableList.of(),
+            assetIdentifier);
+    DashManifest expectedManifest =
+        newDashManifest(/* duration= */ 10, /* serviceDescription= */ null, expectedPeriod);
+    assertManifestEquals(expectedManifest, copyManifest);
+  }
+
   private static void assertManifestEquals(DashManifest expected, DashManifest actual) {
     assertThat(actual.availabilityStartTimeMs).isEqualTo(expected.availabilityStartTimeMs);
     assertThat(actual.durationMs).isEqualTo(expected.durationMs);
@@ -200,6 +228,7 @@ public class DashManifestTest {
       Period actualPeriod = actual.getPeriod(i);
       assertThat(actualPeriod.id).isEqualTo(expectedPeriod.id);
       assertThat(actualPeriod.startMs).isEqualTo(expectedPeriod.startMs);
+      assertThat(actualPeriod.assetIdentifier).isEqualTo(expectedPeriod.assetIdentifier);
       List<AdaptationSet> expectedAdaptationSets = expectedPeriod.adaptationSets;
       List<AdaptationSet> actualAdaptationSets = actualPeriod.adaptationSets;
       assertThat(actualAdaptationSets).hasSize(expectedAdaptationSets.size());

@@ -248,7 +248,11 @@ public class DashManifest implements FilterableManifest<DashManifest> {
             copyAdaptationSets(period.adaptationSets, keys);
         Period copiedPeriod =
             new Period(
-                period.id, period.startMs - shiftMs, copyAdaptationSets, period.eventStreams);
+                period.id,
+                period.startMs - shiftMs,
+                copyAdaptationSets,
+                period.eventStreams,
+                period.assetIdentifier);
         copyPeriods.add(copiedPeriod);
       }
     }
