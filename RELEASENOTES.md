@@ -204,6 +204,11 @@
         `MediaSessionService` was not yet in the foreground.
     *   Fix `IllegalArgumentException` crash when a `MediaController` connects
         to a legacy session that reports a negative maximum volume.
+    *   Fix an issue where calling `MediaController.setMediaItem` or
+        `setMediaItems` followed by `play()` on a paused legacy
+        `MediaSessionCompat` could dispatch an unsupported `onPrepareFrom*`
+        callback instead of `onPlayFrom*`, or dispatch `onPlay()` without
+        re-initializing the requested media item.
 *   UI:
     *   Add `TrackSelectionState` and `TrackSelectionParametersState` classes
         and their corresponding Composable state remember functions to the

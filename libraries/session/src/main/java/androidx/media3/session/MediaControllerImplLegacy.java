@@ -282,7 +282,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         /* discontinuityReason= */ null,
         /* mediaItemTransitionReason= */ null);
 
-    if (canInitializeLegacyPlaylist(controllerInfo)) {
+    if (canInitializeLegacyPlaylist(controllerInfo, legacyPlayerInfo.playbackStateCompat)) {
       initializeLegacyPlaylist();
     }
   }
@@ -702,8 +702,11 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         maskedControllerInfo,
         /* discontinuityReason= */ null,
         /* mediaItemTransitionReason= */ null);
-    if (canInitializeLegacyPlaylist(controllerInfo)) {
+    if (canInitializeLegacyPlaylist(controllerInfo, legacyPlayerInfo.playbackStateCompat)) {
       initializeLegacyPlaylist();
+    } else {
+      // Wait to initialize the new playlist (via playFrom*) until playWhenReady becomes true.
+      hasInitializedLegacyPlaylist = false;
     }
   }
 
@@ -1319,7 +1322,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       } else {
         controllerCompat.getTransportControls().pause();
       }
-    } else if (canInitializeLegacyPlaylist(controllerInfo)) {
+    } else if (canInitializeLegacyPlaylist(controllerInfo, legacyPlayerInfo.playbackStateCompat)) {
       initializeLegacyPlaylist();
     }
   }
@@ -1458,11 +1461,45 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             });
   }
 
-  private static boolean canInitializeLegacyPlaylist(ControllerInfo controllerInfo) {
-    return controllerInfo.playerInfo.playbackState != Player.STATE_IDLE
-        && !controllerInfo.playerInfo.timeline.isEmpty()
-        && (controllerInfo.availablePlayerCommands.contains(Player.COMMAND_PREPARE)
-            || controllerInfo.playerInfo.playWhenReady);
+  private static boolean isLegacyPlaylistInitialized(ControllerInfo controllerInfo) {
+    if (controllerInfo.playerInfo.playbackState == Player.STATE_IDLE
+        || controllerInfo.playerInfo.timeline.isEmpty()) {
+      return false;
+    }
+    QueueTimeline queueTimeline = (QueueTimeline) controllerInfo.playerInfo.timeline;
+    int currentIndex = controllerInfo.playerInfo.sessionPositionInfo.positionInfo.mediaItemIndex;
+    return queueTimeline.getQueueId(currentIndex) != QueueItem.UNKNOWN_ID;
+  }
+
+  private static boolean canInitializeLegacyPlaylist(
+      ControllerInfo controllerInfo, @Nullable PlaybackStateCompat playbackStateCompat) {
+    if (controllerInfo.playerInfo.playbackState == Player.STATE_IDLE
+        || controllerInfo.playerInfo.timeline.isEmpty()) {
+      return false;
+    }
+    if (controllerInfo.playerInfo.playWhenReady) {
+      return true;
+    }
+    // When !playWhenReady, check whether the session supports the specific prepare action needed
+    // to eagerly initialize the playlist now (via prepare/prepareFrom*), or whether we must wait
+    // until playWhenReady becomes true to initialize via play/playFrom*.
+    if (playbackStateCompat == null) {
+      return false;
+    }
+    long actions = playbackStateCompat.getActions();
+    QueueTimeline queueTimeline = (QueueTimeline) controllerInfo.playerInfo.timeline;
+    int currentIndex = controllerInfo.playerInfo.sessionPositionInfo.positionInfo.mediaItemIndex;
+    if (queueTimeline.getQueueId(currentIndex) != QueueItem.UNKNOWN_ID) {
+      return (actions & PlaybackStateCompat.ACTION_PREPARE) != 0;
+    }
+    MediaItem currentMediaItem = queueTimeline.getWindow(currentIndex, new Window()).mediaItem;
+    if (currentMediaItem.requestMetadata.mediaUri != null) {
+      return (actions & PlaybackStateCompat.ACTION_PREPARE_FROM_URI) != 0;
+    } else if (currentMediaItem.requestMetadata.searchQuery != null) {
+      return (actions & PlaybackStateCompat.ACTION_PREPARE_FROM_SEARCH) != 0;
+    } else {
+      return (actions & PlaybackStateCompat.ACTION_PREPARE_FROM_MEDIA_ID) != 0;
+    }
   }
 
   private void initializeLegacyPlaylist() {
@@ -1666,7 +1703,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     if (hasNewLegacyPlayerInfo) {
       legacyPlayerInfo = newLegacyPlayerInfo;
       pendingLegacyPlayerInfo = legacyPlayerInfo;
-      if (canInitializeLegacyPlaylist(newControllerInfo)) {
+      if (isLegacyPlaylistInitialized(newControllerInfo)) {
         // New platform state already has initialized playlist.
         hasInitializedLegacyPlaylist = true;
       }

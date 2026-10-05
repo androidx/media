@@ -954,6 +954,32 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
   }
 
   @Test
+  public void setMediaItems_thenPrepareWithOnlyPrepareFromUri_doesNotInitializeUntilPlay()
+      throws Exception {
+    MediaItem testItem = new MediaItem.Builder().setMediaId("id").build();
+    session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
+    setPlaybackStateAndActions(
+        PlaybackStateCompat.STATE_NONE,
+        PlaybackStateCompat.ACTION_PREPARE_FROM_URI
+            | PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID);
+    RemoteMediaController controller = createControllerAndWaitConnection();
+    sessionCallback.reset(1);
+
+    controller.setMediaItem(testItem);
+    controller.prepare();
+
+    assertThat(sessionCallback.await(NO_OP_TIMEOUT_MS)).isFalse();
+    assertThat(sessionCallback.onPrepareFromMediaIdCalled).isFalse();
+    assertThat(sessionCallback.onPlayFromMediaIdCalled).isFalse();
+
+    controller.play();
+
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    assertThat(sessionCallback.onPlayFromMediaIdCalled).isTrue();
+    assertThat(sessionCallback.mediaId).isEqualTo("id");
+  }
+
+  @Test
   public void setMediaItems_withMediaUri_initializesWithPlayFromUri() throws Exception {
     Uri testUri = Uri.parse("http://test.com");
     MediaItem testItem =
@@ -997,6 +1023,184 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
     assertThat(sessionCallback.onPlayFromSearchCalled).isTrue();
     assertThat(sessionCallback.query).isEqualTo(testQuery);
+  }
+
+  @Test
+  public void setMediaItems_pausedAndSupportsPrepareFromUri_initializesImmediately()
+      throws Exception {
+    Uri testUri = Uri.parse("https://example.com/media");
+    MediaItem testItem =
+        new MediaItem.Builder()
+            .setMediaId("id")
+            .setRequestMetadata(
+                new MediaItem.RequestMetadata.Builder().setMediaUri(testUri).build())
+            .build();
+    session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
+    setPlaybackStateAndActions(
+        PlaybackStateCompat.STATE_PAUSED,
+        PlaybackStateCompat.ACTION_PLAY
+            | PlaybackStateCompat.ACTION_PREPARE_FROM_URI
+            | PlaybackStateCompat.ACTION_PLAY_FROM_URI);
+    RemoteMediaController controller = createControllerAndWaitConnection();
+    sessionCallback.reset(1);
+
+    controller.setMediaItem(testItem);
+
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    assertThat(sessionCallback.onPrepareFromUriCalled).isTrue();
+    assertThat(sessionCallback.uri).isEqualTo(testUri);
+
+    sessionCallback.reset(1);
+    controller.play();
+
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    assertThat(sessionCallback.onPlayCalledCount).isEqualTo(1);
+    assertThat(sessionCallback.onPlayFromUriCalled).isFalse();
+  }
+
+  @Test
+  public void setMediaItems_pausedAndSupportsPrepareFromSearch_initializesImmediately()
+      throws Exception {
+    String testQuery = "test query";
+    MediaItem testItem =
+        new MediaItem.Builder()
+            .setMediaId("id")
+            .setRequestMetadata(
+                new MediaItem.RequestMetadata.Builder().setSearchQuery(testQuery).build())
+            .build();
+    session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
+    setPlaybackStateAndActions(
+        PlaybackStateCompat.STATE_PAUSED,
+        PlaybackStateCompat.ACTION_PLAY
+            | PlaybackStateCompat.ACTION_PREPARE_FROM_SEARCH
+            | PlaybackStateCompat.ACTION_PLAY_FROM_SEARCH);
+    RemoteMediaController controller = createControllerAndWaitConnection();
+    sessionCallback.reset(1);
+
+    controller.setMediaItem(testItem);
+
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    assertThat(sessionCallback.onPrepareFromSearchCalled).isTrue();
+    assertThat(sessionCallback.query).isEqualTo(testQuery);
+
+    sessionCallback.reset(1);
+    controller.play();
+
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    assertThat(sessionCallback.onPlayCalledCount).isEqualTo(1);
+    assertThat(sessionCallback.onPlayFromSearchCalled).isFalse();
+  }
+
+  @Test
+  public void setMediaItems_withMediaUriAndOnlyPrepareFromMediaId_doesNotInitializeUntilPlay()
+      throws Exception {
+    Uri testUri = Uri.parse("https://example.com/media");
+    MediaItem testItem =
+        new MediaItem.Builder()
+            .setMediaId("id")
+            .setRequestMetadata(
+                new MediaItem.RequestMetadata.Builder().setMediaUri(testUri).build())
+            .build();
+    session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
+    setPlaybackStateAndActions(
+        PlaybackStateCompat.STATE_PAUSED,
+        PlaybackStateCompat.ACTION_PREPARE_FROM_MEDIA_ID
+            | PlaybackStateCompat.ACTION_PLAY_FROM_URI);
+    RemoteMediaController controller = createControllerAndWaitConnection();
+    sessionCallback.reset(1);
+
+    controller.setMediaItem(testItem);
+
+    assertThat(sessionCallback.await(NO_OP_TIMEOUT_MS)).isFalse();
+    assertThat(sessionCallback.onPrepareFromUriCalled).isFalse();
+    assertThat(sessionCallback.onPlayFromUriCalled).isFalse();
+
+    controller.play();
+
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    assertThat(sessionCallback.onPlayFromUriCalled).isTrue();
+    assertThat(sessionCallback.uri).isEqualTo(testUri);
+  }
+
+  @Test
+  public void setMediaItems_withSearchQueryAndOnlyPrepareFromMediaId_doesNotInitializeUntilPlay()
+      throws Exception {
+    String testQuery = "test query";
+    MediaItem testItem =
+        new MediaItem.Builder()
+            .setMediaId("id")
+            .setRequestMetadata(
+                new MediaItem.RequestMetadata.Builder().setSearchQuery(testQuery).build())
+            .build();
+    session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
+    setPlaybackStateAndActions(
+        PlaybackStateCompat.STATE_PAUSED,
+        PlaybackStateCompat.ACTION_PREPARE_FROM_MEDIA_ID
+            | PlaybackStateCompat.ACTION_PLAY_FROM_SEARCH);
+    RemoteMediaController controller = createControllerAndWaitConnection();
+    sessionCallback.reset(1);
+
+    controller.setMediaItem(testItem);
+
+    assertThat(sessionCallback.await(NO_OP_TIMEOUT_MS)).isFalse();
+    assertThat(sessionCallback.onPrepareFromSearchCalled).isFalse();
+    assertThat(sessionCallback.onPlayFromSearchCalled).isFalse();
+
+    controller.play();
+
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    assertThat(sessionCallback.onPlayFromSearchCalled).isTrue();
+    assertThat(sessionCallback.query).isEqualTo(testQuery);
+  }
+
+  @Test
+  public void setMediaItems_withMediaIdAndOnlyPrepareFromUri_doesNotInitializeUntilPlay()
+      throws Exception {
+    MediaItem testItem = new MediaItem.Builder().setMediaId("id").build();
+    session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
+    setPlaybackStateAndActions(
+        PlaybackStateCompat.STATE_PAUSED,
+        PlaybackStateCompat.ACTION_PREPARE_FROM_URI
+            | PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID);
+    RemoteMediaController controller = createControllerAndWaitConnection();
+    sessionCallback.reset(1);
+
+    controller.setMediaItem(testItem);
+
+    assertThat(sessionCallback.await(NO_OP_TIMEOUT_MS)).isFalse();
+    assertThat(sessionCallback.onPrepareFromMediaIdCalled).isFalse();
+    assertThat(sessionCallback.onPlayFromMediaIdCalled).isFalse();
+
+    controller.play();
+
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    assertThat(sessionCallback.onPlayFromMediaIdCalled).isTrue();
+    assertThat(sessionCallback.mediaId).isEqualTo("id");
+  }
+
+  @Test
+  public void setMediaItems_afterAlreadyInitializedWhilePaused_reinitializesOnPlay()
+      throws Exception {
+    List<MediaItem> initialItems =
+        MediaTestUtils.createMediaItems(/* buildWithUri= */ false, "id1");
+    MediaItem newItem = new MediaItem.Builder().setMediaId("id2").build();
+    session.setQueue(MediaTestUtils.convertToQueueItemsWithoutBitmap(initialItems));
+    session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
+    setPlaybackStateAndActions(
+        PlaybackStateCompat.STATE_PAUSED,
+        PlaybackStateCompat.ACTION_PLAY
+            | PlaybackStateCompat.ACTION_PAUSE
+            | PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID);
+    RemoteMediaController controller = createControllerAndWaitConnection();
+    sessionCallback.reset(1);
+
+    controller.setMediaItem(newItem);
+    controller.play();
+
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    assertThat(sessionCallback.onPlayFromMediaIdCalled).isTrue();
+    assertThat(sessionCallback.onPlayCalledCount).isEqualTo(0);
+    assertThat(sessionCallback.mediaId).isEqualTo("id2");
   }
 
   @Test
@@ -1187,6 +1391,8 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     private boolean onCustomActionCalled;
     private boolean onPrepareCalled;
     private boolean onPrepareFromMediaIdCalled;
+    private boolean onPrepareFromSearchCalled;
+    private boolean onPrepareFromUriCalled;
     private boolean onSetRepeatModeCalled;
     private boolean onSetShuffleModeCalled;
     private int onAddQueueItemAtCalledCount;
@@ -1226,6 +1432,8 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
       onCustomActionCalled = false;
       onPrepareCalled = false;
       onPrepareFromMediaIdCalled = false;
+      onPrepareFromSearchCalled = false;
+      onPrepareFromUriCalled = false;
       onSetRepeatModeCalled = false;
       onSetShuffleModeCalled = false;
       onAddQueueItemAtCalledCount = 0;
@@ -1358,6 +1566,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
     @Override
     public void onPrepareFromSearch(String query, Bundle extras) {
+      onPrepareFromSearchCalled = true;
       this.query = query;
       this.extras = extras;
       latch.countDown();
@@ -1365,6 +1574,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
     @Override
     public void onPrepareFromUri(Uri uri, Bundle extras) {
+      onPrepareFromUriCalled = true;
       this.uri = uri;
       this.extras = extras;
       latch.countDown();
