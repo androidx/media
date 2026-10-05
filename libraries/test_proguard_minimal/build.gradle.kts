@@ -36,6 +36,7 @@ android {
 
 dependencies {
   coreLibraryDesugaring(libs.desugar.jdk.libs)
+  compileOnly(libs.androidx.annotation)
   implementation(project(":lib-exoplayer"))
   // Explicit dependency on lib-effect so R8 verifies that unused effect classes
   // are discarded at build time.
