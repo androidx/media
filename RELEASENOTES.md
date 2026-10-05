@@ -295,6 +295,9 @@
         successive playlist operations so they execute reliably in order
         ([#2639](https://github.com/androidx/media/issues/2639),
         [#3272](https://github.com/androidx/media/issues/3272)).
+    *   Fix an issue where calling `addMediaItems` on an empty queue in
+        `RemoteCastPlayer` failed to load the media items on the Cast receiver.
+        ([#2402](https://github.com/androidx/media/issues/2402)).
 *   Test Utilities:
 *   Remove deprecated symbols:
     *   Remove `DashUtil.buildDataSpec(Representation, RangedUri, int)` and

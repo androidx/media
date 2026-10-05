@@ -28,7 +28,6 @@ import androidx.media3.cast.QueuedOperation.SetMediaItemsOperation;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Timeline.Window;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -56,11 +55,7 @@ public final class QueuedOperationTest {
     MediaItem item2 = createMediaItem("id2");
     SetMediaItemsOperation operation =
         new SetMediaItemsOperation(
-            ImmutableList.of(item1, item2),
-            /* startIndex= */ 1,
-            /* startPositionMs= */ 12_345L,
-            Player.REPEAT_MODE_OFF,
-            /* autoplay= */ true);
+            ImmutableList.of(item1, item2), /* startIndex= */ 1, /* startPositionMs= */ 12_345L);
 
     QueueSnapshot snapshot = operation.createMaskedSnapshot(QueueSnapshot.EMPTY, timelineTracker);
 
@@ -90,11 +85,7 @@ public final class QueuedOperationTest {
     MediaItem item2 = createMediaItem("id2");
     SetMediaItemsOperation operation =
         new SetMediaItemsOperation(
-            ImmutableList.of(item1, item2),
-            /* startIndex= */ 0,
-            /* startPositionMs= */ 0L,
-            Player.REPEAT_MODE_OFF,
-            /* autoplay= */ true);
+            ImmutableList.of(item1, item2), /* startIndex= */ 0, /* startPositionMs= */ 0L);
 
     QueueSnapshot snapshot = operation.createMaskedSnapshot(QueueSnapshot.EMPTY, timelineTracker);
 
@@ -109,11 +100,7 @@ public final class QueuedOperationTest {
   public void setMediaItems_createMaskedSnapshot_emptyList_createsEmptySnapshot() {
     SetMediaItemsOperation operation =
         new SetMediaItemsOperation(
-            ImmutableList.of(),
-            /* startIndex= */ 0,
-            /* startPositionMs= */ 0L,
-            Player.REPEAT_MODE_OFF,
-            /* autoplay= */ true);
+            ImmutableList.of(), /* startIndex= */ 0, /* startPositionMs= */ 0L);
 
     QueueSnapshot snapshot = operation.createMaskedSnapshot(QueueSnapshot.EMPTY, timelineTracker);
 
@@ -505,11 +492,7 @@ public final class QueuedOperationTest {
     }
     SetMediaItemsOperation setOp =
         new SetMediaItemsOperation(
-            items.build(),
-            currentWindowIndex,
-            /* startPositionMs= */ C.TIME_UNSET,
-            Player.REPEAT_MODE_OFF,
-            /* autoplay= */ true);
+            items.build(), currentWindowIndex, /* startPositionMs= */ C.TIME_UNSET);
     return setOp.createMaskedSnapshot(QueueSnapshot.EMPTY, timelineTracker);
   }
 

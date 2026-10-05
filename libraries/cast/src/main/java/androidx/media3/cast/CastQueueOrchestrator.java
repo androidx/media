@@ -21,13 +21,14 @@ import androidx.media3.cast.QueuedOperation.QueueSnapshot;
 import androidx.media3.common.C;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.TimelineChangeReason;
+import androidx.media3.common.PlayerTransferState;
 import androidx.media3.common.util.Log;
 import com.google.android.gms.cast.CastStatusCodes;
 import com.google.android.gms.cast.MediaQueueItem;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient.MediaChannelResult;
 import com.google.android.gms.common.api.Status;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.common.base.Supplier;
 import java.util.ArrayDeque;
 
 /**
@@ -52,6 +53,11 @@ import java.util.ArrayDeque;
 
   private static final String TAG = "CastQueueOrchestrator";
 
+  /**
+   * Used to fetch the current {@link PlayerTransferState} when executing a {@link QueuedOperation}.
+   */
+  private final Supplier<PlayerTransferState> playerTransferStateSupplier;
+
   private final CastTimelineTracker timelineTracker;
   private final StateChangeListener onStateChangedListener;
   private final ArrayDeque<QueuedOperation> queuedOperations;
@@ -66,10 +72,11 @@ import java.util.ArrayDeque;
    */
   private QueueSnapshot maskedSnapshot;
 
-  private boolean mediaStatusReady;
-
   public CastQueueOrchestrator(
-      MediaItemConverter mediaItemConverter, StateChangeListener onStateChangedListener) {
+      Supplier<PlayerTransferState> playerTransferStateSupplier,
+      MediaItemConverter mediaItemConverter,
+      StateChangeListener onStateChangedListener) {
+    this.playerTransferStateSupplier = playerTransferStateSupplier;
     this.timelineTracker = new CastTimelineTracker(mediaItemConverter);
     this.onStateChangedListener = onStateChangedListener;
     this.queuedOperations = new ArrayDeque<>();
@@ -95,7 +102,6 @@ import java.util.ArrayDeque;
   public void reset(boolean clearSnapshots) {
     queuedOperations.clear();
     activeOperation = null;
-    mediaStatusReady = false;
     if (clearSnapshots) {
       baseSnapshot = QueueSnapshot.EMPTY;
       maskedSnapshot = QueueSnapshot.EMPTY;
@@ -107,38 +113,23 @@ import java.util.ArrayDeque;
   }
 
   /**
-   * Enqueues a {@link QueuedOperation} if the receiver media status is ready (or if the operation
-   * initializes the media queue), updates the masked {@link QueueSnapshot}, and dispatches the next
-   * eligible operation to {@code remoteMediaClient} if none is currently active.
-   *
-   * @return {@code true} if the operation was accepted and masked, or {@code false} if it was
-   *     discarded because the receiver has no active media status ({@code
-   *     remoteMediaClient.getMediaStatus() == null}) and no queue-initializing operation (such as
-   *     {@code setMediaItems}) has been enqueued in this session.
+   * Enqueues a {@link QueuedOperation}, updates the masked {@link QueueSnapshot}, and dispatches
+   * the next eligible operation to {@code remoteMediaClient} if none is currently active.
    */
-  @CanIgnoreReturnValue
-  public boolean enqueue(QueuedOperation operation, @Nullable RemoteMediaClient remoteMediaClient) {
+  public void enqueue(QueuedOperation operation, RemoteMediaClient remoteMediaClient) {
     QueueSnapshot previousSnapshot = maskedSnapshot;
     if (operation.replacesPreviousOperations()) {
       queuedOperations.clear();
       activeOperation = null;
-      mediaStatusReady = true;
       timelineTracker.reset();
-    } else if (!mediaStatusReady
-        && (remoteMediaClient == null || remoteMediaClient.getMediaStatus() == null)) {
-      // TODO: b/567347625 - Support addMediaItems when the queue is empty.
-      return false;
     }
     queuedOperations.addLast(operation);
     maskedSnapshot = operation.createMaskedSnapshot(maskedSnapshot, timelineTracker);
-    if (remoteMediaClient != null) {
-      dispatchNextOperationIfPossible(remoteMediaClient);
-    }
+    dispatchNextOperationIfPossible(remoteMediaClient);
     if (!maskedSnapshot.equals(previousSnapshot)) {
       onStateChangedListener.onQueueSnapshotChanged(
           maskedSnapshot, Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
     }
-    return true;
   }
 
   /**
@@ -150,10 +141,6 @@ import java.util.ArrayDeque;
    * onStatusUpdated()} or {@code mediaQueueChanged()}.
    */
   public void onReceiverStateUpdated(@Nullable RemoteMediaClient remoteMediaClient) {
-    if ((remoteMediaClient == null || remoteMediaClient.getMediaStatus() == null)
-        && queuedOperations.isEmpty()) {
-      mediaStatusReady = false;
-    }
     CastTimeline receiverTimeline =
         remoteMediaClient != null && remoteMediaClient.getMediaStatus() != null
             ? timelineTracker.getCastTimeline(remoteMediaClient)
@@ -214,7 +201,7 @@ import java.util.ArrayDeque;
     }
     QueuedOperation head = queuedOperations.peekFirst();
     activeOperation = head;
-    head.execute(remoteMediaClient, timelineTracker)
+    head.execute(remoteMediaClient, timelineTracker, playerTransferStateSupplier.get())
         .setResultCallback(
             mediaChannelResult -> onOperationResult(head, mediaChannelResult, remoteMediaClient));
   }
@@ -236,7 +223,6 @@ import java.util.ArrayDeque;
     if (isError) {
       CastUtils.logOperationFailedIfStatusError(TAG, operation.getName(), mediaChannelResult);
       queuedOperations.clear();
-      mediaStatusReady = remoteMediaClient.getMediaStatus() != null;
       maskedSnapshot = baseSnapshot;
       onStateChangedListener.onQueueSnapshotChanged(
           maskedSnapshot, Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE);

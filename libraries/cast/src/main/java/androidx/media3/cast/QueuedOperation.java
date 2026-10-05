@@ -26,6 +26,7 @@ import androidx.media3.cast.CastTimeline.ItemUid;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
+import androidx.media3.common.PlayerTransferState;
 import androidx.media3.common.Timeline;
 import com.google.android.gms.cast.MediaLoadRequestData;
 import com.google.android.gms.cast.MediaQueueData;
@@ -123,9 +124,18 @@ import java.util.Map;
   public abstract boolean canExecute(
       CastTimelineTracker timelineTracker, RemoteMediaClient remoteMediaClient);
 
-  /** Executes the operation and returns the {@link PendingResult}. */
+  /**
+   * Executes the operation and returns the {@link PendingResult}.
+   *
+   * @param remoteMediaClient The {@link RemoteMediaClient} on which to execute the operation.
+   * @param timelineTracker The {@link CastTimelineTracker} used to resolve or register items.
+   * @param playerTransferState The {@link PlayerTransferState} at the moment of execution, for
+   *     operations that require the current player state when dispatched.
+   */
   public abstract PendingResult<MediaChannelResult> execute(
-      RemoteMediaClient remoteMediaClient, CastTimelineTracker timelineTracker);
+      RemoteMediaClient remoteMediaClient,
+      CastTimelineTracker timelineTracker,
+      PlayerTransferState playerTransferState);
 
   /**
    * Base operation for commands that register and insert new {@link MediaItem MediaItems} into the
@@ -151,6 +161,40 @@ import java.util.Map;
         this.queueItems = registeredItems.queueItems;
       }
       return createMaskingTimeline(currentTimeline, index, itemUids, mediaItems);
+    }
+
+    protected final PendingResult<MediaChannelResult> executeLoad(
+        RemoteMediaClient remoteMediaClient,
+        PlayerTransferState playerTransferState,
+        int startIndex,
+        long startPositionMs) {
+      MediaQueueData mediaQueueData =
+          new MediaQueueData.Builder()
+              .setItems(Arrays.asList(queueItems))
+              .setStartIndex(startIndex)
+              .setRepeatMode(toCastRepeatMode(playerTransferState.getRepeatMode()))
+              .setStartTime(startPositionMs)
+              .build();
+      MediaLoadRequestData loadRequestData =
+          new MediaLoadRequestData.Builder()
+              .setAutoplay(playerTransferState.getPlayWhenReady())
+              .setQueueData(mediaQueueData)
+              .setCurrentTime(startPositionMs)
+              .build();
+      return remoteMediaClient.load(loadRequestData);
+    }
+
+    private static int toCastRepeatMode(@Player.RepeatMode int repeatMode) {
+      switch (repeatMode) {
+        case Player.REPEAT_MODE_ONE:
+          return MediaStatus.REPEAT_MODE_REPEAT_SINGLE;
+        case Player.REPEAT_MODE_ALL:
+          return MediaStatus.REPEAT_MODE_REPEAT_ALL;
+        case Player.REPEAT_MODE_OFF:
+          return MediaStatus.REPEAT_MODE_REPEAT_OFF;
+        default:
+          throw new IllegalArgumentException();
+      }
     }
 
     private static CastTimeline createMaskingTimeline(
@@ -223,20 +267,12 @@ import java.util.Map;
   public static final class SetMediaItemsOperation extends MediaItemsInsertionOperation {
     private final int startIndex;
     private final long startPositionMs;
-    private final @Player.RepeatMode int repeatMode;
-    private final boolean autoplay;
 
     public SetMediaItemsOperation(
-        ImmutableList<MediaItem> mediaItems,
-        int startIndex,
-        long startPositionMs,
-        @Player.RepeatMode int repeatMode,
-        boolean autoplay) {
+        ImmutableList<MediaItem> mediaItems, int startIndex, long startPositionMs) {
       super(mediaItems);
       this.startIndex = mediaItems.isEmpty() ? 0 : min(startIndex, mediaItems.size() - 1);
       this.startPositionMs = startPositionMs;
-      this.repeatMode = repeatMode;
-      this.autoplay = autoplay;
     }
 
     @Override
@@ -266,34 +302,10 @@ import java.util.Map;
 
     @Override
     public PendingResult<MediaChannelResult> execute(
-        RemoteMediaClient remoteMediaClient, CastTimelineTracker timelineTracker) {
-      MediaQueueData mediaQueueData =
-          new MediaQueueData.Builder()
-              .setItems(Arrays.asList(queueItems))
-              .setStartIndex(startIndex)
-              .setRepeatMode(toCastRepeatMode(repeatMode))
-              .setStartTime(startPositionMs)
-              .build();
-      MediaLoadRequestData loadRequestData =
-          new MediaLoadRequestData.Builder()
-              .setAutoplay(autoplay)
-              .setQueueData(mediaQueueData)
-              .setCurrentTime(startPositionMs)
-              .build();
-      return remoteMediaClient.load(loadRequestData);
-    }
-
-    private static int toCastRepeatMode(@Player.RepeatMode int repeatMode) {
-      switch (repeatMode) {
-        case Player.REPEAT_MODE_ONE:
-          return MediaStatus.REPEAT_MODE_REPEAT_SINGLE;
-        case Player.REPEAT_MODE_ALL:
-          return MediaStatus.REPEAT_MODE_REPEAT_ALL;
-        case Player.REPEAT_MODE_OFF:
-          return MediaStatus.REPEAT_MODE_REPEAT_OFF;
-        default:
-          throw new IllegalArgumentException();
-      }
+        RemoteMediaClient remoteMediaClient,
+        CastTimelineTracker timelineTracker,
+        PlayerTransferState playerTransferState) {
+      return executeLoad(remoteMediaClient, playerTransferState, startIndex, startPositionMs);
     }
   }
 
@@ -317,7 +329,9 @@ import java.util.Map;
         QueueSnapshot snapshot, CastTimelineTracker timelineTracker) {
       CastTimeline currentTimeline = snapshot.timeline;
       int effectiveIndex;
-      if (insertBeforePeriodUid != null) {
+      if (currentTimeline.isEmpty()) {
+        effectiveIndex = 0;
+      } else if (insertBeforePeriodUid != null) {
         effectiveIndex = currentTimeline.getIndexOfPeriod(insertBeforePeriodUid);
         if (effectiveIndex == C.INDEX_UNSET) {
           return snapshot;
@@ -347,8 +361,8 @@ import java.util.Map;
     @Override
     public boolean canExecute(
         CastTimelineTracker timelineTracker, RemoteMediaClient remoteMediaClient) {
-      if (remoteMediaClient.getMediaStatus() == null) {
-        return false;
+      if (isReceiverQueueEmpty(remoteMediaClient)) {
+        return true;
       }
       if (insertBeforePeriodUid != null) {
         return timelineTracker.getReceiverItemId(insertBeforePeriodUid)
@@ -359,13 +373,24 @@ import java.util.Map;
 
     @Override
     public PendingResult<MediaChannelResult> execute(
-        RemoteMediaClient remoteMediaClient, CastTimelineTracker timelineTracker) {
+        RemoteMediaClient remoteMediaClient,
+        CastTimelineTracker timelineTracker,
+        PlayerTransferState playerTransferState) {
+      if (isReceiverQueueEmpty(remoteMediaClient)) {
+        return executeLoad(
+            remoteMediaClient, playerTransferState, /* startIndex= */ 0, /* startPositionMs= */ 0);
+      }
       int insertBeforeItemId =
           insertBeforePeriodUid != null
               ? timelineTracker.getReceiverItemId(insertBeforePeriodUid)
               : MediaQueueItem.INVALID_ITEM_ID;
       return remoteMediaClient.queueInsertItems(
           queueItems, insertBeforeItemId, /* customData= */ null);
+    }
+
+    private static boolean isReceiverQueueEmpty(RemoteMediaClient remoteMediaClient) {
+      return remoteMediaClient.getMediaStatus() == null
+          || remoteMediaClient.getMediaQueue().getItemIds().length == 0;
     }
   }
 
@@ -471,7 +496,9 @@ import java.util.Map;
 
     @Override
     public PendingResult<MediaChannelResult> execute(
-        RemoteMediaClient remoteMediaClient, CastTimelineTracker timelineTracker) {
+        RemoteMediaClient remoteMediaClient,
+        CastTimelineTracker timelineTracker,
+        PlayerTransferState playerTransferState) {
       int[] receiverUids = new int[uidsToMove.size()];
       for (int i = 0; i < uidsToMove.size(); i++) {
         receiverUids[i] = timelineTracker.getReceiverItemId(uidsToMove.get(i));
@@ -573,7 +600,9 @@ import java.util.Map;
 
     @Override
     public PendingResult<MediaChannelResult> execute(
-        RemoteMediaClient remoteMediaClient, CastTimelineTracker timelineTracker) {
+        RemoteMediaClient remoteMediaClient,
+        CastTimelineTracker timelineTracker,
+        PlayerTransferState playerTransferState) {
       int[] receiverUids = new int[uidsToRemove.size()];
       for (int i = 0; i < uidsToRemove.size(); i++) {
         receiverUids[i] = timelineTracker.getReceiverItemId(uidsToRemove.get(i));
@@ -585,11 +614,10 @@ import java.util.Map;
   /** Command for {@code seekTo(...)}. */
   public static final class SeekOperation extends QueuedOperation {
     private final long positionMs;
-    @Nullable private final Object targetPeriodUid;
+    private final Object targetPeriodUid;
     private final boolean isWindowChange;
 
-    public SeekOperation(
-        long positionMs, @Nullable Object targetPeriodUid, boolean isWindowChange) {
+    public SeekOperation(long positionMs, Object targetPeriodUid, boolean isWindowChange) {
       this.positionMs = positionMs;
       this.targetPeriodUid = targetPeriodUid;
       this.isWindowChange = isWindowChange;
@@ -607,16 +635,12 @@ import java.util.Map;
       if (timeline.isEmpty()) {
         return new QueueSnapshot(timeline, /* currentWindowIndex= */ 0, positionMs);
       }
-      if (targetPeriodUid != null) {
-        int resolvedIndex = timeline.getIndexOfPeriod(targetPeriodUid);
-        if (resolvedIndex != C.INDEX_UNSET) {
-          return new QueueSnapshot(timeline, resolvedIndex, positionMs);
-        }
-        int fallbackIndex = min(snapshot.currentWindowIndex, timeline.getWindowCount() - 1);
-        return new QueueSnapshot(timeline, fallbackIndex, C.TIME_UNSET);
+      int resolvedIndex = timeline.getIndexOfPeriod(targetPeriodUid);
+      if (resolvedIndex != C.INDEX_UNSET) {
+        return new QueueSnapshot(timeline, resolvedIndex, positionMs);
       }
-      int clampedIndex = min(snapshot.currentWindowIndex, timeline.getWindowCount() - 1);
-      return new QueueSnapshot(timeline, clampedIndex, positionMs);
+      int fallbackIndex = min(snapshot.currentWindowIndex, timeline.getWindowCount() - 1);
+      return new QueueSnapshot(timeline, fallbackIndex, C.TIME_UNSET);
     }
 
     @Override
@@ -626,15 +650,16 @@ import java.util.Map;
         return false;
       }
       if (isWindowChange) {
-        return targetPeriodUid != null
-            && timelineTracker.getReceiverItemId(targetPeriodUid) != MediaQueueItem.INVALID_ITEM_ID;
+        return timelineTracker.getReceiverItemId(targetPeriodUid) != MediaQueueItem.INVALID_ITEM_ID;
       }
       return true;
     }
 
     @Override
     public PendingResult<MediaChannelResult> execute(
-        RemoteMediaClient remoteMediaClient, CastTimelineTracker timelineTracker) {
+        RemoteMediaClient remoteMediaClient,
+        CastTimelineTracker timelineTracker,
+        PlayerTransferState playerTransferState) {
       if (isWindowChange) {
         int receiverItemId = timelineTracker.getReceiverItemId(targetPeriodUid);
         return remoteMediaClient.queueJumpToItem(

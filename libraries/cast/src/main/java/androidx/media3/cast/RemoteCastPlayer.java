@@ -57,6 +57,7 @@ import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
+import androidx.media3.common.PlayerTransferState;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.TrackSelectionParameters;
@@ -424,7 +425,11 @@ public final class RemoteCastPlayer extends BasePlayer {
     this.seekBackIncrementMs = seekBackIncrementMs;
     this.seekForwardIncrementMs = seekForwardIncrementMs;
     this.maxSeekToPreviousPositionMs = maxSeekToPreviousPositionMs;
-    queueOrchestrator = new CastQueueOrchestrator(mediaItemConverter, this::onQueueSnapshotChanged);
+    queueOrchestrator =
+        new CastQueueOrchestrator(
+            () -> PlayerTransferState.fromPlayer(this),
+            mediaItemConverter,
+            this::onQueueSnapshotChanged);
     currentQueueSnapshot = QueuedOperation.QueueSnapshot.EMPTY;
     period = new Timeline.Period();
     castListener = new CastListener();
@@ -558,7 +563,19 @@ public final class RemoteCastPlayer extends BasePlayer {
 
   @Override
   public void setMediaItems(List<MediaItem> mediaItems, int startIndex, long startPositionMs) {
-    setMediaItemsInternal(mediaItems, startIndex, startPositionMs, repeatMode.value);
+    if (!isCastSessionActive() || mediaItems.isEmpty()) {
+      return;
+    }
+    startPositionMs = startPositionMs == C.TIME_UNSET ? 0 : startPositionMs;
+    if (startIndex == C.INDEX_UNSET) {
+      startIndex = getCurrentMediaItemIndex();
+      startPositionMs = getCurrentPosition();
+    }
+    int newWindowIndex = min(startIndex, mediaItems.size() - 1);
+    QueuedOperation.SetMediaItemsOperation operation =
+        new QueuedOperation.SetMediaItemsOperation(
+            ImmutableList.copyOf(mediaItems), newWindowIndex, startPositionMs);
+    queueOrchestrator.enqueue(operation, remoteMediaClient);
   }
 
   @Override
@@ -732,7 +749,7 @@ public final class RemoteCastPlayer extends BasePlayer {
     }
     checkArgument(mediaItemIndex >= 0);
     Timeline currentTimeline = getCurrentTimeline();
-    if (!currentTimeline.isEmpty() && mediaItemIndex >= currentTimeline.getWindowCount()) {
+    if (currentTimeline.isEmpty() || mediaItemIndex >= currentTimeline.getWindowCount()) {
       return;
     }
     // We assume the default position is 0. There is no support for seeking to the default position
@@ -740,17 +757,11 @@ public final class RemoteCastPlayer extends BasePlayer {
     positionMs = positionMs != C.TIME_UNSET ? positionMs : 0;
     if (isCastSessionActive()) {
       boolean isWindowChange = getCurrentMediaItemIndex() != mediaItemIndex;
-      @Nullable
-      Object targetPeriodUid =
-          !currentTimeline.isEmpty()
-              ? currentTimeline.getPeriod(mediaItemIndex, period, /* setIds= */ true).uid
-              : null;
+      Object targetPeriodUid = currentTimeline.getUidOfPeriod(mediaItemIndex);
       PositionInfo oldPosition = getCurrentPositionInfo();
       QueuedOperation.SeekOperation seekOperation =
           new QueuedOperation.SeekOperation(positionMs, targetPeriodUid, isWindowChange);
-      if (!queueOrchestrator.enqueue(seekOperation, remoteMediaClient)) {
-        return;
-      }
+      queueOrchestrator.enqueue(seekOperation, remoteMediaClient);
       PositionInfo newPosition = getCurrentPositionInfo();
       listeners.queueEvent(
           Player.EVENT_POSITION_DISCONTINUITY,
@@ -1634,30 +1645,6 @@ public final class RemoteCastPlayer extends BasePlayer {
       }
     }
     return false;
-  }
-
-  private void setMediaItemsInternal(
-      List<MediaItem> mediaItems,
-      int startIndex,
-      long startPositionMs,
-      @RepeatMode int repeatMode) {
-    if (!isCastSessionActive() || mediaItems.isEmpty()) {
-      return;
-    }
-    startPositionMs = startPositionMs == C.TIME_UNSET ? 0 : startPositionMs;
-    if (startIndex == C.INDEX_UNSET) {
-      startIndex = getCurrentMediaItemIndex();
-      startPositionMs = getCurrentPosition();
-    }
-    int newWindowIndex = min(startIndex, mediaItems.size() - 1);
-    QueuedOperation.SetMediaItemsOperation operation =
-        new QueuedOperation.SetMediaItemsOperation(
-            ImmutableList.copyOf(mediaItems),
-            newWindowIndex,
-            startPositionMs,
-            repeatMode,
-            getPlayWhenReady());
-    queueOrchestrator.enqueue(operation, remoteMediaClient);
   }
 
   private PositionInfo getCurrentPositionInfo() {
