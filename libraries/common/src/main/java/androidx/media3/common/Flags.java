@@ -119,6 +119,7 @@ public final class Flags {
    *   <li>{@link #FLAG_ENABLE_MEDIACODEC_BUFFER_DECODE_ONLY}
    *   <li>{@link #FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS}
    *   <li>{@link #FLAG_ENFORCE_PARSABLE_BYTE_ARRAY_LIMIT}
+   *   <li>{@link #FLAG_SKIP_AUDIO_TRACK_FLUSH_BEFORE_RELEASE}
    * </ul>
    */
   @Documented
@@ -135,6 +136,7 @@ public final class Flags {
         FLAG_ENABLE_MEDIACODEC_BUFFER_DECODE_ONLY,
         FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS,
         FLAG_ENFORCE_PARSABLE_BYTE_ARRAY_LIMIT,
+        FLAG_SKIP_AUDIO_TRACK_FLUSH_BEFORE_RELEASE,
       })
   public @interface Flag {}
 
@@ -228,7 +230,17 @@ public final class Flags {
   @ExperimentalApi // TODO: b/147657250 - Remove this flag (earliest cleanup: 2026-12-01).
   public static final int FLAG_ENFORCE_PARSABLE_BYTE_ARRAY_LIMIT = 8;
 
-  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 9;
+  /**
+   * Flag to skip calling {@link android.media.AudioTrack#flush()} before {@link
+   * android.media.AudioTrack#release()} on API 29+.
+   *
+   * <p>When enabled on API 29+, {@code AudioTrackAudioOutput} releases the underlying {@link
+   * android.media.AudioTrack} without calling {@code flush()} first.
+   */
+  @ExperimentalApi // TODO: b/567523724 - Remove this flag (earliest cleanup: 2026-11-29).
+  public static final int FLAG_SKIP_AUDIO_TRACK_FLUSH_BEFORE_RELEASE = 9;
+
+  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 10;
 
   private static final SparseBooleanArray STATIC_FLAG_STATES = new SparseBooleanArray();
 

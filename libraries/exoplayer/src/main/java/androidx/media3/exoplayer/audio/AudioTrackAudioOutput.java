@@ -34,6 +34,7 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.util.BackgroundExecutor;
@@ -483,6 +484,15 @@ public final class AudioTrackAudioOutput implements AudioOutput {
     // thread is shared statically to avoid creating many threads when multiple players are released
     // at the same time.
     Handler audioTrackThreadHandler = Util.createHandlerForCurrentLooper();
+    // Flush the audio track to avoid keeping state from previous playbacks (see b/22967293).
+    // Offload tracks do not need flush before release and flushing them may clear buffers of a
+    // subsequent track sharing the direct HAL stream (b/552739771). From API 29, AudioFlinger's
+    // DirectOutputThread also unconditionally flushes the HAL stream when adding a new track even
+    // if the previous track was already released (b/123082418).
+    boolean skipFlush =
+        SDK_INT >= 29
+            && (Flags.isEnabled(Flags.FLAG_SKIP_AUDIO_TRACK_FLUSH_BEFORE_RELEASE)
+                || audioTrack.isOffloadedPlayback());
     synchronized (releaseExecutorLock) {
       if (releaseExecutor == null) {
         releaseExecutor =
@@ -493,12 +503,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
           releaseExecutor.schedule(
               () -> {
                 try {
-                  boolean isOffload = SDK_INT >= 29 && audioTrack.isOffloadedPlayback();
-                  if (!isOffload) {
-                    // Flush the audio track to avoid keeping state from previous playbacks (see
-                    // b/22967293). Offload tracks do not need flush before release and flushing
-                    // them may clear buffers of a subsequent track sharing the direct HAL stream
-                    // (b/552739771).
+                  if (!skipFlush) {
                     audioTrack.flush();
                   }
                   audioTrack.release();
