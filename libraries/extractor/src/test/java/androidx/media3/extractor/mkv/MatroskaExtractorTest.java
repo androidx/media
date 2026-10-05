@@ -339,6 +339,14 @@ public final class MatroskaExtractorTest {
   }
 
   @Test
+  public void mkaSample_withNestedChapters() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/mka/bear-flac-16bit-nested-chapters.mka",
+        simulationConfig);
+  }
+
+  @Test
   public void mkvSampleLastCluster() throws Exception {
     ExtractorAsserts.assertBehavior(
         getExtractorFactory(subtitlesParsedDuringExtraction),

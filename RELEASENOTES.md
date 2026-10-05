@@ -127,6 +127,8 @@
     *   MP3: Revert LAME/Xing encoder delay & padding metadata adjustment
         because it's incompatible with many `MediaCodec` MP3 decoders
         ([#3425](https://github.com/androidx/media/issues/3425)).
+    *   Matroska: Fix `NullPointerException` when parsing nested `ChapterAtom`
+        elements ([#3438](https://github.com/androidx/media/issues/3438)).
 *   Inspector:
     *   Support retrieving XMP metadata from MP4 files using
         `MetadataRetriever`.

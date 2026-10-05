@@ -76,6 +76,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -482,8 +483,8 @@ public class MatroskaExtractor implements Extractor {
   private boolean isWebm;
   private boolean pendingEndTracks;
 
-  // The chapter corresponding to the current EditionEntry element, or null.
-  @Nullable private ChapterEntry currentChapter;
+  // Stack of ChapterAtom elements currently being parsed (to support nested ChapterAtom elements).
+  private final ArrayDeque<ChapterEntry> currentChapters;
 
   // The track corresponding to the current TrackEntry element, or null.
   @Nullable private Track currentTrack;
@@ -594,6 +595,7 @@ public class MatroskaExtractor implements Extractor {
     parseHagcMetadata = (flags & FLAG_DISABLE_HAGC_METADATA) == 0;
     varintReader = new VarintReader();
     chapters = new LongSparseArray<>();
+    currentChapters = new ArrayDeque<>();
     tracks = new SparseArray<>();
     scratch = new ParsableByteArray(4);
     vorbisNumPageSamples = new ParsableByteArray(ByteBuffer.allocate(4).putInt(-1).array());
@@ -630,6 +632,7 @@ public class MatroskaExtractor implements Extractor {
     reader.reset();
     varintReader.reset();
     resetWriteSampleData();
+    currentChapters.clear();
     inCuesElement = false;
     currentCueTimeUs = C.TIME_UNSET;
     currentCueTrackNumber = C.INDEX_UNSET;
@@ -873,7 +876,7 @@ public class MatroskaExtractor implements Extractor {
         getCurrentTrack(id).hasContentEncryption = true;
         break;
       case ID_CHAPTER_ATOM:
-        currentChapter = new ChapterEntry();
+        currentChapters.push(new ChapterEntry());
         break;
       case ID_CHAPTER_DISPLAY:
         getCurrentChapter(id).currentDisplayString = null;
@@ -975,14 +978,13 @@ public class MatroskaExtractor implements Extractor {
         }
         break;
       case ID_CHAPTER_ATOM:
-        ChapterEntry chapter = checkNotNull(currentChapter);
+        ChapterEntry chapter = checkNotNull(currentChapters.poll());
         if (chapter.uid != 0) {
           chapters.put(chapter.uid, chapter);
         }
-        currentChapter = null;
         break;
       case ID_CHAPTER_DISPLAY:
-        ChapterEntry chapterEntry = checkNotNull(currentChapter);
+        ChapterEntry chapterEntry = getCurrentChapter(id);
         if (chapterEntry.chapString == null && chapterEntry.currentDisplayString != null) {
           chapterEntry.chapString = chapterEntry.currentDisplayString;
           if (chapterEntry.currentDisplayLanguage != null) {
@@ -1730,14 +1732,6 @@ public class MatroskaExtractor implements Extractor {
     }
   }
 
-  @EnsuresNonNull("currentChapter")
-  private void assertInEditionEntry(int id) throws ParserException {
-    if (currentChapter == null) {
-      throw ParserException.createForMalformedContainer(
-          "Element " + id + " must be in an EditionEntry", /* cause= */ null);
-    }
-  }
-
   @EnsuresNonNull("currentTrack")
   private void assertInTrackEntry(int id) throws ParserException {
     if (currentTrack == null) {
@@ -1754,12 +1748,16 @@ public class MatroskaExtractor implements Extractor {
   }
 
   /**
-   * Returns the chapter corresponding to the current EditionEntry element.
+   * Returns the chapter corresponding to the current ChapterAtom element.
    *
-   * @throws ParserException if the element id is not in an EditionEntry.
+   * @throws ParserException if the element id is not in a ChapterAtom.
    */
   protected ChapterEntry getCurrentChapter(int currentElementId) throws ParserException {
-    assertInEditionEntry(currentElementId);
+    @Nullable ChapterEntry currentChapter = currentChapters.peek();
+    if (currentChapter == null) {
+      throw ParserException.createForMalformedContainer(
+          "Element " + currentElementId + " must be in a ChapterAtom", /* cause= */ null);
+    }
     return currentChapter;
   }
 
