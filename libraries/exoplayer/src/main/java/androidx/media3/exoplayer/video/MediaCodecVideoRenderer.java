@@ -2026,6 +2026,12 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
         return true;
       }
+      if (pendingVideoSinkInputStreamChange) {
+        onOutputFormatChanged(format, codec.getOutputFormat());
+        if (pendingVideoSinkInputStreamChange) {
+          return false;
+        }
+      }
       return videoSink.handleInputFrame(
           bufferPresentationTimeUs,
           new VideoSink.VideoFrameHandler() {

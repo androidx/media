@@ -39,6 +39,7 @@ import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.o
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.sample;
 import static androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US;
 import static androidx.media3.test.utils.TestUtil.createByteArray;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
@@ -54,6 +55,7 @@ import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.SurfaceTexture;
 import android.hardware.display.DisplayManager;
 import android.media.MediaCodec;
@@ -70,13 +72,16 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DrmInitData;
+import androidx.media3.common.Effect;
 import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.Size;
 import androidx.media3.common.util.ThrowingRunnable;
+import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.CodecParameters;
 import androidx.media3.exoplayer.DecoderCounters;
@@ -128,6 +133,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.PriorityQueue;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -4092,6 +4098,77 @@ public class MediaCodecVideoRendererTest {
 
     assertThat(decoderCounters.renderedOutputBufferCount).isEqualTo(1);
     assertThat(decoderCounters.skippedOutputBufferCount).isEqualTo(1);
+  }
+
+  @Test
+  public void
+      render_withVideoSinkAndTransientInvalidOutputFormat_waitsForValidFormatBeforeHandlingFrame()
+          throws Exception {
+    AtomicReference<StaleFrameTestingMediaCodecAdapter> adapter = new AtomicReference<>();
+    MediaCodecAdapter.Factory customCodecAdapterFactory =
+        configuration -> {
+          MediaCodecAdapter mediaCodecAdapter = codecAdapterFactory.createAdapter(configuration);
+          StaleFrameTestingMediaCodecAdapter customAdapter =
+              new StaleFrameTestingMediaCodecAdapter(mediaCodecAdapter);
+          customAdapter.mediaFormat.setInteger(MediaFormat.KEY_WIDTH, 0);
+          customAdapter.mediaFormat.setInteger(MediaFormat.KEY_HEIGHT, 0);
+          adapter.set(customAdapter);
+          return customAdapter;
+        };
+    FakeVideoSink fakeVideoSink = new FakeVideoSink(surface);
+    mediaCodecVideoRenderer =
+        new MediaCodecVideoRenderer(
+            new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
+                .setCodecAdapterFactory(customCodecAdapterFactory)
+                .setMediaCodecSelector(mediaCodecSelector)
+                .setAllowedJoiningTimeMs(0)
+                .setEnableDecoderFallback(false)
+                .setEventHandler(new Handler(testMainLooper))
+                .setEventListener(eventListener)
+                .setVideoSink(fakeVideoSink)) {
+          @Override
+          protected @Capabilities int supportsFormat(
+              MediaCodecSelector mediaCodecSelector, Format format) {
+            return RendererCapabilities.create(C.FORMAT_HANDLED);
+          }
+        };
+    FakeTimeline fakeTimeline =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition.Builder().setDurationUs(1_000_000).build());
+    mediaCodecVideoRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
+    mediaCodecVideoRenderer.setTimeline(fakeTimeline);
+    FakeSampleStream fakeSampleStream =
+        createFakeSampleStream(
+            VIDEO_H264,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 10_000, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+    mediaCodecVideoRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {VIDEO_H264},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(fakeTimeline.getUidOfPeriod(0)));
+    mediaCodecVideoRenderer.start();
+
+    mediaCodecVideoRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    adapter.get().allowFormatChange = true;
+    adapter.get().allowFirstFrameOutput = true;
+    mediaCodecVideoRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    boolean handledFrameWhileFormatInvalid = !fakeVideoSink.handledFrameTimestampsUs.isEmpty();
+    adapter.get().mediaFormat.setInteger(MediaFormat.KEY_WIDTH, 1920);
+    adapter.get().mediaFormat.setInteger(MediaFormat.KEY_HEIGHT, 1080);
+    mediaCodecVideoRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+
+    assertThat(handledFrameWhileFormatInvalid).isFalse();
+    assertThat(fakeVideoSink.inputStreamFormats).hasSize(1);
+    assertThat(fakeVideoSink.inputStreamFormats.get(0).width).isEqualTo(1920);
+    assertThat(fakeVideoSink.inputStreamFormats.get(0).height).isEqualTo(1080);
+    assertThat(fakeVideoSink.handledFrameTimestampsUs).containsExactly(10_000L);
   }
 
   @Test
@@ -8103,5 +8180,123 @@ public class MediaCodecVideoRendererTest {
     public void releaseOutputBuffer(int index, long renderTimeStampNs) {
       // No-op
     }
+  }
+
+  private static final class FakeVideoSink implements VideoSink {
+
+    private final Surface inputSurface;
+    private final List<Format> inputStreamFormats = new ArrayList<>();
+    private final List<Long> handledFrameTimestampsUs = new ArrayList<>();
+    private boolean initialized;
+
+    private FakeVideoSink(Surface inputSurface) {
+      this.inputSurface = inputSurface;
+    }
+
+    @Override
+    public void startRendering() {}
+
+    @Override
+    public void stopRendering() {}
+
+    @Override
+    public void setListener(Listener listener, Executor executor) {}
+
+    @Override
+    public boolean initialize(Format sourceFormat) {
+      initialized = true;
+      return true;
+    }
+
+    @Override
+    public boolean isInitialized() {
+      return initialized;
+    }
+
+    @Override
+    public void redraw() {}
+
+    @Override
+    public void flush(boolean resetPosition) {}
+
+    @Override
+    public boolean isReady(boolean otherwiseReady) {
+      return otherwiseReady;
+    }
+
+    @Override
+    public void signalEndOfCurrentInputStream() {}
+
+    @Override
+    public void signalEndOfInput() {}
+
+    @Override
+    public boolean isEnded() {
+      return false;
+    }
+
+    @Override
+    public Surface getInputSurface() {
+      return inputSurface;
+    }
+
+    @Override
+    public void setVideoFrameMetadataListener(
+        VideoFrameMetadataListener videoFrameMetadataListener) {}
+
+    @Override
+    public void setPlaybackSpeed(float speed) {}
+
+    @Override
+    public void setVideoEffects(List<Effect> videoEffects) {}
+
+    @Override
+    public void setBufferTimestampAdjustmentUs(long bufferTimestampAdjustmentUs) {}
+
+    @Override
+    public void setOutputSurfaceInfo(Surface outputSurface, Size outputResolution) {}
+
+    @Override
+    public void clearOutputSurfaceInfo() {}
+
+    @Override
+    public void setChangeFrameRateStrategy(int changeFrameRateStrategy) {}
+
+    @Override
+    public void onInputStreamChanged(
+        @InputType int inputType,
+        Format format,
+        long startPositionUs,
+        @FirstFrameReleaseInstruction int firstFrameReleaseInstruction,
+        List<Effect> videoEffects) {
+      inputStreamFormats.add(format);
+    }
+
+    @Override
+    public void allowReleaseFirstFrameBeforeStarted() {}
+
+    @Override
+    public boolean handleInputFrame(
+        long bufferPresentationTimeUs, VideoFrameHandler videoFrameHandler) {
+      checkState(!inputStreamFormats.isEmpty());
+      handledFrameTimestampsUs.add(bufferPresentationTimeUs);
+      videoFrameHandler.render(/* renderTimestampNs= */ 0);
+      return true;
+    }
+
+    @Override
+    public boolean handleInputBitmap(
+        Bitmap inputBitmap, TimestampIterator bufferTimestampIterator) {
+      return false;
+    }
+
+    @Override
+    public void render(long positionUs, long elapsedRealtimeUs) {}
+
+    @Override
+    public void join(boolean renderNextFrameImmediately) {}
+
+    @Override
+    public void release() {}
   }
 }
