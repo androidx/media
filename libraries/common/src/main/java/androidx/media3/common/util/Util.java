@@ -340,19 +340,20 @@ public final class Util {
   }
 
   /**
-   * Takes the service off the foreground by safely calling the correct variant of {@code
-   * Service.stopForeground} on the given API level of the device.
-   *
-   * @param service The service to be taken off the foreground.
-   * @param removeNotification Whether to remove the notification that was attached to the service.
+   * @deprecated Use {@link Service#stopForeground(int)} instead.
    */
   @UnstableApi
+  @Deprecated
+  @InlineMe(
+      replacement =
+          "service.stopForeground(removeNotification ? STOP_FOREGROUND_REMOVE :"
+              + " STOP_FOREGROUND_DETACH)",
+      staticImports = {
+        "android.app.Service.STOP_FOREGROUND_DETACH",
+        "android.app.Service.STOP_FOREGROUND_REMOVE"
+      })
   public static void stopForeground(Service service, boolean removeNotification) {
-    if (Build.VERSION.SDK_INT >= 24) {
-      Api24.stopForeground(service, removeNotification);
-    } else {
-      service.stopForeground(removeNotification);
-    }
+    service.stopForeground(removeNotification ? STOP_FOREGROUND_REMOVE : STOP_FOREGROUND_DETACH);
   }
 
   /**
@@ -487,10 +488,6 @@ public final class Util {
    * @return Whether it may be possible to load the URIs of the given media items.
    */
   public static boolean checkCleartextTrafficPermitted(MediaItem... mediaItems) {
-    if (Build.VERSION.SDK_INT < 24) {
-      // We assume cleartext traffic is permitted.
-      return true;
-    }
     for (MediaItem mediaItem : mediaItems) {
       if (mediaItem.localConfiguration == null) {
         continue;
@@ -3572,12 +3569,17 @@ public final class Util {
     return systemLocales;
   }
 
-  /** Returns the default {@link Locale.Category#DISPLAY DISPLAY} {@link Locale}. */
+  /**
+   * @deprecated Use {@link Locale#getDefault(Locale.Category)} with {@link Locale.Category#DISPLAY}
+   *     instead.
+   */
   @UnstableApi
+  @Deprecated
+  @InlineMe(
+      replacement = "Locale.getDefault(Locale.Category.DISPLAY)",
+      imports = {"java.util.Locale"})
   public static Locale getDefaultDisplayLocale() {
-    return Build.VERSION.SDK_INT >= 24
-        ? Locale.getDefault(Locale.Category.DISPLAY)
-        : Locale.getDefault();
+    return Locale.getDefault(Locale.Category.DISPLAY);
   }
 
   /**
@@ -4415,13 +4417,6 @@ public final class Util {
 
   private static String[] getSystemLocales() {
     Configuration config = Resources.getSystem().getConfiguration();
-    return Build.VERSION.SDK_INT >= 24
-        ? getSystemLocalesV24(config)
-        : new String[] {getLocaleLanguageTag(config.locale)};
-  }
-
-  @RequiresApi(24)
-  private static String[] getSystemLocalesV24(Configuration config) {
     return split(config.getLocales().toLanguageTags(), ",");
   }
 
@@ -4477,7 +4472,6 @@ public final class Util {
     return false;
   }
 
-  @RequiresApi(api = 24)
   private static boolean isTrafficRestricted(Uri uri) {
     return "http".equals(uri.getScheme())
         && !NetworkSecurityPolicy.getInstance()
@@ -4648,16 +4642,6 @@ public final class Util {
     0xDE, 0xD9, 0xD0, 0xD7, 0xC2, 0xC5, 0xCC, 0xCB, 0xE6, 0xE1, 0xE8, 0xEF, 0xFA, 0xFD, 0xF4,
     0xF3
   };
-
-  @RequiresApi(24)
-  private static class Api24 {
-
-    private static void stopForeground(Service service, boolean removeNotification) {
-      service.stopForeground(removeNotification ? STOP_FOREGROUND_REMOVE : STOP_FOREGROUND_DETACH);
-    }
-
-    private Api24() {}
-  }
 
   @RequiresApi(26)
   private static class Api26 {

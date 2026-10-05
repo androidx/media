@@ -338,10 +338,11 @@ public final class FrameworkMuxer implements Muxer {
   private static ImmutableList<String> getSupportedVideoSampleMimeTypes() {
     ImmutableList.Builder<String> supportedMimeTypes =
         new ImmutableList.Builder<String>()
-            .add(MimeTypes.VIDEO_H264, MimeTypes.VIDEO_H263, MimeTypes.VIDEO_MP4V);
-    if (SDK_INT >= 24) {
-      supportedMimeTypes.add(MimeTypes.VIDEO_H265);
-    }
+            .add(
+                MimeTypes.VIDEO_H264,
+                MimeTypes.VIDEO_H263,
+                MimeTypes.VIDEO_MP4V,
+                MimeTypes.VIDEO_H265);
     if (SDK_INT >= 33) {
       supportedMimeTypes.add(MimeTypes.VIDEO_DOLBY_VISION);
     }

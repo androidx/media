@@ -363,15 +363,12 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, round(encoderSupportedFormat.frameRate));
 
     if (supportedVideoEncoderSettings.profile != VideoEncoderSettings.NO_VALUE
-        && supportedVideoEncoderSettings.level != VideoEncoderSettings.NO_VALUE
-        && SDK_INT >= 24) {
-      // For API levels below 24, setting profile and level can lead to failures in MediaCodec
-      // configuration. The encoder selects the profile/level when we don't set them.
+        && supportedVideoEncoderSettings.level != VideoEncoderSettings.NO_VALUE) {
       // Set profile and level at the same time to maximize compatibility, or the encoder will pick
       // the values.
       mediaFormat.setInteger(MediaFormat.KEY_PROFILE, supportedVideoEncoderSettings.profile);
       mediaFormat.setInteger(MediaFormat.KEY_LEVEL, supportedVideoEncoderSettings.level);
-    } else if (SDK_INT >= 24 && ColorInfo.isTransferHdr(format.colorInfo)) {
+    } else if (ColorInfo.isTransferHdr(format.colorInfo)) {
       ImmutableList<Integer> codecProfilesForHdrFormat =
           getCodecProfilesForHdrFormat(mimeType, checkNotNull(format.colorInfo).colorTransfer);
       mediaFormat.setInteger(MediaFormat.KEY_PROFILE, codecProfilesForHdrFormat.get(0));
@@ -874,7 +871,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
         // TODO: b/445616792 - Set KEY_LATENCY to 2 to enable B-frame production.
         mediaFormat.setInteger(MediaFormat.KEY_LATENCY, 1);
       }
-    } else if (SDK_INT >= 24) {
+    } else {
       int expectedEncodingProfile = MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline;
       int supportedLevel =
           EncoderUtil.findHighestSupportedEncodingLevel(
@@ -887,8 +884,6 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
         mediaFormat.setInteger(MediaFormat.KEY_LEVEL, supportedLevel);
       }
     }
-    // For API levels below 24, setting profile and level can lead to failures in MediaCodec
-    // configuration. The encoder selects the profile/level when we don't set them.
   }
 
   private interface EncoderFallbackCost {

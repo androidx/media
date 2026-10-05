@@ -286,16 +286,9 @@ public final class MediaFormatUtil {
   /**
    * Creates and returns a {@code ColorInfo}, if a valid instance is described in the {@link
    * MediaFormat}.
-   *
-   * <p>Under API 24, {@code null} will always be returned, because {@link MediaFormat} color keys
-   * like {@link MediaFormat#KEY_COLOR_STANDARD} were only added in API 24.
    */
   @Nullable
   public static ColorInfo getColorInfo(MediaFormat mediaFormat) {
-    if (SDK_INT < 24) {
-      // MediaFormat KEY_COLOR_TRANSFER and other KEY_COLOR values available from API 24.
-      return null;
-    }
     int colorSpace =
         getInteger(
             mediaFormat, MediaFormat.KEY_COLOR_STANDARD, /* defaultValue= */ Format.NO_VALUE);

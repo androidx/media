@@ -17,21 +17,17 @@ package androidx.media3.session;
 
 import static android.Manifest.permission.MEDIA_CONTENT_CONTROL;
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.core.app.NotificationCompat.COLOR_DEFAULT;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.os.Bundle;
-import android.view.View;
-import android.widget.RemoteViews;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RequiresPermission;
 import androidx.core.app.NotificationBuilderWithBuilderAccessor;
-import androidx.core.graphics.drawable.IconCompat;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
@@ -114,9 +110,6 @@ public class MediaStyleNotificationHelper {
         return null;
       }
     }
-
-    private static final int MAX_MEDIA_BUTTONS_IN_COMPACT = 3;
-    private static final int MAX_MEDIA_BUTTONS = 5;
 
     /* package */ final MediaSession session;
 
@@ -217,83 +210,6 @@ public class MediaStyleNotificationHelper {
         builder.getBuilder().addExtras(bundle);
       }
     }
-
-    /* package */ RemoteViews generateContentView() {
-      RemoteViews view =
-          applyStandardTemplate(
-              /* showSmallIcon= */ false, getContentViewLayoutResource(), /* fitIn1U= */ true);
-
-      final int numActions = mBuilder.mActions.size();
-      if (actionsToShowInCompact != null) {
-        int[] actions = actionsToShowInCompact;
-        final int numActionsInCompact = Math.min(actions.length, MAX_MEDIA_BUTTONS_IN_COMPACT);
-        view.removeAllViews(androidx.media3.session.R.id.media_actions);
-        if (numActionsInCompact > 0) {
-          for (int i = 0; i < numActionsInCompact; i++) {
-            if (i >= numActions) {
-              throw new IllegalArgumentException(
-                  String.format(
-                      "setShowActionsInCompactView: action %d out of bounds (max %d)",
-                      i, numActions - 1));
-            }
-
-            final androidx.core.app.NotificationCompat.Action action =
-                mBuilder.mActions.get(actions[i]);
-            final RemoteViews button = generateMediaActionButton(action);
-            view.addView(androidx.media3.session.R.id.media_actions, button);
-          }
-        }
-      }
-      view.setViewVisibility(androidx.media3.session.R.id.end_padder, View.VISIBLE);
-      return view;
-    }
-
-    private RemoteViews generateMediaActionButton(
-        androidx.core.app.NotificationCompat.Action action) {
-      final boolean tombstone = (action.getActionIntent() == null);
-      RemoteViews button =
-          new RemoteViews(
-              mBuilder.mContext.getPackageName(),
-              androidx.media3.session.R.layout.media3_notification_media_action);
-      IconCompat iconCompat = action.getIconCompat();
-      if (iconCompat != null) {
-        button.setImageViewResource(androidx.media3.session.R.id.action0, iconCompat.getResId());
-      }
-      if (!tombstone) {
-        button.setOnClickPendingIntent(
-            androidx.media3.session.R.id.action0, action.getActionIntent());
-      }
-      button.setContentDescription(androidx.media3.session.R.id.action0, action.getTitle());
-      return button;
-    }
-
-    /* package */ int getContentViewLayoutResource() {
-      return androidx.media3.session.R.layout.media3_notification_template_media;
-    }
-
-    /* package */ RemoteViews generateBigContentView() {
-      final int actionCount = Math.min(mBuilder.mActions.size(), MAX_MEDIA_BUTTONS);
-      RemoteViews big =
-          applyStandardTemplate(
-              /* showSmallIcon= */ false,
-              getBigContentViewLayoutResource(actionCount),
-              /* fitIn1U= */ false);
-
-      big.removeAllViews(androidx.media3.session.R.id.media_actions);
-      if (actionCount > 0) {
-        for (int i = 0; i < actionCount; i++) {
-          final RemoteViews button = generateMediaActionButton(mBuilder.mActions.get(i));
-          big.addView(androidx.media3.session.R.id.media_actions, button);
-        }
-      }
-      return big;
-    }
-
-    /* package */ int getBigContentViewLayoutResource(int actionCount) {
-      return actionCount <= 3
-          ? androidx.media3.session.R.layout.media3_notification_template_big_media_narrow
-          : androidx.media3.session.R.layout.media3_notification_template_big_media;
-    }
   }
 
   /**
@@ -338,12 +254,8 @@ public class MediaStyleNotificationHelper {
 
     @Override
     public void apply(NotificationBuilderWithBuilderAccessor builder) {
-      if (SDK_INT < 24) {
-        super.apply(builder);
-        return;
-      }
       Notification.DecoratedMediaCustomViewStyle style =
-          Api24Impl.createDecoratedMediaCustomViewStyle();
+          new Notification.DecoratedMediaCustomViewStyle();
       if (actionsToShowInCompact != null) {
         style.setShowActionsInCompactView(actionsToShowInCompact);
       }
@@ -357,110 +269,6 @@ public class MediaStyleNotificationHelper {
         bundle.putBundle(EXTRA_MEDIA3_SESSION, session.getToken().toBundle());
         builder.getBuilder().addExtras(bundle);
       }
-    }
-
-    @Override
-    @Nullable
-    @SuppressWarnings("nullness:override.return") // NotificationCompat doesn't annotate @Nullable
-    public RemoteViews makeContentView(NotificationBuilderWithBuilderAccessor builder) {
-      if (SDK_INT >= 24) {
-        // No custom content view required
-        return null;
-      }
-      boolean hasContentView = mBuilder.getContentView() != null;
-      boolean createCustomContent = hasContentView || mBuilder.getBigContentView() != null;
-      if (createCustomContent) {
-        RemoteViews contentView = generateContentView();
-        if (hasContentView) {
-          buildIntoRemoteViews(contentView, mBuilder.getContentView());
-        }
-        setBackgroundColor(contentView);
-        return contentView;
-      }
-      return null;
-    }
-
-    @Override
-    /* package */ int getContentViewLayoutResource() {
-      return mBuilder.getContentView() != null
-          ? androidx.media3.session.R.layout.media3_notification_template_media_custom
-          : super.getContentViewLayoutResource();
-    }
-
-    @Override
-    @Nullable
-    @SuppressWarnings("nullness:override.return") // NotificationCompat doesn't annotate @Nullable
-    public RemoteViews makeBigContentView(NotificationBuilderWithBuilderAccessor builder) {
-      if (SDK_INT >= 24) {
-        // No custom big content view required
-        return null;
-      }
-      RemoteViews innerView =
-          mBuilder.getBigContentView() != null
-              ? mBuilder.getBigContentView()
-              : mBuilder.getContentView();
-      if (innerView == null) {
-        // No expandable notification
-        return null;
-      }
-      RemoteViews bigContentView = generateBigContentView();
-      buildIntoRemoteViews(bigContentView, innerView);
-      setBackgroundColor(bigContentView);
-      return bigContentView;
-    }
-
-    @Override
-    /* package */ int getBigContentViewLayoutResource(int actionCount) {
-      return actionCount <= 3
-          ? androidx.media3.session.R.layout.media3_notification_template_big_media_narrow_custom
-          : androidx.media3.session.R.layout.media3_notification_template_big_media_custom;
-    }
-
-    @Override
-    @Nullable
-    @SuppressWarnings("nullness:override.return") // NotificationCompat doesn't annotate @Nullable
-    public RemoteViews makeHeadsUpContentView(NotificationBuilderWithBuilderAccessor builder) {
-      if (SDK_INT >= 24) {
-        // No custom heads up content view required
-        return null;
-      }
-      RemoteViews innerView =
-          mBuilder.getHeadsUpContentView() != null
-              ? mBuilder.getHeadsUpContentView()
-              : mBuilder.getContentView();
-      if (innerView == null) {
-        // No expandable notification
-        return null;
-      }
-      RemoteViews headsUpContentView = generateBigContentView();
-      buildIntoRemoteViews(headsUpContentView, innerView);
-      setBackgroundColor(headsUpContentView);
-      return headsUpContentView;
-    }
-
-    private void setBackgroundColor(RemoteViews views) {
-      int color =
-          mBuilder.getColor() != COLOR_DEFAULT
-              ? mBuilder.getColor()
-              : mBuilder
-                  .mContext
-                  .getResources()
-                  .getColor(
-                      androidx.media3.session.R.color
-                          .notification_material_background_media_default_color);
-      views.setInt(
-          androidx.media3.session.R.id.status_bar_latest_event_content,
-          "setBackgroundColor",
-          color);
-    }
-  }
-
-  @RequiresApi(24)
-  private static class Api24Impl {
-    private Api24Impl() {}
-
-    public static Notification.DecoratedMediaCustomViewStyle createDecoratedMediaCustomViewStyle() {
-      return new Notification.DecoratedMediaCustomViewStyle();
     }
   }
 

@@ -23,7 +23,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import android.content.Context;
 import android.net.Uri;
 import android.view.SurfaceView;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
@@ -84,7 +83,6 @@ public class ExoPlayerFrameDropAnalysisTest {
   public TestConfig testConfig;
 
   @Parameters(name = "{0}")
-  @RequiresApi(24)
   public static List<TestConfig> parameters() {
     return Sets.cartesianProduct(
             INPUT_ASSETS,

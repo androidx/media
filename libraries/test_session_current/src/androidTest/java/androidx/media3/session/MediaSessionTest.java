@@ -15,7 +15,6 @@
  */
 package androidx.media3.session;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static android.view.KeyEvent.KEYCODE_HEADSETHOOK;
 import static android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD;
 import static android.view.KeyEvent.KEYCODE_MEDIA_NEXT;
@@ -549,8 +548,7 @@ public class MediaSessionTest {
                       public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                           MediaSession session, ControllerInfo controller) {
                         if (TextUtils.equals(
-                            getControllerCallerPackageName(controller),
-                            controller.getPackageName())) {
+                            context.getPackageName(), controller.getPackageName())) {
                           return MediaSession.Callback.super.onConnectAsync(session, controller);
                         }
                         return immediateFuture(MediaSession.ConnectionResult.reject());
@@ -800,8 +798,7 @@ public class MediaSessionTest {
                       public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                           MediaSession session, ControllerInfo controller) {
                         if (TextUtils.equals(
-                            getControllerCallerPackageName(controller),
-                            controller.getPackageName())) {
+                            context.getPackageName(), controller.getPackageName())) {
                           return MediaSession.Callback.super.onConnectAsync(session, controller);
                         }
                         return immediateFuture(MediaSession.ConnectionResult.reject());
@@ -870,7 +867,7 @@ public class MediaSessionTest {
     for (ControllerInfo info : callerCollectorPlayer.callingControllers) {
       assertThat(session.get().isMediaNotificationController(info)).isFalse();
       assertThat(info.getControllerVersion()).isEqualTo(ControllerInfo.LEGACY_CONTROLLER_VERSION);
-      assertThat(info.getPackageName()).isEqualTo(getControllerCallerPackageName(info));
+      assertThat(info.getPackageName()).isEqualTo(context.getPackageName());
     }
   }
 
@@ -890,8 +887,7 @@ public class MediaSessionTest {
                       public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                           MediaSession session, ControllerInfo controller) {
                         if (TextUtils.equals(
-                            getControllerCallerPackageName(controller),
-                            controller.getPackageName())) {
+                            context.getPackageName(), controller.getPackageName())) {
                           return MediaSession.Callback.super.onConnectAsync(session, controller);
                         }
                         return immediateFuture(MediaSession.ConnectionResult.reject());
@@ -1417,27 +1413,6 @@ public class MediaSessionTest {
     } finally {
       threadTestRule.getHandler().postAndSync(() -> player.get().release());
     }
-  }
-
-  /**
-   * Returns the expected {@link MediaSessionManager.RemoteUserInfo#getPackageName()} of a
-   * controller hosted in the test companion app.
-   *
-   * <p>After API 23 the package name is {@link Context#getPackageName()} of the {@link
-   * ApplicationProvider#getApplicationContext() application under test}.
-   *
-   * <p>On API 23, the platform MediaSession doesn't report the caller package name. Instead the
-   * package of the RemoteUserInfo is set for all external controllers to the same {@code
-   * MediaSessionManager.RemoteUserInfo.LEGACY_CONTROLLER} (see
-   * MediaSessionCompat.MediaSessionCallback.setCurrentControllerInfo()).
-   *
-   * <p>Calling this method should only be required to test legacy behaviour.
-   */
-  private static String getControllerCallerPackageName(ControllerInfo controllerInfo) {
-    return (SDK_INT > 23
-            || controllerInfo.getControllerVersion() != ControllerInfo.LEGACY_CONTROLLER_VERSION)
-        ? ApplicationProvider.getApplicationContext().getPackageName()
-        : MediaSessionManager.RemoteUserInfo.LEGACY_CONTROLLER;
   }
 
   private static ControllerInfo createMediaButtonCaller() {

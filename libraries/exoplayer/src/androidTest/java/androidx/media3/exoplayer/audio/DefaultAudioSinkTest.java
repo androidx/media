@@ -30,7 +30,6 @@ import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.common.util.Util;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.filters.SdkSuppress;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -46,7 +45,6 @@ import org.junit.runner.RunWith;
 public class DefaultAudioSinkTest {
 
   @Test
-  @SdkSuppress(minSdkVersion = 24) // TODO: b/399130330 - Debug why this fails on API 23.
   public void
       audioTrackExceedsSharedMemory_playbackThreadStillAlive_retriesUntilOngoingReleasesAreDone()
           throws Exception {
@@ -111,7 +109,6 @@ public class DefaultAudioSinkTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 24)
   public void
       audioTrackExceedsSharedMemory_playbackThreadNotAlive_retriesUntilOngoingReleasesAreDone()
           throws Exception {
@@ -219,7 +216,6 @@ public class DefaultAudioSinkTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 24) // The test depends on AudioTrack#getUnderrunCount() (API 24+).
   public void audioTrackUnderruns_callsOnUnderrun() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     AtomicInteger underrunCount = new AtomicInteger();

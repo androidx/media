@@ -31,7 +31,6 @@ import androidx.media3.common.ParserException;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.filters.SdkSuppress;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.io.File;
@@ -53,9 +52,6 @@ import org.junit.runner.RunWith;
  * <p>This test needs to run as an androidTest because robolectric's BitmapFactory is not fully
  * functional.
  */
-// The image data fails to decode on API 23 (b/429101350) so the only tests which pass are the
-// "not found" or other failure ones, which don't seem worth running on their own.
-@SdkSuppress(minSdkVersion = 24)
 @RunWith(AndroidJUnit4.class)
 public class DataSourceBitmapLoaderTest {
 

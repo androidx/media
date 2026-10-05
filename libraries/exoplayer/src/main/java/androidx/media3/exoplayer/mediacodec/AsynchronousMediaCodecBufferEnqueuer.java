@@ -300,12 +300,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     frameworkCryptoInfo.key = checkNotNull(copy(cryptoInfo.key, frameworkCryptoInfo.key));
     frameworkCryptoInfo.iv = checkNotNull(copy(cryptoInfo.iv, frameworkCryptoInfo.iv));
     frameworkCryptoInfo.mode = cryptoInfo.mode;
-    if (SDK_INT >= 24) {
-      android.media.MediaCodec.CryptoInfo.Pattern pattern =
-          new android.media.MediaCodec.CryptoInfo.Pattern(
-              cryptoInfo.encryptedBlocks, cryptoInfo.clearBlocks);
-      frameworkCryptoInfo.setPattern(pattern);
-    }
+    MediaCodec.CryptoInfo.Pattern pattern =
+        new MediaCodec.CryptoInfo.Pattern(cryptoInfo.encryptedBlocks, cryptoInfo.clearBlocks);
+    frameworkCryptoInfo.setPattern(pattern);
   }
 
   /**

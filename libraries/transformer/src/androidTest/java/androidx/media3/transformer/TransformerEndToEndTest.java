@@ -3068,12 +3068,9 @@ public class TransformerEndToEndTest {
     }
   }
 
-  // On API 23, the encoder output format does not seem to contain bitrate, hence the test fails.
-  @SdkSuppress(minSdkVersion = 24)
   @Test
   public void export_setAudioEncodingBitrate_configuresEncoderWithRequestedBitrate()
       throws Exception {
-    // On API 23, the encoder output format does not seem to contain bitrate, hence the test fails.
     Context context = ApplicationProvider.getApplicationContext();
     int requestedBitrate = 60_000;
     // The MediaMuxer is not writing the bitrate hence use the InAppMuxer.

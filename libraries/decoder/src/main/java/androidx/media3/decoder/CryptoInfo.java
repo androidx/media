@@ -15,11 +15,8 @@
  */
 package androidx.media3.decoder;
 
-import static android.os.Build.VERSION.SDK_INT;
-import static com.google.common.base.Preconditions.checkNotNull;
-
+import android.media.MediaCodec;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 
@@ -86,12 +83,12 @@ public final class CryptoInfo {
    */
   public int clearBlocks;
 
-  private final android.media.MediaCodec.CryptoInfo frameworkCryptoInfo;
-  @Nullable private final PatternHolderV24 patternHolder;
+  private final MediaCodec.CryptoInfo frameworkCryptoInfo;
+  private final MediaCodec.CryptoInfo.Pattern frameworkCryptoInfoPattern;
 
   public CryptoInfo() {
-    frameworkCryptoInfo = new android.media.MediaCodec.CryptoInfo();
-    patternHolder = SDK_INT >= 24 ? new PatternHolderV24(frameworkCryptoInfo) : null;
+    frameworkCryptoInfo = new MediaCodec.CryptoInfo();
+    frameworkCryptoInfoPattern = new MediaCodec.CryptoInfo.Pattern(0, 0);
   }
 
   /**
@@ -122,9 +119,8 @@ public final class CryptoInfo {
     frameworkCryptoInfo.key = key;
     frameworkCryptoInfo.iv = iv;
     frameworkCryptoInfo.mode = mode;
-    if (SDK_INT >= 24) {
-      checkNotNull(patternHolder).set(encryptedBlocks, clearBlocks);
-    }
+    frameworkCryptoInfoPattern.set(encryptedBlocks, clearBlocks);
+    frameworkCryptoInfo.setPattern(frameworkCryptoInfoPattern);
   }
 
   /**
@@ -136,7 +132,7 @@ public final class CryptoInfo {
    *
    * @return The equivalent {@link android.media.MediaCodec.CryptoInfo} instance.
    */
-  public android.media.MediaCodec.CryptoInfo getFrameworkCryptoInfo() {
+  public MediaCodec.CryptoInfo getFrameworkCryptoInfo() {
     return frameworkCryptoInfo;
   }
 
@@ -161,22 +157,5 @@ public final class CryptoInfo {
       frameworkCryptoInfo.numBytesOfClearData = numBytesOfClearData;
     }
     numBytesOfClearData[0] += count;
-  }
-
-  @RequiresApi(24)
-  private static final class PatternHolderV24 {
-
-    private final android.media.MediaCodec.CryptoInfo frameworkCryptoInfo;
-    private final android.media.MediaCodec.CryptoInfo.Pattern pattern;
-
-    private PatternHolderV24(android.media.MediaCodec.CryptoInfo frameworkCryptoInfo) {
-      this.frameworkCryptoInfo = frameworkCryptoInfo;
-      pattern = new android.media.MediaCodec.CryptoInfo.Pattern(0, 0);
-    }
-
-    private void set(int encryptedBlocks, int clearBlocks) {
-      pattern.set(encryptedBlocks, clearBlocks);
-      frameworkCryptoInfo.setPattern(pattern);
-    }
   }
 }

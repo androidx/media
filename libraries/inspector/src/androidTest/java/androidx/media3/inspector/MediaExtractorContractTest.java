@@ -129,7 +129,6 @@ public class MediaExtractorContractTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 24)
   public void setDataSource_withAssetFileDescriptor_extractsSamplesAfterClosingFd()
       throws IOException {
     try (AssetFileDescriptor afd = context.getAssets().openFd("media/mp4/sample.mp4")) {
@@ -458,8 +457,6 @@ public class MediaExtractorContractTest {
     }
 
     @Override
-    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
-    @RequiresApi(24)
     public void setDataSource(AssetFileDescriptor assetFileDescriptor) throws IOException {
       mediaExtractor.setDataSource(assetFileDescriptor);
     }
@@ -626,8 +623,6 @@ public class MediaExtractorContractTest {
     }
 
     @Override
-    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
-    @RequiresApi(24)
     public void setDataSource(AssetFileDescriptor assetFileDescriptor) throws IOException {
       mediaExtractorCompat.setDataSource(assetFileDescriptor);
     }
@@ -725,8 +720,6 @@ public class MediaExtractorContractTest {
 
     void selectTrack(int trackIndex);
 
-    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
-    @RequiresApi(24)
     void setDataSource(AssetFileDescriptor assetFileDescriptor) throws IOException;
 
     void setDataSource(FileDescriptor fileDescriptor) throws IOException;

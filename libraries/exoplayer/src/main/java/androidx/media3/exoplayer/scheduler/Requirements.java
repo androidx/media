@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.scheduler;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.LOCAL_VARIABLE;
@@ -211,14 +210,6 @@ public final class Requirements implements Parcelable {
   }
 
   private static boolean isInternetConnectivityValidated(ConnectivityManager connectivityManager) {
-    // It's possible to check NetworkCapabilities.NET_CAPABILITY_VALIDATED from API level 23, but
-    // RequirementsWatcher only fires an event to re-check the requirements when NetworkCapabilities
-    // change from API level 24. We assume that network capability is validated for API level 23 to
-    // keep in sync.
-    if (SDK_INT < 24) {
-      return true;
-    }
-
     @Nullable Network activeNetwork = connectivityManager.getActiveNetwork();
     if (activeNetwork == null) {
       return false;

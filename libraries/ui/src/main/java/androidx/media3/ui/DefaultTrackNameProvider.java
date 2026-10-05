@@ -24,7 +24,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import java.util.Locale;
 
 /** A default {@link TrackNameProvider}. */
@@ -117,7 +116,7 @@ public class DefaultTrackNameProvider implements TrackNameProvider {
       return "";
     }
     Locale languageLocale = Locale.forLanguageTag(language);
-    Locale displayLocale = Util.getDefaultDisplayLocale();
+    Locale displayLocale = Locale.getDefault(Locale.Category.DISPLAY);
     String languageName = languageLocale.getDisplayName(displayLocale);
     if (TextUtils.isEmpty(languageName)) {
       return "";

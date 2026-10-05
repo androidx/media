@@ -175,7 +175,7 @@ public final class MediaControllerCompat {
     if (Build.VERSION.SDK_INT >= 29) {
       impl = new MediaControllerImplApi29(context, sessionToken);
     } else {
-      impl = new MediaControllerImplApi23(context, sessionToken);
+      impl = new MediaControllerImplBase(context, sessionToken);
     }
   }
 
@@ -1249,7 +1249,7 @@ public final class MediaControllerCompat {
     Object getMediaController();
   }
 
-  static class MediaControllerImplApi23 implements MediaControllerImpl {
+  static class MediaControllerImplBase implements MediaControllerImpl {
     protected final MediaController controllerFwk;
 
     final Object lock = new Object();
@@ -1265,7 +1265,7 @@ public final class MediaControllerCompat {
 
     // Calling method from constructor
     @SuppressWarnings({"assignment.type.incompatible", "method.invocation.invalid"})
-    MediaControllerImplApi23(Context context, MediaSessionCompat.Token sessionToken) {
+    MediaControllerImplBase(Context context, MediaSessionCompat.Token sessionToken) {
       this.sessionToken = sessionToken;
       controllerFwk = new MediaController(context, this.sessionToken.getToken());
       if (this.sessionToken.getExtraBinder() == null) {
@@ -1328,10 +1328,8 @@ public final class MediaControllerCompat {
       MediaController.TransportControls controlsFwk = controllerFwk.getTransportControls();
       if (Build.VERSION.SDK_INT >= 29) {
         return new TransportControlsApi29(controlsFwk);
-      } else if (Build.VERSION.SDK_INT >= 24) {
-        return new TransportControlsApi24(controlsFwk);
       } else {
-        return new TransportControlsApi23(controlsFwk);
+        return new TransportControlsBase(controlsFwk);
       }
     }
 
@@ -1566,16 +1564,16 @@ public final class MediaControllerCompat {
     }
 
     private static class ExtraBinderRequestResultReceiver extends ResultReceiver {
-      private final WeakReference<MediaControllerImplApi23> mediaControllerImpl;
+      private final WeakReference<MediaControllerImplBase> mediaControllerImpl;
 
-      ExtraBinderRequestResultReceiver(MediaControllerImplApi23 mediaControllerImpl) {
+      ExtraBinderRequestResultReceiver(MediaControllerImplBase mediaControllerImpl) {
         super(null /* handler */);
         this.mediaControllerImpl = new WeakReference<>(mediaControllerImpl);
       }
 
       @Override
       protected void onReceiveResult(int resultCode, Bundle resultData) {
-        MediaControllerImplApi23 mediaControllerImpl = this.mediaControllerImpl.get();
+        MediaControllerImplBase mediaControllerImpl = this.mediaControllerImpl.get();
         if (mediaControllerImpl == null || resultData == null) {
           return;
         }
@@ -1593,7 +1591,7 @@ public final class MediaControllerCompat {
   }
 
   @RequiresApi(29)
-  static class MediaControllerImplApi29 extends MediaControllerImplApi23 {
+  static class MediaControllerImplApi29 extends MediaControllerImplBase {
     MediaControllerImplApi29(Context context, MediaSessionCompat.Token sessionToken) {
       super(context, sessionToken);
     }
@@ -1609,40 +1607,34 @@ public final class MediaControllerCompat {
     }
   }
 
-  static class TransportControlsApi23 extends TransportControls {
+  static class TransportControlsBase extends TransportControls {
     protected final MediaController.TransportControls controlsFwk;
 
-    TransportControlsApi23(MediaController.TransportControls controlsFwk) {
+    TransportControlsBase(MediaController.TransportControls controlsFwk) {
       this.controlsFwk = controlsFwk;
     }
 
     @Override
     public void prepare() {
-      sendCustomAction(MediaSessionCompat.ACTION_PREPARE, null);
+      controlsFwk.prepare();
     }
 
+    @SuppressWarnings("argument.type.incompatible") // Framework controller is missing annotation
     @Override
     public void prepareFromMediaId(String mediaId, @Nullable Bundle extras) {
-      Bundle bundle = new Bundle();
-      bundle.putString(MediaSessionCompat.ACTION_ARGUMENT_MEDIA_ID, mediaId);
-      bundle.putBundle(MediaSessionCompat.ACTION_ARGUMENT_EXTRAS, extras);
-      sendCustomAction(MediaSessionCompat.ACTION_PREPARE_FROM_MEDIA_ID, bundle);
+      controlsFwk.prepareFromMediaId(mediaId, extras);
     }
 
+    @SuppressWarnings("argument.type.incompatible") // Platform controller accepts null extra
     @Override
     public void prepareFromSearch(String query, @Nullable Bundle extras) {
-      Bundle bundle = new Bundle();
-      bundle.putString(MediaSessionCompat.ACTION_ARGUMENT_QUERY, query);
-      bundle.putBundle(MediaSessionCompat.ACTION_ARGUMENT_EXTRAS, extras);
-      sendCustomAction(MediaSessionCompat.ACTION_PREPARE_FROM_SEARCH, bundle);
+      controlsFwk.prepareFromSearch(query, extras);
     }
 
+    @SuppressWarnings("argument.type.incompatible") // Platform controller accepts null extra
     @Override
     public void prepareFromUri(Uri uri, @Nullable Bundle extras) {
-      Bundle bundle = new Bundle();
-      bundle.putParcelable(MediaSessionCompat.ACTION_ARGUMENT_URI, uri);
-      bundle.putBundle(MediaSessionCompat.ACTION_ARGUMENT_EXTRAS, extras);
-      sendCustomAction(MediaSessionCompat.ACTION_PREPARE_FROM_URI, bundle);
+      controlsFwk.prepareFromUri(uri, extras);
     }
 
     @Override
@@ -1761,38 +1753,8 @@ public final class MediaControllerCompat {
     }
   }
 
-  @RequiresApi(24)
-  static class TransportControlsApi24 extends TransportControlsApi23 {
-    TransportControlsApi24(MediaController.TransportControls controlsFwk) {
-      super(controlsFwk);
-    }
-
-    @Override
-    public void prepare() {
-      controlsFwk.prepare();
-    }
-
-    @SuppressWarnings("argument.type.incompatible") // Framework controller is missing annotation
-    @Override
-    public void prepareFromMediaId(String mediaId, @Nullable Bundle extras) {
-      controlsFwk.prepareFromMediaId(mediaId, extras);
-    }
-
-    @SuppressWarnings("argument.type.incompatible") // Platform controller accepts null extra
-    @Override
-    public void prepareFromSearch(String query, @Nullable Bundle extras) {
-      controlsFwk.prepareFromSearch(query, extras);
-    }
-
-    @SuppressWarnings("argument.type.incompatible") // Platform controller accepts null extra
-    @Override
-    public void prepareFromUri(Uri uri, @Nullable Bundle extras) {
-      controlsFwk.prepareFromUri(uri, extras);
-    }
-  }
-
   @RequiresApi(29)
-  static class TransportControlsApi29 extends TransportControlsApi24 {
+  static class TransportControlsApi29 extends TransportControlsBase {
     TransportControlsApi29(MediaController.TransportControls controlsFwk) {
       super(controlsFwk);
     }

@@ -616,7 +616,7 @@ public abstract class MediaSessionService extends LifecycleService {
           ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
           /* foregroundServiceManifestType= */ "mediaPlayback");
       getMediaNotificationManager().disableUserEngagedTimeout();
-      Util.stopForeground(/* service= */ this, /* removeNotification= */ true);
+      stopForeground(STOP_FOREGROUND_REMOVE);
     } catch (IllegalStateException e) {
       if (SDK_INT >= 31 && e instanceof ForegroundServiceStartNotAllowedException) {
         onForegroundServiceStartNotAllowedException();

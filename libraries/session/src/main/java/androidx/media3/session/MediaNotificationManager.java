@@ -24,6 +24,7 @@ import android.annotation.SuppressLint;
 import android.app.ForegroundServiceStartNotAllowedException;
 import android.app.Notification;
 import android.app.NotificationManager;
+import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
@@ -356,7 +357,7 @@ import java.util.concurrent.TimeoutException;
       // Notification manager has to be updated first to avoid missing updates
       // (https://github.com/androidx/media/issues/192).
       notificationManager.notify(mediaNotification.notificationId, mediaNotification.notification);
-      Util.stopForeground(mediaSessionService, /* removeNotification= */ false);
+      mediaSessionService.stopForeground(Service.STOP_FOREGROUND_DETACH);
     }
   }
 
@@ -364,7 +365,7 @@ import java.util.concurrent.TimeoutException;
   private void removeNotification() {
     // To hide the notification on all API levels, we need to call both Service.stopForeground(true)
     // and notificationManagerCompat.cancel(notificationId).
-    Util.stopForeground(mediaSessionService, /* removeNotification= */ true);
+    mediaSessionService.stopForeground(Service.STOP_FOREGROUND_REMOVE);
     if (mediaNotification != null) {
       notificationManager.cancel(mediaNotification.notificationId);
       // Update the notification count so that if a pending notification callback arrives (e.g., a

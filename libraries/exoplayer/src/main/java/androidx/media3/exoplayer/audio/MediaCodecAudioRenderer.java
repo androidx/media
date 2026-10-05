@@ -30,7 +30,6 @@ import android.media.AudioFormat;
 import android.media.MediaCodec;
 import android.media.MediaCrypto;
 import android.media.MediaFormat;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Pair;
@@ -40,7 +39,6 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
-import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
@@ -137,7 +135,6 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   private final AtomicBoolean processOutputBufferResultHolder;
 
   private int codecMaxInputSize;
-  private boolean codecNeedsDiscardChannelsWorkaround;
   private boolean codecNeedsVorbisToAndroidChannelMappingWorkaround;
   @Nullable private Format inputFormat;
 
@@ -506,7 +503,6 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       @Nullable MediaCrypto crypto,
       float codecOperatingRate) {
     codecMaxInputSize = getCodecMaxInputSize(codecInfo, format, getStreamFormats());
-    codecNeedsDiscardChannelsWorkaround = codecNeedsDiscardChannelsWorkaround(codecInfo.name);
     codecNeedsVorbisToAndroidChannelMappingWorkaround =
         codecNeedsVorbisToAndroidChannelMappingWorkaround(codecInfo.name);
     MediaFormat mediaFormat =
@@ -534,7 +530,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       // to stereo.
       discardReasons |= DecoderReuseEvaluation.DISCARD_REASON_AUDIO_BYPASS_POSSIBLE;
     }
-    if (getCodecMaxInputSize(codecInfo, newFormat) > codecMaxInputSize) {
+    if (newFormat.maxInputSize > codecMaxInputSize) {
       discardReasons |= DISCARD_REASON_MAX_INPUT_SIZE_EXCEEDED;
     }
 
@@ -654,7 +650,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       if (MimeTypes.AUDIO_RAW.equals(format.sampleMimeType)) {
         // For PCM streams, the encoder passes through int samples despite set to float mode.
         pcmEncoding = format.pcmEncoding;
-      } else if (SDK_INT >= 24 && mediaFormat.containsKey(MediaFormat.KEY_PCM_ENCODING)) {
+      } else if (mediaFormat.containsKey(MediaFormat.KEY_PCM_ENCODING)) {
         pcmEncoding = mediaFormat.getInteger(MediaFormat.KEY_PCM_ENCODING);
       } else if (mediaFormat.containsKey(VIVO_BITS_PER_SAMPLE_KEY)) {
         pcmEncoding = Util.getPcmEncoding(mediaFormat.getInteger(VIVO_BITS_PER_SAMPLE_KEY));
@@ -694,16 +690,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
               .setChannelMask(channelMask)
               .setSampleRate(mediaFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE))
               .build();
-      if (codecNeedsDiscardChannelsWorkaround
-          && audioSinkInputFormat.channelCount == 6
-          && format.channelCount < 6) {
-        ImmutableIntArray.Builder channelMapBuilder =
-            ImmutableIntArray.builder(format.channelCount);
-        for (int i = 0; i < format.channelCount; i++) {
-          channelMapBuilder.add(i);
-        }
-        channelMap = channelMapBuilder.build();
-      } else if (codecNeedsVorbisToAndroidChannelMappingWorkaround) {
+      if (codecNeedsVorbisToAndroidChannelMappingWorkaround) {
         channelMap =
             VorbisUtil.getVorbisToAndroidChannelLayoutMapping(audioSinkInputFormat.channelCount);
       }
@@ -1086,7 +1073,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
    */
   protected int getCodecMaxInputSize(
       MediaCodecInfo codecInfo, Format format, Format[] streamFormats) {
-    int maxInputSize = getCodecMaxInputSize(codecInfo, format);
+    int maxInputSize = format.maxInputSize;
     if (streamFormats.length == 1) {
       // The single entry in streamFormats must correspond to the format for which the codec is
       // being configured.
@@ -1094,31 +1081,10 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     }
     for (Format streamFormat : streamFormats) {
       if (codecInfo.canReuseCodec(format, streamFormat).result != REUSE_RESULT_NO) {
-        maxInputSize = max(maxInputSize, getCodecMaxInputSize(codecInfo, streamFormat));
+        maxInputSize = max(maxInputSize, streamFormat.maxInputSize);
       }
     }
     return maxInputSize;
-  }
-
-  /**
-   * Returns a maximum input buffer size for a given {@link Format}.
-   *
-   * @param codecInfo A {@link MediaCodecInfo} describing the decoder.
-   * @param format The {@link Format}.
-   * @return A maximum input buffer size in bytes, or {@link Format#NO_VALUE} if a maximum could not
-   *     be determined.
-   */
-  private int getCodecMaxInputSize(MediaCodecInfo codecInfo, Format format) {
-    if ("OMX.google.raw.decoder".equals(codecInfo.name)) {
-      // OMX.google.raw.decoder didn't resize its output buffers correctly prior to N, except on
-      // Android TV running M, so there's no point requesting a non-default input size. Doing so may
-      // cause a native crash, whereas not doing so will cause a more controlled failure when
-      // attempting to fill an input buffer. See: https://github.com/google/ExoPlayer/issues/4057.
-      if (SDK_INT == 23 && !Util.isTv(context)) {
-        return Format.NO_VALUE;
-      }
-    }
-    return format.maxInputSize;
   }
 
   /**
@@ -1145,7 +1111,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     MediaFormatUtil.maybeSetInteger(mediaFormat, MediaFormat.KEY_MAX_INPUT_SIZE, codecMaxInputSize);
     // Set codec configuration values.
     mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, C.MEDIA_CODEC_PRIORITY_REALTIME);
-    if (codecOperatingRate != CODEC_OPERATING_RATE_UNSET && !deviceDoesntSupportOperatingRate()) {
+    if (codecOperatingRate != CODEC_OPERATING_RATE_UNSET) {
       mediaFormat.setFloat(MediaFormat.KEY_OPERATING_RATE, codecOperatingRate);
     }
     if (MimeTypes.AUDIO_AC4.equals(format.sampleMimeType)) {
@@ -1160,10 +1126,9 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
         mediaFormat.setInteger("ac4-is-sync", 1);
       }
     }
-    if (SDK_INT >= 24
-        && audioSink.getFormatSupport(
-                Util.getPcmFormat(C.ENCODING_PCM_FLOAT, format.channelCount, format.sampleRate))
-            == AudioSink.SINK_FORMAT_SUPPORTED_DIRECTLY) {
+    if (audioSink.getFormatSupport(
+            Util.getPcmFormat(C.ENCODING_PCM_FLOAT, format.channelCount, format.sampleRate))
+        == AudioSink.SINK_FORMAT_SUPPORTED_DIRECTLY) {
       mediaFormat.setInteger(MediaFormat.KEY_PCM_ENCODING, AudioFormat.ENCODING_PCM_FLOAT);
     }
     if (SDK_INT >= 32) {
@@ -1225,37 +1190,6 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
               : max(currentPositionUs, newCurrentPositionUs);
       allowPositionDiscontinuity = false;
     }
-  }
-
-  /**
-   * Returns whether the device's decoders are known to not support setting the codec operating
-   * rate.
-   *
-   * <p>See <a href="https://github.com/google/ExoPlayer/issues/5821">GitHub issue #5821</a>.
-   */
-  private static boolean deviceDoesntSupportOperatingRate() {
-    return MediaLibraryInfo.enableWorkarounds()
-        && SDK_INT == 23
-        && ("ZTE B2017G".equals(Build.MODEL) || "AXON 7 mini".equals(Build.MODEL));
-  }
-
-  /**
-   * Returns whether the decoder is known to output six audio channels when provided with input with
-   * fewer than six channels.
-   *
-   * <p>See [Internal: b/35655036].
-   */
-  private static boolean codecNeedsDiscardChannelsWorkaround(String codecName) {
-    if (!MediaLibraryInfo.enableWorkarounds()) {
-      return false;
-    }
-    // The workaround applies to Samsung Galaxy S6 and Samsung Galaxy S7.
-    return SDK_INT < 24
-        && "OMX.SEC.aac.dec".equals(codecName)
-        && "samsung".equals(Build.MANUFACTURER)
-        && (Build.DEVICE.startsWith("zeroflte")
-            || Build.DEVICE.startsWith("herolte")
-            || Build.DEVICE.startsWith("heroqlte"));
   }
 
   /**

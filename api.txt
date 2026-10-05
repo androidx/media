@@ -1646,7 +1646,7 @@ package androidx.media3.exoplayer.audio {
   public static final class AudioTrackAudioOutputProvider.Builder {
     ctor public AudioTrackAudioOutputProvider.Builder(@Nullable _: android.content.Context);
     method public build(): androidx.media3.exoplayer.audio.AudioTrackAudioOutputProvider;
-    method @RequiresApi(24) public setAudioTrackBuilderModifier(_: java.util.function.BiConsumer<android.media.AudioTrack.Builder,androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig>): androidx.media3.exoplayer.audio.AudioTrackAudioOutputProvider.Builder;
+    method public setAudioTrackBuilderModifier(_: java.util.function.BiConsumer<android.media.AudioTrack.Builder,androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig>): androidx.media3.exoplayer.audio.AudioTrackAudioOutputProvider.Builder;
   }
 
   public class ForwardingAudioOutput implements androidx.media3.exoplayer.audio.AudioOutput {

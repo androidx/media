@@ -15,7 +15,6 @@
  */
 package androidx.media3.demo.gl;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.app.Activity;
@@ -101,18 +100,16 @@ public final class MainActivity extends Activity {
   @Override
   public void onStart() {
     super.onStart();
-    if (SDK_INT > 23) {
-      initializePlayer();
-      if (playerView != null) {
-        playerView.onResume();
-      }
+    initializePlayer();
+    if (playerView != null) {
+      playerView.onResume();
     }
   }
 
   @Override
   public void onResume() {
     super.onResume();
-    if (SDK_INT == 23 || player == null) {
+    if (player == null) {
       initializePlayer();
       if (playerView != null) {
         playerView.onResume();
@@ -121,25 +118,12 @@ public final class MainActivity extends Activity {
   }
 
   @Override
-  public void onPause() {
-    super.onPause();
-    if (SDK_INT == 23) {
-      if (playerView != null) {
-        playerView.onPause();
-      }
-      releasePlayer();
-    }
-  }
-
-  @Override
   public void onStop() {
     super.onStop();
-    if (SDK_INT > 23) {
-      if (playerView != null) {
-        playerView.onPause();
-      }
-      releasePlayer();
+    if (playerView != null) {
+      playerView.onPause();
     }
+    releasePlayer();
   }
 
   private void initializePlayer() {

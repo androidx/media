@@ -18,7 +18,6 @@ package androidx.media3.demo.main;
 import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Pair;
@@ -145,18 +144,16 @@ public class PlayerActivity extends AppCompatActivity
   @Override
   public void onStart() {
     super.onStart();
-    if (Build.VERSION.SDK_INT > 23) {
-      initializePlayer();
-      if (playerView != null) {
-        playerView.onResume();
-      }
+    initializePlayer();
+    if (playerView != null) {
+      playerView.onResume();
     }
   }
 
   @Override
   public void onResume() {
     super.onResume();
-    if (Build.VERSION.SDK_INT == 23 || player == null) {
+    if (player == null) {
       initializePlayer();
       if (playerView != null) {
         playerView.onResume();
@@ -165,25 +162,12 @@ public class PlayerActivity extends AppCompatActivity
   }
 
   @Override
-  public void onPause() {
-    super.onPause();
-    if (Build.VERSION.SDK_INT == 23) {
-      if (playerView != null) {
-        playerView.onPause();
-      }
-      releasePlayer();
-    }
-  }
-
-  @Override
   public void onStop() {
     super.onStop();
-    if (Build.VERSION.SDK_INT > 23) {
-      if (playerView != null) {
-        playerView.onPause();
-      }
-      releasePlayer();
+    if (playerView != null) {
+      playerView.onPause();
     }
+    releasePlayer();
   }
 
   @Override

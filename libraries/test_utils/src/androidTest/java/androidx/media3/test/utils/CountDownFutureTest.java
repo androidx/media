@@ -20,7 +20,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.filters.SdkSuppress;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.junit.Test;
@@ -28,7 +27,6 @@ import org.junit.runner.RunWith;
 
 /** Unit tests for {@link CountDownFuture}. */
 @RunWith(AndroidJUnit4.class)
-@SdkSuppress(minSdkVersion = 24)
 public final class CountDownFutureTest {
 
   @Test

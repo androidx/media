@@ -15,7 +15,6 @@
  */
 package androidx.media3.demo.composition.ui
 
-import android.os.Build.VERSION.SDK_INT
 import android.os.LocaleList
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -94,7 +93,7 @@ internal fun VideoSequenceDialog(
               val duration = item.durationUs.toDuration(DurationUnit.MICROSECONDS)
               val durationString =
                 String.format(
-                  getLocaleWithSdk(),
+                  getDefaultLocale(),
                   "%02d:%02d",
                   duration.inWholeMinutes,
                   duration.inWholeSeconds % 60,
@@ -114,10 +113,6 @@ internal fun VideoSequenceDialog(
   }
 }
 
-private fun getLocaleWithSdk(): Locale {
-  return if (SDK_INT >= 24) {
-    LocaleList.getDefault().get(0) ?: Locale.getDefault()
-  } else {
-    Locale.getDefault()
-  }
+private fun getDefaultLocale(): Locale {
+  return LocaleList.getDefault().get(0) ?: Locale.getDefault()
 }

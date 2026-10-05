@@ -35,7 +35,6 @@ import android.media.AudioTrack;
 import android.os.Looper;
 import android.util.Pair;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -106,7 +105,6 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
      * @return This builder.
      */
     @CanIgnoreReturnValue
-    @RequiresApi(24)
     public Builder setAudioTrackBuilderModifier(
         BiConsumer<AudioTrack.Builder, OutputConfig> audioTrackBuilderModifier) {
       this.audioTrackBuilderModifier = audioTrackBuilderModifier;
@@ -381,7 +379,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
         if (SDK_INT >= 34 && contextForAudioTrack != null) {
           audioTrackBuilder.setContext(contextForAudioTrack);
         }
-        if (builderModifier != null && SDK_INT >= 24) {
+        if (builderModifier != null) {
           builderModifier.accept(audioTrackBuilder, config);
         }
         audioTrack = audioTrackBuilder.build();

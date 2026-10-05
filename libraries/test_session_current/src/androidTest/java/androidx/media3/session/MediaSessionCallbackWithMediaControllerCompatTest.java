@@ -15,8 +15,6 @@
  */
 package androidx.media3.session;
 
-import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media.MediaSessionManager.RemoteUserInfo.LEGACY_CONTROLLER;
 import static androidx.media3.common.Player.COMMAND_PLAY_PAUSE;
 import static androidx.media3.common.Player.COMMAND_PREPARE;
 import static androidx.media3.common.Player.COMMAND_SET_MEDIA_ITEM;
@@ -100,8 +98,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
   private static final String TAG = "MSCallbackWithMCCTest";
 
   private static final String TEST_URI = "http://test.test";
-  private static final String EXPECTED_CONTROLLER_PACKAGE_NAME =
-      SDK_INT >= 24 ? SUPPORT_APP_PACKAGE_NAME : LEGACY_CONTROLLER;
+  private static final String EXPECTED_CONTROLLER_PACKAGE_NAME = SUPPORT_APP_PACKAGE_NAME;
 
   @ClassRule public static MainLooperTestRule mainLooperTestRule = new MainLooperTestRule();
 

@@ -15,7 +15,6 @@
  */
 package androidx.media3.test.utils;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -195,19 +194,9 @@ public final class HostActivity extends Activity implements SurfaceHolder.Callba
   }
 
   @Override
-  public void onPause() {
-    super.onPause();
-    if (SDK_INT == 23) {
-      maybeStopHostedTest();
-    }
-  }
-
-  @Override
   public void onStop() {
     super.onStop();
-    if (SDK_INT > 23) {
-      maybeStopHostedTest();
-    }
+    maybeStopHostedTest();
     if (wakeLock != null) {
       wakeLock.release();
       wakeLock = null;

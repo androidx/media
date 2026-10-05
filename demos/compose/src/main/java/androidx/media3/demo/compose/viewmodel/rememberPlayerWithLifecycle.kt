@@ -19,7 +19,6 @@ package androidx.media3.demo.compose.viewmodel
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
-import android.os.Build
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -62,34 +61,18 @@ internal fun rememberPlayerWithLifecycle(
   DisposableEffect(lifecycleOwner) {
     val observer = LifecycleEventObserver { _, event ->
       val activity = context.findActivity()
-      if (Build.VERSION.SDK_INT > 23) {
-        when (event) {
-          Lifecycle.Event.ON_START -> {
-            playerViewModel.initializePlayer(currentUseCast)
-            playerViewModel.loadPlaylist(currentMediaItems, currentPlaylistName)
-          }
-          Lifecycle.Event.ON_STOP -> {
-            // Ignore simple configuration changes like rotation (see android:configChanges)
-            if (activity?.isChangingConfigurations != true) {
-              playerViewModel.releasePlayer()
-            }
-          }
-          else -> {}
+      when (event) {
+        Lifecycle.Event.ON_START -> {
+          playerViewModel.initializePlayer(currentUseCast)
+          playerViewModel.loadPlaylist(currentMediaItems, currentPlaylistName)
         }
-      } else {
-        // Call to onStop() is not guaranteed, hence we release the Player in onPause() instead
-        when (event) {
-          Lifecycle.Event.ON_RESUME -> {
-            playerViewModel.initializePlayer(currentUseCast)
-            playerViewModel.loadPlaylist(currentMediaItems, currentPlaylistName)
+        Lifecycle.Event.ON_STOP -> {
+          // Ignore simple configuration changes like rotation (see android:configChanges)
+          if (activity?.isChangingConfigurations != true) {
+            playerViewModel.releasePlayer()
           }
-          Lifecycle.Event.ON_PAUSE -> {
-            if (activity?.isChangingConfigurations != true) {
-              playerViewModel.releasePlayer()
-            }
-          }
-          else -> {}
         }
+        else -> {}
       }
     }
     lifecycleOwner.lifecycle.addObserver(observer)

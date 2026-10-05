@@ -18,7 +18,6 @@ package androidx.media3.test.utils;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.max;
 
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -29,7 +28,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  * number of times.
  */
 @UnstableApi
-@RequiresApi(24)
 public final class CountDownFuture extends AbstractFuture<Void> {
   private final AtomicInteger remaining;
 

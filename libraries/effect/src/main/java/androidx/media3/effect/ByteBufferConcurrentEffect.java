@@ -15,12 +15,10 @@
  */
 package androidx.media3.effect;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 
-import android.opengl.GLES20;
 import androidx.media3.common.C;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
@@ -208,35 +206,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         throws GlUtil.GlException {
       int pixelBufferSize = texturePixelBufferSize(textureInfo);
       pixelBufferObjectInfo = pixelBufferObjectProvider.getPixelBufferObject(pixelBufferSize);
-      if (SDK_INT >= 24) {
-        GlUtil.schedulePixelBufferRead(
-            textureInfo.fboId, textureInfo.width, textureInfo.height, pixelBufferObjectInfo.id);
-      }
+      GlUtil.schedulePixelBufferRead(
+          textureInfo.fboId, textureInfo.width, textureInfo.height, pixelBufferObjectInfo.id);
     }
 
     public void map() throws GlUtil.GlException {
       checkNotNull(pixelBufferObjectInfo);
-      ByteBuffer byteBuffer;
-      if (SDK_INT >= 24) {
-        byteBuffer =
-            GlUtil.mapPixelBufferObject(pixelBufferObjectInfo.id, pixelBufferObjectInfo.size);
-      } else {
-        // Asynchronous OpenGL reading isn't supported. Fall back to blocking glReadPixels.
-        int pixelBufferSize = texturePixelBufferSize(textureInfo);
-        byteBuffer = ByteBuffer.allocateDirect(pixelBufferSize);
-        GlUtil.focusFramebufferUsingCurrentContext(
-            textureInfo.fboId, textureInfo.width, textureInfo.height);
-        GlUtil.checkGlError();
-        GLES20.glReadPixels(
-            /* x= */ 0,
-            /* y= */ 0,
-            textureInfo.width,
-            textureInfo.height,
-            GLES20.GL_RGBA,
-            GLES20.GL_UNSIGNED_BYTE,
-            byteBuffer);
-        GlUtil.checkGlError();
-      }
+      ByteBuffer byteBuffer =
+          GlUtil.mapPixelBufferObject(pixelBufferObjectInfo.id, pixelBufferObjectInfo.size);
       imageSettableFuture.set(
           new ByteBufferGlEffect.Image(textureInfo.width, textureInfo.height, byteBuffer));
       mapped = true;
@@ -245,7 +222,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public void unmapAndRecycle(PixelBufferObjectProvider pixelBufferObjectProvider)
         throws GlUtil.GlException {
       checkNotNull(pixelBufferObjectInfo);
-      if (mapped && SDK_INT >= 24) {
+      if (mapped) {
         GlUtil.unmapPixelBufferObject(pixelBufferObjectInfo.id);
       }
       pixelBufferObjectProvider.recycle(pixelBufferObjectInfo);

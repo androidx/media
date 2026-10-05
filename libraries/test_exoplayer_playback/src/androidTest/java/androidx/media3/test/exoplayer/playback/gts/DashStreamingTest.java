@@ -30,7 +30,6 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecUtil.DecoderQueryException
 import androidx.media3.test.utils.ActionSchedule;
 import androidx.media3.test.utils.HostActivity;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.filters.SdkSuppress;
 import androidx.test.rule.ActivityTestRule;
 import org.junit.After;
 import org.junit.Before;
@@ -227,7 +226,7 @@ public final class DashStreamingTest {
 
   @Test
   public void h265AdaptiveV24() throws Exception {
-    if (SDK_INT < 24 || isPc()) {
+    if (isPc()) {
       // Pass.
       return;
     }
@@ -243,7 +242,7 @@ public final class DashStreamingTest {
 
   @Test
   public void h265AdaptiveWithSeekingV24() throws Exception {
-    if (SDK_INT < 24 || isPc()) {
+    if (isPc()) {
       // Pass.
       return;
     }
@@ -260,7 +259,7 @@ public final class DashStreamingTest {
 
   @Test
   public void h265AdaptiveWithRendererDisablingV24() throws Exception {
-    if (SDK_INT < 24 || isPc()) {
+    if (isPc()) {
       // Pass.
       return;
     }
@@ -291,10 +290,6 @@ public final class DashStreamingTest {
 
   @Test
   public void vp9AdaptiveV24() throws Exception {
-    if (SDK_INT < 24) {
-      // Pass.
-      return;
-    }
     testRunner
         .setStreamName("test_vp9_adaptive")
         .setManifestUrl(DashTestData.VP9_MANIFEST)
@@ -307,10 +302,6 @@ public final class DashStreamingTest {
 
   @Test
   public void vp9AdaptiveWithSeekingV24() throws Exception {
-    if (SDK_INT < 24) {
-      // Pass.
-      return;
-    }
     testRunner
         .setStreamName("test_vp9_adaptive_with_seeking")
         .setManifestUrl(DashTestData.VP9_MANIFEST)
@@ -324,10 +315,6 @@ public final class DashStreamingTest {
 
   @Test
   public void vp9AdaptiveWithRendererDisablingV24() throws Exception {
-    if (SDK_INT < 24) {
-      // Pass.
-      return;
-    }
     testRunner
         .setStreamName("test_vp9_adaptive_with_renderer_disabling")
         .setManifestUrl(DashTestData.VP9_MANIFEST)
@@ -473,7 +460,6 @@ public final class DashStreamingTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 24)
   public void widevineH265AdaptiveV24() throws Exception {
     assumeFalse(shouldSkipWidevineTest(testRule.getActivity()));
     assumeFalse(isPc());
@@ -491,7 +477,6 @@ public final class DashStreamingTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 24)
   public void widevineH265AdaptiveWithSeekingV24() throws Exception {
     assumeFalse(shouldSkipWidevineTest(testRule.getActivity()));
     assumeFalse(isPc());
@@ -510,7 +495,6 @@ public final class DashStreamingTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 24)
   public void widevineH265AdaptiveWithRendererDisablingV24() throws Exception {
     assumeFalse(shouldSkipWidevineTest(testRule.getActivity()));
     assumeFalse(isPc());
@@ -547,7 +531,6 @@ public final class DashStreamingTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 24)
   public void widevineVp9AdaptiveV24() throws Exception {
     assumeFalse(shouldSkipWidevineTest(testRule.getActivity()));
 
@@ -564,7 +547,6 @@ public final class DashStreamingTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 24)
   public void widevineVp9AdaptiveWithSeekingV24() throws Exception {
     assumeFalse(shouldSkipWidevineTest(testRule.getActivity()));
 
@@ -582,7 +564,6 @@ public final class DashStreamingTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 24)
   public void widevineVp9AdaptiveWithRendererDisablingV24() throws Exception {
     assumeFalse(shouldSkipWidevineTest(testRule.getActivity()));
 
@@ -664,7 +645,6 @@ public final class DashStreamingTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 24)
   public void decoderInfoH265V24() throws Exception {
     assumeFalse(isPc());
 
@@ -676,7 +656,6 @@ public final class DashStreamingTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 24)
   public void decoderInfoVP9V24() throws Exception {
 
     assertThat(

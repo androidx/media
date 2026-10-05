@@ -16,7 +16,6 @@
 package androidx.media3.session;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media.MediaSessionManager.RemoteUserInfo.LEGACY_CONTROLLER;
 import static androidx.media3.common.Player.STATE_ENDED;
 import static androidx.media3.session.MediaSession.ControllerInfo.LEGACY_CONTROLLER_VERSION;
 import static androidx.media3.test.session.common.CommonConstants.SUPPORT_APP_PACKAGE_NAME;
@@ -465,12 +464,9 @@ public class MediaSessionKeyEventTest {
     if (SDK_INT >= 28) {
       // Above API 28: package of the app using AudioManager.
       return SUPPORT_APP_PACKAGE_NAME;
-    } else if (SDK_INT >= 24) {
+    } else {
       // API 24 - 27: KeyEvent from system service has the package name "android".
       return "android";
-    } else {
-      // API 23: Fallback set by MediaSessionCompat#getCurrentControllerInfo
-      return LEGACY_CONTROLLER;
     }
   }
 

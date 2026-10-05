@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.scheduler;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.BroadcastReceiver;
@@ -29,7 +28,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 
@@ -89,11 +87,7 @@ public final class RequirementsWatcher {
 
     IntentFilter filter = new IntentFilter();
     if (requirements.isNetworkRequired()) {
-      if (SDK_INT >= 24) {
-        registerNetworkCallbackV24();
-      } else {
-        filter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
-      }
+      registerNetworkCallback();
     }
     if (requirements.isChargingRequired()) {
       filter.addAction(Intent.ACTION_POWER_CONNECTED);
@@ -115,8 +109,8 @@ public final class RequirementsWatcher {
   public void stop() {
     context.unregisterReceiver(checkNotNull(receiver));
     receiver = null;
-    if (SDK_INT >= 24 && networkCallback != null) {
-      unregisterNetworkCallbackV24();
+    if (networkCallback != null) {
+      unregisterNetworkCallback();
     }
   }
 
@@ -125,16 +119,14 @@ public final class RequirementsWatcher {
     return requirements;
   }
 
-  @RequiresApi(24)
-  private void registerNetworkCallbackV24() {
+  private void registerNetworkCallback() {
     ConnectivityManager connectivityManager =
         checkNotNull((ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE));
     networkCallback = new NetworkCallback();
     connectivityManager.registerDefaultNetworkCallback(networkCallback);
   }
 
-  @RequiresApi(24)
-  private void unregisterNetworkCallbackV24() {
+  private void unregisterNetworkCallback() {
     ConnectivityManager connectivityManager =
         checkNotNull((ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE));
     connectivityManager.unregisterNetworkCallback(checkNotNull(networkCallback));
@@ -176,7 +168,6 @@ public final class RequirementsWatcher {
     }
   }
 
-  @RequiresApi(24)
   private final class NetworkCallback extends ConnectivityManager.NetworkCallback {
 
     private boolean receivedCapabilitiesChange;

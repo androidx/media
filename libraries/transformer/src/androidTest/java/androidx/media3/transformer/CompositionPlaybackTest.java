@@ -47,7 +47,6 @@ import androidx.media3.test.utils.CountDownFuture;
 import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.PassthroughAudioProcessor;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -400,7 +399,6 @@ public class CompositionPlaybackTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 24) // For CountDownFuture.
   public void playback_withRepeatModeSet_succeeds() throws Exception {
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM).setDurationUs(VIDEO_DURATION_US).build();

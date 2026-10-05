@@ -300,32 +300,11 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   /** The codec should be reinitialized. */
   private static final int DRAIN_ACTION_REINITIALIZE = 3;
 
-  @Documented
-  @Retention(RetentionPolicy.SOURCE)
-  @Target(TYPE_USE)
-  @IntDef({
-    ADAPTATION_WORKAROUND_MODE_NEVER,
-    ADAPTATION_WORKAROUND_MODE_SAME_RESOLUTION,
-    ADAPTATION_WORKAROUND_MODE_ALWAYS
-  })
-  private @interface AdaptationWorkaroundMode {}
-
-  /** The adaptation workaround is never used. */
-  private static final int ADAPTATION_WORKAROUND_MODE_NEVER = 0;
-
-  /**
-   * The adaptation workaround is used when adapting between formats of the same resolution only.
-   */
-  private static final int ADAPTATION_WORKAROUND_MODE_SAME_RESOLUTION = 1;
-
-  /** The adaptation workaround is always used when adapting between formats. */
-  private static final int ADAPTATION_WORKAROUND_MODE_ALWAYS = 2;
-
   /**
    * H.264/AVC buffer to queue when using the adaptation workaround (see {@link
-   * #codecAdaptationWorkaroundMode(String)}. Consists of three NAL units with start codes: Baseline
-   * sequence/picture parameter sets and a 32 * 32 pixel IDR slice. This stream can be queued to
-   * force a resolution change when adapting to a new format.
+   * #codecNeedsAdaptationWorkaround(String)}). Consists of three NAL units with start codes:
+   * Baseline sequence/picture parameter sets and a 32 * 32 pixel IDR slice. This stream can be
+   * queued to force a resolution change when adapting to a new format.
    */
   private static final byte[] ADAPTATION_WORKAROUND_BUFFER =
       new byte[] {
@@ -379,9 +358,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   @Nullable private ArrayDeque<MediaCodecInfo> availableCodecInfos;
   @Nullable private DecoderInitializationException preferredDecoderInitializationException;
   @Nullable private MediaCodecInfo codecInfo;
-  private @AdaptationWorkaroundMode int codecAdaptationWorkaroundMode;
+  private boolean codecNeedsAdaptationWorkaround;
   private boolean codecNeedsSosFlushWorkaround;
-  private boolean codecNeedsEosFlushWorkaround;
   private boolean codecNeedsAdaptationWorkaroundBuffer;
   private boolean shouldSkipAdaptationWorkaroundOutputBuffer;
   private boolean codecNeedsEosPropagation;
@@ -467,7 +445,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     oggOpusAudioPacketizer = new OggOpusAudioPacketizer();
 
     codecOperatingRate = CODEC_OPERATING_RATE_UNSET;
-    codecAdaptationWorkaroundMode = ADAPTATION_WORKAROUND_MODE_NEVER;
     codecReconfigurationState = RECONFIGURATION_STATE_NONE;
     inputIndex = C.INDEX_UNSET;
     outputIndex = C.INDEX_UNSET;
@@ -1050,9 +1027,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    */
   protected boolean shouldReleaseCodecInsteadOfFlushing() {
     if (codecDrainAction == DRAIN_ACTION_REINITIALIZE
-        || (codecNeedsSosFlushWorkaround && !codecHasOutputMediaFormat)
-        || (codecNeedsEosFlushWorkaround
-            && (codecReceivedEos || codecDrainState == DRAIN_STATE_SIGNAL_END_OF_STREAM))) {
+        || (codecNeedsSosFlushWorkaround && !codecHasOutputMediaFormat)) {
       return true;
     }
     if (codecDrainAction == DRAIN_ACTION_FLUSH_AND_UPDATE_DRM_SESSION) {
@@ -1152,9 +1127,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     codecOutputMediaFormatChanged = false;
     codecHasOutputMediaFormat = false;
     codecOperatingRate = CODEC_OPERATING_RATE_UNSET;
-    codecAdaptationWorkaroundMode = ADAPTATION_WORKAROUND_MODE_NEVER;
+    codecNeedsAdaptationWorkaround = false;
     codecNeedsSosFlushWorkaround = false;
-    codecNeedsEosFlushWorkaround = false;
     codecNeedsEosPropagation = false;
     codecRegisteredOnBufferAvailableListener = false;
     codecReconfigured = false;
@@ -1430,15 +1404,13 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
     this.codecOperatingRate = codecOperatingRate;
     codecInputFormat = inputFormat;
-    codecAdaptationWorkaroundMode = codecAdaptationWorkaroundMode(codecName);
+    codecNeedsAdaptationWorkaround = codecNeedsAdaptationWorkaround(codecName);
     codecNeedsSosFlushWorkaround = codecNeedsSosFlushWorkaround(codecName);
-    codecNeedsEosFlushWorkaround = codecNeedsEosFlushWorkaround(codecName);
     codecNeedsEosPropagation = codecNeedsEosPropagationWorkaround(codecInfo);
     if (checkNotNull(codec).needsReconfiguration()) {
       this.codecReconfigured = true;
       this.codecReconfigurationState = RECONFIGURATION_STATE_WRITE_PENDING;
-      this.codecNeedsAdaptationWorkaroundBuffer =
-          codecAdaptationWorkaroundMode != ADAPTATION_WORKAROUND_MODE_NEVER;
+      this.codecNeedsAdaptationWorkaroundBuffer = codecNeedsAdaptationWorkaround;
     }
 
     if (getState() == STATE_STARTED) {
@@ -1886,11 +1858,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         updateCodecOperatingRate(newFormat);
         codecReconfigured = true;
         codecReconfigurationState = RECONFIGURATION_STATE_WRITE_PENDING;
-        codecNeedsAdaptationWorkaroundBuffer =
-            codecAdaptationWorkaroundMode == ADAPTATION_WORKAROUND_MODE_ALWAYS
-                || (codecAdaptationWorkaroundMode == ADAPTATION_WORKAROUND_MODE_SAME_RESOLUTION
-                    && newFormat.width == oldFormat.width
-                    && newFormat.height == oldFormat.height);
+        codecNeedsAdaptationWorkaroundBuffer = codecNeedsAdaptationWorkaround;
         codecInputFormat = newFormat;
         if (drainAndUpdateCodecDrmSession && !drainAndUpdateCodecDrmSession()) {
           overridingDiscardReasons |= DISCARD_REASON_WORKAROUND;
@@ -2358,7 +2326,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private void processOutputMediaFormatChanged() {
     codecHasOutputMediaFormat = true;
     MediaFormat mediaFormat = checkNotNull(codec).getOutputFormat();
-    if (codecAdaptationWorkaroundMode != ADAPTATION_WORKAROUND_MODE_NEVER
+    if (codecNeedsAdaptationWorkaround
         && mediaFormat.getInteger(MediaFormat.KEY_WIDTH) == ADAPTATION_WORKAROUND_SLICE_WIDTH_HEIGHT
         && mediaFormat.getInteger(MediaFormat.KEY_HEIGHT)
             == ADAPTATION_WORKAROUND_SLICE_WIDTH_HEIGHT) {
@@ -2842,7 +2810,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   }
 
   /**
-   * Returns a mode that specifies when the adaptation workaround should be enabled.
+   * Returns whether the adaptation workaround should be enabled.
    *
    * <p>When enabled, the workaround queues and discards a blank frame with a resolution whose width
    * and height both equal {@link #ADAPTATION_WORKAROUND_SLICE_WIDTH_HEIGHT}, to reset the decoder's
@@ -2852,29 +2820,18 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    * href="https://github.com/google/ExoPlayer/issues/3257">GitHub issue #3257</a>.
    *
    * @param name The name of the decoder.
-   * @return The mode specifying when the adaptation workaround should be enabled.
+   * @return Whether the adaptation workaround should be enabled.
    */
-  private @AdaptationWorkaroundMode int codecAdaptationWorkaroundMode(String name) {
+  private static boolean codecNeedsAdaptationWorkaround(String name) {
     if (!MediaLibraryInfo.enableWorkarounds()) {
-      return ADAPTATION_WORKAROUND_MODE_NEVER;
+      return false;
     }
-    if (SDK_INT <= 25
+    return SDK_INT <= 25
         && "OMX.Exynos.avc.dec.secure".equals(name)
         && (Build.MODEL.startsWith("SM-T585")
             || Build.MODEL.startsWith("SM-A510")
             || Build.MODEL.startsWith("SM-A520")
-            || Build.MODEL.startsWith("SM-J700"))) {
-      return ADAPTATION_WORKAROUND_MODE_ALWAYS;
-    } else if (SDK_INT < 24
-        && ("OMX.Nvidia.h264.decode".equals(name) || "OMX.Nvidia.h264.decode.secure".equals(name))
-        && ("flounder".equals(Build.DEVICE)
-            || "flounder_lte".equals(Build.DEVICE)
-            || "grouper".equals(Build.DEVICE)
-            || "tilapia".equals(Build.DEVICE))) {
-      return ADAPTATION_WORKAROUND_MODE_SAME_RESOLUTION;
-    } else {
-      return ADAPTATION_WORKAROUND_MODE_NEVER;
-    }
+            || Build.MODEL.startsWith("SM-J700"));
   }
 
   /**
@@ -2925,26 +2882,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
                 || "OMX.bcm.vdec.hevc.tunnel".equals(name)
                 || "OMX.bcm.vdec.hevc.tunnel.secure".equals(name)))
         || ("Amazon".equals(Build.MANUFACTURER) && "AFTS".equals(Build.MODEL) && codecInfo.secure);
-  }
-
-  /**
-   * Returns whether the decoder is known to behave incorrectly if flushed after receiving an input
-   * buffer with {@link MediaCodec#BUFFER_FLAG_END_OF_STREAM} set.
-   *
-   * <p>If true is returned, the renderer will work around the issue by instantiating a new decoder
-   * when this case occurs.
-   *
-   * <p>See [Internal: b/8578467, b/23361053].
-   *
-   * @param name The name of the decoder.
-   * @return True if the decoder is known to behave incorrectly if flushed after receiving an input
-   *     buffer with {@link MediaCodec#BUFFER_FLAG_END_OF_STREAM} set. False otherwise.
-   */
-  private static boolean codecNeedsEosFlushWorkaround(String name) {
-    if (!MediaLibraryInfo.enableWorkarounds()) {
-      return false;
-    }
-    return SDK_INT == 23 && "OMX.google.vorbis.decoder".equals(name);
   }
 
   private static final class OutputStreamInfo {
