@@ -89,7 +89,7 @@ public final class AudioTrackAudioOutputTest {
     Flags.enableFlag(Flags.FLAG_SKIP_AUDIO_TRACK_FLUSH_BEFORE_RELEASE);
     initializeAudioTrackAudioOutput();
     audioTrackAudioOutput.play();
-    boolean _ =
+    boolean unused =
         audioTrackAudioOutput.write(
             createByteBuffer(ONE_SECOND_BUFFER),
             /* encodedAccessUnitCount= */ 1,
@@ -108,7 +108,7 @@ public final class AudioTrackAudioOutputTest {
     Flags.disableFlag(Flags.FLAG_SKIP_AUDIO_TRACK_FLUSH_BEFORE_RELEASE);
     initializeAudioTrackAudioOutput();
     audioTrackAudioOutput.play();
-    boolean _ =
+    boolean unused =
         audioTrackAudioOutput.write(
             createByteBuffer(ONE_SECOND_BUFFER),
             /* encodedAccessUnitCount= */ 1,
@@ -127,7 +127,7 @@ public final class AudioTrackAudioOutputTest {
     Flags.enableFlag(Flags.FLAG_SKIP_AUDIO_TRACK_FLUSH_BEFORE_RELEASE);
     initializeAudioTrackAudioOutput();
     audioTrackAudioOutput.play();
-    boolean _ =
+    boolean unused =
         audioTrackAudioOutput.write(
             createByteBuffer(ONE_SECOND_BUFFER),
             /* encodedAccessUnitCount= */ 1,
@@ -188,7 +188,7 @@ public final class AudioTrackAudioOutputTest {
             MAX_PLAYBACK_SPEED,
             /* clock= */ clock);
     audioTrackAudioOutput.play();
-    boolean _ =
+    boolean unused =
         audioTrackAudioOutput.write(
             createByteBuffer(256), /* encodedAccessUnitCount= */ 1, /* presentationTimeUs= */ 0);
     assertThat(audioTrack.getPlaybackHeadPosition()).isEqualTo(256);
