@@ -311,11 +311,13 @@ public final class PreloadMediaSource extends WrappingMediaSource {
           if (isUsedByPlayer()) {
             onUsedByPlayer();
           } else {
-            this.preloadCalled = true;
             this.startPositionUs = startPositionUs;
             setPlayerId(PlayerId.PRELOAD);
             setBandwidthMeter(bandwidthMeter);
-            loadControl.onPrepared(PlayerId.PRELOAD);
+            if (!preloadCalled) {
+              loadControl.onPrepared(PlayerId.PRELOAD);
+              preloadCalled = true;
+            }
             prepareSourceInternal(bandwidthMeter.getTransferListener());
             checkForPreloadError();
           }

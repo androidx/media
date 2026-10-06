@@ -476,6 +476,33 @@ public final class PreloadMediaSourceTest {
   }
 
   @Test
+  public void preload_calledMultipleTimes_loadControlOnPreparedCalledOnce() {
+    TrackSelector trackSelector = new FakeTrackSelector();
+    trackSelector.init(unused -> {}, bandwidthMeter);
+    PreloadMediaSource.Factory preloadMediaSourceFactory =
+        new PreloadMediaSource.Factory(
+            new FakeMediaSourceFactory(),
+            mockPreloadControl,
+            trackSelector,
+            bandwidthMeter,
+            getRendererCapabilities(renderersFactory),
+            loadControl,
+            Util.getCurrentOrMainLooper());
+    preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+
+    preloadMediaSource.preload(/* startPositionUs= */ 0L);
+    shadowOf(Looper.getMainLooper()).idle();
+    preloadMediaSource.preload(/* startPositionUs= */ 1000L);
+    shadowOf(Looper.getMainLooper()).idle();
+    preloadMediaSource.releasePreloadMediaSource();
+    shadowOf(Looper.getMainLooper()).idle();
+
+    verify(loadControl).onPrepared(PlayerId.PRELOAD);
+    verify(loadControl).onReleased(PlayerId.PRELOAD);
+    preloadMediaSource = null; // Prevent double release in tearDown
+  }
+
+  @Test
   public void preload_periodPrepareErrorThrows_onPreloadErrorCalled() throws TimeoutException {
     AtomicReference<PreloadException> preloadExceptionReference = new AtomicReference<>();
     IOException causeException = new IOException("Failed to prepare the period");
