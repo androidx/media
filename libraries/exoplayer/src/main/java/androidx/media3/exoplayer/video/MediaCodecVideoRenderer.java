@@ -1755,6 +1755,18 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           } else if (isHevc) {
             HevcSeiUtil.stripNonHdr10PlusT35Metadata(bufferData);
           }
+        } else if (SDK_INT >= 37 && isHighBitdepth && isAv1) {
+          // For AV1 streams with bitdepth > 8, extract the HAGC metadata (if any) from the OBUs and
+          // set it explicitly on the MediaCodec instance on SDKs >= 37. This way the platform will
+          // use the metadata irrespective of which underlying AV1 decoder is being used. All T.35
+          // metadata is also stripped so that the decoder does not prefer it over the HAGC
+          // metadata set explicitly below.
+          byte[] hagcData = Av1ObuUtil.extractHagcMetadataAndStripAllT35Metadata(bufferData);
+          if (hagcData != null) {
+            Bundle codecParameters = new Bundle();
+            codecParameters.putByteArray(MediaFormat.KEY_HDR_ST2094_50_INFO, hagcData);
+            checkNotNull(getCodec()).setParameters(codecParameters);
+          }
         }
       }
       if (isAv1 && buffer.isKeyFrame()) {
@@ -1984,7 +1996,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         // HAGC (ST 2094-50) metadata from out-of-band track.
         // Android's MediaCodec API for ST 2094-50 expects the payload without the 5-byte T.35
         // header.
-        data.position(5);
+        data.position(CodecSpecificDataUtil.HAGC_T35_HEADER_LENGTH);
         byte[] hagcData = new byte[data.remaining()];
         data.get(hagcData);
         data.position(0);

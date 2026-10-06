@@ -7159,37 +7159,9 @@ public class MediaCodecVideoRendererTest {
   @Test
   public void handlesHagcSupplementalData() throws Exception {
     assumeTrue("Skipping HAGC test on SDK < 37", SDK_INT >= 37);
-    Bundle[] capturedParameters = new Bundle[1];
-    MediaCodecAdapter.Factory customAdapterFactory =
-        configuration -> {
-          MediaCodecAdapter adapter = codecAdapterFactory.createAdapter(configuration);
-          return new ForwardingMediaCodecAdapter(adapter) {
-            @Override
-            public void setParameters(Bundle params) {
-              capturedParameters[0] = params;
-              super.setParameters(params);
-            }
-          };
-        };
+    List<Bundle> capturedParameters = new ArrayList<>();
     MediaCodecVideoRenderer renderer =
-        new MediaCodecVideoRenderer(
-            new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
-                .setCodecAdapterFactory(customAdapterFactory)
-                .setMediaCodecSelector(mediaCodecSelector));
-    FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 0);
-    renderer.init(/* index= */ 0, PlayerId.UNSET, fakeClock);
-    Surface surface = new Surface(new SurfaceTexture(0));
-    renderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
-    FakeSampleStream fakeSampleStream =
-        createFakeSampleStream(
-            VIDEO_H264, ImmutableList.of(oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME)));
-    enableAndStartRenderer(renderer, VIDEO_H264, fakeSampleStream);
-    renderAndAdvance(
-        renderer,
-        fakeClock,
-        /* startPositionUs= */ 0,
-        /* stopCondition= */ () -> renderer.hasReadStreamToEnd(),
-        /* maxIterations= */ 100);
+        createAndStartRendererCapturingSetParameters(VIDEO_H264, capturedParameters);
     DecoderInputBuffer buffer =
         new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
     byte[] hagcMagic = createByteArray(0xB5, 0x00, 0x90, 0x00, 0x01);
@@ -7197,9 +7169,113 @@ public class MediaCodecVideoRendererTest {
     buffer.supplementalData = ByteBuffer.wrap(Bytes.concat(hagcMagic, payload));
     renderer.handleInputBufferSupplementalData(buffer);
 
-    assertThat(capturedParameters[0]).isNotNull();
-    assertThat(capturedParameters[0].getByteArray("hdr-st2094-50-info"))
+    assertThat(capturedParameters).hasSize(1);
+    assertThat(capturedParameters.get(0).getByteArray("hdr-st2094-50-info"))
         .isEqualTo(new byte[] {0x0A, 0x0B, 0x0C});
+  }
+
+  @Test
+  public void handlesAv1HighBitdepthInBandHagcMetadata() throws Exception {
+    assumeTrue("Skipping HAGC test on SDK < 37", SDK_INT >= 37);
+    List<Bundle> capturedParameters = new ArrayList<>();
+    MediaCodecVideoRenderer renderer =
+        createAndStartRendererCapturingSetParameters(
+            createAv1Format(/* bitdepth= */ 10), capturedParameters);
+    DecoderInputBuffer buffer =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
+    buffer.data = ByteBuffer.wrap(createAv1HagcMetadataObu());
+
+    renderer.onQueueInputBuffer(buffer);
+
+    assertThat(capturedParameters).hasSize(1);
+    assertThat(capturedParameters.get(0).getByteArray("hdr-st2094-50-info"))
+        .isEqualTo(new byte[] {0x0A, 0x0B, 0x0C});
+    assertThat(buffer.data.get(2)).isEqualTo((byte) 0x1F);
+  }
+
+  @Test
+  public void handlesAv1HighBitdepthInBandHagcAndHdr10PlusMetadata() throws Exception {
+    assumeTrue("Skipping HAGC test on SDK < 37", SDK_INT >= 37);
+    List<Bundle> capturedParameters = new ArrayList<>();
+    MediaCodecVideoRenderer renderer =
+        createAndStartRendererCapturingSetParameters(
+            createAv1Format(/* bitdepth= */ 10), capturedParameters);
+    DecoderInputBuffer buffer =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
+    byte[] av1Hdr10PlusMetadataObu =
+        createByteArray(
+            // AV1 metadata OBU (0x2A)
+            0x2A,
+            // OBU size 10 (0x0A)
+            0x0A,
+            // metadata_type = 4 (0x04)
+            0x04,
+            // HDR10+ T.35 header
+            0xB5,
+            0x00,
+            0x3C,
+            0x00,
+            0x01,
+            0x04,
+            // HDR10+ payload
+            0x01,
+            0x02,
+            // OBU trailing bits (0x80)
+            0x80);
+    // HDR10+ metadata OBU (bytes 0-11) followed by HAGC metadata OBU (bytes 12-23).
+    buffer.data =
+        ByteBuffer.wrap(Bytes.concat(av1Hdr10PlusMetadataObu, createAv1HagcMetadataObu()));
+
+    renderer.onQueueInputBuffer(buffer);
+
+    assertThat(capturedParameters).hasSize(1);
+    assertThat(capturedParameters.get(0).getByteArray("hdr-st2094-50-info"))
+        .isEqualTo(new byte[] {0x0A, 0x0B, 0x0C});
+    // Both the HDR10+ and the HAGC metadata OBUs are rewritten as unknown metadata OBUs.
+    assertThat(buffer.data.get(2)).isEqualTo((byte) 0x1F);
+    assertThat(buffer.data.get(14)).isEqualTo((byte) 0x1F);
+  }
+
+  @Test
+  public void av1EightBitInBandHagcMetadata_isIgnored() throws Exception {
+    assumeTrue("Skipping HAGC test on SDK < 37", SDK_INT >= 37);
+    List<Bundle> capturedParameters = new ArrayList<>();
+    MediaCodecVideoRenderer renderer =
+        createAndStartRendererCapturingSetParameters(
+            createAv1Format(/* bitdepth= */ 8), capturedParameters);
+    DecoderInputBuffer buffer =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
+    buffer.data = ByteBuffer.wrap(createAv1HagcMetadataObu());
+
+    renderer.onQueueInputBuffer(buffer);
+
+    assertThat(capturedParameters).isEmpty();
+    assertThat(buffer.data).isEqualTo(ByteBuffer.wrap(createAv1HagcMetadataObu()));
+  }
+
+  @Test
+  public void av1HighBitdepthInBandHagcMetadata_withContainerHagc_usesContainerHagc()
+      throws Exception {
+    assumeTrue("Skipping HAGC test on SDK < 37", SDK_INT >= 37);
+    List<Bundle> capturedParameters = new ArrayList<>();
+    MediaCodecVideoRenderer renderer =
+        createAndStartRendererCapturingSetParameters(
+            createAv1Format(/* bitdepth= */ 10), capturedParameters);
+    DecoderInputBuffer buffer =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
+    byte[] hagcMagic = createByteArray(0xB5, 0x00, 0x90, 0x00, 0x01);
+    byte[] containerPayload = createByteArray(0x01, 0x02, 0x03);
+    buffer.supplementalData = ByteBuffer.wrap(Bytes.concat(hagcMagic, containerPayload));
+    buffer.data = ByteBuffer.wrap(createAv1HagcMetadataObu());
+
+    renderer.handleInputBufferSupplementalData(buffer);
+    renderer.onQueueInputBuffer(buffer);
+
+    assertThat(capturedParameters).hasSize(1);
+    assertThat(capturedParameters.get(0).getByteArray("hdr-st2094-50-info"))
+        .isEqualTo(containerPayload);
+    // The in-band HAGC metadata OBU is still rewritten as an unknown metadata OBU.
+    assertThat(buffer.data.get(2)).isEqualTo((byte) 0x1F);
   }
 
   private static MediaCodecInfo createMediaCodecInfo(String mimeType) {
@@ -7982,6 +8058,79 @@ public class MediaCodecVideoRendererTest {
         return C.CRYPTO_TYPE_CUSTOM_BASE;
       }
     };
+  }
+
+  private MediaCodecVideoRenderer createAndStartRendererCapturingSetParameters(
+      Format format, List<Bundle> capturedParameters) throws Exception {
+    MediaCodecAdapter.Factory customAdapterFactory =
+        configuration -> {
+          MediaCodecAdapter adapter = codecAdapterFactory.createAdapter(configuration);
+          return new ForwardingMediaCodecAdapter(adapter) {
+            @Override
+            public void setParameters(Bundle params) {
+              capturedParameters.add(params);
+              super.setParameters(params);
+            }
+          };
+        };
+    MediaCodecVideoRenderer renderer =
+        new MediaCodecVideoRenderer(
+            new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
+                .setCodecAdapterFactory(customAdapterFactory)
+                .setMediaCodecSelector(mediaCodecSelector));
+    FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 0);
+    renderer.init(/* index= */ 0, PlayerId.UNSET, fakeClock);
+    Surface surface = new Surface(new SurfaceTexture(0));
+    renderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
+    FakeSampleStream fakeSampleStream =
+        createFakeSampleStream(
+            format, ImmutableList.of(oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME)));
+    enableAndStartRenderer(renderer, format, fakeSampleStream);
+    renderAndAdvance(
+        renderer,
+        fakeClock,
+        /* startPositionUs= */ 0,
+        /* stopCondition= */ () -> renderer.hasReadStreamToEnd(),
+        /* maxIterations= */ 100);
+    return renderer;
+  }
+
+  private static Format createAv1Format(int bitdepth) {
+    return new Format.Builder()
+        .setSampleMimeType(MimeTypes.VIDEO_AV1)
+        .setWidth(1920)
+        .setHeight(1080)
+        .setColorInfo(
+            new ColorInfo.Builder()
+                .setColorSpace(C.COLOR_SPACE_BT2020)
+                .setColorRange(C.COLOR_RANGE_LIMITED)
+                .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                .setLumaBitdepth(bitdepth)
+                .setChromaBitdepth(bitdepth)
+                .build())
+        .build();
+  }
+
+  private static byte[] createAv1HagcMetadataObu() {
+    return createByteArray(
+        // AV1 metadata OBU (0x2A)
+        0x2A,
+        // OBU size 10 (0x0A)
+        0x0A,
+        // metadata_type = 4 (0x04)
+        0x04,
+        // HAGC T.35 header
+        0xB5,
+        0x00,
+        0x90,
+        0x00,
+        0x01,
+        // HAGC payload
+        0x0A,
+        0x0B,
+        0x0C,
+        // OBU trailing bits (0x80)
+        0x80);
   }
 
   private FakeSampleStream createFakeSampleStream(

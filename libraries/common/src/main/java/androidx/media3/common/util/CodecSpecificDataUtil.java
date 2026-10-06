@@ -2360,6 +2360,12 @@ public final class CodecSpecificDataUtil {
   };
 
   /**
+   * The length in bytes of the ITU-T T.35 header that prefixes HAGC (ST 2094-50) metadata in AV1
+   * OBUs, HEVC SEIs and container metadata.
+   */
+  public static final int HAGC_T35_HEADER_LENGTH = expectedHagcPayloadPrefix.length;
+
+  /**
    * Returns whether the given {@link ByteBuffer} contains HDR10+ metadata at the current position.
    *
    * @param payload The {@link ByteBuffer} to check.

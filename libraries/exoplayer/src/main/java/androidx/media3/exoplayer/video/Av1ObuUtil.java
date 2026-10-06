@@ -15,18 +15,97 @@
  */
 package androidx.media3.exoplayer.video;
 
+import androidx.annotation.Nullable;
 import androidx.media3.common.util.CodecSpecificDataUtil;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.ObuParser;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 
 /** Utility methods for AV1 OBUs. */
 @UnstableApi
 public final class Av1ObuUtil {
 
+  private static final String TAG = "Av1ObuUtil";
+
   private Av1ObuUtil() {}
+
+  /**
+   * Extracts HAGC (ST 2094-50) metadata from the first valid HAGC ITU-T T.35 metadata OBU in the
+   * buffer. If one is found, all ITU-T T.35 metadata OBUs in the buffer (including HAGC and HDR10+)
+   * are rewritten as unknown metadata OBUs so that the decoder does not prefer any in-band T.35
+   * metadata over the returned HAGC metadata.
+   *
+   * <p>If no valid HAGC metadata OBU is found, {@code buffer} remains unchanged. In either case,
+   * the {@code position()} and {@code limit()} of {@code buffer} remain unchanged.
+   *
+   * @param buffer The {@link ByteBuffer} containing AV1 OBUs.
+   * @return The HAGC payload without the ITU-T T.35 header and the AV1 OBU trailing bits ({@code
+   *     0x80} followed by any zero padding bytes), or {@code null} if no valid HAGC metadata OBU is
+   *     found.
+   */
+  @Nullable
+  public static byte[] extractHagcMetadataAndStripAllT35Metadata(ByteBuffer buffer) {
+    @Nullable byte[] hagcData = null;
+    List<Integer> t35MetadataTypeIndices = new ArrayList<>();
+    for (ObuParser.Obu obu : ObuParser.split(buffer)) {
+      if (obu.type != ObuParser.OBU_METADATA) {
+        continue;
+      }
+      ObuParser.Metadata metadata;
+      try {
+        metadata = ObuParser.Metadata.parse(obu);
+      } catch (BufferUnderflowException e) {
+        // Malformed metadata OBU, do not attempt to process it and let the underlying decoder deal
+        // with any potential errors.
+        continue;
+      }
+      if (metadata.type != ObuParser.Metadata.METADATA_TYPE_ITUT_T35) {
+        continue;
+      }
+      t35MetadataTypeIndices.add(obu.payload.position());
+      if (!CodecSpecificDataUtil.isHagcMetadata(metadata.payload)) {
+        continue;
+      }
+      if (hagcData != null) {
+        Log.w(TAG, "Found multiple HAGC metadata OBUs in the same temporal unit. Using the first.");
+        continue;
+      }
+      hagcData = readHagcPayload(metadata.payload);
+    }
+    if (hagcData != null) {
+      for (int index : t35MetadataTypeIndices) {
+        // Mark as an unknown metadata OBU. See stripT35Metadata for details.
+        buffer.put(index, (byte) 0x1F);
+      }
+    }
+    return hagcData;
+  }
+
+  /**
+   * Returns the HAGC payload in {@code payload} without the ITU-T T.35 header and the AV1 OBU
+   * trailing bits, or {@code null} if the payload is empty or the trailing bits are missing.
+   */
+  @Nullable
+  private static byte[] readHagcPayload(ByteBuffer payload) {
+    int startIndex = payload.position() + CodecSpecificDataUtil.HAGC_T35_HEADER_LENGTH;
+    int lastNonZeroIndex = payload.limit() - 1;
+    while (lastNonZeroIndex >= startIndex && payload.get(lastNonZeroIndex) == 0) {
+      lastNonZeroIndex--;
+    }
+    int length = lastNonZeroIndex - startIndex;
+    if (length <= 0 || (payload.get(lastNonZeroIndex) & 0xFF) != 0x80) {
+      // Malformed OBU or empty HAGC payload.
+      return null;
+    }
+    byte[] hagcData = new byte[length];
+    payload.position(startIndex);
+    payload.get(hagcData);
+    return hagcData;
+  }
 
   /**
    * Rewrites all ITU-T T35 metadata OBUs from the buffer. This is done to prevent the decoder from
