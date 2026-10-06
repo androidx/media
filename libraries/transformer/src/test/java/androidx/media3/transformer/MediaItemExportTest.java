@@ -1503,6 +1503,52 @@ public final class MediaItemExportTest {
   }
 
   @Test
+  public void getProgress_trimOptimizationEnabledButAbandoned_givesIncreasingPercentages()
+      throws Exception {
+    Transformer transformer =
+        new TestTransformerBuilder(context).experimentalSetTrimOptimizationEnabled(true).build();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(14_000).build())
+            .build();
+
+    transformer.start(mediaItem, outputDir.newFile().getPath());
+    ImmutableList<Integer> progressValues =
+        runTransformerForProgressStateAndValueUpdates(transformer).second;
+
+    assertThat(progressValues.size()).isAtLeast(2);
+    assertThat(progressValues.get(0)).isAtLeast(0);
+    assertThat(progressValues).isInStrictOrder();
+    assertThat(Iterables.getLast(progressValues)).isAtMost(100);
+  }
+
+  @Test
+  public void getProgress_trimOptimizationEnabledButAbandoned_returnsConsistentStates()
+      throws Exception {
+    Transformer transformer =
+        new TestTransformerBuilder(context).experimentalSetTrimOptimizationEnabled(true).build();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(14_000).build())
+            .build();
+
+    transformer.start(mediaItem, outputDir.newFile().getPath());
+    ImmutableList<@Transformer.ProgressState Integer> progressStates =
+        runTransformerForProgressStateAndValueUpdates(transformer).first;
+
+    assertThat(progressStates)
+        .containsExactly(
+            PROGRESS_STATE_WAITING_FOR_AVAILABILITY,
+            PROGRESS_STATE_AVAILABLE,
+            PROGRESS_STATE_NOT_STARTED)
+        .inOrder();
+  }
+
+  @Test
   public void cancel_afterCompletion_doesNotThrow() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
     Transformer transformer =

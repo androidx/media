@@ -161,6 +161,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public @ProgressState int getProgress(ProgressHolder progressHolder) {
+    if (state == STATE_PROCESS_FULL_INPUT) {
+      return getNextAccumulatedProgress(
+          /* progressSoFar= */ 0, /* nextProgressWeight= */ 1, progressHolder);
+    }
     if (mediaItemInfo == null) {
       return PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
     }
