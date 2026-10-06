@@ -20,6 +20,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 import androidx.media3.common.Flags;
 import androidx.media3.common.util.UnstableApi;
+import com.google.errorprone.annotations.Keep;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -33,6 +34,7 @@ import java.lang.annotation.Target;
 @Documented
 @Retention(RUNTIME)
 @Target(FIELD)
+@Keep
 @UnstableApi
 public @interface BindFlag {
 

@@ -193,35 +193,30 @@ public class Media3FlagsRuleTest {
     assertThrows(IllegalArgumentException.class, appliedStatement::evaluate);
   }
 
-  // Fields are read reflectively by Media3FlagsRule.
-  @SuppressWarnings({"unused", "FieldCanBeStatic"})
+  @SuppressWarnings("FieldCanBeStatic")
   private static class TargetWithBindFlagTrue {
     @BindFlag(TEST_FLAG_1)
     private final boolean flagEnabled = true;
   }
 
-  // Fields are read reflectively by Media3FlagsRule.
-  @SuppressWarnings({"unused", "FieldCanBeStatic"})
+  @SuppressWarnings("FieldCanBeStatic")
   private static class TargetWithBindFlagFalse {
     @BindFlag(TEST_FLAG_1)
     private final boolean flagEnabled = false;
   }
 
-  // Fields are read reflectively by Media3FlagsRule.
-  @SuppressWarnings({"unused", "FieldCanBeStatic"})
+  @SuppressWarnings("FieldCanBeStatic")
   private static class TargetWithBoxedBooleanBindFlag {
     @BindFlag(TEST_FLAG_1)
     private final Boolean flagEnabled = Boolean.TRUE;
   }
 
-  // Fields are read reflectively by Media3FlagsRule.
-  @SuppressWarnings({"unused", "FieldCanBeStatic"})
+  @SuppressWarnings("FieldCanBeStatic")
   private static class TargetWithBindCanaryModeDisabled {
     @BindCanaryMode private final boolean canaryMode = false;
   }
 
-  // Fields are read reflectively by Media3FlagsRule.
-  @SuppressWarnings({"unused", "FieldCanBeStatic"})
+  @SuppressWarnings("FieldCanBeStatic")
   private static class TargetWithMultipleFlagsAndCanaryMode {
     @BindCanaryMode private final boolean canaryMode = false;
 
@@ -232,29 +227,25 @@ public class Media3FlagsRuleTest {
     private final boolean flag2 = false;
   }
 
-  // Fields are read reflectively by Media3FlagsRule.
-  @SuppressWarnings({"unused", "FieldCanBeStatic"})
+  @SuppressWarnings("FieldCanBeStatic")
   private static class BaseTestClass {
     @BindFlag(TEST_FLAG_1)
     private final boolean baseFlag = true;
   }
 
-  // Fields are read reflectively by Media3FlagsRule.
-  @SuppressWarnings({"unused", "FieldCanBeStatic"})
+  @SuppressWarnings("FieldCanBeStatic")
   private static class SubTestClass extends BaseTestClass {
     @BindFlag(TEST_FLAG_2)
     private final boolean subFlag = false;
   }
 
-  // Fields are read reflectively by Media3FlagsRule.
-  @SuppressWarnings({"unused", "FieldCanBeStatic"})
+  @SuppressWarnings("FieldCanBeStatic")
   private static class TargetWithNonBooleanFieldForBindFlag {
     @BindFlag(TEST_FLAG_1)
     private final int invalidType = 123;
   }
 
-  // Fields are read reflectively by Media3FlagsRule.
-  @SuppressWarnings({"unused", "FieldCanBeStatic"})
+  @SuppressWarnings("FieldCanBeStatic")
   private static class TargetWithNonBooleanFieldForBindCanaryMode {
     @BindCanaryMode private final String invalidType = "true";
   }
