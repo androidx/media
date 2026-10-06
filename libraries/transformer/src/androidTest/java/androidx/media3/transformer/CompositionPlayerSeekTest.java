@@ -48,7 +48,6 @@ import androidx.media3.common.Player;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.ConditionVariable;
-import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.common.video.Frame;
@@ -61,7 +60,6 @@ import androidx.media3.test.utils.PlayerFence;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.filters.SdkSuppress;
 import com.google.common.base.Ascii;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -1042,30 +1040,19 @@ public class CompositionPlayerSeekTest {
         new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item)))
             .build();
 
+    // Advance the player first to seek backwards.
+    SettableFuture<Void> passed500MsFuture = SettableFuture.create();
     getInstrumentation()
         .runOnMainSync(
             () -> {
               player.set(new CompositionPlayer.Builder(applicationContext).build());
               player.get().setComposition(composition);
+              passed500MsFuture.setFuture(
+                  futureWhen(player.get()).passesContentPosition(/* targetPositionMs= */ 500));
               player.get().prepare();
               player.get().play();
             });
-
-    HandlerWrapper handler =
-        player
-            .get()
-            .getClock()
-            .createHandler(player.get().getApplicationLooper(), /* callback= */ null);
-
-    // Advance the player first to seek backwards.
-    assertWithMessage("Player position did not advance to 500ms.")
-        .that(
-            pollingWaitUntilCondition(
-                /* timeoutMs= */ 2_000,
-                /* pollIntervalMs= */ 100,
-                handler,
-                () -> player.get().getCurrentPosition() >= 500))
-        .isTrue();
+    passed500MsFuture.get();
 
     SettableFuture<Void> readyFuture = SettableFuture.create();
     // Seek backwards to avoid any seeking optimization (e.g. decode forward).
@@ -1107,30 +1094,19 @@ public class CompositionPlayerSeekTest {
         new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item)))
             .build();
 
+    // Advance the player first to seek backwards.
+    SettableFuture<Void> passed500MsFuture = SettableFuture.create();
     getInstrumentation()
         .runOnMainSync(
             () -> {
               player.set(new CompositionPlayer.Builder(applicationContext).build());
               player.get().setComposition(composition);
+              passed500MsFuture.setFuture(
+                  futureWhen(player.get()).passesContentPosition(/* targetPositionMs= */ 500));
               player.get().prepare();
               player.get().play();
             });
-
-    HandlerWrapper handler =
-        player
-            .get()
-            .getClock()
-            .createHandler(player.get().getApplicationLooper(), /* callback= */ null);
-
-    // Advance the player first to seek backwards.
-    assertWithMessage("Player position did not advance to 500ms.")
-        .that(
-            pollingWaitUntilCondition(
-                /* timeoutMs= */ 2_000,
-                /* pollIntervalMs= */ 100,
-                handler,
-                () -> player.get().getCurrentPosition() >= 500))
-        .isTrue();
+    passed500MsFuture.get();
 
     SettableFuture<Void> readyFuture = SettableFuture.create();
     // Seek backwards to avoid any seeking optimization (e.g. decode forward).
@@ -1503,27 +1479,6 @@ public class CompositionPlayerSeekTest {
             });
 
     endedFuture.get();
-  }
-
-  private static boolean pollingWaitUntilCondition(
-      long timeoutMs, long pollIntervalMs, HandlerWrapper handler, Supplier<Boolean> predicate)
-      throws InterruptedException {
-    ConditionVariable isDone = new ConditionVariable();
-    handler.postDelayed(() -> evaluate(isDone, pollIntervalMs, handler, predicate), pollIntervalMs);
-    return isDone.block(timeoutMs);
-  }
-
-  private static void evaluate(
-      ConditionVariable isDone,
-      long pollIntervalMs,
-      HandlerWrapper handler,
-      Supplier<Boolean> predicate) {
-    if (predicate.get()) {
-      isDone.open();
-    } else {
-      handler.postDelayed(
-          () -> evaluate(isDone, pollIntervalMs, handler, predicate), pollIntervalMs);
-    }
   }
 
   /**
