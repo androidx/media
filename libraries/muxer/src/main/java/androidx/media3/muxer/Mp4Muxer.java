@@ -535,6 +535,7 @@ public final class Mp4Muxer implements Muxer {
           "Unsupported Dolby Vision profile for format: " + format,
           new IllegalArgumentException("Unsupported Dolby Vision codecs: " + format.codecs));
     }
+    // TODO: b/561659631 - Validate track format eagerly when adding track.
     Track track;
     if (outputFileFormat == FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION
         && isAuxiliaryTrack(format)) {

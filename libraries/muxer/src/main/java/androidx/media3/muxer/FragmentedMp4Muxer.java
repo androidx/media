@@ -224,6 +224,7 @@ public final class FragmentedMp4Muxer implements Muxer {
           "Unsupported Dolby Vision profile for format: " + format,
           new IllegalArgumentException("Unsupported Dolby Vision codecs: " + format.codecs));
     }
+    // TODO: b/561659631 - Validate track format eagerly when adding track.
     Track track = fragmentedMp4Writer.addTrack(/* sortKey= */ 1, format);
     trackIdToTrack.append(track.id, track);
     return track.id;

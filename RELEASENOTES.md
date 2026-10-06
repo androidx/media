@@ -185,6 +185,8 @@
         ([#3389](https://github.com/androidx/media/issues/3389)).
     *   Reject unsupported Dolby Vision profiles in `Mp4Muxer` and
         `FragmentedMp4Muxer` when adding tracks.
+    *   Support 24-bit and 32-bit integer PCM audio tracks in `Mp4Muxer` and
+        `FragmentedMp4Muxer`.
 *   IMA extension:
     *   Forward player pause and resume events to the IMA SDK in
         `ImaServerSideAdInsertionMediaSource`.

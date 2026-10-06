@@ -16,6 +16,7 @@
 package androidx.media3.muxer;
 
 import static androidx.media3.common.util.Util.getPcmFormat;
+import static androidx.media3.common.util.Util.getPcmFrameSize;
 import static androidx.media3.common.util.Util.isPcmEncodingBigEndian;
 import static androidx.media3.muxer.Mp4Muxer.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION;
 import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
@@ -26,6 +27,7 @@ import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
 import static androidx.media3.muxer.MuxerTestUtil.getFakeSampleAndSampleInfo;
 import static androidx.media3.test.utils.TestUtil.buildDoubleTestSamples;
 import static androidx.media3.test.utils.TestUtil.buildFloatTestSamples;
+import static androidx.media3.test.utils.TestUtil.buildTestData;
 import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static androidx.media3.test.utils.TestUtil.createByteBuffer;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -412,12 +414,12 @@ public class Mp4MuxerEndToEndTest {
   }
 
   @Test
-  public void createMp4File_withAudioPcmFloat_writesAndExtractsCorrectSamples(
-      @TestParameter(valuesProvider = FloatPcmEncodingValuesProvider.class) @C.PcmEncoding
+  public void createMp4File_withPcmCBox_writesAndExtractsCorrectSamples(
+      @TestParameter(valuesProvider = PcmCEncodingValuesProvider.class) @C.PcmEncoding
           int pcmEncoding)
       throws Exception {
     File outputFile = temporaryFolder.newFile();
-    Format pcmFloatFormat = getPcmFormat(pcmEncoding, /* channels= */ 1, /* sampleRate= */ 48_000);
+    Format pcmFormat = getPcmFormat(pcmEncoding, /* channels= */ 1, /* sampleRate= */ 48_000);
     ByteBuffer sampleBuffer = getTestSamplesForEncoding(pcmEncoding);
     byte[] sampleData = createByteArray(sampleBuffer.duplicate());
     BufferInfo bufferInfo =
@@ -425,7 +427,7 @@ public class Mp4MuxerEndToEndTest {
 
     try (Mp4Muxer mp4Muxer =
         new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFile.getPath())).build()) {
-      int audioTrack = mp4Muxer.addTrack(pcmFloatFormat);
+      int audioTrack = mp4Muxer.addTrack(pcmFormat);
       mp4Muxer.writeSampleData(audioTrack, sampleBuffer, bufferInfo);
     }
 
@@ -437,6 +439,22 @@ public class Mp4MuxerEndToEndTest {
     assertThat(extractedFormat.sampleMimeType).isEqualTo(MimeTypes.AUDIO_RAW);
     assertThat(extractedFormat.pcmEncoding).isEqualTo(pcmEncoding);
     assertThat(trackOutput.getSampleData(/* index= */ 0)).isEqualTo(sampleData);
+  }
+
+  @Test
+  public void createMp4File_with8BitPcm_throws() throws Exception {
+    File outputFile = temporaryFolder.newFile();
+    Format pcmFormat =
+        getPcmFormat(C.ENCODING_PCM_8BIT, /* channels= */ 1, /* sampleRate= */ 48_000);
+    ByteBuffer sampleBuffer = ByteBuffer.allocate(100);
+    BufferInfo bufferInfo =
+        new BufferInfo(/* presentationTimeUs= */ 0L, 100, C.BUFFER_FLAG_KEY_FRAME);
+
+    Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFile.getPath())).build();
+    int audioTrack = mp4Muxer.addTrack(pcmFormat);
+    mp4Muxer.writeSampleData(audioTrack, sampleBuffer, bufferInfo);
+    // Moov box and format validation are deferred until the muxer is closed.
+    assertThrows(IllegalArgumentException.class, mp4Muxer::close);
   }
 
   @Test
@@ -1446,24 +1464,34 @@ public class Mp4MuxerEndToEndTest {
 
   private static ByteBuffer getTestSamplesForEncoding(@C.PcmEncoding int pcmEncoding) {
     Random random = new Random(/* seed= */ 0);
+    int sampleCount = 100;
     ByteBuffer sampleBuffer;
     if (pcmEncoding == C.ENCODING_PCM_DOUBLE || pcmEncoding == C.ENCODING_PCM_DOUBLE_BIG_ENDIAN) {
-      sampleBuffer = createByteBuffer(buildDoubleTestSamples(/* length= */ 100, random));
+      sampleBuffer = createByteBuffer(buildDoubleTestSamples(sampleCount, random));
+    } else if (pcmEncoding == C.ENCODING_PCM_FLOAT
+        || pcmEncoding == C.ENCODING_PCM_FLOAT_BIG_ENDIAN) {
+      sampleBuffer = createByteBuffer(buildFloatTestSamples(sampleCount, random));
     } else {
-      sampleBuffer = createByteBuffer(buildFloatTestSamples(/* length= */ 100, random));
+      int bytesPerSample = getPcmFrameSize(pcmEncoding, /* channelCount= */ 1);
+      byte[] rawBytes = buildTestData(sampleCount * bytesPerSample, random);
+      sampleBuffer = createByteBuffer(rawBytes);
     }
     return sampleBuffer.order(
         isPcmEncodingBigEndian(pcmEncoding) ? ByteOrder.BIG_ENDIAN : ByteOrder.LITTLE_ENDIAN);
   }
 
-  private static final class FloatPcmEncodingValuesProvider extends TestParameterValuesProvider {
+  private static final class PcmCEncodingValuesProvider extends TestParameterValuesProvider {
     @Override
     protected ImmutableList<?> provideValues(TestParameterValuesProvider.Context context) {
       return ImmutableList.of(
           value(C.ENCODING_PCM_FLOAT).withName("ENCODING_PCM_FLOAT"),
           value(C.ENCODING_PCM_FLOAT_BIG_ENDIAN).withName("ENCODING_PCM_FLOAT_BIG_ENDIAN"),
           value(C.ENCODING_PCM_DOUBLE).withName("ENCODING_PCM_DOUBLE"),
-          value(C.ENCODING_PCM_DOUBLE_BIG_ENDIAN).withName("ENCODING_PCM_DOUBLE_BIG_ENDIAN"));
+          value(C.ENCODING_PCM_DOUBLE_BIG_ENDIAN).withName("ENCODING_PCM_DOUBLE_BIG_ENDIAN"),
+          value(C.ENCODING_PCM_24BIT).withName("ENCODING_PCM_24BIT"),
+          value(C.ENCODING_PCM_24BIT_BIG_ENDIAN).withName("ENCODING_PCM_24BIT_BIG_ENDIAN"),
+          value(C.ENCODING_PCM_32BIT).withName("ENCODING_PCM_32BIT"),
+          value(C.ENCODING_PCM_32BIT_BIG_ENDIAN).withName("ENCODING_PCM_32BIT_BIG_ENDIAN"));
     }
   }
 }

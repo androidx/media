@@ -17,6 +17,7 @@ package androidx.media3.muxer;
 
 import static androidx.media3.common.MimeTypes.allSamplesAreSyncSamples;
 import static androidx.media3.common.util.Util.getPcmFrameSize;
+import static androidx.media3.common.util.Util.isEncodingLinearPcm;
 import static androidx.media3.common.util.Util.isFloatPcmEncoding;
 import static androidx.media3.common.util.Util.isPcmEncodingBigEndian;
 import static androidx.media3.muxer.MuxerUtil.UNSIGNED_INT_MAX_VALUE;
@@ -785,12 +786,14 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       case MimeTypes.AUDIO_IAMF:
         return iacbBox(format);
       case MimeTypes.AUDIO_RAW:
-        if (isFloatPcmEncoding(format.pcmEncoding)) {
-          return pcmCBox(format);
+        if (!isEncodingLinearPcm(format.pcmEncoding) || format.pcmEncoding == C.ENCODING_PCM_8BIT) {
+          throw new IllegalArgumentException("Unsupported encoding: " + format.pcmEncoding);
         }
-        // Non-standard QuickTime format for 16-bit integer PCM (sowt/twos) does not use a
-        // codec-specific configuration box, unlike the newer ipcm support in the MP4 spec.
-        return ByteBuffer.allocate(0);
+        if (format.pcmEncoding == C.ENCODING_PCM_16BIT
+            || format.pcmEncoding == C.ENCODING_PCM_16BIT_BIG_ENDIAN) {
+          return ByteBuffer.allocate(0);
+        }
+        return pcmCBox(format);
       case MimeTypes.VIDEO_H263:
         return d263Box(format);
       case MimeTypes.VIDEO_H264:
@@ -1901,6 +1904,9 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       case MimeTypes.AUDIO_IAMF:
         return "iamf";
       case MimeTypes.AUDIO_RAW:
+        if (!isEncodingLinearPcm(format.pcmEncoding) || format.pcmEncoding == C.ENCODING_PCM_8BIT) {
+          throw new IllegalArgumentException("Unsupported encoding: " + format.pcmEncoding);
+        }
         if (format.pcmEncoding == C.ENCODING_PCM_16BIT) {
           return "sowt";
         } else if (format.pcmEncoding == C.ENCODING_PCM_16BIT_BIG_ENDIAN) {
@@ -1908,7 +1914,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         } else if (isFloatPcmEncoding(format.pcmEncoding)) {
           return "fpcm";
         } else {
-          throw new IllegalArgumentException("Unsupported PCM encoding: " + format.pcmEncoding);
+          return "ipcm";
         }
       case MimeTypes.VIDEO_H264:
         return "avc1";
@@ -1932,7 +1938,13 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   /** Returns the pcmC (PCM configuration) box. */
   private static ByteBuffer pcmCBox(Format format) {
     checkArgument(Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_RAW));
-    checkArgument(isFloatPcmEncoding(format.pcmEncoding));
+    // 16-bit integer PCM does not write a pcmC box and is written with 'sowt' or 'twos' sample
+    // entry instead for wider compatibility.
+    checkArgument(
+        isEncodingLinearPcm(format.pcmEncoding)
+            && format.pcmEncoding != C.ENCODING_PCM_8BIT
+            && format.pcmEncoding != C.ENCODING_PCM_16BIT
+            && format.pcmEncoding != C.ENCODING_PCM_16BIT_BIG_ENDIAN);
 
     ByteBuffer contents = ByteBuffer.allocate(6);
     contents.putInt(0x0); // version (0) and flags (0)

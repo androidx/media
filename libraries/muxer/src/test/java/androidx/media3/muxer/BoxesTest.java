@@ -17,6 +17,7 @@ package androidx.media3.muxer;
 
 import static androidx.media3.common.util.Util.getPcmFormat;
 import static androidx.media3.common.util.Util.getPcmFrameSize;
+import static androidx.media3.common.util.Util.isFloatPcmEncoding;
 import static androidx.media3.common.util.Util.isPcmEncodingBigEndian;
 import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
 import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO;
@@ -458,8 +459,8 @@ public class BoxesTest {
   }
 
   @Test
-  public void createAudioSampleEntryBox_forPcmFloat_matchesExpected(
-      @TestParameter(valuesProvider = FloatPcmEncodingValuesProvider.class) @C.PcmEncoding
+  public void createAudioSampleEntryBox_withPcmCBox_matchesExpected(
+      @TestParameter(valuesProvider = PcmCEncodingValuesProvider.class) @C.PcmEncoding
           int pcmEncoding) {
     Format format = getPcmFormat(pcmEncoding, /* channels= */ 2, /* sampleRate= */ 48_000);
 
@@ -468,7 +469,8 @@ public class BoxesTest {
         new ParsableByteArray(createByteArray(audioSampleEntryBox));
 
     assertThat(parsableByteArray.readInt()).isEqualTo(50); // Box size
-    assertThat(parsableByteArray.readString(4)).isEqualTo("fpcm");
+    String expectedFourcc = isFloatPcmEncoding(pcmEncoding) ? "fpcm" : "ipcm";
+    assertThat(parsableByteArray.readString(4)).isEqualTo(expectedFourcc);
     parsableByteArray.skipBytes(6); // reserved
     assertThat(parsableByteArray.readUnsignedShort())
         .isEqualTo(1); // data reference index (points to first dref table entry)
@@ -489,6 +491,13 @@ public class BoxesTest {
     int expectedBitDepth = getPcmFrameSize(pcmEncoding, /* channelCount= */ 1) * 8;
     assertThat(parsableByteArray.readUnsignedByte()).isEqualTo(expectedBitDepth);
     assertThat(parsableByteArray.bytesLeft()).isEqualTo(0);
+  }
+
+  @Test
+  public void createAudioSampleEntryBox_with8BitPcm_throws() {
+    Format format = getPcmFormat(C.ENCODING_PCM_8BIT, /* channels= */ 2, /* sampleRate= */ 48_000);
+
+    assertThrows(IllegalArgumentException.class, () -> Boxes.audioSampleEntry(format));
   }
 
   @Test
@@ -1378,14 +1387,18 @@ public class BoxesTest {
     return bufferInfoList;
   }
 
-  private static final class FloatPcmEncodingValuesProvider extends TestParameterValuesProvider {
+  private static final class PcmCEncodingValuesProvider extends TestParameterValuesProvider {
     @Override
     protected ImmutableList<?> provideValues(TestParameterValuesProvider.Context context) {
       return ImmutableList.of(
           value(C.ENCODING_PCM_FLOAT).withName("ENCODING_PCM_FLOAT"),
           value(C.ENCODING_PCM_FLOAT_BIG_ENDIAN).withName("ENCODING_PCM_FLOAT_BIG_ENDIAN"),
           value(C.ENCODING_PCM_DOUBLE).withName("ENCODING_PCM_DOUBLE"),
-          value(C.ENCODING_PCM_DOUBLE_BIG_ENDIAN).withName("ENCODING_PCM_DOUBLE_BIG_ENDIAN"));
+          value(C.ENCODING_PCM_DOUBLE_BIG_ENDIAN).withName("ENCODING_PCM_DOUBLE_BIG_ENDIAN"),
+          value(C.ENCODING_PCM_24BIT).withName("ENCODING_PCM_24BIT"),
+          value(C.ENCODING_PCM_24BIT_BIG_ENDIAN).withName("ENCODING_PCM_24BIT_BIG_ENDIAN"),
+          value(C.ENCODING_PCM_32BIT).withName("ENCODING_PCM_32BIT"),
+          value(C.ENCODING_PCM_32BIT_BIG_ENDIAN).withName("ENCODING_PCM_32BIT_BIG_ENDIAN"));
     }
   }
 }
