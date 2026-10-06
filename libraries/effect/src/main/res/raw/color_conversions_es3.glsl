@@ -310,16 +310,16 @@ highp vec3 hdrDisplayLinearToHlgElectrical(highp vec3 hdrDisplayLinear) {
 // Scale-invariant (f(k * rgb) == k * f(rgb)) and leaves max(R, G, B) unchanged. Operates directly
 // on absolute nits before tone mapping.
 highp vec3 softCompressGamutBt2020ToBt709(highp vec3 rgbBt709) {
-  // Knee threshold, colors within 80% of the BT.709 boundary pass through untouched.
-  const highp float t0 = 0.80;
+  // Knee threshold, colors within 95% of the BT.709 boundary pass through untouched.
+  const highp float t0 = 0.95;
   // Headroom between the knee and the BT.709 boundary (1.0 - t0).
-  const highp float h = 0.20;
+  const highp float h = 0.05;
   // Maximum excess distance (d_max - t0) across all BT.2020 colors, where d_max occurs on the
   //   BT.2020 cyan edge (G = B in BT.709).
-  const highp float eMax = 0.7938584;
+  const highp float eMax = 0.6438584;
   // Curvature parameter (1.0 - h / eMax) ensuring unit slope at the knee (smooth transition with no
   //   kink) and mapping eMax exactly to headroom h.
-  const highp float a = 0.7480659;
+  const highp float a = 0.9223432;
 
   // Max achromatic light
   highp float ach = max(rgbBt709.r, max(rgbBt709.g, rgbBt709.b));
@@ -338,10 +338,10 @@ highp vec3 softCompressGamutBt2020ToBt709(highp vec3 rgbBt709) {
 
 // Converts BT.2020 linear display light (in nits) to linear optical BT.709 display light.
 //
-// Compresses BT.2020 display light down to 0-500 nits of SDR display light. BT.2020 display light is
-// first converted to BT.709 with soft out-of-gamut color compression (ACES 1.3 Reference Gamut
-// Compression architecture), and then tone mapped using the parametric curve from Report ITU-R
-// BT.2446-1 (Section 6.1.4, Method C).
+// Compresses BT.2020 display light down to 0-203.15 nits of SDR display light (anchored at the
+// BT.2408 diffuse white reference). BT.2020 display light is first converted to BT.709 with soft
+// out-of-gamut color compression (ACES 1.3 Reference Gamut Compression architecture), and then
+// tone mapped using the parametric curve from Report ITU-R BT.2446-1 (Section 6.1.4, Method C).
 //
 // Input display light is expected up to 1,000 nits. Highlights exceeding 1,000 nits must be
 // tone-mapped upstream (e.g. via BT.2408 Annex 5 EETF).
@@ -358,14 +358,15 @@ highp vec3 softCompressGamutBt2020ToBt709(highp vec3 rgbBt709) {
 //   Y_SDR = k2 * ln(Y_HDR / Y_HDR_ip - k3) + k4          for Y_HDR >= Y_HDR_ip
 //
 // Its published constants target a 100/120-nit SDR display and are re-derived here for
-// maxInputNits = 1000.0 and maxOutputNits = 500.0:
-// 1. Linear pass-through (k1 = 1.0): Leaves BT.2408 diffuse white (203 nits) and midtones untouched
-//    at 1:1 nits below the inflection point.
-// 2. Inflection point (Y_HDR_ip = 292.5 nits): Placed at 80% of the SDR electrical range
-//    (0.80^2.4 = 58.5% optical luminance, 292.5 nits).
-// 3. C1 derivative smoothness at Y_HDR_ip: k2 = k1 * (1.0 - k3) * Y_HDR_ip = 98.8682714.
-// 4. C0 value continuity at Y_HDR_ip: k4 = k1 * Y_HDR_ip - k2 * ln(1.0 - k3) = 399.7400703.
-// 5. Peak normalization Y_SDR(1000.0) = 500.0: Solves k3 = 0.6619888.
+// maxInputNits = 1000.0 and maxOutputNits = 203.1521 (BT.2408 diffuse white reference):
+// 1. Linear pass-through (k1 = 1.0): Leaves shadows and midtones below the inflection point at
+//    1:1 nits with 203.15-nit SDR reference white (zero shadow/midtone dimming).
+// 2. Inflection point (Y_HDR_ip = 118.9 nits): Placed at 80% of the SDR electrical range
+//    (0.80^2.4 = 58.5% optical luminance, 118.9 nits), reserving the top 20% of the electrical
+//    range for compressing the upper diffuse range and 203-1,000 nit HDR highlights.
+// 3. C1 derivative smoothness at Y_HDR_ip: k2 = k1 * (1.0 - k3) * Y_HDR_ip = 22.9291635.
+// 4. C0 value continuity at Y_HDR_ip: k4 = k1 * Y_HDR_ip - k2 * ln(1.0 - k3) = 156.6384954.
+// 5. Peak normalization Y_SDR(1000.0) = 203.1521: Solves k3 = 0.8071559.
 highp vec3 bt2020DisplayLinearNitsToBt709DisplayLinear(highp vec3 nitsInBt2020) {
   highp vec3 nitsIn = softCompressGamutBt2020ToBt709(BT2020_TO_BT709 * nitsInBt2020);
   highp float maxColorIn = max(nitsIn.r, max(nitsIn.g, nitsIn.b));
@@ -373,14 +374,14 @@ highp vec3 bt2020DisplayLinearNitsToBt709DisplayLinear(highp vec3 nitsInBt2020) 
     return vec3(0.0);
   }
   const highp float maxInputNits = 1000.0;
-  const highp float maxOutputNits = 500.0;
+  const highp float maxOutputNits = 203.1521;
   highp float nits = min(maxColorIn, maxInputNits);
 
   const highp float k1 = 1.0;
-  const highp float k2 = 98.8682714;
-  const highp float k3 = 0.6619888;
-  const highp float k4 = 399.7400703;
-  const highp float inflectionPointNits = 292.5;
+  const highp float k2 = 22.9291635;
+  const highp float k3 = 0.8071559;
+  const highp float k4 = 156.6384954;
+  const highp float inflectionPointNits = 118.9;
 
   highp float lowBranch = k1 * nits;
   highp float highBranch = k2 * log(max(nits / inflectionPointNits - k3, 1e-6)) + k4;
