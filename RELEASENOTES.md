@@ -249,6 +249,9 @@
         entirely past the limit, and default the content resume offset to 0 when
         an interstitial omits `X-RESUME-OFFSET` and its duration is unknown even
         if `X-PLAYOUT-LIMIT` is set.
+    *   Fix an issue where resolving an `X-ASSET-LIST` interstitial overwrote
+        the content resume offset contributions of other interstitials in the
+        same ad group.
 *   DASH extension:
     *   Parse CICP color information (`ColourPrimaries`,
         `TransferCharacteristics`, `MatrixCoefficients`, and
