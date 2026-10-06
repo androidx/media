@@ -68,6 +68,9 @@
     *   Fix a memory leak in `PreloadMediaSource` and `DefaultPreloadManager`
         when `preload()` is called multiple times on the same source
         ([#3445](https://github.com/androidx/media/issues/3445)).
+    *   Fix a `NullPointerException` when releasing `AdsMediaSource` while a
+        content timeline refresh is pending
+        ([#3442](https://github.com/androidx/media/issues/3442)).
 *   CompositionPlayer:
     *   Support configuring the frame rate of video frame aggregation via
         `Composition.Builder.setVideoFrameAggregationParameters` for playback

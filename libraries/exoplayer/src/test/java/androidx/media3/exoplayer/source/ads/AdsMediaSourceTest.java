@@ -1373,6 +1373,28 @@ public final class AdsMediaSourceTest {
     assertThat(period.adPlaybackState.getAdGroup(0).timeUs).isEqualTo(15_000_000L);
   }
 
+  @Test
+  public void releaseSource_afterChildSourceInfoRefreshed_doesNotThrow() {
+    FakeMediaSource contentMediaSource = new FakeMediaSource(CONTENT_TIMELINE);
+    AdsMediaSource adsMediaSource =
+        new AdsMediaSource(
+            contentMediaSource,
+            TEST_ADS_DATA_SPEC,
+            TEST_ADS_ID,
+            new DefaultMediaSourceFactory((Context) ApplicationProvider.getApplicationContext()),
+            new NoOpAdsLoader(),
+            /* adViewProvider= */ () -> null,
+            /* useLazyContentSourcePreparation= */ false,
+            /* useAdMediaSourceClipping= */ false);
+    MediaSourceCaller mediaSourceCaller = (source, timeline) -> {};
+    adsMediaSource.prepareSource(mediaSourceCaller, PlayerId.UNSET, BandwidthMeter.NO_OP);
+
+    adsMediaSource.releaseSource(mediaSourceCaller);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    contentMediaSource.assertReleased();
+  }
+
   private static class NoOpAdsLoader implements AdsLoader {
 
     @Override

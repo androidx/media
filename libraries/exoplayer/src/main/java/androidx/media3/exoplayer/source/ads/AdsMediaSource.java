@@ -164,7 +164,6 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
   @Nullable private Timeline activeTimeline;
   @Nullable private AdPlaybackState adPlaybackState;
   private @NullableType AdMediaSourceHolder[][] adMediaSourceHolders;
-  @Nullable private Handler playerHandler;
 
   /**
    * Constructs a new source that inserts ads linearly with the content specified by {@code
@@ -278,8 +277,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
   @Override
   protected void prepareSourceInternal(@Nullable TransferListener mediaTransferListener) {
     super.prepareSourceInternal(mediaTransferListener);
-    this.playerHandler = Util.createHandlerForCurrentLooper();
-    ComponentListener componentListener = new ComponentListener(playerHandler);
+    ComponentListener componentListener = new ComponentListener();
     this.componentListener = componentListener;
     contentTimeline = contentMediaSource.getTimeline();
     prepareChildSource(CHILD_SOURCE_MEDIA_PERIOD_ID, contentMediaSource);
@@ -378,7 +376,6 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
     super.releaseSourceInternal();
     ComponentListener componentListener = checkNotNull(this.componentListener);
     this.componentListener = null;
-    this.playerHandler = null;
     componentListener.stop();
     contentTimeline = null;
     activeTimeline = null;
@@ -398,6 +395,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
       maybeUpdateSourceInfo();
     } else {
       contentTimeline = newTimeline;
+      ComponentListener componentListener = checkNotNull(this.componentListener);
       mainHandler.post(
           () -> {
             boolean sourceInfoUpdated = adsLoader.handleContentTimelineChanged(this, newTimeline);
@@ -405,7 +403,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
             checkState(!sourceInfoUpdated || !useLazyContentSourcePreparation);
             // If the source isn't updated by the ads loader we do, if not already published.
             if (!sourceInfoUpdated && !useLazyContentSourcePreparation) {
-              checkNotNull(playerHandler).post(this::maybeUpdateSourceInfo);
+              componentListener.onContentTimelineChanged();
             }
           });
       if (useLazyContentSourcePreparation) {
@@ -595,7 +593,10 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
         : mediaItem.localConfiguration.adsConfiguration;
   }
 
-  /** Listener for component events. All methods are called on the main thread. */
+  /**
+   * Listener for component events. All listener methods are called on the main thread, while the
+   * constructor and {@link #stop()} are called on the playback thread.
+   */
   private final class ComponentListener implements AdsLoader.EventListener {
 
     private final Handler playerHandler;
@@ -606,14 +607,27 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
      * Creates new listener which forwards ad playback states on the creating thread and all other
      * events on the external event listener thread.
      */
-    public ComponentListener(Handler playerHandler) {
-      this.playerHandler = playerHandler;
+    private ComponentListener() {
+      playerHandler = Util.createHandlerForCurrentLooper();
     }
 
     /** Stops event delivery from this instance. */
     public void stop() {
       stopped = true;
       playerHandler.removeCallbacksAndMessages(null);
+    }
+
+    private void onContentTimelineChanged() {
+      if (stopped) {
+        return;
+      }
+      playerHandler.post(
+          () -> {
+            if (stopped) {
+              return;
+            }
+            AdsMediaSource.this.maybeUpdateSourceInfo();
+          });
     }
 
     @Override
