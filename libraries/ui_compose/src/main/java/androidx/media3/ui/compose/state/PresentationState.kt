@@ -29,7 +29,6 @@ import androidx.media3.common.MediaLibraryInfo
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.VideoSize
-import androidx.media3.common.listen
 import androidx.media3.common.util.UnstableApi
 
 /**
@@ -103,15 +102,28 @@ class PresentationState(keepContentOnReset: Boolean = false) {
       }
     }
 
+  private var playerStateObserver: PlayerStateObserver? = null
+
   @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
   var player: Player? = null
     set(value) {
+      if (field == value) return
       field = value
-      // Only update the size if we are attaching a player OR if we don't need to keep the content
-      if (value != null || !keepContentOnReset) {
-        _adjustedVideoSize = getAdjustedVideoSize(value)
+      playerStateObserver =
+        value?.observeState(
+          Player.EVENT_VIDEO_SIZE_CHANGED,
+          Player.EVENT_RENDERED_FIRST_FRAME,
+          Player.EVENT_TRACKS_CHANGED,
+          Player.EVENT_TRACK_SELECTION_PARAMETERS_CHANGED,
+          initialStateUpdater = ::initializeState,
+          stateUpdater = ::updateState,
+        )
+      if (value == null) {
+        if (!keepContentOnReset) {
+          _adjustedVideoSize = null
+        }
+        updateForCurrentTrackSelections(null)
       }
-      updateForCurrentTrackSelections(value)
     }
 
   private var lastPeriodUidWithTracks: Any? = null
@@ -119,40 +131,47 @@ class PresentationState(keepContentOnReset: Boolean = false) {
   /**
    * Subscribes to updates from [Player.Events] and listens to
    * * [Player.EVENT_VIDEO_SIZE_CHANGED] to determine pixelWidthHeightRatio-adjusted video size
-   * * [Player.EVENT_RENDERED_FIRST_FRAME] and [Player.EVENT_TRACKS_CHANGED]to determine whether the
-   *   surface is ready to be shown
+   * * [Player.EVENT_RENDERED_FIRST_FRAME], [Player.EVENT_TRACKS_CHANGED], and
+   *   [Player.EVENT_TRACK_SELECTION_PARAMETERS_CHANGED] to determine whether the surface is ready
+   *   to be shown
    */
   suspend fun observe(player: Player?) {
     try {
       this@PresentationState.player = player
-      player?.listen { events ->
-        if (events.contains(Player.EVENT_VIDEO_SIZE_CHANGED)) {
-          if (videoSize != VideoSize.UNKNOWN && playbackState != Player.STATE_IDLE) {
-            _adjustedVideoSize = getAdjustedVideoSize(player)
-          }
-        }
-        if (events.contains(Player.EVENT_RENDERED_FIRST_FRAME)) {
-          // open shutter, video available
-          coverSurface = false
-        }
-        if (
-          events.containsAny(
-            Player.EVENT_TRACKS_CHANGED,
-            Player.EVENT_TRACK_SELECTION_PARAMETERS_CHANGED,
-          )
-        ) {
-          if (!shouldKeepSurfaceVisible(player)) {
-            updateForCurrentTrackSelections(player)
-          }
-        }
-      }
+      playerStateObserver?.observe()
     } finally {
       this@PresentationState.player = null
     }
   }
 
-  private fun getAdjustedVideoSize(player: Player?): Size? {
-    player ?: return null
+  private fun initializeState(player: Player) {
+    _adjustedVideoSize = getAdjustedVideoSize(player)
+    updateForCurrentTrackSelections(player)
+  }
+
+  private fun updateState(player: Player, events: Player.Events) {
+    if (events.contains(Player.EVENT_VIDEO_SIZE_CHANGED)) {
+      if (player.videoSize != VideoSize.UNKNOWN && player.playbackState != Player.STATE_IDLE) {
+        _adjustedVideoSize = getAdjustedVideoSize(player)
+      }
+    }
+    if (events.contains(Player.EVENT_RENDERED_FIRST_FRAME)) {
+      // open shutter, video available
+      coverSurface = false
+    }
+    if (
+      events.containsAny(
+        Player.EVENT_TRACKS_CHANGED,
+        Player.EVENT_TRACK_SELECTION_PARAMETERS_CHANGED,
+      )
+    ) {
+      if (!shouldKeepSurfaceVisible(player)) {
+        updateForCurrentTrackSelections(player)
+      }
+    }
+  }
+
+  private fun getAdjustedVideoSize(player: Player): Size? {
     var videoSize = Size(player.videoSize.width.toFloat(), player.videoSize.height.toFloat())
     if (videoSize.width == 0f || videoSize.height == 0f) return null
 

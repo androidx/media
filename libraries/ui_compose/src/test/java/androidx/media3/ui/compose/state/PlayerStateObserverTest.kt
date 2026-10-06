@@ -107,4 +107,145 @@ class PlayerStateObserverTest {
 
     assertThat(stateUpdateCount).isEqualTo(initialCount)
   }
+
+  @Test
+  fun createPlayerStateObserver_withEvents_triggersInitialStateUpdateWithConfiguredEvents() =
+    runTest {
+      val player = createReadyPlayerWithTwoItems()
+      var stateUpdateCount = 0
+      var receivedEvents: Player.Events? = null
+      val unused =
+        player.observeState(
+          Player.EVENT_PLAYBACK_STATE_CHANGED,
+          Player.EVENT_PLAY_WHEN_READY_CHANGED,
+        ) { _, events ->
+          stateUpdateCount++
+          receivedEvents = events
+        }
+
+      assertThat(stateUpdateCount).isEqualTo(1)
+      assertThat(receivedEvents?.size()).isEqualTo(2)
+      assertThat(receivedEvents?.contains(Player.EVENT_PLAYBACK_STATE_CHANGED)).isTrue()
+      assertThat(receivedEvents?.contains(Player.EVENT_PLAY_WHEN_READY_CHANGED)).isTrue()
+    }
+
+  @Test
+  fun observe_withEvents_triggersInitialStateUpdateWithConfiguredEvents() = runTest {
+    val player = createReadyPlayerWithTwoItems()
+    var stateUpdateCount = 0
+    var receivedEvents: Player.Events? = null
+    val stateObserver =
+      player.observeState(
+        Player.EVENT_PLAYBACK_STATE_CHANGED,
+        Player.EVENT_PLAY_WHEN_READY_CHANGED,
+      ) { _, events ->
+        stateUpdateCount++
+        receivedEvents = events
+      }
+    val initialCount = stateUpdateCount
+    receivedEvents = null
+
+    launch(backgroundScope.coroutineContext) { stateObserver.observe() }
+    testScheduler.runCurrent()
+
+    assertThat(stateUpdateCount).isEqualTo(initialCount + 1)
+    assertThat(receivedEvents?.size()).isEqualTo(2)
+    assertThat(receivedEvents?.contains(Player.EVENT_PLAYBACK_STATE_CHANGED)).isTrue()
+    assertThat(receivedEvents?.contains(Player.EVENT_PLAY_WHEN_READY_CHANGED)).isTrue()
+  }
+
+  @Test
+  fun createAndObserve_withInitialStateUpdater_triggersInitialStateUpdaterOnly() = runTest {
+    val player = createReadyPlayerWithTwoItems()
+    var initialUpdateCount = 0
+    var eventUpdateCount = 0
+    val stateObserver =
+      player.observeState(
+        Player.EVENT_PLAYBACK_STATE_CHANGED,
+        Player.EVENT_PLAY_WHEN_READY_CHANGED,
+        initialStateUpdater = { initialUpdateCount++ },
+        stateUpdater = { _, _ -> eventUpdateCount++ },
+      )
+
+    assertThat(initialUpdateCount).isEqualTo(1)
+    assertThat(eventUpdateCount).isEqualTo(0)
+
+    launch(backgroundScope.coroutineContext) { stateObserver.observe() }
+    testScheduler.runCurrent()
+
+    assertThat(initialUpdateCount).isEqualTo(2)
+    assertThat(eventUpdateCount).isEqualTo(0)
+  }
+
+  @Test
+  fun observe_registeredPlayerEventWithEvents_triggersStateUpdateWithEvents() = runTest {
+    val player = createReadyPlayerWithTwoItems()
+    var stateUpdateCount = 0
+    var receivedEvents: Player.Events? = null
+    val stateObserver =
+      player.observeState(
+        Player.EVENT_PLAYBACK_STATE_CHANGED,
+        Player.EVENT_PLAY_WHEN_READY_CHANGED,
+      ) { _, events ->
+        stateUpdateCount++
+        receivedEvents = events
+      }
+    launch(backgroundScope.coroutineContext) { stateObserver.observe() }
+    testScheduler.runCurrent()
+    val initialCount = stateUpdateCount
+
+    player.playWhenReady = false
+    shadowOf(Looper.getMainLooper()).idle()
+    testScheduler.runCurrent()
+
+    assertThat(stateUpdateCount).isEqualTo(initialCount + 1)
+    assertThat(receivedEvents?.contains(Player.EVENT_PLAY_WHEN_READY_CHANGED)).isTrue()
+  }
+
+  @Test
+  fun observe_mixedEvents_filtersOutUnregisteredEvents() = runTest {
+    val player = createReadyPlayerWithTwoItems()
+    var receivedEvents: Player.Events? = null
+    val stateObserver =
+      player.observeState(
+        Player.EVENT_PLAYBACK_STATE_CHANGED,
+        Player.EVENT_PLAY_WHEN_READY_CHANGED,
+      ) { _, events ->
+        receivedEvents = events
+      }
+    launch(backgroundScope.coroutineContext) { stateObserver.observe() }
+    testScheduler.runCurrent()
+    receivedEvents = null
+
+    player.playWhenReady = false
+    player.shuffleModeEnabled = true
+    shadowOf(Looper.getMainLooper()).idle()
+    testScheduler.runCurrent()
+
+    assertThat(receivedEvents?.contains(Player.EVENT_PLAY_WHEN_READY_CHANGED)).isTrue()
+    assertThat(receivedEvents?.contains(Player.EVENT_IS_PLAYING_CHANGED)).isFalse()
+    assertThat(receivedEvents?.contains(Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED)).isFalse()
+  }
+
+  @Test
+  fun observe_unregisteredPlayerEventWithEvents_doesNotTriggerStateUpdate() = runTest {
+    val player = createReadyPlayerWithTwoItems()
+    var stateUpdateCount = 0
+    val stateObserver =
+      player.observeState(
+        Player.EVENT_PLAYBACK_STATE_CHANGED,
+        Player.EVENT_PLAY_WHEN_READY_CHANGED,
+      ) { _, _ ->
+        stateUpdateCount++
+      }
+    launch(backgroundScope.coroutineContext) { stateObserver.observe() }
+    testScheduler.runCurrent()
+    val initialCount = stateUpdateCount
+
+    player.shuffleModeEnabled = true
+    shadowOf(Looper.getMainLooper()).idle()
+    testScheduler.runCurrent()
+
+    assertThat(stateUpdateCount).isEqualTo(initialCount)
+  }
 }
