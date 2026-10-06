@@ -42,6 +42,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
+import static java.lang.Math.min;
 
 import android.content.Context;
 import android.net.Uri;
@@ -1655,7 +1656,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
         long oldResumeOffsetIncrementUs =
             interstitial.resumeOffsetUs != C.TIME_UNSET
                 ? interstitial.resumeOffsetUs
-                : adDurationsUs;
+                : resolveInterstitialFallbackResumeOffsetUs(interstitial, adDurationsUs);
         // Recalculate the resume offset of the group in case the interstitial offset has changed.
         long correctedAdGroupContentResumeOffsetUs =
             adGroup.contentResumeOffsetUs - oldResumeOffsetIncrementUs + resolvedResumeOffsetUs;
@@ -1854,7 +1855,8 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     if (interstitial.resumeOffsetUs != C.TIME_UNSET) {
       return interstitial.resumeOffsetUs;
     }
-    long resumeOffsetUs = interstitialDurationUs != C.TIME_UNSET ? interstitialDurationUs : 0L;
+    long resumeOffsetUs =
+        resolveInterstitialFallbackResumeOffsetUs(interstitial, interstitialDurationUs);
     if (interstitial.snapTypes.contains(SNAP_TYPE_IN)) {
       long resumeTimeUs = interstitial.startDateUnixUs + resumeOffsetUs;
       if (resumeTimeUs < mediaPlaylist.startTimeUs + mediaPlaylist.durationUs) {
@@ -1884,9 +1886,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
 
   private static long resolveInterstitialDurationUs(
       Interstitial interstitial, long defaultDurationUs) {
-    if (interstitial.playoutLimitUs != C.TIME_UNSET) {
-      return interstitial.playoutLimitUs;
-    } else if (interstitial.durationUs != C.TIME_UNSET) {
+    if (interstitial.durationUs != C.TIME_UNSET) {
       return interstitial.durationUs;
     } else if (interstitial.endDateUnixUs != C.TIME_UNSET) {
       return interstitial.endDateUnixUs - interstitial.startDateUnixUs;
@@ -1894,6 +1894,27 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       return interstitial.plannedDurationUs;
     }
     return defaultDurationUs;
+  }
+
+  /**
+   * Resolves the fallback content resume offset in microseconds when {@code X-RESUME-OFFSET} is not
+   * present on the {@link Interstitial} (see RFC 8216bis-22, Appendix D.2).
+   */
+  private static long resolveInterstitialFallbackResumeOffsetUs(
+      Interstitial interstitial, long interstitialDurationUs) {
+    if (interstitialDurationUs == C.TIME_UNSET) {
+      // Total duration of the interstitial is unknown; X-PLAYOUT-LIMIT is an upper bound on playout
+      // time rather than the interstitial duration, so default to 0L.
+      return 0L;
+    }
+    if (interstitial.playoutLimitUs != C.TIME_UNSET) {
+      // RFC 8216bis-22, Appendix D.2: If X-RESUME-OFFSET is not present and X-PLAYOUT-LIMIT is less
+      // than the total duration of the interstitial, the resumption offset is the playout limit.
+      return min(interstitialDurationUs, interstitial.playoutLimitUs);
+    }
+    // RFC 8216bis-22, Appendix D.2: If X-RESUME-OFFSET is not present, its value is the duration
+    // of the interstitial.
+    return interstitialDurationUs;
   }
 
   private static long resolveInterstitialStartTimeUs(
@@ -1911,15 +1932,13 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
 
   private static long resolveInterstitialResumeOffsetUs(
       Interstitial interstitial, long defaultDurationUs, HlsMediaPlaylist mediaPlaylist) {
+    long fallbackResumeOffsetUs =
+        resolveInterstitialFallbackResumeOffsetUs(interstitial, defaultDurationUs);
     if (interstitial.snapTypes.contains(SNAP_TYPE_IN)) {
       long resumeOffsetUs =
           interstitial.resumeOffsetUs != C.TIME_UNSET
               ? interstitial.resumeOffsetUs
-              : resolveInterstitialDurationUs(
-                  interstitial,
-                  /* defaultDurationUs= */ defaultDurationUs != C.TIME_UNSET
-                      ? defaultDurationUs
-                      : 0L);
+              : fallbackResumeOffsetUs;
       long startTimeUs =
           interstitial.snapTypes.contains(SNAP_TYPE_OUT)
               ? getClosestSegmentBoundaryUs(interstitial.startDateUnixUs, mediaPlaylist)
@@ -1930,7 +1949,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     } else {
       return interstitial.resumeOffsetUs != C.TIME_UNSET
           ? interstitial.resumeOffsetUs
-          : resolveInterstitialDurationUs(interstitial, defaultDurationUs);
+          : fallbackResumeOffsetUs;
     }
   }
 
@@ -2452,12 +2471,20 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
             int adIndex = assetListData.adIndexInAdGroup;
             long[] assetDurations = new long[assetList.assets.size()];
             long[] newDurationsUs = adGroup.durationsUs.clone();
+            long remainingPlayoutLimitUs = assetListData.interstitial.playoutLimitUs;
             for (int i = 0; i < assetList.assets.size(); i++) {
               Asset asset = assetList.assets.get(i);
               if (i > 0) {
+                // TODO: b/570090695 - Support expanding an asset list when other interstitials are
+                // already in the same AdGroup without interleaving ads.
                 adIndex = oldAdCount + i - 1;
               }
-              newDurationsUs[adIndex] = asset.durationUs;
+              long adDurationUs = asset.durationUs;
+              if (remainingPlayoutLimitUs != C.TIME_UNSET) {
+                adDurationUs = min(adDurationUs, remainingPlayoutLimitUs);
+                remainingPlayoutLimitUs = max(0L, remainingPlayoutLimitUs - adDurationUs);
+              }
+              newDurationsUs[adIndex] = adDurationUs;
               assetDurations[i] = asset.durationUs;
               sumOfAssetListAdDurationUs += asset.durationUs;
               MediaItem mediaItem =
@@ -2470,6 +2497,10 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
                   adPlaybackState
                       .withAvailableAdMediaItem(assetListData.adGroupIndex, adIndex, mediaItem)
                       .withAdId(assetListData.adGroupIndex, adIndex, assetListData.interstitial.id);
+              if (adDurationUs == 0L) {
+                adPlaybackState =
+                    adPlaybackState.withSkippedAd(assetListData.adGroupIndex, adIndex);
+              }
               if (assetList.skipInfo != null) {
                 adPlaybackState =
                     adPlaybackState.withAdSkipInfo(
@@ -2486,6 +2517,8 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
                     assetListData.adGroupIndex,
                     checkNotNull(session.lastProcessedPlaylist),
                     session);
+            // TODO: b/570090119 - Adjust only this interstitial's share of contentResumeOffsetUs
+            // instead of overwriting the group offset.
             adPlaybackState =
                 adPlaybackState.withContentResumeOffsetUs(
                     assetListData.adGroupIndex, resumeOffsetUs);

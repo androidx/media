@@ -242,6 +242,10 @@
     *   Fix regression where `Format.id` and `Format.metadata` were `null` for
         exposed HLS tracks
         ([#3402](https://github.com/androidx/media/issues/3402)).
+    *   Clip asset-list ads to `X-PLAYOUT-LIMIT` and skip those that fall
+        entirely past the limit, and default the content resume offset to 0 when
+        an interstitial omits `X-RESUME-OFFSET` and its duration is unknown even
+        if `X-PLAYOUT-LIMIT` is set.
 *   DASH extension:
     *   Parse CICP color information (`ColourPrimaries`,
         `TransferCharacteristics`, `MatrixCoefficients`, and
