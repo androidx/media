@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static android.media.AudioTrack.PLAYSTATE_PAUSED;
 import static android.media.AudioTrack.PLAYSTATE_PLAYING;
 import static android.media.AudioTrack.PLAYSTATE_STOPPED;
 import static android.os.Build.VERSION.SDK_INT;
@@ -173,6 +174,7 @@ import java.lang.reflect.Method;
   private boolean expectRawPlaybackHeadReset;
 
   private long sumRawPlaybackHeadPosition;
+  private boolean hasBeenStarted;
 
   /**
    * Creates a new audio track position tracker.
@@ -311,6 +313,7 @@ import java.lang.reflect.Method;
       stopTimestampUs = msToUs(clock.elapsedRealtime());
     }
     onPositionAdvancingFromPositionUs = getPlaybackHeadPositionUs();
+    hasBeenStarted = true;
     audioTimestampPoller.reset();
   }
 
@@ -378,6 +381,7 @@ import java.lang.reflect.Method;
     latencyUs = 0;
     audioTrackPlaybackSpeed = 1f;
     onPositionAdvancingFromPositionUs = C.TIME_UNSET;
+    hasBeenStarted = false;
   }
 
   private void maybeTriggerOnPositionAdvancingCallback(long positionUs) {
@@ -516,7 +520,7 @@ import java.lang.reflect.Method;
   }
 
   private long getSimulatedPlaybackHeadPositionAfterStop() {
-    if (checkNotNull(this.audioTrack).getPlayState() == AudioTrack.PLAYSTATE_PAUSED) {
+    if (checkNotNull(this.audioTrack).getPlayState() == PLAYSTATE_PAUSED) {
       // If AudioTrack is paused while stopping, then return cached playback head position.
       return stopPlaybackHeadPosition;
     }
@@ -531,7 +535,7 @@ import java.lang.reflect.Method;
   private void updateRawPlaybackHeadPosition(long currentTimeMs) {
     AudioTrack audioTrack = checkNotNull(this.audioTrack);
     int state = audioTrack.getPlayState();
-    if (state == PLAYSTATE_STOPPED) {
+    if (state == PLAYSTATE_STOPPED || (!hasBeenStarted && state == PLAYSTATE_PAUSED)) {
       // The audio track hasn't been started. Keep initial zero timestamp.
       return;
     }

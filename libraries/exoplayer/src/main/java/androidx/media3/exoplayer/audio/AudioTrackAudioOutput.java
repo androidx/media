@@ -159,6 +159,15 @@ public final class AudioTrackAudioOutput implements AudioOutput {
       pcmFrameSize = C.LENGTH_UNSET;
     }
 
+    if (Flags.isEnabled(Flags.FLAG_PLAY_PAUSE_AUDIO_TRACK_ON_INIT)
+        && isOutputPcm
+        && !config.isOffload
+        && !config.isTunneling) {
+      // Prewarm the audio path to reduce startup latency on first playback (b/569902912).
+      audioTrack.play();
+      audioTrack.pause();
+    }
+
     audioTrackPositionTracker =
         new AudioTrackPositionTracker(
             new PositionTrackerListener(),

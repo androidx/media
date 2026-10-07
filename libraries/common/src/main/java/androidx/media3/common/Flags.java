@@ -120,6 +120,7 @@ public final class Flags {
    *   <li>{@link #FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS}
    *   <li>{@link #FLAG_ENFORCE_PARSABLE_BYTE_ARRAY_LIMIT}
    *   <li>{@link #FLAG_SKIP_AUDIO_TRACK_FLUSH_BEFORE_RELEASE}
+   *   <li>{@link #FLAG_PLAY_PAUSE_AUDIO_TRACK_ON_INIT}
    * </ul>
    */
   @Documented
@@ -137,6 +138,7 @@ public final class Flags {
         FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS,
         FLAG_ENFORCE_PARSABLE_BYTE_ARRAY_LIMIT,
         FLAG_SKIP_AUDIO_TRACK_FLUSH_BEFORE_RELEASE,
+        FLAG_PLAY_PAUSE_AUDIO_TRACK_ON_INIT,
       })
   public @interface Flag {}
 
@@ -240,7 +242,21 @@ public final class Flags {
   @ExperimentalApi // TODO: b/567523724 - Remove this flag (earliest cleanup: 2026-11-29).
   public static final int FLAG_SKIP_AUDIO_TRACK_FLUSH_BEFORE_RELEASE = 9;
 
-  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 10;
+  /**
+   * Flag to enable calling {@link android.media.AudioTrack#play()} and {@link
+   * android.media.AudioTrack#pause()} immediately after creating an {@link
+   * android.media.AudioTrack}.
+   *
+   * <p>When enabled, calling {@code play()} and {@code pause()} at initialization time triggers
+   * internal {@link android.media.AudioTrack} initialization to reduce startup latency on the first
+   * actual playback.
+   *
+   * <p>This flag is not yet covered by canary mode and defaults to {@code false}.
+   */
+  @ExperimentalApi // TODO: b/245057757 - Remove this flag.
+  public static final int FLAG_PLAY_PAUSE_AUDIO_TRACK_ON_INIT = 10;
+
+  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 11;
 
   private static final SparseBooleanArray STATIC_FLAG_STATES = new SparseBooleanArray();
 
@@ -251,6 +267,7 @@ public final class Flags {
     STATIC_FLAG_STATES.put(FLAG_ENABLE_CLIPPING_IN_MEDIA_PERIOD, false);
     STATIC_FLAG_STATES.put(FLAG_ENABLE_MEDIACODEC_BUFFER_DECODE_ONLY, false);
     STATIC_FLAG_STATES.put(FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS, false);
+    STATIC_FLAG_STATES.put(FLAG_PLAY_PAUSE_AUDIO_TRACK_ON_INIT, false);
 
     // Statically enabled flags (kept as fallback for opt-out).
     STATIC_FLAG_STATES.put(FLAG_DYNAMIC_SCHEDULING, true);

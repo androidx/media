@@ -40,6 +40,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackParameters;
@@ -50,11 +51,13 @@ import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.audio.DefaultAudioSink.DefaultAudioProcessorChain;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
+import androidx.media3.test.utils.BindFlag;
 import androidx.media3.test.utils.FakeTimeline;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.ImmutableIntArray;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -68,8 +71,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestParameterInjector;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.AudioDeviceInfoBuilder;
 import org.robolectric.shadows.AudioProfileBuilder;
@@ -80,8 +85,14 @@ import org.robolectric.shadows.ShadowSystemClock;
 import org.robolectric.shadows.ShadowUIModeManager;
 
 /** Unit tests for {@link DefaultAudioSink}. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public final class DefaultAudioSinkTest {
+
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
+
+  @TestParameter
+  @BindFlag(Flags.FLAG_PLAY_PAUSE_AUDIO_TRACK_ON_INIT)
+  private boolean playPauseAudioTrackOnInit;
 
   private static final long TIMEOUT_MS = 10_000;
 

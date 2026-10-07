@@ -17,6 +17,11 @@ package androidx.media3.exoplayer.audio;
 
 import static androidx.media3.exoplayer.audio.DefaultAudioSink.MAX_PLAYBACK_SPEED;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assume.assumeFalse;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 import android.media.AudioFormat;
 import android.media.AudioManager;
@@ -26,24 +31,32 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Flags;
 import androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig;
+import androidx.media3.test.utils.BindFlag;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.robolectric.RobolectricUtil;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.InOrder;
+import org.robolectric.RobolectricTestParameterInjector;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowAudioSystem;
+import org.robolectric.shadows.ShadowAudioTrack;
 
 /** Unit tests for {@link AudioTrackAudioOutput}. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public final class AudioTrackAudioOutputTest {
 
   @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
+
+  @TestParameter
+  @BindFlag(Flags.FLAG_PLAY_PAUSE_AUDIO_TRACK_ON_INIT)
+  private boolean playPauseAudioTrackOnInit;
 
   private AudioTrack audioTrack;
   private AudioTrackAudioOutput audioTrackAudioOutput;
@@ -54,9 +67,116 @@ public final class AudioTrackAudioOutputTest {
   private static final int ONE_SECOND_BUFFER = 44100 * 2 * 2;
 
   @Test
+  public void init_regularPcm_playsAndPausesAudioTrackIfFlagEnabled() {
+    audioTrack =
+        spy(
+            createAudioTrack(
+                /* audioFormatEncoding= */ AudioFormat.ENCODING_PCM_16BIT,
+                /* channelMask= */ AudioFormat.CHANNEL_OUT_STEREO,
+                /* sampleRate= */ 44100));
+
+    audioTrackAudioOutput =
+        createAudioTrackAudioOutput(
+            audioTrack,
+            /* listener= */ null,
+            /* encoding= */ C.ENCODING_PCM_16BIT,
+            /* channelMask= */ AudioFormat.CHANNEL_OUT_STEREO,
+            /* sampleRate= */ 44100,
+            /* isOffload= */ false,
+            /* isTunneling= */ false);
+
+    if (playPauseAudioTrackOnInit) {
+      InOrder inOrder = inOrder(audioTrack);
+      inOrder.verify(audioTrack).play();
+      inOrder.verify(audioTrack).pause();
+      assertThat(audioTrack.getPlayState()).isEqualTo(AudioTrack.PLAYSTATE_PAUSED);
+    } else {
+      verify(audioTrack, never()).play();
+      verify(audioTrack, never()).pause();
+      assertThat(audioTrack.getPlayState()).isEqualTo(AudioTrack.PLAYSTATE_STOPPED);
+    }
+  }
+
+  @Test
+  public void init_nonPcmOrOffloadOrTunneling_doesNotPlayOrPauseAudioTrack(
+      @TestParameter boolean isOutputPcm,
+      @TestParameter boolean isOffload,
+      @TestParameter boolean isTunneling) {
+    assumeFalse(isOutputPcm && !isOffload && !isTunneling);
+    if (!isOutputPcm) {
+      ShadowAudioTrack.addAllowedNonPcmEncoding(AudioFormat.ENCODING_AC3);
+    }
+    int audioFormatEncoding =
+        isOutputPcm ? AudioFormat.ENCODING_PCM_16BIT : AudioFormat.ENCODING_AC3;
+    int encoding = isOutputPcm ? C.ENCODING_PCM_16BIT : C.ENCODING_AC3;
+    audioTrack =
+        spy(
+            createAudioTrack(
+                audioFormatEncoding,
+                /* channelMask= */ AudioFormat.CHANNEL_OUT_STEREO,
+                /* sampleRate= */ 44100));
+
+    audioTrackAudioOutput =
+        createAudioTrackAudioOutput(
+            audioTrack,
+            /* listener= */ null,
+            encoding,
+            /* channelMask= */ AudioFormat.CHANNEL_OUT_STEREO,
+            /* sampleRate= */ 44100,
+            isOffload,
+            isTunneling);
+
+    verify(audioTrack, never()).play();
+    verify(audioTrack, never()).pause();
+    assertThat(audioTrack.getPlayState()).isEqualTo(AudioTrack.PLAYSTATE_STOPPED);
+  }
+
+  @Test
   public void getAudioSessionId_returnsAudioTrackSessionId() {
     initializeAudioTrackAudioOutput();
     assertThat(audioTrackAudioOutput.getAudioSessionId()).isEqualTo(audioTrack.getAudioSessionId());
+  }
+
+  @Test
+  public void write_beforePlay_positionRemainsZero() throws Exception {
+    initializeAudioTrackAudioOutput();
+
+    ByteBuffer buffer = createByteBuffer(ONE_SECOND_BUFFER);
+    boolean fullyWritten =
+        audioTrackAudioOutput.write(
+            buffer, /* encodedAccessUnitCount= */ 1, /* presentationTimeUs= */ 0);
+    clock.advanceTime(TIME_TO_ADVANCE_MS);
+
+    assertThat(fullyWritten).isTrue();
+    assertThat(audioTrackAudioOutput.getPositionUs()).isEqualTo(0L);
+  }
+
+  @Test
+  public void flush_whilePaused_positionRemainsZeroUntilPlay() throws Exception {
+    initializeAudioTrackAudioOutput();
+    audioTrackAudioOutput.play();
+    boolean unused =
+        audioTrackAudioOutput.write(
+            createByteBuffer(ONE_SECOND_BUFFER),
+            /* encodedAccessUnitCount= */ 1,
+            /* presentationTimeUs= */ 0);
+    clock.advanceTime(TIME_TO_ADVANCE_MS);
+    audioTrackAudioOutput.pause();
+
+    audioTrackAudioOutput.flush();
+    unused =
+        audioTrackAudioOutput.write(
+            createByteBuffer(ONE_SECOND_BUFFER),
+            /* encodedAccessUnitCount= */ 1,
+            /* presentationTimeUs= */ 0);
+    clock.advanceTime(TIME_TO_ADVANCE_MS);
+    long positionWhilePausedAfterFlushUs = audioTrackAudioOutput.getPositionUs();
+    audioTrackAudioOutput.play();
+    clock.advanceTime(TIME_TO_ADVANCE_MS);
+    long positionAfterPlayUs = audioTrackAudioOutput.getPositionUs();
+
+    assertThat(positionWhilePausedAfterFlushUs).isEqualTo(0L);
+    assertThat(positionAfterPlayUs).isEqualTo(1_000_000L);
   }
 
   @Test
@@ -214,38 +334,62 @@ public final class AudioTrackAudioOutputTest {
       int encoding,
       int channelMask,
       int sampleRate) {
-    audioTrack =
-        new AudioTrack.Builder()
-            .setAudioAttributes(
-                new android.media.AudioAttributes.Builder()
-                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
-                    .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
-                    .build())
-            .setAudioFormat(
-                new AudioFormat.Builder()
-                    .setEncoding(audioFormatEncoding)
-                    .setSampleRate(sampleRate)
-                    .setChannelMask(channelMask)
-                    .build())
-            .setBufferSizeInBytes(1024)
-            .build();
+    audioTrack = createAudioTrack(audioFormatEncoding, channelMask, sampleRate);
     audioTrackAudioOutput =
-        new AudioTrackAudioOutput(
+        createAudioTrackAudioOutput(
             audioTrack,
-            new OutputConfig.Builder()
-                .setEncoding(encoding)
+            listener,
+            encoding,
+            channelMask,
+            sampleRate,
+            /* isOffload= */ false,
+            /* isTunneling= */ false);
+  }
+
+  private static AudioTrack createAudioTrack(
+      int audioFormatEncoding, int channelMask, int sampleRate) {
+    return new AudioTrack.Builder()
+        .setAudioAttributes(
+            new android.media.AudioAttributes.Builder()
+                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+                .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                .build())
+        .setAudioFormat(
+            new AudioFormat.Builder()
+                .setEncoding(audioFormatEncoding)
                 .setSampleRate(sampleRate)
                 .setChannelMask(channelMask)
-                .setBufferSize(1024)
-                .setAudioAttributes(
-                    new AudioAttributes.Builder()
-                        .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                        .setUsage(C.USAGE_MEDIA)
-                        .build())
-                .build(),
-            listener,
-            MAX_PLAYBACK_SPEED,
-            /* clock= */ clock);
+                .build())
+        .setBufferSizeInBytes(1024)
+        .build();
+  }
+
+  private AudioTrackAudioOutput createAudioTrackAudioOutput(
+      AudioTrack audioTrack,
+      @Nullable AudioTrackAudioOutput.CapabilityChangeListener listener,
+      int encoding,
+      int channelMask,
+      int sampleRate,
+      boolean isOffload,
+      boolean isTunneling) {
+    return new AudioTrackAudioOutput(
+        audioTrack,
+        new OutputConfig.Builder()
+            .setEncoding(encoding)
+            .setSampleRate(sampleRate)
+            .setChannelMask(channelMask)
+            .setBufferSize(1024)
+            .setIsOffload(isOffload)
+            .setIsTunneling(isTunneling)
+            .setAudioAttributes(
+                new AudioAttributes.Builder()
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                    .setUsage(C.USAGE_MEDIA)
+                    .build())
+            .build(),
+        listener,
+        MAX_PLAYBACK_SPEED,
+        /* clock= */ clock);
   }
 
   private static void releaseAndAwaitCompletion(AudioTrackAudioOutput output) throws Exception {

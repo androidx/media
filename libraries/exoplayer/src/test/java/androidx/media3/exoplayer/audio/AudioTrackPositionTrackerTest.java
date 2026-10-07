@@ -182,6 +182,7 @@ public class AudioTrackPositionTrackerTest {
     // Set new audio track and reset position tracker to simulate transition to new AudioTrack.
     audioTrack.flush();
     audioTrackPositionTracker.reset();
+    audioTrackPositionTracker.start();
     audioTrack.play();
     writeBytesAndAdvanceTime(audioTrack);
 
@@ -602,6 +603,62 @@ public class AudioTrackPositionTrackerTest {
 
     // Verify clock snap is avoided (position is exactly the real hardware head position).
     assertThat(recoveryPositionUs).isEqualTo(1_000_000L);
+  }
+
+  @Test
+  public void getCurrentPositionUs_afterPlayAndPauseBeforeStart_returnsZeroUntilStarted() {
+    AudioTrack audioTrack = createDefaultAudioTrack();
+    audioTrack.play();
+    audioTrack.pause();
+    AudioTrackPositionTracker audioTrackPositionTracker =
+        new AudioTrackPositionTracker(
+            mock(AudioTrackPositionTracker.Listener.class),
+            clock,
+            audioTrack,
+            C.ENCODING_PCM_16BIT,
+            OUTPUT_PCM_FRAME_SIZE,
+            MIN_BUFFER_SIZE);
+
+    writeBytesAndAdvanceTime(audioTrack);
+    long positionBeforeStartUs = audioTrackPositionTracker.getCurrentPositionUs(SAMPLE_RATE);
+    audioTrackPositionTracker.start();
+    audioTrack.play();
+    clock.advanceTime(TIME_TO_ADVANCE_MS);
+    long positionAfterStartUs = audioTrackPositionTracker.getCurrentPositionUs(SAMPLE_RATE);
+
+    assertThat(positionBeforeStartUs).isEqualTo(0L);
+    assertThat(positionAfterStartUs).isEqualTo(1_000_000L);
+  }
+
+  @Test
+  public void getCurrentPositionUs_afterResetWhilePaused_returnsZeroUntilRestarted() {
+    AudioTrack audioTrack = createDefaultAudioTrack();
+    AudioTrackPositionTracker audioTrackPositionTracker =
+        new AudioTrackPositionTracker(
+            mock(AudioTrackPositionTracker.Listener.class),
+            clock,
+            audioTrack,
+            C.ENCODING_PCM_16BIT,
+            OUTPUT_PCM_FRAME_SIZE,
+            MIN_BUFFER_SIZE);
+    audioTrackPositionTracker.start();
+    audioTrack.play();
+    writeBytesAndAdvanceTime(audioTrack);
+    audioTrackPositionTracker.pause();
+    audioTrack.pause();
+
+    audioTrack.flush();
+    audioTrackPositionTracker.reset();
+    writeBytesAndAdvanceTime(audioTrack);
+    long positionAfterResetWhilePausedUs =
+        audioTrackPositionTracker.getCurrentPositionUs(SAMPLE_RATE);
+    audioTrackPositionTracker.start();
+    audioTrack.play();
+    clock.advanceTime(TIME_TO_ADVANCE_MS);
+    long positionAfterRestartUs = audioTrackPositionTracker.getCurrentPositionUs(SAMPLE_RATE);
+
+    assertThat(positionAfterResetWhilePausedUs).isEqualTo(0L);
+    assertThat(positionAfterRestartUs).isEqualTo(1_000_000L);
   }
 
   private void assertSmoothlyIncrementsCurrentPositionUntilDuration(
