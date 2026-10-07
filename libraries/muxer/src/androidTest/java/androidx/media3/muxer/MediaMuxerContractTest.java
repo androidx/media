@@ -71,6 +71,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -611,6 +612,11 @@ public final class MediaMuxerContractTest {
     List<Integer> trackIndexes = new ArrayList<>();
     for (int i = 0; i < extractor.getTrackCount(); i++) {
       MediaFormat format = extractor.getTrackFormat(i);
+      // Skip mebx tracks as MediaMuxer and MediaMuxerCompat do not handle them.
+      if (Objects.equals(format.getString(KEY_MIME), MimeTypes.APPLICATION_MEBX)) {
+        trackIndexes.add(C.INDEX_UNSET);
+        continue;
+      }
       extractor.selectTrack(i);
       trackIndexes.add(muxer.addTrack(format));
     }

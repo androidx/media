@@ -5,7 +5,7 @@ seekMap:
   getPosition(1) = [[timeUs=0, position=36]]
   getPosition(149166) = [[timeUs=0, position=36]]
   getPosition(298333) = [[timeUs=0, position=36]]
-numberOfTracks = 2
+numberOfTracks = 5
 track 0:
   total output bytes = 122447
   sample count = 9
@@ -134,4 +134,79 @@ track 1:
     time = 325079
     flags = 536870913
     data = length 187, hash 833755BD
+track 2:
+  total output bytes = 10
+  sample count = 1
+  track duration = 298333
+  format 0:
+    averageBitrate = 267
+    id = 3
+    containerMimeType = video/mp4
+    sampleMimeType = application/x-mp4-mebx
+    maxInputSize = 40
+    metadata = entries=[mdta: key=com.apple.quicktime.location.accuracy.horizontal, value=3.754789, mdta: key=com.apple.quicktime.location.ISO6709, value=+37.7450-122.4301+066.374/, mdta: key=com.apple.quicktime.make, value=Apple, mdta: key=com.apple.quicktime.model, value=iPhone 12 Pro Max, mdta: key=com.apple.quicktime.software, value=14.5.1, mdta: key=com.apple.quicktime.creationdate, value=2021-05-25T09:21:51-0700, Mp4Timestamp: creation time=3704804511, modification time=3704804511, timescale=600]
+    initializationData:
+      data = length 93, hash 3F5A998
+  sample 0:
+    time = 0
+    flags = 536870913
+    data = length 10, hash A5E30712
+track 3:
+  total output bytes = 8
+  sample count = 1
+  track duration = 298333
+  format 0:
+    averageBitrate = 213
+    id = 4
+    containerMimeType = video/mp4
+    sampleMimeType = application/x-mp4-mebx
+    maxInputSize = 38
+    metadata = entries=[mdta: key=com.apple.quicktime.location.accuracy.horizontal, value=3.754789, mdta: key=com.apple.quicktime.location.ISO6709, value=+37.7450-122.4301+066.374/, mdta: key=com.apple.quicktime.make, value=Apple, mdta: key=com.apple.quicktime.model, value=iPhone 12 Pro Max, mdta: key=com.apple.quicktime.software, value=14.5.1, mdta: key=com.apple.quicktime.creationdate, value=2021-05-25T09:21:51-0700, Mp4Timestamp: creation time=3704804511, modification time=3704804511, timescale=600]
+    initializationData:
+      data = length 494, hash 58A4E343
+  sample 0:
+    time = 0
+    flags = 536870913
+    data = length 8, hash 94B52B09
+track 4:
+  total output bytes = 1008
+  sample count = 7
+  track duration = 298333
+  format 0:
+    averageBitrate = 34560
+    id = 5
+    containerMimeType = video/mp4
+    sampleMimeType = application/x-mp4-mebx
+    maxInputSize = 174
+    metadata = entries=[mdta: key=com.apple.quicktime.location.accuracy.horizontal, value=3.754789, mdta: key=com.apple.quicktime.location.ISO6709, value=+37.7450-122.4301+066.374/, mdta: key=com.apple.quicktime.make, value=Apple, mdta: key=com.apple.quicktime.model, value=iPhone 12 Pro Max, mdta: key=com.apple.quicktime.software, value=14.5.1, mdta: key=com.apple.quicktime.creationdate, value=2021-05-25T09:21:51-0700, Mp4Timestamp: creation time=3704804511, modification time=3704804511, timescale=600]
+    initializationData:
+      data = length 561, hash 6F5848A6
+  sample 0:
+    time = 66666
+    flags = 1
+    data = length 144, hash 1C2D5BA8
+  sample 1:
+    time = 100000
+    flags = 1
+    data = length 144, hash D83F4E7F
+  sample 2:
+    time = 133333
+    flags = 1
+    data = length 144, hash 496C3D23
+  sample 3:
+    time = 166666
+    flags = 1
+    data = length 144, hash EEE2C58A
+  sample 4:
+    time = 200000
+    flags = 1
+    data = length 144, hash 653669BF
+  sample 5:
+    time = 233333
+    flags = 1
+    data = length 144, hash 2603F40E
+  sample 6:
+    time = 266666
+    flags = 536870913
+    data = length 144, hash FE01F75E
 tracksEnded = true

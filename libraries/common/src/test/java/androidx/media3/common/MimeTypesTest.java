@@ -149,6 +149,9 @@ public final class MimeTypesTest {
     assertThat(MimeTypes.getTrackType(MimeTypes.APPLICATION_CEA608)).isEqualTo(C.TRACK_TYPE_TEXT);
     assertThat(MimeTypes.getTrackType(MimeTypes.APPLICATION_EMSG)).isEqualTo(C.TRACK_TYPE_METADATA);
     assertThat(MimeTypes.getTrackType(MimeTypes.APPLICATION_AIT)).isEqualTo(C.TRACK_TYPE_METADATA);
+    assertThat(MimeTypes.getTrackType(MimeTypes.APPLICATION_ITUT_T35))
+        .isEqualTo(C.TRACK_TYPE_METADATA);
+    assertThat(MimeTypes.getTrackType(MimeTypes.APPLICATION_MEBX)).isEqualTo(C.TRACK_TYPE_METADATA);
     assertThat(MimeTypes.getTrackType(MimeTypes.APPLICATION_CAMERA_MOTION))
         .isEqualTo(C.TRACK_TYPE_CAMERA_MOTION);
     assertThat(MimeTypes.getTrackType("application/custom")).isEqualTo(C.TRACK_TYPE_UNKNOWN);

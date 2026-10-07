@@ -129,8 +129,10 @@ import java.util.Objects;
       if (removeInitializationData && MimeTypes.isVideo(format.sampleMimeType)) {
         format = format.buildUpon().setInitializationData(null).build();
       }
-      // Skip ID3 tracks as AacMuxer does not handle them.
-      if (Objects.equals(format.sampleMimeType, MimeTypes.APPLICATION_ID3)) {
+      // Skip ID3 tracks as AacMuxer does not handle them, and mebx tracks as Mp4Muxer and
+      // FragmentedMp4Muxer do not handle them.
+      if (Objects.equals(format.sampleMimeType, MimeTypes.APPLICATION_ID3)
+          || Objects.equals(format.sampleMimeType, MimeTypes.APPLICATION_MEBX)) {
         trackMapping.add(-1); // We are not adding this track, mapping to -1.
         continue;
       }
@@ -156,8 +158,10 @@ import java.util.Objects;
       sampleBuffer.rewind();
       Format format =
           MediaFormatUtil.createFormatFromMediaFormat(extractor.getTrackFormat(sampleTrackIndex));
-      if (Objects.equals(format.sampleMimeType, MimeTypes.APPLICATION_ID3)) {
-        // Skip sample data for ID3 tracks.
+      if (Objects.equals(format.sampleMimeType, MimeTypes.APPLICATION_ID3)
+          || Objects.equals(format.sampleMimeType, MimeTypes.APPLICATION_MEBX)) {
+        // Skip ID3 data as AacMuxer does not handle them, and mebx data as Mp4Muxer and
+        // FragmentedMp4Muxer do not handle them.
         continue;
       }
       muxer.writeSampleData(trackMapping.get(sampleTrackIndex), sampleBuffer, bufferInfo);

@@ -135,6 +135,12 @@
         ([#3425](https://github.com/androidx/media/issues/3425)).
     *   Matroska: Fix `NullPointerException` when parsing nested `ChapterAtom`
         elements ([#3438](https://github.com/androidx/media/issues/3438)).
+    *   MP4: Support extracting `mebx` boxed timed metadata tracks in
+        `Mp4Extractor` and `FragmentedMp4Extractor` as
+        `MimeTypes.APPLICATION_MEBX` tracks. `Player.getCurrentTracks()` and
+        `Player.Listener.onTracksChanged(Tracks)` will now report these
+        additional unsupported metadata tracks for files containing `mebx`
+        tracks.
 *   Inspector:
     *   Support retrieving XMP metadata from MP4 files using
         `MetadataRetriever`.

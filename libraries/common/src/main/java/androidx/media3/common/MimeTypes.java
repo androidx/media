@@ -166,6 +166,8 @@ public final class MimeTypes {
   @UnstableApi
   public static final String APPLICATION_ITUT_T35 = BASE_TYPE_APPLICATION + "/x-itut-t35";
 
+  @UnstableApi public static final String APPLICATION_MEBX = BASE_TYPE_APPLICATION + "/x-mp4-mebx";
+
   @UnstableApi
   public static final String APPLICATION_DEPTH_METADATA =
       BASE_TYPE_APPLICATION + "/x-depth-metadata";
@@ -322,6 +324,7 @@ public final class MimeTypes {
       case APPLICATION_AIT:
       case APPLICATION_META:
       case APPLICATION_ITUT_T35:
+      case APPLICATION_MEBX:
       case APPLICATION_CAMERA_MOTION:
         return true;
       case AUDIO_AAC:
@@ -674,7 +677,8 @@ public final class MimeTypes {
         || APPLICATION_ICY.equals(mimeType)
         || APPLICATION_AIT.equals(mimeType)
         || APPLICATION_META.equals(mimeType)
-        || APPLICATION_ITUT_T35.equals(mimeType)) {
+        || APPLICATION_ITUT_T35.equals(mimeType)
+        || APPLICATION_MEBX.equals(mimeType)) {
       return C.TRACK_TYPE_METADATA;
     } else if (APPLICATION_CAMERA_MOTION.equals(mimeType)) {
       return C.TRACK_TYPE_CAMERA_MOTION;

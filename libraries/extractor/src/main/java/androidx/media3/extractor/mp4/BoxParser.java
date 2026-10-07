@@ -1348,8 +1348,11 @@ public final class BoxParser {
           || childAtomType == TYPE_text) {
         parseTextSampleEntry(
             stsd, childAtomType, childStartPosition, childAtomSize, tkhdData, language, out);
-      } else if (childAtomType == Mp4Box.TYPE_mett || childAtomType == Mp4Box.TYPE_it35) {
-        parseMetaDataSampleEntry(stsd, childAtomType, childStartPosition, tkhdData.id, out);
+      } else if (childAtomType == Mp4Box.TYPE_mett
+          || childAtomType == Mp4Box.TYPE_it35
+          || childAtomType == Mp4Box.TYPE_mebx) {
+        parseMetaDataSampleEntry(
+            stsd, childAtomType, childStartPosition, childAtomSize, tkhdData.id, out);
       } else if (childAtomType == Mp4Box.TYPE_camm) {
         out.format =
             new Format.Builder()
@@ -1955,7 +1958,8 @@ public final class BoxParser {
   }
 
   private static void parseMetaDataSampleEntry(
-      ParsableByteArray parent, int atomType, int position, int trackId, StsdData out) {
+      ParsableByteArray parent, int atomType, int position, int size, int trackId, StsdData out)
+      throws ParserException {
     parent.setPosition(position + Mp4Box.HEADER_SIZE + StsdData.STSD_HEADER_SIZE);
     if (atomType == Mp4Box.TYPE_mett) {
       parent.readNullTerminatedString(); // Skip optional content_encoding
@@ -1973,6 +1977,36 @@ public final class BoxParser {
               .setSampleMimeType(MimeTypes.APPLICATION_ITUT_T35)
               .setInitializationData(ImmutableList.of(identifier))
               .build();
+    } else if (atomType == Mp4Box.TYPE_mebx) {
+      int childStartPosition = parent.getPosition();
+      int keysPosition = findBoxPosition(parent, Mp4Box.TYPE_keys, position, size);
+      if (keysPosition != C.INDEX_UNSET) {
+        parent.setPosition(keysPosition);
+        int keysAtomSize = parent.readInt();
+        int keysAtomBodySize = keysAtomSize - Mp4Box.HEADER_SIZE;
+        ExtractorUtil.checkContainerInput(
+            keysAtomBodySize >= 0 && keysPosition + keysAtomSize <= position + size,
+            /* message= */ null);
+        parent.skipBytes(4); // Skip "keys" box type.
+        if (keysAtomBodySize > 0) {
+          byte[] keysPayload = new byte[keysAtomBodySize];
+          parent.readBytes(keysPayload, /* offset= */ 0, keysAtomBodySize);
+          Format.Builder formatBuilder =
+              new Format.Builder()
+                  .setId(trackId)
+                  .setSampleMimeType(MimeTypes.APPLICATION_MEBX)
+                  .setInitializationData(ImmutableList.of(keysPayload));
+          parent.setPosition(childStartPosition);
+          int btrtPosition = findBoxPosition(parent, Mp4Box.TYPE_btrt, position, size);
+          if (btrtPosition != C.INDEX_UNSET) {
+            BtrtData btrtData = parseBtrtFromParent(parent, btrtPosition);
+            formatBuilder
+                .setAverageBitrate(Ints.saturatedCast(btrtData.avgBitrate))
+                .setPeakBitrate(Ints.saturatedCast(btrtData.maxBitrate));
+          }
+          out.format = formatBuilder.build();
+        }
+      }
     }
   }
 

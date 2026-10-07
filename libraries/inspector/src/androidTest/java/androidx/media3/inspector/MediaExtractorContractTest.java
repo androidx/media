@@ -142,6 +142,21 @@ public class MediaExtractorContractTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 30)
+  public void setDataSource_withMebxTracks_extractsSamples() throws IOException {
+    try (AssetFileDescriptor afd = context.getAssets().openFd("media/mp4/sample_edit_list.mp4")) {
+      mediaExtractorProxy.setDataSource(afd);
+    }
+
+    assertThat(mediaExtractorProxy.getTrackCount()).isEqualTo(5);
+    mediaExtractorProxy.selectTrack(3);
+    ByteBuffer sampleBuffer = ByteBuffer.allocate(100);
+    int sampleSize = mediaExtractorProxy.readSampleData(sampleBuffer, /* offset= */ 0);
+    assertThat(sampleSize).isEqualTo(10);
+    assertThat(mediaExtractorProxy.advance()).isFalse();
+  }
+
+  @Test
   public void setDataSource_withFileDescriptor_extractsSamplesAfterClosingFd() throws IOException {
     File file = tempFolder.newFile();
     Files.write(TestUtil.getByteArray(context, /* fileName= */ "media/mp4/sample.mp4"), file);
