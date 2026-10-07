@@ -736,6 +736,25 @@ public final class AssetInfo {
           .setVideoDurationUs(1_000_000)
           .build();
 
+  public static final AssetInfo MP4_ASSET_COLOR_TEST_720P_STRIP_PQ_1000NITS =
+      new AssetInfo.Builder("asset:///media/mp4/pq_1280x720_primary_gradient_1000nits.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H265)
+                  .setWidth(1280)
+                  .setHeight(720)
+                  .setFrameRate(30.000f)
+                  .setColorInfo(
+                      new ColorInfo.Builder()
+                          .setColorSpace(C.COLOR_SPACE_BT2020)
+                          .setColorRange(C.COLOR_RANGE_LIMITED)
+                          .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                          .build())
+                  .setCodecs("hvc1.2.4.L93.90")
+                  .build())
+          .setVideoDurationUs(1_000_000)
+          .build();
+
   public static final AssetInfo MP4_ASSET_720P_4_SECOND_HDR10 =
       new AssetInfo.Builder("asset:///media/mp4/hdr10-720p.mp4")
           .setVideoFormat(

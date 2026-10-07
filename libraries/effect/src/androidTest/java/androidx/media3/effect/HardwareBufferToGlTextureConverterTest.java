@@ -24,6 +24,7 @@ import static androidx.media3.effect.FrameProcessorUtils.releaseOpenGl;
 import static androidx.media3.effect.FrameProcessorUtils.setupOpenGl;
 import static androidx.media3.effect.FrameProcessorUtils.shutdownGlExecutorService;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_COLOR_TEST_720P_STRIP_HLG;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_COLOR_TEST_720P_STRIP_PQ_1000NITS;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromFocusedGlFramebuffer;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapWithSolidColor;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createFp16BitmapFromFocusedGlFramebuffer;
@@ -37,7 +38,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -98,6 +98,8 @@ import org.junit.runner.RunWith;
 public final class HardwareBufferToGlTextureConverterTest {
 
   @Rule public final TestName testName = new TestName();
+  private static final String EXPECTED_BITMAP_PATH =
+      "test-generated-goldens/sample_mp4_first_frame/electrical_colors/";
   private static final AssetInfo TEST_VIDEO_ASSET = AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
   private static final ColorInfo PQ_INPUT_COLOR =
       new ColorInfo.Builder()
@@ -508,73 +510,91 @@ public final class HardwareBufferToGlTextureConverterTest {
   @Test
   public void convert_withHlgHardwareBufferAndToneMapping_outputsCorrectGlTexture()
       throws Exception {
-    assumeDeviceSupportsOpenGlToneMapping(
-        testName.getMethodName(), MP4_ASSET_COLOR_TEST_720P_STRIP_HLG.videoFormat);
+    assertHdrVideoFrameToneMapping(
+        MP4_ASSET_COLOR_TEST_720P_STRIP_HLG,
+        EXPECTED_BITMAP_PATH + "hlg_1000nit_strip_tonemap_with_gamut_compression.png");
+  }
 
-    int width = MP4_ASSET_COLOR_TEST_720P_STRIP_HLG.videoFormat.width;
-    int height = MP4_ASSET_COLOR_TEST_720P_STRIP_HLG.videoFormat.height;
+  @SdkSuppress(minSdkVersion = 31)
+  @Test
+  public void convert_withPqHardwareBufferAndToneMapping_outputsCorrectGlTexture()
+      throws Exception {
+    assertHdrVideoFrameToneMapping(
+        MP4_ASSET_COLOR_TEST_720P_STRIP_PQ_1000NITS,
+        EXPECTED_BITMAP_PATH + "pq_1000nit_strip_tonemap_with_gamut_compression.png");
+  }
 
-    ImageReader inputImageReader =
+  /**
+   * Decodes the first frame of {@code hdrVideoAsset} into a 10-bit {@link ImageFormat#YCBCR_P010}
+   * {@link HardwareBuffer}, tone maps it to {@link DefaultGlFrameProcessor#BT709_SRGB}, and asserts
+   * the output matches the golden at {@code expectedBitmapAssetPath}.
+   */
+  @RequiresApi(31)
+  private void assertHdrVideoFrameToneMapping(
+      AssetInfo hdrVideoAsset, String expectedBitmapAssetPath) throws Exception {
+    assumeDeviceSupportsOpenGlToneMapping(testName.getMethodName(), hdrVideoAsset.videoFormat);
+
+    int width = hdrVideoAsset.videoFormat.width;
+    int height = hdrVideoAsset.videoFormat.height;
+
+    try (ImageReader inputImageReader =
         ImageReader.newInstance(
             width,
             height,
             // Make sure ImageReader reads 10 bit YUV data.
             ImageFormat.YCBCR_P010,
             /* maxImages= */ 1,
-            HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
+            HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE)) {
+      AtomicReference<MediaFormat> inputMediaFormat = new AtomicReference<>();
+      DecodeOneFrameUtil.decodeOneMediaItemFrame(
+          MediaItem.fromUri(hdrVideoAsset.uri),
+          new DecodeOneFrameUtil.Listener() {
+            @Override
+            public void onContainerExtracted(MediaFormat mediaFormat) {}
 
-    AtomicReference<MediaFormat> inputMediaFormat = new AtomicReference<>();
-    DecodeOneFrameUtil.decodeOneMediaItemFrame(
-        MediaItem.fromUri(MP4_ASSET_COLOR_TEST_720P_STRIP_HLG.uri),
-        new DecodeOneFrameUtil.Listener() {
-          @Override
-          public void onContainerExtracted(MediaFormat mediaFormat) {}
+            @Override
+            public void onFrameDecoded(MediaFormat mediaFormat) {
+              inputMediaFormat.set(mediaFormat);
+            }
+          },
+          inputImageReader.getSurface());
 
-          @Override
-          public void onFrameDecoded(MediaFormat mediaFormat) {
-            inputMediaFormat.set(mediaFormat);
-          }
-        },
-        inputImageReader.getSurface());
+      Image inputImage = checkNotNull(inputImageReader.acquireLatestImage());
+      HardwareBuffer inputHardwareBuffer = checkNotNull(inputImage.getHardwareBuffer());
 
-    Image inputImage = checkNotNull(inputImageReader.acquireLatestImage());
-    HardwareBuffer inputHardwareBuffer = checkNotNull(inputImage.getHardwareBuffer());
+      Format inputFormat =
+          MediaFormatUtil.createFormatFromMediaFormat(inputMediaFormat.get())
+              .buildUpon()
+              .setWidth(width)
+              .setHeight(height)
+              .build();
 
-    Format inputFormat =
-        MediaFormatUtil.createFormatFromMediaFormat(inputMediaFormat.get())
-            .buildUpon()
-            .setWidth(width)
-            .setHeight(height)
-            .build();
+      converter =
+          new HardwareBufferToGlTextureConverter(
+              context,
+              HardwareBufferJni.INSTANCE,
+              /* outputColorInfo= */ BT709_SRGB,
+              e -> {
+                throw new AssertionError(e);
+              });
 
-    assumeTrue(GlUtil.isYuvTargetExtensionSupported());
+      TestFrameProcessorListener listener =
+          new TestFrameProcessorListener(inputHardwareBuffer, inputImage);
 
-    converter =
-        new HardwareBufferToGlTextureConverter(
-            context,
-            HardwareBufferJni.INSTANCE,
-            /* outputColorInfo= */ BT709_SRGB,
-            e -> {
-              throw new AssertionError(e);
-            });
+      HardwareBufferFrame inputHardwareBufferFrame =
+          new DefaultHardwareBufferFrame.Builder(inputHardwareBuffer)
+              .setFormat(inputFormat)
+              .build();
+      Bitmap expectedBitmap = BitmapPixelTestUtil.readBitmap(expectedBitmapAssetPath);
 
-    TestFrameProcessorListener listener =
-        new TestFrameProcessorListener(inputHardwareBuffer, inputImage);
+      Bitmap actualBitmap = convertAndCaptureBitmap(inputHardwareBufferFrame, listener);
 
-    HardwareBufferFrame inputHardwareBufferFrame =
-        new DefaultHardwareBufferFrame.Builder(inputHardwareBuffer).setFormat(inputFormat).build();
-    Bitmap expectedBitmap =
-        BitmapPixelTestUtil.readBitmap(
-            "test-generated-goldens/sample_mp4_first_frame/electrical_colors/hlg_1000nit_strip_tonemap_with_gamut_compression.png");
-
-    Bitmap actualBitmap = convertAndCaptureBitmap(inputHardwareBufferFrame, listener);
-
-    assertThat(
-            getBitmapAveragePixelAbsoluteDifferenceArgb8888(
-                expectedBitmap, actualBitmap, testName.getMethodName()))
-        .isLessThan(MAX_PIXEL_DIFFERENCE);
-    assertThat(listener.completedFrame.get()).isSameInstanceAs(inputHardwareBufferFrame);
-    inputImageReader.close();
+      assertThat(
+              getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+                  expectedBitmap, actualBitmap, testName.getMethodName()))
+          .isLessThan(MAX_PIXEL_DIFFERENCE);
+      assertThat(listener.completedFrame.get()).isSameInstanceAs(inputHardwareBufferFrame);
+    }
   }
 
   @SdkSuppress(minSdkVersion = 31)
