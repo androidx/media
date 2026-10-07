@@ -58,7 +58,6 @@ import androidx.media3.demo.composition.data.OutputSettingsState
 import androidx.media3.demo.composition.data.Preset
 import androidx.media3.effect.DebugTraceUtil
 import androidx.media3.effect.DefaultGlFrameProcessor
-import androidx.media3.effect.HardwareBufferJni
 import androidx.media3.effect.LanczosResample
 import androidx.media3.effect.MultipleInputVideoGraph
 import androidx.media3.effect.Presentation
@@ -1071,11 +1070,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   @RequiresApi(28)
   private fun createFrameProcessorFactory(): FrameProcessor.Factory {
     val baseGlFactory =
-      DefaultGlFrameProcessor.Factory.Builder(
-          /* context= */ getApplication(),
-          /* hardwareBufferJniWrapper= */ HardwareBufferJni.INSTANCE,
-        )
-        .build()
+      DefaultGlFrameProcessor.Factory.Builder(/* context= */ getApplication()).build()
     val settings = uiState.value.outputSettingsState
     if (!settings.gmsVideoEnhancementEnabled) {
       return baseGlFactory

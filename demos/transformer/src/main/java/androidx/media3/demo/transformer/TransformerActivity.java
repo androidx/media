@@ -83,7 +83,6 @@ import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultGlFrameProcessor;
 import androidx.media3.effect.DrawableOverlay;
 import androidx.media3.effect.GlEffect;
-import androidx.media3.effect.HardwareBufferJni;
 import androidx.media3.effect.HslAdjustment;
 import androidx.media3.effect.LanczosResample;
 import androidx.media3.effect.OverlayEffect;
@@ -367,9 +366,7 @@ public final class TransformerActivity extends AppCompatActivity {
             getString(R.string.api_28_required_frame_processor));
       }
       FrameProcessor.Factory baseGlFactory =
-          new DefaultGlFrameProcessor.Factory.Builder(
-                  /* context= */ this, HardwareBufferJni.INSTANCE)
-              .build();
+          new DefaultGlFrameProcessor.Factory.Builder(/* context= */ this).build();
       FrameProcessor.Factory frameProcessorFactory;
       if (bundle.getBoolean(ConfigurationActivity.ENABLE_GMS_VIDEO_ENHANCEMENT)) {
         if (SDK_INT < 33) {

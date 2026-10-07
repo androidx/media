@@ -61,7 +61,6 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.effect.BitmapOverlay;
 import androidx.media3.effect.DefaultGlFrameProcessor;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
-import androidx.media3.effect.HardwareBufferJni;
 import androidx.media3.effect.LanczosResample;
 import androidx.media3.effect.OverlayEffect;
 import androidx.media3.effect.Presentation;
@@ -126,7 +125,7 @@ public final class TransformerSequenceEffectTest {
     Transformer.Builder builder = new Transformer.Builder(context);
     if (shouldUseDefaultGlFrameProcessor()) {
       builder.setFrameProcessorFactory(
-          new DefaultGlFrameProcessor.Factory.Builder(context, HardwareBufferJni.INSTANCE).build());
+          new DefaultGlFrameProcessor.Factory.Builder(context).build());
     }
     return builder;
   }

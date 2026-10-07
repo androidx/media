@@ -32,7 +32,7 @@ public final class GlFrameProcessorTestRule extends ExternalResource {
   /** Returns a {@link DefaultGlFrameProcessor.Factory}. */
   @RequiresApi(26)
   public DefaultGlFrameProcessor.Factory createDefaultGlFrameProcessorFactory(Context context) {
-    return new DefaultGlFrameProcessor.Factory.Builder(context, HardwareBufferJni.INSTANCE).build();
+    return new DefaultGlFrameProcessor.Factory.Builder(context).build();
   }
 
   /**

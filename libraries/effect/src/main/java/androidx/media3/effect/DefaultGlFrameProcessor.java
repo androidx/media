@@ -85,7 +85,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     /** A builder for {@link Factory} instances. */
     public static final class Builder {
       private final Context context;
-      private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
+      @Nullable private HardwareBufferJniWrapper hardwareBufferJniWrapper;
       @Nullable private GlObjectsProvider glObjectsProvider;
       @Nullable private ExecutorService executorService;
       @Nullable private FrameToGlTextureConverter.Factory frameToGlTextureConverterFactory;
@@ -97,15 +97,27 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
        * Creates an instance.
        *
        * @param context The {@link Context}.
-       * @param hardwareBufferJniWrapper The {@link HardwareBufferJniWrapper}, for example {@code
-       *     HardwareBufferJni.INSTANCE}.
        */
-      public Builder(Context context, HardwareBufferJniWrapper hardwareBufferJniWrapper) {
+      public Builder(Context context) {
         this.context = context.getApplicationContext();
-        this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
         glTextureFrameCompositorFactory =
             new DefaultGlTextureFrameCompositor.Factory(
                 new DefaultCompositorGlProgram.Factory(this.context));
+      }
+
+      /**
+       * Sets the {@link HardwareBufferJniWrapper}.
+       *
+       * <p>The default value is {@link HardwareBufferJni#INSTANCE}.
+       *
+       * @param hardwareBufferJniWrapper The {@link HardwareBufferJniWrapper}.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setHardwareBufferJniWrapper(
+          HardwareBufferJniWrapper hardwareBufferJniWrapper) {
+        this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
+        return this;
       }
 
       /**
@@ -196,6 +208,10 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
 
       /** Builds a {@link Factory} instance. */
       public Factory build() {
+        if (hardwareBufferJniWrapper == null) {
+          hardwareBufferJniWrapper = HardwareBufferJni.INSTANCE;
+        }
+        HardwareBufferJniWrapper hardwareBufferJniWrapper = this.hardwareBufferJniWrapper;
         if (frameToGlTextureConverterFactory == null) {
           frameToGlTextureConverterFactory =
               (outputColorInfo, errorConsumer) ->
@@ -225,7 +241,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       context = builder.context;
       glObjectsProvider = builder.glObjectsProvider;
       glExecutorService = builder.executorService;
-      hardwareBufferJniWrapper = builder.hardwareBufferJniWrapper;
+      hardwareBufferJniWrapper = checkNotNull(builder.hardwareBufferJniWrapper);
       frameToGlTextureConverterFactory = checkNotNull(builder.frameToGlTextureConverterFactory);
       frameWriterGlTextureFrameConsumer = builder.frameWriterGlTextureFrameConsumer;
       glTextureFrameCompositorFactory = builder.glTextureFrameCompositorFactory;

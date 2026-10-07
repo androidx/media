@@ -1515,8 +1515,8 @@ public final class DefaultGlFrameProcessorTest {
 
   private DefaultGlFrameProcessor.Factory.Builder
       createDefaultGlFrameProcessorFactoryBuilderWithDefaultGlResources() {
-    return new DefaultGlFrameProcessor.Factory.Builder(
-            context, /* hardwareBufferJniWrapper= */ mock(HardwareBufferJniWrapper.class))
+    return new DefaultGlFrameProcessor.Factory.Builder(context)
+        .setHardwareBufferJniWrapper(mock(HardwareBufferJniWrapper.class))
         .setFrameToGlTextureConverterFactory(
             (outputColorInfo, errorConsumer) -> fakeFrameToGlTextureConverter)
         .setFrameWriterGlTextureFrameConsumer(fakeFrameWriterGlTextureFrameConsumer)

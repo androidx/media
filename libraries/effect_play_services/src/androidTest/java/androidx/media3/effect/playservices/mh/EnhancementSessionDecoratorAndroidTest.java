@@ -106,8 +106,7 @@ public final class EnhancementSessionDecoratorAndroidTest {
     buffersToClose = new ArrayList<>();
     context = getApplicationContext();
     outputVideoFile = temporaryFolder.newFile();
-    baseGlFactory =
-        new DefaultGlFrameProcessor.Factory.Builder(context, HardwareBufferJni.INSTANCE).build();
+    baseGlFactory = new DefaultGlFrameProcessor.Factory.Builder(context).build();
     fakeDownstreamOutput = new FakeFrameWriter();
     testListener = new FakeFrameProcessor.Listener();
   }
