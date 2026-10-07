@@ -26,6 +26,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
@@ -60,6 +61,7 @@ import androidx.media3.exoplayer.audio.AudioOutputProvider.FormatConfig;
 import androidx.media3.exoplayer.audio.AudioOutputProvider.FormatSupport;
 import androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig;
 import androidx.media3.extractor.ExtractorUtil;
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
@@ -151,7 +153,7 @@ public final class DefaultAudioSink implements AudioSink {
   @SuppressWarnings("deprecation")
   public static class DefaultAudioProcessorChain implements AudioProcessorChain {
 
-    private final AudioProcessor[] audioProcessors;
+    private final Function<Format, AudioProcessor[]> audioProcessorsFactory;
     private final SilenceSkippingAudioProcessor silenceSkippingAudioProcessor;
     private final SonicAudioProcessor sonicAudioProcessor;
 
@@ -159,8 +161,37 @@ public final class DefaultAudioSink implements AudioSink {
      * Creates a new default chain of audio processors, with the user-defined {@code
      * audioProcessors} applied before silence skipping and speed adjustment processors.
      */
+    @Deprecated
     public DefaultAudioProcessorChain(AudioProcessor... audioProcessors) {
       this(audioProcessors, new SilenceSkippingAudioProcessor(), new SonicAudioProcessor());
+    }
+
+    /**
+     * Creates a new default chain of audio processors, with the user-defined {@link
+     * AudioProcessor}s applied before silence skipping and speed adjustment processors.
+     */
+    public DefaultAudioProcessorChain(Function<Format, AudioProcessor[]> audioProcessorsFactory) {
+      this(audioProcessorsFactory, new SilenceSkippingAudioProcessor(), new SonicAudioProcessor());
+    }
+
+    /**
+     * Creates a new default chain of audio processors, with the user-defined {@code
+     * audioProcessors} applied before silence skipping and speed adjustment processors.
+     */
+    @Deprecated
+    public DefaultAudioProcessorChain(
+        AudioProcessor[] audioProcessors,
+        SilenceSkippingAudioProcessor silenceSkippingAudioProcessor,
+        SonicAudioProcessor sonicAudioProcessor) {
+      this(
+          format -> {
+            if (format.pcmEncoding != C.ENCODING_PCM_16BIT) {
+              return new AudioProcessor[0];
+            }
+            return audioProcessors;
+          },
+          silenceSkippingAudioProcessor,
+          sonicAudioProcessor);
     }
 
     /**
@@ -168,26 +199,28 @@ public final class DefaultAudioSink implements AudioSink {
      * audioProcessors} applied before silence skipping and speed adjustment processors.
      */
     public DefaultAudioProcessorChain(
-        AudioProcessor[] audioProcessors,
+        Function<Format, AudioProcessor[]> audioProcessorsFactory,
         SilenceSkippingAudioProcessor silenceSkippingAudioProcessor,
         SonicAudioProcessor sonicAudioProcessor) {
-      // The passed-in type may be more specialized than AudioProcessor[], so allocate a new array
-      // rather than using Arrays.copyOf.
-      this.audioProcessors = new AudioProcessor[audioProcessors.length + 2];
-      System.arraycopy(
-          /* src= */ audioProcessors,
-          /* srcPos= */ 0,
-          /* dest= */ this.audioProcessors,
-          /* destPos= */ 0,
-          /* length= */ audioProcessors.length);
+      this.audioProcessorsFactory = audioProcessorsFactory;
       this.silenceSkippingAudioProcessor = silenceSkippingAudioProcessor;
       this.sonicAudioProcessor = sonicAudioProcessor;
-      this.audioProcessors[audioProcessors.length] = silenceSkippingAudioProcessor;
-      this.audioProcessors[audioProcessors.length + 1] = sonicAudioProcessor;
     }
 
     @Override
-    public AudioProcessor[] getAudioProcessors() {
+    public AudioProcessor[] getAudioProcessors(Format format) {
+      AudioProcessor[] producedProcessors = audioProcessorsFactory.apply(format);
+      // The returned type may be more specialized than AudioProcessor[], so allocate a new array
+      // rather than using Arrays.copyOf.
+      AudioProcessor[] audioProcessors = new AudioProcessor[producedProcessors.length + 2];
+      System.arraycopy(
+          /* src= */ producedProcessors,
+          /* srcPos= */ 0,
+          /* dest= */ audioProcessors,
+          /* destPos= */ 0,
+          /* length= */ producedProcessors.length);
+      audioProcessors[producedProcessors.length] = silenceSkippingAudioProcessor;
+      audioProcessors[producedProcessors.length + 1] = sonicAudioProcessor;
       return audioProcessors;
     }
 
@@ -746,12 +779,20 @@ public final class DefaultAudioSink implements AudioSink {
 
       ImmutableList.Builder<AudioProcessor> pipelineProcessors = new ImmutableList.Builder<>();
       pipelineProcessors.addAll(availableAudioProcessors);
+      Format.Builder afterConversionFormat = inputFormat.buildUpon();
       if (shouldUseFloatOutput(inputFormat.pcmEncoding)) {
         pipelineProcessors.add(toFloatPcmAudioProcessor);
+        afterConversionFormat.setPcmEncoding(C.ENCODING_PCM_FLOAT);
       } else {
         pipelineProcessors.add(toInt16PcmAudioProcessor);
-        pipelineProcessors.add(audioProcessorChain.getAudioProcessors());
+        afterConversionFormat.setPcmEncoding(C.ENCODING_PCM_16BIT);
       }
+      if (audioSinkConfig.outputChannelMapping != null
+          && audioSinkConfig.outputChannelMapping.length() != inputFormat.channelCount) {
+        afterConversionFormat.setChannelCount(audioSinkConfig.outputChannelMapping.length());
+        afterConversionFormat.setChannelMask(Format.NO_VALUE);
+      }
+      pipelineProcessors.add(audioProcessorChain.getAudioProcessors(afterConversionFormat.build()));
       audioProcessingPipeline = new AudioProcessingPipeline(pipelineProcessors.build());
 
       // If the underlying processors of the new pipeline are the same as the existing pipeline,
@@ -1729,13 +1770,10 @@ public final class DefaultAudioSink implements AudioSink {
     // We don't apply speed/pitch adjustment using an audio processor in the following cases:
     // - in tunneling mode, because audio processing can change the duration of audio yet the video
     //   frame presentation times are currently not modified (see also
-    //   https://github.com/google/ExoPlayer/issues/4803);
+    //   https://github.com/google/ExoPlayer/issues/4803); and
     // - when playing encoded audio via passthrough/offload, because modifying the audio stream
-    //   would require decoding/re-encoding; and
-    // - when outputting float PCM audio, because SonicAudioProcessor outputs 16-bit integer PCM.
-    return !tunneling
-        && configuration.isPcm()
-        && !shouldUseFloatOutput(configuration.inputFormat.pcmEncoding);
+    //   would require decoding/re-encoding.
+    return !tunneling && configuration.isPcm();
   }
 
   private boolean useAudioOutputPlaybackParams() {
@@ -1872,6 +1910,7 @@ public final class DefaultAudioSink implements AudioSink {
     }
   }
 
+  @SuppressLint("WrongConstant") // We ensure the encoding is a PCM encoding.
   private ByteBuffer maybeRampUpVolume(ByteBuffer buffer) {
     if (!configuration.isPcm()) {
       return buffer;
