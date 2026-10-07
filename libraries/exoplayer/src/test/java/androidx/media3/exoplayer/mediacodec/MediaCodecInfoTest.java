@@ -20,6 +20,7 @@ import static androidx.media3.common.MimeTypes.AUDIO_AAC;
 import static androidx.media3.common.MimeTypes.AUDIO_AC4;
 import static androidx.media3.common.MimeTypes.AUDIO_E_AC3;
 import static androidx.media3.common.MimeTypes.AUDIO_E_AC3_JOC;
+import static androidx.media3.common.MimeTypes.AUDIO_OPUS;
 import static androidx.media3.common.MimeTypes.VIDEO_AV1;
 import static androidx.media3.common.MimeTypes.VIDEO_DOLBY_VISION;
 import static androidx.media3.common.MimeTypes.VIDEO_H264;
@@ -110,6 +111,14 @@ public final class MediaCodecInfoTest {
           .setChannelCount(21)
           .setSampleRate(48000)
           .setAverageBitrate(5000)
+          .build();
+
+  private static final Format FORMAT_OPUS =
+      new Format.Builder()
+          .setSampleMimeType(AUDIO_OPUS)
+          .setChannelCount(2)
+          .setSampleRate(48000)
+          .setInitializationData(ImmutableList.of(new byte[] {1, 2, 3, 4}))
           .build();
 
   private static final Format FORMAT_DOLBY_VISION_PROFILE_DVHEST =
@@ -499,6 +508,40 @@ public final class MediaCodecInfoTest {
   }
 
   @Test
+  public void canReuseCodec_opusWithSameInitializationData_returnsNo() {
+    MediaCodecInfo codecInfo = buildOpusCodecInfo();
+
+    Format opusVariantFormat = FORMAT_OPUS.buildUpon().setAverageBitrate(64000).build();
+    assertThat(codecInfo.canReuseCodec(FORMAT_OPUS, opusVariantFormat))
+        .isEqualTo(
+            new DecoderReuseEvaluation(
+                codecInfo.name,
+                FORMAT_OPUS,
+                opusVariantFormat,
+                REUSE_RESULT_NO,
+                DISCARD_REASON_WORKAROUND));
+  }
+
+  @Test
+  public void canReuseCodec_opusWithDifferentInitializationData_returnsNo() {
+    MediaCodecInfo codecInfo = buildOpusCodecInfo();
+
+    Format opusVariantFormat =
+        FORMAT_OPUS
+            .buildUpon()
+            .setInitializationData(ImmutableList.of(new byte[] {5, 6, 7, 8}))
+            .build();
+    assertThat(codecInfo.canReuseCodec(FORMAT_OPUS, opusVariantFormat))
+        .isEqualTo(
+            new DecoderReuseEvaluation(
+                codecInfo.name,
+                FORMAT_OPUS,
+                opusVariantFormat,
+                REUSE_RESULT_NO,
+                DISCARD_REASON_INITIALIZATION_DATA_CHANGED | DISCARD_REASON_WORKAROUND));
+  }
+
+  @Test
   public void isFormatSupported_ac4Profile00InAutomotiveContext_returnsFalse() throws Exception {
     // TODO: b/511135499 - Run this on all API levels when AAC automotive checks work.
     assumeTrue(SDK_INT < 26 || SDK_INT > 28);
@@ -583,6 +626,21 @@ public final class MediaCodecInfoTest {
         "aac",
         AUDIO_AAC,
         AUDIO_AAC,
+        /* capabilities= */ null,
+        /* hardwareAccelerated= */ false,
+        /* softwareOnly= */ true,
+        /* vendor= */ false,
+        /* adaptive= */ false,
+        /* tunneling= */ false,
+        /* secure= */ false,
+        /* detachedSurfaceSupported= */ false);
+  }
+
+  private static MediaCodecInfo buildOpusCodecInfo() {
+    return new MediaCodecInfo(
+        "opus",
+        AUDIO_OPUS,
+        AUDIO_OPUS,
         /* capabilities= */ null,
         /* hardwareAccelerated= */ false,
         /* softwareOnly= */ true,
