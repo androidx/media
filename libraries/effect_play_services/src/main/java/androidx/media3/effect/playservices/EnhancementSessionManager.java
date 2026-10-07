@@ -55,12 +55,7 @@ import java.util.concurrent.Executor;
   }
 
   /** Abstraction over {@link EnhancementClient} for testing. */
-  interface Client {
-    Task<Boolean> isDeviceSupported();
-
-    Task<Boolean> isModuleInstalled();
-
-    Task<Boolean> installModule(@Nullable EnhancementClient.InstallStatusCallback callback);
+  interface Client extends ModuleClient {
 
     Task<EnhancementSession> createSession(
         EnhancementOptions options, EnhancementSessionCallback callback);
@@ -158,7 +153,7 @@ import java.util.concurrent.Executor;
                   return Tasks.forCanceled();
                 }
               }
-              return client.installModule(/* callback= */ null);
+              return client.installModule();
             })
         .onSuccessTask(
             handlerExecutor,
@@ -232,8 +227,8 @@ import java.util.concurrent.Executor;
     }
 
     @Override
-    public Task<Boolean> installModule(@Nullable EnhancementClient.InstallStatusCallback callback) {
-      return enhancementClient.installModule(callback);
+    public Task<Boolean> installModule() {
+      return enhancementClient.installModule(/* installStatusCallback= */ null);
     }
 
     @Override

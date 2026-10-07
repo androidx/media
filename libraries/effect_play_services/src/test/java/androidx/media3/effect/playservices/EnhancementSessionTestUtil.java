@@ -19,7 +19,6 @@ import android.graphics.Bitmap;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import com.google.android.gms.media.effect.enhancement.EnhancementCallback;
-import com.google.android.gms.media.effect.enhancement.EnhancementClient;
 import com.google.android.gms.media.effect.enhancement.EnhancementOptions;
 import com.google.android.gms.media.effect.enhancement.EnhancementSession;
 import com.google.android.gms.media.effect.enhancement.EnhancementSessionCallback;
@@ -57,30 +56,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
     public void cancel() {}
   }
 
-  /** Fake {@link EnhancementSessionManager.Client} for tests. */
-  /* package */ static final class FakeClient implements EnhancementSessionManager.Client {
+  /** Fake {@link ModuleClient} implementation for tests. */
+  /* package */ static class FakeModuleClient implements ModuleClient {
 
     /* package */ final AtomicBoolean installModuleCalled;
-    /* package */ final AtomicBoolean createSessionCalled;
-
     /* package */ Task<Boolean> deviceSupportedTask;
     /* package */ Task<Boolean> moduleInstalledTask;
     /* package */ Task<Boolean> installModuleTask;
-    @Nullable /* package */ Task<EnhancementSession> createSessionTask;
-    /* package */ boolean autoTriggerSessionCallback;
-    @Nullable /* package */ EnhancementSessionCallback savedSessionCallback;
-    @Nullable /* package */ EnhancementOptions lastOptions;
 
-    @Nullable private final EnhancementSession sessionToReturn;
-
-    /* package */ FakeClient(@Nullable EnhancementSession sessionToReturn) {
+    /* package */ FakeModuleClient() {
       this.installModuleCalled = new AtomicBoolean(false);
-      this.createSessionCalled = new AtomicBoolean(false);
       this.deviceSupportedTask = Tasks.forResult(true);
       this.moduleInstalledTask = Tasks.forResult(true);
       this.installModuleTask = Tasks.forResult(true);
-      this.sessionToReturn = sessionToReturn;
-      this.autoTriggerSessionCallback = sessionToReturn != null;
     }
 
     @Override
@@ -94,12 +82,28 @@ import java.util.concurrent.atomic.AtomicBoolean;
     }
 
     @Override
-    public Task<Boolean> installModule(@Nullable EnhancementClient.InstallStatusCallback callback) {
+    public Task<Boolean> installModule() {
       installModuleCalled.set(true);
-      if (callback != null) {
-        callback.onInstalled();
-      }
       return installModuleTask;
+    }
+  }
+
+  /** Fake {@link EnhancementSessionManager.Client} for tests. */
+  /* package */ static final class FakeClient extends FakeModuleClient
+      implements EnhancementSessionManager.Client {
+
+    /* package */ final AtomicBoolean createSessionCalled;
+    @Nullable /* package */ Task<EnhancementSession> createSessionTask;
+    /* package */ boolean autoTriggerSessionCallback;
+    @Nullable /* package */ EnhancementSessionCallback savedSessionCallback;
+    @Nullable /* package */ EnhancementOptions lastOptions;
+
+    @Nullable private final EnhancementSession sessionToReturn;
+
+    /* package */ FakeClient(@Nullable EnhancementSession sessionToReturn) {
+      this.createSessionCalled = new AtomicBoolean(false);
+      this.sessionToReturn = sessionToReturn;
+      this.autoTriggerSessionCallback = sessionToReturn != null;
     }
 
     @Override
