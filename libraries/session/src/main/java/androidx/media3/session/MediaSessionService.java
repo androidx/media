@@ -533,7 +533,6 @@ public abstract class MediaSessionService extends LifecycleService {
    *
    * <p>This method will be called on the main thread.
    */
-  @SuppressLint("InlinedApi")
   @CallSuper
   @Override
   public int onStartCommand(@Nullable Intent intent, int flags, int startId) {

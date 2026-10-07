@@ -238,11 +238,6 @@ public class MediaStyleNotificationHelper {
    *     .build();
    * </pre>
    *
-   * <p>If you are using this style, consider using the corresponding styles like {@link
-   * androidx.media3.session.R.style#TextAppearance_Compat_Notification_Media} or {@link
-   * androidx.media3.session.R.style#TextAppearance_Compat_Notification_Title_Media} in your custom
-   * views in order to get the correct styling on each platform version.
-   *
    * @see androidx.core.app.NotificationCompat.DecoratedCustomViewStyle
    * @see MediaStyle
    */

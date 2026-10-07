@@ -114,7 +114,6 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   private Boxes() {}
 
   /** Returns the moov box. */
-  @SuppressWarnings("InlinedApi")
   public static ByteBuffer moov(
       List<Track> tracks,
       MetadataCollector metadataCollector,
@@ -1840,7 +1839,6 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   }
 
   /** Returns the colr box. */
-  @SuppressWarnings("InlinedApi")
   private static ByteBuffer colrBox(ColorInfo colorInfo) {
     ByteBuffer contents = ByteBuffer.allocate(20);
     contents.put((byte) 'n');

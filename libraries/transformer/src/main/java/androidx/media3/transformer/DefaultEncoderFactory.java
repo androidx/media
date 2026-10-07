@@ -789,7 +789,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
    * <p>The adjustment is applied in-place to {@code mediaFormat}.
    */
   private static void adjustMediaFormatForEncoderPerformanceSettings(MediaFormat mediaFormat) {
-    if (SDK_INT < 25) {
+    if (SDK_INT == 24) {
       // Not setting priority and operating rate achieves better encoding performance.
       return;
     }

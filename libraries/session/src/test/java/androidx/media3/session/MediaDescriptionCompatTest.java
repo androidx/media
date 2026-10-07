@@ -18,7 +18,6 @@ package androidx.media3.session;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.media.MediaDescription;
-import android.net.Uri;
 import android.os.Bundle;
 import android.os.Parcel;
 import androidx.media3.session.legacy.MediaDescriptionCompat;
@@ -35,9 +34,6 @@ public final class MediaDescriptionCompatTest {
   public void fromMediaDescription_withMalformedExtras_doesNotCrash() {
     Bundle extras = new Bundle();
     extras.putParcelable("malformed_key", new MalformedParcelable());
-    // Also put a valid media URI to trigger the path that reads it
-    Uri mediaUri = Uri.parse("content://media/external/audio/media/1");
-    extras.putParcelable(MediaDescriptionCompat.DESCRIPTION_KEY_MEDIA_URI, mediaUri);
 
     MediaDescription platformDescription =
         new MediaDescription.Builder()

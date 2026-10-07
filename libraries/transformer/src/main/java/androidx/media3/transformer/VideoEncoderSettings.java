@@ -21,7 +21,6 @@ import static android.media.MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
-import android.annotation.SuppressLint;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import androidx.annotation.IntDef;
@@ -61,7 +60,6 @@ public final class VideoEncoderSettings {
    *   <li>Constant bitrate: {@link MediaCodecInfo.EncoderCapabilities#BITRATE_MODE_CBR}.
    * </ul>
    */
-  @SuppressLint("InlinedApi")
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)

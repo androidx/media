@@ -466,6 +466,7 @@ public final class Util {
     }
   }
 
+  @SuppressLint("InlinedApi")
   private static boolean isMediaStoreExternalContentUri(Uri uri) {
     if (!Objects.equals(uri.getScheme(), ContentResolver.SCHEME_CONTENT)
         || !Objects.equals(uri.getAuthority(), MediaStore.AUTHORITY)) {
@@ -1058,14 +1059,11 @@ public final class Util {
   }
 
   /**
-   * Returns the language tag for a {@link Locale}.
-   *
-   * <p>This tag is IETF BCP 47 compliant.
-   *
-   * @param locale A {@link Locale}.
-   * @return The language tag.
+   * @deprecated Use {@link Locale#toLanguageTag()} instead.
    */
   @UnstableApi
+  @Deprecated
+  @InlineMe(replacement = "locale.toLanguageTag()")
   public static String getLocaleLanguageTag(Locale locale) {
     return locale.toLanguageTag();
   }
@@ -3562,7 +3560,8 @@ public final class Util {
    */
   @UnstableApi
   public static String[] getSystemLanguageCodes() {
-    String[] systemLocales = getSystemLocales();
+    Configuration config = Resources.getSystem().getConfiguration();
+    String[] systemLocales = split(config.getLocales().toLanguageTags(), ",");
     for (int i = 0; i < systemLocales.length; i++) {
       systemLocales[i] = normalizeLanguageCode(systemLocales[i]);
     }
@@ -4413,11 +4412,6 @@ public final class Util {
     Display.Mode mode = display.getMode();
     outSize.x = mode.getPhysicalWidth();
     outSize.y = mode.getPhysicalHeight();
-  }
-
-  private static String[] getSystemLocales() {
-    Configuration config = Resources.getSystem().getConfiguration();
-    return split(config.getLocales().toLanguageTags(), ",");
   }
 
   private static HashMap<String, String> createIsoLanguageReplacementMap() {

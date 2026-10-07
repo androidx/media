@@ -850,10 +850,7 @@ public interface AudioSink {
 
   /**
    * Enables tunneling, if possible. The sink is reset if tunneling was previously disabled.
-   * Enabling tunneling is only possible if the sink is based on a platform {@link AudioTrack}, and
-   * requires platform API version 21 onwards.
-   *
-   * @throws IllegalStateException Thrown if enabling tunneling on platform API version &lt; 21.
+   * Enabling tunneling is only possible if the sink is based on a platform {@link AudioTrack}.
    */
   void enableTunnelingV21();
 

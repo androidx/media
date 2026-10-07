@@ -135,10 +135,14 @@ public class PlayerActivity extends AppCompatActivity
   @Override
   public void onNewIntent(Intent intent) {
     super.onNewIntent(intent);
+    boolean hadPlayer = player != null;
     releasePlayer();
     releaseClientSideAdsLoader();
     clearStartPosition();
     setIntent(intent);
+    if (hadPlayer) {
+      initializePlayer();
+    }
   }
 
   @Override
@@ -147,17 +151,6 @@ public class PlayerActivity extends AppCompatActivity
     initializePlayer();
     if (playerView != null) {
       playerView.onResume();
-    }
-  }
-
-  @Override
-  public void onResume() {
-    super.onResume();
-    if (player == null) {
-      initializePlayer();
-      if (playerView != null) {
-        playerView.onResume();
-      }
     }
   }
 

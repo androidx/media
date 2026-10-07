@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.drm;
 
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.annotation.SuppressLint;
 import android.media.DeniedByServerException;
 import android.media.MediaCryptoException;
 import android.media.MediaDrm;
@@ -94,40 +95,28 @@ public interface ExoMediaDrm {
   }
 
   /** Event indicating that keys need to be requested from the license server. */
-  @UnstableApi
-  @SuppressWarnings("InlinedApi")
-  int EVENT_KEY_REQUIRED = MediaDrm.EVENT_KEY_REQUIRED;
+  @UnstableApi int EVENT_KEY_REQUIRED = MediaDrm.EVENT_KEY_REQUIRED;
 
   /** Event indicating that keys have expired, and are no longer usable. */
-  @UnstableApi
-  @SuppressWarnings("InlinedApi")
-  int EVENT_KEY_EXPIRED = MediaDrm.EVENT_KEY_EXPIRED;
+  @UnstableApi int EVENT_KEY_EXPIRED = MediaDrm.EVENT_KEY_EXPIRED;
 
   /** Event indicating that a certificate needs to be requested from the provisioning server. */
-  @UnstableApi
-  @SuppressWarnings("InlinedApi")
-  int EVENT_PROVISION_REQUIRED = MediaDrm.EVENT_PROVISION_REQUIRED;
+  @UnstableApi int EVENT_PROVISION_REQUIRED = MediaDrm.EVENT_PROVISION_REQUIRED;
 
   /**
    * Key request type for keys that will be used for online use. Streaming keys will not be saved to
    * the device for subsequent use when the device is not connected to a network.
    */
-  @UnstableApi
-  @SuppressWarnings("InlinedApi")
-  int KEY_TYPE_STREAMING = MediaDrm.KEY_TYPE_STREAMING;
+  @UnstableApi int KEY_TYPE_STREAMING = MediaDrm.KEY_TYPE_STREAMING;
 
   /**
    * Key request type for keys that will be used for offline use. They will be saved to the device
    * for subsequent use when the device is not connected to a network.
    */
-  @UnstableApi
-  @SuppressWarnings("InlinedApi")
-  int KEY_TYPE_OFFLINE = MediaDrm.KEY_TYPE_OFFLINE;
+  @UnstableApi int KEY_TYPE_OFFLINE = MediaDrm.KEY_TYPE_OFFLINE;
 
   /** Key request type indicating that saved offline keys should be released. */
-  @UnstableApi
-  @SuppressWarnings("InlinedApi")
-  int KEY_TYPE_RELEASE = MediaDrm.KEY_TYPE_RELEASE;
+  @UnstableApi int KEY_TYPE_RELEASE = MediaDrm.KEY_TYPE_RELEASE;
 
   /**
    * Called when a DRM event occurs.
@@ -271,12 +260,14 @@ public interface ExoMediaDrm {
      * Key request type if keys are already loaded and available for use. No license request is
      * necessary, and no key request data is returned.
      */
+    @SuppressLint("InlinedApi")
     public static final int REQUEST_TYPE_NONE = MediaDrm.KeyRequest.REQUEST_TYPE_NONE;
 
     /**
      * Key request type if keys have been loaded, but an additional license request is needed to
      * update their values.
      */
+    @SuppressLint("InlinedApi")
     public static final int REQUEST_TYPE_UPDATE = MediaDrm.KeyRequest.REQUEST_TYPE_UPDATE;
 
     private final byte[] data;
@@ -318,8 +309,7 @@ public interface ExoMediaDrm {
 
     /**
      * Returns the type of the request, or {@link #REQUEST_TYPE_UNKNOWN} if the underlying key
-     * request does not specify a type. Note that when using a platform {@link MediaDrm} instance,
-     * key requests only specify a type on API levels 23 and above.
+     * request does not specify a type.
      */
     public @RequestType int getRequestType() {
       return requestType;

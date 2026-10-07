@@ -696,7 +696,8 @@ public class MediaSession {
     }
 
     /**
-     * Returns the package name, or {@link #LEGACY_CONTROLLER_PACKAGE_NAME} on API &le; 24.
+     * Returns the package name, or {@link #LEGACY_CONTROLLER_PACKAGE_NAME} if the package name
+     * cannot be obtained.
      *
      * <p>In some cases the correctness of the package name cannot be verified, for example when a
      * controller from another app connects directly with a {@link SessionToken} and the app's

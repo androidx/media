@@ -34,7 +34,6 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /** Utility methods for displaying {@link Notification Notifications}. */
-@SuppressLint("InlinedApi")
 @UnstableApi
 public final class NotificationUtil {
 

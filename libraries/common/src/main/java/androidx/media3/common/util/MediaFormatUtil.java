@@ -73,7 +73,6 @@ public final class MediaFormatUtil {
   private static final int MAX_POWER_OF_TWO_INT = 1 << 30;
 
   /** Returns a {@link Format} representing the given {@link MediaFormat}. */
-  @SuppressLint("InlinedApi") // Inlined MediaFormat keys.
   public static Format createFormatFromMediaFormat(MediaFormat mediaFormat) {
     Format.Builder formatBuilder =
         new Format.Builder()
@@ -273,7 +272,6 @@ public final class MediaFormatUtil {
    * @param format The {@link MediaFormat} being configured.
    * @param colorInfo The color info to set.
    */
-  @SuppressWarnings("InlinedApi")
   public static void maybeSetColorInfo(MediaFormat format, @Nullable ColorInfo colorInfo) {
     if (colorInfo != null) {
       maybeSetInteger(format, MediaFormat.KEY_COLOR_TRANSFER, colorInfo.colorTransfer);
@@ -427,7 +425,6 @@ public final class MediaFormatUtil {
   }
 
   /** Returns the frame rate from the given {@link MediaFormat}. */
-  @SuppressLint("InlinedApi") // Inlined MediaFormat.KEY_FRAME_RATE.
   private static float getFrameRate(MediaFormat mediaFormat) {
     float frameRate =
         getFloatFromIntOrFloat(
@@ -507,7 +504,6 @@ public final class MediaFormatUtil {
     mediaFormat.setInteger(MediaFormat.KEY_PIXEL_ASPECT_RATIO_HEIGHT, pixelAspectRatioHeight);
   }
 
-  @SuppressLint("InlinedApi") // Inlined MediaFormat keys.
   private static @C.PcmEncoding int getPcmEncoding(MediaFormat mediaFormat) {
     @C.PcmEncoding
     int exoPcmEncoding =
@@ -519,7 +515,7 @@ public final class MediaFormatUtil {
         mediaFormat, MediaFormat.KEY_PCM_ENCODING, /* defaultValue= */ Format.NO_VALUE);
   }
 
-  @SuppressLint("InlinedApi") // Inlined KEY_PCM_ENCODING.
+  @SuppressLint("InlinedApi") // Inlined AudioFormat constants.
   private static void maybeSetPcmEncoding(
       MediaFormat mediaFormat, @C.PcmEncoding int exoPcmEncoding) {
     if (exoPcmEncoding == Format.NO_VALUE) {

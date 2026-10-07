@@ -51,7 +51,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (SDK_INT >= 35) {
       impl = new ImplApi35();
     } else {
-      impl = new ImplApi23();
+      impl = new ImplBase();
     }
   }
 
@@ -169,7 +169,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
-  private static final class ImplApi23 implements SuitableOutputChecker {
+  private static final class ImplBase implements SuitableOutputChecker {
 
     @Nullable private AudioManager audioManager;
     private @MonotonicNonNull AudioDeviceCallback audioDeviceCallback;

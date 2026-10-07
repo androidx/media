@@ -28,7 +28,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
@@ -1438,8 +1437,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    * Should be called when the player is visible to the user, if the {@code surface_type} extends
    * {@link GLSurfaceView}. It is the counterpart to {@link #onPause()}.
    *
-   * <p>This method should typically be called in {@code Activity.onStart()}, or {@code
-   * Activity.onResume()} for API versions &lt;= 23.
+   * <p>This method should typically be called in {@code Activity.onStart()}.
    */
   public void onResume() {
     if (surfaceView instanceof GLSurfaceView) {
@@ -1451,8 +1449,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    * Should be called when the player is no longer visible to the user, if the {@code surface_type}
    * extends {@link GLSurfaceView}. It is the counterpart to {@link #onResume()}.
    *
-   * <p>This method should typically be called in {@code Activity.onStop()}, or {@code
-   * Activity.onPause()} for API versions &lt;= 23.
+   * <p>This method should typically be called in {@code Activity.onStop()}.
    */
   public void onPause() {
     if (surfaceView instanceof GLSurfaceView) {
@@ -1839,7 +1836,6 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     aspectRatioFrame.setResizeMode(resizeMode);
   }
 
-  @SuppressLint("InlinedApi")
   private boolean isDpadKey(int keyCode) {
     return keyCode == KeyEvent.KEYCODE_DPAD_UP
         || keyCode == KeyEvent.KEYCODE_DPAD_UP_RIGHT

@@ -332,7 +332,6 @@ public final class VideoFrameProcessorTestRunner {
     this.effects = effects;
   }
 
-  @SuppressLint("InlinedApi") // Inlined MediaFormat keys.
   public void processFirstFrameAndEnd() throws Exception {
     DecodeOneFrameUtil.decodeOneAssetFileFrame(
         checkNotNull(videoAssetPath),

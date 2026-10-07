@@ -80,7 +80,6 @@ public final class AudioCapabilities {
           DEFAULT_EMPTY_SPATIALIZER_CHANNEL_MASKS);
 
   /** Encodings supported when the device specifies external surround sound. */
-  @SuppressLint("InlinedApi") // Compile-time access to integer constants defined in API 21.
   private static final ImmutableList<Integer> EXTERNAL_SURROUND_SOUND_ENCODINGS =
       ImmutableList.of(
           AudioFormat.ENCODING_PCM_16BIT, AudioFormat.ENCODING_AC3, AudioFormat.ENCODING_E_AC3);
@@ -150,7 +149,6 @@ public final class AudioCapabilities {
     return getCapabilitiesInternal(context, audioAttributes, routedDevice, spatializerChannelMasks);
   }
 
-  @SuppressWarnings("InlinedApi")
   @SuppressLint("UnprotectedReceiver") // ACTION_HDMI_AUDIO_PLUG is protected since API 16
   /* package */ static AudioCapabilities getCapabilitiesInternal(
       Context context,
@@ -165,7 +163,6 @@ public final class AudioCapabilities {
         context, intent, audioAttributes, routedDevice, spatializerChannelMasks);
   }
 
-  @SuppressLint("InlinedApi")
   /* package */ static AudioCapabilities getCapabilitiesInternal(
       Context context,
       @Nullable Intent intent,

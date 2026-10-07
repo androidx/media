@@ -49,7 +49,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
-import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /** A utility class for querying the available codecs. */
@@ -157,12 +156,7 @@ public final class MediaCodecUtil {
       return cachedDecoderInfos;
     }
 
-    // MV-HEVC is handled by a special codec in the media_codecs.xml file.  We need to get
-    // ALL_CODECS list to include the special codec.
-    boolean specialCodec = mimeType.equals(MimeTypes.VIDEO_MV_HEVC);
-    MediaCodecListCompat mediaCodecList =
-        new MediaCodecListCompatV21(secure, tunneling, specialCodec);
-    ArrayList<MediaCodecInfo> decoderInfos = getDecoderInfosInternal(key, mediaCodecList);
+    List<MediaCodecInfo> decoderInfos = getDecoderInfosInternal(key);
     applyWorkarounds(mimeType, decoderInfos);
     ImmutableList<MediaCodecInfo> immutableDecoderInfos = ImmutableList.copyOf(decoderInfos);
     decoderInfosCache.put(key, immutableDecoderInfos);
@@ -513,22 +507,26 @@ public final class MediaCodecUtil {
 
   /**
    * Returns {@link MediaCodecInfo}s for the given codec {@link CodecKey} in the order given by
-   * {@code mediaCodecList}.
+   * {@link MediaCodecList}.
    *
    * @param key The codec key.
-   * @param mediaCodecList The codec list.
    * @return The codec information for usable codecs matching the specified key.
    * @throws DecoderQueryException If there was an error querying the available decoders.
    */
-  private static ArrayList<MediaCodecInfo> getDecoderInfosInternal(
-      CodecKey key, MediaCodecListCompat mediaCodecList) throws DecoderQueryException {
+  private static List<MediaCodecInfo> getDecoderInfosInternal(CodecKey key)
+      throws DecoderQueryException {
     try {
       ArrayList<MediaCodecInfo> decoderInfos = new ArrayList<>();
       String mimeType = key.mimeType;
-      int numberOfCodecs = mediaCodecList.getCodecCount();
+      // MV-HEVC is handled by a special codec in the media_codecs.xml file. We need to get
+      // ALL_CODECS list to include the special codec.
+      boolean includeSpecialCodec = mimeType.equals(MimeTypes.VIDEO_MV_HEVC);
+      int codecKind =
+          key.secure || key.tunneling || includeSpecialCodec
+              ? MediaCodecList.ALL_CODECS
+              : MediaCodecList.REGULAR_CODECS;
       // Note: MediaCodecList is sorted by the framework such that the best decoders come first.
-      for (int i = 0; i < numberOfCodecs; i++) {
-        android.media.MediaCodecInfo codecInfo = mediaCodecList.getCodecInfoAt(i);
+      for (android.media.MediaCodecInfo codecInfo : new MediaCodecList(codecKind).getCodecInfos()) {
         if (isAlias(codecInfo)) {
           // Skip aliases of other codecs, since they will also be listed under their canonical
           // names.
@@ -545,20 +543,16 @@ public final class MediaCodecUtil {
         try {
           CodecCapabilities capabilities = codecInfo.getCapabilitiesForType(codecMimeType);
           boolean tunnelingSupported =
-              mediaCodecList.isFeatureSupported(
-                  CodecCapabilities.FEATURE_TunneledPlayback, codecMimeType, capabilities);
+              capabilities.isFeatureSupported(CodecCapabilities.FEATURE_TunneledPlayback);
           boolean tunnelingRequired =
-              mediaCodecList.isFeatureRequired(
-                  CodecCapabilities.FEATURE_TunneledPlayback, codecMimeType, capabilities);
+              capabilities.isFeatureRequired(CodecCapabilities.FEATURE_TunneledPlayback);
           if ((!key.tunneling && tunnelingRequired) || (key.tunneling && !tunnelingSupported)) {
             continue;
           }
           boolean secureSupported =
-              mediaCodecList.isFeatureSupported(
-                  CodecCapabilities.FEATURE_SecurePlayback, codecMimeType, capabilities);
+              capabilities.isFeatureSupported(CodecCapabilities.FEATURE_SecurePlayback);
           boolean secureRequired =
-              mediaCodecList.isFeatureRequired(
-                  CodecCapabilities.FEATURE_SecurePlayback, codecMimeType, capabilities);
+              capabilities.isFeatureRequired(CodecCapabilities.FEATURE_SecurePlayback);
           if ((!key.secure && secureRequired) || (key.secure && !secureSupported)) {
             continue;
           }
@@ -823,71 +817,6 @@ public final class MediaCodecUtil {
   private interface ScoreProvider<T> {
     /** Returns the score of the provided item. */
     int getScore(T t);
-  }
-
-  private interface MediaCodecListCompat {
-
-    /** The number of codecs in the list. */
-    int getCodecCount();
-
-    /**
-     * The info at the specified index in the list.
-     *
-     * @param index The index.
-     */
-    android.media.MediaCodecInfo getCodecInfoAt(int index);
-
-    /** Whether the specified {@link CodecCapabilities} {@code feature} is supported. */
-    boolean isFeatureSupported(String feature, String mimeType, CodecCapabilities capabilities);
-
-    /** Whether the specified {@link CodecCapabilities} {@code feature} is required. */
-    boolean isFeatureRequired(String feature, String mimeType, CodecCapabilities capabilities);
-  }
-
-  private static final class MediaCodecListCompatV21 implements MediaCodecListCompat {
-
-    private final int codecKind;
-
-    @Nullable private android.media.MediaCodecInfo[] mediaCodecInfos;
-
-    public MediaCodecListCompatV21(
-        boolean includeSecure, boolean includeTunneling, boolean includeSpecialCodec) {
-      codecKind =
-          includeSecure || includeTunneling || includeSpecialCodec
-              ? MediaCodecList.ALL_CODECS
-              : MediaCodecList.REGULAR_CODECS;
-    }
-
-    @Override
-    public int getCodecCount() {
-      ensureMediaCodecInfosInitialized();
-      return mediaCodecInfos.length;
-    }
-
-    @Override
-    public android.media.MediaCodecInfo getCodecInfoAt(int index) {
-      ensureMediaCodecInfosInitialized();
-      return mediaCodecInfos[index];
-    }
-
-    @Override
-    public boolean isFeatureSupported(
-        String feature, String mimeType, CodecCapabilities capabilities) {
-      return capabilities.isFeatureSupported(feature);
-    }
-
-    @Override
-    public boolean isFeatureRequired(
-        String feature, String mimeType, CodecCapabilities capabilities) {
-      return capabilities.isFeatureRequired(feature);
-    }
-
-    @EnsuresNonNull({"mediaCodecInfos"})
-    private void ensureMediaCodecInfosInitialized() {
-      if (mediaCodecInfos == null) {
-        mediaCodecInfos = new MediaCodecList(codecKind).getCodecInfos();
-      }
-    }
   }
 
   private static final class CodecKey {

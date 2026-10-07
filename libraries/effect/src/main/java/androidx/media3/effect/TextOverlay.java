@@ -18,7 +18,6 @@ package androidx.media3.effect;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.ceil;
 
-import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -123,7 +122,6 @@ public abstract class TextOverlay extends BitmapOverlay {
     return (int) ceil(realTextWidth);
   }
 
-  @SuppressLint("InlinedApi") // Inlined Layout constants.
   private StaticLayout createStaticLayout(SpannableString text, TextPaint textPaint, int width) {
     return StaticLayout.Builder.obtain(
             text, /* start= */ 0, /* end= */ text.length(), textPaint, width)

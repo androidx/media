@@ -1615,7 +1615,7 @@ public final class MediaItemExportTest {
   }
 
   @Test
-  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 29)
+  @Config(maxSdk = 29)
   // This test requires Android SDK < 30 with no MediaMuxer negative PTS support.
   public void transmux_audioWithEditList_api29_frameworkMuxerDoesNotThrow() throws Exception {
     // Do not use CapturingMuxer.Factory(), as this test checks for a workaround in

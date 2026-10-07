@@ -474,7 +474,7 @@ public class ExoPlayerStuckPlayerDetectionTest {
   }
 
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/112049705)
-  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
+  @Config(maxSdk = 34)
   @Test
   public void stuckSuppressedDetectionTimeoutMs_triggersPlayerErrorWhenStuckSuppressed()
       throws Exception {

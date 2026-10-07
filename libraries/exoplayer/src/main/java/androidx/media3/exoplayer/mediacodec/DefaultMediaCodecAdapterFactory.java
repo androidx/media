@@ -41,8 +41,8 @@ import java.lang.annotation.Target;
  * <p>By default, this factory {@link #createAdapter creates} {@link AsynchronousMediaCodecAdapter}
  * instances on devices with API level &gt;= 31 (Android 12+). For devices with older API versions,
  * the default behavior is to create {@link SynchronousMediaCodecAdapter} instances. The factory
- * offers APIs to force the creation of {@link AsynchronousMediaCodecAdapter} (applicable for
- * devices with API &gt;= 23) or {@link SynchronousMediaCodecAdapter} instances.
+ * offers APIs to force the creation of {@link AsynchronousMediaCodecAdapter} or {@link
+ * SynchronousMediaCodecAdapter} instances.
  */
 @UnstableApi
 public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.Factory {
@@ -106,9 +106,7 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
   }
 
   /**
-   * Forces this factory to always create {@link AsynchronousMediaCodecAdapter} instances, provided
-   * the device API level is &gt;= 23. For devices with API level &lt; 23, the factory will create
-   * {@link SynchronousMediaCodecAdapter SynchronousMediaCodecAdapters}.
+   * Forces this factory to always create {@link AsynchronousMediaCodecAdapter} instances.
    *
    * @return This factory, for convenience.
    */

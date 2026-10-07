@@ -191,14 +191,14 @@ public abstract class MediaBrowserServiceCompat extends Service {
     RemoteUserInfo getCurrentBrowserInfo();
   }
 
-  class MediaBrowserServiceImplApi23 implements MediaBrowserServiceImpl {
+  class MediaBrowserServiceImplBase implements MediaBrowserServiceImpl {
     final List<Bundle> rootExtrasList = new ArrayList<>();
     @MonotonicNonNull MediaBrowserService serviceFwk;
     @MonotonicNonNull Messenger messenger;
 
     @Override
     public void onCreate() {
-      serviceFwk = new MediaBrowserServiceApi23(MediaBrowserServiceCompat.this);
+      serviceFwk = new MediaBrowserServiceBase(MediaBrowserServiceCompat.this);
       serviceFwk.onCreate();
     }
 
@@ -419,9 +419,9 @@ public abstract class MediaBrowserServiceCompat extends Service {
       curConnection = null;
     }
 
-    class MediaBrowserServiceApi23 extends MediaBrowserService {
+    class MediaBrowserServiceBase extends MediaBrowserService {
       @SuppressWarnings("method.invocation.invalid") // Calling base method from constructor
-      MediaBrowserServiceApi23(Context context) {
+      MediaBrowserServiceBase(Context context) {
         attachBaseContext(context);
       }
 
@@ -431,7 +431,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
           String clientPackageName, int clientUid, @Nullable Bundle rootHints) {
         rootHints = convertToNullIfInvalid(rootHints);
         MediaBrowserServiceCompat.BrowserRoot browserRootCompat =
-            MediaBrowserServiceImplApi23.this.onGetRoot(
+            MediaBrowserServiceImplBase.this.onGetRoot(
                 clientPackageName, clientUid, rootHints == null ? null : new Bundle(rootHints));
         return browserRootCompat == null
             ? null
@@ -441,18 +441,18 @@ public abstract class MediaBrowserServiceCompat extends Service {
 
       @Override
       public void onLoadChildren(String parentId, Result<List<MediaBrowser.MediaItem>> result) {
-        MediaBrowserServiceImplApi23.this.onLoadChildren(parentId, new ResultWrapper<>(result));
+        MediaBrowserServiceImplBase.this.onLoadChildren(parentId, new ResultWrapper<>(result));
       }
 
       @Override
       public void onLoadItem(String itemId, Result<MediaBrowser.MediaItem> result) {
-        MediaBrowserServiceImplApi23.this.onLoadItem(itemId, new ResultWrapper<>(result));
+        MediaBrowserServiceImplBase.this.onLoadItem(itemId, new ResultWrapper<>(result));
       }
     }
   }
 
   @RequiresApi(26)
-  class MediaBrowserServiceImplApi26 extends MediaBrowserServiceImplApi23 {
+  class MediaBrowserServiceImplApi26 extends MediaBrowserServiceImplBase {
     @Override
     public void onCreate() {
       serviceFwk = new MediaBrowserServiceApi26(MediaBrowserServiceCompat.this);
@@ -521,7 +521,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
       }
     }
 
-    class MediaBrowserServiceApi26 extends MediaBrowserServiceApi23 {
+    class MediaBrowserServiceApi26 extends MediaBrowserServiceBase {
       MediaBrowserServiceApi26(Context context) {
         super(context);
       }
@@ -1092,7 +1092,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
     } else if (Build.VERSION.SDK_INT >= 26) {
       impl = new MediaBrowserServiceImplApi26();
     } else {
-      impl = new MediaBrowserServiceImplApi23();
+      impl = new MediaBrowserServiceImplBase();
     }
     impl.onCreate();
   }

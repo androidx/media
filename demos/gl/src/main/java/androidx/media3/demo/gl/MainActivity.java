@@ -107,17 +107,6 @@ public final class MainActivity extends Activity {
   }
 
   @Override
-  public void onResume() {
-    super.onResume();
-    if (player == null) {
-      initializePlayer();
-      if (playerView != null) {
-        playerView.onResume();
-      }
-    }
-  }
-
-  @Override
   public void onStop() {
     super.onStop();
     if (playerView != null) {

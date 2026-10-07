@@ -382,7 +382,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
   }
 
   private static void configureOperatingRate(MediaFormat mediaFormat, float maxSupportedFrameRate) {
-    if (SDK_INT < 25) {
+    if (SDK_INT == 24) {
       // Not setting priority and operating rate achieves better decoding performance.
       return;
     }

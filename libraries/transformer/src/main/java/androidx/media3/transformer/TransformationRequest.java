@@ -63,7 +63,7 @@ public final class TransformationRequest {
      * <ul>
      *   <li>{@link MimeTypes#VIDEO_H263}
      *   <li>{@link MimeTypes#VIDEO_H264}
-     *   <li>{@link MimeTypes#VIDEO_H265} from API level 24
+     *   <li>{@link MimeTypes#VIDEO_H265}
      *   <li>{@link MimeTypes#VIDEO_MP4V}
      * </ul>
      *

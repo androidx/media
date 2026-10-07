@@ -57,7 +57,6 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestParameterInjector;
-import org.robolectric.annotation.Config;
 
 /** End to end instrumentation tests for {@link FragmentedMp4Muxer}. */
 @RunWith(RobolectricTestParameterInjector.class)
@@ -74,8 +73,6 @@ public class FragmentedMp4MuxerEndToEndTest {
   private final Context context = ApplicationProvider.getApplicationContext();
 
   @Test
-  // TODO: b/507292304 - Suppressed due to failure on SDK 23.
-  @Config(minSdk = 24)
   public void createFragmentedMp4File_fromInputFileSampleData_matchesExpectedBoxStructure()
       throws Exception {
     String outputPath = temporaryFolder.newFile("muxeroutput.mp4").getPath();
@@ -226,8 +223,6 @@ public class FragmentedMp4MuxerEndToEndTest {
   }
 
   @Test
-  // TODO: b/507292304 - Suppressed due to failure on SDK 23.
-  @Config(minSdk = 24)
   public void createFragmentedMp4File_withoutAudioSampleFlags_writesAudioSamplesAsSyncSamples()
       throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();

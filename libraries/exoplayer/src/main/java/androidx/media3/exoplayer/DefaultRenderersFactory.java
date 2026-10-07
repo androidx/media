@@ -158,9 +158,6 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * Enables {@link androidx.media3.exoplayer.mediacodec.MediaCodecRenderer} instances to operate
    * their {@link MediaCodec} in asynchronous mode and perform asynchronous queueing.
    *
-   * <p>This feature can be enabled only on devices with API versions &gt;= 23. For devices with
-   * older API versions, this method is a no-op.
-   *
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue

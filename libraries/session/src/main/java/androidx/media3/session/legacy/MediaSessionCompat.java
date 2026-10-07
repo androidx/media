@@ -199,25 +199,6 @@ public class MediaSessionCompat {
   public static final String ARGUMENT_MEDIA_ATTRIBUTE_VALUE =
       "android.support.v4.media.session.ARGUMENT_MEDIA_ATTRIBUTE_VALUE";
 
-  /** Custom action to invoke playFromUri() for the forward compatibility. */
-  public static final String ACTION_PLAY_FROM_URI =
-      "android.support.v4.media.session.action.PLAY_FROM_URI";
-
-  /** Custom action to invoke prepare() for the forward compatibility. */
-  public static final String ACTION_PREPARE = "android.support.v4.media.session.action.PREPARE";
-
-  /** Custom action to invoke prepareFromMediaId() for the forward compatibility. */
-  public static final String ACTION_PREPARE_FROM_MEDIA_ID =
-      "android.support.v4.media.session.action.PREPARE_FROM_MEDIA_ID";
-
-  /** Custom action to invoke prepareFromSearch() for the forward compatibility. */
-  public static final String ACTION_PREPARE_FROM_SEARCH =
-      "android.support.v4.media.session.action.PREPARE_FROM_SEARCH";
-
-  /** Custom action to invoke prepareFromUri() for the forward compatibility. */
-  public static final String ACTION_PREPARE_FROM_URI =
-      "android.support.v4.media.session.action.PREPARE_FROM_URI";
-
   /** Custom action to invoke setCaptioningEnabled() for the forward compatibility. */
   public static final String ACTION_SET_CAPTIONING_ENABLED =
       "android.support.v4.media.session.action.SET_CAPTIONING_ENABLED";
@@ -237,21 +218,6 @@ public class MediaSessionCompat {
   /** Custom action to invoke setPlaybackSpeed() with extra fields. */
   public static final String ACTION_SET_PLAYBACK_SPEED =
       "android.support.v4.media.session.action.SET_PLAYBACK_SPEED";
-
-  /** Argument for use with {@link #ACTION_PREPARE_FROM_MEDIA_ID} indicating media id to play. */
-  public static final String ACTION_ARGUMENT_MEDIA_ID =
-      "android.support.v4.media.session.action.ARGUMENT_MEDIA_ID";
-
-  /** Argument for use with {@link #ACTION_PREPARE_FROM_SEARCH} indicating search query. */
-  public static final String ACTION_ARGUMENT_QUERY =
-      "android.support.v4.media.session.action.ARGUMENT_QUERY";
-
-  /**
-   * Argument for use with {@link #ACTION_PREPARE_FROM_URI} and {@link #ACTION_PLAY_FROM_URI}
-   * indicating URI to play.
-   */
-  public static final String ACTION_ARGUMENT_URI =
-      "android.support.v4.media.session.action.ARGUMENT_URI";
 
   /** Argument for use with {@link #ACTION_SET_RATING} indicating the rate to be set. */
   public static final String ACTION_ARGUMENT_RATING =
@@ -335,7 +301,7 @@ public class MediaSessionCompat {
     } else if (Build.VERSION.SDK_INT >= 28) {
       impl = new MediaSessionImplApi28(context, tag, sessionInfo, packageNameOverride);
     } else {
-      impl = new MediaSessionImplApi23(context, tag, sessionInfo, packageNameOverride);
+      impl = new MediaSessionImplBase(context, tag, sessionInfo, packageNameOverride);
     }
     // Set default callback to respond to controllers' extra binder requests.
     Looper myLooper = Looper.myLooper();
@@ -375,9 +341,6 @@ public class MediaSessionCompat {
    * session has been stopped. If your app is started in this way an {@link
    * Intent#ACTION_MEDIA_BUTTON} intent will be sent via the pending intent.
    *
-   * <p>This method will only work on {@link android.os.Build.VERSION_CODES#LOLLIPOP} and later.
-   * Earlier platform versions must include the media button receiver in the constructor.
-   *
    * @param mbr The {@link PendingIntent} to send the media button event to.
    */
   public void setMediaButtonReceiver(@Nullable PendingIntent mbr) {
@@ -412,10 +375,6 @@ public class MediaSessionCompat {
    * {@link #setPlaybackToLocal} was previously called that stream will stop receiving volume
    * changes for this session.
    *
-   * <p>On platforms earlier than {@link android.os.Build.VERSION_CODES#LOLLIPOP} this will only
-   * allow an app to handle volume commands sent directly to the session by a {@link
-   * MediaControllerCompat}. System routing of volume keys will not use the volume provider.
-   *
    * @param volumeProvider The provider that will handle volume changes. May not be null.
    */
   public void setPlaybackToRemote(VolumeProviderCompat volumeProvider) {
@@ -426,9 +385,6 @@ public class MediaSessionCompat {
    * Sets if this session is currently active and ready to receive commands. If set to false your
    * session's controller may not be discoverable. You must set the session to active before it can
    * start receiving media button events or transport commands.
-   *
-   * <p>On platforms earlier than {@link android.os.Build.VERSION_CODES#LOLLIPOP}, a media button
-   * event receiver should be set via the constructor to receive media button events.
    *
    * @param active Whether this session is active or not.
    */
@@ -472,10 +428,6 @@ public class MediaSessionCompat {
    * Retrieves a token object that can be used by apps to create a {@link MediaControllerCompat} for
    * interacting with this session. The owner of the session is responsible for deciding how to
    * distribute these tokens.
-   *
-   * <p>On platform versions before {@link android.os.Build.VERSION_CODES#LOLLIPOP} this token may
-   * only be used within your app as there is no way to guarantee other apps are using the same
-   * version of the support library.
    *
    * @return A token that can be used to create a media controller for this session.
    */
@@ -610,8 +562,6 @@ public class MediaSessionCompat {
   /**
    * Gets the underlying framework {@link android.media.session.MediaSession} object.
    *
-   * <p>This method is only supported on API 21+.
-   *
    * @return The underlying {@link android.media.session.MediaSession} object, or null if none.
    */
   @Nullable
@@ -623,14 +573,6 @@ public class MediaSessionCompat {
    * Gets the controller information who sent the current request.
    *
    * <p>Note: This is only valid while in a request callback, such as {@link Callback#onPlay}.
-   *
-   * <p>Note: From API 21 to 23, this method returns a fake {@link RemoteUserInfo} which has
-   * following values:
-   *
-   * <ul>
-   *   <li>Package name is {@link MediaSessionManager.RemoteUserInfo#LEGACY_CONTROLLER}.
-   *   <li>PID and UID will have negative values.
-   * </ul>
    *
    * <p>Note: From API 24 to 27, the {@link RemoteUserInfo} returned from this method will have
    * negative uid and pid. Most of the cases it will have the correct package name, but sometimes it
@@ -1034,7 +976,7 @@ public class MediaSessionCompat {
 
       @Override
       public void onCommand(String command, @Nullable Bundle extras, @Nullable ResultReceiver cb) {
-        MediaSessionImplApi23 sessionImpl = getSessionImplIfCallbackIsSet();
+        MediaSessionImplBase sessionImpl = getSessionImplIfCallbackIsSet();
         if (sessionImpl == null) {
           return;
         }
@@ -1099,7 +1041,7 @@ public class MediaSessionCompat {
 
       @Override
       public boolean onMediaButtonEvent(Intent mediaButtonIntent) {
-        MediaSessionImplApi23 sessionImpl = getSessionImplIfCallbackIsSet();
+        MediaSessionImplBase sessionImpl = getSessionImplIfCallbackIsSet();
         if (sessionImpl == null) {
           return false;
         }
@@ -1111,7 +1053,7 @@ public class MediaSessionCompat {
 
       @Override
       public void onPlay() {
-        MediaSessionImplApi23 sessionImpl = getSessionImplIfCallbackIsSet();
+        MediaSessionImplBase sessionImpl = getSessionImplIfCallbackIsSet();
         if (sessionImpl == null) {
           return;
         }
@@ -1122,7 +1064,7 @@ public class MediaSessionCompat {
 
       @Override
       public void onPlayFromMediaId(String mediaId, @Nullable Bundle extras) {
-        MediaSessionImplApi23 sessionImpl = getSessionImplIfCallbackIsSet();
+        MediaSessionImplBase sessionImpl = getSessionImplIfCallbackIsSet();
         if (sessionImpl == null) {
           return;
         }
@@ -1134,7 +1076,7 @@ public class MediaSessionCompat {
 
       @Override
       public void onPlayFromSearch(String search, @Nullable Bundle extras) {
-        MediaSessionImplApi23 sessionImpl = getSessionImplIfCallbackIsSet();
+        MediaSessionImplBase sessionImpl = getSessionImplIfCallbackIsSet();
         if (sessionImpl == null) {
           return;
         }
@@ -1146,7 +1088,7 @@ public class MediaSessionCompat {
 
       @Override
       public void onPlayFromUri(Uri uri, @Nullable Bundle extras) {
-        MediaSessionImplApi23 sessionImpl = getSessionImplIfCallbackIsSet();
+        MediaSessionImplBase sessionImpl = getSessionImplIfCallbackIsSet();
         if (sessionImpl == null) {
           return;
         }
@@ -1158,7 +1100,7 @@ public class MediaSessionCompat {
 
       @Override
       public void onSkipToQueueItem(long id) {
-        MediaSessionImplApi23 sessionImpl = getSessionImplIfCallbackIsSet();
+        MediaSessionImplBase sessionImpl = getSessionImplIfCallbackIsSet();
         if (sessionImpl == null) {
           return;
         }
@@ -1169,7 +1111,7 @@ public class MediaSessionCompat {
 
       @Override
       public void onPause() {
-        MediaSessionImplApi23 sessionImpl = getSessionImplIfCallbackIsSet();
+        MediaSessionImplBase sessionImpl = getSessionImplIfCallbackIsSet();
         if (sessionImpl == null) {
           return;
         }
@@ -1180,7 +1122,7 @@ public class MediaSessionCompat {
 
       @Override
       public void onSkipToNext() {
-        MediaSessionImplApi23 sessionImpl = getSessionImplIfCallbackIsSet();
+        MediaSessionImplBase sessionImpl = getSessionImplIfCallbackIsSet();
         if (sessionImpl == null) {
           return;
         }
@@ -1191,7 +1133,7 @@ public class MediaSessionCompat {
 
       @Override
       public void onSkipToPrevious() {
-        MediaSessionImplApi23 sessionImpl = getSessionImplIfCallbackIsSet();
+        MediaSessionImplBase sessionImpl = getSessionImplIfCallbackIsSet();
         if (sessionImpl == null) {
           return;
         }
@@ -1202,7 +1144,7 @@ public class MediaSessionCompat {
 
       @Override
       public void onFastForward() {
-        MediaSessionImplApi23 sessionImpl = getSessionImplIfCallbackIsSet();
+        MediaSessionImplBase sessionImpl = getSessionImplIfCallbackIsSet();
         if (sessionImpl == null) {
           return;
         }
@@ -1213,7 +1155,7 @@ public class MediaSessionCompat {
 
       @Override
       public void onRewind() {
-        MediaSessionImplApi23 sessionImpl = getSessionImplIfCallbackIsSet();
+        MediaSessionImplBase sessionImpl = getSessionImplIfCallbackIsSet();
         if (sessionImpl == null) {
           return;
         }
@@ -1224,7 +1166,7 @@ public class MediaSessionCompat {
 
       @Override
       public void onStop() {
-        MediaSessionImplApi23 sessionImpl = getSessionImplIfCallbackIsSet();
+        MediaSessionImplBase sessionImpl = getSessionImplIfCallbackIsSet();
         if (sessionImpl == null) {
           return;
         }
@@ -1235,7 +1177,7 @@ public class MediaSessionCompat {
 
       @Override
       public void onSeekTo(long pos) {
-        MediaSessionImplApi23 sessionImpl = getSessionImplIfCallbackIsSet();
+        MediaSessionImplBase sessionImpl = getSessionImplIfCallbackIsSet();
         if (sessionImpl == null) {
           return;
         }
@@ -1246,7 +1188,7 @@ public class MediaSessionCompat {
 
       @Override
       public void onSetRating(Rating ratingFwk) {
-        MediaSessionImplApi23 sessionImpl = getSessionImplIfCallbackIsSet();
+        MediaSessionImplBase sessionImpl = getSessionImplIfCallbackIsSet();
         if (sessionImpl == null) {
           return;
         }
@@ -1257,7 +1199,7 @@ public class MediaSessionCompat {
 
       @Override
       public void onCustomAction(String action, @Nullable Bundle extras) {
-        MediaSessionImplApi23 sessionImpl = getSessionImplIfCallbackIsSet();
+        MediaSessionImplBase sessionImpl = getSessionImplIfCallbackIsSet();
         if (sessionImpl == null) {
           return;
         }
@@ -1265,33 +1207,7 @@ public class MediaSessionCompat {
         setCurrentControllerInfo(sessionImpl);
 
         try {
-          if (action.equals(ACTION_PLAY_FROM_URI)) {
-            if (extras != null) {
-              Uri uri = extras.getParcelable(ACTION_ARGUMENT_URI);
-              Bundle bundle = convertToNullIfInvalid(extras.getBundle(ACTION_ARGUMENT_EXTRAS));
-              Callback.this.onPlayFromUri(uri, bundle);
-            }
-          } else if (action.equals(ACTION_PREPARE)) {
-            Callback.this.onPrepare();
-          } else if (action.equals(ACTION_PREPARE_FROM_MEDIA_ID)) {
-            if (extras != null) {
-              String mediaId = extras.getString(ACTION_ARGUMENT_MEDIA_ID);
-              Bundle bundle = convertToNullIfInvalid(extras.getBundle(ACTION_ARGUMENT_EXTRAS));
-              Callback.this.onPrepareFromMediaId(mediaId, bundle);
-            }
-          } else if (action.equals(ACTION_PREPARE_FROM_SEARCH)) {
-            if (extras != null) {
-              String query = extras.getString(ACTION_ARGUMENT_QUERY);
-              Bundle bundle = convertToNullIfInvalid(extras.getBundle(ACTION_ARGUMENT_EXTRAS));
-              Callback.this.onPrepareFromSearch(query, bundle);
-            }
-          } else if (action.equals(ACTION_PREPARE_FROM_URI)) {
-            if (extras != null) {
-              Uri uri = extras.getParcelable(ACTION_ARGUMENT_URI);
-              Bundle bundle = convertToNullIfInvalid(extras.getBundle(ACTION_ARGUMENT_EXTRAS));
-              Callback.this.onPrepareFromUri(uri, bundle);
-            }
-          } else if (action.equals(ACTION_SET_CAPTIONING_ENABLED)) {
+          if (action.equals(ACTION_SET_CAPTIONING_ENABLED)) {
             if (extras != null) {
               boolean enabled = extras.getBoolean(ACTION_ARGUMENT_CAPTIONING_ENABLED);
               Callback.this.onSetCaptioningEnabled(enabled);
@@ -1331,7 +1247,7 @@ public class MediaSessionCompat {
 
       @Override
       public void onPrepare() {
-        MediaSessionImplApi23 sessionImpl = getSessionImplIfCallbackIsSet();
+        MediaSessionImplBase sessionImpl = getSessionImplIfCallbackIsSet();
         if (sessionImpl == null) {
           return;
         }
@@ -1342,7 +1258,7 @@ public class MediaSessionCompat {
 
       @Override
       public void onPrepareFromMediaId(@Nullable String mediaId, @Nullable Bundle extras) {
-        MediaSessionImplApi23 sessionImpl = getSessionImplIfCallbackIsSet();
+        MediaSessionImplBase sessionImpl = getSessionImplIfCallbackIsSet();
         if (sessionImpl == null) {
           return;
         }
@@ -1354,7 +1270,7 @@ public class MediaSessionCompat {
 
       @Override
       public void onPrepareFromSearch(@Nullable String query, @Nullable Bundle extras) {
-        MediaSessionImplApi23 sessionImpl = getSessionImplIfCallbackIsSet();
+        MediaSessionImplBase sessionImpl = getSessionImplIfCallbackIsSet();
         if (sessionImpl == null) {
           return;
         }
@@ -1366,7 +1282,7 @@ public class MediaSessionCompat {
 
       @Override
       public void onPrepareFromUri(@Nullable Uri uri, @Nullable Bundle extras) {
-        MediaSessionImplApi23 sessionImpl = getSessionImplIfCallbackIsSet();
+        MediaSessionImplBase sessionImpl = getSessionImplIfCallbackIsSet();
         if (sessionImpl == null) {
           return;
         }
@@ -1379,7 +1295,7 @@ public class MediaSessionCompat {
       @RequiresApi(29)
       @Override
       public void onSetPlaybackSpeed(float speed) {
-        MediaSessionImplApi23 sessionImpl = getSessionImplIfCallbackIsSet();
+        MediaSessionImplBase sessionImpl = getSessionImplIfCallbackIsSet();
         if (sessionImpl == null) {
           return;
         }
@@ -1407,14 +1323,14 @@ public class MediaSessionCompat {
         sessionImpl.setCurrentControllerInfo(null);
       }
 
-      // Returns the MediaSessionImplApi23 if this callback is still set by the session.
+      // Returns the MediaSessionImplBase if this callback is still set by the session.
       // This prevent callback methods to be called after session is release() or
       // callback is changed.
       @Nullable
-      private MediaSessionImplApi23 getSessionImplIfCallbackIsSet() {
-        MediaSessionImplApi23 sessionImpl;
+      private MediaSessionImplBase getSessionImplIfCallbackIsSet() {
+        MediaSessionImplBase sessionImpl;
         synchronized (lock) {
-          sessionImpl = (MediaSessionImplApi23) Callback.this.sessionImpl.get();
+          sessionImpl = (MediaSessionImplBase) Callback.this.sessionImpl.get();
         }
         return sessionImpl != null && MediaSessionCompat.Callback.this == sessionImpl.getCallback()
             ? sessionImpl
@@ -1713,8 +1629,6 @@ public class MediaSessionCompat {
      * Creates a list of {@link QueueItem} objects from a framework {@link
      * android.media.session.MediaSession.QueueItem} object list.
      *
-     * <p>This method is only supported on API 21+. On API 20 and below, it returns null.
-     *
      * @param itemList A list of {@link android.media.session.MediaSession.QueueItem} objects.
      * @return An equivalent list of {@link QueueItem} objects, or null if none.
      */
@@ -1844,7 +1758,7 @@ public class MediaSessionCompat {
     Callback getCallback();
   }
 
-  static class MediaSessionImplApi23 implements MediaSessionImpl {
+  static class MediaSessionImplBase implements MediaSessionImpl {
     final MediaSession sessionFwk;
     private final ExtraSession extraSession;
     final Token token;
@@ -1880,7 +1794,7 @@ public class MediaSessionCompat {
       "assignment.type.incompatible",
       "argument.type.incompatible"
     })
-    MediaSessionImplApi23(
+    MediaSessionImplBase(
         Context context,
         String tag,
         @Nullable Bundle sessionInfo,
@@ -2123,9 +2037,9 @@ public class MediaSessionCompat {
 
     private static class ExtraSession extends IMediaSession.Stub {
 
-      private final WeakReference<@NullableType MediaSessionImplApi23> mediaSessionImplRef;
+      private final WeakReference<@NullableType MediaSessionImplBase> mediaSessionImplRef;
 
-      ExtraSession(MediaSessionImplApi23 mediaSessionImpl) {
+      ExtraSession(MediaSessionImplBase mediaSessionImpl) {
         mediaSessionImplRef = new WeakReference<>(mediaSessionImpl);
       }
 
@@ -2136,7 +2050,7 @@ public class MediaSessionCompat {
 
       @Override
       public void registerCallbackListener(@Nullable IMediaControllerCallback cb) {
-        MediaSessionImplApi23 mediaSessionImpl = mediaSessionImplRef.get();
+        MediaSessionImplBase mediaSessionImpl = mediaSessionImplRef.get();
         if (mediaSessionImpl == null || cb == null) {
           return;
         }
@@ -2155,7 +2069,7 @@ public class MediaSessionCompat {
 
       @Override
       public void unregisterCallbackListener(@Nullable IMediaControllerCallback cb) {
-        MediaSessionImplApi23 mediaSessionImpl = mediaSessionImplRef.get();
+        MediaSessionImplBase mediaSessionImpl = mediaSessionImplRef.get();
         if (mediaSessionImpl == null || cb == null) {
           return;
         }
@@ -2174,7 +2088,7 @@ public class MediaSessionCompat {
       @Nullable
       @Override
       public Bundle getSessionInfo() {
-        MediaSessionImplApi23 mediaSessionImpl = mediaSessionImplRef.get();
+        MediaSessionImplBase mediaSessionImpl = mediaSessionImplRef.get();
         return mediaSessionImpl != null && mediaSessionImpl.sessionInfo != null
             ? new Bundle(mediaSessionImpl.sessionInfo)
             : null;
@@ -2183,7 +2097,7 @@ public class MediaSessionCompat {
       @Nullable
       @Override
       public PlaybackStateCompat getPlaybackState() {
-        MediaSessionImplApi23 mediaSessionImpl = mediaSessionImplRef.get();
+        MediaSessionImplBase mediaSessionImpl = mediaSessionImplRef.get();
         if (mediaSessionImpl != null) {
           return getStateWithUpdatedPosition(
               mediaSessionImpl.playbackState, mediaSessionImpl.metadata);
@@ -2194,14 +2108,14 @@ public class MediaSessionCompat {
 
       @Override
       public boolean isCaptioningEnabled() {
-        MediaSessionImplApi23 mediaSessionImpl = mediaSessionImplRef.get();
+        MediaSessionImplBase mediaSessionImpl = mediaSessionImplRef.get();
         return mediaSessionImpl != null && mediaSessionImpl.captioningEnabled;
       }
 
       @Override
       @PlaybackStateCompat.RepeatMode
       public int getRepeatMode() {
-        MediaSessionImplApi23 mediaSessionImpl = mediaSessionImplRef.get();
+        MediaSessionImplBase mediaSessionImpl = mediaSessionImplRef.get();
         return mediaSessionImpl != null
             ? mediaSessionImpl.repeatMode
             : PlaybackStateCompat.REPEAT_MODE_INVALID;
@@ -2210,7 +2124,7 @@ public class MediaSessionCompat {
       @Override
       @PlaybackStateCompat.ShuffleMode
       public int getShuffleMode() {
-        MediaSessionImplApi23 mediaSessionImpl = mediaSessionImplRef.get();
+        MediaSessionImplBase mediaSessionImpl = mediaSessionImplRef.get();
         return mediaSessionImpl != null
             ? mediaSessionImpl.shuffleMode
             : PlaybackStateCompat.SHUFFLE_MODE_INVALID;
@@ -2219,7 +2133,7 @@ public class MediaSessionCompat {
   }
 
   @RequiresApi(28)
-  static class MediaSessionImplApi28 extends MediaSessionImplApi23 {
+  static class MediaSessionImplApi28 extends MediaSessionImplBase {
     MediaSessionImplApi28(
         Context context,
         String tag,

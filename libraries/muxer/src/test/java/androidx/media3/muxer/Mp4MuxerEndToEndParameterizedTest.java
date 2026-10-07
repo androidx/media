@@ -35,7 +35,6 @@ import org.junit.runner.RunWith;
 import org.robolectric.ParameterizedRobolectricTestRunner;
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameter;
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
-import org.robolectric.annotation.Config;
 
 /** End to end parameterized tests for {@link Mp4Muxer}. */
 @RunWith(ParameterizedRobolectricTestRunner.class)
@@ -104,8 +103,6 @@ public class Mp4MuxerEndToEndParameterizedTest {
   private final Context context = ApplicationProvider.getApplicationContext();
 
   @Test
-  // TODO: b/507292304 - Suppressed due to failure on SDK 23.
-  @Config(minSdk = 24)
   public void createMp4File_fromInputFileSampleData_matchesExpected() throws Exception {
     String outputPath = temporaryFolder.newFile("muxeroutput.mp4").getPath();
 

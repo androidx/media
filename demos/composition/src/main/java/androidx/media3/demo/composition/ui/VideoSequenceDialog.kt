@@ -15,7 +15,6 @@
  */
 package androidx.media3.demo.composition.ui
 
-import android.os.LocaleList
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.media3.demo.composition.R
@@ -44,7 +44,6 @@ import androidx.media3.demo.composition.data.Gap
 import androidx.media3.demo.composition.data.Item
 import androidx.media3.demo.composition.data.Media
 import androidx.media3.demo.composition.ui.theme.spacing
-import java.util.Locale
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
@@ -93,7 +92,7 @@ internal fun VideoSequenceDialog(
               val duration = item.durationUs.toDuration(DurationUnit.MICROSECONDS)
               val durationString =
                 String.format(
-                  getDefaultLocale(),
+                  Locale.current.platformLocale,
                   "%02d:%02d",
                   duration.inWholeMinutes,
                   duration.inWholeSeconds % 60,
@@ -111,8 +110,4 @@ internal fun VideoSequenceDialog(
       }
     }
   }
-}
-
-private fun getDefaultLocale(): Locale {
-  return LocaleList.getDefault().get(0) ?: Locale.getDefault()
 }

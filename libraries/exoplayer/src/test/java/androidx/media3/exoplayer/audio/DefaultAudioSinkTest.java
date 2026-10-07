@@ -566,7 +566,6 @@ public final class DefaultAudioSinkTest {
   }
 
   @Test
-  @Config(minSdk = Config.OLDEST_SDK)
   public void audioSinkWithNonNullContext_audioCapabilitiesObtainedFromContext() {
     // Set UI mode to TV.
     getShadowUiModeManager().setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);
@@ -686,7 +685,6 @@ public final class DefaultAudioSinkTest {
   }
 
   @Test
-  @Config(minSdk = Config.OLDEST_SDK)
   public void bluetoothDeviceAddedAndRemoved_audioCapabilitiesUpdated() {
     // Set UI mode to TV.
     getShadowUiModeManager().setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);
@@ -728,7 +726,6 @@ public final class DefaultAudioSinkTest {
   }
 
   @Test
-  @Config(minSdk = Config.OLDEST_SDK)
   public void hdmiDeviceAddedAndRemoved_audioCapabilitiesUpdated() {
     // Set UI mode to TV.
     getShadowUiModeManager().setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);
@@ -816,7 +813,7 @@ public final class DefaultAudioSinkTest {
   // Adding the permission to the test AndroidManifest.xml doesn't work to appease lint.
   @SuppressWarnings({"StickyBroadcast", "MissingPermission"})
   @Test
-  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 32)
+  @Config(maxSdk = 32)
   public void setPreferredDevice_audioCapabilitiesUpdated() {
     // Initially setup the audio sink with Bluetooth and HDMI device connected.
     AudioDeviceInfo hdmiDevice =
@@ -850,7 +847,7 @@ public final class DefaultAudioSinkTest {
   // Adding the permission to the test AndroidManifest.xml doesn't work to appease lint.
   @SuppressWarnings({"StickyBroadcast", "MissingPermission"})
   @Test
-  @Config(minSdk = 24, maxSdk = 32) // OnRoutingChangedListener is supported from API 24.
+  @Config(maxSdk = 32)
   public void onRoutingChanged_onActiveAudioTrack_audioCapabilitiesUpdated() throws Exception {
     // Initially setup the audio sink with Bluetooth and HDMI device connected.
     AudioDeviceInfo hdmiDevice =
@@ -896,7 +893,6 @@ public final class DefaultAudioSinkTest {
   }
 
   @Test
-  @Config(minSdk = Config.OLDEST_SDK)
   public void afterRelease_bluetoothDeviceAdded_audioCapabilitiesShouldNotBeUpdated() {
     // Set UI mode to TV.
     getShadowUiModeManager().setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);
@@ -927,7 +923,6 @@ public final class DefaultAudioSinkTest {
   }
 
   @Test
-  @Config(minSdk = Config.OLDEST_SDK)
   public void afterRelease_hdmiDeviceAdded_audioCapabilitiesShouldNotBeUpdated() {
     // Set UI mode to TV.
     getShadowUiModeManager().setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);

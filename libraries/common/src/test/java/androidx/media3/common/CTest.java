@@ -28,7 +28,6 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class CTest {
 
-  @SuppressLint("InlinedApi")
   @Test
   public void bufferFlagConstants_equalToMediaCodecConstants() {
     // Check that constant values match those defined by the platform.

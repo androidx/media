@@ -148,7 +148,6 @@ public class AudioCapabilitiesTest {
   }
 
   @Test
-  @Config(minSdk = Config.OLDEST_SDK)
   public void getCapabilities_withBluetoothA2dpAndHdmiConnected_returnsDefaultCapabilities() {
     setOutputDevices(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_HDMI);
     configureHdmiConnection(/* maxChannelCount= */ 6, /* encodings...= */ AudioFormat.ENCODING_AC3);
@@ -278,8 +277,8 @@ public class AudioCapabilitiesTest {
     assertThat(audioCapabilities.supportsEncoding(C.ENCODING_E_AC3)).isTrue();
   }
 
-  // Fallback test for APIs before 33, TYPE_HDMI is only supported from API 23
-  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 32)
+  // Fallback test for APIs before 33.
+  @Config(maxSdk = 32)
   @Test
   public void
       getCapabilities_noBluetoothButGlobalSurroundSettingForced_returnsExternalSurroundCapabilitiesAndIgnoresHdmi() {
@@ -316,7 +315,6 @@ public class AudioCapabilitiesTest {
   }
 
   @Test
-  @Config(minSdk = Config.OLDEST_SDK)
   public void
       getCapabilities_withBluetoothA2dpConnectedAndHdmiAsRoutedDeviceHint_returnsHdmiCapabilities() {
     setOutputDevices(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_HDMI);

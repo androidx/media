@@ -442,7 +442,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
       }
     }
 
-    // For API levels 23 - 27, prefer the first V1 PSSH box.
+    // For API levels <= 27, prefer the first V1 PSSH box.
     for (int i = 0; i < schemeDatas.size(); i++) {
       SchemeData schemeData = schemeDatas.get(i);
       int version = PsshAtomUtil.parseVersion(checkNotNull(schemeData.data));

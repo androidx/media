@@ -117,7 +117,6 @@ public final class MediaBrowserCompat {
    * @see android.service.media.MediaBrowserService.BrowserRoot
    * @see #EXTRA_PAGE_SIZE
    */
-  @SuppressLint("InlinedApi") // Inlined compile time constant.
   public static final String EXTRA_PAGE = MediaBrowser.EXTRA_PAGE;
 
   /**
@@ -127,7 +126,6 @@ public final class MediaBrowserCompat {
    * @see android.service.media.MediaBrowserService.BrowserRoot
    * @see #EXTRA_PAGE
    */
-  @SuppressLint("InlinedApi") // Inlined compile time constant.
   public static final String EXTRA_PAGE_SIZE = MediaBrowser.EXTRA_PAGE_SIZE;
 
   /**
@@ -183,7 +181,7 @@ public final class MediaBrowserCompat {
     if (Build.VERSION.SDK_INT >= 26) {
       impl = new MediaBrowserImplApi26(context, serviceComponent, callback, rootHints);
     } else {
-      impl = new MediaBrowserImplApi23(context, serviceComponent, callback, rootHints);
+      impl = new MediaBrowserImplBase(context, serviceComponent, callback, rootHints);
     }
   }
 
@@ -613,7 +611,7 @@ public final class MediaBrowserCompat {
       if (Build.VERSION.SDK_INT >= 26) {
         subscriptionCallbackFwk = new SubscriptionCallbackApi26();
       } else {
-        subscriptionCallbackFwk = new SubscriptionCallbackApi23();
+        subscriptionCallbackFwk = new SubscriptionCallbackBase();
       }
     }
 
@@ -661,8 +659,8 @@ public final class MediaBrowserCompat {
       subscriptionRef = new WeakReference<>(subscription);
     }
 
-    private class SubscriptionCallbackApi23 extends MediaBrowser.SubscriptionCallback {
-      SubscriptionCallbackApi23() {}
+    private class SubscriptionCallbackBase extends MediaBrowser.SubscriptionCallback {
+      SubscriptionCallbackBase() {}
 
       @Override
       public void onChildrenLoaded(String parentId, List<MediaBrowser.MediaItem> children) {
@@ -713,7 +711,7 @@ public final class MediaBrowserCompat {
     }
 
     @RequiresApi(26)
-    private class SubscriptionCallbackApi26 extends SubscriptionCallbackApi23 {
+    private class SubscriptionCallbackApi26 extends SubscriptionCallbackBase {
       SubscriptionCallbackApi26() {}
 
       @Override
@@ -860,7 +858,7 @@ public final class MediaBrowserCompat {
         @Nullable Bundle notifyChildrenChangedOptions);
   }
 
-  static class MediaBrowserImplApi23
+  static class MediaBrowserImplBase
       implements MediaBrowserImpl,
           MediaBrowserServiceCallbackImpl,
           ConnectionCallback.ConnectionCallbackInternal {
@@ -883,7 +881,7 @@ public final class MediaBrowserCompat {
     @Nullable private Bundle notifyChildrenChangedOptions;
 
     @SuppressWarnings("argument.type.incompatible") // Using this before constructor finishes
-    MediaBrowserImplApi23(
+    MediaBrowserImplBase(
         Context context,
         ComponentName serviceComponent,
         ConnectionCallback callback,
@@ -1254,7 +1252,7 @@ public final class MediaBrowserCompat {
   }
 
   @RequiresApi(26)
-  static class MediaBrowserImplApi26 extends MediaBrowserImplApi23 {
+  static class MediaBrowserImplApi26 extends MediaBrowserImplBase {
     MediaBrowserImplApi26(
         Context context,
         ComponentName serviceComponent,

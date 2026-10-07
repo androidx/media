@@ -156,7 +156,6 @@ public final class AudioCapabilitiesReceiver {
    *
    * @return The current audio capabilities for the device.
    */
-  @SuppressWarnings("InlinedApi")
   public AudioCapabilities register() {
     if (registered) {
       return checkNotNull(audioCapabilities);

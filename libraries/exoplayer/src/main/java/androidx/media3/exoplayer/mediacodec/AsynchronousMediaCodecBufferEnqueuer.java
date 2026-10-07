@@ -288,8 +288,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   /** Performs a deep copy of {@code cryptoInfo} to {@code frameworkCryptoInfo}. */
-  private static void copy(
-      CryptoInfo cryptoInfo, android.media.MediaCodec.CryptoInfo frameworkCryptoInfo) {
+  private static void copy(CryptoInfo cryptoInfo, MediaCodec.CryptoInfo frameworkCryptoInfo) {
     // Update frameworkCryptoInfo fields directly because CryptoInfo.set performs an unnecessary
     // object allocation on Android N.
     frameworkCryptoInfo.numSubSamples = cryptoInfo.numSubSamples;

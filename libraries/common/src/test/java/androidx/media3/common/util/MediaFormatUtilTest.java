@@ -31,7 +31,6 @@ import com.google.common.collect.ImmutableSet;
 import java.nio.ByteBuffer;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.annotation.Config;
 
 /** Unit tests for {@link MediaFormatUtil}. */
 @RunWith(AndroidJUnit4.class)
@@ -101,8 +100,6 @@ public class MediaFormatUtilTest {
   }
 
   @Test
-  // ColorInfo support in MediaFormat was added in API 24.
-  @Config(minSdk = 24)
   public void createFormatFromMediaFormat_withPopulatedMap_generatesExpectedFormat() {
     MediaFormat mediaFormat = new MediaFormat();
     mediaFormat.setString(MediaFormat.KEY_MIME, MimeTypes.VIDEO_H264);

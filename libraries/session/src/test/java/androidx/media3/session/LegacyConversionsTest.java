@@ -77,7 +77,6 @@ import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.annotation.Config;
 import org.robolectric.shadows.PlaybackInfoBuilder;
 
 /** Tests for {@link LegacyConversions}. */
@@ -974,7 +973,6 @@ public final class LegacyConversionsTest {
         .isTrue();
   }
 
-  @Config(minSdk = Config.OLDEST_SDK)
   @Test
   public void convertToSessionCommands_whenSessionIsNotReadyOnSdk21_disallowsRating() {
     SessionCommands sessionCommands =

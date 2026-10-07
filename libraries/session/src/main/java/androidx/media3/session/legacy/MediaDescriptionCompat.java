@@ -139,17 +139,6 @@ public final class MediaDescriptionCompat implements Parcelable {
    */
   public static final long STATUS_DOWNLOADED = 2;
 
-  /**
-   * Custom key to store a media URI on API 21-22 devices (before it became part of the framework
-   * class) when parceling/converting to and from framework objects.
-   */
-  public static final String DESCRIPTION_KEY_MEDIA_URI =
-      "android.support.v4.media.description.MEDIA_URI";
-
-  /** Custom key to store whether the original Bundle provided by the developer was null */
-  public static final String DESCRIPTION_KEY_NULL_BUNDLE_FLAG =
-      "android.support.v4.media.description.NULL_BUNDLE_FLAG";
-
   /** A unique persistent id for the content or null. */
   @Nullable private final String mediaId;
 
@@ -365,37 +354,11 @@ public final class MediaDescriptionCompat implements Parcelable {
     bob.setIconBitmap(description.getIconBitmap());
     bob.setIconUri(description.getIconUri());
     Bundle extras = convertToNullIfInvalid(description.getExtras());
-    Uri mediaUri = null;
     if (extras != null) {
-      try {
-        extras = new Bundle(extras);
-        mediaUri = extras.getParcelable(DESCRIPTION_KEY_MEDIA_URI);
-        if (mediaUri != null) {
-          if (extras.containsKey(DESCRIPTION_KEY_NULL_BUNDLE_FLAG) && extras.size() == 2) {
-            // The extras were only created for the media URI, so we set it back to null to
-            // ensure mediaDescriptionCompat.getExtras() equals
-            // fromMediaDescription(getMediaDescription(mediaDescriptionCompat)).getExtras()
-            extras = null;
-          } else {
-            // Remove media URI keys to ensure mediaDescriptionCompat.getExtras().keySet()
-            // equals fromMediaDescription(getMediaDescription(mediaDescriptionCompat))
-            // .getExtras().keySet()
-            extras.remove(DESCRIPTION_KEY_MEDIA_URI);
-            extras.remove(DESCRIPTION_KEY_NULL_BUNDLE_FLAG);
-          }
-        }
-      } catch (RuntimeException e) {
-        Log.w(TAG, "Failed to parse extras", e);
-        extras = null;
-        mediaUri = null;
-      }
+      extras = new Bundle(extras);
     }
     bob.setExtras(extras);
-    if (mediaUri != null) {
-      bob.setMediaUri(mediaUri);
-    } else {
-      bob.setMediaUri(description.getMediaUri());
-    }
+    bob.setMediaUri(description.getMediaUri());
     MediaDescriptionCompat descriptionCompat = bob.build();
     descriptionCompat.descriptionFwk = description;
     return descriptionCompat;

@@ -3728,7 +3728,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
     if (preferredLocale == null) {
       return null;
     }
-    return Util.getLocaleLanguageTag(preferredLocale);
+    return preferredLocale.toLanguageTag();
   }
 
   @Nullable
