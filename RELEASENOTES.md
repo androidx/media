@@ -145,6 +145,9 @@
     *   Support retrieving XMP metadata from MP4 files using
         `MetadataRetriever`.
 *   Inspector Frame:
+    *   Fix clipping of wide-gamut BT.2020 colors in the SDR base image when
+        extracting Ultra HDR frames with `FrameExtractor`. Out-of-gamut colors
+        are now softly compressed into the sRGB gamut instead of being clamped.
 *   Audio:
     *   Add workaround for devices that invoke
         `android.media.AudioDeviceCallback` on the wrong thread
