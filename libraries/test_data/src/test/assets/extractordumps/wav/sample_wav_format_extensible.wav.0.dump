@@ -20,6 +20,7 @@ track 0:
     channelMask = 0x000000FC
     sampleRate = 48000
     pcmEncoding = pcm-float
+    metadata = entries=[ISFT: values=[Lavf61.7.100]]
   sample 0:
     time = 0
     flags = 1
