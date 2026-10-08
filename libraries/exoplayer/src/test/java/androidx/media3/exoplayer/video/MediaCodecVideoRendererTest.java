@@ -198,9 +198,7 @@ public class MediaCodecVideoRendererTest {
           /* capabilities= */ createCodecCapabilities(AVCProfileHigh, CodecProfileLevel.AVCLevel4),
           /* hardwareAccelerated= */ true,
           /* softwareOnly= */ false,
-          /* vendor= */ false,
-          /* forceDisableAdaptive= */ false,
-          /* forceSecure= */ false);
+          /* vendor= */ false);
 
   private static final MediaCodecInfo H264_PROFILE8_LEVEL5_SW_MEDIA_CODEC_INFO =
       MediaCodecInfo.newInstance(
@@ -210,9 +208,7 @@ public class MediaCodecVideoRendererTest {
           /* capabilities= */ createCodecCapabilities(AVCProfileHigh, CodecProfileLevel.AVCLevel5),
           /* hardwareAccelerated= */ false,
           /* softwareOnly= */ true,
-          /* vendor= */ false,
-          /* forceDisableAdaptive= */ false,
-          /* forceSecure= */ false);
+          /* vendor= */ false);
 
   private Looper testMainLooper;
   private Surface surface;
@@ -229,18 +225,28 @@ public class MediaCodecVideoRendererTest {
     codecAdapterFactory =
         new IdlingMediaCodecAdapterFactory(ApplicationProvider.getApplicationContext());
     mediaCodecSelector =
-        (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) ->
-            Collections.singletonList(
-                MediaCodecInfo.newInstance(
-                    /* name= */ "name",
-                    /* mimeType= */ mimeType,
-                    /* codecMimeType= */ mimeType,
-                    /* capabilities= */ null,
-                    /* hardwareAccelerated= */ false,
-                    /* softwareOnly= */ true,
-                    /* vendor= */ false,
-                    /* forceDisableAdaptive= */ false,
-                    /* forceSecure= */ requiresSecureDecoder));
+        (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) -> {
+          MediaFormat mediaFormat = new MediaFormat();
+          mediaFormat.setString(MediaFormat.KEY_MIME, mimeType);
+          if (requiresSecureDecoder) {
+            mediaFormat.setFeatureEnabled(CodecCapabilities.FEATURE_SecurePlayback, true);
+          }
+          CodecCapabilities capabilities =
+              MediaCodecInfoBuilder.CodecCapabilitiesBuilder.newBuilder()
+                  .setMediaFormat(mediaFormat)
+                  .setColorFormats(new int[0])
+                  .setProfileLevels(new CodecProfileLevel[0])
+                  .build();
+          return Collections.singletonList(
+              MediaCodecInfo.newInstance(
+                  /* name= */ "name",
+                  /* mimeType= */ mimeType,
+                  /* codecMimeType= */ mimeType,
+                  capabilities,
+                  /* hardwareAccelerated= */ false,
+                  /* softwareOnly= */ true,
+                  /* vendor= */ false));
+        };
     Flags.enableFlag(Flags.FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS);
     mediaCodecVideoRenderer =
         new MediaCodecVideoRenderer(
@@ -1579,6 +1585,9 @@ public class MediaCodecVideoRendererTest {
     verify(eventListener).onVideoDecoderInitialized(any(), anyLong(), anyLong());
   }
 
+  // Robolectric's CodecCapabilitiesBuilder only populates supported feature flags (such as
+  // FEATURE_SecurePlayback) on API 29+.
+  @Config(minSdk = 29)
   @Test
   public void render_withIncompatibleFrameRateChangeAtSecureAdaptiveSwitch_keepsCodec()
       throws Exception {
@@ -5379,9 +5388,7 @@ public class MediaCodecVideoRendererTest {
                       /* capabilities= */ capabilitiesH264,
                       /* hardwareAccelerated= */ false,
                       /* softwareOnly= */ true,
-                      /* vendor= */ false,
-                      /* forceDisableAdaptive= */ false,
-                      /* forceSecure= */ false));
+                      /* vendor= */ false));
             case MimeTypes.VIDEO_H265:
               CodecCapabilities capabilitiesH265 = new CodecCapabilities();
               capabilitiesH265.profileLevels =
@@ -5397,9 +5404,7 @@ public class MediaCodecVideoRendererTest {
                       /* capabilities= */ capabilitiesH265,
                       /* hardwareAccelerated= */ false,
                       /* softwareOnly= */ true,
-                      /* vendor= */ false,
-                      /* forceDisableAdaptive= */ false,
-                      /* forceSecure= */ false));
+                      /* vendor= */ false));
             case MimeTypes.VIDEO_AV1:
               CodecCapabilities capabilitiesAv1 = new CodecCapabilities();
               capabilitiesAv1.profileLevels =
@@ -5412,9 +5417,7 @@ public class MediaCodecVideoRendererTest {
                       /* capabilities= */ capabilitiesAv1,
                       /* hardwareAccelerated= */ false,
                       /* softwareOnly= */ true,
-                      /* vendor= */ false,
-                      /* forceDisableAdaptive= */ false,
-                      /* forceSecure= */ false));
+                      /* vendor= */ false));
             default:
               return ImmutableList.of();
           }
@@ -5481,9 +5484,7 @@ public class MediaCodecVideoRendererTest {
                         /* capabilities= */ capabilitiesDolby,
                         /* hardwareAccelerated= */ true,
                         /* softwareOnly= */ false,
-                        /* vendor= */ false,
-                        /* forceDisableAdaptive= */ false,
-                        /* forceSecure= */ false));
+                        /* vendor= */ false));
               }
             case MimeTypes.VIDEO_H265:
               {
@@ -5501,9 +5502,7 @@ public class MediaCodecVideoRendererTest {
                         /* capabilities= */ capabilitiesH265,
                         /* hardwareAccelerated= */ true,
                         /* softwareOnly= */ false,
-                        /* vendor= */ false,
-                        /* forceDisableAdaptive= */ false,
-                        /* forceSecure= */ false));
+                        /* vendor= */ false));
               }
             default:
               return ImmutableList.of();
@@ -5574,9 +5573,7 @@ public class MediaCodecVideoRendererTest {
                     /* capabilities= */ capabilitiesDolbyProfile4,
                     /* hardwareAccelerated= */ true,
                     /* softwareOnly= */ false,
-                    /* vendor= */ false,
-                    /* forceDisableAdaptive= */ false,
-                    /* forceSecure= */ false),
+                    /* vendor= */ false),
                 MediaCodecInfo.newInstance(
                     /* name= */ "dv-p8-codec",
                     /* mimeType= */ mimeType,
@@ -5584,9 +5581,7 @@ public class MediaCodecVideoRendererTest {
                     /* capabilities= */ capabilitiesDolbyProfile8,
                     /* hardwareAccelerated= */ true,
                     /* softwareOnly= */ false,
-                    /* vendor= */ false,
-                    /* forceDisableAdaptive= */ false,
-                    /* forceSecure= */ false));
+                    /* vendor= */ false));
           }
           return ImmutableList.of();
         };
@@ -6163,9 +6158,7 @@ public class MediaCodecVideoRendererTest {
             capabilities,
             /* hardwareAccelerated= */ true,
             /* softwareOnly= */ false,
-            /* vendor= */ true,
-            /* forceDisableAdaptive= */ false,
-            /* forceSecure= */ false);
+            /* vendor= */ true);
     Format extracted1080pFormat =
         new Format.Builder()
             .setSampleMimeType(MimeTypes.VIDEO_H265)
@@ -6224,9 +6217,7 @@ public class MediaCodecVideoRendererTest {
             capabilities,
             /* hardwareAccelerated= */ true,
             /* softwareOnly= */ false,
-            /* vendor= */ true,
-            /* forceDisableAdaptive= */ false,
-            /* forceSecure= */ false);
+            /* vendor= */ true);
     Format extracted1080pPqFormat =
         new Format.Builder()
             .setSampleMimeType(MimeTypes.VIDEO_H265)
@@ -7286,9 +7277,7 @@ public class MediaCodecVideoRendererTest {
         /* capabilities= */ new CodecCapabilities(),
         /* hardwareAccelerated= */ true,
         /* softwareOnly= */ false,
-        /* vendor= */ true,
-        /* forceDisableAdaptive= */ false,
-        /* forceSecure= */ false);
+        /* vendor= */ true);
   }
 
   private static Format createFormat(String mimeType, int width, int height) {

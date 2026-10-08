@@ -322,9 +322,7 @@ public final class MediaCodecUtilTest {
             /* capabilities= */ capabilitiesDolbyProfile4,
             /* hardwareAccelerated= */ true,
             /* softwareOnly= */ false,
-            /* vendor= */ false,
-            /* forceDisableAdaptive= */ false,
-            /* forceSecure= */ false);
+            /* vendor= */ false);
     MediaCodecInfo decoderProfile8 =
         MediaCodecInfo.newInstance(
             /* name= */ "dv-p8-codec",
@@ -333,9 +331,7 @@ public final class MediaCodecUtilTest {
             /* capabilities= */ capabilitiesDolbyProfile8,
             /* hardwareAccelerated= */ true,
             /* softwareOnly= */ false,
-            /* vendor= */ false,
-            /* forceDisableAdaptive= */ false,
-            /* forceSecure= */ false);
+            /* vendor= */ false);
     MediaCodecSelector mediaCodecSelector =
         (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) -> {
           if (mimeType.equals(MimeTypes.VIDEO_DOLBY_VISION)) {
@@ -376,9 +372,7 @@ public final class MediaCodecUtilTest {
             /* capabilities= */ capabilitiesHevcMain,
             /* hardwareAccelerated= */ true,
             /* softwareOnly= */ false,
-            /* vendor= */ false,
-            /* forceDisableAdaptive= */ false,
-            /* forceSecure= */ false);
+            /* vendor= */ false);
     MediaCodecInfo decoderHevcMain10 =
         MediaCodecInfo.newInstance(
             /* name= */ "hevc-main10-codec",
@@ -387,9 +381,7 @@ public final class MediaCodecUtilTest {
             /* capabilities= */ capabilitiesHevcMain10,
             /* hardwareAccelerated= */ true,
             /* softwareOnly= */ false,
-            /* vendor= */ false,
-            /* forceDisableAdaptive= */ false,
-            /* forceSecure= */ false);
+            /* vendor= */ false);
     MediaCodecSelector mediaCodecSelector =
         (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) -> {
           if (mimeType.equals(MimeTypes.VIDEO_H265)) {
@@ -430,9 +422,7 @@ public final class MediaCodecUtilTest {
             /* capabilities= */ capabilitiesDvProfile4,
             /* hardwareAccelerated= */ true,
             /* softwareOnly= */ false,
-            /* vendor= */ false,
-            /* forceDisableAdaptive= */ false,
-            /* forceSecure= */ false);
+            /* vendor= */ false);
     MediaCodecInfo decoderHevcMain =
         MediaCodecInfo.newInstance(
             /* name= */ "hevc-main-codec",
@@ -441,9 +431,7 @@ public final class MediaCodecUtilTest {
             /* capabilities= */ capabilitiesHevcMain,
             /* hardwareAccelerated= */ true,
             /* softwareOnly= */ false,
-            /* vendor= */ false,
-            /* forceDisableAdaptive= */ false,
-            /* forceSecure= */ false);
+            /* vendor= */ false);
     MediaCodecSelector mediaCodecSelector =
         (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) -> {
           if (mimeType.equals(MimeTypes.VIDEO_DOLBY_VISION)) {

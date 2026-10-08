@@ -184,10 +184,35 @@ public final class MediaCodecInfo {
    * @param hardwareAccelerated Whether the {@link MediaCodec} is hardware accelerated.
    * @param softwareOnly Whether the {@link MediaCodec} is software only.
    * @param vendor Whether the {@link MediaCodec} is provided by the vendor.
-   * @param forceDisableAdaptive Whether {@link #adaptive} should be forced to {@code false}.
-   * @param forceSecure Whether {@link #secure} should be forced to {@code true}.
    * @return The created instance.
    */
+  public static MediaCodecInfo newInstance(
+      String name,
+      String mimeType,
+      String codecMimeType,
+      @Nullable CodecCapabilities capabilities,
+      boolean hardwareAccelerated,
+      boolean softwareOnly,
+      boolean vendor) {
+    return new MediaCodecInfo(
+        name,
+        mimeType,
+        codecMimeType,
+        capabilities,
+        hardwareAccelerated,
+        softwareOnly,
+        vendor,
+        /* adaptive= */ capabilities != null && isAdaptive(capabilities),
+        /* tunneling= */ capabilities != null && isTunneling(capabilities),
+        /* secure= */ capabilities != null && isSecure(capabilities),
+        isDetachedSurfaceSupported(capabilities));
+  }
+
+  /**
+   * @deprecated Use {@link #newInstance(String, String, String, CodecCapabilities, boolean,
+   *     boolean, boolean)} instead.
+   */
+  @Deprecated
   public static MediaCodecInfo newInstance(
       String name,
       String mimeType,

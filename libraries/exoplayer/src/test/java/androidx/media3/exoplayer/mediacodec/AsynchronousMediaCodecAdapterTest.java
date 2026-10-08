@@ -210,9 +210,7 @@ public class AsynchronousMediaCodecAdapterTest {
         /* capabilities= */ null,
         /* hardwareAccelerated= */ false,
         /* softwareOnly= */ false,
-        /* vendor= */ false,
-        /* forceDisableAdaptive= */ false,
-        /* forceSecure= */ false);
+        /* vendor= */ false);
   }
 
   private static MediaCodecAdapter.Configuration createAdapterConfiguration() {

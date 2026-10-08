@@ -166,9 +166,7 @@ public class MediaCodecAudioRendererTest {
                     /* capabilities= */ null,
                     /* hardwareAccelerated= */ false,
                     /* softwareOnly= */ true,
-                    /* vendor= */ false,
-                    /* forceDisableAdaptive= */ false,
-                    /* forceSecure= */ false));
+                    /* vendor= */ false));
 
     Handler eventHandler = new Handler(Looper.getMainLooper());
     mediaCodecAudioRenderer =
@@ -608,9 +606,7 @@ public class MediaCodecAudioRendererTest {
                         /* capabilities= */ null,
                         /* hardwareAccelerated= */ false,
                         /* softwareOnly= */ true,
-                        /* vendor= */ false,
-                        /* forceDisableAdaptive= */ false,
-                        /* forceSecure= */ false));
+                        /* vendor= */ false));
     MediaCodecAudioRenderer renderer =
         new MediaCodecAudioRenderer(
             ApplicationProvider.getApplicationContext(),

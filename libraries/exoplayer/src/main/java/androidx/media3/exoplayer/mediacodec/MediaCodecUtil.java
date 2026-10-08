@@ -568,9 +568,7 @@ public final class MediaCodecUtil {
                     capabilities,
                     hardwareAccelerated,
                     softwareOnly,
-                    vendor,
-                    /* forceDisableAdaptive= */ false,
-                    /* forceSecure= */ false));
+                    vendor));
           }
         } catch (Exception e) {
           Log.e(TAG, "Failed to query codec " + name + " (" + codecMimeType + ")");
@@ -654,9 +652,7 @@ public final class MediaCodecUtil {
                 /* capabilities= */ null,
                 /* hardwareAccelerated= */ false,
                 /* softwareOnly= */ true,
-                /* vendor= */ false,
-                /* forceDisableAdaptive= */ false,
-                /* forceSecure= */ false));
+                /* vendor= */ false));
       }
       // Work around inconsistent raw audio decoding behavior across different devices.
       sortByScore(

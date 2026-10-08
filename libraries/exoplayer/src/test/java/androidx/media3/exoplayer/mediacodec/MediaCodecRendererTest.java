@@ -1113,9 +1113,7 @@ public class MediaCodecRendererTest {
                       /* capabilities= */ null,
                       /* hardwareAccelerated= */ false,
                       /* softwareOnly= */ true,
-                      /* vendor= */ false,
-                      /* forceDisableAdaptive= */ false,
-                      /* forceSecure= */ false)),
+                      /* vendor= */ false)),
           /* enableDecoderFallback= */ false,
           /* assumedMinimumCodecOperatingRate= */ 0);
     }
