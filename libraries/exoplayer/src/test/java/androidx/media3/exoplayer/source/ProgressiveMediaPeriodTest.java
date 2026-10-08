@@ -137,22 +137,10 @@ public final class ProgressiveMediaPeriodTest {
     DecoderInputBuffer buffer =
         new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
     // media/mp4/sample.mp4 has 2 tracks.
-    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    assertThat(trackGroups.length).isAtLeast(2);
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
-    boolean[] streamResetFlags = new boolean[trackGroups.length];
+    assertThat(mediaPeriod.getTrackGroups().length).isAtLeast(2);
 
     // Select only track 1 (audio). Track 0 (video) is left unselected.
-    selections[1] =
-        new FakeTrackSelection(trackGroups.get(1), new int[] {0}, /* selectedIndex= */ 0);
-    long unused =
-        mediaPeriod.selectTracks(
-            selections,
-            new boolean[trackGroups.length],
-            streams,
-            streamResetFlags,
-            /* positionUs= */ 0);
+    selectOnlyTrack(mediaPeriod, /* trackIndex= */ 1);
     // Run loader until source has finished loading.
     boolean unusedResult =
         mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
@@ -657,7 +645,7 @@ public final class ProgressiveMediaPeriodTest {
   public void selectTracks_joiningStreamWithPrerollSamples_doesNotIncurExtraDiscontinuity()
       throws Exception {
     ProgressiveMediaExtractor extractor =
-        new ProgressiveMediaExtractor() {
+        new FakeProgressiveMediaExtractor() {
           @Override
           public void init(
               DataReader dataReader,
@@ -696,25 +684,6 @@ public final class ProgressiveMediaPeriodTest {
                     return new SeekPoints(new SeekPoint(/* timeUs= */ -100_000, /* position= */ 0));
                   }
                 });
-          }
-
-          @Override
-          public void release() {}
-
-          @Override
-          public void disableSeekingOnMp3Streams() {}
-
-          @Override
-          public long getCurrentInputPosition() {
-            return 0;
-          }
-
-          @Override
-          public void seek(long position, long timeUs) {}
-
-          @Override
-          public int read(PositionHolder positionHolder) {
-            return Extractor.RESULT_END_OF_INPUT;
           }
         };
 
@@ -861,7 +830,7 @@ public final class ProgressiveMediaPeriodTest {
   @Test
   public void selectTracks_withSeekMap_keyframeMatchesSeekPosition_returnsZero() throws Exception {
     ProgressiveMediaExtractor extractor =
-        new ProgressiveMediaExtractor() {
+        new FakeProgressiveMediaExtractor() {
           @Override
           public void init(
               DataReader dataReader,
@@ -895,25 +864,6 @@ public final class ProgressiveMediaPeriodTest {
                   }
                 });
           }
-
-          @Override
-          public void release() {}
-
-          @Override
-          public void disableSeekingOnMp3Streams() {}
-
-          @Override
-          public long getCurrentInputPosition() {
-            return 0;
-          }
-
-          @Override
-          public void seek(long position, long timeUs) {}
-
-          @Override
-          public int read(PositionHolder positionHolder) {
-            return Extractor.RESULT_END_OF_INPUT;
-          }
         };
 
     ProgressiveMediaPeriod mediaPeriod =
@@ -945,7 +895,7 @@ public final class ProgressiveMediaPeriodTest {
   @Test
   public void selectTracks_withTrackAwareSeekMap_reportsPrerollForTrack() throws Exception {
     ProgressiveMediaExtractor extractor =
-        new ProgressiveMediaExtractor() {
+        new FakeProgressiveMediaExtractor() {
           @Override
           public void init(
               DataReader dataReader,
@@ -988,25 +938,6 @@ public final class ProgressiveMediaPeriodTest {
                   }
                 });
           }
-
-          @Override
-          public void release() {}
-
-          @Override
-          public void disableSeekingOnMp3Streams() {}
-
-          @Override
-          public long getCurrentInputPosition() {
-            return 0;
-          }
-
-          @Override
-          public void seek(long position, long timeUs) {}
-
-          @Override
-          public int read(PositionHolder positionHolder) {
-            return Extractor.RESULT_END_OF_INPUT;
-          }
         };
 
     ProgressiveMediaPeriod mediaPeriod =
@@ -1038,7 +969,7 @@ public final class ProgressiveMediaPeriodTest {
   @Test
   public void selectTracks_toNegativePosition_evaluatesPrerollFromSeekMap() throws Exception {
     ProgressiveMediaExtractor extractor =
-        new ProgressiveMediaExtractor() {
+        new FakeProgressiveMediaExtractor() {
           @Override
           public void init(
               DataReader dataReader,
@@ -1073,25 +1004,6 @@ public final class ProgressiveMediaPeriodTest {
                     return new SeekPoints(seekPoint);
                   }
                 });
-          }
-
-          @Override
-          public void release() {}
-
-          @Override
-          public void disableSeekingOnMp3Streams() {}
-
-          @Override
-          public long getCurrentInputPosition() {
-            return 0;
-          }
-
-          @Override
-          public void seek(long position, long timeUs) {}
-
-          @Override
-          public int read(PositionHolder positionHolder) {
-            return Extractor.RESULT_END_OF_INPUT;
           }
         };
 
@@ -1187,6 +1099,22 @@ public final class ProgressiveMediaPeriodTest {
       }
     } while (readResult != C.RESULT_BUFFER_READ || !buffer.isEndOfStream());
     return sampleCount;
+  }
+
+  /** Selects only the track at {@code trackIndex} from position zero, discarding the streams. */
+  private static void selectOnlyTrack(ProgressiveMediaPeriod mediaPeriod, int trackIndex) {
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    selections[trackIndex] =
+        new FakeTrackSelection(trackGroups.get(trackIndex), /* selectedIndex= */ 0);
+    long unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            new boolean[trackGroups.length],
+            /* positionUs= */ 0);
   }
 
   private static ProgressiveMediaPeriod createMediaPeriod(
@@ -2613,19 +2541,7 @@ public final class ProgressiveMediaPeriodTest {
         /* positionUs= */ 0);
     runMainLooperUntil(() -> !mediaPeriod.isLoading());
     // Select track 0 so continueLoading triggers startLoading() with initial sample count recorded.
-    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
-    boolean[] streamResetFlags = new boolean[trackGroups.length];
-    selections[0] =
-        new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
-    long unused =
-        mediaPeriod.selectTracks(
-            selections,
-            new boolean[trackGroups.length],
-            streams,
-            streamResetFlags,
-            /* positionUs= */ 0);
+    selectOnlyTrack(mediaPeriod, /* trackIndex= */ 0);
     // Extract samples by running until loading finishes, so extractedSamplesCount > initial count.
     boolean unusedLoad =
         mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
@@ -2664,9 +2580,7 @@ public final class ProgressiveMediaPeriodTest {
     AtomicInteger initCount = new AtomicInteger();
     AtomicInteger readCount = new AtomicInteger();
     ProgressiveMediaExtractor extractor =
-        new ProgressiveMediaExtractor() {
-          private long currentInputPosition;
-
+        new FakeProgressiveMediaExtractor() {
           @Override
           public void init(
               DataReader dataReader,
@@ -2687,20 +2601,6 @@ public final class ProgressiveMediaPeriodTest {
           }
 
           @Override
-          public void release() {}
-
-          @Override
-          public void disableSeekingOnMp3Streams() {}
-
-          @Override
-          public long getCurrentInputPosition() {
-            return currentInputPosition;
-          }
-
-          @Override
-          public void seek(long position, long timeUs) {}
-
-          @Override
           public int read(PositionHolder positionHolder) {
             if (readCount.incrementAndGet() == 1) {
               allowFirstReadCondition.blockUninterruptible();
@@ -2719,17 +2619,7 @@ public final class ProgressiveMediaPeriodTest {
             /* imageDurationUs= */ C.TIME_UNSET,
             /* executor= */ null,
             /* executorReleased= */ null);
-    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
-    selections[0] = new FakeTrackSelection(trackGroups.get(0), 0);
-    long unused =
-        mediaPeriod.selectTracks(
-            selections,
-            new boolean[trackGroups.length],
-            streams,
-            new boolean[trackGroups.length],
-            /* positionUs= */ 0);
+    selectOnlyTrack(mediaPeriod, /* trackIndex= */ 0);
     boolean initialContinueLoading =
         mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
     allowFirstReadCondition.open();
@@ -2809,6 +2699,35 @@ public final class ProgressiveMediaPeriodTest {
     @Override
     public void close() throws IOException {
       delegate.close();
+    }
+  }
+
+  /**
+   * A {@link ProgressiveMediaExtractor} with no-op defaults, so that tests only need to override
+   * the methods they care about. {@link #read} returns {@link Extractor#RESULT_END_OF_INPUT}, and
+   * subclasses can set {@link #currentInputPosition} to control {@link #getCurrentInputPosition()}.
+   */
+  private abstract static class FakeProgressiveMediaExtractor implements ProgressiveMediaExtractor {
+
+    long currentInputPosition;
+
+    @Override
+    public void release() {}
+
+    @Override
+    public void disableSeekingOnMp3Streams() {}
+
+    @Override
+    public long getCurrentInputPosition() {
+      return currentInputPosition;
+    }
+
+    @Override
+    public void seek(long position, long timeUs) {}
+
+    @Override
+    public int read(PositionHolder positionHolder) {
+      return Extractor.RESULT_END_OF_INPUT;
     }
   }
 }
