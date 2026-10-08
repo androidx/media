@@ -113,11 +113,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Codec.EncoderFactory encoderFactory;
   private final Listener listener;
   private final Executor listenerExecutor;
-  private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
-  private final HardwareBufferPool hardwareBufferPool;
   private final ListeningExecutorService glExecutorService;
   private final GlObjectsProvider glObjectsProvider;
   private final AtomicBoolean isClosed;
+  private final FrameRenderer frameRenderer;
   @Nullable private final LogSessionId logSessionId;
 
   private EGLDisplay eglDisplay;
@@ -127,7 +126,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private @MonotonicNonNull Format configurationFormat;
   @Nullable private DefaultShaderProgram defaultShaderProgram;
   @Nullable private Codec encoder;
-  private @Frame.Usage long usage;
   private boolean isRgba8888Shader;
 
   /**
@@ -156,10 +154,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.listenerExecutor = listenerExecutor;
     this.glObjectsProvider = glObjectsProvider;
     this.glExecutorService = glExecutorService;
-    this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
     this.logSessionId = logSessionId;
     isClosed = new AtomicBoolean(false);
-    hardwareBufferPool = new HardwareBufferPool(CAPACITY);
+    frameRenderer = new HardwareBufferFrameRenderer(hardwareBufferJniWrapper);
     eglDisplay = EGL14.EGL_NO_DISPLAY;
     eglContext = EGL14.EGL_NO_CONTEXT;
     placeholderSurface = EGL14.EGL_NO_SURFACE;
@@ -180,7 +177,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public void configure(Format format, @Frame.Usage long usage) {
     checkState(encoder == null);
-    this.usage = usage | Frame.USAGE_GPU_SAMPLED_IMAGE | Frame.USAGE_VIDEO_ENCODE;
 
     Format encoderFormat = listener.onConfigure(format);
     try {
@@ -195,6 +191,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     listenerExecutor.execute(() -> listener.onEncoderCreated(nonNullEncoder));
 
     configurationFormat = nonNullEncoder.getConfigurationFormat();
+    frameRenderer.configure(usage | Frame.USAGE_GPU_SAMPLED_IMAGE | Frame.USAGE_VIDEO_ENCODE);
 
     submitToGlExecutor(
         () -> {
@@ -212,38 +209,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return null;
     }
 
-    @Nullable
-    HardwareBufferPool.HardwareBufferWithFence bufferWithFence =
-        hardwareBufferPool.get(
-            configurationFormat, usage, () -> wakeupExecutor.execute(wakeupListener));
-
-    if (bufferWithFence != null) {
-      HardwareBuffer hardwareBuffer = bufferWithFence.hardwareBuffer;
-      DefaultHardwareBufferFrame frame =
-          new DefaultHardwareBufferFrame.Builder(hardwareBuffer)
-              .setFormat(configurationFormat)
-              .build();
-      return new AsyncFrame(frame, bufferWithFence.acquireFence);
-    }
-
-    return null;
+    return frameRenderer.dequeueInputFrame(() -> wakeupExecutor.execute(wakeupListener));
   }
 
   @Override
   public void queueInputFrame(Frame frame, @Nullable SyncFenceWrapper writeCompleteFence) {
     checkState(configurationFormat != null);
-    checkArgument(frame instanceof DefaultHardwareBufferFrame);
-    DefaultHardwareBufferFrame hardwareBufferFrame = (DefaultHardwareBufferFrame) frame;
-    HardwareBuffer hardwareBuffer = hardwareBufferFrame.getHardwareBuffer();
-
-    long presentationTimeUs = frame.getContentTimeUs();
-
-    submitToGlExecutor(
-        () -> {
-          renderFrame(hardwareBuffer, frame.getFormat(), presentationTimeUs, writeCompleteFence);
-          return null;
-        },
-        /* onSuccessListener= */ null);
+    frameRenderer.queueInputFrame(frame, writeCompleteFence);
   }
 
   @Override
@@ -284,7 +256,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       glExecutorService.shutdown();
     }
 
-    hardwareBufferPool.release();
+    frameRenderer.release();
 
     if (encoder != null) {
       encoder.release();
@@ -312,54 +284,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             eglDisplay, surface, colorTransfer, /* isEncoderInputSurface= */ true);
   }
 
-  /** Renders the frame to the output surface. Must be called on the GL thread. */
-  private void renderFrame(
-      HardwareBuffer hardwareBuffer,
-      Format inputFormat,
-      long presentationTimeUs,
-      @Nullable SyncFenceWrapper writeCompleteFence)
-      throws GlUtil.GlException, VideoFrameProcessingException {
-    try {
-      if (isClosed.get()) {
-        return;
-      }
+  /**
+   * Draws {@code texId} onto the encoder input surface and presents it.
+   *
+   * <p>Must be called on the GL thread.
+   */
+  private void drawAndPresentFrame(int texId, long presentationTimeUs)
+      throws GlException, VideoFrameProcessingException {
+    Format format = checkNotNull(configurationFormat);
+    GlUtil.focusEglSurface(eglDisplay, eglContext, outputEglSurface, format.width, format.height);
+    GlUtil.clearFocusedBuffers();
 
-      if (writeCompleteFence != null) {
-        boolean signaled = writeCompleteFence.await(FENCE_WAIT_TIMEOUT);
-        if (!signaled) {
-          Log.w(TAG, "Timed out waiting for fence.");
-        }
-      }
+    checkNotNull(defaultShaderProgram).drawFrame(texId, presentationTimeUs);
 
-      // TODO: b/523223680 - Reuse textures for the same HardwareBuffer.
-      GlTextureWrapper glTextureWrapper = toGlTexture(hardwareBuffer);
-
-      boolean isRgba8888Input = hardwareBuffer.getFormat() == HardwareBuffer.RGBA_8888;
-      ensureShaderConfigured(isRgba8888Input);
-
-      DefaultShaderProgram shaderProgram = checkNotNull(defaultShaderProgram);
-      shaderProgram.setTextureTransformMatrix(
-          constructTransformationMatrix(hardwareBuffer, inputFormat));
-
-      Format format = checkNotNull(configurationFormat);
-      GlUtil.focusEglSurface(eglDisplay, eglContext, outputEglSurface, format.width, format.height);
-      GlUtil.clearFocusedBuffers();
-
-      shaderProgram.drawFrame(glTextureWrapper.texId, presentationTimeUs);
-
-      long eglPresentationTimeNs = presentationTimeUs * 1000L;
-      EGLExt.eglPresentationTimeANDROID(eglDisplay, outputEglSurface, eglPresentationTimeNs);
-      EGL14.eglSwapBuffers(eglDisplay, outputEglSurface);
-
-      glTextureWrapper.release();
-    } finally {
-      // TODO: b/523223680 - Use a fence rather than glFinish.
-      GLES20.glFinish();
-      if (writeCompleteFence != null) {
-        writeCompleteFence.close();
-      }
-      hardwareBufferPool.recycle(hardwareBuffer, /* fence= */ null);
-    }
+    long eglPresentationTimeNs = presentationTimeUs * 1000L;
+    EGLExt.eglPresentationTimeANDROID(eglDisplay, outputEglSurface, eglPresentationTimeNs);
+    EGL14.eglSwapBuffers(eglDisplay, outputEglSurface);
   }
 
   /**
@@ -426,12 +366,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   /**
-   * Constructs a transformation matrix that flips the hardware buffer vertically (since OpenGL
-   * typically has y-axis pointing up, while hardware buffers have y-axis pointing down) then
-   * applies the crop from the format.
+   * Constructs a transformation matrix that flips the frame vertically (since OpenGL typically has
+   * y-axis pointing up, while input frame buffers have y-axis pointing down) then applies the crop
+   * from the format.
    */
   private static float[] constructTransformationMatrix(
-      HardwareBuffer hardwareBuffer, Format format) {
+      int bufferWidth, int bufferHeight, Format format) {
     Matrix flipMatrix = new Matrix();
     flipMatrix.setScale(1f, -1f);
     flipMatrix.postTranslate(0f, 1f);
@@ -439,10 +379,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     Matrix cropMatrix = new Matrix();
     float croppedWidth = format.width;
     float croppedHeight = format.height;
-    float bufferWidth = hardwareBuffer.getWidth();
-    float bufferHeight = hardwareBuffer.getHeight();
-    checkArgument(
-        bufferWidth > 0 && bufferHeight > 0, "HardwareBuffer dimensions must be positive");
+    checkArgument(bufferWidth > 0 && bufferHeight > 0, "Buffer dimensions must be positive");
     cropMatrix.setScale(croppedWidth / bufferWidth, croppedHeight / bufferHeight);
 
     Matrix transformMatrix = new Matrix();
@@ -484,55 +421,172 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         listenerExecutor);
   }
 
-  /** Holds the GL texture ID and EGLImage handle. */
-  private final class GlTextureWrapper {
-    private final int texId;
-    private final long eglImage;
+  /** Renderer that manages input frame buffers and renders queued frames to the encoder surface. */
+  private interface FrameRenderer {
+    /** Configures the renderer with the required {@link Frame.Usage} flags. */
+    void configure(@Frame.Usage long usage);
 
-    private GlTextureWrapper(int texId, long eglImage) {
-      this.texId = texId;
-      this.eglImage = eglImage;
+    /**
+     * Dequeues an input frame, or registers {@code wakeupListener} and returns {@code null} if no
+     * frame buffer is available.
+     */
+    @Nullable
+    AsyncFrame dequeueInputFrame(Runnable wakeupListener);
+
+    /** Queues an input {@link Frame} to be rendered to the encoder surface. */
+    void queueInputFrame(Frame frame, @Nullable SyncFenceWrapper writeCompleteFence);
+
+    /** Releases buffer pool resources. */
+    void release();
+  }
+
+  /** Implementation of {@link FrameRenderer} backed by {@link HardwareBuffer}. */
+  private final class HardwareBufferFrameRenderer implements FrameRenderer {
+
+    private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
+    private final HardwareBufferPool hardwareBufferPool;
+    private @Frame.Usage long usage;
+
+    private HardwareBufferFrameRenderer(HardwareBufferJniWrapper hardwareBufferJniWrapper) {
+      this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
+      this.hardwareBufferPool = new HardwareBufferPool(CAPACITY);
     }
 
-    private void release() throws GlException, VideoFrameProcessingException {
-      if (texId != C.INDEX_UNSET) {
-        GlUtil.deleteTexture(texId);
+    @Override
+    public void configure(@Frame.Usage long usage) {
+      this.usage = usage;
+    }
+
+    @Nullable
+    @Override
+    public AsyncFrame dequeueInputFrame(Runnable wakeupListener) {
+      Format format = checkNotNull(configurationFormat);
+      @Nullable
+      HardwareBufferPool.HardwareBufferWithFence bufferWithFence =
+          hardwareBufferPool.get(format, usage, wakeupListener);
+      if (bufferWithFence == null) {
+        return null;
       }
-      if (eglImage != 0) {
-        if (!hardwareBufferJniWrapper.nativeDestroyEGLImage(
-            eglDisplay.getNativeHandle(), eglImage)) {
-          throw new VideoFrameProcessingException("Failed to destroy EGLImage.");
+      DefaultHardwareBufferFrame frame =
+          new DefaultHardwareBufferFrame.Builder(bufferWithFence.hardwareBuffer)
+              .setFormat(format)
+              .build();
+      return new AsyncFrame(frame, bufferWithFence.acquireFence);
+    }
+
+    @Override
+    public void queueInputFrame(Frame frame, @Nullable SyncFenceWrapper writeCompleteFence) {
+      checkArgument(frame instanceof DefaultHardwareBufferFrame);
+      DefaultHardwareBufferFrame hardwareBufferFrame = (DefaultHardwareBufferFrame) frame;
+      HardwareBuffer hardwareBuffer = hardwareBufferFrame.getHardwareBuffer();
+      long presentationTimeUs = frame.getContentTimeUs();
+
+      submitToGlExecutor(
+          () -> {
+            renderFrame(hardwareBuffer, frame.getFormat(), presentationTimeUs, writeCompleteFence);
+            return null;
+          },
+          /* onSuccessListener= */ null);
+    }
+
+    @Override
+    public void release() {
+      hardwareBufferPool.release();
+    }
+
+    /** Renders the frame to the output surface. Must be called on the GL thread. */
+    private void renderFrame(
+        HardwareBuffer hardwareBuffer,
+        Format inputFormat,
+        long presentationTimeUs,
+        @Nullable SyncFenceWrapper writeCompleteFence)
+        throws GlUtil.GlException, VideoFrameProcessingException {
+      try {
+        if (isClosed.get()) {
+          return;
+        }
+
+        if (writeCompleteFence != null) {
+          boolean signaled = writeCompleteFence.await(FENCE_WAIT_TIMEOUT);
+          if (!signaled) {
+            Log.w(TAG, "Timed out waiting for fence.");
+          }
+        }
+
+        // TODO: b/523223680 - Reuse textures for the same HardwareBuffer.
+        GlTextureWrapper glTextureWrapper = toGlTexture(hardwareBuffer);
+
+        boolean isRgba8888Input = hardwareBuffer.getFormat() == HardwareBuffer.RGBA_8888;
+        ensureShaderConfigured(isRgba8888Input);
+
+        DefaultShaderProgram shaderProgram = checkNotNull(defaultShaderProgram);
+        shaderProgram.setTextureTransformMatrix(
+            constructTransformationMatrix(
+                hardwareBuffer.getWidth(), hardwareBuffer.getHeight(), inputFormat));
+
+        drawAndPresentFrame(glTextureWrapper.texId, presentationTimeUs);
+
+        glTextureWrapper.release();
+      } finally {
+        // TODO: b/523223680 - Use a fence rather than glFinish.
+        GLES20.glFinish();
+        if (writeCompleteFence != null) {
+          writeCompleteFence.close();
+        }
+        hardwareBufferPool.recycle(hardwareBuffer, /* fence= */ null);
+      }
+    }
+
+    /** Configures a {@link HardwareBuffer} to a GL texture. Must be called on the GL thread. */
+    private GlTextureWrapper toGlTexture(HardwareBuffer hardwareBuffer) throws GlUtil.GlException {
+      boolean isRgba8888 = hardwareBuffer.getFormat() == HardwareBuffer.RGBA_8888;
+      int target = isRgba8888 ? GLES20.GL_TEXTURE_2D : GLES11Ext.GL_TEXTURE_EXTERNAL_OES;
+
+      long eglImageHandle =
+          hardwareBufferJniWrapper.nativeCreateEglImageFromHardwareBuffer(
+              eglDisplay.getNativeHandle(), hardwareBuffer);
+      if (eglImageHandle == 0L) {
+        throw new GlUtil.GlException(
+            "Unable to create EGLImageKHR via JNI, format:"
+                + hardwareBuffer.getFormat()
+                + ", usage:"
+                + hardwareBuffer.getUsage()
+                + ".");
+      }
+      int texture = GlUtil.generateTexture();
+      GLES20.glBindTexture(target, texture);
+      GlUtil.checkGlError();
+      if (!hardwareBufferJniWrapper.nativeBindEGLImage(target, eglImageHandle)) {
+        boolean unused =
+            hardwareBufferJniWrapper.nativeDestroyEGLImage(
+                eglDisplay.getNativeHandle(), eglImageHandle);
+        GlUtil.deleteTexture(texture);
+        throw new GlUtil.GlException("Failed to bind EGLImage to texture.");
+      }
+      return new GlTextureWrapper(texture, eglImageHandle);
+    }
+
+    /** Holds the GL texture ID and EGLImage handle. */
+    private final class GlTextureWrapper {
+      private final int texId;
+      private final long eglImage;
+
+      private GlTextureWrapper(int texId, long eglImage) {
+        this.texId = texId;
+        this.eglImage = eglImage;
+      }
+
+      private void release() throws GlException, VideoFrameProcessingException {
+        if (texId != C.INDEX_UNSET) {
+          GlUtil.deleteTexture(texId);
+        }
+        if (eglImage != 0) {
+          if (!hardwareBufferJniWrapper.nativeDestroyEGLImage(
+              eglDisplay.getNativeHandle(), eglImage)) {
+            throw new VideoFrameProcessingException("Failed to destroy EGLImage.");
+          }
         }
       }
     }
-  }
-
-  /** Configures a {@link HardwareBuffer} to a GL texture. Must be called on the GL thread. */
-  private GlTextureWrapper toGlTexture(HardwareBuffer hardwareBuffer) throws GlUtil.GlException {
-    boolean isRgba8888 = hardwareBuffer.getFormat() == HardwareBuffer.RGBA_8888;
-    int target = isRgba8888 ? GLES20.GL_TEXTURE_2D : GLES11Ext.GL_TEXTURE_EXTERNAL_OES;
-
-    long eglImageHandle =
-        hardwareBufferJniWrapper.nativeCreateEglImageFromHardwareBuffer(
-            eglDisplay.getNativeHandle(), hardwareBuffer);
-    if (eglImageHandle == 0L) {
-      throw new GlUtil.GlException(
-          "Unable to create EGLImageKHR via JNI, format:"
-              + hardwareBuffer.getFormat()
-              + ", usage:"
-              + hardwareBuffer.getUsage()
-              + ".");
-    }
-    int texture = GlUtil.generateTexture();
-    GLES20.glBindTexture(target, texture);
-    GlUtil.checkGlError();
-    if (!hardwareBufferJniWrapper.nativeBindEGLImage(target, eglImageHandle)) {
-      boolean unused =
-          hardwareBufferJniWrapper.nativeDestroyEGLImage(
-              eglDisplay.getNativeHandle(), eglImageHandle);
-      GlUtil.deleteTexture(texture);
-      throw new GlUtil.GlException("Failed to bind EGLImage to texture.");
-    }
-    return new GlTextureWrapper(texture, eglImageHandle);
   }
 }

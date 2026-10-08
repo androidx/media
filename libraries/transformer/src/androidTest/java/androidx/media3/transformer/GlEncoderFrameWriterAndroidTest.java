@@ -18,6 +18,9 @@ package androidx.media3.transformer;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import android.content.Context;
 import androidx.media3.common.ColorInfo;
@@ -28,6 +31,7 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.HardwareBufferFrame;
+import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.HardwareBufferJni;
 import androidx.media3.transformer.AndroidTestUtil.ForceEncodeEncoderFactory;
@@ -192,6 +196,22 @@ public final class GlEncoderFrameWriterAndroidTest {
 
     assertThat(eosCondition.block(TEST_TIMEOUT_MS)).isTrue();
     assertThat(errorException.get()).isNull();
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 33)
+  public void queueInputFrame_withWriteCompleteFence_awaitsAndClosesFence() throws Exception {
+    glEncoderFrameWriter.configure(TEST_ENCODING_FORMAT, Frame.USAGE_VIDEO_ENCODE);
+    AsyncFrame frame =
+        glEncoderFrameWriter.dequeueInputFrame(/* wakeupExecutor= */ directExecutor(), () -> {});
+    SyncFenceWrapper writeCompleteFence = mock(SyncFenceWrapper.class);
+
+    glEncoderFrameWriter.queueInputFrame(frame.frame, writeCompleteFence);
+    glEncoderFrameWriter.signalEndOfStream();
+    eosCondition.block(TEST_TIMEOUT_MS);
+
+    verify(writeCompleteFence).await(any());
+    verify(writeCompleteFence).close();
   }
 
   @Test
