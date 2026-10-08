@@ -2721,7 +2721,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
           }
           largestQueuedPresentationTimeUs =
               max(largestQueuedPresentationTimeUs, bypassSampleBuffer.timeUs);
-          if (hasReadStreamToEnd() || buffer.isLastSample()) {
+          if (hasReadStreamToEnd() || bypassSampleBuffer.isLastSample()) {
             // Notify output queue of the last buffer's timestamp.
             getLastOutputStreamInfo().lastBufferTimeUs = largestQueuedPresentationTimeUs;
           }
