@@ -1374,6 +1374,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       int result = Extractor.RESULT_CONTINUE;
       String etag = null;
       while (result == Extractor.RESULT_CONTINUE && !loadCanceled) {
+        // The extractor is shared between all loadables of the period, so until it has been
+        // initialized with an input for this load attempt, its current input position may still
+        // belong to a previous load.
+        boolean inputInitialized = false;
         try {
           long position = positionHolder.position;
           dataSpec = buildDataSpec(position, etag);
@@ -1401,6 +1405,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               position,
               length,
               extractorOutput);
+          inputInitialized = true;
 
           if (icyHeaders != null) {
             progressiveMediaExtractor.disableSeekingOnMp3Streams();
@@ -1428,7 +1433,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         } finally {
           if (result == Extractor.RESULT_SEEK) {
             result = Extractor.RESULT_CONTINUE;
-          } else if (progressiveMediaExtractor.getCurrentInputPosition() != C.INDEX_UNSET) {
+          } else if (inputInitialized
+              && progressiveMediaExtractor.getCurrentInputPosition() != C.INDEX_UNSET) {
             positionHolder.position = progressiveMediaExtractor.getCurrentInputPosition();
           }
           DataSourceUtil.closeQuietly(dataSource);

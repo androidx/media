@@ -78,6 +78,9 @@ public interface ProgressiveMediaExtractor {
   /**
    * Returns the current read position in the input stream, or {@link C#INDEX_UNSET} if no input is
    * available.
+   *
+   * <p>The returned position may still refer to the input passed to the most recent {@link #init}
+   * call, even if the caller has since stopped reading from that input.
    */
   long getCurrentInputPosition();
 

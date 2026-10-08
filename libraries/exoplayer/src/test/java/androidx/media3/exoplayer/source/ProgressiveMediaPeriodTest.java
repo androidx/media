@@ -37,6 +37,7 @@ import androidx.media3.common.util.NullableType;
 import androidx.media3.datasource.AssetDataSource;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
+import androidx.media3.datasource.ResolvingDataSource;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.FormatHolder;
@@ -70,6 +71,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
@@ -430,6 +432,139 @@ public final class ProgressiveMediaPeriodTest {
             mediaPeriod.continueLoading(
                 new LoadingInfo.Builder().setPlaybackPositionUs(1000).build()))
         .isTrue();
+    mediaPeriod.release();
+  }
+
+  @Test
+  public void seekToUs_outsideBufferAndFirstOpenFails_retriesLoadFromSeekPosition()
+      throws Exception {
+    List<Long> openPositions = new CopyOnWriteArrayList<>();
+    AtomicBoolean failNextOpen = new AtomicBoolean();
+    DataSource dataSource =
+        new ResolvingDataSource(
+            new AssetDataSource(ApplicationProvider.getApplicationContext()),
+            dataSpec -> {
+              openPositions.add(dataSpec.position);
+              if (failNextOpen.compareAndSet(true, false)) {
+                throw new IOException("Test open failure");
+              }
+              return dataSpec;
+            });
+    ProgressiveMediaPeriod mediaPeriod =
+        createMediaPeriod(
+            Uri.parse("asset://android_asset/media/mp4/sample.mp4"),
+            dataSource,
+            new DefaultLoadErrorHandlingPolicy() {
+              @Override
+              public long getRetryDelayMsFor(LoadErrorInfo loadErrorInfo) {
+                return 0; // Retry immediately
+              }
+            });
+    selectOnlyTrack(mediaPeriod, /* trackIndex= */ 0);
+    // Load the whole stream, then read and discard all samples so that the seek below can't be
+    // handled within the buffer and requires a new load.
+    boolean unusedLoad =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    runMainLooperUntil(() -> !mediaPeriod.isLoading());
+    DecoderInputBuffer buffer =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
+    int unusedSampleCount =
+        readProgressiveStreamUntilEndOfStream(mediaPeriod, /* trackIndex= */ 0, buffer);
+    mediaPeriod.discardBuffer(/* positionUs= */ Long.MAX_VALUE, /* toKeyframe= */ false);
+
+    // Fail the first open after the seek.
+    failNextOpen.set(true);
+    long unusedSeekPosition = mediaPeriod.seekToUs(/* positionUs= */ 500_000);
+    unusedLoad =
+        mediaPeriod.continueLoading(
+            new LoadingInfo.Builder().setPlaybackPositionUs(500_000).build());
+    runMainLooperUntil(() -> !mediaPeriod.isLoading());
+
+    // The initial load starts at the beginning of the stream and the load after the seek starts at
+    // the seek point. The retry after the failed open must start from the same seek point, rather
+    // than from the position at which the initial load stopped.
+    assertThat(openPositions).hasSize(3);
+    long seekPointPosition = openPositions.get(1);
+    assertThat(seekPointPosition).isGreaterThan(0);
+    assertThat(openPositions).containsExactly(0L, seekPointPosition, seekPointPosition).inOrder();
+    mediaPeriod.release();
+  }
+
+  @Test
+  public void
+      continueLoading_openFailsAfterExtractorRequestedSeek_retriesLoadFromRequestedPosition()
+          throws Exception {
+    List<Long> openPositions = new CopyOnWriteArrayList<>();
+    AtomicBoolean failNextOpen = new AtomicBoolean();
+    DataSource dataSource =
+        new ResolvingDataSource(
+            new AssetDataSource(ApplicationProvider.getApplicationContext()),
+            dataSpec -> {
+              openPositions.add(dataSpec.position);
+              if (failNextOpen.compareAndSet(true, false)) {
+                throw new IOException("Test open failure");
+              }
+              return dataSpec;
+            });
+    long seekPosition = 5000;
+    AtomicInteger initCount = new AtomicInteger();
+    AtomicInteger readCount = new AtomicInteger();
+    ProgressiveMediaExtractor extractor =
+        new FakeProgressiveMediaExtractor() {
+          @Override
+          public void init(
+              DataReader dataReader,
+              Uri uri,
+              Map<String, List<String>> responseHeaders,
+              long position,
+              long length,
+              ExtractorOutput output) {
+            currentInputPosition = position;
+            if (initCount.incrementAndGet() == 1) {
+              output
+                  .track(0, C.TRACK_TYPE_VIDEO)
+                  .format(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build());
+              output.endTracks();
+              output.seekMap(new SeekMap.Unseekable(/* durationUs= */ 2_000_000));
+            }
+          }
+
+          @Override
+          public int read(PositionHolder positionHolder) {
+            if (readCount.incrementAndGet() == 1) {
+              // Request a seek after reading some data, and fail the open at the seek position.
+              currentInputPosition = 100;
+              positionHolder.position = seekPosition;
+              failNextOpen.set(true);
+              return Extractor.RESULT_SEEK;
+            }
+            return Extractor.RESULT_END_OF_INPUT;
+          }
+        };
+
+    ProgressiveMediaPeriod mediaPeriod =
+        createMediaPeriod(
+            Uri.parse("asset://android_asset/media/mp4/sample.mp4"),
+            dataSource,
+            new DefaultLoadErrorHandlingPolicy() {
+              @Override
+              public long getRetryDelayMsFor(LoadErrorInfo loadErrorInfo) {
+                return 0; // Retry immediately
+              }
+            },
+            extractor,
+            /* imageDurationUs= */ C.TIME_UNSET,
+            /* executor= */ null,
+            /* executorReleased= */ null);
+    selectOnlyTrack(mediaPeriod, /* trackIndex= */ 0);
+
+    boolean unusedLoad =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    runMainLooperUntil(() -> readCount.get() == 2 && !mediaPeriod.isLoading());
+
+    // The retry after the failed open must start from the position requested by the extractor,
+    // rather than from the extractor's input position before the seek.
+    assertThat(openPositions).containsExactly(0L, seekPosition, seekPosition).inOrder();
     mediaPeriod.release();
   }
 

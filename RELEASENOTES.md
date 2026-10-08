@@ -71,6 +71,10 @@
     *   Fix a `NullPointerException` when releasing `AdsMediaSource` while a
         content timeline refresh is pending
         ([#3442](https://github.com/androidx/media/issues/3442)).
+    *   Fix an issue where playback of progressive media could jump to the wrong
+        position when a load after a seek (or when starting playback at a
+        non-zero position) failed and was retried
+        ([#3440](https://github.com/androidx/media/issues/3440)).
 *   CompositionPlayer:
     *   Support configuring the frame rate of video frame aggregation via
         `Composition.Builder.setVideoFrameAggregationParameters` for playback
