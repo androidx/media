@@ -141,6 +141,8 @@
         `Player.Listener.onTracksChanged(Tracks)` will now report these
         additional unsupported metadata tracks for files containing `mebx`
         tracks.
+    *   Ogg: Fix bug where a packet whose size is a multiple of 255 bytes and
+        ends at a page boundary is merged with the following packet.
 *   Inspector:
     *   Support retrieving XMP metadata from MP4 files using
         `MetadataRetriever`.

@@ -23,6 +23,7 @@ import androidx.media3.test.utils.FakeExtractorInput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.primitives.Bytes;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Random;
@@ -97,6 +98,30 @@ public final class OggPacketTest {
             getByteArray(
                 ApplicationProvider.getApplicationContext(),
                 "media/ogg/packet_with_zero_size_terminator"));
+
+    assertReadPacket(input, firstPacket);
+    assertReadPacket(input, secondPacket);
+    assertReadEof(input);
+  }
+
+  @Test
+  public void populate_packetWithZeroSizeTerminatorOnNextPage_readsPacketsSeparately()
+      throws Exception {
+    byte[] firstPacket = TestUtil.buildTestData(255, random);
+    byte[] secondPacket = TestUtil.buildTestData(8, random);
+    // Page 1: 1 segment of 255 bytes (packet continues onto Page 2).
+    byte[] page1Header =
+        TestUtil.createByteArray(
+            'O', 'g', 'g', 'S', 0x00, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 1, 255);
+    // Page 2: continued packet (0x01) with 0-byte terminator segment followed by 8-byte packet.
+    byte[] page2Header =
+        TestUtil.createByteArray(
+            'O', 'g', 'g', 'S', 0x00, 0x05, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
+            0, 0, 2, 0, 8);
+    byte[] data = Bytes.concat(page1Header, firstPacket, page2Header, secondPacket);
+
+    FakeExtractorInput input = createInput(data);
 
     assertReadPacket(input, firstPacket);
     assertReadPacket(input, secondPacket);

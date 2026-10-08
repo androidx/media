@@ -92,6 +92,8 @@ import java.util.Arrays;
           return false;
         }
         packetArray.setLimit(packetArray.limit() + size);
+      }
+      if (packetArray.limit() > 0 && segmentCount > 0) {
         populated = pageHeader.laces[segmentIndex - 1] != 255;
       }
       // Advance now since we are sure reading didn't throw an exception.
