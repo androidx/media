@@ -433,6 +433,10 @@ private fun ClippingRangeSlider(
     )
     RangeSlider(
       state = rangeSliderState,
+      onValueChange = {
+        rangeSliderState.startValue = it.start
+        rangeSliderState.endValue = it.endInclusive
+      },
       // TODO: b/505719491 - Once onValueChange and onValueChangeFinished callbacks are added to
       // this stateful overload, move them here from RangeSliderState, and implement minRangeDelta
       // clamping logic
