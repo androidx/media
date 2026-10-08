@@ -96,8 +96,10 @@ public class HlsMultivariantPlaylistParserTest {
   private static final String PLAYLIST_WITH_VIDEO_RANGE =
       " #EXTM3U \n"
           + "\n"
+          + "#EXT-X-MEDIA:URI=\"http://example.com/alt_video_pq.m3u8\",TYPE=VIDEO,"
+          + "GROUP-ID=\"vid-pq\",NAME=\"Alt Video\"\n"
           + "#EXT-X-STREAM-INF:BANDWIDTH=8500000,"
-          + "CODECS=\"hvc1.2.4.L150.B0\",RESOLUTION=3840x2160,VIDEO-RANGE=PQ\n"
+          + "CODECS=\"hvc1.2.4.L150.B0\",RESOLUTION=3840x2160,VIDEO-RANGE=PQ,VIDEO=\"vid-pq\"\n"
           + "http://example.com/pq.m3u8\n"
           + "#EXT-X-STREAM-INF:BANDWIDTH=8500000,"
           + "CODECS=\"hvc1.2.4.L150.B0\",RESOLUTION=3840x2160,VIDEO-RANGE=HLG\n"
@@ -564,6 +566,16 @@ public class HlsMultivariantPlaylistParserTest {
     assertThat(iFramesOnlyVariant.format.roleFlags & C.ROLE_FLAG_TRICK_PLAY)
         .isEqualTo(C.ROLE_FLAG_TRICK_PLAY);
     assertThat(iFramesOnlyVariant.format.colorInfo)
+        .isEqualTo(new ColorInfo.Builder().setColorTransfer(C.COLOR_TRANSFER_ST2084).build());
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_withVideoMediaTagAndVideoRangePq_propagatesColorInfo()
+      throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_WITH_VIDEO_RANGE);
+
+    assertThat(multivariantPlaylist.videos.get(0).format.colorInfo)
         .isEqualTo(new ColorInfo.Builder().setColorTransfer(C.COLOR_TRANSFER_ST2084).build());
   }
 

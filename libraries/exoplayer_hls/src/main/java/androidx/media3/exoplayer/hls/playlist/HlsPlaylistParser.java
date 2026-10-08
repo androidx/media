@@ -570,7 +570,8 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
           videoCodecs = supplementalCodecs != null ? supplementalCodecs : videoCodecs;
           String nonVideoCodecs = Util.getCodecsWithoutType(codecs, C.TRACK_TYPE_VIDEO);
           codecs = nonVideoCodecs != null ? videoCodecs + "," + nonVideoCodecs : videoCodecs;
-        } else {
+        }
+        if (colorInfo == null) {
           colorInfo = getColorInfoForVideoRange(videoRange);
         }
 
@@ -727,7 +728,8 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
                 .setSampleMimeType(MimeTypes.getMediaMimeType(codecs))
                 .setWidth(variantFormat.width)
                 .setHeight(variantFormat.height)
-                .setFrameRate(variantFormat.frameRate);
+                .setFrameRate(variantFormat.frameRate)
+                .setColorInfo(variantFormat.colorInfo);
           }
           if (uri == null) {
             // TODO: Remove this case and add a Rendition with a null uri to videos.

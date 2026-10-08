@@ -260,6 +260,9 @@
 *   Cronet extension:
 *   RTMP extension:
 *   HLS extension:
+    *   Parse `VIDEO-RANGE` (`PQ` and `HLG`) on `EXT-X-STREAM-INF` and
+        `EXT-X-I-FRAME-STREAM-INF` into `Format.colorInfo`
+        ([#3441](https://github.com/androidx/media/issues/3441)).
     *   Fix regression where `Format.id` and `Format.metadata` were `null` for
         exposed HLS tracks
         ([#3402](https://github.com/androidx/media/issues/3402)).

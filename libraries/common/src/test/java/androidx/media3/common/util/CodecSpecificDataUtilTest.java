@@ -95,6 +95,59 @@ public class CodecSpecificDataUtilTest {
   }
 
   @Test
+  public void getCodecProfileAndLevel_withHevcProfileMainCodecString_returnsHevcProfileMain() {
+    assertCodecProfileAndLevelForCodecsString(
+        MimeTypes.VIDEO_H265,
+        "hvc1.1.4.L153.B0",
+        MediaCodecInfo.CodecProfileLevel.HEVCProfileMain,
+        MediaCodecInfo.CodecProfileLevel.HEVCMainTierLevel51);
+  }
+
+  @Test
+  public void
+      getCodecProfileAndLevel_withHevcProfileMain10AndNullColorInfo_returnsHevcProfileMain10() {
+    assertCodecProfileAndLevelForCodecsString(
+        MimeTypes.VIDEO_H265,
+        "hvc1.2.4.L153.B0",
+        MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10,
+        MediaCodecInfo.CodecProfileLevel.HEVCMainTierLevel51);
+  }
+
+  @Test
+  public void
+      getCodecProfileAndLevel_withHevcProfileMain10AndColorTransferSt2084_returnsHevcProfileMain10Hdr10() {
+    ColorInfo colorInfo = new ColorInfo.Builder().setColorTransfer(C.COLOR_TRANSFER_ST2084).build();
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setCodecs("hvc1.2.4.L153.B0")
+            .setColorInfo(colorInfo)
+            .build();
+
+    assertCodecProfileAndLevelForFormat(
+        format,
+        MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10,
+        MediaCodecInfo.CodecProfileLevel.HEVCMainTierLevel51);
+  }
+
+  @Test
+  public void
+      getCodecProfileAndLevel_withHevcProfileMain10AndColorTransferHlg_returnsHevcProfileMain10() {
+    ColorInfo colorInfo = new ColorInfo.Builder().setColorTransfer(C.COLOR_TRANSFER_HLG).build();
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setCodecs("hvc1.2.4.L153.B0")
+            .setColorInfo(colorInfo)
+            .build();
+
+    assertCodecProfileAndLevelForFormat(
+        format,
+        MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10,
+        MediaCodecInfo.CodecProfileLevel.HEVCMainTierLevel51);
+  }
+
+  @Test
   public void getCodecProfileAndLevel_handlesDolbyVisionCodecString() {
     assertCodecProfileAndLevelForCodecsString(
         MimeTypes.VIDEO_DOLBY_VISION,

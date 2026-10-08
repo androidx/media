@@ -24,6 +24,7 @@ import static androidx.media3.common.MimeTypes.AUDIO_OPUS;
 import static androidx.media3.common.MimeTypes.VIDEO_AV1;
 import static androidx.media3.common.MimeTypes.VIDEO_DOLBY_VISION;
 import static androidx.media3.common.MimeTypes.VIDEO_H264;
+import static androidx.media3.common.MimeTypes.VIDEO_H265;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_AUDIO_CHANNEL_COUNT_CHANGED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_INITIALIZATION_DATA_CHANGED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_MIME_TYPE_CHANGED;
@@ -34,11 +35,14 @@ import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_WO
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_NO;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_YES_WITH_FLUSH;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_YES_WITH_RECONFIGURATION;
+import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.createCodecProfileLevel;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.media.MediaCodecInfo.CodecProfileLevel;
+import android.media.MediaFormat;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -589,6 +593,81 @@ public final class MediaCodecInfoTest {
     // Test Automotive case (FEATURE_AUTOMOTIVE is true)
     shadowPackageManager.setSystemFeature(PackageManager.FEATURE_AUTOMOTIVE, true);
     assertThat(codecInfo.isFormatSupported(context, formatAc4Profile21)).isTrue();
+  }
+
+  @Test
+  public void isFormatSupported_hevcMain10WithSt2084WithoutHdr10ProfileSupport_returnsFalse() {
+    MediaCodecInfo codecInfo =
+        buildHevcCodecInfo(
+            createCodecProfileLevel(
+                CodecProfileLevel.HEVCProfileMain10, CodecProfileLevel.HEVCMainTierLevel51));
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(VIDEO_H265)
+            .setCodecs("hvc1.2.4.L153.B0")
+            .setColorInfo(new ColorInfo.Builder().setColorTransfer(C.COLOR_TRANSFER_ST2084).build())
+            .build();
+    Context context = ApplicationProvider.getApplicationContext();
+
+    assertThat(codecInfo.isFormatSupported(context, format)).isFalse();
+  }
+
+  @Test
+  public void isFormatSupported_hevcMain10WithSt2084AndHdr10ProfileSupport_returnsTrue() {
+    MediaCodecInfo codecInfo =
+        buildHevcCodecInfo(
+            createCodecProfileLevel(
+                CodecProfileLevel.HEVCProfileMain10HDR10, CodecProfileLevel.HEVCMainTierLevel51));
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(VIDEO_H265)
+            .setCodecs("hvc1.2.4.L153.B0")
+            .setColorInfo(new ColorInfo.Builder().setColorTransfer(C.COLOR_TRANSFER_ST2084).build())
+            .build();
+    Context context = ApplicationProvider.getApplicationContext();
+
+    assertThat(codecInfo.isFormatSupported(context, format)).isTrue();
+  }
+
+  @Test
+  public void isFormatSupported_hevcMain10WithHlgAndMain10ProfileSupport_returnsTrue() {
+    MediaCodecInfo codecInfo =
+        buildHevcCodecInfo(
+            createCodecProfileLevel(
+                CodecProfileLevel.HEVCProfileMain10, CodecProfileLevel.HEVCMainTierLevel51));
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(VIDEO_H265)
+            .setCodecs("hvc1.2.4.L153.B0")
+            .setColorInfo(new ColorInfo.Builder().setColorTransfer(C.COLOR_TRANSFER_HLG).build())
+            .build();
+    Context context = ApplicationProvider.getApplicationContext();
+
+    assertThat(codecInfo.isFormatSupported(context, format)).isTrue();
+  }
+
+  private static MediaCodecInfo buildHevcCodecInfo(CodecProfileLevel... profileLevels) {
+    MediaFormat mediaFormat = new MediaFormat();
+    mediaFormat.setString(MediaFormat.KEY_MIME, VIDEO_H265);
+    @SuppressWarnings("UnnecessarilyFullyQualified") // Unnecessary to import CodecCapabilities.
+    android.media.MediaCodecInfo.CodecCapabilities capabilities =
+        MediaCodecInfoBuilder.CodecCapabilitiesBuilder.newBuilder()
+            .setMediaFormat(mediaFormat)
+            .setColorFormats(new int[0])
+            .setProfileLevels(profileLevels)
+            .build();
+    return new MediaCodecInfo(
+        "h265",
+        VIDEO_H265,
+        VIDEO_H265,
+        capabilities,
+        /* hardwareAccelerated= */ true,
+        /* softwareOnly= */ false,
+        /* vendor= */ true,
+        /* adaptive= */ true,
+        /* tunneling= */ false,
+        /* secure= */ false,
+        /* detachedSurfaceSupported= */ true);
   }
 
   private static MediaCodecInfo buildH264CodecInfo(boolean adaptive) {
