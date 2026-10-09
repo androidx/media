@@ -29,6 +29,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -44,6 +45,7 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
@@ -59,6 +61,7 @@ import androidx.test.filters.SdkSuppress;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -122,9 +125,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
         .get();
 
     fakeJniWrapper = new ForwardingHardwareBufferJniWrapper();
-    frameWriter = new BitmapSavingFrameWriter(actualBitmaps);
-    frameWriterGlTextureFrameConsumer =
-        new FrameWriterGlTextureFrameConsumer(context, frameWriter, fakeJniWrapper);
+    initializeConsumerWithFrameWriterInfo(/* info= */ (format, usage) -> true);
   }
 
   @After
@@ -316,7 +317,8 @@ public final class FrameWriterGlTextureFrameConsumerTest {
 
   @Test
   public void queue_portraitFrameWhenPortraitUnsupported_rotatesToLandscape() throws Exception {
-    frameWriter.supportsPortrait = false;
+    initializeConsumerWithFrameWriterInfo(
+        /* info= */ (format, usage) -> format.width >= format.height);
     Bitmap landscapeBitmap = BitmapPixelTestUtil.readBitmap(TEST_IMAGE_ASSET);
     Matrix matrix = new Matrix();
     matrix.postRotate(90);
@@ -571,19 +573,104 @@ public final class FrameWriterGlTextureFrameConsumerTest {
         testName.getMethodName() + "_frame2");
   }
 
+  @Test
+  public void queue_inputFormatWithCodecMetadata_configuresOnlyFrameFields() throws Exception {
+    Bitmap bitmap =
+        Bitmap.createBitmap(
+            /* width= */ SOLID_FRAME_WIDTH,
+            /* height= */ SOLID_FRAME_HEIGHT,
+            Bitmap.Config.ARGB_8888);
+    Format formatWithCodecMetadata =
+        new Format.Builder()
+            .setWidth(bitmap.getWidth())
+            .setHeight(bitmap.getHeight())
+            .setFrameRate(60f)
+            .setColorInfo(ColorInfo.SRGB_BT709_FULL)
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setCodecs("avc1.42C01E")
+            .build();
+
+    queueOnGlThread(
+        () ->
+            createGlTextureFrame(bitmap, /* presentationTimeUs= */ 1000, formatWithCodecMetadata));
+
+    assertThat(frameWriter.configuredFormat)
+        .isEqualTo(
+            new Format.Builder()
+                .setWidth(bitmap.getWidth())
+                .setHeight(bitmap.getHeight())
+                .setFrameRate(60f)
+                .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+                .setRotationDegrees(0)
+                .build());
+  }
+
+  @Test
+  public void queue_oddDimensionsWhenOnlyEvenSupported_alignsToEvenDimensions() throws Exception {
+    initializeConsumerWithFrameWriterInfo(
+        /* info= */ (format, usage) -> format.width % 2 == 0 && format.height % 2 == 0);
+    Bitmap oddDimensionsBitmap =
+        Bitmap.createBitmap(/* width= */ 319, /* height= */ 241, Bitmap.Config.ARGB_8888);
+
+    queueOnGlThread(
+        () -> createGlTextureFrame(oddDimensionsBitmap, /* presentationTimeUs= */ 1000));
+
+    Format configuredFormat = checkNotNull(frameWriter.configuredFormat);
+    assertThat(configuredFormat.width).isEqualTo(320);
+    assertThat(configuredFormat.height).isEqualTo(240);
+    assertThat(actualBitmaps).hasSize(1);
+    assertThat(actualBitmaps.get(0).getWidth()).isEqualTo(320);
+    assertThat(actualBitmaps.get(0).getHeight()).isEqualTo(240);
+  }
+
+  @Test
+  public void queue_nothingSupported_throwsWithoutConfiguring() throws Exception {
+    initializeConsumerWithFrameWriterInfo(/* info= */ (format, usage) -> false);
+    Bitmap oddPortraitBitmap =
+        Bitmap.createBitmap(/* width= */ 319, /* height= */ 480, Bitmap.Config.ARGB_8888);
+
+    ExecutionException executionException =
+        assertThrows(
+            ExecutionException.class,
+            () ->
+                queueOnGlThread(
+                    () -> createGlTextureFrame(oddPortraitBitmap, /* presentationTimeUs= */ 1000)));
+
+    assertThat(executionException).hasCauseThat().isInstanceOf(VideoFrameProcessingException.class);
+    assertThat(frameWriter.configuredFormat).isNull();
+  }
+
+  private void initializeConsumerWithFrameWriterInfo(FrameWriter.Info info)
+      throws VideoFrameProcessingException {
+    if (frameWriterGlTextureFrameConsumer != null) {
+      frameWriterGlTextureFrameConsumer.close();
+    }
+    if (frameWriter != null) {
+      frameWriter.close();
+    }
+    frameWriter = new BitmapSavingFrameWriter(actualBitmaps, info);
+    frameWriterGlTextureFrameConsumer =
+        new FrameWriterGlTextureFrameConsumer(context, frameWriter, fakeJniWrapper);
+  }
+
   /** Creates a {@link GlTextureFrame} on the GL thread and queues it to the consumer under test. */
   private void queueOnGlThread(GlTextureFrameSupplier frameSupplier) throws Exception {
     glExecutorService
         .submit(
             () -> {
+              GlTextureFrame inputFrame = frameSupplier.get();
+              boolean accepted = false;
               try {
-                assertThat(
-                        frameWriterGlTextureFrameConsumer.queue(
-                            frameSupplier.get(), directExecutor(), /* wakeupListener= */ () -> {}))
-                    .isTrue();
-              } catch (Exception e) {
-                throw new AssertionError(e);
+                accepted =
+                    frameWriterGlTextureFrameConsumer.queue(
+                        inputFrame, directExecutor(), /* wakeupListener= */ () -> {});
+                assertThat(accepted).isTrue();
+              } finally {
+                if (!accepted) {
+                  inputFrame.release(/* releaseFence= */ null);
+                }
               }
+              return null;
             })
         .get(TIMEOUT_MS, MILLISECONDS);
   }
@@ -651,8 +738,8 @@ public final class FrameWriterGlTextureFrameConsumerTest {
    * <p>This method converts the input {@link Bitmap} to the OpenGL coordinate system that {@link
    * FrameWriterGlTextureFrameConsumer} always receives.
    */
-  private static GlTextureFrame createGlTextureFrame(Bitmap bitmap, long presentationTimeUs)
-      throws GlException {
+  private static GlTextureFrame createGlTextureFrame(
+      Bitmap bitmap, long presentationTimeUs, Format format) throws GlException {
     int width = bitmap.getWidth();
     int height = bitmap.getHeight();
     Matrix matrix = new Matrix();
@@ -678,13 +765,20 @@ public final class FrameWriterGlTextureFrameConsumerTest {
               }
             })
         .setPresentationTimeUs(presentationTimeUs)
-        .setFormat(
-            new Format.Builder()
-                .setWidth(width)
-                .setHeight(height)
-                .setColorInfo(ColorInfo.SRGB_BT709_FULL)
-                .build())
+        .setFormat(format)
         .build();
+  }
+
+  private static GlTextureFrame createGlTextureFrame(Bitmap bitmap, long presentationTimeUs)
+      throws GlException {
+    return createGlTextureFrame(
+        bitmap,
+        presentationTimeUs,
+        new Format.Builder()
+            .setWidth(bitmap.getWidth())
+            .setHeight(bitmap.getHeight())
+            .setColorInfo(ColorInfo.SRGB_BT709_FULL)
+            .build());
   }
 
   private static final class ForwardingHardwareBufferJniWrapper
@@ -724,16 +818,16 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   private static final class BitmapSavingFrameWriter implements FrameWriter {
     @Nullable private HardwareBuffer hardwareBuffer;
     private final List<Bitmap> outputBitmaps;
+    private final FrameWriter.Info info;
     private boolean hasCapacity;
     @Nullable private Runnable pendingWakeupListener;
     @Nullable private Executor pendingWakeupExecutor;
-    private boolean supportsPortrait;
     @Nullable private Format configuredFormat;
 
-    BitmapSavingFrameWriter(List<Bitmap> outputBitmaps) {
+    BitmapSavingFrameWriter(List<Bitmap> outputBitmaps, FrameWriter.Info info) {
       this.outputBitmaps = outputBitmaps;
-      supportsPortrait = true;
-      hasCapacity = true;
+      this.info = info;
+      this.hasCapacity = true;
     }
 
     void setCapacity(boolean hasCapacity) {
@@ -747,14 +841,12 @@ public final class FrameWriterGlTextureFrameConsumerTest {
 
     @Override
     public Info getInfo() {
-      // Rejects rotation degree if portrait is not supported, this mirrors
-      // DefaultEncoderFactory.
-      return (format, usage) ->
-          format.rotationDegrees == 0 && (supportsPortrait || format.width >= format.height);
+      return info;
     }
 
     @Override
     public void configure(Format format, long usage) {
+      checkArgument(info.isSupported(format, usage));
       this.configuredFormat = format;
       if (hardwareBuffer == null
           || hardwareBuffer.getWidth() != format.width

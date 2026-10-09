@@ -87,7 +87,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       GlTextureFrame inputFrame, Executor listenerExecutor, Runnable wakeupListener)
       throws VideoFrameProcessingException {
     if (!isFrameWriterConfigured) {
-      outputFormat = establishOutputFormat(inputFrame.format);
+      @Nullable Format resolvedOutputFormat = resolveOutputFormat(inputFrame.format);
+      if (resolvedOutputFormat == null) {
+        throw new VideoFrameProcessingException(inputFrame.format.toString());
+      }
+      outputFormat = resolvedOutputFormat;
       frameWriter.configure(outputFormat, OUTPUT_USAGE);
       isFrameWriterConfigured = true;
     }
@@ -178,8 +182,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     releaseGlResources();
   }
 
-  /** Establishes the output format based on the first frame. */
-  private Format establishOutputFormat(Format inputFormat) {
+  /** Resolves the output format based on the first frame, or {@code null} if none is supported. */
+  @Nullable
+  private Format resolveOutputFormat(Format inputFormat) {
     ColorInfo outputColorInfo = resolveOutputColorInfo(checkNotNull(inputFormat.colorInfo));
     // This only sets the tags of the output format, the pixel values don't change. SDR pixels are
     // sRGB encoded, which is preferred for RGB content throughout Android, even where it's only
@@ -190,19 +195,60 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         isWideColorGamut(outputColorInfo)
             ? outputColorInfo.buildUpon().setColorRange(C.COLOR_RANGE_LIMITED).build()
             : ColorInfo.SDR_BT709_LIMITED;
-    int rotationDegrees =
-        calculateOutputRotationDegrees(
-            inputFormat.buildUpon().setColorInfo(frameWriterColorInfo).build());
-    int outputWidth = rotationDegrees == 90 ? inputFormat.height : inputFormat.width;
-    int outputHeight = rotationDegrees == 90 ? inputFormat.width : inputFormat.height;
-    return updateFormat(
-        inputFormat,
-        outputWidth,
-        outputHeight,
-        // Sets the degrees that the player needs to rotate. If we rotated 90 degrees, the player
-        // needs to rotate -90 degrees, which is equivalent to rotating it 270 degrees.
-        /* rotationDegrees= */ (360 - rotationDegrees) % 360,
-        frameWriterColorInfo);
+
+    @Nullable
+    Format supportedFormat =
+        findSupportedFormatForSize(
+            inputFormat.width, inputFormat.height, inputFormat.frameRate, frameWriterColorInfo);
+    if (supportedFormat != null) {
+      return supportedFormat;
+    }
+
+    // TODO: b/570487705 - Let FrameWriter.Info return a supported Format (including larger encoder
+    //   alignments such as 16 pixels) instead of probing aligned and rotated candidates here.
+    int alignedWidth = alignToEven(inputFormat.width);
+    int alignedHeight = alignToEven(inputFormat.height);
+    if (alignedWidth != inputFormat.width || alignedHeight != inputFormat.height) {
+      return findSupportedFormatForSize(
+          alignedWidth, alignedHeight, inputFormat.frameRate, frameWriterColorInfo);
+    }
+
+    return null;
+  }
+
+  @Nullable
+  private Format findSupportedFormatForSize(
+      int width, int height, float frameRate, ColorInfo colorInfo) {
+    Format unrotatedFormat =
+        new Format.Builder()
+            .setWidth(width)
+            .setHeight(height)
+            .setFrameRate(frameRate)
+            .setColorInfo(colorInfo)
+            .setRotationDegrees(0)
+            .build();
+    if (frameWriter.getInfo().isSupported(unrotatedFormat, OUTPUT_USAGE)) {
+      return unrotatedFormat;
+    }
+
+    // TODO: b/570487705 - Let FrameWriter.Info return a supported Format instead of probing a
+    //   rotated candidate here.
+    // Pass the rotation to the FrameWriter so the muxer can write it as container metadata; the
+    // FrameWriter itself ignores rotation when encoding. We rotate the frame by 90 degrees, so the
+    // player needs to rotate it by -90 (270) degrees to restore the original orientation.
+    Format rotatedFormat =
+        new Format.Builder()
+            .setWidth(height)
+            .setHeight(width)
+            .setFrameRate(frameRate)
+            .setColorInfo(colorInfo)
+            .setRotationDegrees(270)
+            .build();
+    if (frameWriter.getInfo().isSupported(rotatedFormat, OUTPUT_USAGE)) {
+      return rotatedFormat;
+    }
+
+    return null;
   }
 
   /** Reconfigures the shader programs if the input size or color space changed. */
@@ -295,6 +341,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         });
   }
 
+  private static int alignToEven(int size) {
+    if (size % 2 == 0) {
+      return size;
+    }
+    // Prefer multiples of 10 (for example, 1081 -> 1080), matching EncoderUtil.alignResolution.
+    return size > 1 && size % 10 == 1 ? size - 1 : size + 1;
+  }
+
   /** Creates a texture and an FBO for it, deleting the texture if the FBO can't be created. */
   private static GlTextureInfo createTextureWithFbo(
       int width, int height, boolean useHighPrecisionColorComponents)
@@ -329,49 +383,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return inputColorInfo;
     }
     return isWideColorGamut(inputColorInfo) ? BT2020_HLG : BT709_SRGB;
-  }
-
-  private int calculateOutputRotationDegrees(Format format) {
-    if (format.width >= format.height) {
-      // Input is landscape, no rotation needed.
-      return 0;
-    }
-
-    if (frameWriter.getInfo().isSupported(format, OUTPUT_USAGE)) {
-      // Portrait is supported, no rotation needed.
-      return 0;
-    }
-
-    // If frameWriter doesn't support portrait, try rotating the input by 90 degrees to swap to
-    // landscape dimensions supported by the encoder.
-    int rotatedWidth = format.height;
-    int rotatedHeight = format.width;
-    Format formatRotate90 =
-        // Setting rotation degrees to zero because the encoder doesn't rotate the frame and thus
-        // the value is irrelevant. Here we use the swapped dimension to check encoder capability.
-        updateFormat(
-            format,
-            rotatedWidth,
-            rotatedHeight,
-            /* rotationDegrees= */ 0,
-            checkNotNull(format.colorInfo));
-    if (frameWriter.getInfo().isSupported(formatRotate90, OUTPUT_USAGE)) {
-      return 90;
-    }
-
-    // Fallback if nothing is supported.
-    return 0;
-  }
-
-  private static Format updateFormat(
-      Format format, int width, int height, int rotationDegrees, ColorInfo colorInfo) {
-    return format
-        .buildUpon()
-        .setWidth(width)
-        .setHeight(height)
-        .setRotationDegrees(rotationDegrees)
-        .setColorInfo(colorInfo)
-        .build();
   }
 
   @Override
