@@ -119,6 +119,7 @@ public final class Flags {
    *   <li>{@link #FLAG_ENABLE_MEDIACODEC_BUFFER_DECODE_ONLY}
    *   <li>{@link #FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS}
    *   <li>{@link #FLAG_ENFORCE_PARSABLE_BYTE_ARRAY_LIMIT}
+   *   <li>{@link #FLAG_PARSE_DASH_ALTERNATIVE_MPD_EVENTS}
    *   <li>{@link #FLAG_SKIP_AUDIO_TRACK_FLUSH_BEFORE_RELEASE}
    *   <li>{@link #FLAG_PLAY_PAUSE_AUDIO_TRACK_ON_INIT}
    * </ul>
@@ -137,6 +138,7 @@ public final class Flags {
         FLAG_ENABLE_MEDIACODEC_BUFFER_DECODE_ONLY,
         FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS,
         FLAG_ENFORCE_PARSABLE_BYTE_ARRAY_LIMIT,
+        FLAG_PARSE_DASH_ALTERNATIVE_MPD_EVENTS,
         FLAG_SKIP_AUDIO_TRACK_FLUSH_BEFORE_RELEASE,
         FLAG_PLAY_PAUSE_AUDIO_TRACK_ON_INIT,
       })
@@ -256,7 +258,18 @@ public final class Flags {
   @ExperimentalApi // TODO: b/245057757 - Remove this flag.
   public static final int FLAG_PLAY_PAUSE_AUDIO_TRACK_ON_INIT = 10;
 
-  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 11;
+  /**
+   * Flag to enable parsing DASH Alternative MPD events into {@code Period.alternativeMpdEvents} in
+   * {@code DashManifestParser}.
+   *
+   * <p>When enabled, {@code DashManifestParser} parses Alternative MPD {@code EventStream}s into
+   * both {@code Period.eventStreams} and {@code Period.alternativeMpdEvents}. When disabled, only
+   * {@code Period.eventStreams} is populated using standard {@code EventStream} parsing.
+   */
+  @ExperimentalApi // TODO: b/564892081 - Remove this flag (earliest cleanup: 2026-11-30).
+  public static final int FLAG_PARSE_DASH_ALTERNATIVE_MPD_EVENTS = 11;
+
+  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 12;
 
   private static final SparseBooleanArray STATIC_FLAG_STATES = new SparseBooleanArray();
 

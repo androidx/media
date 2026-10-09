@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xmlns="urn:mpeg:DASH:schema:MPD:2011"
+     xsi:schemaLocation="urn:mpeg:DASH:schema:MPD:2011 DASH-MPD.xsd"
+     type="static"
+     mediaPresentationDuration="PT120S"
+     minBufferTime="PT1.500S"
+     profiles="urn:mpeg:dash:profile:isoff-main:2011">
+  <Period id="p0" start="PT0S" duration="PT60S">
+    <EventStream schemeIdUri="urn:uuid:XYZY" timescale="1000" value="call">
+      <Event presentationTime="0" duration="10000" id="0" messageData="+ 1 800 10101010"/>
+    </EventStream>
+    <EventStream schemeIdUri="urn:mpeg:dash:event:alternativeMPD:insert:2025">
+      <Event id="1" presentationTime="10">
+        <InsertPresentation uri="https://ads.example.com/ad1.mpd"/>
+      </Event>
+      <Event id="3" presentationTime="40" duration="5">
+        <InsertPresentation uri="ads/ad3.mpd#t=0,15"/>
+      </Event>
+    </EventStream>
+    <EventStream schemeIdUri="urn:mpeg:dash:event:alternativeMPD:insert:2025"
+                 value="stream-2"
+                 timescale="1000"
+                 presentationTimeOffset="5000">
+      <Event id="2" presentationTime="25000" duration="10000" status="update">
+        <InsertPresentation uri="https://ads.example.com/ad2.mpd"
+                            earliestResolutionTimeOffset="15000"
+                            serviceDescriptionId="sd-1"
+                            maxDuration="30000"
+                            executeOnce="true"
+                            noJump="1"
+                            skipAfter="PT5S">
+          <SupplementalProperty schemeIdUri="urn:example:prop1" value="val1" id="p1"/>
+          <SupplementalProperty schemeIdUri="urn:example:prop2" value="val2"/>
+        </InsertPresentation>
+      </Event>
+    </EventStream>
+    <AdaptationSet id="0" mimeType="video/mp4">
+      <Representation id="1" codecs="avc1.4d4015" width="426" height="240" bandwidth="258000" frameRate="30">
+        <BaseURL>http://www.test.url/</BaseURL>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="p1" start="PT60S" duration="PT60S">
+    <BaseURL>https://cdn.example.com/period1/</BaseURL>
+    <EventStream schemeIdUri="urn:mpeg:dash:event:alternativeMPD:insert:2025" timescale="100">
+      <Event id="10" presentationTime="500">
+        <InsertPresentation uri="../ads/ad4.mpd#t=5,20" noJump="2"/>
+      </Event>
+    </EventStream>
+    <AdaptationSet id="0" mimeType="video/mp4">
+      <Representation id="1" codecs="avc1.4d4015" width="426" height="240" bandwidth="258000" frameRate="30"/>
+    </AdaptationSet>
+  </Period>
+</MPD>

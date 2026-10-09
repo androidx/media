@@ -271,6 +271,17 @@
         the content resume offset contributions of other interstitials in the
         same ad group.
 *   DASH extension:
+    *   Support parsing Alternative MPD Insertion
+        (`urn:mpeg:dash:event:alternativeMPD:insert:2025`) and Replacement
+        (`urn:mpeg:dash:event:alternativeMPD:replace:2025`) events in
+        `DashManifestParser` and expose them as `AlternativeMpdEvent` instances
+        in `Period.alternativeMpdEvents`. This is a breaking change for apps
+        that subclass `DashManifestParser`: `DashManifestParser.buildPeriod` now
+        takes an additional `List<AlternativeMpdEvent>` parameter and the
+        previous overload has been removed. Apps overriding
+        `DashManifestParser.parseEventStream(XmlPullParser)` must override
+        `DashManifestParser.parseEventStream(XmlPullParser, String)` instead, as
+        the former is deprecated and will be made private in a future release.
     *   Parse CICP color information (`ColourPrimaries`,
         `TransferCharacteristics`, `MatrixCoefficients`, and
         `VideoFullRangeFlag`) from `EssentialProperty` and

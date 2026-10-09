@@ -252,7 +252,8 @@ public class DashManifest implements FilterableManifest<DashManifest> {
                 period.startMs - shiftMs,
                 copyAdaptationSets,
                 period.eventStreams,
-                period.assetIdentifier);
+                period.assetIdentifier,
+                period.alternativeMpdEvents);
         copyPeriods.add(copiedPeriod);
       }
     }

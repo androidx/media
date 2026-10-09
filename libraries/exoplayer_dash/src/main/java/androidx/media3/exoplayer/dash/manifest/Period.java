@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.dash.manifest;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
+import com.google.common.collect.ImmutableList;
 import java.util.Collections;
 import java.util.List;
 
@@ -40,13 +41,22 @@ public class Period {
   /** The asset identifier for this period, if one exists */
   @Nullable public final Descriptor assetIdentifier;
 
+  /** The {@link AlternativeMpdEvent}s belonging to the period, sorted by presentation time. */
+  public final ImmutableList<AlternativeMpdEvent> alternativeMpdEvents;
+
   /**
    * @param id The period identifier. May be null.
    * @param startMs The start time of the period in milliseconds.
    * @param adaptationSets The adaptation sets belonging to the period.
    */
   public Period(@Nullable String id, long startMs, List<AdaptationSet> adaptationSets) {
-    this(id, startMs, adaptationSets, Collections.emptyList(), /* assetIdentifier= */ null);
+    this(
+        id,
+        startMs,
+        adaptationSets,
+        ImmutableList.of(),
+        /* assetIdentifier= */ null,
+        /* alternativeMpdEvents= */ ImmutableList.of());
   }
 
   /**
@@ -60,7 +70,32 @@ public class Period {
       long startMs,
       List<AdaptationSet> adaptationSets,
       List<EventStream> eventStreams) {
-    this(id, startMs, adaptationSets, eventStreams, /* assetIdentifier= */ null);
+    this(
+        id,
+        startMs,
+        adaptationSets,
+        eventStreams,
+        /* assetIdentifier= */ null,
+        /* alternativeMpdEvents= */ ImmutableList.of());
+  }
+
+  /**
+   * @deprecated Use {@link #Period(String, long, List, List, Descriptor, List)} instead.
+   */
+  @Deprecated
+  public Period(
+      @Nullable String id,
+      long startMs,
+      List<AdaptationSet> adaptationSets,
+      List<EventStream> eventStreams,
+      @Nullable Descriptor assetIdentifier) {
+    this(
+        id,
+        startMs,
+        adaptationSets,
+        eventStreams,
+        assetIdentifier,
+        /* alternativeMpdEvents= */ ImmutableList.of());
   }
 
   /**
@@ -68,19 +103,25 @@ public class Period {
    * @param startMs The start time of the period in milliseconds.
    * @param adaptationSets The adaptation sets belonging to the period.
    * @param eventStreams The {@link EventStream}s belonging to the period.
-   * @param assetIdentifier The asset identifier for this period
+   * @param assetIdentifier The asset identifier for this period, or {@code null}.
+   * @param alternativeMpdEvents The {@link AlternativeMpdEvent}s belonging to the period.
    */
   public Period(
       @Nullable String id,
       long startMs,
       List<AdaptationSet> adaptationSets,
       List<EventStream> eventStreams,
-      @Nullable Descriptor assetIdentifier) {
+      @Nullable Descriptor assetIdentifier,
+      List<AlternativeMpdEvent> alternativeMpdEvents) {
     this.id = id;
     this.startMs = startMs;
     this.adaptationSets = Collections.unmodifiableList(adaptationSets);
     this.eventStreams = Collections.unmodifiableList(eventStreams);
     this.assetIdentifier = assetIdentifier;
+    this.alternativeMpdEvents =
+        ImmutableList.sortedCopyOf(
+            (a, b) -> Long.compare(a.presentationTimeUs, b.presentationTimeUs),
+            alternativeMpdEvents);
   }
 
   /**

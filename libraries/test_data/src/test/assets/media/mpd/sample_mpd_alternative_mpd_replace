@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xmlns="urn:mpeg:DASH:schema:MPD:2011"
+     xsi:schemaLocation="urn:mpeg:DASH:schema:MPD:2011 DASH-MPD.xsd"
+     type="dynamic"
+     availabilityStartTime="2016-10-14T17:00:17"
+     timeShiftBufferDepth="PT7200.000S"
+     minimumUpdatePeriod="PT2.000S"
+     minBufferTime="PT1.500S"
+     profiles="urn:mpeg:dash:profile:isoff-main:2011">
+  <Period id="p0" start="PT0.000S">
+    <EventStream schemeIdUri="urn:mpeg:dash:event:alternativeMPD:replace:2025"
+                 value="replace-main"
+                 timescale="1000">
+      <Event id="1" presentationTime="30000" duration="10000" status="update">
+        <ReplacePresentation uri="https://ads.example.com/replace1.mpd"
+                             earliestResolutionTimeOffset="15000"
+                             serviceDescriptionId="sd-replace"
+                             maxDuration="30000"
+                             returnOffset="25000"
+                             clip="false"
+                             startWithOffset="true"
+                             executeOnce="true"
+                             noJump="2"
+                             skipAfter="PT10S">
+          <SupplementalProperty schemeIdUri="urn:example:foo" value="bar"/>
+        </ReplacePresentation>
+      </Event>
+      <Event id="2" presentationTime="60000">
+        <ReplacePresentation uri="https://ads.example.com/replace2.mpd"
+                             maxDuration="2251799813685247"/>
+      </Event>
+      <Event id="3" presentationTime="90000">
+        <ReplacePresentation uri="https://ads.example.com/replace3.mpd"
+                             maxDuration="0"/>
+      </Event>
+    </EventStream>
+    <EventStream schemeIdUri="urn:mpeg:dash:event:alternative:replace:2025"
+                 timescale="1000">
+      <Event id="4" presentationTime="120000">
+        <ReplacePresentation uri="https://ads.example.com/replace4.mpd"
+                             startAtOffset="true"/>
+      </Event>
+    </EventStream>
+    <SegmentTemplate startNumber="0" timescale="1000" media="sq/$Number$">
+      <SegmentTimeline>
+        <S d="2002" t="6009" r="2"/>
+      </SegmentTimeline>
+    </SegmentTemplate>
+    <AdaptationSet id="0" mimeType="video/mp4" subsegmentAlignment="true">
+      <Representation id="133" codecs="avc1.4d4015" width="426" height="240" bandwidth="258000" frameRate="30">
+        <BaseURL>http://www.test.url/</BaseURL>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>

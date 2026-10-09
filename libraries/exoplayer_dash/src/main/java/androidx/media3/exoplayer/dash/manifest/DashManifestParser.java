@@ -30,6 +30,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.DrmInitData.SchemeData;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.Label;
 import androidx.media3.common.MimeTypes;
@@ -57,6 +58,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -73,6 +75,12 @@ public class DashManifestParser extends DefaultHandler
     implements ParsingLoadable.Parser<DashManifest> {
 
   private static final String TAG = "MpdParser";
+
+  private static final String SCHEME_ID_URI_REPLACE_LEGACY =
+      "urn:mpeg:dash:event:alternative:replace:2025";
+  // Default value (2^51 - 1) of @maxDuration in the ISO/IEC 23009-1 clause 5.16.6 XML schema,
+  // representing an unbounded maximum duration.
+  private static final long ALTERNATIVE_MPD_MAX_DURATION_UNBOUNDED = 2251799813685247L;
 
   private static final Pattern FRAME_RATE_PATTERN = Pattern.compile("(\\d+)(?:/(\\d+))?");
 
@@ -428,6 +436,7 @@ public class DashManifestParser extends DefaultHandler
     @Nullable Descriptor assetIdentifier = null;
     List<AdaptationSet> adaptationSets = new ArrayList<>();
     List<EventStream> eventStreams = new ArrayList<>();
+    List<AlternativeMpdEvent> alternativeMpdEvents = new ArrayList<>();
     ArrayList<BaseUrl> baseUrls = new ArrayList<>();
     boolean seenFirstBaseUrl = false;
     long segmentBaseAvailabilityTimeOffsetUs = C.TIME_UNSET;
@@ -453,7 +462,12 @@ public class DashManifestParser extends DefaultHandler
                 timeShiftBufferDepthMs,
                 dvbProfileDeclared));
       } else if (XmlPullParserUtil.isStartTag(xpp, "EventStream")) {
-        eventStreams.add(parseEventStream(xpp));
+        List<BaseUrl> periodBaseUrls = !baseUrls.isEmpty() ? baseUrls : parentBaseUrls;
+        String baseUri = !periodBaseUrls.isEmpty() ? periodBaseUrls.get(0).url : "";
+        Pair<EventStream, List<AlternativeMpdEvent>> parsedEventStream =
+            parseEventStream(xpp, baseUri);
+        eventStreams.add(parsedEventStream.first);
+        alternativeMpdEvents.addAll(parsedEventStream.second);
       } else if (XmlPullParserUtil.isStartTag(xpp, "SegmentBase")) {
         segmentBase = parseSegmentBase(xpp, /* parent= */ null);
       } else if (XmlPullParserUtil.isStartTag(xpp, "SegmentList")) {
@@ -489,7 +503,9 @@ public class DashManifestParser extends DefaultHandler
     } while (!XmlPullParserUtil.isEndTag(xpp, "Period"));
 
     return Pair.create(
-        buildPeriod(id, startMs, adaptationSets, eventStreams, assetIdentifier), durationMs);
+        buildPeriod(
+            id, startMs, adaptationSets, eventStreams, assetIdentifier, alternativeMpdEvents),
+        durationMs);
   }
 
   protected Period buildPeriod(
@@ -497,8 +513,10 @@ public class DashManifestParser extends DefaultHandler
       long startMs,
       List<AdaptationSet> adaptationSets,
       List<EventStream> eventStreams,
-      @Nullable Descriptor assetIdentifier) {
-    return new Period(id, startMs, adaptationSets, eventStreams, assetIdentifier);
+      @Nullable Descriptor assetIdentifier,
+      List<AlternativeMpdEvent> alternativeMpdEvents) {
+    return new Period(
+        id, startMs, adaptationSets, eventStreams, assetIdentifier, alternativeMpdEvents);
   }
 
   // AdaptationSet parsing.
@@ -1342,13 +1360,94 @@ public class DashManifestParser extends DefaultHandler
   }
 
   /**
+   * Parses an {@code EventStream} node in the manifest, also extracting any {@link
+   * AlternativeMpdEvent}s if the stream uses an Alternative MPD scheme.
+   *
+   * <p>If {@link Flags#FLAG_PARSE_DASH_ALTERNATIVE_MPD_EVENTS} is disabled, this method delegates
+   * to {@link #parseEventStream(XmlPullParser)} and returns an empty list of {@link
+   * AlternativeMpdEvent}s.
+   *
+   * @param xpp The current xml parser.
+   * @param baseUri The base URI used to resolve relative alternative MPD URIs.
+   * @return A pair of the parsed {@link EventStream} and the extracted {@link AlternativeMpdEvent}s
+   *     (empty if not an Alternative MPD scheme).
+   * @throws XmlPullParserException If there is any error parsing this node.
+   * @throws IOException If there is any error reading from the underlying input stream.
+   */
+  protected Pair<EventStream, List<AlternativeMpdEvent>> parseEventStream(
+      XmlPullParser xpp, String baseUri) throws XmlPullParserException, IOException {
+    if (!Flags.isEnabled(Flags.FLAG_PARSE_DASH_ALTERNATIVE_MPD_EVENTS)) {
+      return Pair.create(parseEventStream(xpp), ImmutableList.of());
+    }
+    String schemeIdUri = parseString(xpp, "schemeIdUri", "");
+    if (!isAlternativeMpdEventScheme(schemeIdUri)) {
+      return Pair.create(parseEventStream(xpp), ImmutableList.of());
+    }
+    @AlternativeMpdEvent.Type
+    int type =
+        schemeIdUri.equals(AlternativeMpdEvent.SCHEME_ID_URI_INSERT)
+            ? AlternativeMpdEvent.TYPE_INSERT
+            : AlternativeMpdEvent.TYPE_REPLACE;
+    String value = parseString(xpp, "value", "");
+    long timescale = parseLong(xpp, "timescale", 1);
+    long presentationTimeOffset = parseLong(xpp, "presentationTimeOffset", 0);
+    List<Pair<Long, EventMessage>> eventMessages = new ArrayList<>();
+    List<AlternativeMpdEvent> alternativeMpdEvents = new ArrayList<>();
+    ByteArrayOutputStream scratchOutputStream = new ByteArrayOutputStream(512);
+    do {
+      xpp.next();
+      if (XmlPullParserUtil.isStartTag(xpp, "Event")) {
+        Pair<Pair<Long, EventMessage>, @NullableType AlternativeMpdEvent> parsedEvent =
+            parseEventWithAlternativeMpdEvent(
+                xpp,
+                schemeIdUri,
+                type,
+                value,
+                timescale,
+                presentationTimeOffset,
+                baseUri,
+                scratchOutputStream);
+        eventMessages.add(parsedEvent.first);
+        if (parsedEvent.second != null) {
+          alternativeMpdEvents.add(parsedEvent.second);
+        }
+      } else {
+        maybeSkipTag(xpp);
+      }
+    } while (!XmlPullParserUtil.isEndTag(xpp, "EventStream"));
+
+    long[] presentationTimesUs = new long[eventMessages.size()];
+    EventMessage[] events = new EventMessage[eventMessages.size()];
+    for (int i = 0; i < eventMessages.size(); i++) {
+      Pair<Long, EventMessage> event = eventMessages.get(i);
+      presentationTimesUs[i] = event.first;
+      events[i] = event.second;
+    }
+    return Pair.create(
+        buildEventStream(schemeIdUri, value, timescale, presentationTimesUs, events),
+        alternativeMpdEvents);
+  }
+
+  /**
    * Parses a single EventStream node in the manifest.
+   *
+   * <p>When {@link Flags#FLAG_PARSE_DASH_ALTERNATIVE_MPD_EVENTS} is disabled, this method is called
+   * and used as before to parse all {@code EventStream} nodes.
+   *
+   * <p>When {@link Flags#FLAG_PARSE_DASH_ALTERNATIVE_MPD_EVENTS} is enabled, this method is still
+   * used by {@link #parseEventStream(XmlPullParser, String)} to parse {@code EventStream} nodes
+   * that do not use an Alternative MPD scheme, but it will be made private in the future. Apps must
+   * override {@link #parseEventStream(XmlPullParser, String)} instead, which parses {@code
+   * EventStream} nodes as before, but also parses Alternative MPD events into the typed {@link
+   * AlternativeMpdEvent} object model of {@link DashManifest}.
    *
    * @param xpp The current xml parser.
    * @return The {@link EventStream} parsed from this EventStream node.
    * @throws XmlPullParserException If there is any error parsing this node.
    * @throws IOException If there is any error reading from the underlying input stream.
+   * @deprecated Use {@link #parseEventStream(XmlPullParser, String)} instead.
    */
+  @Deprecated
   protected EventStream parseEventStream(XmlPullParser xpp)
       throws XmlPullParserException, IOException {
     String schemeIdUri = parseString(xpp, "schemeIdUri", "");
@@ -1377,6 +1476,12 @@ public class DashManifestParser extends DefaultHandler
       events[i] = event.second;
     }
     return buildEventStream(schemeIdUri, value, timescale, presentationTimesUs, events);
+  }
+
+  private static boolean isAlternativeMpdEventScheme(String schemeIdUri) {
+    return schemeIdUri.equals(AlternativeMpdEvent.SCHEME_ID_URI_INSERT)
+        || schemeIdUri.equals(AlternativeMpdEvent.SCHEME_ID_URI_REPLACE)
+        || schemeIdUri.equals(SCHEME_ID_URI_REPLACE_LEGACY);
   }
 
   protected EventStream buildEventStream(
@@ -1448,55 +1553,227 @@ public class DashManifestParser extends DefaultHandler
     // byte array.
     xpp.nextToken();
     while (!XmlPullParserUtil.isEndTag(xpp, "Event")) {
-      switch (xpp.getEventType()) {
-        case XmlPullParser.START_DOCUMENT:
-          xmlSerializer.startDocument(null, false);
-          break;
-        case XmlPullParser.END_DOCUMENT:
-          xmlSerializer.endDocument();
-          break;
-        case XmlPullParser.START_TAG:
-          xmlSerializer.startTag(xpp.getNamespace(), xpp.getName());
-          for (int i = 0; i < xpp.getAttributeCount(); i++) {
-            xmlSerializer.attribute(
-                xpp.getAttributeNamespace(i), xpp.getAttributeName(i), xpp.getAttributeValue(i));
-          }
-          break;
-        case XmlPullParser.END_TAG:
-          xmlSerializer.endTag(xpp.getNamespace(), xpp.getName());
-          break;
-        case XmlPullParser.TEXT:
-          xmlSerializer.text(xpp.getText());
-          break;
-        case XmlPullParser.CDSECT:
-          xmlSerializer.cdsect(xpp.getText());
-          break;
-        case XmlPullParser.ENTITY_REF:
-          xmlSerializer.entityRef(xpp.getText());
-          break;
-        case XmlPullParser.IGNORABLE_WHITESPACE:
-          xmlSerializer.ignorableWhitespace(xpp.getText());
-          break;
-        case XmlPullParser.PROCESSING_INSTRUCTION:
-          xmlSerializer.processingInstruction(xpp.getText());
-          break;
-        case XmlPullParser.COMMENT:
-          xmlSerializer.comment(xpp.getText());
-          break;
-        case XmlPullParser.DOCDECL:
-          xmlSerializer.docdecl(xpp.getText());
-          break;
-        default: // fall out
-      }
+      writeEventTokenToXmlSerializer(xpp, xmlSerializer);
       xpp.nextToken();
     }
     xmlSerializer.flush();
     return scratchOutputStream.toByteArray();
   }
 
+  private static void writeEventTokenToXmlSerializer(XmlPullParser xpp, XmlSerializer xmlSerializer)
+      throws XmlPullParserException, IOException {
+    switch (xpp.getEventType()) {
+      case XmlPullParser.START_DOCUMENT:
+        xmlSerializer.startDocument(null, false);
+        break;
+      case XmlPullParser.END_DOCUMENT:
+        xmlSerializer.endDocument();
+        break;
+      case XmlPullParser.START_TAG:
+        xmlSerializer.startTag(xpp.getNamespace(), xpp.getName());
+        for (int i = 0; i < xpp.getAttributeCount(); i++) {
+          xmlSerializer.attribute(
+              xpp.getAttributeNamespace(i), xpp.getAttributeName(i), xpp.getAttributeValue(i));
+        }
+        break;
+      case XmlPullParser.END_TAG:
+        xmlSerializer.endTag(xpp.getNamespace(), xpp.getName());
+        break;
+      case XmlPullParser.TEXT:
+        xmlSerializer.text(xpp.getText());
+        break;
+      case XmlPullParser.CDSECT:
+        xmlSerializer.cdsect(xpp.getText());
+        break;
+      case XmlPullParser.ENTITY_REF:
+        xmlSerializer.entityRef(xpp.getText());
+        break;
+      case XmlPullParser.IGNORABLE_WHITESPACE:
+        xmlSerializer.ignorableWhitespace(xpp.getText());
+        break;
+      case XmlPullParser.PROCESSING_INSTRUCTION:
+        xmlSerializer.processingInstruction(xpp.getText());
+        break;
+      case XmlPullParser.COMMENT:
+        xmlSerializer.comment(xpp.getText());
+        break;
+      case XmlPullParser.DOCDECL:
+        xmlSerializer.docdecl(xpp.getText());
+        break;
+      default: // fall out
+    }
+  }
+
   protected EventMessage buildEvent(
       String schemeIdUri, String value, long id, long durationMs, byte[] messageData) {
     return new EventMessage(schemeIdUri, value, durationMs, id, messageData);
+  }
+
+  private Pair<Pair<Long, EventMessage>, @NullableType AlternativeMpdEvent>
+      parseEventWithAlternativeMpdEvent(
+          XmlPullParser xpp,
+          String schemeIdUri,
+          @AlternativeMpdEvent.Type int type,
+          String eventStreamValue,
+          long timescale,
+          long presentationTimeOffset,
+          String baseUri,
+          ByteArrayOutputStream scratchOutputStream)
+          throws XmlPullParserException, IOException {
+    long rawId = parseLong(xpp, "id", C.INDEX_UNSET);
+    long id = rawId != C.INDEX_UNSET ? rawId : 0;
+    @Nullable String status = parseString(xpp, "status", null);
+    boolean isUpdate = type == AlternativeMpdEvent.TYPE_REPLACE && Objects.equals(status, "update");
+    long duration = parseLong(xpp, "duration", C.TIME_UNSET);
+    long presentationTime = parseLong(xpp, "presentationTime", 0);
+    long durationMs = Util.scaleLargeTimestamp(duration, C.MILLIS_PER_SECOND, timescale);
+    long durationUs =
+        duration != C.TIME_UNSET
+            ? Util.scaleLargeTimestamp(duration, C.MICROS_PER_SECOND, timescale)
+            : C.TIME_UNSET;
+    long presentationTimeUs =
+        Util.scaleLargeTimestamp(
+            presentationTime - presentationTimeOffset, C.MICROS_PER_SECOND, timescale);
+    @Nullable String messageData = parseString(xpp, "messageData", null);
+
+    scratchOutputStream.reset();
+    XmlSerializer xmlSerializer = Xml.newSerializer();
+    xmlSerializer.setOutput(scratchOutputStream, StandardCharsets.UTF_8.name());
+    String expectedTag =
+        type == AlternativeMpdEvent.TYPE_INSERT ? "InsertPresentation" : "ReplacePresentation";
+    boolean seenPresentation = false;
+    boolean insidePresentation = false;
+    int depth = 0;
+    @Nullable AlternativeMpdEvent.Builder builder = null;
+    List<Descriptor> supplementalProperties = new ArrayList<>();
+    xpp.nextToken();
+    while (depth > 0 || !XmlPullParserUtil.isEndTag(xpp, "Event")) {
+      writeEventTokenToXmlSerializer(xpp, xmlSerializer);
+      int eventType = xpp.getEventType();
+      if (eventType == XmlPullParser.START_TAG) {
+        depth++;
+        if (depth == 1 && !seenPresentation && xpp.getName().equals(expectedTag)) {
+          seenPresentation = true;
+          insidePresentation = true;
+          builder = parseAlternativeMpdPresentationAttributes(xpp, type, id, timescale, baseUri);
+        } else if (depth == 2
+            && insidePresentation
+            && xpp.getName().equals("SupplementalProperty")) {
+          supplementalProperties.add(
+              new Descriptor(
+                  parseString(xpp, "schemeIdUri", ""),
+                  parseString(xpp, "value", null),
+                  parseString(xpp, "id", null)));
+        }
+      } else if (eventType == XmlPullParser.END_TAG) {
+        if (depth == 1 && insidePresentation) {
+          insidePresentation = false;
+        }
+        depth--;
+      }
+      xpp.nextToken();
+    }
+    xmlSerializer.flush();
+    byte[] eventObject = scratchOutputStream.toByteArray();
+
+    EventMessage eventMessage =
+        buildEvent(
+            schemeIdUri,
+            eventStreamValue,
+            id,
+            durationMs,
+            messageData == null ? eventObject : Util.getUtf8Bytes(messageData));
+    Pair<Long, EventMessage> timedEventMessage = Pair.create(presentationTimeUs, eventMessage);
+
+    if (rawId == C.INDEX_UNSET) {
+      Log.w(TAG, "Skipping AlternativeMpdEvent without id");
+      return Pair.create(timedEventMessage, null);
+    }
+    if (!seenPresentation) {
+      Log.w(TAG, "Skipping AlternativeMpdEvent without " + expectedTag);
+      return Pair.create(timedEventMessage, null);
+    }
+    if (builder == null) {
+      return Pair.create(timedEventMessage, null);
+    }
+    AlternativeMpdEvent alternativeMpdEvent =
+        builder
+            .setIsUpdate(isUpdate)
+            .setEventStreamValue(eventStreamValue)
+            .setPresentationTimeUs(presentationTimeUs)
+            .setDurationUs(durationUs)
+            .setSupplementalProperties(supplementalProperties)
+            .build();
+    return Pair.create(timedEventMessage, alternativeMpdEvent);
+  }
+
+  @Nullable
+  private static AlternativeMpdEvent.Builder parseAlternativeMpdPresentationAttributes(
+      XmlPullParser xpp,
+      @AlternativeMpdEvent.Type int type,
+      long id,
+      long timescale,
+      String baseUri) {
+    String tag = xpp.getName();
+    @Nullable String uriString = parseString(xpp, "uri", null);
+    if (TextUtils.isEmpty(uriString)) {
+      Log.w(TAG, "Skipping " + tag + " without uri");
+      return null;
+    }
+    double earliestResolutionTimeOffset =
+        parseDouble(xpp, "earliestResolutionTimeOffset", Double.NaN);
+    long earliestResolutionTimeOffsetUs =
+        Double.isNaN(earliestResolutionTimeOffset) || earliestResolutionTimeOffset < 0
+            ? AlternativeMpdEvent.DEFAULT_EARLIEST_RESOLUTION_TIME_OFFSET_US
+            : Math.round(earliestResolutionTimeOffset * C.MICROS_PER_SECOND / timescale);
+    @Nullable String serviceDescriptionId = parseString(xpp, "serviceDescriptionId", null);
+    long maxDuration = parseLong(xpp, "maxDuration", C.TIME_UNSET);
+    long maxDurationUs =
+        maxDuration == C.TIME_UNSET || maxDuration == ALTERNATIVE_MPD_MAX_DURATION_UNBOUNDED
+            ? C.TIME_UNSET
+            : Util.scaleLargeTimestamp(maxDuration, C.MICROS_PER_SECOND, timescale);
+    boolean executeOnce = parseBoolean(xpp, "executeOnce", false);
+    int rawNoJump = parseInt(xpp, "noJump", AlternativeMpdEvent.NO_JUMP_NONE);
+    @AlternativeMpdEvent.NoJumpMode int noJump;
+    switch (rawNoJump) {
+      case AlternativeMpdEvent.NO_JUMP_NONE:
+      case AlternativeMpdEvent.NO_JUMP_ALL:
+      case AlternativeMpdEvent.NO_JUMP_LATEST:
+        noJump = rawNoJump;
+        break;
+      default:
+        Log.w(TAG, "Ignoring unknown noJump mode: " + rawNoJump);
+        noJump = AlternativeMpdEvent.NO_JUMP_NONE;
+        break;
+    }
+    long skipAfterMs = parseDuration(xpp, "skipAfter", 0);
+    long skipAfterUs = skipAfterMs > 0 ? Util.msToUs(skipAfterMs) : 0;
+    long returnOffsetUs = C.TIME_UNSET;
+    boolean clip = true;
+    boolean startWithOffset = false;
+    if (type == AlternativeMpdEvent.TYPE_REPLACE) {
+      long returnOffset = parseLong(xpp, "returnOffset", C.TIME_UNSET);
+      if (returnOffset != C.TIME_UNSET) {
+        returnOffsetUs = Util.scaleLargeTimestamp(returnOffset, C.MICROS_PER_SECOND, timescale);
+      }
+      clip = parseBoolean(xpp, "clip", true);
+      startWithOffset =
+          XmlPullParserUtil.getAttributeValue(xpp, "startWithOffset") != null
+              ? parseBoolean(xpp, "startWithOffset", false)
+              : parseBoolean(xpp, "startAtOffset", false);
+    }
+
+    Uri resolvedUri = UriUtil.resolveToUri(baseUri, uriString);
+    return new AlternativeMpdEvent.Builder(type, id, resolvedUri)
+        .setEarliestResolutionTimeOffsetUs(earliestResolutionTimeOffsetUs)
+        .setServiceDescriptionId(serviceDescriptionId)
+        .setMaxDurationUs(maxDurationUs)
+        .setExecuteOnce(executeOnce)
+        .setNoJump(noJump)
+        .setSkipAfterUs(skipAfterUs)
+        .setReturnOffsetUs(returnOffsetUs)
+        .setClip(clip)
+        .setStartWithOffset(startWithOffset);
   }
 
   protected List<SegmentTimelineElement> parseSegmentTimeline(
@@ -2281,6 +2558,11 @@ public class DashManifestParser extends DefaultHandler
   protected static float parseFloat(XmlPullParser xpp, String name, float defaultValue) {
     @Nullable String value = XmlPullParserUtil.getAttributeValue(xpp, name);
     return value == null ? defaultValue : Float.parseFloat(value);
+  }
+
+  protected static double parseDouble(XmlPullParser xpp, String name, double defaultValue) {
+    @Nullable String value = XmlPullParserUtil.getAttributeValue(xpp, name);
+    return value == null ? defaultValue : Double.parseDouble(value);
   }
 
   protected static String parseString(XmlPullParser xpp, String name, String defaultValue) {

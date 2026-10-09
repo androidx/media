@@ -17,12 +17,15 @@ package androidx.media3.exoplayer.dash.manifest;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeTrue;
 
 import android.net.Uri;
+import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DrmInitData;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.Label;
 import androidx.media3.common.MimeTypes;
@@ -35,26 +38,36 @@ import androidx.media3.exoplayer.dash.manifest.Representation.MultiSegmentRepres
 import androidx.media3.exoplayer.dash.manifest.Representation.SingleSegmentRepresentation;
 import androidx.media3.exoplayer.dash.manifest.SegmentBase.SegmentTimelineElement;
 import androidx.media3.extractor.metadata.emsg.EventMessage;
+import androidx.media3.test.utils.BindFlag;
 import androidx.media3.test.utils.FakeDataSet;
 import androidx.media3.test.utils.FakeDataSource;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestParameterInjector;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserFactory;
 
 /** Unit tests for {@link DashManifestParser}. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public class DashManifestParserTest {
+
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
+
+  @TestParameter
+  @BindFlag(Flags.FLAG_PARSE_DASH_ALTERNATIVE_MPD_EVENTS)
+  private boolean parseDashAlternativeMpdEvents;
 
   private static final String SAMPLE_MPD_LIVE = "media/mpd/sample_mpd_live";
   private static final String SAMPLE_MPD_LIVE_LOCATION_REDIRECT_RELATIVE =
@@ -105,6 +118,10 @@ public class DashManifestParserTest {
       "media/mpd/sample_mpd_multiple_locations_absolute";
   private static final String SAMPLE_MPD_CONTENT_STEERING_WITH_DEFAULT_SERVICE_LOCATION =
       "media/mpd/sample_mpd_content_steering_with_default_service_location";
+  private static final String SAMPLE_MPD_ALTERNATIVE_MPD_INSERT =
+      "media/mpd/sample_mpd_alternative_mpd_insert";
+  private static final String SAMPLE_MPD_ALTERNATIVE_MPD_REPLACE =
+      "media/mpd/sample_mpd_alternative_mpd_replace";
 
   private static final String NEXT_TAG_NAME = "Next";
   private static final String NEXT_TAG = "<" + NEXT_TAG_NAME + "/>";
@@ -196,7 +213,7 @@ public class DashManifestParserTest {
                 ApplicationProvider.getApplicationContext(), SAMPLE_MPD_EVENT_STREAM));
 
     Period period = manifest.getPeriod(0);
-    assertThat(period.eventStreams).hasSize(4);
+    assertThat(period.eventStreams).hasSize(5);
 
     // assert text-only event stream
     EventStream eventStream1 = period.eventStreams.get(0);
@@ -259,6 +276,29 @@ public class DashManifestParserTest {
                     + "       </scte35:Signal>"));
     assertThat(eventStream4.events[0]).isEqualTo(expectedEvent4);
     assertThat(eventStream4.presentationTimesUs[0]).isEqualTo(1000000000);
+
+    // assert alternative MPD xml-structured event stream
+    EventStream eventStream5 = period.eventStreams.get(4);
+    assertThat(eventStream5.events).hasLength(1);
+    EventMessage expectedEvent5 =
+        new EventMessage(
+            "urn:mpeg:dash:event:alternativeMPD:insert:2025",
+            "insert",
+            5000,
+            3,
+            Util.getUtf8Bytes(
+                "<InsertPresentation uri=\"https://ads.example.com/ad.mpd\""
+                    + " maxDuration=\"10000\">\n"
+                    + "         <SupplementalProperty schemeIdUri=\"urn:example:prop\""
+                    + " value=\"val\" />\n"
+                    + "       </InsertPresentation>"));
+    assertThat(eventStream5.events[0]).isEqualTo(expectedEvent5);
+    assertThat(eventStream5.presentationTimesUs[0]).isEqualTo(2000000);
+    if (parseDashAlternativeMpdEvents) {
+      assertThat(period.alternativeMpdEvents).hasSize(1);
+    } else {
+      assertThat(period.alternativeMpdEvents).isEmpty();
+    }
   }
 
   @Test
@@ -1501,6 +1541,359 @@ public class DashManifestParserTest {
     assertThat(adaptationSet.representations).hasSize(2);
     assertThat(adaptationSet.representations.get(0).format.colorInfo).isNull();
     assertThat(adaptationSet.representations.get(1).format.colorInfo).isNull();
+    assertNextTag(xpp);
+  }
+
+  @Test
+  public void parseMediaPresentationDescription_withAlternativeMpdInsert_parsesEventsAndDefaults()
+      throws IOException {
+    assumeTrue(parseDashAlternativeMpdEvents);
+    DashManifestParser parser = new DashManifestParser();
+
+    DashManifest manifest =
+        parser.parse(
+            Uri.parse("https://example.com/dir/test.mpd"),
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(), SAMPLE_MPD_ALTERNATIVE_MPD_INSERT));
+
+    assertThat(manifest.getPeriodCount()).isEqualTo(2);
+    Period period0 = manifest.getPeriod(0);
+    // Both non-alternative and alternative MPD EventStreams are retained in period.eventStreams.
+    assertThat(period0.eventStreams).hasSize(3);
+    assertThat(period0.eventStreams.get(0).schemeIdUri).isEqualTo("urn:uuid:XYZY");
+    assertThat(period0.eventStreams.get(1).schemeIdUri)
+        .isEqualTo(AlternativeMpdEvent.SCHEME_ID_URI_INSERT);
+    assertThat(period0.eventStreams.get(1).events).hasLength(2);
+    assertThat(
+            new String(period0.eventStreams.get(1).events[0].messageData, StandardCharsets.UTF_8))
+        .contains("<InsertPresentation uri=\"https://ads.example.com/ad1.mpd\"");
+    assertThat(
+            new String(period0.eventStreams.get(1).events[1].messageData, StandardCharsets.UTF_8))
+        .contains("<InsertPresentation uri=\"ads/ad3.mpd#t=0,15\"");
+    assertThat(period0.eventStreams.get(2).schemeIdUri)
+        .isEqualTo(AlternativeMpdEvent.SCHEME_ID_URI_INSERT);
+    assertThat(period0.eventStreams.get(2).value).isEqualTo("stream-2");
+    assertThat(period0.eventStreams.get(2).presentationTimesUs)
+        .asList()
+        .containsExactly(20_000_000L);
+    assertThat(period0.eventStreams.get(2).events).hasLength(1);
+    assertThat(
+            new String(period0.eventStreams.get(2).events[0].messageData, StandardCharsets.UTF_8))
+        .contains("<SupplementalProperty schemeIdUri=\"urn:example:prop1\"");
+    assertThat(period0.alternativeMpdEvents).hasSize(3);
+    // Event 1: all defaults.
+    AlternativeMpdEvent event0 = period0.alternativeMpdEvents.get(0);
+    assertThat(event0.type).isEqualTo(AlternativeMpdEvent.TYPE_INSERT);
+    assertThat(event0.id).isEqualTo(1);
+    assertThat(event0.isUpdate).isFalse();
+    assertThat(event0.eventStreamValue).isEmpty();
+    assertThat(event0.presentationTimeUs).isEqualTo(10_000_000);
+    assertThat(event0.durationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(event0.uri).isEqualTo(Uri.parse("https://ads.example.com/ad1.mpd"));
+    assertThat(event0.earliestResolutionTimeOffsetUs).isEqualTo(60_000_000);
+    assertThat(event0.serviceDescriptionId).isNull();
+    assertThat(event0.maxDurationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(event0.executeOnce).isFalse();
+    assertThat(event0.noJump).isEqualTo(AlternativeMpdEvent.NO_JUMP_NONE);
+    assertThat(event0.skipAfterUs).isEqualTo(0);
+    assertThat(event0.supplementalProperties).isEmpty();
+    assertThat(event0.returnOffsetUs).isEqualTo(C.TIME_UNSET);
+    assertThat(event0.clip).isTrue();
+    assertThat(event0.startWithOffset).isFalse();
+    // Event 2 (sorted before Event 3 by presentationTimeUs = (25000 - 5000) * 1000 = 20_000_000):
+    // all attributes set, status="update" ignored for insert.
+    AlternativeMpdEvent expectedEvent1 =
+        new AlternativeMpdEvent.Builder(
+                AlternativeMpdEvent.TYPE_INSERT,
+                /* id= */ 2,
+                Uri.parse("https://ads.example.com/ad2.mpd"))
+            .setEventStreamValue("stream-2")
+            .setPresentationTimeUs(20_000_000)
+            .setDurationUs(10_000_000)
+            .setEarliestResolutionTimeOffsetUs(15_000_000)
+            .setServiceDescriptionId("sd-1")
+            .setMaxDurationUs(30_000_000)
+            .setExecuteOnce(true)
+            .setNoJump(AlternativeMpdEvent.NO_JUMP_ALL)
+            .setSkipAfterUs(5_000_000)
+            .setSupplementalProperties(
+                ImmutableList.of(
+                    new Descriptor("urn:example:prop1", "val1", "p1"),
+                    new Descriptor("urn:example:prop2", "val2", /* id= */ null)))
+            .build();
+    assertThat(period0.alternativeMpdEvents.get(1)).isEqualTo(expectedEvent1);
+    assertThat(period0.alternativeMpdEvents.get(1).isUpdate).isFalse();
+    // Event 3: relative URI resolved against document URI, #t= fragment preserved.
+    AlternativeMpdEvent expectedEvent2 =
+        new AlternativeMpdEvent.Builder(
+                AlternativeMpdEvent.TYPE_INSERT,
+                /* id= */ 3,
+                Uri.parse("https://example.com/dir/ads/ad3.mpd#t=0,15"))
+            .setPresentationTimeUs(40_000_000)
+            .setDurationUs(5_000_000)
+            .build();
+    assertThat(period0.alternativeMpdEvents.get(2)).isEqualTo(expectedEvent2);
+    // Period 1: relative URI resolved against Period BaseURL, #t= fragment preserved.
+    Period period1 = manifest.getPeriod(1);
+    assertThat(period1.eventStreams).hasSize(1);
+    assertThat(period1.eventStreams.get(0).schemeIdUri)
+        .isEqualTo(AlternativeMpdEvent.SCHEME_ID_URI_INSERT);
+    assertThat(period1.eventStreams.get(0).events).hasLength(1);
+    assertThat(period1.alternativeMpdEvents)
+        .containsExactly(
+            new AlternativeMpdEvent.Builder(
+                    AlternativeMpdEvent.TYPE_INSERT,
+                    /* id= */ 10,
+                    Uri.parse("https://cdn.example.com/ads/ad4.mpd#t=5,20"))
+                .setPresentationTimeUs(5_000_000)
+                .setNoJump(AlternativeMpdEvent.NO_JUMP_LATEST)
+                .build());
+  }
+
+  @Test
+  public void parseMediaPresentationDescription_withAlternativeMpdReplace_parsesReplaceAttributes()
+      throws IOException {
+    assumeTrue(parseDashAlternativeMpdEvents);
+    DashManifestParser parser = new DashManifestParser();
+
+    DashManifest manifest =
+        parser.parse(
+            Uri.parse("https://example.com/test.mpd"),
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(), SAMPLE_MPD_ALTERNATIVE_MPD_REPLACE));
+
+    Period period = manifest.getPeriod(0);
+    assertThat(period.eventStreams).hasSize(2);
+    assertThat(period.eventStreams.get(0).schemeIdUri)
+        .isEqualTo(AlternativeMpdEvent.SCHEME_ID_URI_REPLACE);
+    assertThat(period.eventStreams.get(0).value).isEqualTo("replace-main");
+    assertThat(period.eventStreams.get(0).events).hasLength(3);
+    assertThat(new String(period.eventStreams.get(0).events[0].messageData, StandardCharsets.UTF_8))
+        .contains("<ReplacePresentation uri=\"https://ads.example.com/replace1.mpd\"");
+    assertThat(period.eventStreams.get(1).schemeIdUri)
+        .isEqualTo("urn:mpeg:dash:event:alternative:replace:2025");
+    assertThat(period.eventStreams.get(1).events).hasLength(1);
+    assertThat(period.alternativeMpdEvents).hasSize(4);
+    AlternativeMpdEvent expectedEvent0 =
+        new AlternativeMpdEvent.Builder(
+                AlternativeMpdEvent.TYPE_REPLACE,
+                /* id= */ 1,
+                Uri.parse("https://ads.example.com/replace1.mpd"))
+            .setIsUpdate(true)
+            .setEventStreamValue("replace-main")
+            .setPresentationTimeUs(30_000_000)
+            .setDurationUs(10_000_000)
+            .setEarliestResolutionTimeOffsetUs(15_000_000)
+            .setServiceDescriptionId("sd-replace")
+            .setMaxDurationUs(30_000_000)
+            .setReturnOffsetUs(25_000_000)
+            .setClip(false)
+            .setStartWithOffset(true)
+            .setExecuteOnce(true)
+            .setNoJump(AlternativeMpdEvent.NO_JUMP_LATEST)
+            .setSkipAfterUs(10_000_000)
+            .setSupplementalProperties(
+                ImmutableList.of(new Descriptor("urn:example:foo", "bar", /* id= */ null)))
+            .build();
+    assertThat(period.alternativeMpdEvents.get(0)).isEqualTo(expectedEvent0);
+    // Event 2: maxDuration="2251799813685247" -> C.TIME_UNSET, replace defaults.
+    AlternativeMpdEvent event1 = period.alternativeMpdEvents.get(1);
+    assertThat(event1.type).isEqualTo(AlternativeMpdEvent.TYPE_REPLACE);
+    assertThat(event1.id).isEqualTo(2);
+    assertThat(event1.isUpdate).isFalse();
+    assertThat(event1.presentationTimeUs).isEqualTo(60_000_000);
+    assertThat(event1.maxDurationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(event1.returnOffsetUs).isEqualTo(C.TIME_UNSET);
+    assertThat(event1.clip).isTrue();
+    assertThat(event1.startWithOffset).isFalse();
+    // Event 3: maxDuration="0" -> 0.
+    AlternativeMpdEvent event2 = period.alternativeMpdEvents.get(2);
+    assertThat(event2.id).isEqualTo(3);
+    assertThat(event2.maxDurationUs).isEqualTo(0);
+    // Event 4: Table 61 scheme URI variant and legacy startAtOffset="true".
+    AlternativeMpdEvent event3 = period.alternativeMpdEvents.get(3);
+    assertThat(event3.type).isEqualTo(AlternativeMpdEvent.TYPE_REPLACE);
+    assertThat(event3.id).isEqualTo(4);
+    assertThat(event3.presentationTimeUs).isEqualTo(120_000_000);
+    assertThat(event3.startWithOffset).isTrue();
+  }
+
+  @Test
+  public void
+      parseEventStream_withMalformedEvents_retainsInEventStreamAndDropsFromAlternativeMpdEvents()
+          throws Exception {
+    assumeTrue(parseDashAlternativeMpdEvents);
+    DashManifestParser parser = new DashManifestParser();
+    XmlPullParser xpp = XmlPullParserFactory.newInstance().newPullParser();
+    xpp.setInput(
+        new StringReader(
+            "<EventStream schemeIdUri=\"urn:mpeg:dash:event:alternativeMPD:insert:2025\">"
+                + "<Event presentationTime=\"10\">"
+                + "<InsertPresentation uri=\"https://ads.example.com/missing_id.mpd\"/>"
+                + "</Event>"
+                + "<Event id=\"2\" presentationTime=\"20\">"
+                + "<InsertPresentation/>"
+                + "</Event>"
+                + "<Event id=\"3\" presentationTime=\"30\"/>"
+                + "<Event id=\"4\" presentationTime=\"40\">"
+                + "<ReplacePresentation uri=\"https://ads.example.com/mismatched.mpd\"/>"
+                + "</Event>"
+                + "<Event id=\"5\" presentationTime=\"50\">"
+                + "<InsertPresentation uri=\"https://ads.example.com/valid.mpd\"/>"
+                + "</Event>"
+                + "</EventStream>"
+                + NEXT_TAG));
+    xpp.next();
+
+    Pair<EventStream, List<AlternativeMpdEvent>> parsedEventStream =
+        parser.parseEventStream(xpp, "https://example.com/test.mpd");
+
+    assertThat(parsedEventStream.first.events).hasLength(5);
+    assertThat(parsedEventStream.first.presentationTimesUs)
+        .asList()
+        .containsExactly(10_000_000L, 20_000_000L, 30_000_000L, 40_000_000L, 50_000_000L)
+        .inOrder();
+    assertThat(parsedEventStream.second)
+        .containsExactly(
+            new AlternativeMpdEvent.Builder(
+                    AlternativeMpdEvent.TYPE_INSERT,
+                    /* id= */ 5,
+                    Uri.parse("https://ads.example.com/valid.mpd"))
+                .setPresentationTimeUs(50_000_000)
+                .build());
+    assertNextTag(xpp);
+  }
+
+  @Test
+  public void parseEventStream_withUnknownChildrenAndAttributes_skipsUnknownAndParsesFirstMatch()
+      throws Exception {
+    assumeTrue(parseDashAlternativeMpdEvents);
+    DashManifestParser parser = new DashManifestParser();
+    XmlPullParser xpp = XmlPullParserFactory.newInstance().newPullParser();
+    xpp.setInput(
+        new StringReader(
+            "<EventStream schemeIdUri=\"urn:mpeg:dash:event:alternativeMPD:insert:2025\">"
+                + "<Event xmlns:ext=\"urn:ext\" id=\"7\" presentationTime=\"5\">"
+                + "<ext:Event><ext:Nested/></ext:Event>"
+                + "<InsertPresentation uri=\"https://ads.example.com/first.mpd\""
+                + " earliestResolutionTimeOffset=\"-5\""
+                + " noJump=\"-3\" skipAfter=\"-PT5S\" ext:customAttr=\"ignored\">"
+                + "<ext:VendorExtension foo=\"bar\"><ext:Deep/></ext:VendorExtension>"
+                + "<SupplementalProperty schemeIdUri=\"urn:example:s\" value=\"v\"/>"
+                + "</InsertPresentation>"
+                + "<InsertPresentation uri=\"https://ads.example.com/second_ignored.mpd\"/>"
+                + "</Event>"
+                + "<Event id=\"8\" presentationTime=\"10\">"
+                + "<InsertPresentation uri=\"https://ads.example.com/unknown_no_jump.mpd\""
+                + " noJump=\"99\"/>"
+                + "</Event>"
+                + "</EventStream>"
+                + NEXT_TAG));
+    xpp.next();
+
+    Pair<EventStream, List<AlternativeMpdEvent>> parsedEventStream =
+        parser.parseEventStream(xpp, "https://example.com/test.mpd");
+
+    assertThat(parsedEventStream.first.events).hasLength(2);
+    assertThat(new String(parsedEventStream.first.events[0].messageData, StandardCharsets.UTF_8))
+        .contains("<InsertPresentation uri=\"https://ads.example.com/first.mpd\"");
+    assertThat(parsedEventStream.second)
+        .containsExactly(
+            new AlternativeMpdEvent.Builder(
+                    AlternativeMpdEvent.TYPE_INSERT,
+                    /* id= */ 7,
+                    Uri.parse("https://ads.example.com/first.mpd"))
+                .setPresentationTimeUs(5_000_000)
+                .setNoJump(AlternativeMpdEvent.NO_JUMP_NONE)
+                .setSkipAfterUs(0)
+                .setSupplementalProperties(
+                    ImmutableList.of(new Descriptor("urn:example:s", "v", /* id= */ null)))
+                .build(),
+            new AlternativeMpdEvent.Builder(
+                    AlternativeMpdEvent.TYPE_INSERT,
+                    /* id= */ 8,
+                    Uri.parse("https://ads.example.com/unknown_no_jump.mpd"))
+                .setPresentationTimeUs(10_000_000)
+                .setNoJump(AlternativeMpdEvent.NO_JUMP_NONE)
+                .build())
+        .inOrder();
+    assertNextTag(xpp);
+  }
+
+  @Test
+  public void parseEventStream_withFractionalEarliestResolutionTimeOffset_parsesAndRoundsToMicros()
+      throws Exception {
+    assumeTrue(parseDashAlternativeMpdEvents);
+    DashManifestParser parser = new DashManifestParser();
+    XmlPullParser xpp = XmlPullParserFactory.newInstance().newPullParser();
+    xpp.setInput(
+        new StringReader(
+            "<EventStream schemeIdUri=\"urn:mpeg:dash:event:alternativeMPD:insert:2025\""
+                + " timescale=\"1\">"
+                + "<Event id=\"1\" presentationTime=\"10\">"
+                + "<InsertPresentation uri=\"https://ads.example.com/ad.mpd\""
+                + " earliestResolutionTimeOffset=\"1.5\"/>"
+                + "</Event>"
+                + "</EventStream>"
+                + NEXT_TAG));
+    xpp.next();
+
+    Pair<EventStream, List<AlternativeMpdEvent>> parsedEventStream =
+        parser.parseEventStream(xpp, "https://example.com/test.mpd");
+
+    assertThat(parsedEventStream.second)
+        .containsExactly(
+            new AlternativeMpdEvent.Builder(
+                    AlternativeMpdEvent.TYPE_INSERT,
+                    /* id= */ 1,
+                    Uri.parse("https://ads.example.com/ad.mpd"))
+                .setPresentationTimeUs(10_000_000)
+                .setEarliestResolutionTimeOffsetUs(1_500_000)
+                .build());
+    assertNextTag(xpp);
+  }
+
+  @Test
+  public void
+      parseEventStream_withMessageDataAttributeAndPresentationElement_usesMessageDataAndParsesAlternativeMpdEvent()
+          throws Exception {
+    assumeTrue(parseDashAlternativeMpdEvents);
+    DashManifestParser parser = new DashManifestParser();
+    XmlPullParser xpp = XmlPullParserFactory.newInstance().newPullParser();
+    xpp.setInput(
+        new StringReader(
+            "<EventStream schemeIdUri=\"urn:mpeg:dash:event:alternativeMPD:insert:2025\""
+                + " value=\"insert\">"
+                + "<Event id=\"1\" presentationTime=\"2\" duration=\"5\""
+                + " messageData=\"custom-payload\">"
+                + "<InsertPresentation uri=\"https://ads.example.com/ad.mpd\"/>"
+                + "</Event>"
+                + "</EventStream>"
+                + NEXT_TAG));
+    xpp.next();
+
+    Pair<EventStream, List<AlternativeMpdEvent>> parsedEventStream =
+        parser.parseEventStream(xpp, "https://example.com/test.mpd");
+
+    assertThat(parsedEventStream.first.events).hasLength(1);
+    assertThat(parsedEventStream.first.events[0])
+        .isEqualTo(
+            new EventMessage(
+                AlternativeMpdEvent.SCHEME_ID_URI_INSERT,
+                "insert",
+                /* durationMs= */ 5000,
+                /* id= */ 1,
+                Util.getUtf8Bytes("custom-payload")));
+    assertThat(parsedEventStream.second)
+        .containsExactly(
+            new AlternativeMpdEvent.Builder(
+                    AlternativeMpdEvent.TYPE_INSERT,
+                    /* id= */ 1,
+                    Uri.parse("https://ads.example.com/ad.mpd"))
+                .setEventStreamValue("insert")
+                .setPresentationTimeUs(2_000_000)
+                .setDurationUs(5_000_000)
+                .build());
     assertNextTag(xpp);
   }
 

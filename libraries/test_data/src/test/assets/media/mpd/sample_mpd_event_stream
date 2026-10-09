@@ -27,6 +27,11 @@
          </scte35:Binary>
        </scte35:Signal></Event>
    </EventStream>
+   <EventStream schemeIdUri="urn:mpeg:dash:event:alternativeMPD:insert:2025" timescale="1000" value="insert">
+     <Event presentationTime="2000" duration="5000" id="3"><InsertPresentation uri="https://ads.example.com/ad.mpd" maxDuration="10000">
+         <SupplementalProperty schemeIdUri="urn:example:prop" value="val" />
+       </InsertPresentation></Event>
+   </EventStream>
   <SegmentTemplate startNumber="0" timescale="1000" media="sq/$Number$">
    <SegmentTimeline>
     <S d="2002" t="6009" r="2"/>

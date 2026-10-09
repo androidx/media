@@ -320,6 +320,29 @@ public final class DashMediaPeriodTest {
   }
 
   @Test
+  public void getTrackGroups_withAlternativeMpdEventStream_createsEmsgTrackGroups()
+      throws IOException {
+    DashManifest manifest = parseManifest("media/mpd/sample_mpd_alternative_mpd_replace");
+    DashMediaPeriod dashMediaPeriod = createDashMediaPeriod(manifest, /* periodIndex= */ 0);
+    List<AdaptationSet> adaptationSets = manifest.getPeriod(0).adaptationSets;
+    Format.Builder emsgFormatBuilder =
+        new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_EMSG);
+    TrackGroupArray expectedTrackGroups =
+        new TrackGroupArray(
+            new TrackGroup(/* id= */ "0", adaptationSets.get(0).representations.get(0).format),
+            new TrackGroup(
+                /* id= */ "urn:mpeg:dash:event:alternativeMPD:replace:2025/replace-main:0",
+                emsgFormatBuilder
+                    .setId("urn:mpeg:dash:event:alternativeMPD:replace:2025/replace-main")
+                    .build()),
+            new TrackGroup(
+                /* id= */ "urn:mpeg:dash:event:alternative:replace:2025/:1",
+                emsgFormatBuilder.setId("urn:mpeg:dash:event:alternative:replace:2025/").build()));
+
+    MediaPeriodAsserts.assertTrackGroups(dashMediaPeriod, expectedTrackGroups);
+  }
+
+  @Test
   public void buildSampleStream_enclosesAllClosedCaptions() throws IOException {
     DashManifest manifest = parseManifest("media/mpd/sample_mpd_cea_608_accessibility");
     DashChunkSource.Factory factory = mock(DashChunkSource.Factory.class);
