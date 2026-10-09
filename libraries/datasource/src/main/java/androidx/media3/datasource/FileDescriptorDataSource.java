@@ -27,13 +27,13 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.UnstableApi;
-import com.google.common.collect.Sets;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * A {@link DataSource} for reading from a {@link FileDescriptor}.
@@ -51,7 +51,7 @@ import java.util.Set;
 public class FileDescriptorDataSource extends BaseDataSource {
 
   // Track file descriptors currently in use to fail fast if an attempt is made to re-use one.
-  private static final Set<FileDescriptor> inUseFileDescriptors = Sets.newConcurrentHashSet();
+  private static final Set<FileDescriptor> inUseFileDescriptors = ConcurrentHashMap.newKeySet();
 
   private final FileDescriptor fileDescriptor;
   private final long offset;

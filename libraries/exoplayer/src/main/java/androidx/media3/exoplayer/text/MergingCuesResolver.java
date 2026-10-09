@@ -25,8 +25,8 @@ import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.extractor.text.CuesWithTiming;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ordering;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -39,18 +39,16 @@ import java.util.List;
 /* package */ final class MergingCuesResolver implements CuesResolver {
 
   /**
-   * An {@link Ordering} which sorts cues in ascending display priority, for compatibility with the
+   * A {@link Comparator} which sorts cues in ascending display priority, for compatibility with the
    * ordering defined for {@link CueGroup#cues}.
    *
    * <p>Sorts first by start time ascending (later cues should be shown on top of older ones), then
    * by duration descending (shorter duration cues that start at the same time should be shown on
    * top, as the one underneath will be visible after they disappear).
    */
-  private static final Ordering<CuesWithTiming> CUES_DISPLAY_PRIORITY_COMPARATOR =
-      Ordering.<Long>natural()
-          .onResultOf((CuesWithTiming c) -> c.startTimeUs)
-          .compound(
-              Ordering.<Long>natural().reverse().onResultOf((CuesWithTiming c) -> c.durationUs));
+  private static final Comparator<CuesWithTiming> CUES_DISPLAY_PRIORITY_COMPARATOR =
+      Comparator.comparingLong((CuesWithTiming c) -> c.startTimeUs)
+          .thenComparing(Comparator.comparingLong((CuesWithTiming c) -> c.durationUs).reversed());
 
   /** Sorted by {@link CuesWithTiming#startTimeUs} ascending. */
   private final List<CuesWithTiming> cuesWithTimingList;

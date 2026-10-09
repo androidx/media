@@ -260,11 +260,11 @@ public final class AdPlaybackState {
     public int hashCode() {
       int result = count;
       result = 31 * result + originalCount;
-      result = 31 * result + (int) (timeUs ^ (timeUs >>> 32));
+      result = 31 * result + Long.hashCode(timeUs);
       result = 31 * result + Arrays.hashCode(mediaItems);
       result = 31 * result + Arrays.hashCode(states);
       result = 31 * result + Arrays.hashCode(durationsUs);
-      result = 31 * result + (int) (contentResumeOffsetUs ^ (contentResumeOffsetUs >>> 32));
+      result = 31 * result + Long.hashCode(contentResumeOffsetUs);
       result = 31 * result + (isServerSideInserted ? 1 : 0);
       result = 31 * result + Arrays.hashCode(ids);
       result = 31 * result + Arrays.hashCode(skipInfos);

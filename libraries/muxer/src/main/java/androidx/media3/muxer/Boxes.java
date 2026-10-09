@@ -65,12 +65,6 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
 /** Writes out various types of boxes as per MP4 (ISO/IEC 14496-12) standards. */
 /* package */ final class Boxes {
-  /** Total number of bytes in an integer. */
-  private static final int BYTES_PER_INTEGER = 4;
-
-  /** Total number of bytes in a long. */
-  private static final int BYTES_PER_LONG = 8;
-
   /** Box size (4 bytes) + Box name (4 bytes) */
   public static final int BOX_HEADER_SIZE = 8;
 
@@ -81,13 +75,13 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   public static final int LARGE_SIZE_BOX_HEADER_SIZE = 16;
 
   /** The size (in bytes) of the mfhd box content. */
-  public static final int MFHD_BOX_CONTENT_SIZE = 2 * BYTES_PER_INTEGER;
+  public static final int MFHD_BOX_CONTENT_SIZE = 2 * Integer.BYTES;
 
   /** The size (in bytes) of the tfhd box content. */
-  public static final int TFHD_BOX_CONTENT_SIZE = 4 * BYTES_PER_INTEGER;
+  public static final int TFHD_BOX_CONTENT_SIZE = 4 * Integer.BYTES;
 
   /** The size (in bytes) of the tfdt box content. */
-  public static final int TFDT_BOX_CONTENT_SIZE = BYTES_PER_INTEGER + BYTES_PER_LONG;
+  public static final int TFDT_BOX_CONTENT_SIZE = Integer.BYTES + Long.BYTES;
 
   /** The maximum size (in bytes) of boxes that have fixed sizes. */
   private static final int MAX_FIXED_LEAF_BOX_SIZE = 200;
@@ -663,7 +657,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       // Add header size to wrap each key into a "mdta" box.
       totalSizeToStoreKeys += mdtaMetadataEntries.get(i).key.length() + BOX_HEADER_SIZE;
     }
-    ByteBuffer contents = ByteBuffer.allocate(2 * BYTES_PER_INTEGER + totalSizeToStoreKeys);
+    ByteBuffer contents = ByteBuffer.allocate(2 * Integer.BYTES + totalSizeToStoreKeys);
     contents.putInt(0x0); // version and flags
     contents.putInt(mdtaMetadataEntries.size()); // Entry count
 
@@ -687,7 +681,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       // Add additional 16 bytes for writing metadata associated to each value.
       // Add header size to wrap each value into a "data" box.
       totalSizeToStoreValues +=
-          mdtaMetadataEntries.get(i).value.length + 4 * BYTES_PER_INTEGER + BOX_HEADER_SIZE;
+          mdtaMetadataEntries.get(i).value.length + 4 * Integer.BYTES + BOX_HEADER_SIZE;
     }
 
     ByteBuffer contents = ByteBuffer.allocate(totalSizeToStoreValues);
@@ -697,7 +691,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       MdtaMetadataEntry currentMdtaMetadataEntry = mdtaMetadataEntries.get(i);
 
       ByteBuffer valueContents =
-          ByteBuffer.allocate(2 * BYTES_PER_INTEGER + currentMdtaMetadataEntry.value.length);
+          ByteBuffer.allocate(2 * Integer.BYTES + currentMdtaMetadataEntry.value.length);
       valueContents.putInt(currentMdtaMetadataEntry.typeIndicator);
       valueContents.putInt(currentMdtaMetadataEntry.localeIndicator);
       valueContents.put(currentMdtaMetadataEntry.value);
@@ -1057,8 +1051,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     }
 
     ByteBuffer contents =
-        ByteBuffer.allocate(
-            2 * BYTES_PER_INTEGER + 2 * compositionOffsets.size() * BYTES_PER_INTEGER);
+        ByteBuffer.allocate(2 * Integer.BYTES + 2 * compositionOffsets.size() * Integer.BYTES);
 
     int versionAndFlags = 1 << 24; // version (value 1, 8 bits) + flag (value 0, 24 bits)
     contents.putInt(versionAndFlags);
@@ -1211,7 +1204,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   /** Returns the stco (32-bit chunk offset) box. */
   public static ByteBuffer stco(List<Long> writtenChunkOffsets) {
     ByteBuffer contents =
-        ByteBuffer.allocate(2 * BYTES_PER_INTEGER + writtenChunkOffsets.size() * BYTES_PER_INTEGER);
+        ByteBuffer.allocate(2 * Integer.BYTES + writtenChunkOffsets.size() * Integer.BYTES);
 
     contents.putInt(0x0); // version and flags
     contents.putInt(writtenChunkOffsets.size()); // entry_count: unsigned int(32)
@@ -1229,8 +1222,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   /** Returns the co64 (64-bit chunk offset) box. */
   public static ByteBuffer co64(List<Long> writtenChunkOffsets) {
     ByteBuffer contents =
-        ByteBuffer.allocate(
-            2 * BYTES_PER_INTEGER + 2 * writtenChunkOffsets.size() * BYTES_PER_INTEGER);
+        ByteBuffer.allocate(2 * Integer.BYTES + 2 * writtenChunkOffsets.size() * Integer.BYTES);
 
     contents.putInt(0x0); // version and flags
     contents.putInt(writtenChunkOffsets.size()); // entry_count: unsigned int(32)
@@ -1403,9 +1395,9 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
   /** Returns the size required for {@link #trun} box content. */
   public static int getTrunBoxContentSize(int sampleCount, boolean hasBFrame) {
-    int trunBoxFixedSize = 3 * BYTES_PER_INTEGER;
+    int trunBoxFixedSize = 3 * Integer.BYTES;
     int intWrittenPerSample = hasBFrame ? 4 : 3;
-    return trunBoxFixedSize + intWrittenPerSample * sampleCount * BYTES_PER_INTEGER;
+    return trunBoxFixedSize + intWrittenPerSample * sampleCount * Integer.BYTES;
   }
 
   /** Returns a movie extends (mvex) box. */
@@ -1415,7 +1407,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
   /** Returns a track extends (trex) box. */
   public static ByteBuffer trex(int trackId) {
-    ByteBuffer contents = ByteBuffer.allocate(6 * BYTES_PER_INTEGER);
+    ByteBuffer contents = ByteBuffer.allocate(6 * Integer.BYTES);
     contents.putInt(0x0); // version and flags
     contents.putInt(trackId);
     contents.putInt(1); // default_sample_description_index
@@ -1447,7 +1439,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
   /** Returns the track reference type box. */
   private static ByteBuffer trefTypeBox(int referenceType, List<Integer> trackIds) {
-    ByteBuffer contents = ByteBuffer.allocate(trackIds.size() * BYTES_PER_INTEGER);
+    ByteBuffer contents = ByteBuffer.allocate(trackIds.size() * Integer.BYTES);
     for (int i = 0; i < trackIds.size(); i++) {
       contents.putInt(trackIds.get(i));
     }
@@ -1679,7 +1671,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     checkArgument(csd0.length > 0, "csd-0 is empty for apvC box.");
 
     int versionAndFlags = 0;
-    ByteBuffer apvcBoxContent = ByteBuffer.allocate(csd0.length + BYTES_PER_INTEGER);
+    ByteBuffer apvcBoxContent = ByteBuffer.allocate(csd0.length + Integer.BYTES);
     apvcBoxContent.putInt(versionAndFlags);
     apvcBoxContent.put(csd0);
     apvcBoxContent.flip();

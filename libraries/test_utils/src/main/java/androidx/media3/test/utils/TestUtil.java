@@ -69,7 +69,6 @@ import com.google.common.collect.BoundType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Ordering;
 import com.google.common.collect.Range;
 import com.google.common.io.ByteStreams;
 import com.google.common.primitives.Bytes;
@@ -94,6 +93,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Queue;
@@ -245,7 +245,7 @@ public class TestUtil {
   /** Creates a {@link ByteBuffer} containing the {@code data}. */
   public static ByteBuffer createByteBuffer(float[] data) {
     ByteBuffer buffer =
-        ByteBuffer.allocateDirect(data.length * C.BYTES_PER_FLOAT).order(ByteOrder.nativeOrder());
+        ByteBuffer.allocateDirect(data.length * Float.BYTES).order(ByteOrder.nativeOrder());
     buffer.asFloatBuffer().put(data);
     return buffer;
   }
@@ -253,28 +253,31 @@ public class TestUtil {
   /** Creates a {@link ByteBuffer} containing the {@code data}. */
   public static ByteBuffer createByteBuffer(double[] data) {
     ByteBuffer buffer =
-        ByteBuffer.allocateDirect(data.length * Double.SIZE / 8).order(ByteOrder.nativeOrder());
+        ByteBuffer.allocateDirect(data.length * Double.BYTES).order(ByteOrder.nativeOrder());
     buffer.asDoubleBuffer().put(data);
     return buffer;
   }
 
   /** Creates a {@link ByteBuffer} containing the {@code data}. */
   public static ByteBuffer createByteBuffer(int[] data) {
-    ByteBuffer buffer = ByteBuffer.allocateDirect(data.length * 4).order(ByteOrder.nativeOrder());
+    ByteBuffer buffer =
+        ByteBuffer.allocateDirect(data.length * Integer.BYTES).order(ByteOrder.nativeOrder());
     buffer.asIntBuffer().put(data);
     return buffer;
   }
 
   /** Creates a {@link ByteBuffer} containing the {@code data}. */
   public static ByteBuffer createByteBuffer(long[] data) {
-    ByteBuffer buffer = ByteBuffer.allocateDirect(data.length * 8).order(ByteOrder.nativeOrder());
+    ByteBuffer buffer =
+        ByteBuffer.allocateDirect(data.length * Long.BYTES).order(ByteOrder.nativeOrder());
     buffer.asLongBuffer().put(data);
     return buffer;
   }
 
   /** Creates a {@link ByteBuffer} containing the {@code data}. */
   public static ByteBuffer createByteBuffer(short[] data) {
-    ByteBuffer buffer = ByteBuffer.allocateDirect(data.length * 2).order(ByteOrder.nativeOrder());
+    ByteBuffer buffer =
+        ByteBuffer.allocateDirect(data.length * Short.BYTES).order(ByteOrder.nativeOrder());
     buffer.asShortBuffer().put(data);
     return buffer;
   }
@@ -915,7 +918,7 @@ public class TestUtil {
   private static <T> T tryCreateInstance(Class<T> clazz) {
     Constructor<T>[] constructors = (Constructor<T>[]) clazz.getConstructors();
     // Start with the constructor with fewest parameters.
-    Arrays.sort(constructors, Ordering.natural().onResultOf(c -> c.getParameterTypes().length));
+    Arrays.sort(constructors, Comparator.comparingInt(c -> c.getParameterTypes().length));
     for (Constructor<T> constructor : constructors) {
       try {
         return constructor.newInstance(createParameters(constructor.getParameterTypes()));
@@ -927,7 +930,7 @@ public class TestUtil {
     // We didn't find a usable constructor, so look for a static factory method instead.
     Method[] methods = clazz.getMethods();
     // Start with the method with fewest parameters.
-    Arrays.sort(methods, Ordering.natural().onResultOf(m -> m.getParameterTypes().length));
+    Arrays.sort(methods, Comparator.comparingInt(m -> m.getParameterTypes().length));
     for (Method method : methods) {
       if (!Modifier.isStatic(method.getModifiers())
           || !clazz.isAssignableFrom(method.getReturnType())) {

@@ -512,18 +512,17 @@ public final class ImaAdsLoader implements AdsLoader {
    */
   @UnstableApi
   public void requestAds(DataSpec adTagDataSpec, Object adsId, @Nullable ViewGroup adViewGroup) {
-    if (!adTagLoaderByAdsId.containsKey(adsId)) {
-      AdTagLoader adTagLoader =
-          new AdTagLoader(
-              context,
-              configuration,
-              imaFactory,
-              supportedMimeTypes,
-              adTagDataSpec,
-              adsId,
-              adViewGroup);
-      adTagLoaderByAdsId.put(adsId, adTagLoader);
-    }
+    adTagLoaderByAdsId.computeIfAbsent(
+        adsId,
+        id ->
+            new AdTagLoader(
+                context,
+                configuration,
+                imaFactory,
+                supportedMimeTypes,
+                adTagDataSpec,
+                id,
+                adViewGroup));
   }
 
   /**

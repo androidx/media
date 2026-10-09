@@ -18,7 +18,6 @@ package androidx.media3.extractor.metadata;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
-import com.google.common.primitives.Longs;
 
 /** Stores the presentation timestamp of a thumbnail. */
 @UnstableApi
@@ -51,7 +50,7 @@ public final class ThumbnailMetadata implements Metadata.Entry {
   @Override
   public int hashCode() {
     int result = 17;
-    result = 31 * result + Longs.hashCode(presentationTimeUs);
+    result = 31 * result + Long.hashCode(presentationTimeUs);
     return result;
   }
 

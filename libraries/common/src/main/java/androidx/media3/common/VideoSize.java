@@ -119,7 +119,7 @@ public final class VideoSize {
     int result = 7;
     result = 31 * result + width;
     result = 31 * result + height;
-    result = 31 * result + Float.floatToRawIntBits(pixelWidthHeightRatio);
+    result = 31 * result + Float.hashCode(pixelWidthHeightRatio);
     return result;
   }
 

@@ -18,7 +18,6 @@ package androidx.media3.container;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
-import com.google.common.primitives.Longs;
 
 /** Stores MP4 timestamp data. */
 @UnstableApi
@@ -101,9 +100,9 @@ public final class Mp4TimestampData implements Metadata.Entry {
   @Override
   public int hashCode() {
     int result = 17;
-    result = 31 * result + Longs.hashCode(creationTimestampSeconds);
-    result = 31 * result + Longs.hashCode(modificationTimestampSeconds);
-    result = 31 * result + Longs.hashCode(timescale);
+    result = 31 * result + Long.hashCode(creationTimestampSeconds);
+    result = 31 * result + Long.hashCode(modificationTimestampSeconds);
+    result = 31 * result + Long.hashCode(timescale);
     return result;
   }
 

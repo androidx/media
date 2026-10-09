@@ -21,12 +21,12 @@ import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.ReferenceCounter;
 import androidx.media3.common.video.SyncFenceWrapper;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * Manages {@link Frame} instances currently in flight downstream, releasing them when processed if
@@ -55,7 +55,7 @@ import java.util.Set;
     }
     boolean success = false;
     try {
-      success = queueAction.apply(packet);
+      success = queueAction.test(packet);
       return success;
     } finally {
       if (!success) {

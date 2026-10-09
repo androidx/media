@@ -1232,15 +1232,14 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       result = 31 * result + repeatMode;
       result = 31 * result + (shuffleModeEnabled ? 1 : 0);
       result = 31 * result + (isLoading ? 1 : 0);
-      result = 31 * result + (int) (seekBackIncrementMs ^ (seekBackIncrementMs >>> 32));
-      result = 31 * result + (int) (seekForwardIncrementMs ^ (seekForwardIncrementMs >>> 32));
-      result =
-          31 * result + (int) (maxSeekToPreviousPositionMs ^ (maxSeekToPreviousPositionMs >>> 32));
+      result = 31 * result + Long.hashCode(seekBackIncrementMs);
+      result = 31 * result + Long.hashCode(seekForwardIncrementMs);
+      result = 31 * result + Long.hashCode(maxSeekToPreviousPositionMs);
       result = 31 * result + playbackParameters.hashCode();
       result = 31 * result + trackSelectionParameters.hashCode();
       result = 31 * result + audioAttributes.hashCode();
-      result = 31 * result + Float.floatToRawIntBits(volume);
-      result = 31 * result + Float.floatToRawIntBits(unmuteVolume);
+      result = 31 * result + Float.hashCode(volume);
+      result = 31 * result + Float.hashCode(unmuteVolume);
       result = 31 * result + videoSize.hashCode();
       result = 31 * result + currentCues.hashCode();
       result = 31 * result + deviceInfo.hashCode();
@@ -1263,7 +1262,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       result = 31 * result + totalBufferedDurationMsSupplier.hashCode();
       result = 31 * result + (hasPositionDiscontinuity ? 1 : 0);
       result = 31 * result + positionDiscontinuityReason;
-      result = 31 * result + (int) (discontinuityPositionMs ^ (discontinuityPositionMs >>> 32));
+      result = 31 * result + Long.hashCode(discontinuityPositionMs);
       return result;
     }
   }
@@ -1856,16 +1855,14 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       result = 31 * result + (mediaMetadata == null ? 0 : mediaMetadata.hashCode());
       result = 31 * result + (manifest == null ? 0 : manifest.hashCode());
       result = 31 * result + (liveConfiguration == null ? 0 : liveConfiguration.hashCode());
-      result = 31 * result + (int) (presentationStartTimeMs ^ (presentationStartTimeMs >>> 32));
-      result = 31 * result + (int) (windowStartTimeMs ^ (windowStartTimeMs >>> 32));
-      result =
-          31 * result
-              + (int) (elapsedRealtimeEpochOffsetMs ^ (elapsedRealtimeEpochOffsetMs >>> 32));
+      result = 31 * result + Long.hashCode(presentationStartTimeMs);
+      result = 31 * result + Long.hashCode(windowStartTimeMs);
+      result = 31 * result + Long.hashCode(elapsedRealtimeEpochOffsetMs);
       result = 31 * result + (isSeekable ? 1 : 0);
       result = 31 * result + (isDynamic ? 1 : 0);
-      result = 31 * result + (int) (defaultPositionUs ^ (defaultPositionUs >>> 32));
-      result = 31 * result + (int) (durationUs ^ (durationUs >>> 32));
-      result = 31 * result + (int) (positionInFirstPeriodUs ^ (positionInFirstPeriodUs >>> 32));
+      result = 31 * result + Long.hashCode(defaultPositionUs);
+      result = 31 * result + Long.hashCode(durationUs);
+      result = 31 * result + Long.hashCode(positionInFirstPeriodUs);
       result = 31 * result + (isPlaceholder ? 1 : 0);
       result = 31 * result + periods.hashCode();
       return result;
@@ -2133,8 +2130,8 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     public int hashCode() {
       int result = 7;
       result = 31 * result + uid.hashCode();
-      result = 31 * result + (int) (durationUs ^ (durationUs >>> 32));
-      result = 31 * result + (int) (originalDurationUs ^ (originalDurationUs >>> 32));
+      result = 31 * result + Long.hashCode(durationUs);
+      result = 31 * result + Long.hashCode(originalDurationUs);
       result = 31 * result + adPlaybackState.hashCode();
       result = 31 * result + (isPlaceholder ? 1 : 0);
       return result;

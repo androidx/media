@@ -1501,11 +1501,11 @@ public final class MediaItem {
 
     @Override
     public int hashCode() {
-      int result = (int) (targetOffsetMs ^ (targetOffsetMs >>> 32));
-      result = 31 * result + (int) (minOffsetMs ^ (minOffsetMs >>> 32));
-      result = 31 * result + (int) (maxOffsetMs ^ (maxOffsetMs >>> 32));
-      result = 31 * result + (minPlaybackSpeed != 0 ? Float.floatToIntBits(minPlaybackSpeed) : 0);
-      result = 31 * result + (maxPlaybackSpeed != 0 ? Float.floatToIntBits(maxPlaybackSpeed) : 0);
+      int result = Long.hashCode(targetOffsetMs);
+      result = 31 * result + Long.hashCode(minOffsetMs);
+      result = 31 * result + Long.hashCode(maxOffsetMs);
+      result = 31 * result + (minPlaybackSpeed != 0 ? Float.hashCode(minPlaybackSpeed) : 0);
+      result = 31 * result + (maxPlaybackSpeed != 0 ? Float.hashCode(maxPlaybackSpeed) : 0);
       return result;
     }
 
@@ -1774,7 +1774,7 @@ public final class MediaItem {
       result = 31 * result + roleFlags;
       result = 31 * result + (label == null ? 0 : label.hashCode());
       result = 31 * result + (id == null ? 0 : id.hashCode());
-      result = 31 * result + (int) (timeOffsetUs ^ (timeOffsetUs >>> 32));
+      result = 31 * result + Long.hashCode(timeOffsetUs);
       return result;
     }
 
@@ -2103,8 +2103,8 @@ public final class MediaItem {
 
     @Override
     public int hashCode() {
-      int result = (int) (startPositionUs ^ (startPositionUs >>> 32));
-      result = 31 * result + (int) (endPositionUs ^ (endPositionUs >>> 32));
+      int result = Long.hashCode(startPositionUs);
+      result = 31 * result + Long.hashCode(endPositionUs);
       result = 31 * result + (relativeToLiveWindow ? 1 : 0);
       result = 31 * result + (relativeToDefaultPosition ? 1 : 0);
       result = 31 * result + (startsAtKeyFrame ? 1 : 0);

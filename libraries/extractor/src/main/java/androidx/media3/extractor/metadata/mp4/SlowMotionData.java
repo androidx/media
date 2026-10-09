@@ -21,7 +21,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.collect.ComparisonChain;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -34,12 +33,9 @@ public final class SlowMotionData implements Metadata.Entry {
   public static final class Segment {
 
     public static final Comparator<Segment> BY_START_THEN_END_THEN_DIVISOR =
-        (s1, s2) ->
-            ComparisonChain.start()
-                .compare(s1.startTimeMs, s2.startTimeMs)
-                .compare(s1.endTimeMs, s2.endTimeMs)
-                .compare(s1.speedDivisor, s2.speedDivisor)
-                .result();
+        Comparator.comparingLong((Segment s) -> s.startTimeMs)
+            .thenComparingLong(s -> s.endTimeMs)
+            .thenComparingInt(s -> s.speedDivisor);
 
     /** The start time, in milliseconds, of the track segment that is intended to be slow motion. */
     public final long startTimeMs;

@@ -25,7 +25,7 @@ import android.text.style.AbsoluteSizeSpan;
 import android.text.style.RelativeSizeSpan;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.LanguageFeatureSpan;
-import com.google.common.base.Predicate;
+import java.util.function.Predicate;
 
 /** Utility class for subtitle layout logic. */
 /* package */ final class SubtitleViewUtils {
@@ -96,7 +96,7 @@ import com.google.common.base.Predicate;
   private static void removeSpansIf(Spannable spannable, Predicate<Object> removeFilter) {
     Object[] spans = spannable.getSpans(0, spannable.length(), Object.class);
     for (Object span : spans) {
-      if (removeFilter.apply(span)) {
+      if (removeFilter.test(span)) {
         spannable.removeSpan(span);
       }
     }

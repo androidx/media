@@ -24,7 +24,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.math.IntMath;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
 
@@ -146,12 +145,12 @@ public final class RtpPacket {
 
   /** Returns the next sequence number of the {@code sequenceNumber}. */
   public static int getNextSequenceNumber(int sequenceNumber) {
-    return IntMath.mod(sequenceNumber + 1, MAX_SEQUENCE_NUMBER + 1);
+    return Math.floorMod(sequenceNumber + 1, MAX_SEQUENCE_NUMBER + 1);
   }
 
   /** Returns the previous sequence number from the {@code sequenceNumber}. */
   public static int getPreviousSequenceNumber(int sequenceNumber) {
-    return IntMath.mod(sequenceNumber - 1, MAX_SEQUENCE_NUMBER + 1);
+    return Math.floorMod(sequenceNumber - 1, MAX_SEQUENCE_NUMBER + 1);
   }
 
   private static final byte[] EMPTY = new byte[0];
@@ -347,7 +346,7 @@ public final class RtpPacket {
     result = 31 * result + payloadType;
     result = 31 * result + sequenceNumber;
     result = 31 * result + (marker ? 1 : 0);
-    result = 31 * result + (int) (timestamp ^ (timestamp >>> 32));
+    result = 31 * result + Long.hashCode(timestamp);
     result = 31 * result + ssrc;
     return result;
   }

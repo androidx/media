@@ -23,9 +23,9 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Ordering;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 
 /** A {@link Subtitle} backed by a list of {@link CuesWithTiming} instances. */
@@ -41,8 +41,8 @@ import java.util.List;
   private final long[] eventTimesUs;
 
   /** Ordering of two CuesWithTiming objects based on their startTimeUs values. */
-  private static final Ordering<CuesWithTiming> CUES_BY_START_TIME_ASCENDING =
-      Ordering.natural().onResultOf(c -> normalizeUnsetStartTimeToZero(c.startTimeUs));
+  private static final Comparator<CuesWithTiming> CUES_BY_START_TIME_ASCENDING =
+      Comparator.comparingLong(c -> normalizeUnsetStartTimeToZero(c.startTimeUs));
 
   public CuesWithTimingSubtitle(List<CuesWithTiming> cuesWithTimingList) {
     if (cuesWithTimingList.size() == 1) {

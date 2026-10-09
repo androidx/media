@@ -19,7 +19,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import android.os.Looper;
 import androidx.annotation.Nullable;
-import com.google.common.base.Function;
+import java.util.function.Function;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 /**

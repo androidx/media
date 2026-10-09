@@ -173,7 +173,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         Projection.POSITION_COORDS_PER_VERTEX,
         GLES20.GL_FLOAT,
         false,
-        Projection.POSITION_COORDS_PER_VERTEX * C.BYTES_PER_FLOAT,
+        Projection.POSITION_COORDS_PER_VERTEX * Float.BYTES,
         meshData.vertexBuffer);
     try {
       checkGlError();
@@ -187,7 +187,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         Projection.TEXTURE_COORDS_PER_VERTEX,
         GLES20.GL_FLOAT,
         false,
-        Projection.TEXTURE_COORDS_PER_VERTEX * C.BYTES_PER_FLOAT,
+        Projection.TEXTURE_COORDS_PER_VERTEX * Float.BYTES,
         meshData.textureBuffer);
     try {
       checkGlError();

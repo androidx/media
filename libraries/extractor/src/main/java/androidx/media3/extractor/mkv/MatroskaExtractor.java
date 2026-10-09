@@ -2788,11 +2788,10 @@ public class MatroskaExtractor implements Extractor {
                 .setLumaBitdepth(lumaBitdepth)
                 .setChromaBitdepth(chromaBitdepth)
                 .build();
-        int rotationDegrees = Format.NO_VALUE;
-
-        if (name != null && TRACK_NAME_TO_ROTATION_DEGREES.containsKey(name)) {
-          rotationDegrees = TRACK_NAME_TO_ROTATION_DEGREES.get(name);
-        }
+        int rotationDegrees =
+            name != null
+                ? TRACK_NAME_TO_ROTATION_DEGREES.getOrDefault(name, Format.NO_VALUE)
+                : Format.NO_VALUE;
         if (projectionType == C.PROJECTION_RECTANGULAR
             && Float.compare(projectionPoseYaw, 0f) == 0
             && Float.compare(projectionPosePitch, 0f) == 0) {

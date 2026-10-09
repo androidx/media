@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Label;
-import com.google.common.primitives.Longs;
 import java.util.Objects;
 
 /** A generic, format-agnostic implementation of the {@link Chapter} interface. */
@@ -87,8 +86,8 @@ import java.util.Objects;
   @Override
   public int hashCode() {
     int result = 17;
-    result = 31 * result + Longs.hashCode(startTimeMs);
-    result = 31 * result + Longs.hashCode(endTimeMs);
+    result = 31 * result + Long.hashCode(startTimeMs);
+    result = 31 * result + Long.hashCode(endTimeMs);
     result = 31 * result + (isHidden ? 1 : 0);
     result = 31 * result + (title != null ? title.hashCode() : 0);
     return result;

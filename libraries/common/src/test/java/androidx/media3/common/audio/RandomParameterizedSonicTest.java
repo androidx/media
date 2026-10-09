@@ -22,7 +22,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
-import androidx.media3.common.C;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
@@ -45,7 +44,6 @@ import org.robolectric.annotation.Config;
 public final class RandomParameterizedSonicTest {
 
   private static final int BLOCK_SIZE = 8192;
-  private static final int BYTES_PER_SHORT = 2;
   private static final int SAMPLE_RATE = 48000;
   // Max 10 min streams.
   private static final long MAX_LENGTH_SAMPLES = 10 * 60 * SAMPLE_RATE;
@@ -142,7 +140,7 @@ public final class RandomParameterizedSonicTest {
 
   @Test
   public void resampling_returnsExpectedNumberOfSamples() {
-    int bytesPerSample = useFloatSamples ? C.BYTES_PER_FLOAT : BYTES_PER_SHORT;
+    int bytesPerSample = useFloatSamples ? Float.BYTES : Short.BYTES;
     ByteBuffer inBuffer =
         ByteBuffer.allocateDirect(BLOCK_SIZE * bytesPerSample).order(ByteOrder.nativeOrder());
     ByteBuffer outBuffer =
@@ -188,7 +186,7 @@ public final class RandomParameterizedSonicTest {
 
   @Test
   public void timeStretching_returnsExpectedNumberOfSamples() {
-    int bytesPerSample = useFloatSamples ? C.BYTES_PER_FLOAT : BYTES_PER_SHORT;
+    int bytesPerSample = useFloatSamples ? Float.BYTES : Short.BYTES;
     ByteBuffer outBuffer =
         ByteBuffer.allocateDirect(BLOCK_SIZE * bytesPerSample).order(ByteOrder.nativeOrder());
     ByteBuffer inBuffer =

@@ -22,9 +22,9 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import org.chromium.net.CronetEngine;
 import org.chromium.net.CronetProvider;
 
@@ -80,16 +80,15 @@ public final class CronetUtil {
       Context context, @Nullable String userAgent, boolean preferGooglePlayServices) {
     List<CronetProvider> cronetProviders = new ArrayList<>(CronetProvider.getAllProviders(context));
     // Remove disabled and fallback Cronet providers from list.
-    for (int i = cronetProviders.size() - 1; i >= 0; i--) {
-      if (!cronetProviders.get(i).isEnabled()
-          || CronetProvider.PROVIDER_NAME_FALLBACK.equals(cronetProviders.get(i).getName())) {
-        cronetProviders.remove(i);
-      }
-    }
+    boolean unused =
+        cronetProviders.removeIf(
+            p ->
+                !p.isEnabled()
+                    || Objects.equals(p.getName(), CronetProvider.PROVIDER_NAME_FALLBACK));
     // Sort remaining providers by type and version.
     CronetProviderComparator providerComparator =
         new CronetProviderComparator(preferGooglePlayServices);
-    Collections.sort(cronetProviders, providerComparator);
+    cronetProviders.sort(providerComparator);
     for (int i = 0; i < cronetProviders.size(); i++) {
       String providerName = cronetProviders.get(i).getName();
       try {

@@ -143,7 +143,7 @@ public final class CopyOnWriteMultiset<E extends Object> implements Iterable<E> 
   /** Returns the number of occurrences of an element in this multiset. */
   public int count(E element) {
     synchronized (lock) {
-      return elementCounts.containsKey(element) ? elementCounts.get(element) : 0;
+      return elementCounts.getOrDefault(element, 0);
     }
   }
 }

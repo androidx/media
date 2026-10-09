@@ -20,7 +20,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
-import com.google.common.primitives.Longs;
 
 /** Metadata of a motion photo file. */
 @UnstableApi
@@ -76,11 +75,11 @@ public final class MotionPhotoMetadata implements Metadata.Entry {
   @Override
   public int hashCode() {
     int result = 17;
-    result = 31 * result + Longs.hashCode(photoStartPosition);
-    result = 31 * result + Longs.hashCode(photoSize);
-    result = 31 * result + Longs.hashCode(photoPresentationTimestampUs);
-    result = 31 * result + Longs.hashCode(videoStartPosition);
-    result = 31 * result + Longs.hashCode(videoSize);
+    result = 31 * result + Long.hashCode(photoStartPosition);
+    result = 31 * result + Long.hashCode(photoSize);
+    result = 31 * result + Long.hashCode(photoPresentationTimestampUs);
+    result = 31 * result + Long.hashCode(videoStartPosition);
+    result = 31 * result + Long.hashCode(videoSize);
     return result;
   }
 

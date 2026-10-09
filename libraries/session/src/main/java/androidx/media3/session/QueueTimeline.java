@@ -347,10 +347,10 @@ import java.util.UUID;
     @Override
     public int hashCode() {
       int result = 7;
-      result = 31 * result + (int) (queueId ^ (queueId >>> 32));
+      result = 31 * result + Long.hashCode(queueId);
       result = 31 * result + mediaItem.hashCode();
       result = 31 * result + uid.hashCode();
-      result = 31 * result + (int) (durationMs ^ (durationMs >>> 32));
+      result = 31 * result + Long.hashCode(durationMs);
       return result;
     }
   }

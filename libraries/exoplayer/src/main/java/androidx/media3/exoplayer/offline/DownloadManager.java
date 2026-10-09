@@ -921,7 +921,7 @@ public final class DownloadManager {
         downloads.add(
             copyDownloadWithState(terminalDownloads.get(i), STATE_REMOVING, STOP_REASON_NONE));
       }
-      Collections.sort(downloads, InternalHandler::compareStartTimes);
+      downloads.sort(InternalHandler::compareStartTimes);
       try {
         downloadIndex.setStatesToRemoving();
       } catch (IOException e) {
@@ -1215,12 +1215,12 @@ public final class DownloadManager {
       int changedIndex = getDownloadIndex(download.request.id);
       if (changedIndex == C.INDEX_UNSET) {
         downloads.add(download);
-        Collections.sort(downloads, InternalHandler::compareStartTimes);
+        downloads.sort(InternalHandler::compareStartTimes);
       } else {
         boolean needsSort = download.startTimeMs != downloads.get(changedIndex).startTimeMs;
         downloads.set(changedIndex, download);
         if (needsSort) {
-          Collections.sort(downloads, InternalHandler::compareStartTimes);
+          downloads.sort(InternalHandler::compareStartTimes);
         }
       }
       try {

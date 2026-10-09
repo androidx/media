@@ -116,8 +116,8 @@ public final class PlaybackParameters {
   @Override
   public int hashCode() {
     int result = 17;
-    result = 31 * result + Float.floatToRawIntBits(speed);
-    result = 31 * result + Float.floatToRawIntBits(pitch);
+    result = 31 * result + Float.hashCode(speed);
+    result = 31 * result + Float.hashCode(pitch);
     return result;
   }
 

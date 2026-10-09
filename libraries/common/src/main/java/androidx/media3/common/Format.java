@@ -1509,7 +1509,7 @@ public final class Format {
       result = 31 * result + (language == null ? 0 : language.hashCode());
       result = 31 * result + selectionFlags;
       result = 31 * result + roleFlags;
-      result = 31 * result + Float.floatToIntBits(selectionPriority);
+      result = 31 * result + Float.hashCode(selectionPriority);
       result = 31 * result + auxiliaryTrackType;
       result = 31 * result + averageBitrate;
       result = 31 * result + peakBitrate;
@@ -1531,10 +1531,10 @@ public final class Format {
       result = 31 * result + pixelFormat;
       result = 31 * result + decodedWidth;
       result = 31 * result + decodedHeight;
-      result = 31 * result + Float.floatToIntBits(frameRate);
+      result = 31 * result + Float.hashCode(frameRate);
       result = 31 * result + rotationDegrees;
       result = 31 * result + (mirrorHorizontal ? 1 : 0);
-      result = 31 * result + Float.floatToIntBits(pixelWidthHeightRatio);
+      result = 31 * result + Float.hashCode(pixelWidthHeightRatio);
       // [Omitted] projectionData.
       result = 31 * result + stereoMode;
       // [Omitted] colorInfo.

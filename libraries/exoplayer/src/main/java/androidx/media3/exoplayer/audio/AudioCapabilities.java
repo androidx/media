@@ -518,13 +518,9 @@ public final class AudioCapabilities {
           && !ALL_SURROUND_ENCODINGS_AND_MAX_CHANNELS.containsKey(encoding)) {
         continue;
       }
-      if (formatToChannelMasks.containsKey(encoding)) {
-        checkNotNull(formatToChannelMasks.get(encoding))
-            .addAll(Ints.asList(audioProfile.getChannelMasks()));
-      } else {
-        formatToChannelMasks.put(
-            encoding, new HashSet<>(Ints.asList(audioProfile.getChannelMasks())));
-      }
+      formatToChannelMasks
+          .computeIfAbsent(encoding, k -> new HashSet<>())
+          .addAll(Ints.asList(audioProfile.getChannelMasks()));
     }
 
     ImmutableList.Builder<AudioProfile> localAudioProfiles = ImmutableList.builder();

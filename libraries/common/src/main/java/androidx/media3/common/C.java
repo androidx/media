@@ -94,8 +94,12 @@ public final class C {
   /** The number of bits per byte. */
   @UnstableApi public static final int BITS_PER_BYTE = 8;
 
-  /** The number of bytes per float. */
-  @UnstableApi public static final int BYTES_PER_FLOAT = 4;
+  /**
+   * The number of bytes per float.
+   *
+   * @deprecated Use {@link Float#BYTES} instead.
+   */
+  @Deprecated @UnstableApi public static final int BYTES_PER_FLOAT = 4;
 
   /** The name of the serif font family. */
   @UnstableApi public static final String SERIF_NAME = "serif";

@@ -196,7 +196,6 @@ public final class DebugTraceUtil {
    *     Util#formatInvariant(String, Object...)}.
    * @param extraArgs Arguments for optional extra information.
    */
-  @SuppressWarnings("ComputeIfAbsentContainsKey") // Avoid Java8 for visibility
   public static synchronized void logEvent(
       @Component String component,
       @Event String event,
@@ -225,7 +224,6 @@ public final class DebugTraceUtil {
    *     Util#formatInvariant(String, Object...)}.
    * @param extraArgs Arguments for optional extra information.
    */
-  @SuppressWarnings("ComputeIfAbsentContainsKey") // Avoid Java8 for visibility
   public static synchronized void logEvent(
       @Component String component,
       String componentId,
@@ -322,14 +320,10 @@ public final class DebugTraceUtil {
 
   private static synchronized void logEventInternal(
       String component, String event, EventLog eventLog) {
-    if (!componentsToEventsToLogs.containsKey(component)) {
-      componentsToEventsToLogs.put(component, new LinkedHashMap<>());
-    }
-    Map<@Event String, EventLogger> events = componentsToEventsToLogs.get(component);
-    if (!events.containsKey(event)) {
-      events.put(event, new EventLogger());
-    }
-    events.get(event).addLog(eventLog);
+    componentsToEventsToLogs
+        .computeIfAbsent(component, k -> new LinkedHashMap<>())
+        .computeIfAbsent(event, k -> new EventLogger())
+        .addLog(eventLog);
     if (ENABLE_TRACES_IN_LOGCAT) {
       Log.d("DT-" + component, event + ": " + eventLog);
     }

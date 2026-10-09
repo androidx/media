@@ -186,7 +186,7 @@ public final class SubripParser implements SubtitleParser {
         currentLine = parsableByteArray.readLine(charset);
       }
 
-      Spanned text = Html.fromHtml(textBuilder.toString());
+      Spanned text = Html.fromHtml(textBuilder.toString(), Html.FROM_HTML_MODE_LEGACY);
 
       @Nullable String alignmentTag = null;
       for (int i = 0; i < tags.size(); i++) {

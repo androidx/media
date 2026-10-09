@@ -32,7 +32,6 @@ import androidx.media3.common.MediaItem.LocalConfiguration;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -42,6 +41,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 /**
@@ -408,19 +408,17 @@ public abstract class Timeline {
       result = 31 * result + mediaItem.hashCode();
       result = 31 * result + (manifest == null ? 0 : manifest.hashCode());
       result = 31 * result + (liveConfiguration == null ? 0 : liveConfiguration.hashCode());
-      result = 31 * result + (int) (presentationStartTimeMs ^ (presentationStartTimeMs >>> 32));
-      result = 31 * result + (int) (windowStartTimeMs ^ (windowStartTimeMs >>> 32));
-      result =
-          31 * result
-              + (int) (elapsedRealtimeEpochOffsetMs ^ (elapsedRealtimeEpochOffsetMs >>> 32));
+      result = 31 * result + Long.hashCode(presentationStartTimeMs);
+      result = 31 * result + Long.hashCode(windowStartTimeMs);
+      result = 31 * result + Long.hashCode(elapsedRealtimeEpochOffsetMs);
       result = 31 * result + (isSeekable ? 1 : 0);
       result = 31 * result + (isDynamic ? 1 : 0);
       result = 31 * result + (isPlaceholder ? 1 : 0);
-      result = 31 * result + (int) (defaultPositionUs ^ (defaultPositionUs >>> 32));
-      result = 31 * result + (int) (durationUs ^ (durationUs >>> 32));
+      result = 31 * result + Long.hashCode(defaultPositionUs);
+      result = 31 * result + Long.hashCode(durationUs);
       result = 31 * result + firstPeriodIndex;
       result = 31 * result + lastPeriodIndex;
-      result = 31 * result + (int) (positionInFirstPeriodUs ^ (positionInFirstPeriodUs >>> 32));
+      result = 31 * result + Long.hashCode(positionInFirstPeriodUs);
       return result;
     }
 
@@ -1004,11 +1002,11 @@ public abstract class Timeline {
       result = 31 * result + (id == null ? 0 : id.hashCode());
       result = 31 * result + (uid == null ? 0 : uid.hashCode());
       result = 31 * result + windowIndex;
-      result = 31 * result + (int) (durationUs ^ (durationUs >>> 32));
-      result = 31 * result + (int) (positionInWindowUs ^ (positionInWindowUs >>> 32));
+      result = 31 * result + Long.hashCode(durationUs);
+      result = 31 * result + Long.hashCode(positionInWindowUs);
       result = 31 * result + (isPlaceholder ? 1 : 0);
       result = 31 * result + adPlaybackState.hashCode();
-      result = 31 * result + (int) (originalDurationUs ^ (originalDurationUs >>> 32));
+      result = 31 * result + Long.hashCode(originalDurationUs);
       return result;
     }
 
@@ -1731,9 +1729,7 @@ public abstract class Timeline {
         }
         sanitizedPeriods.add(p);
         Object uid = checkNotNull(p.uid);
-        if (!uidToIndexMap.containsKey(uid)) {
-          uidToIndexMap.put(uid, i);
-        }
+        uidToIndexMap.putIfAbsent(uid, i);
       }
       this.periods = sanitizedPeriods.build();
       this.uidToIndexMap = ImmutableMap.copyOf(uidToIndexMap);
@@ -1838,8 +1834,7 @@ public abstract class Timeline {
 
     @Override
     public int getIndexOfPeriod(Object uid) {
-      Integer index = uidToIndexMap.get(uid);
-      return index == null ? C.INDEX_UNSET : index;
+      return uidToIndexMap.getOrDefault(uid, C.INDEX_UNSET);
     }
 
     @Override

@@ -398,12 +398,10 @@ public final class VideoEncoderSettings {
     result = 31 * result + bitrateMode;
     result = 31 * result + profile;
     result = 31 * result + level;
-    result = 31 * result + Float.floatToIntBits(iFrameIntervalSeconds);
+    result = 31 * result + Float.hashCode(iFrameIntervalSeconds);
     result = 31 * result + operatingRate;
     result = 31 * result + priority;
-    result =
-        31 * result
-            + (int) (repeatPreviousFrameIntervalUs ^ (repeatPreviousFrameIntervalUs >>> 32));
+    result = 31 * result + Long.hashCode(repeatPreviousFrameIntervalUs);
     result = 31 * result + maxBFrames;
     result = 31 * result + numNonBidirectionalTemporalLayers;
     result = 31 * result + numBidirectionalTemporalLayers;

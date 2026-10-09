@@ -19,7 +19,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
-import com.google.common.primitives.Floats;
 
 /**
  * Stores metadata from the Samsung smta box.
@@ -61,7 +60,7 @@ public final class SmtaMetadataEntry implements Metadata.Entry {
   @Override
   public int hashCode() {
     int result = 17;
-    result = 31 * result + Floats.hashCode(captureFrameRate);
+    result = 31 * result + Float.hashCode(captureFrameRate);
     result = 31 * result + svcTemporalLayerCount;
     return result;
   }

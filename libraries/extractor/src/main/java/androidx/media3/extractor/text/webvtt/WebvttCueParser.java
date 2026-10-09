@@ -582,7 +582,7 @@ public final class WebvttCueParser {
     @TextAnnotation.Position int rubyTagPosition = getRubyPosition(styles, cueId, startTag);
     List<Element> sortedNestedElements = new ArrayList<>(nestedElements.size());
     sortedNestedElements.addAll(nestedElements);
-    Collections.sort(sortedNestedElements, Element.BY_START_POSITION_ASC);
+    sortedNestedElements.sort(Element.BY_START_POSITION_ASC);
     int deletedCharCount = 0;
     int lastRubyTextEnd = startTag.position;
     for (int i = 0; i < sortedNestedElements.size(); i++) {
@@ -767,7 +767,7 @@ public final class WebvttCueParser {
         applicableStyles.add(new StyleMatch(score, style));
       }
     }
-    Collections.sort(applicableStyles);
+    applicableStyles.sort(null);
     return applicableStyles;
   }
 
@@ -980,7 +980,7 @@ public final class WebvttCueParser {
   /** Information about a complete element (i.e. start tag and end position). */
   private static class Element {
     private static final Comparator<Element> BY_START_POSITION_ASC =
-        (e1, e2) -> Integer.compare(e1.startTag.position, e2.startTag.position);
+        Comparator.comparingInt(e -> e.startTag.position);
 
     private final StartTag startTag;
 

@@ -38,7 +38,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -131,7 +131,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     checkState(!isClosed, "Mp4Writer is closed.");
     Track track = new Track(trackId, format, sortKey, sampleCopyEnabled);
     tracks.add(track);
-    Collections.sort(tracks, (a, b) -> Integer.compare(a.sortKey, b.sortKey));
+    tracks.sort(Comparator.comparingInt(a -> a.sortKey));
     return track;
   }
 
@@ -149,7 +149,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     checkState(!isClosed, "Mp4Writer is closed.");
     Track track = new Track(trackId, format, sortKey, sampleCopyEnabled);
     auxiliaryTracks.add(track);
-    Collections.sort(auxiliaryTracks, (a, b) -> Integer.compare(a.sortKey, b.sortKey));
+    auxiliaryTracks.sort(Comparator.comparingInt(a -> a.sortKey));
     return track;
   }
 

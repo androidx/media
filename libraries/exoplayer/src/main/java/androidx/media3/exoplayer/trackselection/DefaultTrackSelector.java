@@ -68,11 +68,9 @@ import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.util.SpatializerWrapper;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.InlineMe;
@@ -89,6 +87,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Predicate;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -2448,12 +2447,11 @@ public class DefaultTrackSelector extends MappingTrackSelector
   private static final float FRACTION_TO_CONSIDER_FULLSCREEN = 0.98f;
 
   /** Ordering of two format values. A known value is considered greater than Format#NO_VALUE. */
-  private static final Ordering<Integer> FORMAT_VALUE_ORDERING =
-      Ordering.from(
-          (first, second) ->
-              first == Format.NO_VALUE
-                  ? (second == Format.NO_VALUE ? 0 : -1)
-                  : (second == Format.NO_VALUE ? 1 : (first - second)));
+  private static final Comparator<Integer> FORMAT_VALUE_ORDERING =
+      (first, second) ->
+          first == Format.NO_VALUE
+              ? (second == Format.NO_VALUE ? 0 : -1)
+              : (second == Format.NO_VALUE ? 1 : (first - second));
 
   @Nullable public final Context context;
   private final ExoTrackSelection.Factory trackSelectionFactory;
@@ -3987,13 +3985,13 @@ public class DefaultTrackSelector extends MappingTrackSelector
               .compare(
                   info1.preferredLanguageIndex,
                   info2.preferredLanguageIndex,
-                  Ordering.natural().reverse())
+                  Comparator.reverseOrder())
               .compare(info1.preferredLanguageScore, info2.preferredLanguageScore)
               .compare(info1.preferredRoleFlagsScore, info2.preferredRoleFlagsScore)
               .compare(
                   info1.preferredLabelMatchIndex,
                   info2.preferredLabelMatchIndex,
-                  Ordering.natural().reverse())
+                  Comparator.reverseOrder())
               // 2. Compare match with implicit content preferences set by the media.
               .compareFalseFirst(info1.hasMainOrNoRoleFlag, info2.hasMainOrNoRoleFlag)
               .compare(info1.selectedAudioLanguageScore, info2.selectedAudioLanguageScore)
@@ -4005,7 +4003,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
               .compare(
                   info1.preferredMimeTypeMatchIndex,
                   info2.preferredMimeTypeMatchIndex,
-                  Ordering.natural().reverse())
+                  Comparator.reverseOrder())
               // 5. Compare match with renderer capability preferences.
               .compareFalseFirst(
                   info1.usesPrimaryOrFallbackDecoder, info2.usesPrimaryOrFallbackDecoder)
@@ -4022,14 +4020,14 @@ public class DefaultTrackSelector extends MappingTrackSelector
       // - Within min constraints only: Prefer lower quality because it gets us closest to
       //   satisfying the violated max constraints.
       // - Outside min and max constraints: Arbitrarily prefer lower quality.
-      Ordering<Integer> qualityOrdering =
+      Comparator<Integer> qualityOrdering =
           info1.isWithinMaxConstraints && info1.isWithinRendererCapabilities
               ? FORMAT_VALUE_ORDERING
-              : FORMAT_VALUE_ORDERING.reverse();
+              : FORMAT_VALUE_ORDERING.reversed();
       ComparisonChain comparisonChain = ComparisonChain.start();
       if (info1.parameters.forceLowestBitrate) {
         comparisonChain =
-            comparisonChain.compare(info1.bitrate, info2.bitrate, FORMAT_VALUE_ORDERING.reverse());
+            comparisonChain.compare(info1.bitrate, info2.bitrate, FORMAT_VALUE_ORDERING.reversed());
       }
       ComparisonChain chain =
           comparisonChain
@@ -4165,7 +4163,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
           (format.bitrate == Format.NO_VALUE || format.bitrate <= parameters.maxAudioBitrate)
               && (format.channelCount == Format.NO_VALUE
                   || format.channelCount <= parameters.maxAudioChannelCount)
-              && withinAudioChannelCountConstraints.apply(format);
+              && withinAudioChannelCountConstraints.test(format);
       String[] localeLanguages = Util.getSystemLanguageCodes();
       int bestLocaleMatchIndex = Integer.MAX_VALUE;
       int bestLocaleMatchScore = 0;
@@ -4226,10 +4224,10 @@ public class DefaultTrackSelector extends MappingTrackSelector
     public int compareTo(AudioTrackInfo other) {
       // If the formats are within constraints and renderer capabilities then prefer higher values
       // of channel count, sample rate and bit rate in that order. Otherwise, prefer lower values.
-      Ordering<Integer> qualityOrdering =
+      Comparator<Integer> qualityOrdering =
           isWithinConstraints && isWithinRendererCapabilities
               ? FORMAT_VALUE_ORDERING
-              : FORMAT_VALUE_ORDERING.reverse();
+              : FORMAT_VALUE_ORDERING.reversed();
       ComparisonChain comparisonChain =
           ComparisonChain.start()
               .compareFalseFirst(
@@ -4238,30 +4236,30 @@ public class DefaultTrackSelector extends MappingTrackSelector
               .compare(
                   this.preferredLanguageIndex,
                   other.preferredLanguageIndex,
-                  Ordering.natural().reverse())
+                  Comparator.reverseOrder())
               .compare(this.preferredLanguageScore, other.preferredLanguageScore)
               .compare(this.preferredRoleFlagsScore, other.preferredRoleFlagsScore)
               .compare(
                   this.preferredLabelMatchIndex,
                   other.preferredLabelMatchIndex,
-                  Ordering.natural().reverse())
+                  Comparator.reverseOrder())
               // 2. Compare match with implicit content preferences set by the media or the system.
               .compareFalseFirst(this.isDefaultSelectionFlag, other.isDefaultSelectionFlag)
               .compareFalseFirst(this.hasMainOrNoRoleFlag, other.hasMainOrNoRoleFlag)
               .compare(
                   this.localeLanguageMatchIndex,
                   other.localeLanguageMatchIndex,
-                  Ordering.natural().reverse())
+                  Comparator.reverseOrder())
               .compare(this.localeLanguageScore, other.localeLanguageScore)
               // 3. Compare match with technical preferences set by the parameters.
               .compareFalseFirst(this.isWithinConstraints, other.isWithinConstraints)
               .compare(
                   this.preferredMimeTypeMatchIndex,
                   other.preferredMimeTypeMatchIndex,
-                  Ordering.natural().reverse());
+                  Comparator.reverseOrder());
       if (parameters.forceLowestBitrate) {
         comparisonChain =
-            comparisonChain.compare(this.bitrate, other.bitrate, FORMAT_VALUE_ORDERING.reverse());
+            comparisonChain.compare(this.bitrate, other.bitrate, FORMAT_VALUE_ORDERING.reversed());
       }
       // 4. Compare match with renderer capability preferences.
       comparisonChain =
@@ -4430,13 +4428,13 @@ public class DefaultTrackSelector extends MappingTrackSelector
               .compare(
                   this.preferredLanguageIndex,
                   other.preferredLanguageIndex,
-                  Ordering.natural().reverse())
+                  Comparator.reverseOrder())
               .compare(this.preferredLanguageScore, other.preferredLanguageScore)
               .compare(this.preferredRoleFlagsScore, other.preferredRoleFlagsScore)
               .compare(
                   this.preferredLabelMatchIndex,
                   other.preferredLabelMatchIndex,
-                  Ordering.natural().reverse())
+                  Comparator.reverseOrder())
               // 2. Compare match with implicit content preferences set by the media.
               .compareFalseFirst(this.isDefault, other.isDefault)
               .compare(
@@ -4445,7 +4443,9 @@ public class DefaultTrackSelector extends MappingTrackSelector
                   // Prefer non-forced to forced if a preferred text language has been matched.
                   // Where both are provided the non-forced track will usually contain the forced
                   // subtitles as a subset. Otherwise, prefer a forced track.
-                  preferredLanguageScore == 0 ? Ordering.natural() : Ordering.natural().reverse())
+                  preferredLanguageScore == 0
+                      ? Comparator.naturalOrder()
+                      : Comparator.reverseOrder())
               .compare(this.selectedAudioLanguageScore, other.selectedAudioLanguageScore);
       if (preferredRoleFlagsScore == 0) {
         chain = chain.compareTrueFirst(this.hasCaptionRoleFlags, other.hasCaptionRoleFlags);

@@ -23,7 +23,6 @@ import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.Flags;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Chars;
 import com.google.common.primitives.Ints;
@@ -36,6 +35,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 
 /**
  * Wraps a byte array, providing a set of methods for parsing data from it. Numerical values are

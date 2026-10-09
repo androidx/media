@@ -21,7 +21,6 @@ import androidx.media3.common.util.Util;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Longs;
 import java.util.Arrays;
 import java.util.List;
 
@@ -228,7 +227,7 @@ public final class Metadata {
   @Override
   public int hashCode() {
     int result = Arrays.hashCode(entries);
-    result = 31 * result + Longs.hashCode(presentationTimeUs);
+    result = 31 * result + Long.hashCode(presentationTimeUs);
     return result;
   }
 

@@ -28,8 +28,8 @@ import com.google.android.gms.cast.MediaQueueItem;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient.MediaChannelResult;
 import com.google.android.gms.common.api.Status;
-import com.google.common.base.Supplier;
 import java.util.ArrayDeque;
+import java.util.function.Supplier;
 
 /**
  * Serializes Cast queue mutations and computes optimistic masked {@link QueueSnapshot

@@ -18,7 +18,6 @@ package androidx.media3.test.utils;
 import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkElementIndex;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
-import static com.google.common.math.IntMath.checkedAdd;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
@@ -211,7 +210,7 @@ public final class ImmutableByteArray {
   public static byte[] concatToArray(ImmutableByteArray... arrays) {
     int resultLength = 0;
     for (ImmutableByteArray array : arrays) {
-      resultLength = checkedAdd(resultLength, array.length());
+      resultLength = Math.addExact(resultLength, array.length());
     }
     int resultOffset = 0;
     byte[] result = new byte[resultLength];

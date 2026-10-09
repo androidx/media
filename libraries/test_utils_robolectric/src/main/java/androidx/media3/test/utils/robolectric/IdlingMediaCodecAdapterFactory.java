@@ -29,9 +29,9 @@ import androidx.media3.exoplayer.mediacodec.DefaultMediaCodecAdapterFactory;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter.Configuration;
 import com.google.common.base.Supplier;
-import com.google.common.collect.Sets;
 import java.io.IOException;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.robolectric.shadows.ShadowLooper;
 
 /**
@@ -130,7 +130,7 @@ public final class IdlingMediaCodecAdapterFactory implements MediaCodecAdapter.F
 
     private ThreadSupplier(String label) {
       this.label = label;
-      this.createdThreads = Sets.newConcurrentHashSet();
+      this.createdThreads = ConcurrentHashMap.newKeySet();
     }
 
     @Override

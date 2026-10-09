@@ -17,7 +17,6 @@ package androidx.media3.exoplayer.upstream;
 
 import androidx.media3.common.util.UnstableApi;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 
 /**
@@ -41,7 +40,7 @@ import java.util.Comparator;
 public class SlidingPercentile {
 
   // Orderings.
-  private static final Comparator<Sample> INDEX_COMPARATOR = (a, b) -> a.index - b.index;
+  private static final Comparator<Sample> INDEX_COMPARATOR = Comparator.comparingInt(s -> s.index);
   private static final Comparator<Sample> VALUE_COMPARATOR =
       (a, b) -> Float.compare(a.value, b.value);
 
@@ -136,7 +135,7 @@ public class SlidingPercentile {
   /** Sorts the samples by index. */
   private void ensureSortedByIndex() {
     if (currentSortOrder != SORT_ORDER_BY_INDEX) {
-      Collections.sort(samples, INDEX_COMPARATOR);
+      samples.sort(INDEX_COMPARATOR);
       currentSortOrder = SORT_ORDER_BY_INDEX;
     }
   }
@@ -144,7 +143,7 @@ public class SlidingPercentile {
   /** Sorts the samples by value. */
   private void ensureSortedByValue() {
     if (currentSortOrder != SORT_ORDER_BY_VALUE) {
-      Collections.sort(samples, VALUE_COMPARATOR);
+      samples.sort(VALUE_COMPARATOR);
       currentSortOrder = SORT_ORDER_BY_VALUE;
     }
   }

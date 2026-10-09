@@ -824,7 +824,7 @@ public final class Cea708Decoder extends CeaDecoder {
         }
       }
     }
-    Collections.sort(displayCueInfos, Cea708CueInfo.LEAST_IMPORTANT_FIRST);
+    displayCueInfos.sort(Cea708CueInfo.LEAST_IMPORTANT_FIRST);
     List<Cue> displayCues = new ArrayList<>(displayCueInfos.size());
     for (int i = 0; i < displayCueInfos.size(); i++) {
       displayCues.add(displayCueInfos.get(i).cue);

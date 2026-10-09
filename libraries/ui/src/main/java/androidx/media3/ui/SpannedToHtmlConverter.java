@@ -38,7 +38,6 @@ import androidx.media3.common.text.TextEmphasisSpan;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -110,11 +109,11 @@ import java.util.regex.Pattern;
       html.append(escapeHtml(spanned.subSequence(previousTransition, index)));
 
       Transition transition = spanTransitions.get(index);
-      Collections.sort(transition.spansRemoved, SpanInfo.FOR_CLOSING_TAGS);
+      transition.spansRemoved.sort(SpanInfo.FOR_CLOSING_TAGS);
       for (SpanInfo spanInfo : transition.spansRemoved) {
         html.append(spanInfo.closingTag);
       }
-      Collections.sort(transition.spansAdded, SpanInfo.FOR_OPENING_TAGS);
+      transition.spansAdded.sort(SpanInfo.FOR_OPENING_TAGS);
       for (SpanInfo spanInfo : transition.spansAdded) {
         html.append(spanInfo.openingTag);
       }
@@ -330,34 +329,20 @@ import java.util.regex.Pattern;
      * determinism).
      */
     private static final Comparator<SpanInfo> FOR_OPENING_TAGS =
-        (info1, info2) -> {
-          int result = Integer.compare(info2.end, info1.end);
-          if (result != 0) {
-            return result;
-          }
-          result = info1.openingTag.compareTo(info2.openingTag);
-          if (result != 0) {
-            return result;
-          }
-          return info1.closingTag.compareTo(info2.closingTag);
-        };
+        Comparator.comparingInt((SpanInfo info) -> info.end)
+            .reversed()
+            .thenComparing(info -> info.openingTag)
+            .thenComparing(info -> info.closingTag);
 
     /**
      * Sort by start index (descending), then by opening tag and then closing tag (both descending,
      * for determinism).
      */
     private static final Comparator<SpanInfo> FOR_CLOSING_TAGS =
-        (info1, info2) -> {
-          int result = Integer.compare(info2.start, info1.start);
-          if (result != 0) {
-            return result;
-          }
-          result = info2.openingTag.compareTo(info1.openingTag);
-          if (result != 0) {
-            return result;
-          }
-          return info2.closingTag.compareTo(info1.closingTag);
-        };
+        Comparator.comparingInt((SpanInfo info) -> info.start)
+            .thenComparing(info -> info.openingTag)
+            .thenComparing(info -> info.closingTag)
+            .reversed();
 
     public final int start;
     public final int end;

@@ -75,7 +75,6 @@ import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.ImmutableIntArray;
-import com.google.common.primitives.Longs;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -2327,7 +2326,7 @@ public class MediaSession {
     public int hashCode() {
       int result = mediaItems.hashCode();
       result = 31 * result + startIndex;
-      result = 31 * result + Longs.hashCode(startPositionMs);
+      result = 31 * result + Long.hashCode(startPositionMs);
       return result;
     }
   }

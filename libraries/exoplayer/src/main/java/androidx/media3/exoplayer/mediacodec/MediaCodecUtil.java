@@ -45,7 +45,6 @@ import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.InlineMe;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
@@ -806,7 +805,7 @@ public final class MediaCodecUtil {
 
   /** Stably sorts the provided {@code list} in-place, in order of decreasing score. */
   private static <T> void sortByScore(List<T> list, ScoreProvider<T> scoreProvider) {
-    Collections.sort(list, (a, b) -> scoreProvider.getScore(b) - scoreProvider.getScore(a));
+    list.sort((a, b) -> scoreProvider.getScore(b) - scoreProvider.getScore(a));
   }
 
   /** Interface for providers of item scores. */

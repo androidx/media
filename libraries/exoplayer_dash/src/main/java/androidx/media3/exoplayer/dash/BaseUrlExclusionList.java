@@ -15,9 +15,6 @@
  */
 package androidx.media3.exoplayer.dash;
 
-import static androidx.media3.common.util.Util.castNonNull;
-import static java.lang.Math.max;
-
 import android.os.SystemClock;
 import android.util.Pair;
 import androidx.annotation.Nullable;
@@ -27,7 +24,6 @@ import androidx.media3.exoplayer.dash.manifest.BaseUrl;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -95,7 +91,7 @@ public final class BaseUrlExclusionList {
       return Iterables.getFirst(includedBaseUrls, /* defaultValue= */ null);
     }
     // Sort by priority and service location to make the sort order of the candidates deterministic.
-    Collections.sort(includedBaseUrls, BaseUrlExclusionList::compareBaseUrl);
+    includedBaseUrls.sort(BaseUrlExclusionList::compareBaseUrl);
 
     @Nullable
     ImmutableList<String> serviceLocationSteeringPriority = this.serviceLocationSteeringPriority;
@@ -132,15 +128,10 @@ public final class BaseUrlExclusionList {
       }
       candidateKeys.add(new Pair<>(baseUrl.serviceLocation, baseUrl.weight));
     }
-    // Check whether selection has already been taken.
-    @Nullable BaseUrl baseUrl = selectionsTaken.get(candidateKeys);
-    if (baseUrl == null) {
-      // Weighted random selection from multiple candidates of the same priority.
-      baseUrl = selectWeighted(candidates.subList(0, candidateKeys.size()));
-      // Remember the selection taken for later.
-      selectionsTaken.put(candidateKeys, baseUrl);
-    }
-    return baseUrl;
+    // Check whether selection has already been taken, or perform weighted random selection from
+    // multiple candidates of the same priority and remember the selection taken for later.
+    return selectionsTaken.computeIfAbsent(
+        candidateKeys, k -> selectWeighted(candidates.subList(0, k.size())));
   }
 
   /**
@@ -263,22 +254,11 @@ public final class BaseUrlExclusionList {
 
   private static <T> void addExclusion(
       T toExclude, long excludeUntilMs, Map<T, Long> currentExclusions) {
-    if (currentExclusions.containsKey(toExclude)) {
-      excludeUntilMs = max(excludeUntilMs, castNonNull(currentExclusions.get(toExclude)));
-    }
-    currentExclusions.put(toExclude, excludeUntilMs);
+    currentExclusions.merge(toExclude, excludeUntilMs, Math::max);
   }
 
   private static <T> void removeExpiredExclusions(long nowMs, Map<T, Long> exclusions) {
-    List<T> expiredExclusions = new ArrayList<>();
-    for (Map.Entry<T, Long> entries : exclusions.entrySet()) {
-      if (entries.getValue() <= nowMs) {
-        expiredExclusions.add(entries.getKey());
-      }
-    }
-    for (int i = 0; i < expiredExclusions.size(); i++) {
-      exclusions.remove(expiredExclusions.get(i));
-    }
+    boolean unused = exclusions.entrySet().removeIf(entry -> entry.getValue() <= nowMs);
   }
 
   /** Compare by priority and service location. */

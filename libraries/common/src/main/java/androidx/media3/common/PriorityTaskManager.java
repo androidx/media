@@ -53,7 +53,7 @@ public final class PriorityTaskManager {
   private @C.Priority int highestPriority;
 
   public PriorityTaskManager() {
-    queue = new PriorityQueue<>(10, Collections.reverseOrder());
+    queue = new PriorityQueue<>(Collections.reverseOrder());
     highestPriority = Integer.MIN_VALUE;
   }
 

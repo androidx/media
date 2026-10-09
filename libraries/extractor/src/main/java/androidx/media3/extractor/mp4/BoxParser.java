@@ -61,7 +61,6 @@ import androidx.media3.extractor.VorbisUtil;
 import androidx.media3.extractor.VvcConfig;
 import androidx.media3.extractor.metadata.Chapter;
 import androidx.media3.extractor.text.vobsub.VobsubParser;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.ImmutableLongArray;
@@ -73,6 +72,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 

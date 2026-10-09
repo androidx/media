@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import android.os.Bundle;
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
@@ -29,6 +28,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 /** Utilities for converting collections to and from {@link Bundle} instances. */

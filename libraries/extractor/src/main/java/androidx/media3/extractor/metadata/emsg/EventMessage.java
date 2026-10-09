@@ -112,8 +112,8 @@ public final class EventMessage implements Metadata.Entry {
       int result = 17;
       result = 31 * result + (schemeIdUri != null ? schemeIdUri.hashCode() : 0);
       result = 31 * result + (value != null ? value.hashCode() : 0);
-      result = 31 * result + (int) (durationMs ^ (durationMs >>> 32));
-      result = 31 * result + (int) (id ^ (id >>> 32));
+      result = 31 * result + Long.hashCode(durationMs);
+      result = 31 * result + Long.hashCode(id);
       result = 31 * result + Arrays.hashCode(messageData);
       hashCode = result;
     }

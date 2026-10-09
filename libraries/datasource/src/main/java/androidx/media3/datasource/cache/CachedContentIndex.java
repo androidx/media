@@ -689,7 +689,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       result = 31 * result + cachedContent.key.hashCode();
       if (version < VERSION_METADATA_INTRODUCED) {
         long length = ContentMetadata.getContentLength(cachedContent.getMetadata());
-        result = 31 * result + (int) (length ^ (length >>> 32));
+        result = 31 * result + Long.hashCode(length);
       } else {
         result = 31 * result + cachedContent.getMetadata().hashCode();
       }

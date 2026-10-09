@@ -783,7 +783,7 @@ public final class GlUtil {
    * @param capacity The new buffer's capacity, in floats.
    */
   private static FloatBuffer createBuffer(int capacity) {
-    ByteBuffer byteBuffer = ByteBuffer.allocateDirect(capacity * C.BYTES_PER_FLOAT);
+    ByteBuffer byteBuffer = ByteBuffer.allocateDirect(capacity * Float.BYTES);
     return byteBuffer.order(ByteOrder.nativeOrder()).asFloatBuffer();
   }
 

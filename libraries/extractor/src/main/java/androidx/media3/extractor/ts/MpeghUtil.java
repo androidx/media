@@ -23,8 +23,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableBitArray;
-import com.google.common.math.IntMath;
-import com.google.common.math.LongMath;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -561,8 +559,7 @@ import java.lang.annotation.Target;
     int maxBitCount = Math.max(Math.max(bits1, bits2), bits3);
     checkArgument(maxBitCount <= Integer.SIZE - 1);
     // Result is intentionally unused, checking if the operation causes overflow
-    int unused =
-        IntMath.checkedAdd(IntMath.checkedAdd((1 << bits1) - 1, (1 << bits2) - 1), (1 << bits3));
+    int unused = Math.addExact(Math.addExact((1 << bits1) - 1, (1 << bits2) - 1), (1 << bits3));
 
     if (data.bitsLeft() < bits1) {
       return -1;
@@ -609,9 +606,7 @@ import java.lang.annotation.Target;
     int maxBitCount = Math.max(Math.max(bits1, bits2), bits3);
     checkArgument(maxBitCount <= Long.SIZE - 1);
     // Result is intentionally unused, checking if the operation causes overflow
-    long unused =
-        LongMath.checkedAdd(
-            LongMath.checkedAdd((1L << bits1) - 1, (1L << bits2) - 1), (1L << bits3));
+    long unused = Math.addExact(Math.addExact((1L << bits1) - 1, (1L << bits2) - 1), (1L << bits3));
 
     if (data.bitsLeft() < bits1) {
       return -1;

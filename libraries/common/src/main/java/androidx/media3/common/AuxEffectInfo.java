@@ -82,7 +82,7 @@ public final class AuxEffectInfo {
   public int hashCode() {
     int result = 17;
     result = 31 * result + effectId;
-    result = 31 * result + Float.floatToIntBits(sendLevel);
+    result = 31 * result + Float.hashCode(sendLevel);
     return result;
   }
 }
