@@ -202,7 +202,9 @@ public final class MediaCodecInfo {
         hardwareAccelerated,
         softwareOnly,
         vendor,
-        /* adaptive= */ capabilities != null && isAdaptive(capabilities),
+        /* adaptive= */ capabilities != null
+            && isAdaptive(capabilities)
+            && !needsDisableAdaptationWorkaround(name),
         /* tunneling= */ capabilities != null && isTunneling(capabilities),
         /* secure= */ capabilities != null && isSecure(capabilities),
         isDetachedSurfaceSupported(capabilities));
@@ -231,7 +233,10 @@ public final class MediaCodecInfo {
         hardwareAccelerated,
         softwareOnly,
         vendor,
-        /* adaptive= */ !forceDisableAdaptive && capabilities != null && isAdaptive(capabilities),
+        /* adaptive= */ !forceDisableAdaptive
+            && capabilities != null
+            && isAdaptive(capabilities)
+            && !needsDisableAdaptationWorkaround(name),
         /* tunneling= */ capabilities != null && isTunneling(capabilities),
         /* secure= */ forceSecure || (capabilities != null && isSecure(capabilities)),
         isDetachedSurfaceSupported(capabilities));
@@ -985,6 +990,22 @@ public final class MediaCodecInfo {
       createCodecProfileLevel(CodecProfileLevel.AC4Profile21, level),
       createCodecProfileLevel(CodecProfileLevel.AC4Profile22, level)
     };
+  }
+
+  /**
+   * Returns whether the decoder is known to fail when adapting, despite advertising itself as an
+   * adaptive decoder.
+   *
+   * @param name The decoder name.
+   */
+  private static boolean needsDisableAdaptationWorkaround(String name) {
+    if (!MediaLibraryInfo.enableWorkarounds()) {
+      return false;
+    }
+    // See https://github.com/androidx/media/issues/3457.
+    return Build.MODEL.equals("MiTV-AYFR0")
+        && (name.equals("OMX.amlogic.avc.decoder.awesome2")
+            || name.equals("OMX.amlogic.avc.decoder.awesome2.secure"));
   }
 
   /**

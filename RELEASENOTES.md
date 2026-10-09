@@ -75,6 +75,9 @@
         position when a load after a seek (or when starting playback at a
         non-zero position) failed and was retried
         ([#3440](https://github.com/androidx/media/issues/3440)).
+    *   Add workaround for the Xiaomi TV Stick 4K (MiTV-AYFR0) H.264 decoder
+        freezing on seamless resolution changes
+        ([#3457](https://github.com/androidx/media/issues/3457)).
 *   CompositionPlayer:
     *   Support configuring the frame rate of video frame aggregation via
         `Composition.Builder.setVideoFrameAggregationParameters` for playback
