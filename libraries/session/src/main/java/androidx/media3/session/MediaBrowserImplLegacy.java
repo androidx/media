@@ -402,16 +402,16 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             @Override
             public void onResult(
                 String action, @Nullable Bundle extras, @Nullable Bundle resultData) {
-              Bundle mergedBundles = new Bundle(extras);
+              Bundle mergedBundles = extras == null ? new Bundle() : new Bundle(extras);
               if (resultData != null) {
                 mergedBundles.putAll(resultData);
-              }              
+              }
               settable.set(new SessionResult(SessionResult.RESULT_SUCCESS, mergedBundles));
             }
 
             @Override
             public void onError(String action, @Nullable Bundle extras, @Nullable Bundle data) {
-              Bundle mergedBundles = new Bundle(extras);
+              Bundle mergedBundles = extras == null ? new Bundle() : new Bundle(extras);
               if (data != null) {
                 mergedBundles.putAll(data);
               }

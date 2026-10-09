@@ -232,6 +232,9 @@
         `MediaSessionCompat` could dispatch an unsupported `onPrepareFrom*`
         callback instead of `onPlayFrom*`, or dispatch `onPlay()` without
         re-initializing the requested media item.
+    *   Fix `NullPointerException` in legacy `MediaBrowser` when receiving a
+        custom command response
+        ([#3432](https://github.com/androidx/media/issues/3432)).
 *   UI:
     *   Add `TrackSelectionState` and `TrackSelectionParametersState` classes
         and their corresponding Composable state remember functions to the
