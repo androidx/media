@@ -623,9 +623,19 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
 
             @Override
             public void onCustomAction(String action, Bundle extras, Result<Bundle> result) {
+              if (extras != null
+                  && extras.getBoolean("request_null_result", /* defaultValue= */ false)) {
+                if (extras.getBoolean("request_error", /* defaultValue= */ false)) {
+                  result.sendError(/* extras= */ null);
+                } else {
+                  result.sendResult(/* result= */ null);
+                }
+                return;
+              }
               Bundle resultBundle = new Bundle();
               if (action.equals(MediaConstants.CUSTOM_COMMAND_DOWNLOAD)) {
-                if (extras.getBoolean("request_error", /* defaultValue= */ false)) {
+                if (extras != null
+                    && extras.getBoolean("request_error", /* defaultValue= */ false)) {
                   resultBundle.putString("key-1", "error-from-service");
                   result.sendError(resultBundle);
                 } else {

@@ -731,6 +731,52 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
   }
 
   @Test
+  public void sendCustomCommand_nullResultFromService_returnsSuccessWithArgs() throws Exception {
+    remoteService.setProxyForTest(TEST_SEND_CUSTOM_COMMAND);
+    MediaBrowser browser = createBrowser(/* listener= */ null);
+    Bundle args = new Bundle();
+    args.putBoolean("request_null_result", true);
+
+    SessionResult sessionResult =
+        threadTestRule
+            .getHandler()
+            .postAndSync(
+                () ->
+                    browser.sendCustomCommand(
+                        new SessionCommand(
+                            MediaConstants.CUSTOM_COMMAND_DOWNLOAD, /* extras= */ Bundle.EMPTY),
+                        args))
+            .get(TIMEOUT_MS, MILLISECONDS);
+
+    assertThat(sessionResult.resultCode).isEqualTo(SessionResult.RESULT_SUCCESS);
+    assertThat(sessionResult.extras.getBoolean("request_null_result")).isTrue();
+  }
+
+  @Test
+  public void sendCustomCommand_nullErrorFromService_returnsErrorWithArgs() throws Exception {
+    remoteService.setProxyForTest(TEST_SEND_CUSTOM_COMMAND);
+    MediaBrowser browser = createBrowser(/* listener= */ null);
+    Bundle args = new Bundle();
+    args.putBoolean("request_error", true);
+    args.putBoolean("request_null_result", true);
+
+    SessionResult sessionResult =
+        threadTestRule
+            .getHandler()
+            .postAndSync(
+                () ->
+                    browser.sendCustomCommand(
+                        new SessionCommand(
+                            MediaConstants.CUSTOM_COMMAND_DOWNLOAD, /* extras= */ Bundle.EMPTY),
+                        args))
+            .get(TIMEOUT_MS, MILLISECONDS);
+
+    assertThat(sessionResult.resultCode).isEqualTo(SessionResult.RESULT_ERROR_UNKNOWN);
+    assertThat(sessionResult.extras.getBoolean("request_error")).isTrue();
+    assertThat(sessionResult.extras.getBoolean("request_null_result")).isTrue();
+  }
+
+  @Test
   public void sendCustomCommand_successFromSession_correctAsyncResultReceivalConfirmed()
       throws Exception {
     remoteService.setProxyForTest(TEST_SEND_CUSTOM_COMMAND);
