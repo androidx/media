@@ -19,6 +19,7 @@ import android.graphics.Bitmap
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.interaction.DragInteraction
+import androidx.compose.foundation.interaction.Interaction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Box
@@ -40,6 +41,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -73,6 +75,8 @@ import androidx.compose.ui.unit.offset
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.demo.compose.R
+import androidx.media3.ui.compose.material3.util.isScrubbingModeEnabled
+import androidx.media3.ui.compose.material3.util.setScrubbingModeEnabled
 import androidx.media3.ui.compose.state.PlayerStateObserver
 import androidx.media3.ui.compose.state.ProgressStateWithTickCount
 import androidx.media3.ui.compose.state.observeState
@@ -144,6 +148,11 @@ private const val POSITION_THUMB_HEIGHT_RATIO = 1.1f
  * This component does not update the player's clipping configuration. The caller is intended to
  * update the clipping configuration (and potentially apply other edits) at the end of the editing
  * experience.
+ *
+ * If the player supports scrubbing mode (for example `ExoPlayer`), it is put in scrubbing mode
+ * while a clipping thumb or the playback position thumb is dragged, and seeks continuously to
+ * follow the thumb. Otherwise, the player only seeks when the thumb is released, because frequent
+ * seeks would be expensive.
  *
  * @param player The [Player] whose content to clip.
  * @param bitmaps A list of [Bitmap] instances to display as a background preview for the slider.
@@ -318,7 +327,7 @@ private fun ClippingSlider(
       state = state.progressSliderState,
       modifier = Modifier.fillMaxSize(),
       enabled = state.changingProgressEnabled && state.durationMs > 0,
-      trackRange = state.activeValueRange,
+      trackRange = state.clippingRange,
       onValueChange = { state.onProgressSliderValueChange(it) },
       onValueChangeFinished = { state.onProgressSliderValueChangeFinished() },
       interactionSource = state.progressThumbInteractionSource,
@@ -604,7 +613,7 @@ private fun ClippingTrack(
  * @param modifier The [Modifier] to be applied to this composable.
  * @param enabled Whether interaction with the progress slider is enabled.
  * @param trackRange The allowed range of values for the progress slider, corresponding to the
- *   committed clipping range.
+ *   current clipping range.
  * @param interactionSource The [MutableInteractionSource] for the progress slider.
  * @param positionThumbColor The color used to render the playback position thumb.
  */
@@ -619,8 +628,7 @@ private fun ProgressSlider(
   interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
   positionThumbColor: Color = ClippingSliderDefaults.colors().positionThumbColor,
 ) {
-  // Use trackRange (which corresponds to the pre-drag clipping bounds) to compute the progress
-  // slider layout so it remains visually stable during drag gestures.
+  // Lay out the progress slider over trackRange, which follows the clipping thumbs during a drag.
   val visualProgressSliderStart = logicalToVisualProgressSliderStart(trackRange.start)
   val visualProgressSliderEnd = logicalToVisualProgressSliderEnd(trackRange.endInclusive)
   val density = LocalDensity.current
@@ -818,6 +826,33 @@ private val defaultClippingThumbPainter:
   }
 
 /**
+ * Records the presses and drags emitted by this [MutableInteractionSource] in [activeInteractions]
+ * for as long as they are in progress, invoking [onInteractionStarted] whenever a new one begins.
+ *
+ * Every start interaction is removed again by its matching end interaction, including the
+ * cancellation variants, so [activeInteractions] cannot be left non-empty by a gesture that is
+ * interrupted rather than completed.
+ */
+private suspend fun MutableInteractionSource.trackActiveInteractions(
+  activeInteractions: MutableList<Interaction>,
+  onInteractionStarted: () -> Unit,
+) {
+  interactions.collect { interaction ->
+    when (interaction) {
+      is PressInteraction.Press,
+      is DragInteraction.Start -> {
+        activeInteractions.add(interaction)
+        onInteractionStarted()
+      }
+      is PressInteraction.Release -> activeInteractions.remove(interaction.press)
+      is PressInteraction.Cancel -> activeInteractions.remove(interaction.press)
+      is DragInteraction.Stop -> activeInteractions.remove(interaction.start)
+      is DragInteraction.Cancel -> activeInteractions.remove(interaction.start)
+    }
+  }
+}
+
+/**
  * Calculates the minimum progress delta required to prevent the clipping thumbs from overlapping.
  */
 private fun calculateMinRangeDelta(minClippedDurationMs: Long, durationMs: Long): Float =
@@ -858,10 +893,9 @@ private class ClippingSliderState(
     val snapPosition =
       if (lastChangedBoundaryIsStart) clippingRange.start else clippingRange.endInclusive
     seekTo(snapPosition)
-    isClipping = false
-    isUserInteracting = false
-    preDragClippingRange = clippingRange
+    stopScrubbing()
     updateProgressSliderRange(clippingRange)
+    progressSliderState.value = snapPosition
     onClippingRangeChangeFinished?.invoke()
   }
 
@@ -887,12 +921,18 @@ private class ClippingSliderState(
         newValue
       }
     progressSliderState.value = coerced
+    // The interaction listener also starts scrubbing, but it runs asynchronously and can lag behind
+    // the first value changes of a drag.
+    startScrubbing()
+    // Only seek continuously when scrubbing mode makes frequent seeks cheap. Otherwise, the seek is
+    // deferred to onProgressSliderValueChangeFinished.
+    if (isScrubbing) seekTo(coerced)
     onProgressChange?.invoke(coerced)
   }
 
   fun onProgressSliderValueChangeFinished() {
     seekTo(progressSliderState.value)
-    isUserInteracting = false
+    stopScrubbing()
     onProgressChangeFinished?.invoke()
   }
 
@@ -929,29 +969,23 @@ private class ClippingSliderState(
   val playbackProgress: Float?
     get() = if (durationMs > 0) positionProgressState.currentPositionProgress else null
 
+  // The presses and drags in progress on each handle. Deriving the interaction flags from these,
+  // rather than latching a boolean on gesture start and clearing it in onValueChangeFinished, keeps
+  // them correct for interrupted gestures, for which onValueChangeFinished isn't delivered.
+  private val startThumbActiveInteractions = mutableStateListOf<Interaction>()
+  private val endThumbActiveInteractions = mutableStateListOf<Interaction>()
+  private val progressThumbActiveInteractions = mutableStateListOf<Interaction>()
+
   /**
    * Whether the user is actively interacting with the slider (either adjusting clipping or
    * scrubbing progress).
    */
-  var isUserInteracting by mutableStateOf(false)
+  val isUserInteracting: Boolean
+    get() = isClipping || progressThumbActiveInteractions.isNotEmpty()
 
   /** Whether the user is actively dragging one of the clipping thumbs. */
-  private var isClipping by mutableStateOf(false)
-
-  /**
-   * The clipping range as a fraction of the total duration (0 to 1) captured before the current
-   * interaction started.
-   */
-  var preDragClippingRange by mutableStateOf(0f..1f)
-    private set
-
-  /**
-   * The value range used by the progress slider to layout its track. Anchors to
-   * [preDragClippingRange] while [isClipping] is true so that the progress scrubber layout remains
-   * visually stable while clipping thumbs are being dragged.
-   */
-  val activeValueRange: ClosedFloatingPointRange<Float>
-    get() = if (isClipping) preDragClippingRange else clippingRange
+  private val isClipping: Boolean
+    get() = startThumbActiveInteractions.isNotEmpty() || endThumbActiveInteractions.isNotEmpty()
 
   /** Whether changing the playback progress is enabled. */
   val changingProgressEnabled: Boolean
@@ -986,6 +1020,41 @@ private class ClippingSliderState(
     player?.let { if (it.isCommandAvailable(Player.COMMAND_PLAY_PAUSE)) it.pause() }
   }
 
+  /** Whether scrubbing mode was requested for the current interaction. */
+  private var isScrubbingRequested = false
+
+  /**
+   * Whether the player is in scrubbing mode for the current interaction. Stays `false` for players
+   * that don't support scrubbing mode.
+   */
+  private var isScrubbing = false
+
+  /**
+   * Pauses the player and puts it in scrubbing mode, if supported, to make the seeks of a drag
+   * cheaper. Only the first call of an interaction has an effect.
+   *
+   * The player is paused before scrubbing mode is enabled because some players (for example
+   * `CompositionPlayer`) record the play-when-ready state when scrubbing mode is enabled and
+   * restore it when it's disabled, which would resume playback at the end of the drag.
+   */
+  private fun startScrubbing() {
+    if (isScrubbingRequested) return
+    isScrubbingRequested = true
+    pause()
+    player.setScrubbingModeEnabled(true)
+    isScrubbing = player.isScrubbingModeEnabled()
+  }
+
+  /**
+   * Takes the player out of scrubbing mode. This immediately executes the latest seek that
+   * scrubbing mode held back, if any.
+   */
+  private fun stopScrubbing() {
+    player.setScrubbingModeEnabled(false)
+    isScrubbingRequested = false
+    isScrubbing = false
+  }
+
   fun seekTo(progress: Float) {
     positionProgressState.updateCurrentPositionProgress(progress)
   }
@@ -995,10 +1064,7 @@ private class ClippingSliderState(
 
   fun onDragStarted(isStart: Boolean) {
     lastChangedBoundaryIsStart = isStart
-    preDragClippingRange = clippingRange
-    isClipping = true
-    isUserInteracting = true
-    pause()
+    startScrubbing()
   }
 
   /**
@@ -1037,7 +1103,6 @@ private class ClippingSliderState(
       if (rangeSliderState.endValue != sliderRange.endInclusive) {
         rangeSliderState.endValue = sliderRange.endInclusive
       }
-      preDragClippingRange = newRange
       updateProgressSliderRange(newRange)
     }
 
@@ -1098,9 +1163,9 @@ private class ClippingSliderState(
         setClippingRange(initialClippingRangeMs)
       }
 
-      // Update progress slider state range when activeValueRange changes.
+      // Update progress slider state range when clippingRange changes.
       launch {
-        snapshotFlow { activeValueRange }.collect { range -> updateProgressSliderRange(range) }
+        snapshotFlow { clippingRange }.collect { range -> updateProgressSliderRange(range) }
       }
 
       // Update progress slider state as playback progresses.
@@ -1119,30 +1184,35 @@ private class ClippingSliderState(
 
       // Listen for touch/drag gestures on the start thumb to pause playback and record interaction.
       launch {
-        startThumbInteractionSource.interactions.collect { interaction ->
-          if (interaction is DragInteraction.Start || interaction is PressInteraction.Press) {
-            onDragStarted(isStart = true)
-          }
+        startThumbInteractionSource.trackActiveInteractions(startThumbActiveInteractions) {
+          onDragStarted(isStart = true)
         }
       }
 
       // Listen for touch/drag gestures on the end thumb to pause playback and record interaction.
       launch {
-        endThumbInteractionSource.interactions.collect { interaction ->
-          if (interaction is DragInteraction.Start || interaction is PressInteraction.Press) {
-            onDragStarted(isStart = false)
-          }
+        endThumbInteractionSource.trackActiveInteractions(endThumbActiveInteractions) {
+          onDragStarted(isStart = false)
         }
       }
 
       // Listen for touch/drag gestures on the progress thumb to pause playback and record
       // interaction.
       launch {
-        progressThumbInteractionSource.interactions.collect { interaction ->
-          if (interaction is DragInteraction.Start || interaction is PressInteraction.Press) {
-            isUserInteracting = true
-            pause()
-          }
+        progressThumbInteractionSource.trackActiveInteractions(progressThumbActiveInteractions) {
+          startScrubbing()
+        }
+      }
+
+      // Take the player out of scrubbing mode once no thumb is interacted with anymore. The
+      // onValueChangeFinished callbacks already do this, but they aren't delivered for interrupted
+      // gestures. Also leave scrubbing mode when the slider leaves the composition.
+      launch {
+        try {
+          snapshotFlow { isUserInteracting }
+            .collect { interacting -> if (!interacting && isScrubbingRequested) stopScrubbing() }
+        } finally {
+          stopScrubbing()
         }
       }
 
@@ -1179,8 +1249,16 @@ private class ClippingSliderState(
                   rangeSliderState.endValue = clampedSliderRange.endInclusive
                 }
               }
+              val currentHandle =
+                if (lastChangedBoundaryIsStart) clippingRange.start else clippingRange.endInclusive
               if (clippingRange.start < clippingRange.endInclusive) {
-                progressSliderState.value = progressSliderState.value.coerceIn(clippingRange)
+                // Widen the position thumb's range before moving it. SliderState coerces its value
+                // into trackRange, so otherwise the thumb can't follow a boundary moving outwards.
+                updateProgressSliderRange(clippingRange)
+                progressSliderState.value = currentHandle
+                // Only seek continuously when scrubbing mode makes frequent seeks cheap.
+                // Otherwise, the seek is deferred to onRangeSliderValueChangeFinished.
+                if (isScrubbing) seekTo(currentHandle)
               }
               onClippingRangeChange?.invoke(clippingRangeMs)
             }
