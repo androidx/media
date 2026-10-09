@@ -60,10 +60,11 @@ import androidx.media3.effect.GlFrameProcessorTestUtil.FakeGlShaderProgram;
 import androidx.media3.effect.GlFrameProcessorTestUtil.FakeGlTextureFrameConsumer;
 import androidx.media3.effect.GlFrameProcessorTestUtil.FakeHardwareBufferFrame;
 import androidx.media3.effect.GlFrameProcessorTestUtil.NoOpFrameWriter;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -81,15 +82,27 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestParameterInjector;
 import org.robolectric.annotation.Config;
 
 /** Unit tests for {@link DefaultGlFrameProcessor} using pluggable non-OpenGL fakes. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestParameterInjector.class)
 @Config(minSdk = 29)
 public final class DefaultGlFrameProcessorTest {
 
   private static final int COMPOSITOR_CAPACITY = 1;
   private static final long SYNC_TIMEOUT_MS = 1_000;
+  private static final Format FORMAT_SDR =
+      new Format.Builder().setColorInfo(ColorInfo.SDR_BT709_LIMITED).build();
+  private static final Format FORMAT_HDR =
+      new Format.Builder()
+          .setColorInfo(
+              new ColorInfo.Builder()
+                  .setColorSpace(C.COLOR_SPACE_BT2020)
+                  .setColorTransfer(C.COLOR_TRANSFER_HLG)
+                  .setColorRange(C.COLOR_RANGE_LIMITED)
+                  .build())
+          .build();
 
   private final Context context = getApplicationContext();
   private Queue<Runnable> queuedFrameProcessedTasks;
@@ -222,7 +235,11 @@ public final class DefaultGlFrameProcessorTest {
             .setColorInfo(hdrColorInfo)
             .build();
     ColorInfo actualColorInfo =
-        queueFrameAndGetColorInfo(format, new FakeGlObjectsProvider(), /* thrownException= */ null);
+        queueFrameAndGetColorInfo(
+            format,
+            new FakeGlObjectsProvider(),
+            /* workingColorSpace= */ null,
+            /* thrownException= */ null);
 
     assertThat(actualColorInfo).isEqualTo(DefaultGlFrameProcessor.BT2020_LINEAR);
   }
@@ -242,7 +259,11 @@ public final class DefaultGlFrameProcessorTest {
             .setColorInfo(hdrColorInfo)
             .build();
     ColorInfo actualColorInfo =
-        queueFrameAndGetColorInfo(format, new FakeGlObjectsProvider(), /* thrownException= */ null);
+        queueFrameAndGetColorInfo(
+            format,
+            new FakeGlObjectsProvider(),
+            /* workingColorSpace= */ null,
+            /* thrownException= */ null);
 
     assertThat(actualColorInfo).isEqualTo(DefaultGlFrameProcessor.BT2020_LINEAR);
   }
@@ -264,7 +285,9 @@ public final class DefaultGlFrameProcessorTest {
     TestGlObjectsProvider glObjectsProvider = new TestGlObjectsProvider(/* failVersion3= */ true);
     AtomicReference<VideoFrameProcessingException> expectedException = new AtomicReference<>();
 
-    ColorInfo unused = queueFrameAndGetColorInfo(format, glObjectsProvider, expectedException);
+    ColorInfo unused =
+        queueFrameAndGetColorInfo(
+            format, glObjectsProvider, /* workingColorSpace= */ null, expectedException);
 
     assertThat(expectedException.get()).hasCauseThat().isInstanceOf(IllegalStateException.class);
   }
@@ -346,14 +369,13 @@ public final class DefaultGlFrameProcessorTest {
             .setColorInfo(sdrColorInfo)
             .build();
     ColorInfo actualColorInfo =
-        queueFrameAndGetColorInfo(format, new FakeGlObjectsProvider(), /* thrownException= */ null);
+        queueFrameAndGetColorInfo(
+            format,
+            new FakeGlObjectsProvider(),
+            /* workingColorSpace= */ null,
+            /* thrownException= */ null);
 
-    assertThat(actualColorInfo)
-        .isEqualTo(
-            new ColorInfo.Builder()
-                .setColorSpace(C.COLOR_SPACE_BT709)
-                .setColorTransfer(C.COLOR_TRANSFER_SRGB)
-                .build());
+    assertThat(actualColorInfo).isEqualTo(DefaultGlFrameProcessor.BT709_SRGB);
   }
 
   @Test
@@ -364,9 +386,70 @@ public final class DefaultGlFrameProcessorTest {
             .setColorInfo(ColorInfo.SRGB_BT709_FULL) // SRGB metadata typical of JPEG input
             .build();
     ColorInfo actualColorInfo =
-        queueFrameAndGetColorInfo(format, new FakeGlObjectsProvider(), /* thrownException= */ null);
+        queueFrameAndGetColorInfo(
+            format,
+            new FakeGlObjectsProvider(),
+            /* workingColorSpace= */ null,
+            /* thrownException= */ null);
 
     assertThat(actualColorInfo).isEqualTo(DefaultGlFrameProcessor.BT2020_LINEAR);
+  }
+
+  @Test
+  public void queue_withSdrFrameAndWorkingColorSpaceSet_usesWorkingColorSpace(
+      @TestParameter(valuesProvider = WorkingColorSpaceProvider.class) ColorInfo workingColorSpace)
+      throws Exception {
+    ColorInfo actualColorInfo =
+        queueFrameAndGetColorInfo(
+            FORMAT_SDR,
+            new FakeGlObjectsProvider(),
+            workingColorSpace,
+            /* thrownException= */ null);
+
+    assertThat(actualColorInfo).isEqualTo(workingColorSpace);
+  }
+
+  @Test
+  public void queue_withHdrFrameAndWorkingColorSpaceSet_usesWorkingColorSpace(
+      @TestParameter(valuesProvider = WorkingColorSpaceProvider.class) ColorInfo workingColorSpace)
+      throws Exception {
+    ColorInfo actualColorInfo =
+        queueFrameAndGetColorInfo(
+            FORMAT_HDR,
+            new FakeGlObjectsProvider(),
+            workingColorSpace,
+            /* thrownException= */ null);
+
+    assertThat(actualColorInfo).isEqualTo(workingColorSpace);
+  }
+
+  @Test
+  public void
+      queue_withSdrFrameAndLinearWorkingColorSpaceAndEs3ContextCreationFails_throwsIllegalStateException()
+          throws Exception {
+    AtomicReference<VideoFrameProcessingException> thrownException = new AtomicReference<>();
+
+    ColorInfo unused =
+        queueFrameAndGetColorInfo(
+            FORMAT_SDR,
+            new TestGlObjectsProvider(/* failVersion3= */ true),
+            DefaultGlFrameProcessor.BT709_LINEAR,
+            thrownException);
+
+    assertThat(thrownException.get()).hasCauseThat().isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  public void setWorkingColorSpace_withUnsupportedColorInfo_throwsIllegalArgumentException() {
+    DefaultGlFrameProcessor.Factory.Builder builder =
+        createDefaultGlFrameProcessorFactoryBuilderWithDefaultGlResources();
+    ColorInfo bt2020Pq =
+        new ColorInfo.Builder()
+            .setColorSpace(C.COLOR_SPACE_BT2020)
+            .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+            .build();
+
+    assertThrows(IllegalArgumentException.class, () -> builder.setWorkingColorSpace(bt2020Pq));
   }
 
   @Test
@@ -1595,6 +1678,7 @@ public final class DefaultGlFrameProcessorTest {
   private ColorInfo queueFrameAndGetColorInfo(
       Format format,
       GlObjectsProvider glObjectsProvider,
+      @Nullable ColorInfo workingColorSpace,
       @Nullable AtomicReference<VideoFrameProcessingException> thrownException)
       throws Exception {
     ImmutableMap<String, Object> metadata =
@@ -1609,14 +1693,17 @@ public final class DefaultGlFrameProcessorTest {
     Frame frame = new FakeHardwareBufferFrame(format, metadata);
 
     AtomicReference<ColorInfo> actualColorInfo = new AtomicReference<>();
-    DefaultGlFrameProcessor.Factory customFactory =
+    DefaultGlFrameProcessor.Factory.Builder customFactoryBuilder =
         createDefaultGlFrameProcessorFactoryBuilderWithTestGlResources(glObjectsProvider)
             .setFrameToGlTextureConverterFactory(
                 (outputColorInfo, errorConsumer) -> {
                   actualColorInfo.set(outputColorInfo);
                   return fakeFrameToGlTextureConverter;
-                })
-            .build();
+                });
+    if (workingColorSpace != null) {
+      customFactoryBuilder.setWorkingColorSpace(workingColorSpace);
+    }
+    DefaultGlFrameProcessor.Factory customFactory = customFactoryBuilder.build();
 
     try (DefaultGlFrameProcessor customProcessor =
         customFactory.create(
@@ -1692,6 +1779,17 @@ public final class DefaultGlFrameProcessorTest {
     @Override
     public void release(EGLDisplay eglDisplay) {
       releaseCalled.set(true);
+    }
+  }
+
+  private static final class WorkingColorSpaceProvider extends TestParameterValuesProvider {
+    @Override
+    protected ImmutableList<?> provideValues(TestParameterValuesProvider.Context context) {
+      return ImmutableList.of(
+          value(DefaultGlFrameProcessor.BT709_LINEAR).withName("BT709_LINEAR"),
+          value(DefaultGlFrameProcessor.BT709_SRGB).withName("BT709_SRGB"),
+          value(DefaultGlFrameProcessor.BT2020_LINEAR).withName("BT2020_LINEAR"),
+          value(DefaultGlFrameProcessor.BT2020_HLG).withName("BT2020_HLG"));
     }
   }
 }

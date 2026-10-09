@@ -22,6 +22,7 @@ import static androidx.media3.effect.FrameProcessorUtils.releaseOpenGl;
 import static androidx.media3.effect.FrameProcessorUtils.runAllAndAccumulateExceptions;
 import static androidx.media3.effect.FrameProcessorUtils.setupOpenGl;
 import static androidx.media3.effect.FrameProcessorUtils.shutdownGlExecutorService;
+import static androidx.media3.effect.FrameProcessorUtils.useHighPrecisionColorComponents;
 import static androidx.media3.effect.FrameProcessorUtils.waitAndCloseFence;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -85,6 +86,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     /** A builder for {@link Factory} instances. */
     public static final class Builder {
       private final Context context;
+      @Nullable private ColorInfo workingColorSpace;
       @Nullable private HardwareBufferJniWrapper hardwareBufferJniWrapper;
       @Nullable private GlObjectsProvider glObjectsProvider;
       @Nullable private ExecutorService executorService;
@@ -103,6 +105,43 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
         glTextureFrameCompositorFactory =
             new DefaultGlTextureFrameCompositor.Factory(
                 new DefaultCompositorGlProgram.Factory(this.context));
+      }
+
+      /**
+       * Sets the working color space, which is the color space of frames as they move through the
+       * pipeline. Input frames are converted to it, and effects receive frames in it. Effects other
+       * than {@link ColorConversion} also output frames in it.
+       *
+       * <p>Supported values are {@link #BT2020_LINEAR}, {@link #BT2020_HLG}, {@link #BT709_LINEAR}
+       * and {@link #BT709_SRGB}.
+       *
+       * <p>Before frames are written to the {@link FrameWriter}, frames in a linear working color
+       * space are converted to an electrical color space: {@link #BT2020_LINEAR} to {@link
+       * #BT2020_HLG}, and {@link #BT709_LINEAR} to {@link #BT709_SRGB}. Frames in an electrical
+       * working color space are written unchanged. A {@link ColorConversion} applied as the last
+       * effect overrides both.
+       *
+       * <p>When the working color space is BT.709, HDR input is tone mapped to SDR. Ultra HDR gain
+       * maps are only applied when the working color space is BT.2020, on API 34+.
+       *
+       * <p>If not set, the working color space is resolved from the first input frame: {@link
+       * #BT2020_LINEAR} for HDR video and Ultra HDR images, and {@link #BT709_SRGB} otherwise.
+       *
+       * @param workingColorSpace The working {@link ColorInfo}.
+       * @return This builder.
+       * @throws IllegalArgumentException If {@code workingColorSpace} is not supported.
+       */
+      @CanIgnoreReturnValue
+      public Builder setWorkingColorSpace(ColorInfo workingColorSpace) {
+        checkArgument(
+            workingColorSpace.equals(BT2020_LINEAR)
+                || workingColorSpace.equals(BT2020_HLG)
+                || workingColorSpace.equals(BT709_LINEAR)
+                || workingColorSpace.equals(BT709_SRGB),
+            "Unsupported working color space: %s",
+            workingColorSpace);
+        this.workingColorSpace = workingColorSpace;
+        return this;
       }
 
       /**
@@ -225,6 +264,8 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     private static final String THREAD_NAME = "Effect:DefaultGlFrameProcessor:GlThread";
 
     private final Context context;
+    // The working color space set by the app, or null if it's resolved from the first input frame.
+    @Nullable private final ColorInfo workingColorSpace;
     @Nullable private final GlObjectsProvider glObjectsProvider;
     @Nullable private final ExecutorService glExecutorService;
     private final FrameToGlTextureConverter.Factory frameToGlTextureConverterFactory;
@@ -234,11 +275,10 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     // Whether to assume the surfaceless context extension is supported instead of detecting support
     // at runtime. Only set to true in tests.
     private final boolean assumeSurfacelessContextExtensionSupported;
-    // TODO(b/545584738): Allow setting a working color space.
-    @Nullable private ColorInfo workingColorSpace;
 
     private Factory(Builder builder) {
       context = builder.context;
+      workingColorSpace = builder.workingColorSpace;
       glObjectsProvider = builder.glObjectsProvider;
       glExecutorService = builder.executorService;
       hardwareBufferJniWrapper = checkNotNull(builder.hardwareBufferJniWrapper);
@@ -247,7 +287,6 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       glTextureFrameCompositorFactory = builder.glTextureFrameCompositorFactory;
       assumeSurfacelessContextExtensionSupported =
           builder.assumeSurfacelessContextExtensionSupported;
-      workingColorSpace = null;
     }
 
     @Override
@@ -347,18 +386,15 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
    */
   public static final String KEY_FRAME_DISCONTINUITY_NUMBER = "KEY_FRAME_DISCONTINUITY_NUMBER";
 
-  private static final String TAG = "GlFrameProcessor";
-  private static final long RELEASE_TIMEOUT_MS = 1_000;
-
   /** An SDR color space with BT.709 / sRGB color primaries, and linear transfer function. */
-  /* package */ static final ColorInfo BT709_LINEAR =
+  public static final ColorInfo BT709_LINEAR =
       new ColorInfo.Builder()
           .setColorSpace(C.COLOR_SPACE_BT709)
           .setColorTransfer(C.COLOR_TRANSFER_LINEAR)
           .build();
 
   /** An SDR color space with BT.709 / sRGB color primaries, and sRGB transfer function. */
-  /* package */ static final ColorInfo BT709_SRGB =
+  public static final ColorInfo BT709_SRGB =
       new ColorInfo.Builder()
           .setColorSpace(C.COLOR_SPACE_BT709)
           .setColorTransfer(C.COLOR_TRANSFER_SRGB)
@@ -378,7 +414,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
    * linearized to optical BT.709 display light ({@code 1.0} = 203-nit diffuse white), boosted by
    * the gainmap up to the 1,000-nit reference peak ({@code ~4.9224}), and converted to BT.2020.
    */
-  /* package */ static final ColorInfo BT2020_LINEAR =
+  public static final ColorInfo BT2020_LINEAR =
       new ColorInfo.Builder()
           .setColorSpace(C.COLOR_SPACE_BT2020)
           .setColorTransfer(C.COLOR_TRANSFER_LINEAR)
@@ -399,11 +435,14 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
    *
    * <p>The values are always scene-referred.
    */
-  /* package */ static final ColorInfo BT2020_HLG =
+  public static final ColorInfo BT2020_HLG =
       new ColorInfo.Builder()
           .setColorSpace(C.COLOR_SPACE_BT2020)
           .setColorTransfer(C.COLOR_TRANSFER_HLG)
           .build();
+
+  private static final String TAG = "GlFrameProcessor";
+  private static final long RELEASE_TIMEOUT_MS = 1_000;
 
   private final Context context;
   private final GlObjectsProvider glObjectsProvider;
@@ -520,18 +559,18 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
               isGlSetup = true;
             }
             if (!isPipelineInitialized) {
+              if (workingColorSpace == null) {
+                workingColorSpace = resolveWorkingColorspace(frames.get(0).frame.getFormat());
+              }
               boolean isAnyInputHdr = false;
               for (int i = 0; i < frames.size(); i++) {
-                Format inputFormat = frames.get(i).frame.getFormat();
-                if (workingColorSpace == null) {
-                  workingColorSpace = resolveWorkingColorspace(inputFormat);
-                }
-                isAnyInputHdr |= isWideColorGamut(inputFormat.colorInfo);
+                isAnyInputHdr |= isWideColorGamut(frames.get(i).frame.getFormat().colorInfo);
               }
-              if (isAnyInputHdr || isWideColorGamut(workingColorSpace)) {
+              if (isAnyInputHdr || useHighPrecisionColorComponents(workingColorSpace)) {
                 checkState(
                     isHdrSupported,
-                    "OpenGL ES3 and 10 bit context support required for HDR inputs");
+                    "OpenGL ES3 and 10 bit context support required for HDR inputs or a high"
+                        + " precision working color space");
               }
               initializePipeline();
             }
