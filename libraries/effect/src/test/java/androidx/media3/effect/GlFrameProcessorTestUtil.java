@@ -91,7 +91,6 @@ public final class GlFrameProcessorTestUtil {
     public volatile boolean shouldAcceptIncomingFrames;
     public volatile int framesReceived;
     public volatile boolean signalEndOfStreamCalled;
-    public boolean forceUnsupportedFormat;
     @Nullable public Runnable wakeupListener;
     @Nullable public Executor listenerExecutor;
     @Nullable public GlTextureFrame lastReceivedFrame;
@@ -111,11 +110,6 @@ public final class GlFrameProcessorTestUtil {
       this.frameWriter = frameWriter;
       shouldAcceptIncomingFrames = true;
       wakeupListenerRegistered = new ConditionVariable();
-    }
-
-    @Override
-    public boolean isOutputFormatSupported(Format format) {
-      return !forceUnsupportedFormat;
     }
 
     /**

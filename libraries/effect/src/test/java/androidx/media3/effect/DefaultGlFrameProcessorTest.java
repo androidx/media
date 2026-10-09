@@ -222,7 +222,7 @@ public final class DefaultGlFrameProcessorTest {
             .setColorInfo(hdrColorInfo)
             .build();
     ColorInfo actualColorInfo =
-        queueFrameAndGetColorInfo(format, /* forceUnsupportedFormat= */ false);
+        queueFrameAndGetColorInfo(format, new FakeGlObjectsProvider(), /* thrownException= */ null);
 
     assertThat(actualColorInfo).isEqualTo(DefaultGlFrameProcessor.BT2020_LINEAR);
   }
@@ -242,7 +242,7 @@ public final class DefaultGlFrameProcessorTest {
             .setColorInfo(hdrColorInfo)
             .build();
     ColorInfo actualColorInfo =
-        queueFrameAndGetColorInfo(format, /* forceUnsupportedFormat= */ false);
+        queueFrameAndGetColorInfo(format, new FakeGlObjectsProvider(), /* thrownException= */ null);
 
     assertThat(actualColorInfo).isEqualTo(DefaultGlFrameProcessor.BT2020_LINEAR);
   }
@@ -262,12 +262,10 @@ public final class DefaultGlFrameProcessorTest {
             .setColorInfo(hdrColorInfo)
             .build();
     TestGlObjectsProvider glObjectsProvider = new TestGlObjectsProvider(/* failVersion3= */ true);
-
     AtomicReference<VideoFrameProcessingException> expectedException = new AtomicReference<>();
-    ColorInfo unused =
-        queueFrameAndGetColorInfo(
-            format, /* forceUnsupportedFormat= */ false, glObjectsProvider, expectedException);
-    waitUntilGlThreadFinishes();
+
+    ColorInfo unused = queueFrameAndGetColorInfo(format, glObjectsProvider, expectedException);
+
     assertThat(expectedException.get()).hasCauseThat().isInstanceOf(IllegalStateException.class);
   }
 
@@ -348,7 +346,7 @@ public final class DefaultGlFrameProcessorTest {
             .setColorInfo(sdrColorInfo)
             .build();
     ColorInfo actualColorInfo =
-        queueFrameAndGetColorInfo(format, /* forceUnsupportedFormat= */ false);
+        queueFrameAndGetColorInfo(format, new FakeGlObjectsProvider(), /* thrownException= */ null);
 
     assertThat(actualColorInfo)
         .isEqualTo(
@@ -366,7 +364,7 @@ public final class DefaultGlFrameProcessorTest {
             .setColorInfo(ColorInfo.SRGB_BT709_FULL) // SRGB metadata typical of JPEG input
             .build();
     ColorInfo actualColorInfo =
-        queueFrameAndGetColorInfo(format, /* forceUnsupportedFormat= */ false);
+        queueFrameAndGetColorInfo(format, new FakeGlObjectsProvider(), /* thrownException= */ null);
 
     assertThat(actualColorInfo).isEqualTo(DefaultGlFrameProcessor.BT2020_LINEAR);
   }
@@ -1594,22 +1592,8 @@ public final class DefaultGlFrameProcessorTest {
         .build();
   }
 
-  private ColorInfo queueFrameAndGetColorInfo(Format format, boolean forceUnsupportedFormat)
-      throws Exception {
-    return queueFrameAndGetColorInfo(
-        format, forceUnsupportedFormat, new GlFrameProcessorTestUtil.FakeGlObjectsProvider());
-  }
-
-  private ColorInfo queueFrameAndGetColorInfo(
-      Format format, boolean forceUnsupportedFormat, GlObjectsProvider glObjectsProvider)
-      throws Exception {
-    return queueFrameAndGetColorInfo(
-        format, forceUnsupportedFormat, glObjectsProvider, /* thrownException= */ null);
-  }
-
   private ColorInfo queueFrameAndGetColorInfo(
       Format format,
-      boolean forceUnsupportedFormat,
       GlObjectsProvider glObjectsProvider,
       @Nullable AtomicReference<VideoFrameProcessingException> thrownException)
       throws Exception {
@@ -1623,7 +1607,6 @@ public final class DefaultGlFrameProcessorTest {
             ImmutableList.of());
 
     Frame frame = new FakeHardwareBufferFrame(format, metadata);
-    fakeFrameWriterGlTextureFrameConsumer.forceUnsupportedFormat = forceUnsupportedFormat;
 
     AtomicReference<ColorInfo> actualColorInfo = new AtomicReference<>();
     DefaultGlFrameProcessor.Factory customFactory =
@@ -1654,7 +1637,10 @@ public final class DefaultGlFrameProcessorTest {
               @Override
               public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper fence) {}
             })) {
-      assertThat(customProcessor.queue(ImmutableList.of(new AsyncFrame(frame, null)))).isTrue();
+      assertThat(
+              customProcessor.queue(
+                  ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null))))
+          .isTrue();
       waitUntilGlThreadFinishes();
       return actualColorInfo.get();
     }
