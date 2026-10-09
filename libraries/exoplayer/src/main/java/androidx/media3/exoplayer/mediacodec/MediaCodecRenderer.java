@@ -2873,15 +2873,18 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       return false;
     }
     String name = codecInfo.name;
-    return (SDK_INT <= 25 && "OMX.rk.video_decoder.avc".equals(name))
+    return (SDK_INT <= 25 && name.equals("OMX.rk.video_decoder.avc"))
         || (SDK_INT <= 29
-            && ("OMX.broadcom.video_decoder.tunnel".equals(name)
-                || "OMX.broadcom.video_decoder.tunnel.secure".equals(name)
-                || "OMX.bcm.vdec.avc.tunnel".equals(name)
-                || "OMX.bcm.vdec.avc.tunnel.secure".equals(name)
-                || "OMX.bcm.vdec.hevc.tunnel".equals(name)
-                || "OMX.bcm.vdec.hevc.tunnel.secure".equals(name)))
-        || ("Amazon".equals(Build.MANUFACTURER) && "AFTS".equals(Build.MODEL) && codecInfo.secure);
+            && (name.equals("OMX.broadcom.video_decoder.tunnel")
+                || name.equals("OMX.broadcom.video_decoder.tunnel.secure")
+                || name.equals("OMX.bcm.vdec.avc.tunnel")
+                || name.equals("OMX.bcm.vdec.avc.tunnel.secure")
+                || name.equals("OMX.bcm.vdec.hevc.tunnel")
+                || name.equals("OMX.bcm.vdec.hevc.tunnel.secure")
+                || (Build.MANUFACTURER.equals("Amazon")
+                    && Build.MODEL.startsWith("AFT")
+                    && name.equals("OMX.dolby.ac3.decoder"))))
+        || (Build.MANUFACTURER.equals("Amazon") && Build.MODEL.equals("AFTS") && codecInfo.secure);
   }
 
   private static final class OutputStreamInfo {
