@@ -18,13 +18,21 @@ package androidx.media3.demo.compose.text
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Card
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.media3.common.C
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.Player
 import androidx.media3.common.util.Util
+import androidx.media3.ui.compose.text.CurrentMediaItemBox
 
 @Composable
 internal fun CurrentItemInfo(
@@ -38,6 +46,29 @@ internal fun CurrentItemInfo(
       Text("Title: ${meta.title ?: "Unknown Title"}")
       Text("Artist: ${meta.artist ?: "Unknown Artist"}")
       Text("Duration: ${Util.getStringForTime(meta.durationMs ?: C.TIME_UNSET)}")
+    }
+  }
+}
+
+/** A [Card] showing the title and artist of the [player]'s current media item. */
+@Composable
+internal fun CurrentMediaItemCard(player: Player?, modifier: Modifier = Modifier) {
+  CurrentMediaItemBox(player) {
+    Card(modifier) {
+      Column(Modifier.fillMaxWidth().padding(16.dp)) {
+        Text(
+          text = mediaMetadata.title?.toString() ?: "Unknown Title",
+          style = MaterialTheme.typography.titleMedium,
+          maxLines = 2,
+          overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+          text = mediaMetadata.artist?.toString() ?: "Unknown Artist",
+          style = MaterialTheme.typography.bodyMedium,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+        )
+      }
     }
   }
 }

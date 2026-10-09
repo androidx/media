@@ -17,15 +17,20 @@
 package androidx.media3.demo.compose.layout
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ElevatedButton
@@ -53,12 +58,13 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.max
+import androidx.compose.ui.unit.min
 import androidx.media3.cast.MediaRouteButton
 import androidx.media3.cast.rememberMediaRouteButtonState
 import androidx.media3.common.MediaItem
@@ -71,6 +77,7 @@ import androidx.media3.demo.compose.buttons.LabeledProgressSlider
 import androidx.media3.demo.compose.buttons.SettingsBottomSheet
 import androidx.media3.demo.compose.buttons.SettingsButton
 import androidx.media3.demo.compose.text.CastingOverlay
+import androidx.media3.demo.compose.text.CurrentMediaItemCard
 import androidx.media3.demo.compose.text.FastForwardOverlay
 import androidx.media3.demo.compose.text.PlaylistInfoBottomSheet
 import androidx.media3.demo.compose.text.SeekOverlay
@@ -86,6 +93,7 @@ import androidx.media3.ui.compose.material3.PlayerDefaults
 import androidx.media3.ui.compose.material3.buttons.MuteButton
 import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
 import androidx.media3.ui.compose.state.rememberPlaybackSpeedState
+import androidx.media3.ui.compose.state.rememberPresentationState
 import androidx.media3.ui.compose.state.rememberSeekBackButtonState
 import androidx.media3.ui.compose.state.rememberSeekForwardButtonState
 import kotlin.time.Duration.Companion.milliseconds
@@ -116,13 +124,11 @@ internal fun LongFormPlayerScreen(
   localPlayer: ExoPlayer?,
   modifier: Modifier = Modifier,
 ) {
-  val density = LocalDensity.current
   val scope = rememberCoroutineScope()
   var currentContentScaleIndex by rememberSaveable { mutableIntStateOf(0) }
   var showPlaylist by rememberSaveable { mutableStateOf(false) }
   var showMiniController by rememberSaveable { mutableStateOf(false) }
   var showSettings by rememberSaveable { mutableStateOf(false) }
-  var bottomControlsHeight by remember { mutableStateOf(0.dp) }
   val castState = rememberCastState(player)
   val isRemotePlayback = castState.isRemotePlayback
   val mediaRouteButtonState = rememberMediaRouteButtonState()
@@ -167,6 +173,7 @@ internal fun LongFormPlayerScreen(
   var showFastForward by remember { mutableStateOf(false) }
 
   val playbackSpeedState = rememberPlaybackSpeedState(player)
+  val presentationState = rememberPresentationState(player)
   val context = LocalContext.current
   val bitmapLoader = remember(context) { DataSourceBitmapLoader.Builder(context).build() }
 
@@ -181,141 +188,159 @@ internal fun LongFormPlayerScreen(
       MaterialTheme.colorScheme.primary,
     )
 
-  Box(
-    modifier
-      .background(MaterialTheme.colorScheme.background)
-      .statusBarsPadding()
-      .pointerHoverIcon(if (showControls) PointerIcon.Default else PointerIcon(0))
+  BoxWithConstraints(
+    modifier.background(MaterialTheme.colorScheme.background).statusBarsPadding()
   ) {
-    val controlsVisible = isRemotePlayback || showControls
-    Player(
-      player = player,
-      artwork = {
-        Artwork(
-          player = player,
-          contentDescription = null,
-          modifier = Modifier.fillMaxSize(),
-          bitmapLoader = bitmapLoader,
-          error = errorPainter,
-          fallback = fallbackPainter,
+    val playerContainerModifier =
+      Modifier.fillMaxWidth()
+        .height(playerHeight(maxWidth, maxHeight, presentationState.videoAspectRatio))
+    Column(Modifier.fillMaxSize()) {
+      Box(
+        playerContainerModifier.pointerHoverIcon(
+          if (showControls) PointerIcon.Default else PointerIcon(0)
         )
-      },
-      modifier =
-        Modifier.onGloballyPositioned { coordinates -> size = coordinates.size }
-          .playerGestures(
-            onPointerDownChange = { anyPointerDown = it },
-            onPointerMove = {
-              showControls = true
-              scheduleHideControls()
-            },
-            onToggleControls = { if (!isRemotePlayback) showControls = !showControls },
-            playbackSpeedState = playbackSpeedState,
-            seekBackButtonState = rememberSeekBackButtonState(player),
-            seekForwardButtonState = rememberSeekForwardButtonState(player),
-            seekBackActionArea = { offset -> offset.x < size.width / 2 },
-            seekForwardActionArea = { offset -> offset.x >= size.width / 2 },
-            onSeek = {
-              showControls = false
-              seekOverlayState.show(it)
-            },
-            // Only allow fast-forwarding if we are NOT showing the play button (i.e., we are
-            // playing)
-            // and the press is on the right half of the screen.
-            fastForwardActionArea = { offset ->
-              !playPauseButtonState.showPlay && offset.x >= size.width / 2
-            },
-            onFastForward = {
-              showControls = false
-              showFastForward = it
-            },
-            onSpacebarRelease = {
-              if (!playPauseButtonState.showPlay) {
-                // Bring up the controls if we are about to pause
-                showControls = true
-              }
-              playPauseButtonState.onClick()
-            },
-          ),
-      contentScale = CONTENT_SCALES[currentContentScaleIndex].second,
-      shutter = {
-        Box(Modifier.fillMaxSize().background(Color.Black))
-        CastingOverlay(castState, Modifier.fillMaxSize())
-      },
-      topControls = {
-        PlayerDefaults.TopControls(
-          player,
-          controlsVisible,
-          Modifier.fillMaxWidth().padding(horizontal = 15.dp),
-        ) {
-          Row(Modifier.align(Alignment.CenterEnd)) {
-            CcButton(player = player)
-            MediaRouteButton(state = mediaRouteButtonState)
-            SettingsButton(onSettingsClick = { showSettings = true })
-          }
-        }
-      },
-      centerControls = {
-        if (!isRemotePlayback) {
-          PlayerDefaults.CenterControls(player, controlsVisible, Modifier.fillMaxWidth())
-        }
-      },
-      bottomControls = {
-        PlayerDefaults.BottomControls(
-          player,
-          controlsVisible,
+      ) {
+        val controlsVisible = isRemotePlayback || showControls
+        Player(
+          player = player,
+          artwork = {
+            Artwork(
+              player = player,
+              contentDescription = null,
+              modifier = Modifier.fillMaxSize(),
+              bitmapLoader = bitmapLoader,
+              error = errorPainter,
+              fallback = fallbackPainter,
+            )
+          },
           modifier =
-            Modifier.fillMaxWidth().navigationBarsPadding().onSizeChanged {
-              bottomControlsHeight = with(density) { it.height.toDp() }
-            },
-          above = {
-            if (isRemotePlayback) {
-              PlayerDefaults.CenterControls(player, controlsVisible, Modifier.fillMaxWidth())
-            } else {
-              Box(Modifier.fillMaxWidth()) {
-                MuteButton(player, Modifier.align(Alignment.CenterEnd))
+            Modifier.fillMaxSize()
+              .onGloballyPositioned { coordinates -> size = coordinates.size }
+              .playerGestures(
+                onPointerDownChange = { anyPointerDown = it },
+                onPointerMove = {
+                  showControls = true
+                  scheduleHideControls()
+                },
+                onToggleControls = { if (!isRemotePlayback) showControls = !showControls },
+                playbackSpeedState = playbackSpeedState,
+                seekBackButtonState = rememberSeekBackButtonState(player),
+                seekForwardButtonState = rememberSeekForwardButtonState(player),
+                seekBackActionArea = { offset -> offset.x < size.width / 2 },
+                seekForwardActionArea = { offset -> offset.x >= size.width / 2 },
+                onSeek = {
+                  showControls = false
+                  seekOverlayState.show(it)
+                },
+                // Only allow fast-forwarding if we are NOT showing the play button (i.e., we are
+                // playing)
+                // and the press is on the right half of the screen.
+                fastForwardActionArea = { offset ->
+                  !playPauseButtonState.showPlay && offset.x >= size.width / 2
+                },
+                onFastForward = {
+                  showControls = false
+                  showFastForward = it
+                },
+                onSpacebarRelease = {
+                  if (!playPauseButtonState.showPlay) {
+                    // Bring up the controls if we are about to pause
+                    showControls = true
+                  }
+                  playPauseButtonState.onClick()
+                },
+              ),
+          contentScale = CONTENT_SCALES[currentContentScaleIndex].second,
+          shutter = {
+            Box(Modifier.fillMaxSize().background(Color.Black))
+            CastingOverlay(castState, Modifier.fillMaxSize())
+          },
+          topControls = {
+            PlayerDefaults.TopControls(
+              player,
+              controlsVisible,
+              Modifier.fillMaxWidth().padding(horizontal = 15.dp),
+            ) {
+              Row(Modifier.align(Alignment.CenterEnd)) {
+                CcButton(player = player)
+                MediaRouteButton(state = mediaRouteButtonState)
+                SettingsButton(onSettingsClick = { showSettings = true })
               }
             }
           },
-          progressSlider = {
-            val sliderPlayer = if (isRemotePlayback) player else localPlayer
-            LabeledProgressSlider(sliderPlayer)
+          centerControls = {
+            if (!isRemotePlayback) {
+              PlayerDefaults.CenterControls(player, controlsVisible, Modifier.fillMaxWidth())
+            }
+          },
+          bottomControls = {
+            PlayerDefaults.BottomControls(
+              player,
+              controlsVisible,
+              modifier = Modifier.fillMaxWidth(),
+              above = {
+                if (isRemotePlayback) {
+                  PlayerDefaults.CenterControls(player, controlsVisible, Modifier.fillMaxWidth())
+                } else {
+                  Box(Modifier.fillMaxWidth()) {
+                    MuteButton(player, Modifier.align(Alignment.CenterEnd))
+                  }
+                }
+              },
+              progressSlider = {
+                val sliderPlayer = if (isRemotePlayback) player else localPlayer
+                LabeledProgressSlider(sliderPlayer)
+              },
+            )
           },
         )
-      },
-    )
-    Column(Modifier.align(Alignment.TopStart)) {
-      PlaylistButton(onClick = { showPlaylist = true })
-      PlayingNowButton(showMiniController, onClick = { showMiniController = !showMiniController })
-    }
-    SeekOverlay(
-      state = seekOverlayState,
-      modifier =
-        Modifier.align(
-            if (seekOverlayState.seekAmountMs < 0) Alignment.CenterStart else Alignment.CenterEnd
+        SeekOverlay(
+          state = seekOverlayState,
+          modifier =
+            Modifier.align(
+                if (seekOverlayState.seekAmountMs < 0) Alignment.CenterStart
+                else Alignment.CenterEnd
+              )
+              .padding(horizontal = 20.dp),
+        )
+        if (showFastForward) {
+          FastForwardOverlay(
+            speed = playbackSpeedState.playbackSpeed,
+            Modifier.align(Alignment.BottomCenter)
+              .background(
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(4.dp),
+              ),
           )
-          .padding(horizontal = 20.dp),
-    )
-    if (showFastForward) {
-      FastForwardOverlay(
-        speed = playbackSpeedState.playbackSpeed,
-        Modifier.navigationBarsPadding()
-          .align(Alignment.BottomCenter)
-          .background(
-            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-            shape = RoundedCornerShape(4.dp),
-          ),
-      )
-    }
-    if (showMiniController) {
-      MiniController(
-        player = player,
-        modifier =
-          Modifier.fillMaxWidth()
-            .align(Alignment.BottomCenter)
-            .padding(bottom = bottomControlsHeight + 10.dp),
-        bitmapLoader = bitmapLoader,
-        defaultArtwork = fallbackPainter,
-      )
+        }
+      }
+      Box(Modifier.fillMaxWidth().weight(1f)) {
+        Column(
+          Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(16.dp),
+          verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+          CurrentMediaItemCard(player, Modifier.fillMaxWidth())
+          Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PlaylistButton(onClick = { showPlaylist = true })
+            PlayingNowButton(
+              showMiniController,
+              onClick = { showMiniController = !showMiniController },
+            )
+          }
+        }
+        if (showMiniController) {
+          MiniController(
+            player = player,
+            modifier =
+              Modifier.fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 10.dp),
+            bitmapLoader = bitmapLoader,
+            defaultArtwork = fallbackPainter,
+          )
+        }
+      }
     }
     if (showPlaylist) {
       PlaylistInfoBottomSheet(
@@ -354,6 +379,17 @@ private fun PlayingNowButton(visible: Boolean, modifier: Modifier = Modifier, on
   ) {
     Text("Playing Now")
   }
+}
+
+/**
+ * Returns the height of the player: the top third of the screen, or more if needed to fit a
+ * landscape video to the width of the screen, while leaving at least a quarter of the screen for
+ * the content below the player, which scrolls if it doesn't fit.
+ */
+private fun playerHeight(screenWidth: Dp, screenHeight: Dp, videoAspectRatio: Float?): Dp {
+  val videoHeightAtFullWidth =
+    if (videoAspectRatio != null && videoAspectRatio > 1f) screenWidth / videoAspectRatio else 0.dp
+  return min(max(screenHeight / 3, videoHeightAtFullWidth), screenHeight * 3 / 4)
 }
 
 @Composable
