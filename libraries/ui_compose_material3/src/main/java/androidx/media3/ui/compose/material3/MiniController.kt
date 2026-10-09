@@ -44,14 +44,6 @@ import androidx.media3.ui.compose.material3.buttons.PreviousButton
 import androidx.media3.ui.compose.material3.indicator.LinearProgressIndicator
 import androidx.media3.ui.compose.text.CurrentMediaItemBox
 
-private val defaultPlayerControls: @Composable RowScope.(Player?) -> Unit = { player ->
-  Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-    PreviousButton(player, modifier = Modifier.size(MiniControllerTokens.ControlSize))
-    PlayPauseButton(player, modifier = Modifier.size(MiniControllerTokens.ControlSize))
-    NextButton(player, modifier = Modifier.size(MiniControllerTokens.ControlSize))
-  }
-}
-
 /**
  * A composable that provides a compact control affordance for the [Player].
  *
@@ -77,7 +69,7 @@ fun MiniController(
   bitmapLoader: BitmapLoader? = null,
   defaultArtwork: Painter? = null,
   onClick: () -> Unit = {},
-  playerControls: @Composable RowScope.(Player?) -> Unit = defaultPlayerControls,
+  playerControls: @Composable RowScope.() -> Unit = { DefaultPlayerControls(player) },
 ) {
   MiniController(
     player = player,
@@ -85,7 +77,7 @@ fun MiniController(
     onClick = onClick,
     artwork = {
       Artwork(
-        it,
+        player,
         contentDescription = null,
         modifier = Modifier.size(MiniControllerTokens.ArtworkSize),
         bitmapLoader = bitmapLoader,
@@ -119,8 +111,8 @@ fun MiniController(
   player: Player?,
   modifier: Modifier = Modifier,
   onClick: () -> Unit = {},
-  artwork: @Composable (Player?) -> Unit,
-  playerControls: @Composable RowScope.(Player?) -> Unit = defaultPlayerControls,
+  artwork: @Composable () -> Unit,
+  playerControls: @Composable RowScope.() -> Unit = { DefaultPlayerControls(player) },
 ) {
   Card(
     onClick = onClick,
@@ -138,9 +130,9 @@ fun MiniController(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(MiniControllerTokens.SpacerWidth),
       ) {
-        artwork(player)
+        artwork()
         MediaDescription(player, modifier = Modifier.weight(1f))
-        playerControls(player)
+        playerControls()
       }
       LinearProgressIndicator(player)
     }
@@ -169,5 +161,14 @@ private fun MediaDescription(player: Player?, modifier: Modifier = Modifier) {
         )
       }
     }
+  }
+}
+
+@Composable
+private fun DefaultPlayerControls(player: Player?) {
+  Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+    PreviousButton(player, modifier = Modifier.size(MiniControllerTokens.ControlSize))
+    PlayPauseButton(player, modifier = Modifier.size(MiniControllerTokens.ControlSize))
+    NextButton(player, modifier = Modifier.size(MiniControllerTokens.ControlSize))
   }
 }

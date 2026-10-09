@@ -18,7 +18,6 @@ package androidx.media3.ui.compose.material3
 import android.content.Context
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.text.BasicText
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
@@ -77,25 +76,6 @@ class PlayerDefaultsTest {
     }
 
     composeTestRule.onNodeWithTag(topControlsTag).assertDoesNotExist()
-  }
-
-  @Test
-  fun topControls_passesPlayerToSlots() {
-    val player = FakePlayer()
-    composeTestRule.setContent {
-      PlayerDefaults.TopControls(
-        player = player,
-        visible = true,
-        content = { p ->
-          if (p == player) {
-            BasicText("Content received player")
-          }
-        },
-      )
-    }
-
-    // Verify that the slot lambda was invoked with the exact player instance
-    composeTestRule.onNodeWithText("Content received player").assertIsDisplayed()
   }
 
   @Test
@@ -225,27 +205,16 @@ class PlayerDefaultsTest {
   }
 
   @Test
-  fun bottomControls_passesPlayerToSlots() {
-    val player = FakePlayer()
+  fun bottomControls_customBelowContent_isDisplayed() {
     composeTestRule.setContent {
       PlayerDefaults.BottomControls(
-        player = player,
+        player = FakePlayer(),
         visible = true,
-        progressSlider = { p ->
-          if (p == player) {
-            BasicText("Slider received player")
-          }
-        },
-        below = { p ->
-          if (p == player) {
-            BasicText("Content received player")
-          }
-        },
+        below = { Box(Modifier.size(100.dp).testTag(customContentTag)) },
       )
     }
 
-    composeTestRule.onNodeWithText("Slider received player").assertIsDisplayed()
-    composeTestRule.onNodeWithText("Content received player").assertIsDisplayed()
+    composeTestRule.onNodeWithTag(customContentTag).assertIsDisplayed()
   }
 
   @Test

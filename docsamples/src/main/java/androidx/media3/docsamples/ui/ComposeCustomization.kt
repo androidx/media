@@ -170,22 +170,23 @@ class ComposeCustomization {
 
   // [START android_compose_custom_player_slots]
   @Composable
-  fun CustomPlayerSlots(player: Player, modifier: Modifier = Modifier) {
+  fun CustomPlayerSlots(player: Player, showControls: Boolean, modifier: Modifier = Modifier) {
     Player(
       player = player,
       modifier = modifier,
-      topControls = { p, visible ->
+      showControls = showControls,
+      topControls = {
         // Fully custom top controls
-        AnimatedVisibility(visible) { Text("My custom title") }
+        AnimatedVisibility(showControls) { Text("My custom title") }
       },
-      centerControls = { p, visible ->
+      centerControls = {
         // Use default CenterControls but override the central button
         PlayerDefaults.CenterControls(
-          player = p,
-          visible = visible,
+          player = player,
+          visible = showControls,
           central = {
             // A custom play/pause button
-            Material3PlayPauseButton(it, modifier = Modifier.size(64.dp))
+            Material3PlayPauseButton(player, modifier = Modifier.size(64.dp))
           },
         )
       },

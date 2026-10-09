@@ -76,11 +76,12 @@ class MiniControllerTest {
 
   @Test
   fun miniController_customPlayerControls_invokesCustomPlayerControls() {
+    val player = FakePlayer()
     composeTestRule.setContent {
       MiniController(
-        player = FakePlayer(),
+        player = player,
         modifier = Modifier.testTag(miniControllerTag),
-        playerControls = { PreviousButton(it, modifier = Modifier.testTag("previous_button")) },
+        playerControls = { PreviousButton(player, modifier = Modifier.testTag("previous_button")) },
       )
     }
     composeTestRule.onNodeWithTag("previous_button").assertIsDisplayed()
@@ -134,11 +135,12 @@ class MiniControllerTest {
     lateinit var isPlayerNull: MutableState<Boolean>
     composeTestRule.setContent {
       isPlayerNull = remember { mutableStateOf(false) }
+      val currentPlayer = if (isPlayerNull.value) null else player
       MiniController(
-        player = if (isPlayerNull.value) null else player,
+        player = currentPlayer,
         modifier = Modifier.testTag(miniControllerTag),
-        artwork = { p ->
-          val tag = if (p != null) "artworkWithPlayer" else "artworkWithoutPlayer"
+        artwork = {
+          val tag = if (currentPlayer != null) "artworkWithPlayer" else "artworkWithoutPlayer"
           Box(modifier = Modifier.size(100.dp).testTag(tag))
         },
       )

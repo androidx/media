@@ -41,18 +41,18 @@ import androidx.media3.ui.compose.material3.PlayerTokens.ErrorVerticalOffsetFrom
 import androidx.media3.ui.compose.material3.text.Subtitles
 
 /**
- * A composable that provides a basic player UI layout with default controls and a shutter.
+ * A composable that provides a basic player UI layout with a shutter and hidden default controls.
  *
  * This composable consists of a [ContentFrame] that handles the rendering of the player's video,
- * overlaid with default button controls, progress slider, and a shutter.
- *
- * This component uses the standard Material3 layouts provided by [PlayerDefaults]. This includes
- * [PlayerDefaults.TopControls], [PlayerDefaults.CenterControls], and
+ * overlaid with a shutter and the standard Material3 layouts provided by [PlayerDefaults]. This
+ * includes [PlayerDefaults.TopControls], [PlayerDefaults.CenterControls], and
  * [PlayerDefaults.BottomControls].
  *
- * To customize the UI components, use the overload that accepts these as parameters.
+ * The controls are always hidden, because showing them permanently would occlude the video. To show
+ * and hide them, for example when the user taps the player, use the overload that accepts
+ * `showControls`. That overload also allows customizing the UI components.
  *
- * @param player The [Player] instance to be controlled and whose content is displayed.
+ * @param player The [Player] instance whose content is displayed.
  * @param modifier The [Modifier] to be applied to the outer [Box].
  */
 @UnstableApi
@@ -90,13 +90,12 @@ fun Player(player: Player?, modifier: Modifier = Modifier) {
  * @param shutter A composable to be displayed as a shutter over the content. The default shutter is
  *   a black [Box].
  * @param artwork Optional composable slot to render artwork for the current media item.
- * @param showControls Whether the controls should be visible. False by default.
- * @param topControls A composable aligned with [Alignment.TopCenter], receiving the [player] and
- *   [showControls].
- * @param centerControls A composable aligned with [Alignment.Center], receiving the [player] and
- *   [showControls].
- * @param bottomControls A composable aligned with [Alignment.BottomCenter], receiving the [player]
- *   and [showControls].
+ * @param showControls Whether the default controls should be visible. False by default, so that the
+ *   video isn't occluded. Toggle it, for example, when the user taps the player. Custom control
+ *   slots should manage their own visibility.
+ * @param topControls A composable aligned with [Alignment.TopCenter].
+ * @param centerControls A composable aligned with [Alignment.Center].
+ * @param bottomControls A composable aligned with [Alignment.BottomCenter].
  * @param errorOverlay Slot for the error message overlay. Defaults to
  *   [PlayerDefaults.ErrorOverlay].
  */
@@ -108,22 +107,22 @@ fun Player(
   surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
   contentScale: ContentScale = ContentScale.Fit,
   keepContentOnReset: Boolean = false,
-  subtitleOverlay: @Composable (Player?) -> Unit = { Subtitles(it) },
+  subtitleOverlay: @Composable () -> Unit = { Subtitles(player) },
   shutter: @Composable () -> Unit = PlayerDefaults::Shutter,
-  artwork: (@Composable (Player?) -> Unit)? = {
-    Artwork(it, modifier = Modifier.fillMaxSize(), contentScale = contentScale)
+  artwork: (@Composable () -> Unit)? = {
+    Artwork(player, modifier = Modifier.fillMaxSize(), contentScale = contentScale)
   },
   showControls: Boolean = false,
-  topControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = { player, showControls ->
+  topControls: (@Composable BoxScope.() -> Unit)? = {
     PlayerDefaults.TopControls(player, showControls, Modifier.fillMaxWidth())
   },
-  centerControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = { player, showControls ->
+  centerControls: (@Composable BoxScope.() -> Unit)? = {
     PlayerDefaults.CenterControls(player, showControls, Modifier.fillMaxWidth())
   },
-  bottomControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = { player, showControls ->
+  bottomControls: (@Composable BoxScope.() -> Unit)? = {
     PlayerDefaults.BottomControls(player, showControls)
   },
-  errorOverlay: (@Composable BoxScope.(Player?) -> Unit)? = { PlayerDefaults.ErrorOverlay(it) },
+  errorOverlay: (@Composable BoxScope.() -> Unit)? = { PlayerDefaults.ErrorOverlay(player) },
 ) {
   PlayerImpl(
     player,
@@ -149,22 +148,22 @@ private fun PlayerImpl(
   surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
   contentScale: ContentScale = ContentScale.Fit,
   keepContentOnReset: Boolean = false,
-  subtitleOverlay: @Composable (Player?) -> Unit = { Subtitles(it) },
+  subtitleOverlay: @Composable () -> Unit = { Subtitles(player) },
   shutter: @Composable () -> Unit = PlayerDefaults::Shutter,
-  artwork: (@Composable (Player?) -> Unit)? = {
+  artwork: (@Composable () -> Unit)? = {
     Artwork(player, modifier = Modifier.fillMaxSize(), contentScale = contentScale)
   },
   showControls: Boolean = false,
-  topControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = { player, showControls ->
+  topControls: (@Composable BoxScope.() -> Unit)? = {
     PlayerDefaults.TopControls(player, showControls, Modifier.fillMaxWidth())
   },
-  centerControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = { player, showControls ->
+  centerControls: (@Composable BoxScope.() -> Unit)? = {
     PlayerDefaults.CenterControls(player, showControls, Modifier.fillMaxWidth())
   },
-  bottomControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = { player, showControls ->
+  bottomControls: (@Composable BoxScope.() -> Unit)? = {
     PlayerDefaults.BottomControls(player, showControls)
   },
-  errorOverlay: (@Composable BoxScope.(Player?) -> Unit)? = { PlayerDefaults.ErrorOverlay(it) },
+  errorOverlay: (@Composable BoxScope.() -> Unit)? = { PlayerDefaults.ErrorOverlay(player) },
 ) {
   val topControlsFocus = remember { FocusRequester() }
   val centerControlsFocus = remember { FocusRequester() }
@@ -177,7 +176,7 @@ private fun PlayerImpl(
       contentScale = contentScale,
       keepContentOnReset = keepContentOnReset,
       artwork = artwork,
-      overlay = { subtitleOverlay(player) },
+      overlay = subtitleOverlay,
       shutter = shutter,
     )
 
@@ -186,7 +185,7 @@ private fun PlayerImpl(
       Modifier.align(Alignment.Center).offset(y = ErrorVerticalOffsetFromControls).fillMaxWidth(),
       contentAlignment = Alignment.Center,
     ) {
-      errorOverlay?.invoke(this, player)
+      errorOverlay?.invoke(this)
     }
 
     // this = BoxScope of a container-Box
@@ -196,7 +195,7 @@ private fun PlayerImpl(
         .focusProperties { next = centerControlsFocus }
         .focusGroup()
     ) {
-      topControls?.invoke(this, player, showControls)
+      topControls?.invoke(this)
     }
     Box(
       Modifier.align(Alignment.Center)
@@ -207,7 +206,7 @@ private fun PlayerImpl(
         }
         .focusGroup()
     ) {
-      centerControls?.invoke(this, player, showControls)
+      centerControls?.invoke(this)
     }
     Box(
       Modifier.align(Alignment.BottomCenter)
@@ -215,7 +214,7 @@ private fun PlayerImpl(
         .focusProperties { previous = centerControlsFocus }
         .focusGroup()
     ) {
-      bottomControls?.invoke(this, player, showControls)
+      bottomControls?.invoke(this)
     }
   }
 }

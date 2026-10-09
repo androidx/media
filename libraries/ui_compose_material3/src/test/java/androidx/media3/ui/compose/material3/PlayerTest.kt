@@ -132,11 +132,9 @@ class PlayerTest {
       Player(
         player,
         Modifier.testTag(playerTestTag),
-        topControls = { _, _ -> Box(Modifier.testTag("topControls")) { BasicText("Top") } },
-        centerControls = { _, _ ->
-          Box(Modifier.testTag("centerControls")) { BasicText("Center") }
-        },
-        bottomControls = { _, _ -> Box(Modifier.testTag("bottomControls")) { BasicText("Bottom") } },
+        topControls = { Box(Modifier.testTag("topControls")) { BasicText("Top") } },
+        centerControls = { Box(Modifier.testTag("centerControls")) { BasicText("Center") } },
+        bottomControls = { Box(Modifier.testTag("bottomControls")) { BasicText("Bottom") } },
       )
     }
 
@@ -175,21 +173,23 @@ class PlayerTest {
     lateinit var isPlayerNull: MutableState<Boolean>
     composeTestRule.setContent {
       isPlayerNull = remember { mutableStateOf(false) }
+      val currentPlayer = if (isPlayerNull.value) null else player
       Player(
-        player = if (isPlayerNull.value) null else player,
+        player = currentPlayer,
         Modifier.testTag(playerTestTag),
-        topControls = { player, _ ->
-          val tag = if (player != null) "topControlsWithPlayer" else "topControlsWithoutPlayer"
+        topControls = {
+          val tag =
+            if (currentPlayer != null) "topControlsWithPlayer" else "topControlsWithoutPlayer"
           Box(Modifier.testTag(tag)) { BasicText("Top") }
         },
-        centerControls = { player, _ ->
+        centerControls = {
           val tag =
-            if (player != null) "centerControlsWithPlayer" else "centerControlsWithoutPlayer"
+            if (currentPlayer != null) "centerControlsWithPlayer" else "centerControlsWithoutPlayer"
           Box(Modifier.testTag(tag)) { BasicText("Center") }
         },
-        bottomControls = { player, _ ->
+        bottomControls = {
           val tag =
-            if (player != null) "bottomControlsWithPlayer" else "bottomControlsWithoutPlayer"
+            if (currentPlayer != null) "bottomControlsWithPlayer" else "bottomControlsWithoutPlayer"
           Box(Modifier.testTag(tag)) { BasicText("Bottom") }
         },
       )
@@ -250,7 +250,7 @@ class PlayerTest {
       Player(
         player,
         Modifier.testTag(playerTestTag),
-        errorOverlay = { _ -> Box(Modifier.testTag("errorMessage")) { BasicText("Error") } },
+        errorOverlay = { Box(Modifier.testTag("errorMessage")) { BasicText("Error") } },
       )
     }
 
@@ -264,11 +264,13 @@ class PlayerTest {
     lateinit var isPlayerNull: MutableState<Boolean>
     composeTestRule.setContent {
       isPlayerNull = remember { mutableStateOf(false) }
+      val currentPlayer = if (isPlayerNull.value) null else player
       Player(
-        player = if (isPlayerNull.value) null else player,
+        player = currentPlayer,
         Modifier.testTag(playerTestTag),
-        errorOverlay = { player ->
-          val tag = if (player != null) "errorMessageWithPlayer" else "errorMessageWithoutPlayer"
+        errorOverlay = {
+          val tag =
+            if (currentPlayer != null) "errorMessageWithPlayer" else "errorMessageWithoutPlayer"
           Box(Modifier.testTag(tag)) { BasicText("Error") }
         },
       )

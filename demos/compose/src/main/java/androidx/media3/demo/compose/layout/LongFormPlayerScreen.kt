@@ -187,11 +187,12 @@ internal fun LongFormPlayerScreen(
       .statusBarsPadding()
       .pointerHoverIcon(if (showControls) PointerIcon.Default else PointerIcon(0))
   ) {
+    val controlsVisible = isRemotePlayback || showControls
     Player(
       player = player,
-      artwork = { p ->
+      artwork = {
         Artwork(
-          player = p,
+          player = player,
           contentDescription = null,
           modifier = Modifier.fillMaxSize(),
           bitmapLoader = bitmapLoader,
@@ -199,7 +200,6 @@ internal fun LongFormPlayerScreen(
           fallback = fallbackPainter,
         )
       },
-      showControls = if (isRemotePlayback) true else showControls,
       modifier =
         Modifier.onGloballyPositioned { coordinates -> size = coordinates.size }
           .playerGestures(
@@ -241,10 +241,10 @@ internal fun LongFormPlayerScreen(
         Box(Modifier.fillMaxSize().background(Color.Black))
         CastingOverlay(castState, Modifier.fillMaxSize())
       },
-      topControls = { player, showControls ->
+      topControls = {
         PlayerDefaults.TopControls(
           player,
-          showControls,
+          controlsVisible,
           Modifier.fillMaxWidth().padding(horizontal = 15.dp),
         ) {
           Row(Modifier.align(Alignment.CenterEnd)) {
@@ -254,22 +254,22 @@ internal fun LongFormPlayerScreen(
           }
         }
       },
-      centerControls = { player, showControls ->
+      centerControls = {
         if (!isRemotePlayback) {
-          PlayerDefaults.CenterControls(player, showControls, Modifier.fillMaxWidth())
+          PlayerDefaults.CenterControls(player, controlsVisible, Modifier.fillMaxWidth())
         }
       },
-      bottomControls = { player, showControls ->
+      bottomControls = {
         PlayerDefaults.BottomControls(
           player,
-          showControls,
+          controlsVisible,
           modifier =
             Modifier.fillMaxWidth().navigationBarsPadding().onSizeChanged {
               bottomControlsHeight = with(density) { it.height.toDp() }
             },
-          above = { player ->
+          above = {
             if (isRemotePlayback) {
-              PlayerDefaults.CenterControls(player, showControls, Modifier.fillMaxWidth())
+              PlayerDefaults.CenterControls(player, controlsVisible, Modifier.fillMaxWidth())
             } else {
               Box(Modifier.fillMaxWidth()) {
                 MuteButton(player, Modifier.align(Alignment.CenterEnd))

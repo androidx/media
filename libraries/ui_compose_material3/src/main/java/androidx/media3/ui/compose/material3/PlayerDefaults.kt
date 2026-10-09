@@ -91,13 +91,14 @@ object PlayerDefaults {
    */
   @Composable
   fun TopControls(
+    // TODO: b/490652467 - Unused until the default content includes a CC button that needs it.
     player: Player?,
     visible: Boolean,
     modifier: Modifier = Modifier,
-    content: @Composable BoxScope.(Player?) -> Unit = {},
+    content: @Composable BoxScope.() -> Unit = {},
   ) {
     AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut()) {
-      Box(modifier) { content(player) }
+      Box(modifier) { content() }
     }
   }
 
@@ -141,18 +142,18 @@ object PlayerDefaults {
     horizontalArrangement: Arrangement.Horizontal =
       Arrangement.spacedBy(PlayerTokens.CenterControlsSpacing, Alignment.CenterHorizontally),
     verticalAlignment: Alignment.Vertical = Alignment.CenterVertically,
-    backSecondary: @Composable (Player?) -> Unit = {
-      PreviousButton(it, modifier = mediumButtonModifier)
+    backSecondary: @Composable () -> Unit = {
+      PreviousButton(player, modifier = mediumButtonModifier)
     },
-    back: @Composable (Player?) -> Unit = { SeekBackButton(it, modifier = mediumButtonModifier) },
-    central: @Composable (Player?) -> Unit = {
-      PlayPauseButton(it, modifier = largeButtonModifier, iconSize = PlayerTokens.LargeIconSize)
+    back: @Composable () -> Unit = { SeekBackButton(player, modifier = mediumButtonModifier) },
+    central: @Composable () -> Unit = {
+      PlayPauseButton(player, modifier = largeButtonModifier, iconSize = PlayerTokens.LargeIconSize)
     },
-    forward: @Composable (Player?) -> Unit = {
-      SeekForwardButton(it, modifier = mediumButtonModifier)
+    forward: @Composable () -> Unit = {
+      SeekForwardButton(player, modifier = mediumButtonModifier)
     },
-    forwardSecondary: @Composable (Player?) -> Unit = {
-      NextButton(it, modifier = mediumButtonModifier)
+    forwardSecondary: @Composable () -> Unit = {
+      NextButton(player, modifier = mediumButtonModifier)
     },
   ) {
     AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut()) {
@@ -161,11 +162,11 @@ object PlayerDefaults {
         horizontalArrangement = horizontalArrangement,
         verticalAlignment = verticalAlignment,
       ) {
-        backSecondary(player)
-        back(player)
-        central(player)
-        forward(player)
-        forwardSecondary(player)
+        backSecondary()
+        back()
+        central()
+        forward()
+        forwardSecondary()
       }
     }
   }
@@ -208,15 +209,15 @@ object PlayerDefaults {
     player: Player?,
     visible: Boolean,
     modifier: Modifier = Modifier,
-    above: @Composable ColumnScope.(Player?) -> Unit = {},
-    left: @Composable (Player?) -> Unit = {
-      PositionText(it, Modifier.padding(end = PlayerTokens.BottomControlsHorizontalPadding))
+    above: @Composable ColumnScope.() -> Unit = {},
+    left: @Composable () -> Unit = {
+      PositionText(player, Modifier.padding(end = PlayerTokens.BottomControlsHorizontalPadding))
     },
-    right: @Composable (Player?) -> Unit = {
-      DurationText(it, Modifier.padding(start = PlayerTokens.BottomControlsHorizontalPadding))
+    right: @Composable () -> Unit = {
+      DurationText(player, Modifier.padding(start = PlayerTokens.BottomControlsHorizontalPadding))
     },
-    below: @Composable ColumnScope.(Player?) -> Unit = {},
-    progressSlider: @Composable (Player?) -> Unit = { ProgressSlider(it) },
+    below: @Composable ColumnScope.() -> Unit = {},
+    progressSlider: @Composable () -> Unit = { ProgressSlider(player) },
   ) {
     AnimatedVisibility(
       visible = visible,
@@ -225,13 +226,13 @@ object PlayerDefaults {
       exit = fadeOut(),
     ) {
       Column(modifier.padding(horizontal = PlayerTokens.ControlsHorizontalPadding)) {
-        above(player)
+        above()
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-          left(player)
-          Box(modifier = Modifier.weight(1f)) { progressSlider(player) }
-          right(player)
+          left()
+          Box(modifier = Modifier.weight(1f)) { progressSlider() }
+          right()
         }
-        below(player)
+        below()
       }
     }
   }

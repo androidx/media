@@ -115,10 +115,10 @@ internal fun EditingPlayerScreen(
     Player(
       player = player,
       showControls = true,
-      bottomControls = { player, showControls ->
+      bottomControls = {
         PlayerDefaults.BottomControls(
           player,
-          showControls,
+          visible = true,
           modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
           above = {
             Row(
@@ -135,7 +135,7 @@ internal fun EditingPlayerScreen(
               MuteButton(player)
             }
           },
-          progressSlider = { player ->
+          progressSlider = {
             ClippingSlider(
               player = player,
               bitmaps = bitmaps,

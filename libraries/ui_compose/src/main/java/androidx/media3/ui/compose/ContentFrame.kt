@@ -56,8 +56,8 @@ fun ContentFrame(
   surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
   contentScale: ContentScale = ContentScale.Fit,
   keepContentOnReset: Boolean = false,
-  artwork: (@Composable (Player?) -> Unit)? = {
-    Artwork(it, modifier = Modifier.fillMaxSize(), contentScale = contentScale)
+  artwork: (@Composable () -> Unit)? = {
+    Artwork(player, modifier = Modifier.fillMaxSize(), contentScale = contentScale)
   },
   overlay: @Composable () -> Unit = {},
   shutter: @Composable () -> Unit = { Box(Modifier.fillMaxSize().background(Color.Black)) },
@@ -81,7 +81,7 @@ fun ContentFrame(
     }
 
     if (presentationState.showArtwork) {
-      artwork?.invoke(player)
+      artwork?.invoke()
     }
   }
 }

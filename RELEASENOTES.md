@@ -260,6 +260,11 @@
     *   Fix an issue where `PlayerView` and `PlayerControlView` showed ad
         markers at period boundaries for live postroll placeholders in
         multi-period live streams.
+    *   Composable slots of `Player`, `ContentFrame`, `PlayerDefaults` and
+        `MiniController` no longer receive the player or the controls visibility
+        as parameters. Capture them from the calling scope instead (for example,
+        `topControls` is now `@Composable BoxScope.() -> Unit`). This is a
+        breaking change on an unstable API.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:
