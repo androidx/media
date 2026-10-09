@@ -172,22 +172,133 @@ public final class MediaMetadataCompatTest {
   }
 
   @Test
+  public void containsKey_withMalformedBundle_returnsFalseAndClearsBundle() {
+    MediaMetadataCompat metadataCompat = createMalformedMediaMetadataCompat();
+
+    boolean containsKey = metadataCompat.containsKey(MediaMetadataCompat.METADATA_KEY_TITLE);
+
+    assertThat(containsKey).isFalse();
+    assertThat(metadataCompat.getBundle().isEmpty()).isTrue();
+  }
+
+  @Test
+  public void getText_withMalformedBundle_returnsNullAndClearsBundle() {
+    MediaMetadataCompat metadataCompat = createMalformedMediaMetadataCompat();
+
+    CharSequence text = metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_TITLE);
+
+    assertThat(text).isNull();
+    assertThat(metadataCompat.getBundle().isEmpty()).isTrue();
+  }
+
+  @Test
+  public void getString_withMalformedBundle_returnsNullAndClearsBundle() {
+    MediaMetadataCompat metadataCompat = createMalformedMediaMetadataCompat();
+
+    String value = metadataCompat.getString(MediaMetadataCompat.METADATA_KEY_TITLE);
+
+    assertThat(value).isNull();
+    assertThat(metadataCompat.getBundle().isEmpty()).isTrue();
+  }
+
+  @Test
+  public void getLong_withMalformedBundle_returnsZeroAndClearsBundle() {
+    MediaMetadataCompat metadataCompat = createMalformedMediaMetadataCompat();
+
+    long value = metadataCompat.getLong(MediaMetadataCompat.METADATA_KEY_DURATION);
+
+    assertThat(value).isEqualTo(0);
+    assertThat(metadataCompat.getBundle().isEmpty()).isTrue();
+  }
+
+  @Test
+  public void size_withMalformedBundle_returnsZeroAndClearsBundle() {
+    MediaMetadataCompat metadataCompat = createMalformedMediaMetadataCompat();
+
+    int size = metadataCompat.size();
+
+    assertThat(size).isEqualTo(0);
+    assertThat(metadataCompat.getBundle().isEmpty()).isTrue();
+  }
+
+  @Test
+  public void getRating_withMalformedBundle_returnsNullAndClearsBundle() {
+    Bundle bundle = new Bundle();
+    bundle.putString(MediaMetadataCompat.METADATA_KEY_TITLE, "valid_title");
+    bundle.putParcelable(MediaMetadataCompat.METADATA_KEY_RATING, new MalformedParcelable());
+    MediaMetadataCompat metadataCompat = createMediaMetadataCompatFromBundle(bundle);
+
+    RatingCompat rating = metadataCompat.getRating(MediaMetadataCompat.METADATA_KEY_RATING);
+
+    assertThat(rating).isNull();
+    assertThat(metadataCompat.getBundle().isEmpty()).isTrue();
+  }
+
+  @Test
+  public void getMostRelevantArtworkBitmapData_withMalformedBundle_returnsNullAndClearsBundle() {
+    Bundle bundle = new Bundle();
+    bundle.putString(MediaMetadataCompat.METADATA_KEY_TITLE, "valid_title");
+    bundle.putParcelable(MediaMetadataCompat.METADATA_KEY_ART, new MalformedParcelable());
+    MediaMetadataCompat metadataCompat = createMediaMetadataCompatFromBundle(bundle);
+
+    byte[] artworkData = metadataCompat.getMostRelevantArtworkBitmapData();
+
+    assertThat(artworkData).isNull();
+    assertThat(metadataCompat.getBundle().isEmpty()).isTrue();
+  }
+
+  @Test
   public void getMediaMetadata_withMalformedBundle_doesNotCrash() {
     Bundle bundle = new Bundle();
     bundle.putString(MediaMetadataCompat.METADATA_KEY_TITLE, "valid_title");
     bundle.putParcelable(MediaMetadataCompat.METADATA_KEY_ART, new MalformedParcelable());
+    MediaMetadataCompat metadataCompat = createMediaMetadataCompatFromBundle(bundle);
 
+    MediaMetadata mediaMetadata = metadataCompat.getMediaMetadata();
+
+    assertThat(mediaMetadata).isNotNull();
+    assertThat(metadataCompat.getBundle().isEmpty()).isTrue();
+  }
+
+  private static MediaMetadataCompat createMediaMetadataCompatFromBundle(Bundle bundle) {
     Parcel parcel = Parcel.obtain();
     try {
       parcel.writeBundle(bundle);
       parcel.setDataPosition(0);
-
-      MediaMetadataCompat metadataCompat = MediaMetadataCompat.CREATOR.createFromParcel(parcel);
-      MediaMetadata mediaMetadata = metadataCompat.getMediaMetadata();
-
-      assertThat(mediaMetadata).isNotNull();
+      return MediaMetadataCompat.CREATOR.createFromParcel(parcel);
     } finally {
       parcel.recycle();
+    }
+  }
+
+  private static MediaMetadataCompat createMalformedMediaMetadataCompat() {
+    Bundle singleEntryBundle = new Bundle();
+    singleEntryBundle.putParcelable(
+        MediaMetadataCompat.METADATA_KEY_TITLE, new MalformedParcelable());
+    Parcel singleEntryParcel = Parcel.obtain();
+    Parcel malformedParcel = Parcel.obtain();
+    try {
+      singleEntryBundle.writeToParcel(singleEntryParcel, /* flags= */ 0);
+      int entrySize = singleEntryParcel.dataSize() - 12;
+      singleEntryParcel.setDataPosition(0);
+      int singleBundleLength = singleEntryParcel.readInt();
+      int bundleMagic = singleEntryParcel.readInt();
+
+      // Write a Bundle parcel with 2 duplicate MalformedParcelable entries:
+      // - On API <= 32, BaseBundle.unparcel() eagerly unparcels MalformedParcelable and throws
+      //   RuntimeException.
+      // - On API >= 33, BaseBundle.unparcel() validates the ArrayMap and throws
+      //   IllegalArgumentException for duplicate keys.
+      malformedParcel.writeInt(singleBundleLength + entrySize);
+      malformedParcel.writeInt(bundleMagic);
+      malformedParcel.writeInt(2);
+      malformedParcel.appendFrom(singleEntryParcel, /* offset= */ 12, entrySize);
+      malformedParcel.appendFrom(singleEntryParcel, /* offset= */ 12, entrySize);
+      malformedParcel.setDataPosition(0);
+      return MediaMetadataCompat.CREATOR.createFromParcel(malformedParcel);
+    } finally {
+      singleEntryParcel.recycle();
+      malformedParcel.recycle();
     }
   }
 

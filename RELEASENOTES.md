@@ -235,6 +235,8 @@
     *   Fix `NullPointerException` in legacy `MediaBrowser` when receiving a
         custom command response
         ([#3432](https://github.com/androidx/media/issues/3432)).
+    *   Fix `IllegalArgumentException` crash when receiving legacy metadata with
+        duplicate keys in its underlying `Bundle`.
 *   UI:
     *   Add `TrackSelectionState` and `TrackSelectionParametersState` classes
         and their corresponding Composable state remember functions to the

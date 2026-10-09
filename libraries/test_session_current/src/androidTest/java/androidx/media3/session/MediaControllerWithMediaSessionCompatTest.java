@@ -54,6 +54,7 @@ import android.graphics.Typeface;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Parcel;
 import android.os.SystemClock;
 import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.MediaMetadataCompat;
@@ -87,6 +88,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.ext.truth.os.BundleSubject;
 import androidx.test.filters.MediumTest;
+import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Range;
@@ -274,6 +276,39 @@ public class MediaControllerWithMediaSessionCompatTest {
         controllerTestRule.createController(session.getSessionToken(), /* listener= */ null);
 
     assertThat(controller.isConnected()).isTrue();
+  }
+
+  @Test
+  @SdkSuppress(
+      minSdkVersion = 33) // Duplicate ArrayMap key validation in Bundle was added in API 33
+  public void createController_withInvalidMediaMetadataBundle_doesNotThrow() throws Exception {
+    MediaSessionCompat localSession = new MediaSessionCompat(context, TAG + "InvalidMetadata");
+    try {
+      localSession.setCallback(new MediaSessionCompat.Callback() {}, threadTestRule.getHandler());
+      localSession.setActive(true);
+      Bundle invalidBundle = MediaTestUtils.createInvalidBundle();
+      Parcel parcel = Parcel.obtain();
+      android.media.MediaMetadata invalidFwkMetadata;
+      try {
+        parcel.writeBundle(invalidBundle);
+        parcel.setDataPosition(0);
+        invalidFwkMetadata = android.media.MediaMetadata.CREATOR.createFromParcel(parcel);
+      } finally {
+        parcel.recycle();
+      }
+      ((android.media.session.MediaSession) localSession.getMediaSession())
+          .setMetadata(invalidFwkMetadata);
+
+      MediaController controller =
+          controllerTestRule.createController(localSession.getSessionToken(), /* listener= */ null);
+      MediaMetadata mediaMetadata =
+          threadTestRule.getHandler().postAndSync(controller::getMediaMetadata);
+
+      assertThat(controller.isConnected()).isTrue();
+      assertThat(mediaMetadata).isNotNull();
+    } finally {
+      localSession.release();
+    }
   }
 
   @Test

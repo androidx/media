@@ -42,6 +42,7 @@ import android.media.AudioAttributes;
 import android.media.session.MediaController;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Parcel;
 import android.service.media.MediaBrowserService;
 import android.text.SpannableString;
 import android.text.SpannedString;
@@ -67,6 +68,7 @@ import androidx.media3.session.legacy.MediaSessionCompat;
 import androidx.media3.session.legacy.PlaybackStateCompat;
 import androidx.media3.session.legacy.RatingCompat;
 import androidx.media3.session.legacy.VolumeProviderCompat;
+import androidx.media3.test.utils.MalformedParcelable;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -784,6 +786,49 @@ public final class LegacyConversionsTest {
     assertThat(mediaMetadataCompat.getLong("customShortKey")).isEqualTo(5);
     assertThat(mediaMetadataCompat.getLong("customIntegerKey")).isEqualTo(10);
     assertThat(mediaMetadataCompat.getLong("customLongKey")).isEqualTo(20);
+  }
+
+  @Test
+  public void convertToMediaMetadata_withMalformedMediaMetadataCompat_doesNotCrash() {
+    Bundle bundle = new Bundle();
+    bundle.putString(MediaMetadataCompat.METADATA_KEY_TITLE, "valid_title");
+    bundle.putParcelable(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, new MalformedParcelable());
+    Parcel parcel = Parcel.obtain();
+    MediaMetadataCompat metadataCompat;
+    try {
+      parcel.writeBundle(bundle);
+      parcel.setDataPosition(0);
+      metadataCompat = MediaMetadataCompat.CREATOR.createFromParcel(parcel);
+    } finally {
+      parcel.recycle();
+    }
+
+    MediaMetadata mediaMetadata =
+        LegacyConversions.convertToMediaMetadata(metadataCompat, RatingCompat.RATING_NONE);
+
+    assertThat(mediaMetadata).isNotNull();
+  }
+
+  @Test
+  public void convertToPlaylistMetadata_withMalformedMediaMetadataCompat_doesNotCrash() {
+    Bundle bundle = new Bundle();
+    bundle.putString(EXTRAS_KEY_PLAYLIST_TITLE, "Playlist Title");
+    bundle.putParcelable(EXTRAS_KEY_PLAYLIST_ARTWORK_URI, new MalformedParcelable());
+    Parcel parcel = Parcel.obtain();
+    MediaMetadataCompat metadataCompat;
+    try {
+      parcel.writeBundle(bundle);
+      parcel.setDataPosition(0);
+      metadataCompat = MediaMetadataCompat.CREATOR.createFromParcel(parcel);
+    } finally {
+      parcel.recycle();
+    }
+
+    MediaMetadata playlistMetadata =
+        LegacyConversions.convertToPlaylistMetadata(
+            /* queueTitle= */ null, metadataCompat, /* descriptionCompat= */ null);
+
+    assertThat(playlistMetadata).isNotNull();
   }
 
   @Test

@@ -341,7 +341,13 @@ public final class MediaMetadataCompat implements Parcelable {
    * @return true if the key exists in this metadata, false otherwise
    */
   public boolean containsKey(String key) {
-    return bundle.containsKey(key);
+    try {
+      return bundle.containsKey(key);
+    } catch (RuntimeException e) {
+      Log.w(TAG, "Failed to unparcel MediaMetadataCompat bundle", e);
+      bundle.clear();
+      return false;
+    }
   }
 
   /**
@@ -353,7 +359,13 @@ public final class MediaMetadataCompat implements Parcelable {
    */
   @Nullable
   public CharSequence getText(@TextKey String key) {
-    return bundle.getCharSequence(key);
+    try {
+      return bundle.getCharSequence(key);
+    } catch (RuntimeException e) {
+      Log.w(TAG, "Failed to unparcel MediaMetadataCompat bundle", e);
+      bundle.clear();
+      return null;
+    }
   }
 
   /**
@@ -365,7 +377,7 @@ public final class MediaMetadataCompat implements Parcelable {
    */
   @Nullable
   public String getString(@TextKey String key) {
-    CharSequence text = bundle.getCharSequence(key);
+    CharSequence text = getText(key);
     if (text != null) {
       return text.toString();
     }
@@ -379,7 +391,13 @@ public final class MediaMetadataCompat implements Parcelable {
    * @return a long value
    */
   public long getLong(@LongKey String key) {
-    return bundle.getLong(key, 0);
+    try {
+      return bundle.getLong(key, 0);
+    } catch (RuntimeException e) {
+      Log.w(TAG, "Failed to unparcel MediaMetadataCompat bundle", e);
+      bundle.clear();
+      return 0;
+    }
   }
 
   /**
@@ -398,6 +416,7 @@ public final class MediaMetadataCompat implements Parcelable {
     } catch (Exception e) {
       // ignore, value was not a Rating
       Log.w(TAG, "Failed to retrieve a key as Rating.", e);
+      bundle.clear();
     }
     return rating;
   }
@@ -418,7 +437,13 @@ public final class MediaMetadataCompat implements Parcelable {
    * @return The number of fields in the metadata.
    */
   public int size() {
-    return bundle.size();
+    try {
+      return bundle.size();
+    } catch (RuntimeException e) {
+      Log.w(TAG, "Failed to unparcel MediaMetadataCompat bundle", e);
+      bundle.clear();
+      return 0;
+    }
   }
 
   /**
@@ -496,6 +521,7 @@ public final class MediaMetadataCompat implements Parcelable {
         }
       } catch (RuntimeException e) {
         Log.w(TAG, "Failed to convert MediaMetadataCompat to MediaMetadata", e);
+        bundle.clear();
       }
       metadataFwk = builder.build();
     }
@@ -585,6 +611,7 @@ public final class MediaMetadataCompat implements Parcelable {
     } catch (Exception e) {
       // ignore, value was not a bitmap
       Log.w(TAG, "Failed to retrieve a key as Bitmap.", e);
+      bundle.clear();
     }
     return bmp;
   }
