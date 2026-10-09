@@ -505,6 +505,26 @@ public class MediaSession {
     }
 
     /**
+     * Sets whether playback position and duration are published for live media items to legacy
+     * controllers.
+     *
+     * <p>By default this is {@code false}, which keeps live playback position and duration hidden
+     * for legacy controllers such as {@code MediaControllerCompat}.
+     *
+     * <p>If set to {@code true}, live playback position and duration are published to legacy
+     * controllers based on the player's values.
+     *
+     * @param showPlaybackPositionForLiveStreams Whether to publish playback position and duration
+     *     for live streams to legacy controllers.
+     * @return The builder to allow chaining.
+     */
+    @UnstableApi
+    public Builder setShowPlaybackPositionForLiveStreams(
+        boolean showPlaybackPositionForLiveStreams) {
+      return super.setShowPlaybackPositionForLiveStreams(showPlaybackPositionForLiveStreams);
+    }
+
+    /**
      * Sets whether a play button is shown if playback is {@linkplain
      * Player#getPlaybackSuppressionReason() suppressed}.
      *
@@ -597,6 +617,7 @@ public class MediaSession {
           bitmapLoader,
           playIfSuppressed,
           isPeriodicPositionUpdateEnabled,
+          showPlaybackPositionForLiveStreams,
           MediaLibrarySession.LIBRARY_ERROR_REPLICATION_MODE_NONE,
           useLegacySurfaceHandling,
           packageNameOverride);
@@ -856,6 +877,7 @@ public class MediaSession {
       BitmapLoader bitmapLoader,
       boolean playIfSuppressed,
       boolean isPeriodicPositionUpdateEnabled,
+      boolean showPlaybackPositionForLiveStreams,
       @MediaLibrarySession.LibraryErrorReplicationMode int libraryErrorReplicationMode,
       boolean useLegacySurfaceHandling,
       @Nullable String overridePackageName) {
@@ -880,6 +902,7 @@ public class MediaSession {
             bitmapLoader,
             playIfSuppressed,
             isPeriodicPositionUpdateEnabled,
+            showPlaybackPositionForLiveStreams,
             libraryErrorReplicationMode,
             useLegacySurfaceHandling,
             overridePackageName);
@@ -899,6 +922,7 @@ public class MediaSession {
       BitmapLoader bitmapLoader,
       boolean playIfSuppressed,
       boolean isPeriodicPositionUpdateEnabled,
+      boolean showPlaybackPositionForLiveStreams,
       @MediaLibrarySession.LibraryErrorReplicationMode int libraryErrorReplicationMode,
       boolean useLegacySurfaceHandling,
       @Nullable String overridePackageName) {
@@ -917,6 +941,7 @@ public class MediaSession {
         bitmapLoader,
         playIfSuppressed,
         isPeriodicPositionUpdateEnabled,
+        showPlaybackPositionForLiveStreams,
         useLegacySurfaceHandling,
         overridePackageName);
   }
@@ -2886,6 +2911,7 @@ public class MediaSession {
     /* package */ ImmutableList<CommandButton> mediaButtonPreferences;
     /* package */ ImmutableList<CommandButton> commandButtonsForMediaItems;
     /* package */ boolean isPeriodicPositionUpdateEnabled;
+    /* package */ boolean showPlaybackPositionForLiveStreams;
     /* package */ @Nullable String packageNameOverride;
 
     public BuilderBase(Context context, Player player, CallbackT callback) {
@@ -2900,6 +2926,7 @@ public class MediaSession {
       mediaButtonPreferences = ImmutableList.of();
       playIfSuppressed = true;
       isPeriodicPositionUpdateEnabled = true;
+      showPlaybackPositionForLiveStreams = false;
       commandButtonsForMediaItems = ImmutableList.of();
     }
 
@@ -2981,6 +3008,14 @@ public class MediaSession {
     @SuppressWarnings("unchecked")
     public BuilderT setPeriodicPositionUpdateEnabled(boolean isPeriodicPositionUpdateEnabled) {
       this.isPeriodicPositionUpdateEnabled = isPeriodicPositionUpdateEnabled;
+      return (BuilderT) this;
+    }
+
+    @CanIgnoreReturnValue
+    @SuppressWarnings("unchecked")
+    /* package */ BuilderT setShowPlaybackPositionForLiveStreams(
+        boolean showPlaybackPositionForLiveStreams) {
+      this.showPlaybackPositionForLiveStreams = showPlaybackPositionForLiveStreams;
       return (BuilderT) this;
     }
 
