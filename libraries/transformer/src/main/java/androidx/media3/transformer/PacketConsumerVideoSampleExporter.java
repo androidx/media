@@ -33,6 +33,7 @@ import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -72,14 +73,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final FrameWriter frameWriter;
   private final ImmutableList<HardwareBufferSampleConsumer> sampleConsumers;
 
-  private final MuxerWrapper muxerWrapper;
-  private final TransformationRequest transformationRequest;
-  private final Format firstInputFormat;
-
   private final Queue<ImmutableList<AsyncFrame>> pendingPackets;
   private final InFlightFrameManager inFlightFrameManager;
   private boolean hasPendingEos;
-  private int outputRotationDegrees;
   private volatile boolean released;
 
   /**
@@ -90,9 +86,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private long lastMuxerInputBufferTimestampUs;
   private boolean hasMuxedTimestampZero;
-  private boolean hasProducedFrameWithTimestampZero;
+  private volatile boolean hasProducedFrameWithTimestampZero;
   private boolean hasSignaledEndOfStream;
-  private @MonotonicNonNull Codec encoder;
+
+  // Written on the frame processor thread (in FrameWriterEncoderFactory.createForVideoEncoding)
+  // and read on the playback thread.
+  private volatile int outputRotationDegrees;
+  private volatile @MonotonicNonNull Codec encoder;
 
   public PacketConsumerVideoSampleExporter(
       Context context,
@@ -112,10 +112,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // TODO: b/278259383 - Consider delaying configuration of VideoSampleExporter to use the decoder
     //  output format instead of the extractor output format, to match AudioSampleExporter behavior.
     super(firstInputFormat, muxerWrapper);
-    this.transformationRequest = transformationRequest;
     this.errorConsumer = errorConsumer;
-    this.muxerWrapper = muxerWrapper;
-    this.firstInputFormat = firstInputFormat;
     this.pendingPackets = new ArrayDeque<>();
     this.inFlightFrameManager = new InFlightFrameManager();
     finalFramePresentationTimeUs = C.TIME_UNSET;
@@ -141,11 +138,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               .build();
     }
 
+    Codec.EncoderFactory frameWriterEncoderFactory =
+        thisRef
+        .new FrameWriterEncoderFactory(
+            strictEncoderFactory,
+            getRequestedOutputMimeType(firstInputFormat, transformationRequest),
+            muxerWrapper.getSupportedSampleMimeTypes(TRACK_TYPE_VIDEO));
+
     Executor playbackExecutor = new HandlerExecutor(playbackHandler, componentListener);
     if (SDK_INT >= 33) {
       frameWriter =
           new EncoderFrameWriter(
-              strictEncoderFactory,
+              frameWriterEncoderFactory,
               componentListener,
               playbackExecutor,
               playbackHandler,
@@ -154,7 +158,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       frameWriter =
           new GlEncoderFrameWriter(
               context,
-              strictEncoderFactory,
+              frameWriterEncoderFactory,
               componentListener,
               playbackExecutor,
               new DefaultGlObjectsProvider(),
@@ -332,41 +336,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           HandlerExecutor.Listener {
 
     @Override
-    public Format onConfigure(Format requestedFormat) {
-      // Create a new Format to control exactly which fields are passed into the encoder, which
-      // avoids encoder failures if an app sets an unsupported field on the format.
-      Format.Builder formatBuilder =
-          new Format.Builder()
-              .setWidth(requestedFormat.width)
-              .setHeight(requestedFormat.height)
-              .setFrameRate(requestedFormat.frameRate)
-              .setPixelFormat(requestedFormat.pixelFormat)
-              .setColorInfo(requestedFormat.colorInfo);
-      // TODO: b/523216171 - Check allowedEncodingRotationDegrees and prioritise landscape.
-      // Rotation is handled by the muxer, update the encoder format so rotation is always 0.
-      formatBuilder.setRotationDegrees(0);
-      if (requestedFormat.rotationDegrees != 0) {
-        outputRotationDegrees = requestedFormat.rotationDegrees;
-      }
-      // Use the MimeType set on Transformer to determine the supported output MimeType.
-      String sampleMimeType =
-          findSupportedMimeTypeForEncoderAndMuxer(
-              formatBuilder
-                  .setSampleMimeType(
-                      getRequestedOutputMimeType(firstInputFormat, transformationRequest))
-                  .build(),
-              muxerWrapper.getSupportedSampleMimeTypes(TRACK_TYPE_VIDEO));
-      return formatBuilder.setSampleMimeType(sampleMimeType).build();
-    }
-
-    @Override
-    public void onEncoderCreated(Codec encoder) {
-      checkState(PacketConsumerVideoSampleExporter.this.encoder == null);
-      PacketConsumerVideoSampleExporter.this.encoder = encoder;
-      hasProducedFrameWithTimestampZero = true;
-    }
-
-    @Override
     public void onEndOfStream() {
       checkState(!hasSignaledEndOfStream);
       if (encoder != null) {
@@ -444,6 +413,89 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return DEFAULT_OUTPUT_MIME_TYPE;
     } else {
       return inputSampleMimeType;
+    }
+  }
+
+  /**
+   * A {@link Codec.EncoderFactory} for the {@link FrameWriter} implementation that writes to an
+   * encoder. Encoders are created by the wrapped factory.
+   *
+   * <p>The caller of the {@link FrameWriter} sets the size, {@link ColorInfo}, frame rate, pixel
+   * format and rotation of the frames. For the output {@linkplain Format#sampleMimeType MIME type},
+   * this factory uses the MIME type requested at construction when the muxer and a device encoder
+   * support it, or falls back to a MIME type that is supported by the muxer, for example, {@link
+   * MimeTypes#VIDEO_H264}. The MIME type choice doesn't depend on the size. For HDR, only encoders
+   * that support the {@link ColorInfo} count. The encoder created by {@link
+   * #createForVideoEncoding} is configured with a rotation of 0, and the frame rotation is saved on
+   * the outer {@link PacketConsumerVideoSampleExporter} to be written as container metadata.
+   */
+  /* package */ final class FrameWriterEncoderFactory extends ForwardingEncoderFactory {
+
+    private final String requestedSampleMimeType;
+    private final ImmutableList<String> muxerSupportedSampleMimeTypes;
+
+    /**
+     * Creates an instance.
+     *
+     * @param encoderFactory The {@link Codec.EncoderFactory} to forward to.
+     * @param requestedSampleMimeType The preferred output {@linkplain MimeTypes MIME type}.
+     * @param muxerSupportedSampleMimeTypes The video {@linkplain MimeTypes MIME types} that the
+     *     muxer supports.
+     */
+    public FrameWriterEncoderFactory(
+        Codec.EncoderFactory encoderFactory,
+        String requestedSampleMimeType,
+        List<String> muxerSupportedSampleMimeTypes) {
+      super(encoderFactory);
+      this.requestedSampleMimeType = requestedSampleMimeType;
+      this.muxerSupportedSampleMimeTypes = ImmutableList.copyOf(muxerSupportedSampleMimeTypes);
+    }
+
+    @Override
+    public boolean isVideoFormatSupported(Format format) {
+      Format encoderFormat = getEncoderFormat(format);
+      return encoderFormat.sampleMimeType != null && super.isVideoFormatSupported(encoderFormat);
+    }
+
+    @Override
+    public Codec createForVideoEncoding(Format format, @Nullable LogSessionId logSessionId)
+        throws ExportException {
+      checkState(PacketConsumerVideoSampleExporter.this.encoder == null);
+      Codec encoder = super.createForVideoEncoding(getEncoderFormat(format), logSessionId);
+      // TODO: b/523216171 - Check allowedEncodingRotationDegrees and prioritise landscape.
+      // The encoder doesn't rotate frames, so the muxer writes the rotation as metadata.
+      outputRotationDegrees = format.rotationDegrees;
+      hasProducedFrameWithTimestampZero = true;
+      PacketConsumerVideoSampleExporter.this.encoder = encoder;
+      return encoder;
+    }
+
+    /**
+     * Returns the {@link Format} to configure the encoder with for frames in the given {@link
+     * Format}.
+     *
+     * <p>The returned format's {@linkplain Format#sampleMimeType MIME type} is null if no MIME type
+     * is supported.
+     */
+    private Format getEncoderFormat(Format format) {
+      // Create a new Format to control exactly which fields are passed into the encoder, which
+      // avoids encoder failures if an app sets an unsupported field on the format.
+      Format.Builder formatBuilder =
+          new Format.Builder()
+              .setWidth(format.width)
+              .setHeight(format.height)
+              .setFrameRate(format.frameRate)
+              .setPixelFormat(format.pixelFormat)
+              .setColorInfo(format.colorInfo)
+              // The encoder doesn't rotate frames, so the encoder's rotation is set to 0. The
+              // requested rotation will be applied as container metadata.
+              .setRotationDegrees(0);
+      @Nullable
+      String sampleMimeType =
+          findSupportedMimeTypeForEncoderAndMuxer(
+              formatBuilder.setSampleMimeType(requestedSampleMimeType).build(),
+              muxerSupportedSampleMimeTypes);
+      return formatBuilder.setSampleMimeType(sampleMimeType).build();
     }
   }
 }

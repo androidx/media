@@ -55,14 +55,27 @@ public class EncoderFrameWriter implements FrameWriter {
   public interface Listener {
 
     /**
-     * Called when configure is called.
+     * Called synchronously when {@link EncoderFrameWriter#configure(Format, long)} is called. The
+     * returned {@link Format} is used to create the encoder.
      *
-     * @return The {@link Format} used to configure the encoder.
+     * @deprecated Prepare the {@link Format} in the {@link Codec.EncoderFactory} passed to the
+     *     {@link EncoderFrameWriter} constructor instead, so {@link EncoderFrameWriter#getInfo()}
+     *     and {@link EncoderFrameWriter#configure(Format, long)} use the same {@link Format}.
      */
-    Format onConfigure(Format requestedFormat);
+    @Deprecated
+    default Format onConfigure(Format requestedFormat) {
+      return requestedFormat;
+    }
 
-    /** Called when the encoder is created so downstream components can receive its output. */
-    void onEncoderCreated(Codec encoder);
+    /**
+     * Called when the encoder is created so downstream components can receive its output.
+     *
+     * @deprecated Obtain the created {@link Codec} in {@link
+     *     Codec.EncoderFactory#createForVideoEncoding} on the factory passed to the {@link
+     *     EncoderFrameWriter} constructor instead.
+     */
+    @Deprecated
+    default void onEncoderCreated(Codec encoder) {}
 
     /** Called when the end of stream has been reached and is about to be signaled downstream. */
     void onEndOfStream();
@@ -105,6 +118,7 @@ public class EncoderFrameWriter implements FrameWriter {
   }
 
   @SuppressLint("WrongConstant") // Using usage as @Usage constant.
+  @SuppressWarnings("deprecation") // Calling deprecated listener methods.
   @Override
   public void configure(Format format, @Usage long usage) {
     checkState(imageWriter == null);

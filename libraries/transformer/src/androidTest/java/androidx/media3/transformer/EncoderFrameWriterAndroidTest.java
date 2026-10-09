@@ -21,8 +21,10 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
+import android.media.metrics.LogSessionId;
 import android.os.Handler;
 import android.os.HandlerThread;
+import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -73,26 +75,25 @@ public class EncoderFrameWriterAndroidTest {
   @Before
   public void setUp() {
     Context context = ApplicationProvider.getApplicationContext();
-    ForceEncodeEncoderFactory encoderFactory =
-        new ForceEncodeEncoderFactory(
-            new DefaultEncoderFactory.Builder(context).setEnableFallback(false).build());
-
     createdEncoder = new AtomicReference<>();
     endOfStreamSignaled = new AtomicBoolean();
     errorException = new AtomicReference<>();
 
+    Codec.EncoderFactory encoderFactory =
+        new ForwardingEncoderFactory(
+            new ForceEncodeEncoderFactory(
+                new DefaultEncoderFactory.Builder(context).setEnableFallback(false).build())) {
+          @Override
+          public Codec createForVideoEncoding(Format format, @Nullable LogSessionId logSessionId)
+              throws ExportException {
+            Codec encoder = super.createForVideoEncoding(format, logSessionId);
+            createdEncoder.set(encoder);
+            return encoder;
+          }
+        };
+
     EncoderFrameWriter.Listener listener =
         new Listener() {
-          @Override
-          public Format onConfigure(Format requestedFormat) {
-            return requestedFormat;
-          }
-
-          @Override
-          public void onEncoderCreated(Codec encoder) {
-            createdEncoder.set(encoder);
-          }
-
           @Override
           public void onEndOfStream() {
             endOfStreamSignaled.set(true);

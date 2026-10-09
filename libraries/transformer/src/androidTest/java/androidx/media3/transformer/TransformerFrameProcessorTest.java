@@ -21,6 +21,7 @@ import static androidx.media3.common.C.MICROS_PER_SECOND;
 import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.PNG_ASSET;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
+import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static androidx.media3.transformer.ExperimentalAnalyzerModeFactory.buildAnalyzer;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -29,7 +30,11 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.hardware.HardwareBuffer;
 import android.net.Uri;
+import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.video.AsyncFrame;
@@ -38,6 +43,7 @@ import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.effect.AlphaScale;
 import androidx.media3.effect.DefaultGlFrameProcessor;
+import androidx.media3.effect.Presentation;
 import androidx.media3.test.utils.CapturingFrameProcessor;
 import androidx.media3.test.utils.FakeFrameProcessor;
 import androidx.media3.test.utils.FakeHardwareBufferJniWrapper;
@@ -61,6 +67,10 @@ import org.junit.runner.RunWith;
 public class TransformerFrameProcessorTest {
   private final Context context = ApplicationProvider.getApplicationContext();
   @Rule public final TestName testName = new TestName();
+
+  @Rule
+  public final GlFrameProcessorTestRule glFrameProcessorTestRule = new GlFrameProcessorTestRule();
+
   private String testId;
 
   @Before
@@ -200,5 +210,91 @@ public class TransformerFrameProcessorTest {
         .run(testId, editedMediaItem);
 
     assertThat(receivedFormat.get()).isEqualTo(HardwareBuffer.RGBA_1010102);
+  }
+
+  @Test
+  public void export_portraitImageWithEncoderRejectingPortrait_encodesLandscapeWithRotation()
+      throws Exception {
+    Format landscapeFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setWidth(1280)
+            .setHeight(720)
+            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+            .build();
+    assumeFormatsSupported(
+        context, testId, /* inputFormat= */ null, /* outputFormat= */ landscapeFormat);
+
+    Codec.EncoderFactory landscapeOnlyEncoderFactory =
+        new ForwardingEncoderFactory(new DefaultEncoderFactory.Builder(context).build()) {
+          @Override
+          public boolean isVideoFormatSupported(Format format) {
+            return format.width >= format.height && super.isVideoFormatSupported(format);
+          }
+        };
+    Transformer transformer =
+        glFrameProcessorTestRule
+            .createTransformerBuilder(context)
+            .setEncoderFactory(landscapeOnlyEncoderFactory)
+            // Images are encoded as H.265 by default, which some encoders only support up to small
+            // sizes. H.264 supports 1280x720 more widely.
+            .setVideoMimeType(MimeTypes.VIDEO_H264)
+            .build();
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, createPortraitImageEditedMediaItem());
+
+    Format format = retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO);
+    assertThat(format.width).isEqualTo(1280);
+    assertThat(format.height).isEqualTo(720);
+    assertThat(format.rotationDegrees).isEqualTo(270);
+  }
+
+  @Test
+  public void export_portraitImageWithEncoderSupportingPortrait_encodesPortraitWithoutRotation()
+      throws Exception {
+    Format portraitFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setWidth(720)
+            .setHeight(1280)
+            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+            .build();
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ null,
+        /* outputFormat= */ portraitFormat,
+        /* isPortraitEncodingEnabled= */ true);
+
+    Transformer transformer =
+        glFrameProcessorTestRule
+            .createTransformerBuilder(context)
+            .setVideoMimeType(MimeTypes.VIDEO_H264)
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, createPortraitImageEditedMediaItem());
+
+    Format format = retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO);
+    assertThat(format.width).isEqualTo(720);
+    assertThat(format.height).isEqualTo(1280);
+    assertThat(format.rotationDegrees).isEqualTo(0);
+  }
+
+  private static EditedMediaItem createPortraitImageEditedMediaItem() {
+    return new EditedMediaItem.Builder(
+            new MediaItem.Builder().setUri(PNG_ASSET.uri).setImageDurationMs(500).build())
+        .setFrameRate(30)
+        .setEffects(
+            new Effects(
+                /* audioProcessors= */ ImmutableList.of(),
+                /* videoEffects= */ ImmutableList.of(
+                    Presentation.createForWidthAndHeight(
+                        /* width= */ 720, /* height= */ 1280, Presentation.LAYOUT_SCALE_TO_FIT))))
+        .build();
   }
 }

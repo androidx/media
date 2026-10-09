@@ -28,6 +28,8 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.video.Frame;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
@@ -102,14 +104,6 @@ public class EncoderFrameWriterTest {
     EncoderFrameWriter.Listener testListnener =
         new EncoderFrameWriter.Listener() {
           @Override
-          public Format onConfigure(Format requestedFormat) {
-            return requestedFormat;
-          }
-
-          @Override
-          public void onEncoderCreated(Codec encoder) {}
-
-          @Override
           public void onEndOfStream() {}
 
           @Override
@@ -137,6 +131,7 @@ public class EncoderFrameWriterTest {
     boolean isSupported = encoderFrameWriter.getInfo().isSupported(VIDEO_FORMAT, /* usage= */ 0L);
 
     assertThat(isSupported).isTrue();
+    assertThat(fakeEncoderFactory.checkedFormats).containsExactly(VIDEO_FORMAT);
   }
 
   @Test
@@ -164,25 +159,22 @@ public class EncoderFrameWriterTest {
     encoderFrameWriter.configure(VIDEO_FORMAT, /* usage= */ 0L);
 
     // Verify the exception was intercepted and passed to the listener.
-    assertThat(testListener.encoder).isNull();
     assertThat(testListener.exception).isNotNull();
     assertThat(testListener.exception).hasCauseThat().isEqualTo(expectedException);
+  }
+
+  @Test
+  public void configure_withRotatedFormat_passesFormatToEncoderFactory() {
+    Format rotatedFormat = VIDEO_FORMAT.buildUpon().setRotationDegrees(270).build();
+
+    encoderFrameWriter.configure(rotatedFormat, /* usage= */ 0L);
+
+    assertThat(fakeEncoderFactory.createdFormats).containsExactly(rotatedFormat);
   }
 
   /** A fake listener that records callbacks for validation. */
   private static class TestListener implements EncoderFrameWriter.Listener {
     @Nullable private VideoFrameProcessingException exception;
-    @Nullable private Codec encoder;
-
-    @Override
-    public Format onConfigure(Format requestedFormat) {
-      return requestedFormat;
-    }
-
-    @Override
-    public void onEncoderCreated(Codec encoder) {
-      this.encoder = encoder;
-    }
 
     @Override
     public void onEndOfStream() {}
@@ -196,6 +188,8 @@ public class EncoderFrameWriterTest {
   /** A fake factory that allows stubbing the format negotiation. */
   private static class FakeEncoderFactory implements Codec.EncoderFactory {
 
+    private final List<Format> checkedFormats = new ArrayList<>();
+    private final List<Format> createdFormats = new ArrayList<>();
     private boolean isSupportedToReturn;
     @Nullable private ExportException exceptionToThrow;
 
@@ -209,6 +203,7 @@ public class EncoderFrameWriterTest {
 
     @Override
     public boolean isVideoFormatSupported(Format format) {
+      checkedFormats.add(format);
       return isSupportedToReturn;
     }
 
@@ -220,12 +215,14 @@ public class EncoderFrameWriterTest {
     @Override
     public Codec createForVideoEncoding(Format format, @Nullable LogSessionId logSessionId)
         throws ExportException {
+      createdFormats.add(format);
       if (exceptionToThrow != null) {
         throw exceptionToThrow;
       }
-      throw new UnsupportedOperationException(
-          "Test bypasses successful creation to avoid Robolectric hardware surface validation"
-              + " issues.");
+      throw ExportException.createForUnexpected(
+          new UnsupportedOperationException(
+              "Test bypasses successful creation to avoid Robolectric hardware surface validation"
+                  + " issues."));
     }
   }
 }

@@ -75,22 +75,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   /** Listener for {@link GlEncoderFrameWriter} events. */
   public interface Listener {
-    /**
-     * Called when the encoder is being configured.
-     *
-     * @param requestedFormat The {@link Format} requested for the encoder.
-     * @return The {@link Format} that the encoder should be configured with. This may differ from
-     *     {@code requestedFormat}.
-     */
-    Format onConfigure(Format requestedFormat);
-
-    /**
-     * Called when the encoder has been created.
-     *
-     * @param encoder The created {@link Codec} encoder.
-     */
-    void onEncoderCreated(Codec encoder);
-
     /** Called when the end of the input stream has been signaled to the encoder. */
     void onEndOfStream();
 
@@ -178,19 +162,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void configure(Format format, @Frame.Usage long usage) {
     checkState(encoder == null);
 
-    Format encoderFormat = listener.onConfigure(format);
     try {
-      encoder = encoderFactory.createForVideoEncoding(encoderFormat, logSessionId);
+      encoder = encoderFactory.createForVideoEncoding(format, logSessionId);
     } catch (ExportException e) {
       listenerExecutor.execute(() -> listener.onError(VideoFrameProcessingException.from(e)));
       return;
     }
 
     Surface encoderInputSurface = encoder.getInputSurface();
-    Codec nonNullEncoder = encoder;
-    listenerExecutor.execute(() -> listener.onEncoderCreated(nonNullEncoder));
-
-    configurationFormat = nonNullEncoder.getConfigurationFormat();
+    configurationFormat = encoder.getConfigurationFormat();
     frameRenderer.configure(usage | Frame.USAGE_GPU_SAMPLED_IMAGE | Frame.USAGE_VIDEO_ENCODE);
 
     submitToGlExecutor(

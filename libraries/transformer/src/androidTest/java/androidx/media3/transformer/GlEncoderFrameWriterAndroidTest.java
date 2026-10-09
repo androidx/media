@@ -23,6 +23,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import android.content.Context;
+import android.media.metrics.LogSessionId;
+import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -77,28 +79,27 @@ public final class GlEncoderFrameWriterAndroidTest {
   @Before
   public void setUp() {
     Context context = ApplicationProvider.getApplicationContext();
-    ForceEncodeEncoderFactory encoderFactory =
-        new ForceEncodeEncoderFactory(
-            new DefaultEncoderFactory.Builder(context).setEnableFallback(false).build());
-
     createdEncoder = new AtomicReference<>();
     endOfStreamSignaled = new AtomicBoolean();
     errorException = new AtomicReference<>();
     eosCondition = new ConditionVariable();
     errorCondition = new ConditionVariable();
 
+    Codec.EncoderFactory encoderFactory =
+        new ForwardingEncoderFactory(
+            new ForceEncodeEncoderFactory(
+                new DefaultEncoderFactory.Builder(context).setEnableFallback(false).build())) {
+          @Override
+          public Codec createForVideoEncoding(Format format, @Nullable LogSessionId logSessionId)
+              throws ExportException {
+            Codec encoder = super.createForVideoEncoding(format, logSessionId);
+            createdEncoder.set(encoder);
+            return encoder;
+          }
+        };
+
     GlEncoderFrameWriter.Listener listener =
         new GlEncoderFrameWriter.Listener() {
-          @Override
-          public Format onConfigure(Format requestedFormat) {
-            return requestedFormat;
-          }
-
-          @Override
-          public void onEncoderCreated(Codec encoder) {
-            createdEncoder.set(encoder);
-          }
-
           @Override
           public void onEndOfStream() {
             endOfStreamSignaled.set(true);

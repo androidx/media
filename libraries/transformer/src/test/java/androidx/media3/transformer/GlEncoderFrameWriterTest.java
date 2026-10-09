@@ -35,6 +35,8 @@ import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
@@ -117,14 +119,6 @@ public final class GlEncoderFrameWriterTest {
     GlEncoderFrameWriter.Listener testListener =
         new GlEncoderFrameWriter.Listener() {
           @Override
-          public Format onConfigure(Format requestedFormat) {
-            return requestedFormat;
-          }
-
-          @Override
-          public void onEncoderCreated(Codec encoder) {}
-
-          @Override
           public void onEndOfStream() {}
 
           @Override
@@ -156,6 +150,7 @@ public final class GlEncoderFrameWriterTest {
     boolean isSupported = glEncoderFrameWriter.getInfo().isSupported(VIDEO_FORMAT, /* usage= */ 0L);
 
     assertThat(isSupported).isTrue();
+    assertThat(fakeEncoderFactory.checkedFormats).containsExactly(VIDEO_FORMAT);
   }
 
   @Test
@@ -211,17 +206,18 @@ public final class GlEncoderFrameWriterTest {
     assertThrows(IllegalStateException.class, () -> glEncoderFrameWriter.signalEndOfStream());
   }
 
+  @Test
+  public void configure_withRotatedFormat_passesFormatToEncoderFactory() {
+    Format rotatedFormat = VIDEO_FORMAT.buildUpon().setRotationDegrees(270).build();
+
+    glEncoderFrameWriter.configure(rotatedFormat, /* usage= */ 0L);
+
+    assertThat(fakeEncoderFactory.createdFormats).containsExactly(rotatedFormat);
+  }
+
   /** A fake listener that records callbacks for validation. */
   private static class TestListener implements GlEncoderFrameWriter.Listener {
     @Nullable private VideoFrameProcessingException exception;
-
-    @Override
-    public Format onConfigure(Format requestedFormat) {
-      return requestedFormat;
-    }
-
-    @Override
-    public void onEncoderCreated(Codec encoder) {}
 
     @Override
     public void onEndOfStream() {}
@@ -235,6 +231,8 @@ public final class GlEncoderFrameWriterTest {
   /** A fake factory that allows stubbing the format negotiation. */
   private static class FakeEncoderFactory implements Codec.EncoderFactory {
 
+    private final List<Format> checkedFormats = new ArrayList<>();
+    private final List<Format> createdFormats = new ArrayList<>();
     private boolean isSupportedToReturn;
     @Nullable private ExportException exceptionToThrow;
 
@@ -248,6 +246,7 @@ public final class GlEncoderFrameWriterTest {
 
     @Override
     public boolean isVideoFormatSupported(Format format) {
+      checkedFormats.add(format);
       return isSupportedToReturn;
     }
 
@@ -259,10 +258,11 @@ public final class GlEncoderFrameWriterTest {
     @Override
     public Codec createForVideoEncoding(Format format, @Nullable LogSessionId logSessionId)
         throws ExportException {
+      createdFormats.add(format);
       if (exceptionToThrow != null) {
         throw exceptionToThrow;
       }
-      throw new UnsupportedOperationException();
+      throw ExportException.createForUnexpected(new UnsupportedOperationException());
     }
   }
 }
