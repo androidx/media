@@ -592,7 +592,7 @@ class PresentationStateTest {
   }
 
   @Test
-  fun audioAndText_shutterOpen() = runComposeUiTest {
+  fun audioAndText_shutterClosed() = runComposeUiTest {
     val audioGroup =
       Tracks.Group(
         /* mediaTrackGroup = */ TrackGroup(Format.Builder().setSampleMimeType(AUDIO_AAC).build()),
@@ -618,8 +618,8 @@ class PresentationStateTest {
     lateinit var state: PresentationState
     setContent { state = rememberPresentationState(player) }
 
-    // Audio and text -> shutter should be immediately open to show the subtitles over black
-    assertThat(state.coverSurface).isFalse()
+    // Audio and text, but no video -> shutter stays closed
+    assertThat(state.coverSurface).isTrue()
     assertThat(state.showArtwork).isTrue()
   }
 

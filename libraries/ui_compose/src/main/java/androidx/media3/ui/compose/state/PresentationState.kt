@@ -194,12 +194,9 @@ class PresentationState(keepContentOnReset: Boolean = false) {
         showArtwork = false
       }
       if (hasTracks) {
-        if (hasSelectedVideoTrack(player)) {
-          // We don't lift the shutter here; we wait for EVENT_RENDERED_FIRST_FRAME instead.
-        } else if (hasSelectedTextTrack(player)) {
-          // No video track, but text (subtitles) is selected, lift the shutter to show them
-          coverSurface = false
-        } else {
+        if (!hasSelectedVideoTrack(player)) {
+          // Nothing is rendered to the surface without a video track, so keep it covered. With a
+          // video track, the shutter is lifted on EVENT_RENDERED_FIRST_FRAME instead.
           coverSurface = true
         }
         showArtwork = !hasSelectedVideoTrack(player)
@@ -246,10 +243,6 @@ class PresentationState(keepContentOnReset: Boolean = false) {
   private fun hasSelectedVideoTrack(player: Player): Boolean =
     player.isCommandAvailable(Player.COMMAND_GET_TRACKS) &&
       player.currentTracks.isTypeSelected(C.TRACK_TYPE_VIDEO)
-
-  private fun hasSelectedTextTrack(player: Player): Boolean =
-    player.isCommandAvailable(Player.COMMAND_GET_TRACKS) &&
-      player.currentTracks.isTypeSelected(C.TRACK_TYPE_TEXT)
 
   companion object {
     init {

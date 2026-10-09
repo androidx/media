@@ -33,8 +33,11 @@ import androidx.media3.ui.compose.state.rememberPresentationState
  * A container for displaying media content from a [Player].
  *
  * This composable handles the underlying [PlayerSurface] for video playback, resizing the video
- * based on the provided [ContentScale], and displaying a [shutter] according to the
+ * based on the provided [ContentScale], and displaying a [shutter] and [artwork] according to the
  * [PresentationState] based off the [Player].
+ *
+ * The layers are drawn in the following order, from bottom to top: the [PlayerSurface], the
+ * [shutter], the [artwork] and the [subtitles].
  *
  * @param player The attached [Player] that provides media to this content frame.
  * @param modifier The [Modifier] to be applied to the layout.
@@ -44,7 +47,9 @@ import androidx.media3.ui.compose.state.rememberPresentationState
  * @param keepContentOnReset If `true`, the last rendered frame will remain visible when the player
  *   is reset. If `false`, the surface will be cleared.
  * @param artwork Optional composable slot to render artwork for the current media item.
- * @param overlay A composable drawn on top of the media content, but under the shutter.
+ * @param subtitles A composable that displays subtitles. It is drawn on top of the [shutter] and
+ *   the [artwork], so that subtitles remain visible when there is no video, and it is laid out
+ *   within the same bounds as the scaled video surface.
  * @param shutter A composable that is displayed when the video surface needs to be covered. By
  *   default, this is a black background.
  */
@@ -59,7 +64,7 @@ fun ContentFrame(
   artwork: (@Composable () -> Unit)? = {
     Artwork(player, modifier = Modifier.fillMaxSize(), contentScale = contentScale)
   },
-  overlay: @Composable () -> Unit = {},
+  subtitles: @Composable () -> Unit = {},
   shutter: @Composable () -> Unit = { Box(Modifier.fillMaxSize().background(Color.Black)) },
 ) {
   val presentationState: PresentationState = rememberPresentationState(player, keepContentOnReset)
@@ -72,8 +77,6 @@ fun ContentFrame(
       // the process. If this composable is guarded by some condition, it might never become visible
       // because the Player will not emit the relevant event, e.g. the first frame being ready.
       PlayerSurface(player, Modifier.fillMaxSize(), surfaceType)
-
-      overlay()
     }
 
     if (presentationState.coverSurface) {
@@ -83,5 +86,8 @@ fun ContentFrame(
     if (presentationState.showArtwork) {
       artwork?.invoke()
     }
+
+    // Draw the subtitles last, so that they aren't hidden by the shutter or artwork.
+    Box(scaledModifier.fillMaxSize()) { subtitles() }
   }
 }

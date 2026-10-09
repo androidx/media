@@ -26,9 +26,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsNode
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onChildren
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.height
 import androidx.compose.ui.unit.width
@@ -112,7 +116,7 @@ class ContentFrameTest {
         player,
         contentScale = contentScale.value,
         modifier = Modifier.testTag("ContentFrameOuter"),
-        overlay = { Box(Modifier.fillMaxSize().testTag("ScaledVideoBounds")) },
+        subtitles = { Box(Modifier.fillMaxSize().testTag("ScaledVideoBounds")) },
       )
     }
     val initialBounds = composeTestRule.onNodeWithTag("ScaledVideoBounds").getBoundsInRoot()
@@ -241,4 +245,73 @@ class ContentFrameTest {
 
     composeTestRule.onNodeWithTag("ArtworkTag").assertDoesNotExist()
   }
+
+  @Test
+  fun contentFrame_withIdlePlayer_drawsSubtitlesAboveShutter() {
+    val player = FakePlayer()
+
+    composeTestRule.setContent {
+      ContentFrame(
+        player,
+        modifier = Modifier.testTag("ContentFrame"),
+        subtitles = { Box(Modifier.fillMaxSize().testTag("Subtitles")) },
+        shutter = { Box(Modifier.fillMaxSize().testTag("Shutter")) },
+      )
+    }
+
+    composeTestRule.onNodeWithTag("Shutter").assertIsDisplayed()
+    assertThat(getChildTestTagsInPaintOrder("ContentFrame"))
+      .containsExactly("Shutter", "Subtitles")
+      .inOrder()
+  }
+
+  @Test
+  fun contentFrame_withTextTrackAndNoVideoTrack_drawsSubtitlesAboveArtwork() {
+    val audioTrack =
+      Tracks.Group(
+        TrackGroup(Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build()),
+        /* adaptiveSupported= */ true,
+        /* trackSupport= */ intArrayOf(C.FORMAT_HANDLED),
+        /* trackSelected= */ booleanArrayOf(true),
+      )
+    val textTrack =
+      Tracks.Group(
+        TrackGroup(Format.Builder().setSampleMimeType(MimeTypes.TEXT_VTT).build()),
+        /* adaptiveSupported= */ false,
+        /* trackSupport= */ intArrayOf(C.FORMAT_HANDLED),
+        /* trackSelected= */ booleanArrayOf(true),
+      )
+    val player =
+      FakePlayer(
+        playlist =
+          listOf(
+            MediaItemData.Builder("First").setTracks(Tracks(listOf(audioTrack, textTrack))).build()
+          )
+      )
+
+    composeTestRule.setContent {
+      ContentFrame(
+        player,
+        modifier = Modifier.testTag("ContentFrame"),
+        artwork = { Box(Modifier.fillMaxSize().testTag("ArtworkTag")) },
+        subtitles = { Box(Modifier.fillMaxSize().testTag("Subtitles")) },
+      )
+    }
+
+    composeTestRule.onNodeWithTag("ArtworkTag").assertIsDisplayed()
+    assertThat(getChildTestTagsInPaintOrder("ContentFrame"))
+      .containsExactly("ArtworkTag", "Subtitles")
+      .inOrder()
+  }
+
+  /**
+   * Returns the test tags of the semantics children of the node with the given [tag].
+   *
+   * The children are in paint order (see [SemanticsNode.children]), so each child is drawn on top
+   * of the ones before it.
+   */
+  private fun getChildTestTagsInPaintOrder(tag: String): List<String> =
+    composeTestRule.onNodeWithTag(tag).onChildren().fetchSemanticsNodes().mapNotNull {
+      it.config.getOrNull(SemanticsProperties.TestTag)
+    }
 }

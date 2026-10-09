@@ -86,7 +86,8 @@ fun Player(player: Player?, modifier: Modifier = Modifier) {
  * @param surfaceType The type of surface to use for video rendering. See [SurfaceType].
  * @param contentScale The scaling mode to apply to the content within the [ContentFrame].
  * @param keepContentOnReset Whether to keep the content visible when the player is reset.
- * @param subtitleOverlay A composable for rendering subtitles.
+ * @param subtitles A composable for rendering subtitles, drawn on top of the [shutter] and the
+ *   [artwork].
  * @param shutter A composable to be displayed as a shutter over the content. The default shutter is
  *   a black [Box].
  * @param artwork Optional composable slot to render artwork for the current media item.
@@ -107,7 +108,7 @@ fun Player(
   surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
   contentScale: ContentScale = ContentScale.Fit,
   keepContentOnReset: Boolean = false,
-  subtitleOverlay: @Composable () -> Unit = { Subtitles(player) },
+  subtitles: @Composable () -> Unit = { Subtitles(player) },
   shutter: @Composable () -> Unit = PlayerDefaults::Shutter,
   artwork: (@Composable () -> Unit)? = {
     Artwork(player, modifier = Modifier.fillMaxSize(), contentScale = contentScale)
@@ -130,7 +131,7 @@ fun Player(
     surfaceType,
     contentScale,
     keepContentOnReset,
-    subtitleOverlay,
+    subtitles,
     shutter,
     artwork,
     showControls,
@@ -148,7 +149,7 @@ private fun PlayerImpl(
   surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
   contentScale: ContentScale = ContentScale.Fit,
   keepContentOnReset: Boolean = false,
-  subtitleOverlay: @Composable () -> Unit = { Subtitles(player) },
+  subtitles: @Composable () -> Unit = { Subtitles(player) },
   shutter: @Composable () -> Unit = PlayerDefaults::Shutter,
   artwork: (@Composable () -> Unit)? = {
     Artwork(player, modifier = Modifier.fillMaxSize(), contentScale = contentScale)
@@ -176,7 +177,7 @@ private fun PlayerImpl(
       contentScale = contentScale,
       keepContentOnReset = keepContentOnReset,
       artwork = artwork,
-      overlay = subtitleOverlay,
+      subtitles = subtitles,
       shutter = shutter,
     )
 
