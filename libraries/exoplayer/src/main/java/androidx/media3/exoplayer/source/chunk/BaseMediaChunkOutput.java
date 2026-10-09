@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.source.chunk;
 
+import android.util.SparseIntArray;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -26,6 +27,10 @@ import androidx.media3.extractor.TrackOutput;
 /**
  * A {@link TrackOutputProvider} that provides {@link TrackOutput TrackOutputs} based on a
  * predefined mapping from track type to output.
+ *
+ * <p>If several text outputs are requested (for example multiple embedded CEA-608 channels), each
+ * distinct {@code id} is bound to its own text sample queue, in the order the ids are first
+ * requested. Outputs of any other type are always bound to the first sample queue of that type.
  */
 @UnstableApi
 public final class BaseMediaChunkOutput implements TrackOutputProvider {
@@ -34,6 +39,8 @@ public final class BaseMediaChunkOutput implements TrackOutputProvider {
 
   private final @C.TrackType int[] trackTypes;
   private final SampleQueue[] sampleQueues;
+  private final SparseIntArray queueIndexById;
+  private final boolean[] queueAssigned;
 
   /**
    * @param trackTypes The track types of the individual track outputs.
@@ -42,13 +49,41 @@ public final class BaseMediaChunkOutput implements TrackOutputProvider {
   public BaseMediaChunkOutput(int[] trackTypes, SampleQueue[] sampleQueues) {
     this.trackTypes = trackTypes;
     this.sampleQueues = sampleQueues;
+    queueIndexById = new SparseIntArray();
+    queueAssigned = new boolean[sampleQueues.length];
   }
 
   @Override
   public TrackOutput track(int id, @C.TrackType int type) {
-    for (int i = 0; i < trackTypes.length; i++) {
-      if (type == trackTypes[i]) {
-        return sampleQueues[i];
+    if (type == C.TRACK_TYPE_TEXT) {
+      int cachedIndex = queueIndexById.get(id, C.INDEX_UNSET);
+      if (cachedIndex != C.INDEX_UNSET) {
+        return sampleQueues[cachedIndex];
+      }
+      int firstTextIndex = C.INDEX_UNSET;
+      for (int i = 0; i < trackTypes.length; i++) {
+        if (trackTypes[i] != C.TRACK_TYPE_TEXT) {
+          continue;
+        }
+        if (firstTextIndex == C.INDEX_UNSET) {
+          firstTextIndex = i;
+        }
+        if (!queueAssigned[i]) {
+          queueAssigned[i] = true;
+          queueIndexById.put(id, i);
+          return sampleQueues[i];
+        }
+      }
+      if (firstTextIndex != C.INDEX_UNSET) {
+        // More text outputs than text queues. Share the first queue.
+        queueIndexById.put(id, firstTextIndex);
+        return sampleQueues[firstTextIndex];
+      }
+    } else {
+      for (int i = 0; i < trackTypes.length; i++) {
+        if (type == trackTypes[i]) {
+          return sampleQueues[i];
+        }
       }
     }
     Log.e(TAG, "Unmatched track of type: " + type);

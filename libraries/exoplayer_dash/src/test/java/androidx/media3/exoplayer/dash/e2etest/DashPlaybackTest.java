@@ -618,6 +618,95 @@ public final class DashPlaybackTest {
         applicationContext, playbackOutput, "playbackdumps/dash/cea608.dump");
   }
 
+  // Two CEA-608 channels declared in the manifest must not change the output of the first one.
+  @Test
+  public void cea608_twoChannelsDeclared_firstChannelOutputUnchanged() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext, clock);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(clock)
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+
+    DefaultTrackSelector trackSelector =
+        checkNotNull((DefaultTrackSelector) player.getTrackSelector());
+    trackSelector.setParameters(trackSelector.buildUponParameters().setPreferredTextLanguage("en"));
+    player.setMediaItem(MediaItem.fromUri("asset:///media/dash/cea608_two_channels/manifest.mpd"));
+    player.prepare();
+    advance(player).untilFullyBuffered();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    DumpFileAsserts.assertOutput(
+        applicationContext, playbackOutput, "playbackdumps/dash/cea608.dump");
+  }
+
+  @Test
+  public void cea608_twoChannelsDeclaredReversed_selectEnglish_rendersChannel1Once()
+      throws Exception {
+    String singleChannelDump = playCea608AndDump("asset:///media/dash/cea608/manifest.mpd", "en");
+    String dump =
+        playCea608AndDump("asset:///media/dash/cea608_two_channels_reversed/manifest.mpd", "en");
+
+    assertThat(countOccurrences(singleChannelDump, "text = First subtitle")).isGreaterThan(0);
+    assertThat(countOccurrences(dump, "text = First subtitle"))
+        .isEqualTo(countOccurrences(singleChannelDump, "text = First subtitle"));
+    assertThat(countOccurrences(dump, "text = Second subtitle"))
+        .isEqualTo(countOccurrences(singleChannelDump, "text = Second subtitle"));
+  }
+
+  @Test
+  public void cea608_twoChannelsDeclared_selectSpanish_rendersNothingFromChannel1()
+      throws Exception {
+    String dump = playCea608AndDump("asset:///media/dash/cea608_two_channels/manifest.mpd", "es");
+
+    assertThat(dump).doesNotContain("text = First subtitle");
+    assertThat(dump).doesNotContain("text = Second subtitle");
+  }
+
+  private String playCea608AndDump(String uri, String preferredTextLanguage) throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext, clock);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(clock)
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+    DefaultTrackSelector trackSelector =
+        checkNotNull((DefaultTrackSelector) player.getTrackSelector());
+    trackSelector.setParameters(
+        trackSelector.buildUponParameters().setPreferredTextLanguage(preferredTextLanguage));
+    player.setMediaItem(MediaItem.fromUri(uri));
+    player.prepare();
+    advance(player).untilFullyBuffered();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+    androidx.media3.test.utils.Dumper dumper = new androidx.media3.test.utils.Dumper();
+    playbackOutput.dump(dumper);
+    return dumper.toString();
+  }
+
+  private static int countOccurrences(String haystack, String needle) {
+    int count = 0;
+    for (int i = haystack.indexOf(needle); i >= 0; i = haystack.indexOf(needle, i + 1)) {
+      count++;
+    }
+    return count;
+  }
+
   // https://github.com/google/ExoPlayer/issues/8710
   @Test
   public void emsgNearToPeriodBoundary() throws Exception {
