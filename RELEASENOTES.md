@@ -336,6 +336,9 @@
         `RemoteCastPlayer` failed to load the media items on the Cast receiver.
         ([#2402](https://github.com/androidx/media/issues/2402)).
 *   Test Utilities:
+*   Demo app:
+    *   Add support for DRM-protected media items and an additional HLS sample
+        stream to the session demo app catalog.
 *   Remove deprecated symbols:
     *   Remove `DashUtil.buildDataSpec(Representation, RangedUri, int)` and
         `DashUtil.buildDataSpec(Representation, String, RangedUri, int)`. Use

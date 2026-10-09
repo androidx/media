@@ -22,6 +22,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaItem.SubtitleConfiguration
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.util.Util
 import com.google.common.collect.ImmutableList
 import java.io.BufferedReader
 import org.json.JSONException
@@ -87,6 +88,7 @@ object MediaItemTree {
     genre: String? = null,
     sourceUri: Uri? = null,
     imageUri: Uri? = null,
+    drmConfiguration: MediaItem.DrmConfiguration? = null,
   ): MediaItem {
     val metadata =
       MediaMetadata.Builder()
@@ -105,6 +107,7 @@ object MediaItemTree {
       .setSubtitleConfigurations(subtitleConfigurations)
       .setMediaMetadata(metadata)
       .setUri(sourceUri)
+      .setDrmConfiguration(drmConfiguration)
       .build()
   }
 
@@ -170,6 +173,7 @@ object MediaItemTree {
     }
   }
 
+  @OptIn(UnstableApi::class) // Util.getDrmUuid
   private fun addNodeToTree(mediaObject: JSONObject) {
 
     val id = mediaObject.getString("id")
@@ -193,6 +197,18 @@ object MediaItemTree {
     }
     val sourceUri = Uri.parse(mediaObject.getString("source"))
     val imageUri = Uri.parse(mediaObject.getString("image"))
+    val drmConfiguration =
+      if (mediaObject.has("drm_scheme")) {
+        Util.getDrmUuid(mediaObject.getString("drm_scheme"))?.let { drmUuid ->
+          val drmBuilder = MediaItem.DrmConfiguration.Builder(drmUuid)
+          if (mediaObject.has("drm_license_uri")) {
+            drmBuilder.setLicenseUri(mediaObject.getString("drm_license_uri"))
+          }
+          drmBuilder.build()
+        }
+      } else {
+        null
+      }
     // key of such items in tree
     val idInTree = ITEM_PREFIX + id
     val albumFolderIdInTree = ALBUM_PREFIX + album
@@ -213,6 +229,7 @@ object MediaItemTree {
           genre = genre,
           sourceUri = sourceUri,
           imageUri = imageUri,
+          drmConfiguration = drmConfiguration,
         )
       )
 
@@ -294,6 +311,7 @@ object MediaItemTree {
       .setMediaMetadata(metadata)
       .setSubtitleConfigurations(treeItem.localConfiguration?.subtitleConfigurations ?: listOf())
       .setUri(treeItem.localConfiguration?.uri)
+      .setDrmConfiguration(treeItem.localConfiguration?.drmConfiguration)
       .build()
   }
 

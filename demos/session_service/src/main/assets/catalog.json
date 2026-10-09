@@ -38,6 +38,40 @@
       "media_type": "movie"
     },
     {
+      "id": "video_04",
+      "title": "Apple 16x9 basic stream (HLS)",
+      "album": "Video with subtitle",
+      "artist": "Subtitles",
+      "genre": "Video",
+      "source": "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_16x9/bipbop_16x9_variant.m3u8",
+      "image": "https://cdn.pixabay.com/photo/2014/10/09/13/14/video-481821_960_720.png",
+      "media_type": "movie"
+    },
+    {
+      "id": "drm_01",
+      "title": "Tears of Steel (Widevine DASH CENC)",
+      "album": "Widevine DRM",
+      "artist": "Blender Foundation",
+      "genre": "Video",
+      "source": "https://storage.googleapis.com/wvmedia/cenc/h264/tears/tears.mpd",
+      "image": "https://cdn.pixabay.com/photo/2014/10/09/13/14/video-481821_960_720.png",
+      "drm_scheme": "widevine",
+      "drm_license_uri": "https://proxy.uat.widevine.com/proxy?video_id=2015_tears&provider=widevine_test",
+      "media_type": "movie"
+    },
+    {
+      "id": "drm_02",
+      "title": "Tears of Steel (Widevine DASH CBCS)",
+      "album": "Widevine DRM",
+      "artist": "Blender Foundation",
+      "genre": "Video",
+      "source": "https://storage.googleapis.com/wvmedia/cbcs/h264/tears/tears_aes_cbcs.mpd",
+      "image": "https://cdn.pixabay.com/photo/2014/10/09/13/14/video-481821_960_720.png",
+      "drm_scheme": "widevine",
+      "drm_license_uri": "https://proxy.uat.widevine.com/proxy?video_id=2015_tears&provider=widevine_test",
+      "media_type": "movie"
+    },
+    {
       "id": "wake_up_01",
       "title": "Intro - The Way Of Waking Up (feat. Alan Watts)",
       "album": "Wake Up",
