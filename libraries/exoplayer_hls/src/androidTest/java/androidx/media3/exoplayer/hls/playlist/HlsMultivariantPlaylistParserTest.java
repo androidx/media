@@ -21,6 +21,7 @@ import static org.junit.Assert.fail;
 
 import android.net.Uri;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
@@ -91,6 +92,27 @@ public class HlsMultivariantPlaylistParserTest {
           + "#EXT-X-STREAM-INF:BANDWIDTH=8500000,AVERAGE-BANDWIDTH=6000000,"
           + "CODECS=\"dvh1.10.05\",RESOLUTION=1920x1080,VIDEO-RANGE=PQ\n"
           + "http://example.com/high_hdr.m3u8\n";
+
+  private static final String PLAYLIST_WITH_VIDEO_RANGE =
+      " #EXTM3U \n"
+          + "\n"
+          + "#EXT-X-MEDIA:URI=\"http://example.com/alt_video_pq.m3u8\",TYPE=VIDEO,"
+          + "GROUP-ID=\"vid-pq\",NAME=\"Alt Video\"\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=8500000,"
+          + "CODECS=\"hvc1.2.4.L150.B0\",RESOLUTION=3840x2160,VIDEO-RANGE=PQ,VIDEO=\"vid-pq\"\n"
+          + "http://example.com/pq.m3u8\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=8500000,"
+          + "CODECS=\"hvc1.2.4.L150.B0\",RESOLUTION=3840x2160,VIDEO-RANGE=HLG\n"
+          + "http://example.com/hlg.m3u8\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=8500000,"
+          + "CODECS=\"hvc1.1.4.L150.B0\",RESOLUTION=3840x2160,VIDEO-RANGE=SDR\n"
+          + "http://example.com/sdr.m3u8\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=8500000,"
+          + "CODECS=\"hvc1.1.4.L150.B0\",RESOLUTION=3840x2160\n"
+          + "http://example.com/no_video_range.m3u8\n"
+          + "#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=1313400,"
+          + "CODECS=\"hvc1.2.4.L150.B0\",RESOLUTION=3840x2160,VIDEO-RANGE=PQ,"
+          + "URI=\"iframe_pq.m3u8\"\n";
 
   private static final String PLAYLIST_WITH_CONTENT_STEERING_INFO_ABSOLUTE_SERVER_URI =
       " #EXTM3U \n"
@@ -496,6 +518,65 @@ public class HlsMultivariantPlaylistParserTest {
     assertThat(variants.get(0).format.colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_BT2020);
     assertThat(variants.get(0).format.colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_ST2084);
     assertThat(variants.get(0).format.colorInfo.colorRange).isEqualTo(C.COLOR_RANGE_FULL);
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_withVideoRangePq_setsColorTransferSt2084()
+      throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_WITH_VIDEO_RANGE);
+
+    assertThat(multivariantPlaylist.variants.get(0).format.colorInfo)
+        .isEqualTo(new ColorInfo.Builder().setColorTransfer(C.COLOR_TRANSFER_ST2084).build());
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_withVideoRangeHlg_setsColorTransferHlg()
+      throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_WITH_VIDEO_RANGE);
+
+    assertThat(multivariantPlaylist.variants.get(1).format.colorInfo)
+        .isEqualTo(new ColorInfo.Builder().setColorTransfer(C.COLOR_TRANSFER_HLG).build());
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_withVideoRangeSdr_setsNoColorInfo() throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_WITH_VIDEO_RANGE);
+
+    assertThat(multivariantPlaylist.variants.get(2).format.colorInfo).isNull();
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_withoutVideoRange_setsNoColorInfo() throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_WITH_VIDEO_RANGE);
+
+    assertThat(multivariantPlaylist.variants.get(3).format.colorInfo).isNull();
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_withIFrameStreamInfVideoRangePq_setsColorTransferSt2084()
+      throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_WITH_VIDEO_RANGE);
+
+    Variant iFramesOnlyVariant = multivariantPlaylist.variants.get(4);
+    assertThat(iFramesOnlyVariant.format.roleFlags & C.ROLE_FLAG_TRICK_PLAY)
+        .isEqualTo(C.ROLE_FLAG_TRICK_PLAY);
+    assertThat(iFramesOnlyVariant.format.colorInfo)
+        .isEqualTo(new ColorInfo.Builder().setColorTransfer(C.COLOR_TRANSFER_ST2084).build());
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_withVideoMediaTagAndVideoRangePq_propagatesColorInfo()
+      throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_WITH_VIDEO_RANGE);
+
+    assertThat(multivariantPlaylist.videos.get(0).format.colorInfo)
+        .isEqualTo(new ColorInfo.Builder().setColorTransfer(C.COLOR_TRANSFER_ST2084).build());
   }
 
   @Test

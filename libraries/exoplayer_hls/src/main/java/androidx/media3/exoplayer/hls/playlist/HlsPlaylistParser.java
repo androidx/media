@@ -435,6 +435,28 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
     return true;
   }
 
+  /**
+   * Returns the {@link ColorInfo} implied by a {@code VIDEO-RANGE} attribute value, or {@code null}
+   * if the value does not identify a single transfer function.
+   *
+   * <p>{@code SDR} covers several transfer characteristics, so only {@code PQ} and {@code HLG} are
+   * mapped.
+   */
+  @Nullable
+  private static ColorInfo getColorInfoForVideoRange(@Nullable String videoRange) {
+    if (videoRange == null) {
+      return null;
+    }
+    switch (videoRange) {
+      case "PQ":
+        return new ColorInfo.Builder().setColorTransfer(C.COLOR_TRANSFER_ST2084).build();
+      case "HLG":
+        return new ColorInfo.Builder().setColorTransfer(C.COLOR_TRANSFER_HLG).build();
+      default:
+        return null;
+    }
+  }
+
   private static HlsMultivariantPlaylist parseMultivariantPlaylist(
       LineIterator iterator, Uri playlistUri, MatcherCache matcherCache) throws IOException {
     String baseUri = playlistUri.toString();
@@ -548,6 +570,9 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
           videoCodecs = supplementalCodecs != null ? supplementalCodecs : videoCodecs;
           String nonVideoCodecs = Util.getCodecsWithoutType(codecs, C.TRACK_TYPE_VIDEO);
           codecs = nonVideoCodecs != null ? videoCodecs + "," + nonVideoCodecs : videoCodecs;
+        }
+        if (colorInfo == null) {
+          colorInfo = getColorInfoForVideoRange(videoRange);
         }
 
         String resolutionString =
@@ -703,7 +728,8 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
                 .setSampleMimeType(MimeTypes.getMediaMimeType(codecs))
                 .setWidth(variantFormat.width)
                 .setHeight(variantFormat.height)
-                .setFrameRate(variantFormat.frameRate);
+                .setFrameRate(variantFormat.frameRate)
+                .setColorInfo(variantFormat.colorInfo);
           }
           if (uri == null) {
             // TODO: Remove this case and add a Rendition with a null uri to videos.
