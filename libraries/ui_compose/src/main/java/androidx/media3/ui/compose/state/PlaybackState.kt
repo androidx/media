@@ -23,6 +23,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 
@@ -55,17 +56,17 @@ class PlaybackState(private val player: Player?) {
   var playbackState by mutableIntStateOf(player?.playbackState ?: Player.STATE_IDLE)
     private set
 
-  var playWhenReady by mutableStateOf(player?.playWhenReady ?: false)
+  var playWhenReady: Boolean by mutableStateOf(player?.playWhenReady ?: false)
     private set
 
   var playbackSuppressionReason by
     mutableIntStateOf(player?.playbackSuppressionReason ?: Player.PLAYBACK_SUPPRESSION_REASON_NONE)
     private set
 
-  var isPlaying by mutableStateOf(player?.isPlaying ?: false)
+  var isPlaying: Boolean by mutableStateOf(player?.isPlaying ?: false)
     private set
 
-  var playerError by mutableStateOf(player?.playerError)
+  var playerError: PlaybackException? by mutableStateOf(player?.playerError)
     private set
 
   private val playerStateObserver: PlayerStateObserver? =
@@ -92,5 +93,5 @@ class PlaybackState(private val player: Player?) {
    *   playing.
    * * [Player.EVENT_PLAYER_ERROR] in order to determine whether a playback error occurred.
    */
-  suspend fun observe() = playerStateObserver?.observe()
+  suspend fun observe(): Nothing? = playerStateObserver?.observe()
 }

@@ -53,5 +53,5 @@ class ErrorState(private val player: Player?) {
     }
 
   /** Subscribes to updates from [Player.Events] to update the [error] state. */
-  suspend fun observe() = playerStateObserver?.observe()
+  suspend fun observe(): Nothing? = playerStateObserver?.observe()
 }

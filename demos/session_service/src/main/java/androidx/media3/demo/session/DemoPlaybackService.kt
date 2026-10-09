@@ -91,7 +91,7 @@ open class DemoPlaybackService : MediaLibraryService() {
           },
       )
 
-    fun get(context: Context) = context.applicationContext._dataStore
+    fun get(context: Context): DataStore<Preferences> = context.applicationContext._dataStore
   }
 
   /**

@@ -35,5 +35,6 @@ import androidx.media3.ui.compose.state.rememberCurrentMediaItemState
  */
 @UnstableApi
 @Composable
-fun CurrentMediaItemBox(player: Player?, content: @Composable CurrentMediaItemState.() -> Unit) =
+fun CurrentMediaItemBox(player: Player?, content: @Composable CurrentMediaItemState.() -> Unit) {
   rememberCurrentMediaItemState(player).content()
+}

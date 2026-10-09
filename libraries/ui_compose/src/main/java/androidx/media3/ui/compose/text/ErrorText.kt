@@ -34,5 +34,6 @@ import androidx.media3.ui.compose.state.rememberErrorState
  */
 @UnstableApi
 @Composable
-fun ErrorText(player: Player?, content: @Composable ErrorState.() -> Unit) =
+fun ErrorText(player: Player?, content: @Composable ErrorState.() -> Unit) {
   rememberErrorState(player).content()
+}

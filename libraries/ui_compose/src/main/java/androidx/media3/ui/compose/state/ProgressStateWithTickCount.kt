@@ -186,7 +186,7 @@ class ProgressStateWithTickCount(
    * Subscribes to updates from [Player.Events] to track changes of progress-related information in
    * an asynchronous way.
    */
-  suspend fun observe() = updateJob?.observeProgress()
+  suspend fun observe(): Nothing? = updateJob?.observeProgress()
 
   private fun nextMediaWakeUpPositionMs(player: Player): Long {
     check(totalTickCount != 0)

@@ -62,5 +62,5 @@ class CuesState(private val player: Player?) {
    * Subscribes to updates from [Player.Events] and listens to [Player.EVENT_CUES] and
    * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED] to update the [cues] state.
    */
-  suspend fun observe() = playerStateObserver?.observe()
+  suspend fun observe(): Nothing? = playerStateObserver?.observe()
 }

@@ -100,17 +100,19 @@ import org.json.JSONException
 @OptIn(ExperimentalApi::class)
 class CompositionPreviewViewModel(application: Application) : AndroidViewModel(application) {
 
-  val compositionLayouts = listOf(Preset.SEQUENCE, Preset.GRID, Preset.PIP)
+  val compositionLayouts: List<Preset> = listOf(Preset.SEQUENCE, Preset.GRID, Preset.PIP)
 
   private val _uiState = MutableStateFlow(createInitialState())
   val uiState: StateFlow<CompositionPreviewState> = _uiState.asStateFlow()
 
-  var compositionPlayer by mutableStateOf(createCompositionPlayer())
-  val EXPORT_ERROR_MESSAGE = application.resources.getString(R.string.export_error)
-  val EXPORT_STARTED_MESSAGE = application.resources.getString(R.string.export_started)
-  val FAILED_LOAD_MEDIA_MESSAGE = application.resources.getString(R.string.failed_load_media)
-  val FAILED_GET_DURATION_MESSAGE = application.resources.getString(R.string.failed_get_duration)
-  val API_28_REQUIRED_MESSAGE =
+  var compositionPlayer: CompositionPlayer by mutableStateOf(createCompositionPlayer())
+  val EXPORT_ERROR_MESSAGE: String = application.resources.getString(R.string.export_error)
+  val EXPORT_STARTED_MESSAGE: String = application.resources.getString(R.string.export_started)
+  val FAILED_LOAD_MEDIA_MESSAGE: String =
+    application.resources.getString(R.string.failed_load_media)
+  val FAILED_GET_DURATION_MESSAGE: String =
+    application.resources.getString(R.string.failed_get_duration)
+  val API_28_REQUIRED_MESSAGE: String =
     application.resources.getString(R.string.api_28_required_frame_processor)
   private val API_33_REQUIRED_GMS_VIDEO_ENHANCEMENT_MESSAGE =
     application.resources.getString(R.string.api_33_required_gms_video_enhancement)
@@ -1125,7 +1127,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     private const val FPS_TRACKING_DURATION_MS = 3000L
     private const val DEFAULT_IMAGE_DURATION_US = 1_000_000L
     val MEDIA_TYPES = arrayOf("video/*", "image/*", "audio/*")
-    val HDR_MODE_DESCRIPTIONS =
+    val HDR_MODE_DESCRIPTIONS: Map<String, Int> =
       mapOf(
         Pair("Keep HDR", Composition.HDR_MODE_KEEP_HDR),
         Pair(
@@ -1138,11 +1140,11 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
           Composition.HDR_MODE_EXPERIMENTAL_FORCE_INTERPRET_HDR_AS_SDR,
         ),
       )
-    val RESOLUTION_HEIGHTS =
+    val RESOLUTION_HEIGHTS: List<String> =
       listOf(SAME_AS_INPUT_OPTION, "144", "240", "360", "480", "720", "1080", "1440", "2160")
     val MUXER_OPTIONS =
       listOf("Use Platform MediaMuxer", "Use Media3 Mp4Muxer", "Use Media3 FragmentedMp4Muxer")
-    val FRAME_AGGREGATION_FPS_OPTIONS =
+    val FRAME_AGGREGATION_FPS_OPTIONS: List<String> =
       listOf(
         UNSET_OPTION,
         "0.5",

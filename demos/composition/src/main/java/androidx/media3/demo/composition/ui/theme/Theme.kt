@@ -25,6 +25,7 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Modifier
@@ -34,7 +35,7 @@ import androidx.compose.ui.unit.dp
 
 data class Spacing(val mini: Dp = 4.dp, val small: Dp = 8.dp, val standard: Dp = 16.dp)
 
-val LocalSpacing = compositionLocalOf { Spacing() }
+val LocalSpacing: ProvidableCompositionLocal<Spacing> = compositionLocalOf { Spacing() }
 val MaterialTheme.spacing: Spacing
   @Composable @ReadOnlyComposable get() = LocalSpacing.current
 

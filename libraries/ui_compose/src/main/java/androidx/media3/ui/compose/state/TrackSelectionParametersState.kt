@@ -103,7 +103,7 @@ class TrackSelectionParametersState(private val player: Player?) {
    *
    * This is a suspending function that runs indefinitely until cancelled.
    */
-  suspend fun observe() = playerStateObserver?.observe()
+  suspend fun observe(): Nothing? = playerStateObserver?.observe()
 
   private fun Player?.getTracksIfCommandAvailable(): Tracks =
     this?.takeIf { it.isCommandAvailable(Player.COMMAND_GET_TRACKS) }?.currentTracks ?: Tracks.EMPTY
