@@ -63,6 +63,14 @@ public class SessionPositionInfoTest {
   }
 
   @Test
+  public void roundTripViaBundleForLocalProcess_yieldsSameInstance() {
+    SessionPositionInfo roundTripValue =
+        SessionPositionInfo.fromBundle(SessionPositionInfo.DEFAULT.toBundleForLocalProcess());
+
+    assertThat(SessionPositionInfo.DEFAULT == roundTripValue).isTrue();
+  }
+
+  @Test
   public void constructor_invalidIsPlayingAd_throwsIllegalArgumentException() {
     Assert.assertThrows(
         IllegalArgumentException.class,
