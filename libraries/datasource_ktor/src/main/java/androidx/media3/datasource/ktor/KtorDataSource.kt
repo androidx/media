@@ -349,7 +349,12 @@ private constructor(
     val channel = responseChannel ?: return C.RESULT_END_OF_INPUT
     val read = channel.readAvailable(buffer, offset, readLength)
 
-    if (read < 0) return C.RESULT_END_OF_INPUT
+    if (read < 0) {
+      // readAvailable also returns -1 if the channel was closed because of an error (e.g. the
+      // connection was lost before the end of the response body), so rethrow the cause if present.
+      channel.closedCause?.let { throw it }
+      return C.RESULT_END_OF_INPUT
+    }
 
     bytesRead += read
     bytesTransferred(read)
