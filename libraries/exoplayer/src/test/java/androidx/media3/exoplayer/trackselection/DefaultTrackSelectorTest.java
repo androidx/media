@@ -3493,6 +3493,114 @@ public final class DefaultTrackSelectorTest {
   }
 
   @Test
+  public void selectTracks_withPqAndSdrInOneGroupOnHdr10Display_selectsPqWithoutSdr()
+      throws Exception {
+    Format formatPq = buildHevcFormat("pq", PQ_COLOR_INFO, /* bitrate= */ 8_000_000);
+    Format formatSdr = buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000);
+    TrackGroup trackGroup = new TrackGroup(formatPq, formatSdr);
+    TrackGroupArray trackGroups = new TrackGroupArray(trackGroup);
+    setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HDR10);
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroup, /* expectedTrack= */ 0);
+  }
+
+  @Test
+  public void selectTracks_withPqAndSdrInOneGroupOnSdrDisplay_selectsSdrWithoutPq()
+      throws Exception {
+    Format formatPq = buildHevcFormat("pq", PQ_COLOR_INFO, /* bitrate= */ 8_000_000);
+    Format formatSdr = buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000);
+    TrackGroup trackGroup = new TrackGroup(formatPq, formatSdr);
+    TrackGroupArray trackGroups = new TrackGroupArray(trackGroup);
+    setDefaultDisplayHdrTypes();
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroup, /* expectedTrack= */ 1);
+  }
+
+  @Test
+  public void selectTracks_withPqAndHlgInOneGroupOnHdr10AndHlgDisplay_doesNotAdaptBetweenThem()
+      throws Exception {
+    Format formatPq = buildHevcFormat("pq", PQ_COLOR_INFO, /* bitrate= */ 8_000_000);
+    Format formatHlg = buildHevcFormat("hlg", HLG_COLOR_INFO, /* bitrate= */ 4_000_000);
+    TrackGroup trackGroup = new TrackGroup(formatPq, formatHlg);
+    TrackGroupArray trackGroups = new TrackGroupArray(trackGroup);
+    setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HDR10, HdrCapabilities.HDR_TYPE_HLG);
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroup, /* expectedTrack= */ 0);
+  }
+
+  @Test
+  public void selectTracks_withAdaptivePqAndSdrInOneGroupOnHdr10Display_adaptsBetweenPqTracks()
+      throws Exception {
+    Format formatPqHigh = buildHevcFormat("pq_high", PQ_COLOR_INFO, /* bitrate= */ 8_000_000);
+    Format formatPqLow = buildHevcFormat("pq_low", PQ_COLOR_INFO, /* bitrate= */ 4_000_000);
+    Format formatSdr = buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000);
+    TrackGroup trackGroup = new TrackGroup(formatPqHigh, formatSdr, formatPqLow);
+    TrackGroupArray trackGroups = new TrackGroupArray(trackGroup);
+    setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HDR10);
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+
+    assertAdaptiveSelection(result.selections[0], trackGroup, /* expectedTracks...= */ 0, 2);
+  }
+
+  @Test
+  public void
+      selectTracks_withDolbyVisionFallbackToHevcPqAndSdrInOneGroupOnHdr10Display_selectsDolbyVision()
+          throws Exception {
+    Format formatDvPq = buildDolbyVisionPqFormat("dv_pq", /* bitrate= */ 8_000_000);
+    Format formatSdr = buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000);
+    TrackGroup trackGroup = new TrackGroup(formatDvPq, formatSdr);
+    TrackGroupArray trackGroups = new TrackGroupArray(trackGroup);
+    setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HDR10);
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {
+              buildAdaptiveDolbyVisionFallbackRendererCapabilities("dv_pq", "sdr")
+            },
+            trackGroups,
+            periodId,
+            TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroup, /* expectedTrack= */ 0);
+  }
+
+  @Test
+  public void selectTracks_withDolbyVisionFallbackToHevcPqAndSdrInOneGroupOnSdrDisplay_selectsSdr()
+      throws Exception {
+    Format formatDvPq = buildDolbyVisionPqFormat("dv_pq", /* bitrate= */ 8_000_000);
+    Format formatSdr = buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000);
+    TrackGroup trackGroup = new TrackGroup(formatDvPq, formatSdr);
+    TrackGroupArray trackGroups = new TrackGroupArray(trackGroup);
+    setDefaultDisplayHdrTypes();
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {
+              buildAdaptiveDolbyVisionFallbackRendererCapabilities("dv_pq", "sdr")
+            },
+            trackGroups,
+            periodId,
+            TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroup, /* expectedTrack= */ 1);
+  }
+
+  @Test
   @SuppressWarnings("deprecation") // Testing the constructor without a Context.
   public void selectTracks_withPqAndSdrWithoutContext_selectsPq() throws Exception {
     Format formatPq = buildHevcFormat("pq", PQ_COLOR_INFO, /* bitrate= */ 8_000_000);
@@ -4517,6 +4625,45 @@ public final class DefaultTrackSelectorTest {
         .setAverageBitrate(bitrate)
         .setColorInfo(colorInfo)
         .build();
+  }
+
+  /** Returns a Dolby Vision profile 8 format with a PQ base layer. */
+  private static Format buildDolbyVisionPqFormat(String id, int bitrate) {
+    return new Format.Builder()
+        .setId(id)
+        .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+        .setCodecs("dvh1.08.06")
+        .setWidth(1920)
+        .setHeight(1080)
+        .setAverageBitrate(bitrate)
+        .setColorInfo(PQ_COLOR_INFO)
+        .build();
+  }
+
+  /**
+   * Returns video {@link RendererCapabilities} with seamless adaptation that decode the Dolby
+   * Vision format with ID {@code dolbyVisionId} with a decoder for a fallback MIME type, and the
+   * format with ID {@code primaryId} with the primary decoder.
+   */
+  private static RendererCapabilities buildAdaptiveDolbyVisionFallbackRendererCapabilities(
+      String dolbyVisionId, String primaryId) {
+    return new FakeMappedRendererCapabilities(
+        C.TRACK_TYPE_VIDEO,
+        ImmutableMap.of(
+            dolbyVisionId,
+            RendererCapabilities.create(
+                FORMAT_HANDLED,
+                ADAPTIVE_SEAMLESS,
+                TUNNELING_NOT_SUPPORTED,
+                HARDWARE_ACCELERATION_SUPPORTED,
+                DECODER_SUPPORT_FALLBACK_MIMETYPE),
+            primaryId,
+            RendererCapabilities.create(
+                FORMAT_HANDLED,
+                ADAPTIVE_SEAMLESS,
+                TUNNELING_NOT_SUPPORTED,
+                HARDWARE_ACCELERATION_SUPPORTED,
+                DECODER_SUPPORT_PRIMARY)));
   }
 
   /** Sets the {@link HdrCapabilities} HDR types reported by the default display. */
