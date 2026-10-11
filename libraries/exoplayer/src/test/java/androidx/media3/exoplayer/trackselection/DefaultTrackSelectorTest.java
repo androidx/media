@@ -41,13 +41,17 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.ContextWrapper;
+import android.hardware.display.DisplayManager;
 import android.media.Spatializer;
+import android.os.Looper;
 import android.view.Display;
 import android.view.Display.HdrCapabilities;
 import android.view.accessibility.CaptioningManager;
@@ -95,6 +99,7 @@ import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
@@ -3620,6 +3625,99 @@ public final class DefaultTrackSelectorTest {
   }
 
   @Test
+  public void selectTracks_afterDisplayHdrTypesChange_invalidatesAndSelectsPq() throws Exception {
+    Format formatPq = buildHevcFormat("pq", PQ_COLOR_INFO, /* bitrate= */ 8_000_000);
+    Format formatSdr = buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000);
+    TrackGroupArray trackGroups = wrapFormats(formatPq, formatSdr);
+    RendererCapabilities[] rendererCapabilities = new RendererCapabilities[] {VIDEO_CAPABILITIES};
+    setDefaultDisplayHdrTypes();
+    TrackSelectorResult result =
+        trackSelector.selectTracks(rendererCapabilities, trackGroups, periodId, TIMELINE);
+    assertFixedSelection(result.selections[0], trackGroups, formatSdr);
+
+    setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HDR10);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    verify(invalidationListener).onTrackSelectionsInvalidated(any());
+    result = trackSelector.selectTracks(rendererCapabilities, trackGroups, periodId, TIMELINE);
+    assertFixedSelection(result.selections[0], trackGroups, formatPq);
+  }
+
+  @Test
+  public void selectTracks_afterDisplayChangeWithSameHdrTypes_doesNotInvalidate() throws Exception {
+    TrackGroupArray trackGroups =
+        wrapFormats(
+            buildHevcFormat("pq", PQ_COLOR_INFO, /* bitrate= */ 8_000_000),
+            buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000));
+    setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HDR10);
+    trackSelector.selectTracks(
+        new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+
+    // Change only the luminance, keeping the HDR types.
+    Display display = ShadowDisplay.getDefaultDisplay();
+    shadowOf(display)
+        .setDisplayHdrCapabilities(
+            display.getDisplayId(),
+            /* maxLuminance= */ 500f,
+            /* maxAverageLuminance= */ 250f,
+            /* minLuminance= */ 0.0005f,
+            HdrCapabilities.HDR_TYPE_HDR10);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    verify(invalidationListener, never()).onTrackSelectionsInvalidated(any());
+  }
+
+  @Test
+  public void selectTracks_withHdrTypesChangeBeforeDisplayListenerRegistration_usesChangedHdrTypes()
+      throws Exception {
+    Format formatPq = buildHevcFormat("pq", PQ_COLOR_INFO, /* bitrate= */ 8_000_000);
+    Format formatSdr = buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000);
+    TrackGroupArray trackGroups = wrapFormats(formatPq, formatSdr);
+    setDefaultDisplayHdrTypes();
+    DisplayManager displayManager = spyDisplayManager();
+    // Change the HDR types while the selector registers its display listener, before the
+    // registration takes effect.
+    doAnswer(
+            invocation -> {
+              setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HDR10);
+              return invocation.callRealMethod();
+            })
+        .when(displayManager)
+        .registerDisplayListener(any(), any());
+    DefaultTrackSelector trackSelectorWithSpiedDisplayManager =
+        new DefaultTrackSelector(buildContextWithDisplayManager(displayManager));
+    trackSelectorWithSpiedDisplayManager.init(invalidationListener, bandwidthMeter);
+
+    TrackSelectorResult result =
+        trackSelectorWithSpiedDisplayManager.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertFixedSelection(result.selections[0], trackGroups, formatPq);
+    trackSelectorWithSpiedDisplayManager.release();
+  }
+
+  @Test
+  public void release_afterSelectTracks_unregistersDisplayListener() throws Exception {
+    DisplayManager displayManager = spyDisplayManager();
+    DefaultTrackSelector trackSelectorWithSpiedDisplayManager =
+        new DefaultTrackSelector(buildContextWithDisplayManager(displayManager));
+    trackSelectorWithSpiedDisplayManager.init(invalidationListener, bandwidthMeter);
+    trackSelectorWithSpiedDisplayManager.selectTracks(
+        new RendererCapabilities[] {VIDEO_CAPABILITIES},
+        wrapFormats(buildHevcFormat("pq", PQ_COLOR_INFO, /* bitrate= */ 8_000_000)),
+        periodId,
+        TIMELINE);
+    ArgumentCaptor<DisplayManager.DisplayListener> displayListener =
+        ArgumentCaptor.forClass(DisplayManager.DisplayListener.class);
+    verify(displayManager).registerDisplayListener(displayListener.capture(), any());
+
+    trackSelectorWithSpiedDisplayManager.release();
+
+    verify(displayManager).unregisterDisplayListener(displayListener.getValue());
+  }
+
+  @Test
   public void selectTracks_withPreferredVideoLabel_selectsLabeledTrack() throws Exception {
     Format unlabeledVideo = VIDEO_FORMAT.buildUpon().setLabel(null).build();
     Format labeledVideo = VIDEO_FORMAT.buildUpon().setLabel("commentary").build();
@@ -4664,6 +4762,26 @@ public final class DefaultTrackSelectorTest {
                 TUNNELING_NOT_SUPPORTED,
                 HARDWARE_ACCELERATION_SUPPORTED,
                 DECODER_SUPPORT_PRIMARY)));
+  }
+
+  private static DisplayManager spyDisplayManager() {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    return spy((DisplayManager) applicationContext.getSystemService(Context.DISPLAY_SERVICE));
+  }
+
+  /** Returns a {@link Context} whose {@link DisplayManager} is {@code displayManager}. */
+  private static Context buildContextWithDisplayManager(DisplayManager displayManager) {
+    return new ContextWrapper(ApplicationProvider.getApplicationContext()) {
+      @Override
+      public Context getApplicationContext() {
+        return this;
+      }
+
+      @Override
+      public Object getSystemService(String name) {
+        return Context.DISPLAY_SERVICE.equals(name) ? displayManager : super.getSystemService(name);
+      }
+    };
   }
 
   /** Sets the {@link HdrCapabilities} HDR types reported by the default display. */

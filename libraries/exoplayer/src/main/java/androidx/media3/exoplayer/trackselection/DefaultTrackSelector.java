@@ -34,6 +34,7 @@ import android.graphics.Point;
 import android.hardware.display.DisplayManager;
 import android.media.Spatializer;
 import android.os.Bundle;
+import android.os.Looper;
 import android.text.TextUtils;
 import android.util.Pair;
 import android.util.SparseArray;
@@ -2457,6 +2458,15 @@ public class DefaultTrackSelector extends MappingTrackSelector
   private AudioAttributes audioAttributes;
   private @MonotonicNonNull Boolean deviceIsTV;
 
+  private @Nullable DisplayManager displayManager;
+  private DisplayManager.@Nullable DisplayListener displayListener;
+
+  /**
+   * The HDR types of the default display used by the latest video track selection, or {@code null}
+   * if they were unavailable.
+   */
+  private @Nullable ImmutableSet<Integer> selectionDisplayHdrTypes;
+
   /**
    * @param context Any {@link Context}.
    */
@@ -2562,6 +2572,11 @@ public class DefaultTrackSelector extends MappingTrackSelector
     if (SDK_INT >= 32 && spatializer != null) {
       spatializer.release();
       spatializer = null;
+    }
+    if (displayManager != null && displayListener != null) {
+      displayManager.unregisterDisplayListener(displayListener);
+      displayManager = null;
+      displayListener = null;
     }
     super.release();
   }
@@ -2869,7 +2884,8 @@ public class DefaultTrackSelector extends MappingTrackSelector
         params.isViewportSizeLimitedByPhysicalDisplaySize && context != null
             ? Util.getCurrentDisplayModeSize(context)
             : null;
-    int @Nullable [] displayHdrTypes = context != null ? getDisplayHdrTypes(context) : null;
+    int @Nullable [] displayHdrTypes =
+        context != null ? getDisplayHdrTypesForSelection(context) : null;
     return selectTracksForType(
         C.TRACK_TYPE_VIDEO,
         mappedTrackInfo,
@@ -2906,6 +2922,63 @@ public class DefaultTrackSelector extends MappingTrackSelector
     }
     Display.@Nullable HdrCapabilities hdrCapabilities = display.getHdrCapabilities();
     return hdrCapabilities != null ? hdrCapabilities.getSupportedHdrTypes() : new int[0];
+  }
+
+  /**
+   * Returns the HDR types of the default display for a video track selection, and records them so
+   * that the display listener can detect a later change.
+   *
+   * <p>The listener is registered before the HDR types are read, so that a change after the read is
+   * always reported to it.
+   */
+  private int @Nullable [] getDisplayHdrTypesForSelection(Context context) {
+    maybeRegisterDisplayListener(context);
+    int @Nullable [] displayHdrTypes = getDisplayHdrTypes(context);
+    selectionDisplayHdrTypes = toImmutableSet(displayHdrTypes);
+    return displayHdrTypes;
+  }
+
+  private static @Nullable ImmutableSet<Integer> toImmutableSet(int @Nullable [] values) {
+    return values != null ? ImmutableSet.copyOf(Ints.asList(values)) : null;
+  }
+
+  /**
+   * Registers a listener that invalidates track selections when the HDR types of the default
+   * display change, if not already registered and the current thread has a {@link Looper}.
+   */
+  private void maybeRegisterDisplayListener(Context context) {
+    if (displayListener != null || Looper.myLooper() == null) {
+      return;
+    }
+    @Nullable DisplayManager displayManager =
+        (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
+    if (displayManager == null) {
+      return;
+    }
+    DisplayManager.DisplayListener displayListener =
+        new DisplayManager.DisplayListener() {
+          @Override
+          public void onDisplayAdded(int displayId) {}
+
+          @Override
+          public void onDisplayRemoved(int displayId) {}
+
+          @Override
+          public void onDisplayChanged(int displayId) {
+            if (displayId == Display.DEFAULT_DISPLAY) {
+              maybeInvalidateForDisplayHdrTypesChange(context);
+            }
+          }
+        };
+    displayManager.registerDisplayListener(displayListener, Util.createHandlerForCurrentLooper());
+    this.displayManager = displayManager;
+    this.displayListener = displayListener;
+  }
+
+  private void maybeInvalidateForDisplayHdrTypesChange(Context context) {
+    if (!Objects.equals(toImmutableSet(getDisplayHdrTypes(context)), selectionDisplayHdrTypes)) {
+      invalidate(/* parameters= */ null);
+    }
   }
 
   // Audio track selection implementation.
