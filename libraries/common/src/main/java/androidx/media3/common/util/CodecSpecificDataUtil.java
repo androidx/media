@@ -1451,9 +1451,10 @@ public final class CodecSpecificDataUtil {
     if (bitDepthInteger == 8) {
       profile = MediaCodecInfo.CodecProfileLevel.AV1ProfileMain8;
     } else if (colorInfo != null
-        && (colorInfo.hdrStaticInfo != null
-            || colorInfo.colorTransfer == C.COLOR_TRANSFER_HLG
-            || colorInfo.colorTransfer == C.COLOR_TRANSFER_ST2084)) {
+        && (colorInfo.colorTransfer == C.COLOR_TRANSFER_ST2084
+            || (colorInfo.hdrStaticInfo != null && colorInfo.colorTransfer == Format.NO_VALUE))) {
+      // HDR10 requires PQ. Like the platform, also assume HDR10 for HDR static info with no
+      // transfer set. All other cases, including HLG with HDR static info, map to Main10.
       profile = MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10HDR10;
     } else {
       profile = MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10;
