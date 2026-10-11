@@ -3850,6 +3850,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
     private final boolean usesPrimaryDecoder;
     private final boolean usesHardwareAcceleration;
     private final int codecPreferenceScore;
+    private final int requiredDisplayHdrType;
     private final int hdrPreferenceScore;
     private final @Nullable String resolvedMimeType;
 
@@ -3953,7 +3954,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
               == RendererCapabilities.HARDWARE_ACCELERATION_SUPPORTED;
       this.resolvedMimeType = resolvedMimeType;
       codecPreferenceScore = getVideoCodecPreferenceScore(resolvedMimeType);
-      int requiredDisplayHdrType = getRequiredDisplayHdrType(format, decoderSupport);
+      requiredDisplayHdrType = getRequiredDisplayHdrType(format, decoderSupport);
       if (requiredDisplayHdrType == Format.NO_VALUE) {
         hdrPreferenceScore = HDR_PREFERENCE_SCORE_NEUTRAL;
       } else if (displayHdrTypes != null
@@ -4024,7 +4025,10 @@ public class DefaultTrackSelector extends MappingTrackSelector
               || Objects.equals(this.resolvedMimeType, otherTrack.resolvedMimeType))
           && (parameters.allowVideoMixedDecoderSupportAdaptiveness
               || (this.usesPrimaryOrFallbackDecoder == otherTrack.usesPrimaryOrFallbackDecoder
-                  && this.usesHardwareAcceleration == otherTrack.usesHardwareAcceleration));
+                  && this.usesHardwareAcceleration == otherTrack.usesHardwareAcceleration))
+          // Don't adapt between SDR and HDR, or between HDR types, so that bandwidth adaptation
+          // can't switch the presented video range.
+          && this.requiredDisplayHdrType == otherTrack.requiredDisplayHdrType;
     }
 
     private @SelectionEligibility int evaluateSelectionEligibility(
