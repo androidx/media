@@ -31,12 +31,14 @@ import static java.util.Collections.max;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Point;
+import android.hardware.display.DisplayManager;
 import android.media.Spatializer;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Pair;
 import android.util.SparseArray;
 import android.util.SparseBooleanArray;
+import android.view.Display;
 import android.view.accessibility.CaptioningManager;
 import androidx.annotation.IntDef;
 import androidx.media3.common.AudioAttributes;
@@ -2867,6 +2869,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
         params.isViewportSizeLimitedByPhysicalDisplaySize && context != null
             ? Util.getCurrentDisplayModeSize(context)
             : null;
+    int @Nullable [] displayHdrTypes = context != null ? getDisplayHdrTypes(context) : null;
     return selectTracksForType(
         C.TRACK_TYPE_VIDEO,
         mappedTrackInfo,
@@ -2879,8 +2882,30 @@ public class DefaultTrackSelector extends MappingTrackSelector
                 support,
                 selectedAudioLanguage,
                 mixedMimeTypeSupports[rendererIndex],
-                viewportSizeFromDisplay),
+                viewportSizeFromDisplay,
+                displayHdrTypes),
         VideoTrackInfo::compareSelections);
+  }
+
+  /**
+   * Returns the {@link Display.HdrCapabilities} HDR types the default display can currently
+   * present, or {@code null} if the default display is unavailable.
+   *
+   * <p>Unlike {@link Display.Mode#getSupportedHdrTypes()}, {@link Display#getHdrCapabilities()}
+   * excludes HDR types the user has disabled, and returns {@code null} when the display is forced
+   * to SDR.
+   */
+  @SuppressWarnings("deprecation") // Display.Mode.getSupportedHdrTypes() ignores user settings.
+  private static int @Nullable [] getDisplayHdrTypes(Context context) {
+    @Nullable DisplayManager displayManager =
+        (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
+    @Nullable Display display =
+        displayManager != null ? displayManager.getDisplay(Display.DEFAULT_DISPLAY) : null;
+    if (display == null) {
+      return null;
+    }
+    Display.@Nullable HdrCapabilities hdrCapabilities = display.getHdrCapabilities();
+    return hdrCapabilities != null ? hdrCapabilities.getSupportedHdrTypes() : new int[0];
   }
 
   // Audio track selection implementation.
@@ -3751,6 +3776,18 @@ public class DefaultTrackSelector extends MappingTrackSelector
      */
     private static final float MIN_REASONABLE_FRAME_RATE = 10;
 
+    /** HDR preference score of an HDR track the display can't present as HDR. */
+    private static final int HDR_PREFERENCE_SCORE_UNPRESENTABLE = 0;
+
+    /**
+     * HDR preference score of an SDR track, or of an HDR track that isn't supported by the primary
+     * decoder or a decoder for a fallback MIME type.
+     */
+    private static final int HDR_PREFERENCE_SCORE_NEUTRAL = 1;
+
+    /** HDR preference score of an HDR track the display can present as HDR. */
+    private static final int HDR_PREFERENCE_SCORE_PRESENTABLE = 2;
+
     public static ImmutableList<VideoTrackInfo> createForTrackGroup(
         int rendererIndex,
         TrackGroup trackGroup,
@@ -3758,7 +3795,8 @@ public class DefaultTrackSelector extends MappingTrackSelector
         @Capabilities int[] formatSupport,
         @Nullable String selectedAudioLanguage,
         @AdaptiveSupport int mixedMimeTypeAdaptationSupport,
-        @Nullable Point viewportSizeFromDisplay) {
+        @Nullable Point viewportSizeFromDisplay,
+        int @Nullable [] displayHdrTypes) {
       int viewportWidth =
           viewportSizeFromDisplay != null ? viewportSizeFromDisplay.x : params.viewportWidth;
       int viewportHeight =
@@ -3781,7 +3819,8 @@ public class DefaultTrackSelector extends MappingTrackSelector
                 formatSupport[i],
                 selectedAudioLanguage,
                 mixedMimeTypeAdaptationSupport,
-                isSuitableForViewport));
+                isSuitableForViewport,
+                displayHdrTypes));
       }
       return listBuilder.build();
     }
@@ -3811,9 +3850,13 @@ public class DefaultTrackSelector extends MappingTrackSelector
     private final boolean usesPrimaryDecoder;
     private final boolean usesHardwareAcceleration;
     private final int codecPreferenceScore;
-    private final boolean isHdr;
+    private final int hdrPreferenceScore;
     private final @Nullable String resolvedMimeType;
 
+    /**
+     * @param displayHdrTypes The {@link Display.HdrCapabilities} HDR types the display can present,
+     *     or {@code null} if unknown, in which case every HDR track is treated as presentable.
+     */
     public VideoTrackInfo(
         int rendererIndex,
         TrackGroup trackGroup,
@@ -3822,7 +3865,8 @@ public class DefaultTrackSelector extends MappingTrackSelector
         @Capabilities int formatSupport,
         @Nullable String selectedAudioLanguage,
         @AdaptiveSupport int mixedMimeTypeAdaptationSupport,
-        boolean isSuitableForViewport) {
+        boolean isSuitableForViewport,
+        int @Nullable [] displayHdrTypes) {
       super(rendererIndex, trackGroup, trackIndex);
       this.parameters = parameters;
       @SuppressLint("WrongConstant")
@@ -3909,8 +3953,64 @@ public class DefaultTrackSelector extends MappingTrackSelector
               == RendererCapabilities.HARDWARE_ACCELERATION_SUPPORTED;
       this.resolvedMimeType = resolvedMimeType;
       codecPreferenceScore = getVideoCodecPreferenceScore(resolvedMimeType);
-      isHdr = usesPrimaryOrFallbackDecoder && ColorInfo.isTransferHdr(format.colorInfo);
+      int requiredDisplayHdrType = getRequiredDisplayHdrType(format, decoderSupport);
+      if (requiredDisplayHdrType == Format.NO_VALUE) {
+        hdrPreferenceScore = HDR_PREFERENCE_SCORE_NEUTRAL;
+      } else if (displayHdrTypes != null
+          && !Ints.contains(displayHdrTypes, requiredDisplayHdrType)) {
+        hdrPreferenceScore = HDR_PREFERENCE_SCORE_UNPRESENTABLE;
+      } else if (usesPrimaryOrFallbackDecoder) {
+        hdrPreferenceScore = HDR_PREFERENCE_SCORE_PRESENTABLE;
+      } else {
+        hdrPreferenceScore = HDR_PREFERENCE_SCORE_NEUTRAL;
+      }
       selectionEligibility = evaluateSelectionEligibility(formatSupport, requiredAdaptiveSupport);
+    }
+
+    /**
+     * Returns the {@link Display.HdrCapabilities} HDR type the display must support to present the
+     * format as HDR, or {@link Format#NO_VALUE} if the format isn't HDR.
+     *
+     * <p>{@link Format} doesn't signal HDR10+ dynamic metadata, so a PQ format can't be matched
+     * against {@link Display.HdrCapabilities#HDR_TYPE_HDR10_PLUS} and requires {@link
+     * Display.HdrCapabilities#HDR_TYPE_HDR10}. A display that reports HDR10+ without HDR10, for
+     * example because the user disabled HDR10, is treated as unable to present PQ.
+     *
+     * @param format The format.
+     * @param decoderSupport The {@link RendererCapabilities.DecoderSupport} for the format. A Dolby
+     *     Vision format decoded with a decoder for a fallback MIME type requires the display HDR
+     *     type of its base layer.
+     */
+    private static int getRequiredDisplayHdrType(
+        Format format, @RendererCapabilities.DecoderSupport int decoderSupport) {
+      @Nullable ColorInfo colorInfo = format.colorInfo;
+      if (colorInfo == null) {
+        return Format.NO_VALUE;
+      }
+      int transferHdrType;
+      switch (colorInfo.colorTransfer) {
+        case C.COLOR_TRANSFER_ST2084:
+          transferHdrType = Display.HdrCapabilities.HDR_TYPE_HDR10;
+          break;
+        case C.COLOR_TRANSFER_HLG:
+          transferHdrType = Display.HdrCapabilities.HDR_TYPE_HLG;
+          break;
+        default:
+          return Format.NO_VALUE;
+      }
+      if (MimeTypes.VIDEO_DOLBY_VISION.equals(format.sampleMimeType)
+          && decoderSupport != RendererCapabilities.DECODER_SUPPORT_FALLBACK_MIMETYPE) {
+        return Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION;
+      }
+      return transferHdrType;
+    }
+
+    private static int getMaxHdrPreferenceScore(List<VideoTrackInfo> infos) {
+      int maxHdrPreferenceScore = HDR_PREFERENCE_SCORE_UNPRESENTABLE;
+      for (VideoTrackInfo info : infos) {
+        maxHdrPreferenceScore = Math.max(maxHdrPreferenceScore, info.hdrPreferenceScore);
+      }
+      return maxHdrPreferenceScore;
     }
 
     @Override
@@ -4005,7 +4105,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
       }
       ComparisonChain chain =
           comparisonChain
-              .compareFalseFirst(info1.isHdr, info2.isHdr)
+              .compare(info1.hdrPreferenceScore, info2.hdrPreferenceScore)
               .compare(info1.pixelCount, info2.pixelCount, qualityOrdering);
 
       if (info1.usesPrimaryOrFallbackDecoder && info1.usesHardwareAcceleration) {
@@ -4019,12 +4119,18 @@ public class DefaultTrackSelector extends MappingTrackSelector
     }
 
     public static int compareSelections(List<VideoTrackInfo> infos1, List<VideoTrackInfo> infos2) {
-      return ComparisonChain.start()
-          // Compare non-quality preferences of the best individual track with each other.
-          .compare(
-              max(infos1, VideoTrackInfo::compareNonQualityPreferences),
-              max(infos2, VideoTrackInfo::compareNonQualityPreferences),
-              VideoTrackInfo::compareNonQualityPreferences)
+      ComparisonChain chain =
+          ComparisonChain.start()
+              // Compare non-quality preferences of the best individual track with each other.
+              .compare(
+                  max(infos1, VideoTrackInfo::compareNonQualityPreferences),
+                  max(infos2, VideoTrackInfo::compareNonQualityPreferences),
+                  VideoTrackInfo::compareNonQualityPreferences);
+      if (!infos1.get(0).parameters.forceLowestBitrate) {
+        // Prefer HDR the display can present, and avoid HDR it can't, over more formats.
+        chain = chain.compare(getMaxHdrPreferenceScore(infos1), getMaxHdrPreferenceScore(infos2));
+      }
+      return chain
           // Prefer selections with more formats (all non-quality preferences being equal).
           .compare(infos1.size(), infos2.size())
           // Prefer selections with the best individual track quality.
