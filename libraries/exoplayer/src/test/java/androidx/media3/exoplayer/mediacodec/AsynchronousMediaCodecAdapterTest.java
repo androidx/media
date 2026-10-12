@@ -21,15 +21,18 @@ import static org.junit.Assert.assertThrows;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.media.MediaCodec;
+import android.media.MediaCrypto;
 import android.media.MediaFormat;
 import android.os.HandlerThread;
 import android.os.Looper;
+import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.base.Supplier;
 import com.google.common.collect.Sets;
 import java.lang.reflect.Constructor;
+import java.nio.ByteBuffer;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
@@ -37,6 +40,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.shadows.ShadowLooper;
+import org.robolectric.shadows.ShadowMediaCodec;
 
 /** Unit tests for {@link AsynchronousMediaCodecAdapter}. */
 @RunWith(AndroidJUnit4.class)
@@ -200,6 +204,54 @@ public class AsynchronousMediaCodecAdapterTest {
     idleThreads(callbackThreadSupplier.createdThreads);
 
     assertThat(adapter.getOutputFormat()).isEqualTo(outputFormat);
+  }
+
+  @Test
+  public void createAdapter_whenConfigureThrows_shutsDownCallbackThread() throws Exception {
+    ShadowMediaCodec.addDecoder(
+        "failing.decoder",
+        new ShadowMediaCodec.CodecConfig(
+            /* inputBufferSize= */ 1024,
+            /* outputBufferSize= */ 1024,
+            new ShadowMediaCodec.CodecConfig.Codec() {
+              @Override
+              public void process(ByteBuffer in, ByteBuffer out) {}
+
+              @Override
+              public void onConfigured(
+                  MediaFormat format,
+                  @Nullable Surface surface,
+                  @Nullable MediaCrypto crypto,
+                  int flags) {
+                throw new IllegalArgumentException("configure failed");
+              }
+            }));
+    ThreadSupplier failingCallbackThreadSupplier = new ThreadSupplier("FailingCallbackThread");
+    ThreadSupplier failingQueueingThreadSupplier = new ThreadSupplier("FailingQueueingThread");
+    AsynchronousMediaCodecAdapter.Factory factory =
+        new AsynchronousMediaCodecAdapter.Factory(
+            failingCallbackThreadSupplier, failingQueueingThreadSupplier);
+    factory.setAsyncCryptoFlagEnabled(false);
+    MediaCodecAdapter.Configuration configuration =
+        MediaCodecAdapter.Configuration.createForAudioDecoding(
+            createMediaCodecInfo("failing.decoder", "audio/aac"),
+            createMediaFormat("format"),
+            new Format.Builder().build(),
+            /* crypto= */ null,
+            /* loudnessCodecController= */ null);
+
+    assertThrows(IllegalArgumentException.class, () -> factory.createAdapter(configuration));
+
+    assertThat(failingCallbackThreadSupplier.createdThreads).hasSize(1);
+    for (HandlerThread thread : failingCallbackThreadSupplier.createdThreads) {
+      thread.join(/* millis= */ 1_000);
+      assertThat(thread.isAlive()).isFalse();
+    }
+    assertThat(failingQueueingThreadSupplier.createdThreads).hasSize(1);
+    for (HandlerThread thread : failingQueueingThreadSupplier.createdThreads) {
+      thread.join(/* millis= */ 1_000);
+      assertThat(thread.isAlive()).isFalse();
+    }
   }
 
   private static MediaCodecInfo createMediaCodecInfo(String name, String mimeType) {

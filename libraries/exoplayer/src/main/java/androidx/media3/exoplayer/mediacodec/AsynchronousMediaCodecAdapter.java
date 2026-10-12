@@ -132,10 +132,14 @@ import java.util.List;
             configuration.mediaFormat, configuration.surface, configuration.crypto, flags);
         return codecAdapter;
       } catch (Exception e) {
-        if (codecAdapter != null) {
-          codecAdapter.release();
-        } else if (codec != null) {
-          codec.release();
+        try {
+          if (codecAdapter != null) {
+            codecAdapter.release();
+          } else if (codec != null) {
+            codec.release();
+          }
+        } catch (RuntimeException releaseException) {
+          e.addSuppressed(releaseException);
         }
         throw e;
       }
@@ -279,9 +283,14 @@ import java.util.List;
   @Override
   public void release() {
     try {
-      if (state == STATE_INITIALIZED) {
-        bufferEnqueuer.shutdown();
-        asynchronousMediaCodecCallback.shutdown();
+      if (state != STATE_SHUT_DOWN) {
+        // Shut down threads in STATE_CREATED as well, as initialize() may have failed after
+        // starting them.
+        try {
+          bufferEnqueuer.shutdown();
+        } finally {
+          asynchronousMediaCodecCallback.shutdown();
+        }
       }
       state = STATE_SHUT_DOWN;
     } finally {
