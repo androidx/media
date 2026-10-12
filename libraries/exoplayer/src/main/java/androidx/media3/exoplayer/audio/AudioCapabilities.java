@@ -734,9 +734,14 @@ public final class AudioCapabilities {
     @Nullable
     public static AudioDeviceInfo getDefaultRoutedDeviceForAttributes(
         AudioManager audioManager, AudioAttributes audioAttributes) {
-      List<AudioDeviceInfo> audioDevices =
-          checkNotNull(audioManager)
-              .getAudioDevicesForAttributes(audioAttributes.getPlatformAudioAttributes());
+      List<AudioDeviceInfo> audioDevices;
+      try {
+        audioDevices =
+            checkNotNull(audioManager)
+                .getAudioDevicesForAttributes(audioAttributes.getPlatformAudioAttributes());
+      } catch (RuntimeException e) {
+        return null;
+      }
       if (audioDevices.isEmpty()) {
         // Can't find current device.
         return null;
