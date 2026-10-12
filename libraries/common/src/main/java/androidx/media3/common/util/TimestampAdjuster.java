@@ -15,7 +15,6 @@
  */
 package androidx.media3.common.util;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.os.SystemClock;
@@ -182,6 +181,7 @@ public final class TimestampAdjuster {
     this.firstSampleTimestampUs = firstSampleTimestampUs;
     timestampOffsetUs = firstSampleTimestampUs == MODE_NO_OFFSET ? 0 : C.TIME_UNSET;
     lastUnadjustedTimestampUs = C.TIME_UNSET;
+    nextSampleTimestampUs.remove();
   }
 
   /**
@@ -191,7 +191,9 @@ public final class TimestampAdjuster {
    * previous adjusted timestamp.
    *
    * @param pts90Khz A 90 kHz clock MPEG-2 TS presentation timestamp.
-   * @return The adjusted timestamp in microseconds.
+   * @return The adjusted timestamp in microseconds, or {@link C#TIME_UNSET} if {@code pts90Khz} is
+   *     {@link C#TIME_UNSET} or if the adjuster is in {@link #MODE_SHARED} and has not yet been
+   *     initialized via {@link #sharedInitializeOrWait}.
    */
   public synchronized long adjustTsTimestamp(long pts90Khz) {
     if (pts90Khz == C.TIME_UNSET) {
@@ -219,7 +221,9 @@ public final class TimestampAdjuster {
    * than the previous adjusted timestamp.
    *
    * @param pts90Khz A 90 kHz clock MPEG-2 TS presentation timestamp.
-   * @return The adjusted timestamp in microseconds.
+   * @return The adjusted timestamp in microseconds, or {@link C#TIME_UNSET} if {@code pts90Khz} is
+   *     {@link C#TIME_UNSET} or if the adjuster is in {@link #MODE_SHARED} and has not yet been
+   *     initialized via {@link #sharedInitializeOrWait}.
    */
   public synchronized long adjustTsTimestampGreaterThanPreviousTimestamp(long pts90Khz) {
     if (pts90Khz == C.TIME_UNSET) {
@@ -240,17 +244,25 @@ public final class TimestampAdjuster {
    * Offsets a timestamp in microseconds.
    *
    * @param timeUs The timestamp to adjust in microseconds.
-   * @return The adjusted timestamp in microseconds.
+   * @return The adjusted timestamp in microseconds, or {@link C#TIME_UNSET} if {@code timeUs} is
+   *     {@link C#TIME_UNSET} or if the adjuster is in {@link #MODE_SHARED} and has not yet been
+   *     initialized via {@link #sharedInitializeOrWait}.
    */
   public synchronized long adjustSampleTimestamp(long timeUs) {
     if (timeUs == C.TIME_UNSET) {
       return C.TIME_UNSET;
     }
     if (!isInitialized()) {
-      long desiredSampleTimestampUs =
-          firstSampleTimestampUs == MODE_SHARED
-              ? checkNotNull(nextSampleTimestampUs.get())
-              : firstSampleTimestampUs;
+      long desiredSampleTimestampUs;
+      if (firstSampleTimestampUs == MODE_SHARED) {
+        Long nextSampleTimestampUs = this.nextSampleTimestampUs.get();
+        if (nextSampleTimestampUs == null) {
+          return C.TIME_UNSET;
+        }
+        desiredSampleTimestampUs = nextSampleTimestampUs;
+      } else {
+        desiredSampleTimestampUs = firstSampleTimestampUs;
+      }
       timestampOffsetUs = desiredSampleTimestampUs - timeUs;
       // Notify threads waiting for the timestamp offset to be determined.
       notifyAll();

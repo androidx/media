@@ -19,6 +19,7 @@ import static androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_DE
 import static androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS;
 import static androidx.media3.extractor.ts.TsExtractor.DEFAULT_TIMESTAMP_SEARCH_BYTES;
 import static androidx.media3.extractor.ts.TsExtractor.FLAG_EMIT_RAW_SUBTITLE_DATA;
+import static androidx.media3.extractor.ts.TsExtractor.MODE_HLS;
 import static androidx.media3.extractor.ts.TsExtractor.MODE_MULTI_PMT;
 import static androidx.media3.extractor.ts.TsExtractor.MODE_SINGLE_PMT;
 import static com.google.common.truth.Truth.assertThat;
@@ -37,6 +38,7 @@ import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.extractor.ts.TsPayloadReader.EsInfo;
 import androidx.media3.extractor.ts.TsPayloadReader.TrackIdGenerator;
+import androidx.media3.test.utils.Dumper;
 import androidx.media3.test.utils.ExtractorAsserts;
 import androidx.media3.test.utils.FakeExtractorInput;
 import androidx.media3.test.utils.FakeExtractorOutput;
@@ -465,6 +467,59 @@ public final class TsExtractorTest {
     }
     assertThat(factory.sdtReader.consumedSdts).isEqualTo(2);
     tsExtractor.release();
+  }
+
+  @Test
+  public void
+      read_inModeHlsWithUninitializedSharedTimestampAdjuster_ignoresPesSamplesUntilInitialized()
+          throws Exception {
+    byte[] tsData =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), "media/ts/sample_h262_mpeg_audio.ts");
+    TsExtractor expectedExtractor =
+        (TsExtractor)
+            getExtractorFactory(
+                    subtitlesParsedDuringExtraction,
+                    MODE_HLS,
+                    new TimestampAdjuster(0),
+                    new DefaultTsPayloadReaderFactory(0))
+                .create();
+    FakeExtractorOutput expectedOutput = new FakeExtractorOutput();
+    expectedExtractor.init(expectedOutput);
+    FakeExtractorInput expectedInput = new FakeExtractorInput.Builder().setData(tsData).build();
+    PositionHolder seekPositionHolder = new PositionHolder();
+    while (expectedExtractor.read(expectedInput, seekPositionHolder)
+        != Extractor.RESULT_END_OF_INPUT) {}
+    expectedExtractor.release();
+    TimestampAdjuster timestampAdjuster = new TimestampAdjuster(TimestampAdjuster.MODE_SHARED);
+    TsExtractor tsExtractor =
+        (TsExtractor)
+            getExtractorFactory(
+                    subtitlesParsedDuringExtraction,
+                    MODE_HLS,
+                    timestampAdjuster,
+                    new DefaultTsPayloadReaderFactory(0))
+                .create();
+    FakeExtractorInput initInput = new FakeExtractorInput.Builder().setData(tsData).build();
+    FakeExtractorOutput output = new FakeExtractorOutput();
+    tsExtractor.init(output);
+
+    while (tsExtractor.read(initInput, seekPositionHolder) != Extractor.RESULT_END_OF_INPUT) {}
+    int initH262SampleCount =
+        output.trackOutputs.get(TsExtractor.TS_STREAM_TYPE_H262).getSampleCount();
+    int initMpaSampleCount =
+        output.trackOutputs.get(TsExtractor.TS_STREAM_TYPE_MPA).getSampleCount();
+    timestampAdjuster.sharedInitializeOrWait(
+        /* canInitialize= */ true, /* nextSampleTimestampUs= */ 0, /* timeoutMs= */ 1000);
+    FakeExtractorInput mediaInput = new FakeExtractorInput.Builder().setData(tsData).build();
+    while (tsExtractor.read(mediaInput, seekPositionHolder) != Extractor.RESULT_END_OF_INPUT) {}
+    tsExtractor.release();
+
+    assertThat(output.tracksEnded).isTrue();
+    assertThat(initH262SampleCount).isEqualTo(0);
+    assertThat(initMpaSampleCount).isEqualTo(0);
+    assertThat(new Dumper().add(output).toString())
+        .isEqualTo(new Dumper().add(expectedOutput).toString());
   }
 
   private static ExtractorAsserts.ExtractorFactory getExtractorFactory(

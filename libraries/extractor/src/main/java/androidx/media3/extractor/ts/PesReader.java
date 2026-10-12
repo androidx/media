@@ -135,6 +135,13 @@ public final class PesReader implements TsPayloadReader {
           if (continueRead(data, pesScratch.data, readLength)
               && continueRead(data, /* target= */ null, extendedHeaderLength)) {
             parseHeaderExtension();
+            if (timeUs == C.TIME_UNSET && !timestampAdjuster.isInitialized()) {
+              // Skip PES packets before the TimestampAdjuster is initialized (e.g. in MODE_SHARED
+              // before sharedInitializeOrWait, or untimestamped continuation packets before the
+              // first PTS).
+              setState(STATE_FINDING_HEADER);
+              break;
+            }
             flags |= dataAlignmentIndicator ? FLAG_DATA_ALIGNMENT_INDICATOR : 0;
             reader.packetStarted(timeUs, flags);
             setState(STATE_READING_BODY);
@@ -277,8 +284,9 @@ public final class PesReader implements TsPayloadReader {
         // decode timestamp to the adjuster here so that in the case that this is the first to be
         // fed, the adjuster will be able to compute an offset to apply such that the adjusted
         // presentation timestamps of all future packets are non-negative.
-        timestampAdjuster.adjustTsTimestamp(dts);
-        seenFirstDts = true;
+        if (timestampAdjuster.adjustTsTimestamp(dts) != C.TIME_UNSET) {
+          seenFirstDts = true;
+        }
       }
       timeUs = timestampAdjuster.adjustTsTimestamp(pts);
     }

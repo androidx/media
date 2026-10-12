@@ -282,6 +282,9 @@
 *   Cronet extension:
 *   RTMP extension:
 *   HLS extension:
+    *   Fix `NullPointerException` when parsing MPEG-TS `EXT-X-MAP`
+        initialization segments that contain PES media samples
+        ([#3456](https://github.com/androidx/media/issues/3456)).
     *   Fix regression where `Format.id` and `Format.metadata` were `null` for
         exposed HLS tracks
         ([#3402](https://github.com/androidx/media/issues/3402)).

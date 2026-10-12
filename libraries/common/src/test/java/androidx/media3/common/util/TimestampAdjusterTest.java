@@ -16,8 +16,10 @@
 package androidx.media3.common.util;
 
 import static androidx.media3.common.util.TimestampAdjuster.MODE_NO_OFFSET;
+import static androidx.media3.common.util.TimestampAdjuster.MODE_SHARED;
 import static com.google.common.truth.Truth.assertThat;
 
+import androidx.media3.common.C;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -55,6 +57,23 @@ public class TimestampAdjusterTest {
 
     assertThat(firstAdjustedTimestampUs).isEqualTo(2000);
     assertThat(secondAdjustedTimestampUs).isEqualTo(6000);
+  }
+
+  @Test
+  public void adjustSampleTimestamp_inSharedModeBeforeInitialize_returnsTimeUnset()
+      throws Exception {
+    TimestampAdjuster adjuster = new TimestampAdjuster(/* firstSampleTimestampUs= */ MODE_SHARED);
+
+    long uninitializedTimestampUs = adjuster.adjustSampleTimestamp(/* timeUs= */ 5000);
+    boolean isInitializedBeforeSharedInit = adjuster.isInitialized();
+    adjuster.sharedInitializeOrWait(
+        /* canInitialize= */ true, /* nextSampleTimestampUs= */ 1000, /* timeoutMs= */ 0);
+    long initializedTimestampUs = adjuster.adjustSampleTimestamp(/* timeUs= */ 2000);
+
+    assertThat(uninitializedTimestampUs).isEqualTo(C.TIME_UNSET);
+    assertThat(isInitializedBeforeSharedInit).isFalse();
+    assertThat(adjuster.isInitialized()).isTrue();
+    assertThat(initializedTimestampUs).isEqualTo(1000);
   }
 
   @Test
