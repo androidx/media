@@ -93,7 +93,10 @@ public final class Mp4Extractor implements Extractor {
   /**
    * Flags controlling the behavior of the extractor. Possible flag values are {@link
    * #FLAG_WORKAROUND_IGNORE_EDIT_LISTS}, {@link #FLAG_READ_SEF_DATA}, {@link
-   * #FLAG_READ_AUXILIARY_TRACKS}, and {@link #FLAG_OMIT_TRACK_SAMPLE_TABLE}.
+   * #FLAG_MARK_FIRST_VIDEO_TRACK_WITH_MAIN_ROLE}, {@link #FLAG_EMIT_RAW_SUBTITLE_DATA}, {@link
+   * #FLAG_READ_AUXILIARY_TRACKS}, {@link #FLAG_OMIT_TRACK_SAMPLE_TABLE}, {@link
+   * #FLAG_DISABLE_ARTWORK_METADATA}, {@link #FLAG_DISABLE_HAGC_METADATA}, {@link
+   * #FLAG_READ_XMP_METADATA}, and {@link #FLAG_EMIT_RAW_MEBX_DATA}.
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -109,7 +112,8 @@ public final class Mp4Extractor implements Extractor {
         FLAG_OMIT_TRACK_SAMPLE_TABLE,
         FLAG_DISABLE_ARTWORK_METADATA,
         FLAG_DISABLE_HAGC_METADATA,
-        FLAG_READ_XMP_METADATA
+        FLAG_READ_XMP_METADATA,
+        FLAG_EMIT_RAW_MEBX_DATA
       })
   public @interface Flags {}
 
@@ -164,6 +168,13 @@ public final class Mp4Extractor implements Extractor {
    * following the moov box, and expose it inside {@link Format#metadata} for all tracks.
    */
   public static final int FLAG_READ_XMP_METADATA = 1 << 11;
+
+  /**
+   * Flag to emit {@code mebx} tracks as raw {@link MimeTypes#APPLICATION_MEBX} tracks without
+   * converting {@code it35} keys to {@link MimeTypes#APPLICATION_ITUT_T35} or unboxing sample
+   * payloads, regardless of whether {@link #FLAG_DISABLE_HAGC_METADATA} is set.
+   */
+  public static final int FLAG_EMIT_RAW_MEBX_DATA = 1 << 12;
 
   /** The maximum number of sync samples to scan when searching for a thumbnail. */
   private static final int MAX_SYNC_SAMPLES_TO_SCAN_FOR_THUMBNAIL = 20;
@@ -677,6 +688,12 @@ public final class Mp4Extractor implements Extractor {
               if (track == null) {
                 return null;
               }
+              if ((flags & FLAG_EMIT_RAW_MEBX_DATA) == 0) {
+                track = BoxParser.maybeConvertMebxTrackToIt35(track);
+                if (track == null) {
+                  return null;
+                }
+              }
               if ((flags & FLAG_DISABLE_HAGC_METADATA) != 0
                   && CodecSpecificDataUtil.isHagcTrack(track.format)) {
                 return null;
@@ -974,6 +991,7 @@ public final class Mp4Extractor implements Extractor {
     if (!canReadWithinGopSampleDependencies(track.track.format)) {
       isSampleDependedOn = true;
     }
+    boolean shouldOutputSample = true;
     if (track.track.nalUnitLengthFieldLength != 0) {
       // Zero the top three bytes of the array that we'll use to decode nal unit lengths, in case
       // they're only 1 or 2 bytes long.
@@ -1039,6 +1057,17 @@ public final class Mp4Extractor implements Extractor {
           sampleCurrentNalBytesRemaining -= writtenBytes;
         }
       }
+    } else if (track.track.sampleTransformation == Track.TRANSFORMATION_MEBX_UNBOX) {
+      scratch.reset(sampleSize);
+      input.readFully(scratch.getData(), /* offset= */ 0, sampleSize);
+      sampleBytesRead += sampleSize;
+      if (BoxParser.positionAtMebxBoxPayload(scratch, track.track.mebxKeyId)) {
+        sampleSize = scratch.bytesLeft();
+        trackOutput.sampleData(scratch, sampleSize);
+        sampleBytesWritten += sampleSize;
+      } else {
+        shouldOutputSample = false;
+      }
     } else {
       Format pendingFormat = track.pendingFormat;
       if (MimeTypes.AUDIO_AC4.equals(track.track.format.sampleMimeType)) {
@@ -1091,7 +1120,7 @@ public final class Mp4Extractor implements Extractor {
       if (sampleIndex + 1 == track.sampleTable.sampleCount) {
         trueHdSampleRechunker.outputPendingSampleMetadata(trackOutput, /* cryptoData= */ null);
       }
-    } else {
+    } else if (shouldOutputSample) {
       trackOutput.sampleMetadata(
           timeUs, sampleFlags, sampleSize, /* offset= */ 0, /* cryptoData= */ null);
     }

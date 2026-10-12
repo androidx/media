@@ -306,6 +306,14 @@ public final class FragmentedMp4ExtractorParameterizedTest {
             .build());
   }
 
+  @Test
+  public void sampleWithMebxHagcTrack() throws Exception {
+    assertExtractorBehavior(
+        /* closedCaptionFormats= */ ImmutableList.of(),
+        "media/mp4/sample_with_mebx_hagc_track_fragmented.mp4",
+        /* peekLimit= */ 1200);
+  }
+
   private void assertExtractorBehavior(
       List<Format> closedCaptionFormats, String file, int peekLimit) throws IOException {
     assertExtractorBehavior(

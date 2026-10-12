@@ -97,8 +97,9 @@ public class FragmentedMp4Extractor implements Extractor {
    * Flags controlling the behavior of the extractor. Possible flag values are {@link
    * #FLAG_WORKAROUND_EVERY_VIDEO_FRAME_IS_SYNC_FRAME}, {@link #FLAG_WORKAROUND_IGNORE_TFDT_BOX},
    * {@link #FLAG_ENABLE_EMSG_TRACK}, {@link #FLAG_WORKAROUND_IGNORE_EDIT_LISTS}, {@link
-   * #FLAG_EMIT_RAW_SUBTITLE_DATA}, {@link #FLAG_MERGE_FRAGMENTED_SIDX} and {@link
-   * #FLAG_READ_MFRA_FOR_SEEK_MAP}.
+   * #FLAG_EMIT_RAW_SUBTITLE_DATA}, {@link #FLAG_MERGE_FRAGMENTED_SIDX}, {@link
+   * #FLAG_READ_MFRA_FOR_SEEK_MAP}, {@link #FLAG_DISABLE_ARTWORK_METADATA}, {@link
+   * #FLAG_DISABLE_HAGC_METADATA}, and {@link #FLAG_EMIT_RAW_MEBX_DATA}.
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -114,7 +115,8 @@ public class FragmentedMp4Extractor implements Extractor {
         FLAG_MERGE_FRAGMENTED_SIDX,
         FLAG_READ_MFRA_FOR_SEEK_MAP,
         FLAG_DISABLE_ARTWORK_METADATA,
-        FLAG_DISABLE_HAGC_METADATA
+        FLAG_DISABLE_HAGC_METADATA,
+        FLAG_EMIT_RAW_MEBX_DATA
       })
   public @interface Flags {}
 
@@ -156,6 +158,13 @@ public class FragmentedMp4Extractor implements Extractor {
 
   /** Flag to disable parsing of HAGC (ST 2094-50) metadata. */
   public static final int FLAG_DISABLE_HAGC_METADATA = 1 << 11;
+
+  /**
+   * Flag to emit {@code mebx} tracks as raw {@link MimeTypes#APPLICATION_MEBX} tracks without
+   * converting {@code it35} keys to {@link MimeTypes#APPLICATION_ITUT_T35} or unboxing sample
+   * payloads, regardless of whether {@link #FLAG_DISABLE_HAGC_METADATA} is set.
+   */
+  public static final int FLAG_EMIT_RAW_MEBX_DATA = 1 << 12;
 
   /**
    * @deprecated Use {@link #newFactory(SubtitleParser.Factory)} instead.
@@ -880,6 +889,12 @@ public class FragmentedMp4Extractor implements Extractor {
   protected Track modifyTrack(@Nullable Track track) {
     if (track == null) {
       return null;
+    }
+    if ((flags & FLAG_EMIT_RAW_MEBX_DATA) == 0) {
+      track = BoxParser.maybeConvertMebxTrackToIt35(track);
+      if (track == null) {
+        return null;
+      }
     }
     if ((flags & FLAG_DISABLE_HAGC_METADATA) != 0
         && CodecSpecificDataUtil.isHagcTrack(track.format)) {
@@ -1753,6 +1768,7 @@ public class FragmentedMp4Extractor implements Extractor {
     if (timestampAdjuster != null) {
       sampleTimeUs = timestampAdjuster.adjustSampleTimestamp(sampleTimeUs);
     }
+    boolean shouldOutputSample = true;
     if (track.nalUnitLengthFieldLength != 0) {
       // Zero the top three bytes of the array that we'll use to decode nal unit lengths, in case
       // they're only 1 or 2 bytes long.
@@ -1849,6 +1865,18 @@ public class FragmentedMp4Extractor implements Extractor {
           sampleCurrentNalBytesRemaining -= writtenBytes;
         }
       }
+    } else if (track.sampleTransformation == Track.TRANSFORMATION_MEBX_UNBOX) {
+      int mebxBytesToRead = sampleSize - sampleBytesWritten;
+      scratch.reset(mebxBytesToRead);
+      input.readFully(scratch.getData(), /* offset= */ 0, mebxBytesToRead);
+      if (BoxParser.positionAtMebxBoxPayload(scratch, track.mebxKeyId)) {
+        int payloadSize = scratch.bytesLeft();
+        output.sampleData(scratch, payloadSize);
+        sampleBytesWritten += payloadSize;
+        sampleSize = sampleBytesWritten;
+      } else {
+        shouldOutputSample = false;
+      }
     } else {
       Format pendingFormat = trackBundle.pendingFormat;
       if (pendingFormat != null && DtsUtil.isDtsBaseAudioMimeType(track.format.sampleMimeType)) {
@@ -1877,7 +1905,9 @@ public class FragmentedMp4Extractor implements Extractor {
       cryptoData = encryptionBox.cryptoData;
     }
 
-    output.sampleMetadata(sampleTimeUs, sampleFlags, sampleSize, 0, cryptoData);
+    if (shouldOutputSample) {
+      output.sampleMetadata(sampleTimeUs, sampleFlags, sampleSize, 0, cryptoData);
+    }
 
     // After we have the sampleTimeUs, we can commit all the pending metadata samples
     outputPendingMetadataSamples(sampleTimeUs);

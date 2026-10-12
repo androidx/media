@@ -81,6 +81,8 @@
     *   Fix a `NullPointerException` in `SteeringManifestTracker` when the
         tracker is stopped before a posted load completion or error callback is
         executed ([#3443](https://github.com/androidx/media/issues/3443)).
+    *   Support HAGC (ST 2094-50) timed metadata playback from `mebx` boxed
+        metadata tracks in MP4 files.
 *   CompositionPlayer:
     *   Support configuring the frame rate of video frame aggregation via
         `Composition.Builder.setVideoFrameAggregationParameters` for playback
@@ -145,17 +147,18 @@
         ([#3425](https://github.com/androidx/media/issues/3425)).
     *   Matroska: Fix `NullPointerException` when parsing nested `ChapterAtom`
         elements ([#3438](https://github.com/androidx/media/issues/3438)).
-    *   MP4: Support extracting `mebx` boxed timed metadata tracks in
-        `Mp4Extractor` and `FragmentedMp4Extractor` as
-        `MimeTypes.APPLICATION_MEBX` tracks. `Player.getCurrentTracks()` and
-        `Player.Listener.onTracksChanged(Tracks)` will now report these
-        additional unsupported metadata tracks for files containing `mebx`
-        tracks.
     *   Ogg: Fix bug where a packet whose size is a multiple of 255 bytes and
         ends at a page boundary is merged with the following packet.
+    *   MP4: Parse `mebx` boxed timed metadata tracks in `Mp4Extractor` and
+        `FragmentedMp4Extractor`. Tracks carrying an `it35` key are exposed as
+        `MimeTypes.APPLICATION_ITUT_T35` (enabling HAGC playback). Other `mebx`
+        tracks are ignored unless `FLAG_EMIT_RAW_MEBX_DATA` is set, in which
+        case all `mebx` tracks are emitted as raw `MimeTypes.APPLICATION_MEBX`.
 *   Inspector:
     *   Support retrieving XMP metadata from MP4 files using
         `MetadataRetriever`.
+    *   Support extracting `mebx` boxed timed metadata tracks in
+        `MediaExtractorCompat` as `MimeTypes.APPLICATION_MEBX`.
 *   Inspector Frame:
     *   Fix clipping of wide-gamut BT.2020 colors in the SDR base image when
         extracting Ultra HDR frames with `FrameExtractor`. Out-of-gamut colors

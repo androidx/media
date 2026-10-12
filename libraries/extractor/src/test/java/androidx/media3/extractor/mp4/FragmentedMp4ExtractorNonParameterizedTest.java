@@ -18,6 +18,7 @@ package androidx.media3.extractor.mp4;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
+import androidx.media3.common.MimeTypes;
 import androidx.media3.extractor.SniffFailure;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.test.utils.FakeExtractorInput;
@@ -120,6 +121,45 @@ public final class FragmentedMp4ExtractorNonParameterizedTest {
     // Video track mdhd = 133_466 us (4004 / 30_000); audio track mdhd = 133_945 us (5907 / 44_100).
     assertThat(output.trackOutputs.get(0).getDurationUs()).isEqualTo(133_466L);
     assertThat(output.trackOutputs.get(1).getDurationUs()).isEqualTo(133_945L);
+  }
+
+  @Test
+  public void extract_mebxHagcTrackWithFlagEmitRawMebxData_emitsRawMebxTrackAndBoxedSamples()
+      throws Exception {
+    FragmentedMp4Extractor extractor =
+        new FragmentedMp4Extractor(
+            SubtitleParser.Factory.UNSUPPORTED, FragmentedMp4Extractor.FLAG_EMIT_RAW_MEBX_DATA);
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(
+            extractor,
+            ApplicationProvider.getApplicationContext(),
+            "media/mp4/sample_with_mebx_hagc_track_fragmented.mp4");
+
+    assertThat(output.numberOfTracks).isEqualTo(2);
+    FakeTrackOutput metadataTrack = output.trackOutputs.get(1);
+    assertThat(metadataTrack.lastFormat.sampleMimeType).isEqualTo(MimeTypes.APPLICATION_MEBX);
+    assertThat(metadataTrack.lastFormat.initializationData).hasSize(1);
+    assertThat(metadataTrack.lastFormat.initializationData.get(0)).hasLength(38);
+    assertThat(metadataTrack.getSampleCount()).isEqualTo(30);
+    assertThat(metadataTrack.getSampleData(0)).hasLength(253);
+  }
+
+  @Test
+  public void extract_mebxHagcTrackWithFlagDisableHagcMetadata_ignoresMebxHagcTrack()
+      throws Exception {
+    FragmentedMp4Extractor extractor =
+        new FragmentedMp4Extractor(
+            SubtitleParser.Factory.UNSUPPORTED, FragmentedMp4Extractor.FLAG_DISABLE_HAGC_METADATA);
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(
+            extractor,
+            ApplicationProvider.getApplicationContext(),
+            "media/mp4/sample_with_mebx_hagc_track_fragmented.mp4");
+
+    assertThat(output.numberOfTracks).isEqualTo(1);
+    assertThat(output.trackOutputs.get(0).lastFormat.sampleMimeType).isEqualTo(MimeTypes.VIDEO_AV1);
   }
 
   private static FakeExtractorInput createInputForSample(String sample) throws IOException {

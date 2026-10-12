@@ -50,6 +50,8 @@ import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorsFactory;
+import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
+import androidx.media3.extractor.mp4.Mp4Extractor;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableMap;
 import java.io.FileDescriptor;
@@ -105,7 +107,7 @@ public final class MediaExtractorCompat {
    * #MediaExtractorCompat(Context)}.
    */
   public MediaExtractorCompat() {
-    this(new DefaultExtractorsFactory(), MediaExtractorDataSource.FACTORY);
+    this(createDefaultExtractorsFactory(), MediaExtractorDataSource.FACTORY);
   }
 
   /**
@@ -113,7 +115,13 @@ public final class MediaExtractorCompat {
    * DefaultDataSource.Factory} configured with the given {@link Context}.
    */
   public MediaExtractorCompat(Context context) {
-    this(new DefaultExtractorsFactory(), new DefaultDataSource.Factory(context));
+    this(createDefaultExtractorsFactory(), new DefaultDataSource.Factory(context));
+  }
+
+  private static DefaultExtractorsFactory createDefaultExtractorsFactory() {
+    return new DefaultExtractorsFactory()
+        .setMp4ExtractorFlags(Mp4Extractor.FLAG_EMIT_RAW_MEBX_DATA)
+        .setFragmentedMp4ExtractorFlags(FragmentedMp4Extractor.FLAG_EMIT_RAW_MEBX_DATA);
   }
 
   /**

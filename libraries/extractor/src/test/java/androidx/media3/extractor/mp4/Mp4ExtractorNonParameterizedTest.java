@@ -21,6 +21,7 @@ import android.content.Context;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorOutput;
@@ -366,6 +367,43 @@ public final class Mp4ExtractorNonParameterizedTest {
 
     // Video track's edit list is ignored: tkhd = 3_738_600 us, mdhd = 3_738_577 us.
     assertThat(output.trackOutputs.get(0).getDurationUs()).isEqualTo(3_738_577L);
+  }
+
+  @Test
+  public void extract_mebxHagcTrackWithFlagEmitRawMebxData_emitsRawMebxTrackAndBoxedSamples()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    Mp4Extractor mp4Extractor =
+        new Mp4Extractor(SubtitleParser.Factory.UNSUPPORTED, Mp4Extractor.FLAG_EMIT_RAW_MEBX_DATA);
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(
+            mp4Extractor, context, "media/mp4/sample_with_mebx_hagc_track.mp4");
+
+    assertThat(output.numberOfTracks).isEqualTo(2);
+    FakeTrackOutput metadataTrack = output.trackOutputs.get(1);
+    assertThat(metadataTrack.lastFormat.sampleMimeType).isEqualTo(MimeTypes.APPLICATION_MEBX);
+    assertThat(metadataTrack.lastFormat.initializationData).hasSize(1);
+    assertThat(metadataTrack.lastFormat.initializationData.get(0)).hasLength(38);
+    assertThat(metadataTrack.getSampleCount()).isEqualTo(30);
+    // Each boxed sample is 253 bytes ([253 (4B)][0x00000001 (4B)][245-byte payload]).
+    assertThat(metadataTrack.getSampleData(0)).hasLength(253);
+  }
+
+  @Test
+  public void extract_mebxHagcTrackWithFlagDisableHagcMetadata_ignoresMebxHagcTrack()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    Mp4Extractor mp4Extractor =
+        new Mp4Extractor(
+            SubtitleParser.Factory.UNSUPPORTED, Mp4Extractor.FLAG_DISABLE_HAGC_METADATA);
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(
+            mp4Extractor, context, "media/mp4/sample_with_mebx_hagc_track.mp4");
+
+    assertThat(output.numberOfTracks).isEqualTo(1);
+    assertThat(output.trackOutputs.get(0).lastFormat.sampleMimeType).isEqualTo(MimeTypes.VIDEO_AV1);
   }
 
   private static String getDumpFilePath(String inputFilePath, String suffix) {

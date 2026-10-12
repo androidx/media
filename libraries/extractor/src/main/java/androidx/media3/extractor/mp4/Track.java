@@ -51,6 +51,7 @@ public final class Track {
     @Nullable private ImmutableLongArray editListMediaTimes;
     private boolean shouldBeExposed;
     private int chapterTrackId;
+    private int mebxKeyId;
 
     public Builder() {
       type = C.TRACK_TYPE_UNKNOWN;
@@ -61,6 +62,7 @@ public final class Track {
       sampleTransformation = TRANSFORMATION_NONE;
       shouldBeExposed = true;
       chapterTrackId = C.INDEX_UNSET;
+      mebxKeyId = C.INDEX_UNSET;
     }
 
     private Builder(Track track) {
@@ -78,6 +80,7 @@ public final class Track {
       editListMediaTimes = track.editListMediaTimes;
       shouldBeExposed = track.shouldBeExposed;
       chapterTrackId = track.chapterTrackId;
+      mebxKeyId = track.mebxKeyId;
     }
 
     /**
@@ -253,6 +256,16 @@ public final class Track {
     }
 
     /**
+     * Sets the target {@code local_key_id} to extract when {@link Track#sampleTransformation} is
+     * {@link #TRANSFORMATION_MEBX_UNBOX}.
+     */
+    @CanIgnoreReturnValue
+    /* package */ Builder setMebxKeyId(int mebxKeyId) {
+      this.mebxKeyId = mebxKeyId;
+      return this;
+    }
+
+    /**
      * Builds a new {@link Track} instance.
      *
      * @throws NullPointerException if {@link #setFormat} has not been called.
@@ -265,12 +278,13 @@ public final class Track {
 
   /**
    * The transformation to apply to samples in the track, if any. One of {@link
-   * #TRANSFORMATION_NONE} or {@link #TRANSFORMATION_CEA608_CDAT}.
+   * #TRANSFORMATION_NONE}, {@link #TRANSFORMATION_CEA608_CDAT}, or {@link
+   * #TRANSFORMATION_MEBX_UNBOX}.
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
-  @IntDef({TRANSFORMATION_NONE, TRANSFORMATION_CEA608_CDAT})
+  @IntDef({TRANSFORMATION_NONE, TRANSFORMATION_CEA608_CDAT, TRANSFORMATION_MEBX_UNBOX})
   public @interface Transformation {}
 
   /** A no-op sample transformation. */
@@ -278,6 +292,12 @@ public final class Track {
 
   /** A transformation for caption samples in cdat atoms. */
   public static final int TRANSFORMATION_CEA608_CDAT = 1;
+
+  /**
+   * A transformation for boxed metadata samples in {@code mebx} tracks, extracting the box payload
+   * matching the target {@code local_key_id}.
+   */
+  public static final int TRANSFORMATION_MEBX_UNBOX = 2;
 
   /** An unset or unknown timescale. */
   public static final long TIMESCALE_UNSET = -1;
@@ -338,6 +358,12 @@ public final class Track {
   /** Whether the track should be exposed to the player. */
   public final boolean shouldBeExposed;
 
+  /**
+   * The target {@code local_key_id} to extract when {@link #sampleTransformation} is {@link
+   * #TRANSFORMATION_MEBX_UNBOX}.
+   */
+  /* package */ final int mebxKeyId;
+
   @Nullable private final TrackEncryptionBox[] sampleDescriptionEncryptionBoxes;
 
   private Track(Builder builder) {
@@ -355,6 +381,7 @@ public final class Track {
     this.editListMediaTimes = builder.editListMediaTimes;
     this.shouldBeExposed = builder.shouldBeExposed;
     this.chapterTrackId = builder.chapterTrackId;
+    this.mebxKeyId = builder.mebxKeyId;
   }
 
   /**
@@ -393,6 +420,7 @@ public final class Track {
         editListMediaTimes == null ? null : ImmutableLongArray.copyOf(editListMediaTimes);
     this.shouldBeExposed = shouldBeExposed;
     this.chapterTrackId = chapterTrackId;
+    mebxKeyId = C.INDEX_UNSET;
   }
 
   /** Returns a new {@link Builder} initialized with the values of this instance. */

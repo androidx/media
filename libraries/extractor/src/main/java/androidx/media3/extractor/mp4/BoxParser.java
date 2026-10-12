@@ -89,6 +89,9 @@ public final class BoxParser {
   @SuppressWarnings("ConstantCaseForConstants")
   private static final int TYPE_mdta = 0x6d647461;
 
+  @SuppressWarnings({"ConstantCaseForConstants", "IdentifierName"})
+  private static final int TYPE_me4c = 0x6d653463;
+
   @SuppressWarnings("ConstantCaseForConstants")
   private static final int TYPE_meta = 0x6d657461;
 
@@ -2008,6 +2011,124 @@ public final class BoxParser {
         }
       }
     }
+  }
+
+  /**
+   * Converts an {@link MimeTypes#APPLICATION_MEBX} track to an {@link
+   * MimeTypes#APPLICATION_ITUT_T35} track with {@link Track#TRANSFORMATION_MEBX_UNBOX} if its
+   * {@code keys} box contains an {@code it35} key entry ({@code key_namespace == 'me4c'} and {@code
+   * key_value == 'it35'} with a {@code setu} setup box), or returns {@code null} to drop the {@code
+   * mebx} track if no valid {@code it35} key entry with setup configuration is present.
+   *
+   * <p>See ISO/IEC 14496-12:2024 section 12.8.4.
+   *
+   * <p>Non-{@code mebx} tracks are returned unchanged.
+   */
+  @Nullable
+  /* package */ static Track maybeConvertMebxTrackToIt35(Track track) {
+    if (!Objects.equals(track.format.sampleMimeType, MimeTypes.APPLICATION_MEBX)) {
+      return track;
+    }
+    if (track.format.initializationData.isEmpty()) {
+      return null;
+    }
+    ParsableByteArray data = new ParsableByteArray(track.format.initializationData.get(0));
+    int matchedKeyId = C.INDEX_UNSET;
+    @Nullable byte[] matchedIdentifier = null;
+    // Each entry in 'keys' is a MetadataKeyBox: [size (4B)][local_key_id (4B)][child boxes...].
+    while (data.bytesLeft() >= Mp4Box.HEADER_SIZE) {
+      int keyBoxStart = data.getPosition();
+      int keyBoxSize = data.readInt();
+      int localKeyId = data.readInt();
+      if (keyBoxSize < Mp4Box.HEADER_SIZE || keyBoxSize - Mp4Box.HEADER_SIZE > data.bytesLeft()) {
+        break;
+      }
+      int keyBoxEnd = keyBoxStart + keyBoxSize;
+      boolean hasIt35Keyd = false;
+      @Nullable byte[] setuIdentifier = null;
+      while (data.getPosition() + Mp4Box.HEADER_SIZE <= keyBoxEnd) {
+        int childStart = data.getPosition();
+        int childSize = data.readInt();
+        int childType = data.readInt();
+        if (childSize < Mp4Box.HEADER_SIZE || childSize > keyBoxEnd - childStart) {
+          break;
+        }
+        if (childType == Mp4Box.TYPE_keyd && childSize >= Mp4Box.HEADER_SIZE + 4) {
+          int keyNamespace = data.readInt();
+          // For the 'me4c' namespace (Metadata sample entry four-character-code), key_value is a
+          // 4-byte sample entry fourCC.
+          if (keyNamespace == TYPE_me4c
+              && childSize == Mp4Box.HEADER_SIZE + 8
+              && data.readInt() == Mp4Box.TYPE_it35) {
+            hasIt35Keyd = true;
+          }
+        } else if (childType == Mp4Box.TYPE_setu && childSize >= Mp4Box.HEADER_SIZE + 1) {
+          // For an 'it35' key, the 'setu' box begins with the same [identifier_length (1B)]
+          // [identifier] payload as an 'it35' sample entry (and may be followed by trailing boxes
+          // such as 'hrsd').
+          int identifierLength = data.readUnsignedByte();
+          if (childSize - (Mp4Box.HEADER_SIZE + 1) >= identifierLength) {
+            setuIdentifier = new byte[identifierLength];
+            data.readBytes(setuIdentifier, /* offset= */ 0, identifierLength);
+          }
+        }
+        data.setPosition(childStart + childSize);
+      }
+      if (hasIt35Keyd && setuIdentifier != null) {
+        boolean isHagc =
+            CodecSpecificDataUtil.isHagcMetadata(setuIdentifier, setuIdentifier.length);
+        if (matchedIdentifier == null || isHagc) {
+          matchedKeyId = localKeyId;
+          matchedIdentifier = setuIdentifier;
+          if (isHagc) {
+            break;
+          }
+        }
+      }
+      data.setPosition(keyBoxEnd);
+    }
+    if (matchedIdentifier == null) {
+      return null;
+    }
+    Format it35Format =
+        track
+            .format
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.APPLICATION_ITUT_T35)
+            .setInitializationData(ImmutableList.of(matchedIdentifier))
+            .build();
+    return track
+        .buildUpon()
+        .setFormat(it35Format)
+        .setSampleTransformation(Track.TRANSFORMATION_MEBX_UNBOX)
+        .setMebxKeyId(matchedKeyId)
+        .build();
+  }
+
+  /**
+   * Positions {@code sampleData} at the payload of the first box whose 4-byte type equals {@code
+   * targetKeyId} and sets its limit to the end of that box payload, or returns {@code false} if no
+   * matching box is present or a box header is malformed.
+   *
+   * <p>See ISO/IEC 14496-12:2024 section 12.8.4.
+   */
+  /* package */ static boolean positionAtMebxBoxPayload(
+      ParsableByteArray sampleData, int targetKeyId) {
+    while (sampleData.bytesLeft() >= Mp4Box.HEADER_SIZE) {
+      int boxStart = sampleData.getPosition();
+      int boxSize = sampleData.readInt();
+      int boxType = sampleData.readInt();
+      int payloadSize = boxSize - Mp4Box.HEADER_SIZE;
+      if (payloadSize < 0 || payloadSize > sampleData.bytesLeft()) {
+        return false;
+      }
+      if (boxType == targetKeyId) {
+        sampleData.setLimit(boxStart + boxSize);
+        return true;
+      }
+      sampleData.skipBytes(payloadSize);
+    }
+    return false;
   }
 
   /**

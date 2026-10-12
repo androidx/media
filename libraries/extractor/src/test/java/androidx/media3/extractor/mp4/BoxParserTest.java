@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -32,6 +33,7 @@ import androidx.media3.container.OpusUtil;
 import androidx.media3.extractor.GaplessInfoHolder;
 import androidx.media3.extractor.metadata.Chapter;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.ImmutableLongArray;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -635,5 +637,134 @@ public final class BoxParserTest {
     for (int i = 0; i < box.getSampleCount(); i++) {
       assertThat(box.readNextSampleSize()).isEqualTo(i + 1);
     }
+  }
+
+  @Test
+  public void maybeConvertMebxTrackToIt35_withMultipleKeys_selectsHagcIt35Key() {
+    byte[] nonIt35Key =
+        createMebxKeyEntry(
+            /* localKeyId= */ 0x6d657431,
+            /* keyNamespace= */ 0x6d647461, // 'mdta'
+            /* keyValue= */ 0x74657374,
+            /* setuPayload= */ null);
+    byte[] shortIt35Prefix = new byte[] {(byte) 0xB5};
+    byte[] shortIt35Key =
+        createMebxKeyEntry(
+            /* localKeyId= */ 0x73687274, // 'shrt'
+            /* keyNamespace= */ 0x6d653463, // 'me4c'
+            /* keyValue= */ Mp4Box.TYPE_it35,
+            createSetuPayload(shortIt35Prefix));
+    byte[] nonHagcIt35Prefix = new byte[] {(byte) 0xB5, 0x00, 0x31, 0x00, 0x01};
+    byte[] nonHagcIt35Key =
+        createMebxKeyEntry(
+            /* localKeyId= */ 0x68313070, // 'h10p'
+            /* keyNamespace= */ 0x6d653463, // 'me4c'
+            /* keyValue= */ Mp4Box.TYPE_it35,
+            createSetuPayload(nonHagcIt35Prefix));
+    byte[] hagcPrefix = new byte[] {(byte) 0xB5, 0x00, (byte) 0x90, 0x00, 0x01};
+    byte[] hrsdPayload = "SMPTE-ST2094-50\0".getBytes(UTF_8);
+    byte[] hagcSetuPayloadWithHrsd =
+        ByteBuffer.allocate(1 + hagcPrefix.length + Mp4Box.HEADER_SIZE + hrsdPayload.length)
+            .put((byte) hagcPrefix.length)
+            .put(hagcPrefix)
+            .putInt(Mp4Box.HEADER_SIZE + hrsdPayload.length)
+            .putInt(0x68727364) // 'hrsd'
+            .put(hrsdPayload)
+            .array();
+    byte[] hagcIt35Key =
+        createMebxKeyEntry(
+            /* localKeyId= */ 0x68616763, // 'hagc'
+            /* keyNamespace= */ 0x6d653463, // 'me4c'
+            /* keyValue= */ Mp4Box.TYPE_it35,
+            hagcSetuPayloadWithHrsd);
+    byte[] keysPayload =
+        ByteBuffer.allocate(
+                nonIt35Key.length
+                    + shortIt35Key.length
+                    + nonHagcIt35Key.length
+                    + hagcIt35Key.length)
+            .put(nonIt35Key)
+            .put(shortIt35Key)
+            .put(nonHagcIt35Key)
+            .put(hagcIt35Key)
+            .array();
+    Track mebxTrack =
+        new Track.Builder()
+            .setId(2)
+            .setType(C.TRACK_TYPE_METADATA)
+            .setFormat(
+                new Format.Builder()
+                    .setId(2)
+                    .setSampleMimeType(MimeTypes.APPLICATION_MEBX)
+                    .setInitializationData(ImmutableList.of(keysPayload))
+                    .build())
+            .build();
+
+    Track convertedTrack = BoxParser.maybeConvertMebxTrackToIt35(mebxTrack);
+
+    assertThat(convertedTrack).isNotNull();
+    assertThat(convertedTrack.format.sampleMimeType).isEqualTo(MimeTypes.APPLICATION_ITUT_T35);
+    assertThat(convertedTrack.format.initializationData.get(0)).isEqualTo(hagcPrefix);
+    assertThat(convertedTrack.sampleTransformation).isEqualTo(Track.TRANSFORMATION_MEBX_UNBOX);
+    assertThat(convertedTrack.mebxKeyId).isEqualTo(0x68616763);
+  }
+
+  @Test
+  public void positionAtMebxBoxPayload_withMultiplexedSample_positionsAtMatchingPayload() {
+    byte[] otherPayload = new byte[] {0x01, 0x02, 0x03, 0x04};
+    byte[] targetPayload = new byte[] {0x10, 0x20, 0x30};
+    byte[] trailingPayload = new byte[] {0x7F};
+    byte[] sampleBytes =
+        ByteBuffer.allocate(
+                Mp4Box.HEADER_SIZE
+                    + otherPayload.length
+                    + Mp4Box.HEADER_SIZE
+                    + targetPayload.length
+                    + Mp4Box.HEADER_SIZE
+                    + trailingPayload.length)
+            .putInt(Mp4Box.HEADER_SIZE + otherPayload.length)
+            .putInt(0x6d657431) // 'met1'
+            .put(otherPayload)
+            .putInt(Mp4Box.HEADER_SIZE + targetPayload.length)
+            .putInt(0x68616763) // 'hagc'
+            .put(targetPayload)
+            .putInt(Mp4Box.HEADER_SIZE + trailingPayload.length)
+            .putInt(0x6d657432) // 'met2'
+            .put(trailingPayload)
+            .array();
+    ParsableByteArray sampleData = new ParsableByteArray(sampleBytes);
+
+    boolean found = BoxParser.positionAtMebxBoxPayload(sampleData, /* targetKeyId= */ 0x68616763);
+
+    assertThat(found).isTrue();
+    byte[] extracted = new byte[sampleData.bytesLeft()];
+    sampleData.readBytes(extracted, /* offset= */ 0, extracted.length);
+    assertThat(extracted).isEqualTo(targetPayload);
+  }
+
+  private static byte[] createSetuPayload(byte[] identifier) {
+    return ByteBuffer.allocate(1 + identifier.length)
+        .put((byte) identifier.length)
+        .put(identifier)
+        .array();
+  }
+
+  private static byte[] createMebxKeyEntry(
+      int localKeyId, int keyNamespace, int keyValue, @Nullable byte[] setuPayload) {
+    int keydSize = Mp4Box.HEADER_SIZE + 8;
+    int setuSize = setuPayload != null ? Mp4Box.HEADER_SIZE + setuPayload.length : 0;
+    int keyBoxSize = Mp4Box.HEADER_SIZE + keydSize + setuSize;
+    ByteBuffer buffer =
+        ByteBuffer.allocate(keyBoxSize)
+            .putInt(keyBoxSize)
+            .putInt(localKeyId)
+            .putInt(keydSize)
+            .putInt(Mp4Box.TYPE_keyd)
+            .putInt(keyNamespace)
+            .putInt(keyValue);
+    if (setuPayload != null) {
+      buffer.putInt(setuSize).putInt(Mp4Box.TYPE_setu).put(setuPayload);
+    }
+    return buffer.array();
   }
 }
