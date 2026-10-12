@@ -395,6 +395,59 @@ public final class SteeringManifestTrackerTest {
     assertThat(timeoutExceptionRef.get()).isNull();
   }
 
+  @Test
+  public void stop_afterLoadCompletedBeforePostedCallbackRuns_doesNotNotifyCallback()
+      throws Exception {
+    List<HttpUrl> httpUrls =
+        enqueueWebServerResponses(
+            new String[] {"/steering/initial?video=001&_query_param=1"},
+            getMockResponse(STEERING_MANIFEST_JSON_STRING_1));
+    SteeringManifestTracker steeringManifestTracker =
+        new SteeringManifestTracker(
+            new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()),
+            /* downloadExecutorSupplier= */ null,
+            clock);
+
+    steeringManifestTracker.start(
+        Uri.parse(mockWebServer.url(INITIAL_STEERING_MANIFEST_PATH).toString()),
+        mockCallback,
+        eventDispatcher);
+    runMainLooperUntil(() -> loadCompletedOrErrorCount.get() >= 1);
+    steeringManifestTracker.stop();
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertRequestUrlsCalled(httpUrls);
+    verify(mockCallback, never()).onSteeringManifestUpdated(/* steeringManifest= */ any());
+    verify(mockCallback, never())
+        .onSteeringManifestLoadError(/* error= */ any(), /* canceled= */ anyBoolean());
+  }
+
+  @Test
+  public void stop_afterLoadErrorBeforePostedCallbackRuns_doesNotNotifyCallback() throws Exception {
+    List<HttpUrl> httpUrls =
+        enqueueWebServerResponses(
+            new String[] {"/steering/initial?video=001&_query_param=1"},
+            new MockResponse().setResponseCode(404));
+    SteeringManifestTracker steeringManifestTracker =
+        new SteeringManifestTracker(
+            new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()),
+            /* downloadExecutorSupplier= */ null,
+            clock);
+
+    steeringManifestTracker.start(
+        Uri.parse(mockWebServer.url(INITIAL_STEERING_MANIFEST_PATH).toString()),
+        mockCallback,
+        eventDispatcher);
+    runMainLooperUntil(() -> loadCompletedOrErrorCount.get() >= 1);
+    steeringManifestTracker.stop();
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertRequestUrlsCalled(httpUrls);
+    verify(mockCallback, never()).onSteeringManifestUpdated(/* steeringManifest= */ any());
+    verify(mockCallback, never())
+        .onSteeringManifestLoadError(/* error= */ any(), /* canceled= */ anyBoolean());
+  }
+
   private List<HttpUrl> enqueueWebServerResponses(String[] paths, MockResponse... mockResponses) {
     assertThat(paths).hasLength(mockResponses.length);
     for (MockResponse mockResponse : mockResponses) {

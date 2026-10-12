@@ -84,13 +84,12 @@ public final class SteeringManifestTracker {
   @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
   private final Clock clock;
   private final SteeringManifestLoaderCallback steeringManifestLoaderCallback;
-  private final HandlerWrapper handler;
 
   @Nullable private Uri steeringManifestUrl;
   @Nullable private Callback callback;
   @Nullable private MediaSourceEventListener.EventDispatcher eventDispatcher;
   @Nullable private SteeringManifest steeringManifest;
-  @Nullable private HandlerWrapper steeringManifestReloadHandler;
+  @Nullable private HandlerWrapper handler;
   @Nullable private Loader steeringManifestLoader;
   private boolean hasStarted;
 
@@ -123,7 +122,6 @@ public final class SteeringManifestTracker {
     this.downloadExecutorSupplier = downloadExecutorSupplier;
     this.clock = clock;
     this.steeringManifestLoaderCallback = new SteeringManifestLoaderCallback();
-    this.handler = clock.createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null);
   }
 
   /**
@@ -141,8 +139,7 @@ public final class SteeringManifestTracker {
     this.steeringManifestUrl = initialSteeringManifestUrl;
     this.callback = callback;
     this.eventDispatcher = eventDispatcher;
-    this.steeringManifestReloadHandler =
-        clock.createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null);
+    this.handler = clock.createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null);
     this.steeringManifestLoader =
         downloadExecutorSupplier != null
             ? new Loader(downloadExecutorSupplier.get())
@@ -157,9 +154,9 @@ public final class SteeringManifestTracker {
       steeringManifestLoader.release();
       steeringManifestLoader = null;
     }
-    if (steeringManifestReloadHandler != null) {
-      steeringManifestReloadHandler.removeCallbacksAndMessages(/* token= */ null);
-      steeringManifestReloadHandler = null;
+    if (handler != null) {
+      handler.removeCallbacksAndMessages(/* token= */ null);
+      handler = null;
     }
     callback = null;
     steeringManifest = null;
@@ -217,6 +214,22 @@ public final class SteeringManifestTracker {
         .build();
   }
 
+  private void postToHandler(Runnable runnable) {
+    postDelayedToHandler(runnable, /* delayMs= */ 0);
+  }
+
+  private void postDelayedToHandler(Runnable runnable, long delayMs) {
+    checkNotNull(handler)
+        .postDelayed(
+            () -> {
+              if (!hasStarted) {
+                return;
+              }
+              runnable.run();
+            },
+            delayMs);
+  }
+
   private class SteeringManifestLoaderCallback
       implements Loader.Callback<ParsingLoadable<SteeringManifest>> {
 
@@ -242,16 +255,15 @@ public final class SteeringManifestTracker {
       }
       SteeringManifest newSteeringManifest = checkNotNull(loadable.getResult());
       steeringManifest = newSteeringManifest;
-      handler.post(() -> checkNotNull(callback).onSteeringManifestUpdated(newSteeringManifest));
+      postToHandler(() -> checkNotNull(callback).onSteeringManifestUpdated(newSteeringManifest));
       steeringManifestUrl =
           getSteeringManifestUrl(checkNotNull(steeringManifestUrl), newSteeringManifest.reloadUri);
       long delayUntilNextLoadMs =
           newSteeringManifest.timeToLiveMs != C.TIME_UNSET
               ? newSteeringManifest.timeToLiveMs
               : FALLBACK_DELAY_UNTIL_NEXT_LOAD_MS;
-      checkNotNull(steeringManifestReloadHandler)
-          .postDelayed(
-              SteeringManifestTracker.this::loadSteeringManifestImmediately, delayUntilNextLoadMs);
+      postDelayedToHandler(
+          SteeringManifestTracker.this::loadSteeringManifestImmediately, delayUntilNextLoadMs);
       LoadEventInfo loadEventInfo = buildLoadEventInfo(loadable, elapsedRealtimeMs, loadDurationMs);
       checkNotNull(eventDispatcher).loadCompleted(loadEventInfo, C.DATA_TYPE_STEERING_MANIFEST);
     }
@@ -291,7 +303,6 @@ public final class SteeringManifestTracker {
         // If HTTP 410 Gone is in response, we will not reload for the remainder of the session.
         delayUntilNextLoadMs = C.TIME_UNSET;
         checkNotNull(steeringManifestLoader).release();
-        checkNotNull(steeringManifestReloadHandler).removeCallbacksAndMessages(/* token= */ null);
       } else if (responseCode == 429) {
         // If HTTP 429 Too Many Requests with a Retry-After header is in response, we will wait
         // for the specified time until reload.
@@ -309,13 +320,11 @@ public final class SteeringManifestTracker {
         delayUntilNextLoadMs = steeringManifest.timeToLiveMs;
       }
       if (delayUntilNextLoadMs != C.TIME_UNSET) {
-        checkNotNull(steeringManifestReloadHandler)
-            .postDelayed(
-                SteeringManifestTracker.this::loadSteeringManifestImmediately,
-                delayUntilNextLoadMs);
+        postDelayedToHandler(
+            SteeringManifestTracker.this::loadSteeringManifestImmediately, delayUntilNextLoadMs);
       }
       boolean canceled = delayUntilNextLoadMs == C.TIME_UNSET;
-      handler.post(() -> checkNotNull(callback).onSteeringManifestLoadError(error, canceled));
+      postToHandler(() -> checkNotNull(callback).onSteeringManifestLoadError(error, canceled));
       LoadEventInfo loadEventInfo = buildLoadEventInfo(loadable, elapsedRealtimeMs, loadDurationMs);
       checkNotNull(eventDispatcher)
           .loadError(loadEventInfo, C.DATA_TYPE_STEERING_MANIFEST, error, canceled);
