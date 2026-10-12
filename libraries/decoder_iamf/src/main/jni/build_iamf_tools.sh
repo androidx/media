@@ -50,7 +50,7 @@ CONFIG_TO_ABI_MAP["android_x86_32"]="x86"
 CONFIG_TO_ABI_MAP["android_x86_64"]="x86_64"
 
 for config in android_armv7 android_arm64 android_x86_32 android_x86_64; do
-  bazelisk build \
+  bazelisk --max_idle_secs=5 build \
     --experimental_cc_static_library \
     --copt=-femulated-tls \
     --config=$config \
@@ -65,4 +65,3 @@ for config in android_armv7 android_arm64 android_x86_32 android_x86_64; do
   cp ./bazel-bin/iamf/include/iamf_tools/libiamf_decoder_static.a "$OUTPUT_DIR/"
   echo "Successfully built and copied libiamf_decoder_static.a to ${OUTPUT_DIR}"
 done
-
