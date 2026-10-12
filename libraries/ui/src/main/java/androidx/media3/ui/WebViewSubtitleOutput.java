@@ -31,6 +31,7 @@ import android.webkit.WebView;
 import android.widget.FrameLayout;
 import androidx.annotation.Nullable;
 import androidx.media3.common.text.Cue;
+import androidx.media3.common.text.CueUtil;
 import androidx.media3.common.util.Util;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -349,15 +350,14 @@ import java.util.Map;
   /**
    * Converts a text size to a CSS px value.
    *
-   * <p>First converts to Android px using {@link SubtitleViewUtils#resolveTextSize(int, float, int,
-   * int)}.
+   * <p>First converts to Android px using {@link CueUtil#resolveTextSize(int, float, int, int)}.
    *
    * <p>Then divides by {@link DisplayMetrics#density} to convert from Android px to dp because
    * WebView treats one CSS px as one Android dp.
    */
   private String convertTextSizeToCss(@Cue.TextSizeType int type, float size) {
     float sizePx =
-        SubtitleViewUtils.resolveTextSize(
+        CueUtil.resolveTextSize(
             type, size, getHeight(), getHeight() - getPaddingTop() - getPaddingBottom());
     if (sizePx == Cue.DIMEN_UNSET) {
       return "unset";

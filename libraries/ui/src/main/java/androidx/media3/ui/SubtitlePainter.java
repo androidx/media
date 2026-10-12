@@ -39,6 +39,7 @@ import android.text.style.ForegroundColorSpan;
 import android.util.DisplayMetrics;
 import androidx.annotation.Nullable;
 import androidx.media3.common.text.Cue;
+import androidx.media3.common.text.CueUtil;
 import androidx.media3.common.util.Log;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -301,19 +302,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     int textLeft;
     int textRight;
     if (cuePosition != Cue.DIMEN_UNSET) {
-      int anchorPosition = Math.round(parentWidth * cuePosition) + parentLeft;
-      switch (cuePositionAnchor) {
-        case Cue.ANCHOR_TYPE_END:
-          textLeft = anchorPosition - textWidth;
-          break;
-        case Cue.ANCHOR_TYPE_MIDDLE:
-          textLeft = (anchorPosition * 2 - textWidth) / 2;
-          break;
-        case Cue.ANCHOR_TYPE_START:
-        case Cue.TYPE_UNSET:
-        default:
-          textLeft = anchorPosition;
-      }
+      textLeft =
+          Math.round(
+                  CueUtil.resolveAnchorOffset(
+                      cuePosition, cuePositionAnchor, textWidth, parentWidth))
+              + parentLeft;
 
       textLeft = Math.max(textLeft, parentLeft);
       textRight = Math.min(textLeft + textWidth, parentRight);
@@ -331,13 +324,10 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     int textTop;
     if (cueLine != Cue.DIMEN_UNSET) {
       if (cueLineType == Cue.LINE_TYPE_FRACTION) {
-        int anchorPosition = Math.round(parentHeight * cueLine) + parentTop;
         textTop =
-            cueLineAnchor == Cue.ANCHOR_TYPE_END
-                ? anchorPosition - textHeight
-                : cueLineAnchor == Cue.ANCHOR_TYPE_MIDDLE
-                    ? (anchorPosition * 2 - textHeight) / 2
-                    : anchorPosition;
+            Math.round(
+                    CueUtil.resolveAnchorOffset(cueLine, cueLineAnchor, textHeight, parentHeight))
+                + parentTop;
       } else {
         // cueLineType == Cue.LINE_TYPE_NUMBER
         int firstLineHeight = textLayout.getLineBottom(0) - textLayout.getLineTop(0);
@@ -374,8 +364,6 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     Bitmap cueBitmap = this.cueBitmap;
     int parentWidth = parentRight - parentLeft;
     int parentHeight = parentBottom - parentTop;
-    float anchorX = parentLeft + (parentWidth * cuePosition);
-    float anchorY = parentTop + (parentHeight * cueLine);
     int width = Math.round(parentWidth * cueSize);
     int height =
         cueBitmapHeight != Cue.DIMEN_UNSET
@@ -383,14 +371,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
             : Math.round(width * ((float) cueBitmap.getHeight() / cueBitmap.getWidth()));
     int x =
         Math.round(
-            cuePositionAnchor == Cue.ANCHOR_TYPE_END
-                ? (anchorX - width)
-                : cuePositionAnchor == Cue.ANCHOR_TYPE_MIDDLE ? (anchorX - (width / 2)) : anchorX);
+            parentLeft
+                + CueUtil.resolveAnchorOffset(cuePosition, cuePositionAnchor, width, parentWidth));
     int y =
         Math.round(
-            cueLineAnchor == Cue.ANCHOR_TYPE_END
-                ? (anchorY - height)
-                : cueLineAnchor == Cue.ANCHOR_TYPE_MIDDLE ? (anchorY - (height / 2)) : anchorY);
+            parentTop + CueUtil.resolveAnchorOffset(cueLine, cueLineAnchor, height, parentHeight));
     bitmapRect = new Rect(x, y, x + width, y + height);
   }
 

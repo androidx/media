@@ -20,6 +20,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.media3.common.text.Cue
 import androidx.media3.common.text.CueGroup
@@ -27,6 +28,7 @@ import androidx.media3.test.utils.FakePlayer
 import androidx.media3.ui.compose.material3.R
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -45,5 +47,25 @@ class SubtitlesTest {
     setContent { Subtitles(player = player) }
 
     onNodeWithContentDescription(context.getString(R.string.subtitle_bitmap_cue)).assertExists()
+  }
+
+  @Test
+  fun subtitles_whenCuesChange_createsNewNode() = runComposeUiTest {
+    val player = FakePlayer()
+    val firstCue = Cue.Builder().setText("first subtitle").build()
+    val secondCue = Cue.Builder().setText("second subtitle").build()
+
+    player.setCurrentCues(CueGroup(listOf(firstCue), 0))
+    setContent { Subtitles(player = player) }
+
+    val firstNodeId = onNodeWithText("first subtitle").fetchSemanticsNode().id
+
+    player.setCurrentCues(CueGroup(listOf(secondCue), 0))
+    waitForIdle()
+
+    val secondNodeId = onNodeWithText("second subtitle").fetchSemanticsNode().id
+
+    // Subtitles are properly keyed on 'cue' (rather than on loop index)
+    assertNotEquals(firstNodeId, secondNodeId)
   }
 }

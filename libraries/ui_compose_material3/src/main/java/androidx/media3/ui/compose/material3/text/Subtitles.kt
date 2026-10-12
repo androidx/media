@@ -18,6 +18,7 @@ package androidx.media3.ui.compose.material3.text
 
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntRect
 import androidx.media3.common.Player
@@ -28,7 +29,8 @@ import androidx.media3.ui.compose.state.rememberCuesState
  *
  * This view observes cue changes from the [Player] using [rememberCuesState].
  *
- * This component currently only supports bitmap cues, support for text cues will be added later.
+ * This component currently only supports horizontal text and bitmap cues, support for vertical text
+ * cues will be added later.
  *
  * @param player The [Player] instance to observe for cues.
  * @param modifier The [Modifier] to be applied to the layout.
@@ -39,13 +41,15 @@ internal fun Subtitles(player: Player?, modifier: Modifier = Modifier) {
   if (cues.isEmpty()) return
 
   BoxWithConstraints(modifier = modifier) {
-    val viewWidth = this.constraints.maxWidth
-    val viewHeight = this.constraints.maxHeight
+    val viewport = IntRect(0, 0, constraints.maxWidth, constraints.maxHeight)
     for (cue in cues) {
-      if (cue.bitmap != null) {
-        ImageCue(cue, viewport = IntRect(0, 0, viewWidth, viewHeight))
+      key(cue) {
+        if (cue.bitmap != null) {
+          ImageCue(cue, viewport)
+        } else {
+          TextCue(cue, viewport)
+        }
       }
-      // TODO: Handle text cues here once TextCue is implemented
     }
   }
 }

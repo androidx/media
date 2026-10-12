@@ -32,6 +32,7 @@ import androidx.annotation.Dimension;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.text.Cue;
+import androidx.media3.common.text.CueUtil;
 import androidx.media3.common.util.UnstableApi;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -80,7 +81,7 @@ public final class SubtitleView extends FrameLayout {
    *
    * @see SubtitleView#setFractionalTextSize(float, boolean)
    */
-  public static final float DEFAULT_TEXT_SIZE_FRACTION = 0.0533f;
+  public static final float DEFAULT_TEXT_SIZE_FRACTION = CueUtil.DEFAULT_TEXT_SIZE_FRACTION;
 
   /**
    * The default bottom padding to apply when {@link Cue#line} is {@link Cue#DIMEN_UNSET}, as a
@@ -88,7 +89,8 @@ public final class SubtitleView extends FrameLayout {
    *
    * @see #setBottomPaddingFraction(float)
    */
-  public static final float DEFAULT_BOTTOM_PADDING_FRACTION = 0.08f;
+  public static final float DEFAULT_BOTTOM_PADDING_FRACTION =
+      CueUtil.DEFAULT_BOTTOM_PADDING_FRACTION;
 
   /** Indicates subtitles should be displayed using a {@link Canvas}. This is the default. */
   public static final int VIEW_TYPE_CANVAS = 1;

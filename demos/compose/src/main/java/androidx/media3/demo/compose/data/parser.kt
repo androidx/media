@@ -156,6 +156,7 @@ private fun readEntry(reader: JsonReader, insidePlaylist: Boolean): PlaylistHold
         MediaItem.SubtitleConfiguration.Builder(subtitleUri)
           .setMimeType(subtitleMimeType)
           .setLanguage(subtitleLanguage)
+          .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
           .build()
       mediaItem.setSubtitleConfigurations(listOf(subtitleConfig))
     }

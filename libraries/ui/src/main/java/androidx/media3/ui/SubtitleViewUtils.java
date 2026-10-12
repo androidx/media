@@ -30,33 +30,6 @@ import java.util.function.Predicate;
 /** Utility class for subtitle layout logic. */
 /* package */ final class SubtitleViewUtils {
 
-  /**
-   * Returns the text size in px, derived from {@code textSize} and {@code textSizeType}.
-   *
-   * <p>Returns {@link Cue#DIMEN_UNSET} if {@code textSize == Cue.DIMEN_UNSET} or {@code
-   * textSizeType == Cue.TYPE_UNSET}.
-   */
-  public static float resolveTextSize(
-      @Cue.TextSizeType int textSizeType,
-      float textSize,
-      int rawViewHeight,
-      int viewHeightMinusPadding) {
-    if (textSize == Cue.DIMEN_UNSET) {
-      return Cue.DIMEN_UNSET;
-    }
-    switch (textSizeType) {
-      case Cue.TEXT_SIZE_TYPE_ABSOLUTE:
-        return textSize;
-      case Cue.TEXT_SIZE_TYPE_FRACTIONAL:
-        return textSize * viewHeightMinusPadding;
-      case Cue.TEXT_SIZE_TYPE_FRACTIONAL_IGNORE_PADDING:
-        return textSize * rawViewHeight;
-      case Cue.TYPE_UNSET:
-      default:
-        return Cue.DIMEN_UNSET;
-    }
-  }
-
   /** Removes all styling information from {@code cue}. */
   public static void removeAllEmbeddedStyling(Cue.Builder cue) {
     cue.clearWindowColor();

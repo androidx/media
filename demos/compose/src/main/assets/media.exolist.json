@@ -178,6 +178,72 @@
     ]
   },
   {
+    "name": "Subtitles",
+    "samples": [
+      {
+        "name": "TTML positioning",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/gen-3/screens/dash-vod-single-segment/video-avc-baseline-480.mp4",
+        "subtitle_uri": "https://storage.googleapis.com/exoplayer-test-media-1/ttml/netflix_ttml_sample.xml",
+        "subtitle_mime_type": "application/ttml+xml",
+        "subtitle_language": "en"
+      },
+      {
+        "name": "TTML Japanese features",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/gen-3/screens/dash-vod-single-segment/video-avc-baseline-480.mp4",
+        "subtitle_uri": "https://storage.googleapis.com/exoplayer-test-media-1/ttml/japanese-ttml.xml",
+        "subtitle_mime_type": "application/ttml+xml",
+        "subtitle_language": "ja"
+      },
+      {
+        "name": "TTML Netflix Japanese examples (IMSC1.1)",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/gen-3/screens/dash-vod-single-segment/video-avc-baseline-480.mp4",
+        "subtitle_uri": "https://storage.googleapis.com/exoplayer-test-media-1/ttml/netflix_japanese_ttml.xml",
+        "subtitle_mime_type": "application/ttml+xml",
+        "subtitle_language": "ja"
+      },
+      {
+        "name": "WebVTT positioning",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/gen-3/screens/dash-vod-single-segment/video-avc-baseline-480.mp4",
+        "subtitle_uri": "https://storage.googleapis.com/exoplayer-test-media-1/webvtt/numeric-lines.vtt",
+        "subtitle_mime_type": "text/vtt",
+        "subtitle_language": "en"
+      },
+      {
+        "name": "WebVTT Japanese features",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/gen-3/screens/dash-vod-single-segment/video-avc-baseline-480.mp4",
+        "subtitle_uri": "https://storage.googleapis.com/exoplayer-test-media-1/webvtt/japanese.vtt",
+        "subtitle_mime_type": "text/vtt",
+        "subtitle_language": "ja"
+      },
+      {
+        "name": "SubStation Alpha positioning",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/gen-3/screens/dash-vod-single-segment/video-avc-baseline-480.mp4",
+        "subtitle_uri": "https://storage.googleapis.com/exoplayer-test-media-1/ssa/test-subs-position.ass",
+        "subtitle_mime_type": "text/x-ssa",
+        "subtitle_language": "en"
+      },
+      {
+        "name": "SubStation Alpha styling",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/gen-3/screens/dash-vod-single-segment/video-avc-baseline-480.mp4",
+        "subtitle_uri": "https://storage.googleapis.com/exoplayer-test-media-1/ssa/test-subs-styling.ass",
+        "subtitle_mime_type": "text/x-ssa",
+        "subtitle_language": "en"
+      },
+      {
+        "name": "MPEG-4 Timed Text",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/dizzy-with-tx3g.mp4"
+      },
+      {
+        "name": "SubRip muxed into MKV",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mkv/android-screens-with-subrip.mkv"
+      },
+      {
+        "name": "Overlapping SSA muxed into MKV",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mkv/android-screens-with-overlapping-ssa.mkv"
+      }
+    ]
+  },
+  {
     "name": "HAGC (ST 2094-50)",
     "samples": [
       {

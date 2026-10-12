@@ -24,6 +24,7 @@ import android.util.AttributeSet;
 import android.view.View;
 import androidx.annotation.Nullable;
 import androidx.media3.common.text.Cue;
+import androidx.media3.common.text.CueUtil;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -97,8 +98,7 @@ import java.util.List;
     int viewHeightMinusPadding = bottom - top;
 
     float defaultViewTextSizePx =
-        SubtitleViewUtils.resolveTextSize(
-            textSizeType, textSize, rawViewHeight, viewHeightMinusPadding);
+        CueUtil.resolveTextSize(textSizeType, textSize, rawViewHeight, viewHeightMinusPadding);
     if (defaultViewTextSizePx <= 0) {
       // Text has no height.
       return;
@@ -111,7 +111,7 @@ import java.util.List;
         cue = repositionVerticalCue(cue);
       }
       float cueTextSizePx =
-          SubtitleViewUtils.resolveTextSize(
+          CueUtil.resolveTextSize(
               cue.textSizeType, cue.textSize, rawViewHeight, viewHeightMinusPadding);
       SubtitlePainter painter = painters.get(i);
       painter.draw(

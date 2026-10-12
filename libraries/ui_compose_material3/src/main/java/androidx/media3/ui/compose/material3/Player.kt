@@ -87,7 +87,9 @@ fun Player(player: Player?, modifier: Modifier = Modifier) {
  * @param contentScale The scaling mode to apply to the content within the [ContentFrame].
  * @param keepContentOnReset Whether to keep the content visible when the player is reset.
  * @param subtitles A composable for rendering subtitles, drawn on top of the [shutter] and the
- *   [artwork].
+ *   [artwork]. Note that the default implementation does not currently support
+ *   [android.text.Spanned] styling or [android.view.accessibility.CaptioningManager.CaptionStyle]
+ *   properties (such as text backgrounds or edge types).
  * @param shutter A composable to be displayed as a shutter over the content. The default shutter is
  *   a black [Box].
  * @param artwork Optional composable slot to render artwork for the current media item.

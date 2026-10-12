@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.media3.common.text.Cue
+import androidx.media3.common.text.CueUtil
 import androidx.media3.ui.compose.material3.R
 import kotlin.math.roundToInt
 
@@ -76,17 +77,20 @@ internal fun ImageCue(cue: Cue, viewport: IntRect, modifier: Modifier = Modifier
 
     layout(viewport.width, viewport.height) {
       placeable.place(
-        x = getOffset(cue.position, cue.positionAnchor, size.width, viewport.width),
+        x =
+          CueUtil.resolveAnchorOffset(cue.position, cue.positionAnchor, size.width, viewport.width)
+            .roundToInt(),
         // Bitmap cues are expected to use fractional line positioning. If lineType is not
         // LINE_TYPE_FRACTION, we treat the line as unset to avoid misinterpreting a line number
         // as a fractional offset, and fall back to centering.
         y =
-          getOffset(
-            if (cue.lineType == Cue.LINE_TYPE_FRACTION) cue.line else Cue.DIMEN_UNSET,
-            cue.lineAnchor,
-            size.height,
-            viewport.height,
-          ),
+          CueUtil.resolveAnchorOffset(
+              if (cue.lineType == Cue.LINE_TYPE_FRACTION) cue.line else Cue.DIMEN_UNSET,
+              cue.lineAnchor,
+              size.height,
+              viewport.height,
+            )
+            .roundToInt(),
       )
     }
   }
@@ -137,42 +141,4 @@ private fun getScaledSize(
     }
 
   return IntSize(width, height)
-}
-
-/**
- * Calculates the pixel offset for placing a cue along a given axis (X or Y) relative to the
- * viewport.
- *
- * If [fractionalPosition] is [Cue.DIMEN_UNSET], the cue is centered within the viewport. Otherwise,
- * the offset is determined by aligning the specified [anchorType] of the cue with the
- * [fractionalPosition] of the viewport.
- *
- * @param fractionalPosition The position of the cue's anchor, expressed as a fraction (between 0
- *   and 1) of [viewDimension], or [Cue.DIMEN_UNSET].
- * @param anchorType The anchor type (e.g., [Cue.ANCHOR_TYPE_START], [Cue.ANCHOR_TYPE_MIDDLE],
- *   [Cue.ANCHOR_TYPE_END]).
- * @param cueDimension The pixel dimension (width or height) of the cue.
- * @param viewDimension The pixel dimension (width or height) of the viewport.
- * @return The absolute pixel offset of the start (top or left) of the cue, relative to the start
- *   (top or left) of the viewport.
- */
-private fun getOffset(
-  fractionalPosition: Float,
-  anchorType: @Cue.AnchorType Int,
-  cueDimension: Int,
-  viewDimension: Int,
-): Int {
-  if (fractionalPosition == Cue.DIMEN_UNSET) {
-    return (viewDimension - cueDimension) / 2 // Fallback to center
-  }
-
-  val anchorPoint = viewDimension * fractionalPosition
-  val offset =
-    when (anchorType) {
-      Cue.ANCHOR_TYPE_END -> anchorPoint - cueDimension
-      Cue.ANCHOR_TYPE_MIDDLE -> anchorPoint - (cueDimension / 2f)
-      Cue.ANCHOR_TYPE_START -> anchorPoint
-      else -> anchorPoint
-    }
-  return offset.roundToInt()
 }
