@@ -56,38 +56,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
     public void cancel() {}
   }
 
-  /** Fake {@link ModuleClient} implementation for tests. */
-  /* package */ static class FakeModuleClient implements ModuleClient {
-
-    /* package */ final AtomicBoolean installModuleCalled;
-    /* package */ Task<Boolean> deviceSupportedTask;
-    /* package */ Task<Boolean> moduleInstalledTask;
-    /* package */ Task<Boolean> installModuleTask;
-
-    /* package */ FakeModuleClient() {
-      this.installModuleCalled = new AtomicBoolean(false);
-      this.deviceSupportedTask = Tasks.forResult(true);
-      this.moduleInstalledTask = Tasks.forResult(true);
-      this.installModuleTask = Tasks.forResult(true);
-    }
-
-    @Override
-    public Task<Boolean> isDeviceSupported() {
-      return deviceSupportedTask;
-    }
-
-    @Override
-    public Task<Boolean> isModuleInstalled() {
-      return moduleInstalledTask;
-    }
-
-    @Override
-    public Task<Boolean> installModule() {
-      installModuleCalled.set(true);
-      return installModuleTask;
-    }
-  }
-
   /** Fake {@link EnhancementSessionManager.Client} for tests. */
   /* package */ static final class FakeClient extends FakeModuleClient
       implements EnhancementSessionManager.Client {
