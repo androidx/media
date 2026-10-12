@@ -36,6 +36,7 @@ public final class OpusDecoderTest {
       new byte[] {79, 112, 117, 115, 72, 101, 97, 100, 0, 2, 1, 56, 0, 0, -69, -128, 0, 0, 0};
 
   private static final byte[] ENCODED_DATA = new byte[] {-4};
+  private static final int DECODED_SAMPLE_COUNT = 960;
   private static final int DECODED_DATA_SIZE = 3840;
 
   private static final int HEADER_PRE_SKIP_SAMPLES = 14337;
@@ -142,6 +143,65 @@ public final class OpusDecoderTest {
     assertThat(decoder.decode(input, output, false)).isNull();
     assertThat(output.data.limit())
         .isEqualTo(DECODED_DATA_SIZE - nanosecondsToBytes(DISCARD_PADDING_NANOS));
+  }
+
+  @Test
+  public void decode_withPreSkipAndPaddingInSupplementalData_removesBoth()
+      throws OpusDecoderException {
+    assertThat(OpusLibrary.isAvailable()).isTrue();
+    OpusDecoder decoder =
+        new OpusDecoder(
+            /* numInputBuffers= */ 0,
+            /* numOutputBuffers= */ 0,
+            /* initialInputBufferSize= */ 0,
+            createInitializationData(/* preSkipNanos= */ PRE_SKIP_NANOS),
+            /* cryptoConfig= */ null,
+            /* outputFloat= */ false);
+    DecoderInputBuffer input =
+        createInputBuffer(
+            decoder,
+            ENCODED_DATA,
+            /* supplementalData= */ buildNativeOrderByteArray(DISCARD_PADDING_NANOS));
+    SimpleDecoderOutputBuffer output = decoder.createOutputBuffer();
+
+    assertThat(decoder.decode(input, output, /* reset= */ false)).isNull();
+
+    assertThat(output.data.position()).isEqualTo(nanosecondsToBytes(PRE_SKIP_NANOS));
+    assertThat(output.data.limit())
+        .isEqualTo(DECODED_DATA_SIZE - nanosecondsToBytes(DISCARD_PADDING_NANOS));
+    assertThat(output.data.remaining())
+        .isEqualTo(
+            DECODED_DATA_SIZE
+                - nanosecondsToBytes(PRE_SKIP_NANOS)
+                - nanosecondsToBytes(DISCARD_PADDING_NANOS));
+    decoder.release();
+  }
+
+  @Test
+  public void decode_withPreSkipAndPaddingExceedingRemainingOutput_skipsOutputBuffer()
+      throws OpusDecoderException {
+    assertThat(OpusLibrary.isAvailable()).isTrue();
+    OpusDecoder decoder =
+        new OpusDecoder(
+            /* numInputBuffers= */ 0,
+            /* numOutputBuffers= */ 0,
+            /* initialInputBufferSize= */ 0,
+            createInitializationData(/* preSkipNanos= */ PRE_SKIP_NANOS),
+            /* cryptoConfig= */ null,
+            /* outputFloat= */ false);
+    DecoderInputBuffer input =
+        createInputBuffer(
+            decoder,
+            ENCODED_DATA,
+            /* supplementalData= */ buildNativeOrderByteArray(
+                sampleCountToNanoseconds(DECODED_SAMPLE_COUNT)));
+    SimpleDecoderOutputBuffer output = decoder.createOutputBuffer();
+
+    assertThat(decoder.decode(input, output, /* reset= */ false)).isNull();
+
+    assertThat(output.shouldBeSkipped).isTrue();
+    assertThat(output.data.remaining()).isEqualTo(0);
+    decoder.release();
   }
 
   // b/528791354

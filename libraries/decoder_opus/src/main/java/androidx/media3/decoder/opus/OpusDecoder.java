@@ -223,11 +223,17 @@ public final class OpusDecoder
         skipSamples = 0;
         outputData.position(skipBytes);
       }
-    } else if (inputBuffer.hasSupplementalData()) {
+    }
+    if (inputBuffer.hasSupplementalData()) {
       int discardPaddingSamples = getDiscardPaddingSamples(inputBuffer.supplementalData);
       if (discardPaddingSamples > 0) {
         int discardBytes = samplesToBytes(discardPaddingSamples, channelCount, outputFloat);
-        if (result >= discardBytes) {
+        // Skip the buffer if the remaining output (after any pre-skip) is completely covered by
+        // discard padding.
+        if (outputData.remaining() <= discardBytes) {
+          outputBuffer.shouldBeSkipped = true;
+          outputData.limit(outputData.position());
+        } else {
           outputData.limit(result - discardBytes);
         }
       }

@@ -94,6 +94,9 @@
         sequence.
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
     *   Opus extension: Fix native crash when decoding invalid Opus data.
+    *   Opus extension: Fix discard padding being ignored when pre-skip and
+        discard padding fall on the same packet
+        ([#2576](https://github.com/androidx/media/issues/2576)).
 *   Transformer:
     *   Support configuring the frame rate of video frame aggregation via
         `Composition.Builder.setVideoFrameAggregationParameters` for export
