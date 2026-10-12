@@ -418,7 +418,11 @@ public final class TestPlayerRunHelper {
             }
           };
       handler.post(checkCondition);
-      runUntil(conditionTrue::get);
+      try {
+        runUntil(conditionTrue::get);
+      } finally {
+        handler.removeCallbacksAndMessages(/* token= */ null);
+      }
     }
 
     /** Runs the main {@link Looper} until {@code predicate} returns true or an error occurs. */
