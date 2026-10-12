@@ -154,6 +154,9 @@
         `MimeTypes.APPLICATION_ITUT_T35` (enabling HAGC playback). Other `mebx`
         tracks are ignored unless `FLAG_EMIT_RAW_MEBX_DATA` is set, in which
         case all `mebx` tracks are emitted as raw `MimeTypes.APPLICATION_MEBX`.
+    *   Ogg: Support extracting Opus end-padding for gapless playback
+        ([#2576](https://github.com/androidx/media/issues/2576)), and fix sample
+        timestamps after seeking to a page that starts with a continued packet.
 *   Inspector:
     *   Support retrieving XMP metadata from MP4 files using
         `MetadataRetriever`.

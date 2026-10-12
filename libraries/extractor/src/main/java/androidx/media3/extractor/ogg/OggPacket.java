@@ -75,6 +75,8 @@ import java.util.Arrays;
         if ((pageHeader.type & 0x01) == 0x01 && packetArray.limit() == 0) {
           // After seeking, the first packet may be the remainder
           // part of a continued packet which has to be discarded.
+          // TODO: b/570551034 - Expose the page's granulePosition when this discarded packet is the
+          // only packet completed on the page so StreamReader can resync currentGranule.
           bytesToSkip += calculatePacketSize(segmentIndex);
           segmentIndex += segmentCount;
         }
@@ -131,6 +133,26 @@ import java.util.Arrays;
         Arrays.copyOf(
             packetArray.getData(), max(OggPageHeader.MAX_PAGE_PAYLOAD, packetArray.limit())),
         /* limit= */ packetArray.limit());
+  }
+
+  /** Returns whether the populated packet is the last packet completed in the current page. */
+  public boolean isLastPacketInPage() {
+    if (!populated) {
+      return false;
+    }
+    if (currentSegmentIndex == C.INDEX_UNSET) {
+      return true;
+    }
+    boolean hasNonEmptySegment = false;
+    for (int i = currentSegmentIndex; i < pageHeader.pageSegmentCount; i++) {
+      if (pageHeader.laces[i] > 0) {
+        hasNonEmptySegment = true;
+      }
+      if (pageHeader.laces[i] < 255 && hasNonEmptySegment) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /**

@@ -52,6 +52,7 @@ public final class OggPacketTest {
                 "media/ogg/four_packets_with_empty_page"));
 
     assertReadPacket(input, firstPacket);
+    assertThat(oggPacket.isLastPacketInPage()).isTrue();
     assertThat((oggPacket.getPageHeader().type & 0x02) == 0x02).isTrue();
     assertThat((oggPacket.getPageHeader().type & 0x04) == 0x04).isFalse();
     assertThat(oggPacket.getPageHeader().type).isEqualTo(0x02);
@@ -64,6 +65,7 @@ public final class OggPacketTest {
     assertThat(oggPacket.getPageHeader().granulePosition).isEqualTo(0);
 
     assertReadPacket(input, secondPacket);
+    assertThat(oggPacket.isLastPacketInPage()).isTrue();
     assertThat((oggPacket.getPageHeader().type & 0x02) == 0x02).isFalse();
     assertThat((oggPacket.getPageHeader().type & 0x04) == 0x04).isFalse();
     assertThat(oggPacket.getPageHeader().type).isEqualTo(0);
@@ -74,6 +76,7 @@ public final class OggPacketTest {
     assertThat(oggPacket.getPageHeader().granulePosition).isEqualTo(16);
 
     assertReadPacket(input, thirdPacket);
+    assertThat(oggPacket.isLastPacketInPage()).isFalse();
     assertThat((oggPacket.getPageHeader().type & 0x02) == 0x02).isFalse();
     assertThat((oggPacket.getPageHeader().type & 0x04) == 0x04).isTrue();
     assertThat(oggPacket.getPageHeader().type).isEqualTo(4);
@@ -85,6 +88,7 @@ public final class OggPacketTest {
     assertThat(oggPacket.getPageHeader().granulePosition).isEqualTo(128);
 
     assertReadPacket(input, fourthPacket);
+    assertThat(oggPacket.isLastPacketInPage()).isTrue();
 
     assertReadEof(input);
   }
@@ -105,8 +109,9 @@ public final class OggPacketTest {
   }
 
   @Test
-  public void populate_packetWithZeroSizeTerminatorOnNextPage_readsPacketsSeparately()
-      throws Exception {
+  public void
+      populate_packetWithZeroSizeTerminatorOnNextPage_readsPacketsAndUpdatesLastPacketInPage()
+          throws Exception {
     byte[] firstPacket = TestUtil.buildTestData(255, random);
     byte[] secondPacket = TestUtil.buildTestData(8, random);
     // Page 1: 1 segment of 255 bytes (packet continues onto Page 2).
@@ -124,7 +129,49 @@ public final class OggPacketTest {
     FakeExtractorInput input = createInput(data);
 
     assertReadPacket(input, firstPacket);
+    assertThat(oggPacket.isLastPacketInPage()).isFalse();
     assertReadPacket(input, secondPacket);
+    assertThat(oggPacket.isLastPacketInPage()).isTrue();
+    assertReadEof(input);
+  }
+
+  @Test
+  public void
+      populate_completedPacketFollowedByIncompleteContinuedPacket_isLastPacketInPageReturnsTrue()
+          throws Exception {
+    byte[] firstPacket = TestUtil.buildTestData(8, random);
+    byte[] secondPacket = TestUtil.buildTestData(16, random);
+    byte[] thirdPacketPart1 = TestUtil.buildTestData(255, random);
+    byte[] thirdPacketPart2 = TestUtil.buildTestData(10, random);
+    // Page 1: 8-byte packet, 16-byte packet, and 255-byte start of third packet (continues onto
+    // Page 2).
+    byte[] page1Header =
+        TestUtil.createByteArray(
+            'O', 'g', 'g', 'S', 0x00, 0x02, 24, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 3, 8, 16, 255);
+    // Page 2: continued packet (0x01 | 0x04 = 0x05) finishing third packet with 10-byte segment.
+    byte[] page2Header =
+        TestUtil.createByteArray(
+            'O', 'g', 'g', 'S', 0x00, 0x05, 40, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0,
+            0, 0, 1, 10);
+    byte[] data =
+        Bytes.concat(
+            page1Header,
+            firstPacket,
+            secondPacket,
+            thirdPacketPart1,
+            page2Header,
+            thirdPacketPart2);
+    byte[] expectedThirdPacket = Bytes.concat(thirdPacketPart1, thirdPacketPart2);
+
+    FakeExtractorInput input = createInput(data);
+
+    assertReadPacket(input, firstPacket);
+    assertThat(oggPacket.isLastPacketInPage()).isFalse();
+    assertReadPacket(input, secondPacket);
+    assertThat(oggPacket.isLastPacketInPage()).isTrue();
+    assertReadPacket(input, expectedThirdPacket);
+    assertThat(oggPacket.isLastPacketInPage()).isTrue();
     assertReadEof(input);
   }
 
@@ -188,8 +235,11 @@ public final class OggPacketTest {
                 "media/ogg/zero_sized_packets_at_end_of_stream"));
 
     assertReadPacket(input, firstPacket);
+    assertThat(oggPacket.isLastPacketInPage()).isTrue();
     assertReadPacket(input, secondPacket);
+    assertThat(oggPacket.isLastPacketInPage()).isTrue();
     assertReadPacket(input, thirdPacket);
+    assertThat(oggPacket.isLastPacketInPage()).isTrue();
     assertReadEof(input);
   }
 

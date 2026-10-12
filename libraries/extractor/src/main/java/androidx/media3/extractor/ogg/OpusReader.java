@@ -18,14 +18,19 @@ package androidx.media3.extractor.ogg;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
+import androidx.media3.common.util.Util;
 import androidx.media3.container.OpusUtil;
 import androidx.media3.container.VorbisUtil;
 import com.google.common.collect.ImmutableList;
+import java.math.RoundingMode;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
@@ -55,6 +60,14 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
   @Override
   protected long preparePayload(ParsableByteArray packet) {
     return convertTimeToGranule(OpusUtil.getPacketDurationUs(packet.getData()));
+  }
+
+  @Override
+  protected byte[] createSupplementalData(long discardGranules) {
+    long discardPaddingNs =
+        Util.scaleLargeValue(
+            discardGranules, C.NANOS_PER_SECOND, OpusUtil.SAMPLE_RATE, RoundingMode.CEILING);
+    return ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).putLong(discardPaddingNs).array();
   }
 
   @Override

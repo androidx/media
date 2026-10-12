@@ -18,6 +18,7 @@ package androidx.media3.extractor.ogg;
 import static androidx.media3.common.util.Util.castNonNull;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.ParsableByteArray;
@@ -27,6 +28,7 @@ import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.TrackOutput;
+import com.google.common.primitives.Ints;
 import java.io.IOException;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
@@ -55,6 +57,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private long targetGranule;
   private long payloadStartPosition;
   private long currentGranule;
+  private long previousPageGranulePosition;
+  private long granulesOnCurrentPage;
   private int state;
   private int sampleRate;
   private SetupData setupData;
@@ -88,6 +92,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     }
     targetGranule = -1;
     currentGranule = 0;
+    previousPageGranulePosition = 0;
+    granulesOnCurrentPage = 0;
   }
 
   /**
@@ -216,19 +222,85 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       lengthOfReadPacket = 0;
       ParsableByteArray payload = oggPacket.getPayload();
       long granulesInPacket = preparePayload(payload);
-      if (granulesInPacket >= 0 && currentGranule + granulesInPacket >= targetGranule) {
-        // calculate time and send payload data to codec
-        long timeUs = convertGranuleToTime(currentGranule);
-        trackOutput.sampleData(payload, payload.limit());
-        trackOutput.sampleMetadata(timeUs, C.BUFFER_FLAG_KEY_FRAME, payload.limit(), 0, null);
-        targetGranule = -1;
+      OggPageHeader pageHeader = oggPacket.getPageHeader();
+      boolean isLastPacketInPage = oggPacket.isLastPacketInPage();
+      // Resync currentGranule at the end of a continued non-EOS page to account for a leading
+      // continued packet discarded after seeking. EOS pages are skipped because their granule
+      // position also encodes end trimming; forwards only so a page whose granule position is
+      // below the packet sum can't move timestamps backwards.
+      if (isLastPacketInPage
+          && granulesInPacket >= 0
+          && (pageHeader.type & 0x01) != 0 // Type 1 is continued packet.
+          && (pageHeader.type & 0x04) == 0 // Type 4 is end of stream.
+          && pageHeader.granulePosition - granulesInPacket > currentGranule) {
+        currentGranule = pageHeader.granulePosition - granulesInPacket;
+      }
+      if (granulesInPacket >= 0) {
+        if (currentGranule + granulesInPacket >= targetGranule) {
+          // calculate time and send payload data to codec
+          long timeUs = convertGranuleToTime(currentGranule);
+          boolean isLastPacketInStream = (pageHeader.type & 0x04) != 0 && isLastPacketInPage;
+          @Nullable byte[] supplementalData = null;
+          if (isLastPacketInStream && pageHeader.granulePosition >= 0) {
+            long samplesToKeep = pageHeader.granulePosition - previousPageGranulePosition;
+            long discardGranules = granulesOnCurrentPage + granulesInPacket - samplesToKeep;
+            if (samplesToKeep >= 0 && discardGranules > 0) {
+              supplementalData = createSupplementalData(discardGranules);
+            }
+          }
+          // If there is supplemental data, the structure of the sample data is:
+          // sample size (4 bytes, big-endian) || sample data || supplemental data
+          if (supplementalData != null) {
+            int sampleSize = payload.limit();
+            trackOutput.sampleData(
+                new ParsableByteArray(Ints.toByteArray(sampleSize)),
+                4,
+                TrackOutput.SAMPLE_DATA_PART_SUPPLEMENTAL);
+            trackOutput.sampleData(payload, sampleSize);
+            trackOutput.sampleData(
+                new ParsableByteArray(supplementalData),
+                supplementalData.length,
+                TrackOutput.SAMPLE_DATA_PART_SUPPLEMENTAL);
+            trackOutput.sampleMetadata(
+                timeUs,
+                C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                4 + sampleSize + supplementalData.length,
+                /* offset= */ 0,
+                /* cryptoData= */ null);
+          } else {
+            trackOutput.sampleData(payload, payload.limit());
+            trackOutput.sampleMetadata(
+                timeUs,
+                C.BUFFER_FLAG_KEY_FRAME,
+                payload.limit(),
+                /* offset= */ 0,
+                /* cryptoData= */ null);
+          }
+          targetGranule = -1;
+        }
+        granulesOnCurrentPage += granulesInPacket;
       }
       currentGranule += granulesInPacket;
+      if (isLastPacketInPage && pageHeader.granulePosition >= 0) {
+        previousPageGranulePosition = pageHeader.granulePosition;
+        granulesOnCurrentPage = 0;
+      }
     } else {
       state = STATE_END_OF_INPUT;
       return Extractor.RESULT_END_OF_INPUT;
     }
     return Extractor.RESULT_CONTINUE;
+  }
+
+  /**
+   * Creates supplemental data for end-of-stream padding, or returns {@code null} if not supported.
+   *
+   * @param discardGranules The number of granules to discard from the end of the packet.
+   * @return The supplemental data bytes, or {@code null}.
+   */
+  @Nullable
+  protected byte[] createSupplementalData(long discardGranules) {
+    return null;
   }
 
   /**
@@ -279,6 +351,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    */
   protected void onSeekEnd(long currentGranule) {
     this.currentGranule = currentGranule;
+    this.previousPageGranulePosition = currentGranule;
+    this.granulesOnCurrentPage = 0;
   }
 
   private static final class UnseekableOggSeeker implements OggSeeker {

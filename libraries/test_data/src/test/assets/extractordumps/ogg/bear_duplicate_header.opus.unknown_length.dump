@@ -4,7 +4,7 @@ seekMap:
   getPosition(0) = [[timeUs=0, position=0]]
 numberOfTracks = 1
 track 0:
-  total output bytes = 25541
+  total output bytes = 25553
   sample count = 275
   format 0:
     containerMimeType = audio/ogg
@@ -1114,6 +1114,6 @@ track 0:
     data = length 120, hash 745C3714
   sample 274:
     time = 2740000
-    flags = 1
-    data = length 126, hash 505E117B
+    flags = 268435457
+    data = length 138, hash 27C53C2B
 tracksEnded = true
