@@ -286,30 +286,30 @@ import java.util.List;
       if (state != STATE_SHUT_DOWN) {
         // Shut down threads in STATE_CREATED as well, as initialize() may have failed after
         // starting them.
-        try {
-          bufferEnqueuer.shutdown();
-        } finally {
-          asynchronousMediaCodecCallback.shutdown();
-        }
+        bufferEnqueuer.shutdown();
       }
       state = STATE_SHUT_DOWN;
     } finally {
-      if (!codecReleased) {
-        try {
-          // Stopping the codec before releasing it works around a bug on APIs 30, 31 and 32 where
-          // MediaCodec.release() returns too early before fully detaching a Surface, and a
-          // subsequent MediaCodec.configure() call using the same Surface then fails. See
-          // https://github.com/google/ExoPlayer/issues/8696 and b/191966399.
-          if (SDK_INT >= 30 && SDK_INT < 33) {
-            codec.stop();
+      try {
+        if (!codecReleased) {
+          try {
+            // Stopping the codec before releasing it works around a bug on APIs 30, 31 and 32 where
+            // MediaCodec.release() returns too early before fully detaching a Surface, and a
+            // subsequent MediaCodec.configure() call using the same Surface then fails. See
+            // https://github.com/google/ExoPlayer/issues/8696 and b/191966399.
+            if (SDK_INT >= 30 && SDK_INT < 33) {
+              codec.stop();
+            }
+          } finally {
+            if (SDK_INT >= 35 && loudnessCodecController != null) {
+              loudnessCodecController.removeMediaCodec(codec);
+            }
+            codec.release();
+            codecReleased = true;
           }
-        } finally {
-          if (SDK_INT >= 35 && loudnessCodecController != null) {
-            loudnessCodecController.removeMediaCodec(codec);
-          }
-          codec.release();
-          codecReleased = true;
         }
+      } finally {
+        asynchronousMediaCodecCallback.shutdown();
       }
     }
   }
