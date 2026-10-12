@@ -36,6 +36,8 @@ import java.util.Arrays;
   private int currentSegmentIndex = C.INDEX_UNSET;
   private int segmentCount;
   private boolean populated;
+  private boolean hasDiscardedPacketOnPage;
+  private long discardedPacketGranulePosition = C.INDEX_UNSET;
 
   /** Resets this reader. */
   public void reset() {
@@ -43,6 +45,8 @@ import java.util.Arrays;
     packetArray.reset(/* limit= */ 0);
     currentSegmentIndex = C.INDEX_UNSET;
     populated = false;
+    hasDiscardedPacketOnPage = false;
+    discardedPacketGranulePosition = C.INDEX_UNSET;
   }
 
   /**
@@ -62,6 +66,7 @@ import java.util.Arrays;
     if (populated) {
       populated = false;
       packetArray.reset(/* limit= */ 0);
+      discardedPacketGranulePosition = C.INDEX_UNSET;
     }
 
     while (!populated) {
@@ -72,13 +77,13 @@ import java.util.Arrays;
         }
         int segmentIndex = 0;
         int bytesToSkip = pageHeader.headerSize;
+        hasDiscardedPacketOnPage = false;
         if ((pageHeader.type & 0x01) == 0x01 && packetArray.limit() == 0) {
           // After seeking, the first packet may be the remainder
           // part of a continued packet which has to be discarded.
-          // TODO: b/570551034 - Expose the page's granulePosition when this discarded packet is the
-          // only packet completed on the page so StreamReader can resync currentGranule.
           bytesToSkip += calculatePacketSize(segmentIndex);
           segmentIndex += segmentCount;
+          hasDiscardedPacketOnPage = segmentCount > 0 && pageHeader.laces[segmentIndex - 1] != 255;
         }
         if (!skipFullyQuietly(input, bytesToSkip)) {
           return false;
@@ -98,11 +103,27 @@ import java.util.Arrays;
       if (packetArray.limit() > 0 && segmentCount > 0) {
         populated = pageHeader.laces[segmentIndex - 1] != 255;
       }
+      if (populated) {
+        hasDiscardedPacketOnPage = false;
+      } else if (hasDiscardedPacketOnPage
+          && segmentIndex == pageHeader.pageSegmentCount
+          && (pageHeader.type & 0x04) == 0
+          && pageHeader.granulePosition >= 0) {
+        discardedPacketGranulePosition = pageHeader.granulePosition;
+      }
       // Advance now since we are sure reading didn't throw an exception.
       currentSegmentIndex =
           segmentIndex == pageHeader.pageSegmentCount ? C.INDEX_UNSET : segmentIndex;
     }
     return true;
+  }
+
+  /**
+   * Returns the {@code granulePosition} of the last continued page whose only completed packet was
+   * discarded during {@link #populate(ExtractorInput)}, or {@link C#INDEX_UNSET} if none.
+   */
+  public long getDiscardedPacketGranulePosition() {
+    return discardedPacketGranulePosition;
   }
 
   /**

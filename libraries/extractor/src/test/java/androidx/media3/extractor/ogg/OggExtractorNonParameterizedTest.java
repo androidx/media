@@ -443,6 +443,68 @@ public final class OggExtractorNonParameterizedTest {
   }
 
   @Test
+  public void
+      read_opusSeekLandingOnContinuedPageWithOnlyDiscardedPacketCompleted_syncsGranuleAndExtractsPadding()
+          throws Exception {
+    // TOC byte 0xF8 encodes 1 frame of 20ms (960 samples at 48kHz).
+    byte[] opusAudioPacket = new byte[] {(byte) 0xF8};
+    byte[] incompletePacketStart = new byte[255];
+    incompletePacketStart[0] = (byte) 0xF8;
+    byte[] incompletePacketContinuation = new byte[] {0x00};
+    byte[] data =
+        Bytes.concat(
+            createOggPage(
+                /* type= */ 0x02,
+                /* granulePosition= */ 0,
+                /* pageSequenceNumber= */ 0,
+                createOpusIdHeader()),
+            createOggPage(
+                /* type= */ 0x00,
+                /* granulePosition= */ 0,
+                /* pageSequenceNumber= */ 1,
+                opusCommentHeader),
+            // Page 2 finishes packet 1 (at granule 960) and starts packet 2 (spanning onto page 3).
+            createOggPage(
+                /* type= */ 0x00,
+                /* granulePosition= */ 960,
+                /* pageSequenceNumber= */ 2,
+                opusAudioPacket,
+                incompletePacketStart),
+            // Page 3 (type=0x01 continued packet) ONLY finishes packet 2 (at 1920) and starts
+            // packet 3 (255-byte segment spanning onto page 4).
+            createOggPage(
+                /* type= */ 0x01,
+                /* granulePosition= */ 1920,
+                /* pageSequenceNumber= */ 3,
+                incompletePacketContinuation,
+                incompletePacketStart),
+            // Page 4 (type=0x05 continued + EOS) finishes packet 3 (960 granules -> 2880 total,
+            // granulePosition 2700 -> 180 trim).
+            createOggPage(
+                /* type= */ 0x05,
+                /* granulePosition= */ 2700,
+                /* pageSequenceNumber= */ 4,
+                incompletePacketContinuation));
+
+    // Seek to 25ms (1200 granules), which skips page 2 (granule 960) and lands on continued page 3
+    // (granule 1920). Packet 2 is discarded on page 3 and packet 3 finishes on page 4.
+    FakeTrackOutput trackOutput = seekAndExtractOpusTrack(data, /* seekTimeUs= */ 25_000);
+
+    assertThat(trackOutput.getSampleCount()).isEqualTo(1);
+    assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(40_000);
+    assertThat(trackOutput.getSampleFlags(0) & C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA)
+        .isEqualTo(C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA);
+    byte[] sampleData = trackOutput.getSampleData(0);
+    long discardPaddingNs =
+        ByteBuffer.wrap(sampleData, sampleData.length - 8, 8)
+            .order(ByteOrder.LITTLE_ENDIAN)
+            .getLong();
+    int roundTripDiscardSamples =
+        (int) ((discardPaddingNs * OpusUtil.SAMPLE_RATE) / C.NANOS_PER_SECOND);
+    assertThat(roundTripDiscardSamples).isEqualTo(180);
+  }
+
+  @Test
   public void sniffVorbis() throws Exception {
     byte[] data =
         getByteArray(ApplicationProvider.getApplicationContext(), "media/ogg/vorbis_header");

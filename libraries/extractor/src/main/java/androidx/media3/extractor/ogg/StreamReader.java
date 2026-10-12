@@ -220,6 +220,13 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
     if (lengthOfReadPacket > 0 || oggPacket.populate(input)) {
       lengthOfReadPacket = 0;
+      // After a seek, OggPacket may have moved past a continued page whose only completed packet
+      // was the discarded remainder; resync from that page's granule position.
+      if (oggPacket.getDiscardedPacketGranulePosition() > currentGranule) {
+        currentGranule = oggPacket.getDiscardedPacketGranulePosition();
+        previousPageGranulePosition = oggPacket.getDiscardedPacketGranulePosition();
+        granulesOnCurrentPage = 0;
+      }
       ParsableByteArray payload = oggPacket.getPayload();
       long granulesInPacket = preparePayload(payload);
       OggPageHeader pageHeader = oggPacket.getPageHeader();

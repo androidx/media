@@ -18,6 +18,7 @@ package androidx.media3.extractor.ogg;
 import static androidx.media3.test.utils.TestUtil.getByteArray;
 import static com.google.common.truth.Truth.assertThat;
 
+import androidx.media3.common.C;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.test.utils.FakeExtractorInput;
 import androidx.media3.test.utils.TestUtil;
@@ -220,6 +221,84 @@ public final class OggPacketTest {
 
     // Expect the first partial packet to be discarded.
     assertReadPacket(input, Arrays.copyOfRange(pageBody, 256, 256 + 8));
+    assertThat(oggPacket.getDiscardedPacketGranulePosition()).isEqualTo(C.INDEX_UNSET);
+    assertReadEof(input);
+  }
+
+  @Test
+  public void
+      populate_continuedPageWithOnlyDiscardedPacketCompleted_setsDiscardedPacketGranulePosition()
+          throws Exception {
+    byte[] discardedRemainder = TestUtil.buildTestData(100, random);
+    byte[] secondPacketPart1 = TestUtil.buildTestData(255, random);
+    byte[] secondPacketPart2 = TestUtil.buildTestData(50, random);
+    byte[] thirdPacket = TestUtil.buildTestData(80, random);
+    // Page 1: continued page (0x01) with granulePosition = 1000 (0xE8, 0x03), containing a
+    // 100-byte discarded remainder and the 255-byte start of the second packet.
+    byte[] page1Header =
+        TestUtil.createByteArray(
+            'O', 'g', 'g', 'S', 0x00, 0x01, 0xE8, 0x03, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0,
+            0, 0, 0, 2, 100, 255);
+    // Page 2: continued EOS page (0x01 | 0x04 = 0x05) with granulePosition = 2000 (0xD0, 0x07),
+    // finishing the second packet (50 bytes) followed by the third packet (80 bytes).
+    byte[] page2Header =
+        TestUtil.createByteArray(
+            'O', 'g', 'g', 'S', 0x00, 0x05, 0xD0, 0x07, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 0,
+            0, 0, 0, 2, 50, 80);
+    byte[] data =
+        Bytes.concat(
+            page1Header,
+            discardedRemainder,
+            secondPacketPart1,
+            page2Header,
+            secondPacketPart2,
+            thirdPacket);
+    byte[] expectedSecondPacket = Bytes.concat(secondPacketPart1, secondPacketPart2);
+    FakeExtractorInput input = createInput(data);
+
+    assertReadPacket(input, expectedSecondPacket);
+    assertThat(oggPacket.getDiscardedPacketGranulePosition()).isEqualTo(1000);
+    assertReadPacket(input, thirdPacket);
+    assertThat(oggPacket.getDiscardedPacketGranulePosition()).isEqualTo(C.INDEX_UNSET);
+    assertReadEof(input);
+  }
+
+  @Test
+  public void
+      populate_continuedPageWithDiscardedAndCompletedAndContinuedPackets_doesNotSetDiscardedGranule()
+          throws Exception {
+    byte[] discardedRemainder = TestUtil.buildTestData(100, random);
+    byte[] completedPacket = TestUtil.buildTestData(80, random);
+    byte[] continuedPacketPart1 = TestUtil.buildTestData(255, random);
+    byte[] continuedPacketPart2 = TestUtil.buildTestData(50, random);
+    // Page 1: continued page (0x01) with granulePosition = 1000 (0xE8, 0x03), containing a
+    // 100-byte discarded remainder, an 80-byte complete packet, and the 255-byte start of the next
+    // packet.
+    byte[] page1Header =
+        TestUtil.createByteArray(
+            'O', 'g', 'g', 'S', 0x00, 0x01, 0xE8, 0x03, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0,
+            0, 0, 0, 3, 100, 80, 255);
+    // Page 2: continued EOS page (0x01 | 0x04 = 0x05) with granulePosition = 2000 (0xD0, 0x07),
+    // finishing the continued packet (50 bytes).
+    byte[] page2Header =
+        TestUtil.createByteArray(
+            'O', 'g', 'g', 'S', 0x00, 0x05, 0xD0, 0x07, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 0,
+            0, 0, 0, 1, 50);
+    byte[] data =
+        Bytes.concat(
+            page1Header,
+            discardedRemainder,
+            completedPacket,
+            continuedPacketPart1,
+            page2Header,
+            continuedPacketPart2);
+    byte[] expectedContinuedPacket = Bytes.concat(continuedPacketPart1, continuedPacketPart2);
+    FakeExtractorInput input = createInput(data);
+
+    assertReadPacket(input, completedPacket);
+    assertThat(oggPacket.getDiscardedPacketGranulePosition()).isEqualTo(C.INDEX_UNSET);
+    assertReadPacket(input, expectedContinuedPacket);
+    assertThat(oggPacket.getDiscardedPacketGranulePosition()).isEqualTo(C.INDEX_UNSET);
     assertReadEof(input);
   }
 
