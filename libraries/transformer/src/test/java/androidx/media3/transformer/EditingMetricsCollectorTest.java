@@ -367,6 +367,10 @@ public final class EditingMetricsCollectorTest {
     assertThat(bundle).isNotNull();
     assertThat(bundle.getString(EditingMetricsCollector.KEY_PROCESSOR_NAME))
         .isEqualTo(EXPORTER_NAME);
+    assertThat(bundle.getInt(EditingMetricsCollector.KEY_EVENT))
+        .isEqualTo(EditingMetricsCollector.EVENT_SESSION_END);
+    assertThat(bundle.getInt(EditingMetricsCollector.KEY_STATUS))
+        .isEqualTo(EditingMetricsCollector.STATUS_NO_ERROR);
     assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_COMPONENTS))
         .asList()
         .containsExactly(EditingMetricsCollector.COMPONENT_MEDIA3_EFFECT_SPATIAL);
@@ -633,6 +637,48 @@ public final class EditingMetricsCollectorTest {
         EMPTY_COMPOSITION, createDefaultExportResult(), /* isExportResumed= */ false);
 
     assertThat(bundleReference.get()).isNull();
+  }
+
+  @Test
+  public void onExportError_withVideoEffect_populatesErrorUnknownStatus() {
+    AtomicReference<PersistableBundle> bundleReference = new AtomicReference<>();
+    EditingMetricsCollector collector = createCollectorForEffectMetrics(bundleReference);
+    Crop crop =
+        new Crop(/* left= */ -0.5f, /* right= */ 0.5f, /* bottom= */ -0.5f, /* top= */ 0.5f);
+    Composition composition = createCompositionWithVideoEffects(crop);
+
+    collector.onExportError(
+        composition,
+        /* progressPercentage= */ 50,
+        ExportException.createForMuxer(
+            new RuntimeException(), ExportException.ERROR_CODE_MUXING_FAILED),
+        createDefaultExportResult(),
+        /* isExportResumed= */ false);
+
+    PersistableBundle bundle = bundleReference.get();
+    assertThat(bundle).isNotNull();
+    assertThat(bundle.getInt(EditingMetricsCollector.KEY_EVENT))
+        .isEqualTo(EditingMetricsCollector.EVENT_SESSION_END);
+    assertThat(bundle.getInt(EditingMetricsCollector.KEY_STATUS, /* defaultValue= */ -1))
+        .isEqualTo(EditingMetricsCollector.STATUS_ERROR_UNKNOWN);
+  }
+
+  @Test
+  public void onExportCancelled_withVideoEffect_populatesNoErrorStatus() {
+    AtomicReference<PersistableBundle> bundleReference = new AtomicReference<>();
+    EditingMetricsCollector collector = createCollectorForEffectMetrics(bundleReference);
+    Crop crop =
+        new Crop(/* left= */ -0.5f, /* right= */ 0.5f, /* bottom= */ -0.5f, /* top= */ 0.5f);
+    Composition composition = createCompositionWithVideoEffects(crop);
+
+    collector.onExportCancelled(composition, /* progressPercentage= */ 50);
+
+    PersistableBundle bundle = bundleReference.get();
+    assertThat(bundle).isNotNull();
+    assertThat(bundle.getInt(EditingMetricsCollector.KEY_EVENT))
+        .isEqualTo(EditingMetricsCollector.EVENT_SESSION_END);
+    assertThat(bundle.getInt(EditingMetricsCollector.KEY_STATUS))
+        .isEqualTo(EditingMetricsCollector.STATUS_NO_ERROR);
   }
 
   private static EditingMetricsCollector createCollectorForEffectMetrics(

@@ -125,13 +125,9 @@ import java.util.Set;
     @Override
     public void reportEffectMetrics(PersistableBundle bundle) {
       if (!effectMetricsReported && mediaMetricsManager != null) {
-        if (editingSession != null) {
-          LogSessionId logSessionId = editingSession.getSessionId();
-          if (logSessionId != null) {
-            bundle.putString(KEY_PRIMARY_LOG_SESSION_ID, logSessionId.getStringId());
-          }
-        }
         bundle.putInt(BundleSession.KEY_STATSD_ATOM, STATSD_ATOM_MEDIA_PROCESSING_EVENT_REPORTED);
+        // TODO: b/571599468 - Report effect metrics via editingSession.reportBundleMetrics(bundle)
+        //  once available in the SDK.
         try (BundleSession bundleSession = mediaMetricsManager.createBundleSession()) {
           bundleSession.reportBundleMetrics(bundle);
           effectMetricsReported = true;
@@ -159,6 +155,55 @@ import java.util.Set;
       return null;
     }
   }
+
+  // Constants for Atom 1279 (MediaProcessingEventReported) and BundleSession keys.
+  @VisibleForTesting
+  /* package */ static final String KEY_PROCESSOR_NAME = "mediaprocessingevent-processor-name";
+
+  @VisibleForTesting /* package */ static final String KEY_EVENT = "mediaprocessingevent-event";
+
+  // TODO: b/571599468 - Remove KEY_STATUS once effect metrics are reported via
+  //  editingSession.reportBundleMetrics(bundle).
+  @VisibleForTesting /* package */ static final String KEY_STATUS = "mediaprocessingevent-status";
+
+  @VisibleForTesting
+  /* package */ static final String KEY_COMPONENTS = "mediaprocessingevent-components";
+
+  @VisibleForTesting
+  /* package */ static final String KEY_COMPONENT_SCOPES = "mediaprocessingevent-component-scopes";
+
+  @VisibleForTesting /* package */ static final String KEY_METRICS = "mediaprocessingevent-metrics";
+
+  @VisibleForTesting
+  /* package */ static final String KEY_METRIC_VALUES = "mediaprocessingevent-metric-values";
+
+  // Event and Status enums for Atom 1279.
+  @VisibleForTesting /* package */ static final int EVENT_SESSION_END = 6;
+  @VisibleForTesting /* package */ static final int STATUS_ERROR_UNKNOWN = 0;
+  @VisibleForTesting /* package */ static final int STATUS_NO_ERROR = 1;
+
+  // Media3 Component category enums for Atom 1279.
+  @VisibleForTesting /* package */ static final int COMPONENT_MEDIA3_EFFECT_COLOR = 100;
+  @VisibleForTesting /* package */ static final int COMPONENT_MEDIA3_EFFECT_SPATIAL = 101;
+  @VisibleForTesting /* package */ static final int COMPONENT_MEDIA3_EFFECT_CONVOLUTION = 102;
+  @VisibleForTesting /* package */ static final int COMPONENT_MEDIA3_EFFECT_OVERLAY = 103;
+  @VisibleForTesting /* package */ static final int COMPONENT_MEDIA3_EFFECT_TEMPORAL = 104;
+  @VisibleForTesting /* package */ static final int COMPONENT_MEDIA3_EFFECT_BUFFER = 105;
+  @VisibleForTesting /* package */ static final int COMPONENT_MEDIA3_EFFECT_CUSTOM = 199;
+
+  @VisibleForTesting /* package */ static final int COMPONENT_MEDIA3_AUDIO_SPEED_AND_PITCH = 200;
+
+  @VisibleForTesting
+  /* package */ static final int COMPONENT_MEDIA3_AUDIO_CHANNEL_MANIPULATION = 201;
+
+  @VisibleForTesting /* package */ static final int COMPONENT_MEDIA3_AUDIO_TEMPORAL_TRIM = 202;
+  @VisibleForTesting /* package */ static final int COMPONENT_MEDIA3_AUDIO_PROCESSOR_CUSTOM = 299;
+
+  // Quantitative Metric keys for Atom 1279.
+  @VisibleForTesting /* package */ static final int METRIC_SPEED_MULTIPLIER = 300;
+  @VisibleForTesting /* package */ static final int METRIC_ROTATION_DEGREES = 301;
+  @VisibleForTesting /* package */ static final int METRIC_FILTER_SAMPLE_COUNT = 302;
+  @VisibleForTesting /* package */ static final int METRIC_OVERLAY_COUNT = 303;
 
   private static final String TAG = "EditingMetricsCollector";
   // TODO: b/386328723 - Add missing error codes to EditingEndedEvent.ErrorCode.
@@ -243,35 +288,7 @@ import java.util.Set;
   }
 
   private static final int SUCCESS_PROGRESS_PERCENTAGE = 100;
-
-  // Constants for Atom 1279 (MediaProcessingEventReported) and BundleSession keys.
-  @VisibleForTesting static final String KEY_PRIMARY_LOG_SESSION_ID = "primary_log_session_id";
-  @VisibleForTesting static final String KEY_PROCESSOR_NAME = "processor_name";
-  @VisibleForTesting static final String KEY_COMPONENTS = "components";
-  @VisibleForTesting static final String KEY_COMPONENT_SCOPES = "component_scopes";
-  @VisibleForTesting static final String KEY_METRICS = "metrics";
-  @VisibleForTesting static final String KEY_METRIC_VALUES = "metric_values";
   private static final int STATSD_ATOM_MEDIA_PROCESSING_EVENT_REPORTED = 1279;
-
-  // Media3 Component category enums for Atom 1279.
-  @VisibleForTesting static final int COMPONENT_MEDIA3_EFFECT_COLOR = 100;
-  @VisibleForTesting static final int COMPONENT_MEDIA3_EFFECT_SPATIAL = 101;
-  @VisibleForTesting static final int COMPONENT_MEDIA3_EFFECT_CONVOLUTION = 102;
-  @VisibleForTesting static final int COMPONENT_MEDIA3_EFFECT_OVERLAY = 103;
-  @VisibleForTesting static final int COMPONENT_MEDIA3_EFFECT_TEMPORAL = 104;
-  @VisibleForTesting static final int COMPONENT_MEDIA3_EFFECT_BUFFER = 105;
-  @VisibleForTesting static final int COMPONENT_MEDIA3_EFFECT_CUSTOM = 199;
-
-  @VisibleForTesting static final int COMPONENT_MEDIA3_AUDIO_SPEED_AND_PITCH = 200;
-  @VisibleForTesting static final int COMPONENT_MEDIA3_AUDIO_CHANNEL_MANIPULATION = 201;
-  @VisibleForTesting static final int COMPONENT_MEDIA3_AUDIO_TEMPORAL_TRIM = 202;
-  @VisibleForTesting static final int COMPONENT_MEDIA3_AUDIO_PROCESSOR_CUSTOM = 299;
-
-  // Quantitative Metric keys for Atom 1279.
-  @VisibleForTesting static final int METRIC_SPEED_MULTIPLIER = 300;
-  @VisibleForTesting static final int METRIC_ROTATION_DEGREES = 301;
-  @VisibleForTesting static final int METRIC_FILTER_SAMPLE_COUNT = 302;
-  @VisibleForTesting static final int METRIC_OVERLAY_COUNT = 303;
 
   private final long startTimeMs;
   private final boolean compositionHasAudioProcessors;
@@ -317,7 +334,7 @@ import java.util.Set;
    */
   public void onExportSuccess(
       Composition composition, ExportResult exportResult, boolean isExportResumed) {
-    reportEffectMetrics(composition);
+    reportEffectMetrics(composition, STATUS_NO_ERROR);
     EditingEndedEvent.Builder editingEndedEventBuilder =
         createEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_SUCCEEDED)
             .setFinalProgressPercent(SUCCESS_PROGRESS_PERCENTAGE);
@@ -355,7 +372,7 @@ import java.util.Set;
       ExportException exportException,
       ExportResult exportResult,
       boolean isExportResumed) {
-    reportEffectMetrics(composition);
+    reportEffectMetrics(composition, STATUS_ERROR_UNKNOWN);
     EditingEndedEvent.Builder editingEndedEventBuilder =
         createEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_ERROR)
             .setErrorCode(getEditingEndedEventErrorCode(exportException.errorCode));
@@ -388,7 +405,9 @@ import java.util.Set;
    *     C#PERCENTAGE_UNSET} if unknown or between 0 and 100 inclusive.
    */
   public void onExportCancelled(Composition composition, int progressPercentage) {
-    reportEffectMetrics(composition);
+    // android.media.Status has no cancelled state; log STATUS_NO_ERROR as user-initiated
+    // cancellation is not an export error.
+    reportEffectMetrics(composition, STATUS_NO_ERROR);
     EditingEndedEvent.Builder editingEndedEventBuilder =
         createEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_CANCELED);
     if (progressPercentage != C.PERCENTAGE_UNSET) {
@@ -592,7 +611,7 @@ import java.util.Set;
    * Reports video effects and audio processors diagnostic metrics for the given {@link
    * Composition}.
    */
-  private void reportEffectMetrics(Composition composition) {
+  private void reportEffectMetrics(Composition composition, int status) {
     ExtractedEffectMetrics metrics = extractEffectMetrics(composition);
     if (metrics.components.isEmpty()) {
       return;
@@ -600,6 +619,8 @@ import java.util.Set;
 
     PersistableBundle bundle = new PersistableBundle();
     bundle.putString(KEY_PROCESSOR_NAME, exporterName);
+    bundle.putInt(KEY_EVENT, EVENT_SESSION_END);
+    bundle.putInt(KEY_STATUS, status);
 
     int[] componentsArray = new int[metrics.components.size()];
     int[] scopesArray = new int[metrics.scopes.size()];
