@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -32,12 +33,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -87,7 +88,6 @@ import androidx.media3.demo.compose.viewmodel.PlayerLifecycleViewModel
 import androidx.media3.demo.compose.viewmodel.rememberPlayerWithLifecycle
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.Artwork
-import androidx.media3.ui.compose.material3.MiniController
 import androidx.media3.ui.compose.material3.Player
 import androidx.media3.ui.compose.material3.PlayerDefaults
 import androidx.media3.ui.compose.material3.buttons.MuteButton
@@ -126,9 +126,12 @@ internal fun LongFormPlayerScreen(
 ) {
   val scope = rememberCoroutineScope()
   var currentContentScaleIndex by rememberSaveable { mutableIntStateOf(0) }
-  var showPlaylist by rememberSaveable { mutableStateOf(false) }
-  var showMiniController by rememberSaveable { mutableStateOf(false) }
   var showSettings by rememberSaveable { mutableStateOf(false) }
+  val playlistSheetState =
+    rememberBottomSheetState(
+      initialValue = SheetValue.Hidden,
+      enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+    )
   val castState = rememberCastState(player)
   val isRemotePlayback = castState.isRemotePlayback
   val mediaRouteButtonState = rememberMediaRouteButtonState()
@@ -320,35 +323,15 @@ internal fun LongFormPlayerScreen(
           verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
           CurrentMediaItemCard(player, Modifier.fillMaxWidth())
-          Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PlaylistButton(onClick = { showPlaylist = true })
-            PlayingNowButton(
-              showMiniController,
-              onClick = { showMiniController = !showMiniController },
-            )
-          }
+          PlaylistButton(onClick = { scope.launch { playlistSheetState.show() } })
         }
-        if (showMiniController) {
-          MiniController(
-            player = player,
-            modifier =
-              Modifier.fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(bottom = 10.dp),
-            bitmapLoader = bitmapLoader,
-            defaultArtwork = fallbackPainter,
-          )
-        }
+        PlaylistInfoBottomSheet(
+          player = player,
+          sheetState = playlistSheetState,
+          modifier = Modifier.align(Alignment.TopCenter).fillMaxHeight(),
+          bitmapLoader = bitmapLoader,
+        )
       }
-    }
-    if (showPlaylist) {
-      PlaylistInfoBottomSheet(
-        player = player,
-        onDismissRequest = { showPlaylist = false },
-        modifier = Modifier.fillMaxWidth(),
-        bitmapLoader = bitmapLoader,
-      )
     }
     if (showSettings) {
       SettingsBottomSheet(
@@ -369,18 +352,6 @@ private fun PlaylistButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
   Button(onClick, modifier) { Text("Playlist") }
 }
 
-@Composable
-private fun PlayingNowButton(visible: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
-  ElevatedButton(
-    onClick = onClick,
-    modifier = modifier,
-    elevation =
-      ButtonDefaults.elevatedButtonElevation(defaultElevation = if (visible) 0.dp else 8.dp),
-  ) {
-    Text("Playing Now")
-  }
-}
-
 /**
  * Returns the height of the player: the top third of the screen, or more if needed to fit a
  * landscape video to the width of the screen, while leaving at least a quarter of the screen for
@@ -392,8 +363,9 @@ private fun playerHeight(screenWidth: Dp, screenHeight: Dp, videoAspectRatio: Fl
   return min(max(screenHeight / 3, videoHeightAtFullWidth), screenHeight * 3 / 4)
 }
 
+/** Returns a [Painter] that draws [painter] tinted with [tint]. */
 @Composable
-private fun rememberTintedPainter(painter: Painter, tint: Color): Painter {
+internal fun rememberTintedPainter(painter: Painter, tint: Color): Painter {
   return remember(painter, tint) {
     object : Painter() {
       override val intrinsicSize
