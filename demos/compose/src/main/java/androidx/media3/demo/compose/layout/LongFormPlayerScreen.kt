@@ -16,19 +16,25 @@
 
 package androidx.media3.demo.compose.layout
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -74,6 +80,7 @@ import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.datasource.DataSourceBitmapLoader
 import androidx.media3.demo.compose.R
 import androidx.media3.demo.compose.buttons.CcButton
+import androidx.media3.demo.compose.buttons.FullscreenButton
 import androidx.media3.demo.compose.buttons.LabeledProgressSlider
 import androidx.media3.demo.compose.buttons.SettingsBottomSheet
 import androidx.media3.demo.compose.buttons.SettingsButton
@@ -126,6 +133,7 @@ internal fun LongFormPlayerScreen(
 ) {
   val scope = rememberCoroutineScope()
   var currentContentScaleIndex by rememberSaveable { mutableIntStateOf(0) }
+  var isFullscreen by rememberSaveable { mutableStateOf(false) }
   var showSettings by rememberSaveable { mutableStateOf(false) }
   val playlistSheetState =
     rememberBottomSheetState(
@@ -171,6 +179,11 @@ internal fun LongFormPlayerScreen(
     }
   }
 
+  FullscreenEffect(isFullscreen)
+  BackHandler(enabled = isFullscreen) { isFullscreen = false }
+  // There is no local video to watch while casting, so leave fullscreen when casting starts.
+  LaunchedEffect(isRemotePlayback) { if (isRemotePlayback) isFullscreen = false }
+
   var size by remember { mutableStateOf(IntSize.Zero) }
   val seekOverlayState = remember { SeekOverlayState(scope) }
   var showFastForward by remember { mutableStateOf(false) }
@@ -191,12 +204,22 @@ internal fun LongFormPlayerScreen(
       MaterialTheme.colorScheme.primary,
     )
 
+  // In fullscreen, the player is drawn behind the hidden system bars and the display cutout, so the
+  // controls and overlays are kept within the safe drawing area.
+  val controlsInsets = if (isFullscreen) WindowInsets.safeDrawing else WindowInsets(0, 0, 0, 0)
+
   BoxWithConstraints(
     modifier.background(MaterialTheme.colorScheme.background).statusBarsPadding()
   ) {
     val playerContainerModifier =
-      Modifier.fillMaxWidth()
-        .height(playerHeight(maxWidth, maxHeight, presentationState.videoAspectRatio))
+      if (isFullscreen) {
+        Modifier.fillMaxSize()
+      } else {
+        Modifier.fillMaxWidth()
+          .height(playerHeight(maxWidth, maxHeight, presentationState.videoAspectRatio))
+      }
+    // The player stays the first child in both layouts, so that it isn't recreated when toggling
+    // fullscreen.
     Column(Modifier.fillMaxSize()) {
       Box(
         playerContainerModifier.pointerHoverIcon(
@@ -262,7 +285,11 @@ internal fun LongFormPlayerScreen(
             PlayerDefaults.TopControls(
               player,
               controlsVisible,
-              Modifier.fillMaxWidth().padding(horizontal = 15.dp),
+              Modifier.fillMaxWidth()
+                .windowInsetsPadding(
+                  controlsInsets.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
+                )
+                .padding(horizontal = 15.dp),
             ) {
               Row(Modifier.align(Alignment.CenterEnd)) {
                 CcButton(player = player)
@@ -280,13 +307,18 @@ internal fun LongFormPlayerScreen(
             PlayerDefaults.BottomControls(
               player,
               controlsVisible,
-              modifier = Modifier.fillMaxWidth(),
+              modifier =
+                Modifier.fillMaxWidth()
+                  .windowInsetsPadding(
+                    controlsInsets.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)
+                  ),
               above = {
                 if (isRemotePlayback) {
                   PlayerDefaults.CenterControls(player, controlsVisible, Modifier.fillMaxWidth())
                 } else {
-                  Box(Modifier.fillMaxWidth()) {
-                    MuteButton(player, Modifier.align(Alignment.CenterEnd))
+                  Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    MuteButton(player)
+                    FullscreenButton(isFullscreen, onClick = { isFullscreen = !isFullscreen })
                   }
                 }
               },
@@ -304,12 +336,14 @@ internal fun LongFormPlayerScreen(
                 if (seekOverlayState.seekAmountMs < 0) Alignment.CenterStart
                 else Alignment.CenterEnd
               )
+              .windowInsetsPadding(controlsInsets.only(WindowInsetsSides.Horizontal))
               .padding(horizontal = 20.dp),
         )
         if (showFastForward) {
           FastForwardOverlay(
             speed = playbackSpeedState.playbackSpeed,
-            Modifier.align(Alignment.BottomCenter)
+            Modifier.windowInsetsPadding(controlsInsets.only(WindowInsetsSides.Bottom))
+              .align(Alignment.BottomCenter)
               .background(
                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
                 shape = RoundedCornerShape(4.dp),
@@ -317,20 +351,22 @@ internal fun LongFormPlayerScreen(
           )
         }
       }
-      Box(Modifier.fillMaxWidth().weight(1f)) {
-        Column(
-          Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(16.dp),
-          verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-          CurrentMediaItemCard(player, Modifier.fillMaxWidth())
-          PlaylistButton(onClick = { scope.launch { playlistSheetState.show() } })
+      if (!isFullscreen) {
+        Box(Modifier.fillMaxWidth().weight(1f)) {
+          Column(
+            Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+          ) {
+            CurrentMediaItemCard(player, Modifier.fillMaxWidth())
+            PlaylistButton(onClick = { scope.launch { playlistSheetState.show() } })
+          }
+          PlaylistInfoBottomSheet(
+            player = player,
+            sheetState = playlistSheetState,
+            modifier = Modifier.align(Alignment.TopCenter).fillMaxHeight(),
+            bitmapLoader = bitmapLoader,
+          )
         }
-        PlaylistInfoBottomSheet(
-          player = player,
-          sheetState = playlistSheetState,
-          modifier = Modifier.align(Alignment.TopCenter).fillMaxHeight(),
-          bitmapLoader = bitmapLoader,
-        )
       }
     }
     if (showSettings) {
