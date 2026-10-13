@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Redă</string>
   <string name="playpause_button_pause">Întrerupe</string>
+  <string name="playpause_button_replay">Redă din nou</string>
+  <string name="playpause_button_retry">Reîncearcă</string>
   <string name="next_button">Înainte</string>
   <string name="previous_button">Înapoi</string>
   <string name="seek_back_button">Derulează înapoi</string>
@@ -78,4 +80,5 @@
   <string name="media3_error_drm_license_expired">Licența DRM a expirat.</string>
   <string name="media3_error_video_frame_processor_init_failed">Procesorul de cadre video nu a putut fi inițializat.</string>
   <string name="media3_error_video_frame_processing_failed">Un cadru video nu a putut fi procesat.</string>
+  <string name="subtitle_bitmap_cue">Indiciu bitmap pentru subtitrare</string>
 </resources>

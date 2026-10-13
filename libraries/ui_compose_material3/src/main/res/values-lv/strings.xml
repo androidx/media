@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Atskaņot</string>
   <string name="playpause_button_pause">Pārtraukt</string>
+  <string name="playpause_button_replay">Atskaņot vēlreiz</string>
+  <string name="playpause_button_retry">Mēģināt vēlreiz</string>
   <string name="next_button">Nākamais</string>
   <string name="previous_button">Iepriekšējais</string>
   <string name="seek_back_button">Attīt atpakaļ</string>
@@ -78,4 +80,5 @@
   <string name="media3_error_drm_license_expired">DRM licences derīguma termiņš ir beidzies.</string>
   <string name="media3_error_video_frame_processor_init_failed">Neizdevās inicializēt video kadru apstrādes programmu.</string>
   <string name="media3_error_video_frame_processing_failed">Neizdevās apstrādāt video kadru.</string>
+  <string name="subtitle_bitmap_cue">Subtitru bitkartes norāde</string>
 </resources>

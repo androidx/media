@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">დაკვრა</string>
   <string name="playpause_button_pause">პაუზა</string>
+  <string name="playpause_button_replay">ხელახლა დაკვრა</string>
+  <string name="playpause_button_retry">ხელახლა ცდა</string>
   <string name="next_button">შემდეგი</string>
   <string name="previous_button">წინა</string>
   <string name="seek_back_button">უკან გადახვევა</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM ლიცენზიას მოქმედების ვადა გაუვიდა.</string>
   <string name="media3_error_video_frame_processor_init_failed">ვიდეოს კადრის დამმუშავებლის ინიციალიზაცია ვერ მოხერხდა.</string>
   <string name="media3_error_video_frame_processing_failed">ვიდეოს კადრის დამუშავება ვერ მოხერხდა.</string>
+  <string name="subtitle_bitmap_cue">სუბტიტრის bitmap სურათის სახით</string>
 </resources>

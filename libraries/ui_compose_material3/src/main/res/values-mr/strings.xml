@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">प्ले करा</string>
   <string name="playpause_button_pause">थांबवा</string>
+  <string name="playpause_button_replay">रीप्ले</string>
+  <string name="playpause_button_retry">पुन्हा प्रयत्न करा</string>
   <string name="next_button">पुढील</string>
   <string name="previous_button">मागील</string>
   <string name="seek_back_button">रिवाइंड करा</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM परवाना एक्स्पायर झाला आहे.</string>
   <string name="media3_error_video_frame_processor_init_failed">व्हिडिओ फ्रेम प्रोसेसर सुरू करता आला नाही.</string>
   <string name="media3_error_video_frame_processing_failed">व्हिडिओ फ्रेमवर प्रक्रिया करता आली नाही.</string>
+  <string name="subtitle_bitmap_cue">सबटायटल बिटमॅप क्यू</string>
 </resources>

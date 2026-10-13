@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Odtwórz</string>
   <string name="playpause_button_pause">Wstrzymaj</string>
+  <string name="playpause_button_replay">Odtwórz ponownie</string>
+  <string name="playpause_button_retry">Spróbuj ponownie</string>
   <string name="next_button">Dalej</string>
   <string name="previous_button">Wstecz</string>
   <string name="seek_back_button">Przewiń do tyłu</string>
@@ -80,4 +82,5 @@
   <string name="media3_error_drm_license_expired">Licencja DRM wygasła.</string>
   <string name="media3_error_video_frame_processor_init_failed">Nie udało się zainicjować procesora klatek wideo.</string>
   <string name="media3_error_video_frame_processing_failed">Nie udało się przetworzyć klatki filmu.</string>
+  <string name="subtitle_bitmap_cue">Wskazówka bitmapy napisów</string>
 </resources>

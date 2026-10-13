@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Пушти</string>
   <string name="playpause_button_pause">Паузирај</string>
+  <string name="playpause_button_replay">Пушти повторно</string>
+  <string name="playpause_button_retry">Обиди се повторно</string>
   <string name="next_button">Следно</string>
   <string name="previous_button">Претходно</string>
   <string name="seek_back_button">Премотај наназад</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM-лиценцата е истечена.</string>
   <string name="media3_error_video_frame_processor_init_failed">Не можеше да се иницијализира процесорот на видеокадри.</string>
   <string name="media3_error_video_frame_processing_failed">Не можеше да се обработи видеокадар.</string>
+  <string name="subtitle_bitmap_cue">Поднаслов на битмап-знак</string>
 </resources>

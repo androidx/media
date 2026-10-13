@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Esita</string>
   <string name="playpause_button_pause">Peata</string>
+  <string name="playpause_button_replay">Esita uuesti</string>
+  <string name="playpause_button_retry">Proovi uuesti</string>
   <string name="next_button">Järgmine</string>
   <string name="previous_button">Eelmine</string>
   <string name="seek_back_button">Tagasikerimine</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM-i litsents on aegunud.</string>
   <string name="media3_error_video_frame_processor_init_failed">Videokaadri töötleja lähtestamine ebaõnnestus.</string>
   <string name="media3_error_video_frame_processing_failed">Videokaadri töötlemine ebaõnnestus.</string>
+  <string name="subtitle_bitmap_cue">Subtiitripildi vihje</string>
 </resources>

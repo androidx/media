@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Reproduciraj</string>
   <string name="playpause_button_pause">Pauziraj</string>
+  <string name="playpause_button_replay">Ponovi</string>
+  <string name="playpause_button_retry">Pokušaj ponovno</string>
   <string name="next_button">Sljedeće</string>
   <string name="previous_button">Prethodno</string>
   <string name="seek_back_button">Unatrag</string>
@@ -78,4 +80,5 @@
   <string name="media3_error_drm_license_expired">DRM licenca je istekla.</string>
   <string name="media3_error_video_frame_processor_init_failed">Pokretanje procesora za kadrove videozapisa nije uspjelo.</string>
   <string name="media3_error_video_frame_processing_failed">Obrada kadra videozapisa nije uspjela.</string>
+  <string name="subtitle_bitmap_cue">Signal za titlove s prijevodom iz bitmape</string>
 </resources>

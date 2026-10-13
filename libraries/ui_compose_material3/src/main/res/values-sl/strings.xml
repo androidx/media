@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Predvajaj</string>
   <string name="playpause_button_pause">Začasno zaustavi</string>
+  <string name="playpause_button_replay">Znova predvajaj</string>
+  <string name="playpause_button_retry">Poskusi znova</string>
   <string name="next_button">Naprej</string>
   <string name="previous_button">Nazaj</string>
   <string name="seek_back_button">Previj nazaj</string>
@@ -80,4 +82,5 @@
   <string name="media3_error_drm_license_expired">Licenca za upravljanje digitalnih pravic je potekla.</string>
   <string name="media3_error_video_frame_processor_init_failed">Inicializacija procesorja videosličic ni uspela.</string>
   <string name="media3_error_video_frame_processing_failed">Obdelava videosličice ni uspela.</string>
+  <string name="subtitle_bitmap_cue">Namig za bitno sliko podnaslova</string>
 </resources>

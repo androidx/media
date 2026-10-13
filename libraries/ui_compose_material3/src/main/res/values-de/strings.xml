@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Wiedergeben</string>
   <string name="playpause_button_pause">Pausieren</string>
+  <string name="playpause_button_replay">Nochmal</string>
+  <string name="playpause_button_retry">Wiederholen</string>
   <string name="next_button">Weiter</string>
   <string name="previous_button">Zurück</string>
   <string name="seek_back_button">Zurückspulen</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM-Lizenz ist abgelaufen.</string>
   <string name="media3_error_video_frame_processor_init_failed">Videoframe-Prozessor konnte nicht initialisiert werden.</string>
   <string name="media3_error_video_frame_processing_failed">Videoframe konnte nicht verarbeitet werden.</string>
+  <string name="subtitle_bitmap_cue">Untertitel-Bitmap-Cue</string>
 </resources>

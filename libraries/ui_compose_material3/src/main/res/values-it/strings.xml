@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Riproduci</string>
   <string name="playpause_button_pause">Metti in pausa</string>
+  <string name="playpause_button_replay">Guarda di nuovo</string>
+  <string name="playpause_button_retry">Riprova</string>
   <string name="next_button">Avanti</string>
   <string name="previous_button">Indietro</string>
   <string name="seek_back_button">Torna indietro</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">La licenza DRM è scaduta.</string>
   <string name="media3_error_video_frame_processor_init_failed">Impossibile inizializzare il processore di fotogrammi video.</string>
   <string name="media3_error_video_frame_processing_failed">Impossibile elaborare un fotogramma video.</string>
+  <string name="subtitle_bitmap_cue">Segnale bitmap sottotitolo</string>
 </resources>

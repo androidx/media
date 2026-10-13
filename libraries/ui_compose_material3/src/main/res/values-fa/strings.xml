@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">پخش کردن</string>
   <string name="playpause_button_pause">موقتاً متوقف کردن</string>
+  <string name="playpause_button_replay">بازپخش</string>
+  <string name="playpause_button_retry">امتحان مجدد</string>
   <string name="next_button">بعدی</string>
   <string name="previous_button">قبلی</string>
   <string name="seek_back_button">عقب بردن</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">پروانه مدیریت حقوق دیجیتال منقضی شده است.</string>
   <string name="media3_error_video_frame_processor_init_failed">مقداردهی اولیه پردازشگر فریم ویدیو ناموفق بود.</string>
   <string name="media3_error_video_frame_processing_failed">فریم ویدیو پردازش نشد.</string>
+  <string name="subtitle_bitmap_cue">نشانه بیت‌مپ زیرنویس</string>
 </resources>

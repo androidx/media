@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Phát</string>
   <string name="playpause_button_pause">Tạm dừng</string>
+  <string name="playpause_button_replay">Phát lại</string>
+  <string name="playpause_button_retry">Thử lại</string>
   <string name="next_button">Tiếp</string>
   <string name="previous_button">Trước</string>
   <string name="seek_back_button">Tua lại</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">Giấy phép DRM đã hết hạn.</string>
   <string name="media3_error_video_frame_processor_init_failed">Không khởi tạo được trình xử lý khung video.</string>
   <string name="media3_error_video_frame_processing_failed">Không xử lý được một khung video.</string>
+  <string name="subtitle_bitmap_cue">Chỉ dấu bitmap phụ đề</string>
 </resources>

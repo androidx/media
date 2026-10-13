@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Նվագարկել</string>
   <string name="playpause_button_pause">Դադարեցնել</string>
+  <string name="playpause_button_replay">Նորից նվագարկել</string>
+  <string name="playpause_button_retry">Նորից փորձել</string>
   <string name="next_button">Հաջորդ</string>
   <string name="previous_button">Նախորդ</string>
   <string name="seek_back_button">Հետ գնալ</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM լիցենզիայի ժամկետը սպառվել է։</string>
   <string name="media3_error_video_frame_processor_init_failed">Չհաջողվեց գործարկել տեսանյութի կադրերի մշակման գործառույթը։</string>
   <string name="media3_error_video_frame_processing_failed">Չհաջողվեց մշակել տեսանյութի կադրը։</string>
+  <string name="subtitle_bitmap_cue">Ենթագրերի բիթային քարտեզի հուշում</string>
 </resources>

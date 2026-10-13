@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Прайграць</string>
   <string name="playpause_button_pause">Прыпыніць</string>
+  <string name="playpause_button_replay">Паўтарыць</string>
+  <string name="playpause_button_retry">Паўтарыць спробу</string>
   <string name="next_button">Далей</string>
   <string name="previous_button">Назад</string>
   <string name="seek_back_button">Пераматаць назад</string>
@@ -80,4 +82,5 @@
   <string name="media3_error_drm_license_expired">Тэрмін дзеяння ліцэнзіі DRM скончыўся.</string>
   <string name="media3_error_video_frame_processor_init_failed">Не атрымалася ініцыялізаваць апрацоўшчык кадраў відэа.</string>
   <string name="media3_error_video_frame_processing_failed">Не атрымалася апрацаваць кадр відэа.</string>
+  <string name="subtitle_bitmap_cue">Падказка субцітраў у выглядзе растравай выявы</string>
 </resources>

@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Spela upp</string>
   <string name="playpause_button_pause">Pausa</string>
+  <string name="playpause_button_replay">Spela upp igen</string>
+  <string name="playpause_button_retry">Försök igen</string>
   <string name="next_button">Nästa</string>
   <string name="previous_button">Föregående</string>
   <string name="seek_back_button">Spola tillbaka</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM-licensen har löpt ut.</string>
   <string name="media3_error_video_frame_processor_init_failed">Det gick inte att initiera videobildsprocessorn.</string>
   <string name="media3_error_video_frame_processing_failed">Det gick inte att bearbeta en videobildruta.</string>
+  <string name="subtitle_bitmap_cue">Bitmap-signal för undertext</string>
 </resources>

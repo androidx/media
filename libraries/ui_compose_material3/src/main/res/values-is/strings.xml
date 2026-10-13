@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Spila</string>
   <string name="playpause_button_pause">Gera hlé</string>
+  <string name="playpause_button_replay">Spila aftur</string>
+  <string name="playpause_button_retry">Reyna aftur</string>
   <string name="next_button">Áfram</string>
   <string name="previous_button">Fyrri</string>
   <string name="seek_back_button">Spóla til baka</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM-leyfi er útrunnið.</string>
   <string name="media3_error_video_frame_processor_init_failed">Ekki tókst að frumstilla vídeórammavinnslu.</string>
   <string name="media3_error_video_frame_processing_failed">Ekki tókst að vinna vídeóramma.</string>
+  <string name="subtitle_bitmap_cue">Punktamerki skjátexta</string>
 </resources>

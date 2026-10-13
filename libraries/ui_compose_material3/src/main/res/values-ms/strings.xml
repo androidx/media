@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Main</string>
   <string name="playpause_button_pause">Jeda</string>
+  <string name="playpause_button_replay">Main semula</string>
+  <string name="playpause_button_retry">Cuba lagi</string>
   <string name="next_button">Seterusnya</string>
   <string name="previous_button">Sebelumnya</string>
   <string name="seek_back_button">Mandir</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">Lesen DRM telah tamat tempoh.</string>
   <string name="media3_error_video_frame_processor_init_failed">Gagal memulakan pemproses bingkai video.</string>
   <string name="media3_error_video_frame_processing_failed">Gagal memproses bingkai video.</string>
+  <string name="subtitle_bitmap_cue">Kiu bitmap sari kata</string>
 </resources>

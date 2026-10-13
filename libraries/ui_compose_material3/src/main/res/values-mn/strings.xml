@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Тоглуулах</string>
   <string name="playpause_button_pause">Түр зогсоох</string>
+  <string name="playpause_button_replay">Дахин тоглуулах</string>
+  <string name="playpause_button_retry">Дахин оролдох</string>
   <string name="next_button">Дараах</string>
   <string name="previous_button">Өмнөх</string>
   <string name="seek_back_button">Ухраах</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM лицензийн хугацаа дууссан.</string>
   <string name="media3_error_video_frame_processor_init_failed">Видео фрейм боловсруулагчийг эхлүүлж чадсангүй.</string>
   <string name="media3_error_video_frame_processing_failed">Видеоны фреймийг боловсруулж чадсангүй.</string>
+  <string name="subtitle_bitmap_cue">Хадмалын растер хөтөч</string>
 </resources>

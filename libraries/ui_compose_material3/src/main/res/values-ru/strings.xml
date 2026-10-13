@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Воспроизвести</string>
   <string name="playpause_button_pause">Приостановить</string>
+  <string name="playpause_button_replay">Повторить</string>
+  <string name="playpause_button_retry">Повторить попытку</string>
   <string name="next_button">Воспроизвести следующий трек</string>
   <string name="previous_button">Воспроизвести предыдущий трек</string>
   <string name="seek_back_button">Перемотать назад</string>
@@ -80,4 +82,5 @@
   <string name="media3_error_drm_license_expired">Срок действия лицензии DRM истек.</string>
   <string name="media3_error_video_frame_processor_init_failed">Не удалось инициализировать обработчик видеокадров.</string>
   <string name="media3_error_video_frame_processing_failed">Не удалось обработать видеокадр.</string>
+  <string name="subtitle_bitmap_cue">Субтитры в виде растрового изображения</string>
 </resources>

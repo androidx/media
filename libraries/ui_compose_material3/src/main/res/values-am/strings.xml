@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">አጫውት</string>
   <string name="playpause_button_pause">ባለበት አቁም</string>
+  <string name="playpause_button_replay">እንደገና አጫውት</string>
+  <string name="playpause_button_retry">እንደገና ሞክር</string>
   <string name="next_button">ቀጣይ</string>
   <string name="previous_button">ቀዳሚ</string>
   <string name="seek_back_button">ወደኋላ መልስ</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">የDRM ፈቃድ ጊዜው አልፎበታል።</string>
   <string name="media3_error_video_frame_processor_init_failed">የቪድዮ ፍሬም ፕሮሰሰርን ማስጀመር አልተሳካም።</string>
   <string name="media3_error_video_frame_processing_failed">የቪድዮ ፍሬም ማሰናዳት አልተሳካም።</string>
+  <string name="subtitle_bitmap_cue">የግርጌ ጽሑፍ ቢትማፕ ምልክት</string>
 </resources>

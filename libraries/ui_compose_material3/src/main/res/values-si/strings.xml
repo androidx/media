@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">වාදනය කරන්න</string>
   <string name="playpause_button_pause">විරාම කරන්න</string>
+  <string name="playpause_button_replay">යළි වාදනය කරන්න</string>
+  <string name="playpause_button_retry">යළි උත්සාහ කරන්න</string>
   <string name="next_button">මීළඟ</string>
   <string name="previous_button">පෙර</string>
   <string name="seek_back_button">පසු ධාවනය කරන්න</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM බලපත්‍රය කල් ඉකුත් වී ඇත.</string>
   <string name="media3_error_video_frame_processor_init_failed">වීඩියෝ රාමු සකසනය මුලපිරීමට අසමත් විය.</string>
   <string name="media3_error_video_frame_processing_failed">වීඩියෝ රාමුවක් සැකසීමට අසමත් විය.</string>
+  <string name="subtitle_bitmap_cue">උපසිරැසි බිටු සිතියම් ඉඟිය</string>
 </resources>

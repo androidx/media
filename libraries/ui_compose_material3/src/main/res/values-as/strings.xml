@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">প্লে’ কৰক</string>
   <string name="playpause_button_pause">পজ কৰক</string>
+  <string name="playpause_button_replay">পুনৰ প্লে’ কৰক</string>
+  <string name="playpause_button_retry">পুনৰ চেষ্টা কৰক</string>
   <string name="next_button">পৰৱৰ্তী</string>
   <string name="previous_button">পূৰ্বৱৰ্তী</string>
   <string name="seek_back_button">ৰিৱাইণ্ড</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM অনুজ্ঞাপত্ৰৰ ম্যাদ উকলিছে।</string>
   <string name="media3_error_video_frame_processor_init_failed">ভিডিঅ’ ফ্ৰে’ম প্ৰচেছৰ আৰম্ভ কৰিব পৰা নগ’ল।</string>
   <string name="media3_error_video_frame_processing_failed">ভিডিঅ’ৰ ফ্ৰে’ম প্ৰক্ৰিয়াকৰণ কৰিব পৰা নগ’ল।</string>
+  <string name="subtitle_bitmap_cue">ছাবটাইটেল বিটমেপৰ কিউ</string>
 </resources>

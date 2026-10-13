@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Ijro</string>
   <string name="playpause_button_pause">Pauza</string>
+  <string name="playpause_button_replay">Qayta ijro qilish</string>
+  <string name="playpause_button_retry">Qayta urinish</string>
   <string name="next_button">Keyingisi</string>
   <string name="previous_button">Avvalgisi</string>
   <string name="seek_back_button">Orqaga surish</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM litsenziyasi muddati tugagan.</string>
   <string name="media3_error_video_frame_processor_init_failed">Video kadr protsessori ishga tushmadi.</string>
   <string name="media3_error_video_frame_processing_failed">Video kadr qayta ishlanmadi.</string>
+  <string name="subtitle_bitmap_cue">Taglavhali bitmap bildirgi</string>
 </resources>

@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">چلائیں</string>
   <string name="playpause_button_pause">موقوف کریں</string>
+  <string name="playpause_button_replay">دوبارہ چلائیں</string>
+  <string name="playpause_button_retry">دوبارہ کوشش کریں</string>
   <string name="next_button">اگلا</string>
   <string name="previous_button">پچھلا</string>
   <string name="seek_back_button">ریوائینڈ کریں</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">‫DRM لائسنس کی میعاد ختم ہو گئی ہے۔</string>
   <string name="media3_error_video_frame_processor_init_failed">ویڈیو فریم پروسیسر کا آغاز کرنے میں ناکامی ہوئی۔</string>
   <string name="media3_error_video_frame_processing_failed">ویڈیو فریم پر کارروائی کرنے میں ناکام۔</string>
+  <string name="subtitle_bitmap_cue">سب ٹائٹل بٹ میپ کیو</string>
 </resources>

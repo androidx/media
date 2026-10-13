@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Oynat</string>
   <string name="playpause_button_pause">Duraklat</string>
+  <string name="playpause_button_replay">Tekrar Oynat</string>
+  <string name="playpause_button_retry">Yeniden dene</string>
   <string name="next_button">Sonraki</string>
   <string name="previous_button">Önceki</string>
   <string name="seek_back_button">Geri sar</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM lisansının süresi doldu.</string>
   <string name="media3_error_video_frame_processor_init_failed">Video karesi işleyici başlatılamadı.</string>
   <string name="media3_error_video_frame_processing_failed">Video karesi işlenemedi.</string>
+  <string name="subtitle_bitmap_cue">Altyazı bit eşlem ipucu</string>
 </resources>

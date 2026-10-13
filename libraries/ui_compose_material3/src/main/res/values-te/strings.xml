@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">ప్లే చేయండి</string>
   <string name="playpause_button_pause">పాజ్ చేయండి</string>
+  <string name="playpause_button_replay">రీప్లే చేయండి</string>
+  <string name="playpause_button_retry">మళ్లీ ట్రై చేయండి</string>
   <string name="next_button">తర్వాత</string>
   <string name="previous_button">మునుపటి</string>
   <string name="seek_back_button">రివైండ్ చేయండి</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM లైసెన్స్ గడువు ముగిసింది.</string>
   <string name="media3_error_video_frame_processor_init_failed">వీడియో ఫ్రేమ్ ప్రాసెసర్‌ను ఇనిషియలైజ్ చేయడం విఫలమైంది.</string>
   <string name="media3_error_video_frame_processing_failed">వీడియో ఫ్రేమ్‌ను ప్రాసెస్ చేయడం విఫలమైంది.</string>
+  <string name="subtitle_bitmap_cue">సబ్‌టైటిల్ బిట్‌మ్యాప్ క్యూ</string>
 </resources>

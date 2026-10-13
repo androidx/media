@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Cheza</string>
   <string name="playpause_button_pause">Sitisha</string>
+  <string name="playpause_button_replay">Cheza tena</string>
+  <string name="playpause_button_retry">Jaribu tena</string>
   <string name="next_button">Endelea</string>
   <string name="previous_button">Uliotangulia</string>
   <string name="seek_back_button">Rudisha nyuma</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">Muda wa leseni ya DRM umeisha.</string>
   <string name="media3_error_video_frame_processor_init_failed">Imeshindwa kuanzisha kichakataji cha fremu ya video.</string>
   <string name="media3_error_video_frame_processing_failed">Imeshindwa kuchakata fremu ya video.</string>
+  <string name="subtitle_bitmap_cue">Kidokezo cha bitmap ya manukuu</string>
 </resources>

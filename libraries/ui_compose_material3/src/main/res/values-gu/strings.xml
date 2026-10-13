@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">ચલાવો</string>
   <string name="playpause_button_pause">થોભાવો</string>
+  <string name="playpause_button_replay">ફરીથી ચલાવો</string>
+  <string name="playpause_button_retry">ફરી પ્રયાસ કરો</string>
   <string name="next_button">આગળ</string>
   <string name="previous_button">પાછળ</string>
   <string name="seek_back_button">રિવાઇન્ડ કરો</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM લાઇસન્સની સમયસીમા સમાપ્ત થઈ ગઈ છે.</string>
   <string name="media3_error_video_frame_processor_init_failed">વીડિયો ફ્રેમ પ્રોસેસર શરૂ કરવામાં નિષ્ફળ રહ્યાં.</string>
   <string name="media3_error_video_frame_processing_failed">વીડિયો ફ્રેમ પર પ્રક્રિયા કરવામાં નિષ્ફળ રહ્યાં.</string>
+  <string name="subtitle_bitmap_cue">સબટાઇટલ બિટમૅપ ક્યૂ</string>
 </resources>

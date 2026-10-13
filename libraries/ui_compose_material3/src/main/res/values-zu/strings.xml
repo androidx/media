@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Dlala</string>
   <string name="playpause_button_pause">Misa okwesikhashana</string>
+  <string name="playpause_button_replay">Dlala futhi</string>
+  <string name="playpause_button_retry">Zama futhi</string>
   <string name="next_button">Okulandelayo</string>
   <string name="previous_button">Okwangaphambili</string>
   <string name="seek_back_button">Buyisela emuva</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">Ilayisense ye-DRM iphelelwe yisikhathi.</string>
   <string name="media3_error_video_frame_processor_init_failed">Yehlulekile ukuqalisa i-processor yefreyimu yevidiyo.</string>
   <string name="media3_error_video_frame_processing_failed">Yehlulekile ukucubungula uhlaka lwevidiyo.</string>
+  <string name="subtitle_bitmap_cue">Isimeli se-bitmap yombhalo ongezansi</string>
 </resources>

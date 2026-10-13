@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">재생</string>
   <string name="playpause_button_pause">일시중지</string>
+  <string name="playpause_button_replay">다시보기</string>
+  <string name="playpause_button_retry">다시 시도</string>
   <string name="next_button">다음</string>
   <string name="previous_button">이전</string>
   <string name="seek_back_button">되감기</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM 라이선스가 만료되었습니다.</string>
   <string name="media3_error_video_frame_processor_init_failed">동영상 프레임 프로세서를 초기화할 수 없습니다.</string>
   <string name="media3_error_video_frame_processing_failed">동영상 프레임을 처리할 수 없습니다.</string>
+  <string name="subtitle_bitmap_cue">자막 비트맵 큐</string>
 </resources>

@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Spill av</string>
   <string name="playpause_button_pause">Sett på pause</string>
+  <string name="playpause_button_replay">Spill av på nytt</string>
+  <string name="playpause_button_retry">Prøv på nytt</string>
   <string name="next_button">Neste</string>
   <string name="previous_button">Forrige</string>
   <string name="seek_back_button">Spol tilbake</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM-lisensen er utløpt.</string>
   <string name="media3_error_video_frame_processor_init_failed">Kunne ikke initialisere videorammebehandleren.</string>
   <string name="media3_error_video_frame_processing_failed">Kunne ikke behandle en videoramme.</string>
+  <string name="subtitle_bitmap_cue">Punktgrafikk-enhet for undertekst</string>
 </resources>

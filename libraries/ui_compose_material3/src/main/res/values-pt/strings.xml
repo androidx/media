@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Tocar</string>
   <string name="playpause_button_pause">Pausar</string>
+  <string name="playpause_button_replay">Repetir</string>
+  <string name="playpause_button_retry">Tentar de novo</string>
   <string name="next_button">Próxima</string>
   <string name="previous_button">Anterior</string>
   <string name="seek_back_button">Voltar</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">A licença de DRM expirou.</string>
   <string name="media3_error_video_frame_processor_init_failed">Falha ao inicializar o processador de frames de vídeo.</string>
   <string name="media3_error_video_frame_processing_failed">Falha ao processar um frame de vídeo.</string>
+  <string name="subtitle_bitmap_cue">Indicador de bitmap de legenda</string>
 </resources>

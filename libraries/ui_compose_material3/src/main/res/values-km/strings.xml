@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">ចាក់</string>
   <string name="playpause_button_pause">ផ្អាក</string>
+  <string name="playpause_button_replay">ចាក់​ឡើងវិញ</string>
+  <string name="playpause_button_retry">ព្យាយាមម្ដងទៀត</string>
   <string name="next_button">បន្ទាប់</string>
   <string name="previous_button">មុន</string>
   <string name="seek_back_button">ខាថយក្រោយ</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">អាជ្ញាបណ្ណ DRM បានផុតកំណត់។</string>
   <string name="media3_error_video_frame_processor_init_failed">មិនអាចចាប់ផ្ដើមអង្គដំណើរការហ្វ្រេមវីដេអូបានទេ។</string>
   <string name="media3_error_video_frame_processing_failed">មិនអាចដំណើរការហ្វ្រេមវីដេអូបានទេ។</string>
+  <string name="subtitle_bitmap_cue">តម្រុយប៊ីតម៉ាបនៃអក្សររត់</string>
 </resources>

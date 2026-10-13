@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Пусти</string>
   <string name="playpause_button_pause">Паузирај</string>
+  <string name="playpause_button_replay">Пусти поново</string>
+  <string name="playpause_button_retry">Пробај поново</string>
   <string name="next_button">Даље</string>
   <string name="previous_button">Назад</string>
   <string name="seek_back_button">Премотај уназад</string>
@@ -78,4 +80,5 @@
   <string name="media3_error_drm_license_expired">DRM лиценца је истекла.</string>
   <string name="media3_error_video_frame_processor_init_failed">Покретање обрађивача кадрова видеа није успело.</string>
   <string name="media3_error_video_frame_processing_failed">Обрада кадра видеа није успела.</string>
+  <string name="subtitle_bitmap_cue">Сигнал бит мапе титла</string>
 </resources>

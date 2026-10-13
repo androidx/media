@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Erreproduzitu</string>
   <string name="playpause_button_pause">Pausatu</string>
+  <string name="playpause_button_replay">Erreproduzitu berriro</string>
+  <string name="playpause_button_retry">Saiatu berriro</string>
   <string name="next_button">Hurrengoa</string>
   <string name="previous_button">Aurrekoa</string>
   <string name="seek_back_button">Atzeratu</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRMaren lizentzia iraungi egin da.</string>
   <string name="media3_error_video_frame_processor_init_failed">Ezin izan da hasieratu bideo-fotogramen prozesatzailea.</string>
   <string name="media3_error_video_frame_processing_failed">Ezin izan da prozesatu bideoaren fotograma bat.</string>
+  <string name="subtitle_bitmap_cue">Azpititulu-elementua (bit-mapa)</string>
 </resources>

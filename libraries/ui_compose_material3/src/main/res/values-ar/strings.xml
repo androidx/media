@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">تشغيل</string>
   <string name="playpause_button_pause">إيقاف مؤقت</string>
+  <string name="playpause_button_replay">إعادة التشغيل</string>
+  <string name="playpause_button_retry">إعادة المحاولة</string>
   <string name="next_button">التالي</string>
   <string name="previous_button">السابق</string>
   <string name="seek_back_button">ترجيع</string>
@@ -84,4 +86,5 @@
   <string name="media3_error_drm_license_expired">انتهت صلاحية ترخيص \"إدارة الحقوق الرقمية\".</string>
   <string name="media3_error_video_frame_processor_init_failed">تعذّر إعداد معالج إطار الفيديو.</string>
   <string name="media3_error_video_frame_processing_failed">تعذّرت معالجة إطار الفيديو.</string>
+  <string name="subtitle_bitmap_cue">إشارة ترجمة بصيغة صورة نقطية</string>
 </resources>

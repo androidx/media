@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Afspelen</string>
   <string name="playpause_button_pause">Pauzeren</string>
+  <string name="playpause_button_replay">Opnieuw afspelen</string>
+  <string name="playpause_button_retry">Opnieuw proberen</string>
   <string name="next_button">Volgende</string>
   <string name="previous_button">Vorige</string>
   <string name="seek_back_button">Terugspoelen</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM-licentie is verlopen.</string>
   <string name="media3_error_video_frame_processor_init_failed">Het initialiseren van de videoframeverwerker is mislukt.</string>
   <string name="media3_error_video_frame_processing_failed">Kan een videoframe niet verwerken.</string>
+  <string name="subtitle_bitmap_cue">Bitmap-signaal voor ondertiteling</string>
 </resources>

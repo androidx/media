@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Ойнотуу</string>
   <string name="playpause_button_pause">Тындыруу</string>
+  <string name="playpause_button_replay">Кайра ойнотуу</string>
+  <string name="playpause_button_retry">Кайталоо</string>
   <string name="next_button">Кийинки</string>
   <string name="previous_button">Мурунку</string>
   <string name="seek_back_button">Артка түрүү</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM уруксаттамасынын мөөнөтү бүттү.</string>
   <string name="media3_error_video_frame_processor_init_failed">Видео кадрларды иштетүүчү демилгеленген жок.</string>
   <string name="media3_error_video_frame_processing_failed">Видео алкак иштетилген жок.</string>
+  <string name="subtitle_bitmap_cue">Коштомо жазуунун сүрөт белгиси</string>
 </resources>

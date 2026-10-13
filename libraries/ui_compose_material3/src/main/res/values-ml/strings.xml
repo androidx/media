@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">പ്ലേ ചെയ്യുക</string>
   <string name="playpause_button_pause">താൽക്കാലികമായി നിർത്തുക</string>
+  <string name="playpause_button_replay">വീണ്ടും പ്ലേ ചെയ്യുക</string>
+  <string name="playpause_button_retry">വീണ്ടും ശ്രമിക്കുക</string>
   <string name="next_button">അടുത്തത്</string>
   <string name="previous_button">മുമ്പത്തേത്</string>
   <string name="seek_back_button">റിവൈൻഡ് ചെയ്യുക</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM ലൈസൻസ് കാലഹരണപ്പെട്ടു.</string>
   <string name="media3_error_video_frame_processor_init_failed">വീഡിയോ ഫ്രെയിം പ്രോസസർ ഇനിഷ്യലൈസ് ചെയ്യാനായില്ല.</string>
   <string name="media3_error_video_frame_processing_failed">വീഡിയോ ഫ്രെയിം പ്രോസസ് ചെയ്യാനായില്ല.</string>
+  <string name="subtitle_bitmap_cue">സബ്‌ടൈറ്റിൽ ബിറ്റ്‌മാപ്പ് ക്യൂ</string>
 </resources>

@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Prehrať</string>
   <string name="playpause_button_pause">Pozastaviť</string>
+  <string name="playpause_button_replay">Prehrať znova</string>
+  <string name="playpause_button_retry">Skúsiť znova</string>
   <string name="next_button">Ďalej</string>
   <string name="previous_button">Naspäť</string>
   <string name="seek_back_button">Pretočiť späť</string>
@@ -80,4 +82,5 @@
   <string name="media3_error_drm_license_expired">Licencia DRM vypršala.</string>
   <string name="media3_error_video_frame_processor_init_failed">Procesor snímok videa sa nepodarilo inicializovať.</string>
   <string name="media3_error_video_frame_processing_failed">Snímku videa sa nepodarilo spracovať.</string>
+  <string name="subtitle_bitmap_cue">Signál bitmapy titulkov</string>
 </resources>

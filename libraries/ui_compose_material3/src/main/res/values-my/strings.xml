@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">ဖွင့်ရန်</string>
   <string name="playpause_button_pause">ခဏရပ်ရန်</string>
+  <string name="playpause_button_replay">ပြန်ဖွင့်ရန်</string>
+  <string name="playpause_button_retry">ထပ်စမ်းရန်</string>
   <string name="next_button">ရှေ့သို့</string>
   <string name="previous_button">ယခင်</string>
   <string name="seek_back_button">ပြန်ရစ်ရန်</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM လိုင်စင် သက်တမ်းကုန်သွားပါပြီ။</string>
   <string name="media3_error_video_frame_processor_init_failed">ဗီဒီယိုဖရိမ် စီမံဆောင်ရွက်စနစ်ကို စတင်၍မရလိုက်ပါ။</string>
   <string name="media3_error_video_frame_processing_failed">ဗီဒီယိုဖရိမ်ကို စီမံဆောင်ရွက်၍မရလိုက်ပါ။</string>
+  <string name="subtitle_bitmap_cue">စာတန်းထိုး ဘစ်မက် အချက်ပြချက်</string>
 </resources>

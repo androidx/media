@@ -13,7 +13,7 @@
   <string name="error_message_authentication_expired">ఈ యాప్‌ను ఉపయోగించడానికి సైన్ ఇన్ చేయండి</string>
   <string name="error_message_content_already_playing">ఇప్పటికే ఆ కంటెంట్ ప్లే అవుతోంది</string>
   <string name="error_message_end_of_playlist">క్యూలో ఇంకేవీ లేవు</string>
-  <string name="error_message_concurrent_stream_limit">పలు పరికరాలలో వింటున్నారు</string>
+  <string name="error_message_concurrent_stream_limit">పలు డివైజ్‌లో వింటున్నారు</string>
   <string name="error_message_not_available_in_region">సంబంధిత కంటెంట్‌ను ఇక్కడ పొందడం సాధ్యపడదు</string>
   <string name="error_message_not_supported">ఈ యాప్ దాన్ని చేయలేదు</string>
   <string name="error_message_parental_control_restricted">సంబంధిత కంటెంట్ బ్లాక్ చేయబడింది</string>

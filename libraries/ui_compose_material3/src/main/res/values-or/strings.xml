@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">ଚଲାନ୍ତୁ</string>
   <string name="playpause_button_pause">ବିରତ କରନ୍ତୁ</string>
+  <string name="playpause_button_replay">ପୁଣି ଚଲାନ୍ତୁ</string>
+  <string name="playpause_button_retry">ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ</string>
   <string name="next_button">ପରବର୍ତ୍ତୀ</string>
   <string name="previous_button">ପୂର୍ବବର୍ତ୍ତୀ</string>
   <string name="seek_back_button">ରିୱାଇଣ୍ଡ କରନ୍ତୁ</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM ଲାଇସେନ୍ସର ମିଆଦ ଶେଷ ହୋଇଯାଇଛି।</string>
   <string name="media3_error_video_frame_processor_init_failed">ଭିଡିଓ ଫ୍ରେମ ପ୍ରୋସେସର ଆରମ୍ଭ କରିବାରେ ବିଫଳ ହୋଇଛି।</string>
   <string name="media3_error_video_frame_processing_failed">ଏକ ଭିଡିଓ ଫ୍ରେମକୁ ପ୍ରକ୍ରିୟାନ୍ୱିତ କରିବାରେ ବିଫଳ ହୋଇଛି।</string>
+  <string name="subtitle_bitmap_cue">ସବଟାଇଟେଲ ବିଟମେପ କ୍ୟୁ</string>
 </resources>

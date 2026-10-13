@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Luaj</string>
   <string name="playpause_button_pause">Vendos në pauzë</string>
+  <string name="playpause_button_replay">Riluaj</string>
+  <string name="playpause_button_retry">Riprovo</string>
   <string name="next_button">Para</string>
   <string name="previous_button">Prapa</string>
   <string name="seek_back_button">Kthe prapa</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">Licenca DRM ka skaduar.</string>
   <string name="media3_error_video_frame_processor_init_failed">Nisja e përpunuesit të kuadros së videos dështoi.</string>
   <string name="media3_error_video_frame_processing_failed">Përpunimi i një kuadri të videos dështoi.</string>
+  <string name="subtitle_bitmap_cue">Sugjerimi i bitmap të titrave</string>
 </resources>

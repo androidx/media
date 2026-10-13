@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Speel</string>
   <string name="playpause_button_pause">Onderbreek</string>
+  <string name="playpause_button_replay">Herspeel</string>
+  <string name="playpause_button_retry">Herprobeer</string>
   <string name="next_button">Volgende</string>
   <string name="previous_button">Vorige</string>
   <string name="seek_back_button">Spoel terug</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM-lisensie het verval.</string>
   <string name="media3_error_video_frame_processor_init_failed">Kon nie die videoraamverwerker begin nie.</string>
   <string name="media3_error_video_frame_processing_failed">Kon nie ’n videoraam verwerk nie.</string>
+  <string name="subtitle_bitmap_cue">Onderskrif-bitsketsaanwysing</string>
 </resources>

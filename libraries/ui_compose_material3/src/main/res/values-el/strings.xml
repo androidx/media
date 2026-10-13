@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Αναπαραγωγή</string>
   <string name="playpause_button_pause">Παύση</string>
+  <string name="playpause_button_replay">Επανάληψη</string>
+  <string name="playpause_button_retry">Επανάληψη</string>
   <string name="next_button">Επόμενο</string>
   <string name="previous_button">Προηγούμενο</string>
   <string name="seek_back_button">Επαναφορά</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">Η άδεια DRM έχει λήξει.</string>
   <string name="media3_error_video_frame_processor_init_failed">Η προετοιμασία του επεξεργαστή καρέ βίντεο απέτυχε.</string>
   <string name="media3_error_video_frame_processing_failed">Η επεξεργασία ενός καρέ βίντεο απέτυχε.</string>
+  <string name="subtitle_bitmap_cue">Σήμα χάρτη bit υπότιτλων</string>
 </resources>

@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">播放</string>
   <string name="playpause_button_pause">暂停</string>
+  <string name="playpause_button_replay">重放</string>
+  <string name="playpause_button_retry">重试</string>
   <string name="next_button">下一曲</string>
   <string name="previous_button">上一曲</string>
   <string name="seek_back_button">快退</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM 许可已过期。</string>
   <string name="media3_error_video_frame_processor_init_failed">无法初始化视频帧处理器。</string>
   <string name="media3_error_video_frame_processing_failed">无法处理视频帧。</string>
+  <string name="subtitle_bitmap_cue">字幕位图提示</string>
 </resources>

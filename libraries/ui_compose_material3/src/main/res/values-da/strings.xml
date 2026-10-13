@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Afspil</string>
   <string name="playpause_button_pause">Sæt på pause</string>
+  <string name="playpause_button_replay">Afspil igen</string>
+  <string name="playpause_button_retry">Prøv igen</string>
   <string name="next_button">Næste</string>
   <string name="previous_button">Forrige</string>
   <string name="seek_back_button">Spol tilbage</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM-licensen er udløbet.</string>
   <string name="media3_error_video_frame_processor_init_failed">Videobilledeprocessoren kunne ikke initialiseres.</string>
   <string name="media3_error_video_frame_processing_failed">Et videobillede kunne ikke behandles.</string>
+  <string name="subtitle_bitmap_cue">Bitmap-undertekstsignal</string>
 </resources>

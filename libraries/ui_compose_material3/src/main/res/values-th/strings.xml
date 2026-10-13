@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">เล่น</string>
   <string name="playpause_button_pause">หยุดชั่วคราว</string>
+  <string name="playpause_button_replay">เล่นซ้ำ</string>
+  <string name="playpause_button_retry">ลองอีกครั้ง</string>
   <string name="next_button">ถัดไป</string>
   <string name="previous_button">ก่อนหน้า</string>
   <string name="seek_back_button">กรอกลับ</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">ใบอนุญาต DRM หมดอายุแล้ว</string>
   <string name="media3_error_video_frame_processor_init_failed">เริ่มต้นตัวประมวลผลเฟรมวิดีโอไม่สำเร็จ</string>
   <string name="media3_error_video_frame_processing_failed">ประมวลผลเฟรมวิดีโอไม่สำเร็จ</string>
+  <string name="subtitle_bitmap_cue">คิวบิตแมปคำบรรยาย</string>
 </resources>

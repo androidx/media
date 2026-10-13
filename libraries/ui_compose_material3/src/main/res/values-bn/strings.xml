@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">চালান</string>
   <string name="playpause_button_pause">পজ করুন</string>
+  <string name="playpause_button_replay">আবার চালানো হোক</string>
+  <string name="playpause_button_retry">আবার চেষ্টা করুন</string>
   <string name="next_button">পরবর্তী</string>
   <string name="previous_button">পূর্ববর্তী</string>
   <string name="seek_back_button">রিওয়াইন্ড করুন</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM লাইসেন্সের মেয়াদ শেষ হয়ে গেছে।</string>
   <string name="media3_error_video_frame_processor_init_failed">ভিডিও ফ্রেম প্রসেসর আরম্ভ করা যায়নি।</string>
   <string name="media3_error_video_frame_processing_failed">ভিডিও ফ্রেম প্রসেস করা যায়নি।</string>
+  <string name="subtitle_bitmap_cue">সাবটাইটেল বিটম্যাপ কিউ</string>
 </resources>

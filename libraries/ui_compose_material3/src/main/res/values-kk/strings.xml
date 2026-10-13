@@ -2,6 +2,8 @@
 <resources>
   <string name="playpause_button_play">Ойнату</string>
   <string name="playpause_button_pause">Кідірту</string>
+  <string name="playpause_button_replay">Қайта ойнату</string>
+  <string name="playpause_button_retry">Қайталау</string>
   <string name="next_button">Келесі</string>
   <string name="previous_button">Алдыңғы</string>
   <string name="seek_back_button">Артқа айналдыру</string>
@@ -76,4 +78,5 @@
   <string name="media3_error_drm_license_expired">DRM лицензиясының мерзімі өтіп кетті.</string>
   <string name="media3_error_video_frame_processor_init_failed">Бейнекадр өңдегіші жұмысқа дайындалмады.</string>
   <string name="media3_error_video_frame_processing_failed">Бейнекадр өңделмеді.</string>
+  <string name="subtitle_bitmap_cue">Субтитрдің растрлық белгісі</string>
 </resources>
