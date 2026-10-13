@@ -44,6 +44,7 @@ fun addMissingAarTypeToXml(xml: XmlProvider) {
       "org.jetbrains.kotlinx:kotlinx-coroutines-core",
       "org.jetbrains.kotlinx:kotlinx-coroutines-guava",
       "org.jetbrains.kotlinx:kotlinx-coroutines-test",
+      "org.jspecify:jspecify",
       "org.mockito:mockito-core",
       "org.robolectric:robolectric",
       // go/keep-sorted end

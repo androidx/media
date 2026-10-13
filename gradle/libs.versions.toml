@@ -60,6 +60,7 @@ glideVersion = "4.14.2"
 # https://cs.android.com/android/platform/superproject/main/+/main:external/guava/METADATA
 guavaVersion = "33.3.1-android"
 j2objcAnnotationsVersion = "2.8"
+jspecifyVersion = "1.0.0"
 jsr305Version = "3.0.2"
 # Use the same JUnit version as the Android repo:
 # https://cs.android.com/android/platform/superproject/main/+/main:external/junit/METADATA
@@ -141,6 +142,7 @@ gms-play-services-cast-framework = { group = "com.google.android.gms", name = "p
 guava = { group = "com.google.guava", name = "guava", version.ref = "guavaVersion" }
 guava-testlib = { group = "com.google.guava", name = "guava-testlib", version.ref = "guavaVersion" }
 j2objc-annotations = { group = "com.google.j2objc", name = "j2objc-annotations", version.ref = "j2objcAnnotationsVersion" }
+jspecify = { group = "org.jspecify", name = "jspecify", version.ref = "jspecifyVersion" }
 jsr305 = { group = "com.google.code.findbugs", name = "jsr305", version.ref = "jsr305Version" }
 junit = { group = "junit", name = "junit", version.ref = "junitVersion" }
 kotlin-annotations-jvm = { group = "org.jetbrains.kotlin", name = "kotlin-annotations-jvm", version.ref = "kotlinAnnotationsVersion" }

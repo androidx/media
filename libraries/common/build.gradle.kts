@@ -44,6 +44,7 @@ dependencies {
     exclude(group = "org.codehaus.mojo", module = "animal-sniffer-annotations")
   }
   api(libs.androidx.annotation.experimental)
+  api(libs.jspecify)
   implementation(libs.androidx.annotation)
 
   testImplementation(libs.mockito.core)
