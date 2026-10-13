@@ -30,6 +30,7 @@ import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Message;
 import android.os.SystemClock;
 import android.text.TextUtils;
 import android.util.Pair;
@@ -100,6 +101,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   private final SessionToken token;
   private final ListenerSet<Listener> listeners;
   private final ControllerCompatCallback controllerCompatCallback;
+  private final InitializeLegacyPlaylistHandler initializeLegacyPlaylistHandler;
   private final BitmapLoader bitmapLoader;
   private final ImmutableList<CommandButton> commandButtonsForMediaItems;
   private final Bundle connectionHints;
@@ -115,7 +117,6 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   private ControllerInfo controllerInfo;
   private long currentPositionMs;
   private long lastSetPlayWhenReadyCalledTimeMs;
-  private boolean hasInitializedLegacyPlaylist;
 
   public MediaControllerImplLegacy(
       Context context,
@@ -139,6 +140,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     this.context = context;
     this.instance = instance;
     controllerCompatCallback = new ControllerCompatCallback(applicationLooper);
+    initializeLegacyPlaylistHandler = new InitializeLegacyPlaylistHandler(applicationLooper);
     this.token = token;
     this.connectionHints = connectionHints;
     this.bitmapLoader = bitmapLoader;
@@ -210,12 +212,13 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             controllerInfo.mediaButtonPreferences,
             controllerInfo.sessionExtras,
             /* sessionError= */ null);
+    // Flush pending playlist initialization and play/pause before masking state to STATE_IDLE.
+    initializeLegacyPlaylistHandler.handleStop();
     updateStateMaskedControllerInfo(
         maskedControllerInfo,
         /* discontinuityReason= */ null,
         /* mediaItemTransitionReason= */ null);
 
-    hasInitializedLegacyPlaylist = false;
     controllerCompat.getTransportControls().stop();
   }
 
@@ -224,6 +227,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     if (released) {
       return;
     }
+    // Flush pending playlist initialization and play/pause before tearing down controllerCompat.
+    initializeLegacyPlaylistHandler.release();
     released = true;
 
     if (browserCompat != null) {
@@ -277,14 +282,11 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             controllerInfo.mediaButtonPreferences,
             controllerInfo.sessionExtras,
             /* sessionError= */ null);
+    initializeLegacyPlaylistHandler.scheduleInitializeLegacyPlaylist();
     updateStateMaskedControllerInfo(
         maskedControllerInfo,
         /* discontinuityReason= */ null,
         /* mediaItemTransitionReason= */ null);
-
-    if (canInitializeLegacyPlaylist(controllerInfo, legacyPlayerInfo.playbackStateCompat)) {
-      initializeLegacyPlaylist();
-    }
   }
 
   @Override
@@ -311,7 +313,9 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     checkArgument(mediaItemIndex >= 0);
     int currentMediaItemIndex = getCurrentMediaItemIndex();
     Timeline currentTimeline = controllerInfo.playerInfo.timeline;
-    if ((!currentTimeline.isEmpty() && mediaItemIndex >= currentTimeline.getWindowCount())
+    // Allow mediaItemIndex == 0 on an empty timeline for seekTo(positionMs), but reject indices
+    // > 0 so the uninitialized-playlist branch below doesn't mask to an out-of-range index.
+    if ((mediaItemIndex > 0 && mediaItemIndex >= currentTimeline.getWindowCount())
         || isPlayingAd()) {
       return;
     }
@@ -324,6 +328,9 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       long queueId = queueTimeline.getQueueId(mediaItemIndex);
       if (queueId != QueueItem.UNKNOWN_ID && queueId != QueueTimeline.FAKE_QUEUE_ID) {
         controllerCompat.getTransportControls().skipToQueueItem(queueId);
+        newMediaItemIndex = mediaItemIndex;
+        mediaItemTransitionReason = Player.MEDIA_ITEM_TRANSITION_REASON_SEEK;
+      } else if (!initializeLegacyPlaylistHandler.hasInitializedLegacyPlaylist()) {
         newMediaItemIndex = mediaItemIndex;
         mediaItemTransitionReason = Player.MEDIA_ITEM_TRANSITION_REASON_SEEK;
       } else {
@@ -343,7 +350,9 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       newPositionMs = currentPositionMs;
       discontinuityReason = null;
     } else {
-      controllerCompat.getTransportControls().seekTo(positionMs);
+      if (initializeLegacyPlaylistHandler.hasInitializedLegacyPlaylist()) {
+        controllerCompat.getTransportControls().seekTo(positionMs);
+      }
       newPositionMs = positionMs;
       discontinuityReason = Player.DISCONTINUITY_REASON_SEEK;
     }
@@ -698,16 +707,11 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             controllerInfo.mediaButtonPreferences,
             controllerInfo.sessionExtras,
             /* sessionError= */ null);
+    initializeLegacyPlaylistHandler.scheduleInitializeLegacyPlaylist();
     updateStateMaskedControllerInfo(
         maskedControllerInfo,
         /* discontinuityReason= */ null,
         /* mediaItemTransitionReason= */ null);
-    if (canInitializeLegacyPlaylist(controllerInfo, legacyPlayerInfo.playbackStateCompat)) {
-      initializeLegacyPlaylist();
-    } else {
-      // Wait to initialize the new playlist (via playFrom*) until playWhenReady becomes true.
-      hasInitializedLegacyPlaylist = false;
-    }
   }
 
   @Override
@@ -771,7 +775,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         /* discontinuityReason= */ null,
         /* mediaItemTransitionReason= */ null);
 
-    if (hasInitializedLegacyPlaylist) {
+    if (initializeLegacyPlaylistHandler.hasInitializedLegacyPlaylist()) {
       addQueueItems(mediaItems, index);
     }
   }
@@ -825,7 +829,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         /* discontinuityReason= */ null,
         /* mediaItemTransitionReason= */ null);
 
-    if (hasInitializedLegacyPlaylist) {
+    if (initializeLegacyPlaylistHandler.hasInitializedLegacyPlaylist()) {
       for (int i = fromIndex; i < toIndex && i < legacyPlayerInfo.queue.size(); i++) {
         controllerCompat.removeQueueItem(legacyPlayerInfo.queue.get(i).getDescription());
       }
@@ -893,7 +897,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         /* discontinuityReason= */ null,
         /* mediaItemTransitionReason= */ null);
 
-    if (hasInitializedLegacyPlaylist) {
+    if (initializeLegacyPlaylistHandler.hasInitializedLegacyPlaylist()) {
       ArrayList<QueueItem> moveItems = new ArrayList<>();
       for (int i = 0; i < (toIndex - fromIndex); i++) {
         moveItems.add(legacyPlayerInfo.queue.get(fromIndex));
@@ -1311,20 +1315,11 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             controllerInfo.mediaButtonPreferences,
             controllerInfo.sessionExtras,
             /* sessionError= */ null);
+    initializeLegacyPlaylistHandler.schedulePlayWhenReadyChange();
     updateStateMaskedControllerInfo(
         maskedControllerInfo,
         /* discontinuityReason= */ null,
         /* mediaItemTransitionReason= */ null);
-
-    if (hasInitializedLegacyPlaylist) {
-      if (playWhenReady) {
-        controllerCompat.getTransportControls().play();
-      } else {
-        controllerCompat.getTransportControls().pause();
-      }
-    } else if (canInitializeLegacyPlaylist(controllerInfo, legacyPlayerInfo.playbackStateCompat)) {
-      initializeLegacyPlaylist();
-    }
   }
 
   @Override
@@ -1461,124 +1456,6 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             });
   }
 
-  private static boolean isLegacyPlaylistInitialized(ControllerInfo controllerInfo) {
-    if (controllerInfo.playerInfo.playbackState == Player.STATE_IDLE
-        || controllerInfo.playerInfo.timeline.isEmpty()) {
-      return false;
-    }
-    QueueTimeline queueTimeline = (QueueTimeline) controllerInfo.playerInfo.timeline;
-    int currentIndex = controllerInfo.playerInfo.sessionPositionInfo.positionInfo.mediaItemIndex;
-    return queueTimeline.getQueueId(currentIndex) != QueueItem.UNKNOWN_ID;
-  }
-
-  private static boolean canInitializeLegacyPlaylist(
-      ControllerInfo controllerInfo, @Nullable PlaybackStateCompat playbackStateCompat) {
-    if (controllerInfo.playerInfo.playbackState == Player.STATE_IDLE
-        || controllerInfo.playerInfo.timeline.isEmpty()) {
-      return false;
-    }
-    if (controllerInfo.playerInfo.playWhenReady) {
-      return true;
-    }
-    // When !playWhenReady, check whether the session supports the specific prepare action needed
-    // to eagerly initialize the playlist now (via prepare/prepareFrom*), or whether we must wait
-    // until playWhenReady becomes true to initialize via play/playFrom*.
-    if (playbackStateCompat == null) {
-      return false;
-    }
-    long actions = playbackStateCompat.getActions();
-    QueueTimeline queueTimeline = (QueueTimeline) controllerInfo.playerInfo.timeline;
-    int currentIndex = controllerInfo.playerInfo.sessionPositionInfo.positionInfo.mediaItemIndex;
-    if (queueTimeline.getQueueId(currentIndex) != QueueItem.UNKNOWN_ID) {
-      return (actions & PlaybackStateCompat.ACTION_PREPARE) != 0;
-    }
-    MediaItem currentMediaItem = queueTimeline.getWindow(currentIndex, new Window()).mediaItem;
-    if (currentMediaItem.requestMetadata.mediaUri != null) {
-      return (actions & PlaybackStateCompat.ACTION_PREPARE_FROM_URI) != 0;
-    } else if (currentMediaItem.requestMetadata.searchQuery != null) {
-      return (actions & PlaybackStateCompat.ACTION_PREPARE_FROM_SEARCH) != 0;
-    } else {
-      return (actions & PlaybackStateCompat.ACTION_PREPARE_FROM_MEDIA_ID) != 0;
-    }
-  }
-
-  private void initializeLegacyPlaylist() {
-    hasInitializedLegacyPlaylist = true;
-    Window window = new Window();
-    QueueTimeline queueTimeline = (QueueTimeline) controllerInfo.playerInfo.timeline;
-    // Set the current item first as these calls are expected to replace the current playlist.
-    int currentIndex = controllerInfo.playerInfo.sessionPositionInfo.positionInfo.mediaItemIndex;
-    MediaItem currentMediaItem = queueTimeline.getWindow(currentIndex, window).mediaItem;
-    if (queueTimeline.getQueueId(currentIndex) != QueueItem.UNKNOWN_ID) {
-      // Current item is already known to the session. Just prepare or play.
-      if (controllerInfo.playerInfo.playWhenReady) {
-        controllerCompat.getTransportControls().play();
-      } else {
-        controllerCompat.getTransportControls().prepare();
-      }
-    } else if (currentMediaItem.requestMetadata.mediaUri != null) {
-      if (controllerInfo.playerInfo.playWhenReady) {
-        controllerCompat
-            .getTransportControls()
-            .playFromUri(
-                currentMediaItem.requestMetadata.mediaUri,
-                getOrEmptyBundle(currentMediaItem.requestMetadata.extras));
-      } else {
-        controllerCompat
-            .getTransportControls()
-            .prepareFromUri(
-                currentMediaItem.requestMetadata.mediaUri,
-                getOrEmptyBundle(currentMediaItem.requestMetadata.extras));
-      }
-    } else if (currentMediaItem.requestMetadata.searchQuery != null) {
-      if (controllerInfo.playerInfo.playWhenReady) {
-        controllerCompat
-            .getTransportControls()
-            .playFromSearch(
-                currentMediaItem.requestMetadata.searchQuery,
-                getOrEmptyBundle(currentMediaItem.requestMetadata.extras));
-      } else {
-        controllerCompat
-            .getTransportControls()
-            .prepareFromSearch(
-                currentMediaItem.requestMetadata.searchQuery,
-                getOrEmptyBundle(currentMediaItem.requestMetadata.extras));
-      }
-    } else {
-      if (controllerInfo.playerInfo.playWhenReady) {
-        controllerCompat
-            .getTransportControls()
-            .playFromMediaId(
-                currentMediaItem.mediaId,
-                getOrEmptyBundle(currentMediaItem.requestMetadata.extras));
-      } else {
-        controllerCompat
-            .getTransportControls()
-            .prepareFromMediaId(
-                currentMediaItem.mediaId,
-                getOrEmptyBundle(currentMediaItem.requestMetadata.extras));
-      }
-    }
-    // Seek to non-zero start positon if needed.
-    if (controllerInfo.playerInfo.sessionPositionInfo.positionInfo.positionMs != 0) {
-      controllerCompat
-          .getTransportControls()
-          .seekTo(controllerInfo.playerInfo.sessionPositionInfo.positionInfo.positionMs);
-    }
-    // Add all other items to the playlist if supported.
-    if (getAvailableCommands().contains(Player.COMMAND_CHANGE_MEDIA_ITEMS)) {
-      List<MediaItem> adjustedMediaItems = new ArrayList<>();
-      for (int i = 0; i < queueTimeline.getWindowCount(); i++) {
-        if (i == currentIndex || queueTimeline.getQueueId(i) != QueueItem.UNKNOWN_ID) {
-          // Skip the current item (added above) and all items already known to the session.
-          continue;
-        }
-        adjustedMediaItems.add(queueTimeline.getWindow(/* windowIndex= */ i, window).mediaItem);
-      }
-      addQueueItems(adjustedMediaItems, /* startIndex= */ 0);
-    }
-  }
-
   private void addQueueItems(List<MediaItem> mediaItems, int startIndex) {
     List<@NullableType ListenableFuture<Bitmap>> bitmapFutures = new ArrayList<>();
     final AtomicInteger resultCount = new AtomicInteger(0);
@@ -1703,10 +1580,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     if (hasNewLegacyPlayerInfo) {
       legacyPlayerInfo = newLegacyPlayerInfo;
       pendingLegacyPlayerInfo = legacyPlayerInfo;
-      if (isLegacyPlaylistInitialized(newControllerInfo)) {
-        // New platform state already has initialized playlist.
-        hasInitializedLegacyPlaylist = true;
-      }
+      initializeLegacyPlaylistHandler.onNewLegacyControllerInfo(newControllerInfo);
     }
     controllerInfo = newControllerInfo;
 
@@ -2049,6 +1923,220 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       }
       pendingChangesHandler.sendEmptyMessageDelayed(
           MSG_HANDLE_PENDING_UPDATES, platformSessionCallbackAggregationTimeoutMs);
+    }
+  }
+
+  /**
+   * Coalesces legacy playlist initialization and {@code play()}/{@code pause()} dispatch across all
+   * {@link Player} calls within a single {@link Looper} iteration into one {@link
+   * MediaControllerCompat.TransportControls} sequence via a front-of-queue message, flushing early
+   * on {@link #stop()} and {@link #release()}.
+   */
+  private final class InitializeLegacyPlaylistHandler {
+
+    private static final int MSG_INITIALIZE_LEGACY_PLAYLIST = 1;
+
+    private final Handler handler;
+    private boolean hasInitializedLegacyPlaylist;
+    private boolean hasPendingPlayWhenReadyChange;
+
+    private InitializeLegacyPlaylistHandler(Looper looper) {
+      handler = new Handler(looper, this::handleMessage);
+    }
+
+    private boolean hasInitializedLegacyPlaylist() {
+      return hasInitializedLegacyPlaylist;
+    }
+
+    private void onNewLegacyControllerInfo(ControllerInfo newControllerInfo) {
+      if (isLegacyPlaylistInitialized(newControllerInfo)) {
+        // New platform state already has initialized playlist.
+        hasInitializedLegacyPlaylist = true;
+      }
+    }
+
+    private void scheduleInitializeLegacyPlaylist() {
+      hasInitializedLegacyPlaylist = false;
+      sendInitializeLegacyPlaylistMessage();
+    }
+
+    private void schedulePlayWhenReadyChange() {
+      hasPendingPlayWhenReadyChange = !hasPendingPlayWhenReadyChange;
+      sendInitializeLegacyPlaylistMessage();
+    }
+
+    private void handleStop() {
+      flushIfPending();
+      hasInitializedLegacyPlaylist = false;
+    }
+
+    private void release() {
+      flushIfPending();
+      handler.removeCallbacksAndMessages(/* token= */ null);
+    }
+
+    private void sendInitializeLegacyPlaylistMessage() {
+      if (!released && !handler.hasMessages(MSG_INITIALIZE_LEGACY_PLAYLIST)) {
+        handler.sendMessageAtFrontOfQueue(handler.obtainMessage(MSG_INITIALIZE_LEGACY_PLAYLIST));
+      }
+    }
+
+    private void flushIfPending() {
+      if (handler.hasMessages(MSG_INITIALIZE_LEGACY_PLAYLIST)) {
+        handler.removeMessages(MSG_INITIALIZE_LEGACY_PLAYLIST);
+        handleInitializeLegacyPlaylist();
+      }
+    }
+
+    private boolean handleMessage(Message msg) {
+      if (msg.what == MSG_INITIALIZE_LEGACY_PLAYLIST) {
+        handleInitializeLegacyPlaylist();
+      }
+      return true;
+    }
+
+    private void handleInitializeLegacyPlaylist() {
+      boolean shouldDispatchPlayWhenReady = hasPendingPlayWhenReadyChange;
+      hasPendingPlayWhenReadyChange = false;
+      if (controllerCompat == null) {
+        return;
+      }
+      if (hasInitializedLegacyPlaylist) {
+        if (shouldDispatchPlayWhenReady) {
+          if (controllerInfo.playerInfo.playWhenReady) {
+            controllerCompat.getTransportControls().play();
+          } else {
+            controllerCompat.getTransportControls().pause();
+          }
+        }
+      } else {
+        if (shouldDispatchPlayWhenReady
+            && controllerInfo.playerInfo.playbackState != Player.STATE_IDLE
+            && !controllerInfo.playerInfo.playWhenReady) {
+          controllerCompat.getTransportControls().pause();
+        }
+        if (canInitializeLegacyPlaylist()) {
+          initializeLegacyPlaylist();
+        }
+      }
+    }
+
+    private boolean isLegacyPlaylistInitialized(ControllerInfo controllerInfo) {
+      if (controllerInfo.playerInfo.playbackState == Player.STATE_IDLE
+          || controllerInfo.playerInfo.timeline.isEmpty()) {
+        return false;
+      }
+      QueueTimeline queueTimeline = (QueueTimeline) controllerInfo.playerInfo.timeline;
+      int currentIndex = controllerInfo.playerInfo.sessionPositionInfo.positionInfo.mediaItemIndex;
+      return queueTimeline.getQueueId(currentIndex) != QueueItem.UNKNOWN_ID;
+    }
+
+    private boolean canInitializeLegacyPlaylist() {
+      if (controllerInfo.playerInfo.playbackState == Player.STATE_IDLE
+          || controllerInfo.playerInfo.timeline.isEmpty()) {
+        return false;
+      }
+      if (controllerInfo.playerInfo.playWhenReady) {
+        return true;
+      }
+      // When !playWhenReady, check whether the session supports the specific prepare action needed
+      // to eagerly initialize the playlist now (via prepare/prepareFrom*), or whether we must wait
+      // until playWhenReady becomes true to initialize via play/playFrom*.
+      @Nullable PlaybackStateCompat playbackStateCompat = legacyPlayerInfo.playbackStateCompat;
+      if (playbackStateCompat == null) {
+        return false;
+      }
+      long actions = playbackStateCompat.getActions();
+      QueueTimeline queueTimeline = (QueueTimeline) controllerInfo.playerInfo.timeline;
+      int currentIndex = controllerInfo.playerInfo.sessionPositionInfo.positionInfo.mediaItemIndex;
+      if (queueTimeline.getQueueId(currentIndex) != QueueItem.UNKNOWN_ID) {
+        return (actions & PlaybackStateCompat.ACTION_PREPARE) != 0;
+      }
+      MediaItem currentMediaItem = queueTimeline.getWindow(currentIndex, new Window()).mediaItem;
+      if (currentMediaItem.requestMetadata.mediaUri != null) {
+        return (actions & PlaybackStateCompat.ACTION_PREPARE_FROM_URI) != 0;
+      } else if (currentMediaItem.requestMetadata.searchQuery != null) {
+        return (actions & PlaybackStateCompat.ACTION_PREPARE_FROM_SEARCH) != 0;
+      } else {
+        return (actions & PlaybackStateCompat.ACTION_PREPARE_FROM_MEDIA_ID) != 0;
+      }
+    }
+
+    private void initializeLegacyPlaylist() {
+      hasInitializedLegacyPlaylist = true;
+      Window window = new Window();
+      QueueTimeline queueTimeline = (QueueTimeline) controllerInfo.playerInfo.timeline;
+      // Set the current item first as these calls are expected to replace the current playlist.
+      int currentIndex = controllerInfo.playerInfo.sessionPositionInfo.positionInfo.mediaItemIndex;
+      MediaItem currentMediaItem = queueTimeline.getWindow(currentIndex, window).mediaItem;
+      if (queueTimeline.getQueueId(currentIndex) != QueueItem.UNKNOWN_ID) {
+        // Current item is already known to the session. Just prepare or play.
+        if (controllerInfo.playerInfo.playWhenReady) {
+          controllerCompat.getTransportControls().play();
+        } else {
+          controllerCompat.getTransportControls().prepare();
+        }
+      } else if (currentMediaItem.requestMetadata.mediaUri != null) {
+        if (controllerInfo.playerInfo.playWhenReady) {
+          controllerCompat
+              .getTransportControls()
+              .playFromUri(
+                  currentMediaItem.requestMetadata.mediaUri,
+                  getOrEmptyBundle(currentMediaItem.requestMetadata.extras));
+        } else {
+          controllerCompat
+              .getTransportControls()
+              .prepareFromUri(
+                  currentMediaItem.requestMetadata.mediaUri,
+                  getOrEmptyBundle(currentMediaItem.requestMetadata.extras));
+        }
+      } else if (currentMediaItem.requestMetadata.searchQuery != null) {
+        if (controllerInfo.playerInfo.playWhenReady) {
+          controllerCompat
+              .getTransportControls()
+              .playFromSearch(
+                  currentMediaItem.requestMetadata.searchQuery,
+                  getOrEmptyBundle(currentMediaItem.requestMetadata.extras));
+        } else {
+          controllerCompat
+              .getTransportControls()
+              .prepareFromSearch(
+                  currentMediaItem.requestMetadata.searchQuery,
+                  getOrEmptyBundle(currentMediaItem.requestMetadata.extras));
+        }
+      } else {
+        if (controllerInfo.playerInfo.playWhenReady) {
+          controllerCompat
+              .getTransportControls()
+              .playFromMediaId(
+                  currentMediaItem.mediaId,
+                  getOrEmptyBundle(currentMediaItem.requestMetadata.extras));
+        } else {
+          controllerCompat
+              .getTransportControls()
+              .prepareFromMediaId(
+                  currentMediaItem.mediaId,
+                  getOrEmptyBundle(currentMediaItem.requestMetadata.extras));
+        }
+      }
+      // Seek to non-zero start positon if needed.
+      if (controllerInfo.playerInfo.sessionPositionInfo.positionInfo.positionMs != 0) {
+        controllerCompat
+            .getTransportControls()
+            .seekTo(controllerInfo.playerInfo.sessionPositionInfo.positionInfo.positionMs);
+      }
+      // Add all other items to the playlist if supported.
+      if (getAvailableCommands().contains(Player.COMMAND_CHANGE_MEDIA_ITEMS)) {
+        List<MediaItem> adjustedMediaItems = new ArrayList<>();
+        for (int i = 0; i < queueTimeline.getWindowCount(); i++) {
+          if (i == currentIndex || queueTimeline.getQueueId(i) != QueueItem.UNKNOWN_ID) {
+            // Skip the current item (added above) and all items already known to the session.
+            continue;
+          }
+          adjustedMediaItems.add(queueTimeline.getWindow(/* windowIndex= */ i, window).mediaItem);
+        }
+        addQueueItems(adjustedMediaItems, /* startIndex= */ 0);
+      }
     }
   }
 

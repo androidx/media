@@ -255,6 +255,10 @@
         ([#3432](https://github.com/androidx/media/issues/3432)).
     *   Fix `IllegalArgumentException` crash when receiving legacy metadata with
         duplicate keys in its underlying `Bundle`.
+    *   Coalesce outgoing `MediaControllerCompat.TransportControls` calls made
+        within the same `Looper` iteration when controlling a legacy
+        `MediaSessionCompat` (for example, calling `setMediaItem`, `prepare`,
+        and `play` together now dispatches a single `onPlayFrom*` callback).
 *   UI:
     *   Add `TrackSelectionState` and `TrackSelectionParametersState` classes
         and their corresponding Composable state remember functions to the
