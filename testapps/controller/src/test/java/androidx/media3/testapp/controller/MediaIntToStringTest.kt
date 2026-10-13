@@ -49,7 +49,10 @@ class MediaIntToStringTest {
     assertThat(MediaIntToString.sessionCommandMap).isEqualTo(expectedSessionCommandMap)
   }
 
-  private fun <T> getValuesToFieldNameMap(clazz: Class<T>, prefix: String): Map<Any?, String> {
+  private fun <T : Any> getValuesToFieldNameMap(
+    clazz: Class<T>,
+    prefix: String,
+  ): Map<Any?, String> {
     val fields =
       clazz.fields.filter { Modifier.isStatic(it.modifiers) && it.name.startsWith(prefix) }
     val valuesToFieldMap = mutableMapOf<Any?, Field>()

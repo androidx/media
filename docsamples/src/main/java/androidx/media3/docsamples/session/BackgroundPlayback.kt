@@ -139,7 +139,7 @@ object BackgroundPlaybackKt {
 
     // [END implement_playback_resumption]
 
-    private fun restorePlaylist(): MediaSession.MediaItemsWithStartPosition? = null
+    private fun restorePlaylist(): MediaSession.MediaItemsWithStartPosition = TODO()
   }
 
   @OptIn(UnstableApi::class)

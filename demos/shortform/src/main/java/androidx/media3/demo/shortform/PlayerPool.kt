@@ -99,8 +99,7 @@ class PlayerPool(private val numberOfPlayers: Int, preloadManagerBuilder: Builde
       player?.stop()
       player?.clearMediaItems()
       if (player != null) {
-        val playerNumber = playerMap.inverse()[player]
-        availablePlayerQueue.add(playerNumber)
+        playerMap.inverse()[player]?.let { playerNumber -> availablePlayerQueue.add(playerNumber) }
       }
     }
   }

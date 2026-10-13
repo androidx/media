@@ -313,7 +313,7 @@ class MediaAppControllerActivity : AppCompatActivity() {
       Futures.addCallback(
         it,
         object : FutureCallback<Bitmap> {
-          override fun onSuccess(result: Bitmap?) {
+          override fun onSuccess(result: Bitmap) {
             mediaAlbumArtView.setImageBitmap(result)
           }
 

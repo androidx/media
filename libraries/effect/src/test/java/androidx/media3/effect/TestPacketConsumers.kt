@@ -24,7 +24,7 @@ class FakePacketConsumer<T> : PacketConsumer<T> {
 
   @JvmField val packet1Received: CompletableFuture<Packet<T>> = CompletableFuture()
   @JvmField val packet2Received: CompletableFuture<Packet<T>> = CompletableFuture()
-  private var continueProcessing: CompletableFuture<Void> = CompletableFuture()
+  private var continueProcessing: CompletableFuture<Void?> = CompletableFuture()
   private var receivedPacketCount: Int = 0
 
   /**
