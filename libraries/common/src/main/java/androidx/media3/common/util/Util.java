@@ -948,8 +948,9 @@ public final class Util {
    * @return A {@link ListenableFuture} for the transformed result.
    */
   @UnstableApi
-  public static <T, U> ListenableFuture<T> transformFutureAsync(
-      ListenableFuture<U> future, AsyncFunction<U, T> transformFunction) {
+  public static <T extends @NullableType Object, U extends @NullableType Object>
+      ListenableFuture<T> transformFutureAsync(
+          ListenableFuture<U> future, AsyncFunction<U, T> transformFunction) {
     // This is a simplified copy of Guava's Futures.transformAsync.
     SettableFuture<T> outputFuture = SettableFuture.create();
     outputFuture.addListener(

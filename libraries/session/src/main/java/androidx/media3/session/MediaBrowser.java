@@ -34,6 +34,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ExperimentalApi;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
@@ -519,7 +520,8 @@ public final class MediaBrowser extends MediaController {
     return createDisconnectedFuture();
   }
 
-  private static <V> ListenableFuture<LibraryResult<V>> createDisconnectedFuture() {
+  private static <V extends @NullableType Object>
+      ListenableFuture<LibraryResult<V>> createDisconnectedFuture() {
     return Futures.immediateFuture(LibraryResult.ofError(ERROR_SESSION_DISCONNECTED));
   }
 

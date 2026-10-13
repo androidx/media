@@ -32,7 +32,8 @@ import java.util.concurrent.TimeoutException;
  * @param <E> The type of any {@link ExecutionException} cause.
  */
 @UnstableApi
-public abstract class RunnableFutureTask<R, E extends Exception> implements RunnableFuture<R> {
+public abstract class RunnableFutureTask<R extends @NullableType Object, E extends Exception>
+    implements RunnableFuture<R> {
 
   private final ConditionVariable started;
   private final ConditionVariable finished;

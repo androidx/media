@@ -3605,7 +3605,9 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       return addFuture;
     }
     ListenableFuture<?> removeFuture = handleRemoveMediaItems(fromIndex, toIndex);
-    return Util.transformFutureAsync(addFuture, unused -> removeFuture);
+    @SuppressWarnings("nullness:return") // Wildcard capture not propagated across lambda return.
+    ListenableFuture<?> result = Util.transformFutureAsync(addFuture, unused -> removeFuture);
+    return result;
   }
 
   /**

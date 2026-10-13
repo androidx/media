@@ -25,6 +25,7 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.PriorityTaskManager;
 import androidx.media3.common.PriorityTaskManager.PriorityTooLowException;
 import androidx.media3.common.StreamKey;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.RunnableFutureTask;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -438,7 +439,8 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
    * @throws InterruptedException If the thread on which the method is called is interrupted.
    * @throws IOException If an error occurs during execution.
    */
-  protected final <T> T execute(Supplier<RunnableFutureTask<T, ?>> runnable, boolean removing)
+  protected final <T extends @NullableType Object> T execute(
+      Supplier<RunnableFutureTask<T, ?>> runnable, boolean removing)
       throws InterruptedException, IOException {
     if (removing) {
       RunnableFutureTask<T, ?> task = runnable.get();
@@ -506,7 +508,7 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
     return new DataSpec.Builder().setUri(uri).setFlags(DataSpec.FLAG_ALLOW_GZIP).build();
   }
 
-  private <T> void addActiveRunnable(RunnableFutureTask<T, ?> runnable)
+  private <T extends @NullableType Object> void addActiveRunnable(RunnableFutureTask<T, ?> runnable)
       throws InterruptedException {
     synchronized (activeRunnables) {
       if (isCanceled) {

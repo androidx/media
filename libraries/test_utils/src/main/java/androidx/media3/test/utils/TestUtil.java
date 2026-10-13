@@ -888,7 +888,7 @@ public class TestUtil {
    */
   @SuppressWarnings("unchecked")
   @Nullable
-  private static <T> T tryCreateMockInstance(Class<T> clazz) {
+  private static <T extends @NullableType Object> T tryCreateMockInstance(Class<T> clazz) {
     if (clazz.isPrimitive()) {
       // Get a default value of the right primitive type by creating a single-element array.
       return (T) Array.get(Array.newInstance(clazz, 1), 0);
@@ -915,7 +915,7 @@ public class TestUtil {
   // parameter to Constructor.newInstance(), even if the real constructor does accept null.
   @SuppressWarnings({"unchecked", "nullness:argument.type.incompatible"})
   @Nullable
-  private static <T> T tryCreateInstance(Class<T> clazz) {
+  private static <T extends @NullableType Object> T tryCreateInstance(Class<T> clazz) {
     Constructor<T>[] constructors = (Constructor<T>[]) clazz.getConstructors();
     // Start with the constructor with fewest parameters.
     Arrays.sort(constructors, Comparator.comparingInt(c -> c.getParameterTypes().length));

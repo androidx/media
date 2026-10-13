@@ -116,7 +116,8 @@ public class MediaSourceTestRunner {
    *
    * @param callable The {@link Callable} to run.
    */
-  public <T> ListenableFuture<T> asyncRunOnPlaybackThread(Callable<T> callable) {
+  public <T extends @NullableType Object> ListenableFuture<T> asyncRunOnPlaybackThread(
+      Callable<T> callable) {
     SettableFuture<T> result = SettableFuture.create();
     playbackHandler.post(
         () -> {

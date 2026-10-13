@@ -22,6 +22,7 @@ import android.os.Handler;
 import androidx.annotation.CallSuper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnknownNull;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -39,7 +40,7 @@ import java.util.Objects;
  * @param <T> The type of the id used to identify prepared child sources.
  */
 @UnstableApi
-public abstract class CompositeMediaSource<T> extends BaseMediaSource {
+public abstract class CompositeMediaSource<T extends @NullableType Object> extends BaseMediaSource {
 
   private final HashMap<T, MediaSourceAndListener<T>> childSources;
 
@@ -205,7 +206,7 @@ public abstract class CompositeMediaSource<T> extends BaseMediaSource {
     return mediaTimeMs;
   }
 
-  private static final class MediaSourceAndListener<T> {
+  private static final class MediaSourceAndListener<T extends @NullableType Object> {
 
     public final MediaSource mediaSource;
     public final MediaSourceCaller caller;
