@@ -57,6 +57,7 @@ import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.ImmutableIntArray;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -425,6 +426,286 @@ public final class DefaultAudioSinkTest {
             (BYTES_PER_FRAME_16_BIT
                 * CHANNEL_COUNT_STEREO
                 * (SAMPLE_RATE_44_1 - TRIM_100_MS_FRAME_COUNT - TRIM_10_MS_FRAME_COUNT)));
+  }
+
+  @Test
+  public void
+      configure_withUntrimmedPendingConfigurationUnderBackpressure_doesNotDropFirstTrackFrames()
+          throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    AtomicBoolean blockWrites = new AtomicBoolean(false);
+    AtomicLong totalBytesWritten = new AtomicLong(0);
+    AudioProcessor chunkingAudioProcessor =
+        new BaseAudioProcessor() {
+          @Override
+          protected AudioProcessor.AudioFormat onConfigure(
+              AudioProcessor.AudioFormat inputAudioFormat) {
+            return inputAudioFormat;
+          }
+
+          @Override
+          public void queueInput(ByteBuffer inputBuffer) {
+            if (!inputBuffer.hasRemaining()) {
+              return;
+            }
+            int bytesToConsume = Math.min(inputBuffer.remaining(), 4096);
+            ByteBuffer output = replaceOutputBuffer(bytesToConsume);
+            int originalLimit = inputBuffer.limit();
+            inputBuffer.limit(inputBuffer.position() + bytesToConsume);
+            output.put(inputBuffer);
+            inputBuffer.limit(originalLimit);
+            output.flip();
+            if (inputBuffer.hasRemaining()) {
+              blockWrites.set(true);
+            }
+          }
+        };
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(context).build()) {
+          @Override
+          public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+            return new ForwardingAudioOutput(super.getAudioOutput(config)) {
+              @Override
+              public boolean write(
+                  ByteBuffer buffer, int encodedAccessUnitCount, long presentationTimeUs)
+                  throws WriteException {
+                if (blockWrites.get()) {
+                  return false;
+                }
+                int remainingBefore = buffer.remaining();
+                boolean result = super.write(buffer, encodedAccessUnitCount, presentationTimeUs);
+                totalBytesWritten.addAndGet(remainingBefore - buffer.remaining());
+                return result;
+              }
+            };
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context)
+            .setAudioProcessors(new AudioProcessor[] {chunkingAudioProcessor})
+            .setAudioOutputProvider(audioOutputProvider)
+            .build();
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO,
+        /* trimStartFrames= */ 0,
+        /* trimEndFrames= */ TRIM_100_MS_FRAME_COUNT);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    // Configure Track 2 with 0 trim frames while Track 1 still has unconsumed bytes in
+    // trimmedOutputBuffer due to backpressure.
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
+    ByteBuffer secondTrackBuffer = create1Sec44100HzSilenceBuffer();
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                secondTrackBuffer,
+                /* presentationTimeUs= */ C.MICROS_PER_SECOND,
+                /* encodedAccessUnitCount= */ 1))
+        .isFalse();
+    blockWrites.set(false);
+    while (!defaultAudioSink.handleBuffer(
+        secondTrackBuffer,
+        /* presentationTimeUs= */ C.MICROS_PER_SECOND,
+        /* encodedAccessUnitCount= */ 1)) {
+      blockWrites.set(false);
+    }
+
+    assertThat(totalBytesWritten.get())
+        .isEqualTo(
+            BYTES_PER_FRAME_16_BIT
+                * CHANNEL_COUNT_STEREO
+                * (2 * SAMPLE_RATE_44_1 - TRIM_100_MS_FRAME_COUNT));
+  }
+
+  @Test
+  public void
+      configure_withEncoderPaddingKnownUpfront_flushesAudioProcessorChainOnlyOnceOnInitialization()
+          throws Exception {
+    TrackingAudioProcessor trackingProcessor = new TrackingAudioProcessor();
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext())
+            .setAudioProcessors(
+                new AudioProcessor[] {
+                  trackingProcessor, new TeeAudioProcessor(arrayAudioBufferSink)
+                })
+            .build();
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO,
+        /* trimStartFrames= */ TRIM_100_MS_FRAME_COUNT,
+        /* trimEndFrames= */ TRIM_10_MS_FRAME_COUNT);
+
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    assertThat(trackingProcessor.configureCount).isEqualTo(1);
+    assertThat(trackingProcessor.flushCount).isEqualTo(1);
+    assertThat(trackingProcessor.resetCount).isEqualTo(0);
+    assertThat(arrayAudioBufferSink.output)
+        .hasLength(
+            BYTES_PER_FRAME_16_BIT
+                * CHANNEL_COUNT_STEREO
+                * (SAMPLE_RATE_44_1 - TRIM_100_MS_FRAME_COUNT - TRIM_10_MS_FRAME_COUNT));
+  }
+
+  @Test
+  public void
+      setPlaybackParameters_midStreamWithTrimmingActive_drainsAndFlushesWithoutRetrimmingStart()
+          throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    TrackingAudioProcessor trackingProcessor = new TrackingAudioProcessor();
+    AtomicLong totalBytesWritten = new AtomicLong();
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context)
+            .setAudioProcessors(new AudioProcessor[] {trackingProcessor})
+            .setAudioOutputProvider(createByteCountingAudioOutputProvider(totalBytesWritten))
+            .build();
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO,
+        /* trimStartFrames= */ TRIM_100_MS_FRAME_COUNT,
+        /* trimEndFrames= */ TRIM_10_MS_FRAME_COUNT);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+    assertThat(trackingProcessor.flushCount).isEqualTo(1);
+
+    // Trigger a mid-stream drain and flush via setPlaybackParameters.
+    defaultAudioSink.setPlaybackParameters(PlaybackParameters.DEFAULT);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ C.MICROS_PER_SECOND,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    assertThat(trackingProcessor.flushCount).isEqualTo(2);
+    assertThat(totalBytesWritten.get())
+        .isEqualTo(
+            BYTES_PER_FRAME_16_BIT
+                * CHANNEL_COUNT_STEREO
+                * (2 * SAMPLE_RATE_44_1 - TRIM_100_MS_FRAME_COUNT - TRIM_10_MS_FRAME_COUNT));
+  }
+
+  @Test
+  public void
+      setPlaybackParameters_midStreamWithOnlyTrimmingActive_drainsAndFlushesWithoutRetrimmingStart()
+          throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    AtomicLong totalBytesWritten = new AtomicLong();
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context)
+            .setAudioOutputProvider(createByteCountingAudioOutputProvider(totalBytesWritten))
+            .build();
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO,
+        /* trimStartFrames= */ TRIM_100_MS_FRAME_COUNT,
+        /* trimEndFrames= */ TRIM_10_MS_FRAME_COUNT);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    // Trigger a mid-stream drain and flush via setPlaybackParameters while
+    // audioProcessingPipeline.isOperational() is false.
+    defaultAudioSink.setPlaybackParameters(PlaybackParameters.DEFAULT);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ C.MICROS_PER_SECOND,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    assertThat(totalBytesWritten.get())
+        .isEqualTo(
+            BYTES_PER_FRAME_16_BIT
+                * CHANNEL_COUNT_STEREO
+                * (2 * SAMPLE_RATE_44_1 - TRIM_100_MS_FRAME_COUNT - TRIM_10_MS_FRAME_COUNT));
+  }
+
+  @Test
+  public void
+      configure_withUntrimmedPendingConfigAndOnlyTrimmingUnderBackpressure_doesNotDropFrames()
+          throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    AtomicBoolean blockWrites = new AtomicBoolean(false);
+    AtomicLong totalBytesWritten = new AtomicLong(0);
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(context).build()) {
+          @Override
+          public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+            return new ForwardingAudioOutput(super.getAudioOutput(config)) {
+              @Override
+              public boolean write(
+                  ByteBuffer buffer, int encodedAccessUnitCount, long presentationTimeUs)
+                  throws WriteException {
+                if (blockWrites.get()) {
+                  return false;
+                }
+                int bytesToWrite = Math.min(buffer.remaining(), 4096);
+                int originalLimit = buffer.limit();
+                buffer.limit(buffer.position() + bytesToWrite);
+                boolean result = super.write(buffer, encodedAccessUnitCount, presentationTimeUs);
+                buffer.limit(originalLimit);
+                totalBytesWritten.addAndGet(bytesToWrite);
+                if (buffer.hasRemaining()) {
+                  blockWrites.set(true);
+                  return false;
+                }
+                return result;
+              }
+            };
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context).setAudioOutputProvider(audioOutputProvider).build();
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO,
+        /* trimStartFrames= */ 0,
+        /* trimEndFrames= */ TRIM_100_MS_FRAME_COUNT);
+    ByteBuffer firstTrackBuffer = create1Sec44100HzSilenceBuffer();
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                firstTrackBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    // Configure Track 2 with 0 trim frames while Track 1 still has unconsumed bytes in
+    // trimmedOutputBuffer due to AudioOutput backpressure on the trimmer-only path.
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
+    ByteBuffer secondTrackBuffer = create1Sec44100HzSilenceBuffer();
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                secondTrackBuffer,
+                /* presentationTimeUs= */ C.MICROS_PER_SECOND,
+                /* encodedAccessUnitCount= */ 1))
+        .isFalse();
+    while (!defaultAudioSink.handleBuffer(
+        secondTrackBuffer,
+        /* presentationTimeUs= */ C.MICROS_PER_SECOND,
+        /* encodedAccessUnitCount= */ 1)) {
+      blockWrites.set(false);
+    }
+
+    assertThat(totalBytesWritten.get())
+        .isEqualTo(
+            BYTES_PER_FRAME_16_BIT
+                * CHANNEL_COUNT_STEREO
+                * (2 * SAMPLE_RATE_44_1 - TRIM_100_MS_FRAME_COUNT));
   }
 
   @Test
@@ -2000,6 +2281,28 @@ public final class DefaultAudioSinkTest {
         .order(ByteOrder.nativeOrder());
   }
 
+  private static AudioOutputProvider createByteCountingAudioOutputProvider(
+      AtomicLong totalBytesWritten) {
+    return new ForwardingAudioOutputProvider(
+        new AudioTrackAudioOutputProvider.Builder(ApplicationProvider.getApplicationContext())
+            .build()) {
+      @Override
+      public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+        return new ForwardingAudioOutput(super.getAudioOutput(config)) {
+          @Override
+          public boolean write(
+              ByteBuffer buffer, int encodedAccessUnitCount, long presentationTimeUs)
+              throws WriteException {
+            int remainingBefore = buffer.remaining();
+            boolean result = super.write(buffer, encodedAccessUnitCount, presentationTimeUs);
+            totalBytesWritten.addAndGet(remainingBefore - buffer.remaining());
+            return result;
+          }
+        };
+      }
+    };
+  }
+
   private interface ThrowingBooleanMethod {
     boolean run() throws Exception;
   }
@@ -2033,6 +2336,39 @@ public final class DefaultAudioSinkTest {
       output = Arrays.copyOf(output, output.length + remaining);
       buffer.get(output, 0, remaining);
       buffer.position(position);
+    }
+  }
+
+  private static final class TrackingAudioProcessor extends BaseAudioProcessor {
+
+    private int configureCount;
+    private int flushCount;
+    private int resetCount;
+
+    @CanIgnoreReturnValue
+    @Override
+    protected AudioProcessor.AudioFormat onConfigure(AudioProcessor.AudioFormat inputAudioFormat) {
+      configureCount++;
+      return inputAudioFormat;
+    }
+
+    @Override
+    public void queueInput(ByteBuffer inputBuffer) {
+      int remaining = inputBuffer.remaining();
+      if (remaining == 0) {
+        return;
+      }
+      replaceOutputBuffer(remaining).put(inputBuffer).flip();
+    }
+
+    @Override
+    protected void onFlush(StreamMetadata streamMetadata) {
+      flushCount++;
+    }
+
+    @Override
+    protected void onReset() {
+      resetCount++;
     }
   }
 }

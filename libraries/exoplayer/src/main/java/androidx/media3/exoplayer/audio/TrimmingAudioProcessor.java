@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.audio;
 
 import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static androidx.media3.common.util.Util.isEncodingLinearPcm;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -47,8 +48,9 @@ public final class TrimmingAudioProcessor extends BaseAudioProcessor implements 
 
   /**
    * Sets the number of audio frames to trim from the start and end of audio passed to this
-   * processor. After calling this method, call {@link #configure(AudioFormat)} to apply the new
-   * trimming frame counts.
+   * processor. After calling this method, call {@link #configure(AudioFormat)} (if not already
+   * configured or if updating {@code trimStartFrames}) and {@link #flush(StreamMetadata)} to apply
+   * the new trimming frame counts.
    *
    * <p>See {@link AudioSink#configure(androidx.media3.exoplayer.audio.AudioSink.AudioSinkConfig)}.
    *
@@ -56,6 +58,8 @@ public final class TrimmingAudioProcessor extends BaseAudioProcessor implements 
    * @param trimEndFrames The number of audio frames to trim from the end of audio.
    */
   public void setTrimFrameCount(int trimStartFrames, int trimEndFrames) {
+    checkArgument(trimStartFrames >= 0);
+    checkArgument(trimEndFrames >= 0);
     this.trimStartFrames = trimStartFrames;
     this.trimEndFrames = trimEndFrames;
   }
@@ -75,6 +79,9 @@ public final class TrimmingAudioProcessor extends BaseAudioProcessor implements 
 
   @Override
   public long getDurationAfterProcessorApplied(long durationUs) {
+    if (!isActive()) {
+      return durationUs;
+    }
     // TODO: b/369509881 - Use StreamMetadata#positionOffsetUs to calculate duration based on seek
     //  position.
     return max(
@@ -91,7 +98,12 @@ public final class TrimmingAudioProcessor extends BaseAudioProcessor implements 
       throw new UnhandledAudioFormatException(inputAudioFormat);
     }
     reconfigurationPending = true;
-    return trimStartFrames != 0 || trimEndFrames != 0 ? inputAudioFormat : AudioFormat.NOT_SET;
+    return inputAudioFormat;
+  }
+
+  @Override
+  public boolean isActive() {
+    return super.isActive() && (trimStartFrames != 0 || trimEndFrames != 0 || endBufferSize > 0);
   }
 
   @Override
@@ -119,7 +131,7 @@ public final class TrimmingAudioProcessor extends BaseAudioProcessor implements 
     // don't receive any more input. After taking into account the number of bytes needed to keep
     // endBuffer as full as possible, the output should be any surplus bytes currently in endBuffer
     // followed by any surplus bytes in the new inputBuffer.
-    int remainingBytesToOutput = endBufferSize + remaining - endBuffer.length;
+    int remainingBytesToOutput = max(0, endBufferSize + remaining - endBuffer.length);
     ByteBuffer buffer = replaceOutputBuffer(remainingBytesToOutput);
 
     // Output from endBuffer.
@@ -146,6 +158,8 @@ public final class TrimmingAudioProcessor extends BaseAudioProcessor implements 
   @Override
   public ByteBuffer getOutput() {
     if (super.isEnded() && endBufferSize > 0) {
+      // TODO: b/570496302 - Always trim endBuffer at the end of a track now that
+      //  TrimmingAudioProcessor is outside the AudioProcessingPipeline.
       // Because audio processors may be drained in the middle of the stream we assume that the
       // contents of the end buffer need to be output. For gapless transitions, configure will
       // always be called, so the end buffer is cleared in onQueueEndOfStream.
@@ -162,6 +176,8 @@ public final class TrimmingAudioProcessor extends BaseAudioProcessor implements 
 
   @Override
   protected void onQueueEndOfStream() {
+    // TODO: b/570496302 - Always trim endBuffer at the end of a track rather than only when
+    //  reconfigurationPending is true.
     if (reconfigurationPending) {
       // Trim audio in the end buffer.
       if (endBufferSize > 0) {
@@ -176,7 +192,6 @@ public final class TrimmingAudioProcessor extends BaseAudioProcessor implements 
     if (reconfigurationPending) {
       // Flushing activates the new configuration, so prepare to trim bytes from the start/end.
       reconfigurationPending = false;
-      endBuffer = new byte[trimEndFrames * inputAudioFormat.bytesPerFrame];
       pendingTrimStartBytes = trimStartFrames * inputAudioFormat.bytesPerFrame;
     }
 
@@ -189,11 +204,21 @@ public final class TrimmingAudioProcessor extends BaseAudioProcessor implements 
     // Any data in the end buffer should no longer be output if we are playing from a different
     // position, so discard it and refill the buffer using new input.
     endBufferSize = 0;
+    if (isActive()) {
+      endBuffer = new byte[trimEndFrames * inputAudioFormat.bytesPerFrame];
+    } else {
+      endBuffer = Util.EMPTY_BYTE_ARRAY;
+    }
   }
 
   @Override
   protected void onReset() {
+    trimStartFrames = 0;
+    trimEndFrames = 0;
+    reconfigurationPending = false;
+    pendingTrimStartBytes = 0;
     endBuffer = Util.EMPTY_BYTE_ARRAY;
+    endBufferSize = 0;
   }
 
   @Override

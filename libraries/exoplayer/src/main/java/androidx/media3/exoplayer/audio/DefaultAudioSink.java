@@ -602,6 +602,7 @@ public final class DefaultAudioSink implements AudioSink {
 
   @Nullable private ByteBuffer inputBuffer;
   private int inputBufferAccessUnitCount;
+  private ByteBuffer trimmedOutputBuffer;
   @Nullable private ByteBuffer outputBuffer;
   private boolean handledEndOfStream;
   private boolean stoppedAudioOutput;
@@ -635,8 +636,8 @@ public final class DefaultAudioSink implements AudioSink {
     trimmingAudioProcessor = new TrimmingAudioProcessor();
     toInt16PcmAudioProcessor = new ToInt16PcmAudioProcessor();
     toFloatPcmAudioProcessor = new ToFloatPcmAudioProcessor();
-    availableAudioProcessors =
-        ImmutableList.of(trimmingAudioProcessor, channelMappingAudioProcessor);
+    availableAudioProcessors = ImmutableList.of(channelMappingAudioProcessor);
+    trimmedOutputBuffer = AudioProcessor.EMPTY_BUFFER;
     volume = 1f;
     audioSessionId = C.AUDIO_SESSION_ID_UNSET;
     auxEffectInfo = new AuxEffectInfo(AuxEffectInfo.NO_AUX_EFFECT_ID, 0f);
@@ -760,9 +761,6 @@ public final class DefaultAudioSink implements AudioSink {
         audioProcessingPipeline = this.audioProcessingPipeline;
       }
 
-      trimmingAudioProcessor.setTrimFrameCount(
-          inputFormat.encoderDelay, inputFormat.encoderPadding);
-
       channelMappingAudioProcessor.setChannelMap(audioSinkConfig.outputChannelMapping);
 
       AudioProcessor.AudioFormat outputFormat = new AudioProcessor.AudioFormat(inputFormat);
@@ -830,6 +828,28 @@ public final class DefaultAudioSink implements AudioSink {
       this.pendingConfiguration = pendingConfiguration;
     } else {
       configuration = pendingConfiguration;
+      configureTrimmingAudioProcessor();
+    }
+  }
+
+  private void configureTrimmingAudioProcessor() {
+    if (configuration != null && configuration.isPcm()) {
+      trimmingAudioProcessor.setTrimFrameCount(
+          configuration.inputFormat.encoderDelay, configuration.inputFormat.encoderPadding);
+      try {
+        trimmingAudioProcessor.configure(new AudioProcessor.AudioFormat(configuration.inputFormat));
+      } catch (UnhandledAudioFormatException e) {
+        throw new IllegalStateException(e);
+      }
+    }
+  }
+
+  private void flushTrimmingAudioProcessor() {
+    trimmedOutputBuffer = AudioProcessor.EMPTY_BUFFER;
+    if (configuration.isPcm()) {
+      trimmingAudioProcessor.flush(AudioProcessor.StreamMetadata.DEFAULT);
+    } else {
+      trimmingAudioProcessor.reset();
     }
   }
 
@@ -846,12 +866,16 @@ public final class DefaultAudioSink implements AudioSink {
         positionOffsetUs += period.getPositionInWindowUs();
       }
     }
-    audioProcessingPipeline.flush(
+    if (configuration.isPcm()) {
+      positionOffsetUs = trimmingAudioProcessor.getDurationAfterProcessorApplied(positionOffsetUs);
+    }
+    AudioProcessor.StreamMetadata streamMetadata =
         new AudioProcessor.StreamMetadata.Builder()
             .setTimeline(configuration.timeline)
             .setPeriodUid(configuration.periodUid)
             .setPositionOffsetUs(positionOffsetUs)
-            .build());
+            .build();
+    audioProcessingPipeline.flush(streamMetadata);
   }
 
   private boolean initializeAudioOutput() throws InitializationException {
@@ -933,6 +957,14 @@ public final class DefaultAudioSink implements AudioSink {
     checkArgument(inputBuffer == null || buffer == inputBuffer);
 
     if (pendingConfiguration != null) {
+      if (configuration.isPcm()) {
+        try {
+          trimmingAudioProcessor.configure(
+              new AudioProcessor.AudioFormat(configuration.inputFormat));
+        } catch (UnhandledAudioFormatException e) {
+          throw new IllegalStateException(e);
+        }
+      }
       if (!drainToEndOfStream()) {
         // There's still pending data in audio processors to write to the output.
         return false;
@@ -951,17 +983,21 @@ public final class DefaultAudioSink implements AudioSink {
         // The current audio output can be reused for the new configuration.
         configuration = pendingConfiguration;
         pendingConfiguration = null;
-        if (audioOutput != null
-            && audioOutput.isOffloadedPlayback()
-            && configuration.outputConfig.useOffloadGapless) {
-          audioOutput.setOffloadEndOfStream();
-          audioOutput.setOffloadDelayPadding(
-              configuration.inputFormat.encoderDelay, configuration.inputFormat.encoderPadding);
-          isWaitingForOffloadEndOfStreamHandled = true;
+        configureTrimmingAudioProcessor();
+        if (audioOutput != null) {
+          if (audioOutput.isOffloadedPlayback() && configuration.outputConfig.useOffloadGapless) {
+            audioOutput.setOffloadEndOfStream();
+            audioOutput.setOffloadDelayPadding(
+                configuration.inputFormat.encoderDelay, configuration.inputFormat.encoderPadding);
+            isWaitingForOffloadEndOfStreamHandled = true;
+          }
+          if (!startMediaTimeUsNeedsInit) {
+            flushTrimmingAudioProcessor();
+            // Re-apply playback parameters.
+            applyAudioProcessorPlaybackParametersAndSkipSilence(presentationTimeUs);
+          }
         }
       }
-      // Re-apply playback parameters.
-      applyAudioProcessorPlaybackParametersAndSkipSilence(presentationTimeUs);
     }
 
     if (!isAudioOutputInitialized()) {
@@ -988,6 +1024,7 @@ public final class DefaultAudioSink implements AudioSink {
       if (useAudioOutputPlaybackParams()) {
         setAudioOutputPlaybackParameters();
       }
+      flushTrimmingAudioProcessor();
       applyAudioProcessorPlaybackParametersAndSkipSilence(presentationTimeUs);
 
       if (playing) {
@@ -1017,7 +1054,7 @@ public final class DefaultAudioSink implements AudioSink {
       }
 
       if (afterDrainParameters != null) {
-        if (!drainToEndOfStream()) {
+        if (!drainAudioProcessingPipelineToEndOfStream()) {
           // Don't process any more input until draining completes.
           return false;
         }
@@ -1040,7 +1077,7 @@ public final class DefaultAudioSink implements AudioSink {
         startMediaTimeUsNeedsSync = true;
       }
       if (startMediaTimeUsNeedsSync) {
-        if (!drainToEndOfStream()) {
+        if (!drainAudioProcessingPipelineToEndOfStream()) {
           // Don't update timing until pending AudioProcessor buffers are completely drained.
           return false;
         }
@@ -1166,13 +1203,12 @@ public final class DefaultAudioSink implements AudioSink {
   }
 
   /**
-   * Repeatedly drains and feeds the {@link AudioProcessingPipeline} until {@link
-   * #drainOutputBuffer(long)} is not able to fully drain the output or there is no more input to
-   * feed into the pipeline.
+   * Repeatedly drains and feeds {@link #trimmingAudioProcessor} and the {@link
+   * AudioProcessingPipeline} until {@link #drainOutputBuffer(long)} is not able to fully drain the
+   * output or there is no more input to feed.
    *
-   * <p>If the {@link AudioProcessingPipeline} is not {@linkplain
-   * AudioProcessingPipeline#isOperational() operational}, input buffers are passed straight to
-   * {@link #setOutputBuffer(ByteBuffer)}.
+   * <p>If neither {@link #trimmingAudioProcessor} nor the {@link AudioProcessingPipeline} is
+   * active/operational, input buffers are passed straight to {@link #setOutputBuffer(ByteBuffer)}.
    *
    * @param avSyncPresentationTimeUs The tunneling AV sync presentation time for the current buffer,
    *     or {@link C#TIME_END_OF_SOURCE} when draining remaining buffers at the end of the stream.
@@ -1187,16 +1223,11 @@ public final class DefaultAudioSink implements AudioSink {
 
     // Obtain new output buffer and start draining.
     if (!audioProcessingPipeline.isOperational()) {
-      if (inputBuffer != null) {
-        setOutputBuffer(inputBuffer);
-        drainOutputBuffer(avSyncPresentationTimeUs);
-      }
-      return;
-    }
-
-    while (!audioProcessingPipeline.isEnded()) {
-      ByteBuffer bufferToWrite;
-      while ((bufferToWrite = audioProcessingPipeline.getOutput()).hasRemaining()) {
+      while (true) {
+        ByteBuffer bufferToWrite = getTrimmedInputBuffer();
+        if (!bufferToWrite.hasRemaining()) {
+          return;
+        }
         setOutputBuffer(bufferToWrite);
         drainOutputBuffer(avSyncPresentationTimeUs);
         if (outputBuffer != null) {
@@ -1204,11 +1235,45 @@ public final class DefaultAudioSink implements AudioSink {
           return;
         }
       }
-      if (inputBuffer == null || !inputBuffer.hasRemaining()) {
+    }
+
+    while (!audioProcessingPipeline.isEnded()) {
+      ByteBuffer bufferToWrite = audioProcessingPipeline.getOutput();
+      while (bufferToWrite.hasRemaining()) {
+        setOutputBuffer(bufferToWrite);
+        drainOutputBuffer(avSyncPresentationTimeUs);
+        if (outputBuffer != null) {
+          // drainOutputBuffer method is providing back pressure.
+          return;
+        }
+        bufferToWrite = audioProcessingPipeline.getOutput();
+      }
+      ByteBuffer pipelineInputBuffer = getTrimmedInputBuffer();
+      if (!pipelineInputBuffer.hasRemaining()) {
         return;
       }
-      audioProcessingPipeline.queueInput(inputBuffer);
+      audioProcessingPipeline.queueInput(pipelineInputBuffer);
     }
+  }
+
+  private boolean hasTrimmingWork() {
+    return trimmingAudioProcessor.isActive() || trimmedOutputBuffer.hasRemaining();
+  }
+
+  private ByteBuffer getTrimmedInputBuffer() {
+    if (!hasTrimmingWork()) {
+      return inputBuffer != null ? inputBuffer : AudioProcessor.EMPTY_BUFFER;
+    }
+    while (!trimmedOutputBuffer.hasRemaining() && !trimmingAudioProcessor.isEnded()) {
+      trimmedOutputBuffer = trimmingAudioProcessor.getOutput();
+      if (!trimmedOutputBuffer.hasRemaining()) {
+        if (inputBuffer == null || !inputBuffer.hasRemaining()) {
+          return AudioProcessor.EMPTY_BUFFER;
+        }
+        trimmingAudioProcessor.queueInput(inputBuffer);
+      }
+    }
+    return trimmedOutputBuffer;
   }
 
   /**
@@ -1217,15 +1282,47 @@ public final class DefaultAudioSink implements AudioSink {
    * @return Whether the buffers have been fully drained.
    */
   private boolean drainToEndOfStream() throws WriteException {
+    if (hasTrimmingWork()) {
+      processBuffers(C.TIME_END_OF_SOURCE);
+      if ((inputBuffer != null && inputBuffer.hasRemaining())
+          || trimmedOutputBuffer.hasRemaining()
+          || outputBuffer != null) {
+        return false;
+      }
+      if (!trimmingAudioProcessor.isEnded()) {
+        trimmingAudioProcessor.queueEndOfStream();
+        processBuffers(C.TIME_END_OF_SOURCE);
+      }
+      if (!trimmingAudioProcessor.isEnded()
+          || trimmedOutputBuffer.hasRemaining()
+          || outputBuffer != null) {
+        return false;
+      }
+    }
+    return drainAudioProcessingPipelineToEndOfStream();
+  }
+
+  /**
+   * Drains the {@link #audioProcessingPipeline} to the end of stream, without queueing end of
+   * stream to {@link #trimmingAudioProcessor}.
+   *
+   * <p>This is used for mid-stream configuration changes where the held end-buffer in {@link
+   * #trimmingAudioProcessor} should be preserved across the pipeline transition.
+   */
+  private boolean drainAudioProcessingPipelineToEndOfStream() throws WriteException {
+    if (trimmedOutputBuffer.hasRemaining()) {
+      processBuffers(C.TIME_END_OF_SOURCE);
+      if (trimmedOutputBuffer.hasRemaining()) {
+        return false;
+      }
+    }
     if (!audioProcessingPipeline.isOperational()) {
       drainOutputBuffer(C.TIME_END_OF_SOURCE);
       return outputBuffer == null;
     }
-
     audioProcessingPipeline.queueEndOfStream();
     processBuffers(C.TIME_END_OF_SOURCE);
-    return audioProcessingPipeline.isEnded()
-        && (outputBuffer == null || !outputBuffer.hasRemaining());
+    return audioProcessingPipeline.isEnded() && outputBuffer == null;
   }
 
   /**
@@ -1580,13 +1677,15 @@ public final class DefaultAudioSink implements AudioSink {
 
   @Override
   public void flush() {
+    if (pendingConfiguration != null) {
+      configuration = pendingConfiguration;
+      pendingConfiguration = null;
+      configureTrimmingAudioProcessor();
+    }
+    trimmingAudioProcessor.resetTrimmedFrameCount();
     if (isAudioOutputInitialized()) {
       resetSinkStateForFlush();
       audioOutputListener = null;
-      if (pendingConfiguration != null) {
-        configuration = pendingConfiguration;
-        pendingConfiguration = null;
-      }
       // We need to release the audio output on every flush because of known AudioTrack flush issues
       // on some devices. See b/7941810 or b/19193985.
       // TODO: b/143500232 - Experiment with not releasing AudioOutput on flush.
@@ -1608,8 +1707,10 @@ public final class DefaultAudioSink implements AudioSink {
     for (AudioProcessor audioProcessor : availableAudioProcessors) {
       audioProcessor.reset();
     }
+    trimmingAudioProcessor.reset();
     toInt16PcmAudioProcessor.reset();
     toFloatPcmAudioProcessor.reset();
+    trimmedOutputBuffer = AudioProcessor.EMPTY_BUFFER;
 
     if (audioProcessingPipeline != null) {
       audioProcessingPipeline.reset();
@@ -1626,11 +1727,8 @@ public final class DefaultAudioSink implements AudioSink {
   // Internal methods.
 
   private void reconfigureAndFlush() {
+    flush();
     if (configuration != null) {
-      if (pendingConfiguration != null) {
-        configuration = pendingConfiguration;
-        pendingConfiguration = null;
-      }
       OutputConfig outputConfig;
       try {
         outputConfig =
@@ -1642,7 +1740,6 @@ public final class DefaultAudioSink implements AudioSink {
       }
       configuration = configuration.copyWithOutputConfig(outputConfig);
     }
-    flush();
   }
 
   private void resetSinkStateForFlush() {
@@ -1662,11 +1759,12 @@ public final class DefaultAudioSink implements AudioSink {
     mediaPositionParametersCheckpoints.clear();
     inputBuffer = null;
     inputBufferAccessUnitCount = 0;
+    trimmedOutputBuffer = AudioProcessor.EMPTY_BUFFER;
     outputBuffer = null;
     stoppedAudioOutput = false;
     handledEndOfStream = false;
     handledOffloadOnPresentationEnded = false;
-    trimmingAudioProcessor.resetTrimmedFrameCount();
+    flushTrimmingAudioProcessor();
     setupAudioProcessors(/* nextPresentationTimeUs= */ C.TIME_UNSET);
   }
 
