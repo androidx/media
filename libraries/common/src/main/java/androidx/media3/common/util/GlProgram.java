@@ -16,6 +16,7 @@
 package androidx.media3.common.util;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static androidx.media3.common.C.TEXTURE_MIN_FILTER_LINEAR_MIPMAP_LINEAR;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -24,6 +25,7 @@ import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
 import android.opengl.GLES30;
 import androidx.annotation.Nullable;
+import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
 import java.io.IOException;
 import java.nio.Buffer;
@@ -51,6 +53,7 @@ public final class GlProgram {
   private final Map<String, Uniform> uniformByName;
 
   private boolean externalTexturesRequireNearestSampling;
+  private boolean internalTexturesRequireNearestSampling;
 
   /**
    * Compiles a GL shader program from vertex and fragment shader GLSL GLES20 code.
@@ -303,7 +306,7 @@ public final class GlProgram {
       attribute.bind();
     }
     for (Uniform uniform : uniforms) {
-      uniform.bind(externalTexturesRequireNearestSampling);
+      uniform.bind(externalTexturesRequireNearestSampling, internalTexturesRequireNearestSampling);
     }
   }
 
@@ -315,6 +318,21 @@ public final class GlProgram {
   public void setExternalTexturesRequireNearestSampling(
       boolean externalTexturesRequireNearestSampling) {
     this.externalTexturesRequireNearestSampling = externalTexturesRequireNearestSampling;
+  }
+
+  /**
+   * Sets whether to sample internal ({@link GLES20#GL_SAMPLER_2D}) textures with {@link
+   * GLES20#GL_NEAREST} for both {@link GLES20#GL_TEXTURE_MIN_FILTER} and {@link
+   * GLES20#GL_TEXTURE_MAG_FILTER}.
+   *
+   * <p>The default value is {@code false}. If {@link #setSamplerTexIdUniform(String, int, int,
+   * int)} is called for a specific uniform, its {@code texMinFilter} overrides {@link
+   * GLES20#GL_TEXTURE_MIN_FILTER} for that uniform.
+   */
+  @RestrictTo(LIBRARY_GROUP)
+  public void setInternalTexturesRequireNearestSampling(
+      boolean internalTexturesRequireNearestSampling) {
+    this.internalTexturesRequireNearestSampling = internalTexturesRequireNearestSampling;
   }
 
   /** Returns the length of the null-terminated C string in {@code cString}. */
@@ -448,6 +466,7 @@ public final class GlProgram {
     private int texIdValue;
     private int texUnitIndex;
     private @C.TextureMinFilter int texMinFilter;
+    private boolean isTexMinFilterSet;
 
     private Uniform(String name, int location, int type) {
       this.name = name;
@@ -459,8 +478,8 @@ public final class GlProgram {
     }
 
     /**
-     * Configures {@link #bind(boolean)} to use the specified {@code texId} for this sampler
-     * uniform.
+     * Configures {@link #bind(boolean, boolean)} to use the specified {@code texId} for this
+     * sampler uniform.
      *
      * @param texId The GL texture identifier from which to sample.
      * @param texUnitIndex The GL texture unit index.
@@ -471,34 +490,44 @@ public final class GlProgram {
     }
 
     /**
-     * Configures {@link #bind(boolean)} to use the specified texture minification filter for this
-     * sampler uniform.
+     * Configures {@link #bind(boolean, boolean)} to use the specified texture minification filter
+     * for this sampler uniform.
      *
      * <p>Only has effect for {@linkplain GLES20#GL_SAMPLER_2D internal texture} type. External
-     * texture sampling is controlled via the parameter passed to {@link #bind(boolean)}.
+     * texture sampling is controlled via the parameter passed to {@link #bind(boolean, boolean)}.
      *
      * @param texMinFilter The {@link C.TextureMinFilter}.
      */
     public void setTexMinFilter(@C.TextureMinFilter int texMinFilter) {
       this.texMinFilter = texMinFilter;
+      this.isTexMinFilterSet = true;
     }
 
-    /** Configures {@link #bind(boolean)} to use the specified {@code int} {@code value}. */
+    /**
+     * Configures {@link #bind(boolean, boolean)} to use the specified {@code int} {@code value}.
+     */
     public void setInt(int value) {
       this.intValue[0] = value;
     }
 
-    /** Configures {@link #bind(boolean)} to use the specified {@code int[]} {@code value}. */
+    /**
+     * Configures {@link #bind(boolean, boolean)} to use the specified {@code int[]} {@code value}.
+     */
     public void setInts(int[] value) {
       System.arraycopy(value, /* srcPos= */ 0, this.intValue, /* destPos= */ 0, value.length);
     }
 
-    /** Configures {@link #bind(boolean)} to use the specified {@code float} {@code value}. */
+    /**
+     * Configures {@link #bind(boolean, boolean)} to use the specified {@code float} {@code value}.
+     */
     public void setFloat(float value) {
       this.floatValue[0] = value;
     }
 
-    /** Configures {@link #bind(boolean)} to use the specified {@code float[]} {@code value}. */
+    /**
+     * Configures {@link #bind(boolean, boolean)} to use the specified {@code float[]} {@code
+     * value}.
+     */
     public void setFloats(float[] value) {
       System.arraycopy(value, /* srcPos= */ 0, this.floatValue, /* destPos= */ 0, value.length);
     }
@@ -512,8 +541,13 @@ public final class GlProgram {
      * @param externalTexturesRequireNearestSampling Whether the external texture requires
      *     GL_NEAREST sampling to avoid sampling from undefined region, which could happen when
      *     using GL_LINEAR.
+     * @param internalTexturesRequireNearestSampling Whether internal 2D textures require GL_NEAREST
+     *     sampling.
      */
-    public void bind(boolean externalTexturesRequireNearestSampling) throws GlUtil.GlException {
+    private void bind(
+        boolean externalTexturesRequireNearestSampling,
+        boolean internalTexturesRequireNearestSampling)
+        throws GlUtil.GlException {
       switch (type) {
         case GLES20.GL_INT:
           GLES20.glUniform1iv(location, /* count= */ 1, intValue, /* offset= */ 0);
@@ -571,7 +605,8 @@ public final class GlProgram {
           switch (type) {
             case GLES20.GL_SAMPLER_2D:
               target = GLES20.GL_TEXTURE_2D;
-              samplingMode = GLES20.GL_LINEAR;
+              samplingMode =
+                  internalTexturesRequireNearestSampling ? GLES20.GL_NEAREST : GLES20.GL_LINEAR;
               break;
             case GLES11Ext.GL_SAMPLER_EXTERNAL_OES:
             case GL_SAMPLER_EXTERNAL_2D_Y2Y_EXT:
@@ -581,13 +616,13 @@ public final class GlProgram {
               break;
             case GLES30.GL_SAMPLER_3D:
               target = GLES30.GL_TEXTURE_3D;
-              samplingMode = GLES30.GL_LINEAR;
+              samplingMode = GLES20.GL_LINEAR;
               break;
             default:
               throw new IllegalStateException("Unexpected sampler type: " + type);
           }
           GlUtil.bindTexture(target, texIdValue, samplingMode);
-          if (type == GLES20.GL_SAMPLER_2D) {
+          if (type == GLES20.GL_SAMPLER_2D && isTexMinFilterSet) {
             if (texMinFilter == TEXTURE_MIN_FILTER_LINEAR_MIPMAP_LINEAR) {
               GLES20.glGenerateMipmap(GLES20.GL_TEXTURE_2D);
               GlUtil.checkGlError();

@@ -22,6 +22,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static org.junit.Assert.assertThrows;
 
+import android.graphics.ImageFormat;
 import android.graphics.PixelFormat;
 import androidx.media3.common.Format;
 import androidx.media3.common.video.DefaultImagePlanesFrame;
@@ -51,7 +52,11 @@ public final class ImagePlanesToGlTextureConverterTest {
   private static final FrameProcessor.Listener LISTENER = new FakeFrameProcessor.Listener();
   private static final int DEFAULT_WIDTH = 4;
   private static final int DEFAULT_HEIGHT = 4;
+  private static final int CHROMA_WIDTH = DEFAULT_WIDTH / 2;
+  private static final int CHROMA_HEIGHT = DEFAULT_HEIGHT / 2;
   private static final int RGBA_BYTES_PER_PIXEL = 4;
+  private static final int LUMA_BYTES_PER_PIXEL = 1;
+  private static final int I420_CHROMA_PLANE_STRIDE = 1;
   private static final int DEFAULT_RGBA_ROW_STRIDE = DEFAULT_WIDTH * RGBA_BYTES_PER_PIXEL;
   private static final Plane DEFAULT_RGBA_PLANE =
       new DefaultPlane(
@@ -326,5 +331,130 @@ public final class ImagePlanesToGlTextureConverterTest {
                 /* glExecutor= */ DIRECT_EXECUTOR,
                 /* listenerExecutor= */ DIRECT_EXECUTOR,
                 LISTENER));
+  }
+
+  @Test
+  public void convert_yuv420WithLumaPixelStrideTwo_throwsIllegalArgumentException() {
+    Format format =
+        new Format.Builder()
+            .setWidth(DEFAULT_WIDTH)
+            .setHeight(DEFAULT_HEIGHT)
+            .setPixelFormat(ImageFormat.YUV_420_888)
+            .build();
+    Plane invalidLumaPlane =
+        new DefaultPlane(
+            ByteBuffer.allocateDirect(DEFAULT_WIDTH * DEFAULT_HEIGHT),
+            /* rowStride= */ DEFAULT_WIDTH,
+            /* pixelStride= */ 2);
+    ImagePlanesFrame frame =
+        new DefaultImagePlanesFrame.Builder(
+                ImmutableList.of(invalidLumaPlane, createChromaPlane(), createChromaPlane()))
+            .setFormat(format)
+            .build();
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            converter.convert(
+                frame,
+                /* glExecutor= */ DIRECT_EXECUTOR,
+                /* listenerExecutor= */ DIRECT_EXECUTOR,
+                LISTENER));
+  }
+
+  @Test
+  public void convert_yuv420WithChromaPixelStrideThree_throwsIllegalArgumentException() {
+    Format format =
+        new Format.Builder()
+            .setWidth(DEFAULT_WIDTH)
+            .setHeight(DEFAULT_HEIGHT)
+            .setPixelFormat(ImageFormat.YUV_420_888)
+            .build();
+    int invalidPixelStride = 3;
+    Plane invalidChromaPlane =
+        new DefaultPlane(
+            ByteBuffer.allocateDirect(CHROMA_WIDTH * CHROMA_HEIGHT * invalidPixelStride),
+            /* rowStride= */ CHROMA_WIDTH * invalidPixelStride,
+            /* pixelStride= */ invalidPixelStride);
+    ImagePlanesFrame frame =
+        new DefaultImagePlanesFrame.Builder(
+                ImmutableList.of(createLumaPlane(), invalidChromaPlane, invalidChromaPlane))
+            .setFormat(format)
+            .build();
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            converter.convert(
+                frame,
+                /* glExecutor= */ DIRECT_EXECUTOR,
+                /* listenerExecutor= */ DIRECT_EXECUTOR,
+                LISTENER));
+  }
+
+  @Test
+  public void convert_yuv420WithOnePlane_throwsIllegalArgumentException() {
+    Format format =
+        new Format.Builder()
+            .setWidth(DEFAULT_WIDTH)
+            .setHeight(DEFAULT_HEIGHT)
+            .setPixelFormat(ImageFormat.YUV_420_888)
+            .build();
+    ImagePlanesFrame frame =
+        new DefaultImagePlanesFrame.Builder(ImmutableList.of(createLumaPlane()))
+            .setFormat(format)
+            .build();
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            converter.convert(
+                frame,
+                /* glExecutor= */ DIRECT_EXECUTOR,
+                /* listenerExecutor= */ DIRECT_EXECUTOR,
+                LISTENER));
+  }
+
+  @Test
+  public void convert_yuv420WithUndersizedChromaPlaneBuffer_throwsIllegalArgumentException() {
+    Format format =
+        new Format.Builder()
+            .setWidth(DEFAULT_WIDTH)
+            .setHeight(DEFAULT_HEIGHT)
+            .setPixelFormat(ImageFormat.YUV_420_888)
+            .build();
+    Plane undersizedChromaPlane =
+        new DefaultPlane(
+            ByteBuffer.allocateDirect(CHROMA_WIDTH * CHROMA_HEIGHT - 1),
+            /* rowStride= */ CHROMA_WIDTH,
+            /* pixelStride= */ I420_CHROMA_PLANE_STRIDE);
+    ImagePlanesFrame frame =
+        new DefaultImagePlanesFrame.Builder(
+                ImmutableList.of(createLumaPlane(), createChromaPlane(), undersizedChromaPlane))
+            .setFormat(format)
+            .build();
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            converter.convert(
+                frame,
+                /* glExecutor= */ DIRECT_EXECUTOR,
+                /* listenerExecutor= */ DIRECT_EXECUTOR,
+                LISTENER));
+  }
+
+  private static Plane createLumaPlane() {
+    return new DefaultPlane(
+        ByteBuffer.allocateDirect(DEFAULT_WIDTH * DEFAULT_HEIGHT),
+        /* rowStride= */ DEFAULT_WIDTH,
+        /* pixelStride= */ LUMA_BYTES_PER_PIXEL);
+  }
+
+  private static Plane createChromaPlane() {
+    return new DefaultPlane(
+        ByteBuffer.allocateDirect(CHROMA_WIDTH * CHROMA_HEIGHT),
+        /* rowStride= */ CHROMA_WIDTH,
+        /* pixelStride= */ I420_CHROMA_PLANE_STRIDE);
   }
 }

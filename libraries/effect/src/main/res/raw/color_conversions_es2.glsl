@@ -39,6 +39,53 @@ const mat3 BT601_TO_BT709 =
           0.05018136,  0.96579286, -0.00436975,
           0.01027660,  0.01643490,  1.00599135);
 
+// YUV to RGB transform matrices (column-major format for OpenGL)
+const mat3 BT601_LIMITED_RANGE_YUV_TO_RGB =
+    mat3(1.1644,  1.1644, 1.1644,
+         0.0000, -0.3918, 2.0172,
+         1.5960, -0.8130, 0.0000);
+const mat3 BT601_FULL_RANGE_YUV_TO_RGB =
+    mat3(1.0000,  1.0000, 1.0000,
+         0.0000, -0.3441, 1.7720,
+         1.4020, -0.7141, 0.0000);
+const mat3 BT709_LIMITED_RANGE_YUV_TO_RGB =
+    mat3(1.1644,  1.1644, 1.1644,
+         0.0000, -0.2132, 2.1124,
+         1.7927, -0.5329, 0.0000);
+const mat3 BT709_FULL_RANGE_YUV_TO_RGB =
+    mat3(1.0000,  1.0000, 1.0000,
+         0.0000, -0.1873, 1.8556,
+         1.5748, -0.4681, 0.0000);
+
+// YUV to RGB offset vectors (subtracted from YUV values before multiplying them
+// by the YUV-to-RGB matrix):
+// - For Y, limited-range values are in [16, 235] (offset by 16), while
+//   full-range values are in [0, 255] (offset by 0).
+// - For U and V, values in both limited and full range are in [-128, +127]
+//   (biased by +128 into unsigned bytes, so both offset by 128).
+const vec3 LIMITED_RANGE_YUV_OFFSET =
+    vec3(16.0 / 255.0, 128.0 / 255.0, 128.0 / 255.0);
+const vec3 FULL_RANGE_YUV_OFFSET = vec3(0.0, 128.0 / 255.0, 128.0 / 255.0);
+
+// Transforms YUV electrical values to RGB electrical values in [0.0, 1.0].
+vec3 yuvElectricalToRgbElectrical(
+    vec3 yuv, int inputColorGamut, int isInputColorRangeFull) {
+  vec3 yuvOffset = (isInputColorRangeFull == 1) ? FULL_RANGE_YUV_OFFSET
+                                                : LIMITED_RANGE_YUV_OFFSET;
+  mat3 yuvToRgbMatrix;
+  if (inputColorGamut == COLOR_SPACE_BT601) {
+    yuvToRgbMatrix = (isInputColorRangeFull == 1)
+                         ? BT601_FULL_RANGE_YUV_TO_RGB
+                         : BT601_LIMITED_RANGE_YUV_TO_RGB;
+  } else {
+    // Default to BT.709 for SDR
+    yuvToRgbMatrix = (isInputColorRangeFull == 1)
+                         ? BT709_FULL_RANGE_YUV_TO_RGB
+                         : BT709_LIMITED_RANGE_YUV_TO_RGB;
+  }
+  return clamp(yuvToRgbMatrix * (yuv - yuvOffset), 0.0, 1.0);
+}
+
 // Transforms electrical SDR to linear optical SDR using the vectorized sRGB EOTF.
 // References:
 // - IEC 61966-2-1: Multimedia systems and equipment - Colour measurement and management - Part 2-1: Colour management - Default RGB colour space - sRGB
