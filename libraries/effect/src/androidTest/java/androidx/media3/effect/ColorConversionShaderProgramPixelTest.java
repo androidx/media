@@ -35,6 +35,7 @@ import android.graphics.Color;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
+import android.opengl.Matrix;
 import android.util.Pair;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -218,6 +219,43 @@ public final class ColorConversionShaderProgramPixelTest {
 
     Bitmap expectedBitmap =
         createArgb8888BitmapWithSolidColor(WIDTH, HEIGHT, testCase.expectedColor);
+    assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+  }
+
+  @Test
+  public void drawFrame_withTransformationMatrices_appliesTransformationsAndColorConversion()
+      throws Exception {
+    assumeTrue("Device does not support OpenGL ES 3.0", GlUtil.getContextMajorVersion() >= 3);
+    GlUtil.clearFocusedBuffersOpaque();
+    Bitmap inputBitmap = Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888);
+    Bitmap expectedBitmap = Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888);
+    expectedBitmap.eraseColor(Color.BLACK);
+    int convertedWhiteHlg = Color.rgb(191, 191, 191);
+    // NDC [0, 1] x [-0.5, 0.5] maps to pixel coordinates x in [WIDTH / 2, WIDTH) and y in
+    // [HEIGHT / 4, HEIGHT * 3 / 4).
+    for (int y = HEIGHT / 4; y < HEIGHT * 3 / 4; y++) {
+      for (int x = WIDTH / 2; x < WIDTH; x++) {
+        expectedBitmap.setPixel(x, y, convertedWhiteHlg);
+      }
+    }
+    inputBitmap.eraseColor(Color.WHITE);
+    inputTexId = createGlTextureFromBitmap(inputBitmap);
+    // Scaling by (0.5, 0.5) shrinks the NDC quad [-1, 1] x [-1, 1] to [-0.5, 0.5] x [-0.5, 0.5],
+    // and translating x by +0.5 shifts it to [0, 1] x [-0.5, 0.5].
+    float[] scaleMatrix = GlUtil.create4x4IdentityMatrix();
+    Matrix.scaleM(scaleMatrix, /* mOffset= */ 0, /* x= */ 0.5f, /* y= */ 0.5f, /* z= */ 1f);
+    float[] translateMatrix = GlUtil.create4x4IdentityMatrix();
+    Matrix.translateM(translateMatrix, /* mOffset= */ 0, /* x= */ 0.5f, /* y= */ 0f, /* z= */ 0f);
+    colorConversionShaderProgram =
+        new ColorConversionShaderProgram(
+            context, BT2020_LINEAR, BT2020_HLG, ImmutableList.of(scaleMatrix, translateMatrix));
+    Size outputSize = colorConversionShaderProgram.configure(WIDTH, HEIGHT);
+
+    colorConversionShaderProgram.drawFrame(inputTexId, /* presentationTimeUs= */ 0);
+
+    Bitmap actualBitmap =
+        createUnpremultipliedArgb8888BitmapFromFocusedGlFramebuffer(
+            outputSize.getWidth(), outputSize.getHeight());
     assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
   }
 

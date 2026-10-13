@@ -21,8 +21,6 @@ import static androidx.media3.effect.DefaultGlFrameProcessor.BT2020_HLG;
 import static androidx.media3.effect.DefaultGlFrameProcessor.BT709_SRGB;
 import static androidx.media3.effect.FrameProcessorUtils.createAndBindEglImage;
 import static androidx.media3.effect.FrameProcessorUtils.releaseEglImageTexture;
-import static androidx.media3.effect.FrameProcessorUtils.runAllAndAccumulateExceptions;
-import static androidx.media3.effect.FrameProcessorUtils.useHighPrecisionColorComponents;
 import static androidx.media3.effect.FrameProcessorUtils.waitAndCloseFence;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -36,7 +34,6 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
-import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.GlUtil;
@@ -65,9 +62,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final FrameWriter frameWriter;
   private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
-  @Nullable private DefaultShaderProgram defaultShaderProgram;
   @Nullable private ColorConversionShaderProgram colorConversionShaderProgram;
-  @Nullable private GlTextureInfo colorConversionOutputTexture;
   private @MonotonicNonNull EGLDisplay eglDisplay;
   private @MonotonicNonNull Size inputSize;
   private @MonotonicNonNull ColorInfo inputColorInfo;
@@ -113,17 +108,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (eglDisplay == null) {
         eglDisplay = GlUtil.getDefaultEglDisplay();
       }
-      int currentTexId = inputFrame.glTextureInfo.texId;
-      if (colorConversionShaderProgram != null) {
-        // Convert into the intermediate texture first. createAndBindEglImage below focuses the
-        // output buffer, which the output pass then draws into.
-        GlTextureInfo conversionOutput = checkNotNull(colorConversionOutputTexture);
-        GlUtil.focusFramebufferUsingCurrentContext(
-            conversionOutput.fboId, conversionOutput.width, conversionOutput.height);
-        checkNotNull(colorConversionShaderProgram)
-            .drawFrame(currentTexId, inputFrame.presentationTimeUs);
-        currentTexId = conversionOutput.texId;
-      }
       eglImageTextureWrapper =
           createAndBindEglImage(
               eglDisplay,
@@ -133,7 +117,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               /* writesToBoundImage= */ true);
 
       GlUtil.clearFocusedBuffersOpaque();
-      checkNotNull(defaultShaderProgram).drawFrame(currentTexId, inputFrame.presentationTimeUs);
+      checkNotNull(colorConversionShaderProgram)
+          .drawFrame(inputFrame.glTextureInfo.texId, inputFrame.presentationTimeUs);
       GlUtil.checkGlError();
       ImmutableList<SyncFenceWrapper> fences = GlUtil.createSyncFences(/* count= */ 2);
       if (fences.size() == 2) {
@@ -205,7 +190,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         frameWriterColorInfo);
   }
 
-  /** Reconfigures the shader programs if the input size or color space changed. */
+  /** Reconfigures the shader program if the input size or color space changed. */
   private void maybeReconfigureShader(GlTextureFrame inputFrame)
       throws VideoFrameProcessingException {
     Format inputFormat = inputFrame.format;
@@ -224,19 +209,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     int inputTextureWidth = inputFrame.glTextureInfo.width;
     int inputTextureHeight = inputFrame.glTextureInfo.height;
     ColorInfo outputColorInfo = resolveOutputColorInfo(inputColorInfo);
-    if (!outputColorInfo.equals(inputColorInfo)) {
-      // TODO: b/565711655 - Do the color conversion and the output transformations in one pass,
-      //  to avoid rendering to an intermediate texture.
-      colorConversionShaderProgram =
-          new ColorConversionShaderProgram(context, inputColorInfo, outputColorInfo);
-      Size conversionOutputSize =
-          colorConversionShaderProgram.configure(inputTextureWidth, inputTextureHeight);
-      colorConversionOutputTexture =
-          createTextureWithFbo(
-              conversionOutputSize.getWidth(),
-              conversionOutputSize.getHeight(),
-              useHighPrecisionColorComponents(outputColorInfo));
-    }
 
     // Force physical rotation to match the logical rotation of the established output format.
     // The output format stores the rotation that player applies. We convert it back to the degrees
@@ -249,70 +221,32 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             .setScale(/* scaleX= */ 1f, /* scaleY= */ -1f)
             .setRotationDegrees(rotationDegrees)
             .build();
+    Presentation presentation =
+        Presentation.createForWidthAndHeight(
+            outputFormat.width, outputFormat.height, Presentation.LAYOUT_SCALE_TO_FIT);
 
-    ImmutableList.Builder<GlMatrixTransformation> transformationsBuilder = ImmutableList.builder();
-    transformationsBuilder
-        .add(flipAndRotate)
-        .add(
-            Presentation.createForWidthAndHeight(
-                outputFormat.width, outputFormat.height, Presentation.LAYOUT_SCALE_TO_FIT));
+    Size rotatedSize = flipAndRotate.configure(inputTextureWidth, inputTextureHeight);
+    Size unusedSize = presentation.configure(rotatedSize.getWidth(), rotatedSize.getHeight());
 
-    defaultShaderProgram =
-        DefaultShaderProgram.create(
+    colorConversionShaderProgram =
+        new ColorConversionShaderProgram(
             context,
-            /* matrixTransformations= */ transformationsBuilder.build(),
-            /* rgbMatrices= */ ImmutableList.of(),
-            /* useHdr= */ ColorInfo.isTransferHdr(outputColorInfo));
+            inputColorInfo,
+            outputColorInfo,
+            /* transformationMatrices= */ ImmutableList.of(
+                flipAndRotate.getGlMatrixArray(/* presentationTimeUs= */ 0),
+                presentation.getGlMatrixArray(/* presentationTimeUs= */ 0)));
 
     inputSize = new Size(inputFormat.width, inputFormat.height);
     this.inputColorInfo = inputColorInfo;
-    Size unusedSize = defaultShaderProgram.configure(inputTextureWidth, inputTextureHeight);
   }
 
   private void releaseGlResources() throws VideoFrameProcessingException {
-    @Nullable DefaultShaderProgram defaultShaderProgram = this.defaultShaderProgram;
     @Nullable
     ColorConversionShaderProgram colorConversionShaderProgram = this.colorConversionShaderProgram;
-    @Nullable GlTextureInfo colorConversionOutputTexture = this.colorConversionOutputTexture;
-    this.defaultShaderProgram = null;
     this.colorConversionShaderProgram = null;
-    this.colorConversionOutputTexture = null;
-    runAllAndAccumulateExceptions(
-        () -> {
-          if (defaultShaderProgram != null) {
-            defaultShaderProgram.release();
-          }
-        },
-        () -> {
-          if (colorConversionShaderProgram != null) {
-            colorConversionShaderProgram.release();
-          }
-        },
-        () -> {
-          if (colorConversionOutputTexture != null) {
-            colorConversionOutputTexture.release();
-          }
-        });
-  }
-
-  /** Creates a texture and an FBO for it, deleting the texture if the FBO can't be created. */
-  private static GlTextureInfo createTextureWithFbo(
-      int width, int height, boolean useHighPrecisionColorComponents)
-      throws VideoFrameProcessingException {
-    int texId = C.INDEX_UNSET;
-    try {
-      texId = GlUtil.createTexture(width, height, useHighPrecisionColorComponents);
-      return new GlTextureInfo(
-          texId, GlUtil.createFboForTexture(texId), /* rboId= */ C.INDEX_UNSET, width, height);
-    } catch (GlException e) {
-      if (texId != C.INDEX_UNSET) {
-        try {
-          GlUtil.deleteTexture(texId);
-        } catch (GlException deleteException) {
-          e.addSuppressed(deleteException);
-        }
-      }
-      throw VideoFrameProcessingException.from(e);
+    if (colorConversionShaderProgram != null) {
+      colorConversionShaderProgram.release();
     }
   }
 

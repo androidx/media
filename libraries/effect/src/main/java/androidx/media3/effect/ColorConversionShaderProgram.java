@@ -16,15 +16,19 @@
 package androidx.media3.effect;
 
 import static androidx.media3.effect.FrameProcessorUtils.useHighPrecisionColorComponents;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import android.opengl.GLES20;
+import android.opengl.Matrix;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Size;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
+import java.util.List;
 
 /**
  * Converts frames from an input color space to an electrical output color space.
@@ -49,19 +53,57 @@ import java.io.IOException;
   public ColorConversionShaderProgram(
       Context context, ColorInfo inputColorInfo, ColorInfo outputColorInfo)
       throws VideoFrameProcessingException {
+    this(
+        context, inputColorInfo, outputColorInfo, /* transformationMatrices= */ ImmutableList.of());
+  }
+
+  /**
+   * Creates a new instance.
+   *
+   * @param context The {@link Context}.
+   * @param inputColorInfo The {@link ColorInfo} of the input frames, which is the frame processor's
+   *     working color space.
+   * @param outputColorInfo The {@link ColorInfo} to convert frames to.
+   * @param transformationMatrices The 4x4 transformation matrices to apply, in order, in the vertex
+   *     shader.
+   * @throws VideoFrameProcessingException If a problem occurs while reading shader files.
+   */
+  public ColorConversionShaderProgram(
+      Context context,
+      ColorInfo inputColorInfo,
+      ColorInfo outputColorInfo,
+      List<float[]> transformationMatrices)
+      throws VideoFrameProcessingException {
     // The output texture holds the electrical output colors, so its precision is determined by the
     // output color space rather than by the working color space the frames arrive in.
     super(
         /* useHighPrecisionColorComponents= */ useHighPrecisionColorComponents(outputColorInfo),
         /* texturePoolCapacity= */ 1);
 
+    float[] identityMatrix = GlUtil.create4x4IdentityMatrix();
     try {
-      glProgram =
-          new GlProgram(
-              context,
-              /* vertexShaderResId= */ R.raw.vertex_shader_transformation_es3,
-              /* firstFragmentShaderResId= */ R.raw.color_conversions_es3,
-              R.raw.fragment_shader_color_conversion_es3);
+      if (GlUtil.getContextMajorVersion() >= 3) {
+        glProgram =
+            new GlProgram(
+                context,
+                /* vertexShaderResId= */ R.raw.vertex_shader_transformation_es3,
+                /* firstFragmentShaderResId= */ R.raw.color_conversions_es3,
+                R.raw.fragment_shader_color_conversion_es3);
+        glProgram.setIntUniform("uInputColorTransfer", inputColorInfo.colorTransfer);
+      } else {
+        checkState(
+            !useHighPrecisionColorComponents(inputColorInfo)
+                && !useHighPrecisionColorComponents(outputColorInfo),
+            "OpenGL ES 3.0 context support is required for HDR or linear color spaces.");
+        glProgram =
+            new GlProgram(
+                context,
+                /* vertexShaderResId= */ R.raw.vertex_shader_transformation_es2,
+                /* firstFragmentShaderResId= */ R.raw.color_conversions_es2,
+                R.raw.fragment_shader_transformation_sdr_internal_color_conversion_es2);
+        glProgram.setFloatsUniform("uRgbMatrix", identityMatrix);
+        glProgram.setIntUniform("uOutputColorGamut", outputColorInfo.colorSpace);
+      }
     } catch (IOException | GlUtil.GlException e) {
       throw new VideoFrameProcessingException(e);
     }
@@ -71,12 +113,20 @@ import java.io.IOException;
         GlUtil.getNormalizedCoordinateBounds(),
         GlUtil.HOMOGENEOUS_COORDINATE_VECTOR_SIZE);
 
-    float[] identityMatrix = GlUtil.create4x4IdentityMatrix();
-    glProgram.setFloatsUniform("uTransformationMatrix", identityMatrix);
+    float[] compositeTransformationMatrix = GlUtil.create4x4IdentityMatrix();
+    for (int i = 0; i < transformationMatrices.size(); i++) {
+      Matrix.multiplyMM(
+          /* result= */ compositeTransformationMatrix,
+          /* resultOffset= */ 0,
+          /* lhs= */ transformationMatrices.get(i),
+          /* lhsOffset= */ 0,
+          /* rhs= */ compositeTransformationMatrix,
+          /* rhsOffset= */ 0);
+    }
+    glProgram.setFloatsUniform("uTransformationMatrix", compositeTransformationMatrix);
     glProgram.setFloatsUniform("uTexTransformationMatrix", identityMatrix);
 
     glProgram.setIntUniform("uInputColorGamut", inputColorInfo.colorSpace);
-    glProgram.setIntUniform("uInputColorTransfer", inputColorInfo.colorTransfer);
     glProgram.setIntUniform("uOutputColorTransfer", outputColorInfo.colorTransfer);
   }
 

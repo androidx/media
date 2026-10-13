@@ -498,7 +498,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
 
   @Test
   public void queue_hdrLinearInputAndUnsetOutput_convertsToHlg() throws Exception {
-    queueOnGlThread(
+    queueFrameOnGlThread(
         () ->
             createSolidGrayGlTextureFrame(
                 /* value= */ DIFFUSE_WHITE_BT2020_LINEAR, DefaultGlFrameProcessor.BT2020_LINEAR));
@@ -514,7 +514,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
 
   @Test
   public void queue_sdrLinearInputAndUnsetOutput_convertsToSrgb() throws Exception {
-    queueOnGlThread(
+    queueFrameOnGlThread(
         () ->
             createSolidGrayGlTextureFrame(/* value= */ 0.5f, DefaultGlFrameProcessor.BT709_LINEAR));
 
@@ -529,7 +529,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
 
   @Test
   public void queue_srgbInputAndUnsetOutput_writesPixelsUnchanged() throws Exception {
-    queueOnGlThread(
+    queueFrameOnGlThread(
         () -> createSolidGrayGlTextureFrame(/* value= */ 0.5f, DefaultGlFrameProcessor.BT709_SRGB));
 
     assertThat(checkNotNull(frameWriter.configuredFormat).colorInfo)
@@ -541,7 +541,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
 
   @Test
   public void queue_hlgInputAndUnsetOutput_writesPixelsUnchanged() throws Exception {
-    queueOnGlThread(
+    queueFrameOnGlThread(
         () -> createSolidGrayGlTextureFrame(/* value= */ 0.5f, DefaultGlFrameProcessor.BT2020_HLG));
 
     assertThat(checkNotNull(frameWriter.configuredFormat).colorInfo)
@@ -553,11 +553,11 @@ public final class FrameWriterGlTextureFrameConsumerTest {
 
   @Test
   public void queue_hdrLinearThenHlgInputAndUnsetOutput_convertsOnlyLinearFrame() throws Exception {
-    queueOnGlThread(
+    queueFrameOnGlThread(
         () ->
             createSolidGrayGlTextureFrame(
                 /* value= */ DIFFUSE_WHITE_BT2020_LINEAR, DefaultGlFrameProcessor.BT2020_LINEAR));
-    queueOnGlThread(
+    queueFrameOnGlThread(
         () -> createSolidGrayGlTextureFrame(/* value= */ 0.5f, DefaultGlFrameProcessor.BT2020_HLG));
 
     assertThat(actualBitmaps).hasSize(2);
@@ -571,8 +571,58 @@ public final class FrameWriterGlTextureFrameConsumerTest {
         testName.getMethodName() + "_frame2");
   }
 
+  @Test
+  public void queue_hdrLinearLandscapeThenPortrait_convertsToHlgAndPillarboxes() throws Exception {
+    int landscapeWidth = 32;
+    int landscapeHeight = 16;
+    int portraitWidth = 16;
+    int portraitHeight = 32;
+    // Linear BT.2020 diffuse white (1.0 = 203 nits) is converted to the 75% HLG signal level
+    // (DIFFUSE_WHITE_HLG = 0.75), which scales to round(0.75 * 255) = 191 in 8-bit color channels.
+    int convertedHlgGray = Math.round(DIFFUSE_WHITE_HLG * 255);
+    int convertedHlgColor = Color.rgb(convertedHlgGray, convertedHlgGray, convertedHlgGray);
+    // Scaling 16x32 to fit 32x16 produces an 8x16 center region with 12px pillarbox bars on each
+    // side.
+    Bitmap expectedPillarboxedBitmap =
+        Bitmap.createBitmap(landscapeWidth, landscapeHeight, Bitmap.Config.ARGB_8888);
+    Canvas canvas = new Canvas(expectedPillarboxedBitmap);
+    canvas.drawColor(Color.BLACK);
+    Bitmap scaledContentBitmap =
+        BitmapPixelTestUtil.createArgb8888BitmapWithSolidColor(
+            /* width= */ 8, landscapeHeight, convertedHlgColor);
+    canvas.drawBitmap(scaledContentBitmap, /* left= */ 12, /* top= */ 0, /* paint= */ null);
+
+    queueFrameOnGlThread(
+        () ->
+            createSolidGrayGlTextureFrame(
+                landscapeWidth,
+                landscapeHeight,
+                /* value= */ DIFFUSE_WHITE_BT2020_LINEAR,
+                DefaultGlFrameProcessor.BT2020_LINEAR));
+    // The first frame sets the output to be landscape. The second portrait frame will be converted
+    // to landscape by adding pillar-boxes.
+    queueFrameOnGlThread(
+        () ->
+            createSolidGrayGlTextureFrame(
+                portraitWidth,
+                portraitHeight,
+                /* value= */ DIFFUSE_WHITE_BT2020_LINEAR,
+                DefaultGlFrameProcessor.BT2020_LINEAR));
+
+    assertBitmapIsSolidGray(
+        actualBitmaps.get(0),
+        /* expectedComponent= */ DIFFUSE_WHITE_HLG * 255,
+        testName.getMethodName() + "_frame1");
+    assertThat(
+            BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+                expectedPillarboxedBitmap,
+                actualBitmaps.get(1),
+                testName.getMethodName() + "_frame2"))
+        .isAtMost(PIXEL_TOLERANCE);
+  }
+
   /** Creates a {@link GlTextureFrame} on the GL thread and queues it to the consumer under test. */
-  private void queueOnGlThread(GlTextureFrameSupplier frameSupplier) throws Exception {
+  private void queueFrameOnGlThread(GlTextureFrameSupplier frameSupplier) throws Exception {
     glExecutorService
         .submit(
             () -> {
@@ -612,17 +662,23 @@ public final class FrameWriterGlTextureFrameConsumerTest {
    */
   private static GlTextureFrame createSolidGrayGlTextureFrame(float value, ColorInfo colorInfo)
       throws GlException {
-    int texId =
-        GlUtil.createTexture(
-            SOLID_FRAME_WIDTH, SOLID_FRAME_HEIGHT, useHighPrecisionColorComponents(colorInfo));
+    return createSolidGrayGlTextureFrame(SOLID_FRAME_WIDTH, SOLID_FRAME_HEIGHT, value, colorInfo);
+  }
+
+  /**
+   * Creates a {@link GlTextureFrame} with the given dimensions filled with the gray {@code value},
+   * whose format has the given {@link ColorInfo}.
+   */
+  private static GlTextureFrame createSolidGrayGlTextureFrame(
+      int width, int height, float value, ColorInfo colorInfo) throws GlException {
+    int texId = GlUtil.createTexture(width, height, useHighPrecisionColorComponents(colorInfo));
     int fboId = GlUtil.createFboForTexture(texId);
-    GlUtil.focusFramebufferUsingCurrentContext(fboId, SOLID_FRAME_WIDTH, SOLID_FRAME_HEIGHT);
+    GlUtil.focusFramebufferUsingCurrentContext(fboId, width, height);
     GLES20.glClearColor(value, value, value, /* alpha= */ 1f);
     GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
     GlUtil.checkGlError();
     return new GlTextureFrame.Builder(
-            new GlTextureInfo(
-                texId, fboId, /* rboId= */ C.INDEX_UNSET, SOLID_FRAME_WIDTH, SOLID_FRAME_HEIGHT),
+            new GlTextureInfo(texId, fboId, /* rboId= */ C.INDEX_UNSET, width, height),
             directExecutor(),
             /* releaseTextureCallback= */ textureInfo -> {
               try {
@@ -632,11 +688,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
               }
             })
         .setFormat(
-            new Format.Builder()
-                .setWidth(SOLID_FRAME_WIDTH)
-                .setHeight(SOLID_FRAME_HEIGHT)
-                .setColorInfo(colorInfo)
-                .build())
+            new Format.Builder().setWidth(width).setHeight(height).setColorInfo(colorInfo).build())
         .build();
   }
 
