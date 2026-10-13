@@ -17,6 +17,7 @@
 package androidx.media3.test.utils.robolectric;
 
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -180,6 +181,115 @@ public final class TestPlayerRunHelper {
     public final void untilPlayingAdIs(boolean expectedIsPlayingAd)
         throws PlaybackException, TimeoutException {
       runUntil(() -> player.isPlayingAd() == expectedIsPlayingAd);
+    }
+
+    /**
+     * Runs tasks of the main {@link Looper} until {@link Player#isPlayingAd()} is true for the
+     * specified {@code adGroupIndex} and {@code adIndexInAdGroup}, or an error occurs.
+     *
+     * @param adGroupIndex The non-negative ad group index.
+     * @param adIndexInAdGroup The non-negative ad index in the ad group.
+     * @throws IllegalArgumentException If {@code adGroupIndex} or {@code adIndexInAdGroup} is
+     *     negative.
+     * @throws PlaybackException If a playback error occurs.
+     * @throws IllegalStateException If non-fatal playback errors occur, and aren't {@linkplain
+     *     #ignoringNonFatalErrors() ignored} (the non-fatal exceptions will be attached with {@link
+     *     Throwable#addSuppressed(Throwable)}).
+     * @throws TimeoutException If the timeout is exceeded. The timeout is {@link
+     *     RobolectricUtil#DEFAULT_TIMEOUT_MS} by default, or a specific value if this instance is
+     *     created via {@link #withTimeoutMs(long)}.
+     */
+    public final void untilPlayingAd(int adGroupIndex, int adIndexInAdGroup)
+        throws PlaybackException, TimeoutException {
+      checkArgument(adGroupIndex >= 0);
+      checkArgument(adIndexInAdGroup >= 0);
+      runUntil(
+          () ->
+              player.isPlayingAd()
+                  && player.getCurrentAdGroupIndex() == adGroupIndex
+                  && player.getCurrentAdIndexInAdGroup() == adIndexInAdGroup);
+    }
+
+    /**
+     * Runs tasks of the main {@link Looper} until the specified ad finishes playing and transitions
+     * with {@link Player#DISCONTINUITY_REASON_AUTO_TRANSITION}, or an error occurs.
+     *
+     * @param adGroupIndex The non-negative ad group index.
+     * @param adIndexInAdGroup The non-negative ad index in the ad group.
+     * @throws IllegalArgumentException If {@code adGroupIndex} or {@code adIndexInAdGroup} is
+     *     negative.
+     * @throws PlaybackException If a playback error occurs.
+     * @throws IllegalStateException If non-fatal playback errors occur, and aren't {@linkplain
+     *     #ignoringNonFatalErrors() ignored} (the non-fatal exceptions will be attached with {@link
+     *     Throwable#addSuppressed(Throwable)}).
+     * @throws TimeoutException If the timeout is exceeded. The timeout is {@link
+     *     RobolectricUtil#DEFAULT_TIMEOUT_MS} by default, or a specific value if this instance is
+     *     created via {@link #withTimeoutMs(long)}.
+     */
+    public final void untilAdCompleted(int adGroupIndex, int adIndexInAdGroup)
+        throws PlaybackException, TimeoutException {
+      checkArgument(adGroupIndex >= 0);
+      checkArgument(adIndexInAdGroup >= 0);
+      AtomicBoolean adCompleted = new AtomicBoolean(false);
+      Player.Listener listener =
+          new Player.Listener() {
+            @Override
+            public void onPositionDiscontinuity(
+                Player.PositionInfo oldPosition,
+                Player.PositionInfo newPosition,
+                @Player.DiscontinuityReason int reason) {
+              if (reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION
+                  && oldPosition.adGroupIndex == adGroupIndex
+                  && oldPosition.adIndexInAdGroup == adIndexInAdGroup) {
+                adCompleted.set(true);
+              }
+            }
+          };
+      player.addListener(listener);
+      try {
+        runUntil(adCompleted::get);
+      } finally {
+        player.removeListener(listener);
+      }
+    }
+
+    /**
+     * Runs tasks of the main {@link Looper} until playback exits the specified {@code adGroupIndex}
+     * back to content ({@code newPosition.adGroupIndex == C.INDEX_UNSET}), or an error occurs.
+     *
+     * @param adGroupIndex The non-negative ad group index.
+     * @throws IllegalArgumentException If {@code adGroupIndex} is negative.
+     * @throws PlaybackException If a playback error occurs.
+     * @throws IllegalStateException If non-fatal playback errors occur, and aren't {@linkplain
+     *     #ignoringNonFatalErrors() ignored} (the non-fatal exceptions will be attached with {@link
+     *     Throwable#addSuppressed(Throwable)}).
+     * @throws TimeoutException If the timeout is exceeded. The timeout is {@link
+     *     RobolectricUtil#DEFAULT_TIMEOUT_MS} by default, or a specific value if this instance is
+     *     created via {@link #withTimeoutMs(long)}.
+     */
+    public final void untilAdGroupEnded(int adGroupIndex)
+        throws PlaybackException, TimeoutException {
+      checkArgument(adGroupIndex >= 0);
+      AtomicBoolean adGroupEnded = new AtomicBoolean(false);
+      Player.Listener listener =
+          new Player.Listener() {
+            @Override
+            public void onPositionDiscontinuity(
+                Player.PositionInfo oldPosition,
+                Player.PositionInfo newPosition,
+                @Player.DiscontinuityReason int reason) {
+              if (oldPosition.adGroupIndex == adGroupIndex
+                  && newPosition.adGroupIndex == C.INDEX_UNSET) {
+                adGroupEnded.set(true);
+              }
+            }
+          };
+      player.addListener(listener);
+      try {
+        runUntil(adGroupEnded::get);
+      } finally {
+        player.removeListener(listener);
+      }
     }
 
     /**
@@ -650,6 +760,67 @@ public final class TestPlayerRunHelper {
     public void untilStartOfMediaItem(int mediaItemIndex)
         throws PlaybackException, TimeoutException {
       untilPosition(mediaItemIndex, /* positionMs= */ 0);
+    }
+
+    /**
+     * Runs tasks of the main {@link Looper} until the specified ad is playing and {@link
+     * Player#getCurrentPosition()} reaches at least {@code adPositionMs}, or an error occurs.
+     *
+     * @param adGroupIndex The non-negative ad group index.
+     * @param adIndexInAdGroup The non-negative ad index in the ad group.
+     * @param adPositionMs The non-negative target ad position in milliseconds.
+     * @throws IllegalArgumentException If {@code adGroupIndex}, {@code adIndexInAdGroup}, or {@code
+     *     adPositionMs} is negative.
+     * @throws PlaybackException If a playback error occurs.
+     * @throws IllegalStateException If non-fatal playback errors occur, and aren't {@linkplain
+     *     #ignoringNonFatalErrors() ignored} (the non-fatal exceptions will be attached with {@link
+     *     Throwable#addSuppressed(Throwable)}).
+     * @throws TimeoutException If the timeout is exceeded. The timeout is {@link
+     *     RobolectricUtil#DEFAULT_TIMEOUT_MS} by default, or a specific value if this instance is
+     *     created via {@link #withTimeoutMs(long)}.
+     */
+    public void untilAdPositionAtLeast(int adGroupIndex, int adIndexInAdGroup, long adPositionMs)
+        throws PlaybackException, TimeoutException {
+      checkArgument(adGroupIndex >= 0);
+      checkArgument(adIndexInAdGroup >= 0);
+      checkArgument(adPositionMs >= 0);
+      untilBackgroundThreadCondition(
+          () ->
+              player.isPlayingAd()
+                  && player.getCurrentAdGroupIndex() == adGroupIndex
+                  && player.getCurrentAdIndexInAdGroup() == adIndexInAdGroup
+                  && player.getCurrentPosition() >= adPositionMs);
+    }
+
+    /**
+     * Runs tasks of the main {@link Looper} until the player's {@link Clock#elapsedRealtime()} has
+     * advanced by at least {@code durationMs}, or an error occurs.
+     *
+     * <p>The clock is advanced by letting the main {@link Looper} process messages, so the player's
+     * {@link Clock} must advance on its own when messages are due. This is the case for {@link
+     * Clock#DEFAULT} under Robolectric and for an {@linkplain
+     * androidx.media3.test.utils.FakeClock.Builder#setIsAutoAdvancing auto-advancing} {@link
+     * androidx.media3.test.utils.FakeClock} with any {@linkplain
+     * androidx.media3.test.utils.FakeClock.Builder#setMaxAutoAdvancingTimeDiffMs maximum
+     * auto-advancing time difference}. A non-auto-advancing clock does not progress and the call
+     * times out.
+     *
+     * @param durationMs The non-negative duration in milliseconds by which to advance the clock.
+     * @throws IllegalArgumentException If {@code durationMs} is negative.
+     * @throws PlaybackException If a playback error occurs.
+     * @throws IllegalStateException If non-fatal playback errors occur, and aren't {@linkplain
+     *     #ignoringNonFatalErrors() ignored} (the non-fatal exceptions will be attached with {@link
+     *     Throwable#addSuppressed(Throwable)}).
+     * @throws TimeoutException If the timeout is exceeded. The timeout is {@link
+     *     RobolectricUtil#DEFAULT_TIMEOUT_MS} by default, or a specific value if this instance is
+     *     created via {@link #withTimeoutMs(long)}.
+     */
+    public void untilClockAdvancementMs(long durationMs)
+        throws PlaybackException, TimeoutException {
+      checkArgument(durationMs >= 0);
+      long targetElapsedRealtimeMs = player.getClock().elapsedRealtime() + durationMs;
+      untilBackgroundThreadCondition(
+          () -> player.getClock().elapsedRealtime() >= targetElapsedRealtimeMs);
     }
 
     /**
