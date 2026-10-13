@@ -19,6 +19,7 @@ package androidx.media3.ui.compose.modifiers
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.ContentScale
@@ -27,6 +28,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.media3.common.util.UnstableApi
 import kotlin.math.roundToInt
 
@@ -37,13 +39,25 @@ import kotlin.math.roundToInt
  * @param contentScale The [ContentScale] to apply to the content.
  * @param aspectRatio The aspect ratio of the content (width / height). If null, no scaling is
  *   applied.
+ * @param alignment The [Alignment] used to position the scaled content within the destination. If
+ *   the scaled content overflows the destination, e.g. with [ContentScale.Crop], the alignment
+ *   determines which part of the content lies within the destination.
  */
 @UnstableApi
-fun Modifier.resizeWithContentScale(contentScale: ContentScale, aspectRatio: Float?): Modifier {
+fun Modifier.resizeWithContentScale(
+  contentScale: ContentScale,
+  aspectRatio: Float?,
+  alignment: Alignment = Alignment.Center,
+): Modifier {
   return if (aspectRatio == null) {
-    this.then(Modifier.fillMaxSize().wrapContentSize())
+    this.then(Modifier.fillMaxSize().wrapContentSize(alignment))
   } else {
-    this.resizeWithContentScaleCommon(contentScale, sourceSizePx = null, aspectRatio = aspectRatio)
+    this.resizeWithContentScaleCommon(
+      contentScale,
+      sourceSizePx = null,
+      aspectRatio = aspectRatio,
+      alignment = alignment,
+    )
   }
 }
 
@@ -92,6 +106,7 @@ fun Modifier.resizeWithContentScale(
       contentScale,
       sourceSizePx = sourceSizePx,
       aspectRatio = aspectRatio,
+      alignment = Alignment.Center,
     )
   }
 
@@ -99,13 +114,15 @@ private fun Modifier.resizeWithContentScaleCommon(
   contentScale: ContentScale,
   sourceSizePx: Size?,
   aspectRatio: Float,
+  alignment: Alignment,
 ): Modifier {
   require(aspectRatio > 0 && aspectRatio.isFinite()) {
     "aspectRatio must be positive and finite: $aspectRatio"
   }
   return this.then(
     Modifier.fillMaxSize()
-      .wrapContentSize()
+      // Positions the content in the dimensions in which it is smaller than the destination.
+      .wrapContentSize(alignment)
       .then(
         Modifier.layout { measurable, constraints ->
           val placeable =
@@ -169,9 +186,16 @@ private fun Modifier.resizeWithContentScaleCommon(
           val layoutWidth = placeable.width.coerceIn(constraints.minWidth, constraints.maxWidth)
           val layoutHeight = placeable.height.coerceIn(constraints.minHeight, constraints.maxHeight)
           layout(layoutWidth, layoutHeight) {
-            val x = (layoutWidth - placeable.width) / 2
-            val y = (layoutHeight - placeable.height) / 2
-            placeable.place(x, y)
+            // Positions the content in the dimensions in which it overflows the destination. The
+            // alignment is resolved during placement, so that changes to any state it reads only
+            // cause the content to be placed again rather than measured again.
+            placeable.place(
+              alignment.align(
+                IntSize(placeable.width, placeable.height),
+                IntSize(layoutWidth, layoutHeight),
+                layoutDirection,
+              )
+            )
           }
         }
       )

@@ -20,7 +20,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.media3.common.Player
@@ -34,7 +36,8 @@ import androidx.media3.ui.compose.state.rememberPresentationState
  *
  * This composable handles the underlying [PlayerSurface] for video playback, resizing the video
  * based on the provided [ContentScale], and displaying a [shutter] and [artwork] according to the
- * [PresentationState] based off the [Player].
+ * [PresentationState] based off the [Player]. Content that overflows the bounds of this container,
+ * for example video scaled with [ContentScale.Crop], is clipped.
  *
  * The layers are drawn in the following order, from bottom to top: the [PlayerSurface], the
  * [shutter], the [artwork] and the [subtitles].
@@ -44,6 +47,9 @@ import androidx.media3.ui.compose.state.rememberPresentationState
  * @param surfaceType The type of surface to use for video playback. Can be either
  *   [SURFACE_TYPE_SURFACE_VIEW] or [SURFACE_TYPE_TEXTURE_VIEW].
  * @param contentScale The [ContentScale] strategy for the container.
+ * @param alignment The [Alignment] used to position the scaled content within the container. If the
+ *   scaled content overflows the container, for example with [ContentScale.Crop], the alignment
+ *   determines which part of the content is visible.
  * @param keepContentOnReset If `true`, the last rendered frame will remain visible when the player
  *   is reset. If `false`, the surface will be cleared.
  * @param artwork Optional composable slot to render artwork for the current media item.
@@ -60,18 +66,24 @@ fun ContentFrame(
   modifier: Modifier = Modifier,
   surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
   contentScale: ContentScale = ContentScale.Fit,
+  alignment: Alignment = Alignment.Center,
   keepContentOnReset: Boolean = false,
   artwork: (@Composable () -> Unit)? = {
-    Artwork(player, modifier = Modifier.fillMaxSize(), contentScale = contentScale)
+    Artwork(
+      player,
+      modifier = Modifier.fillMaxSize(),
+      alignment = alignment,
+      contentScale = contentScale,
+    )
   },
   subtitles: @Composable () -> Unit = {},
   shutter: @Composable () -> Unit = { Box(Modifier.fillMaxSize().background(Color.Black)) },
 ) {
   val presentationState: PresentationState = rememberPresentationState(player, keepContentOnReset)
   val scaledModifier =
-    Modifier.resizeWithContentScale(contentScale, presentationState.videoAspectRatio)
+    Modifier.resizeWithContentScale(contentScale, presentationState.videoAspectRatio, alignment)
 
-  Box(modifier) {
+  Box(modifier.clipToBounds()) {
     Box(scaledModifier) {
       // Always leave PlayerSurface to be part of the Compose tree because it will be initialised in
       // the process. If this composable is guarded by some condition, it might never become visible

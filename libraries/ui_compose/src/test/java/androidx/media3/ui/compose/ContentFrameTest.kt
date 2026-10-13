@@ -20,20 +20,23 @@ import android.view.SurfaceView
 import android.view.TextureView
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onChildren
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
 import androidx.compose.ui.unit.width
 import androidx.media3.common.C
@@ -119,18 +122,61 @@ class ContentFrameTest {
         subtitles = { Box(Modifier.fillMaxSize().testTag("ScaledVideoBounds")) },
       )
     }
-    val initialBounds = composeTestRule.onNodeWithTag("ScaledVideoBounds").getBoundsInRoot()
+    val initialBounds =
+      composeTestRule.onNodeWithTag("ScaledVideoBounds").getUnclippedBoundsInRoot()
     val initialAspectRatio = initialBounds.width / initialBounds.height
 
     contentScale.value = ContentScale.Crop
     composeTestRule.waitForIdle()
 
-    val croppedBounds = composeTestRule.onNodeWithTag("ScaledVideoBounds").getBoundsInRoot()
+    val croppedBounds =
+      composeTestRule.onNodeWithTag("ScaledVideoBounds").getUnclippedBoundsInRoot()
     val croppedAspectRatio = croppedBounds.width / croppedBounds.height
 
     assertThat(croppedBounds).isNotEqualTo(initialBounds)
     assertThat(abs(initialAspectRatio - aspectRatio) / aspectRatio).isLessThan(0.01f)
     assertThat(abs(croppedAspectRatio - aspectRatio) / aspectRatio).isLessThan(0.01f)
+  }
+
+  @Test
+  fun contentFrame_withContentScaleCrop_clipsContentToBounds() {
+    val player = FakePlayer()
+    player.videoSize = VideoSize(360, 480)
+
+    composeTestRule.setContent {
+      ContentFrame(
+        player,
+        modifier = Modifier.size(200.dp, 100.dp).testTag("ContentFrameOuter"),
+        contentScale = ContentScale.Crop,
+        subtitles = { Box(Modifier.fillMaxSize().testTag("ScaledVideoBounds")) },
+      )
+    }
+
+    val frameBounds = composeTestRule.onNodeWithTag("ContentFrameOuter").getBoundsInRoot()
+    val videoNode = composeTestRule.onNodeWithTag("ScaledVideoBounds")
+    assertThat(videoNode.getUnclippedBoundsInRoot().height).isGreaterThan(frameBounds.height)
+    assertThat(videoNode.getBoundsInRoot()).isEqualTo(frameBounds)
+  }
+
+  @Test
+  fun contentFrame_withAlignmentCenterStart_alignsContentToStart() {
+    val player = FakePlayer()
+    player.videoSize = VideoSize(360, 480)
+
+    composeTestRule.setContent {
+      ContentFrame(
+        player,
+        modifier = Modifier.size(200.dp, 100.dp).testTag("ContentFrameOuter"),
+        alignment = Alignment.CenterStart,
+        subtitles = { Box(Modifier.fillMaxSize().testTag("ScaledVideoBounds")) },
+      )
+    }
+
+    val frameBounds = composeTestRule.onNodeWithTag("ContentFrameOuter").getBoundsInRoot()
+    val videoBounds = composeTestRule.onNodeWithTag("ScaledVideoBounds").getBoundsInRoot()
+    assertThat(videoBounds.left).isEqualTo(frameBounds.left)
+    assertThat(videoBounds.top).isEqualTo(frameBounds.top)
+    assertThat(videoBounds.width).isEqualTo(75.dp)
   }
 
   @Test
@@ -307,8 +353,8 @@ class ContentFrameTest {
   /**
    * Returns the test tags of the semantics children of the node with the given [tag].
    *
-   * The children are in paint order (see [SemanticsNode.children]), so each child is drawn on top
-   * of the ones before it.
+   * The children are in paint order (see [androidx.compose.ui.semantics.SemanticsNode.children]),
+   * so each child is drawn on top of the ones before it.
    */
   private fun getChildTestTagsInPaintOrder(tag: String): List<String> =
     composeTestRule.onNodeWithTag(tag).onChildren().fetchSemanticsNodes().mapNotNull {

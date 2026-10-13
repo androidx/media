@@ -85,6 +85,9 @@ fun Player(player: Player?, modifier: Modifier = Modifier) {
  * @param modifier The [Modifier] to be applied to the outer [Box].
  * @param surfaceType The type of surface to use for video rendering. See [SurfaceType].
  * @param contentScale The scaling mode to apply to the content within the [ContentFrame].
+ * @param alignment The alignment of the scaled content within the [ContentFrame]. If the scaled
+ *   content overflows the [ContentFrame], for example with [ContentScale.Crop], the alignment
+ *   determines which part of the content is visible.
  * @param keepContentOnReset Whether to keep the content visible when the player is reset.
  * @param subtitles A composable for rendering subtitles, drawn on top of the [shutter] and the
  *   [artwork]. Note that the default implementation does not currently support
@@ -109,11 +112,17 @@ fun Player(
   modifier: Modifier = Modifier,
   surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
   contentScale: ContentScale = ContentScale.Fit,
+  alignment: Alignment = Alignment.Center,
   keepContentOnReset: Boolean = false,
   subtitles: @Composable () -> Unit = { Subtitles(player) },
   shutter: @Composable () -> Unit = PlayerDefaults::Shutter,
   artwork: (@Composable () -> Unit)? = {
-    Artwork(player, modifier = Modifier.fillMaxSize(), contentScale = contentScale)
+    Artwork(
+      player,
+      modifier = Modifier.fillMaxSize(),
+      alignment = alignment,
+      contentScale = contentScale,
+    )
   },
   showControls: Boolean = false,
   topControls: (@Composable BoxScope.() -> Unit)? = {
@@ -132,6 +141,7 @@ fun Player(
     modifier,
     surfaceType,
     contentScale,
+    alignment,
     keepContentOnReset,
     subtitles,
     shutter,
@@ -150,11 +160,17 @@ private fun PlayerImpl(
   modifier: Modifier = Modifier,
   surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
   contentScale: ContentScale = ContentScale.Fit,
+  alignment: Alignment = Alignment.Center,
   keepContentOnReset: Boolean = false,
   subtitles: @Composable () -> Unit = { Subtitles(player) },
   shutter: @Composable () -> Unit = PlayerDefaults::Shutter,
   artwork: (@Composable () -> Unit)? = {
-    Artwork(player, modifier = Modifier.fillMaxSize(), contentScale = contentScale)
+    Artwork(
+      player,
+      modifier = Modifier.fillMaxSize(),
+      alignment = alignment,
+      contentScale = contentScale,
+    )
   },
   showControls: Boolean = false,
   topControls: (@Composable BoxScope.() -> Unit)? = {
@@ -177,6 +193,7 @@ private fun PlayerImpl(
       player = player,
       surfaceType = surfaceType,
       contentScale = contentScale,
+      alignment = alignment,
       keepContentOnReset = keepContentOnReset,
       artwork = artwork,
       subtitles = subtitles,

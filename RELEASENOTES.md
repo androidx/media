@@ -287,6 +287,10 @@
         as parameters. Capture them from the calling scope instead (for example,
         `topControls` is now `@Composable BoxScope.() -> Unit`). This is a
         breaking change on an unstable API.
+    *   Add `alignment` parameter to `ContentFrame`, `Player` and
+        `Modifier.resizeWithContentScale` to position the scaled content within
+        its container, and clip the content of `ContentFrame` to its bounds, so
+        that video scaled with `ContentScale.Crop` no longer draws outside it.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:

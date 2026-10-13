@@ -21,18 +21,25 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.round
 import com.google.common.truth.Truth.assertThat
 import com.google.testing.junit.testparameterinjector.KotlinTestParameters.testValues
 import com.google.testing.junit.testparameterinjector.TestParameter
@@ -474,6 +481,125 @@ class ModifiersExtensionsTest {
     assertThat(outerSize).isEqualTo(IntSize(300, 100))
   }
 
+  @Test
+  fun resizeWithContentScale_cropWithDefaultAlignment_centersOverflowingContent() =
+    runComposeUiTest {
+      var contentPosition: IntOffset? = null
+
+      setContent {
+        TestLayout(
+          constraints = Constraints.fixed(120, 80),
+          aspectRatio = 2f,
+          contentScale = ContentScale.Crop,
+          onPlaceableMeasured = {},
+          onContentPlaced = { contentPosition = it },
+        )
+      }
+
+      // The content of 160x80 overflows the container of 120x80 by 20 on each side
+      assertThat(contentPosition).isEqualTo(IntOffset(-20, 0))
+    }
+
+  @Test
+  fun resizeWithContentScale_cropWithTopStartAlignment_alignsOverflowingContentToStart() =
+    runComposeUiTest {
+      var contentPosition: IntOffset? = null
+
+      setContent {
+        TestLayout(
+          constraints = Constraints.fixed(120, 80),
+          aspectRatio = 2f,
+          contentScale = ContentScale.Crop,
+          alignment = Alignment.TopStart,
+          onPlaceableMeasured = {},
+          onContentPlaced = { contentPosition = it },
+        )
+      }
+
+      assertThat(contentPosition).isEqualTo(IntOffset(0, 0))
+    }
+
+  @Test
+  fun resizeWithContentScale_cropWithBottomEndAlignment_alignsOverflowingContentToEnd() =
+    runComposeUiTest {
+      var contentPosition: IntOffset? = null
+
+      setContent {
+        TestLayout(
+          constraints = Constraints.fixed(120, 80),
+          aspectRatio = 2f,
+          contentScale = ContentScale.Crop,
+          alignment = Alignment.BottomEnd,
+          onPlaceableMeasured = {},
+          onContentPlaced = { contentPosition = it },
+        )
+      }
+
+      assertThat(contentPosition).isEqualTo(IntOffset(-40, 0))
+    }
+
+  @Test
+  fun resizeWithContentScale_cropWithTopStartAlignmentInRtl_alignsOverflowingContentToStart() =
+    runComposeUiTest {
+      var contentPosition: IntOffset? = null
+
+      setContent {
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+          TestLayout(
+            constraints = Constraints.fixed(120, 80),
+            aspectRatio = 2f,
+            contentScale = ContentScale.Crop,
+            alignment = Alignment.TopStart,
+            onPlaceableMeasured = {},
+            onContentPlaced = { contentPosition = it },
+          )
+        }
+      }
+
+      // The right edge of the content is aligned with the right edge of the container
+      assertThat(contentPosition).isEqualTo(IntOffset(-40, 0))
+    }
+
+  @Test
+  fun resizeWithContentScale_fitWithBottomCenterAlignment_alignsContentToBottom() =
+    runComposeUiTest {
+      var contentPosition: IntOffset? = null
+
+      setContent {
+        TestLayout(
+          constraints = Constraints.fixed(100, 300),
+          aspectRatio = 2f,
+          contentScale = ContentScale.Fit,
+          alignment = Alignment.BottomCenter,
+          onPlaceableMeasured = {},
+          onContentPlaced = { contentPosition = it },
+        )
+      }
+
+      // The content of 100x50 is at the bottom of the container of 100x300
+      assertThat(contentPosition).isEqualTo(IntOffset(0, 250))
+    }
+
+  @Test
+  fun resizeWithContentScale_nullAspectRatioWithBottomEndAlignment_alignsContentToBottomEnd() =
+    runComposeUiTest {
+      var contentPosition: IntOffset? = null
+
+      setContent {
+        TestLayout(
+          constraints = Constraints.fixed(100, 200),
+          aspectRatio = null,
+          contentScale = ContentScale.Fit,
+          alignment = Alignment.BottomEnd,
+          childModifier = Modifier.size(10.dp, 20.dp),
+          onPlaceableMeasured = {},
+          onContentPlaced = { contentPosition = it },
+        )
+      }
+
+      assertThat(contentPosition).isEqualTo(IntOffset(90, 180))
+    }
+
   /**
    * A helper layout to test [resizeWithContentScale] modifier sizing behavior.
    *
@@ -482,11 +608,12 @@ class ModifiersExtensionsTest {
    * 1. **Outer Layout**: Receives the parent's [constraints] and measures its single child (the
    *    Inner Layout) with them. It reports the final outer measured size via [onOuterMeasured].
    * 2. **Inner Layout**: Simulates the content surface (like PlayerSurface) being sized. It applies
-   *    [resizeWithContentScale] to scale incoming constraints based on [sourceSizeDp]. It then
-   *    applies a custom [layout] modifier to intercept the scaled constraints and report the
-   *    resulting size via [onPlaceableMeasured]. Finally, [fillMaxSize] forces the empty core
-   *    layout to fill the scaled constraints, simulating a child that expands to fill the size
-   *    calculated by [resizeWithContentScale].
+   *    [resizeWithContentScale] to scale incoming constraints based on [sourceSizeDp] and to
+   *    position the content according to [alignment], reporting the position of the content within
+   *    the Outer Layout via [onContentPlaced]. It then applies a custom [layout] modifier to
+   *    intercept the scaled constraints and report the resulting size via [onPlaceableMeasured].
+   *    Finally, [fillMaxSize] forces the empty core layout to fill the scaled constraints,
+   *    simulating a child that expands to fill the size calculated by [resizeWithContentScale].
    */
   @Composable
   private fun TestLayout(
@@ -494,10 +621,12 @@ class ModifiersExtensionsTest {
     contentScale: ContentScale,
     aspectRatio: Float? = null,
     sourceSizeDp: Size? = null,
+    alignment: Alignment = Alignment.Center,
     @SuppressLint("ModifierParameter") childModifier: Modifier = Modifier.fillMaxSize(),
     onPlaceableMeasured: (IntSize) -> Unit,
     onOuterMeasured: (IntSize) -> Unit = {},
     onScaledSizeCalculated: (IntSize) -> Unit = {},
+    onContentPlaced: (IntOffset) -> Unit = {},
   ) {
     require(aspectRatio == null || sourceSizeDp == null) {
       "Both aspectRatio and sourceSizeDp cannot be non-null"
@@ -510,8 +639,9 @@ class ModifiersExtensionsTest {
             (if (sourceSizeDp != null) {
                 @Suppress("DEPRECATION") Modifier.resizeWithContentScale(contentScale, sourceSizeDp)
               } else {
-                Modifier.resizeWithContentScale(contentScale, aspectRatio)
+                Modifier.resizeWithContentScale(contentScale, aspectRatio, alignment)
               })
+              .onPlaced { onContentPlaced(it.positionInParent().round()) }
               .layout { measurable, childConstraints ->
                 onScaledSizeCalculated(
                   IntSize(childConstraints.maxWidth, childConstraints.maxHeight)
