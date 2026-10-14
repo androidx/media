@@ -286,8 +286,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
           targetGranule = -1;
         }
         granulesOnCurrentPage += granulesInPacket;
+        currentGranule += granulesInPacket;
       }
-      currentGranule += granulesInPacket;
       if (isLastPacketInPage && pageHeader.granulePosition >= 0) {
         previousPageGranulePosition = pageHeader.granulePosition;
         granulesOnCurrentPage = 0;

@@ -59,6 +59,12 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 
   @Override
   protected long preparePayload(ParsableByteArray packet) {
+    if (peekPacketStartsWith(packet, OPUS_ID_HEADER_SIGNATURE)
+        || peekPacketStartsWith(packet, OPUS_COMMENT_HEADER_SIGNATURE)) {
+      // Chained streams (RFC 3533 section 4) and some real files repeat the headers mid-stream,
+      // skip them so they don't reach the decoder.
+      return -1;
+    }
     return convertTimeToGranule(OpusUtil.getPacketDurationUs(packet.getData()));
   }
 
@@ -147,10 +153,13 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
     if (packet.bytesLeft() < expectedPrefix.length) {
       return false;
     }
+    byte[] data = packet.getData();
     int startPosition = packet.getPosition();
-    byte[] header = new byte[expectedPrefix.length];
-    packet.readBytes(header, 0, expectedPrefix.length);
-    packet.setPosition(startPosition);
-    return Arrays.equals(header, expectedPrefix);
+    for (int i = 0; i < expectedPrefix.length; i++) {
+      if (data[startPosition + i] != expectedPrefix[i]) {
+        return false;
+      }
+    }
+    return true;
   }
 }

@@ -258,6 +258,47 @@ public final class OggExtractorNonParameterizedTest {
   }
 
   @Test
+  public void read_chainedOpusStreams_ignoresSubsequentHeadersAndExtractsAudioSamples()
+      throws Exception {
+    byte[] data =
+        Bytes.concat(
+            createOggOpusStream(
+                /* firstAudioPageGranulePosition= */ 960, /* finalPageGranulePosition= */ 1800),
+            createOggOpusStream(
+                /* firstAudioPageGranulePosition= */ 960, /* finalPageGranulePosition= */ 1800));
+
+    FakeTrackOutput trackOutput = extractOpusTrack(data);
+
+    assertThat(trackOutput.getSampleCount()).isEqualTo(4);
+    assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(0);
+    assertThat(trackOutput.getSampleTimeUs(1)).isEqualTo(20_000);
+    assertThat(trackOutput.getSampleTimeUs(2)).isEqualTo(40_000);
+    assertThat(trackOutput.getSampleTimeUs(3)).isEqualTo(60_000);
+    assertThat(trackOutput.getSampleData(0)).isEqualTo(new byte[] {(byte) 0xF8});
+    assertThat(trackOutput.getSampleFlags(1) & C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA)
+        .isEqualTo(C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA);
+    byte[] sampleData1 = trackOutput.getSampleData(1);
+    long discardPaddingNs1 =
+        ByteBuffer.wrap(sampleData1, sampleData1.length - 8, 8)
+            .order(ByteOrder.LITTLE_ENDIAN)
+            .getLong();
+    int roundTripDiscardSamples1 =
+        (int) ((discardPaddingNs1 * OpusUtil.SAMPLE_RATE) / C.NANOS_PER_SECOND);
+    assertThat(roundTripDiscardSamples1).isEqualTo(120);
+    assertThat(trackOutput.getSampleData(2)).isEqualTo(new byte[] {(byte) 0xF8});
+    assertThat(trackOutput.getSampleFlags(3) & C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA)
+        .isEqualTo(C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA);
+    byte[] sampleData3 = trackOutput.getSampleData(3);
+    long discardPaddingNs3 =
+        ByteBuffer.wrap(sampleData3, sampleData3.length - 8, 8)
+            .order(ByteOrder.LITTLE_ENDIAN)
+            .getLong();
+    int roundTripDiscardSamples3 =
+        (int) ((discardPaddingNs3 * OpusUtil.SAMPLE_RATE) / C.NANOS_PER_SECOND);
+    assertThat(roundTripDiscardSamples3).isEqualTo(120);
+  }
+
+  @Test
   public void read_opusSeekLandingOnContinuedPage_syncsGranuleAndExtractsPadding()
       throws Exception {
     // TOC byte 0xF8 encodes 1 frame of 20ms (960 samples at 48kHz).

@@ -162,6 +162,8 @@
     *   Ogg: Support extracting Opus end-padding for gapless playback
         ([#2576](https://github.com/androidx/media/issues/2576)), and fix sample
         timestamps after seeking to a page that starts with a continued packet.
+    *   Ogg: Fix decode errors and ~1s timestamp jumps in chained Ogg Opus
+        streams by ignoring mid-stream Opus ID and comment header packets.
 *   Inspector:
     *   Support retrieving XMP metadata from MP4 files using
         `MetadataRetriever`.
