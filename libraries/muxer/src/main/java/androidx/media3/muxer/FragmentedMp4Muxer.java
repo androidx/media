@@ -161,10 +161,14 @@ public final class FragmentedMp4Muxer implements Muxer {
      * <p>When enabled, a fragment is written once its video samples span the {@linkplain
      * #setFragmentDurationMs fragment duration}, even if the next sample is not a key frame. This
      * allows the output to grow while samples arrive when key frames are farther apart than the
-     * fragment duration. Fragments start at non-key frames only when the video {@link Format} has
-     * {@link Format#maxNumReorderSamples} set to {@code 0}; tracks that may contain B-frames still
-     * end fragments only at key frames. Fragments that start at non-key frames are not listed as
-     * random access points in the {@code mfra} box.
+     * fragment duration.
+     *
+     * <p>This option only takes effect if {@link Format#maxNumReorderSamples} of the video {@link
+     * Format} is explicitly set to {@code 0}. Otherwise, including when it is left as {@link
+     * Format#NO_VALUE}, the track may contain B-frames and fragments still end only at key frames.
+     *
+     * <p>Fragments that start at non-key frames are not listed as random access points in the
+     * {@code mfra} box.
      *
      * <p>The default value is {@code false}.
      */
