@@ -85,7 +85,8 @@ public final class TrimmingAudioProcessor extends BaseAudioProcessor implements 
 
   @Override
   public long getDurationAfterProcessorApplied(long durationUs) {
-    if (!isActive()) {
+    if (inputAudioFormat.equals(AudioFormat.NOT_SET)
+        || (trimStartFrames == 0 && trimEndFrames == 0)) {
       return durationUs;
     }
     // TODO: b/369509881 - Use StreamMetadata#positionOffsetUs to calculate duration based on seek
@@ -109,7 +110,11 @@ public final class TrimmingAudioProcessor extends BaseAudioProcessor implements 
 
   @Override
   public boolean isActive() {
-    return super.isActive() && (trimStartFrames != 0 || trimEndFrames != 0 || endBufferSize > 0);
+    return super.isActive()
+        && ((trimStartFrames != 0 && (reconfigurationPending || pendingTrimStartBytes > 0))
+            || trimEndFrames != 0
+            || endBufferSize > 0
+            || hasPendingOutput());
   }
 
   @Override
@@ -127,11 +132,11 @@ public final class TrimmingAudioProcessor extends BaseAudioProcessor implements 
     trimmedFrameCount += trimBytes / inputAudioFormat.bytesPerFrame;
     pendingTrimStartBytes -= trimBytes;
     inputBuffer.position(position + trimBytes);
-    if (pendingTrimStartBytes > 0) {
+    remaining -= trimBytes;
+    if (remaining == 0) {
       // Nothing to output yet.
       return;
     }
-    remaining -= trimBytes;
     endBufferTrimmed = false;
 
     int targetEndBufferBytes =

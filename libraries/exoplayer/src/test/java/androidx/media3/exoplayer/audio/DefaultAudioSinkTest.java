@@ -2926,6 +2926,83 @@ public final class DefaultAudioSinkTest {
     assertThat(defaultAudioSink.hasPendingData()).isTrue();
   }
 
+  @Test
+  public void handleBuffer_withOnlyEncoderDelay_passesSubsequentBuffersDirectlyAfterStartTrimmed()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    ArrayList<ByteBuffer> writtenBuffers = new ArrayList<>();
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(context).build()) {
+          @Override
+          public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+            return new ForwardingAudioOutput(super.getAudioOutput(config)) {
+              @Override
+              public boolean write(
+                  ByteBuffer buffer, int encodedAccessUnitCount, long presentationTimeUs)
+                  throws WriteException {
+                writtenBuffers.add(buffer);
+                return super.write(buffer, encodedAccessUnitCount, presentationTimeUs);
+              }
+            };
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context)
+            .setAudioOutputProvider(audioOutputProvider)
+            .setEnableAudioOutputPlaybackParameters(true)
+            .build();
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO, /* trimStartFrames= */ 100, /* trimEndFrames= */ 0);
+    // First buffer trims 100 start frames and writes the remaining 44,000 frames (past the 20ms
+    // volume ramp-up window).
+    ByteBuffer firstBuffer = create1Sec44100HzSilenceBuffer();
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                firstBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+    ByteBuffer secondBuffer = create1Sec44100HzSilenceBuffer();
+
+    boolean handledSecondBuffer =
+        defaultAudioSink.handleBuffer(
+            secondBuffer, /* presentationTimeUs= */ 1_000_000, /* encodedAccessUnitCount= */ 1);
+
+    assertThat(handledSecondBuffer).isTrue();
+    assertThat(writtenBuffers).hasSize(2);
+    assertThat(writtenBuffers.get(1)).isSameInstanceAs(secondBuffer);
+  }
+
+  @Test
+  public void
+      handleBuffer_afterStartTrimDeactivatedAndPlaybackParametersChanged_subtractsStartTrimFromStreamMetadataPositionOffset()
+          throws Exception {
+    TrackingAudioProcessor trackingProcessor = new TrackingAudioProcessor();
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext())
+            .setAudioProcessorChain(new DefaultAudioProcessorChain(trackingProcessor))
+            .build();
+    // 441 frames at 44,100 Hz is 10,000 us of encoder delay.
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO, /* trimStartFrames= */ 441, /* trimEndFrames= */ 0);
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1));
+
+    // Trigger a mid-stream pipeline drain and flush after TrimmingAudioProcessor has deactivated.
+    defaultAudioSink.setPlaybackParameters(new PlaybackParameters(/* speed= */ 2f));
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 1_000_000,
+                /* encodedAccessUnitCount= */ 1));
+
+    assertThat(trackingProcessor.lastStreamMetadata.positionOffsetUs).isEqualTo(990_000);
+  }
+
   private void configureDefaultAudioSink(int channelCount) throws AudioSink.ConfigurationException {
     configureDefaultAudioSink(channelCount, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
   }
@@ -3157,6 +3234,7 @@ public final class DefaultAudioSinkTest {
     private int configureCount;
     private int flushCount;
     private int resetCount;
+    private StreamMetadata lastStreamMetadata = StreamMetadata.DEFAULT;
 
     @CanIgnoreReturnValue
     @Override
@@ -3177,6 +3255,7 @@ public final class DefaultAudioSinkTest {
     @Override
     protected void onFlush(StreamMetadata streamMetadata) {
       flushCount++;
+      lastStreamMetadata = streamMetadata;
     }
 
     @Override

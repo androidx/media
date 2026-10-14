@@ -187,6 +187,9 @@
     *   Trim encoder end-padding on single streams and the final stream in a
         playlist in addition to mid-playlist gapless transitions
         ([#2576](https://github.com/androidx/media/issues/2576)).
+    *   Avoid unnecessary audio buffer copies in `TrimmingAudioProcessor` after
+        start-of-stream encoder delay trimming has completed and no
+        end-of-stream padding needs to be trimmed.
 *   Video:
     *   Fix reporting of late video frames with identical release timestamps so
         that they are reported as dropped instead of skipped.
