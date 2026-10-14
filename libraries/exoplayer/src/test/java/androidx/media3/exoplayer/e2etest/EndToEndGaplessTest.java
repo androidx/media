@@ -125,11 +125,12 @@ public class EndToEndGaplessTest {
 
     byte[] expectedTrimmedByteContent =
         Bytes.concat(
-            // Track one is trimmed at its beginning and its end.
+            // Both tracks are trimmed at their beginning and their end.
             Arrays.copyOfRange(decoderOutputBytes, delayBytes, bytesPerAudioFile - paddingBytes),
-            // Track two is only trimmed at its beginning, but not its end.
             Arrays.copyOfRange(
-                decoderOutputBytes, bytesPerAudioFile + delayBytes, decoderOutputBytes.length));
+                decoderOutputBytes,
+                bytesPerAudioFile + delayBytes,
+                decoderOutputBytes.length - paddingBytes));
     byte[] audioTrackReceivedBytes = audioTrackListener.getAllReceivedBytes();
 
     // The first few bytes can be modified to ramp up the volume. Exclude those from the comparison.
@@ -141,7 +142,7 @@ public class EndToEndGaplessTest {
 
   @Test
   @Config(minSdk = 29) // AudioFormat.getFrameSizeInBytes is only available from API 29.
-  public void play_twoIdenticalOpusFiles_trimsFirstTrackEndPadding() throws Exception {
+  public void play_twoIdenticalOpusFiles_trimsEndPadding() throws Exception {
     ExoPlayer player =
         new ExoPlayer.Builder(ApplicationProvider.getApplicationContext())
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
@@ -170,11 +171,11 @@ public class EndToEndGaplessTest {
 
     byte[] expectedTrimmedByteContent =
         Bytes.concat(
-            // Track one is trimmed at its end (start pre-skip is handled by the Opus codec via
+            // Both tracks are trimmed at their end (start pre-skip is handled by the Opus codec via
             // csd-1).
             Arrays.copyOf(decoderOutputBytes, bytesPerAudioFile - paddingBytes),
-            // Track two is not trimmed at its end.
-            Arrays.copyOfRange(decoderOutputBytes, bytesPerAudioFile, decoderOutputBytes.length));
+            Arrays.copyOfRange(
+                decoderOutputBytes, bytesPerAudioFile, decoderOutputBytes.length - paddingBytes));
     byte[] audioTrackReceivedBytes = audioTrackListener.getAllReceivedBytes();
 
     // The first 20ms (960 frames = 3840 bytes) can be modified to ramp up the volume. Exclude
@@ -187,7 +188,7 @@ public class EndToEndGaplessTest {
 
   @Test
   @Config(minSdk = 29) // AudioFormat.getFrameSizeInBytes is only available from API 29.
-  public void play_twoIdenticalMatroskaOpusFiles_trimsFirstTrackEndPadding() throws Exception {
+  public void play_twoIdenticalMatroskaOpusFiles_trimsEndPadding() throws Exception {
     ExoPlayer player =
         new ExoPlayer.Builder(ApplicationProvider.getApplicationContext())
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
@@ -216,11 +217,11 @@ public class EndToEndGaplessTest {
 
     byte[] expectedTrimmedByteContent =
         Bytes.concat(
-            // Track one is trimmed at its end (start pre-skip is handled by the Opus codec via
+            // Both tracks are trimmed at their end (start pre-skip is handled by the Opus codec via
             // csd-1).
             Arrays.copyOf(decoderOutputBytes, bytesPerAudioFile - paddingBytes),
-            // Track two is not trimmed at its end.
-            Arrays.copyOfRange(decoderOutputBytes, bytesPerAudioFile, decoderOutputBytes.length));
+            Arrays.copyOfRange(
+                decoderOutputBytes, bytesPerAudioFile, decoderOutputBytes.length - paddingBytes));
     byte[] audioTrackReceivedBytes = audioTrackListener.getAllReceivedBytes();
 
     // The first 20ms (960 frames = 1920 bytes for mono 16-bit PCM) can be modified to ramp up the

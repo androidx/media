@@ -832,6 +832,10 @@ public final class DefaultAudioSink implements AudioSink {
     }
   }
 
+  /**
+   * Configures {@link #trimmingAudioProcessor} with the current {@link #configuration}'s encoder
+   * delay, encoder padding, and input format if the input is PCM.
+   */
   private void configureTrimmingAudioProcessor() {
     if (configuration != null && configuration.isPcm()) {
       trimmingAudioProcessor.setTrimFrameCount(
@@ -844,6 +848,10 @@ public final class DefaultAudioSink implements AudioSink {
     }
   }
 
+  /**
+   * Flushes {@link #trimmingAudioProcessor} for PCM configurations (or resets it for non-PCM
+   * configurations) and clears {@link #trimmedOutputBuffer}.
+   */
   private void flushTrimmingAudioProcessor() {
     trimmedOutputBuffer = AudioProcessor.EMPTY_BUFFER;
     if (configuration.isPcm()) {
@@ -853,6 +861,11 @@ public final class DefaultAudioSink implements AudioSink {
     }
   }
 
+  /**
+   * Updates {@link #audioProcessingPipeline} to the current {@link #configuration}'s pipeline and
+   * flushes it with the {@link AudioProcessor.StreamMetadata} for {@code nextPresentationTimeUs}
+   * (adjusted for any active trimming in {@link #trimmingAudioProcessor}).
+   */
   private void setupAudioProcessors(long nextPresentationTimeUs) {
     audioProcessingPipeline = configuration.audioProcessingPipeline;
     long positionOffsetUs;
@@ -957,14 +970,6 @@ public final class DefaultAudioSink implements AudioSink {
     checkArgument(inputBuffer == null || buffer == inputBuffer);
 
     if (pendingConfiguration != null) {
-      if (configuration.isPcm()) {
-        try {
-          trimmingAudioProcessor.configure(
-              new AudioProcessor.AudioFormat(configuration.inputFormat));
-        } catch (UnhandledAudioFormatException e) {
-          throw new IllegalStateException(e);
-        }
-      }
       if (!drainToEndOfStream()) {
         // There's still pending data in audio processors to write to the output.
         return false;
@@ -1256,10 +1261,19 @@ public final class DefaultAudioSink implements AudioSink {
     }
   }
 
+  /**
+   * Returns whether {@link #trimmingAudioProcessor} is active or {@link #trimmedOutputBuffer} still
+   * has unconsumed bytes.
+   */
   private boolean hasTrimmingWork() {
     return trimmingAudioProcessor.isActive() || trimmedOutputBuffer.hasRemaining();
   }
 
+  /**
+   * Returns the next buffer of trimmed audio to feed into {@link #audioProcessingPipeline} (or
+   * directly to the output when the pipeline is not operational), or {@link #inputBuffer} if no
+   * trimming work is needed.
+   */
   private ByteBuffer getTrimmedInputBuffer() {
     if (!hasTrimmingWork()) {
       return inputBuffer != null ? inputBuffer : AudioProcessor.EMPTY_BUFFER;
@@ -1277,7 +1291,8 @@ public final class DefaultAudioSink implements AudioSink {
   }
 
   /**
-   * Queues end of stream and then fully drains all buffers.
+   * Queues end of stream to {@link #trimmingAudioProcessor} and the {@link AudioProcessingPipeline}
+   * and then fully drains all buffers.
    *
    * @return Whether the buffers have been fully drained.
    */
@@ -1795,7 +1810,6 @@ public final class DefaultAudioSink implements AudioSink {
     mediaPositionParametersCheckpoints.clear();
     inputBuffer = null;
     inputBufferAccessUnitCount = 0;
-    trimmedOutputBuffer = AudioProcessor.EMPTY_BUFFER;
     outputBuffer = null;
     stoppedAudioOutput = false;
     handledEndOfStream = false;

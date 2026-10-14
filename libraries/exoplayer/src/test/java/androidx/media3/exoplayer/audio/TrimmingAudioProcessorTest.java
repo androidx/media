@@ -107,7 +107,6 @@ public final class TrimmingAudioProcessorTest {
       if (inputBuffer.hasRemaining()) {
         trimmingAudioProcessor.queueInput(inputBuffer);
         if (!inputBuffer.hasRemaining()) {
-          trimmingAudioProcessor.configure(STEREO_PCM8_FORMAT);
           trimmingAudioProcessor.queueEndOfStream();
         }
       }
@@ -132,7 +131,6 @@ public final class TrimmingAudioProcessorTest {
       if (inputBuffer.hasRemaining()) {
         trimmingAudioProcessor.queueInput(inputBuffer);
         if (!inputBuffer.hasRemaining()) {
-          trimmingAudioProcessor.configure(STEREO_PCM16_FORMAT);
           trimmingAudioProcessor.queueEndOfStream();
         }
       }
@@ -157,7 +155,6 @@ public final class TrimmingAudioProcessorTest {
       if (inputBuffer.hasRemaining()) {
         trimmingAudioProcessor.queueInput(inputBuffer);
         if (!inputBuffer.hasRemaining()) {
-          trimmingAudioProcessor.configure(STEREO_PCM24_FORMAT);
           trimmingAudioProcessor.queueEndOfStream();
         }
       }
@@ -182,7 +179,6 @@ public final class TrimmingAudioProcessorTest {
       if (inputBuffer.hasRemaining()) {
         trimmingAudioProcessor.queueInput(inputBuffer);
         if (!inputBuffer.hasRemaining()) {
-          trimmingAudioProcessor.configure(STEREO_PCM32_FORMAT);
           trimmingAudioProcessor.queueEndOfStream();
         }
       }
@@ -208,7 +204,6 @@ public final class TrimmingAudioProcessorTest {
       if (inputBuffer.hasRemaining()) {
         trimmingAudioProcessor.queueInput(inputBuffer);
         if (!inputBuffer.hasRemaining()) {
-          trimmingAudioProcessor.configure(STEREO_PCM_FLOAT_FORMAT);
           trimmingAudioProcessor.queueEndOfStream();
         }
       }
@@ -298,7 +293,6 @@ public final class TrimmingAudioProcessorTest {
       if (secondInputBuffer.hasRemaining()) {
         trimmingAudioProcessor.queueInput(secondInputBuffer);
         if (!secondInputBuffer.hasRemaining()) {
-          trimmingAudioProcessor.configure(STEREO_PCM16_FORMAT);
           trimmingAudioProcessor.queueEndOfStream();
         }
       }
@@ -329,7 +323,6 @@ public final class TrimmingAudioProcessorTest {
       if (secondInputBuffer.hasRemaining()) {
         trimmingAudioProcessor.queueInput(secondInputBuffer);
         if (!secondInputBuffer.hasRemaining()) {
-          trimmingAudioProcessor.configure(STEREO_PCM16_FORMAT);
           trimmingAudioProcessor.queueEndOfStream();
         }
       }
@@ -382,7 +375,6 @@ public final class TrimmingAudioProcessorTest {
       if (inputBuffer.hasRemaining()) {
         trimmingAudioProcessor.queueInput(inputBuffer);
         if (!inputBuffer.hasRemaining()) {
-          trimmingAudioProcessor.configure(STEREO_PCM16_FORMAT);
           trimmingAudioProcessor.queueEndOfStream();
         }
       }
@@ -411,5 +403,55 @@ public final class TrimmingAudioProcessorTest {
     ByteBuffer output = trimmingAudioProcessor.getOutput();
 
     assertThat(createShortArray(output)).isEqualTo(new short[] {1, 2, 3, 4});
+  }
+
+  @Test
+  public void
+      setTrimFrameCount_decreasedBeforeEndOfStream_outputsRemainingEndBufferAndTrimsUpdatedCount()
+          throws Exception {
+    TrimmingAudioProcessor trimmingAudioProcessor = new TrimmingAudioProcessor();
+    ByteBuffer resultBuffer = ByteBuffer.allocateDirect(12).order(ByteOrder.nativeOrder());
+    trimmingAudioProcessor.setTrimFrameCount(/* trimStartFrames= */ 0, /* trimEndFrames= */ 3);
+    trimmingAudioProcessor.configure(STEREO_PCM16_FORMAT);
+    trimmingAudioProcessor.flush(StreamMetadata.DEFAULT);
+    ByteBuffer inputBuffer = createByteBuffer(new short[] {1, 2, 3, 4, 5, 6, 7, 8});
+    trimmingAudioProcessor.queueInput(inputBuffer);
+    resultBuffer.put(trimmingAudioProcessor.getOutput());
+
+    // Decrease trimEndFrames from 3 to 1 immediately before queueing end of stream.
+    trimmingAudioProcessor.setTrimFrameCount(/* trimStartFrames= */ 0, /* trimEndFrames= */ 1);
+    trimmingAudioProcessor.queueEndOfStream();
+    while (!trimmingAudioProcessor.isEnded()) {
+      resultBuffer.put(trimmingAudioProcessor.getOutput());
+    }
+    resultBuffer.flip();
+
+    assertThat(trimmingAudioProcessor.getTrimmedFrameCount()).isEqualTo(1);
+    assertThat(createShortArray(resultBuffer)).isEqualTo(new short[] {1, 2, 3, 4, 5, 6});
+  }
+
+  @Test
+  public void queueEndOfStream_calledTwiceAfterDecreasingTrimEndFrames_doesNotDoubleTrimEndBuffer()
+      throws Exception {
+    TrimmingAudioProcessor trimmingAudioProcessor = new TrimmingAudioProcessor();
+    ByteBuffer resultBuffer = ByteBuffer.allocateDirect(12).order(ByteOrder.nativeOrder());
+    trimmingAudioProcessor.setTrimFrameCount(/* trimStartFrames= */ 0, /* trimEndFrames= */ 3);
+    trimmingAudioProcessor.configure(STEREO_PCM16_FORMAT);
+    trimmingAudioProcessor.flush(StreamMetadata.DEFAULT);
+    ByteBuffer inputBuffer = createByteBuffer(new short[] {1, 2, 3, 4, 5, 6, 7, 8});
+    trimmingAudioProcessor.queueInput(inputBuffer);
+    resultBuffer.put(trimmingAudioProcessor.getOutput());
+
+    // Decrease trimEndFrames from 3 to 1 and call queueEndOfStream() twice before draining.
+    trimmingAudioProcessor.setTrimFrameCount(/* trimStartFrames= */ 0, /* trimEndFrames= */ 1);
+    trimmingAudioProcessor.queueEndOfStream();
+    trimmingAudioProcessor.queueEndOfStream();
+    while (!trimmingAudioProcessor.isEnded()) {
+      resultBuffer.put(trimmingAudioProcessor.getOutput());
+    }
+    resultBuffer.flip();
+
+    assertThat(trimmingAudioProcessor.getTrimmedFrameCount()).isEqualTo(1);
+    assertThat(createShortArray(resultBuffer)).isEqualTo(new short[] {1, 2, 3, 4, 5, 6});
   }
 }
