@@ -389,6 +389,8 @@
 *   Demo app:
     *   Add support for DRM-protected media items and an additional HLS sample
         stream to the session demo app catalog.
+    *   Configure `RemoteCastPlayer` with a `CastTrackSelector` in the session
+        demo app to enable subtitle and audio track selection while casting.
 *   Remove deprecated symbols:
     *   Remove `DashUtil.buildDataSpec(Representation, RangedUri, int)` and
         `DashUtil.buildDataSpec(Representation, String, RangedUri, int)`. Use

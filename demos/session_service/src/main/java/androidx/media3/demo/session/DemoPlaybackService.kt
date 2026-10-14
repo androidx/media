@@ -31,6 +31,7 @@ import androidx.datastore.core.Serializer
 import androidx.datastore.dataStore
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.cast.CastPlayer
+import androidx.media3.cast.RemoteCastPlayer
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.Player
 import androidx.media3.common.listenTo
@@ -181,7 +182,14 @@ open class DemoPlaybackService : MediaLibraryService() {
         .setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true)
         .build()
     exoPlayer.addAnalyticsListener(EventLogger())
-    return CastPlayer.Builder(/* context= */ this).setLocalPlayer(exoPlayer).build()
+    val remoteCastPlayer =
+      RemoteCastPlayer.Builder(/* context= */ this)
+        .setTrackSelector(DemoCastTrackSelector())
+        .build()
+    return CastPlayer.Builder(/* context= */ this)
+      .setLocalPlayer(exoPlayer)
+      .setRemotePlayer(remoteCastPlayer)
+      .build()
   }
 
   @OptIn(UnstableApi::class)
