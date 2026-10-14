@@ -277,7 +277,7 @@ private constructor(
     } catch (e: Exception) {
       throw HttpDataSource.HttpDataSourceException(
         e.message ?: "Unknown error",
-        null,
+        IOException(e),
         dataSpec!!,
         PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
         HttpDataSource.HttpDataSourceException.TYPE_READ,
