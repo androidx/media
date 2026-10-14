@@ -215,6 +215,11 @@ public class ForwardingAudioSink implements AudioSink {
   }
 
   @Override
+  public void setEncoderPadding(int paddingInFrames) {
+    sink.setEncoderPadding(paddingInFrames);
+  }
+
+  @Override
   public void setAudioOutputProvider(AudioOutputProvider audioOutputProvider) {
     sink.setAudioOutputProvider(audioOutputProvider);
   }

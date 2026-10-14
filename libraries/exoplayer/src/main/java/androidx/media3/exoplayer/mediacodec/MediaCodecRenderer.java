@@ -1651,6 +1651,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     }
     buffer.flip();
     if (buffer.hasSupplementalData()) {
+      buffer.format = inputFormat;
       handleInputBufferSupplementalData(buffer);
     }
 

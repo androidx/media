@@ -49,6 +49,7 @@ import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.OpusUtil;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.CodecParameters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
@@ -72,8 +73,11 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecUtil.DecoderQueryException
 import androidx.media3.extractor.VorbisUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.ImmutableIntArray;
+import com.google.common.primitives.Ints;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -134,6 +138,11 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   @Nullable private final LoudnessCodecController loudnessCodecController;
   private final AtomicBoolean processOutputBufferResultHolder;
 
+  // Values (Integer) are only retrieved by key and never compared by reference identity.
+  @SuppressWarnings("ValueClassIdentity")
+  private final IdentityHashMap<Format, Integer> pendingEncoderPaddingByFormat =
+      new IdentityHashMap<>();
+
   private int codecMaxInputSize;
   private boolean codecNeedsVorbisToAndroidChannelMappingWorkaround;
   @Nullable private Format inputFormat;
@@ -151,6 +160,8 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   private long nextBufferToWritePresentationTimeUs;
   private long firstNotReadyTimeMs;
   private boolean hasBeenReady;
+  @Nullable private Format currentOutputFormat;
+  private int currentOutputEncoderPadding;
 
   /**
    * @param context A context.
@@ -331,6 +342,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     rendererPriority = C.PRIORITY_PLAYBACK;
     eventDispatcher = new EventDispatcher(eventHandler, eventListener);
     processOutputBufferResultHolder = new AtomicBoolean();
+    currentOutputEncoderPadding = Format.NO_VALUE;
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
     firstNotReadyTimeMs = C.TIME_UNSET;
     hasBeenReady = false;
@@ -628,7 +640,12 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   @Nullable
   protected DecoderReuseEvaluation onInputFormatChanged(FormatHolder formatHolder)
       throws ExoPlaybackException {
-    Format inputFormat = checkNotNull(formatHolder.format);
+    // Create a fresh Format instance and write it back to formatHolder so that super queues it in
+    // formatQueue and attaches it to DecoderInputBuffer.format. This ensures
+    // pendingEncoderPaddingByFormat and currentOutputFormat can distinguish format changes by
+    // reference identity even if upstream re-emits the same Format instance.
+    Format inputFormat = checkNotNull(formatHolder.format).buildUpon().build();
+    formatHolder.format = inputFormat;
     this.inputFormat = inputFormat;
     @Nullable DecoderReuseEvaluation evaluation = super.onInputFormatChanged(formatHolder);
     eventDispatcher.inputFormatChanged(inputFormat, evaluation);
@@ -636,6 +653,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   }
 
   @Override
+  @SuppressWarnings("ReferenceEquality")
   protected void onOutputFormatChanged(Format format, @Nullable MediaFormat mediaFormat)
       throws ExoPlaybackException {
     Format audioSinkInputFormat;
@@ -712,6 +730,17 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
               .setTimeline(getTimeline())
               .setMediaPeriodId(getMediaPeriodId())
               .build());
+      if (getCodec() != null && decryptOnlyCodecFormat == null) {
+        if (format != currentOutputFormat) {
+          currentOutputFormat = format;
+          @Nullable Integer pendingEncoderPadding = pendingEncoderPaddingByFormat.remove(format);
+          currentOutputEncoderPadding =
+              pendingEncoderPadding != null ? pendingEncoderPadding : Format.NO_VALUE;
+        }
+        if (currentOutputEncoderPadding != Format.NO_VALUE) {
+          audioSink.setEncoderPadding(currentOutputEncoderPadding);
+        }
+      }
     } catch (AudioSink.ConfigurationException e) {
       throw createRendererException(
           e, e.format, PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED);
@@ -746,6 +775,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
       throws ExoPlaybackException {
     super.onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame);
+    clearPendingEncoderPadding();
     audioSink.flush();
 
     currentPositionUs = positionUs;
@@ -779,6 +809,8 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   protected void onDisabled() {
     audioSinkNeedsReset = true;
     inputFormat = null;
+    currentOutputFormat = null;
+    clearPendingEncoderPadding();
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
     hasReportedAudioPositionAdvancing = false;
     try {
@@ -797,6 +829,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     hasPendingReportedSkippedSilence = false;
     hasReportedAudioPositionAdvancing = false;
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
+    inputFormat = null;
     try {
       super.onReset();
     } finally {
@@ -805,6 +838,19 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
         audioSink.reset();
       }
     }
+  }
+
+  @Override
+  protected void resetCodecStateForFlush() {
+    super.resetCodecStateForFlush();
+    clearPendingEncoderPadding();
+  }
+
+  @Override
+  protected void resetCodecStateForRelease() {
+    super.resetCodecStateForRelease();
+    currentOutputFormat = null;
+    clearPendingEncoderPadding();
   }
 
   @Override
@@ -871,6 +917,8 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   @Override
   protected void onProcessedStreamChange() {
     super.onProcessedStreamChange();
+    currentOutputFormat = null;
+    currentOutputEncoderPadding = Format.NO_VALUE;
     audioSink.handleDiscontinuity();
   }
 
@@ -1047,19 +1095,42 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   }
 
   @Override
+  @SuppressWarnings("ReferenceEquality")
   protected void handleInputBufferSupplementalData(DecoderInputBuffer buffer) {
-    if (SDK_INT >= 29
-        && buffer.format != null
-        && Objects.equals(buffer.format.sampleMimeType, MimeTypes.AUDIO_OPUS)
-        && isBypassEnabled()) {
+    @Nullable Format format = buffer.format;
+    if (format != null && Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_OPUS)) {
       ByteBuffer data = checkNotNull(buffer.supplementalData);
-      int preSkip = checkNotNull(buffer.format).encoderDelay;
       if (data.remaining() == 8) {
-        int discardSamples =
-            (int) ((data.order(ByteOrder.LITTLE_ENDIAN).getLong() * 48_000L) / C.NANOS_PER_SECOND);
-        audioSink.setOffloadDelayPadding(preSkip, discardSamples);
+        long discardPaddingNs = data.order(ByteOrder.LITTLE_ENDIAN).getLong(data.position());
+        if (discardPaddingNs > 0) {
+          int discardSamples =
+              Ints.saturatedCast(
+                  Util.scaleLargeValue(
+                      discardPaddingNs,
+                      OpusUtil.SAMPLE_RATE,
+                      C.NANOS_PER_SECOND,
+                      RoundingMode.HALF_UP));
+          if (discardSamples > 0) {
+            if (isBypassEnabled()) {
+              if (SDK_INT >= 29) {
+                int preSkip = format.encoderDelay;
+                audioSink.setOffloadDelayPadding(preSkip, discardSamples);
+              }
+            } else if (format == currentOutputFormat) {
+              currentOutputEncoderPadding = discardSamples;
+              audioSink.setEncoderPadding(discardSamples);
+            } else if (decryptOnlyCodecFormat == null) {
+              pendingEncoderPaddingByFormat.put(format, discardSamples);
+            }
+          }
+        }
       }
     }
+  }
+
+  private void clearPendingEncoderPadding() {
+    currentOutputEncoderPadding = Format.NO_VALUE;
+    pendingEncoderPaddingByFormat.clear();
   }
 
   /**

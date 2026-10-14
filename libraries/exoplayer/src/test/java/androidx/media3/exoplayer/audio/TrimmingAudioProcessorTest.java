@@ -281,6 +281,93 @@ public final class TrimmingAudioProcessorTest {
   }
 
   @Test
+  public void setTrimFrameCount_midStreamUpdate_trimsEndWithoutRetrimmingStart() throws Exception {
+    TrimmingAudioProcessor trimmingAudioProcessor = new TrimmingAudioProcessor();
+    ByteBuffer resultBuffer = ByteBuffer.allocateDirect(8).order(ByteOrder.nativeOrder());
+    trimmingAudioProcessor.setTrimFrameCount(/* trimStartFrames= */ 1, /* trimEndFrames= */ 0);
+    trimmingAudioProcessor.configure(STEREO_PCM16_FORMAT);
+    trimmingAudioProcessor.flush(StreamMetadata.DEFAULT);
+    ByteBuffer firstInputBuffer = createByteBuffer(new short[] {1, 2, 3, 4});
+    trimmingAudioProcessor.queueInput(firstInputBuffer);
+    resultBuffer.put(trimmingAudioProcessor.getOutput());
+
+    // Update end trim frame count mid-stream without flushing or reconfiguring.
+    trimmingAudioProcessor.setTrimFrameCount(/* trimStartFrames= */ 1, /* trimEndFrames= */ 2);
+    ByteBuffer secondInputBuffer = createByteBuffer(new short[] {5, 6, 7, 8, 9, 10});
+    while (!trimmingAudioProcessor.isEnded()) {
+      if (secondInputBuffer.hasRemaining()) {
+        trimmingAudioProcessor.queueInput(secondInputBuffer);
+        if (!secondInputBuffer.hasRemaining()) {
+          trimmingAudioProcessor.configure(STEREO_PCM16_FORMAT);
+          trimmingAudioProcessor.queueEndOfStream();
+        }
+      }
+      resultBuffer.put(trimmingAudioProcessor.getOutput());
+    }
+    resultBuffer.flip();
+
+    assertThat(trimmingAudioProcessor.getTrimmedFrameCount()).isEqualTo(3);
+    assertThat(createShortArray(resultBuffer)).isEqualTo(new short[] {3, 4, 5, 6});
+  }
+
+  @Test
+  public void setTrimFrameCount_midStreamShrink_outputsFreedEndBufferFramesAndTrimsUpdatedCount()
+      throws Exception {
+    TrimmingAudioProcessor trimmingAudioProcessor = new TrimmingAudioProcessor();
+    ByteBuffer resultBuffer = ByteBuffer.allocateDirect(16).order(ByteOrder.nativeOrder());
+    trimmingAudioProcessor.setTrimFrameCount(/* trimStartFrames= */ 0, /* trimEndFrames= */ 3);
+    trimmingAudioProcessor.configure(STEREO_PCM16_FORMAT);
+    trimmingAudioProcessor.flush(StreamMetadata.DEFAULT);
+    ByteBuffer firstInputBuffer = createByteBuffer(new short[] {1, 2, 3, 4, 5, 6});
+    trimmingAudioProcessor.queueInput(firstInputBuffer);
+    resultBuffer.put(trimmingAudioProcessor.getOutput());
+
+    // Shrink end trim frame count mid-stream from 3 to 1 and queue 2 more frames.
+    trimmingAudioProcessor.setTrimFrameCount(/* trimStartFrames= */ 0, /* trimEndFrames= */ 1);
+    ByteBuffer secondInputBuffer = createByteBuffer(new short[] {7, 8, 9, 10});
+    while (!trimmingAudioProcessor.isEnded()) {
+      if (secondInputBuffer.hasRemaining()) {
+        trimmingAudioProcessor.queueInput(secondInputBuffer);
+        if (!secondInputBuffer.hasRemaining()) {
+          trimmingAudioProcessor.configure(STEREO_PCM16_FORMAT);
+          trimmingAudioProcessor.queueEndOfStream();
+        }
+      }
+      resultBuffer.put(trimmingAudioProcessor.getOutput());
+    }
+    resultBuffer.flip();
+
+    assertThat(trimmingAudioProcessor.getTrimmedFrameCount()).isEqualTo(1);
+    assertThat(createShortArray(resultBuffer)).isEqualTo(new short[] {1, 2, 3, 4, 5, 6, 7, 8});
+  }
+
+  @Test
+  public void setTrimFrameCount_whileReconfigurationPending_preservesPreviousTrackEndTrim()
+      throws Exception {
+    TrimmingAudioProcessor trimmingAudioProcessor = new TrimmingAudioProcessor();
+    ByteBuffer resultBuffer = ByteBuffer.allocateDirect(8).order(ByteOrder.nativeOrder());
+    trimmingAudioProcessor.setTrimFrameCount(/* trimStartFrames= */ 1, /* trimEndFrames= */ 2);
+    trimmingAudioProcessor.configure(STEREO_PCM16_FORMAT);
+    trimmingAudioProcessor.flush(StreamMetadata.DEFAULT);
+    ByteBuffer firstInputBuffer = createByteBuffer(new short[] {1, 2, 3, 4, 5, 6});
+    trimmingAudioProcessor.queueInput(firstInputBuffer);
+    resultBuffer.put(trimmingAudioProcessor.getOutput());
+
+    // Configure next track with different trim counts before current track finishes queueing input.
+    trimmingAudioProcessor.setTrimFrameCount(/* trimStartFrames= */ 0, /* trimEndFrames= */ 1);
+    trimmingAudioProcessor.configure(STEREO_PCM16_FORMAT);
+    ByteBuffer secondInputBuffer = createByteBuffer(new short[] {7, 8, 9, 10});
+    trimmingAudioProcessor.queueInput(secondInputBuffer);
+    resultBuffer.put(trimmingAudioProcessor.getOutput());
+    trimmingAudioProcessor.queueEndOfStream();
+    resultBuffer.put(trimmingAudioProcessor.getOutput());
+    resultBuffer.flip();
+
+    assertThat(trimmingAudioProcessor.getTrimmedFrameCount()).isEqualTo(3);
+    assertThat(createShortArray(resultBuffer)).isEqualTo(new short[] {3, 4, 5, 6});
+  }
+
+  @Test
   public void trim_withTrimEndFramesExceedingInputFrames_trimsAllAvailableFrames()
       throws Exception {
     TrimmingAudioProcessor trimmingAudioProcessor = new TrimmingAudioProcessor();

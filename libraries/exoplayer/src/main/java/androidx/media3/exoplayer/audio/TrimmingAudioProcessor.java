@@ -27,6 +27,7 @@ import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 /** Audio processor for trimming samples from the start/end of data. */
 @UnstableApi
@@ -48,11 +49,15 @@ public final class TrimmingAudioProcessor extends BaseAudioProcessor implements 
 
   /**
    * Sets the number of audio frames to trim from the start and end of audio passed to this
-   * processor. After calling this method, call {@link #configure(AudioFormat)} (if not already
-   * configured or if updating {@code trimStartFrames}) and {@link #flush(StreamMetadata)} to apply
-   * the new trimming frame counts.
+   * processor.
    *
-   * <p>See {@link AudioSink#configure(androidx.media3.exoplayer.audio.AudioSink.AudioSinkConfig)}.
+   * <p>To apply a new start and end trim frame count for a new stream, call {@link
+   * #configure(AudioFormat)} followed by {@link #flush(StreamMetadata)} after calling this method.
+   * Calling this method on an already configured and flushed processor updates the end trim frame
+   * count for the current stream without requiring a reconfigure or flush.
+   *
+   * <p>See {@link AudioSink#configure(androidx.media3.exoplayer.audio.AudioSink.AudioSinkConfig)}
+   * and {@link AudioSink#setEncoderPadding(int)}.
    *
    * @param trimStartFrames The number of audio frames to trim from the start of audio.
    * @param trimEndFrames The number of audio frames to trim from the end of audio.
@@ -127,11 +132,14 @@ public final class TrimmingAudioProcessor extends BaseAudioProcessor implements 
     }
     remaining -= trimBytes;
 
+    int targetEndBufferBytes =
+        reconfigurationPending ? endBuffer.length : trimEndFrames * inputAudioFormat.bytesPerFrame;
+
     // endBuffer must be kept as full as possible, so that we trim the right amount of media if we
     // don't receive any more input. After taking into account the number of bytes needed to keep
     // endBuffer as full as possible, the output should be any surplus bytes currently in endBuffer
     // followed by any surplus bytes in the new inputBuffer.
-    int remainingBytesToOutput = max(0, endBufferSize + remaining - endBuffer.length);
+    int remainingBytesToOutput = max(0, endBufferSize + remaining - targetEndBufferBytes);
     ByteBuffer buffer = replaceOutputBuffer(remainingBytesToOutput);
 
     // Output from endBuffer.
@@ -149,6 +157,9 @@ public final class TrimmingAudioProcessor extends BaseAudioProcessor implements 
     // Compact endBuffer, then repopulate it using the new input.
     endBufferSize -= endBufferBytesToOutput;
     System.arraycopy(endBuffer, endBufferBytesToOutput, endBuffer, 0, endBufferSize);
+    if (endBuffer.length != targetEndBufferBytes) {
+      endBuffer = Arrays.copyOf(endBuffer, targetEndBufferBytes);
+    }
     inputBuffer.get(endBuffer, endBufferSize, remaining);
     endBufferSize += remaining;
 

@@ -835,7 +835,7 @@ public final class DefaultAudioSink implements AudioSink {
   private void configureTrimmingAudioProcessor() {
     if (configuration != null && configuration.isPcm()) {
       trimmingAudioProcessor.setTrimFrameCount(
-          configuration.inputFormat.encoderDelay, configuration.inputFormat.encoderPadding);
+          configuration.encoderDelay, configuration.encoderPadding);
       try {
         trimmingAudioProcessor.configure(new AudioProcessor.AudioFormat(configuration.inputFormat));
       } catch (UnhandledAudioFormatException e) {
@@ -892,7 +892,7 @@ public final class DefaultAudioSink implements AudioSink {
     if (audioOutput.isOffloadedPlayback()) {
       if (configuration.outputConfig.useOffloadGapless) {
         audioOutput.setOffloadDelayPadding(
-            configuration.inputFormat.encoderDelay, configuration.inputFormat.encoderPadding);
+            configuration.encoderDelay, configuration.encoderPadding);
       }
     }
     if (playerId != null) {
@@ -978,7 +978,7 @@ public final class DefaultAudioSink implements AudioSink {
           // We're waiting for playout on the current audio output to finish.
           return false;
         }
-        flush();
+        flush(/* resetEncoderDelayPadding= */ false);
       } else {
         // The current audio output can be reused for the new configuration.
         configuration = pendingConfiguration;
@@ -988,7 +988,7 @@ public final class DefaultAudioSink implements AudioSink {
           if (audioOutput.isOffloadedPlayback() && configuration.outputConfig.useOffloadGapless) {
             audioOutput.setOffloadEndOfStream();
             audioOutput.setOffloadDelayPadding(
-                configuration.inputFormat.encoderDelay, configuration.inputFormat.encoderPadding);
+                configuration.encoderDelay, configuration.encoderPadding);
             isWaitingForOffloadEndOfStreamHandled = true;
           }
           if (!startMediaTimeUsNeedsInit) {
@@ -1115,7 +1115,7 @@ public final class DefaultAudioSink implements AudioSink {
 
     if (audioOutput.isStalled()) {
       Log.w(TAG, "Resetting stalled audio output");
-      flush();
+      flush(/* resetEncoderDelayPadding= */ false);
       return true;
     }
 
@@ -1632,11 +1632,30 @@ public final class DefaultAudioSink implements AudioSink {
   @RequiresApi(29)
   @Override
   public void setOffloadDelayPadding(int delayInFrames, int paddingInFrames) {
-    if (audioOutput != null
-        && audioOutput.isOffloadedPlayback()
-        && configuration != null
-        && configuration.outputConfig.useOffloadGapless) {
-      audioOutput.setOffloadDelayPadding(delayInFrames, paddingInFrames);
+    Configuration targetConfiguration =
+        pendingConfiguration != null ? pendingConfiguration : configuration;
+    if (targetConfiguration != null && !targetConfiguration.isPcm()) {
+      targetConfiguration.encoderDelay = delayInFrames;
+      targetConfiguration.encoderPadding = paddingInFrames;
+      if (targetConfiguration == configuration
+          && audioOutput != null
+          && audioOutput.isOffloadedPlayback()
+          && configuration.outputConfig.useOffloadGapless) {
+        audioOutput.setOffloadDelayPadding(delayInFrames, paddingInFrames);
+      }
+    }
+  }
+
+  @Override
+  public void setEncoderPadding(int paddingInFrames) {
+    checkArgument(paddingInFrames >= 0);
+    Configuration targetConfiguration =
+        pendingConfiguration != null ? pendingConfiguration : configuration;
+    if (targetConfiguration != null && targetConfiguration.isPcm()) {
+      targetConfiguration.encoderPadding = paddingInFrames;
+      if (targetConfiguration == configuration) {
+        trimmingAudioProcessor.setTrimFrameCount(configuration.encoderDelay, paddingInFrames);
+      }
     }
   }
 
@@ -1677,10 +1696,27 @@ public final class DefaultAudioSink implements AudioSink {
 
   @Override
   public void flush() {
+    flush(/* resetEncoderDelayPadding= */ true);
+  }
+
+  private void flush(boolean resetEncoderDelayPadding) {
+    boolean promotedPendingConfiguration = false;
     if (pendingConfiguration != null) {
       configuration = pendingConfiguration;
       pendingConfiguration = null;
-      configureTrimmingAudioProcessor();
+      promotedPendingConfiguration = true;
+    }
+    if (configuration != null) {
+      if (resetEncoderDelayPadding) {
+        configuration.encoderDelay = configuration.inputFormat.encoderDelay;
+        configuration.encoderPadding = configuration.inputFormat.encoderPadding;
+      }
+      if (promotedPendingConfiguration) {
+        configureTrimmingAudioProcessor();
+      } else if (configuration.isPcm()) {
+        trimmingAudioProcessor.setTrimFrameCount(
+            configuration.encoderDelay, configuration.encoderPadding);
+      }
     }
     trimmingAudioProcessor.resetTrimmedFrameCount();
     if (isAudioOutputInitialized()) {
@@ -1727,7 +1763,7 @@ public final class DefaultAudioSink implements AudioSink {
   // Internal methods.
 
   private void reconfigureAndFlush() {
-    flush();
+    flush(/* resetEncoderDelayPadding= */ false);
     if (configuration != null) {
       OutputConfig outputConfig;
       try {
@@ -2133,6 +2169,8 @@ public final class DefaultAudioSink implements AudioSink {
     private final AudioProcessingPipeline audioProcessingPipeline;
     private final Timeline timeline;
     @Nullable private final Object periodUid;
+    private int encoderDelay;
+    private int encoderPadding;
 
     private Configuration(
         Format inputFormat,
@@ -2151,18 +2189,24 @@ public final class DefaultAudioSink implements AudioSink {
       this.audioProcessingPipeline = audioProcessingPipeline;
       this.timeline = timeline;
       this.periodUid = periodUid;
+      this.encoderDelay = inputFormat.encoderDelay;
+      this.encoderPadding = inputFormat.encoderPadding;
     }
 
     private Configuration copyWithOutputConfig(OutputConfig outputConfig) {
-      return new Configuration(
-          inputFormat,
-          afterProcessingInputFormat,
-          inputPcmFrameSize,
-          outputPcmFrameSize,
-          outputConfig,
-          audioProcessingPipeline,
-          timeline,
-          periodUid);
+      Configuration copiedConfiguration =
+          new Configuration(
+              inputFormat,
+              afterProcessingInputFormat,
+              inputPcmFrameSize,
+              outputPcmFrameSize,
+              outputConfig,
+              audioProcessingPipeline,
+              timeline,
+              periodUid);
+      copiedConfiguration.encoderDelay = encoderDelay;
+      copiedConfiguration.encoderPadding = encoderPadding;
+      return copiedConfiguration;
     }
 
     private long inputFramesToDurationUs(long frameCount) {

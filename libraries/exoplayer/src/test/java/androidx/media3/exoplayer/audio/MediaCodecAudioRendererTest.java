@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_YES_WITHOUT_RECONFIGURATION;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.format;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
@@ -28,6 +29,7 @@ import static org.mockito.ArgumentMatchers.longThat;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -47,6 +49,7 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.util.Clock;
 import androidx.media3.exoplayer.CodecParameters;
+import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.RendererCapabilities.Capabilities;
@@ -65,6 +68,8 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -92,6 +97,13 @@ public class MediaCodecAudioRendererTest {
 
   private static final byte[] SAMPLE_ONE_BYTE_WITH_SUPPLEMENTAL_DATA =
       TestUtil.createByteArray(0x0, 0x0, 0x0, 0x1, 0x64, 0xA, 0x2C, 0x2A, 0x0, 0x0, 0x0, 0x0, 0x0);
+  private static final byte[] SAMPLE_ONE_BYTE_WITH_240_PADDING_SAMPLES_SUPPLEMENTAL_DATA =
+      ByteBuffer.allocate(13)
+          .putInt(1)
+          .put((byte) 0x64)
+          .order(ByteOrder.LITTLE_ENDIAN)
+          .putLong(5_000_000L) // 240 samples at 48 kHz.
+          .array();
   private static final Format AUDIO_AAC =
       new Format.Builder()
           .setSampleMimeType(MimeTypes.AUDIO_AAC)
@@ -126,6 +138,7 @@ public class MediaCodecAudioRendererTest {
   private final AtomicReference<AudioSink.Listener> audioSinkListener = new AtomicReference<>();
 
   private MediaCodecAudioRenderer mediaCodecAudioRenderer;
+  private DefaultMediaCodecAdapterFactory codecAdapterFactory;
   private MediaCodecSelector mediaCodecSelector;
   @Nullable private HandlerThread callbackThread;
   @Nullable private HandlerThread queueingThread;
@@ -169,19 +182,21 @@ public class MediaCodecAudioRendererTest {
                     /* vendor= */ false));
 
     Handler eventHandler = new Handler(Looper.getMainLooper());
+    codecAdapterFactory =
+        new DefaultMediaCodecAdapterFactory(
+            ApplicationProvider.getApplicationContext(),
+            () -> {
+              callbackThread = new HandlerThread("MCARTest:MediaCodecAsyncAdapter");
+              return callbackThread;
+            },
+            () -> {
+              queueingThread = new HandlerThread("MCARTest:MediaCodecQueueingThread");
+              return queueingThread;
+            });
     mediaCodecAudioRenderer =
         new MediaCodecAudioRenderer(
             ApplicationProvider.getApplicationContext(),
-            new DefaultMediaCodecAdapterFactory(
-                ApplicationProvider.getApplicationContext(),
-                () -> {
-                  callbackThread = new HandlerThread("MCARTest:MediaCodecAsyncAdapter");
-                  return callbackThread;
-                },
-                () -> {
-                  queueingThread = new HandlerThread("MCARTest:MediaCodecQueueingThread");
-                  return queueingThread;
-                }),
+            codecAdapterFactory,
             mediaCodecSelector,
             /* enableDecoderFallback= */ false,
             eventHandler,
@@ -865,7 +880,901 @@ public class MediaCodecAudioRendererTest {
       mediaCodecAudioRenderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
     }
 
-    verify(audioSink).setOffloadDelayPadding(/* delayInFrames= */ 312, /* paddingInFrames= */ 132);
+    verify(audioSink).setOffloadDelayPadding(/* delayInFrames= */ 312, /* paddingInFrames= */ 133);
+  }
+
+  @Test
+  public void render_opusWithPaddingBeforeOutputFormat_callsSetEncoderPaddingAfterConfigure()
+      throws Exception {
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ AUDIO_OPUS,
+            ImmutableList.of(
+                sample(
+                    /* timeUs= */ 0,
+                    C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                    SAMPLE_ONE_BYTE_WITH_SUPPLEMENTAL_DATA),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+
+    mediaCodecAudioRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_OPUS},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    mediaCodecAudioRenderer.setCurrentStreamFinal();
+    while (!mediaCodecAudioRenderer.isEnded()) {
+      mediaCodecAudioRenderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+      maybeIdleAsynchronousMediaCodecAdapterThreads();
+    }
+
+    ArgumentCaptor<AudioSink.AudioSinkConfig> configCaptor =
+        ArgumentCaptor.forClass(AudioSink.AudioSinkConfig.class);
+    InOrder inOrder = inOrder(audioSink);
+    inOrder.verify(audioSink).configure(configCaptor.capture());
+    inOrder.verify(audioSink).setEncoderPadding(133);
+    assertThat(configCaptor.getValue().format.encoderPadding).isEqualTo(0);
+  }
+
+  @Test
+  public void render_opusWithNearestNanosecondDiscardPadding_roundsToNearestSample()
+      throws Exception {
+    // 100 samples at 48 kHz is 2,083,333.33... ns, which Matroska muxers store as 2,083,333 ns.
+    byte[] nearestNanosecondPaddingSample =
+        ByteBuffer.allocate(13)
+            .putInt(1)
+            .put((byte) 0x64)
+            .order(ByteOrder.LITTLE_ENDIAN)
+            .putLong(2_083_333L)
+            .array();
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ AUDIO_OPUS,
+            ImmutableList.of(
+                sample(
+                    /* timeUs= */ 0,
+                    C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                    nearestNanosecondPaddingSample),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+
+    mediaCodecAudioRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_OPUS},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    mediaCodecAudioRenderer.setCurrentStreamFinal();
+    while (!mediaCodecAudioRenderer.isEnded()) {
+      mediaCodecAudioRenderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+      maybeIdleAsynchronousMediaCodecAdapterThreads();
+    }
+
+    verify(audioSink).setEncoderPadding(100);
+  }
+
+  @Test
+  public void render_opusWithPaddingBeforeOutputFormatThenPositionReset_clearsDynamicPaddingOnSeek()
+      throws Exception {
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ AUDIO_OPUS,
+            ImmutableList.of(
+                sample(
+                    /* timeUs= */ 0,
+                    C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                    SAMPLE_ONE_BYTE_WITH_SUPPLEMENTAL_DATA),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+
+    mediaCodecAudioRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_OPUS},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    mediaCodecAudioRenderer.start();
+    for (int i = 0; i < 5; i++) {
+      mediaCodecAudioRenderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+      maybeIdleAsynchronousMediaCodecAdapterThreads();
+    }
+
+    // Seek back and feed a sample without supplemental data.
+    fakeSampleStream.append(
+        ImmutableList.of(
+            oneByteSample(/* timeUs= */ 50, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    mediaCodecAudioRenderer.resetPosition(
+        /* positionUs= */ 50, /* sampleStreamIsResetToKeyFrame= */ true);
+    mediaCodecAudioRenderer.setCurrentStreamFinal();
+    while (!mediaCodecAudioRenderer.isEnded()) {
+      mediaCodecAudioRenderer.render(/* positionUs= */ 50, /* elapsedRealtimeUs= */ 0);
+      maybeIdleAsynchronousMediaCodecAdapterThreads();
+    }
+
+    ArgumentCaptor<AudioSink.AudioSinkConfig> configCaptor =
+        ArgumentCaptor.forClass(AudioSink.AudioSinkConfig.class);
+    InOrder inOrder = inOrder(audioSink);
+    inOrder.verify(audioSink).configure(configCaptor.capture());
+    inOrder.verify(audioSink).setEncoderPadding(133);
+    inOrder.verify(audioSink).flush();
+    inOrder.verify(audioSink, never()).setEncoderPadding(anyInt());
+    assertThat(configCaptor.getValue().format.encoderPadding).isEqualTo(0);
+  }
+
+  @Test
+  public void render_opusWithPaddingAfterOutputFormat_callsSetEncoderPadding() throws Exception {
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ AUDIO_OPUS,
+            ImmutableList.of(oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME)));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+
+    mediaCodecAudioRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_OPUS},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    mediaCodecAudioRenderer.start();
+    // Render first sample so codec is initialized and onOutputFormatChanged is triggered.
+    for (int i = 0; i < 5; i++) {
+      mediaCodecAudioRenderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+      maybeIdleAsynchronousMediaCodecAdapterThreads();
+    }
+
+    // Append sample with supplemental data and end of stream.
+    fakeSampleStream.append(
+        ImmutableList.of(
+            sample(
+                /* timeUs= */ 50,
+                C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                SAMPLE_ONE_BYTE_WITH_SUPPLEMENTAL_DATA),
+            END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    mediaCodecAudioRenderer.setCurrentStreamFinal();
+    while (!mediaCodecAudioRenderer.isEnded()) {
+      mediaCodecAudioRenderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+      maybeIdleAsynchronousMediaCodecAdapterThreads();
+    }
+
+    verify(audioSink).setEncoderPadding(133);
+  }
+
+  @Test
+  public void render_opusWithPaddingAfterPositionReset_callsSetEncoderPadding() throws Exception {
+    codecAdapterFactory.forceDisableAsynchronous();
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ AUDIO_OPUS,
+            ImmutableList.of(oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME)));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+
+    mediaCodecAudioRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_OPUS},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    mediaCodecAudioRenderer.start();
+    for (int i = 0; i < 5; i++) {
+      mediaCodecAudioRenderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+      maybeIdleAsynchronousMediaCodecAdapterThreads();
+    }
+
+    // Simulate a seek (which flushes the codec without emitting a new output format).
+    fakeSampleStream.append(
+        ImmutableList.of(
+            sample(
+                /* timeUs= */ 50,
+                C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                SAMPLE_ONE_BYTE_WITH_SUPPLEMENTAL_DATA),
+            END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    mediaCodecAudioRenderer.resetPosition(
+        /* positionUs= */ 50, /* sampleStreamIsResetToKeyFrame= */ true);
+    mediaCodecAudioRenderer.setCurrentStreamFinal();
+    while (!mediaCodecAudioRenderer.isEnded()) {
+      mediaCodecAudioRenderer.render(/* positionUs= */ 50, /* elapsedRealtimeUs= */ 0);
+      maybeIdleAsynchronousMediaCodecAdapterThreads();
+    }
+
+    verify(audioSink).setEncoderPadding(133);
+  }
+
+  @Test
+  public void render_opusStreamTransition_appliesPaddingToBothStreams() throws Exception {
+    Format secondOpusFormat = AUDIO_OPUS.buildUpon().setId("2").build();
+    FakeSampleStream fakeSampleStream1 =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ AUDIO_OPUS,
+            ImmutableList.of(
+                sample(
+                    /* timeUs= */ 0,
+                    C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                    SAMPLE_ONE_BYTE_WITH_SUPPLEMENTAL_DATA),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream1.writeData(/* startPositionUs= */ 0);
+    FakeSampleStream fakeSampleStream2 =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ secondOpusFormat,
+            ImmutableList.of(
+                sample(
+                    /* timeUs= */ 1_000_000,
+                    C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                    SAMPLE_ONE_BYTE_WITH_240_PADDING_SAMPLES_SUPPLEMENTAL_DATA),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream2.writeData(/* startPositionUs= */ 0);
+    MediaSource.MediaPeriodId mediaPeriodId1 = new MediaSource.MediaPeriodId(new Object());
+    MediaSource.MediaPeriodId mediaPeriodId2 = new MediaSource.MediaPeriodId(new Object());
+
+    mediaCodecAudioRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_OPUS},
+        fakeSampleStream1,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        mediaPeriodId1);
+    mediaCodecAudioRenderer.start();
+    while (!mediaCodecAudioRenderer.hasReadStreamToEnd()) {
+      mediaCodecAudioRenderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+    }
+    mediaCodecAudioRenderer.replaceStream(
+        new Format[] {secondOpusFormat},
+        fakeSampleStream2,
+        /* startPositionUs= */ 1_000_000,
+        /* offsetUs= */ 1_000_000,
+        mediaPeriodId2);
+    mediaCodecAudioRenderer.setCurrentStreamFinal();
+    while (!mediaCodecAudioRenderer.isEnded()) {
+      mediaCodecAudioRenderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+      maybeIdleAsynchronousMediaCodecAdapterThreads();
+    }
+
+    ArgumentCaptor<AudioSink.AudioSinkConfig> configCaptor =
+        ArgumentCaptor.forClass(AudioSink.AudioSinkConfig.class);
+    InOrder inOrder = inOrder(audioSink);
+    inOrder.verify(audioSink).configure(configCaptor.capture());
+    inOrder.verify(audioSink).setEncoderPadding(133);
+    inOrder.verify(audioSink).configure(configCaptor.capture());
+    inOrder.verify(audioSink).setEncoderPadding(240);
+  }
+
+  @Test
+  public void
+      render_opusFormatChangeWithDrainBeforeOutputFormatChanged_appliesPaddingToRespectiveFormats()
+          throws Exception {
+    Format secondOpusFormat = AUDIO_OPUS.buildUpon().setId("2").build();
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ AUDIO_OPUS,
+            ImmutableList.of(
+                sample(
+                    /* timeUs= */ 0,
+                    C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                    SAMPLE_ONE_BYTE_WITH_SUPPLEMENTAL_DATA),
+                format(secondOpusFormat),
+                sample(
+                    /* timeUs= */ 50_000,
+                    C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                    SAMPLE_ONE_BYTE_WITH_240_PADDING_SAMPLES_SUPPLEMENTAL_DATA),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+
+    mediaCodecAudioRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_OPUS},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    mediaCodecAudioRenderer.start();
+    mediaCodecAudioRenderer.setCurrentStreamFinal();
+    while (!mediaCodecAudioRenderer.isEnded()) {
+      mediaCodecAudioRenderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+      maybeIdleAsynchronousMediaCodecAdapterThreads();
+    }
+
+    ArgumentCaptor<AudioSink.AudioSinkConfig> configCaptor =
+        ArgumentCaptor.forClass(AudioSink.AudioSinkConfig.class);
+    InOrder inOrder = inOrder(audioSink);
+    inOrder.verify(audioSink).configure(configCaptor.capture());
+    assertThat(configCaptor.getValue().format.id).isEqualTo(AUDIO_OPUS.id);
+    inOrder.verify(audioSink).setEncoderPadding(133);
+    inOrder.verify(audioSink).configure(configCaptor.capture());
+    assertThat(configCaptor.getValue().format.id).isEqualTo("2");
+    inOrder.verify(audioSink).setEncoderPadding(240);
+    assertThat(configCaptor.getAllValues().get(0).format.encoderPadding).isEqualTo(0);
+    assertThat(configCaptor.getAllValues().get(1).format.encoderPadding).isEqualTo(0);
+  }
+
+  @Test
+  public void render_opusStreamTransitionWithCodecReuse_appliesPaddingToBothStreams()
+      throws Exception {
+    MediaCodecAudioRenderer codecReusingRenderer = createCodecReusingRenderer();
+    FakeSampleStream fakeSampleStream1 =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ AUDIO_OPUS,
+            ImmutableList.of(
+                sample(
+                    /* timeUs= */ 0,
+                    C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                    SAMPLE_ONE_BYTE_WITH_SUPPLEMENTAL_DATA),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream1.writeData(/* startPositionUs= */ 0);
+    FakeSampleStream fakeSampleStream2 =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ AUDIO_OPUS,
+            ImmutableList.of(
+                sample(
+                    /* timeUs= */ 1_000_000,
+                    C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                    SAMPLE_ONE_BYTE_WITH_240_PADDING_SAMPLES_SUPPLEMENTAL_DATA),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream2.writeData(/* startPositionUs= */ 0);
+    MediaSource.MediaPeriodId mediaPeriodId1 = new MediaSource.MediaPeriodId(new Object());
+    MediaSource.MediaPeriodId mediaPeriodId2 = new MediaSource.MediaPeriodId(new Object());
+
+    codecReusingRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_OPUS},
+        fakeSampleStream1,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        mediaPeriodId1);
+    codecReusingRenderer.start();
+    // Render until the first stream's output format has configured the AudioSink.
+    for (int i = 0; i < 5; i++) {
+      codecReusingRenderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+    }
+    codecReusingRenderer.replaceStream(
+        new Format[] {AUDIO_OPUS},
+        fakeSampleStream2,
+        /* startPositionUs= */ 1_000_000,
+        /* offsetUs= */ 1_000_000,
+        mediaPeriodId2);
+    codecReusingRenderer.setCurrentStreamFinal();
+    while (!codecReusingRenderer.isEnded()) {
+      codecReusingRenderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+    }
+
+    ArgumentCaptor<AudioSink.AudioSinkConfig> configCaptor =
+        ArgumentCaptor.forClass(AudioSink.AudioSinkConfig.class);
+    InOrder inOrder = inOrder(audioSink);
+    inOrder.verify(audioSink).configure(configCaptor.capture());
+    inOrder.verify(audioSink).setEncoderPadding(133);
+    inOrder.verify(audioSink).configure(configCaptor.capture());
+    inOrder.verify(audioSink).setEncoderPadding(240);
+    assertThat(configCaptor.getAllValues().get(0).format.encoderPadding).isEqualTo(0);
+    assertThat(configCaptor.getAllValues().get(1).format.encoderPadding).isEqualTo(0);
+  }
+
+  @Test
+  public void
+      render_opusFormatChangeWithCodecReuseBeforeOutputFormatChanged_appliesPaddingToBothFormats()
+          throws Exception {
+    MediaCodecAudioRenderer codecReusingRenderer = createCodecReusingRenderer();
+    Format secondOpusFormat = AUDIO_OPUS.buildUpon().setId("2").build();
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ AUDIO_OPUS,
+            ImmutableList.of(
+                sample(
+                    /* timeUs= */ 0,
+                    C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                    SAMPLE_ONE_BYTE_WITH_SUPPLEMENTAL_DATA),
+                format(secondOpusFormat),
+                sample(
+                    /* timeUs= */ 50_000,
+                    C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                    SAMPLE_ONE_BYTE_WITH_240_PADDING_SAMPLES_SUPPLEMENTAL_DATA),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+
+    codecReusingRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_OPUS},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    codecReusingRenderer.start();
+    codecReusingRenderer.setCurrentStreamFinal();
+    while (!codecReusingRenderer.isEnded()) {
+      codecReusingRenderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+    }
+
+    ArgumentCaptor<AudioSink.AudioSinkConfig> configCaptor =
+        ArgumentCaptor.forClass(AudioSink.AudioSinkConfig.class);
+    InOrder inOrder = inOrder(audioSink);
+    inOrder.verify(audioSink).configure(configCaptor.capture());
+    assertThat(configCaptor.getValue().format.id).isEqualTo(AUDIO_OPUS.id);
+    inOrder.verify(audioSink).setEncoderPadding(133);
+    inOrder.verify(audioSink).configure(configCaptor.capture());
+    assertThat(configCaptor.getValue().format.id).isEqualTo("2");
+    inOrder.verify(audioSink).setEncoderPadding(240);
+  }
+
+  @Test
+  public void
+      render_opusSameFormatReferenceWithCodecReuse_appliesSecondPaddingAfterSecondConfigure()
+          throws Exception {
+    when(audioSink.handleBuffer(any(), anyLong(), anyInt())).thenReturn(false).thenReturn(true);
+    MediaCodecAudioRenderer codecReusingRenderer = createCodecReusingRenderer();
+    FakeSampleStream fakeSampleStream1 =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ AUDIO_OPUS,
+            ImmutableList.of(
+                sample(
+                    /* timeUs= */ 0,
+                    C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                    SAMPLE_ONE_BYTE_WITH_SUPPLEMENTAL_DATA),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream1.writeData(/* startPositionUs= */ 0);
+    FakeSampleStream fakeSampleStream2 =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ AUDIO_OPUS,
+            ImmutableList.of(
+                sample(
+                    /* timeUs= */ 1_000_000,
+                    C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                    SAMPLE_ONE_BYTE_WITH_240_PADDING_SAMPLES_SUPPLEMENTAL_DATA),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream2.writeData(/* startPositionUs= */ 0);
+
+    codecReusingRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_OPUS},
+        fakeSampleStream1,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    codecReusingRenderer.start();
+    // First render feeds the first stream's sample and reaches the end of the first stream.
+    codecReusingRenderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+    codecReusingRenderer.replaceStream(
+        new Format[] {AUDIO_OPUS},
+        fakeSampleStream2,
+        /* startPositionUs= */ 1_000_000,
+        /* offsetUs= */ 1_000_000,
+        new MediaSource.MediaPeriodId(new Object()));
+    codecReusingRenderer.setCurrentStreamFinal();
+    // Subsequent renders drain the first stream's output format (while handleBuffer returns false
+    // on the first attempt) and feed the second stream's identical AUDIO_OPUS format and sample
+    // before the second stream's output format is processed.
+    while (!codecReusingRenderer.isEnded()) {
+      codecReusingRenderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+    }
+
+    InOrder inOrder = inOrder(audioSink);
+    inOrder.verify(audioSink).configure(any());
+    inOrder.verify(audioSink).setEncoderPadding(133);
+    inOrder.verify(audioSink).configure(any());
+    inOrder.verify(audioSink).setEncoderPadding(240);
+  }
+
+  @Test
+  public void render_opusWithMalformedSupplementalData_doesNotSetEncoderPadding() throws Exception {
+    byte[] shortSupplementalDataSample =
+        ByteBuffer.allocate(9).putInt(1).put((byte) 0x64).putInt(1234).array();
+    byte[] negativeSupplementalDataSample =
+        ByteBuffer.allocate(13)
+            .putInt(1)
+            .put((byte) 0x64)
+            .order(ByteOrder.LITTLE_ENDIAN)
+            .putLong(-5_000_000L)
+            .array();
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ AUDIO_OPUS,
+            ImmutableList.of(
+                sample(
+                    /* timeUs= */ 0,
+                    C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                    shortSupplementalDataSample),
+                sample(
+                    /* timeUs= */ 50,
+                    C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                    negativeSupplementalDataSample),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+
+    mediaCodecAudioRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_OPUS},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    mediaCodecAudioRenderer.start();
+    mediaCodecAudioRenderer.setCurrentStreamFinal();
+    while (!mediaCodecAudioRenderer.isEnded()) {
+      mediaCodecAudioRenderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+      maybeIdleAsynchronousMediaCodecAdapterThreads();
+    }
+
+    ArgumentCaptor<AudioSink.AudioSinkConfig> configCaptor =
+        ArgumentCaptor.forClass(AudioSink.AudioSinkConfig.class);
+    verify(audioSink).configure(configCaptor.capture());
+    assertThat(configCaptor.getValue().format.encoderPadding).isEqualTo(0);
+    verify(audioSink, never()).setEncoderPadding(anyInt());
+  }
+
+  @Test
+  public void
+      render_opusWithPaddingBeforeOutputFormatThenPositionReset_clearsPendingEncoderPadding()
+          throws Exception {
+    // Force synchronous mode because Robolectric's async ShadowMediaCodec emits an output format
+    // change during start() before making input buffers available.
+    codecAdapterFactory.forceDisableAsynchronous();
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ AUDIO_OPUS,
+            ImmutableList.of(
+                sample(
+                    /* timeUs= */ 0,
+                    C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                    SAMPLE_ONE_BYTE_WITH_SUPPLEMENTAL_DATA)));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+
+    mediaCodecAudioRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_OPUS},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    mediaCodecAudioRenderer.start();
+    // Feed the input buffer (with supplemental data) before any output format is drained.
+    mediaCodecAudioRenderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+    fakeSampleStream.append(
+        ImmutableList.of(
+            oneByteSample(/* timeUs= */ 50, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    fakeSampleStream.seekToUs(/* positionUs= */ 50, /* allowTimeBeyondBuffer= */ true);
+    mediaCodecAudioRenderer.resetPosition(
+        /* positionUs= */ 50, /* sampleStreamIsResetToKeyFrame= */ true);
+    mediaCodecAudioRenderer.setCurrentStreamFinal();
+    while (!mediaCodecAudioRenderer.isEnded()) {
+      mediaCodecAudioRenderer.render(/* positionUs= */ 50, /* elapsedRealtimeUs= */ 0);
+    }
+
+    ArgumentCaptor<AudioSink.AudioSinkConfig> configCaptor =
+        ArgumentCaptor.forClass(AudioSink.AudioSinkConfig.class);
+    verify(audioSink).configure(configCaptor.capture());
+    assertThat(configCaptor.getValue().format.encoderPadding).isEqualTo(0);
+    verify(audioSink, never()).setEncoderPadding(anyInt());
+  }
+
+  @Test
+  public void
+      onOutputFormatChanged_repeatedForSameFormat_preservesDynamicPaddingAndQueuedNextFormatPadding()
+          throws Exception {
+    codecAdapterFactory.forceDisableAsynchronous();
+    AtomicReference<Format> lastOutputFormat = new AtomicReference<>();
+    MediaCodecAudioRenderer codecReusingRenderer =
+        new MediaCodecAudioRenderer(
+            ApplicationProvider.getApplicationContext(),
+            codecAdapterFactory,
+            mediaCodecSelector,
+            /* enableDecoderFallback= */ false,
+            new Handler(Looper.getMainLooper()),
+            audioRendererEventListener,
+            audioSink) {
+          @Override
+          protected DecoderReuseEvaluation canReuseCodec(
+              MediaCodecInfo codecInfo,
+              Format oldFormat,
+              Format newFormat,
+              boolean isAdaptiveFormatChange) {
+            return new DecoderReuseEvaluation(
+                codecInfo.name,
+                oldFormat,
+                newFormat,
+                REUSE_RESULT_YES_WITHOUT_RECONFIGURATION,
+                /* discardReasons= */ 0);
+          }
+
+          @Override
+          protected void onOutputFormatChanged(Format format, @Nullable MediaFormat mediaFormat)
+              throws ExoPlaybackException {
+            lastOutputFormat.set(format);
+            super.onOutputFormatChanged(format, mediaFormat);
+          }
+        };
+    codecReusingRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    Format secondOpusFormat = AUDIO_OPUS.buildUpon().setId("2").build();
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ AUDIO_OPUS,
+            ImmutableList.of(
+                sample(
+                    /* timeUs= */ 0,
+                    C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                    SAMPLE_ONE_BYTE_WITH_SUPPLEMENTAL_DATA),
+                format(secondOpusFormat),
+                sample(
+                    /* timeUs= */ 50_000,
+                    C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                    SAMPLE_ONE_BYTE_WITH_240_PADDING_SAMPLES_SUPPLEMENTAL_DATA),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    MediaFormat mediaFormat = new MediaFormat();
+    mediaFormat.setString(MediaFormat.KEY_MIME, MimeTypes.AUDIO_RAW);
+    mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, AUDIO_OPUS.channelCount);
+    mediaFormat.setInteger(MediaFormat.KEY_SAMPLE_RATE, AUDIO_OPUS.sampleRate);
+    when(audioSink.handleBuffer(any(), anyLong(), anyInt())).thenReturn(false, true);
+
+    codecReusingRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_OPUS},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    codecReusingRenderer.start();
+    // Feed both samples and process the first format's output format change, pausing on the first
+    // output buffer so the second format's output buffer is not yet dequeued, then simulate a
+    // mid-stream unsolicited INFO_OUTPUT_FORMAT_CHANGED for the first format.
+    codecReusingRenderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+    codecReusingRenderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+    codecReusingRenderer.onOutputFormatChanged(lastOutputFormat.get(), mediaFormat);
+    codecReusingRenderer.setCurrentStreamFinal();
+    while (!codecReusingRenderer.isEnded()) {
+      codecReusingRenderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+    }
+
+    ArgumentCaptor<AudioSink.AudioSinkConfig> configCaptor =
+        ArgumentCaptor.forClass(AudioSink.AudioSinkConfig.class);
+    InOrder inOrder = inOrder(audioSink);
+    inOrder.verify(audioSink).configure(configCaptor.capture());
+    assertThat(configCaptor.getValue().format.id).isEqualTo(AUDIO_OPUS.id);
+    assertThat(configCaptor.getValue().format.encoderPadding).isEqualTo(0);
+    inOrder.verify(audioSink).setEncoderPadding(133);
+    inOrder.verify(audioSink).configure(configCaptor.capture());
+    assertThat(configCaptor.getValue().format.id).isEqualTo(AUDIO_OPUS.id);
+    assertThat(configCaptor.getValue().format.encoderPadding).isEqualTo(0);
+    inOrder.verify(audioSink).setEncoderPadding(133);
+    inOrder.verify(audioSink).configure(configCaptor.capture());
+    assertThat(configCaptor.getValue().format.id).isEqualTo("2");
+    assertThat(configCaptor.getValue().format.encoderPadding).isEqualTo(0);
+    inOrder.verify(audioSink).setEncoderPadding(240);
+  }
+
+  @Test
+  public void
+      render_supersededFormatAtSameTimestampAndReusedFormatInstance_appliesMatchingFormatPadding()
+          throws Exception {
+    MediaCodecAudioRenderer codecReusingRenderer = createCodecReusingRenderer();
+    Format secondOpusFormat = AUDIO_OPUS.buildUpon().setId("2").build();
+    // First format has 133 padding samples at timeUs=0, immediately superseded by secondOpusFormat
+    // (with no padding) also at timeUs=0 (which clears the first format in TimedValueQueue),
+    // followed by switching back to the original AUDIO_OPUS instance at timeUs=50_000 (with 240
+    // padding samples).
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ AUDIO_OPUS,
+            ImmutableList.of(
+                sample(
+                    /* timeUs= */ 0,
+                    C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                    SAMPLE_ONE_BYTE_WITH_SUPPLEMENTAL_DATA),
+                format(secondOpusFormat),
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                format(AUDIO_OPUS),
+                sample(
+                    /* timeUs= */ 50_000,
+                    C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                    SAMPLE_ONE_BYTE_WITH_240_PADDING_SAMPLES_SUPPLEMENTAL_DATA),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+
+    codecReusingRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_OPUS},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    codecReusingRenderer.start();
+    codecReusingRenderer.setCurrentStreamFinal();
+    while (!codecReusingRenderer.isEnded()) {
+      codecReusingRenderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+    }
+
+    ArgumentCaptor<AudioSink.AudioSinkConfig> configCaptor =
+        ArgumentCaptor.forClass(AudioSink.AudioSinkConfig.class);
+    InOrder inOrder = inOrder(audioSink);
+    inOrder.verify(audioSink).configure(configCaptor.capture());
+    assertThat(configCaptor.getValue().format.id).isEqualTo("2");
+    assertThat(configCaptor.getValue().format.encoderPadding).isEqualTo(0);
+    inOrder.verify(audioSink).configure(configCaptor.capture());
+    assertThat(configCaptor.getValue().format.id).isEqualTo(AUDIO_OPUS.id);
+    assertThat(configCaptor.getValue().format.encoderPadding).isEqualTo(0);
+    inOrder.verify(audioSink).setEncoderPadding(240);
+    verify(audioSink, times(1)).setEncoderPadding(anyInt());
+  }
+
+  @Test
+  public void resetCodecStateForRelease_thenReinitWithoutInputFormatChange_appliesEncoderPadding()
+      throws Exception {
+    codecAdapterFactory.forceDisableAsynchronous();
+    class CodecReleasingRenderer extends MediaCodecAudioRenderer {
+      CodecReleasingRenderer() {
+        super(
+            ApplicationProvider.getApplicationContext(),
+            codecAdapterFactory,
+            mediaCodecSelector,
+            /* enableDecoderFallback= */ false,
+            new Handler(Looper.getMainLooper()),
+            audioRendererEventListener,
+            audioSink);
+      }
+
+      @Override
+      public void releaseCodec() {
+        super.releaseCodec();
+      }
+    }
+    CodecReleasingRenderer codecReleasingRenderer = new CodecReleasingRenderer();
+    codecReleasingRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ AUDIO_OPUS,
+            ImmutableList.of(oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME)));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+
+    codecReleasingRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_OPUS},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    codecReleasingRenderer.start();
+    for (int i = 0; i < 5; i++) {
+      codecReleasingRenderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+    }
+    codecReleasingRenderer.releaseCodec();
+    fakeSampleStream.append(
+        ImmutableList.of(
+            sample(
+                /* timeUs= */ 50_000,
+                C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                SAMPLE_ONE_BYTE_WITH_SUPPLEMENTAL_DATA),
+            END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    codecReleasingRenderer.setCurrentStreamFinal();
+    while (!codecReleasingRenderer.isEnded()) {
+      codecReleasingRenderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+    }
+
+    InOrder inOrder = inOrder(audioSink);
+    inOrder.verify(audioSink, times(2)).configure(any());
+    inOrder.verify(audioSink).setEncoderPadding(133);
   }
 
   @Test
@@ -1698,6 +2607,35 @@ public class MediaCodecAudioRendererTest {
         /* offsetUs= */ 0,
         new MediaSource.MediaPeriodId(new Object()));
     mediaCodecAudioRenderer.start();
+  }
+
+  private MediaCodecAudioRenderer createCodecReusingRenderer() {
+    codecAdapterFactory.forceDisableAsynchronous();
+    MediaCodecAudioRenderer renderer =
+        new MediaCodecAudioRenderer(
+            ApplicationProvider.getApplicationContext(),
+            codecAdapterFactory,
+            mediaCodecSelector,
+            /* enableDecoderFallback= */ false,
+            new Handler(Looper.getMainLooper()),
+            audioRendererEventListener,
+            audioSink) {
+          @Override
+          protected DecoderReuseEvaluation canReuseCodec(
+              MediaCodecInfo codecInfo,
+              Format oldFormat,
+              Format newFormat,
+              boolean isAdaptiveFormatChange) {
+            return new DecoderReuseEvaluation(
+                codecInfo.name,
+                oldFormat,
+                newFormat,
+                REUSE_RESULT_YES_WITHOUT_RECONFIGURATION,
+                /* discardReasons= */ 0);
+          }
+        };
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    return renderer;
   }
 
   private void maybeIdleAsynchronousMediaCodecAdapterThreads() {

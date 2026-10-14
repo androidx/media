@@ -178,6 +178,12 @@
     *   Work around an issue on Amazon Fire TV sticks where AC-3 audio could
         freeze during period transitions
         ([#3448](https://github.com/androidx/media/issues/3448)).
+    *   Support trimming end-of-stream encoder padding for Ogg and WebM/Matroska
+        Opus gapless playback
+        ([#2576](https://github.com/androidx/media/issues/2576)).
+    *   Fix dynamic offload gapless delay and padding updates during track
+        transitions so they apply to the incoming track rather than the
+        currently playing track.
 *   Video:
     *   Fix reporting of late video frames with identical release timestamps so
         that they are reported as dropped instead of skipped.

@@ -868,12 +868,32 @@ public interface AudioSink {
   default void setOffloadMode(@OffloadMode int offloadMode) {}
 
   /**
-   * Sets offload delay padding on the {@link AudioTrack}, if possible. Setting the offload delay
-   * padding is only possible if the sink is based on a platform {@link AudioTrack} in offload mode.
-   * Also requires platform API version 29 onwards.
+   * Sets offload delay and padding on the {@link AudioTrack}, if possible.
+   *
+   * <p>Setting the offload delay and padding is only possible if the sink is based on a platform
+   * {@link AudioTrack} in offload mode, and requires platform API version 29 onwards.
+   *
+   * <p>Applies to the most recently {@linkplain #configure(AudioSinkConfig) configured} input if it
+   * is not PCM, and overrides any delay and padding configured via the {@link Format}. Reset to the
+   * configured values on {@link #flush()}.
+   *
+   * @param delayInFrames The number of audio frames to trim from the start of audio.
+   * @param paddingInFrames The number of audio frames to trim from the end of audio.
    */
   @RequiresApi(29)
   default void setOffloadDelayPadding(int delayInFrames, int paddingInFrames) {}
+
+  /**
+   * Sets the number of audio frames to trim from the end of PCM audio passed to this sink.
+   *
+   * <p>Applies to the most recently {@linkplain #configure(AudioSinkConfig) configured} input if it
+   * is PCM, and overrides any padding configured via the {@link Format}. Reset to the configured
+   * value on {@link #flush()}.
+   *
+   * @param paddingInFrames The number of audio frames to trim from the end of audio. Must be
+   *     non-negative.
+   */
+  default void setEncoderPadding(int paddingInFrames) {}
 
   /** Sets the {@link AudioOutputProvider} to use as the output path. */
   default void setAudioOutputProvider(AudioOutputProvider audioOutputProvider) {

@@ -430,6 +430,463 @@ public final class DefaultAudioSinkTest {
 
   @Test
   public void
+      setEncoderPadding_whenPipelineInitiallyInactive_activatesAndTrimsEndFramesOnGaplessTransition()
+          throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    AtomicLong totalBytesWritten = new AtomicLong(0);
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context)
+            .setAudioProcessorChain(new DefaultAudioProcessorChain())
+            .setAudioOutputProvider(createByteCountingAudioOutputProvider(totalBytesWritten))
+            .build();
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    defaultAudioSink.setEncoderPadding(TRIM_10_MS_FRAME_COUNT);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ C.MICROS_PER_SECOND,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+    // Transition to next track so Track 1's endBuffer is discarded.
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 2 * C.MICROS_PER_SECOND,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    assertThat(totalBytesWritten.get())
+        .isEqualTo(
+            BYTES_PER_FRAME_16_BIT
+                * CHANNEL_COUNT_STEREO
+                * (3 * SAMPLE_RATE_44_1 - TRIM_10_MS_FRAME_COUNT));
+  }
+
+  @Test
+  public void setEncoderPadding_thenFlush_resetsToInitialEncoderPadding() throws Exception {
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO,
+        /* trimStartFrames= */ TRIM_100_MS_FRAME_COUNT,
+        /* trimEndFrames= */ 0);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+    defaultAudioSink.setEncoderPadding(TRIM_10_MS_FRAME_COUNT);
+
+    defaultAudioSink.flush();
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    assertThat(arrayAudioBufferSink.output)
+        .hasLength(BYTES_PER_FRAME_16_BIT * CHANNEL_COUNT_STEREO * SAMPLE_RATE_44_1);
+  }
+
+  @Test
+  public void setEncoderPadding_beforeHandleBufferThenFlush_resetsToInitialEncoderPadding()
+      throws Exception {
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO,
+        /* trimStartFrames= */ TRIM_100_MS_FRAME_COUNT,
+        /* trimEndFrames= */ 0);
+    defaultAudioSink.setEncoderPadding(TRIM_10_MS_FRAME_COUNT);
+
+    defaultAudioSink.flush();
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    assertThat(arrayAudioBufferSink.output)
+        .hasLength(
+            BYTES_PER_FRAME_16_BIT
+                * CHANNEL_COUNT_STEREO
+                * (SAMPLE_RATE_44_1 - TRIM_100_MS_FRAME_COUNT));
+  }
+
+  @Test
+  public void setEncoderPadding_withPendingConfigurationThenFlush_resetsToInitialEncoderPadding()
+      throws Exception {
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
+    defaultAudioSink.setEncoderPadding(TRIM_10_MS_FRAME_COUNT);
+
+    defaultAudioSink.flush();
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    assertThat(arrayAudioBufferSink.output)
+        .hasLength(BYTES_PER_FRAME_16_BIT * CHANNEL_COUNT_STEREO * SAMPLE_RATE_44_1);
+  }
+
+  @Test
+  public void setEncoderPadding_onBothCurrentAndPendingConfigurations_trimsBothTracks()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    AtomicLong totalBytesWritten = new AtomicLong(0);
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context)
+            .setAudioProcessorChain(new DefaultAudioProcessorChain())
+            .setAudioOutputProvider(createByteCountingAudioOutputProvider(totalBytesWritten))
+            .build();
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
+    defaultAudioSink.setEncoderPadding(TRIM_100_MS_FRAME_COUNT);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
+
+    defaultAudioSink.setEncoderPadding(TRIM_10_MS_FRAME_COUNT);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ C.MICROS_PER_SECOND,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    assertThat(totalBytesWritten.get())
+        .isEqualTo(
+            BYTES_PER_FRAME_16_BIT
+                * CHANNEL_COUNT_STEREO
+                * (2 * SAMPLE_RATE_44_1 - TRIM_100_MS_FRAME_COUNT - TRIM_10_MS_FRAME_COUNT));
+  }
+
+  @Test
+  public void setEncoderPadding_thenFlushThenSetEncoderPaddingAgain_trimsEndFrames()
+      throws Exception {
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+    defaultAudioSink.setEncoderPadding(TRIM_10_MS_FRAME_COUNT);
+    defaultAudioSink.flush();
+
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+    defaultAudioSink.setEncoderPadding(TRIM_10_MS_FRAME_COUNT);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ C.MICROS_PER_SECOND,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    assertThat(arrayAudioBufferSink.output)
+        .hasLength(
+            BYTES_PER_FRAME_16_BIT
+                * CHANNEL_COUNT_STEREO
+                * (2 * SAMPLE_RATE_44_1 - TRIM_10_MS_FRAME_COUNT));
+  }
+
+  @Test
+  public void setEncoderPadding_thenSetAudioAttributes_preservesEncoderPadding() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    AtomicLong totalBytesWritten = new AtomicLong(0);
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context)
+            .setAudioProcessorChain(new DefaultAudioProcessorChain())
+            .setAudioOutputProvider(createByteCountingAudioOutputProvider(totalBytesWritten))
+            .build();
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+    defaultAudioSink.setEncoderPadding(TRIM_10_MS_FRAME_COUNT);
+
+    defaultAudioSink.setAudioAttributes(
+        new AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_SPEECH).build());
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ C.MICROS_PER_SECOND,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 2 * C.MICROS_PER_SECOND,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    assertThat(totalBytesWritten.get())
+        .isEqualTo(
+            BYTES_PER_FRAME_16_BIT
+                * CHANNEL_COUNT_STEREO
+                * (3 * SAMPLE_RATE_44_1 - TRIM_10_MS_FRAME_COUNT));
+  }
+
+  @Test
+  public void setEncoderPadding_thenStalledAudioOutputReset_preservesEncoderPadding()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    AtomicBoolean isStalled = new AtomicBoolean(true);
+    AtomicLong totalBytesWritten = new AtomicLong(0);
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(context).build()) {
+          @Override
+          public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+            return new ForwardingAudioOutput(super.getAudioOutput(config)) {
+              @Override
+              public boolean write(
+                  ByteBuffer buffer, int encodedAccessUnitCount, long presentationTimeUs)
+                  throws WriteException {
+                if (isStalled.get()) {
+                  return false;
+                }
+                int remainingBefore = buffer.remaining();
+                boolean result = super.write(buffer, encodedAccessUnitCount, presentationTimeUs);
+                totalBytesWritten.addAndGet(remainingBefore - buffer.remaining());
+                return result;
+              }
+
+              @Override
+              public boolean isStalled() {
+                return isStalled.get();
+              }
+            };
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context)
+            .setAudioProcessorChain(new DefaultAudioProcessorChain())
+            .setAudioOutputProvider(audioOutputProvider)
+            .build();
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
+    defaultAudioSink.setEncoderPadding(TRIM_10_MS_FRAME_COUNT);
+
+    // Simulate a stalled AudioOutput: the first handleBuffer queues the buffer into
+    // trimmingAudioProcessor and leaves its output in trimmedOutputBuffer; the second handleBuffer
+    // cannot consume the new inputBuffer while trimmedOutputBuffer is blocked, triggering
+    // flush(/* resetEncoderPadding= */ false).
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ C.MICROS_PER_SECOND,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+    isStalled.set(false);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 2 * C.MICROS_PER_SECOND,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 3 * C.MICROS_PER_SECOND,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    assertThat(totalBytesWritten.get())
+        .isEqualTo(
+            BYTES_PER_FRAME_16_BIT
+                * CHANNEL_COUNT_STEREO
+                * (2 * SAMPLE_RATE_44_1 - TRIM_10_MS_FRAME_COUNT));
+  }
+
+  @Config(minSdk = 33)
+  @Test
+  public void setOffloadDelayPadding_beforeInitializeAudioOutput_appliesPaddingOnInitialization()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    ArrayList<Integer> recordedDelays = new ArrayList<>();
+    ArrayList<Integer> recordedPaddings = new ArrayList<>();
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(context).build()) {
+          @Override
+          public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+            return new ForwardingAudioOutput(super.getAudioOutput(config)) {
+              @Override
+              public void setOffloadDelayPadding(int delayInFrames, int paddingInFrames) {
+                recordedDelays.add(delayInFrames);
+                recordedPaddings.add(paddingInFrames);
+                super.setOffloadDelayPadding(delayInFrames, paddingInFrames);
+              }
+            };
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context).setAudioOutputProvider(audioOutputProvider).build();
+    AudioFormat audioFormat =
+        new AudioFormat.Builder()
+            .setSampleRate(SAMPLE_RATE_44_1)
+            .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+            .setEncoding(AudioFormat.ENCODING_AAC_LC)
+            .build();
+    AudioAttributes audioAttributes =
+        new AudioAttributes.Builder()
+            .setContentType(C.AUDIO_CONTENT_TYPE_UNKNOWN)
+            .setUsage(C.USAGE_MEDIA)
+            .setAllowedCapturePolicy(C.ALLOW_CAPTURE_BY_ALL)
+            .build();
+    ShadowAudioSystem.setDirectPlaybackSupport(
+        audioFormat,
+        audioAttributes.getPlatformAudioAttributes(),
+        AudioManager.DIRECT_PLAYBACK_OFFLOAD_GAPLESS_SUPPORTED);
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_AAC)
+            .setChannelCount(CHANNEL_COUNT_STEREO)
+            .setSampleRate(SAMPLE_RATE_44_1)
+            .setCodecs("mp4a.40.02")
+            .setEncoderDelay(312)
+            .setEncoderPadding(0)
+            .build();
+    defaultAudioSink.setOffloadMode(AudioSink.OFFLOAD_MODE_ENABLED_GAPLESS_NOT_REQUIRED);
+    defaultAudioSink.configure(new AudioSink.AudioSinkConfig.Builder(format).build());
+
+    // Call setOffloadDelayPadding before handleBuffer initializes the AudioOutput.
+    defaultAudioSink.setOffloadDelayPadding(/* delayInFrames= */ 312, /* paddingInFrames= */ 132);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                ByteBuffer.allocateDirect(1024).order(ByteOrder.nativeOrder()),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    assertThat(recordedDelays).containsExactly(312);
+    assertThat(recordedPaddings).containsExactly(132);
+  }
+
+  @Config(minSdk = 33)
+  @Test
+  public void
+      setOffloadDelayPadding_withPendingConfiguration_appliesPaddingToPendingTrackOnTransition()
+          throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    ArrayList<Integer> recordedDelays = new ArrayList<>();
+    ArrayList<Integer> recordedPaddings = new ArrayList<>();
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(context).build()) {
+          @Override
+          public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+            return new ForwardingAudioOutput(super.getAudioOutput(config)) {
+              @Override
+              public void setOffloadDelayPadding(int delayInFrames, int paddingInFrames) {
+                recordedDelays.add(delayInFrames);
+                recordedPaddings.add(paddingInFrames);
+                super.setOffloadDelayPadding(delayInFrames, paddingInFrames);
+              }
+            };
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context).setAudioOutputProvider(audioOutputProvider).build();
+    AudioFormat audioFormat =
+        new AudioFormat.Builder()
+            .setSampleRate(SAMPLE_RATE_44_1)
+            .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+            .setEncoding(AudioFormat.ENCODING_AAC_LC)
+            .build();
+    AudioAttributes audioAttributes =
+        new AudioAttributes.Builder()
+            .setContentType(C.AUDIO_CONTENT_TYPE_UNKNOWN)
+            .setUsage(C.USAGE_MEDIA)
+            .setAllowedCapturePolicy(C.ALLOW_CAPTURE_BY_ALL)
+            .build();
+    ShadowAudioSystem.setDirectPlaybackSupport(
+        audioFormat,
+        audioAttributes.getPlatformAudioAttributes(),
+        AudioManager.DIRECT_PLAYBACK_OFFLOAD_GAPLESS_SUPPORTED);
+    Format format1 =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_AAC)
+            .setChannelCount(CHANNEL_COUNT_STEREO)
+            .setSampleRate(SAMPLE_RATE_44_1)
+            .setCodecs("mp4a.40.02")
+            .setEncoderDelay(100)
+            .setEncoderPadding(0)
+            .build();
+    Format format2 = format1.buildUpon().setEncoderDelay(312).build();
+    defaultAudioSink.setOffloadMode(AudioSink.OFFLOAD_MODE_ENABLED_GAPLESS_NOT_REQUIRED);
+    defaultAudioSink.configure(new AudioSink.AudioSinkConfig.Builder(format1).build());
+    defaultAudioSink.setOffloadDelayPadding(/* delayInFrames= */ 100, /* paddingInFrames= */ 132);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                ByteBuffer.allocateDirect(1024).order(ByteOrder.nativeOrder()),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    // Configure Track 2 (pendingConfiguration != null) and set its offload padding before Track 2's
+    // first buffer is handled.
+    defaultAudioSink.configure(new AudioSink.AudioSinkConfig.Builder(format2).build());
+    defaultAudioSink.setOffloadDelayPadding(/* delayInFrames= */ 312, /* paddingInFrames= */ 240);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                ByteBuffer.allocateDirect(1024).order(ByteOrder.nativeOrder()),
+                /* presentationTimeUs= */ C.MICROS_PER_SECOND,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    assertThat(recordedDelays).containsExactly(100, 312).inOrder();
+    assertThat(recordedPaddings).containsExactly(132, 240).inOrder();
+  }
+
+  @Test
+  public void
       configure_withUntrimmedPendingConfigurationUnderBackpressure_doesNotDropFirstTrackFrames()
           throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
@@ -487,9 +944,8 @@ public final class DefaultAudioSinkTest {
             .setAudioOutputProvider(audioOutputProvider)
             .build();
     configureDefaultAudioSink(
-        CHANNEL_COUNT_STEREO,
-        /* trimStartFrames= */ 0,
-        /* trimEndFrames= */ TRIM_100_MS_FRAME_COUNT);
+        CHANNEL_COUNT_STEREO, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
+    defaultAudioSink.setEncoderPadding(TRIM_100_MS_FRAME_COUNT);
     assertThat(
             defaultAudioSink.handleBuffer(
                 create1Sec44100HzSilenceBuffer(),
@@ -521,6 +977,235 @@ public final class DefaultAudioSinkTest {
             BYTES_PER_FRAME_16_BIT
                 * CHANNEL_COUNT_STEREO
                 * (2 * SAMPLE_RATE_44_1 - TRIM_100_MS_FRAME_COUNT));
+  }
+
+  @Test
+  public void setEncoderPadding_loweredToZeroMidStreamWithChunkingProcessor_writesAllFrames()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    AtomicLong totalBytesWritten = new AtomicLong(0);
+    AudioProcessor chunkingAudioProcessor =
+        new BaseAudioProcessor() {
+          @Override
+          protected AudioProcessor.AudioFormat onConfigure(
+              AudioProcessor.AudioFormat inputAudioFormat) {
+            return inputAudioFormat;
+          }
+
+          @Override
+          public void queueInput(ByteBuffer inputBuffer) {
+            if (!inputBuffer.hasRemaining()) {
+              return;
+            }
+            int bytesToConsume = Math.min(inputBuffer.remaining(), 4096);
+            ByteBuffer output = replaceOutputBuffer(bytesToConsume);
+            int originalLimit = inputBuffer.limit();
+            inputBuffer.limit(inputBuffer.position() + bytesToConsume);
+            output.put(inputBuffer);
+            inputBuffer.limit(originalLimit);
+            output.flip();
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context)
+            .setAudioProcessors(new AudioProcessor[] {chunkingAudioProcessor})
+            .setAudioOutputProvider(createByteCountingAudioOutputProvider(totalBytesWritten))
+            .build();
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO,
+        /* trimStartFrames= */ 0,
+        /* trimEndFrames= */ TRIM_100_MS_FRAME_COUNT);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    defaultAudioSink.setEncoderPadding(0);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ C.MICROS_PER_SECOND,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    assertThat(totalBytesWritten.get())
+        .isEqualTo(BYTES_PER_FRAME_16_BIT * CHANNEL_COUNT_STEREO * 2 * SAMPLE_RATE_44_1);
+  }
+
+  @Test
+  public void
+      setEncoderPadding_withPendingConfigurationAndNonReusableAudioOutput_trimsPendingTrack()
+          throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    AtomicLong positionUs = new AtomicLong(0);
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(context).build()) {
+          @Override
+          public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+            return new ForwardingAudioOutput(super.getAudioOutput(config)) {
+              @Override
+              public long getPositionUs() {
+                return positionUs.get();
+              }
+            };
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context)
+            .setAudioProcessors(new AudioProcessor[] {new TeeAudioProcessor(arrayAudioBufferSink)})
+            .setAudioOutputProvider(audioOutputProvider)
+            .build();
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+    positionUs.set(C.MICROS_PER_SECOND);
+
+    // Configure Track 2 with mono channel count so AudioOutput cannot be reused and handleBuffer
+    // flushes the sink during transition.
+    configureDefaultAudioSink(CHANNEL_COUNT_MONO, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
+    defaultAudioSink.setEncoderPadding(TRIM_10_MS_FRAME_COUNT);
+    ByteBuffer monoBuffer =
+        ByteBuffer.allocateDirect(SAMPLE_RATE_44_1 * BYTES_PER_FRAME_16_BIT * CHANNEL_COUNT_MONO)
+            .order(ByteOrder.nativeOrder());
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                monoBuffer,
+                /* presentationTimeUs= */ C.MICROS_PER_SECOND,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    assertThat(arrayAudioBufferSink.output)
+        .hasLength(
+            BYTES_PER_FRAME_16_BIT
+                * CHANNEL_COUNT_MONO
+                * (SAMPLE_RATE_44_1 - TRIM_10_MS_FRAME_COUNT));
+  }
+
+  @Test
+  public void
+      setEncoderPadding_midStreamWhenInitiallyUntrimmed_doesNotFlushOrResetAudioProcessorChain()
+          throws Exception {
+    TrackingAudioProcessor trackingProcessor = new TrackingAudioProcessor();
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext())
+            .setAudioProcessors(
+                new AudioProcessor[] {
+                  trackingProcessor, new TeeAudioProcessor(arrayAudioBufferSink)
+                })
+            .build();
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+    assertThat(trackingProcessor.configureCount).isEqualTo(1);
+    assertThat(trackingProcessor.flushCount).isEqualTo(1);
+    assertThat(trackingProcessor.resetCount).isEqualTo(0);
+
+    defaultAudioSink.setEncoderPadding(TRIM_10_MS_FRAME_COUNT);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ C.MICROS_PER_SECOND,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    assertThat(trackingProcessor.configureCount).isEqualTo(1);
+    assertThat(trackingProcessor.flushCount).isEqualTo(1);
+    assertThat(trackingProcessor.resetCount).isEqualTo(0);
+    assertThat(arrayAudioBufferSink.output)
+        .hasLength(
+            BYTES_PER_FRAME_16_BIT
+                * CHANNEL_COUNT_STEREO
+                * (2 * SAMPLE_RATE_44_1 - TRIM_10_MS_FRAME_COUNT));
+  }
+
+  @Test
+  public void
+      setEncoderPadding_midStreamWhenInitiallyTrimmed_doesNotFlushOrResetAudioProcessorChain()
+          throws Exception {
+    TrackingAudioProcessor trackingProcessor = new TrackingAudioProcessor();
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext())
+            .setAudioProcessors(
+                new AudioProcessor[] {
+                  trackingProcessor, new TeeAudioProcessor(arrayAudioBufferSink)
+                })
+            .build();
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO,
+        /* trimStartFrames= */ TRIM_100_MS_FRAME_COUNT,
+        /* trimEndFrames= */ 0);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+    assertThat(trackingProcessor.configureCount).isEqualTo(1);
+    assertThat(trackingProcessor.flushCount).isEqualTo(1);
+    assertThat(trackingProcessor.resetCount).isEqualTo(0);
+
+    defaultAudioSink.setEncoderPadding(TRIM_10_MS_FRAME_COUNT);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ C.MICROS_PER_SECOND,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    assertThat(trackingProcessor.configureCount).isEqualTo(1);
+    assertThat(trackingProcessor.flushCount).isEqualTo(1);
+    assertThat(trackingProcessor.resetCount).isEqualTo(0);
+    assertThat(arrayAudioBufferSink.output)
+        .hasLength(
+            BYTES_PER_FRAME_16_BIT
+                * CHANNEL_COUNT_STEREO
+                * (2 * SAMPLE_RATE_44_1 - TRIM_100_MS_FRAME_COUNT - TRIM_10_MS_FRAME_COUNT));
+  }
+
+  @Test
+  public void
+      setEncoderPadding_beforeHandleBuffer_flushesAudioProcessorChainOnlyOnceOnInitialization()
+          throws Exception {
+    TrackingAudioProcessor trackingProcessor = new TrackingAudioProcessor();
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext())
+            .setAudioProcessors(
+                new AudioProcessor[] {
+                  trackingProcessor, new TeeAudioProcessor(arrayAudioBufferSink)
+                })
+            .build();
+    configureDefaultAudioSink(
+        CHANNEL_COUNT_STEREO, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
+
+    defaultAudioSink.setEncoderPadding(TRIM_10_MS_FRAME_COUNT);
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    assertThat(trackingProcessor.configureCount).isEqualTo(1);
+    assertThat(trackingProcessor.flushCount).isEqualTo(1);
+    assertThat(trackingProcessor.resetCount).isEqualTo(0);
+    assertThat(arrayAudioBufferSink.output)
+        .hasLength(
+            BYTES_PER_FRAME_16_BIT
+                * CHANNEL_COUNT_STEREO
+                * (SAMPLE_RATE_44_1 - TRIM_10_MS_FRAME_COUNT));
   }
 
   @Test
