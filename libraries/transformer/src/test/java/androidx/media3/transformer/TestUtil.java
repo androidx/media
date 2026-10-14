@@ -38,7 +38,6 @@ import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingMatrix;
 import androidx.media3.common.audio.SonicAudioProcessor;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.common.video.FrameProcessor;
@@ -64,6 +63,7 @@ import java.util.Queue;
 import java.util.StringJoiner;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 /** Utility class for {@link Transformer} unit tests */
 @UnstableApi

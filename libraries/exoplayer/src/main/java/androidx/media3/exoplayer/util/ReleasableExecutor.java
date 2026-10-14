@@ -15,9 +15,9 @@
  */
 package androidx.media3.exoplayer.util;
 
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
 import java.util.concurrent.Executor;
+import java.util.function.Consumer;
 
 /**
  * An {@link Executor} with a dedicated {@link #release} method to signal when it is not longer

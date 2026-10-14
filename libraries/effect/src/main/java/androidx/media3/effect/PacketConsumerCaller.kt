@@ -15,7 +15,6 @@
  */
 package androidx.media3.effect
 
-import androidx.media3.common.util.Consumer
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.effect.PacketConsumer.Packet
 import com.google.common.util.concurrent.FutureCallback
@@ -25,6 +24,7 @@ import com.google.common.util.concurrent.MoreExecutors.directExecutor
 import com.google.errorprone.annotations.CanIgnoreReturnValue
 import java.lang.Exception
 import java.util.concurrent.ExecutorService
+import java.util.function.Consumer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.asCoroutineDispatcher

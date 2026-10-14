@@ -18,7 +18,7 @@ package androidx.media3.transformer;
 import android.os.Handler;
 import android.view.Surface;
 import androidx.annotation.Nullable;
-import androidx.media3.common.util.Consumer;
+import java.util.function.Consumer;
 
 /** An interface that wraps {@link android.media.ImageReader}. */
 /* package */ interface ImageReaderAdapter extends AutoCloseable {

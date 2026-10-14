@@ -23,7 +23,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Format.CueReplacementBehavior;
 import androidx.media3.common.text.Cue;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -31,6 +30,7 @@ import androidx.media3.extractor.text.CuesWithTiming;
 import androidx.media3.extractor.text.SubtitleParser;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.function.Consumer;
 import java.util.zip.Inflater;
 
 /** A {@link SubtitleParser} for PGS subtitles. */

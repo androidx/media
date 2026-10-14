@@ -19,9 +19,9 @@ package androidx.media3.extractor.text;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Format.CueReplacementBehavior;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
+import java.util.function.Consumer;
 
 /**
  * Parses subtitle data into timed {@linkplain CuesWithTiming} instances.

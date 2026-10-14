@@ -21,7 +21,7 @@ import static java.lang.Math.min;
 
 import android.util.SparseArray;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Consumer;
+import java.util.function.Consumer;
 
 /**
  * Stores value objects associated with spans of integer keys.

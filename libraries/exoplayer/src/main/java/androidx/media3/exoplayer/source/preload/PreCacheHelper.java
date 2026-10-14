@@ -27,7 +27,6 @@ import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.TrackSelectionParameters;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
@@ -50,6 +49,7 @@ import java.io.IOException;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** A helper for pre-caching a single media. */

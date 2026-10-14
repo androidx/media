@@ -24,7 +24,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
@@ -39,6 +38,7 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.concurrent.Executor;
+import java.util.function.Consumer;
 
 /**
  * @deprecated The only use for this class is subtitle playback, but it is only compatible with

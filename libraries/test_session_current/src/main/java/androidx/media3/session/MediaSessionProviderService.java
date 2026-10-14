@@ -114,7 +114,6 @@ import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.Log;
 import androidx.media3.session.MediaSession.ConnectionResult;
 import androidx.media3.session.MediaSession.ConnectionResult.AcceptedResultBuilder;
@@ -137,6 +136,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Callable;
+import java.util.function.Consumer;
 
 /**
  * A Service that creates {@link MediaSession} and calls its methods according to the client app's

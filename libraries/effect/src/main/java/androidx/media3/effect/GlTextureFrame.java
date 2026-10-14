@@ -21,7 +21,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlTextureInfo;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
@@ -31,6 +30,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 /** A frame that wraps a {@link GlTextureInfo}. */
 @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.

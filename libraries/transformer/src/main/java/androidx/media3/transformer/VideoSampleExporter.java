@@ -42,13 +42,13 @@ import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.effect.MultipleInputVideoGraph;
 import androidx.media3.effect.SingleInputVideoGraph;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Consumer;
 import org.checkerframework.checker.initialization.qual.Initialized;
 
 /** Processes, encodes and muxes raw video frames. */

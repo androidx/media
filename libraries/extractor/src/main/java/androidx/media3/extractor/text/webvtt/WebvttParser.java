@@ -20,7 +20,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.Format.CueReplacementBehavior;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.text.CuesWithTiming;
@@ -28,6 +27,7 @@ import androidx.media3.extractor.text.LegacySubtitleUtil;
 import androidx.media3.extractor.text.SubtitleParser;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * A {@link SubtitleParser} for WebVTT.

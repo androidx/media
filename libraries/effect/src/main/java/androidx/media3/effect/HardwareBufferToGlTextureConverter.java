@@ -39,7 +39,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.VideoFrameProcessingException;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
@@ -58,6 +57,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 @ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.

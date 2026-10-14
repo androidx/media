@@ -22,7 +22,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.FrameProcessor;
@@ -33,6 +32,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
+import java.util.function.Consumer;
 
 /**
  * A {@link FrameProcessor} that delegates to an underlying {@link FrameProcessor} and records

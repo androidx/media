@@ -27,7 +27,6 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Effect;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.VideoFrameProcessingException;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
@@ -35,6 +34,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.function.Consumer;
 
 /**
  * A {@link GlTextureFrameConsumer} that creates and executes a chain of {@link

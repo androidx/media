@@ -38,7 +38,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.HandlerExecutor;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Util;
@@ -57,6 +56,7 @@ import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.Executor;
+import java.util.function.Consumer;
 import org.checkerframework.checker.initialization.qual.Initialized;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 

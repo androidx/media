@@ -18,11 +18,11 @@ package androidx.media3.effect;
 import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.VideoFrameProcessingException;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor.Listener;
 import java.util.concurrent.Executor;
+import java.util.function.Consumer;
 
 /** Converts from {@link Frame} to {@link GlTextureFrame}. */
 @ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.

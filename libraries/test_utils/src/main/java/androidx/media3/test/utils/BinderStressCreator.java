@@ -26,7 +26,6 @@ import android.media.AudioManager;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -34,6 +33,7 @@ import com.google.common.base.Supplier;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 
 /**
  * A utility for creating artificial stress on the system process binder.

@@ -33,7 +33,6 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
@@ -53,6 +52,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
+import java.util.function.Consumer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**

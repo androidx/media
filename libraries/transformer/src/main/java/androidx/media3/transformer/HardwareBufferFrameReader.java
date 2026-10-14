@@ -35,7 +35,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.HandlerExecutor;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
@@ -55,6 +54,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.Executor;
+import java.util.function.Consumer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** An adaptor between a sequence player and a {@link Consumer} of {@link AsyncFrame} instances. */

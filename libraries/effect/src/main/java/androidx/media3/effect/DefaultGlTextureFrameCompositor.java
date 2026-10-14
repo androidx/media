@@ -30,7 +30,6 @@ import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Size;
 import androidx.media3.effect.GlTextureFrameCompositor.CompositorGlProgram;
@@ -40,6 +39,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
+import java.util.function.Consumer;
 
 /**
  * Composites a list of {@link GlTextureFrame GlTextureFrames}, and outputs to a downstream {@link

@@ -17,11 +17,11 @@ package androidx.media3.test.utils;
 
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.text.CuesWithTiming;
 import androidx.media3.extractor.text.SubtitleParser;
 import com.google.common.base.Supplier;
+import java.util.function.Consumer;
 
 /**
  * A {@link SubtitleParser.Factory} for {@link SubtitleParser} instances that throw an exception on

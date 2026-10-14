@@ -25,7 +25,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
@@ -48,6 +47,7 @@ import com.google.common.base.Supplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
 import java.util.concurrent.Executor;
+import java.util.function.Consumer;
 
 /**
  * Provides one period that loads data from a {@link Uri} and extracted using an {@link Extractor}.

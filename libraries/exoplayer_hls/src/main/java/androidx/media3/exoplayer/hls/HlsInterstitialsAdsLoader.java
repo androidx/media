@@ -68,7 +68,6 @@ import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Timeline.Period;
 import androidx.media3.common.Timeline.Window;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -103,6 +102,7 @@ import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.json.JSONObject;
 

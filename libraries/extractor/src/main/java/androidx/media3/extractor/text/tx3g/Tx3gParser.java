@@ -32,7 +32,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Format.CueReplacementBehavior;
 import androidx.media3.common.text.Cue;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
@@ -43,6 +42,7 @@ import com.google.common.collect.ImmutableList;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * A {@link SubtitleParser} for tx3g.

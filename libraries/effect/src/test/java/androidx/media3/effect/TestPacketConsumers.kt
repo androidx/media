@@ -17,6 +17,7 @@ package androidx.media3.effect
 
 import androidx.media3.effect.PacketConsumer.Packet
 import java.util.concurrent.CompletableFuture
+import java.util.function.Consumer
 import kotlinx.coroutines.future.await
 
 /** A fake [PacketConsumer] implementation in Kotlin for testing from Java. */
@@ -63,7 +64,7 @@ class FakeRenderingPacketConsumer<I, O> : RenderingPacketConsumer<I, O> {
     onRenderOutput(output)
   }
 
-  override fun setErrorConsumer(errorConsumer: androidx.media3.common.util.Consumer<Exception>) {}
+  override fun setErrorConsumer(errorConsumer: Consumer<Exception>) {}
 
   override suspend fun queuePacket(packet: Packet<I>) {
     if (packet is Packet.Payload) {

@@ -26,7 +26,6 @@ import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.video.AsyncFrame;
@@ -36,6 +35,7 @@ import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.transformer.HardwareBufferFrameReader.Listener;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * A {@link GraphInput} that wraps {@link HardwareBufferFrameReader}.

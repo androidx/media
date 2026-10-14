@@ -17,10 +17,10 @@ package androidx.media3.extractor.text;
 
 import androidx.media3.common.C;
 import androidx.media3.common.text.Cue;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.text.SubtitleParser.OutputOptions;
 import java.util.List;
+import java.util.function.Consumer;
 
 /** Utility methods for working with legacy {@link Subtitle} objects. */
 @UnstableApi

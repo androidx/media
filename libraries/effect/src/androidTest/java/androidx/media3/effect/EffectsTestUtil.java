@@ -38,7 +38,6 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
@@ -49,6 +48,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 /** Utilities for effects tests. */
 /* package */ class EffectsTestUtil {

@@ -29,7 +29,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Format.CueReplacementBehavior;
 import androidx.media3.common.text.Cue;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
@@ -40,6 +39,7 @@ import androidx.media3.extractor.text.SubtitleParser;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** A {@link SubtitleParser} for DVB subtitles. */

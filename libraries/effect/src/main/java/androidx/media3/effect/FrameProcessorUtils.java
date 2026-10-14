@@ -29,7 +29,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.VideoFrameProcessingException;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
@@ -42,6 +41,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
 
 /** Utility methods for FrameProcessor implementations. */
 @ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.

@@ -26,11 +26,11 @@ import androidx.media3.common.C;
 import androidx.media3.common.C.DataType;
 import androidx.media3.common.Format;
 import androidx.media3.common.Player;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import java.io.IOException;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 
 /** Interface for callbacks to be notified of {@link MediaSource} events. */
 @UnstableApi

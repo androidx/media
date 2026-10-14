@@ -29,7 +29,6 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.Util;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
@@ -45,6 +44,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
+import java.util.function.Consumer;
 
 /**
  * Combines multiple sequences of {@link AsyncFrame}s into one sequence of {@link

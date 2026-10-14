@@ -98,7 +98,6 @@ import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.util.BundleCollectionUtil;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
@@ -124,6 +123,7 @@ import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Consumer;
 
 /**
  * Class that handles incoming commands from {@link MediaController} and {@link MediaBrowser} to

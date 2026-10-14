@@ -19,8 +19,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import androidx.annotation.Nullable;
-import androidx.media3.common.util.Consumer;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.util.function.Consumer;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;

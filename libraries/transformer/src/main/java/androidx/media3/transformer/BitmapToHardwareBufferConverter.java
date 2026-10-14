@@ -28,7 +28,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.VideoFrameProcessingException;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.HardwareBufferJniWrapper;
@@ -36,6 +35,7 @@ import java.time.Duration;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.function.Consumer;
 
 // TODO: b/475511702 - Handle HDR bitmaps.
 /**

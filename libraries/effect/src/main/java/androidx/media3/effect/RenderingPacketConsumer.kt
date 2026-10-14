@@ -15,8 +15,8 @@
  */
 package androidx.media3.effect
 
-import androidx.media3.common.util.Consumer
 import androidx.media3.common.util.ExperimentalApi
+import java.util.function.Consumer
 
 /** A [PacketConsumer] that renders input [Packet]s to an output [O]. */
 @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
