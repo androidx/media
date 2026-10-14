@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenu
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -71,7 +70,6 @@ private val COLOR_NAME_RES_IDS =
     Color.Magenta to R.string.color_magenta,
   )
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun <T> GenericExposedDropdownMenu(
   label: String,
