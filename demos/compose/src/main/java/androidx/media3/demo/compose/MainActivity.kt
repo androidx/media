@@ -37,8 +37,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.media3.demo.compose.data.isMotionPhoto
 import androidx.media3.demo.compose.layout.EditingPlayerScreen
 import androidx.media3.demo.compose.layout.LongFormPlayerScreen
+import androidx.media3.demo.compose.layout.MotionPhotoScreen
 import androidx.media3.demo.compose.layout.PlayerFormatScreen
 import androidx.media3.demo.compose.layout.SampleChooserScreen
 import androidx.media3.demo.compose.layout.ShortFormPlayerScreen
@@ -112,7 +114,15 @@ private fun ComposeDemo(
           onEditingClick =
             if (mediaItems.size == 1) {
               { navController.navigate(ROUTE_EDITING_PLAYER) }
-            } else null,
+            } else {
+              null
+            },
+          onMotionPhotoClick =
+            if (mediaItems.size == 1 && mediaItems.single().isMotionPhoto) {
+              { navController.navigate(ROUTE_MOTION_PHOTO_PLAYER) }
+            } else {
+              null
+            },
           modifier = modifier.statusBarsPadding(),
         )
       }
@@ -132,6 +142,12 @@ private fun ComposeDemo(
           EditingPlayerScreen(mediaItems.single(), playerViewModel)
         }
       }
+      composable(ROUTE_MOTION_PHOTO_PLAYER) {
+        val mediaItems by navigationViewModel.mediaItems.collectAsState()
+        if (mediaItems.size == 1) {
+          MotionPhotoScreen(mediaItems.single())
+        }
+      }
     }
   }
 }
@@ -141,3 +157,4 @@ private const val ROUTE_PLAYER_FORMAT_CHOOSER = "player_format_chooser"
 private const val ROUTE_LONG_FORM_PLAYER = "long_form_player"
 private const val ROUTE_SHORT_FORM_PLAYER = "short_form_player"
 private const val ROUTE_EDITING_PLAYER = "editing_player"
+private const val ROUTE_MOTION_PHOTO_PLAYER = "motion_photo_player"

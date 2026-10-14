@@ -18,6 +18,7 @@ package androidx.media3.demo.compose.data
 
 import android.content.Context
 import android.net.Uri
+import android.os.Bundle
 import android.util.JsonReader
 import androidx.core.net.toUri
 import androidx.media3.common.C
@@ -102,6 +103,7 @@ private fun readEntry(reader: JsonReader, insidePlaylist: Boolean): PlaylistHold
   var subtitleUri: Uri? = null
   var subtitleMimeType: String? = null
   var subtitleLanguage: String? = null
+  var isMotionPhoto = false
 
   val mediaItem = MediaItem.Builder()
   reader.beginObject()
@@ -115,6 +117,7 @@ private fun readEntry(reader: JsonReader, insidePlaylist: Boolean): PlaylistHold
       "subtitle_uri" -> subtitleUri = reader.nextString().toUri()
       "subtitle_mime_type" -> subtitleMimeType = reader.nextString()
       "subtitle_language" -> subtitleLanguage = reader.nextString()
+      "is_motion_photo" -> isMotionPhoto = reader.nextBoolean()
       "playlist" -> {
         check(!insidePlaylist) { "Invalid nesting of playlists" }
         children = mutableListOf()
@@ -136,7 +139,12 @@ private fun readEntry(reader: JsonReader, insidePlaylist: Boolean): PlaylistHold
     }
     return PlaylistHolder(title, mediaItems.toList())
   } else {
-    val metadata = MediaMetadata.Builder().setTitle(title).setAlbumTitle(album).setArtist(artist)
+    val metadata =
+      MediaMetadata.Builder()
+        .setTitle(title)
+        .setAlbumTitle(album)
+        .setArtist(artist)
+        .setExtras(Bundle().apply { putBoolean(EXTRA_IS_MOTION_PHOTO, isMotionPhoto) })
     artworkUri?.let { metadata.setArtworkUri(it) }
 
     mediaItem.setUri(uri).setMediaMetadata(metadata.build())
@@ -191,3 +199,8 @@ private suspend fun loadDurationForMediaItem(context: Context, mediaItem: MediaI
 data class PlaylistGroup(val title: String, var playlists: MutableList<PlaylistHolder>)
 
 data class PlaylistHolder(val name: String, val mediaItems: List<MediaItem>)
+
+internal val MediaItem.isMotionPhoto: Boolean
+  get() = mediaMetadata.extras?.getBoolean(EXTRA_IS_MOTION_PHOTO) == true
+
+private const val EXTRA_IS_MOTION_PHOTO = "is_motion_photo"

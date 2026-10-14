@@ -267,5 +267,20 @@
         "uri": "https://storage.googleapis.com/exoplayer-test-media-1/hagc/lights_hevc_sdrbase_t35track_v0.mp4"
       }
     ]
+  },
+  {
+    "name": "Motion Photos",
+    "samples": [
+      {
+        "name": "JPEG motion photo",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/jpg/london_motion_photo.jpg",
+        "is_motion_photo": true
+      },
+      {
+        "name": "HEIC motion photo",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/heif/sample_motion_photo.heic",
+        "is_motion_photo": true
+      }
+    ]
   }
 ]

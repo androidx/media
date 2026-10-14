@@ -32,6 +32,7 @@ fun PlayerFormatScreen(
   onLongFormClick: () -> Unit,
   onShortFormClick: () -> Unit,
   onEditingClick: (() -> Unit)? = null,
+  onMotionPhotoClick: (() -> Unit)? = null,
   modifier: Modifier = Modifier,
 ) {
   Column(
@@ -45,6 +46,10 @@ fun PlayerFormatScreen(
     if (onEditingClick != null) {
       Spacer(modifier = Modifier.height(16.dp))
       Button(onClick = onEditingClick) { Text(text = "Editing Player") }
+    }
+    if (onMotionPhotoClick != null) {
+      Spacer(modifier = Modifier.height(16.dp))
+      Button(onClick = onMotionPhotoClick) { Text(text = "Motion Photo Player") }
     }
   }
 }
