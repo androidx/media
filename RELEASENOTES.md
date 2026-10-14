@@ -358,6 +358,11 @@ This release includes the following changes since [1.11.1](#1111-2026-09-10):
         `FragmentedMp4Muxer` when adding tracks.
     *   Support 24-bit and 32-bit integer PCM audio tracks in `Mp4Muxer` and
         `FragmentedMp4Muxer`.
+    *   Add `FragmentedMp4Muxer.Builder.setFragmentsBetweenKeyFramesEnabled` to
+        allow fragments to start at non-key frames when video key frames are
+        farther apart than the fragment duration. This only takes effect if the
+        video `Format.maxNumReorderSamples` is explicitly set to 0
+        ([#3450](https://github.com/androidx/media/pull/3450)).
 *   IMA extension:
     *   Forward player pause and resume events to the IMA SDK in
         `ImaServerSideAdInsertionMediaSource`.
