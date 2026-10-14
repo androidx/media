@@ -65,6 +65,9 @@ import org.robolectric.RobolectricTestParameterInjector;
 /** End to end instrumentation tests for {@link FragmentedMp4Muxer}. */
 @RunWith(RobolectricTestParameterInjector.class)
 public class FragmentedMp4MuxerEndToEndTest {
+  private static final Format FAKE_VIDEO_FORMAT_WITHOUT_REORDERING =
+      FAKE_VIDEO_FORMAT.buildUpon().setMaxNumReorderSamples(0).build();
+
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
   private final Context context = ApplicationProvider.getApplicationContext();
@@ -700,6 +703,182 @@ public class FragmentedMp4MuxerEndToEndTest {
         .isEqualTo(FAKE_VIDEO_FORMAT.sampleMimeType);
     assertThat(fakeExtractorOutput.trackOutputs.get(1).lastFormat.sampleMimeType)
         .isEqualTo(MuxerTestUtil.FAKE_AUDIO_FORMAT.sampleMimeType);
+  }
+
+  @Test
+  public void writeSampleData_fragmentsBetweenKeyFramesEnabled_writesFragmentsAtNonKeyFrames()
+      throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+
+    try (FragmentedMp4Muxer muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel())
+            .setFragmentDurationMs(100)
+            .setFragmentsBetweenKeyFramesEnabled(true)
+            .build()) {
+      muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 100_000_000L,
+              /* modificationTimestampSeconds= */ 500_000_000L));
+      int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT_WITHOUT_REORDERING);
+      for (int i = 0; i < 15; i++) {
+        writeFakeVideoSample(muxer, trackId, i * 33_333L, /* isKeyFrame= */ i == 0);
+      }
+    }
+
+    DumpableMp4Box dumpableMp4Box =
+        new DumpableMp4Box(ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(outputFilePath)));
+    // There should be 3 fragments, of which the last 2 start with non-key frames.
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableMp4Box,
+        MuxerTestUtil.getExpectedMp4DumpFilePath(
+            "fragmented_mp4_with_fragments_between_key_frames.mp4"));
+  }
+
+  @Test
+  public void writeSampleData_fragmentsBetweenKeyFramesDisabled_writesFragmentsAtKeyFramesOnly()
+      throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+
+    try (FragmentedMp4Muxer muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel())
+            .setFragmentDurationMs(100)
+            .build()) {
+      muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 100_000_000L,
+              /* modificationTimestampSeconds= */ 500_000_000L));
+      int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT_WITHOUT_REORDERING);
+      for (int i = 0; i < 15; i++) {
+        writeFakeVideoSample(muxer, trackId, i * 33_333L, /* isKeyFrame= */ i == 0);
+      }
+    }
+
+    DumpableMp4Box dumpableMp4Box =
+        new DumpableMp4Box(ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(outputFilePath)));
+    // There should be a single fragment as there is a single key frame.
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableMp4Box,
+        MuxerTestUtil.getExpectedMp4DumpFilePath(
+            "fragmented_mp4_without_fragments_between_key_frames.mp4"));
+  }
+
+  @Test
+  public void writeSampleData_unsetMaxNumReorderSamples_writesFragmentsAtKeyFramesOnly()
+      throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+
+    try (FragmentedMp4Muxer muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel())
+            .setFragmentDurationMs(100)
+            .setFragmentsBetweenKeyFramesEnabled(true)
+            .build()) {
+      muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 100_000_000L,
+              /* modificationTimestampSeconds= */ 500_000_000L));
+      // The default maxNumReorderSamples is Format.NO_VALUE.
+      int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      for (int i = 0; i < 15; i++) {
+        writeFakeVideoSample(muxer, trackId, i * 33_333L, /* isKeyFrame= */ i == 0);
+      }
+    }
+
+    DumpableMp4Box dumpableMp4Box =
+        new DumpableMp4Box(ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(outputFilePath)));
+    // The output should be the same as when the option is disabled.
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableMp4Box,
+        MuxerTestUtil.getExpectedMp4DumpFilePath(
+            "fragmented_mp4_without_fragments_between_key_frames.mp4"));
+  }
+
+  @Test
+  public void
+      writeSampleData_fragmentsBetweenKeyFramesEnabledWithBFrames_writesFragmentsAtKeyFramesOnly()
+          throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Format videoFormat = FAKE_VIDEO_FORMAT.buildUpon().setMaxNumReorderSamples(2).build();
+
+    try (FragmentedMp4Muxer muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel())
+            .setFragmentDurationMs(100)
+            .setFragmentsBetweenKeyFramesEnabled(true)
+            .build()) {
+      muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 100_000_000L,
+              /* modificationTimestampSeconds= */ 500_000_000L));
+      int trackId = muxer.addTrack(videoFormat);
+      // Samples are in decode order I P B B P B B ...
+      for (int i = 0; i < 15; i++) {
+        int frameIndex = i == 0 ? 0 : i % 3 == 1 ? i + 2 : i - 1;
+        writeFakeVideoSample(muxer, trackId, frameIndex * 33_333L, /* isKeyFrame= */ i == 0);
+      }
+    }
+
+    DumpableMp4Box dumpableMp4Box =
+        new DumpableMp4Box(ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(outputFilePath)));
+    // There should be a single fragment as there is a single key frame.
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableMp4Box,
+        MuxerTestUtil.getExpectedMp4DumpFilePath(
+            "fragmented_mp4_with_b_frames_and_fragments_between_key_frames.mp4"));
+  }
+
+  @Test
+  public void writeSampleData_fragmentsBetweenKeyFramesEnabledWithEmptySample_skipsEmptySample()
+      throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+
+    try (FragmentedMp4Muxer muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel())
+            .setFragmentDurationMs(100)
+            .setFragmentsBetweenKeyFramesEnabled(true)
+            .build()) {
+      muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 100_000_000L,
+              /* modificationTimestampSeconds= */ 500_000_000L));
+      int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT_WITHOUT_REORDERING);
+      for (int i = 0; i < 5; i++) {
+        writeFakeVideoSample(muxer, trackId, i * 33_333L, /* isKeyFrame= */ i == 0);
+      }
+      // The pending samples span the fragment duration, but an empty sample must not end the
+      // fragment.
+      muxer.writeSampleData(
+          trackId,
+          ByteBuffer.allocate(0),
+          new BufferInfo(/* presentationTimeUs= */ 200_000L, /* size= */ 0, /* flags= */ 0));
+      writeFakeVideoSample(
+          muxer, trackId, /* presentationTimeUs= */ 210_000L, /* isKeyFrame= */ true);
+    }
+
+    DumpableMp4Box dumpableMp4Box =
+        new DumpableMp4Box(ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(outputFilePath)));
+    // There should be 2 fragments, each starting with a key frame.
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableMp4Box,
+        MuxerTestUtil.getExpectedMp4DumpFilePath(
+            "fragmented_mp4_with_empty_sample_and_fragments_between_key_frames.mp4"));
+  }
+
+  private static void writeFakeVideoSample(
+      FragmentedMp4Muxer muxer, int trackId, long presentationTimeUs, boolean isKeyFrame)
+      throws MuxerException {
+    ByteBuffer sampleData =
+        getFakeSampleAndSampleInfo(presentationTimeUs, /* isVideo= */ true).first;
+    muxer.writeSampleData(
+        trackId,
+        sampleData,
+        new BufferInfo(
+            presentationTimeUs,
+            sampleData.remaining(),
+            /* flags= */ isKeyFrame ? C.BUFFER_FLAG_KEY_FRAME : 0));
   }
 
   private static ByteBuffer getTestSamplesForEncoding(@C.PcmEncoding int pcmEncoding) {
