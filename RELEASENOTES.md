@@ -274,6 +274,10 @@
         `MediaSessionCompat` (for example, calling `setMediaItem`, `prepare`,
         and `play` together now dispatches a single `onPlayFrom*` callback).
 *   UI:
+    *   Fix RTL subtitle punctuation positioning and span range preservation
+        when bidirectional text wrapping is enabled
+        ([#3454](https://github.com/androidx/media/issues/3454),
+        [#3455](https://github.com/androidx/media/issues/3455)).
     *   Add `TrackSelectionState` and `TrackSelectionParametersState` classes
         and their corresponding Composable state remember functions to the
         `media3-ui-compose` module.
