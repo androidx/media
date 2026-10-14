@@ -282,5 +282,26 @@
         "is_motion_photo": true
       }
     ]
+  },
+  {
+    "name": "Live",
+    "samples": [
+      {
+        "name": "DASH Live (DASH-IF Simulator)",
+        "uri": "https://livesim.dashif.org/livesim/testpic_2s/Manifest.mpd"
+      },
+      {
+        "name": "DASH Live - Multi-period (every 60s)",
+        "uri": "https://livesim.dashif.org/livesim/periods_60/continuous_1/testpic_2s/Manifest.mpd"
+      },
+      {
+        "name": "Akamai DASH live (CMAF)",
+        "uri": "https://akamaibroadcasteruseast.akamaized.net/cmaf/live/657078/akasource/out.mpd"
+      },
+      {
+        "name": "Akamai HLS live (CMAF)",
+        "uri": "https://akamaibroadcasteruseast.akamaized.net/cmaf/live/657078/akasource/master.m3u8"
+      }
+    ]
   }
 ]

@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -90,14 +91,27 @@ fun rememberProgressStateWithTickInterval(
  *   to some UI element, the scope of the Composable will ensure the job is cancelled when the
  *   element is disposed.
  * @property[currentPositionMs] The playback position in the current content or ad, in milliseconds,
- *   matches [Player.getCurrentPosition] that is rounded to a multiple of [tickIntervalMs].
+ *   matches [Player.getCurrentPosition] that is rounded to a multiple of [tickIntervalMs]. For live
+ *   streams with a sliding window, the position is relative to a smoothly advancing window start,
+ *   so that it does not jump whenever the live window is updated.
  * @property[bufferedPositionMs] An estimate of the position in the current content or ad up to
- *   which data is buffered, in milliseconds.
+ *   which data is buffered, in milliseconds. Smoothed for live streams in the same way as
+ *   [currentPositionMs].
  * @property[durationMs] The duration of the current content or ad in milliseconds, matches
  *   [Player.getDuration].
  * @property[originalDurationMs] The duration of the current media item in milliseconds before any
  *   clipping of its start or end. Equal to [durationMs] if the media item isn't clipped, its
  *   original duration isn't known, it has multiple periods, or an ad is playing.
+ * @property[isLive] Whether the currently playing item is a live stream. Always `false` while an ad
+ *   is playing.
+ * @property[liveOffsetMs] The offset of the current playback position from the live edge in
+ *   milliseconds, or [C.TIME_UNSET] if the current media item isn't live or the offset is unknown.
+ * @property[targetLiveOffsetMs] The target live offset in milliseconds if configured. Otherwise,
+ *   the offset of the default position, measured in the same way as [liveOffsetMs] if the window
+ *   start time is known, or from the end of the window if not. [C.TIME_UNSET] if unknown or not a
+ *   live stream.
+ * @property[seekToDefaultPositionEnabled] Whether seeking to the default position is enabled, i.e.,
+ *   [Player.COMMAND_SEEK_TO_DEFAULT_POSITION] is available.
  */
 @UnstableApi
 class ProgressStateWithTickInterval(
@@ -117,6 +131,18 @@ class ProgressStateWithTickInterval(
   var originalDurationMs by mutableLongStateOf(C.TIME_UNSET)
     private set
 
+  var isLive: Boolean by mutableStateOf(false)
+    private set
+
+  var liveOffsetMs by mutableLongStateOf(C.TIME_UNSET)
+    private set
+
+  var targetLiveOffsetMs by mutableLongStateOf(C.TIME_UNSET)
+    private set
+
+  var seekToDefaultPositionEnabled: Boolean by mutableStateOf(false)
+    private set
+
   private val window = Timeline.Window()
   private val period = Timeline.Period()
 
@@ -128,6 +154,19 @@ class ProgressStateWithTickInterval(
       shouldScheduleTask = { isReadyOrBuffering(player = it) },
       scheduledTask = { updateProgress(player = it) },
     )
+  }
+
+  /**
+   * Seeks to the default position associated with the current media item. For live streams, this
+   * will typically be the live edge.
+   *
+   * This method does nothing if [Player.COMMAND_SEEK_TO_DEFAULT_POSITION] is not available.
+   */
+  fun seekToDefaultPosition() {
+    val player = player ?: return
+    if (player.isCommandAvailable(Player.COMMAND_SEEK_TO_DEFAULT_POSITION)) {
+      player.seekToDefaultPosition()
+    }
   }
 
   init {
@@ -146,7 +185,7 @@ class ProgressStateWithTickInterval(
       return 0
     }
     val currentPositionMs = getCurrentPositionMsOrDefault(player)
-    val nextTickIndex = currentPositionMs / tickIntervalMs + 1
+    val nextTickIndex = Math.floorDiv(currentPositionMs, tickIntervalMs) + 1
     var nextMediaWakeUpPositionMs = nextTickIndex * tickIntervalMs
     val idealDelayDuration = nextMediaWakeUpPositionMs - currentPositionMs
     if (idealDelayDuration < MIN_UPDATE_INTERVAL_MS) {
@@ -156,9 +195,39 @@ class ProgressStateWithTickInterval(
   }
 
   private fun updateProgress(player: Player) {
-    currentPositionMs = snapPositionToNearestTick(player, ::getCurrentPositionMsOrDefault)
-    bufferedPositionMs = snapPositionToNearestTick(player, ::getBufferedPositionMsOrDefault)
-    durationMs = getDurationMsOrDefault(player)
+    // Only use locals in the calculations and never read the state back, because the first update
+    // runs during composition (from remember) where state reads would subscribe the caller to
+    // unnecessary recompositions.
+    val currentIsLive =
+      player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM) &&
+        player.isCurrentMediaItemLive &&
+        !player.isPlayingAd
+    val currentDurationMs = getDurationMsOrDefault(player)
+    val newPositionMs: Long
+    val newBufferedPositionMs: Long
+    if (currentIsLive) {
+      val currentWindow = getWindowOrNull(player, window)
+      newPositionMs =
+        updateJob?.getSmoothedLivePositionMs(currentWindow, currentDurationMs)
+          ?: getCurrentPositionMsOrDefault(player)
+      newBufferedPositionMs =
+        updateJob?.getSmoothedLiveBufferedPositionMs(currentWindow, currentDurationMs)
+          ?: getBufferedPositionMsOrDefault(player)
+      liveOffsetMs = player.currentLiveOffset
+      targetLiveOffsetMs = getTargetLiveOffsetMsOrDefault(currentWindow)
+    } else {
+      newPositionMs = getCurrentPositionMsOrDefault(player)
+      newBufferedPositionMs = getBufferedPositionMsOrDefault(player)
+      liveOffsetMs = C.TIME_UNSET
+      targetLiveOffsetMs = C.TIME_UNSET
+    }
+
+    isLive = currentIsLive
+    currentPositionMs = snapPositionToNearestTick(newPositionMs)
+    bufferedPositionMs = snapPositionToNearestTick(newBufferedPositionMs)
+    durationMs = currentDurationMs
+    seekToDefaultPositionEnabled =
+      player.isCommandAvailable(Player.COMMAND_SEEK_TO_DEFAULT_POSITION)
     originalDurationMs = getOriginalDurationMsOrDefault(player, window, period)
   }
 
@@ -169,12 +238,12 @@ class ProgressStateWithTickInterval(
    * Note how this is different to [ProgressStateWithTickCount] rounding that takes half of the
    * interval into account to round up.
    */
-  private fun snapPositionToNearestTick(player: Player, positionSupplier: (Player) -> Long): Long {
-    val actualPositionMs = positionSupplier(player)
+  private fun snapPositionToNearestTick(actualPositionMs: Long): Long {
     if (tickIntervalMs == 0L || actualPositionMs % tickIntervalMs == 0L) {
       return actualPositionMs
     }
-    val adjustedCurrentTick = (actualPositionMs + POSITION_CORRECTION_OFFSET_MS) / tickIntervalMs
+    val adjustedCurrentTick =
+      Math.floorDiv(actualPositionMs + POSITION_CORRECTION_OFFSET_MS, tickIntervalMs)
     return adjustedCurrentTick * tickIntervalMs
   }
 }

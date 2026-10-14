@@ -96,6 +96,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.Artwork
 import androidx.media3.ui.compose.material3.Player
 import androidx.media3.ui.compose.material3.PlayerDefaults
+import androidx.media3.ui.compose.material3.buttons.LiveButton
 import androidx.media3.ui.compose.material3.buttons.MuteButton
 import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
 import androidx.media3.ui.compose.state.rememberPlaybackSpeedState
@@ -315,9 +316,12 @@ internal fun LongFormPlayerScreen(
                 if (isRemotePlayback) {
                   PlayerDefaults.CenterControls(player, controlsVisible, Modifier.fillMaxWidth())
                 } else {
-                  Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    MuteButton(player)
-                    FullscreenButton(isFullscreen, onClick = { isFullscreen = !isFullscreen })
+                  Box(Modifier.fillMaxWidth()) {
+                    LiveButton(player, Modifier.align(Alignment.CenterStart))
+                    Row(Modifier.align(Alignment.CenterEnd)) {
+                      MuteButton(player)
+                      FullscreenButton(isFullscreen, onClick = { isFullscreen = !isFullscreen })
+                    }
                   }
                 }
               },

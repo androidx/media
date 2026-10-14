@@ -91,17 +91,29 @@ fun rememberProgressStateWithTickCount(
  *   represented by [Player.getCurrentPosition]. The values range from 0.0 (represents no progress)
  *   and 1.0 (represents full progress and reaching [Player.getDuration]). Values outside of this
  *   range are coerced into the range. Values are rounded to the nearest multiple of
- *   1/totalTickCount.
+ *   1/totalTickCount. For live streams with a sliding window, the position is relative to a
+ *   smoothly advancing window start, so that it does not jump whenever the live window is updated.
  * @property[bufferedPositionProgress] An estimate of the progress in the current content or ad up
  *   to which data is buffered as represented by [Player.getBufferedPosition]. The values range from
  *   0.0 (represents no progress) and 1.0 (represents full progress and reaching
  *   [Player.getDuration]). Values outside of this range are coerced into the range. Values are
- *   rounded to the nearest multiple of 1/totalTickCount.
+ *   rounded to the nearest multiple of 1/totalTickCount. Smoothed for live streams in the same way
+ *   as [currentPositionProgress].
  * @property[durationMs] The duration of the current content or ad in milliseconds, matches
  *   [Player.getDuration].
  * @property[originalDurationMs] The duration of the current media item in milliseconds before any
  *   clipping of its start or end. Equal to [durationMs] if the media item isn't clipped, its
  *   original duration isn't known, it has multiple periods, or an ad is playing.
+ * @property[isLive] Whether the currently playing item is a live stream. Always `false` while an ad
+ *   is playing.
+ * @property[liveOffsetMs] The offset of the current playback position from the live edge in
+ *   milliseconds, or [C.TIME_UNSET] if the current media item isn't live or the offset is unknown.
+ * @property[targetLiveOffsetMs] The target live offset in milliseconds if configured. Otherwise,
+ *   the offset of the default position, measured in the same way as [liveOffsetMs] if the window
+ *   start time is known, or from the end of the window if not. [C.TIME_UNSET] if unknown or not a
+ *   live stream.
+ * @property[seekToDefaultPositionEnabled] Whether seeking to the default position is enabled, i.e.,
+ *   [Player.COMMAND_SEEK_TO_DEFAULT_POSITION] is available.
  */
 @UnstableApi
 class ProgressStateWithTickCount(
@@ -121,6 +133,15 @@ class ProgressStateWithTickCount(
   var originalDurationMs by mutableLongStateOf(C.TIME_UNSET)
     private set
 
+  var isLive: Boolean by mutableStateOf(false)
+    private set
+
+  var liveOffsetMs by mutableLongStateOf(C.TIME_UNSET)
+    private set
+
+  var targetLiveOffsetMs by mutableLongStateOf(C.TIME_UNSET)
+    private set
+
   /**
    * Whether the user is allowed to change the progress of the player, for example by dragging or
    * tapping a slider on the UI side or programmatically calling [updateCurrentPositionProgress].
@@ -130,6 +151,9 @@ class ProgressStateWithTickCount(
    * item is known and strictly positive.
    */
   var changingProgressEnabled by mutableStateOf(false)
+    private set
+
+  var seekToDefaultPositionEnabled: Boolean by mutableStateOf(false)
     private set
 
   private val window = Timeline.Window()
@@ -177,6 +201,19 @@ class ProgressStateWithTickCount(
   fun progressToPosition(progress: Float): Long =
     if (durationMs > 0) (progress * durationMs).toLong() else 0L
 
+  /**
+   * Seeks to the default position associated with the current media item. For live streams, this
+   * will typically be the live edge.
+   *
+   * This method does nothing if [Player.COMMAND_SEEK_TO_DEFAULT_POSITION] is not available.
+   */
+  fun seekToDefaultPosition() {
+    val player = player ?: return
+    if (player.isCommandAvailable(Player.COMMAND_SEEK_TO_DEFAULT_POSITION)) {
+      player.seekToDefaultPosition()
+    }
+  }
+
   init {
     require(totalTickCount >= 0)
     player?.let { updateProgress(it) }
@@ -199,14 +236,43 @@ class ProgressStateWithTickCount(
   }
 
   private fun updateProgress(player: Player) {
-    durationMs = getDurationMsOrDefault(player)
-    originalDurationMs = getOriginalDurationMsOrDefault(player, window, period)
-    currentPositionProgress =
-      positionToProgress(getCurrentPositionMsOrDefault(player), durationMs, totalTickCount)
+    // Only use locals in the calculations and never read the state back, because the first update
+    // runs during composition (from remember) where state reads would subscribe the caller to
+    // unnecessary recompositions.
+    val currentIsLive =
+      player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM) &&
+        player.isCurrentMediaItemLive &&
+        !player.isPlayingAd
+    val currentDurationMs = getDurationMsOrDefault(player)
+    val newPositionMs: Long
+    val newBufferedPositionMs: Long
+    if (currentIsLive) {
+      val currentWindow = getWindowOrNull(player, window)
+      newPositionMs =
+        updateJob?.getSmoothedLivePositionMs(currentWindow, currentDurationMs)
+          ?: getCurrentPositionMsOrDefault(player)
+      newBufferedPositionMs =
+        updateJob?.getSmoothedLiveBufferedPositionMs(currentWindow, currentDurationMs)
+          ?: getBufferedPositionMsOrDefault(player)
+      liveOffsetMs = player.currentLiveOffset
+      targetLiveOffsetMs = getTargetLiveOffsetMsOrDefault(currentWindow)
+    } else {
+      newPositionMs = getCurrentPositionMsOrDefault(player)
+      newBufferedPositionMs = getBufferedPositionMsOrDefault(player)
+      liveOffsetMs = C.TIME_UNSET
+      targetLiveOffsetMs = C.TIME_UNSET
+    }
+
+    isLive = currentIsLive
+    currentPositionProgress = positionToProgress(newPositionMs, currentDurationMs, totalTickCount)
     bufferedPositionProgress =
-      positionToProgress(getBufferedPositionMsOrDefault(player), durationMs, totalTickCount)
+      positionToProgress(newBufferedPositionMs, currentDurationMs, totalTickCount)
     changingProgressEnabled =
-      player.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM) && durationMs > 0
+      player.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM) && currentDurationMs > 0
+    seekToDefaultPositionEnabled =
+      player.isCommandAvailable(Player.COMMAND_SEEK_TO_DEFAULT_POSITION)
+    durationMs = currentDurationMs
+    originalDurationMs = getOriginalDurationMsOrDefault(player, window, period)
   }
 
   private fun getPositionTick(position: Long, duration: Long, totalTickCount: Int): Int {

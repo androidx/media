@@ -609,6 +609,77 @@ class ProgressSliderTest {
       assertThat(player.currentPosition).isEqualTo(5_000)
     }
 
+  @Test
+  fun slider_liveStream_rendersCorrectProgress() =
+    runTest(testDispatcher) {
+      val liveItem =
+        SimpleBasePlayer.MediaItemData.Builder("LiveItem")
+          .setLiveConfiguration(MediaItem.LiveConfiguration.Builder().build())
+          .setPresentationStartTimeMs(100_000L)
+          .setWindowStartTimeMs(150_000L)
+          .setElapsedRealtimeEpochOffsetMs(500_000L)
+          .setDurationUs(50_000_000L)
+          .setIsSeekable(true)
+          .build()
+      val player = FakePlayer(playlist = listOf(liveItem))
+      player.setPosition(10_000)
+
+      composeTestRule.setContent {
+        ProgressSlider(player = player, modifier = Modifier.testTag(SLIDER_TAG))
+      }
+
+      assertThatSliderValueEquals(0.2f) // 10s / 50s total
+    }
+
+  @Test
+  fun slider_liveStreamSeekable_seekingUpdatesPlayerPosition() =
+    runTest(testDispatcher) {
+      val liveItem =
+        SimpleBasePlayer.MediaItemData.Builder("LiveItem")
+          .setLiveConfiguration(MediaItem.LiveConfiguration.Builder().build())
+          .setPresentationStartTimeMs(100_000L)
+          .setWindowStartTimeMs(150_000L)
+          .setElapsedRealtimeEpochOffsetMs(500_000L)
+          .setDurationUs(50_000_000L)
+          .setIsSeekable(true)
+          .build()
+      val player = FakePlayer(playlist = listOf(liveItem))
+      player.setPosition(10_000)
+
+      composeTestRule.setContent {
+        ProgressSlider(player = player, modifier = Modifier.testTag(SLIDER_TAG))
+      }
+
+      composeTestRule.onNodeWithTag(SLIDER_TAG).performTouchInput {
+        down(center)
+        up()
+      }
+      testScheduler.runCurrent()
+
+      assertThat(player.currentPosition).isEqualTo(25_000)
+    }
+
+  @Test
+  fun slider_liveStreamNonSeekable_sliderDisabled() =
+    runTest(testDispatcher) {
+      val nonSeekableLiveItem =
+        SimpleBasePlayer.MediaItemData.Builder("NonSeekableLiveItem")
+          .setLiveConfiguration(MediaItem.LiveConfiguration.Builder().build())
+          .setPresentationStartTimeMs(100_000L)
+          .setWindowStartTimeMs(150_000L)
+          .setElapsedRealtimeEpochOffsetMs(500_000L)
+          .setDurationUs(50_000_000L)
+          .setIsSeekable(false)
+          .build()
+      val player = FakePlayer(playlist = listOf(nonSeekableLiveItem))
+
+      composeTestRule.setContent {
+        ProgressSlider(player = player, modifier = Modifier.testTag(SLIDER_TAG))
+      }
+
+      composeTestRule.onNodeWithTag(SLIDER_TAG).assertIsNotEnabled()
+    }
+
   private fun assertThatSliderValueEquals(value: Float) {
     composeTestRule
       .onNodeWithTag(SLIDER_TAG)

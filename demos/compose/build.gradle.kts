@@ -52,6 +52,8 @@ dependencies {
 
   implementation(project(":lib-cast"))
   implementation(project(":lib-exoplayer"))
+  implementation(project(":lib-exoplayer-dash"))
+  implementation(project(":lib-exoplayer-hls"))
   implementation(project(":lib-effect"))
   implementation(project(":lib-inspector"))
   implementation(project(":lib-inspector-frame"))

@@ -122,4 +122,6 @@
   <string name="media3_error_video_frame_processing_failed">Failed to process a video frame.</string>
   <!-- Accessibility description for a subtitle image cue. [CHAR LIMIT=NONE] -->
   <string name="subtitle_bitmap_cue">Subtitle bitmap cue</string>
+  <!-- Text label on a media control button indicating live stream playback status and allowing the user to jump to the live edge. [CHAR LIMIT=20] -->
+  <string name="live_button_text">• LIVE</string>
 </resources>

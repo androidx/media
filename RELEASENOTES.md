@@ -311,6 +311,11 @@
         `Modifier.resizeWithContentScale` to position the scaled content within
         its container, and clip the content of `ContentFrame` to its bounds, so
         that video scaled with `ContentScale.Crop` no longer draws outside it.
+    *   Add live stream UI support to `ProgressSlider`,
+        `ProgressStateWithTickCount` and `ProgressStateWithTickInterval` by
+        exposing `isLive` and `liveOffsetMs`. Add `LiveButton` Composable to
+        `media3-ui-compose-material3`
+        ([#2213](https://github.com/google/ExoPlayer/issues/2213)).
 *   Downloads:
 *   Ktor extension:
     *   Fix an issue where `KtorDataSource` could treat mid-stream connection

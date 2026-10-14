@@ -22,6 +22,7 @@ import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.util.Util
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
@@ -38,17 +39,53 @@ internal class ProgressStateJob(
 ) {
   private var updateJob: Job? = null
   private var isObserving = false
+  private val liveProgressCalculator = LiveProgressCalculator()
+  private val timelineWindow = Timeline.Window()
 
   private val playerStateObserver =
     player.observeState(
       Player.EVENT_IS_PLAYING_CHANGED,
       Player.EVENT_POSITION_DISCONTINUITY,
+      Player.EVENT_MEDIA_ITEM_TRANSITION,
       Player.EVENT_TIMELINE_CHANGED,
       Player.EVENT_PLAYBACK_PARAMETERS_CHANGED,
       Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
-    ) {
-      cancelPendingUpdatesAndMaybeRelaunch()
+      initialStateUpdater = {
+        liveProgressCalculator.reset()
+        cancelPendingUpdatesAndMaybeRelaunch()
+      },
+      stateUpdater = ::updateEvents,
+    )
+
+  /**
+   * Returns the current position in milliseconds of a live stream, smoothed if the [window] start
+   * time is known. Must only be called while playing a live stream.
+   */
+  internal fun getSmoothedLivePositionMs(window: Timeline.Window?, durationMs: Long): Long =
+    smoothLivePosition(getCurrentPositionMsOrDefault(player), window, durationMs)
+
+  /**
+   * Returns the buffered position in milliseconds of a live stream, smoothed if the [window] start
+   * time is known. Must only be called while playing a live stream.
+   */
+  internal fun getSmoothedLiveBufferedPositionMs(window: Timeline.Window?, durationMs: Long): Long =
+    smoothLivePosition(getBufferedPositionMsOrDefault(player), window, durationMs)
+
+  private fun smoothLivePosition(
+    rawPositionMs: Long,
+    window: Timeline.Window?,
+    durationMs: Long,
+  ): Long {
+    if (window == null || window.windowStartTimeMs == C.TIME_UNSET || durationMs <= 0) {
+      return rawPositionMs
     }
+    return liveProgressCalculator.calculateAvailableWindowPosition(
+      currentPositionMs = rawPositionMs,
+      windowStartTimeMs = window.windowStartTimeMs,
+      durationMs = durationMs,
+      presentationStartTimeMs = window.presentationStartTimeMs,
+    )
+  }
 
   /**
    * Subscribes to updates from [Player.Events] to track changes of progress-related information in
@@ -62,6 +99,30 @@ internal class ProgressStateJob(
       isObserving = false
       updateJob?.cancel()
     }
+  }
+
+  private fun updateEvents(player: Player, events: Player.Events) {
+    if (
+      events.containsAny(Player.EVENT_POSITION_DISCONTINUITY, Player.EVENT_MEDIA_ITEM_TRANSITION)
+    ) {
+      // Seeks, discontinuities (including ad transitions) and media item transitions move the
+      // position independently of the live window, so the smoothing has to start again from the new
+      // raw position.
+      liveProgressCalculator.reset()
+    } else if (events.contains(Player.EVENT_TIMELINE_CHANGED)) {
+      val window = getWindowOrNull(player, timelineWindow)
+      if (window == null || !window.isLive()) {
+        liveProgressCalculator.reset()
+      } else {
+        // Timeline updates refresh the live window without moving the playback position, so keep
+        // the smoothing and only let the calculator update its sliding window detection.
+        liveProgressCalculator.onTimelineChanged(
+          windowStartTimeMs = window.windowStartTimeMs,
+          windowDurationMs = window.durationMs,
+        )
+      }
+    }
+    cancelPendingUpdatesAndMaybeRelaunch()
   }
 
   /**
@@ -157,6 +218,43 @@ internal fun getOriginalDurationMsOrDefault(
     }
   }
   return player.duration
+}
+
+/**
+ * Returns the configured target live offset of the [window], or otherwise the offset of its default
+ * position, or [C.TIME_UNSET] if neither is known.
+ *
+ * The default position offset is measured from the current time if the window start time is known
+ * (consistent with [Player.getCurrentLiveOffset]), or from the end of the window otherwise.
+ */
+internal fun getTargetLiveOffsetMsOrDefault(window: Timeline.Window?): Long {
+  if (window == null) return C.TIME_UNSET
+  val configTarget = window.liveConfiguration?.targetOffsetMs ?: C.TIME_UNSET
+  if (configTarget != C.TIME_UNSET) return configTarget
+  if (window.defaultPositionUs <= 0) return C.TIME_UNSET
+  if (window.windowStartTimeMs != C.TIME_UNSET) {
+    return window.currentUnixTimeMs - window.windowStartTimeMs - window.defaultPositionMs
+  }
+  if (window.durationUs != C.TIME_UNSET && window.defaultPositionUs <= window.durationUs) {
+    return Util.usToMs(window.durationUs - window.defaultPositionUs)
+  }
+  return C.TIME_UNSET
+}
+
+internal fun getWindowOrNull(
+  player: Player,
+  window: Timeline.Window = Timeline.Window(),
+): Timeline.Window? {
+  return if (player.isCommandAvailable(Player.COMMAND_GET_TIMELINE)) {
+    val timeline = player.currentTimeline
+    if (!timeline.isEmpty) {
+      timeline.getWindow(player.currentMediaItemIndex, window)
+    } else {
+      null
+    }
+  } else {
+    null
+  }
 }
 
 internal fun isReadyOrBuffering(player: Player): Boolean =

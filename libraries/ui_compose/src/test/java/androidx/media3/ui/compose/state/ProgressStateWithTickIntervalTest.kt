@@ -16,6 +16,7 @@
 
 package androidx.media3.ui.compose.state
 
+import android.os.SystemClock
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
@@ -24,8 +25,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.media3.common.C
+import androidx.media3.common.ForwardingPlayer
+import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.Player.COMMAND_GET_CURRENT_MEDIA_ITEM
+import androidx.media3.common.Player.COMMAND_SEEK_TO_DEFAULT_POSITION
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
 import androidx.media3.test.utils.FakePlayer
 import androidx.media3.ui.compose.testutils.advancePrecisely
@@ -460,4 +464,390 @@ class ProgressStateWithTickIntervalTest {
     assertThat(player.currentPosition).isAtLeast(2000)
     assertThat(state.currentPositionMs).isEqualTo(1000)
   }
+
+  @Test
+  fun playerReady_withLiveStream_exposesLiveState() = runComposeUiTest {
+    val liveItem =
+      MediaItemData.Builder("LiveItem")
+        .setLiveConfiguration(MediaItem.LiveConfiguration.Builder().build())
+        .setPresentationStartTimeMs(1000L)
+        .setWindowStartTimeMs(1000L)
+        .setElapsedRealtimeEpochOffsetMs(0L)
+        .build()
+
+    val player =
+      FakePlayer(
+        playbackState = Player.STATE_READY,
+        playWhenReady = true,
+        playlist = listOf(liveItem),
+      )
+
+    lateinit var state: ProgressStateWithTickInterval
+    setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
+
+    assertThat(state.isLive).isTrue()
+    assertThat(state.liveOffsetMs).isNotEqualTo(C.TIME_UNSET)
+  }
+
+  @Test
+  fun seekToDefaultPosition_invokesPlayerSeekToDefaultPosition() = runComposeUiTest {
+    val player =
+      FakePlayer(
+        playbackState = Player.STATE_READY,
+        playWhenReady = false,
+        playlist = listOf(MediaItemData.Builder("SingleItem").setDurationUs(10_000_000L).build()),
+      )
+    player.setPosition(5_000)
+    lateinit var state: ProgressStateWithTickInterval
+    setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
+
+    assertThat(state.seekToDefaultPositionEnabled).isTrue()
+    state.seekToDefaultPosition()
+
+    assertThat(player.currentPosition).isEqualTo(0)
+  }
+
+  @Test
+  fun seekToDefaultPosition_commandNotAvailable_doesNotSeek() = runComposeUiTest {
+    val player =
+      FakePlayer(
+        playbackState = Player.STATE_READY,
+        playWhenReady = false,
+        playlist = listOf(MediaItemData.Builder("SingleItem").setDurationUs(10_000_000L).build()),
+      )
+    player.setPosition(5_000)
+    player.removeCommands(COMMAND_SEEK_TO_DEFAULT_POSITION)
+    lateinit var state: ProgressStateWithTickInterval
+    setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
+
+    assertThat(state.seekToDefaultPositionEnabled).isFalse()
+    state.seekToDefaultPosition()
+
+    assertThat(player.currentPosition).isEqualTo(5_000)
+  }
+
+  @Test
+  fun availableCommandsChanged_togglesSeekToDefaultPositionEnabled() = runComposeUiTest {
+    val player = createReadyPlayerWithSingleItem()
+    lateinit var state: ProgressStateWithTickInterval
+    setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
+
+    assertThat(state.seekToDefaultPositionEnabled).isTrue()
+
+    player.removeCommands(COMMAND_SEEK_TO_DEFAULT_POSITION)
+    waitForIdle()
+
+    assertThat(state.seekToDefaultPositionEnabled).isFalse()
+
+    player.addCommands(COMMAND_SEEK_TO_DEFAULT_POSITION)
+    waitForIdle()
+
+    assertThat(state.seekToDefaultPositionEnabled).isTrue()
+  }
+
+  @Test
+  fun playerSeekTo_updatesCurrentPositionMs() = runComposeUiTest {
+    val player =
+      FakePlayer(
+        playbackState = Player.STATE_READY,
+        playWhenReady = false,
+        bufferingDelayMs = 0,
+        playlist =
+          listOf(
+            MediaItemData.Builder("SingleItem")
+              .setDurationUs(10_000_000L)
+              .setIsSeekable(true)
+              .build()
+          ),
+      )
+    lateinit var state: ProgressStateWithTickInterval
+    setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
+
+    assertThat(state.currentPositionMs).isEqualTo(0L)
+
+    player.seekTo(5_000)
+    waitForIdle()
+
+    assertThat(state.currentPositionMs).isEqualTo(5_000L)
+  }
+
+  @Test
+  fun seekToDefaultPosition_updatesCurrentPositionMs() = runComposeUiTest {
+    val player =
+      FakePlayer(
+        playbackState = Player.STATE_READY,
+        playWhenReady = false,
+        bufferingDelayMs = 0,
+        playlist =
+          listOf(
+            MediaItemData.Builder("SingleItem")
+              .setDurationUs(10_000_000L)
+              .setIsSeekable(true)
+              .build()
+          ),
+      )
+    player.setPosition(5_000)
+    lateinit var state: ProgressStateWithTickInterval
+    setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
+
+    assertThat(state.currentPositionMs).isEqualTo(5_000L)
+
+    state.seekToDefaultPosition()
+    waitForIdle()
+
+    assertThat(state.currentPositionMs).isEqualTo(0L)
+  }
+
+  @Test
+  fun seekToDefaultPosition_withLiveStream_updatesLiveOffset() = runComposeUiTest {
+    val liveItem =
+      MediaItemData.Builder("LiveItem")
+        .setLiveConfiguration(MediaItem.LiveConfiguration.Builder().build())
+        .setPresentationStartTimeMs(100_000L)
+        .setWindowStartTimeMs(100_000L)
+        // The current time is the end of the window.
+        .setElapsedRealtimeEpochOffsetMs(160_000L - SystemClock.elapsedRealtime())
+        .setDefaultPositionUs(50_000_000L)
+        .setDurationUs(60_000_000L)
+        .setIsSeekable(true)
+        .build()
+    val player =
+      FakePlayer(
+        playbackState = Player.STATE_READY,
+        playWhenReady = false,
+        bufferingDelayMs = 0,
+        playlist = listOf(liveItem),
+      )
+    player.setPosition(15_000)
+    lateinit var state: ProgressStateWithTickInterval
+    setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
+
+    assertThat(state.targetLiveOffsetMs).isWithin(100L).of(10_000L)
+    val initialLiveOffsetMs = state.liveOffsetMs
+    assertThat(state.isLive).isTrue()
+    assertThat(state.currentPositionMs).isEqualTo(15_000L)
+
+    state.seekToDefaultPosition()
+    waitForIdle()
+
+    assertThat(state.currentPositionMs).isEqualTo(50_000L)
+    assertThat(state.liveOffsetMs).isWithin(100L).of(initialLiveOffsetMs - 35_000L)
+    assertThat(state.liveOffsetMs).isWithin(100L).of(state.targetLiveOffsetMs)
+  }
+
+  @Test
+  fun liveStreamWithoutWindowStartTime_targetLiveOffsetFromWindowEnd() = runComposeUiTest {
+    val liveItem =
+      MediaItemData.Builder("LiveItemWithoutWindowStartTime")
+        .setLiveConfiguration(MediaItem.LiveConfiguration.Builder().build())
+        .setDefaultPositionUs(45_000_000L)
+        .setDurationUs(50_000_000L)
+        .build()
+    val player =
+      FakePlayer(
+        playbackState = Player.STATE_READY,
+        playWhenReady = false,
+        playlist = listOf(liveItem),
+      )
+    lateinit var state: ProgressStateWithTickInterval
+    setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
+
+    assertThat(state.liveOffsetMs).isEqualTo(C.TIME_UNSET)
+    assertThat(state.targetLiveOffsetMs).isEqualTo(5_000L)
+  }
+
+  @Test
+  fun playerReady_withSlidingLiveStream_exposesLiveState() = runComposeUiTest {
+    val liveItem =
+      MediaItemData.Builder("SlidingLiveItem")
+        .setLiveConfiguration(MediaItem.LiveConfiguration.Builder().build())
+        .setPresentationStartTimeMs(100_000L)
+        .setWindowStartTimeMs(150_000L)
+        .setElapsedRealtimeEpochOffsetMs(500_000L)
+        .setDurationUs(60_000_000L)
+        .setIsSeekable(true)
+        .build()
+
+    val player =
+      FakePlayer(
+        playbackState = Player.STATE_READY,
+        playWhenReady = false,
+        playlist = listOf(liveItem),
+      )
+    player.setPosition(15_000)
+
+    lateinit var state: ProgressStateWithTickInterval
+    setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
+
+    assertThat(state.isLive).isTrue()
+    assertThat(state.currentPositionMs).isEqualTo(15_000L)
+    assertThat(state.liveOffsetMs).isNotEqualTo(C.TIME_UNSET)
+  }
+
+  @Test
+  fun seekToDefaultPosition_withSlidingLiveStream_updatesLiveOffset() = runComposeUiTest {
+    val liveItem =
+      MediaItemData.Builder("SlidingLiveItem")
+        .setLiveConfiguration(MediaItem.LiveConfiguration.Builder().build())
+        .setPresentationStartTimeMs(100_000L)
+        .setWindowStartTimeMs(150_000L)
+        .setElapsedRealtimeEpochOffsetMs(500_000L)
+        .setDefaultPositionUs(50_000_000L)
+        .setDurationUs(60_000_000L)
+        .setIsSeekable(true)
+        .build()
+    val player =
+      FakePlayer(
+        playbackState = Player.STATE_READY,
+        playWhenReady = false,
+        bufferingDelayMs = 0,
+        playlist = listOf(liveItem),
+      )
+    player.setPosition(15_000)
+    lateinit var state: ProgressStateWithTickInterval
+    setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
+
+    val initialLiveOffsetMs = state.liveOffsetMs
+    assertThat(state.isLive).isTrue()
+    assertThat(state.currentPositionMs).isEqualTo(15_000L)
+
+    state.seekToDefaultPosition()
+    waitForIdle()
+
+    assertThat(state.currentPositionMs).isEqualTo(50_000L)
+    assertThat(state.liveOffsetMs).isWithin(100L).of(initialLiveOffsetMs - 35_000L)
+  }
+
+  @Test
+  fun slidingLiveStream_playing_keepsPositionRelativeToSlidingWindow() = runComposeUiTest {
+    val liveItem =
+      MediaItemData.Builder("SlidingLiveItem")
+        .setLiveConfiguration(MediaItem.LiveConfiguration.Builder().build())
+        .setPresentationStartTimeMs(100_000L)
+        .setWindowStartTimeMs(150_000L)
+        .setElapsedRealtimeEpochOffsetMs(500_000L)
+        .setDefaultPositionUs(50_000_000L)
+        .setDurationUs(60_000_000L)
+        .setIsSeekable(true)
+        .build()
+    val player =
+      FakePlayer(
+        playbackState = Player.STATE_READY,
+        playWhenReady = true,
+        bufferingDelayMs = 0,
+        playlist = listOf(liveItem),
+      )
+    player.setPosition(15_000)
+    player.setPositionSupplierDrivenBy(mainClock.scheduler)
+    lateinit var state: ProgressStateWithTickInterval
+    setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
+
+    assertThat(state.currentPositionMs).isEqualTo(15_000L)
+
+    mainClock.advancePrecisely(1_000)
+
+    assertThat(state.currentPositionMs).isEqualTo(15_000L)
+  }
+
+  @Test
+  fun liveStream_playingAd_reportsIsLiveFalse() = runComposeUiTest {
+    val liveItem =
+      MediaItemData.Builder("LiveItem")
+        .setLiveConfiguration(MediaItem.LiveConfiguration.Builder().build())
+        .setPresentationStartTimeMs(100_000L)
+        .setWindowStartTimeMs(150_000L)
+        .setElapsedRealtimeEpochOffsetMs(500_000L)
+        .setDurationUs(60_000_000L)
+        .setIsSeekable(true)
+        .build()
+    val basePlayer =
+      FakePlayer(
+        playbackState = Player.STATE_READY,
+        playWhenReady = false,
+        playlist = listOf(liveItem),
+      )
+    val adPlayingPlayer =
+      object : ForwardingPlayer(basePlayer) {
+        override fun isPlayingAd(): Boolean = true
+      }
+
+    lateinit var state: ProgressStateWithTickInterval
+    setContent {
+      state = rememberProgressStateWithTickInterval(adPlayingPlayer, tickIntervalMs = 1000)
+    }
+
+    assertThat(state.isLive).isFalse()
+    assertThat(state.liveOffsetMs).isEqualTo(C.TIME_UNSET)
+  }
+
+  @Test
+  fun progressUpdatingOnTheSecondMark_withNonDefaultSpeed_advancesPositionCorrectly() =
+    runComposeUiTest {
+      val player = createReadyPlayerWithSingleItem()
+      player.setPlaybackSpeed(1.5f)
+      player.setPositionSupplierDrivenBy(mainClock.scheduler)
+      lateinit var state: ProgressStateWithTickInterval
+      setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
+
+      mainClock.advancePrecisely(2000)
+
+      assertThat(player.currentPosition).isEqualTo(3000)
+      assertThat(state.currentPositionMs).isEqualTo(3000)
+    }
+
+  @Test
+  fun currentPositionMs_negativePosition_floorsToGridWithCorrectionOffset() = runComposeUiTest {
+    val player =
+      FakePlayer(
+        playbackState = Player.STATE_READY,
+        playWhenReady = false,
+        bufferingDelayMs = 0,
+        playlist =
+          listOf(
+            MediaItemData.Builder("SingleItem")
+              .setDurationUs(10_000_000L)
+              .setIsSeekable(true)
+              .build()
+          ),
+      )
+    player.setPosition(-1500)
+    lateinit var state: ProgressStateWithTickInterval
+    setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
+
+    assertThat(state.currentPositionMs).isEqualTo(-2000L)
+
+    // Within 10ms correction offset of -1000ms, rounds up to -1000ms.
+    player.seekTo(-1005)
+    waitForIdle()
+
+    assertThat(state.currentPositionMs).isEqualTo(-1000L)
+
+    // Within 10ms correction offset of 0ms, rounds up to 0ms.
+    player.seekTo(-5)
+    waitForIdle()
+
+    assertThat(state.currentPositionMs).isEqualTo(0L)
+  }
+
+  @Test
+  fun progressUpdatingOnTheSecondMark_playingFromNegativePosition_wakesUpAtNextTicks() =
+    runComposeUiTest {
+      val player = createReadyPlayerWithSingleItem()
+      player.setPosition(-1500)
+      player.setPositionSupplierDrivenBy(mainClock.scheduler)
+      lateinit var state: ProgressStateWithTickInterval
+      setContent { state = rememberProgressStateWithTickInterval(player, tickIntervalMs = 1000) }
+
+      assertThat(state.currentPositionMs).isEqualTo(-2000L)
+
+      mainClock.advancePrecisely(500)
+
+      assertThat(player.currentPosition).isEqualTo(-1000L)
+      assertThat(state.currentPositionMs).isEqualTo(-1000L)
+
+      mainClock.advancePrecisely(1000)
+
+      assertThat(player.currentPosition).isEqualTo(0L)
+      assertThat(state.currentPositionMs).isEqualTo(0L)
+    }
 }
