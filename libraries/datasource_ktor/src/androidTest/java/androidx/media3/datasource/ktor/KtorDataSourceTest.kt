@@ -16,7 +16,9 @@
 package androidx.media3.datasource.ktor
 
 import android.os.SystemClock
+import androidx.media3.common.PlaybackException
 import androidx.media3.datasource.DataSource
+import androidx.media3.datasource.DataSourceUtil
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.TransferListener
@@ -31,13 +33,20 @@ import io.ktor.client.engine.HttpClientEngineFactory
 import io.ktor.client.engine.android.Android
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.api.createClientPlugin
 import io.ktor.client.plugins.cookies.HttpCookies
+import io.ktor.client.statement.HttpResponse
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.job
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Assert.assertThrows
+import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -379,6 +388,82 @@ class KtorDataSourceTest(
     val readDurationMs = SystemClock.elapsedRealtime() - startTimeMs
     assertThat(bytesRead).isEqualTo(10)
     assertThat(readDurationMs).isGreaterThan(bodyDelayMs)
+  }
+
+  @Test
+  fun read_connectionClosedBeforeContentLengthReached_throwsHttpDataSourceException() {
+    // TODO(b/573171684): Enable for OkHttp once Ktor is upgraded to 3.5.0+. Before KTOR-9546, Ktor
+    // may drop the connection error when copying the OkHttp engine's response body into the channel
+    // returned by bodyAsChannel(), so it can't be detected by KtorDataSource.
+    assumeTrue(httpClientEngineFactory != OkHttp)
+    mockWebServer.enqueue(
+      MockResponse()
+        .setBody("a".repeat(100))
+        .setHeader(HttpHeaders.CONTENT_LENGTH, 200)
+        .setSocketPolicy(SocketPolicy.DISCONNECT_AT_END)
+    )
+    var response: HttpResponse? = null
+    httpClient =
+      HttpClient(httpClientEngineFactory) {
+        configureTimeout()
+        install(createClientPlugin("CaptureResponse") { onResponse { response = it } })
+      }
+    dataSource = KtorDataSource.Factory(httpClient).createDataSource()
+
+    assertThat(
+        dataSource.open(
+          DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build()
+        )
+      )
+      .isEqualTo(200)
+    // Wait until Ktor has finished receiving the response body, so that the connection failure has
+    // already been recorded by the time the body is read.
+    runBlocking { withTimeout(5_000) { checkNotNull(response).coroutineContext.job.join() } }
+
+    assertThrows(HttpDataSource.HttpDataSourceException::class.java) {
+      DataSourceUtil.readToEnd(dataSource)
+    }
+  }
+
+  @Test
+  fun open_connectionClosedDuringSkip_throwsNetworkConnectionFailedException() {
+    // TODO(b/573171684): Enable for OkHttp once Ktor is upgraded to 3.5.0+. Before KTOR-9546, Ktor
+    // may drop the connection error when copying the OkHttp engine's response body into the channel
+    // returned by bodyAsChannel(), so it can't be detected by KtorDataSource.
+    assumeTrue(httpClientEngineFactory != OkHttp)
+    mockWebServer.enqueue(
+      MockResponse()
+        .setBody("a".repeat(100))
+        .setHeader(HttpHeaders.CONTENT_LENGTH, 200)
+        .setSocketPolicy(SocketPolicy.DISCONNECT_AT_END)
+    )
+    var response: HttpResponse? = null
+    httpClient =
+      HttpClient(httpClientEngineFactory) {
+        configureTimeout()
+        install(createClientPlugin("CaptureResponse") { onResponse { response = it } })
+      }
+    dataSource =
+      KtorDataSource.Factory(
+          httpClient,
+          contentTypePredicate = {
+            // Wait until Ktor has finished receiving the response body, so that the connection
+            // failure has already been recorded by the time skipFully() reads from the channel.
+            runBlocking {
+              withTimeout(5_000) { checkNotNull(response).coroutineContext.job.join() }
+            }
+            true
+          },
+        )
+        .createDataSource()
+    val dataSpec =
+      DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).setPosition(150).build()
+
+    val exception =
+      assertThrows(HttpDataSource.HttpDataSourceException::class.java) { dataSource.open(dataSpec) }
+
+    assertThat(exception.reason)
+      .isEqualTo(PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)
   }
 
   // TODO: b/503301819 - Remove this when the OkHttp engine works without it.

@@ -310,6 +310,11 @@
         its container, and clip the content of `ContentFrame` to its bounds, so
         that video scaled with `ContentScale.Crop` no longer draws outside it.
 *   Downloads:
+*   Ktor extension:
+    *   Fix an issue where `KtorDataSource` could treat mid-stream connection
+        failures as end-of-input instead of throwing an
+        `HttpDataSourceException`
+        ([#3460](https://github.com/androidx/media/pull/3460)).
 *   OkHttp extension:
 *   Cronet extension:
 *   RTMP extension:
