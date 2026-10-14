@@ -314,6 +314,9 @@
 *   Cronet extension:
 *   RTMP extension:
 *   HLS extension:
+    *   Parse `VIDEO-RANGE` (`PQ` and `HLG`) on `EXT-X-STREAM-INF` and
+        `EXT-X-I-FRAME-STREAM-INF` into `Format.colorInfo`
+        ([#3441](https://github.com/androidx/media/issues/3441)).
     *   Fix `NullPointerException` when parsing MPEG-TS `EXT-X-MAP`
         initialization segments that contain PES media samples
         ([#3456](https://github.com/androidx/media/issues/3456)).

@@ -26,6 +26,7 @@ import android.os.SystemClock;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.Player;
@@ -789,6 +790,49 @@ public class HlsMediaSourceTest {
                 .filter(group -> group.type == C.TRACK_TYPE_TEXT)
                 .map(group -> group.getFormat(0).language))
         .containsExactly("de", "zh");
+  }
+
+  @Test
+  public void loadMultivariantPlaylist_withVideoRange_setsColorInfoOnVideoTracks()
+      throws TimeoutException {
+    String multivariantUri = "fake://foo.bar/media0/playlist.m3u8";
+    String firstMediaPlaylistUri = "https://test.test/pq.m3u8";
+    String multivariantPlaylist =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:4\n"
+            + "#EXT-X-INDEPENDENT-SEGMENTS\n"
+            + "#EXT-X-STREAM-INF:BANDWIDTH=8000000,CODECS=\"hvc1.2.4.L153.B0\","
+            + "RESOLUTION=3840x2160,VIDEO-RANGE=PQ\n"
+            + "https://test.test/pq.m3u8\n"
+            + "#EXT-X-STREAM-INF:BANDWIDTH=6000000,CODECS=\"hvc1.2.4.L153.B0\","
+            + "RESOLUTION=3840x2160,VIDEO-RANGE=HLG\n"
+            + "https://test.test/hlg.m3u8\n"
+            + "#EXT-X-STREAM-INF:BANDWIDTH=4000000,CODECS=\"hvc1.1.4.L153.B0\","
+            + "RESOLUTION=3840x2160,VIDEO-RANGE=SDR\n"
+            + "https://test.test/sdr.m3u8\n";
+    String firstMediaPlaylist =
+        "#EXTM3U\n"
+            + "#EXT-X-PLAYLIST-TYPE:VOD\n"
+            + "#EXT-X-VERSION:4\n"
+            + "#EXT-X-TARGETDURATION:10\n"
+            + "#EXTINF:10.0,\n"
+            + "segment.mp4\n"
+            + "#EXT-X-ENDLIST";
+    HlsMediaSource mediaSource =
+        createHlsMediaSourceFactory(
+                multivariantUri, multivariantPlaylist, firstMediaPlaylistUri, firstMediaPlaylist)
+            .createMediaSource(MediaItem.fromUri(multivariantUri));
+
+    TrackGroupArray trackGroupArray = prepareAndWaitForTracks(mediaSource);
+
+    TrackGroup videoGroup = trackGroupArray.get(0);
+    assertThat(videoGroup.type).isEqualTo(C.TRACK_TYPE_VIDEO);
+    assertThat(videoGroup.length).isEqualTo(3);
+    assertThat(videoGroup.getFormat(0).colorInfo)
+        .isEqualTo(new ColorInfo.Builder().setColorTransfer(C.COLOR_TRANSFER_ST2084).build());
+    assertThat(videoGroup.getFormat(1).colorInfo)
+        .isEqualTo(new ColorInfo.Builder().setColorTransfer(C.COLOR_TRANSFER_HLG).build());
+    assertThat(videoGroup.getFormat(2).colorInfo).isNull();
   }
 
   @Test
