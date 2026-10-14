@@ -70,7 +70,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.max
 import androidx.compose.ui.unit.min
 import androidx.media3.cast.MediaRouteButton
 import androidx.media3.cast.rememberMediaRouteButtonState
@@ -389,15 +388,12 @@ private fun PlaylistButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
 }
 
 /**
- * Returns the height of the player: the top third of the screen, or more if needed to fit a
- * landscape video to the width of the screen, while leaving at least a quarter of the screen for
- * the content below the player, which scrolls if it doesn't fit.
+ * Returns the height of the player: the height of the video at the full width of the screen, so
+ * that there are no bars above and below the video, but at most three quarters of the screen, to
+ * leave room for the content below. Uses 16:9 while there's no video.
  */
-private fun playerHeight(screenWidth: Dp, screenHeight: Dp, videoAspectRatio: Float?): Dp {
-  val videoHeightAtFullWidth =
-    if (videoAspectRatio != null && videoAspectRatio > 1f) screenWidth / videoAspectRatio else 0.dp
-  return min(max(screenHeight / 3, videoHeightAtFullWidth), screenHeight * 3 / 4)
-}
+private fun playerHeight(screenWidth: Dp, screenHeight: Dp, videoAspectRatio: Float?): Dp =
+  min(screenWidth / (videoAspectRatio ?: (16f / 9)), screenHeight * 3 / 4)
 
 /** Returns a [Painter] that draws [painter] tinted with [tint]. */
 @Composable
