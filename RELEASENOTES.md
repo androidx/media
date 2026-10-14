@@ -3,6 +3,8 @@
 ### Unreleased changes
 
 *   Common Library:
+    *   Add `C.COLOR_SPACE_DISPLAY_P3` and support Display P3 color space in
+        `MediaFormatUtil` and `ColorInfo` ISO color mappings.
     *   Add a central `Flags` registry to manage experimental feature flags and
         canary mode rollout. Migrated many existing `@ExperimentalApi` methods
         to use the new flags API.

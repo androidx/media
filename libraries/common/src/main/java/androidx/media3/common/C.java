@@ -1265,13 +1265,20 @@ public final class C {
   // LINT.IfChange(color_space)
   /**
    * Video color spaces, also referred to as color standards. One of {@link Format#NO_VALUE}, {@link
-   * #COLOR_SPACE_BT601}, {@link #COLOR_SPACE_BT709} or {@link #COLOR_SPACE_BT2020}.
+   * #COLOR_SPACE_BT601}, {@link #COLOR_SPACE_BT709}, {@link #COLOR_SPACE_BT2020} or {@link
+   * #COLOR_SPACE_DISPLAY_P3}.
    */
   @UnstableApi
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
-  @IntDef({Format.NO_VALUE, COLOR_SPACE_BT601, COLOR_SPACE_BT709, COLOR_SPACE_BT2020})
+  @IntDef({
+    Format.NO_VALUE,
+    COLOR_SPACE_BT601,
+    COLOR_SPACE_BT709,
+    COLOR_SPACE_BT2020,
+    COLOR_SPACE_DISPLAY_P3
+  })
   public @interface ColorSpace {}
 
   /** See {@link MediaFormat#COLOR_STANDARD_BT601_PAL}. */
@@ -1282,6 +1289,11 @@ public final class C {
 
   /** See {@link MediaFormat#COLOR_STANDARD_BT2020}. */
   @UnstableApi public static final int COLOR_SPACE_BT2020 = MediaFormat.COLOR_STANDARD_BT2020;
+
+  /** See {@link android.hardware.DataSpace#STANDARD_DCI_P3}. The Display P3 color space. */
+  // Value sourced from ordering here:
+  // https://cs.android.com/android/platform/superproject/+/master:frameworks/native/headers/media_plugin/media/hardware/VideoAPI.h;drc=55e9bd7c487ee235631f302ab8626776547ac913;l=55.
+  @UnstableApi public static final int COLOR_SPACE_DISPLAY_P3 = 10;
 
   // LINT.ThenChange(
   //   util/MediaFormatUtil.java:color_space,

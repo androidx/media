@@ -452,15 +452,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           "Unsupported frame dimensions: %sx%s",
           inputFormat.width,
           inputFormat.height);
-      if (inputFormat.colorInfo != null) {
-        int colorSpace = inputFormat.colorInfo.colorSpace;
-        checkArgument(
-            colorSpace == Format.NO_VALUE
-                || colorSpace == C.COLOR_SPACE_BT601
-                || colorSpace == C.COLOR_SPACE_BT709,
-            "Unsupported color space: %s",
-            colorSpace);
-      }
+      checkArgument(
+          !ColorInfo.isWideColorGamut(inputFormat.colorInfo),
+          "Unsupported color space: %s",
+          inputFormat.colorInfo);
       validatePlanes(frame.getPlanes(), inputFormat.width, inputFormat.height);
     }
 

@@ -38,6 +38,7 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.util.Pair;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
@@ -155,6 +156,36 @@ public class Mp4MuxerEndToEndTest {
     try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
       assertThrows(MuxerException.class, () -> muxer.addTrack(dolbyVisionProfile20Format));
     }
+  }
+
+  @Test
+  public void writeMp4File_withDisplayP3ColorInfo_extractsExpectedColorInfo() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    ColorInfo displayP3ColorInfo =
+        new ColorInfo.Builder()
+            .setColorSpace(C.COLOR_SPACE_DISPLAY_P3)
+            .setColorTransfer(C.COLOR_TRANSFER_SRGB)
+            .setColorRange(C.COLOR_RANGE_FULL)
+            .build();
+    Format displayP3Format = FAKE_VIDEO_FORMAT.buildUpon().setColorInfo(displayP3ColorInfo).build();
+    Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L, /* isVideo= */ true);
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      int trackId = muxer.addTrack(displayP3Format);
+      muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), outputFilePath);
+    Format extractedFormat = fakeExtractorOutput.trackOutputs.valueAt(0).lastFormat;
+
+    assertThat(extractedFormat).isNotNull();
+    assertThat(extractedFormat.colorInfo).isNotNull();
+    assertThat(extractedFormat.colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_DISPLAY_P3);
+    assertThat(extractedFormat.colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_SRGB);
+    assertThat(extractedFormat.colorInfo.colorRange).isEqualTo(C.COLOR_RANGE_FULL);
   }
 
   @Test

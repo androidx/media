@@ -562,6 +562,7 @@ public final class MediaFormatUtil {
     return colorSpace == C.COLOR_SPACE_BT601
         || colorSpace == C.COLOR_SPACE_BT709
         || colorSpace == C.COLOR_SPACE_BT2020
+        || colorSpace == C.COLOR_SPACE_DISPLAY_P3
         || colorSpace == Format.NO_VALUE;
     // LINT.ThenChange(../C.java:color_space)
   }

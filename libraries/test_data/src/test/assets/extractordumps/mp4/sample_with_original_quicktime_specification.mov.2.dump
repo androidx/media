@@ -26,6 +26,7 @@ track 0:
     rotationDegrees = 90
     maxSubLayers = 1
     colorInfo:
+      colorSpace = 10
       colorRange = 1
       colorTransfer = 3
       lumaBitdepth = 8

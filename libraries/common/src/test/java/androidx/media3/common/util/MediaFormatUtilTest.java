@@ -164,6 +164,22 @@ public class MediaFormatUtilTest {
   }
 
   @Test
+  public void createFormatFromMediaFormat_withDisplayP3ColorStandard_generatesExpectedColorInfo() {
+    MediaFormat mediaFormat = new MediaFormat();
+    mediaFormat.setString(MediaFormat.KEY_MIME, MimeTypes.VIDEO_H265);
+    mediaFormat.setInteger(MediaFormat.KEY_COLOR_STANDARD, C.COLOR_SPACE_DISPLAY_P3);
+    mediaFormat.setInteger(MediaFormat.KEY_COLOR_TRANSFER, C.COLOR_TRANSFER_SRGB);
+    mediaFormat.setInteger(MediaFormat.KEY_COLOR_RANGE, C.COLOR_RANGE_FULL);
+
+    Format format = MediaFormatUtil.createFormatFromMediaFormat(mediaFormat);
+
+    assertThat(format.colorInfo).isNotNull();
+    assertThat(format.colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_DISPLAY_P3);
+    assertThat(format.colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_SRGB);
+    assertThat(format.colorInfo.colorRange).isEqualTo(C.COLOR_RANGE_FULL);
+  }
+
+  @Test
   public void createMediaFormatFromFormat_withEmptyFormat_generatesExpectedEntries() {
     MediaFormat mediaFormat =
         MediaFormatUtil.createMediaFormatFromFormat(new Format.Builder().build());

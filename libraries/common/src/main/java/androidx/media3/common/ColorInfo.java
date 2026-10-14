@@ -70,7 +70,8 @@ public final class ColorInfo {
      * Sets the color space.
      *
      * <p>Valid values are {@link C#COLOR_SPACE_BT601}, {@link C#COLOR_SPACE_BT709}, {@link
-     * C#COLOR_SPACE_BT2020} or {@link Format#NO_VALUE} if unknown.
+     * C#COLOR_SPACE_BT2020}, {@link C#COLOR_SPACE_DISPLAY_P3} or {@link Format#NO_VALUE} if
+     * unknown.
      *
      * @param colorSpace The color space. The default value is {@link Format#NO_VALUE}.
      * @return This {@code Builder}.
@@ -218,6 +219,8 @@ public final class ColorInfo {
         return C.COLOR_SPACE_BT601;
       case 9:
         return C.COLOR_SPACE_BT2020;
+      case 12: // SMPTE EG 432-1 (Display P3).
+        return C.COLOR_SPACE_DISPLAY_P3;
       default:
         // Remaining color primaries are either reserved or unspecified.
         return Format.NO_VALUE;
@@ -239,6 +242,9 @@ public final class ColorInfo {
         return 5;
       case C.COLOR_SPACE_BT2020:
         return 9;
+      // Android's Stagefright ColorUtils maps kColorStandardDisplay_P3 (10) to kPrimariesP3 (12).
+      case C.COLOR_SPACE_DISPLAY_P3:
+        return 12;
     }
     return 1;
   }
@@ -255,6 +261,8 @@ public final class ColorInfo {
       case C.COLOR_SPACE_BT709:
         return 1;
       case C.COLOR_SPACE_BT601:
+      // Android's Stagefright ColorUtils maps kColorStandardDisplay_P3 (10) to kMatrixBT601_6 (6).
+      case C.COLOR_SPACE_DISPLAY_P3:
         return 6;
       case C.COLOR_SPACE_BT2020:
         return 9;
@@ -489,6 +497,8 @@ public final class ColorInfo {
         return "BT709";
       case C.COLOR_SPACE_BT2020:
         return "BT2020";
+      case C.COLOR_SPACE_DISPLAY_P3:
+        return "Display P3";
       default:
         return "Undefined color space " + colorSpace;
     }
