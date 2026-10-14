@@ -36,7 +36,6 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,11 +54,10 @@ import androidx.media3.demo.compose.layout.rememberTintedPainter
 import androidx.media3.ui.compose.Artwork
 import androidx.media3.ui.compose.state.PlaylistState
 import androidx.media3.ui.compose.state.rememberPlaylistState
-import kotlinx.coroutines.launch
 
 /**
  * A non-modal [BottomSheet] listing the items of the [player]'s playlist, which is shown and hidden
- * through [sheetState]. Clicking an item seeks to it and hides the sheet.
+ * through [sheetState]. Clicking an item seeks to it and keeps the sheet open.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,7 +68,6 @@ internal fun PlaylistInfoBottomSheet(
   bitmapLoader: BitmapLoader? = null,
 ) {
   val playlistState = rememberPlaylistState(player)
-  val scope = rememberCoroutineScope()
   BottomSheet(modifier = modifier, state = sheetState) {
     PlaylistHeader(playlistState)
     LazyColumn {
@@ -78,10 +75,7 @@ internal fun PlaylistInfoBottomSheet(
         PlaylistItem(
           metadata = playlistState.getMediaItemAt(index).mediaMetadata,
           isCurrent = index == playlistState.currentMediaItemIndex,
-          onClick = {
-            playlistState.seekToMediaItem(index)
-            scope.launch { sheetState.hide() }
-          },
+          onClick = { playlistState.seekToMediaItem(index) },
           bitmapLoader = bitmapLoader,
         )
       }
