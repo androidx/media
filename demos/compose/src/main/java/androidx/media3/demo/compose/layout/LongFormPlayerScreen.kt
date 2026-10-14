@@ -331,12 +331,8 @@ internal fun LongFormPlayerScreen(
         SeekOverlay(
           state = seekOverlayState,
           modifier =
-            Modifier.align(
-                if (seekOverlayState.seekAmountMs < 0) Alignment.CenterStart
-                else Alignment.CenterEnd
-              )
-              .windowInsetsPadding(controlsInsets.only(WindowInsetsSides.Horizontal))
-              .padding(horizontal = 20.dp),
+            Modifier.matchParentSize()
+              .windowInsetsPadding(controlsInsets.only(WindowInsetsSides.Horizontal)),
         )
         if (showFastForward) {
           FastForwardOverlay(

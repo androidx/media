@@ -17,4 +17,9 @@
   <string name="app_name">Media3 Compose Demo</string>
   <!-- Accessibility description for a playback speed selection button. The button is shown with the current playback speed. If a user clicks it, the list of possible playback speeds will be shown. [CHAR_LIMIT=NONE] -->
   <string name="playback_speed">Speed</string>
+  <!-- Shown when the user double taps the player to seek, with the number of seconds skipped forward or back. [CHAR_LIMIT=NONE] -->
+  <plurals name="seek_overlay_seconds">
+    <item quantity="one">%d second</item>
+    <item quantity="other">%d seconds</item>
+  </plurals>
 </resources>
