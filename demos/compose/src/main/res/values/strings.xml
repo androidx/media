@@ -22,4 +22,14 @@
     <item quantity="one">%d second</item>
     <item quantity="other">%d seconds</item>
   </plurals>
+  <!-- Text shown at the top of the video while and shortly after the user zooms it with a pinch gesture, indicating that the video is shown at its original size, i.e. not zoomed in. [CHAR_LIMIT=20] -->
+  <string name="zoom_original">Original</string>
+  <!-- Text shown at the top of the video while and shortly after the user zooms it with a pinch gesture, indicating that the video is zoomed in just enough to fill the whole player, cropping some of its edges. [CHAR_LIMIT=30] -->
+  <string name="zoom_fill">Zoomed to fill</string>
+  <!-- Text shown at the top of the video while and shortly after the user zooms it with a pinch gesture, indicating how much the video is zoomed in, for example 2.5x. -->
+  <string name="zoom_level" translatable="false">%.1fx</string>
+  <!-- Accessibility action that zooms in the video just enough to fill the whole player, cropping some of its edges. "Zoom" is a verb. [CHAR_LIMIT=NONE] -->
+  <string name="zoom_to_fill">Zoom to fill</string>
+  <!-- Accessibility action that zooms the video back out to its original size. "Reset" is a verb. [CHAR_LIMIT=NONE] -->
+  <string name="reset_zoom">Reset zoom</string>
 </resources>

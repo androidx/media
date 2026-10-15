@@ -89,6 +89,7 @@ import androidx.media3.demo.compose.text.FastForwardOverlay
 import androidx.media3.demo.compose.text.PlaylistInfoBottomSheet
 import androidx.media3.demo.compose.text.SeekOverlay
 import androidx.media3.demo.compose.text.SeekOverlayState
+import androidx.media3.demo.compose.text.ZoomOverlay
 import androidx.media3.demo.compose.text.rememberCastState
 import androidx.media3.demo.compose.viewmodel.PlayerLifecycleViewModel
 import androidx.media3.demo.compose.viewmodel.rememberPlayerWithLifecycle
@@ -190,6 +191,8 @@ internal fun LongFormPlayerScreen(
 
   val playbackSpeedState = rememberPlaybackSpeedState(player)
   val presentationState = rememberPresentationState(player)
+  val zoomState =
+    rememberZoomState(presentationState, CONTENT_SCALES[currentContentScaleIndex].second, size)
   val context = LocalContext.current
   val bitmapLoader = remember(context) { DataSourceBitmapLoader.Builder(context).build() }
 
@@ -275,8 +278,11 @@ internal fun LongFormPlayerScreen(
                   }
                   playPauseButtonState.onClick()
                 },
+                zoomState = zoomState,
+                onZoomStart = { showControls = false },
               ),
-          contentScale = CONTENT_SCALES[currentContentScaleIndex].second,
+          contentScale = zoomState.contentScale,
+          alignment = zoomState.alignment,
           shutter = {
             Box(Modifier.fillMaxSize().background(Color.Black))
             CastingOverlay(castState, Modifier.fillMaxSize())
@@ -337,6 +343,10 @@ internal fun LongFormPlayerScreen(
           modifier =
             Modifier.matchParentSize()
               .windowInsetsPadding(controlsInsets.only(WindowInsetsSides.Horizontal)),
+        )
+        ZoomOverlay(
+          state = zoomState,
+          modifier = Modifier.align(Alignment.TopCenter).padding(top = 24.dp),
         )
         if (showFastForward) {
           FastForwardOverlay(
