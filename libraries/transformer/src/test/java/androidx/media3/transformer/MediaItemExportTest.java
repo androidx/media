@@ -35,6 +35,7 @@ import static androidx.media3.transformer.TestUtil.FILE_AUDIO_AMR_WB;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_ELST_SKIP_500MS;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW_AAC;
+import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW_VIDEO;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_VIDEO;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S;
 import static androidx.media3.transformer.TestUtil.FILE_UNKNOWN_DURATION;
@@ -342,6 +343,25 @@ public final class MediaItemExportTest {
           .isEqualTo(MimeTypes.AUDIO_RAW);
       assertThat(r.retrieveDurationUs().get()).isEqualTo(1_000_000);
     }
+  }
+
+  @Test
+  public void export_mp4WithMetadataToWavMuxer_completesSuccessfully() throws Exception {
+    Transformer transformer =
+        new TestTransformerBuilder(context).setMuxerFactory(new WavMuxerFactory()).build();
+    // FILE_AUDIO_RAW_VIDEO contains a raw PCM audio track along with Mp4AlternateGroupData and
+    // Mp4TimestampData metadata.
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_VIDEO))
+            .setRemoveVideo(true)
+            .build();
+    String outputFile = outputDir.newFile().getPath();
+
+    transformer.start(item, outputFile);
+    ExportResult result = TransformerTestRunner.runLooper(transformer);
+
+    assertThat(result.audioMimeType).isEqualTo(MimeTypes.AUDIO_RAW);
+    assertThat(result.exportException).isNull();
   }
 
   @Test

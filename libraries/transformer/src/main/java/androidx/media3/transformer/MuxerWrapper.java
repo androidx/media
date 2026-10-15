@@ -542,7 +542,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     if (format.metadata != null) {
       for (int i = 0; i < format.metadata.length(); i++) {
-        muxer.addMetadataEntry(format.metadata.get(i));
+        try {
+          muxer.addMetadataEntry(format.metadata.get(i));
+        } catch (UnsupportedOperationException e) {
+          Log.i(TAG, "Ignoring unsupported metadata entry: " + format.metadata.get(i), e);
+        }
       }
     }
 

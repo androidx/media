@@ -31,6 +31,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
+import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.muxer.BufferInfo;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
@@ -787,6 +788,61 @@ public class MuxerWrapperTest {
 
     muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_CANCELLED);
     muxerWrapper = null;
+  }
+
+  @Test
+  public void addTrackFormat_withMetadataAndUnsupportedMuxer_doesNotThrow() throws Exception {
+    Muxer.Factory unsupportedMetadataMuxerFactory =
+        new Muxer.Factory() {
+          @Override
+          public Muxer create(String path) {
+            return new Muxer() {
+              @Override
+              public int addTrack(Format format) {
+                return 0;
+              }
+
+              @Override
+              public void writeSampleData(
+                  int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo) {}
+
+              @Override
+              public void addMetadataEntry(Metadata.Entry metadataEntry) {
+                throw new UnsupportedOperationException();
+              }
+
+              @Override
+              public void close() {}
+            };
+          }
+
+          @Override
+          public ImmutableList<String> getSupportedSampleMimeTypes(@C.TrackType int trackType) {
+            return ImmutableList.of(AUDIO_AAC);
+          }
+        };
+    Format formatWithMetadata =
+        FAKE_AUDIO_TRACK_FORMAT
+            .buildUpon()
+            .setMetadata(
+                new Metadata(
+                    new Mp4TimestampData(
+                        /* creationTimestampSeconds= */ 100L,
+                        /* modificationTimestampSeconds= */ 200L)))
+            .build();
+    muxerWrapper =
+        new MuxerWrapper(
+            temporaryFolder.newFile().getPath(),
+            unsupportedMetadataMuxerFactory,
+            new NoOpMuxerListenerImpl(),
+            MUXER_MODE_DEFAULT,
+            /* dropSamplesBeforeFirstVideoSample= */ false,
+            /* appendVideoFormat= */ null);
+    muxerWrapper.setTrackCount(1);
+
+    muxerWrapper.addTrackFormat(formatWithMetadata);
+
+    assertThat(muxerWrapper.getTrackFormat(C.TRACK_TYPE_AUDIO)).isEqualTo(formatWithMetadata);
   }
 
   private static final class NoOpMuxerListenerImpl implements MuxerWrapper.Listener {
