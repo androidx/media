@@ -6395,7 +6395,7 @@ public final class ExoPlayerTest {
   }
 
   @Test
-  public void clearMediaItems() throws Exception {
+  public void clearMediaItems_afterReady_clearsTimelineAndTransitionsToEnded() throws Exception {
     Timeline timeline = new FakeTimeline();
     ActionSchedule actionSchedule =
         new ActionSchedule.Builder(TAG)
@@ -15627,20 +15627,6 @@ public final class ExoPlayerTest {
     // not ready. Regression test for b/420963056 where render() was delayed by a full second.
     assertThat(renderTime2Ms).isWithin(50).of(renderTime1Ms);
     assertThat(renderTime3Ms).isWithin(50).of(renderTime2Ms);
-  }
-
-  @Test
-  public void clearMediaItems_afterReady_transitionsToEnded() throws Exception {
-    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
-    player.setMediaSource(new FakeMediaSource());
-    player.prepare();
-    advance(player).untilState(Player.STATE_READY);
-
-    player.clearMediaItems();
-    @Player.State int stateAfterClearingPlaylist = player.getPlaybackState();
-    player.release();
-
-    assertThat(stateAfterClearingPlaylist).isEqualTo(Player.STATE_ENDED);
   }
 
   @Test
