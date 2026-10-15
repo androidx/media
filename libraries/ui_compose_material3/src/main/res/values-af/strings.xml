@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">Kon nie die videoraamverwerker begin nie.</string>
   <string name="media3_error_video_frame_processing_failed">Kon nie ’n videoraam verwerk nie.</string>
   <string name="subtitle_bitmap_cue">Onderskrif-bitsketsaanwysing</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

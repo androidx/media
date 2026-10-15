@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">ویڈیو فریم پروسیسر کا آغاز کرنے میں ناکامی ہوئی۔</string>
   <string name="media3_error_video_frame_processing_failed">ویڈیو فریم پر کارروائی کرنے میں ناکام۔</string>
   <string name="subtitle_bitmap_cue">سب ٹائٹل بٹ میپ کیو</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

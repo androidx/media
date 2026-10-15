@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">வீடியோ ஃபிரேம் ப்ராசஸரைத் தொடங்க முடியவில்லை.</string>
   <string name="media3_error_video_frame_processing_failed">வீடியோ ஃபிரேமைச் செயலாக்க முடியவில்லை.</string>
   <string name="subtitle_bitmap_cue">சப்டைட்டில் பிட்மேப் கியூ</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

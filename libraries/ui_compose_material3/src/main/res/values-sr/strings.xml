@@ -81,4 +81,5 @@
   <string name="media3_error_video_frame_processor_init_failed">Покретање обрађивача кадрова видеа није успело.</string>
   <string name="media3_error_video_frame_processing_failed">Обрада кадра видеа није успела.</string>
   <string name="subtitle_bitmap_cue">Сигнал бит мапе титла</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

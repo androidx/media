@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">Η προετοιμασία του επεξεργαστή καρέ βίντεο απέτυχε.</string>
   <string name="media3_error_video_frame_processing_failed">Η επεξεργασία ενός καρέ βίντεο απέτυχε.</string>
   <string name="subtitle_bitmap_cue">Σήμα χάρτη bit υπότιτλων</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

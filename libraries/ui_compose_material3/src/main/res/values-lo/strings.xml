@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">ເລີ່ມຕົ້ນຕົວປະມວນຜົນເຟຣມວິດີໂອບໍ່ສຳເລັດ.</string>
   <string name="media3_error_video_frame_processing_failed">ປະມວນຜົນເຟຣມວິດີໂອບໍ່ສຳເລັດ.</string>
   <string name="subtitle_bitmap_cue">ຄິວຮູບ bitmap ຂອງຄຳແປ</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

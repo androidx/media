@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">Инициализирането на инструмента за обработка на кадри от видеоклип не бе успешно.</string>
   <string name="media3_error_video_frame_processing_failed">Обработването на кадър от видеоклип не бе успешно.</string>
   <string name="subtitle_bitmap_cue">Сигнал за растерно изображение със субтитри</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">Het initialiseren van de videoframeverwerker is mislukt.</string>
   <string name="media3_error_video_frame_processing_failed">Kan een videoframe niet verwerken.</string>
   <string name="subtitle_bitmap_cue">Bitmap-signaal voor ondertiteling</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">የቪድዮ ፍሬም ፕሮሰሰርን ማስጀመር አልተሳካም።</string>
   <string name="media3_error_video_frame_processing_failed">የቪድዮ ፍሬም ማሰናዳት አልተሳካም።</string>
   <string name="subtitle_bitmap_cue">የግርጌ ጽሑፍ ቢትማፕ ምልክት</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

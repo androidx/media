@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">వీడియో ఫ్రేమ్ ప్రాసెసర్‌ను ఇనిషియలైజ్ చేయడం విఫలమైంది.</string>
   <string name="media3_error_video_frame_processing_failed">వీడియో ఫ్రేమ్‌ను ప్రాసెస్ చేయడం విఫలమైంది.</string>
   <string name="subtitle_bitmap_cue">సబ్‌టైటిల్ బిట్‌మ్యాప్ క్యూ</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

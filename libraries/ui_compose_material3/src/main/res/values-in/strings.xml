@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">Gagal melakukan inisialisasi pemroses frame video.</string>
   <string name="media3_error_video_frame_processing_failed">Gagal memproses frame video.</string>
   <string name="subtitle_bitmap_cue">Telop bitmap subtitel</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

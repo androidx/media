@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">មិនអាចចាប់ផ្ដើមអង្គដំណើរការហ្វ្រេមវីដេអូបានទេ។</string>
   <string name="media3_error_video_frame_processing_failed">មិនអាចដំណើរការហ្វ្រេមវីដេអូបានទេ។</string>
   <string name="subtitle_bitmap_cue">តម្រុយប៊ីតម៉ាបនៃអក្សររត់</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

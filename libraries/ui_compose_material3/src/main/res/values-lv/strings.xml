@@ -81,4 +81,5 @@
   <string name="media3_error_video_frame_processor_init_failed">Neizdevās inicializēt video kadru apstrādes programmu.</string>
   <string name="media3_error_video_frame_processing_failed">Neizdevās apstrādāt video kadru.</string>
   <string name="subtitle_bitmap_cue">Subtitru bitkartes norāde</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">เริ่มต้นตัวประมวลผลเฟรมวิดีโอไม่สำเร็จ</string>
   <string name="media3_error_video_frame_processing_failed">ประมวลผลเฟรมวิดีโอไม่สำเร็จ</string>
   <string name="subtitle_bitmap_cue">คิวบิตแมปคำบรรยาย</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

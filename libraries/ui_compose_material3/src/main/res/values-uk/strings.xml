@@ -83,4 +83,5 @@
   <string name="media3_error_video_frame_processor_init_failed">Не вдалось ініціалізувати обробник відеокадрів.</string>
   <string name="media3_error_video_frame_processing_failed">Не вдалось обробити відеокадр.</string>
   <string name="subtitle_bitmap_cue">Сигнал бітової карти субтитрів</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">Бейнекадр өңдегіші жұмысқа дайындалмады.</string>
   <string name="media3_error_video_frame_processing_failed">Бейнекадр өңделмеді.</string>
   <string name="subtitle_bitmap_cue">Субтитрдің растрлық белгісі</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

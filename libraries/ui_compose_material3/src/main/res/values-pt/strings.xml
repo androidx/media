@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">Falha ao inicializar o processador de frames de vídeo.</string>
   <string name="media3_error_video_frame_processing_failed">Falha ao processar um frame de vídeo.</string>
   <string name="subtitle_bitmap_cue">Indicador de bitmap de legenda</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

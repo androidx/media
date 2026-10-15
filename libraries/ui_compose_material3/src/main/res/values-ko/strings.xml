@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">동영상 프레임 프로세서를 초기화할 수 없습니다.</string>
   <string name="media3_error_video_frame_processing_failed">동영상 프레임을 처리할 수 없습니다.</string>
   <string name="subtitle_bitmap_cue">자막 비트맵 큐</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

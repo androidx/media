@@ -81,4 +81,5 @@
   <string name="media3_error_video_frame_processor_init_failed">האתחול של מעבד הפריים נכשל.</string>
   <string name="media3_error_video_frame_processing_failed">עיבוד הפריים נכשל.</string>
   <string name="subtitle_bitmap_cue">סימן ביטמפ של כתובית</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

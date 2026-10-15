@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">Ezin izan da hasieratu bideo-fotogramen prozesatzailea.</string>
   <string name="media3_error_video_frame_processing_failed">Ezin izan da prozesatu bideoaren fotograma bat.</string>
   <string name="subtitle_bitmap_cue">Azpititulu-elementua (bit-mapa)</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

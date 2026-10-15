@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">Imeshindwa kuanzisha kichakataji cha fremu ya video.</string>
   <string name="media3_error_video_frame_processing_failed">Imeshindwa kuchakata fremu ya video.</string>
   <string name="subtitle_bitmap_cue">Kidokezo cha bitmap ya manukuu</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

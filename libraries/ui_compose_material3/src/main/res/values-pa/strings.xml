@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">ਵੀਡੀਓ ਫ੍ਰੇਮ ਪ੍ਰੋਸੈੱਸਰ ਨੂੰ ਸ਼ੁਰੂ ਕਰਨਾ ਅਸਫਲ ਰਿਹਾ।</string>
   <string name="media3_error_video_frame_processing_failed">ਵੀਡੀਓ ਫ੍ਰੇਮ \'ਤੇ ਪ੍ਰਕਿਰਿਆ ਕਰਨਾ ਅਸਫਲ ਰਿਹਾ।</string>
   <string name="subtitle_bitmap_cue">ਉਪਸਿਰਲੇਖ ਬਿਟਮੈਪ ਕਿਊ</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">No s\'ha pogut inicialitzar el processador de fotogrames.</string>
   <string name="media3_error_video_frame_processing_failed">No s\'ha pogut processar un fotograma.</string>
   <string name="subtitle_bitmap_cue">Esdeveniment de subtítol de mapa de bits</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

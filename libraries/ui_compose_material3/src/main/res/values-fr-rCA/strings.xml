@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">Échec de l\'initialisation du processeur d\'image vidéo.</string>
   <string name="media3_error_video_frame_processing_failed">Échec du traitement d\'une image vidéo.</string>
   <string name="subtitle_bitmap_cue">Occurrence de sous-titres bitmap</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">動画フレーム プロセッサを初期化できませんでした。</string>
   <string name="media3_error_video_frame_processing_failed">動画フレームを処理できませんでした。</string>
   <string name="subtitle_bitmap_cue">画像形式の字幕のキュー</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

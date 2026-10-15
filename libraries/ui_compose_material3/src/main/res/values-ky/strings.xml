@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">Видео кадрларды иштетүүчү демилгеленген жок.</string>
   <string name="media3_error_video_frame_processing_failed">Видео алкак иштетилген жок.</string>
   <string name="subtitle_bitmap_cue">Коштомо жазуунун сүрөт белгиси</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

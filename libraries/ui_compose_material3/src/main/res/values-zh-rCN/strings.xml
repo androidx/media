@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">无法初始化视频帧处理器。</string>
   <string name="media3_error_video_frame_processing_failed">无法处理视频帧。</string>
   <string name="subtitle_bitmap_cue">字幕位图提示</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

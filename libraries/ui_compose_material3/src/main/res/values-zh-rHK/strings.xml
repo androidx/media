@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">無法初始化影片影格處理器。</string>
   <string name="media3_error_video_frame_processing_failed">無法處理影片影格。</string>
   <string name="subtitle_bitmap_cue">字幕點陣圖提示</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">Видео фрейм боловсруулагчийг эхлүүлж чадсангүй.</string>
   <string name="media3_error_video_frame_processing_failed">Видеоны фреймийг боловсруулж чадсангүй.</string>
   <string name="subtitle_bitmap_cue">Хадмалын растер хөтөч</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

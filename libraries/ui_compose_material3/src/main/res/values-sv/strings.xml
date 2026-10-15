@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">Det gick inte att initiera videobildsprocessorn.</string>
   <string name="media3_error_video_frame_processing_failed">Det gick inte att bearbeta en videobildruta.</string>
   <string name="subtitle_bitmap_cue">Bitmap-signal för undertext</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

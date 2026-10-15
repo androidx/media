@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">Video kadr prosessorunu işə salmaq alınmadı.</string>
   <string name="media3_error_video_frame_processing_failed">Video kadr emal edilmədi.</string>
   <string name="subtitle_bitmap_cue">Altyazının bit xəritəsi işarəsi</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

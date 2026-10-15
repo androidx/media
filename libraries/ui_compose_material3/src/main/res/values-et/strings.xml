@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">Videokaadri töötleja lähtestamine ebaõnnestus.</string>
   <string name="media3_error_video_frame_processing_failed">Videokaadri töötlemine ebaõnnestus.</string>
   <string name="subtitle_bitmap_cue">Subtiitripildi vihje</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

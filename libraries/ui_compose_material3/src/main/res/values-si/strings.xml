@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">වීඩියෝ රාමු සකසනය මුලපිරීමට අසමත් විය.</string>
   <string name="media3_error_video_frame_processing_failed">වීඩියෝ රාමුවක් සැකසීමට අසමත් විය.</string>
   <string name="subtitle_bitmap_cue">උපසිරැසි බිටු සිතියම් ඉඟිය</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

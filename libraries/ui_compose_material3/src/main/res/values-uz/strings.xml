@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">Video kadr protsessori ishga tushmadi.</string>
   <string name="media3_error_video_frame_processing_failed">Video kadr qayta ishlanmadi.</string>
   <string name="subtitle_bitmap_cue">Taglavhali bitmap bildirgi</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

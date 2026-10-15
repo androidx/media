@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">Не можеше да се иницијализира процесорот на видеокадри.</string>
   <string name="media3_error_video_frame_processing_failed">Не можеше да се обработи видеокадар.</string>
   <string name="subtitle_bitmap_cue">Поднаслов на битмап-знак</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

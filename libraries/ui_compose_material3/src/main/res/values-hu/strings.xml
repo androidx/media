@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">A videóképkocka-feldolgozó inicializálása nem sikerült.</string>
   <string name="media3_error_video_frame_processing_failed">Egy videóképkocka feldolgozása nem sikerült.</string>
   <string name="subtitle_bitmap_cue">Felirat bitképes jelzése</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>

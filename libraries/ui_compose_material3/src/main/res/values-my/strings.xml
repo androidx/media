@@ -79,4 +79,5 @@
   <string name="media3_error_video_frame_processor_init_failed">ဗီဒီယိုဖရိမ် စီမံဆောင်ရွက်စနစ်ကို စတင်၍မရလိုက်ပါ။</string>
   <string name="media3_error_video_frame_processing_failed">ဗီဒီယိုဖရိမ်ကို စီမံဆောင်ရွက်၍မရလိုက်ပါ။</string>
   <string name="subtitle_bitmap_cue">စာတန်းထိုး ဘစ်မက် အချက်ပြချက်</string>
+  <string name="live_button_text">• LIVE</string>
 </resources>
