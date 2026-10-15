@@ -87,6 +87,8 @@
         executed ([#3443](https://github.com/androidx/media/issues/3443)).
     *   Support HAGC (ST 2094-50) timed metadata playback from `mebx` boxed
         metadata tracks in MP4 files.
+    *   Fix an issue where slow-preparing media periods in a playlist could be
+        skipped.
 *   CompositionPlayer:
     *   Support configuring the frame rate of video frame aggregation via
         `Composition.Builder.setVideoFrameAggregationParameters` for playback

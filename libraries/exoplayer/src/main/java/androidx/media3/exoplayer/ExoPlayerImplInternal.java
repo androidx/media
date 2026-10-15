@@ -2877,10 +2877,19 @@ import java.util.Objects;
     }
     @Nullable MediaPeriodHolder prewarmingPeriodHolder = queue.getEarliestPrewarmingPeriod();
     if (prewarmingPeriodHolder == null
+        || !prewarmingPeriodHolder.prepared
         || !Objects.equals(prewarmingPeriodHolder, queue.getEarliestReadingPeriod())
         || prewarmingPeriodHolder.getNext() == null
         || !prewarmingPeriodHolder.getNext().prepared) {
       return;
+    }
+    for (int i = 0; i < renderers.length; i++) {
+      if (renderers[i].hasSecondary()
+          && (prewarmingPeriodHolder.getTrackSelectorResult().isRendererEnabled(i)
+              || !renderers[i].isRendererEnabled())
+          && !prewarmingPeriodHolder.isRendererInCorrectState(i)) {
+        return;
+      }
     }
 
     // Only start pre-warming if under the threshold to advance the reading period.
@@ -2900,7 +2909,11 @@ import java.util.Objects;
     }
     @Nullable MediaPeriodHolder prewarmingPeriodHolder = queue.getPrewarmingPeriod(index);
     if (prewarmingPeriodHolder == null
+        || !prewarmingPeriodHolder.prepared
         || !Objects.equals(prewarmingPeriodHolder, queue.getReadingPeriod(index))
+        || ((prewarmingPeriodHolder.getTrackSelectorResult().isRendererEnabled(index)
+                || !renderers[index].isRendererEnabled())
+            && !prewarmingPeriodHolder.isRendererInCorrectState(index))
         || prewarmingPeriodHolder.getNext() == null
         || !prewarmingPeriodHolder.getNext().prepared) {
       return;

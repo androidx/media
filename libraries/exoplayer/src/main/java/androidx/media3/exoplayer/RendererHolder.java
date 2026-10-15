@@ -357,13 +357,16 @@ import java.util.Objects;
   }
 
   /**
-   * Returns whether the {@link Renderer renderers} are still reading a {@link MediaPeriodHolder
-   * media period}.
+   * Returns whether the {@link Renderer renderers} have finished reading from a {@link
+   * MediaPeriodHolder media period}.
    *
    * @param periodHolder The {@link MediaPeriodHolder media period} to check.
-   * @return true if {@link Renderer renderers} are reading the current reading period.
+   * @return True if the {@link Renderer renderers} have finished reading from {@code periodHolder}.
    */
   public boolean hasFinishedReadingFromPeriod(MediaPeriodHolder periodHolder) {
+    if (!isRendererEnabled()) {
+      return periodHolder.isRendererInCorrectState(index);
+    }
     return hasFinishedReadingFromPeriodInternal(periodHolder, primaryRenderer)
         && hasFinishedReadingFromPeriodInternal(periodHolder, secondaryRenderer);
   }

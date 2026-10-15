@@ -15182,6 +15182,284 @@ public final class ExoPlayerTest {
   }
 
   @Test
+  public void play_withNonPreparedSecondPeriodAndThirdPeriod_doesNotSkipSecondPeriodWhenPrepared()
+      throws Exception {
+    Timeline periodTimeline =
+        new FakeTimeline(
+            new TimelineWindowDefinition.Builder()
+                .setWindowPositionInFirstPeriodUs(0)
+                .setDurationUs(10_000)
+                .build());
+    Format videoFormat1 = ExoPlayerTestRunner.VIDEO_FORMAT.buildUpon().setId("v1").build();
+    Format audioFormat1 = ExoPlayerTestRunner.AUDIO_FORMAT.buildUpon().setId("a1").build();
+    Format videoFormat2 = ExoPlayerTestRunner.VIDEO_FORMAT.buildUpon().setId("v2").build();
+    Format audioFormat2 = ExoPlayerTestRunner.AUDIO_FORMAT.buildUpon().setId("a2").build();
+    Format videoFormat3 = ExoPlayerTestRunner.VIDEO_FORMAT.buildUpon().setId("v3").build();
+    Format audioFormat3 = ExoPlayerTestRunner.AUDIO_FORMAT.buildUpon().setId("a3").build();
+    FakeMediaSource mediaSource1 = new FakeMediaSource(periodTimeline, videoFormat1, audioFormat1);
+    FakeMediaSource mediaSource2 =
+        new FakeMediaSource.Builder()
+            .setTimeline(periodTimeline)
+            .setTrackDataFactory(
+                FakeMediaPeriod.TrackDataFactory.singleSampleWithTimeUs(
+                    /* sampleTimeUs= */ 500_000))
+            .setFormats(videoFormat2, audioFormat2)
+            .build();
+    mediaSource2.setPeriodDefersOnPreparedCallback(true);
+    FakeMediaSource mediaSource3 =
+        new FakeMediaSource.Builder()
+            .setTimeline(periodTimeline)
+            .setTrackDataFactory(
+                FakeMediaPeriod.TrackDataFactory.singleSampleWithTimeUs(
+                    /* sampleTimeUs= */ 500_000))
+            .setFormats(videoFormat3, audioFormat3)
+            .build();
+    AtomicBoolean allowVideoEndOfStream = new AtomicBoolean(false);
+    AtomicBoolean videoDisabledOnce = new AtomicBoolean(false);
+    AtomicBoolean videoPositionPastThirdPeriodStart = new AtomicBoolean(false);
+    FakeRenderer videoRenderer =
+        new FakeRenderer(C.TRACK_TYPE_VIDEO) {
+          @Override
+          public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
+            super.render(positionUs, elapsedRealtimeUs);
+            if (positionUs - getStreamOffsetUs() >= 25_000L) {
+              videoPositionPastThirdPeriodStart.set(true);
+            }
+          }
+
+          @Override
+          public boolean isReady() {
+            return super.isReady() || super.isEnded();
+          }
+
+          @Override
+          public boolean isEnded() {
+            return super.isEnded() && allowVideoEndOfStream.get();
+          }
+
+          @Override
+          protected void onDisabled() {
+            super.onDisabled();
+            videoDisabledOnce.set(true);
+          }
+        };
+    AtomicBoolean audioDisabledOnce = new AtomicBoolean(false);
+    FakeRenderer audioRenderer =
+        new FakeRenderer(C.TRACK_TYPE_AUDIO) {
+          @Override
+          protected void onDisabled() {
+            super.onDisabled();
+            audioDisabledOnce.set(true);
+          }
+        };
+    LoadControl loadControl =
+        new DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                DefaultLoadControl.DEFAULT_MIN_BUFFER_MS,
+                DefaultLoadControl.DEFAULT_MAX_BUFFER_MS,
+                /* bufferForPlaybackMs= */ 0,
+                /* bufferForPlaybackAfterRebufferMs= */ 0)
+            .build();
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context)
+                    .setRenderers(videoRenderer, audioRenderer)
+                    .setLoadControl(loadControl))
+            .build();
+    player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2, mediaSource3));
+
+    player.prepare();
+    player.play();
+    advance(player).untilBackgroundThreadCondition(videoPositionPastThirdPeriodStart::get);
+    player.pause();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    allowVideoEndOfStream.set(true);
+    advance(player)
+        .untilBackgroundThreadCondition(() -> audioDisabledOnce.get() && videoDisabledOnce.get());
+    ((FakeMediaPeriod) mediaSource2.getLastCreatedActiveMediaPeriod()).setPreparationComplete();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    assertThat(videoRenderer.getFormatsRead())
+        .containsExactly(videoFormat1, videoFormat2, videoFormat3)
+        .inOrder();
+    assertThat(audioRenderer.getFormatsRead())
+        .containsExactly(audioFormat1, audioFormat2, audioFormat3)
+        .inOrder();
+  }
+
+  @Test
+  public void play_withNonPreparedEmptySecondPeriodAndThirdPeriod_doesNotGetStuckWhenPrepared()
+      throws Exception {
+    Timeline periodTimeline =
+        new FakeTimeline(
+            new TimelineWindowDefinition.Builder()
+                .setWindowPositionInFirstPeriodUs(0)
+                .setDurationUs(10_000)
+                .build());
+    Format videoFormat1 = ExoPlayerTestRunner.VIDEO_FORMAT.buildUpon().setId("v1").build();
+    Format audioFormat1 = ExoPlayerTestRunner.AUDIO_FORMAT.buildUpon().setId("a1").build();
+    Format videoFormat3 = ExoPlayerTestRunner.VIDEO_FORMAT.buildUpon().setId("v3").build();
+    Format audioFormat3 = ExoPlayerTestRunner.AUDIO_FORMAT.buildUpon().setId("a3").build();
+    FakeMediaSource mediaSource1 = new FakeMediaSource(periodTimeline, videoFormat1, audioFormat1);
+    FakeMediaSource mediaSource2 = new FakeMediaSource(periodTimeline);
+    mediaSource2.setPeriodDefersOnPreparedCallback(true);
+    FakeMediaSource mediaSource3 =
+        new FakeMediaSource.Builder()
+            .setTimeline(periodTimeline)
+            .setTrackDataFactory(
+                FakeMediaPeriod.TrackDataFactory.singleSampleWithTimeUs(
+                    /* sampleTimeUs= */ 500_000))
+            .setFormats(videoFormat3, audioFormat3)
+            .build();
+    AtomicBoolean allowVideoEndOfStream = new AtomicBoolean(false);
+    AtomicBoolean videoDisabledOnce = new AtomicBoolean(false);
+    AtomicBoolean videoPositionPastThirdPeriodStart = new AtomicBoolean(false);
+    FakeRenderer videoRenderer =
+        new FakeRenderer(C.TRACK_TYPE_VIDEO) {
+          @Override
+          public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
+            super.render(positionUs, elapsedRealtimeUs);
+            if (positionUs - getStreamOffsetUs() >= 25_000L) {
+              videoPositionPastThirdPeriodStart.set(true);
+            }
+          }
+
+          @Override
+          public boolean isReady() {
+            return super.isReady() || super.isEnded();
+          }
+
+          @Override
+          public boolean isEnded() {
+            return super.isEnded() && allowVideoEndOfStream.get();
+          }
+
+          @Override
+          protected void onDisabled() {
+            super.onDisabled();
+            videoDisabledOnce.set(true);
+          }
+        };
+    AtomicBoolean audioDisabledOnce = new AtomicBoolean(false);
+    FakeRenderer audioRenderer =
+        new FakeRenderer(C.TRACK_TYPE_AUDIO) {
+          @Override
+          protected void onDisabled() {
+            super.onDisabled();
+            audioDisabledOnce.set(true);
+          }
+        };
+    LoadControl loadControl =
+        new DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                DefaultLoadControl.DEFAULT_MIN_BUFFER_MS,
+                DefaultLoadControl.DEFAULT_MAX_BUFFER_MS,
+                /* bufferForPlaybackMs= */ 0,
+                /* bufferForPlaybackAfterRebufferMs= */ 0)
+            .build();
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context)
+                    .setRenderers(videoRenderer, audioRenderer)
+                    .setLoadControl(loadControl))
+            .build();
+    player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2, mediaSource3));
+
+    player.prepare();
+    player.play();
+    advance(player).untilBackgroundThreadCondition(videoPositionPastThirdPeriodStart::get);
+    player.pause();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    allowVideoEndOfStream.set(true);
+    advance(player)
+        .untilBackgroundThreadCondition(() -> audioDisabledOnce.get() && videoDisabledOnce.get());
+    ((FakeMediaPeriod) mediaSource2.getLastCreatedActiveMediaPeriod()).setPreparationComplete();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    assertThat(videoRenderer.getFormatsRead())
+        .containsExactly(videoFormat1, videoFormat3)
+        .inOrder();
+    assertThat(audioRenderer.getFormatsRead())
+        .containsExactly(audioFormat1, audioFormat3)
+        .inOrder();
+  }
+
+  @Test
+  public void
+      play_withDisabledRendererAndFastRendererAdvancingAcrossMultiplePeriods_playsAllPeriods()
+          throws Exception {
+    Timeline periodTimeline =
+        new FakeTimeline(
+            new TimelineWindowDefinition.Builder()
+                .setWindowPositionInFirstPeriodUs(0)
+                .setDurationUs(100_000)
+                .build());
+    Format videoFormat1 = ExoPlayerTestRunner.VIDEO_FORMAT.buildUpon().setId("v1").build();
+    Format audioFormat1 = ExoPlayerTestRunner.AUDIO_FORMAT.buildUpon().setId("a1").build();
+    Format videoFormat2 = ExoPlayerTestRunner.VIDEO_FORMAT.buildUpon().setId("v2").build();
+    Format audioFormat2 = ExoPlayerTestRunner.AUDIO_FORMAT.buildUpon().setId("a2").build();
+    Format videoFormat3 = ExoPlayerTestRunner.VIDEO_FORMAT.buildUpon().setId("v3").build();
+    Format audioFormat3 = ExoPlayerTestRunner.AUDIO_FORMAT.buildUpon().setId("a3").build();
+    Format textFormat3 =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.TEXT_VTT)
+            .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+            .setId("t3")
+            .build();
+    FakeMediaSource mediaSource1 =
+        new FakeMediaSource.Builder()
+            .setTimeline(periodTimeline)
+            .setTrackDataFactory(
+                (format, mediaPeriodId) ->
+                    format.equals(videoFormat1)
+                        ? ImmutableList.of(
+                            oneByteSample(0, C.BUFFER_FLAG_KEY_FRAME),
+                            oneByteSample(300_000, C.BUFFER_FLAG_KEY_FRAME),
+                            END_OF_STREAM_ITEM)
+                        : ImmutableList.of(
+                            oneByteSample(0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM))
+            .setFormats(videoFormat1, audioFormat1)
+            .build();
+    FakeMediaSource mediaSource2 = new FakeMediaSource(periodTimeline, videoFormat2, audioFormat2);
+    FakeMediaSource mediaSource3 =
+        new FakeMediaSource(periodTimeline, videoFormat3, audioFormat3, textFormat3);
+    FakeRenderer videoRenderer = new FakeRenderer(C.TRACK_TYPE_VIDEO);
+    FakeRenderer audioRenderer =
+        new FakeRenderer(C.TRACK_TYPE_AUDIO) {
+          @Override
+          protected boolean shouldProcessBuffer(long bufferTimeUs, long playbackPositionUs) {
+            return true;
+          }
+        };
+    FakeRenderer textRenderer = new FakeRenderer(C.TRACK_TYPE_TEXT);
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context)
+                    .setRenderers(videoRenderer, audioRenderer, textRenderer))
+            .build();
+    player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2, mediaSource3));
+
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    assertThat(videoRenderer.getFormatsRead())
+        .containsExactly(videoFormat1, videoFormat2, videoFormat3)
+        .inOrder();
+    assertThat(audioRenderer.getFormatsRead())
+        .containsExactly(audioFormat1, audioFormat2, audioFormat3)
+        .inOrder();
+    assertThat(textRenderer.getFormatsRead()).containsExactly(textFormat3);
+  }
+
+  @Test
   public void multipleAudioSessionIdChangesOnAudioRenderer_propagatesToRenderersAndListener()
       throws Exception {
     ArrayList<Integer> configuredAudioSessionIdsOnAudioRenderer = new ArrayList<>();
