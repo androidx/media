@@ -575,7 +575,8 @@ public final class ExoPlayerTest {
     final FakeRenderer textRenderer = new FakeRenderer(C.TRACK_TYPE_TEXT);
     ExoPlayer player =
         parameterizeTestExoPlayerBuilder(
-                new TestExoPlayerBuilder(context).setRenderers(videoRenderer, audioRenderer))
+                new TestExoPlayerBuilder(context)
+                    .setRenderers(videoRenderer, audioRenderer, textRenderer))
             .build();
     Player.Listener mockPlayerListener = mock(Player.Listener.class);
     player.addListener(mockPlayerListener);
@@ -616,7 +617,8 @@ public final class ExoPlayerTest {
         new Format.Builder().setSampleMimeType(MimeTypes.TEXT_VTT).setLanguage("en").build();
     ExoPlayer player =
         parameterizeTestExoPlayerBuilder(
-                new TestExoPlayerBuilder(context).setRenderers(audioRenderer, textRenderer))
+                new TestExoPlayerBuilder(context)
+                    .setRenderers(videoRenderer, audioRenderer, textRenderer))
             .build();
     Player.Listener mockPlayerListener = mock(Player.Listener.class);
     player.addListener(mockPlayerListener);
