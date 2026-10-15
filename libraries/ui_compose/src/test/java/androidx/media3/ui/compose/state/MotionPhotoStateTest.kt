@@ -25,6 +25,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
+import androidx.media3.common.Tracks
 import androidx.media3.test.utils.FakePlayer
 import androidx.media3.ui.compose.testutils.createTestTracks
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -208,6 +209,8 @@ class MotionPhotoStateTest {
       state.showPhoto = false
       assertThat(state.showPhoto).isFalse()
       waitForIdle()
+      player.renderFirstFrame(true)
+      waitForIdle()
 
       assertThat(state.visualState.isPhotoVisible).isFalse()
       assertThat(player.currentPosition).isEqualTo(0L)
@@ -236,6 +239,8 @@ class MotionPhotoStateTest {
             initialShowPhoto = false,
           )
       }
+      waitForIdle()
+      player.renderFirstFrame(true)
       waitForIdle()
       assertThat(state.showPhoto).isFalse()
       assertThat(state.visualState.isPhotoVisible).isFalse()
@@ -272,6 +277,8 @@ class MotionPhotoStateTest {
         )
     }
     waitForIdle()
+    player.renderFirstFrame(true)
+    waitForIdle()
 
     assertThat(state.visualState.isPhotoVisible).isTrue()
   }
@@ -289,6 +296,8 @@ class MotionPhotoStateTest {
         )
     }
     waitForIdle()
+    player.renderFirstFrame(true)
+    waitForIdle()
 
     player.setTracks(createTestTracks(selectedVideoTrackIndex = null))
     waitForIdle()
@@ -297,8 +306,16 @@ class MotionPhotoStateTest {
 
     player.setTracks(createTestTracks(selectedVideoTrackIndex = 0))
     waitForIdle()
+    player.renderFirstFrame(true)
+    waitForIdle()
 
     assertThat(state.visualState.isPhotoVisible).isFalse()
+
+    // Clearing tracks to empty resets the first-frame gate until a new frame is rendered.
+    player.setTracks(Tracks.EMPTY)
+    waitForIdle()
+
+    assertThat(state.visualState.isPhotoVisible).isTrue()
   }
 
   @Test
@@ -316,6 +333,8 @@ class MotionPhotoStateTest {
           )
       }
       waitForIdle()
+      player.renderFirstFrame(true)
+      waitForIdle()
       assertThat(state.visualState.isPhotoVisible).isFalse()
 
       player.setPlayerError(
@@ -328,6 +347,8 @@ class MotionPhotoStateTest {
 
       val secondMediaItem = MediaItem.fromUri("file:///second_motion_photo.jpg")
       currentItem = secondMediaItem
+      waitForIdle()
+      player.renderFirstFrame(true)
       waitForIdle()
 
       assertThat(player.currentMediaItem).isEqualTo(secondMediaItem)
@@ -354,6 +375,8 @@ class MotionPhotoStateTest {
       waitForIdle()
 
       currentPlayer = player2
+      waitForIdle()
+      player2.renderFirstFrame(true)
       waitForIdle()
 
       // Error on detached player1 does not affect state.
@@ -388,6 +411,8 @@ class MotionPhotoStateTest {
         )
     }
     waitForIdle()
+    player.renderFirstFrame(true)
+    waitForIdle()
     player.setPlayerError(
       PlaybackException("Test error", null, PlaybackException.ERROR_CODE_UNSPECIFIED)
     )
@@ -404,6 +429,8 @@ class MotionPhotoStateTest {
 
     // Requesting motion playback retries preparation and clears the error.
     state.showPhoto = false
+    waitForIdle()
+    player.renderFirstFrame(true)
     waitForIdle()
 
     assertThat(state.showPhoto).isFalse()
@@ -426,6 +453,8 @@ class MotionPhotoStateTest {
         )
     }
     waitForIdle()
+    player.renderFirstFrame(true)
+    waitForIdle()
     player.setPlayerError(
       PlaybackException("Test error", null, PlaybackException.ERROR_CODE_UNSPECIFIED)
     )
@@ -434,6 +463,8 @@ class MotionPhotoStateTest {
     assertThat(state.visualState.isPhotoVisible).isTrue()
 
     state.showPhoto = false
+    waitForIdle()
+    player.renderFirstFrame(true)
     waitForIdle()
 
     assertThat(state.showPhoto).isFalse()
@@ -494,11 +525,46 @@ class MotionPhotoStateTest {
           )
       }
       waitForIdle()
+      player.renderFirstFrame(true)
+      waitForIdle()
       assertThat(state.visualState.isPhotoVisible).isFalse()
 
       player.addCommands(Player.COMMAND_GET_TRACKS)
       waitForIdle()
 
       assertThat(state.visualState.isPhotoVisible).isTrue()
+    }
+
+  @Test
+  fun rememberMotionPhotoState_whenMotionStarted_keepsPhotoVisibleUntilFirstFrameRendered() =
+    runComposeUiTest {
+      val player = FakePlayer(bufferingDelayMs = 0)
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+          )
+      }
+      waitForIdle()
+
+      // Still photo overlay is kept visible until onRenderedFirstFrame (anti-flicker).
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+
+      player.renderFirstFrame(true)
+      waitForIdle()
+      assertThat(state.visualState.isPhotoVisible).isFalse()
+
+      // Switching back to still photo and replaying on the already-primed surface does not block on
+      // a second EVENT_RENDERED_FIRST_FRAME.
+      state.showPhoto = true
+      waitForIdle()
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+
+      state.showPhoto = false
+      waitForIdle()
+      assertThat(state.visualState.isPhotoVisible).isFalse()
     }
 }

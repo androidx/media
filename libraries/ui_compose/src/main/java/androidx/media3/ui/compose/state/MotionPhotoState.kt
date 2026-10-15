@@ -119,10 +119,12 @@ internal constructor(val mediaItem: MediaItem, initialShowPhoto: Boolean = true)
       if (_player != value) {
         _player = value
         isMotionUnavailable = false
+        hasRenderedFirstFrame = false
       }
     }
 
   private var isMotionUnavailable by mutableStateOf(false)
+  private var hasRenderedFirstFrame by mutableStateOf(false)
 
   private var _showPhoto by mutableStateOf(initialShowPhoto)
 
@@ -146,7 +148,9 @@ internal constructor(val mediaItem: MediaItem, initialShowPhoto: Boolean = true)
 
   /** The current resolved [VisualState] for presenting the Motion Photo. */
   val visualState: VisualState by derivedStateOf {
-    VisualState(isPhotoVisible = _showPhoto || player == null || isMotionUnavailable)
+    VisualState(
+      isPhotoVisible = _showPhoto || player == null || isMotionUnavailable || !hasRenderedFirstFrame
+    )
   }
 
   internal fun bindAndInitialize() {
@@ -159,6 +163,7 @@ internal constructor(val mediaItem: MediaItem, initialShowPhoto: Boolean = true)
           currentPlayer.currentMediaItem != mediaItem)
     if (shouldReplaceMediaItem) {
       currentPlayer.setMediaItem(mediaItem)
+      hasRenderedFirstFrame = false
     }
     // TODO(b/544627271): Support custom start boundaries and defer rewind until after the photo
     // crossfade-in completes.
@@ -168,14 +173,32 @@ internal constructor(val mediaItem: MediaItem, initialShowPhoto: Boolean = true)
 
   internal suspend fun observe() {
     val currentPlayer = player ?: return
-    // TODO(b/544627271): Also observe EVENT_RENDERED_FIRST_FRAME and STATE_ENDED (which
-    // automatically flips `showPhoto` back to `true`).
+    // TODO(b/544627271): Also observe STATE_ENDED (which automatically flips `showPhoto` back to
+    // `true`).
     currentPlayer.listenTo(
       Player.EVENT_TRACKS_CHANGED,
       Player.EVENT_PLAYER_ERROR,
       Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
-    ) {
-      updateMotionAvailability(this)
+      Player.EVENT_RENDERED_FIRST_FRAME,
+    ) { events ->
+      if (
+        events.containsAny(
+          Player.EVENT_TRACKS_CHANGED,
+          Player.EVENT_PLAYER_ERROR,
+          Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
+        )
+      ) {
+        updateMotionAvailability(this)
+      }
+      if (
+        events.contains(Player.EVENT_TRACKS_CHANGED) &&
+          (!isCommandAvailable(Player.COMMAND_GET_TRACKS) || currentTracks.isEmpty)
+      ) {
+        hasRenderedFirstFrame = false
+      }
+      if (events.contains(Player.EVENT_RENDERED_FIRST_FRAME)) {
+        hasRenderedFirstFrame = true
+      }
     }
   }
 
@@ -185,6 +208,9 @@ internal constructor(val mediaItem: MediaItem, initialShowPhoto: Boolean = true)
         !currentPlayer.currentTracks.isEmpty &&
         !currentPlayer.currentTracks.isTypeSelected(C.TRACK_TYPE_VIDEO)
     isMotionUnavailable = currentPlayer.playerError != null || hasNoVideoTrack
+    if (isMotionUnavailable) {
+      hasRenderedFirstFrame = false
+    }
   }
 
   private fun syncPlaybackState(currentPlayer: Player, allowPrepareOnError: Boolean) {

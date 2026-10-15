@@ -23,6 +23,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.annotation.RestrictTo
 import androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -112,14 +113,15 @@ fun MotionPhoto(
   contentScale: ContentScale = ContentScale.Fit,
   photo: @Composable () -> Unit,
 ) {
+  val photoAlpha by
+    animateFloatAsState(
+      targetValue = if (state.visualState.isPhotoVisible) 1f else 0f,
+      label = "photoAlpha",
+    )
   Box(modifier = modifier) {
     ContentFrame(player = state.player, contentScale = contentScale, artwork = null)
-    // TODO(b/544627271): Keep the photo overlay visible until Player.Listener.onRenderedFirstFrame
-    // fires to avoid a black flash, and animate the alpha crossfade.
     Box(
-      Modifier.matchParentSize().graphicsLayer {
-        alpha = if (state.visualState.isPhotoVisible) 1f else 0f
-      },
+      Modifier.matchParentSize().graphicsLayer { alpha = photoAlpha },
       contentAlignment = Alignment.Center,
     ) {
       photo()

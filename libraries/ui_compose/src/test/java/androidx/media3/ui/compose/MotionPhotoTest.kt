@@ -202,6 +202,10 @@ class MotionPhotoTest {
       state.showPhoto = false
       assertThat(state.showPhoto).isFalse()
       waitForIdle()
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+
+      player.renderFirstFrame(true)
+      waitForIdle()
 
       assertThat(state.visualState.isPhotoVisible).isFalse()
       onNodeWithTag(PHOTO_SLOT_TAG).assertExists()
@@ -233,12 +237,13 @@ class MotionPhotoTest {
     }
 
   @Test
-  fun motionPhoto_whenPlayerAttachedFromNull_hidesPhotoOverlayOnFirstPassAndPreparesPlayer() =
+  fun motionPhoto_whenPlayerAttachedFromNull_keepsPhotoOverlayUntilFirstFrameRendered() =
     runComposeUiTest {
       var currentPlayer by mutableStateOf<Player?>(null)
       val observedIsPhotoVisibleWhenPlayerAttached = mutableSetOf<Boolean>()
+      lateinit var state: MotionPhotoState
       setContent {
-        val state =
+        state =
           rememberMotionPhotoState(
             player = currentPlayer,
             mediaItem = unresolvableMediaItem,
@@ -260,7 +265,17 @@ class MotionPhotoTest {
       currentPlayer = newPlayer
       waitForIdle()
 
-      assertThat(observedIsPhotoVisibleWhenPlayerAttached).containsExactly(false)
+      // Before first frame renders, still photo overlay remains visible over new player.
+      assertThat(observedIsPhotoVisibleWhenPlayerAttached).containsExactly(true)
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+      onNodeWithTag(PHOTO_SLOT_TAG).assertIsDisplayed()
+
+      // Once first frame renders, photo overlay transitions away.
+      newPlayer.renderFirstFrame(true)
+      waitForIdle()
+
+      assertThat(state.visualState.isPhotoVisible).isFalse()
+      onNodeWithTag(PHOTO_SLOT_TAG).assertExists()
       assertThat(newPlayer.currentMediaItem).isEqualTo(unresolvableMediaItem)
       assertThat(newPlayer.playbackState).isEqualTo(Player.STATE_READY)
       assertThat(newPlayer.playWhenReady).isTrue()
@@ -288,11 +303,16 @@ class MotionPhotoTest {
         )
       }
       waitForIdle()
+      player1.renderFirstFrame(true)
+      waitForIdle()
       assertThat(state.visualState.isPhotoVisible).isFalse()
       assertThat(player1.videoOutput).isInstanceOf(SurfaceView::class.java)
       assertThat(player2.videoOutput).isNull()
 
       currentPlayer = player2
+      waitForIdle()
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+      player2.renderFirstFrame(true)
       waitForIdle()
 
       assertThat(state.visualState.isPhotoVisible).isFalse()
@@ -310,6 +330,57 @@ class MotionPhotoTest {
       assertThat(player2.videoOutput).isNull()
       assertThat(player2.playbackState).isEqualTo(Player.STATE_READY)
       assertThat(player2.playWhenReady).isTrue()
+    }
+
+  @Test
+  fun motionPhoto_whenShowPhotoSetToFalseAfterFirstFrameRendered_crossfadesOutOverTime() =
+    runComposeUiTest {
+      val player = FakePlayer(bufferingDelayMs = 0)
+      lateinit var state: MotionPhotoState
+      lateinit var composeView: View
+      setContent {
+        composeView = LocalView.current
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = unresolvableMediaItem,
+            initialShowPhoto = true,
+          )
+        MotionPhoto(
+          state = state,
+          modifier = Modifier.size(100.dp),
+          photo = { Box(modifier = Modifier.size(100.dp).testTag(PHOTO_SLOT_TAG)) },
+        )
+      }
+      waitForIdle()
+      player.renderFirstFrame(true)
+      waitForIdle()
+      val photoSemanticsId = onNodeWithTag(PHOTO_SLOT_TAG).fetchSemanticsNode().id
+      mainClock.autoAdvance = false
+
+      state.showPhoto = false
+      mainClock.advanceTimeByFrame()
+      mainClock.advanceTimeBy(150L)
+      waitForIdle()
+
+      // Halfway through the 300ms tween crossfade, the photo overlay is still partially visible.
+      assertThat(
+          composeView.accessibilityNodeProvider
+            .createAccessibilityNodeInfo(photoSemanticsId)!!
+            .isVisibleToUser
+        )
+        .isTrue()
+
+      mainClock.advanceTimeBy(350L)
+      waitForIdle()
+
+      // Once the crossfade completes, alpha reaches 0f and the photo overlay is hidden.
+      assertThat(
+          composeView.accessibilityNodeProvider
+            .createAccessibilityNodeInfo(photoSemanticsId)!!
+            .isVisibleToUser
+        )
+        .isFalse()
     }
 
   private fun createTestImageUri(): Uri {
