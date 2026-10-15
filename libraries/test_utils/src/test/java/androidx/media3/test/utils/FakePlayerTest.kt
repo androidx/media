@@ -16,6 +16,7 @@
 
 package androidx.media3.test.utils
 
+import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -23,6 +24,8 @@ import com.google.common.truth.Truth.assertThat
 import java.util.concurrent.TimeUnit
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.verify
 import org.robolectric.shadows.ShadowLooper
 
 /** Unit tests for [FakePlayer]. */
@@ -30,6 +33,56 @@ import org.robolectric.shadows.ShadowLooper
 class FakePlayerTest {
 
   private val seekablePlaylist = listOf(MediaItemData.Builder("item").setIsSeekable(true).build())
+
+  @Test
+  fun setMediaItems_withMultipleDefaultMediaIdItems_setsPlaylist() {
+    val player = FakePlayer()
+    val firstItem = MediaItem.fromUri("https://example.com/1.mp4")
+    val secondItem = MediaItem.fromUri("https://example.com/2.mp4")
+
+    player.setMediaItems(listOf(firstItem, secondItem))
+
+    assertThat(player.mediaItemCount).isEqualTo(2)
+    assertThat(player.getMediaItemAt(0)).isEqualTo(firstItem)
+    assertThat(player.getMediaItemAt(1)).isEqualTo(secondItem)
+  }
+
+  @Test
+  fun setMediaItem_withEqualMediaItem_notifiesTimelineChangedAndMediaItemTransition() {
+    val player = FakePlayer()
+    player.setMediaItem(MediaItem.fromUri("https://example.com/video.mp4"))
+    val listener = mock(Player.Listener::class.java)
+    player.addListener(listener)
+    val replacementItem = MediaItem.fromUri("https://example.com/video.mp4")
+
+    player.setMediaItem(replacementItem)
+
+    verify(listener)
+      .onTimelineChanged(player.currentTimeline, Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED)
+    verify(listener)
+      .onMediaItemTransition(replacementItem, Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED)
+  }
+
+  @Test
+  fun setDuration_afterSetMediaItem_updatesDurationByMediaId() {
+    val player = FakePlayer()
+    player.setMediaItem(MediaItem.Builder().setMediaId("item_id").build())
+
+    player.setDuration("item_id", durationMs = 10_000L)
+
+    assertThat(player.duration).isEqualTo(10_000L)
+  }
+
+  @Test
+  fun setDuration_afterSetMediaItem_updatesDurationByTimelineUid() {
+    val player = FakePlayer()
+    player.setMediaItem(MediaItem.fromUri("https://example.com/video.mp4"))
+    val uid = player.currentTimeline.getUidOfPeriod(/* periodIndex= */ 0)
+
+    player.setDuration(uid, durationMs = 10_000L)
+
+    assertThat(player.duration).isEqualTo(10_000L)
+  }
 
   @Test
   fun seekTo_whenIdle_keepsIdleStateAndUpdatesPosition() {

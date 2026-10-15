@@ -134,7 +134,7 @@ class FakePlayer(
       setPlaybackState(STATE_ENDED)
     }
 
-    setPlaylist(mediaItems.map { MediaItemData.Builder(it.mediaId).setMediaItem(it).build() })
+    setPlaylist(mediaItems.map { MediaItemData.Builder(Any()).setMediaItem(it).build() })
       .setContentPositionMs(startPositionMs)
       .setCurrentMediaItemIndex(startIndex)
   }
@@ -263,12 +263,15 @@ class FakePlayer(
   /**
    * Sets the duration of the media item in the playlist, in milliseconds.
    *
-   * @param uid Unique id of the media item whose duration is being set.
+   * @param uid Unique id of the media item whose duration is being set, or its [MediaItem.mediaId]
+   *   if the item was added without an explicit [MediaItemData.uid].
    * @param durationMs The duration of the media item, in milliseconds, or {@link C#TIME_UNSET} if
    *   unknown.
    */
-  fun setDuration(uid: String, durationMs: Long) {
-    val index = state.playlist.indexOfFirst { it.uid == uid }
+  fun setDuration(uid: Any, durationMs: Long) {
+    val index =
+      state.playlist.indexOfFirst { it.uid == uid }.takeIf { it != -1 }
+        ?: state.playlist.indexOfFirst { it.mediaItem.mediaId == uid }
     if (index == -1) {
       throw IllegalArgumentException("Playlist does not contain item with uid: $uid")
     }
