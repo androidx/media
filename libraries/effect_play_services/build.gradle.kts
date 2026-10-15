@@ -22,10 +22,12 @@ android {
 
 dependencies {
   implementation(libs.androidx.annotation)
+  implementation(libs.androidx.concurrent.futures)
   implementation(libs.guava)
   api(project(":lib-common"))
   implementation(project(":lib-effect"))
   implementation(libs.play.services.media.effect.enhancement)
+  implementation(libs.play.services.media.effect.studiosound)
 
   testImplementation(project(":test-utils"))
   testImplementation(libs.androidx.test.ext.junit)
@@ -39,5 +41,8 @@ dependencies {
   androidTestImplementation(project(":lib-inspector-frame"))
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(libs.androidx.test.ext.junit)
+  androidTestImplementation(libs.kotlinx.coroutines.android)
+  androidTestImplementation(libs.kotlinx.coroutines.guava)
+  androidTestImplementation(libs.kotlinx.coroutines.play.services)
   androidTestImplementation(libs.truth)
 }

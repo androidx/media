@@ -17,9 +17,11 @@ protobufGradlePlugin = "0.10.0"
 strictVersionMatcherPlugin = "1.2.4"
 
 # Libraries
+# go/keep-sorted start
 activityComposeVersion = "1.9.0"
-androidxAnnotationVersion = "1.6.0"
+androidXLeanbackVersion = "1.0.0"
 androidxAnnotationExperimentalVersion = "1.3.1"
+androidxAnnotationVersion = "1.6.0"
 androidxAppCompatVersion = "1.6.1"
 androidxCollectionVersion = "1.2.0"
 # See https://developer.android.com/develop/ui/compose/bom/bom-mapping
@@ -29,7 +31,6 @@ androidxConstraintLayoutVersion = "2.1.4"
 androidxCoreVersion = "1.9.0"
 androidxDatastoreVersion = "1.1.5"
 androidxExifInterfaceVersion = "1.3.6"
-androidXLeanbackVersion = "1.0.0"
 androidxLifecycleVersion = "2.8.0"
 androidxMaterialVersion = "1.8.0"
 androidxMediaRouterVersion = "1.8.1"
@@ -48,14 +49,14 @@ androidxWindowVersion = "1.3.0"
 animalSnifferAnnotationsVersion = "1.21"
 # Keep this in sync with Google's internal Checker Framework version.
 checkerframeworkVersion = "3.13.0"
-cronetVersion = "500.0.2"
 coilComposeVersion = "2.7.0"
+cronetVersion = "500.0.2"
 desugarJdkLibsVersion = "2.1.5"
 dexmakerVersion = "2.28.3"
 # Keep in sync with gms.strict-version-matcher-plugin
 errorProneVersion = "2.15.0"
-gmsPlayServicesCastFrameworkVersion = "22.3.1"
 glideVersion = "4.14.2"
+gmsPlayServicesCastFrameworkVersion = "22.3.1"
 # Use the same Guava version as the Android repo:
 # https://cs.android.com/android/platform/superproject/main/+/main:external/guava/METADATA
 guavaVersion = "33.3.1-android"
@@ -75,17 +76,20 @@ mockitoVersion = "3.12.4"
 okhttpVersion = "4.12.0"
 playServicesCronetVersion = "18.0.1"
 playServicesMediaEffectEnhancementVersion = "16.0.0-beta08"
+playServicesMediaEffectStudioSoundVersion = "16.0.0-beta02"
 playServicesTfliteVersion = "16.1.0"
 protobufVersion = "4.31.1"
 robolectricVersion = "4.16.1"
+runnerVersion = "1.7.0"
 testParameterInjectorVersion = "1.22"
 truthVersion = "1.4.0"
 workRuntimeVersion = "2.8.1"
-runnerVersion = "1.7.0"
+# go/keep-sorted end
 
 [libraries]
-android-gradle-plugin = { group = "com.android.tools.build", name = "gradle", version.ref = "androidGradlePlugin" }
+# go/keep-sorted start
 android-gradle-api = { group = "com.android.tools.build", name = "gradle-api", version.ref = "androidGradlePlugin" }
+android-gradle-plugin = { group = "com.android.tools.build", name = "gradle", version.ref = "androidGradlePlugin" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityComposeVersion" }
 androidx-annotation = { group = "androidx.annotation", name = "annotation", version.ref = "androidxAnnotationVersion" }
 androidx-annotation-experimental = { group = "androidx.annotation", name = "annotation-experimental", version.ref = "androidxAnnotationExperimentalVersion" }
@@ -118,6 +122,7 @@ androidx-mediarouter = { group = "androidx.mediarouter", name = "mediarouter", v
 androidx-mediarouter-testing = { group = "androidx.mediarouter", name = "mediarouter-testing", version.ref = "androidxMediaRouterVersion" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "androidxNavigationVersion" }
 androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "androidxRecyclerViewVersion" }
+androidx-runner = { group = "androidx.test", name = "runner", version.ref = "runnerVersion" }
 androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidxTestCoreVersion" }
 androidx-test-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "androidxTestEspressoVersion" }
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestJUnitVersion" }
@@ -130,9 +135,9 @@ androidx-window = { group = "androidx.window", name = "window", version.ref = "a
 androidx-work-runtime = { group = "androidx.work", name = "work-runtime", version.ref = "workRuntimeVersion" }
 animal-sniffer-annotations = { group = "org.codehaus.mojo", name = "animal-sniffer-annotations", version.ref = "animalSnifferAnnotationsVersion" }
 checkerframework-qual = { group = "org.checkerframework", name = "checker-qual", version.ref = "checkerframeworkVersion" }
+coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coilComposeVersion" }
 cronet-api = { group = "org.chromium.net", name = "cronet-api", version.ref = "cronetVersion" }
 cronet-embedded = { group = "org.chromium.net", name = "cronet-embedded", version.ref = "cronetVersion" }
-coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coilComposeVersion" }
 desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugarJdkLibsVersion" }
 dexmaker-mockito = { group = "com.linkedin.dexmaker", name = "dexmaker-mockito", version.ref = "dexmakerVersion" }
 errorprone-annotations = { group = "com.google.errorprone", name = "error_prone_annotations", version.ref = "errorProneVersion" }
@@ -151,6 +156,7 @@ kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test"}
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesVersion" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutinesVersion" }
 kotlinx-coroutines-guava = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-guava", version.ref = "kotlinxCoroutinesVersion" }
+kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "kotlinxCoroutinesVersion" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutinesVersion" }
 ktor-client-android = { group = "io.ktor", name = "ktor-client-android", version.ref="ktorVersion" }
 ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref="ktorVersion" }
@@ -160,10 +166,11 @@ lottie = { group = "com.airbnb.android", name = "lottie", version.ref = "lottieV
 material = { group = "com.google.android.material", name = "material", version.ref = "androidxMaterialVersion" }
 mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockitoVersion" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttpVersion" }
-okhttp-urlconnection = { group = "com.squareup.okhttp3", name = "okhttp-urlconnection", version.ref = "okhttpVersion" }
 okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttpVersion" }
+okhttp-urlconnection = { group = "com.squareup.okhttp3", name = "okhttp-urlconnection", version.ref = "okhttpVersion" }
 play-services-cronet = { group = "com.google.android.gms", name = "play-services-cronet", version.ref = "playServicesCronetVersion" }
 play-services-media-effect-enhancement = { group = "com.google.android.gms", name = "play-services-media-effect-enhancement", version.ref = "playServicesMediaEffectEnhancementVersion" }
+play-services-media-effect-studiosound = { group = "com.google.android.gms", name = "play-services-media-effect-studiosound", version.ref = "playServicesMediaEffectStudioSoundVersion" }
 play-services-tflite-java = { group = "com.google.android.gms", name = "play-services-tflite-java", version.ref = "playServicesTfliteVersion" }
 play-services-tflite-support = { group = "com.google.android.gms", name = "play-services-tflite-support", version.ref = "playServicesTfliteVersion" }
 protobuf-java = { group = "com.google.protobuf", name = "protobuf-java", version.ref = "protobufVersion" }
@@ -172,7 +179,7 @@ robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "
 strict-version-matcher-plugin = { module = "com.google.android.gms:strict-version-matcher-plugin", version.ref = "strictVersionMatcherPlugin" }  # module name contains a colon and cannot be in [plugins]
 test-parameter-injector = { group = "com.google.testparameterinjector", name = "test-parameter-injector", version.ref = "testParameterInjectorVersion" }
 truth = { group = "com.google.truth", name = "truth", version.ref = "truthVersion" }
-androidx-runner = { group = "androidx.test", name = "runner", version.ref = "runnerVersion" }
+# go/keep-sorted end
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }

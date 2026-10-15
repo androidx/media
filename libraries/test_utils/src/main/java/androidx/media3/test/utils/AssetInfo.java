@@ -1265,6 +1265,16 @@ public final class AssetInfo {
           .setAudioDurationUs(1_000_000)
           .build();
 
+  public static final AssetInfo WAV_TOS_STEREO_16BIT =
+      new AssetInfo.Builder("asset:///media/wav/tos-stereo-16bit.wav")
+          .setAudioDurationUs(10_000_000)
+          .build();
+
+  public static final AssetInfo WAV_TOS_MONO_16BIT =
+      new AssetInfo.Builder("asset:///media/wav/tos-mono-16bit.wav")
+          .setAudioDurationUs(10_000_000)
+          .build();
+
   public static final AssetInfo WAV_32LE_PCM_ASSET =
       new AssetInfo.Builder("asset:///media/wav/sine_32le.wav")
           .setAudioSampleCount(44100)

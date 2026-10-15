@@ -212,6 +212,8 @@
 *   DataSource:
 *   DRM:
 *   Effect:
+    *   Implement SoundSeparationAudioProcessor for audio source separation
+        using StudioSound GMSCore module.
 *   Effect Lottie:
 *   Muxers:
     *   Fix `dOps` box writing for Opus in `Mp4Muxer` and `FragmentedMp4Muxer`
