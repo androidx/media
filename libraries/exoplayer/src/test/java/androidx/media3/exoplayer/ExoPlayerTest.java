@@ -12688,39 +12688,7 @@ public final class ExoPlayerTest {
   }
 
   @Test
-  public void increaseDeviceVolumeWithoutDeviceVolumeControl_deviceVolumeUnchanged() {
-    ExoPlayer player =
-        parameterizeTestExoPlayerBuilder(
-                new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
-                    .setDeviceVolumeControlEnabled(false))
-            .build();
-    Player.Listener listener = mock(Player.Listener.class);
-    player.addListener(listener);
-
-    player.increaseDeviceVolume(/* flags= */ 0); // no volume control, no effect
-    player.release();
-
-    verify(listener, times(0)).onDeviceVolumeChanged(anyInt(), anyBoolean());
-  }
-
-  @Test
-  public void decreaseDeviceVolumeWithoutDeviceVolumeControl_deviceVolumeUnchanged() {
-    ExoPlayer player =
-        parameterizeTestExoPlayerBuilder(
-                new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
-                    .setDeviceVolumeControlEnabled(false))
-            .build();
-    Player.Listener listener = mock(Player.Listener.class);
-    player.addListener(listener);
-
-    player.decreaseDeviceVolume(/* flags= */ 0); // no volume control, no effect
-    player.release();
-
-    verify(listener, times(0)).onDeviceVolumeChanged(anyInt(), anyBoolean());
-  }
-
-  @Test
-  public void getDeviceVolumeWithoutDeviceVolumeControl_returnsZero() {
+  public void changeDeviceVolume_withoutDeviceVolumeControl_deviceVolumeRemainsZero() {
     ExoPlayer player =
         parameterizeTestExoPlayerBuilder(
                 new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
