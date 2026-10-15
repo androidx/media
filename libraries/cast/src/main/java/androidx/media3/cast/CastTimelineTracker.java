@@ -25,6 +25,7 @@ import androidx.media3.cast.CastTimeline.ItemData;
 import androidx.media3.cast.CastTimeline.ItemUid;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import com.google.android.gms.cast.MediaInfo;
@@ -141,15 +142,37 @@ import org.json.JSONObject;
         ImmutableList.builderWithExpectedSize(mediaItems.size());
     MediaQueueItem[] mediaQueueItems = new MediaQueueItem[mediaItems.size()];
     for (int i = 0; i < mediaItems.size(); i++) {
-      MediaItem mediaItem = mediaItems.get(i);
       ItemUid itemUid = ItemUid.generateItemUid();
       itemUids.add(itemUid);
-      MediaQueueItem queueItem = mediaItemConverter.toMediaQueueItem(mediaItem);
-      MediaQueueItem updatedMediaQueueItem = attachSyntheticId(queueItem, itemUid);
-      mediaQueueItems[i] = updatedMediaQueueItem;
-      registerMediaItem(itemUid, mediaItem, updatedMediaQueueItem);
+      mediaQueueItems[i] = convertAndRegisterMediaItem(itemUid, mediaItems.get(i));
     }
     return new RegisteredMediaItems(mediaQueueItems, itemUids.build());
+  }
+
+  /**
+   * Updates the tracker state when the receiver queue has ended by clearing receiver item ID
+   * mappings and pending queue fetch state while retaining cached item data and {@link MediaItem
+   * MediaItems}.
+   */
+  public void updateStateOnQueueEnd() {
+    receiverItemIdToUid.clear();
+    uidToReceiverItemId.clear();
+    hasPendingQueueFetches = false;
+  }
+
+  /**
+   * Converts the items in {@code timeline} to {@link MediaQueueItem MediaQueueItems} for reloading
+   * the queue on the receiver while preserving each window's existing {@link ItemUid}.
+   */
+  public MediaQueueItem[] toMediaQueueItems(CastTimeline timeline) {
+    int windowCount = timeline.getWindowCount();
+    MediaQueueItem[] mediaQueueItems = new MediaQueueItem[windowCount];
+    Timeline.Window window = new Timeline.Window();
+    for (int i = 0; i < windowCount; i++) {
+      timeline.getWindow(i, window);
+      mediaQueueItems[i] = convertAndRegisterMediaItem((ItemUid) window.uid, window.mediaItem);
+    }
+    return mediaQueueItems;
   }
 
   /**
@@ -248,18 +271,18 @@ import org.json.JSONObject;
   }
 
   /**
-   * Registers a media item with its corresponding synthetic ID.
-   *
-   * @param itemUid The unique {@link ItemUid} generated for the item.
-   * @param mediaItem The {@link MediaItem}.
-   * @param queueItem The {@link MediaQueueItem} associated with the media item.
+   * Converts {@code mediaItem} to a {@link MediaQueueItem}, attaches {@code itemUid} to its custom
+   * data, and registers the mapping from {@code itemUid} and content ID to {@code mediaItem}.
    */
-  private void registerMediaItem(ItemUid itemUid, MediaItem mediaItem, MediaQueueItem queueItem) {
+  private MediaQueueItem convertAndRegisterMediaItem(ItemUid itemUid, MediaItem mediaItem) {
+    MediaQueueItem queueItem =
+        attachSyntheticId(mediaItemConverter.toMediaQueueItem(mediaItem), itemUid);
     mediaItemsBySyntheticId.put(itemUid, mediaItem);
     @Nullable MediaInfo mediaInfo = queueItem.getMedia();
     if (mediaInfo != null && mediaInfo.getContentId() != null) {
       mediaItemsByContentId.put(mediaInfo.getContentId(), mediaItem);
     }
+    return queueItem;
   }
 
   private void updateItemDataFromQueueItem(MediaQueueItem queueItem) {

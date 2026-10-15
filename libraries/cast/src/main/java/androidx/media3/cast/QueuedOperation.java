@@ -107,6 +107,20 @@ import java.util.Map;
   }
 
   /**
+   * Returns whether this operation should reload the queue onto the receiver when dispatched after
+   * the receiver queue has ended.
+   *
+   * <p>Operations that only mutate an existing ended playlist (such as adding, moving, or removing
+   * items) return {@code false} so that they are applied locally while keeping the player in {@link
+   * Player#STATE_ENDED}. Operations that initiate or resume playback (such as {@link
+   * SetMediaItemsOperation}, {@link SeekOperation}, or {@link AddMediaItemsOperation} on an empty
+   * timeline) return {@code true}.
+   */
+  public boolean shouldReloadOnQueueEnd(QueueSnapshot baseSnapshot) {
+    return false;
+  }
+
+  /**
    * Applies this operation's optimistic changes onto {@code snapshot} and returns the resulting
    * {@link QueueSnapshot}.
    */
@@ -137,6 +151,41 @@ import java.util.Map;
       CastTimelineTracker timelineTracker,
       PlayerTransferState playerTransferState);
 
+  /* package */ static PendingResult<MediaChannelResult> executeLoad(
+      RemoteMediaClient remoteMediaClient,
+      MediaQueueItem[] queueItems,
+      PlayerTransferState playerTransferState,
+      int startIndex,
+      long startPositionMs) {
+    MediaQueueData mediaQueueData =
+        new MediaQueueData.Builder()
+            .setItems(Arrays.asList(queueItems))
+            .setStartIndex(startIndex)
+            .setRepeatMode(toCastRepeatMode(playerTransferState.getRepeatMode()))
+            .setStartTime(startPositionMs)
+            .build();
+    MediaLoadRequestData loadRequestData =
+        new MediaLoadRequestData.Builder()
+            .setAutoplay(playerTransferState.getPlayWhenReady())
+            .setQueueData(mediaQueueData)
+            .setCurrentTime(startPositionMs)
+            .build();
+    return remoteMediaClient.load(loadRequestData);
+  }
+
+  private static int toCastRepeatMode(@Player.RepeatMode int repeatMode) {
+    switch (repeatMode) {
+      case Player.REPEAT_MODE_ONE:
+        return MediaStatus.REPEAT_MODE_REPEAT_SINGLE;
+      case Player.REPEAT_MODE_ALL:
+        return MediaStatus.REPEAT_MODE_REPEAT_ALL;
+      case Player.REPEAT_MODE_OFF:
+        return MediaStatus.REPEAT_MODE_REPEAT_OFF;
+      default:
+        throw new IllegalArgumentException();
+    }
+  }
+
   /**
    * Base operation for commands that register and insert new {@link MediaItem MediaItems} into the
    * queue.
@@ -161,40 +210,6 @@ import java.util.Map;
         this.queueItems = registeredItems.queueItems;
       }
       return createMaskingTimeline(currentTimeline, index, itemUids, mediaItems);
-    }
-
-    protected final PendingResult<MediaChannelResult> executeLoad(
-        RemoteMediaClient remoteMediaClient,
-        PlayerTransferState playerTransferState,
-        int startIndex,
-        long startPositionMs) {
-      MediaQueueData mediaQueueData =
-          new MediaQueueData.Builder()
-              .setItems(Arrays.asList(queueItems))
-              .setStartIndex(startIndex)
-              .setRepeatMode(toCastRepeatMode(playerTransferState.getRepeatMode()))
-              .setStartTime(startPositionMs)
-              .build();
-      MediaLoadRequestData loadRequestData =
-          new MediaLoadRequestData.Builder()
-              .setAutoplay(playerTransferState.getPlayWhenReady())
-              .setQueueData(mediaQueueData)
-              .setCurrentTime(startPositionMs)
-              .build();
-      return remoteMediaClient.load(loadRequestData);
-    }
-
-    private static int toCastRepeatMode(@Player.RepeatMode int repeatMode) {
-      switch (repeatMode) {
-        case Player.REPEAT_MODE_ONE:
-          return MediaStatus.REPEAT_MODE_REPEAT_SINGLE;
-        case Player.REPEAT_MODE_ALL:
-          return MediaStatus.REPEAT_MODE_REPEAT_ALL;
-        case Player.REPEAT_MODE_OFF:
-          return MediaStatus.REPEAT_MODE_REPEAT_OFF;
-        default:
-          throw new IllegalArgumentException();
-      }
     }
 
     private static CastTimeline createMaskingTimeline(
@@ -286,6 +301,11 @@ import java.util.Map;
     }
 
     @Override
+    public boolean shouldReloadOnQueueEnd(QueueSnapshot baseSnapshot) {
+      return true;
+    }
+
+    @Override
     public QueueSnapshot createMaskedSnapshot(
         QueueSnapshot snapshot, CastTimelineTracker timelineTracker) {
       CastTimeline maskedTimeline =
@@ -305,7 +325,8 @@ import java.util.Map;
         RemoteMediaClient remoteMediaClient,
         CastTimelineTracker timelineTracker,
         PlayerTransferState playerTransferState) {
-      return executeLoad(remoteMediaClient, playerTransferState, startIndex, startPositionMs);
+      return executeLoad(
+          remoteMediaClient, queueItems, playerTransferState, startIndex, startPositionMs);
     }
   }
 
@@ -322,6 +343,11 @@ import java.util.Map;
     @Override
     public String getName() {
       return "Insert items";
+    }
+
+    @Override
+    public boolean shouldReloadOnQueueEnd(QueueSnapshot baseSnapshot) {
+      return baseSnapshot.timeline.isEmpty();
     }
 
     @Override
@@ -378,7 +404,11 @@ import java.util.Map;
         PlayerTransferState playerTransferState) {
       if (isReceiverQueueEmpty(remoteMediaClient)) {
         return executeLoad(
-            remoteMediaClient, playerTransferState, /* startIndex= */ 0, /* startPositionMs= */ 0);
+            remoteMediaClient,
+            queueItems,
+            playerTransferState,
+            /* startIndex= */ 0,
+            /* startPositionMs= */ 0);
       }
       int insertBeforeItemId =
           insertBeforePeriodUid != null
@@ -626,6 +656,11 @@ import java.util.Map;
     @Override
     public String getName() {
       return "Seek";
+    }
+
+    @Override
+    public boolean shouldReloadOnQueueEnd(QueueSnapshot baseSnapshot) {
+      return true;
     }
 
     @Override

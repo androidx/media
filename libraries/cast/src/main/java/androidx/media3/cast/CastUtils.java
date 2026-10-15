@@ -89,6 +89,23 @@ import com.google.common.base.Preconditions;
   }
 
   /**
+   * Returns whether playback on {@code remoteMediaClient} has naturally reached the end of the
+   * queue without an active or loading item.
+   */
+  public static boolean hasQueueEnded(@Nullable RemoteMediaClient remoteMediaClient) {
+    if (remoteMediaClient == null) {
+      return false;
+    }
+    @Nullable MediaStatus mediaStatus = remoteMediaClient.getMediaStatus();
+    if (mediaStatus == null
+        || getCurrentOrLoadingItemId(remoteMediaClient) != MediaQueueItem.INVALID_ITEM_ID) {
+      return false;
+    }
+    return remoteMediaClient.getPlayerState() == MediaStatus.PLAYER_STATE_IDLE
+        && remoteMediaClient.getIdleReason() == MediaStatus.IDLE_REASON_FINISHED;
+  }
+
+  /**
    * Logs an error if {@code result} has a non-null status that is neither {@link
    * CastStatusCodes#SUCCESS} nor {@link CastStatusCodes#REPLACED}.
    */

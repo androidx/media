@@ -17,9 +17,14 @@ package androidx.media3.cast;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import androidx.media3.common.util.BackgroundExecutor;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.android.gms.cast.MediaQueueItem;
+import com.google.android.gms.cast.MediaStatus;
+import com.google.android.gms.cast.framework.media.RemoteMediaClient;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
@@ -54,5 +59,77 @@ public final class CastUtilsTest {
 
     Throwable thrown = exceptionRef.get();
     assertThat(thrown).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  public void hasQueueEnded_whenIdleWithReasonFinishedAndNoActiveOrLoadingItem_returnsTrue() {
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    when(mockClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_IDLE);
+    when(mockClient.getIdleReason()).thenReturn(MediaStatus.IDLE_REASON_FINISHED);
+    when(mockStatus.getLoadingItemId()).thenReturn(MediaQueueItem.INVALID_ITEM_ID);
+    when(mockStatus.getCurrentItemId()).thenReturn(MediaQueueItem.INVALID_ITEM_ID);
+
+    assertThat(CastUtils.hasQueueEnded(mockClient)).isTrue();
+  }
+
+  @Test
+  public void hasQueueEnded_whenIdleWithReasonFinishedButNextItemLoading_returnsFalse() {
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    when(mockClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_IDLE);
+    when(mockClient.getIdleReason()).thenReturn(MediaStatus.IDLE_REASON_FINISHED);
+    when(mockStatus.getLoadingItemId()).thenReturn(2);
+
+    assertThat(CastUtils.hasQueueEnded(mockClient)).isFalse();
+  }
+
+  @Test
+  public void hasQueueEnded_whenIdleWithReasonInterrupted_returnsFalse() {
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    when(mockClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_IDLE);
+    when(mockClient.getIdleReason()).thenReturn(MediaStatus.IDLE_REASON_INTERRUPTED);
+    when(mockStatus.getLoadingItemId()).thenReturn(MediaQueueItem.INVALID_ITEM_ID);
+    when(mockStatus.getCurrentItemId()).thenReturn(MediaQueueItem.INVALID_ITEM_ID);
+
+    assertThat(CastUtils.hasQueueEnded(mockClient)).isFalse();
+  }
+
+  @Test
+  public void hasQueueEnded_whenPlaying_returnsFalse() {
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    when(mockClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PLAYING);
+    when(mockClient.getIdleReason()).thenReturn(MediaStatus.IDLE_REASON_NONE);
+
+    assertThat(CastUtils.hasQueueEnded(mockClient)).isFalse();
+  }
+
+  @Test
+  public void hasQueueEnded_whenMediaStatusIsNull_returnsFalse() {
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    when(mockClient.getMediaStatus()).thenReturn(null);
+    when(mockClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_IDLE);
+    when(mockClient.getIdleReason()).thenReturn(MediaStatus.IDLE_REASON_FINISHED);
+
+    assertThat(CastUtils.hasQueueEnded(mockClient)).isFalse();
+  }
+
+  @Test
+  public void hasQueueEnded_whenIdleWithReasonFinishedButCurrentItemStillPresent_returnsFalse() {
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    when(mockClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_IDLE);
+    when(mockClient.getIdleReason()).thenReturn(MediaStatus.IDLE_REASON_FINISHED);
+    when(mockStatus.getLoadingItemId()).thenReturn(MediaQueueItem.INVALID_ITEM_ID);
+    when(mockStatus.getCurrentItemId()).thenReturn(1);
+
+    assertThat(CastUtils.hasQueueEnded(mockClient)).isFalse();
   }
 }

@@ -1136,6 +1136,90 @@ public class CastTimelineTrackerTest {
     assertThat(castTimelineTracker.getItemUid(20)).isEqualTo(registered.itemUids.get(1));
   }
 
+  @Test
+  public void updateStateOnQueueEnd_clearsReceiverItemIdMappings() {
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaQueue mockQueue = mock(MediaQueue.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    when(mockClient.getMediaQueue()).thenReturn(mockQueue);
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    ImmutableList<MediaItem> playlist = ImmutableList.of(createMediaItem(0), createMediaItem(1));
+    CastTimelineTracker.RegisteredMediaItems registered =
+        castTimelineTracker.registerMediaItems(playlist);
+    MediaQueueItem initialQueueItem0 =
+        new MediaQueueItem.Builder(registered.queueItems[0].getMedia()).setItemId(10).build();
+    MediaQueueItem initialQueueItem1 =
+        new MediaQueueItem.Builder(registered.queueItems[1].getMedia()).setItemId(20).build();
+    when(mockQueue.getItemIds()).thenReturn(new int[] {10, 20});
+    when(mockStatus.getCurrentItemId()).thenReturn(10);
+    when(mockStatus.getLoadingItemId()).thenReturn(MediaQueueItem.INVALID_ITEM_ID);
+    when(mockStatus.getMediaInfo()).thenReturn(initialQueueItem0.getMedia());
+    when(mockStatus.getQueueItems())
+        .thenReturn(ImmutableList.of(initialQueueItem0, initialQueueItem1));
+    CastTimeline unused = castTimelineTracker.getCastTimeline(mockClient);
+
+    castTimelineTracker.updateStateOnQueueEnd();
+
+    assertThat(castTimelineTracker.getItemUid(10)).isNull();
+    assertThat(castTimelineTracker.getItemUid(20)).isNull();
+  }
+
+  @Test
+  public void toMediaQueueItems_afterQueueEnd_preservesItemUidsAndCachedDataOnReload() {
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaQueue mockQueue = mock(MediaQueue.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    when(mockClient.getMediaQueue()).thenReturn(mockQueue);
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    ImmutableList<MediaItem> playlist = ImmutableList.of(createMediaItem(0), createMediaItem(1));
+    CastTimelineTracker.RegisteredMediaItems registered =
+        castTimelineTracker.registerMediaItems(playlist);
+    MediaQueueItem initialQueueItem0 =
+        new MediaQueueItem.Builder(registered.queueItems[0].getMedia()).setItemId(10).build();
+    MediaQueueItem initialQueueItem1 =
+        new MediaQueueItem.Builder(registered.queueItems[1].getMedia()).setItemId(20).build();
+    when(mockQueue.getItemIds()).thenReturn(new int[] {10, 20});
+    when(mockStatus.getCurrentItemId()).thenReturn(10);
+    when(mockStatus.getLoadingItemId()).thenReturn(MediaQueueItem.INVALID_ITEM_ID);
+    when(mockStatus.getMediaInfo())
+        .thenReturn(
+            new MediaInfo.Builder("http://www.google.com/0")
+                .setStreamDuration(5000L)
+                .setContentType(MimeTypes.AUDIO_MPEG)
+                .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+                .setCustomData(initialQueueItem0.getMedia().getCustomData())
+                .build());
+    when(mockStatus.getQueueItems())
+        .thenReturn(ImmutableList.of(initialQueueItem0, initialQueueItem1));
+    CastTimeline initialTimeline = castTimelineTracker.getCastTimeline(mockClient);
+    castTimelineTracker.updateStateOnQueueEnd();
+    MediaQueueItem[] reloadedItems = castTimelineTracker.toMediaQueueItems(initialTimeline);
+    // Receiver assigns new item IDs 100 and 200 after load().
+    MediaQueueItem newQueueItem0 =
+        new MediaQueueItem.Builder(reloadedItems[0].getMedia()).setItemId(100).build();
+    MediaQueueItem newQueueItem1 =
+        new MediaQueueItem.Builder(reloadedItems[1].getMedia()).setItemId(200).build();
+    when(mockQueue.getItemIds()).thenReturn(new int[] {100, 200});
+    when(mockStatus.getCurrentItemId()).thenReturn(200);
+    when(mockStatus.getMediaInfo()).thenReturn(newQueueItem1.getMedia());
+    when(mockStatus.getQueueItems()).thenReturn(ImmutableList.of(newQueueItem0, newQueueItem1));
+
+    CastTimeline reloadedTimeline = castTimelineTracker.getCastTimeline(mockClient);
+
+    assertThat(reloadedTimeline.getWindowCount()).isEqualTo(2);
+    assertThat(reloadedTimeline.getWindow(0, new Window()).uid)
+        .isEqualTo(registered.itemUids.get(0));
+    assertThat(reloadedTimeline.getWindow(1, new Window()).uid)
+        .isEqualTo(registered.itemUids.get(1));
+    assertThat(reloadedTimeline.getWindow(0, new Window()).mediaItem)
+        .isSameInstanceAs(playlist.get(0));
+    assertThat(reloadedTimeline.getWindow(1, new Window()).mediaItem)
+        .isSameInstanceAs(playlist.get(1));
+    // Cached duration from item 0 before queue end is preserved even though item 0 is not active.
+    assertThat(reloadedTimeline.getWindow(0, new Window()).durationUs)
+        .isEqualTo(Util.msToUs(5000L));
+  }
+
   private MediaItem createMediaItem(int uid) {
     return new MediaItem.Builder()
         .setUri("http://www.google.com/" + uid)

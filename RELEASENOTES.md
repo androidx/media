@@ -420,6 +420,8 @@
     *   Fix an issue where calling `addMediaItems` on an empty queue in
         `RemoteCastPlayer` failed to load the media items on the Cast receiver.
         ([#2402](https://github.com/androidx/media/issues/2402)).
+    *   Fix an issue in `RemoteCastPlayer` where reaching the end of the Cast
+        receiver queue cleared the timeline instead of retaining the playlist.
 *   Test Utilities:
 *   Demo app:
     *   Add support for DRM-protected media items and an additional HLS sample

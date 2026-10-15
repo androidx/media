@@ -62,6 +62,8 @@ import java.util.function.Supplier;
   private final StateChangeListener onStateChangedListener;
   private final ArrayDeque<QueuedOperation> queuedOperations;
   @Nullable private QueuedOperation activeOperation;
+  private boolean wasQueueEnded;
+  private boolean isReloadingFromQueueEnd;
 
   /** The {@link QueueSnapshot} that represents the receiver state as reported by the Cast SDK. */
   private QueueSnapshot baseSnapshot;
@@ -90,6 +92,11 @@ import java.util.function.Supplier;
     return timelineTracker.getItemUid(receiverItemId);
   }
 
+  /** Returns whether a queue reload operation from the ended state is currently in flight. */
+  public boolean isReloadingFromQueueEnd() {
+    return isReloadingFromQueueEnd;
+  }
+
   /**
    * Clears all pending and active operations and resets the orchestrator state.
    *
@@ -102,6 +109,8 @@ import java.util.function.Supplier;
   public void reset(boolean clearSnapshots) {
     queuedOperations.clear();
     activeOperation = null;
+    wasQueueEnded = false;
+    isReloadingFromQueueEnd = false;
     if (clearSnapshots) {
       baseSnapshot = QueueSnapshot.EMPTY;
       maskedSnapshot = QueueSnapshot.EMPTY;
@@ -121,6 +130,7 @@ import java.util.function.Supplier;
     if (operation.replacesPreviousOperations()) {
       queuedOperations.clear();
       activeOperation = null;
+      isReloadingFromQueueEnd = false;
       timelineTracker.reset();
     }
     queuedOperations.addLast(operation);
@@ -141,20 +151,39 @@ import java.util.function.Supplier;
    * onStatusUpdated()} or {@code mediaQueueChanged()}.
    */
   public void onReceiverStateUpdated(@Nullable RemoteMediaClient remoteMediaClient) {
-    CastTimeline receiverTimeline =
-        remoteMediaClient != null && remoteMediaClient.getMediaStatus() != null
-            ? timelineTracker.getCastTimeline(remoteMediaClient)
-            : CastTimeline.EMPTY_CAST_TIMELINE;
-    int receiverWindowIndex =
-        remoteMediaClient != null
-            ? fetchReceiverWindowIndex(remoteMediaClient, timelineTracker, receiverTimeline)
-            : 0;
     QueueSnapshot previousSnapshot = maskedSnapshot;
-    boolean isReceiverTimelineComplete = !timelineTracker.hasPendingQueueFetches();
-    if (isReceiverTimelineComplete
-        || (queuedOperations.isEmpty() && maskedSnapshot.timeline.isEmpty())) {
-      baseSnapshot = new QueueSnapshot(receiverTimeline, receiverWindowIndex, C.TIME_UNSET);
+    boolean hasQueueEnded = remoteMediaClient != null && CastUtils.hasQueueEnded(remoteMediaClient);
+    // When the receiver finishes playing the last item in the queue, it ends its media session and
+    // clears its MediaQueue. Retain the existing base timeline positioned at the last window
+    // instead of fetching an empty timeline from the receiver, so the player stays in STATE_ENDED
+    // with its queue intact for subsequent seeks or queue modifications.
+    if (hasQueueEnded) {
+      if (!wasQueueEnded && !isReloadingFromQueueEnd) {
+        timelineTracker.updateStateOnQueueEnd();
+        int lastWindowIndex = Math.max(0, baseSnapshot.timeline.getWindowCount() - 1);
+        baseSnapshot =
+            new QueueSnapshot(
+                baseSnapshot.timeline, lastWindowIndex, /* maskedPositionMs= */ C.TIME_UNSET);
+      }
+      wasQueueEnded = true;
       recomputeMaskedSnapshot();
+    } else {
+      wasQueueEnded = false;
+      isReloadingFromQueueEnd = false;
+      CastTimeline receiverTimeline =
+          remoteMediaClient != null && remoteMediaClient.getMediaStatus() != null
+              ? timelineTracker.getCastTimeline(remoteMediaClient)
+              : CastTimeline.EMPTY_CAST_TIMELINE;
+      int receiverWindowIndex =
+          remoteMediaClient != null
+              ? fetchReceiverWindowIndex(remoteMediaClient, timelineTracker, receiverTimeline)
+              : 0;
+      boolean isReceiverTimelineComplete = !timelineTracker.hasPendingQueueFetches();
+      if (isReceiverTimelineComplete
+          || (queuedOperations.isEmpty() && maskedSnapshot.timeline.isEmpty())) {
+        baseSnapshot = new QueueSnapshot(receiverTimeline, receiverWindowIndex, C.TIME_UNSET);
+        recomputeMaskedSnapshot();
+      }
     }
     if (remoteMediaClient != null) {
       dispatchNextOperationIfPossible(remoteMediaClient);
@@ -176,6 +205,47 @@ import java.util.function.Supplier;
     // immediately.
     if (!queuedOperations.peekFirst().replacesPreviousOperations()
         && timelineTracker.hasPendingQueueFetches()) {
+      return;
+    }
+    if (CastUtils.hasQueueEnded(remoteMediaClient)) {
+      if (isReloadingFromQueueEnd) {
+        return;
+      }
+      while (!queuedOperations.isEmpty()) {
+        QueuedOperation head = queuedOperations.peekFirst();
+        QueueSnapshot targetSnapshot = head.createMaskedSnapshot(baseSnapshot, timelineTracker);
+        // If the operation clears the retained timeline or only mutates an already-ended playlist
+        // without initiating playback, complete it locally without calling the receiver so the
+        // player stays in STATE_ENDED (or transitions to STATE_IDLE if the timeline becomes empty).
+        if (targetSnapshot.timeline.isEmpty() || !head.shouldReloadOnQueueEnd(baseSnapshot)) {
+          queuedOperations.removeFirst();
+          baseSnapshot =
+              targetSnapshot.timeline.isEmpty()
+                  ? QueueSnapshot.EMPTY
+                  : new QueueSnapshot(
+                      targetSnapshot.timeline,
+                      targetSnapshot.currentWindowIndex,
+                      /* maskedPositionMs= */ C.TIME_UNSET);
+          recomputeMaskedSnapshot();
+          continue;
+        }
+        // Otherwise, reload the target timeline onto the receiver to start or resume playback.
+        activeOperation = head;
+        isReloadingFromQueueEnd = true;
+        MediaQueueItem[] itemsToLoad = timelineTracker.toMediaQueueItems(targetSnapshot.timeline);
+        long startPositionMs =
+            targetSnapshot.maskedPositionMs != C.TIME_UNSET ? targetSnapshot.maskedPositionMs : 0L;
+        QueuedOperation.executeLoad(
+                remoteMediaClient,
+                itemsToLoad,
+                playerTransferStateSupplier.get(),
+                targetSnapshot.currentWindowIndex,
+                startPositionMs)
+            .setResultCallback(
+                mediaChannelResult ->
+                    onOperationResult(head, mediaChannelResult, remoteMediaClient));
+        return;
+      }
       return;
     }
     // When the receiver timeline is fully fetched and no local operation is in flight, any
@@ -221,6 +291,7 @@ import java.util.function.Supplier;
     boolean isError =
         status != null && !status.isSuccess() && status.getStatusCode() != CastStatusCodes.REPLACED;
     if (isError) {
+      isReloadingFromQueueEnd = false;
       CastUtils.logOperationFailedIfStatusError(TAG, operation.getName(), mediaChannelResult);
       queuedOperations.clear();
       maskedSnapshot = baseSnapshot;

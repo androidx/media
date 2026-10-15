@@ -705,7 +705,7 @@ public final class RemoteCastPlayer extends BasePlayer {
     setPlayerStateAndNotifyIfChanged(
         playWhenReady, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST, playbackState);
     listeners.flushEvents();
-    if (getMediaStatus() == null) {
+    if (getMediaStatus() == null || CastUtils.hasQueueEnded(remoteMediaClient)) {
       // No media status means that both play and pause will fail, causing playWhenReady to be reset
       // to true. By not calling play/pause, the playWhenReady state holder remains populated until
       // either:
@@ -784,6 +784,12 @@ public final class RemoteCastPlayer extends BasePlayer {
               Player.EVENT_MEDIA_METADATA_CHANGED,
               listener -> listener.onMediaMetadataChanged(mediaMetadata));
         }
+      }
+      if (CastUtils.hasQueueEnded(remoteMediaClient)) {
+        setPlayerStateAndNotifyIfChanged(
+            playWhenReady.value,
+            PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+            fetchPlaybackState(remoteMediaClient));
       }
       updateAvailableCommandsAndNotifyIfChanged();
     }
@@ -877,6 +883,9 @@ public final class RemoteCastPlayer extends BasePlayer {
     // the local state will be updated to reflect the state reported by the Cast SDK.
     setRepeatModeAndNotifyIfChanged(repeatMode);
     listeners.flushEvents();
+    if (getMediaStatus() == null || CastUtils.hasQueueEnded(remoteMediaClient)) {
+      return;
+    }
     PendingResult<MediaChannelResult> pendingResult =
         remoteMediaClient.queueSetRepeatMode(getCastRepeatMode(repeatMode), /* customData= */ null);
     this.repeatMode.pendingResultCallback =
@@ -979,6 +988,12 @@ public final class RemoteCastPlayer extends BasePlayer {
     long maskedPositionMs = currentQueueSnapshot.maskedPositionMs;
     if (maskedPositionMs != C.TIME_UNSET) {
       return maskedPositionMs;
+    }
+    if (playbackState == STATE_ENDED) {
+      long durationMs = getDuration();
+      if (durationMs != C.TIME_UNSET) {
+        return durationMs;
+      }
     }
     return isCastSessionActive()
         ? remoteMediaClient.getApproximateStreamPosition()
@@ -1328,7 +1343,9 @@ public final class RemoteCastPlayer extends BasePlayer {
   private void updatePlayerStateAndNotifyIfChanged(@Nullable ResultCallback<?> resultCallback) {
     boolean newPlayWhenReadyValue = playWhenReady.value;
     if (playWhenReady.acceptsUpdate(resultCallback)) {
-      newPlayWhenReadyValue = !remoteMediaClient.isPaused();
+      if (!CastUtils.hasQueueEnded(remoteMediaClient)) {
+        newPlayWhenReadyValue = !remoteMediaClient.isPaused();
+      }
       playWhenReady.clearPendingResultCallback();
     }
     @PlayWhenReadyChangeReason
@@ -1378,7 +1395,9 @@ public final class RemoteCastPlayer extends BasePlayer {
   @RequiresNonNull("remoteMediaClient")
   private void updateRepeatModeAndNotifyIfChanged(@Nullable ResultCallback<?> resultCallback) {
     if (repeatMode.acceptsUpdate(resultCallback)) {
-      setRepeatModeAndNotifyIfChanged(fetchRepeatMode(remoteMediaClient));
+      if (!CastUtils.hasQueueEnded(remoteMediaClient)) {
+        setRepeatModeAndNotifyIfChanged(fetchRepeatMode(remoteMediaClient));
+      }
       repeatMode.clearPendingResultCallback();
     }
   }
@@ -1447,6 +1466,17 @@ public final class RemoteCastPlayer extends BasePlayer {
                 listener.onMediaItemTransition(
                     getCurrentMediaItem(), MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED));
       }
+    }
+    if (remoteMediaClient != null && CastUtils.hasQueueEnded(remoteMediaClient)) {
+      setPlayerStateAndNotifyIfChanged(
+          playWhenReady.value,
+          PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+          fetchPlaybackState(remoteMediaClient));
+      updateAvailableCommandsAndNotifyIfChanged();
+    } else if (currentTimeline.isEmpty() && playbackState != STATE_IDLE) {
+      setPlayerStateAndNotifyIfChanged(
+          playWhenReady.value, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST, STATE_IDLE);
+      updateAvailableCommandsAndNotifyIfChanged();
     }
 
     if (timelineChangeReason == Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE
@@ -1883,7 +1913,7 @@ public final class RemoteCastPlayer extends BasePlayer {
    * Retrieves the playback state from {@code remoteMediaClient} and maps it into a {@link Player}
    * state
    */
-  private static int fetchPlaybackState(RemoteMediaClient remoteMediaClient) {
+  private @Player.State int fetchPlaybackState(RemoteMediaClient remoteMediaClient) {
     int receiverAppStatus = remoteMediaClient.getPlayerState();
     switch (receiverAppStatus) {
       case MediaStatus.PLAYER_STATE_BUFFERING:
@@ -1895,6 +1925,9 @@ public final class RemoteCastPlayer extends BasePlayer {
       case MediaStatus.PLAYER_STATE_IDLE:
       case MediaStatus.PLAYER_STATE_UNKNOWN:
       default:
+        if (CastUtils.hasQueueEnded(remoteMediaClient) && !getCurrentTimeline().isEmpty()) {
+          return queueOrchestrator.isReloadingFromQueueEnd() ? STATE_BUFFERING : STATE_ENDED;
+        }
         return STATE_IDLE;
     }
   }

@@ -485,6 +485,65 @@ public final class QueuedOperationTest {
     assertThat(secondMaskedSnapshot.currentWindowIndex).isEqualTo(2);
   }
 
+  @Test
+  public void setMediaItems_shouldReloadOnQueueEnd_returnsTrue() {
+    QueueSnapshot baseSnapshot = createSampleSnapshot(/* currentWindowIndex= */ 0, "A");
+    SetMediaItemsOperation operation =
+        new SetMediaItemsOperation(
+            ImmutableList.of(createMediaItem("B")), /* startIndex= */ 0, /* startPositionMs= */ 0L);
+
+    assertThat(operation.shouldReloadOnQueueEnd(baseSnapshot)).isTrue();
+  }
+
+  @Test
+  public void seek_shouldReloadOnQueueEnd_returnsTrue() {
+    QueueSnapshot baseSnapshot = createSampleSnapshot(/* currentWindowIndex= */ 0, "A");
+    Object uidA = baseSnapshot.timeline.getWindow(0, new Window()).uid;
+    SeekOperation operation =
+        new SeekOperation(
+            /* positionMs= */ 0L, /* targetPeriodUid= */ uidA, /* isWindowChange= */ false);
+
+    assertThat(operation.shouldReloadOnQueueEnd(baseSnapshot)).isTrue();
+  }
+
+  @Test
+  public void addMediaItems_shouldReloadOnQueueEnd_whenBaseTimelineIsEmpty_returnsTrue() {
+    AddMediaItemsOperation operation =
+        new AddMediaItemsOperation(
+            /* insertBeforePeriodUid= */ null, ImmutableList.of(createMediaItem("A")));
+
+    assertThat(operation.shouldReloadOnQueueEnd(QueueSnapshot.EMPTY)).isTrue();
+  }
+
+  @Test
+  public void addMediaItems_shouldReloadOnQueueEnd_whenBaseTimelineIsNonEmpty_returnsFalse() {
+    QueueSnapshot baseSnapshot = createSampleSnapshot(/* currentWindowIndex= */ 0, "A");
+    AddMediaItemsOperation operation =
+        new AddMediaItemsOperation(
+            /* insertBeforePeriodUid= */ null, ImmutableList.of(createMediaItem("B")));
+
+    assertThat(operation.shouldReloadOnQueueEnd(baseSnapshot)).isFalse();
+  }
+
+  @Test
+  public void moveMediaItems_shouldReloadOnQueueEnd_returnsFalse() {
+    QueueSnapshot baseSnapshot = createSampleSnapshot(/* currentWindowIndex= */ 0, "A", "B");
+    Object uidA = baseSnapshot.timeline.getWindow(0, new Window()).uid;
+    MoveMediaItemsOperation operation =
+        new MoveMediaItemsOperation(ImmutableList.of(uidA), /* insertBeforePeriodUid= */ null);
+
+    assertThat(operation.shouldReloadOnQueueEnd(baseSnapshot)).isFalse();
+  }
+
+  @Test
+  public void removeMediaItems_shouldReloadOnQueueEnd_returnsFalse() {
+    QueueSnapshot baseSnapshot = createSampleSnapshot(/* currentWindowIndex= */ 0, "A", "B");
+    Object uidA = baseSnapshot.timeline.getWindow(0, new Window()).uid;
+    RemoveMediaItemsOperation operation = new RemoveMediaItemsOperation(ImmutableList.of(uidA));
+
+    assertThat(operation.shouldReloadOnQueueEnd(baseSnapshot)).isFalse();
+  }
+
   private QueueSnapshot createSampleSnapshot(int currentWindowIndex, String... mediaIds) {
     ImmutableList.Builder<MediaItem> items = ImmutableList.builder();
     for (String id : mediaIds) {
