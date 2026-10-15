@@ -28,6 +28,7 @@ import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.HttpUtil
 import androidx.media3.datasource.TransferListener
 import com.google.common.base.Predicate
+import com.google.common.collect.ImmutableSortedSet
 import com.google.common.collect.Maps
 import com.google.common.net.HttpHeaders
 import com.google.errorprone.annotations.CanIgnoreReturnValue
@@ -81,7 +82,11 @@ private constructor(
 
   override fun getResponseHeaders(): Map<String, List<String>> {
     val headers = response?.headers ?: return emptyMap()
-    return Maps.asMap<String, List<String>>(headers.names()) { name ->
+    return Maps.asMap<String, List<String>>(
+      // TODO(https://youtrack.jetbrains.com/issue/KTOR-10004): Remove this copy when Ktor's
+      // Headers.names() returns a case-insensitive set again.
+      ImmutableSortedSet.copyOf(String.CASE_INSENSITIVE_ORDER, headers.names())
+    ) { name ->
       headers.getAll(name) as List<String>
     }
   }

@@ -46,7 +46,6 @@ import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Assert.assertThrows
-import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -392,10 +391,6 @@ class KtorDataSourceTest(
 
   @Test
   fun read_connectionClosedBeforeContentLengthReached_throwsHttpDataSourceException() {
-    // TODO(b/573171684): Enable for OkHttp once Ktor is upgraded to 3.5.0+. Before KTOR-9546, Ktor
-    // may drop the connection error when copying the OkHttp engine's response body into the channel
-    // returned by bodyAsChannel(), so it can't be detected by KtorDataSource.
-    assumeTrue(httpClientEngineFactory != OkHttp)
     mockWebServer.enqueue(
       MockResponse()
         .setBody("a".repeat(100))
@@ -427,10 +422,6 @@ class KtorDataSourceTest(
 
   @Test
   fun open_connectionClosedDuringSkip_throwsNetworkConnectionFailedException() {
-    // TODO(b/573171684): Enable for OkHttp once Ktor is upgraded to 3.5.0+. Before KTOR-9546, Ktor
-    // may drop the connection error when copying the OkHttp engine's response body into the channel
-    // returned by bodyAsChannel(), so it can't be detected by KtorDataSource.
-    assumeTrue(httpClientEngineFactory != OkHttp)
     mockWebServer.enqueue(
       MockResponse()
         .setBody("a".repeat(100))

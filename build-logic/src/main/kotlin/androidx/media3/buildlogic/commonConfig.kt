@@ -19,8 +19,12 @@ package androidx.media3.buildlogic
 import com.android.build.api.dsl.CommonExtension
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
+import org.gradle.api.artifacts.CacheableRule
+import org.gradle.api.artifacts.ComponentMetadataContext
+import org.gradle.api.artifacts.ComponentMetadataRule
 import org.gradle.api.artifacts.VersionCatalog
 import org.gradle.api.tasks.compile.JavaCompile
+import org.gradle.kotlin.dsl.all
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.withType
@@ -62,6 +66,10 @@ fun Project.configureCommonConfig(android: CommonExtension, libs: VersionCatalog
         add("testCompileOnly", lib)
         add("androidTestCompileOnly", lib)
       }
+
+      // TODO: https://github.com/square/okhttp/issues/9084 - Remove once OkHttp publishes Gradle
+      // dependency alignment metadata.
+      components.all<OkHttpVersionAlignmentRule>()
     }
 
     // TODO: b/502167525 - Upgrade source/targetCompatibility to JavaVersion.VERSION_11.
@@ -107,6 +115,22 @@ fun Project.configureCommonConfig(android: CommonExtension, libs: VersionCatalog
             it.group == "org.jetbrains.kotlin" &&
             it.name.startsWith("kotlin-stdlib")
         }
+      }
+    }
+  }
+}
+
+/**
+ * Aligns all `com.squareup.okhttp3` artifacts (e.g. `okhttp` and `mockwebserver`) onto a single
+ * version via a synthetic virtual platform, working around the lack of published alignment metadata
+ * in OkHttp's Gradle module metadata (https://github.com/square/okhttp/issues/9084).
+ */
+@CacheableRule
+abstract class OkHttpVersionAlignmentRule : ComponentMetadataRule {
+  override fun execute(context: ComponentMetadataContext) {
+    context.details.run {
+      if (id.group == "com.squareup.okhttp3") {
+        belongsTo("com.squareup.okhttp3:okhttp-virtual-platform:${id.version}", true)
       }
     }
   }
