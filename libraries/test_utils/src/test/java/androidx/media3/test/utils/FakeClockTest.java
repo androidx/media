@@ -34,6 +34,7 @@ import androidx.media3.common.util.HandlerWrapper;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.Iterables;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -739,6 +740,179 @@ public final class FakeClockTest {
     ShadowLooper.idleMainLooper();
 
     assertThat(mainMessageRun.get()).isTrue();
+  }
+
+  @Test
+  public void onThreadBlocked_fromNonActiveLooperWhileBackgroundMessageRunning_doesNotAdvanceTime()
+      throws Exception {
+    HandlerThread handlerThread1 = new HandlerThread("FakeClockTest1");
+    handlerThread1.start();
+    HandlerThread handlerThread2 = new HandlerThread("FakeClockTest2");
+    handlerThread2.start();
+    FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 0, /* isAutoAdvancing= */ true);
+    HandlerWrapper handler1 =
+        fakeClock.createHandler(handlerThread1.getLooper(), /* callback= */ null);
+    HandlerWrapper handler2 =
+        fakeClock.createHandler(handlerThread2.getLooper(), /* callback= */ null);
+    ConditionVariable backgroundMessageStarted = new ConditionVariable();
+    ConditionVariable allowBackgroundMessageToFinish = new ConditionVariable();
+    ConditionVariable allMessagesFinished = new ConditionVariable();
+    List<Long> executionTimes = Collections.synchronizedList(new ArrayList<>());
+    handler2.postDelayed(
+        () -> {
+          executionTimes.add(fakeClock.elapsedRealtime());
+          allMessagesFinished.open();
+        },
+        /* delayMs= */ 500);
+    handler1.post(
+        () -> {
+          backgroundMessageStarted.open();
+          allowBackgroundMessageToFinish.blockUninterruptible();
+          executionTimes.add(fakeClock.elapsedRealtime());
+          handler1.postDelayed(
+              () -> executionTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 10);
+        });
+    ShadowLooper.idleMainLooper();
+    backgroundMessageStarted.block();
+
+    // Call onThreadBlocked() from the main looper while handlerThread1 is mid-message.
+    fakeClock.onThreadBlocked();
+    allowBackgroundMessageToFinish.open();
+    allMessagesFinished.block();
+    quitAndJoin(handlerThread1, handlerThread2);
+
+    assertThat(executionTimes).containsExactly(0L, 10L, 500L).inOrder();
+  }
+
+  @Test
+  public void
+      onThreadBlocked_fromNonActiveLooperWhileExternalBackgroundMessageRunning_doesNotAdvanceTime()
+          throws Exception {
+    HandlerThread handlerThread1 = new HandlerThread("FakeClockTest1");
+    handlerThread1.start();
+    HandlerThread handlerThread2 = new HandlerThread("FakeClockTest2");
+    handlerThread2.start();
+    FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 0, /* isAutoAdvancing= */ true);
+    HandlerWrapper handler1 =
+        fakeClock.createHandler(handlerThread1.getLooper(), /* callback= */ null);
+    HandlerWrapper handler2 =
+        fakeClock.createHandler(handlerThread2.getLooper(), /* callback= */ null);
+    Handler rawHandler1 = new Handler(handlerThread1.getLooper());
+    ConditionVariable backgroundMessageStarted = new ConditionVariable();
+    ConditionVariable allowBackgroundMessageToFinish = new ConditionVariable();
+    ConditionVariable allMessagesFinished = new ConditionVariable();
+    List<Long> executionTimes = Collections.synchronizedList(new ArrayList<>());
+    rawHandler1.post(
+        () -> {
+          handler2.postDelayed(
+              () -> {
+                executionTimes.add(fakeClock.elapsedRealtime());
+                allMessagesFinished.open();
+              },
+              /* delayMs= */ 500);
+          handler1.postDelayed(
+              () -> executionTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 10);
+          backgroundMessageStarted.open();
+          allowBackgroundMessageToFinish.blockUninterruptible();
+          executionTimes.add(fakeClock.elapsedRealtime());
+        });
+    backgroundMessageStarted.block();
+
+    // Call onThreadBlocked() from the main looper while handlerThread1 is mid-message after
+    // claiming activeMessageLooper via addPendingHandlerMessage().
+    fakeClock.onThreadBlocked();
+    allowBackgroundMessageToFinish.open();
+    allMessagesFinished.block();
+    quitAndJoin(handlerThread1, handlerThread2);
+
+    assertThat(executionTimes).containsExactly(0L, 10L, 500L).inOrder();
+  }
+
+  @Test(timeout = 5000)
+  public void
+      onThreadBlocked_fromSecondaryLooperWhileMainLooperMessagePending_triggersBackgroundMessage()
+          throws Exception {
+    HandlerThread callerThread = new HandlerThread("CallerLooper");
+    callerThread.start();
+    HandlerThread workerThread = new HandlerThread("WorkerLooper");
+    workerThread.start();
+    FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 0);
+    HandlerWrapper mainHandler =
+        fakeClock.createHandler(Looper.getMainLooper(), /* callback= */ null);
+    HandlerWrapper workerHandler =
+        fakeClock.createHandler(workerThread.getLooper(), /* callback= */ null);
+    Handler rawCallerHandler = new Handler(callerThread.getLooper());
+    AtomicBoolean mainMessageRun = new AtomicBoolean();
+    AtomicBoolean callerUnblocked = new AtomicBoolean();
+    ConditionVariable callerFinished = new ConditionVariable();
+
+    // Queue a FakeClock message on the main looper from a background looper and idle callerThread's
+    // onMessageHandled callback so mainLooper becomes activeMessageLooper (queued in Robolectric's
+    // paused main MessageQueue, not yet executing).
+    ConditionVariable mainMessageQueued = new ConditionVariable();
+    rawCallerHandler.post(
+        () -> {
+          mainHandler.post(() -> mainMessageRun.set(true));
+          mainMessageQueued.open();
+        });
+    mainMessageQueued.block();
+    shadowOf(callerThread.getLooper()).idle();
+
+    // Now post a task on callerThread that posts to workerHandler and blocks waiting for it,
+    // without idling the main looper first (simulating ExoPlayer.release() from a secondary
+    // looper while a main-looper listener notification is still pending).
+    rawCallerHandler.post(
+        () -> {
+          ConditionVariable workerDone = new ConditionVariable(fakeClock);
+          workerHandler.post(workerDone::open);
+          workerDone.blockUninterruptible();
+          callerUnblocked.set(true);
+          callerFinished.open();
+        });
+    callerFinished.block();
+    quitAndJoin(callerThread, workerThread);
+
+    assertThat(callerUnblocked.get()).isTrue();
+    assertThat(mainMessageRun.get()).isFalse();
+
+    ShadowLooper.idleMainLooper();
+
+    assertThat(mainMessageRun.get()).isTrue();
+  }
+
+  @Test(timeout = 5000)
+  public void
+      onThreadBlocked_fromNonActiveLooperAfterActiveLooperQuits_drainsDeadLooperAndTriggersNextMessage()
+          throws Exception {
+    HandlerThread handlerThread1 = new HandlerThread("HandlerThread1");
+    handlerThread1.start();
+    HandlerThread handlerThread2 = new HandlerThread("HandlerThread2");
+    handlerThread2.start();
+    FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 0);
+    HandlerWrapper handler1 =
+        fakeClock.createHandler(handlerThread1.getLooper(), /* callback= */ msg -> true);
+    HandlerWrapper handler2 =
+        fakeClock.createHandler(handlerThread2.getLooper(), /* callback= */ null);
+    Handler rawHandler1 = new Handler(handlerThread1.getLooper());
+    ConditionVariable deadLooperPrepared = new ConditionVariable();
+    ConditionVariable handler2Done = new ConditionVariable();
+    rawHandler1.post(
+        () -> {
+          // Claim activeMessageLooper on handlerThread1, queue a message on handler1 and handler2,
+          // and then quit handlerThread1 before its onMessageHandled callback can run.
+          handler1.sendEmptyMessage(1);
+          handler2.post(handler2Done::open);
+          handlerThread1.quit();
+          deadLooperPrepared.open();
+        });
+    deadLooperPrepared.block();
+    handlerThread1.join();
+
+    fakeClock.onThreadBlocked();
+    handler2Done.block();
+    quitAndJoin(handlerThread2);
+
+    assertThat(handler1.hasMessages(1)).isFalse();
   }
 
   private static class TestActivity extends Activity {

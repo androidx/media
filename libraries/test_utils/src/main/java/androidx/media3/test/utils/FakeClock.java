@@ -168,6 +168,9 @@ public class FakeClock implements Clock {
   private final Set<Looper> busyLoopers;
 
   @GuardedBy("this")
+  private final Set<Looper> executingLoopers;
+
+  @GuardedBy("this")
   private final long bootTimeMs;
 
   @GuardedBy("this")
@@ -176,18 +179,6 @@ public class FakeClock implements Clock {
   @GuardedBy("this")
   @Nullable
   private Looper activeMessageLooper;
-
-  /**
-   * Tracks the looper of the active task being executed on the current thread.
-   *
-   * <p>Under Robolectric PAUSED looper mode, explicit calls to {@code shadowOf(looper).idle()} on
-   * background loopers will execute tasks inline on the calling thread (typically the main test
-   * thread). If those tasks block, {@link #onThreadBlocked()} is called. Without this thread-local
-   * tracking, {@link Looper#myLooper()} would return the calling thread's looper (e.g., the main
-   * looper) instead of the targeted background looper, breaking blocked thread tracking and causing
-   * deadlocks.
-   */
-  private static final ThreadLocal<Looper> activeThreadLocalLooper = new ThreadLocal<>();
 
   /**
    * Creates a fake clock that doesn't auto-advance and assumes that the system was booted exactly
@@ -247,6 +238,7 @@ public class FakeClock implements Clock {
     this.maxAutoAdvancingTimeDiffMs = builder.maxAutoAdvancingTimeDiffMs;
     this.handlerMessages = new ArrayList<>();
     this.busyLoopers = new HashSet<>();
+    this.executingLoopers = new HashSet<>();
     this.mainHandler = new Handler(Looper.getMainLooper());
     this.isRobolectric = "robolectric".equals(Build.FINGERPRINT);
     if (isRobolectric) {
@@ -294,17 +286,33 @@ public class FakeClock implements Clock {
 
   @Override
   public synchronized void onThreadBlocked() {
-    if (activeMessageLooper == null) {
+    @Nullable Looper currentLooper = Looper.myLooper();
+    @Nullable Looper activeLooper = activeMessageLooper;
+    if (currentLooper == null || activeLooper == null) {
       // This isn't a looper message created by this class, so no need to handle the blocking.
       return;
     }
-    Looper threadLocalLooper = activeThreadLocalLooper.get();
-    @Nullable
-    Looper currentLooper = threadLocalLooper != null ? threadLocalLooper : Looper.myLooper();
-    if (currentLooper == null) {
-      return;
+    executingLoopers.remove(currentLooper);
+    boolean isActiveLooperQueueActive = isLooperQueueActive(activeLooper);
+    if (currentLooper != activeLooper) {
+      // Another looper is blocking while activeLooper is pending or executing. Mark currentLooper
+      // as busy until its current message finishes, and only keep waiting on activeLooper if it is
+      // actively executing a message (rather than just queued on a paused looper).
+      if (busyLoopers.add(currentLooper)
+          && !postOnMessageHandled(currentLooper, new Handler(currentLooper))) {
+        busyLoopers.remove(currentLooper);
+      }
+      if (executingLoopers.contains(activeLooper) && isActiveLooperQueueActive) {
+        ThreadTestUtil.unblockThreadsWaitingForProgressOnLooper(currentLooper);
+        return;
+      }
     }
-    busyLoopers.add(currentLooper);
+    if (isActiveLooperQueueActive) {
+      busyLoopers.add(activeLooper);
+    } else {
+      executingLoopers.remove(activeLooper);
+      busyLoopers.remove(activeLooper);
+    }
     ThreadTestUtil.unblockThreadsWaitingForProgressOnLooper(currentLooper);
     activeMessageLooper = null;
     maybeTriggerMessage();
@@ -315,17 +323,19 @@ public class FakeClock implements Clock {
     handlerMessages.add(message);
     if (activeMessageLooper == null) {
       // This method isn't executed from inside a looper message created by this class.
-      Looper threadLocalLooper = activeThreadLocalLooper.get();
-      @Nullable
-      Looper currentLooper = threadLocalLooper != null ? threadLocalLooper : Looper.myLooper();
+      @Nullable Looper currentLooper = Looper.myLooper();
       if (currentLooper == null) {
         // This message is triggered from a non-looper thread, so just execute it directly.
         maybeTriggerMessage();
       } else {
         // Make sure the current looper message is finished before handling the new message.
         activeMessageLooper = currentLooper;
+        if (currentLooper != Looper.getMainLooper()) {
+          executingLoopers.add(currentLooper);
+        }
         // Prevent deadlocks when the current looper rejects the message without throwing.
-        if (!postOnMessageHandled(currentLooper, new Handler(currentLooper))) {
+        if (!busyLoopers.remove(currentLooper)
+            && !postOnMessageHandled(currentLooper, new Handler(currentLooper))) {
           onMessageHandled(currentLooper);
         }
       }
@@ -414,6 +424,9 @@ public class FakeClock implements Clock {
     handlerMessages.remove(messageIndex);
     Looper targetLooper = message.handler.getLooper();
     activeMessageLooper = targetLooper;
+    if (targetLooper != Looper.getMainLooper()) {
+      executingLoopers.add(targetLooper);
+    }
     boolean messageSent = false;
     Handler realHandler = message.handler.handler;
     try {
@@ -440,7 +453,8 @@ public class FakeClock implements Clock {
   }
 
   private synchronized void onMessageHandled(Looper looper) {
-    if (!busyLoopers.remove(looper)) {
+    executingLoopers.remove(looper);
+    if (!busyLoopers.remove(looper) && activeMessageLooper == looper) {
       activeMessageLooper = null;
     }
     maybeTriggerMessage();
@@ -687,16 +701,18 @@ public class FakeClock implements Clock {
 
   @CanIgnoreReturnValue
   private boolean executeWithLooperContext(Looper looper, Supplier<Boolean> task) {
-    Looper oldLooper = activeThreadLocalLooper.get();
-    activeThreadLocalLooper.set(looper);
+    synchronized (this) {
+      executingLoopers.add(looper);
+    }
     try {
       return task.get();
     } finally {
-      activeThreadLocalLooper.set(oldLooper);
       synchronized (this) {
-        if (!isLooperQueueActive(looper)) {
-          activeMessageLooper = null;
-          maybeTriggerMessage();
+        if (looper == Looper.getMainLooper()) {
+          executingLoopers.remove(looper);
+        } else if (!isLooperQueueActive(looper)) {
+          busyLoopers.remove(looper);
+          onMessageHandled(looper);
         }
       }
     }
