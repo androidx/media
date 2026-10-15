@@ -857,6 +857,9 @@ public final class RemoteCastPlayer extends BasePlayer {
                 playbackParameters.speed, MIN_SPEED_SUPPORTED, MAX_SPEED_SUPPORTED));
     setPlaybackParametersAndNotifyIfChanged(actualPlaybackParameters);
     listeners.flushEvents();
+    if (getMediaStatus() == null || CastUtils.hasQueueEnded(remoteMediaClient)) {
+      return;
+    }
     PendingResult<MediaChannelResult> pendingResult =
         remoteMediaClient.setPlaybackRate(actualPlaybackParameters.speed, /* customData= */ null);
     this.playbackParameters.pendingResultCallback =
@@ -1343,7 +1346,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   private void updatePlayerStateAndNotifyIfChanged(@Nullable ResultCallback<?> resultCallback) {
     boolean newPlayWhenReadyValue = playWhenReady.value;
     if (playWhenReady.acceptsUpdate(resultCallback)) {
-      if (!CastUtils.hasQueueEnded(remoteMediaClient)) {
+      if (!CastUtils.hasQueueEnded(remoteMediaClient) && getMediaStatus() != null) {
         newPlayWhenReadyValue = !remoteMediaClient.isPaused();
       }
       playWhenReady.clearPendingResultCallback();
@@ -1362,13 +1365,12 @@ public final class RemoteCastPlayer extends BasePlayer {
   private void updatePlaybackRateAndNotifyIfChanged(@Nullable ResultCallback<?> resultCallback) {
     if (playbackParameters.acceptsUpdate(resultCallback)) {
       @Nullable MediaStatus mediaStatus = remoteMediaClient.getMediaStatus();
-      float speed =
-          mediaStatus != null
-              ? (float) mediaStatus.getPlaybackRate()
-              : PlaybackParameters.DEFAULT.speed;
-      if (speed > 0.0f) {
-        // Set the speed if not paused.
-        setPlaybackParametersAndNotifyIfChanged(new PlaybackParameters(speed));
+      if (!CastUtils.hasQueueEnded(remoteMediaClient) && mediaStatus != null) {
+        float speed = (float) mediaStatus.getPlaybackRate();
+        if (speed > 0.0f) {
+          // Set the speed if not paused.
+          setPlaybackParametersAndNotifyIfChanged(new PlaybackParameters(speed));
+        }
       }
       playbackParameters.clearPendingResultCallback();
     }
@@ -1395,7 +1397,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   @RequiresNonNull("remoteMediaClient")
   private void updateRepeatModeAndNotifyIfChanged(@Nullable ResultCallback<?> resultCallback) {
     if (repeatMode.acceptsUpdate(resultCallback)) {
-      if (!CastUtils.hasQueueEnded(remoteMediaClient)) {
+      if (!CastUtils.hasQueueEnded(remoteMediaClient) && getMediaStatus() != null) {
         setRepeatModeAndNotifyIfChanged(fetchRepeatMode(remoteMediaClient));
       }
       repeatMode.clearPendingResultCallback();

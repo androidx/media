@@ -422,6 +422,11 @@
         ([#2402](https://github.com/androidx/media/issues/2402)).
     *   Fix an issue in `RemoteCastPlayer` where reaching the end of the Cast
         receiver queue cleared the timeline instead of retaining the playlist.
+    *   Fix an issue where `playWhenReady`, `repeatMode`, and
+        `playbackParameters` were not transferred or applied when set on
+        `RemoteCastPlayer` before loading media items (for example, during
+        local-to-remote playback transfer in `CastPlayer`)
+        ([#889](https://github.com/androidx/media/issues/889)).
 *   Test Utilities:
 *   Demo app:
     *   Add support for DRM-protected media items and an additional HLS sample

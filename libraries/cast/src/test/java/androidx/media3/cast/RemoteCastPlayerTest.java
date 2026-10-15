@@ -386,12 +386,19 @@ public class RemoteCastPlayerTest {
   @Test
   public void playWhenReady_whenNoMediaStatusAvailable_isMasked() {
     when(mockRemoteMediaClient.getMediaStatus()).thenReturn(null);
+    when(mockRemoteMediaClient.isPaused()).thenReturn(false);
     assertThat(remoteCastPlayer.getPlayWhenReady()).isFalse(); // Verify we'll change the state.
 
     remoteCastPlayer.play();
 
     assertThat(remoteCastPlayer.getPlayWhenReady()).isTrue();
     verify(mockRemoteMediaClient, never()).play();
+
+    remoteCastPlayer.pause();
+    remoteMediaClientCallback.onStatusUpdated();
+
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isFalse();
+    verify(mockRemoteMediaClient, never()).pause();
   }
 
   @Test
@@ -592,6 +599,40 @@ public class RemoteCastPlayerTest {
     assertThat(remoteCastPlayer.getPlaybackParameters()).isEqualTo(PlaybackParameters.DEFAULT);
     verify(mockListener).onPlaybackParametersChanged(PlaybackParameters.DEFAULT);
     verifyNoMoreInteractions(mockListener);
+  }
+
+  @Test
+  public void setPlaybackParameters_whenNoMediaStatusAvailable_isMaskedAndUsedInLoad() {
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(null);
+    PlaybackParameters playbackParameters = new PlaybackParameters(/* speed= */ 1.5f);
+
+    remoteCastPlayer.setPlaybackParameters(playbackParameters);
+    remoteMediaClientCallback.onStatusUpdated();
+
+    assertThat(remoteCastPlayer.getPlaybackParameters()).isEqualTo(playbackParameters);
+    verify(mockRemoteMediaClient, never()).setPlaybackRate(anyDouble(), any());
+
+    remoteCastPlayer.setMediaItem(MediaItem.fromUri("http://www.google.com/video1"));
+
+    verify(mockRemoteMediaClient).load(loadArgumentCaptor.capture());
+    assertThat(loadArgumentCaptor.getValue().getPlaybackRate()).isEqualTo(1.5);
+  }
+
+  @Test
+  public void setRepeatMode_whenNoMediaStatusAvailable_isMaskedAndUsedInLoad() {
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(null);
+
+    remoteCastPlayer.setRepeatMode(Player.REPEAT_MODE_ONE);
+    remoteMediaClientCallback.onStatusUpdated();
+
+    assertThat(remoteCastPlayer.getRepeatMode()).isEqualTo(Player.REPEAT_MODE_ONE);
+    verify(mockRemoteMediaClient, never()).queueSetRepeatMode(anyInt(), any());
+
+    remoteCastPlayer.setMediaItem(MediaItem.fromUri("http://www.google.com/video1"));
+
+    verify(mockRemoteMediaClient).load(loadArgumentCaptor.capture());
+    assertThat(loadArgumentCaptor.getValue().getQueueData().getRepeatMode())
+        .isEqualTo(MediaStatus.REPEAT_MODE_REPEAT_SINGLE);
   }
 
   @Test

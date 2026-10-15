@@ -32,6 +32,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.test.utils.FakePlayer;
 import androidx.test.core.app.ApplicationProvider;
@@ -167,6 +168,7 @@ public final class CastPlayerTest {
     castPlayer = castPlayerBuilder.build();
     castPlayer.setPlayWhenReady(true);
     castPlayer.setRepeatMode(Player.REPEAT_MODE_ONE);
+    castPlayer.setPlaybackParameters(new PlaybackParameters(/* speed= */ 2.0f));
     MediaItem mediaItem =
         new MediaItem.Builder().setUri(sampleUrl).setMimeType(MimeTypes.VIDEO_MP4).build();
     castPlayer.setMediaItems(
@@ -179,15 +181,50 @@ public final class CastPlayerTest {
     verify(mockRemoteMediaClient)
         .queueSetRepeatMode(MediaStatus.REPEAT_MODE_REPEAT_SINGLE, /* customData= */ null);
     verify(mockRemoteMediaClient).play();
+    verify(mockRemoteMediaClient).setPlaybackRate(2.0, /* customData= */ null);
     verify(mockRemoteMediaClient).load(loadArgumentCaptor.capture());
     MediaLoadRequestData mediaLoadRequestData = loadArgumentCaptor.getValue();
     MediaQueueData queueData = mediaLoadRequestData.getQueueData();
     assertThat(mediaLoadRequestData.getCurrentTime()).isEqualTo(1234L);
+    assertThat(mediaLoadRequestData.getPlaybackRate()).isEqualTo(2.0);
     assertThat(queueData.getStartIndex()).isEqualTo(0);
     assertThat(queueData.getStartTime()).isEqualTo(1234L);
+    assertThat(queueData.getRepeatMode()).isEqualTo(MediaStatus.REPEAT_MODE_REPEAT_SINGLE);
     List<MediaQueueItem> mediaQueueItems = queueData.getItems();
     assertThat(mediaQueueItems.get(0).getMedia().getContentId()).isEqualTo(sampleUrl);
     assertThat(mediaQueueItems).hasSize(1);
+  }
+
+  @Test
+  public void defaultTransferCallback_whenNoMediaStatus_transfersStateToLoadRequestWithoutReset() {
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(null);
+    when(mockRemoteMediaClient.isPaused()).thenReturn(false);
+    String sampleUrl = "http://uri";
+    castPlayer = castPlayerBuilder.build();
+    castPlayer.setPlayWhenReady(false);
+    castPlayer.setRepeatMode(Player.REPEAT_MODE_ONE);
+    castPlayer.setPlaybackParameters(new PlaybackParameters(/* speed= */ 2.0f));
+    MediaItem mediaItem =
+        new MediaItem.Builder().setUri(sampleUrl).setMimeType(MimeTypes.VIDEO_MP4).build();
+    castPlayer.setMediaItems(
+        ImmutableList.of(mediaItem), /* startIndex= */ 0, /* startPositionMs= */ 1234);
+    ArgumentCaptor<MediaLoadRequestData> loadArgumentCaptor =
+        ArgumentCaptor.forClass(MediaLoadRequestData.class);
+
+    castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "ignored");
+
+    verify(mockRemoteMediaClient, never()).pause();
+    verify(mockRemoteMediaClient, never()).queueSetRepeatMode(anyInt(), any());
+    verify(mockRemoteMediaClient, never()).setPlaybackRate(anyDouble(), any());
+    verify(mockRemoteMediaClient).load(loadArgumentCaptor.capture());
+    MediaLoadRequestData mediaLoadRequestData = loadArgumentCaptor.getValue();
+    assertThat(mediaLoadRequestData.getAutoplay()).isFalse();
+    assertThat(mediaLoadRequestData.getPlaybackRate()).isEqualTo(2.0);
+    assertThat(mediaLoadRequestData.getQueueData().getRepeatMode())
+        .isEqualTo(MediaStatus.REPEAT_MODE_REPEAT_SINGLE);
+    assertThat(castPlayer.getPlayWhenReady()).isFalse();
+    assertThat(castPlayer.getRepeatMode()).isEqualTo(Player.REPEAT_MODE_ONE);
+    assertThat(castPlayer.getPlaybackParameters().speed).isEqualTo(2.0f);
   }
 
   @Test

@@ -263,9 +263,6 @@ public final class PlayerTransferState {
     if (player.getAvailableCommands().contains(Player.COMMAND_SET_SHUFFLE_MODE)) {
       player.setShuffleModeEnabled(this.shuffleModeEnabled);
     }
-    if (player.getAvailableCommands().contains(Player.COMMAND_SET_MEDIA_ITEM)) {
-      player.setMediaItems(this.mediaItems, this.currentMediaItemIndex, this.currentPosition);
-    }
     if (player.getAvailableCommands().contains(Player.COMMAND_SET_SPEED_AND_PITCH)) {
       player.setPlaybackParameters(this.playbackParameters);
     }
@@ -274,6 +271,9 @@ public final class PlayerTransferState {
     }
     if (player.getAvailableCommands().contains(Player.COMMAND_SET_PLAYLIST_METADATA)) {
       player.setPlaylistMetadata(this.playlistMetadata);
+    }
+    if (player.getAvailableCommands().contains(Player.COMMAND_SET_MEDIA_ITEM)) {
+      player.setMediaItems(this.mediaItems, this.currentMediaItemIndex, this.currentPosition);
     }
   }
 

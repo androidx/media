@@ -169,6 +169,7 @@ import java.util.Map;
             .setAutoplay(playerTransferState.getPlayWhenReady())
             .setQueueData(mediaQueueData)
             .setCurrentTime(startPositionMs)
+            .setPlaybackRate(playerTransferState.getPlaybackParameters().speed)
             .build();
     return remoteMediaClient.load(loadRequestData);
   }
