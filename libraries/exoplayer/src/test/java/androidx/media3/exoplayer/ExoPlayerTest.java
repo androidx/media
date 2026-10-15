@@ -758,15 +758,17 @@ public final class ExoPlayerTest {
     advance(player).untilState(Player.STATE_READY);
 
     assertThrows(IllegalStateException.class, trackSelector::release);
+    player.release();
   }
 
   @Test
   public void trackSelectorLifeCycle_usedBySecondPlayerBeforeRelease_throwsIllegalStateException() {
     DefaultTrackSelector trackSelector = new DefaultTrackSelector(context);
-    new ExoPlayer.Builder(context)
-        .setTrackSelector(trackSelector)
-        .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-        .build();
+    ExoPlayer firstPlayer =
+        new ExoPlayer.Builder(context)
+            .setTrackSelector(trackSelector)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
 
     assertThrows(
         IllegalStateException.class,
@@ -775,6 +777,7 @@ public final class ExoPlayerTest {
                 .setTrackSelector(trackSelector)
                 .setClock(new FakeClock(/* isAutoAdvancing= */ true))
                 .build());
+    firstPlayer.release();
   }
 
   @Test
@@ -788,10 +791,12 @@ public final class ExoPlayerTest {
 
     player.release();
 
-    new ExoPlayer.Builder(context)
-        .setTrackSelector(trackSelector)
-        .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-        .build();
+    ExoPlayer secondPlayer =
+        new ExoPlayer.Builder(context)
+            .setTrackSelector(trackSelector)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
+    secondPlayer.release();
   }
 
   /**
@@ -2864,10 +2869,12 @@ public final class ExoPlayerTest {
     parameterizeExoPlayerTestRunnerBuilder(
             new ExoPlayerTestRunner.Builder(context)
                 .setMediaSources(mediaSource, mediaSource)
+                .setExpectedPlayerEndedCount(0)
                 .setActionSchedule(actionSchedule))
         .build()
         .start()
-        .blockUntilActionScheduleFinished(TIMEOUT_MS);
+        .blockUntilActionScheduleFinished(TIMEOUT_MS)
+        .blockUntilEnded(TIMEOUT_MS);
 
     assertThat(currentMediaItemIndex[0]).isEqualTo(1);
     assertThat(currentPosition[0]).isGreaterThan(0);
@@ -4170,6 +4177,7 @@ public final class ExoPlayerTest {
     mediaSource.setNewSourceInfo(timeline2);
     advance(player).untilTimelineChanges();
     play(player).untilState(Player.STATE_ENDED);
+    player.release();
 
     assertThat(reportedTimelineChangeReasons)
         .containsExactly(
@@ -5320,6 +5328,7 @@ public final class ExoPlayerTest {
         parameterizeExoPlayerTestRunnerBuilder(
                 new ExoPlayerTestRunner.Builder(context)
                     .setMediaSources(delegatingMediaSource)
+                    .setExpectedPlayerEndedCount(2)
                     .setActionSchedule(actionSchedule))
             .build()
             .start()
@@ -5368,6 +5377,7 @@ public final class ExoPlayerTest {
                     bufferedPositions[2] = player.getBufferedPosition();
                   }
                 })
+            .stop()
             .build();
     parameterizeExoPlayerTestRunnerBuilder(
             new ExoPlayerTestRunner.Builder(context)
@@ -5375,7 +5385,8 @@ public final class ExoPlayerTest {
                 .setActionSchedule(actionSchedule))
         .build()
         .start()
-        .blockUntilActionScheduleFinished(TIMEOUT_MS);
+        .blockUntilActionScheduleFinished(TIMEOUT_MS)
+        .blockUntilEnded(TIMEOUT_MS);
 
     assertThat(mediaItemIndex[0]).isEqualTo(0);
     assertThat(positionMs[0]).isAtLeast(3000L);
@@ -5422,6 +5433,7 @@ public final class ExoPlayerTest {
                     bufferedPositions[2] = player.getBufferedPosition();
                   }
                 })
+            .stop()
             .build();
     parameterizeExoPlayerTestRunnerBuilder(
             new ExoPlayerTestRunner.Builder(context)
@@ -5429,7 +5441,8 @@ public final class ExoPlayerTest {
                 .setActionSchedule(actionSchedule))
         .build()
         .start()
-        .blockUntilActionScheduleFinished(TIMEOUT_MS);
+        .blockUntilActionScheduleFinished(TIMEOUT_MS)
+        .blockUntilEnded(TIMEOUT_MS);
 
     assertThat(mediaItemIndex[0]).isEqualTo(0);
     assertThat(positionMs[0]).isAtLeast(3000);
@@ -7120,6 +7133,7 @@ public final class ExoPlayerTest {
     parameterizeExoPlayerTestRunnerBuilder(
             new ExoPlayerTestRunner.Builder(context)
                 .setMediaSources(concatenatingMediaSource)
+                .setExpectedPlayerEndedCount(2)
                 .initialSeek(seekToMediaItemIndex, 5000)
                 .setActionSchedule(actionSchedule))
         .build()
@@ -7191,6 +7205,7 @@ public final class ExoPlayerTest {
     parameterizeExoPlayerTestRunnerBuilder(
             new ExoPlayerTestRunner.Builder(context)
                 .setMediaSources(concatenatingMediaSource)
+                .setExpectedPlayerEndedCount(2)
                 .setUseLazyPreparation(/* useLazyPreparation= */ true)
                 .initialSeek(seekToMediaItemIndex, 5000)
                 .setActionSchedule(actionSchedule))
@@ -7400,6 +7415,7 @@ public final class ExoPlayerTest {
 
     assertThrows(
         IllegalArgumentException.class, () -> player.setShuffleOrder(new FakeShuffleOrder(3)));
+    player.release();
   }
 
   @Test
@@ -14725,6 +14741,7 @@ public final class ExoPlayerTest {
             .setAudioAttributes(nonDefaultAudioAttributes, /* handleAudioFocus= */ false)
             .build();
     player.addListener(listener);
+    player.release();
 
     assertThat(deviceInfoChanged.get()).isFalse();
     assertThat(deviceVolumeChanged.get()).isFalse();
@@ -14953,6 +14970,7 @@ public final class ExoPlayerTest {
         .untilBackgroundThreadCondition(
             () -> lastConfiguredAudioSessionIdOnVideoRenderer.get() == 1234);
     int audioSessionIdAtEnd = player.getAudioSessionId();
+    player.release();
 
     assertThat(audioSessionIdAtEnd).isEqualTo(1234);
     assertThat(lastConfiguredAudioSessionIdOnVideoRenderer.get()).isEqualTo(1234);
@@ -15002,6 +15020,7 @@ public final class ExoPlayerTest {
     player.setAudioSessionId(56);
     advance(player).untilState(Player.STATE_ENDED);
     int audioSessionIdAtEnd = player.getAudioSessionId();
+    player.release();
 
     assertThat(audioSessionIdAtEnd).isEqualTo(56);
     assertThat(configuredAudioSessionIdsOnVideoRenderer).containsExactly(12, 34, 56).inOrder();
@@ -15239,6 +15258,7 @@ public final class ExoPlayerTest {
     player.prepare();
     advance(player).untilState(Player.STATE_ENDED);
     int audioSessionIdAtEnd = player.getAudioSessionId();
+    player.release();
 
     assertThat(audioSessionIdAtEnd).isEqualTo(56);
     assertThat(configuredAudioSessionIdsOnVideoRenderer).containsExactly(12, 34, 56).inOrder();
@@ -15305,6 +15325,7 @@ public final class ExoPlayerTest {
     player.setAudioSessionId(910);
     advance(player).untilState(Player.STATE_ENDED);
     int audioSessionIdAtEnd = player.getAudioSessionId();
+    player.release();
 
     assertThat(audioSessionIdAtEnd).isEqualTo(1234);
     assertThat(audioTrackCreateCount.get()).isEqualTo(1);
@@ -15362,6 +15383,7 @@ public final class ExoPlayerTest {
     player.prepare();
     advance(player).untilBackgroundThreadCondition(isRendererEnabled::get);
     int audioSessionIdAfterInit = player.getAudioSessionId();
+    player.release();
 
     assertThat(audioSessionIdReceivedBeforeOnEnabled.get()).isTrue();
     assertThat(audioSessionIdAfterInit).isNotEqualTo(C.AUDIO_SESSION_ID_UNSET);
@@ -15470,6 +15492,7 @@ public final class ExoPlayerTest {
 
     player.setVideoScalingMode(C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING);
     advance(player).untilPendingCommandsAreFullyHandled();
+    player.release();
 
     assertThat(videoScalingSetOnAudioRenderer.get()).isFalse();
     assertThat(videoScalingSetOnVideoRenderer1.get()).isTrue();
@@ -15575,6 +15598,7 @@ public final class ExoPlayerTest {
     player.prepare();
     // Assert the prepare error is reported.
     advance(player).untilPlayerError();
+    player.release();
   }
 
   @Test
