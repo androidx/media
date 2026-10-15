@@ -71,6 +71,8 @@ libraries/decoder_flac/src/main/jni/libflac
 
 # FFmpeg decoder extension
 libraries/decoder_ffmpeg/src/main/jni/ffmpeg
+# libyuv (used by the FFmpeg video renderer)
+libraries/decoder_ffmpeg/src/main/jni/libyuv
 
 # Cronet datasource extension
 libraries/datasource_cronet/jniLibs/*
