@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-@NonNullApi
+@NullMarked
 package androidx.media3.session.artwork;
 
-import androidx.media3.common.util.NonNullApi;
+import org.jspecify.annotations.NullMarked;

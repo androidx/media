@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-@NonNullApi
+@NullMarked
 @OptIn(markerClass = UnstableApi.class)
 package androidx.media3.demo.gl;
 
 import androidx.annotation.OptIn;
-import androidx.media3.common.util.NonNullApi;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.NullMarked;

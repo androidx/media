@@ -13,5 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-@NonNullApi
+@NullMarked
 package androidx.media3.common.util;
+
+import org.jspecify.annotations.NullMarked;

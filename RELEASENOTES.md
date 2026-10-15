@@ -12,6 +12,8 @@
         `MediaMetadata.Builder.setPlaylistId(String)`,
         `MediaMetadata.categories`, and
         `MediaMetadata.Builder.setCategories(List<String>)`.
+    *   Replace `androidx.media3.common.util.NonNullApi` with JSpecify
+        `org.jspecify.annotations.NullMarked`.
 *   ExoPlayer:
     *   Fix an issue where DASH multi-period playback gets stuck when the next
         period's first chunk fails to load

@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  */
-@NonNullApi
+@NullMarked
 package androidx.media3.extractor.text.webvtt;
 
-import androidx.media3.common.util.NonNullApi;
+import org.jspecify.annotations.NullMarked;
