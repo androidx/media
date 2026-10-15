@@ -839,7 +839,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         gainmapByteBuffer.clear();
       }
 
-      if (useHdr) {
+      if (useHdr && !shouldReadUltraHdrFrame()) {
         if (hlgTextureInfo == null
             || hlgTextureInfo.width != width
             || hlgTextureInfo.height != height) {
