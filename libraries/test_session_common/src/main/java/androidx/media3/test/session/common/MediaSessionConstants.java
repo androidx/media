@@ -40,6 +40,7 @@ public class MediaSessionConstants {
       "testCustomActionWithProgressUpdate";
   public static final String TEST_SILENT_IPC_PARSING_FAILURE = "testSilentIpcParsingFailure";
   public static final String TEST_REJECT_SEEK = "testRejectSeek";
+  public static final String TEST_LIVE_POSITION_CONFIGURED = "testLivePositionConfigured";
   // Bundle keys
   public static final String KEY_AVAILABLE_SESSION_COMMANDS = "availableSessionCommands";
   public static final String KEY_CONTROLLER = "controllerKey";
