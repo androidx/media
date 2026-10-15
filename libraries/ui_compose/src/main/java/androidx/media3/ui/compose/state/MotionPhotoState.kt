@@ -25,9 +25,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaLibraryInfo
 import androidx.media3.common.Player
+import androidx.media3.common.listenTo
 
 /**
  * Creates and remembers a [MotionPhotoState] for managing Motion Photo playback and visual state.
@@ -59,10 +61,10 @@ fun rememberMotionPhotoState(
 ): MotionPhotoState {
   val state = remember(mediaItem) { MotionPhotoState(mediaItem, initialShowPhoto) }
   state.player = player
-  LaunchedEffect(state, player) { state.bindAndInitialize() }
-  // TODO(b/544627271): Add `LaunchedEffect(state, player) { state.observe() }` using
-  // `Player.listen` to observe EVENT_RENDERED_FIRST_FRAME, STATE_ENDED (which automatically flips
-  // `showPhoto` back to `true`), and EVENT_PLAYER_ERROR.
+  LaunchedEffect(state, player) {
+    state.bindAndInitialize()
+    state.observe()
+  }
   return state
 }
 
@@ -108,8 +110,19 @@ internal constructor(val mediaItem: MediaItem, initialShowPhoto: Boolean = true)
     override fun hashCode(): Int = isPhotoVisible.hashCode()
   }
 
+  private var _player by mutableStateOf<Player?>(null)
+
   /** The [Player] driving media playback. */
-  internal var player: Player? by mutableStateOf(null)
+  internal var player: Player?
+    get() = _player
+    set(value) {
+      if (_player != value) {
+        _player = value
+        isMotionUnavailable = false
+      }
+    }
+
+  private var isMotionUnavailable by mutableStateOf(false)
 
   private var _showPhoto by mutableStateOf(initialShowPhoto)
 
@@ -124,40 +137,60 @@ internal constructor(val mediaItem: MediaItem, initialShowPhoto: Boolean = true)
   var showPhoto: Boolean
     get() = _showPhoto
     set(value) {
-      if (_showPhoto == value) {
+      if (_showPhoto == value && (value || player?.playbackState != Player.STATE_IDLE)) {
         return
       }
       _showPhoto = value
-      player?.let { syncPlaybackState(it) }
+      player?.let { syncPlaybackState(it, allowPrepareOnError = !value) }
     }
 
   /** The current resolved [VisualState] for presenting the Motion Photo. */
-  // TODO(b/544627271): Also keep the photo visible when motion is unavailable (derived from whether
-  // `player.currentTracks` contains a selected `C.TRACK_TYPE_VIDEO` track and no player error once
-  // player event observation is added).
   val visualState: VisualState by derivedStateOf {
-    VisualState(isPhotoVisible = _showPhoto || player == null)
+    VisualState(isPhotoVisible = _showPhoto || player == null || isMotionUnavailable)
   }
 
   internal fun bindAndInitialize() {
     val currentPlayer = player ?: return
-    if (
+    val shouldReplaceMediaItem =
       currentPlayer.isCommandAvailable(Player.COMMAND_SET_MEDIA_ITEM) &&
         (!currentPlayer.isCommandAvailable(Player.COMMAND_GET_TIMELINE) ||
           currentPlayer.mediaItemCount != 1 ||
           !currentPlayer.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM) ||
           currentPlayer.currentMediaItem != mediaItem)
-    ) {
+    if (shouldReplaceMediaItem) {
       currentPlayer.setMediaItem(mediaItem)
     }
     // TODO(b/544627271): Support custom start boundaries and defer rewind until after the photo
     // crossfade-in completes.
-    syncPlaybackState(currentPlayer)
+    syncPlaybackState(currentPlayer, allowPrepareOnError = shouldReplaceMediaItem)
+    updateMotionAvailability(currentPlayer)
   }
 
-  private fun syncPlaybackState(currentPlayer: Player) {
+  internal suspend fun observe() {
+    val currentPlayer = player ?: return
+    // TODO(b/544627271): Also observe EVENT_RENDERED_FIRST_FRAME and STATE_ENDED (which
+    // automatically flips `showPhoto` back to `true`).
+    currentPlayer.listenTo(
+      Player.EVENT_TRACKS_CHANGED,
+      Player.EVENT_PLAYER_ERROR,
+      Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
+    ) {
+      updateMotionAvailability(this)
+    }
+  }
+
+  private fun updateMotionAvailability(currentPlayer: Player) {
+    val hasNoVideoTrack =
+      currentPlayer.isCommandAvailable(Player.COMMAND_GET_TRACKS) &&
+        !currentPlayer.currentTracks.isEmpty &&
+        !currentPlayer.currentTracks.isTypeSelected(C.TRACK_TYPE_VIDEO)
+    isMotionUnavailable = currentPlayer.playerError != null || hasNoVideoTrack
+  }
+
+  private fun syncPlaybackState(currentPlayer: Player, allowPrepareOnError: Boolean) {
     if (
       currentPlayer.playbackState == Player.STATE_IDLE &&
+        (currentPlayer.playerError == null || allowPrepareOnError) &&
         currentPlayer.isCommandAvailable(Player.COMMAND_PREPARE)
     ) {
       currentPlayer.prepare()

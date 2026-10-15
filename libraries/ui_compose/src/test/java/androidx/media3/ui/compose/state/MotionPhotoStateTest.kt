@@ -22,8 +22,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.SimpleBasePlayer.MediaItemData
 import androidx.media3.test.utils.FakePlayer
+import androidx.media3.ui.compose.testutils.createTestTracks
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import org.junit.Assert.assertThrows
@@ -218,5 +221,284 @@ class MotionPhotoStateTest {
       assertThat(state.visualState.isPhotoVisible).isTrue()
       assertThat(player.currentPosition).isEqualTo(0L)
       assertThat(player.playWhenReady).isFalse()
+    }
+
+  @Test
+  fun rememberMotionPhotoState_whenPlaybackFails_fallsBackToPhotoWithoutMutatingShowPhoto() =
+    runComposeUiTest {
+      val player = FakePlayer(bufferingDelayMs = 0)
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+          )
+      }
+      waitForIdle()
+      assertThat(state.showPhoto).isFalse()
+      assertThat(state.visualState.isPhotoVisible).isFalse()
+
+      player.setPlayerError(
+        PlaybackException("Test error", null, PlaybackException.ERROR_CODE_UNSPECIFIED)
+      )
+      waitForIdle()
+
+      assertThat(state.showPhoto).isFalse()
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+    }
+
+  @Test
+  fun rememberMotionPhotoState_withPreloadedAudioOnlyTracks_keepsPhotoVisible() = runComposeUiTest {
+    val player =
+      FakePlayer(
+        bufferingDelayMs = 0,
+        playlist =
+          listOf(
+            MediaItemData.Builder("motion_photo")
+              .setMediaItem(testMediaItem)
+              .setTracks(createTestTracks(selectedVideoTrackIndex = null))
+              .build()
+          ),
+      )
+    lateinit var state: MotionPhotoState
+    setContent {
+      state =
+        rememberMotionPhotoState(
+          player = player,
+          mediaItem = testMediaItem,
+          initialShowPhoto = false,
+        )
+    }
+    waitForIdle()
+
+    assertThat(state.visualState.isPhotoVisible).isTrue()
+  }
+
+  @Test
+  fun rememberMotionPhotoState_whenTracksChange_updatesPhotoVisibility() = runComposeUiTest {
+    val player = FakePlayer(bufferingDelayMs = 0)
+    lateinit var state: MotionPhotoState
+    setContent {
+      state =
+        rememberMotionPhotoState(
+          player = player,
+          mediaItem = testMediaItem,
+          initialShowPhoto = false,
+        )
+    }
+    waitForIdle()
+
+    player.setTracks(createTestTracks(selectedVideoTrackIndex = null))
+    waitForIdle()
+
+    assertThat(state.visualState.isPhotoVisible).isTrue()
+
+    player.setTracks(createTestTracks(selectedVideoTrackIndex = 0))
+    waitForIdle()
+
+    assertThat(state.visualState.isPhotoVisible).isFalse()
+  }
+
+  @Test
+  fun rememberMotionPhotoState_whenMediaItemUpdatedAfterPlayerError_clearsErrorAndPreparesNewItem() =
+    runComposeUiTest {
+      val player = FakePlayer(bufferingDelayMs = 0)
+      var currentItem by mutableStateOf(testMediaItem)
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = currentItem,
+            initialShowPhoto = false,
+          )
+      }
+      waitForIdle()
+      assertThat(state.visualState.isPhotoVisible).isFalse()
+
+      player.setPlayerError(
+        PlaybackException("First item error", null, PlaybackException.ERROR_CODE_UNSPECIFIED)
+      )
+      waitForIdle()
+      assertThat(state.showPhoto).isFalse()
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+      assertThat(player.playerError).isNotNull()
+
+      val secondMediaItem = MediaItem.fromUri("file:///second_motion_photo.jpg")
+      currentItem = secondMediaItem
+      waitForIdle()
+
+      assertThat(player.currentMediaItem).isEqualTo(secondMediaItem)
+      assertThat(player.playbackState).isEqualTo(Player.STATE_READY)
+      assertThat(player.playerError).isNull()
+      assertThat(state.visualState.isPhotoVisible).isFalse()
+    }
+
+  @Test
+  fun rememberMotionPhotoState_whenPlayerReplaced_unregistersListenerFromPreviousPlayer() =
+    runComposeUiTest {
+      val player1 = FakePlayer(bufferingDelayMs = 0)
+      val player2 = FakePlayer(bufferingDelayMs = 0)
+      var currentPlayer by mutableStateOf<Player?>(player1)
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = currentPlayer,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+          )
+      }
+      waitForIdle()
+
+      currentPlayer = player2
+      waitForIdle()
+
+      // Error on detached player1 does not affect state.
+      player1.setPlayerError(
+        PlaybackException("Detached error", null, PlaybackException.ERROR_CODE_UNSPECIFIED)
+      )
+      waitForIdle()
+
+      assertThat(state.showPhoto).isFalse()
+      assertThat(state.visualState.isPhotoVisible).isFalse()
+
+      // Error on active player2 triggers fallback to still photo without mutating showPhoto.
+      player2.setPlayerError(
+        PlaybackException("Active error", null, PlaybackException.ERROR_CODE_UNSPECIFIED)
+      )
+      waitForIdle()
+
+      assertThat(state.showPhoto).isFalse()
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+    }
+
+  @Test
+  fun showPhoto_afterPlayerError_doesNotPrepareOnTrueAndRetriesOnFalse() = runComposeUiTest {
+    val player = FakePlayer(bufferingDelayMs = 0)
+    lateinit var state: MotionPhotoState
+    setContent {
+      state =
+        rememberMotionPhotoState(
+          player = player,
+          mediaItem = testMediaItem,
+          initialShowPhoto = false,
+        )
+    }
+    waitForIdle()
+    player.setPlayerError(
+      PlaybackException("Test error", null, PlaybackException.ERROR_CODE_UNSPECIFIED)
+    )
+    waitForIdle()
+
+    // Returning target state to the still photo does not clear the error or re-prepare.
+    state.showPhoto = true
+    waitForIdle()
+
+    assertThat(state.showPhoto).isTrue()
+    assertThat(state.visualState.isPhotoVisible).isTrue()
+    assertThat(player.playbackState).isEqualTo(Player.STATE_IDLE)
+    assertThat(player.playerError).isNotNull()
+
+    // Requesting motion playback retries preparation and clears the error.
+    state.showPhoto = false
+    waitForIdle()
+
+    assertThat(state.showPhoto).isFalse()
+    assertThat(state.visualState.isPhotoVisible).isFalse()
+    assertThat(player.playbackState).isEqualTo(Player.STATE_READY)
+    assertThat(player.playerError).isNull()
+    assertThat(player.playWhenReady).isTrue()
+  }
+
+  @Test
+  fun showPhoto_setFalseDirectlyAfterPlayerError_repreparesPlayerAndRecovers() = runComposeUiTest {
+    val player = FakePlayer(bufferingDelayMs = 0)
+    lateinit var state: MotionPhotoState
+    setContent {
+      state =
+        rememberMotionPhotoState(
+          player = player,
+          mediaItem = testMediaItem,
+          initialShowPhoto = false,
+        )
+    }
+    waitForIdle()
+    player.setPlayerError(
+      PlaybackException("Test error", null, PlaybackException.ERROR_CODE_UNSPECIFIED)
+    )
+    waitForIdle()
+    assertThat(state.showPhoto).isFalse()
+    assertThat(state.visualState.isPhotoVisible).isTrue()
+
+    state.showPhoto = false
+    waitForIdle()
+
+    assertThat(state.showPhoto).isFalse()
+    assertThat(state.visualState.isPhotoVisible).isFalse()
+    assertThat(player.playbackState).isEqualTo(Player.STATE_READY)
+    assertThat(player.playerError).isNull()
+    assertThat(player.playWhenReady).isTrue()
+  }
+
+  @Test
+  fun rememberMotionPhotoState_whenPlayerAlreadyHasErrorOnSameMediaItem_keepsErrorAndPhotoVisible() =
+    runComposeUiTest {
+      val player = FakePlayer(bufferingDelayMs = 0)
+      player.setMediaItem(testMediaItem)
+      player.prepare()
+      player.setPlayerError(
+        PlaybackException("Preexisting error", null, PlaybackException.ERROR_CODE_UNSPECIFIED)
+      )
+      lateinit var state: MotionPhotoState
+
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+          )
+      }
+      waitForIdle()
+
+      assertThat(player.playerError).isNotNull()
+      assertThat(player.playbackState).isEqualTo(Player.STATE_IDLE)
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+    }
+
+  @Test
+  fun rememberMotionPhotoState_whenAvailableCommandsChange_updatesPhotoVisibility() =
+    runComposeUiTest {
+      val player =
+        FakePlayer(
+          bufferingDelayMs = 0,
+          playlist =
+            listOf(
+              MediaItemData.Builder("motion_photo")
+                .setMediaItem(testMediaItem)
+                .setTracks(createTestTracks(selectedVideoTrackIndex = null))
+                .build()
+            ),
+        )
+      player.removeCommands(Player.COMMAND_GET_TRACKS)
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+          )
+      }
+      waitForIdle()
+      assertThat(state.visualState.isPhotoVisible).isFalse()
+
+      player.addCommands(Player.COMMAND_GET_TRACKS)
+      waitForIdle()
+
+      assertThat(state.visualState.isPhotoVisible).isTrue()
     }
 }
