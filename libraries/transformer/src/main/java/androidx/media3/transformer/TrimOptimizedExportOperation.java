@@ -107,6 +107,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Nullable private TransformerInternal transformerInternal;
   @Nullable private MuxerWrapper remuxingMuxerWrapper;
   @Nullable private Mp4Info mediaItemInfo;
+  // Only accessed on the application thread.
+  private boolean isCancelled;
 
   public TrimOptimizedExportOperation(
       Context context,
@@ -184,6 +186,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public void cancel() {
+    isCancelled = true;
     if (transformerInternal != null) {
       transformerInternal.cancel();
     }
@@ -213,6 +216,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         new FutureCallback<Mp4Info>() {
           @Override
           public void onSuccess(Mp4Info mp4Info) {
+            if (isCancelled) {
+              return;
+            }
             if (mp4Info.firstSyncSampleTimestampUsAfterTimeUs == C.TIME_UNSET) {
               exportResultBuilder.setOptimizationResult(OPTIMIZATION_ABANDONED_OTHER);
               processFullInput();
@@ -323,6 +329,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
           @Override
           public void onFailure(Throwable t) {
+            if (isCancelled) {
+              return;
+            }
             exportResultBuilder.setOptimizationResult(OPTIMIZATION_FAILED_EXTRACTION_FAILED);
             processFullInput();
           }

@@ -1062,6 +1062,36 @@ public final class MediaItemExportTest {
   }
 
   @Test
+  public void start_withTrimOptimizationEnabledAndCancelledImmediately_doesNotReportResult()
+      throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
+    Transformer transformer =
+        new TestTransformerBuilder(context)
+            .setMuxerFactory(muxerFactory)
+            .experimentalSetTrimOptimizationEnabled(true)
+            .build();
+    MediaItem firstMediaItem =
+        new MediaItem.Builder()
+            .setUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder()
+                    .setStartPositionMs(12_500)
+                    .setEndPositionMs(14_000)
+                    .build())
+            .build();
+    MediaItem secondMediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO);
+
+    transformer.start(firstMediaItem, outputDir.newFile("first").getPath());
+    transformer.cancel();
+    transformer.start(secondMediaItem, outputDir.newFile("second").getPath());
+    ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
+
+    assertThat(exportResult.optimizationResult).isEqualTo(OPTIMIZATION_NONE);
+    DumpFileAsserts.assertOutput(
+        context, muxerFactory.getCreatedMuxer(), getDumpFileName(FILE_AUDIO_VIDEO));
+  }
+
+  @Test
   public void start_fromSpecifiedThread_completesSuccessfully() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
     HandlerThread anotherThread = new HandlerThread("AnotherThread");
