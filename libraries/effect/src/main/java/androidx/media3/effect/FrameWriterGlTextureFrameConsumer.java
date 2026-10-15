@@ -15,17 +15,21 @@
  */
 package androidx.media3.effect;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.ColorInfo.isWideColorGamut;
 import static androidx.media3.common.video.Frame.USAGE_GPU_COLOR_OUTPUT;
 import static androidx.media3.effect.DefaultGlFrameProcessor.BT2020_HLG;
 import static androidx.media3.effect.DefaultGlFrameProcessor.BT709_SRGB;
 import static androidx.media3.effect.FrameProcessorUtils.createAndBindEglImage;
 import static androidx.media3.effect.FrameProcessorUtils.releaseEglImageTexture;
+import static androidx.media3.effect.FrameProcessorUtils.runAllAndAccumulateExceptions;
+import static androidx.media3.effect.FrameProcessorUtils.validateRgba8888Planes;
 import static androidx.media3.effect.FrameProcessorUtils.waitAndCloseFence;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
+import android.graphics.PixelFormat;
 import android.hardware.HardwareBuffer;
 import android.opengl.EGLDisplay;
 import android.opengl.GLES20;
@@ -34,6 +38,7 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
+import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.GlUtil;
@@ -43,16 +48,23 @@ import androidx.media3.common.util.Size;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.HardwareBufferFrame;
+import androidx.media3.common.video.ImagePlanesFrame;
+import androidx.media3.common.video.ImagePlanesFrame.Plane;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.FrameProcessorUtils.EglImageTextureWrapper;
 import com.google.common.collect.ImmutableList;
+import java.nio.ByteBuffer;
 import java.util.Objects;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
-/** Writes input texture frames to a {@link FrameWriter}. */
+/**
+ * Writes input texture frames to a {@link FrameWriter}.
+ *
+ * <p>Supports {@link HardwareBufferFrame} and {@link PixelFormat#RGBA_8888}-based {@link
+ * ImagePlanesFrame}.
+ */
 @ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.
-@RequiresApi(26)
 /* package */ final class FrameWriterGlTextureFrameConsumer implements GlTextureFrameConsumer {
 
   private static final String TAG = "FrameWriterGlTexCons";
@@ -60,9 +72,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private final Context context;
   private final FrameWriter frameWriter;
-  private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
+  @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
   @Nullable private ColorConversionShaderProgram colorConversionShaderProgram;
+  @Nullable private GlTextureInfo intermediateTexture;
+  private @MonotonicNonNull ByteBuffer rgbaReadbackBuffer;
   private @MonotonicNonNull EGLDisplay eglDisplay;
   private @MonotonicNonNull Size inputSize;
   private @MonotonicNonNull ColorInfo inputColorInfo;
@@ -70,7 +84,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private boolean isFrameWriterConfigured;
 
   FrameWriterGlTextureFrameConsumer(
-      Context context, FrameWriter frameWriter, HardwareBufferJniWrapper hardwareBufferJniWrapper) {
+      Context context,
+      FrameWriter frameWriter,
+      @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper) {
     this.context = context;
     this.frameWriter = frameWriter;
     this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
@@ -97,9 +113,42 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       GLES20.glFinish();
     }
 
-    checkArgument(asyncFrame.frame instanceof HardwareBufferFrame);
-    HardwareBufferFrame outputHardwareBufferFrame = (HardwareBufferFrame) asyncFrame.frame;
+    if (SDK_INT >= 26 && asyncFrame.frame instanceof HardwareBufferFrame) {
+      return queueHardwareBufferFrame((HardwareBufferFrame) asyncFrame.frame, inputFrame);
+    }
+    if (asyncFrame.frame instanceof ImagePlanesFrame) {
+      return queueImagePlanesFrame((ImagePlanesFrame) asyncFrame.frame, inputFrame);
+    }
+    throw new IllegalArgumentException("Unsupported output frame: " + asyncFrame.frame);
+  }
+
+  @Override
+  public void signalEndOfStream() {
+    frameWriter.signalEndOfStream();
+  }
+
+  @Override
+  public void close() throws VideoFrameProcessingException {
+    @Nullable GlTextureInfo intermediateTexture = this.intermediateTexture;
+    this.intermediateTexture = null;
+    runAllAndAccumulateExceptions(
+        this::releaseGlResources,
+        () -> {
+          if (intermediateTexture != null) {
+            intermediateTexture.release();
+          }
+        });
+  }
+
+  /**
+   * Binds the output {@link HardwareBuffer} as an {@code EGLImage} and renders straight into it.
+   */
+  @RequiresApi(26)
+  private boolean queueHardwareBufferFrame(
+      HardwareBufferFrame outputHardwareBufferFrame, GlTextureFrame inputFrame)
+      throws VideoFrameProcessingException {
     HardwareBuffer outputHardwareBuffer = outputHardwareBufferFrame.getHardwareBuffer();
+    HardwareBufferJniWrapper hardwareBufferJniWrapper = checkNotNull(this.hardwareBufferJniWrapper);
 
     @Nullable SyncFenceWrapper glWriteCompleteFence = null;
     @Nullable SyncFenceWrapper glReadCompleteFence = null;
@@ -116,10 +165,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               /* target= */ GLES20.GL_TEXTURE_2D,
               /* writesToBoundImage= */ true);
 
-      GlUtil.clearFocusedBuffersOpaque();
-      checkNotNull(colorConversionShaderProgram)
-          .drawFrame(inputFrame.glTextureInfo.texId, inputFrame.presentationTimeUs);
-      GlUtil.checkGlError();
+      drawFrameToFocusedFramebuffer(inputFrame);
       ImmutableList<SyncFenceWrapper> fences = GlUtil.createSyncFences(/* count= */ 2);
       if (fences.size() == 2) {
         glReadCompleteFence = fences.get(0);
@@ -153,14 +199,121 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return true;
   }
 
-  @Override
-  public void signalEndOfStream() {
-    frameWriter.signalEndOfStream();
+  /**
+   * Renders to an offscreen framebuffer object and reads the pixels back into the CPU plane of the
+   * output {@link ImagePlanesFrame}.
+   */
+  private boolean queueImagePlanesFrame(
+      ImagePlanesFrame outputImagePlanesFrame, GlTextureFrame inputFrame)
+      throws VideoFrameProcessingException {
+    Format outputFormat = checkNotNull(this.outputFormat);
+    validateRgba8888ImagePlanesFrame(outputImagePlanesFrame);
+    try {
+      if (intermediateTexture == null) {
+        // outputFormat is established once on the first frame and never changes.
+        intermediateTexture =
+            createTextureWithFbo(
+                outputFormat.width,
+                outputFormat.height,
+                /* useHighPrecisionColorComponents= */ false);
+      }
+      GlUtil.focusFramebufferUsingCurrentContext(
+          intermediateTexture.fboId, outputFormat.width, outputFormat.height);
+      drawFrameToFocusedFramebuffer(inputFrame);
+      readFocusedFramebufferToRgba8888Frame(outputImagePlanesFrame);
+    } catch (GlException e) {
+      throw VideoFrameProcessingException.from(e);
+    }
+    // glReadPixels already synchronized all preceding GL commands, so no fences are needed.
+    inputFrame.release(/* releaseFence= */ null);
+    outputImagePlanesFrame =
+        outputImagePlanesFrame.buildUpon().setContentTimeUs(inputFrame.presentationTimeUs).build();
+    frameWriter.queueInputFrame(outputImagePlanesFrame, /* writeCompleteFence= */ null);
+    return true;
   }
 
-  @Override
-  public void close() throws VideoFrameProcessingException {
-    releaseGlResources();
+  private void validateRgba8888ImagePlanesFrame(ImagePlanesFrame frame) {
+    Format outputFormat = checkNotNull(this.outputFormat);
+    Format frameFormat = frame.getFormat();
+    checkArgument(
+        frameFormat.pixelFormat == PixelFormat.RGBA_8888
+            || frameFormat.pixelFormat == Format.NO_VALUE,
+        "Unsupported pixel format: %s",
+        frameFormat.pixelFormat);
+    checkArgument(
+        frameFormat.width == outputFormat.width || frameFormat.width == Format.NO_VALUE,
+        "Frame width (%s) must match outputFormat width (%s)",
+        frameFormat.width,
+        outputFormat.width);
+    checkArgument(
+        frameFormat.height == outputFormat.height || frameFormat.height == Format.NO_VALUE,
+        "Frame height (%s) must match outputFormat height (%s)",
+        frameFormat.height,
+        outputFormat.height);
+    validateRgba8888Planes(frame.getPlanes(), outputFormat.width, outputFormat.height);
+  }
+
+  private void readFocusedFramebufferToRgba8888Frame(ImagePlanesFrame frame) throws GlException {
+    Format outputFormat = checkNotNull(this.outputFormat);
+    int width = outputFormat.width;
+    int height = outputFormat.height;
+    Plane plane = frame.getPlanes().get(0);
+    ByteBuffer planeBuffer = plane.getBuffer();
+    int rowBytes = width * plane.getPixelStride();
+    int rowStride = plane.getRowStride();
+    if (rowStride == rowBytes) {
+      // TODO(b/531653682): Use OpenGL ES 3.0 PBOs for asynchronous readback.
+      GLES20.glReadPixels(
+          /* x= */ 0,
+          /* y= */ 0,
+          width,
+          height,
+          GLES20.GL_RGBA,
+          GLES20.GL_UNSIGNED_BYTE,
+          planeBuffer);
+      GlUtil.checkGlError();
+      return;
+    }
+    // OpenGL ES 2.0 lacks GL_PACK_ROW_LENGTH, so glReadPixels always outputs tightly packed rows.
+    // Read into a tightly packed scratch buffer first, then copy each row into planeBuffer at its
+    // rowStride offset. outputFormat is established once on the first frame and never changes.
+    // TODO(b/573498289): On OpenGL ES 3.0+, set GL_PACK_ROW_LENGTH to read directly into
+    // planeBuffer when rowStride is a multiple of pixelStride.
+    if (rgbaReadbackBuffer == null) {
+      rgbaReadbackBuffer = ByteBuffer.allocateDirect(rowBytes * height);
+    }
+    rgbaReadbackBuffer.clear();
+    GLES20.glReadPixels(
+        /* x= */ 0,
+        /* y= */ 0,
+        width,
+        height,
+        GLES20.GL_RGBA,
+        GLES20.GL_UNSIGNED_BYTE,
+        rgbaReadbackBuffer);
+    GlUtil.checkGlError();
+    copyRowsToPlane(rgbaReadbackBuffer, plane, rowBytes, height);
+  }
+
+  private static void copyRowsToPlane(
+      ByteBuffer source, Plane destinationPlane, int rowBytes, int height) {
+    ByteBuffer destination = destinationPlane.getBuffer();
+    int destinationRowStride = destinationPlane.getRowStride();
+    int initialPosition = destination.position();
+    for (int row = 0; row < height; row++) {
+      source.limit((row + 1) * rowBytes);
+      destination.position(initialPosition + row * destinationRowStride);
+      destination.put(source);
+    }
+    destination.position(initialPosition);
+  }
+
+  private void drawFrameToFocusedFramebuffer(GlTextureFrame inputFrame)
+      throws GlException, VideoFrameProcessingException {
+    GlUtil.clearFocusedBuffersOpaque();
+    checkNotNull(colorConversionShaderProgram)
+        .drawFrame(inputFrame.glTextureInfo.texId, inputFrame.presentationTimeUs);
+    GlUtil.checkGlError();
   }
 
   /** Establishes the output format based on the first frame. */
@@ -247,6 +400,27 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.colorConversionShaderProgram = null;
     if (colorConversionShaderProgram != null) {
       colorConversionShaderProgram.release();
+    }
+  }
+
+  /** Creates a texture and an FBO for it, deleting the texture if the FBO can't be created. */
+  private static GlTextureInfo createTextureWithFbo(
+      int width, int height, boolean useHighPrecisionColorComponents)
+      throws VideoFrameProcessingException {
+    int texId = C.INDEX_UNSET;
+    try {
+      texId = GlUtil.createTexture(width, height, useHighPrecisionColorComponents);
+      return new GlTextureInfo(
+          texId, GlUtil.createFboForTexture(texId), /* rboId= */ C.INDEX_UNSET, width, height);
+    } catch (GlException e) {
+      if (texId != C.INDEX_UNSET) {
+        try {
+          GlUtil.deleteTexture(texId);
+        } catch (GlException deleteException) {
+          e.addSuppressed(deleteException);
+        }
+      }
+      throw VideoFrameProcessingException.from(e);
     }
   }
 

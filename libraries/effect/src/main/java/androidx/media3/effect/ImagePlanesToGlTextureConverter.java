@@ -17,8 +17,11 @@ package androidx.media3.effect;
 
 import static androidx.media3.common.util.GlUtil.HOMOGENEOUS_COORDINATE_VECTOR_SIZE;
 import static androidx.media3.common.util.GlUtil.checkGlError;
+import static androidx.media3.effect.FrameProcessorUtils.RGBA_8888_BYTES_PER_PIXEL;
 import static androidx.media3.effect.FrameProcessorUtils.runAllAndAccumulateExceptions;
 import static androidx.media3.effect.FrameProcessorUtils.useHighPrecisionColorComponents;
+import static androidx.media3.effect.FrameProcessorUtils.validatePlaneDimensions;
+import static androidx.media3.effect.FrameProcessorUtils.validateRgba8888Planes;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -341,33 +344,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     /** Sets the format-specific uniforms and texture samplers on {@link #glProgram}. */
     /* package */ abstract void setFormatSpecificUniforms(Format inputFormat);
 
-    /* package */ void validatePlaneDimensions(
-        Plane plane, int width, int height, int bytesPerPixel) {
-      ByteBuffer buffer = plane.getBuffer();
-      int rowStride = plane.getRowStride();
-      int rowBytes = width * bytesPerPixel;
-      checkArgument(
-          rowStride >= rowBytes,
-          "rowStride (%s) must be at least rowBytes (%s)",
-          rowStride,
-          rowBytes);
-      checkArgument(
-          rowStride % bytesPerPixel == 0,
-          "rowStride (%s) must be a multiple of bytesPerPixel (%s)",
-          rowStride,
-          bytesPerPixel);
-      // Producers such as ImageReader end a plane's buffer at its last visible pixel, so the final
-      // row does not need to be padded to a full rowStride.
-      int minimumBufferSize = rowStride * (height - 1) + rowBytes;
-      checkArgument(
-          buffer.remaining() >= minimumBufferSize,
-          "Plane buffer holds %s bytes, but rowStride (%s) and height (%s) require at least %s",
-          buffer.remaining(),
-          rowStride,
-          height,
-          minimumBufferSize);
-    }
-
     /* package */ void uploadPlaneToTexture(
         int planeIndex, Plane plane, int width, int height, int glFormat, int bytesPerPixel)
         throws GlException {
@@ -554,8 +530,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private final class RgbaPlaneLayoutRenderer extends PlaneLayoutRenderer {
 
-    private static final int RGBA_BYTES_PER_PIXEL = 4;
-
     private RgbaPlaneLayoutRenderer() {
       super(
           R.raw.fragment_shader_transformation_sdr_internal_color_conversion_es2,
@@ -564,11 +538,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Override
     /* package */ void validatePlanes(List<Plane> planes, int width, int height) {
+      validateRgba8888Planes(planes, width, height);
+      // OpenGL can only specify row widths in texels, not bytes, and uploadPlaneToTexture uploads
+      // the padded rows as rowStride / RGBA_8888_BYTES_PER_PIXEL texels. rowStride must therefore
+      // be a multiple of the 4-byte texel size.
+      // TODO(b/573528333): Investigate whether a rowStride that is not a multiple of
+      // RGBA_8888_BYTES_PER_PIXEL needs to be supported.
+      int rowStride = planes.get(0).getRowStride();
       checkArgument(
-          planes.size() == 1 && planes.get(0).getPixelStride() == RGBA_BYTES_PER_PIXEL,
-          "Expected 1 plane with pixelStride of %s for RGBA_8888",
-          RGBA_BYTES_PER_PIXEL);
-      validatePlaneDimensions(planes.get(0), width, height, RGBA_BYTES_PER_PIXEL);
+          rowStride % RGBA_8888_BYTES_PER_PIXEL == 0,
+          "rowStride (%s) must be a multiple of %s",
+          rowStride,
+          RGBA_8888_BYTES_PER_PIXEL);
     }
 
     @Override
@@ -580,7 +561,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     /* package */ void uploadPlaneTextures(List<Plane> planes, int width, int height)
         throws GlException {
       uploadPlaneToTexture(
-          /* planeIndex= */ 0, planes.get(0), width, height, GLES20.GL_RGBA, RGBA_BYTES_PER_PIXEL);
+          /* planeIndex= */ 0,
+          planes.get(0),
+          width,
+          height,
+          GLES20.GL_RGBA,
+          RGBA_8888_BYTES_PER_PIXEL);
     }
 
     @Override
@@ -617,12 +603,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           "Expected 3 planes with luma pixelStride %s and chroma pixelStride %s for I420",
           LUMA_BYTES_PER_PIXEL,
           I420_CHROMA_PLANE_STRIDE);
-      validatePlaneDimensions(planes.get(0), width, height, LUMA_BYTES_PER_PIXEL);
+      validatePlaneDimensions(planes.get(0), width, height);
       // Round up odd dimensions so the subsampled UV planes cover the full Y plane.
       int chromaWidth = (width + 1) / 2;
       int chromaHeight = (height + 1) / 2;
-      validatePlaneDimensions(planes.get(1), chromaWidth, chromaHeight, I420_CHROMA_PLANE_STRIDE);
-      validatePlaneDimensions(planes.get(2), chromaWidth, chromaHeight, I420_CHROMA_PLANE_STRIDE);
+      validatePlaneDimensions(planes.get(1), chromaWidth, chromaHeight);
+      validatePlaneDimensions(planes.get(2), chromaWidth, chromaHeight);
     }
 
     @Override

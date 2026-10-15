@@ -15,9 +15,11 @@
  */
 package androidx.media3.effect;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import android.graphics.PixelFormat;
 import android.hardware.HardwareBuffer;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
@@ -35,10 +37,13 @@ import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.common.video.AsyncFrame;
+import androidx.media3.common.video.ImagePlanesFrame.Plane;
 import androidx.media3.common.video.SyncFenceWrapper;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
@@ -84,6 +89,8 @@ public final class FrameProcessorUtils {
 
   /** 10-bit HDR-capable OpenGL ES 3.0 context created. */
   public static final int OPEN_GL_VERSION_3 = 3;
+
+  /* package */ static final int RGBA_8888_BYTES_PER_PIXEL = 4;
 
   /**
    * Sets up the OpenGL context on the current thread.
@@ -326,6 +333,48 @@ public final class FrameProcessorUtils {
         || ColorInfo.isTransferHdr(colorInfo)
         || ColorInfo.isWideColorGamut(colorInfo)
         || colorInfo.lumaBitdepth > 8;
+  }
+
+  /**
+   * Validates {@link PixelFormat#RGBA_8888} planes for a frame of the given dimensions.
+   *
+   * <p>Checks that {@code planes} contains a single plane with a pixel stride of {@link
+   * #RGBA_8888_BYTES_PER_PIXEL} and sufficient row stride and buffer capacity for {@code width} and
+   * {@code height}.
+   */
+  /* package */ static void validateRgba8888Planes(List<Plane> planes, int width, int height) {
+    checkArgument(
+        planes.size() == 1 && planes.get(0).getPixelStride() == RGBA_8888_BYTES_PER_PIXEL,
+        "Expected 1 plane with pixelStride of %s for RGBA_8888",
+        RGBA_8888_BYTES_PER_PIXEL);
+    validatePlaneDimensions(planes.get(0), width, height);
+  }
+
+  /**
+   * Validates the row stride and remaining buffer capacity of a {@link Plane}.
+   *
+   * <p>Checks that {@code plane} can hold {@code width} by {@code height} pixels at its {@linkplain
+   * Plane#getPixelStride() pixel stride} and {@linkplain Plane#getRowStride() row stride}.
+   */
+  /* package */ static void validatePlaneDimensions(Plane plane, int width, int height) {
+    ByteBuffer buffer = plane.getBuffer();
+    int rowStride = plane.getRowStride();
+    int rowBytes = width * plane.getPixelStride();
+    checkArgument(
+        rowStride >= rowBytes,
+        "rowStride (%s) must be at least rowBytes (%s)",
+        rowStride,
+        rowBytes);
+    // Producers such as ImageReader end a plane's buffer at its last visible pixel, so the final
+    // row does not need to be padded to a full rowStride.
+    int minimumBufferSize = rowStride * (height - 1) + rowBytes;
+    checkArgument(
+        buffer.remaining() >= minimumBufferSize,
+        "Plane buffer holds %s bytes, but rowStride (%s) and height (%s) require at least %s",
+        buffer.remaining(),
+        rowStride,
+        height,
+        minimumBufferSize);
   }
 
   private FrameProcessorUtils() {}
