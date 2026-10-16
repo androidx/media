@@ -28,6 +28,7 @@
   <string name="export_error" translatable="false">Export error</string>
   <string name="export_started" translatable="false">Export started</string>
   <string name="frame_processor_enabled" translatable="false">Use FrameProcessor</string>
+  <string name="enable_webgpu" translatable="false">Use WebGPU (Experimental)</string>
   <string name="enable_gms_video_enhancement" translatable="false">GMS Video Enhancement</string>
   <string name="enable_tonemapping" translatable="false">Tone Mapping</string>
   <string name="enable_deblur_and_denoise" translatable="false">Deblur and Denoise</string>

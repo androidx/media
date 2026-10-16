@@ -123,6 +123,7 @@ data class Gap(override val durationUs: Long) : Item {
 @OptIn(UnstableApi::class)
 data class OutputSettingsState(
   val frameProcessorEnabled: Boolean = false,
+  val webGpuEnabled: Boolean = false,
   val gmsVideoEnhancementEnabled: Boolean = false,
   val gmsTonemappingEnabled: Boolean = true,
   val gmsDeblurAndDenoiseEnabled: Boolean = false,

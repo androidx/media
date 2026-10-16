@@ -45,6 +45,7 @@ androidxTestRulesVersion = "1.5.0"
 androidxTestRunnerVersion = "1.6.2"
 androidxTestTruthVersion = "1.5.0"
 androidxTestUiAutomatorVersion = "2.3.0"
+androidxWebgpuVersion = "1.0.0-alpha06"
 androidxWindowVersion = "1.3.0"
 animalSnifferAnnotationsVersion = "1.21"
 # Keep this in sync with Google's internal Checker Framework version.
@@ -131,6 +132,7 @@ androidx-test-rules = { group = "androidx.test", name = "rules", version.ref = "
 androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidxTestRunnerVersion" }
 androidx-test-truth = { group = "androidx.test.ext", name = "truth", version.ref = "androidxTestTruthVersion" }
 androidx-test-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "androidxTestUiAutomatorVersion" }
+androidx-webgpu = { group = "androidx.webgpu", name = "webgpu", version.ref = "androidxWebgpuVersion" }
 androidx-window = { group = "androidx.window", name = "window", version.ref = "androidxWindowVersion" }
 androidx-work-runtime = { group = "androidx.work", name = "work-runtime", version.ref = "workRuntimeVersion" }
 animal-sniffer-annotations = { group = "org.codehaus.mojo", name = "animal-sniffer-annotations", version.ref = "animalSnifferAnnotationsVersion" }

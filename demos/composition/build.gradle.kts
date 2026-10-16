@@ -35,6 +35,10 @@ android {
   lint.disable += listOf("GoogleAppIndexingWarning", "MissingTranslation")
 
   buildFeatures { compose = true }
+
+  sourceSets {
+    getByName("androidTest").assets.directories.add("../../libraries/test_data/src/test/assets/")
+  }
 }
 
 dependencies {
@@ -55,7 +59,18 @@ dependencies {
   implementation(libs.androidx.compose.ui.graphics)
   implementation(libs.androidx.compose.ui.tooling.preview)
   implementation(libs.androidx.compose.material3)
+  implementation(libs.androidx.webgpu)
   implementation(libs.kotlinx.coroutines.guava)
   debugImplementation(libs.androidx.compose.ui.tooling)
   debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+  androidTestImplementation(project(":lib-common"))
+  androidTestImplementation(project(":lib-inspector-frame"))
+  androidTestImplementation(project(":test-utils"))
+  androidTestImplementation(libs.androidx.test.core)
+  androidTestImplementation(libs.androidx.test.ext.junit)
+  androidTestImplementation(libs.androidx.test.runner)
+  androidTestImplementation(libs.guava)
+  androidTestImplementation(libs.kotlinx.coroutines.android)
+  androidTestImplementation(libs.kotlinx.coroutines.guava)
 }

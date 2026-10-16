@@ -250,6 +250,20 @@ internal fun CompositionPreviewPane(
       }
 
       if (uiState.outputSettingsState.frameProcessorEnabled) {
+        // Experimental: WebGPUHardwareBufferEffectsPipeline does not yet apply video effects or
+        // rotation.
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.SpaceBetween,
+          modifier = Modifier.fillMaxWidth(),
+        ) {
+          Text(text = stringResource(R.string.enable_webgpu), modifier = Modifier.textPadding())
+          Switch(
+            checked = uiState.outputSettingsState.webGpuEnabled,
+            onCheckedChange = { isEnabled -> viewModel.onWebGpuEnabledChanged(isEnabled) },
+          )
+        }
+
         Row(
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.SpaceBetween,
