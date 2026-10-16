@@ -350,8 +350,7 @@ public class Mp4MuxerMetadataTest {
         context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_xmp.mp4"));
   }
 
-  @Nullable
-  private static <T extends Metadata.Entry> T findMetadataEntry(
+  private static <T extends Metadata.Entry> @Nullable T findMetadataEntry(
       Format format, Class<T> metadataClazz) {
     if (format.metadata == null) {
       return null;

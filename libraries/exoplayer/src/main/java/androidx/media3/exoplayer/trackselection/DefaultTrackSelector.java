@@ -3204,13 +3204,13 @@ public class DefaultTrackSelector extends MappingTrackSelector
     return primaryTrackGroupIds.build();
   }
 
-  @Nullable
-  private <T extends TrackInfo<T>> Pair<ExoTrackSelection.Definition, Integer> selectTracksForType(
-      @C.TrackType int trackType,
-      MappedTrackInfo mappedTrackInfo,
-      @Capabilities int[][][] formatSupport,
-      TrackInfo.Factory<T> trackInfoFactory,
-      Comparator<List<T>> selectionComparator) {
+  private <T extends TrackInfo<T>>
+      @Nullable Pair<ExoTrackSelection.Definition, Integer> selectTracksForType(
+          @C.TrackType int trackType,
+          MappedTrackInfo mappedTrackInfo,
+          @Capabilities int[][][] formatSupport,
+          TrackInfo.Factory<T> trackInfoFactory,
+          Comparator<List<T>> selectionComparator) {
     ArrayList<List<T>> possibleSelections = new ArrayList<>();
     int rendererCount = mappedTrackInfo.getRendererCount();
     for (int rendererIndex = 0; rendererIndex < rendererCount; rendererIndex++) {

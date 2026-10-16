@@ -256,8 +256,8 @@ public final class MediaMuxerCompatTest {
     assertThat(videoTrackFormat.rotationDegrees).isEqualTo(orientation);
   }
 
-  @Nullable
-  private static <T extends Metadata.Entry> T findMetadataEntry(Format format, Class<T> clazz) {
+  private static <T extends Metadata.Entry> @Nullable T findMetadataEntry(
+      Format format, Class<T> clazz) {
     if (format.metadata == null) {
       return null;
     }

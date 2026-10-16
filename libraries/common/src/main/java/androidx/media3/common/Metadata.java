@@ -116,16 +116,15 @@ public final class Metadata {
   }
 
   /** Returns the first entry of type (or subtype of) {@code clazz}. */
-  @Nullable
-  public <T extends Entry> T getFirstEntryOfType(Class<T> clazz) {
+  public <T extends Entry> @Nullable T getFirstEntryOfType(Class<T> clazz) {
     return getFirstMatchingEntry(clazz, Predicates.alwaysTrue());
   }
 
   /**
    * Returns the first entry of type (or subtype of) {@code clazz} that satisfies {@code predicate}.
    */
-  @Nullable
-  public <T extends Entry> T getFirstMatchingEntry(Class<T> clazz, Predicate<T> predicate) {
+  public <T extends Entry> @Nullable T getFirstMatchingEntry(
+      Class<T> clazz, Predicate<T> predicate) {
     for (Entry entry : entries) {
       @Nullable T castEntry = entryIfMatches(entry, clazz, predicate);
       if (castEntry != null) {
@@ -159,8 +158,8 @@ public final class Metadata {
     return matchingEntries.build();
   }
 
-  @Nullable
-  private <T extends Entry> T entryIfMatches(Entry entry, Class<T> clazz, Predicate<T> predicate) {
+  private <T extends Entry> @Nullable T entryIfMatches(
+      Entry entry, Class<T> clazz, Predicate<T> predicate) {
     if (clazz.isAssignableFrom(entry.getClass())) {
       T castEntry = clazz.cast(entry);
       if (predicate.apply(castEntry)) {

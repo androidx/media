@@ -1970,8 +1970,7 @@ public final class Format {
    * Bundle#getString(String, String)} does not allow the defaultValue to be {@code null}, hence the
    * need for this method.
    */
-  @Nullable
-  private static <T> T defaultIfNull(@Nullable T value, @Nullable T defaultValue) {
+  private static <T> @Nullable T defaultIfNull(@Nullable T value, @Nullable T defaultValue) {
     return value != null ? value : defaultValue;
   }
 

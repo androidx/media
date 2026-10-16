@@ -409,8 +409,7 @@ import java.util.concurrent.Future;
         || resultCode == LibraryResult.RESULT_ERROR_SESSION_PARENTAL_CONTROL_RESTRICTED;
   }
 
-  @Nullable
-  private static <T> T tryGetFutureResult(Future<T> future) {
+  private static <T> @Nullable T tryGetFutureResult(Future<T> future) {
     checkState(future.isDone());
     try {
       return future.get();

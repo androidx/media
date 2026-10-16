@@ -365,8 +365,7 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
    * @param clazz The type of {@linkplain Metadata.Entry metadata} to look for.
    * @return The first matching {@linkplain Metadata.Entry metadata}.
    */
-  @Nullable
-  private static <T extends Metadata.Entry> T retrieveMetadata(
+  private static <T extends Metadata.Entry> @Nullable T retrieveMetadata(
       Context context, @Nullable String filePath, Class<T> clazz)
       throws ExecutionException, InterruptedException {
     return retrieveMetadata(context, filePath, clazz, alwaysTrue());
@@ -382,8 +381,7 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
    *     metadata}.
    * @return The first matching {@linkplain Metadata.Entry metadata}.
    */
-  @Nullable
-  private static <T extends Metadata.Entry> T retrieveMetadata(
+  private static <T extends Metadata.Entry> @Nullable T retrieveMetadata(
       Context context, @Nullable String filePath, Class<T> clazz, Predicate<T> predicate)
       throws ExecutionException, InterruptedException {
     Format videoTrackFormat = retrieveTrackFormat(context, filePath, C.TRACK_TYPE_VIDEO);
